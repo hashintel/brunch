@@ -46,18 +46,12 @@ function projectState(ctx: BeforeAgentStartContextLike | undefined) {
   return projectBrunchAgentState(ctx?.sessionManager?.getEntries() ?? []);
 }
 
-export function registerBrunchPrompting(
-  pi: ExtensionAPI,
-  promptContext: BrunchPromptContextProvider | undefined,
-): void {
+export function registerBrunchPrompting(pi: ExtensionAPI, promptContext: BrunchPromptContextProvider): void {
   if (!supportsPrompting(pi)) return;
 
   pi.on('before_agent_start', async (event, ctx) => {
-    if (!promptContext) {
-      throw new Error('Brunch prompting requires selected spec and workspace context.');
-    }
-
     const resolvedPromptContext = await resolvePromptContext(promptContext);
+
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'

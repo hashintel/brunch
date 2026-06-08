@@ -1,6 +1,6 @@
 import type { Server as HttpServer } from 'node:http';
 
-import { WebSocketServer, type RawData } from 'ws';
+import { WebSocketServer, type RawData, type WebSocket } from 'ws';
 
 import type { RpcHandlers } from './handlers.js';
 import { createProductUpdateNotification, type ProductUpdatePublisher } from './product-updates.js';
@@ -48,14 +48,17 @@ export function attachWebRpcTransport(options: {
 
   webSocketServer.on('connection', (webSocket) => {
     webSocket.on('message', (data) => {
-      activeRequests += 1;
-      void handleMessage(options.handlers, data).then((response) => {
-        webSocket.send(JSON.stringify(response));
-        activeRequests -= 1;
-        if (activeRequests === 0) {
-          flushDeferredNotifications();
-        }
-      });
+      recordRequestStarted();
+      void handleMessage(options.handlers, data)
+        .catch(() => ({
+          jsonrpc: '2.0' as const,
+          id: null,
+          error: { code: -32603, message: 'Internal error' },
+        }))
+        .then((response) => {
+          sendRpcResponse(webSocket, response);
+        })
+        .finally(recordRequestFinished);
     });
   });
 
@@ -76,9 +79,34 @@ export function attachWebRpcTransport(options: {
       });
     },
   };
+  function recordRequestStarted(): void {
+    activeRequests += 1;
+  }
+
+  function recordRequestFinished(): void {
+    activeRequests -= 1;
+    if (activeRequests === 0) {
+      flushDeferredNotifications();
+    }
+  }
+
+  function sendRpcResponse(client: WebSocket, response: Awaited<ReturnType<typeof handleMessage>>): void {
+    sendIfOpen(client, JSON.stringify(response));
+  }
+
   function broadcastProductUpdate(notification: string): void {
     for (const client of webSocketServer.clients) {
-      client.send(notification);
+      sendIfOpen(client, notification);
+    }
+  }
+
+  function sendIfOpen(client: WebSocket, message: string): void {
+    if (client.readyState !== client.OPEN) return;
+    try {
+      client.send(message);
+    } catch {
+      // Ignore per-client transport failures; other observers and request
+      // accounting must continue.
     }
   }
 }

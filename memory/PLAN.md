@@ -31,14 +31,12 @@ The multi-spec workspace model is now explicit: a workspace is the cwd; multiple
 
 ### Active
 
-_None._
+1. `project-graph-review-cycle` — P1 unless demo narrative promotes it: real `project-graph` review-set proposal/approval loop.
 
 ### Next
 
-1. `capture-response-to-graph` — P0 product loop: structured exchange answer → narrow high-confidence capture → `CommandExecutor` commit → web graph update.
-2. `project-graph-review-cycle` — P1 unless demo narrative promotes it: real `project-graph` review-set proposal/approval loop.
-3. `minimal-authority-shell` — P1 safety: thin POC authority posture over already-existing command-result seams and `elicit` tool policy.
-4. `poc-live-ship-gate` — P1 final gate: fresh-cwd runbook exercising the composed product path end to end.
+1. `minimal-authority-shell` — P1 safety: thin POC authority posture over already-existing command-result seams and `elicit` tool policy.
+2. `poc-live-ship-gate` — P1 final gate: fresh-cwd runbook exercising the composed product path end to end.
 
 ### Parallel / Low-conflict
 
@@ -85,9 +83,9 @@ _None._
 
 - **Name:** Structured response capture into selected-spec graph truth
 - **Linear:** [FE-807](https://linear.app/hash/issue/FE-807/structured-response-capture-into-selected-spec-graph-truth)
-- **Branch:** to create — `ln/fe-807-capture-response-to-graph`
+- **Branch:** `ln/fe-807-capture-response-to-graph`
 - **Kind:** structural / tracer bullet
-- **Status:** next
+- **Status:** done
 - **Certainty:** proving
 - **Stabilizes:** I30-L, I31-L, I39-L, I40-L — capture must aim at the selected-spec graph through stable projected node-code/basis semantics rather than raw ids or path-shaped basis values.
 - **Lights up:** structured exchange response → explicit-basis graph truth → selected-spec web observer update.
@@ -104,6 +102,8 @@ _None._
 - **Cross-cutting obligations:** Preserve D4-L/D20-L single-authority mutation; keep capture synchronous and bounded for POC; do not introduce deferred observer/auditor queues or canonical chat/turn tables here. Capture must respect D61-L: claims are node-level truth inside the selected spec. Preserve D62-L/D63-L/D64-L: projected codes are presentation handles, basis is approval strength, and readiness bands guide capture objectives without becoming kind whitelists.
 - **Traceability:** R10, R16, R17, R21, R22 / D4-L, D17-L, D18-L, D20-L, D21-L, D45-L, D52-L, D54-L, D56-L, D57-L, D61-L, D62-L, D63-L, D64-L / I30-L, I31-L, I39-L, I40-L / A22-L, A3-L.
 - **Design docs:** `docs/design/GRAPH_MODEL.md`; `docs/design/ELICITATION_LENSES.md`; `memory/SPEC.md` D17-L/D18-L/D61-L.
+- **Current execution pointer:** Complete. `session.submitExchangeResponse` now appends the terminal structured-exchange response, synchronously captures directly labeled text facts via `graph/capture/structured-response.ts`, commits selected-spec `basis: explicit` graph nodes through `CommandExecutor`, returns `captured | no_capture | structural_illegal`, and publishes graph invalidations. Broader LLM extraction quality, reconciliation-need capture, and readiness-grade capture remain future fitness/work.
+
 
 ### graph-tool-resilience
 
@@ -139,9 +139,9 @@ _None._
 
 - **Name:** Project-graph review-set proposal and atomic acceptance
 - **Linear:** [FE-809](https://linear.app/hash/issue/FE-809/project-graph-review-set-proposal-and-atomic-acceptance)
-- **Branch:** to create — `ln/fe-809-project-graph-review-cycle`
+- **Branch:** `ln/fe-809-project-graph-review-cycle`
 - **Kind:** structural / bounded feature
-- **Status:** next
+- **Status:** active
 - **Certainty:** proving
 - **Stabilizes:** I34-L, I40-L — exact review approval must become one explicit-basis atomic graph batch, not a path-shaped basis value or partial commit.
 - **Lights up:** `project-graph` proposal → dry-run-valid `present_review_set` → approval → `acceptReviewSet` graph commit.
@@ -158,6 +158,7 @@ _None._
 - **Cross-cutting obligations:** Preserve D27-L: review-set proposal is a structured-exchange payload, not a standalone public review-set entity. Reviewer advisory writes remain deferred unless explicitly scoped. Existing-node references and review payloads use projected graph codes at adapter/UI boundaries, not raw DB ids.
 - **Traceability:** R21, R23 / D4-L, D20-L, D26-L, D27-L, D51-L, D53-L, D62-L, D63-L / I11-L, I34-L, I40-L / A14-L, A16-L.
 - **Design docs:** `docs/design/REVIEW_SETS.md`; `docs/design/GRAPH_MODEL.md`; `memory/SPEC.md` D27-L.
+- **Current execution pointer:** Active; first FE-809 scope card pending.
 
 ### minimal-authority-shell
 
@@ -246,30 +247,34 @@ _None._
 - **Acceptance:**
   - Seed contract stays loadable: each set's port script self-validates every `<slug>.json` through the real loader (same structural checks `commitGraph` enforces) before writing.
   - `npm run seed` loads every `.fixtures/seeds/<set>/<slug>.json` into the workspace DB through `CommandExecutor` (never direct row inserts), preserving graph clock / change log / lsn coherence.
-  - New seed sets follow the established shape: vendored `_originals/`, throwaway `_port-script.ts`, consolidated `<slug>.json`, generated `README.md`.
+  - New seed sets follow the established shape: vendored `_originals/`, throwaway `_port-script.ts`, consolidated `<slug>.json`, generated `README.md`; derived variant sets may instead document the deterministic filter over an existing seed set and keep mixed-basis product-run output under `.fixtures/runs/`.
+  - Product curation runs over seeds leave transcript-backed artifacts (`session.jsonl`, `transcript.md`, `report.json`, and graph readback when graph truth is the proof target) and prove real `commit_graph` transcript evidence plus implicit graph rows; mixed-basis snapshots are not registered as reusable seeds.
 - **Enhancement backlog (captured, not yet scoped):**
   1. Enhance Bilal-port fixtures *through Brunch itself* by feeding the original briefs Bilal authored, to recover `thesis`/`goal` structure the current ported graphs under-express.
   2. Port and enhance the earlier product version's fixtures (the legacy walkthrough scenarios in `docs/praxis/manual-testing.md`), raising quality through better semantic definition (kinds, detail) and internal connection (edges).
-- **Verification:** Inner — `src/graph/seed-fixtures.test.ts` seeds a real fixture into an in-memory DB and asserts spec/node/edge counts plus change-log/clock coherence, and rejects non-`explicit` basis; port-script self-validation gates output. Outer — `npm run seed` smoke against a fresh cwd.
+- **Verification:** Inner — `src/graph/seed-fixtures.test.ts` seeds a real fixture into an in-memory DB and asserts spec/node/edge counts plus change-log/clock coherence, rejects non-`explicit` basis, and covers the `macro-view-grounded-intent` explicit intent-only variant; `src/probes/fixture-curation-loop.test.ts` proves curation report/artifact evidence detection without an LLM. Outer — `npm run seed` smoke against a fresh cwd; real fixture-curation runs under `.fixtures/runs/fixture-curation/`.
 - **Topology materialization:** Seed data and throwaway prep scripts live under `.fixtures/seeds/`; the loader lives in `src/graph/seed-fixtures.ts` (graph/ owns `CommandExecutor` orchestration; db/ is imported only by graph/, never the reverse); no seed-only graph runtime the product launch does not use.
 - **Cross-cutting obligations:** Seeds commit only through `CommandExecutor`; directly-authored items use `basis: explicit` (the retired `accepted_review_set` value is not a basis). Respect multi-spec discipline — each fixture is one spec's own graph (D61-L). Pre-release posture: regenerate fixtures when the schema moves rather than preserving stale shapes. **Known drift:** `docs/praxis/manual-testing.md` still describes the earlier seed system (scenario-arg `npm run seed`, `.brunch/brunch.db`); reconcile it to the current loader (all-sets `npm run seed`, `.brunch/data.db`) when the legacy port (backlog item 2) lands — coordinate with the doc-reconciliation track rather than double-editing.
-- **Traceability:** D4-L, D20-L, D52-L, D61-L, D62-L, D63-L / A14-L.
+- **Current execution pointer:** No active scope file. Product-driven fixture-curation tracer landed: `macro-view-grounded-intent` is a deterministic explicit-basis Bilal variant, and `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/` proves one real `propose-graph`/`commit_graph` run created implicit intent nodes from that base. Next `dev-seed-fixtures` scope may review curation fitness and decide whether variants need smaller prompts, richer base profiles, or a reusable mixed-basis export step.
+- **Traceability:** D4-L, D19-L, D20-L, D52-L, D61-L, D62-L, D63-L / A14-L.
 - **Design docs:** `.fixtures/seeds/bilal-port/README.md`; `docs/design/GRAPH_MODEL.md`; `docs/praxis/manual-testing.md`.
 
 ## Recently Completed
+- 2026-06-05 `capture-response-to-graph` (FE-807) — Done: synchronous response-capture tracer. Added a narrow labeled-text translator for `Goal:`, `Context:`, `Constraint:`, and `Criterion:` facts; wired public `session.submitExchangeResponse` to capture through the transcript binding's spec and `CommandExecutor.commitGraph({basis: explicit})`; returned loud capture outcomes; published graph invalidations; and added a public-RPC proof that activation/trigger/submit/overview exposes captured projected codes. Verified: `src/graph/capture/structured-response.test.ts`, `src/rpc/handlers.test.ts`, `src/probes/capture-response-to-graph-proof.test.ts`.
+
+- 2026-06-05 `dev-seed-fixtures` — Done: first product-driven fixture curation tracer. Added deterministic `bilal-port-variants/macro-view-grounded-intent` explicit-only intent base, a `fixture-curation` probe runner/report summarizer, and run artifacts proving `gpt-5.5` used real `read_graph`/`commit_graph` product tools to persist two implicit requirement nodes plus six implicit edges through `CommandExecutor`. Verified: `src/probes/fixture-curation-loop.test.ts`, `src/graph/seed-fixtures.test.ts`, real run `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/`.
+
 - 2026-06-04 `graph-tool-resilience` (FE-808) — Done: graph nodes persist per-kind ordinals and expose projected codes; `commitGraph` applies one explicit/implicit batch basis, returns one created-node identity shape, plans once inside the transaction before LSN allocation/writes, and shares dry-run/commit structural validation; adapters resolve selected-spec existing-node codes into structured diagnostics without sentinel endpoint refs or thrown errors; single-node `createNode` rejects retired basis values before LSN/counter/node/change-log allocation; same-spec supersession cycles are rejected atomically; active-context graph reads omit hidden superseded nodes and dangling edges while graph-truth reads remain available; product-path probes landed existing-code, retry-diagnostics, and ambiguity/no-overcommit evidence under `.fixtures/runs/propose-graph-commit/`.
 
-- 2026-06-04 `agents-composition-layer` (FE-806) — Done: `agents/state.ts`/`compose.ts` emit runtime headers and gated prompt-resource manifests; `agents/contexts/{cwd,graph,node}.ts` renders selected-spec context with lens-specific emphasis; the real `.pi` `before_agent_start` product path supplies selected-spec-bound graph snapshots from the Brunch runtime factory; the legacy `src/.pi/context/` prompt-pack subtree is deleted after folding its useful guidance into `src/agents/methods/*.md`; deterministic product-path proof records strategy/lens posture differences and accepted blind spots. Verified: context/compose/prompting/architecture tests and `npm run verify`. Watch: prompt quality is fitness evidence only; graph-write resilience and capture quality remain with the next P0 frontiers.
-- 2026-06-04 `live-graph-observer` (FE-795) — Done: `graph.overview` and `graph.nodeNeighborhood` are discoverable selected-spec RPC reads; graph readers remain in `graph/`; TUI/agent `commit_graph` publishes graph invalidation topics through the shared product-update bus; the TUI launch path starts a read-only web sidecar over the same bus; the React web app attaches over one WebSocket RPC client, renders the selected-spec graph overview, and invalidates/refetches canonical graph readers on `brunch.updated`. Verified: targeted FE-795 test set (`src/rpc/handlers.test.ts`, `src/rpc/web-host.test.ts`, `src/web/app.test.tsx`, `src/brunch-tui.test.ts`, `src/graph/snapshot.test.ts`, `src/graph/spec-ownership.test.ts`), `npm run build`, and a 2026-06-04 `agent-browser` smoke that observed empty graph state then a `commit_graph`-created node in the browser without reload. Watch: richer node-neighborhood UI remains optional polish; the current proof exposes/query-backs the focused read and renders the overview.
-Older history (including `agent-graph-integration`, `spec-persistence-and-startup`, `sealed-pi-profile-runtime-state`, `pi-ui-extension-patterns`, `web-shell`, `jsonl-session-viability`, `mode-shell-and-fixture-driver`, `walking-skeleton`): `docs/archive/PLAN_HISTORY.md`
+Older history (including `agents-composition-layer`, `live-graph-observer`, `agent-graph-integration`, `spec-persistence-and-startup`, `sealed-pi-profile-runtime-state`, `pi-ui-extension-patterns`, `web-shell`, `jsonl-session-viability`, `mode-shell-and-fixture-driver`, `walking-skeleton`): `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
 nodes:
   graph-tool-resilience          [done · P0]         materialized graph write contract and broadened A14 proof
-  capture-response-to-graph      [next · P0]         structured answer -> graph truth -> observer update
-  project-graph-review-cycle     [next · P1]         real project-graph review-set approval loop
+  capture-response-to-graph      [done · P0]         structured answer -> graph truth -> observer update
+  project-graph-review-cycle     [active · P1]       real project-graph review-set approval loop
   minimal-authority-shell        [next · P1]         thin safety posture for current POC paths
   poc-live-ship-gate             [next · P1]         final fresh-cwd composed product runbook
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate

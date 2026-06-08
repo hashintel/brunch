@@ -1,0 +1,785 @@
+{
+  "spec": {
+    "slug": "macro-view-grounded-intent",
+    "name": "Macro View — grounded intent base",
+    "readiness_grade": "elicitation_ready"
+  },
+  "nodes": [
+    {
+      "local_id": 1,
+      "plane": "intent",
+      "kind": "context",
+      "title": "In the spec-elicitation system, fan-out runs 2–3 independent clean-room derivation sessions from the same upstream context, and fan-in is a…",
+      "body": "In the spec-elicitation system, fan-out runs 2–3 independent clean-room derivation sessions from the same upstream context, and fan-in is a separate LLM agent that synthesizes the minimal viable set before reconciliation.",
+      "basis": "explicit",
+      "source": "external-observed [X7]",
+      "detail": null
+    },
+    {
+      "local_id": 2,
+      "plane": "intent",
+      "kind": "context",
+      "title": "The CRT/phosphor design language is a project-wide standard defined in .impeccable.md, covering amber primary color, dark-only theme, phosp…",
+      "body": "The CRT/phosphor design language is a project-wide standard defined in .impeccable.md, covering amber primary color, dark-only theme, phosphor glow behavior, scanline texture, and JetBrains Mono font.",
+      "basis": "explicit",
+      "source": "external-observed [X6]",
+      "detail": null
+    },
+    {
+      "local_id": 3,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The spec-elicitation system's derivation process consists of four phases in str…",
+      "body": null,
+      "basis": "explicit",
+      "source": "external-observed [T2]",
+      "detail": {
+        "definition": "The spec-elicitation system's derivation process consists of four phases in strict dependency order: grounding, shaping, pinning, and defining_done."
+      }
+    },
+    {
+      "local_id": 4,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: the macro view shares the CRT phosphor design language (amber primary, JetBrains Mono, dark warm surfaces, phosphor…",
+      "body": "Stakeholder preference: the macro view shares the CRT phosphor design language (amber primary, JetBrains Mono, dark warm surfaces, phosphor glow, scanline textures).",
+      "basis": "explicit",
+      "source": "stakeholder [X11]",
+      "detail": null
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: bail reconciliation outcome visual treatment intentionally matches the failed run treatment for consistency.",
+      "body": "Stakeholder preference: bail reconciliation outcome visual treatment intentionally matches the failed run treatment for consistency.",
+      "basis": "explicit",
+      "source": "stakeholder [X29]",
+      "detail": null
+    },
+    {
+      "local_id": 6,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "The design language explicitly prohibits generic UI patterns such as Material Design, Tailwind defaults, SaaS dashboard aesthetics, rounded…",
+      "body": "The design language explicitly prohibits generic UI patterns such as Material Design, Tailwind defaults, SaaS dashboard aesthetics, rounded corners, or blue primary buttons.",
+      "basis": "explicit",
+      "source": "external-observed [C6]",
+      "detail": null
+    },
+    {
+      "local_id": 7,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The HubNode type has hubType of justification | decision | impasse | perspectiv…",
+      "body": null,
+      "basis": "explicit",
+      "source": "technical-observed [T7]",
+      "detail": {
+        "definition": "The HubNode type has hubType of justification | decision | impasse | perspective, and carries impasseStatus (open | resolved | superseded) and perspectiveStatus (open | selected | rejected)."
+      }
+    },
+    {
+      "local_id": 8,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "This brief is scoped exclusively to the macro view component and its rendering of the derivation story; other parts of the UI are explicitl…",
+      "body": "This brief is scoped exclusively to the macro view component and its rendering of the derivation story; other parts of the UI are explicitly out of scope.",
+      "basis": "explicit",
+      "source": "stakeholder [C5]",
+      "detail": null
+    },
+    {
+      "local_id": 9,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The onion-peel structure refers to the iterative cycle of impasse discovery, re…",
+      "body": null,
+      "basis": "explicit",
+      "source": "external-observed [T13]",
+      "detail": {
+        "definition": "The onion-peel structure refers to the iterative cycle of impasse discovery, rederivation, fan-out/fan-in synthesis, reconciliation, and resolution that builds the derivation history."
+      }
+    },
+    {
+      "local_id": 10,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: a ReconciliationRecord with outcome='bail' is the mechanism by which a branch becomes a dead-end impasse.",
+      "body": "Stakeholder preference: a ReconciliationRecord with outcome='bail' is the mechanism by which a branch becomes a dead-end impasse.",
+      "basis": "explicit",
+      "source": "stakeholder [X36]",
+      "detail": null
+    },
+    {
+      "local_id": 11,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "The macro view is strictly read-only; users can pan, zoom, and collapse/expand nodes, but cannot trigger any data mutations.",
+      "body": "The macro view is strictly read-only; users can pan, zoom, and collapse/expand nodes, but cannot trigger any data mutations.",
+      "basis": "explicit",
+      "source": "stakeholder [C10]",
+      "detail": null
+    },
+    {
+      "local_id": 12,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The ReconciliationRecord type captures reconciliation outcomes (accepted | retr…",
+      "body": null,
+      "basis": "explicit",
+      "source": "technical-observed [T6]",
+      "detail": {
+        "definition": "The ReconciliationRecord type captures reconciliation outcomes (accepted | retry | recurse | bail) along with candidateNodeIds, baselineNodeIds, activatedNodeIds, archivedNodeIds, triggerImpasseIds, resolvedImpasseIds, unresolvedImpasseIds, and a materialProgress flag."
+      }
+    },
+    {
+      "local_id": 13,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Users must manually refresh to see new derivation steps in the macro view.",
+      "body": "Users must manually refresh to see new derivation steps in the macro view.",
+      "basis": "explicit",
+      "source": "stakeholder [C12]",
+      "detail": null
+    },
+    {
+      "local_id": 14,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: lane widths in the macro layout scale proportionally to the number of nodes at that depth rather than being fixed.",
+      "body": "Stakeholder preference: lane widths in the macro layout scale proportionally to the number of nodes at that depth rather than being fixed.",
+      "basis": "explicit",
+      "source": "stakeholder [X31]",
+      "detail": null
+    },
+    {
+      "local_id": 15,
+      "plane": "intent",
+      "kind": "context",
+      "title": "The existing micro view is built with Sigma.js, handles 700+ nodes, and answers 'what does the graph look like now?'.",
+      "body": "The existing micro view is built with Sigma.js, handles 700+ nodes, and answers 'what does the graph look like now?'.",
+      "basis": "explicit",
+      "source": "stakeholder [X2]",
+      "detail": null
+    },
+    {
+      "local_id": 16,
+      "plane": "intent",
+      "kind": "context",
+      "title": "src/styles/theme.css already defines the phosphor palette as oklch tokens including --color-phase-grounding (green), --color-phase-shaping…",
+      "body": "src/styles/theme.css already defines the phosphor palette as oklch tokens including --color-phase-grounding (green), --color-phase-shaping (amber), --color-phase-pinning (cyan), --color-phase-defining-done (purple), plus --color-phosphor-red, surface-0..3 warm darks, and --font-mono JetBrains Mono.",
+      "basis": "explicit",
+      "source": "technical-observed [X39]",
+      "detail": null
+    },
+    {
+      "local_id": 17,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: clicking a node opens a detail panel on the right side of the screen.",
+      "body": "Stakeholder preference: clicking a node opens a detail panel on the right side of the screen.",
+      "basis": "explicit",
+      "source": "stakeholder [X33]",
+      "detail": null
+    },
+    {
+      "local_id": 18,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: React Flow group/parent nodes are used for phase containers in the macro view.",
+      "body": "Stakeholder preference: React Flow group/parent nodes are used for phase containers in the macro view.",
+      "basis": "explicit",
+      "source": "stakeholder [X18]",
+      "detail": null
+    },
+    {
+      "local_id": 19,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "The macro view is built inside a Vite + React + Tailwind SPA.",
+      "body": "The macro view is built inside a Vite + React + Tailwind SPA.",
+      "basis": "explicit",
+      "source": "stakeholder [C2]",
+      "detail": null
+    },
+    {
+      "local_id": 20,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: the materialProgress flag is visualized as a subtle chip or checkmark inside the reconciliation node, alongside the…",
+      "body": "Stakeholder preference: the materialProgress flag is visualized as a subtle chip or checkmark inside the reconciliation node, alongside the outcome indicator.",
+      "basis": "explicit",
+      "source": "stakeholder [X35]",
+      "detail": null
+    },
+    {
+      "local_id": 21,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Every page load of the macro view starts fully expanded, with no memory of previously collapsed nodes.",
+      "body": "Every page load of the macro view starts fully expanded, with no memory of previously collapsed nodes.",
+      "basis": "explicit",
+      "source": "stakeholder [C9]",
+      "detail": null
+    },
+    {
+      "local_id": 22,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The FrameRecord type includes: id, parentFrameId, baselineFrameId, entryPhase,…",
+      "body": null,
+      "basis": "explicit",
+      "source": "technical-observed [T3]",
+      "detail": {
+        "definition": "The FrameRecord type includes: id, parentFrameId, baselineFrameId, entryPhase, triggerImpasseIds, mode (initial | rederive | grounding_enrichment), attemptNumber, nudgingActive, createdAt, and summary."
+      }
+    },
+    {
+      "local_id": 23,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The ArtifactFile type bundles all spec data into a single file: manifest, sourc…",
+      "body": null,
+      "basis": "explicit",
+      "source": "technical-observed [T8]",
+      "detail": {
+        "definition": "The ArtifactFile type bundles all spec data into a single file: manifest, sources, extractedClaims, interventions, and a graph object containing nodes, edges, frames, derivationRuns, fanInRecords, reconciliationRecords, and snapshots."
+      }
+    },
+    {
+      "local_id": 24,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The DerivationRunRecord type includes: id, frameId, phase, runIndex, inputNodeI…",
+      "body": null,
+      "basis": "explicit",
+      "source": "technical-observed [T4]",
+      "detail": {
+        "definition": "The DerivationRunRecord type includes: id, frameId, phase, runIndex, inputNodeIds, outputCandidateIds, impassesFound, status (running | completed | failed), and createdAt."
+      }
+    },
+    {
+      "local_id": 25,
+      "plane": "intent",
+      "kind": "term",
+      "title": "A dead-end impasse is one whose reconciliation chose the 'bail' outcome — the s…",
+      "body": null,
+      "basis": "explicit",
+      "source": "stakeholder [T11]",
+      "detail": {
+        "definition": "A dead-end impasse is one whose reconciliation chose the 'bail' outcome — the system gave up on that branch entirely."
+      }
+    },
+    {
+      "local_id": 26,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: a failed run is shown with a red color and a dimmed interior.",
+      "body": "Stakeholder preference: a failed run is shown with a red color and a dimmed interior.",
+      "basis": "explicit",
+      "source": "stakeholder [X27]",
+      "detail": null
+    },
+    {
+      "local_id": 27,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: the visual design must feel like CRT/terminal aesthetic while preserving modern design principles; information dens…",
+      "body": "Stakeholder preference: the visual design must feel like CRT/terminal aesthetic while preserving modern design principles; information density is high but not overwhelming.",
+      "basis": "explicit",
+      "source": "stakeholder [X37]",
+      "detail": null
+    },
+    {
+      "local_id": 28,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Phase color values must be expressed as oklch values within the phosphor palette.",
+      "body": "Phase color values must be expressed as oklch values within the phosphor palette.",
+      "basis": "explicit",
+      "source": "stakeholder [C13]",
+      "detail": null
+    },
+    {
+      "local_id": 29,
+      "plane": "intent",
+      "kind": "context",
+      "title": "A MacroView.tsx component already exists at src/components/MacroView.tsx with a header docblock describing the intended architecture: Story…",
+      "body": "A MacroView.tsx component already exists at src/components/MacroView.tsx with a header docblock describing the intended architecture: Story IR → Layout → Render with React Flow custom node types; the file is otherwise a stub.",
+      "basis": "explicit",
+      "source": "technical-observed [X38]",
+      "detail": null
+    },
+    {
+      "local_id": 30,
+      "plane": "intent",
+      "kind": "context",
+      "title": "The macro view is one specific view within the broader Spec Explorer UI.",
+      "body": "The macro view is one specific view within the broader Spec Explorer UI.",
+      "basis": "explicit",
+      "source": "stakeholder [X1]",
+      "detail": null
+    },
+    {
+      "local_id": 31,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: reconciliation outcome affects the whole node's visual weight: accepted=normal, retry=amber border, recurse=blue bo…",
+      "body": "Stakeholder preference: reconciliation outcome affects the whole node's visual weight: accepted=normal, retry=amber border, recurse=blue border, bail=red border + dimmed interior.",
+      "basis": "explicit",
+      "source": "stakeholder [X28]",
+      "detail": null
+    },
+    {
+      "local_id": 32,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: phase color assignments are grounding=blue (foundational), shaping=green (growth/emergence), pinning=amber (fixity/…",
+      "body": "Stakeholder preference: phase color assignments are grounding=blue (foundational), shaping=green (growth/emergence), pinning=amber (fixity/commitment), defining_done=violet (completion/closure).",
+      "basis": "explicit",
+      "source": "stakeholder [X34]",
+      "detail": null
+    },
+    {
+      "local_id": 33,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: a 'running' status is unlikely to appear but should be highlighted somehow if it does.",
+      "body": "Stakeholder preference: a 'running' status is unlikely to appear but should be highlighted somehow if it does.",
+      "basis": "explicit",
+      "source": "stakeholder [X26]",
+      "detail": null
+    },
+    {
+      "local_id": 34,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: derivation phases (such as reconciliation) are encoded as nodes within the graph rather than as separate UI constru…",
+      "body": "Stakeholder preference: derivation phases (such as reconciliation) are encoded as nodes within the graph rather than as separate UI constructs.",
+      "basis": "explicit",
+      "source": "stakeholder [X15]",
+      "detail": null
+    },
+    {
+      "local_id": 35,
+      "plane": "intent",
+      "kind": "context",
+      "title": "The macro view is structurally different from the micro view: it shows ~20-40 rich nodes representing the derivation process rather than gr…",
+      "body": "The macro view is structurally different from the micro view: it shows ~20-40 rich nodes representing the derivation process rather than graph content.",
+      "basis": "explicit",
+      "source": "stakeholder [X3]",
+      "detail": null
+    },
+    {
+      "local_id": 36,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Reconciliation compares candidate nodes from re-derivation against the previous iteration's nodes for that phase and classifies each relati…",
+      "body": "Reconciliation compares candidate nodes from re-derivation against the previous iteration's nodes for that phase and classifies each relationship using lineage edge types.",
+      "basis": "explicit",
+      "source": "external-observed [X8]",
+      "detail": null
+    },
+    {
+      "local_id": 37,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: derivation depth in the macro layout is computed from the parentFrameId chain length.",
+      "body": "Stakeholder preference: derivation depth in the macro layout is computed from the parentFrameId chain length.",
+      "basis": "explicit",
+      "source": "stakeholder [X30]",
+      "detail": null
+    },
+    {
+      "local_id": 38,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "The macro view must use a manual layout algorithm rather than dagre, because the spatial grammar requires precise control over depth lanes…",
+      "body": "The macro view must use a manual layout algorithm rather than dagre, because the spatial grammar requires precise control over depth lanes and vertical flow.",
+      "basis": "explicit",
+      "source": "stakeholder [C3]",
+      "detail": null
+    },
+    {
+      "local_id": 39,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: impasse nodes connect sub-trees and increase the breadth of the layout to represent the opening of a new derivation…",
+      "body": "Stakeholder preference: impasse nodes connect sub-trees and increase the breadth of the layout to represent the opening of a new derivation branch.",
+      "basis": "explicit",
+      "source": "stakeholder [X16]",
+      "detail": null
+    },
+    {
+      "local_id": 40,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: users can fold (collapse) any nested derivation run to hide detail.",
+      "body": "Stakeholder preference: users can fold (collapse) any nested derivation run to hide detail.",
+      "basis": "explicit",
+      "source": "stakeholder [X12]",
+      "detail": null
+    },
+    {
+      "local_id": 41,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: fan-in groupings render as color-coded rows inside the fan-in node — green for 'merged', amber for 'best_selected',…",
+      "body": "Stakeholder preference: fan-in groupings render as color-coded rows inside the fan-in node — green for 'merged', amber for 'best_selected', red for 'impasse_surfaced' — distinguished by a colored left border or chip.",
+      "basis": "explicit",
+      "source": "stakeholder [X32]",
+      "detail": null
+    },
+    {
+      "local_id": 42,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Because the macro view renders inside a React Flow canvas (not directly in the DOM), large node counts are not a DOM performance concern.",
+      "body": "Because the macro view renders inside a React Flow canvas (not directly in the DOM), large node counts are not a DOM performance concern.",
+      "basis": "explicit",
+      "source": "stakeholder [X9]",
+      "detail": null
+    },
+    {
+      "local_id": 43,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Each node's form and function must visually communicate what happened at that specific point in the derivation tree.",
+      "body": "Each node's form and function must visually communicate what happened at that specific point in the derivation tree.",
+      "basis": "explicit",
+      "source": "stakeholder [G4]",
+      "detail": null
+    },
+    {
+      "local_id": 44,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: layout grammar encodes timeline through verticality (t+1 / more recent appears higher) and breadth encodes onion-pe…",
+      "body": "Stakeholder preference: layout grammar encodes timeline through verticality (t+1 / more recent appears higher) and breadth encodes onion-peel derivation depth.",
+      "basis": "explicit",
+      "source": "stakeholder [X14]",
+      "detail": null
+    },
+    {
+      "local_id": 45,
+      "plane": "intent",
+      "kind": "context",
+      "title": "The theme.css token assignment differs from grounding X34: theme.css maps shaping=amber and pinning=cyan, while X34 specifies shaping=green…",
+      "body": "The theme.css token assignment differs from grounding X34: theme.css maps shaping=amber and pinning=cyan, while X34 specifies shaping=green and pinning=amber. Reconciling this is a minor concern but theme.css is the source of truth for the existing design system.",
+      "basis": "explicit",
+      "source": "technical-observed [X41]",
+      "detail": null
+    },
+    {
+      "local_id": 46,
+      "plane": "intent",
+      "kind": "context",
+      "title": "The onion-peel derivation structure (impasse discovery, rederivation, reconciliation, resolution) is specified in the spec-elicitation.md d…",
+      "body": "The onion-peel derivation structure (impasse discovery, rederivation, reconciliation, resolution) is specified in the spec-elicitation.md document.",
+      "basis": "explicit",
+      "source": "external-observed [X5]",
+      "detail": null
+    },
+    {
+      "local_id": 47,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: phantom nodes and faded nodes are informational only and carry no interactive actions.",
+      "body": "Stakeholder preference: phantom nodes and faded nodes are informational only and carry no interactive actions.",
+      "basis": "explicit",
+      "source": "stakeholder [X24]",
+      "detail": null
+    },
+    {
+      "local_id": 48,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The FanInRecord type captures the fan-in step: id, frameId, phase, inputRunIds,…",
+      "body": null,
+      "basis": "explicit",
+      "source": "technical-observed [T5]",
+      "detail": {
+        "definition": "The FanInRecord type captures the fan-in step: id, frameId, phase, inputRunIds, groupings (with resolution: merged | best_selected | impasse_surfaced), outputCandidateIds, droppedCandidateIds, and createdAt."
+      }
+    },
+    {
+      "local_id": 49,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: render the derivation narrative as a pannable, zoomable graph.",
+      "body": "Stakeholder preference: render the derivation narrative as a pannable, zoomable graph.",
+      "basis": "explicit",
+      "source": "stakeholder [X10]",
+      "detail": null
+    },
+    {
+      "local_id": 50,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "The CRT design language for the macro view mandates: var(--font-mono), oklch phase colors, warm-tinted dark surfaces, phosphor glow, and no…",
+      "body": "The CRT design language for the macro view mandates: var(--font-mono), oklch phase colors, warm-tinted dark surfaces, phosphor glow, and no generic UI patterns.",
+      "basis": "explicit",
+      "source": "stakeholder [C4]",
+      "detail": null
+    },
+    {
+      "local_id": 51,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: when a nested run is collapsed, sibling nodes shift to fill vacated space, triggering a layout reflow.",
+      "body": "Stakeholder preference: when a nested run is collapsed, sibling nodes shift to fill vacated space, triggering a layout reflow.",
+      "basis": "explicit",
+      "source": "stakeholder [X22]",
+      "detail": null
+    },
+    {
+      "local_id": 52,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: fan-in and fan-out steps are represented as nested nodes within any one phase node.",
+      "body": "Stakeholder preference: fan-in and fan-out steps are represented as nested nodes within any one phase node.",
+      "basis": "explicit",
+      "source": "stakeholder [X17]",
+      "detail": null
+    },
+    {
+      "local_id": 53,
+      "plane": "intent",
+      "kind": "term",
+      "title": "materialProgress=true on a ReconciliationRecord means at least some nodes were…",
+      "body": null,
+      "basis": "explicit",
+      "source": "stakeholder [T12]",
+      "detail": {
+        "definition": "materialProgress=true on a ReconciliationRecord means at least some nodes were activated or archived during that reconciliation — real forward progress occurred."
+      }
+    },
+    {
+      "local_id": 54,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: perspective nodes show which branch was taken; unchosen branches fade out to indicate they were not taken but could…",
+      "body": "Stakeholder preference: perspective nodes show which branch was taken; unchosen branches fade out to indicate they were not taken but could be materialized later.",
+      "basis": "explicit",
+      "source": "stakeholder [X23]",
+      "detail": null
+    },
+    {
+      "local_id": 55,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: there is no separate 'trunk' node type; the trunk is simply the outermost shell of the onion-layered layout.",
+      "body": "Stakeholder preference: there is no separate 'trunk' node type; the trunk is simply the outermost shell of the onion-layered layout.",
+      "basis": "explicit",
+      "source": "stakeholder [X19]",
+      "detail": null
+    },
+    {
+      "local_id": 56,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Collapsed/expanded state in the macro view is purely ephemeral in-memory React state and is never persisted.",
+      "body": "Collapsed/expanded state in the macro view is purely ephemeral in-memory React state and is never persisted.",
+      "basis": "explicit",
+      "source": "stakeholder [C8]",
+      "detail": null
+    },
+    {
+      "local_id": 57,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "The macro view's visual design must be beautiful, novel, and information-dense, avoiding generic dashboard or AI-generated aesthetics.",
+      "body": "The macro view's visual design must be beautiful, novel, and information-dense, avoiding generic dashboard or AI-generated aesthetics.",
+      "basis": "explicit",
+      "source": "stakeholder [G2]",
+      "detail": null
+    },
+    {
+      "local_id": 58,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The Phase type has four ordered values: grounding, shaping, pinning, and defini…",
+      "body": null,
+      "basis": "explicit",
+      "source": "technical-observed [T1]",
+      "detail": {
+        "definition": "The Phase type has four ordered values: grounding, shaping, pinning, and defining_done."
+      }
+    },
+    {
+      "local_id": 59,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: the nudging state is indicated by a treatment inside the node body (compact labelled chip or badge such as 'NUDGING…",
+      "body": "Stakeholder preference: the nudging state is indicated by a treatment inside the node body (compact labelled chip or badge such as 'NUDGING' or '⚡ NUDGE' in phosphor amber) rather than as an external indicator.",
+      "basis": "explicit",
+      "source": "stakeholder [X25]",
+      "detail": null
+    },
+    {
+      "local_id": 60,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "A user should be able to understand what happened at each derivation step from the node visuals alone (numbers, IDs, outcomes) without need…",
+      "body": "A user should be able to understand what happened at each derivation step from the node visuals alone (numbers, IDs, outcomes) without needing to open a detail panel.",
+      "basis": "explicit",
+      "source": "stakeholder [G3]",
+      "detail": null
+    },
+    {
+      "local_id": 61,
+      "plane": "intent",
+      "kind": "context",
+      "title": "A DetailPanel.tsx component exists at src/components/DetailPanel.tsx as a sibling to MacroView.tsx, confirming reuse is structurally feasib…",
+      "body": "A DetailPanel.tsx component exists at src/components/DetailPanel.tsx as a sibling to MacroView.tsx, confirming reuse is structurally feasible.",
+      "basis": "explicit",
+      "source": "technical-observed [X40]",
+      "detail": null
+    },
+    {
+      "local_id": 62,
+      "plane": "intent",
+      "kind": "term",
+      "title": "The macro view is the component within the Spec Explorer UI that narrates the f…",
+      "body": null,
+      "basis": "explicit",
+      "source": "stakeholder [T14]",
+      "detail": {
+        "definition": "The macro view is the component within the Spec Explorer UI that narrates the full derivation history of a spec via a pannable, zoomable React Flow graph of ~20–40 semantically typed nodes."
+      }
+    },
+    {
+      "local_id": 63,
+      "plane": "intent",
+      "kind": "term",
+      "title": "A phantom node represents the case where no perspective is selected — it appear…",
+      "body": null,
+      "basis": "explicit",
+      "source": "stakeholder [T10]",
+      "detail": {
+        "definition": "A phantom node represents the case where no perspective is selected — it appears when an alternative perspective is used."
+      }
+    },
+    {
+      "local_id": 64,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "The macro view must use React Flow (@xyflow/react) version ^12.",
+      "body": "The macro view must use React Flow (@xyflow/react) version ^12.",
+      "basis": "explicit",
+      "source": "stakeholder [C1]",
+      "detail": null
+    },
+    {
+      "local_id": 65,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: all three frame modes (initial, rederive, grounding_enrichment) render as the same phase-group node component, with…",
+      "body": "Stakeholder preference: all three frame modes (initial, rederive, grounding_enrichment) render as the same phase-group node component, with mode differences expressed via color, label, or border style only.",
+      "basis": "explicit",
+      "source": "stakeholder [X20]",
+      "detail": null
+    },
+    {
+      "local_id": 66,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "The macro view answers the question 'how did the spec get here?' by visualizing the full onion-peel cycle of impasse discovery, rederivatio…",
+      "body": "The macro view answers the question 'how did the spec get here?' by visualizing the full onion-peel cycle of impasse discovery, rederivation, reconciliation, and resolution.",
+      "basis": "explicit",
+      "source": "stakeholder [G1]",
+      "detail": null
+    },
+    {
+      "local_id": 67,
+      "plane": "intent",
+      "kind": "context",
+      "title": "A right-side detail panel is already implemented and wired in the Micro View; the macro view should reuse it.",
+      "body": "A right-side detail panel is already implemented and wired in the Micro View; the macro view should reuse it.",
+      "basis": "explicit",
+      "source": "stakeholder [X4]",
+      "detail": null
+    },
+    {
+      "local_id": 68,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: when a nested derivation run is collapsed it shrinks to a small pill or badge node showing key stats (run count, ou…",
+      "body": "Stakeholder preference: when a nested derivation run is collapsed it shrinks to a small pill or badge node showing key stats (run count, outcome).",
+      "basis": "explicit",
+      "source": "stakeholder [X21]",
+      "detail": null
+    },
+    {
+      "local_id": 69,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Stakeholder preference: custom React Flow node types exist for each semantic role: trunk phase, impasse, phase group, fan-out, run, fan-in,…",
+      "body": "Stakeholder preference: custom React Flow node types exist for each semantic role: trunk phase, impasse, phase group, fan-out, run, fan-in, reconciliation, perspective, phantom, and dead-end impasse.",
+      "basis": "explicit",
+      "source": "stakeholder [X13]",
+      "detail": null
+    },
+    {
+      "local_id": 70,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "The macro view is a snapshot-only view: it reads artifact data once on mount and does not update reactively.",
+      "body": "The macro view is a snapshot-only view: it reads artifact data once on mount and does not update reactively.",
+      "basis": "explicit",
+      "source": "stakeholder [C11]",
+      "detail": null
+    }
+  ],
+  "edges": [
+    {
+      "category": "dependency",
+      "source_local_id": 16,
+      "target_local_id": 28,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 16,
+      "target_local_id": 50,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 45,
+      "target_local_id": 32,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 61,
+      "target_local_id": 67,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 16,
+      "target_local_id": 32,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 45,
+      "target_local_id": 16,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    }
+  ]
+}

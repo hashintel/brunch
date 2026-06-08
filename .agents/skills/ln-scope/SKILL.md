@@ -96,7 +96,7 @@ Chain discipline:
 
 - keep chains short — typically 2–5 cards
 - keep each card in full or light scope-card format
-- mark card status clearly (`next`, `in progress`, `done`, `dropped`)
+- mark card status clearly (`next`, `in progress`, `done`, `dropped`, `stale`)
 - if any card trips the promotion checklist, reveals a frontier split, or turns out to depend on unknown results from an earlier card, stop the chain and route back through `ln-spec` or `ln-plan` as appropriate
 - delete the scope file when its chain is exhausted or superseded (per-file deletion only)
 

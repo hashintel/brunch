@@ -513,6 +513,44 @@ describe('web host', () => {
     }
   });
 
+  it('continues delivering product updates after a failed WebSocket request', async () => {
+    const productUpdates = createProductUpdatePublisher();
+    const host = await startWebHost({
+      cwd: '/tmp/brunch-project',
+      port: 0,
+      coordinator: throwingCoordinator(),
+      productUpdates,
+    });
+    const observer = await openWebSocket(`${host.url.replace(/^http/u, 'ws')}/rpc`);
+    try {
+      const failedResponse = nextWebSocketMessage(observer);
+      observer.send(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: 14,
+          method: 'workspace.snapshot',
+        }),
+      );
+
+      await expect(failedResponse).resolves.toEqual({
+        jsonrpc: '2.0',
+        id: 14,
+        error: { code: -32603, message: 'Internal error' },
+      });
+
+      const notification = nextWebSocketMessage(observer);
+      productUpdates.publish({ topic: 'graph.overview', specId: 1, lsn: 8 });
+
+      await expect(notification).resolves.toMatchObject({
+        jsonrpc: '2.0',
+        method: 'brunch.updated',
+      });
+    } finally {
+      observer.close();
+      await host.close();
+    }
+  });
+
   it('rejects non-rpc WebSocket upgrade paths', async () => {
     const host = await startWebHost({
       cwd: '/tmp/brunch-project',

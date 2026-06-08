@@ -70,8 +70,8 @@ columns stay coherent under brunch's mutation contract.
 
 ## Stats
 
-| Spec | nodes in | edges in | nodes emitted | edges emitted | edges absorbed | self-after-collapse drops | unresolved-endpoint drops |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| code-health | 335 | 600 | 277 | 520 | 117 | 1 | 0 |
-| explorer-ui | 316 | 698 | 280 | 614 | 74 | 15 | 0 |
-| macro-view | 265 | 568 | 232 | 504 | 68 | 0 | 0 |
+| Spec | nodes in | edges in | nodes emitted | edges emitted | edges absorbed | self-after-collapse drops | unresolved-endpoint drops | duplicate-after-collapse drops |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| code-health | 335 | 600 | 277 | 446 | 117 | 1 | 0 | 74 |
+| explorer-ui | 316 | 698 | 280 | 580 | 74 | 15 | 0 | 34 |
+| macro-view | 265 | 568 | 232 | 461 | 68 | 0 | 0 | 43 |

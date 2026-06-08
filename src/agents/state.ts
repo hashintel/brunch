@@ -87,7 +87,13 @@ const METHOD_MIN_GRADE: Record<MethodId, ReadinessGrade> = {
 };
 
 const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
-  'run-structured-exchange': ['present_question', 'present_options'],
+  'run-structured-exchange': [
+    'present_question',
+    'present_options',
+    'request_answer',
+    'request_choice',
+    'request_choices',
+  ],
   'read-snapshot': ['read_graph'],
   'commit-graph': ['commit_graph'],
 };

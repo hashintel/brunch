@@ -18,8 +18,8 @@ import { seedFixture, type SeedFixture } from './seed-fixtures.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-function loadFixture(slug: string): SeedFixture {
-  const path = resolve(HERE, `../../.fixtures/seeds/bilal-port/${slug}.json`);
+function loadFixture(slug: string, set = 'bilal-port'): SeedFixture {
+  const path = resolve(HERE, `../../.fixtures/seeds/${set}/${slug}.json`);
   return JSON.parse(readFileSync(path, 'utf8')) as SeedFixture;
 }
 
@@ -59,6 +59,25 @@ describe('seedFixture', () => {
       .all()
       .map((row) => row.operation);
     expect(ops).toEqual(['create_spec', 'commit_graph']);
+  });
+
+  it('loads the macro-view grounded-intent variant as explicit intent-only seed truth', () => {
+    const db: BrunchDb = createDb(':memory:');
+    const executor = new CommandExecutor(db);
+    const fixture = loadFixture('macro-view-grounded-intent', 'bilal-port-variants');
+
+    expect(fixture.nodes.length).toBeGreaterThan(0);
+    expect(fixture.nodes.every((node) => node.plane === 'intent')).toBe(true);
+    expect(fixture.nodes.every((node) => node.basis === 'explicit')).toBe(true);
+    expect(fixture.edges.every((edge) => edge.basis === 'explicit')).toBe(true);
+
+    const result = seedFixture(executor, fixture);
+
+    const nodeRows = db.select().from(nodes).where(eq(nodes.spec_id, result.specId)).all();
+    const edgeRows = db.select().from(edges).where(eq(edges.spec_id, result.specId)).all();
+    expect(nodeRows).toHaveLength(fixture.nodes.length);
+    expect(edgeRows).toHaveLength(fixture.edges.length);
+    expect(nodeRows.every((row) => row.plane === 'intent' && row.basis === 'explicit')).toBe(true);
   });
 
   it('rejects fixtures carrying a non-explicit basis', () => {

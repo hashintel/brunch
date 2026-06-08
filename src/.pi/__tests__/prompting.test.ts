@@ -160,7 +160,7 @@ describe('Brunch prompt-pack topology', () => {
           events[event] = handler;
         },
         getAllTools: () =>
-          ['read', 'grep', 'bash', 'write', 'present_options'].map((name) => ({
+          ['read', 'grep', 'bash', 'write', 'present_options', 'request_answer'].map((name) => ({
             name,
           })),
       } as never,
@@ -185,7 +185,7 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.stringContaining('- strategy: step-wise-disambiguate'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('- active tools: read, grep, present_options'),
+      systemPrompt: expect.stringContaining('- active tools: read, grep, present_options, request_answer'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('[Selected-spec graph context · design lens]'),
@@ -292,9 +292,19 @@ describe('Brunch prompt-pack topology', () => {
       },
       registerTool: (_tool: { name: string }) => {},
       getAllTools: () =>
-        ['read', 'grep', 'bash', 'edit', 'write', 'present_options', 'read_graph', 'commit_graph'].map(
-          (name) => ({ name }),
-        ),
+        [
+          'read',
+          'grep',
+          'bash',
+          'edit',
+          'write',
+          'present_options',
+          'request_answer',
+          'request_choice',
+          'request_choices',
+          'read_graph',
+          'commit_graph',
+        ].map((name) => ({ name })),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
     };
     registerBrunchOperationalModePolicy(pi as never);
@@ -339,11 +349,53 @@ describe('Brunch prompt-pack topology', () => {
 
     expect(manager.entries[0]?.customType).toBe(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE);
     expect(activeTools).toEqual([
-      ['read', 'grep', 'present_options', 'read_graph'],
-      ['read', 'grep', 'present_options', 'read_graph'],
-      ['read', 'grep', 'present_options', 'read_graph', 'commit_graph'],
-      ['read', 'grep', 'present_options', 'read_graph'],
-      ['read', 'grep', 'present_options', 'read_graph', 'commit_graph'],
+      [
+        'read',
+        'grep',
+        'present_options',
+        'request_answer',
+        'request_choice',
+        'request_choices',
+        'read_graph',
+      ],
+      [
+        'read',
+        'grep',
+        'present_options',
+        'request_answer',
+        'request_choice',
+        'request_choices',
+        'read_graph',
+      ],
+      [
+        'read',
+        'grep',
+        'present_options',
+        'request_answer',
+        'request_choice',
+        'request_choices',
+        'read_graph',
+        'commit_graph',
+      ],
+      [
+        'read',
+        'grep',
+        'present_options',
+        'request_answer',
+        'request_choice',
+        'request_choices',
+        'read_graph',
+      ],
+      [
+        'read',
+        'grep',
+        'present_options',
+        'request_answer',
+        'request_choice',
+        'request_choices',
+        'read_graph',
+        'commit_graph',
+      ],
     ]);
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining('- strategy: auto'),
@@ -353,7 +405,7 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
-        '- active tools: read, grep, present_options, read_graph, commit_graph',
+        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, read_graph, commit_graph',
       ),
     });
     expect(defaultPrompt).toMatchObject({
@@ -491,7 +543,10 @@ describe('Brunch prompt-pack topology', () => {
       registerShortcut() {},
       registerMessageRenderer() {},
       sendMessage() {},
-      getAllTools: () => ['read', 'grep', 'present_options'].map((name) => ({ name })),
+      getAllTools: () =>
+        ['read', 'grep', 'present_options', 'request_answer', 'request_choice', 'request_choices'].map(
+          (name) => ({ name }),
+        ),
       setActiveTools() {},
     } as never);
 

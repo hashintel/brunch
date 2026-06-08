@@ -44,7 +44,7 @@ canonical stores:
     worldUpdate entries
 ```
 
-RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. Mutations route through the owning product seam: session transcript operations through `session.*`, graph mutations through the agent/tool or `CommandExecutor` path that owns them.
+RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. Mutations route through the owning product seam: session transcript operations through `session.*`, synchronous high-confidence response capture through `session.submitExchangeResponse` → `graph/capture` → `CommandExecutor`, and other graph mutations through the agent/tool or `CommandExecutor` path that owns them. `dev.*` is the only exception family: methods in that namespace are explicitly gated local harnesses, absent from default discovery and absent from the read-only sidecar.
 
 ## Method registry
 
@@ -53,14 +53,16 @@ Method discovery and dispatch come from the same registry. A method not present 
 ```pseudo
 rpc/
 ├── handlers.ts
-│   ├── createRpcHandlers(...)         -> full registry
-│   ├── createReadOnlyRpcHandlers(...) -> read-only registry
+│   ├── createRpcHandlers(...)         -> default full registry
+│   ├── createRpcHandlers({devRpc})    -> full registry plus gated dev.* harnesses
+│   ├── createReadOnlyRpcHandlers(...) -> read-only registry, never dev.*
 │   └── rpc.discover                   -> discovery over active registry
 └── methods/
     ├── registry.ts                    -> method definition + discovery shape
     ├── workspace.ts                   -> workspace.* handlers
     ├── session.ts                     -> session.* handlers
     ├── graph.ts                       -> graph.* handlers
+    ├── dev-graph.ts                   -> gated dev.graph.* fixture-curation harness
     └── schemas.ts                     -> shared protocol schemas
 ```
 
@@ -81,6 +83,15 @@ full RPC host:
     workspace.activate
     session.triggerExchange
     session.submitExchangeResponse
+
+dev-enabled full RPC host only:
+  writes:
+    dev.graph.commitGraph
+  absent unless:
+    createRpcHandlers({devRpc: true}) or BRUNCH_DEV_RPC=1 in CLI rpc mode
+  still absent from:
+    default full RPC discovery
+    TUI-started web sidecar
 
 TUI-started web sidecar:
   reads:
@@ -160,8 +171,12 @@ session.submitExchangeResponse
     exchangeId
     answer: {text} | {optionId} | {optionIds}
     note?
-  result: accepted terminal response
-  effects: appends request_* toolResult response and publishes selected-session invalidations
+  result: accepted terminal response plus capture outcome
+    capture:
+      captured(lsn, nodeCount, createdNodes)
+      | no_capture(reason)
+      | structural_illegal(diagnostics)
+  effects: appends request_* toolResult response, publishes selected-session invalidations, and when captured publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
 
 graph.overview
   access: read
@@ -179,6 +194,19 @@ graph.nodeNeighborhood
   params: {specId, nodeId, hops?}
   result: success(anchor, neighbors, edges) | not_found
   source: SQLite graph reader for the explicit spec
+
+dev.graph.commitGraph
+  access: write
+  params:
+    specId
+    basis: explicit | implicit
+    nodes: [{ref, plane, kind, title, body?, source?, detail?}]
+    edges: [{category, source, target, stance?, rationale?}]
+      source/target: batch ref | {existingCode}
+  result: success(lsn, createdNodes, edges) | structural_illegal(diagnostics)
+  effects: commits atomically through CommandExecutor and publishes graph projection invalidations
+  gate: explicit local harness only; absent from default public RPC and read-only sidecars
+  caveat: fixture curation helper, not evidence that propose-graph's real agent commit_graph tool path works
 ```
 
 ## Product update notifications
@@ -227,7 +255,7 @@ query key families:
 | `session.exchanges` | `sessionExchangesQueryOptions(rpc, target)` | target; no current web history panel | `session.exchanges` |
 | `session.runtimeState` | `sessionRuntimeStateQueryOptions(rpc, target)` | implemented query option; not yet route-rendered | `session.runtimeState` |
 | `session.triggerExchange` | `triggerExchangeMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state |
-| `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; graph updates arrive after agent commit |
+| `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; captured text answers additionally invalidate `graph.overview(specId)` / `graph.nodeNeighborhood(specId)` |
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
 
@@ -271,8 +299,18 @@ capture_* toolResult (future)
     transcript evidence
     possible semantic candidates
     no graph mutation
-```
 
+synchronous response capture (current POC tracer)
+  request_answer text with direct labels:
+    Goal: ...
+    Context: ...
+    Constraint: ...
+    Criterion: ...
+  -> graph/capture translator
+  -> CommandExecutor.commitGraph({basis: explicit})
+  -> selected-spec graph truth
+
+```
 Payload facets such as establishment offers, elicitor intent hints, and review/proposal material belong inside structured exchange payloads when they are part of an exchange. They are not separate public RPC entities.
 
 ## Web UI rules

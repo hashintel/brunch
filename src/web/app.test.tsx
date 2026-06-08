@@ -195,6 +195,44 @@ describe('Brunch React web app', () => {
     expect(calls).toEqual([{ method: 'graph.overview', params: { specId: 1 } }]);
   });
 
+  it('ignores malformed product update entries instead of broadly invalidating graph reads', async () => {
+    window.history.pushState(null, '', '/spec/1');
+    const calls: RpcCall[] = [];
+    const listeners = new Set<WebSocketRpcNotificationListener>();
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ calls, listeners, graphOverview: populatedGraphOverview }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Spec A requirement')).toBeTruthy();
+    calls.length = 0;
+    for (const listener of listeners) {
+      listener({
+        jsonrpc: '2.0',
+        method: 'brunch.updated',
+        params: { updates: [{ topic: 'graph.overview' }] },
+      });
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(calls).toEqual([]);
+  });
+
+  it('rejects malformed spec route params before requesting a graph overview', async () => {
+    window.history.pushState(null, '', '/spec/not-a-spec-id');
+    const calls: RpcCall[] = [];
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ calls, graphOverview: populatedGraphOverview }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Invalid spec id.')).toBeTruthy();
+    expect(calls).toContainEqual({ method: 'workspace.snapshot' });
+    expect(calls.some((call) => call.method === 'graph.overview')).toBe(false);
+  });
+
   it('treats the spec route as client-local view state without borrowing the TUI session transcript', async () => {
     window.history.pushState(null, '', '/spec/2');
     const calls: RpcCall[] = [];

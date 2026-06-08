@@ -612,6 +612,7 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
 
   // Phase 3: emit brunch edges
   const brunchEdges: BrunchEdgeFixture[] = [];
+  const emittedEdgeKeys = new Set<string>();
   const stats = {
     nodes_in: nodes.length,
     edges_in: edges.length,
@@ -620,6 +621,17 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
     edges_absorbed: 0,
     edges_dropped_self_after_collapse: 0,
     edges_dropped_unresolved_endpoint: 0,
+    edges_dropped_duplicate_after_collapse: 0,
+  };
+
+  const emitEdge = (edge: BrunchEdgeFixture): void => {
+    const key = `${edge.source_local_id}\0${edge.target_local_id}\0${edge.category}\0${edge.stance ?? ''}`;
+    if (emittedEdgeKeys.has(key)) {
+      stats.edges_dropped_duplicate_after_collapse++;
+      return;
+    }
+    emittedEdgeKeys.add(key);
+    brunchEdges.push(edge);
   };
 
   // 3a. synthesize one realization edge per evidence node, from the audit check
@@ -628,7 +640,7 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
       if (node.kind !== 'content' || node.semanticRole !== 'evidence') continue;
       const evidenceLocalId = bilalUuidToLocalId.get(node.id);
       if (evidenceLocalId === undefined) continue;
-      brunchEdges.push({
+      emitEdge({
         category: 'realization',
         source_local_id: auditCheckLocalId,
         target_local_id: evidenceLocalId,
@@ -665,7 +677,7 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
       stats.edges_absorbed++;
       continue;
     }
-    brunchEdges.push({
+    emitEdge({
       category: mapping.category,
       source_local_id: sourceLocalId,
       target_local_id: targetLocalId,
@@ -783,13 +795,13 @@ function writeReadme(results: { slug: string; displayName: string; stats: Record
     '',
     '## Stats',
     '',
-    '| Spec | nodes in | edges in | nodes emitted | edges emitted | edges absorbed | self-after-collapse drops | unresolved-endpoint drops |',
-    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
+    '| Spec | nodes in | edges in | nodes emitted | edges emitted | edges absorbed | self-after-collapse drops | unresolved-endpoint drops | duplicate-after-collapse drops |',
+    '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
   ];
   for (const r of results) {
     const s = r.stats;
     lines.push(
-      `| ${r.slug} | ${s.nodes_in} | ${s.edges_in} | ${s.nodes_emitted} | ${s.edges_emitted} | ${s.edges_absorbed} | ${s.edges_dropped_self_after_collapse} | ${s.edges_dropped_unresolved_endpoint} |`,
+      `| ${r.slug} | ${s.nodes_in} | ${s.edges_in} | ${s.nodes_emitted} | ${s.edges_emitted} | ${s.edges_absorbed} | ${s.edges_dropped_self_after_collapse} | ${s.edges_dropped_unresolved_endpoint} | ${s.edges_dropped_duplicate_after_collapse} |`,
     );
   }
   lines.push('');
