@@ -2,6 +2,8 @@
 // Plan model — epics → slices (YAML-derived)
 // ---------------------------------------------------------------------------
 
+import type { ProfileId } from './project-profile.js';
+
 export type Verification = {
   kind: string;
   target: string;
@@ -33,6 +35,11 @@ export type PlanMode = 'greenfield' | 'brownfield';
 
 export type Plan = {
   mode: PlanMode;
+  /**
+   * Spec-derived toolchain profile id (see `project-profile.ts`). Resolved
+   * to a `Toolchain` via `resolveToolchain(plan.profile)`; absent → bun.
+   */
+  profile?: ProfileId;
   epics: Epic[];
   slices: Slice[];
 };

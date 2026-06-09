@@ -153,6 +153,38 @@ describe('emitPlanFromSnapshot', () => {
     expect(checkPlan(result.plan, { profile: 'emitted' }).ok).toBe(true);
   });
 
+  it('resolves the toolchain from the spec profile — brunch profile yields co-located targets', async () => {
+    const enrichment: PlanningEnrichment = {
+      sliceDependencies: [{ sliceId: 'req-11', dependsOn: ['req-10'] }],
+      epics: [{ id: 'core', summary: 'Core', sliceIds: ['req-10', 'req-11'] }],
+      nonBuildableSliceIds: [],
+    };
+    const result = await emitPlanFromSnapshot(
+      { ...snapshot, profile: 'brunch' },
+      { runModel: async () => enrichment },
+    );
+
+    expect(result.plan.profile).toBe('brunch');
+    // Co-located convention: no `tests/` prefix on slice or epic targets.
+    for (const slice of result.plan.slices) {
+      expect(slice.verification).toEqual([{ kind: 'unit-test', target: `${slice.id}.test.ts` }]);
+    }
+    const core = result.plan.epics.find((e) => e.id === 'core')!;
+    expect(core.verification).toContainEqual({
+      kind: 'integration-test',
+      target: 'core.integration.test.ts',
+    });
+  });
+
+  it('defaults to the bun toolchain when the spec carries no profile', async () => {
+    const result = await emitPlanFromSnapshot(snapshot, {
+      runModel: async () => ({ sliceDependencies: [], epics: [], nonBuildableSliceIds: [] }),
+    });
+    for (const slice of result.plan.slices) {
+      expect(slice.verification).toEqual([{ kind: 'unit-test', target: `tests/${slice.id}.test.ts` }]);
+    }
+  });
+
   it('round-trips through loadPlan after YAML serialization', async () => {
     const runModel: RunModel = async () => ({
       sliceDependencies: [],

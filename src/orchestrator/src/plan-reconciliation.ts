@@ -165,7 +165,10 @@ export function reconcilePlan(
     ];
   }
 
-  return { plan: { mode: projected.mode, epics: outputEpics, slices: outputSlices }, warnings };
+  return {
+    plan: { mode: projected.mode, profile: projected.profile, epics: outputEpics, slices: outputSlices },
+    warnings,
+  };
 }
 
 /**

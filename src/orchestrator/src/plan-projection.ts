@@ -1,3 +1,4 @@
+import type { ProfileId } from './project-profile.js';
 import type { Plan, PlanMode } from './types.js';
 
 /**
@@ -13,6 +14,12 @@ export interface CompletedSpecSnapshot {
    * than file location. Absent → `greenfield` (authored/legacy snapshots).
    */
   mode?: PlanMode;
+  /**
+   * The specification's toolchain profile. Carried onto the emitted plan so
+   * the emitter and `brunch cook` resolve the same `Toolchain`. Absent →
+   * the bun default (see `resolveToolchain`).
+   */
+  profile?: ProfileId;
   requirements: readonly KnowledgeItemSnapshot[];
   criteria: readonly KnowledgeItemSnapshot[];
   edges: readonly KnowledgeEdgeSnapshot[];
@@ -63,6 +70,7 @@ export function projectPlanFromSpec(snapshot: CompletedSpecSnapshot): Plan {
 
   return {
     mode: snapshot.mode ?? 'greenfield',
+    profile: snapshot.profile,
     epics: [
       {
         id: DEFAULT_EPIC_ID,

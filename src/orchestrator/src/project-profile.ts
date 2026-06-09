@@ -1,25 +1,19 @@
-// FE-829 slice 1: the shared toolchain descriptor.
-//
-// A `Toolchain` derives verification target paths from plan structure so
-// no test-path convention is hardcoded in the emitter, reconciliation, or
-// the executability contract — `tests/<id>.test.ts` is *derived*, not
-// baked in. The same descriptor is the seam slice 2 widens for the cook
-// `code-writer`/`test-writer` prompts and the `test-runner` (language,
-// framework, file conventions). Slice 1 only needs the target shape.
+// Shared toolchain descriptor: derives verification target paths so no
+// test-path convention is hardcoded across the emitter, reconciliation, or
+// the executability contract.
+
+export type ProfileId = 'bun' | 'brunch';
 
 export interface Toolchain {
-  /** Verification target path for a per-slice unit test. */
   sliceTarget(sliceId: string): string;
-  /** Verification target path for a per-epic integration test. */
   epicTarget(epicId: string): string;
 }
 
 export interface ProjectProfile {
-  id: string;
+  id: ProfileId;
   toolchain: Toolchain;
 }
 
-/** Bun is the first (and currently only) implemented profile. */
 export const bunProfile: ProjectProfile = {
   id: 'bun',
   toolchain: {
@@ -28,5 +22,27 @@ export const bunProfile: ProjectProfile = {
   },
 };
 
-/** Default toolchain used until a spec carries its own profile. */
+// Brunch's own stack: TypeScript + vitest, tests co-located with source.
+export const brunchProfile: ProjectProfile = {
+  id: 'brunch',
+  toolchain: {
+    sliceTarget: (sliceId) => `${sliceId}.test.ts`,
+    epicTarget: (epicId) => `${epicId}.integration.test.ts`,
+  },
+};
+
+const PROFILES: Record<ProfileId, ProjectProfile> = {
+  bun: bunProfile,
+  brunch: brunchProfile,
+};
+
+/**
+ * Resolve the toolchain for a plan's profile id, falling back to bun for
+ * an absent or unrecognized profile (the same lenient default `loadPlan`
+ * applies to `mode`).
+ */
+export function resolveToolchain(profile?: ProfileId): Toolchain {
+  return (profile ? PROFILES[profile] : undefined)?.toolchain ?? bunProfile.toolchain;
+}
+
 export const defaultToolchain: Toolchain = bunProfile.toolchain;

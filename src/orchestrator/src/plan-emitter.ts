@@ -32,7 +32,7 @@ import {
   reconciliationWarningCategory,
   type ReconciliationWarning,
 } from './plan-reconciliation.js';
-import { defaultToolchain, type Toolchain } from './project-profile.js';
+import { resolveToolchain, type Toolchain } from './project-profile.js';
 import type { Plan } from './types.js';
 
 const EMPTY_ENRICHMENT: PlanningEnrichment = {
@@ -64,9 +64,10 @@ export type EmitPlanOptions = {
    */
   runModel?: RunModel;
   /**
-   * Toolchain descriptor that shapes verification targets. Defaults to
-   * the bun profile. Threaded through reconciliation and the contract
-   * repair so synthesized targets are derived, not hardcoded.
+   * Toolchain descriptor that shapes verification targets. Defaults to the
+   * one resolved from the spec's `profile` (`resolveToolchain`). Threaded
+   * through reconciliation and the contract repair so synthesized targets
+   * are derived, not hardcoded.
    */
   toolchain?: Toolchain;
 };
@@ -76,9 +77,9 @@ export async function emitPlanFromSnapshot(
   options: EmitPlanOptions = {},
 ): Promise<EmitPlanResult> {
   const runModel = options.runModel ?? defaultRunModel;
-  const toolchain = options.toolchain ?? defaultToolchain;
 
   const projected = projectPlanFromSpec(snapshot);
+  const toolchain = options.toolchain ?? resolveToolchain(projected.profile);
   const planningResult = await planExecutionOrdering(projected, runModel);
   const enrichment = planningResult.status === 'succeeded' ? planningResult.enrichment : EMPTY_ENRICHMENT;
   const { plan: candidate, warnings: reconciliationWarnings } = reconcilePlan(
