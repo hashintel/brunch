@@ -165,7 +165,7 @@ async function writeOrderingExtension(cwd: string): Promise<string> {
       registerFauxProvider,
     } from "@earendil-works/pi-ai"
     import { registerStructuredExchange } from ${JSON.stringify(adapterPath)}
-    import { brunchFauxProviderConfig, defaultBrunchFauxModel } from ${JSON.stringify(fauxHarnessPath)}
+    import { BRUNCH_FAUX_HARNESS_ENV_API_KEY, brunchFauxProviderConfig, defaultBrunchFauxModel } from ${JSON.stringify(fauxHarnessPath)}
 
     export default function(pi: ExtensionAPI): void {
       registerStructuredExchange(pi)
@@ -182,7 +182,7 @@ async function writeOrderingExtension(cwd: string): Promise<string> {
         api: model.api + "-faux-source",
         models: [{ id: model.modelId, name: model.modelName }],
       })
-      pi.registerProvider(model.provider, brunchFauxProviderConfig(model, provider))
+      pi.registerProvider(model.provider, brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_ENV_API_KEY))
       provider.setResponses([
         fauxAssistantMessage([
           fauxToolCall("present_options", {

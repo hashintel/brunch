@@ -1,5 +1,7 @@
 export { piSourceAlias } from './pi-source-alias.js';
 export {
+  BRUNCH_FAUX_HARNESS_API_KEY,
+  BRUNCH_FAUX_HARNESS_ENV_API_KEY,
   brunchFauxProviderConfig,
   createBrunchFauxHarness,
   defaultBrunchFauxModel,

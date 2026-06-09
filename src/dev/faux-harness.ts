@@ -14,7 +14,8 @@ import {
   type ProviderConfig,
 } from '@earendil-works/pi-coding-agent';
 
-const FAUX_API_KEY = 'brunch-faux-harness-key';
+export const BRUNCH_FAUX_HARNESS_API_KEY = 'brunch-faux-harness-key';
+export const BRUNCH_FAUX_HARNESS_ENV_API_KEY = '$BRUNCH_FAUX_HARNESS_API_KEY';
 
 export interface BrunchFauxModelOptions {
   readonly provider: string;
@@ -39,11 +40,12 @@ export interface BrunchFauxHarness {
 export function brunchFauxProviderConfig(
   model: BrunchFauxModelOptions,
   provider?: FauxProviderRegistration,
+  apiKey: string = BRUNCH_FAUX_HARNESS_API_KEY,
 ): ProviderConfig {
   return {
     api: model.api as never,
     baseUrl: 'https://example.invalid',
-    apiKey: '$BRUNCH_FAUX_HARNESS_API_KEY',
+    apiKey,
     ...(provider === undefined
       ? {}
       : {
@@ -81,8 +83,6 @@ export function defaultBrunchFauxModel(options: BrunchFauxHarnessOptions = {}): 
 export async function createBrunchFauxHarness(
   options: BrunchFauxHarnessOptions = {},
 ): Promise<BrunchFauxHarness> {
-  process.env.BRUNCH_FAUX_HARNESS_API_KEY ??= FAUX_API_KEY;
-
   const model = defaultBrunchFauxModel(options);
   const provider = registerFauxProvider({
     provider: model.provider,
@@ -92,10 +92,13 @@ export async function createBrunchFauxHarness(
   provider.setResponses([...(options.responses ?? [])]);
 
   const authStorage = AuthStorage.inMemory({
-    [model.provider]: { type: 'api_key', key: FAUX_API_KEY },
+    [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
   });
   const modelRegistry = ModelRegistry.inMemory(authStorage);
-  modelRegistry.registerProvider(model.provider, brunchFauxProviderConfig(model, provider));
+  modelRegistry.registerProvider(
+    model.provider,
+    brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_API_KEY),
+  );
 
   const registeredModel = modelRegistry.find(model.provider, model.modelId);
   if (!registeredModel) throw new Error(`Faux model was not registered: ${model.provider}/${model.modelId}`);

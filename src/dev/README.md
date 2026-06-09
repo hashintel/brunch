@@ -21,7 +21,7 @@ Brunch tracks the latest published `@earendil-works/pi-*` line. Two resolution c
 
 - `createBrunchFauxHarness()` boots an in-memory Pi `AgentSession` with in-memory auth, model registry, session manager, settings manager, no active tools, and a deterministic faux provider.
 - `runBrunchFauxTurn()` is the smoke launcher: it scripts one prompt→assistant turn with no network I/O and returns the assistant text plus provider call count.
-- `brunchFauxProviderConfig()` owns the pi 0.79 `$ENV` provider API-key shape and the bridge needed when `pi-coding-agent` and top-level `pi-ai` resolve as separate installed package instances.
+- `brunchFauxProviderConfig()` defaults to the literal in-process dev key and accepts an explicit api-key override. Subprocess probes pass the pi 0.79 `$ENV` form themselves; the in-process harness does not mutate `process.env` to satisfy a subprocess concern.
 
 Product probes may import the shared provider config when they need deterministic faux wiring, but they remain product-verification probes under `src/probes/`; they do not become dev loops merely because they share infrastructure.
 
