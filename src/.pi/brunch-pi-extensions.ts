@@ -16,6 +16,7 @@ import {
 import { type GraphMentionSource } from './extensions/mentions/index.js';
 import { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
 import { registerBrunchOperationalModePolicy } from './extensions/runtime/index.js';
+import { registerBrunchSessionQuery } from './extensions/session-query/index.js';
 import { registerBrunchSessionBoundary } from './extensions/session/lifecycle.js';
 import { type BrunchSessionBoundaryHandler } from './extensions/session/lifecycle.js';
 import {
@@ -71,6 +72,11 @@ export {
   type BrunchIntrospectionStore,
   type BrunchIntrospectionTurnCapture,
 } from './extensions/introspection/index.js';
+export {
+  BRUNCH_SESSION_QUERY_TOOL,
+  createBrunchSessionQueryTool,
+  registerBrunchSessionQuery,
+} from './extensions/session-query/index.js';
 
 export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
@@ -135,6 +141,7 @@ export function createBrunchPiExtensions(
                 ...(store ? { store } : {}),
                 ...(clock ? { clock } : {}),
               });
+              registerBrunchSessionQuery(api);
             },
           ]
         : []),

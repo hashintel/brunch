@@ -10,6 +10,7 @@ import {
   SessionManager,
   SettingsManager,
   type AgentSession,
+  type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 
 import {
@@ -31,6 +32,7 @@ export interface BrunchFauxHarnessOptions {
   readonly cwd?: string;
   readonly responses?: readonly FauxResponseStep[];
   readonly model?: Partial<BrunchFauxModelOptions>;
+  readonly customTools?: readonly ToolDefinition<any, any>[];
 }
 
 export interface BrunchFauxHarness {
@@ -70,7 +72,9 @@ export async function createBrunchFauxHarness(
     model: registeredModel,
     sessionManager: SessionManager.inMemory(options.cwd),
     settingsManager: SettingsManager.inMemory({ quietStartup: true }),
-    noTools: 'all',
+    ...(options.customTools?.length
+      ? { tools: options.customTools.map((tool) => tool.name), customTools: [...options.customTools] }
+      : { noTools: 'all' as const }),
   });
 
   return {

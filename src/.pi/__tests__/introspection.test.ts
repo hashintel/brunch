@@ -6,6 +6,7 @@ import {
   createInMemoryBrunchIntrospectionStore,
   registerBrunchIntrospection,
 } from '../extensions/introspection/index.js';
+import { BRUNCH_SESSION_QUERY_TOOL } from '../extensions/session-query/index.js';
 
 interface FakeCommandContext {
   readonly ui: { notify(message: string, type?: 'info' | 'warning' | 'error'): void };
@@ -76,6 +77,7 @@ describe('Brunch introspection extension', () => {
     );
 
     expect(productApi.commandNames).not.toContain(BRUNCH_INTROSPECTION_COMMAND);
+    expect(productApi.toolNames).not.toContain(BRUNCH_SESSION_QUERY_TOOL);
     expect(productApi.eventNames).not.toContain('before_provider_request');
 
     const devApi = createFakeExtensionApi();
@@ -85,6 +87,7 @@ describe('Brunch introspection extension', () => {
     })(devApi.api as never);
 
     expect(devApi.commandNames.at(-1)).toBe(BRUNCH_INTROSPECTION_COMMAND);
+    expect(devApi.toolNames.at(-1)).toBe(BRUNCH_SESSION_QUERY_TOOL);
     expect(devApi.eventNames.slice(-2)).toEqual(['before_agent_start', 'before_provider_request']);
   });
 });
@@ -104,6 +107,7 @@ const brunchChromeFixture = {
 function createFakeExtensionApi() {
   const eventNames: string[] = [];
   const commandNames: string[] = [];
+  const toolNames: string[] = [];
   const handlers = new Map<string, Array<(event: unknown, ctx: unknown) => unknown>>();
   const commands = new Map<string, { handler(args: string, ctx: FakeCommandContext): Promise<void> }>();
   const api = {
@@ -118,7 +122,9 @@ function createFakeExtensionApi() {
       commandNames.push(name);
       commands.set(name, command);
     },
-    registerTool() {},
+    registerTool(tool: { name: string }) {
+      toolNames.push(tool.name);
+    },
     registerShortcut() {},
     registerMessageRenderer() {},
     sendMessage() {},
@@ -130,6 +136,7 @@ function createFakeExtensionApi() {
     api,
     eventNames,
     commandNames,
+    toolNames,
     async emitBeforeAgentStart(event: unknown): Promise<unknown> {
       return last(
         await Promise.all((handlers.get('before_agent_start') ?? []).map((handler) => handler(event, {}))),

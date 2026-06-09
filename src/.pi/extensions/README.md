@@ -4,7 +4,7 @@ SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D69-L
 
 ## Owns
 
-Pi-facing registration and adaptation only: lifecycle hooks, agent tool definitions, command/shortcut handlers, TUI chrome affordances, autocomplete wrappers, per-turn system-prompt append hooks, dev-gated read-only introspection taps, workspace dialogs, and Pi-specific tool result renderers.
+Pi-facing registration and adaptation only: lifecycle hooks, agent tool definitions, command/shortcut handlers, TUI chrome affordances, autocomplete wrappers, per-turn system-prompt append hooks, dev-gated read-only introspection taps and session-log query tools, workspace dialogs, and Pi-specific tool result renderers.
 
 ## Does NOT own
 
@@ -27,6 +27,7 @@ extensions/
 ├── exchanges/               structured-exchange present_* / request_* Pi tools
 ├── graph/                   mutate_graph/read_graph Pi tools
 ├── introspection/           dev-gated read-only provider-payload tap + /introspect command
+├── session-query/           dev-gated read-only brunch_session_query tool over current branch
 ├── mentions/                #graph mention prompt hint + autocomplete provider
 ├── runtime/                 active-tool policy and tool/user_bash guards
 ├── session/                 session lifecycle hooks
