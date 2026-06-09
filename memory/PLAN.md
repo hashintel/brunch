@@ -106,6 +106,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - `topology-readmes-and-boundaries` — small doc/test hardening when a frontier moves files or exposes a boundary; should remain attached to the frontier when possible rather than becoming an abstract cleanup project.
 - `dev-seed-fixtures` — rich, real seed data for local dev / manual / observer testing: the consolidated seed contract, the `npm run seed` loader, and growing/enhancing fixture sets (Bilal-port + legacy). Its semantic curation mutation slice is folded into / blocked by `role-safe-graph-mutations`; ongoing seed-data maintenance remains low-conflict.
 - `dx-introspection-live` — DX follow-on to `dx-feedback-loops`: harden the four-role `.fixtures/` topology + `--cwd` launch (D70-L), unify dev gating under `BRUNCH_DEV` and wire the dormant introspection extension into the real TUI (D71-L), and make introspection conversational (A26-L). Three sequenced slices; ready for a scoping thread. Low-conflict with the product trio; touches `.fixtures/`, `src/app/`, `src/dev/`, `src/.pi/extensions/introspection/`.
+- `web-design-system-port` — **bounded feature; `Certainty: earned`; done 2026-06-09.** Ported the prior trunk's restrained design system (tokens + card primitives) into `src/web` and re-skinned the three existing read-only views, retiring the agent-invented "warm brunch" aesthetic (D72-L). Read-only presentation only; independent of the POC delivery spine and the context-pipeline trio. Execution record: `memory/cards/web-design-system-port--restyle.md`.
 
 ### Horizon
 
@@ -508,6 +509,27 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Traceability:** D4-L, D16-L, D19-L, D20-L, D52-L, D61-L, D62-L, D63-L / I1-L / A4-L, A14-L.
 - **Design docs:** `.fixtures/seeds/bilal-port/README.md`; `docs/design/GRAPH_MODEL.md`; `docs/praxis/manual-testing.md`.
 
+### web-design-system-port
+
+- **Name:** Web client visual design-system port
+- **Linear:** unassigned
+- **Kind:** bounded feature (web presentation)
+- **Certainty:** earned — the target design exists and works in `../brunch/src/client`; the closure is *materialize the port + delete the invented aesthetic*, not retire an unknown. (Project default is `proving`; this frontier overrides because the design is known.)
+- **Status:** done (all three cards landed 2026-06-09; `memory/cards/web-design-system-port--restyle.md`)
+- **Objective:** Replace the agent-invented "warm brunch" web aesthetic with the prior trunk's restrained design language (D72-L). Two materializations and one deletion: (a) **tokens** — port the token system into `src/web/styles.css` (Inter + Geist Mono; `ink/sub/hint/rule/wash/tint` ramp + link/plane accents; 11–16px type scale; `--shadow-card` family); (b) **primitives** — copy `DrawerCard`, `KindBadge`, `CountBadge`, `RefBadge` into a new `src/web/components/`, adapted from the old `KnowledgeKind` knowledge-card pattern to this trunk's `NodeKind`/`NodePlane` with a plane-organized accent map; (c) **re-skin** the three existing views (`WorkspaceChrome`, `GraphOverviewPanel`, `SessionPanel`) as a *style + component-pattern port of the views we have* (scope correction, user 2026-06-09) — preserving behavior except invented dead scaffolding — and delete the warm gradients, `backdrop-blur`, oversized radii/shadows, translucent surfaces, and wide-tracked uppercase labels. The non-functional "Focus node" placeholder (never called `graph.nodeNeighborhood`) was removed; the "Edge categories" summary was kept (restyled, user finds it useful).
+- **Why now / unlocks:** The current web UI's visual language was invented wholesale by the agent that built it and does not match the product's established look. Realigning now keeps the read-only observer surface presentable for manual/observer testing and stops the invented aesthetic from being copied forward into future web views. Independent of the delivery spine — touches no data, RPC, query, subscription, or routing code.
+- **Acceptance:**
+  - `src/web/styles.css` carries the ported token system; no warm-palette tokens, body gradients, or `backdrop-blur` remain.
+  - `src/web/components/` holds the ported primitives; the accent map is exhaustive over `NodePlane`, with a compile-time `satisfies Record<NodePlane, PlaneAccent>` guard, while reference-code labels stay canonical via `NODE_KIND_METADATA` + `kindOrdinal` (I43-L).
+  - The three views render in the ported language: quiet metadata-row chrome, `plane / kind`-grouped node cards with canonical reference codes (`NODE_KIND_METADATA` labels + `kindOrdinal`) and plane-accented `KindBadge`/`CountBadge`, plain session card. The "Edge categories" summary is kept (restyled as `RefBadge` chips); the non-functional "Focus node" placeholder is removed.
+  - Read-only contract preserved: no change to queries, RPC client, subscriptions, routes, or projection inputs.
+  - Existing web tests preserved; only the two Focus-node assertions removed; `npm run verify` is green (28 web tests, oxlint type-aware clean, build clean).
+- **Verification:** Inner — `npm run verify` (oxlint type-aware + oxfmt + vitest + build); update `src/web/app.test.tsx` and any view tests that assert retired class names / `aria-label`s. Outer — manual browser check of `/` and `/spec/$specId` against a seeded spec (`npm run seed` then launch web mode) to confirm the chrome, kind-grouped graph cards, and session panel match the prior trunk's look.
+- **Topology materialization:** Stays inside `src/web` per D52-L (`web/` is a standalone build target; must not read SQLite/Pi RPC/JSONL directly). New `src/web/components/` owns ported primitives; only `src/web` imports from it. Component/style patterns are copied (not shared) from `../brunch`. Exception to `sourcing: strip-or-build`: the webfont packages `@fontsource-variable/inter` + `@fontsource-variable/geist-mono` were added with user approval (2026-06-09) — the fonts are the most visible design token; the "no new packages" line was not a hard rule.
+- **Cross-cutting obligations:** Pre-release posture (`migration: free-rewrite`) — discard the invented design freely; do not preserve it for compatibility. Read-only invariant (D33-L one-writer/many-observer): this frontier adds no web write paths. Node reference codes must use the canonical `NODE_KIND_METADATA` projection (D62-L), not a web-local relabeling.
+- **Traceability:** D10-L, D52-L, D62-L, D72-L / I43-L, I39-L.
+- **Design docs:** `../brunch/src/client/index.css`, `../brunch/src/client/components/drawer-card.tsx`, `../brunch/src/client/components/knowledge-card.tsx` (reference source — separate checkout, not imported).
+
 ## Recently Completed
 - 2026-06-09 `role-safe-graph-mutations` — Done: retired the remaining public `commitGraph` residue, extracted the shared mutation planner/writer out of `CommandExecutor`, and completed the last boundary migration so dev curation now exposes `dev.graph.mutateGraph` with role-named create-edge ops plus projected node-code / selected-spec edge-id resolution. Follow-up closure on the same frontier: reconciled the remaining product probes and current docs to the canonical `mutateGraph` / `mutate_graph` grammar, explicitly marked the checked-in 2026-06-05 fixture-curation artifact as historical pre-migration `commit_graph` evidence, and added role-named edge schema coverage across the Pi tool and dev RPC boundaries. Verified: `npx vitest run src/rpc/handlers.test.ts src/app/brunch.test.ts src/probes/fixture-curation-loop.test.ts src/probes/propose-graph-commit-proof.test.ts src/graph/mutate-graph-edge-schema.test.ts` and `npm run verify`.
 
@@ -549,6 +571,7 @@ nodes:
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
   dev-seed-fixtures                [parallel]        rich seed data substrate for dev/observer testing
+  web-design-system-port           [done · earned]     ported prior-trunk tokens + card primitives into src/web; retired invented warm aesthetic; read-only, no spine deps
 
 edges:
   graph-tool-resilience     -[hard]->         capture-response-to-graph

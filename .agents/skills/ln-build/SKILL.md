@@ -12,7 +12,7 @@ Implement **one** scope card. Beck's red-green-refactor, one cycle, no scope cre
 
 A scope file under `memory/cards/`, an inline scope card from `ln-scope`, or a trivial direct-fix request: $ARGUMENTS
 
-Extract: target behavior / objective, acceptance criteria, verification approach, and (when present) expected touched paths.
+Extract: target behavior / objective, acceptance criteria, verification approach, cold-start reads, and (when present) expected touched paths.
 
 Treat the scope card as the next implementation slice inside its containing `memory/PLAN.md` frontier item (or, for dev/tooling/docs work, the named category prefix). The frontier item is the plan-level work item and Linear/branch unit; the scope-card slice is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive slices may land on the same branch — including slices that live in separate scope files but share a frontier.
 
@@ -40,6 +40,8 @@ If this is a fresh thread or an unfamiliar area, reload:
 2. `memory/PLAN.md`
 3. `HANDOFF.md` if present
 4. `docs/archive/PLAN_HISTORY.md` only if the frontier or touched area is still unclear
+
+Let the card's **Cold-start reads** block scope this reload — resolve the specific decision/invariant ids and frontier it names. The numbered list above is the fallback when the card omits Cold-start reads or you need broader orientation. If the card's Cold-start reads turn out to be incomplete or stale (an id it names no longer exists, or you needed a doc it did not list), that is a scope defect — note it and route back through `ln-scope` rather than silently working around it.
 
 Write a 2-4 bullet orientation note naming the containing seam, the frontier item (or dev/tooling concern), any manual verification debt, and the main open risk.
 Also name any frontier-level cross-cutting obligations the slice inherits (for example shared mutation-authority rules, side-task/event-substrate semantics, or verification-layer commitments).

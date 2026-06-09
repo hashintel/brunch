@@ -72,7 +72,9 @@ Created:  YYYY-MM-DD
 
 ### Why one file per concern, not one file for everything
 
-The `memory/cards/` directory is a scoping inbox where multiple agents can deposit independent scope files in parallel without colliding on a single shared file. Each file is the unit of execution context that one `ln-build` invocation consumes.
+The `memory/cards/` directory is a scoping inbox where multiple agents can deposit independent scope files in parallel without colliding on a single shared file. Each file is the unit of work one `ln-build` invocation consumes.
+
+The card does **not** inline canonical context — it points to it via [§Cold-start reads](#cold-start-reads). The full execution context is the card *plus* the canonical docs its Cold-start reads enumerate, which `ln-build` reloads on a fresh thread. A card therefore need not be self-contained to be cold-buildable; it must make its required reads explicit. "Free-standing enough for a separate builder thread" means *its Cold-start reads are complete*, not *its content is duplicated* — inlining SPEC/PLAN text into the card duplicates canonical truth and invites drift.
 
 Multiple scope files per frontier are permitted — they represent independent concerns that happen to land on the same branch. They do **not** imply multiple Linear issues or multiple Graphite branches; the frontier item remains the tracker/branch boundary.
 
@@ -181,6 +183,19 @@ If you cannot name the containing seam, the governing decision, or the live inva
 
 What is true when this slice is done? Single declarative sentence — observable, testable, no conjunctions.
 
+### Cold-start reads
+
+The canonical context a fresh builder thread must resolve **before** building this card. Pointers, not copies — name the exact ids/paths to load; never restate their content here (that duplicates canonical truth and invites drift).
+
+```
+- memory/SPEC.md   — decisions / invariants / assumptions: <ids>  (e.g. D53-L, A4-L)
+- memory/PLAN.md    — frontier: <frontier-id>
+- HANDOFF.md        — <live state this card depends on>            (omit if none)
+- <topology README / other canonical doc> — <what to read there>  (omit if none)
+```
+
+This block is the answer to "could a separate builder thread work this card cold?" If you cannot enumerate the reads that make the card resolvable, the card is under-scoped — not the reader under-briefed.
+
 ### Boundary Crossings
 
 Every boundary the slice passes through, entry to exit:
@@ -281,6 +296,18 @@ src/legacy/observer.ts ?
 ### Objective
 
 Single sentence: what this work changes for the user, operator, or codebase.
+
+### Cold-start reads
+
+The canonical pointers a fresh builder must resolve before building — ids/paths, not copies.
+
+```
+- memory/SPEC.md   — <decision / invariant ids>          (or None)
+- memory/PLAN.md    — frontier: <frontier-id> | category concern
+- HANDOFF.md        — <live state>                        (if any)
+```
+
+If you cannot name what makes this card resolvable cold, it is not settled enough for light mode.
 
 ### Acceptance Criteria
 

@@ -1,9 +1,13 @@
 import { useSuspenseQuery, type QueryClient } from '@tanstack/react-query';
-import { Outlet, createRootRouteWithContext, createRoute } from '@tanstack/react-router';
+import { Link, Outlet, createRootRouteWithContext, createRoute } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
-import { workspaceStateQueryOptions } from '../queries/workspace.js';
+import {
+  workspaceSelectionStateQueryOptions,
+  workspaceStateQueryOptions,
+  type WorkspaceSelectionState,
+} from '../queries/workspace.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 import { useBrunchUpdateSubscription } from '../subscriptions/brunch-updates.js';
 
@@ -23,7 +27,11 @@ export const rootRoute = createRootRouteWithContext<BrunchWebRouterContext>()({
 export const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  loader: ({ context }) => context.queryClient.ensureQueryData(workspaceStateQueryOptions(context.rpcClient)),
+  loader: ({ context }) =>
+    Promise.all([
+      context.queryClient.ensureQueryData(workspaceStateQueryOptions(context.rpcClient)),
+      context.queryClient.ensureQueryData(workspaceSelectionStateQueryOptions(context.rpcClient)),
+    ]),
   component: WorkspaceStatePage,
 });
 
@@ -49,13 +57,44 @@ function RootLayout() {
 function WorkspaceStatePage() {
   const { rpcClient } = indexRoute.useRouteContext();
   const { data: state } = useSuspenseQuery(workspaceStateQueryOptions(rpcClient));
+  const { data: selection } = useSuspenseQuery(workspaceSelectionStateQueryOptions(rpcClient));
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8 lg:px-10">
-      <p className="text-brunch-muted font-mono text-xs tracking-[0.35em] uppercase">Brunch workspace</p>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-4 px-5 py-8 sm:px-8 lg:px-10">
+      <p className="text-hint font-mono text-xs">Brunch workspace</p>
       <WorkspaceChrome state={state} />
+      <SpecList specs={selection.specs} />
       <SessionPanel state={state} />
     </main>
+  );
+}
+
+function SpecList(options: { specs: WorkspaceSelectionState['specs'] }) {
+  return (
+    <nav
+      aria-label="Specs"
+      className="border-rule rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]"
+    >
+      <h2 className="text-ink text-base font-semibold">Specs</h2>
+      {options.specs.length === 0 ? (
+        <p className="text-sub mt-2 text-sm">No specs in this workspace.</p>
+      ) : (
+        <ul className="mt-2 flex flex-col gap-1">
+          {options.specs.map(({ spec }) => (
+            <li key={spec.id}>
+              <Link
+                to="/spec/$specId"
+                params={{ specId: String(spec.id) }}
+                className="hover:border-rule hover:bg-tint flex items-baseline gap-3 rounded-lg border border-transparent px-2 py-1.5"
+              >
+                <span className="text-hint shrink-0 font-mono text-xs">{`Spec ${spec.id}`}</span>
+                <span className="text-link text-sm">{spec.title}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </nav>
   );
 }
 
@@ -67,29 +106,33 @@ export function WorkspaceChrome(options: { state: WorkspaceState; fallbackSpecId
   return (
     <dl
       aria-label="Workspace chrome"
-      className="border-brunch-rule/80 bg-brunch-card/85 grid gap-3 rounded-[2rem] border p-5 shadow-[0_24px_80px_rgb(73_50_24_/_0.12)] backdrop-blur sm:grid-cols-2 lg:grid-cols-5"
+      className="border-rule overflow-hidden rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]"
     >
-      <div className="rounded-2xl bg-white/45 p-4 lg:col-span-2">
-        <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">cwd</dt>
-        <dd className="text-brunch-ink mt-2 font-mono text-sm break-all">{state.cwd}</dd>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="lg:col-span-2">
+          <dt className="text-xxs text-hint font-mono">cwd</dt>
+          <dd className="text-ink mt-1 font-mono text-sm break-all">{state.cwd}</dd>
+        </div>
+        <div>
+          <dt className="text-xxs text-hint font-mono">spec</dt>
+          <dd className="text-ink mt-1 text-sm font-medium">{specLabel}</dd>
+        </div>
+        <div>
+          <dt className="text-xxs text-hint font-mono">session</dt>
+          <dd className="text-ink mt-1 font-mono text-sm break-all">
+            {state.session?.id ?? 'No session selected'}
+          </dd>
+        </div>
       </div>
-      <div className="rounded-2xl bg-white/45 p-4">
-        <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">spec</dt>
-        <dd className="text-brunch-ink mt-2 text-lg leading-tight font-semibold">{specLabel}</dd>
-      </div>
-      <div className="rounded-2xl bg-white/45 p-4">
-        <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">session</dt>
-        <dd className="text-brunch-ink mt-2 font-mono text-sm break-all">
-          {state.session?.id ?? 'No session selected'}
-        </dd>
-      </div>
-      <div className="rounded-2xl bg-white/45 p-4">
-        <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">phase</dt>
-        <dd className="text-brunch-ink mt-2 text-sm font-medium">{state.chrome.phase}</dd>
-      </div>
-      <div className="border-brunch-rule/70 rounded-2xl border bg-white/35 p-4 sm:col-span-2 lg:col-span-5">
-        <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">chat mode</dt>
-        <dd className="text-brunch-accent mt-2 text-sm font-medium">{state.chrome.chatMode}</dd>
+      <div className="border-rule mt-4 grid gap-4 border-t pt-4 sm:grid-cols-2">
+        <div>
+          <dt className="text-xxs text-hint font-mono">phase</dt>
+          <dd className="text-ink mt-1 text-sm font-medium">{state.chrome.phase}</dd>
+        </div>
+        <div>
+          <dt className="text-xxs text-hint font-mono">chat mode</dt>
+          <dd className="text-link mt-1 text-sm font-medium">{state.chrome.chatMode}</dd>
+        </div>
       </div>
     </dl>
   );
@@ -118,10 +161,10 @@ export function SessionPanel(options: { state: WorkspaceState; viewedSpecId?: nu
   return (
     <section
       aria-label="Session"
-      className="border-brunch-rule/70 rounded-[1.75rem] border bg-white/55 p-5 shadow-[0_14px_50px_rgb(73_50_24_/_0.08)]"
+      className="border-rule rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]"
     >
-      <h2 className="text-brunch-ink text-2xl font-semibold tracking-[-0.03em]">Session</h2>
-      <div className="text-brunch-muted mt-3 space-y-2 text-sm">{content}</div>
+      <h2 className="text-ink text-base font-semibold">Session</h2>
+      <div className="text-sub mt-2 space-y-1 text-sm">{content}</div>
     </section>
   );
 }

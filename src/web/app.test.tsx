@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { QueryClient } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { GraphSlice, NodeNeighborhood } from '../graph/queries.js';
@@ -45,6 +45,26 @@ const selectedSpecWithoutSessionState: WorkspaceState = {
     phase: 'select_spec',
     chatMode: 'select-spec',
   },
+};
+
+const emptySelectionState = {
+  status: 'select_spec',
+  requiresSelection: true,
+  cwd: '/tmp/brunch-project',
+  currentSpec: null,
+  currentSessionFile: null,
+  needsNewSpec: true,
+  specs: [],
+  unavailableSessions: [],
+};
+
+const populatedSelectionState = {
+  ...emptySelectionState,
+  needsNewSpec: false,
+  specs: [
+    { spec: { id: 1, title: 'Web spec' }, sessions: [] },
+    { spec: { id: 2, title: 'Second spec' }, sessions: [] },
+  ],
 };
 
 const emptyGraphOverview = {
@@ -103,6 +123,7 @@ const foundNeighborhood = {
 
 function rpcClient(options?: {
   state?: WorkspaceState;
+  selectionState?: unknown;
   graphOverview?: GraphSlice;
   nodeNeighborhood?: NodeNeighborhood;
   calls?: RpcCall[];
@@ -117,6 +138,9 @@ function rpcClient(options?: {
       calls?.push(params === undefined ? { method } : { method, params });
       if (method === 'workspace.state') {
         return state as T;
+      }
+      if (method === 'workspace.selectionState') {
+        return (options?.selectionState ?? emptySelectionState) as T;
       }
       if (method === 'session.runtimeState') {
         throw new Error('session.runtimeState is not implemented in this test client');
@@ -155,6 +179,17 @@ describe('Brunch React web app', () => {
     expect(screen.getByText('responding-to-elicitation')).toBeTruthy();
   });
 
+  it('lists workspace specs as links to their spec routes', async () => {
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ selectionState: populatedSelectionState }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    const secondSpecLink = await screen.findByRole('link', { name: /Second spec/u });
+    expect(secondSpecLink.getAttribute('href')).toBe('/spec/2');
+  });
+
   it('renders selected session identity without requesting session projections', async () => {
     const calls: RpcCall[] = [];
     const runtime = createBrunchWebRuntime({ rpcClient: rpcClient({ calls }) });
@@ -181,8 +216,6 @@ describe('Brunch React web app', () => {
     expect(screen.getAllByText('intent / assumption').length).toBeGreaterThan(0);
     expect(screen.getAllByText('intent / requirement').length).toBeGreaterThan(0);
     expect(screen.getByText('support: 1')).toBeTruthy();
-    fireEvent.click(screen.getAllByText('Focus node')[0]!);
-    expect(screen.getByText('Focused read pending: graph.nodeNeighborhood(1, 11, 1)')).toBeTruthy();
   });
 
   it('derives graph overview presentation from GraphSlice arrays without count aliases', async () => {
@@ -375,7 +408,9 @@ describe('Brunch React web app', () => {
     render(<BrunchWebApp runtime={runtime} />);
 
     expect(await screen.findByText('No Brunch session selected.')).toBeTruthy();
-    expect(calls).toEqual([{ method: 'workspace.state' }]);
+    expect(calls).toContainEqual({ method: 'workspace.state' });
+    expect(calls).toContainEqual({ method: 'workspace.selectionState' });
+    expect(calls.some((call) => call.method.startsWith('session.'))).toBe(false);
   });
 
   it('keeps one router and QueryClient across BrunchWebApp re-renders', async () => {

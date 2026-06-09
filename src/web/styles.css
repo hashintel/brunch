@@ -1,31 +1,60 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/inter';
+@import '@fontsource-variable/geist-mono';
 
 @theme {
-  --font-sans: 'IBM Plex Sans', 'Aptos', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
-  --color-brunch-ink: #17130d;
-  --color-brunch-paper: #f8f2e7;
-  --color-brunch-card: #fffaf0;
-  --color-brunch-rule: #d8c6a6;
-  --color-brunch-muted: #756852;
-  --color-brunch-accent: #d35c2f;
-  --color-brunch-graph: #246a73;
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+
+  /* Typography scale — six steps from 11px to 16px.
+     Overrides Tailwind's built-in sm/xs/base; adds xxs / xs-plus / sm-plus. */
+  --text-xxs: 0.6875rem; /* 11px — badges, tag labels */
+  --text-xxs--line-height: 1.7;
+  --text-xs: 0.75rem; /* 12px — secondary text */
+  --text-xs--line-height: 1.6;
+  --text-xs-plus: 0.8125rem; /* 13px — secondary body, "why" text */
+  --text-xs-plus--line-height: 1.55;
+  --text-sm: 0.875rem; /* 14px — body text */
+  --text-sm--line-height: 1.5;
+  --text-sm-plus: 0.9375rem; /* 15px — card headings, question text */
+  --text-sm-plus--line-height: 1.5;
+  --text-base: 1rem; /* 16px — section headings */
+  --text-base--line-height: 1.4;
+
+  /* Figma design grays — neutral ramp for text, borders, and surfaces.
+     Usage: text-ink, text-sub, text-hint, border-rule, bg-wash, bg-tint */
+  --color-ink: #202020; /* primary text — almost-black */
+  --color-sub: #5b5b5b; /* subtitles, section headers */
+  --color-hint: #a6a6a6; /* IDs, breadcrumb inactive, placeholders */
+  --color-rule: #e3e3e3; /* card borders, dividers */
+  --color-wash: #f0f0f0; /* toggle tracks, ghost button fills */
+  --color-tint: #fafafa; /* subtle background tint for card nesting */
+
+  /* Semantic accent — link color. Per-kind accents live in the TS accent map. */
+  --color-link: #2070e6;
+
+  /* Shadow tokens — the consistent subtle card shadow. */
+  --shadow-card: 0px 4px 4px -2px rgba(0, 0, 0, 0.02), 0px 2px 2px -1px rgba(0, 0, 0, 0.02);
+  --shadow-ring: 0px 0px 0px 1px rgba(0, 0, 0, 0.08);
+  --shadow-card-ring:
+    0px 4px 4px -2px rgba(0, 0, 0, 0.02), 0px 2px 2px -1px rgba(0, 0, 0, 0.02),
+    0px 0px 0px 1px rgba(0, 0, 0, 0.08);
 }
 
 @layer base {
   html {
     color-scheme: light;
     font-family: var(--font-sans);
-    background: var(--color-brunch-paper);
+    background: #ffffff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     min-width: 320px;
     margin: 0;
-    background:
-      radial-gradient(circle at top left, rgb(211 92 47 / 0.16), transparent 32rem),
-      linear-gradient(135deg, #fbf4e8 0%, #f3e6cf 48%, #eee0c8 100%);
-    color: var(--color-brunch-ink);
+    background: #ffffff;
+    color: var(--color-ink);
   }
 
   button,
@@ -37,8 +66,8 @@
 
   button:focus-visible,
   a:focus-visible {
-    outline: 2px solid var(--color-brunch-graph);
-    outline-offset: 3px;
+    outline: 2px solid var(--color-link);
+    outline-offset: 2px;
   }
 
   #root {

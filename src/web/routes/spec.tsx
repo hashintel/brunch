@@ -33,10 +33,10 @@ function InvalidSpecRoutePage() {
   const { rpcClient } = specRoute.useRouteContext();
   const { data: state } = useSuspenseQuery(workspaceStateQueryOptions(rpcClient));
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8 lg:px-10">
-      <p className="text-brunch-muted font-mono text-xs tracking-[0.35em] uppercase">Brunch workspace</p>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-4 px-5 py-8 sm:px-8 lg:px-10">
+      <p className="text-hint font-mono text-xs">Brunch workspace</p>
       <WorkspaceChrome state={state} />
-      <p className="border-brunch-accent/40 text-brunch-accent rounded-[1.5rem] border bg-white/60 p-5">
+      <p className="border-rule text-link rounded-xl border bg-white p-4 text-sm shadow-[var(--shadow-card)]">
         Invalid spec id.
       </p>
     </main>
@@ -49,8 +49,8 @@ function ValidSpecRoutePage({ specId }: { specId: number }) {
   const { data: overview } = useSuspenseQuery(graphOverviewQueryOptions(rpcClient, specId));
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-6 px-5 py-8 sm:px-8 lg:px-10">
-      <p className="text-brunch-muted font-mono text-xs tracking-[0.35em] uppercase">Brunch workspace</p>
+    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-4 px-5 py-8 sm:px-8 lg:px-10">
+      <p className="text-hint font-mono text-xs">Brunch workspace</p>
       <WorkspaceChrome state={state} fallbackSpecId={specId} />
       <GraphOverviewPanel overview={overview} />
       <SessionPanel state={state} viewedSpecId={specId} />
