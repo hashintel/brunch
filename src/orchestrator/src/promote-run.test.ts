@@ -54,6 +54,38 @@ describe('promoteGreenfieldRun', () => {
     );
   });
 
+  it('git-inits a fresh repo for an empty target nested inside an enclosing repo (no hijack)', () => {
+    const sandbox = makeSandbox();
+    const outer = tmpTarget();
+    const id = ['-c', 'user.name=t', '-c', 'user.email=t@e'];
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: outer });
+    writeFileSync(join(outer, 'outer.txt'), 'x\n');
+    execFileSync('git', ['add', '.'], { cwd: outer });
+    execFileSync('git', [...id, 'commit', '-q', '-m', 'base'], { cwd: outer });
+    const headBefore = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: outer, encoding: 'utf8' }).trim();
+    const branchesBefore = execFileSync('git', ['branch', '--list'], { cwd: outer, encoding: 'utf8' });
+
+    const target = join(outer, 'sub');
+    mkdirSync(target);
+    const result = promoteGreenfieldRun({ sandboxDir: sandbox, target, runId: 'r1', force: false });
+
+    // target is its own fresh repo holding the cook commit...
+    expect(result.branch).toBe('main');
+    expect(existsSync(join(target, '.git'))).toBe(true);
+    expect(existsSync(join(target, 'index.ts'))).toBe(true);
+    // ...and the enclosing repo is untouched (no cook branch, no commit, no tracked-file change).
+    expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: outer, encoding: 'utf8' }).trim()).toBe(
+      headBefore,
+    );
+    expect(execFileSync('git', ['branch', '--list'], { cwd: outer, encoding: 'utf8' })).toBe(branchesBefore);
+    expect(
+      execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+        cwd: outer,
+        encoding: 'utf8',
+      }),
+    ).toBe('');
+  });
+
   it('lands on a cook/<runId> branch in an existing repo with --force, leaving the original branch intact', () => {
     const sandbox = makeSandbox();
     const target = tmpTarget();

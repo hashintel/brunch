@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 export type PromoteResult = { target: string; branch: string; commit: string };
@@ -22,9 +22,13 @@ function isEmptyDir(dir: string): boolean {
   return !existsSync(dir) || readdirSync(dir).length === 0;
 }
 
-function isGitRepo(dir: string): boolean {
+// True only when `dir` is itself a repo root — not merely nested inside one
+// (`--show-toplevel` walks up, so we compare it to `dir`). Both sides go through
+// realpathSync because git canonicalizes symlinks (e.g. macOS /var → /private/var)
+// and we don't. Keeps promotion from committing into an enclosing repo.
+function isGitRepoRoot(dir: string): boolean {
   try {
-    return git(['rev-parse', '--is-inside-work-tree'], dir) === 'true';
+    return realpathSync(git(['rev-parse', '--show-toplevel'], dir)) === realpathSync(dir);
   } catch {
     return false;
   }
@@ -48,7 +52,7 @@ export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
   }
 
   let branch: string;
-  if (isGitRepo(target)) {
+  if (isGitRepoRoot(target)) {
     branch = `cook/${opts.runId}`;
     git(['checkout', '-q', '-b', branch], target);
   } else {
