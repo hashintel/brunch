@@ -274,7 +274,7 @@ src/graph/
 
 ## Card 3 — Exposed graph tool and direct writers port to `mutate_graph`
 
-Status: next after Card 2
+Status: done
 Weight: full
 
 ### Target Behavior

@@ -20,7 +20,7 @@ const registeredToolNames = [
   'request_review',
   'read_graph',
   'read_session_context',
-  'commit_graph',
+  'mutate_graph',
 ];
 
 describe('agent posture policy', () => {
@@ -53,7 +53,7 @@ describe('agent posture policy', () => {
     });
 
     expect(groundingMethods).not.toContain('commit-graph');
-    expect(groundingTools).not.toContain('commit_graph');
+    expect(groundingTools).not.toContain('mutate_graph');
     expect(groundingTools).toContain('read_graph');
     expect(groundingTools).toContain('read_session_context');
     expect(groundingTools).not.toContain('bash');
@@ -62,9 +62,9 @@ describe('agent posture policy', () => {
     );
 
     expect(elicitationMethods).toContain('commit-graph');
-    expect(elicitationTools).toContain('commit_graph');
+    expect(elicitationTools).toContain('mutate_graph');
     expect(commitmentsMethods).toContain('generate-proposal');
-    expect(commitmentsTools).toContain('commit_graph');
+    expect(commitmentsTools).toContain('mutate_graph');
     expect(commitmentsTools).toEqual(expect.arrayContaining(['present_review_set', 'request_review']));
     expect(elicitationTools).not.toContain('present_review_set');
   });

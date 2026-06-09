@@ -1,8 +1,9 @@
 import type { CommandExecutor } from '../command-executor.js';
 import type {
-  CommitGraphInput,
+  BatchNodeInput,
   CreatedGraphNodes,
   Diagnostic,
+  MutateGraphInput,
 } from '../command-executor/commit-graph-types.js';
 import type { NodePlane } from '../schema/nodes.js';
 
@@ -54,13 +55,12 @@ export function captureExplicitTextFacts(input: ExplicitTextCaptureInput): Struc
     };
   }
 
-  const command: CommitGraphInput = {
+  const command: MutateGraphInput = {
     specId: input.specId,
-    basis: 'explicit',
-    nodes,
-    edges: [],
+    createBasis: 'explicit',
+    ops: nodes.map((node) => ({ op: 'create_node' as const, ...node })),
   };
-  const result = input.commandExecutor.commitGraph(command);
+  const result = input.commandExecutor.mutateGraph(command);
   if (result.status === 'structural_illegal') return result;
 
   return {
@@ -93,7 +93,7 @@ function textAnswer(answer: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-type CapturedNode = CommitGraphInput['nodes'][number];
+type CapturedNode = BatchNodeInput;
 
 function extractLabeledIntentNodes(text: string, source: string): CapturedNode[] {
   const captured: CapturedNode[] = [];

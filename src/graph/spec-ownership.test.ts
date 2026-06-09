@@ -201,10 +201,10 @@ describe('graph items are owned by spec', () => {
 });
 
 describe('tool guard: agent-facing graph tool schemas do not expose specId', () => {
-  it('CommitGraphParams has no top-level specId field', async () => {
+  it('MutateGraphParams has no top-level specId field', async () => {
     const mod = await import('../.pi/extensions/graph/tool-schemas.js');
     // Sinclair TypeBox object schemas store fields under `properties`
-    const schema = mod.CommitGraphParams as unknown as {
+    const schema = mod.MutateGraphParams as unknown as {
       properties: Record<string, unknown>;
     };
     expect(Object.keys(schema.properties)).not.toContain('specId');

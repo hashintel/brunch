@@ -25,7 +25,7 @@ extensions/
 ├── compaction/              auto-compaction anchor contract and future hook
 ├── context/                 snapshot/context Pi tools
 ├── exchanges/               structured-exchange present_* / request_* Pi tools
-├── graph/                   commit_graph/read_graph Pi tools
+├── graph/                   mutate_graph/read_graph Pi tools
 ├── introspection/           dev-gated read-only provider-payload tap + /introspect command
 ├── mentions/                #graph mention prompt hint + autocomplete provider
 ├── runtime/                 active-tool policy and tool/user_bash guards

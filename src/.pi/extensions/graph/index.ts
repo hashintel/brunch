@@ -1,4 +1,4 @@
-/** Graph tool registrar — wires commit_graph and read_graph as Pi tools. */
+/** Graph tool registrar — wires mutate_graph and read_graph as Pi tools. */
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
@@ -17,13 +17,13 @@ import type {
 import { formatNeighborhood } from '../../../renderers/graph/node-neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
 import {
-  translateCommitGraph,
-  formatCommitGraphResult,
+  translateMutateGraph,
   formatGraphOverview,
+  formatMutateGraphResult,
   formatRelatedNodesResult,
   formatStructuralIllegal,
 } from './command-adapter.js';
-import { CommitGraphParams, ReadGraphParams } from './tool-schemas.js';
+import { MutateGraphParams, ReadGraphParams } from './tool-schemas.js';
 
 export interface GraphReaders {
   readonly queryGraph: (filter?: GraphFilter, options?: { visibility?: GraphVisibility }) => GraphSlice;
@@ -45,28 +45,28 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
   const { commandExecutor, reads } = deps;
 
   pi.registerTool({
-    name: 'commit_graph',
-    label: 'Commit Graph',
+    name: 'mutate_graph',
+    label: 'Mutate Graph',
     description:
-      'Atomically create a batch of nodes and edges in the specification graph. ' +
-      "Each node gets a temporary batch ref (e.g. 'n1') that edges can reference. " +
+      'Atomically apply a create-only graph mutation batch in the specification graph. ' +
+      "Each create_node op gets a temporary batch ref (e.g. 'n1') that create_edge ops can reference. " +
       'Edges can also reference existing nodes by projected code via {existingCode: "G1"}. ' +
-      'The entire batch succeeds or fails atomically.',
-    promptSnippet: 'Atomically commit nodes and edges to the specification graph',
+      'The entire mutation succeeds or fails atomically.',
+    promptSnippet: 'Atomically mutate the specification graph with create_node and create_edge ops',
     promptGuidelines: [
-      'Use commit_graph to persist specification elements (goals, requirements, decisions, etc.) after the user has accepted the concept.',
-      'Each node must have a unique batch `ref` string. Edges reference nodes by their `ref` or by `{existingCode: "G1"}` for nodes already in the selected spec.',
-      'If commit_graph returns STRUCTURAL_ILLEGAL, read the diagnostics, fix the issues, and retry. Do not show intermediate failures to the user.',
-      'The `stance` field is required on `proof` and `support` edges, and invalid on all other categories.',
+      'Use mutate_graph to persist specification elements (goals, requirements, decisions, etc.) after the user has accepted the concept.',
+      'Each create_node op must have a unique batch `ref` string. create_edge ops reference nodes by role-named fields using that `ref` or `{existingCode: "G1"}` for nodes already in the selected spec.',
+      'If mutate_graph returns STRUCTURAL_ILLEGAL, read the diagnostics, fix the issues, and retry. Do not show intermediate failures to the user.',
+      'The `stance` field is required on `proof` and `support` create_edge ops, and invalid on all other categories.',
       'Node kinds `decision` and `term` require a `detail` object; all other kinds must omit `detail`.',
     ],
-    parameters: CommitGraphParams,
+    parameters: MutateGraphParams,
 
     async execute(_toolCallId, params) {
       const specId = deps.specId;
-      const input = translateCommitGraph(params, specId, reads.resolveNodeCode);
-      const result = 'status' in input ? input : commandExecutor.commitGraph(input);
-      const text = formatCommitGraphResult(result);
+      const input = translateMutateGraph(params, specId, reads.resolveNodeCode);
+      const result = 'status' in input ? input : commandExecutor.mutateGraph(input);
+      const text = formatMutateGraphResult(result);
       if (result.status === 'success') {
         deps.productUpdates?.publish(graphMutationProductUpdates({ specId, lsn: result.lsn }));
       }

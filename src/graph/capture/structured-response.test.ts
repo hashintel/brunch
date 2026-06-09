@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CommandExecutor } from '../command-executor.js';
-import type { CommitGraphInput, CommitGraphResult } from '../command-executor/commit-graph-types.js';
+import type { MutateGraphInput, MutateGraphResult } from '../command-executor/commit-graph-types.js';
 import { captureExplicitTextFacts, captureStructuredResponseFacts } from './structured-response.js';
 
 class RecordingExecutor {
-  readonly calls: CommitGraphInput[] = [];
+  readonly calls: MutateGraphInput[] = [];
 
-  constructor(private readonly result: CommitGraphResult) {}
+  constructor(private readonly result: MutateGraphResult) {}
 
-  commitGraph(input: CommitGraphInput): CommitGraphResult {
+  mutateGraph(input: MutateGraphInput): MutateGraphResult {
     this.calls.push(input);
     return this.result;
   }
@@ -26,7 +26,11 @@ describe('captureStructuredResponseFacts', () => {
         constraint: { id: 13, code: 'CON1' },
         criterion: { id: 14, code: 'AC1' },
       },
-      edges: [],
+      createdEdges: [],
+      updatedNodes: [],
+      updatedEdges: [],
+      deletedNodes: [],
+      deletedEdges: [],
     });
 
     const outcome = captureStructuredResponseFacts({
@@ -57,9 +61,10 @@ describe('captureStructuredResponseFacts', () => {
     expect(executor.calls).toEqual([
       {
         specId: 42,
-        basis: 'explicit',
-        nodes: [
+        createBasis: 'explicit',
+        ops: [
           {
+            op: 'create_node',
             ref: 'goal',
             plane: 'intent',
             kind: 'goal',
@@ -67,6 +72,7 @@ describe('captureStructuredResponseFacts', () => {
             source: 'structured_exchange_response:grounding-text-2',
           },
           {
+            op: 'create_node',
             ref: 'context',
             plane: 'intent',
             kind: 'context',
@@ -74,6 +80,7 @@ describe('captureStructuredResponseFacts', () => {
             source: 'structured_exchange_response:grounding-text-2',
           },
           {
+            op: 'create_node',
             ref: 'constraint',
             plane: 'intent',
             kind: 'constraint',
@@ -81,6 +88,7 @@ describe('captureStructuredResponseFacts', () => {
             source: 'structured_exchange_response:grounding-text-2',
           },
           {
+            op: 'create_node',
             ref: 'criterion',
             plane: 'intent',
             kind: 'criterion',
@@ -88,7 +96,6 @@ describe('captureStructuredResponseFacts', () => {
             source: 'structured_exchange_response:grounding-text-2',
           },
         ],
-        edges: [],
       },
     ]);
   });
@@ -101,7 +108,11 @@ describe('captureStructuredResponseFacts', () => {
         goal: { id: 21, code: 'G1' },
         'goal-2': { id: 22, code: 'G2' },
       },
-      edges: [],
+      createdEdges: [],
+      updatedNodes: [],
+      updatedEdges: [],
+      deletedNodes: [],
+      deletedEdges: [],
     });
 
     const outcome = captureStructuredResponseFacts({
@@ -124,8 +135,9 @@ describe('captureStructuredResponseFacts', () => {
         'goal-2': { id: 22, code: 'G2' },
       },
     });
-    expect(executor.calls[0]!.nodes).toEqual([
+    expect(executor.calls[0]!.ops).toEqual([
       {
+        op: 'create_node',
         ref: 'goal',
         plane: 'intent',
         kind: 'goal',
@@ -133,6 +145,7 @@ describe('captureStructuredResponseFacts', () => {
         source: 'structured_exchange_response:grounding-text-3',
       },
       {
+        op: 'create_node',
         ref: 'goal-2',
         plane: 'intent',
         kind: 'goal',
@@ -143,7 +156,16 @@ describe('captureStructuredResponseFacts', () => {
   });
 
   it('returns no_capture for ambiguous or implication-only prose without invoking CommandExecutor', () => {
-    const executor = new RecordingExecutor({ status: 'success', lsn: 1, createdNodes: {}, edges: [] });
+    const executor = new RecordingExecutor({
+      status: 'success',
+      lsn: 1,
+      createdNodes: {},
+      createdEdges: [],
+      updatedNodes: [],
+      updatedEdges: [],
+      deletedNodes: [],
+      deletedEdges: [],
+    });
 
     const outcome = captureStructuredResponseFacts({
       specId: 42,
@@ -174,7 +196,16 @@ describe('captureStructuredResponseFacts', () => {
   });
 
   it('does not capture non-text structured exchange answers', () => {
-    const executor = new RecordingExecutor({ status: 'success', lsn: 1, createdNodes: {}, edges: [] });
+    const executor = new RecordingExecutor({
+      status: 'success',
+      lsn: 1,
+      createdNodes: {},
+      createdEdges: [],
+      updatedNodes: [],
+      updatedEdges: [],
+      deletedNodes: [],
+      deletedEdges: [],
+    });
 
     const outcome = captureStructuredResponseFacts({
       specId: 42,
@@ -196,7 +227,11 @@ describe('captureExplicitTextFacts', () => {
       createdNodes: {
         goal: { id: 31, code: 'G1' },
       },
-      edges: [],
+      createdEdges: [],
+      updatedNodes: [],
+      updatedEdges: [],
+      deletedNodes: [],
+      deletedEdges: [],
     });
 
     const outcome = captureExplicitTextFacts({
@@ -217,9 +252,10 @@ describe('captureExplicitTextFacts', () => {
     expect(executor.calls).toEqual([
       {
         specId: 42,
-        basis: 'explicit',
-        nodes: [
+        createBasis: 'explicit',
+        ops: [
           {
+            op: 'create_node',
             ref: 'goal',
             plane: 'intent',
             kind: 'goal',
@@ -227,7 +263,6 @@ describe('captureExplicitTextFacts', () => {
             source: 'session_message:message-1',
           },
         ],
-        edges: [],
       },
     ]);
   });

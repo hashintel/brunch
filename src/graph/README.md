@@ -12,11 +12,12 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
   `elicitation_backlog` (`createSpec` seeding plus create/close entry commands),
   because the backlog shares the same spec-local LSN and audit boundary.
 
-- **commitGraph** — atomic batch mutation for `propose-graph`: one tool call,
-  one transaction, one selected-spec LSN, all-or-nothing. It accepts product
-  command input (`nodes[]` with batch refs, `edges[]` with batch/existing refs),
-  not raw DB rows. `command-executor/commit-graph-batch.ts` owns the private
-  shared planner used by both dry-run and commit before any batch writes occur.
+- **mutateGraph** — atomic graph mutation for direct writers and future curation:
+  one tool call, one transaction, one selected-spec LSN, all-or-nothing. The
+  direct agent surface currently uses create-only `ops[]` (`create_node` plus
+  role-named `create_edge`) rather than raw DB rows. `command-executor/`
+  owns the private shared planners used by both dry-run and commit before any
+  batch writes occur.
 
 - **review-set payload translation** (`review-set.ts`) — validates exact
   user-reviewable review-set payloads, resolves projected existing-node codes
@@ -25,7 +26,7 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
   accepted review sets and records `operation: "accept_review_set"`.
 
 - **Capture translators** (`capture/`) — narrow, high-confidence structured
-  response translators that turn transcript-native answers into `commitGraph`
+  response translators that turn transcript-native answers into `mutateGraph`
   command input. They do not write DB rows directly and do not own session
   projection.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
@@ -88,7 +89,7 @@ not compare bare LSN values across sibling specs.
 
 ## Imported by
 
-- `.pi/extensions/graph/` — Pi tool adapters for `commit_graph` and `read_graph`.
+- `.pi/extensions/graph/` — Pi tool adapters for `mutate_graph` and `read_graph`.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
 - `projections/graph/` — reusable DTO projection over graph reader/command outputs.
 - `renderers/graph/` — reusable lossy markdown/text rendering over projected graph DTOs.

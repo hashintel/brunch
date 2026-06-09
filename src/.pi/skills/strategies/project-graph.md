@@ -6,4 +6,4 @@ Turn structure: read the relevant graph context, generate candidate graph materi
 
 Commitment mechanism: D26-L review-set flow. Nothing is durable until review-set approval; approval commits the whole accepted set atomically through `acceptReviewSet` / CommandExecutor, and exact approved items use `basis: explicit`. Partial acceptance is not representable.
 
-Available graph operations are read context, generate proposal, dry-run validation, and review exchange; do not call `commit_graph` directly as a shortcut. Use the same closed edge category rubric as graph commits, and abstain from proposing edges whose category cannot be justified.
+Available graph operations are read context, generate proposal, dry-run validation, and review exchange; do not call `mutate_graph` directly as a shortcut. Use the same closed edge category rubric as graph commits, and abstain from proposing edges whose category cannot be justified.
