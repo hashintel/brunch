@@ -22,6 +22,16 @@ export type Slice = {
   definition: string;
   depends_on: string[];
   verification: Verification[];
+  /**
+   * Repo-relative POSIX file paths this slice exclusively mutates (exact
+   * paths only — no globs, no directories). Optional until file-layout
+   * authoring lands. Used by the executability contract to enforce
+   * single-writer-per-file: a path declared by ≥2 slices is a design-class
+   * `file-write-conflict` (never auto-repaired). A "join slice" is simply the
+   * sole writer of a shared coordination file (e.g. `src/index.ts`) that
+   * `depends_on` the slices it joins — not an exception to single-writer.
+   */
+  writes?: string[];
 };
 
 /**

@@ -154,6 +154,41 @@ describe('checkPlan', () => {
     expect(p).toEqual(snapshot);
   });
 
+  it('accepts disjoint file ownership without a file-write-conflict (FE-829 slice 4)', () => {
+    const result = checkPlan(
+      plan(
+        [epic('e')],
+        [slice('a', 'e', { writes: ['src/a.ts'] }), slice('b', 'e', { writes: ['src/b.ts'] })],
+      ),
+    );
+    expect(codes(result.findings)).not.toContain('file-write-conflict');
+  });
+
+  it('warns (does not error) when ≥2 slices declare the same file (FE-829 slice 4)', () => {
+    const result = checkPlan(
+      plan(
+        [epic('e')],
+        [slice('a', 'e', { writes: ['src/index.ts'] }), slice('b', 'e', { writes: ['src/index.ts'] })],
+      ),
+    );
+    const conflict = result.findings.find((f) => f.code === 'file-write-conflict');
+    expect(conflict).toEqual({
+      code: 'file-write-conflict',
+      severity: 'warning',
+      path: 'src/index.ts',
+      sliceIds: ['a', 'b'],
+    });
+    // A design-class warning does not fail the base profile.
+    expect(result.ok).toBe(true);
+  });
+
+  it('does not false-positive on a path listed twice within one slice (FE-829 slice 4)', () => {
+    const result = checkPlan(
+      plan([epic('e')], [slice('a', 'e', { writes: ['src/index.ts', 'src/index.ts'] })]),
+    );
+    expect(codes(result.findings)).not.toContain('file-write-conflict');
+  });
+
   it.each(['parallel-utils', 'layered-todo', 'resilient-pipeline'])(
     'accepts reference fixture %s unmodified (base profile)',
     (name) => {
@@ -258,5 +293,20 @@ describe('repairPlan', () => {
     const second = repairPlan(first.plan, toolchain);
     expect(second.plan).toEqual(first.plan);
     expect(second.repairs).toEqual([]);
+  });
+
+  it('never rewrites file ownership or invents a join slice (FE-829 slice 4)', () => {
+    const p = plan(
+      [epic('e')],
+      [slice('a', 'e', { writes: ['src/index.ts'] }), slice('b', 'e', { writes: ['src/index.ts'] })],
+    );
+    const { plan: repaired, repairs } = repairPlan(p, toolchain);
+
+    // Overlapping writes are preserved verbatim — design-class, never repaired.
+    expect(repaired.slices.map((s) => s.writes)).toEqual([['src/index.ts'], ['src/index.ts']]);
+    // No new slices minted to resolve the conflict.
+    expect(repaired.slices.map((s) => s.id)).toEqual(['a', 'b']);
+    // No writes-related repair surfaced.
+    expect(repairs.some((r) => r.code.includes('write') || r.code.includes('join'))).toBe(false);
   });
 });

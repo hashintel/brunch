@@ -47,7 +47,8 @@ export type ContractFinding =
   | { code: 'slice-missing-verification'; severity: 'error'; sliceId: string }
   | { code: 'slice-missing-epic'; severity: 'error'; sliceId: string; epicId: string }
   | { code: 'multi-slice-epic-missing-integration-seam'; severity: 'warning' | 'error'; epicId: string }
-  | { code: 'uncovered-requirement'; severity: 'error'; sliceId: string };
+  | { code: 'uncovered-requirement'; severity: 'error'; sliceId: string }
+  | { code: 'file-write-conflict'; severity: 'warning'; path: string; sliceIds: string[] };
 
 export interface ContractResult {
   /** No `error`-severity findings under the selected profile. */
@@ -124,6 +125,24 @@ export function checkPlan(plan: Plan, expectations: ContractExpectations = {}): 
     }
   }
 
+  // File ownership: single-writer-per-file. A path declared by ≥2 slices is a
+  // design-class conflict (resolving it changes decomposition / ownership, so
+  // it is never auto-repaired). Duplicate paths within ONE slice are deduped
+  // first so a slice listing the same path twice cannot self-conflict.
+  const writersByPath = new Map<string, string[]>();
+  for (const slice of plan.slices) {
+    for (const path of new Set(slice.writes ?? [])) {
+      const writers = writersByPath.get(path) ?? [];
+      writers.push(slice.id);
+      writersByPath.set(path, writers);
+    }
+  }
+  for (const [path, conflictSliceIds] of writersByPath) {
+    if (conflictSliceIds.length >= 2) {
+      findings.push({ code: 'file-write-conflict', severity: 'warning', path, sliceIds: conflictSliceIds });
+    }
+  }
+
   return { ok: findings.every((finding) => finding.severity !== 'error'), findings };
 }
 
@@ -139,7 +158,12 @@ export type ContractRepair =
  * typed repair per change. Idempotent: `repairPlan(repairPlan(p).plan)`
  * yields an equal plan and no further repairs, and `checkPlan` accepts the
  * result under the strict `emitted` profile when no design-class issue
- * (an uncovered requirement) remains.
+ * (an uncovered requirement, or a `file-write-conflict`) remains.
+ *
+ * File ownership is design-class: repair never rewrites `writes`, moves
+ * ownership between slices, or synthesizes a join slice. Overlapping
+ * `writes` are preserved verbatim (carried through the slice spread) and
+ * surfaced only via `checkPlan`; resolving them is an authoring decision.
  */
 export function repairPlan(
   plan: Plan,
