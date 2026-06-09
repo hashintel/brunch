@@ -1,6 +1,7 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
@@ -8,6 +9,7 @@ import { stringify as stringifyYaml } from 'yaml';
 import type { ArchitectDraft, RunModel } from './plan-architect.js';
 import { checkPlan } from './plan-contract.js';
 import { emitPlanFromSnapshot, emitterWarningCategory, formatEmitterWarning } from './plan-emitter.js';
+import { evaluatePlanShape } from './plan-eval.js';
 import { loadPlan } from './plan-loader.js';
 import type { CompletedSpecSnapshot } from './plan-projection.js';
 
@@ -233,4 +235,37 @@ describe('emitPlanFromSnapshot', () => {
       expect(epicIds.has(slice.epic_id)).toBe(true);
     }
   });
+});
+
+// Opt-in middle-loop smoke. Skipped unless both PLANNING_REAL_LLM=1 and
+// ANTHROPIC_API_KEY are set, so it stays out of CI and the default local
+// `npm run verify`. Exercises the production architect adapter end-to-end and
+// scores its output through the eval harness (the I134-K acceptance gate),
+// codifying that real emitted plans pass the same oracle as the reference
+// fixtures. Run with:
+//   PLANNING_REAL_LLM=1 ANTHROPIC_API_KEY=… npx vitest run \
+//     src/orchestrator/src/plan-emitter.test.ts
+describe('emitPlanFromSnapshot — real LLM eval smoke', () => {
+  const realLlmEnabled = process.env.PLANNING_REAL_LLM === '1' && Boolean(process.env.ANTHROPIC_API_KEY);
+  const itReal = realLlmEnabled ? it : it.skip;
+
+  itReal(
+    'the real architect emits a plan the eval harness accepts',
+    async () => {
+      const fixturePath = join(
+        dirname(fileURLToPath(import.meta.url)),
+        '__fixtures__',
+        'brunch-graphs-snapshot.json',
+      );
+      const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as CompletedSpecSnapshot;
+
+      // No runModel override → the production defaultArchitectRunModel.
+      const { plan } = await emitPlanFromSnapshot(fixture);
+      const report = evaluatePlanShape(plan);
+
+      expect(report.hardFailures).toEqual([]);
+      expect(report.verdict).toBe('accept');
+    },
+    60_000,
+  );
 });
