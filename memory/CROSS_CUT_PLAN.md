@@ -329,7 +329,7 @@ cards own their own projection+renderer pairs. It carries a coverage matrix
 
 ## Canonical pointers (do not duplicate here)
 
-- Graph mutation engine: `memory/cards/dev-seed-fixtures--semantic-graph-mutations.md`
+- Graph mutation engine: PLAN `role-safe-graph-mutations`; SPEC D53-L.
 - Read family design: SPEC D60-L. Runtime state: D40-L. Prompt composition: D58-L.
   Goals/strategies/lenses: D59-L/D25-L. Graph model lock: D54-L/D56-L/D51-L.
   Offer-first contract: R16. Capture distinction: SPEC "Capture analysis" design note.
