@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { AgentSession } from '@earendil-works/pi-coding-agent';
 
@@ -43,6 +44,11 @@ export interface BrunchIntrospectionLauncherResult {
 
 const DEFAULT_INTROSPECTION_PROMPT =
   'Inspect the prompt, tools, and Brunch resources you can see. Name confusing or missing guidance.';
+const REPO_ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
+
+export function introspectionArtifactDir(runId: string): string {
+  return join(REPO_ROOT, '.fixtures', 'scratch', 'introspection', assertPortableRunId(runId));
+}
 
 export async function runBrunchIntrospectionTurn(
   options: BrunchIntrospectionLauncherOptions,
@@ -81,7 +87,7 @@ export async function runBrunchIntrospectionTurn(
     },
   };
 
-  const artifactDir = join(options.cwd ?? process.cwd(), '.fixtures', 'runs', 'introspection', runId);
+  const artifactDir = introspectionArtifactDir(runId);
   await mkdir(artifactDir, { recursive: true });
   await writeFile(join(artifactDir, 'mechanical.json'), `${JSON.stringify(artifact.mechanical, null, 2)}\n`);
   await writeFile(join(artifactDir, 'subjective.json'), `${JSON.stringify(artifact.subjective, null, 2)}\n`);

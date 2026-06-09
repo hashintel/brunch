@@ -1,11 +1,12 @@
 # `.fixtures/`
 
-Current seed data plus probe artifacts and transcript evidence for the Brunch POC.
-The active convention is **probe first, transcript-backed**: each committed run
-must have a probe id, a run id, executable/reportable oracle output, and the
-transcript artifact needed for human review. Brief-based golden fixtures may
-return later, but they should be generated through this probe/transcript path
-rather than a separate brief-library subsystem.
+Current seed data, launchable workbenches, curated probe artifacts, and ephemeral
+dev-loop scratch output for the Brunch POC. The active convention for committed
+evidence is **probe first, transcript-backed**: each committed run must have a
+probe id, a run id, executable/reportable oracle output, and the transcript
+artifact needed for human review. Brief-based golden fixtures may return later,
+but they should be generated through this probe/transcript path rather than a
+separate brief-library subsystem.
 
 See [`docs/architecture/probes-and-transcripts.md`](../docs/architecture/probes-and-transcripts.md)
 for the current architecture.
@@ -14,19 +15,30 @@ for the current architecture.
 
 ```
 .fixtures/
-├── seeds/
+├── seeds/                      # Tracked reusable explicit-basis inputs
 │   └── <seed-set>/
 │       ├── README.md
-│       ├── <seed>.json          # Reusable explicit-basis starting truth
-│       └── _*.ts                # Reproducible data-prep scripts, not product code
-└── runs/
-    └── <probe-id>/
+│       ├── <seed>.json
+│       └── _*.ts               # Reproducible data-prep scripts, not product code
+├── workbenches/                # Launchable local workspaces; .brunch/ is gitignored
+│   └── <name>/
+├── runs/                       # Tracked curated/promoted probe evidence
+│   └── <probe-id>/
+│       └── <run-id>/
+│           ├── session.jsonl        # Source transcript / canonical run evidence
+│           ├── transcript.md        # Human-readable semantic rendering
+│           ├── report.json          # Probe report and artifact paths
+│           └── graph-overview.json  # Optional graph readback when graph truth is the proof target
+└── scratch/                    # Gitignored ephemeral dev-loop output
+    └── <loop>/
         └── <run-id>/
-            ├── session.jsonl        # Source transcript / canonical run evidence
-            ├── transcript.md        # Human-readable semantic rendering
-            ├── report.json          # Probe report and artifact paths
-            └── graph-overview.json  # Optional graph readback when graph truth is the proof target
 ```
+
+Promote scratch to evidence only deliberately: move a reviewed
+`scratch/<loop>/<run-id>/` under `runs/<probe-id>/<run-id>/`, add the missing
+probe report/transcript artifacts, then track it. Dev launchers must resolve
+scratch from the repo-root `.fixtures/scratch/`, independent of the workspace cwd
+they target.
 
 ## Current runs
 
