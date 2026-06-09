@@ -198,7 +198,7 @@ src/probes/
 
 ## Card 4 — Exact runtime-affordance drift guard
 
-Status: next
+Status: done
 Weight: light
 
 ### Objective
