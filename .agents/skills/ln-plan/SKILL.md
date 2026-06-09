@@ -126,6 +126,8 @@ A plan may contain a mix of postures across its `Active` / `Next` frontiers. Loa
 
 ### Horizontal coverage frontiers (frontier *shape*, not a posture)
 
+Load [`references/coverage.md`](references/coverage.md) whenever a candidate frontier might be coverage, or when reclassifying a live coverage frontier.
+
 Posture answers *how to rank the next vertical slice*; it carries **no completeness test**. Vertical tracers touch a horizontal capability layer (for example "the agent's READ tools as a whole") only as far as each claim needs, so a load-bearing layer can stay permanently shallow while every individual slice is still "done."
 
 A **coverage frontier** fills that gap. It is a different frontier *shape*, not a third posture: it adds no row-level execution mechanics — each row is still built under `proving` or `earned`. What it adds is a layer-level **aggregate definition of done**: *no required row in a closed enumerated inventory is left open.*
@@ -146,11 +148,13 @@ If you cannot close the enumeration, it is not a coverage frontier — stay trac
 
 Each ledger row declares its own **fill mode** — `proving` if the row still carries an unknown, `earned` if it is settled-but-unbuilt. `ln-build` closes rows; the frontier completes when no `●` row remains in a `spec` / `new` / `partial` state — the ledger DoD, not a single tracer claim.
 
-**Maturity gate.** The coverage shape is young. Treat it as a recognized scope-file mode, **not** a canonical posture or doc type. Promote it to first-class (a `references/coverage.md` posture, a canonical coverage store) only on rule-of-three — at least three real coverage cases *and* a recurring need for row-level mechanics beyond "closed ledger + per-row proving/earned." Until then, do not add a third posture reference or an alternate planning store.
+**Maturity gate.** The rule-of-three is now met in this repo: the elicitor cross-cut, graph observed-shapes, and the current runtime/exchange follow-ons exposed recurring row-level failure modes. Coverage therefore now has a dedicated planning reference, but it remains a **frontier shape**, not a third certainty posture or an alternate planning store.
+
+**Sequencing precedence.** If a temporary coverage ledger remains open only because a required row has been promoted into `PLAN`, that promoted frontier outranks new unrelated coverage frontiers by default. Do not let "new breadth we could also do" preempt "the last required row that closes the still-live ledger" unless the user explicitly chooses that deprioritization.
 
 ## Procedure
 
-0. Read `.pi/POSTURE.md` if present for the project's default certainty posture. For each `Active` / `Next` frontier, check for an explicit `Certainty:` override and load the matching reference (`references/proving.md` or `references/earned.md`). Load both when the plan is mixed.
+0. Read `.pi/POSTURE.md` if present for the project's default certainty posture. For each `Active` / `Next` frontier, check for an explicit `Certainty:` override and load the matching reference (`references/proving.md` or `references/earned.md`). Load both when the plan is mixed. If any frontier candidate is or may be coverage-shaped, also load `references/coverage.md`.
 1. Read `memory/PLAN.md` if it exists. Identify existing frontier ids and retire/archive stale completed material into `docs/archive/PLAN_HISTORY.md`.
 2. Read `memory/SPEC.md` if it exists. Pull only the live requirements, assumptions, decisions, and invariants that still constrain forward work.
 3. Explore the codebase enough to understand real boundaries.

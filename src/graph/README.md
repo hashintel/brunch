@@ -1,14 +1,16 @@
 # graph/ — Graph domain layer
 
 Canonical reference: `docs/design/GRAPH_MODEL.md`
-SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
+SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L
 
 ## Owns
 
 - **CommandExecutor** (`command-executor.ts`) — the single mutation boundary for
   graph/spec writes. It hides structural validation, transaction mechanics,
   spec-local LSN allocation, per-kind node ordinal allocation, change-log append,
-  and structured command results.
+  and structured command results. It also owns prospective-register writes for
+  `elicitation_backlog` (`createSpec` seeding plus create/close entry commands),
+  because the backlog shares the same spec-local LSN and audit boundary.
 
 - **commitGraph** — atomic batch mutation for `propose-graph`: one tool call,
   one transaction, one selected-spec LSN, all-or-nothing. It accepts product
@@ -28,16 +30,17 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
   projection.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
   detail levels: active-context and graph-truth overview, node
-  neighborhood, selected-spec graph-code lookup, and open reconciliation needs.
-  These return typed domain objects or internal ids, not Drizzle rows.
+  neighborhood, selected-spec graph-code lookup, open reconciliation needs, and
+  open elicitation-backlog entries. These return typed domain objects or
+  internal ids, not Drizzle rows.
 
 - **Preview harness helpers** (`render-preview.ts`) — deterministic fixture-seed
   + selected-spec read helpers for render-preview scripts/tests that need real
   graph data without bypassing the command/read seams.
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
-  `ReconciliationNeed`, kind/category types, per-kind node ordinals, and derived
-  intent-kind grouping.
+  `ReconciliationNeed`, `ElicitationBacklogEntry`, kind/category types,
+  per-kind node ordinals, and derived intent-kind grouping.
 
 - **Policy** (`policy/category-policy.ts`) — edge-category semantics such as
   cascade behavior, reconciliation triggers, and projection effects.
@@ -45,6 +48,23 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D62-L, D63-L
 - **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
   through `db/connection.ts` and returns a `CommandExecutor` plus bound query
   readers for adapters.
+
+## Observed read-shape ledger
+
+D60-L read-shape ownership is explicit: every durable graph read shape has one canonical owner in `queries.ts`; adapters may expose only the subset they need. Deferred means eligible or known but not currently exposed for that consumer; `n/a` means deliberately outside that consumer's product role.
+
+| Shape | Canonical owner | `read_graph` tool | RPC | Web | Reason for deferred / n/a |
+| --- | --- | --- | --- | --- | --- |
+| `overview` | `getGraphOverview` | required | required | required | — |
+| `neighborhood` | `getNodeNeighborhood` | required | required | required | — |
+| `list_by_kind` | `getGraphSliceByKinds` | required | deferred | deferred | Web-eligible bounded graph slice; RPC follows a concrete web/client need. |
+| `list_by_band` | `getGraphSliceByReadinessBands` | required | deferred | deferred | Web-eligible D64-L evidence slice; RPC follows a concrete web/client need. |
+| `gaps` | `getGraphGaps` | required | n/a | n/a | Agent/RPC-only diagnostic shape; not a web observer projection. |
+| `related` | `getRelatedNodes` | required | n/a | n/a | Agent/RPC-only traversal helper; not a web observer projection. |
+| `reconciliation_needs` | `getOpenReconciliationNeeds` | deferred | deferred | deferred | Agent-internal register read; no transport consumer yet. |
+| `elicitation_backlog` | `getOpenElicitationBacklogEntries` | deferred | deferred | deferred | Agent-internal prospective-register read; per-turn driver follow-on owns exposure. |
+
+`observed-shapes-coverage.test.ts` guards the required subsets against accidental drift: the tool mode union must stay at the six required agent shapes, while RPC and web stay at `overview` + `neighborhood` until a scoped feature deliberately promotes another row.
 
 ## Clock and audit posture
 
@@ -86,6 +106,7 @@ graph/
     CommandExecutor
     command input/result types
     createSpec
+    create/close elicitation-backlog entry
     updateReadinessGrade
     createNode
     per-kind node ordinal allocation
@@ -114,6 +135,7 @@ graph/
     getGraphOverview
     getNodeNeighborhood
     resolveGraphNodeCode
+    getOpenElicitationBacklogEntries
     getOpenReconciliationNeeds
     row -> domain mapping
 
@@ -125,6 +147,7 @@ graph/
     openWorkspaceCommandExecutor(cwd)
 
   schema/
+    elicitation-backlog.ts
     nodes.ts
     edges.ts
     reconciliation-need.ts

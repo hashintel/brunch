@@ -104,7 +104,19 @@ Chain discipline:
 
 A `Mode: coverage` scope file is the execution artifact for a **horizontal coverage frontier** (see [`ln-plan`](../ln-plan/SKILL.md) §Horizontal coverage frontiers). Where `single` / `chain` files group *vertical* slices, a coverage file holds a **closed enumerated ledger** of one capability layer, and its definition of done is *aggregate*: every required row closed.
 
-Write one only when `ln-plan` has established a coverage frontier whose three-part gate is satisfied — a named layer that is load-bearing as a whole, a closeable enumeration, and required-vs-deferred marking. If you cannot close the enumeration, do not use this mode; write ordinary vertical cards instead.
+Before writing or revising a coverage file, load [`../ln-plan/references/coverage.md`](../ln-plan/references/coverage.md).
+
+Write one only when `ln-plan` has established a coverage frontier whose admission gate is satisfied. If you cannot close the enumeration, do not use this mode; write ordinary vertical cards instead.
+
+### Coverage preflight
+
+Before you write the ledger or scope one row-sized fill, answer these explicitly:
+
+1. **What is the boundary?** Name what belongs in the layer and what explicitly does not.
+2. **What are the source-of-truth inputs for each open required row?** If the row's promised derivation/ranking/legality cannot be justified from those inputs, the row is wrongly scoped.
+3. **Who owns each required row, and what closes it?** Name the canonical owner and the closure oracle.
+4. **What class is this frontier?** Buildable-now, evidence-gated, or wait-gated. Rows that depend on missing product state stay deferred/tripwired; they are not hidden required work.
+5. **Is the inventory still closed?** If scoping reveals more than one genuinely-missing row or a new sub-seam, stop and route back through `ln-plan` instead of quietly growing the ledger.
 
 ### Ledger shape
 
@@ -117,6 +129,8 @@ The file body is a coverage ledger — one table per sub-seam if the layer split
 - **Status:** `have` (in code) · `partial` (exists, incomplete vs target) · `spec` (designed, not built) · `new` (beyond spec, needs a decision first) · `built` (closed this push).
 - **Req:** `●` required for the DoD · `○` deferred. The DoD is "every `●` row is `have` or `built`."
 - **Fill:** the posture each row's build inherits — `proving` if the row still carries an unknown, `earned` if it is settled-but-unbuilt. A `new` row usually needs a micro-decision (`ln-disambiguate` / `ln-spec`) before it can be filled.
+
+`Owner / next` must point to a real owner — module, card, frontier, or decision — not a vague intention. Use `Notes` to record the source-of-truth inputs and closure oracle when they are not obvious from the row label. For non-buildable rows, `Notes` must also name the evidence gate or wait-state tripwire.
 
 ### Each row is still a vertical fill
 

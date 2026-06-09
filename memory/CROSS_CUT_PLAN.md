@@ -36,7 +36,7 @@ itself.
 
 - `memory/PLAN.md` owns frontier ids, sequencing, dependency judgment, and which work is active next.
 - This file owns only the temporary elicitor READ / WRITE / KNOW row inventory and its aggregate coverage DoD.
-- When one row escapes row-sized work, it gets promoted back into PLAN. As of 2026-06-08, the D65-L row is now the active PLAN frontier `elicitation-backlog`; the remaining prompt-resource body-depth pass stays temporary cross-cut work.
+- When one row escapes row-sized work, it gets promoted back into PLAN. As of 2026-06-08, the D65-L substrate row is the landed PLAN frontier `elicitation-backlog`, and the prompt-resource body-depth pass landed in 1ca02e38. **The cross-cut is not yet exhausted:** the Seam 3a `"what to ask next" driver` row is still `partial · ●`, so by the aggregate DoD below this seam stays open. That row has now escaped row-sized work and is disposed as the PLAN frontier `elicitation-driver` — when it lands, this row flips to `built` and the cross-cut closes.
 
 ## The seams (locked)
 
@@ -115,9 +115,9 @@ DoD: every ● row is `have` or `built`.
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
 | goals / strategies / lenses scaffolding + legal-tuple gating | have | ● | — | — | `.pi/agents/state.ts` |
-| goal/strategy/lens **content depth** | partial | ● | earned | card `memory/cards/crosscut-know--resource-body-depth.md` | scaffolding present, bodies thin |
+| goal/strategy/lens **content depth** | built | ● | — | done — deepened bodies + manifest-wide depth test (1ca02e38) | each body now carries its facet guidance; ≥700-char floor guarded in `compose.test.ts` |
 | `freestyle` strategy | built | ● | — | done — pin-only strategy (8de7f166) | AUTO-excluded, no added authority; D66-L |
-| "what to ask next" driver | spec | ● | proving | PLAN frontier `elicitation-backlog` | substrate tracer promoted; per-turn driver remains a follow-on after the flat-table proof lands |
+| "what to ask next" driver | partial | ● | proving | promoted → PLAN `elicitation-driver` | flat-table substrate landed via FE-823; live per-turn driver + capture-reflection now disposed as the `elicitation-driver` frontier (last open ● row) |
 
 ### Seam 3b — KNOW / mechanics (methods)
 
@@ -126,8 +126,8 @@ DoD: every ● row is `have` or `built`.
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
 | 6 method resources scaffolding | have | ● | — | — | run-structured-exchange, infer-and-capture, commit-graph, read-context, generate-proposal, review-for-gaps |
-| method **content depth** | partial | ● | earned | content pass | bodies thin |
-| generalized capture (free text, files, refs; iterative passes) | built | ● | — | done — labeled-text core on `session.submitMessage` (5f5e6ac8) | POC bar = directly-labeled facts; richer free-text/files/refs remain A22-L fitness evidence; D66-L |
+| method **content depth** | built | ● | — | done — deepened bodies + manifest-wide depth test (1ca02e38) | each method gives tool-routing/sequencing guidance, not tool-description restatement |
+| generalized capture (free text, files, refs; iterative passes) | built | ● | — | done — labeled-text core on `session.submitMessage` (5f5e6ac8) | `built` = the **POC bar only** (directly-labeled facts). Richer free-text/files/refs capture is **out of this row's scope by design**, not unfinished here: the `capture-quality-spike` (A22-L) has since landed (2026-06-08, precision/recall 1.0, zero false commits) and narrowly graduated the PLAN frontier `exchanges-and-generalized-capture`, which now owns the richer capture with an explicit false-commit guard. D66-L |
 | exchange-tool `.description()` / `promptGuidelines` | built | ● | — | done — all 7 exchange tools carry both (drift correction 2026-06-07) | `src/.pi/extensions/exchanges/*` already match the `commit_graph` pattern |
 | skill-commands (`gap-review`, `arbitrary-enhance`) | new | ○ | proving | Q6 (deferred) | off critical path |
 
@@ -264,13 +264,14 @@ order is coverage-driven: close ● ledger rows seam by seam.
    This also closed the Seam 3a `freestyle` and Seam 3b generalized-capture ● rows.
    No posture-switch tool to build (Q4 dissolved); user/system posture surface is
    deferred to the Q-state affordance reducer.
-4. **Seam 3a/3b content pass** — `freestyle` strategy (**built**, 8de7f166) +
-   `elicitation_backlog`-driven "what to ask next" (D65-L); goal/strategy/lens/method body
-   depth; exchange-tool `.description()` / `promptGuidelines` fix (**built** — drift correction;
-   all 7 exchange tools already carry both). Skill-commands (Q6) stay deferred. **Scoped:**
-   `memory/cards/elicitation-backlog--substrate.md` (D65-L substrate tracer; promoted to the active
-   PLAN frontier `elicitation-backlog`; the per-turn driver + capture-reflection stay an unscoped follow-on) and
-   `memory/cards/crosscut-know--resource-body-depth.md` (the goal/strategy/lens/method body pass).
+4. **Seam 3a/3b content pass** — **NEARLY COMPLETE** (one ● row still `partial`): `freestyle`
+   strategy (8de7f166), generalized-capture core (5f5e6ac8), exchange-tool `.description()` /
+   `promptGuidelines` (drift correction 2026-06-07), and goal/strategy/lens/method body depth
+   (1ca02e38 — deepened bodies + a manifest-wide ≥700-char depth test in `compose.test.ts`) are
+   all built. FE-823 landed the D65-L substrate tracer (flat table, `createSpec` seed,
+   command/query seam). Skill-commands (Q6) stay deferred. The remaining open ● row is the live
+   per-turn "what to ask next" driver + capture-reflection, now disposed as the PLAN frontier
+   `elicitation-driver`; the seam is not done until it lands.
 5. **Spec reconcile** — promote the D40-L/D59-L one-line refinements (on confirmation),
    land Q1 negative-query touch, fold D65-L/D66-L outcomes into SPEC/PLAN.
 

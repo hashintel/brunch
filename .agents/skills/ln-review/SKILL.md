@@ -56,11 +56,14 @@ Concrete cues to look for:
 - A dedup or "first wins / last wins" that silently drops data the caller meant to keep. Repair: thread distinct keys, or fail loudly.
 - A hardcoded literal standing in for a value that should be carried from upstream (`respondsToPresentTool: 'present_options'` when the originating tool varies). Repair: thread the real provenance.
 - Persisted or serialized data that assumes an ambient environment (absolute paths, `cwd`, tempdirs, machine-local roots leaking into committed fixtures). Repair: name the portable contract and normalize at the boundary.
+- A field/path/identifier rename propagated to code and docs but **not** to committed fixtures, serialized artifacts, or legacy inputs → reference data silently straddles old and new contracts (`graphSnapshotJson` survives in a committed `report.json` after writers moved to `graphOverviewJson`; a `workspace.snapshot` topic lingers in a captured run). A reviewer-bot comment on such data usually samples *one* stale token of a wider syndrome. Repair: regenerate the committed artifacts wholesale (don't field-patch the single token a reviewer happened to flag), add a residue guard that fails on retired tokens, and decide legacy-input policy explicitly against project posture — a generic "accept both for backward compat" can violate a pre-release/no-shim posture.
 - A magic check inferring readiness/state from an object's incidental shape instead of a named constant or predicate. Repair: name the predicate against the canonical constant.
 - Ordering or position encoded by a numeric index/splice rather than by structure. Repair: make the order declarative.
 - A type alias or name that implies a wider contract than it points at. Repair: point it at the real union, or rename.
 
 Collect findings as numbered items (category: `contract`). Frame each as: the assumed contract in one sentence, the failure mode when it breaks, and which of the three repairs applies. Most are concrete fixes (`ln-scope`/`ln-build`); clusters across a seam route to `ln-refactor`.
+
+This catalog is the stabilized lens library. `ln-induct` is the generator that induces fresh lenses from review-bot evidence and proposes graduating recurring ones into this list.
 
 ### Oracle coverage (category: `oracle-coverage`)
 

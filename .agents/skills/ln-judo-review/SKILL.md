@@ -32,7 +32,7 @@ Make the change easy, then make the easy change (Beck): if the diff feels tangle
 
 Boring code over magic (Hunt & Thomas): generic mechanisms that hide simple data-shape assumptions are a defect, not a feature.
 
-Ambient-contract reliance: an invariant the code assumes but never enforces, threads, or names — uniqueness keys that silently last-win, dedups that drop kept data, hardcoded literals standing in for upstream provenance, persisted absolute paths/`cwd` leaking into committed fixtures, magic shape-checks instead of named predicates. The judo move is to make the contract intentional: enforce it loudly, thread the real value, or name it — not to tidy the assumption in place. (Full cue list in `ln-review` §Contract integrity.)
+Ambient-contract reliance: an invariant the code assumes but never enforces, threads, or names — uniqueness keys that silently last-win, dedups that drop kept data, hardcoded literals standing in for upstream provenance, persisted absolute paths/`cwd` leaking into committed fixtures, renames propagated to code/docs but not to committed fixtures or serialized artifacts, magic shape-checks instead of named predicates. The judo move is to make the contract intentional: enforce it loudly, thread the real value, or name it — not to tidy the assumption in place. (Full cue list in `ln-review` §Contract integrity.)
 
 Functional core / imperative shell (Gary Bernhardt): when independent work is needlessly serialized, or related updates can leave state half-applied, ask whether orchestration should be separated from business logic — and whether the cleaner structure is parallel or atomic.
 

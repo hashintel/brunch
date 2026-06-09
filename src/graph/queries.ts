@@ -15,6 +15,7 @@ import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type { Lsn } from './atoms.js';
 import type { GraphEdge } from './schema/edges.js';
+import type { ElicitationBacklogEntry } from './schema/elicitation-backlog.js';
 import {
   NODE_KIND_METADATA,
   parseGraphNodeCode,
@@ -629,4 +630,62 @@ export function getOpenReconciliationNeeds(db: BrunchDb, specId: number): Reconc
     .where(and(eq(schema.reconciliationNeed.status, 'open'), eq(schema.reconciliationNeed.spec_id, specId)))
     .all();
   return rows.map(rowToReconNeed);
+}
+
+function rowToElicitationBacklogEntry(
+  row: typeof schema.elicitationBacklog.$inferSelect,
+): ElicitationBacklogEntry {
+  type MutableElicitationBacklogEntry = {
+    -readonly [K in keyof ElicitationBacklogEntry]: ElicitationBacklogEntry[K];
+  };
+
+  const entry: MutableElicitationBacklogEntry = {
+    id: String(row.id),
+    specId: row.spec_id,
+    kind: row.kind,
+    question: row.question,
+    status: row.status as ElicitationBacklogEntry['status'],
+    basis: row.basis as ElicitationBacklogEntry['basis'],
+    readinessBand: row.readiness_band as ElicitationBacklogEntry['readinessBand'],
+    createdAtLsn: row.created_at_lsn,
+  };
+
+  if (row.plane_affinity != null) {
+    entry.planeAffinity = row.plane_affinity as NonNullable<ElicitationBacklogEntry['planeAffinity']>;
+  }
+
+  if (row.lens_affinity != null) {
+    entry.lensAffinity = row.lens_affinity as NonNullable<ElicitationBacklogEntry['lensAffinity']>;
+  }
+
+  if (row.arose_from_entry_id != null) {
+    entry.aroseFromEntryId = String(row.arose_from_entry_id);
+  }
+
+  if (row.resolved_by_node_id != null) {
+    entry.resolvedByNodeId = row.resolved_by_node_id;
+  }
+
+  if (row.rationale != null) {
+    entry.rationale = row.rationale;
+  }
+
+  if (row.closed_at_lsn != null) {
+    entry.closedAtLsn = row.closed_at_lsn;
+  }
+
+  return entry;
+}
+
+/**
+ * Return all open elicitation-backlog entries for a single spec.
+ */
+export function getOpenElicitationBacklogEntries(db: BrunchDb, specId: number): ElicitationBacklogEntry[] {
+  const rows = db
+    .select()
+    .from(schema.elicitationBacklog)
+    .where(and(eq(schema.elicitationBacklog.status, 'open'), eq(schema.elicitationBacklog.spec_id, specId)))
+    .orderBy(schema.elicitationBacklog.created_at_lsn, schema.elicitationBacklog.id)
+    .all();
+  return rows.map(rowToElicitationBacklogEntry);
 }

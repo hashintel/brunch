@@ -4,7 +4,7 @@ Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rp
 
 This directory owns the browser client for `brunch --mode web`. The browser is a thin remote head over the Brunch host: one React app, one WebSocket-backed Brunch JSON-RPC client, TanStack Router for route/data preloading, and TanStack Query for cache ownership and update scheduling.
 
-The web client must not read SQLite, Pi RPC, local JSONL, or `.brunch/workspace.json` directly. It speaks Brunch public RPC method names and renders product projections.
+The web client must not read SQLite, Pi RPC, local JSONL, or `.brunch/workspace.json` directly. It speaks Brunch public RPC method names and renders product projections. Its current graph observer subset is `graph.overview` + `graph.nodeNeighborhood`; `src/graph/README.md` owns the observed-shape ledger and keeps additional graph-owned shapes deliberate rather than accidental bleed-through from agent/RPC needs.
 
 ## Current topology
 
@@ -200,7 +200,7 @@ web/
       graph overview / node-neighborhood route
 
   features/
-    structured-exchange/
+    exchanges/
       PendingExchangePanel.tsx
       response controls for request_answer / request_choice / request_choices / request_review
 

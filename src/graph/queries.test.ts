@@ -15,6 +15,7 @@ import { CommandExecutor } from './command-executor.js';
 import {
   getGraphGaps,
   getGraphOverview,
+  getOpenElicitationBacklogEntries,
   getGraphSliceByKinds,
   getGraphSliceByReadinessBands,
   getNodeNeighborhood,
@@ -737,5 +738,114 @@ describe('getOpenReconciliationNeeds', () => {
 
     const needs = getOpenReconciliationNeeds(db, specId);
     expect(needs).toEqual([]);
+  });
+});
+
+describe('getOpenElicitationBacklogEntries', () => {
+  let db: BrunchDb;
+  let executor: CommandExecutor;
+  let specId: number;
+
+  beforeEach(() => {
+    db = createTestDb();
+    executor = new CommandExecutor(db);
+    const created = executor.createSpec({ name: 'Test Spec', slug: 'test-spec' });
+    expect(created.status).toBe('success');
+    if (created.status !== 'success') throw new Error('unreachable');
+    specId = created.specId;
+  });
+
+  it('returns seeded grounding entries as typed domain objects', () => {
+    const entries = getOpenElicitationBacklogEntries(db, specId);
+
+    expect(
+      entries.map((entry) => ({
+        kind: entry.kind,
+        question: entry.question,
+        status: entry.status,
+        basis: entry.basis,
+        readinessBand: entry.readinessBand,
+        planeAffinity: entry.planeAffinity,
+        lensAffinity: entry.lensAffinity,
+        createdAtLsn: entry.createdAtLsn,
+      })),
+    ).toEqual([
+      {
+        kind: 'domain_anchor_question',
+        question: 'What is the thing or domain we are specifying?',
+        status: 'open',
+        basis: 'explicit',
+        readinessBand: 'grounding',
+        planeAffinity: 'intent',
+        lensAffinity: 'intent',
+        createdAtLsn: 1,
+      },
+      {
+        kind: 'protagonist_anchor_question',
+        question: 'Who is this for, or who is most affected by it?',
+        status: 'open',
+        basis: 'explicit',
+        readinessBand: 'grounding',
+        planeAffinity: 'intent',
+        lensAffinity: 'intent',
+        createdAtLsn: 1,
+      },
+      {
+        kind: 'pain_anchor_question',
+        question: 'What problem, pain, or pull is driving this work?',
+        status: 'open',
+        basis: 'explicit',
+        readinessBand: 'grounding',
+        planeAffinity: 'intent',
+        lensAffinity: 'intent',
+        createdAtLsn: 1,
+      },
+      {
+        kind: 'constraint_anchor_question',
+        question: 'What constraints or non-negotiable boundaries already shape it?',
+        status: 'open',
+        basis: 'explicit',
+        readinessBand: 'grounding',
+        planeAffinity: 'intent',
+        lensAffinity: 'intent',
+        createdAtLsn: 1,
+      },
+    ]);
+  });
+
+  it('filters to open entries for the requested spec only', () => {
+    const other = executor.createSpec({ name: 'Other Spec', slug: 'other-spec' });
+    expect(other.status).toBe('success');
+    if (other.status !== 'success') throw new Error('unreachable');
+
+    const created = executor.createElicitationBacklogEntry({
+      specId,
+      kind: 'follow_on_question',
+      question: 'What evidence would prove this is working?',
+      readinessBand: 'elicitation',
+      planeAffinity: 'oracle',
+      lensAffinity: 'oracle',
+    });
+    expect(created.status).toBe('success');
+    if (created.status !== 'success') throw new Error('unreachable');
+
+    const resolvedNode = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'goal',
+      title: 'Goal clarified',
+    });
+    expect(resolvedNode.status).toBe('success');
+    if (resolvedNode.status !== 'success') throw new Error('unreachable');
+
+    const close = executor.closeElicitationBacklogEntry({
+      specId,
+      id: created.id,
+      resolvedByNodeId: resolvedNode.nodeId,
+    });
+    expect(close.status).toBe('success');
+
+    expect(getOpenElicitationBacklogEntries(db, specId)).toHaveLength(4);
+    expect(getOpenElicitationBacklogEntries(db, other.specId)).toHaveLength(4);
   });
 });

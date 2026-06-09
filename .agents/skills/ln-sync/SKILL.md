@@ -145,6 +145,12 @@ Scan recent code / commits for:
 - active work not represented in `memory/PLAN.md` sequencing or frontier definitions
 - stale references between `memory/PLAN.md` and `memory/SPEC.md`, especially PLAN links to retired assumptions / decisions / invariants
 - equivalent facts that should merge instead of coexisting
+- coverage frontiers whose class (`buildable-now`, `evidence-gated`, `wait-gated`) no longer matches code reality or the live cards
+- coverage rows missing a named owner, closure oracle, or source-of-truth inputs where the row's behavior is not otherwise self-evident
+- temporary ledgers declared exhausted while a required row is still `spec` / `new` / `partial`, including rows that have merely been promoted into `PLAN`
+- promoted last-open coverage rows that are sequenced behind unrelated new coverage frontiers without an explicit user reprioritization
+- coverage cards whose promised derivation or legality logic cannot be justified from the source-of-truth inputs named in the card
+- coverage ledgers that grew multiple `new` rows mid-flight, signaling that the inventory was not actually closed
 - prepared cards in scope files under `memory/cards/` that should be retired, re-scoped, or reconciled into the next thread's live state
 - stale derivative artifacts that should be deleted after reconciliation
 - cross-cutting subsystems that appear only in glossary/design-doc links but are required by multiple active/next frontiers
@@ -180,6 +186,9 @@ Produce a concise sync report and make the edits.
 ### Drift fixed
 - [concept / decision / frontier / traceability updates made]
 
+### Coverage protocol audit
+- [classification repairs, temporary-ledger contradictions, promotion/ordering fixes, or `none`]
+
 ### Retirement assessment
 - [whether embedded items were sufficiently retired, or whether a stronger protocol / follow-up frontier is needed]
 
@@ -192,6 +201,7 @@ Before finishing, perform a cross-skill preservation check:
 - If a later agent read only `memory/SPEC.md` and `memory/PLAN.md`, what durable design choices from `ln-design` would they miss?
 - What verification architecture or loop-tier strategy from `ln-oracles` or canonical docs would they miss?
 - What cross-cutting obligations would disappear because they are carried only by links, not by live rows or frontier definitions?
+- Would they know which temporary coverage ledgers are still live, which promoted rows still keep those ledgers open, and why those rows sequence where they do?
 - Do any topology READMEs under `src/**/` still cite SPEC IDs or describe topology this sync just changed? Reconcile those READMEs as part of the sync, not as a follow-up.
 
 If any answer is non-empty, sync is incomplete.

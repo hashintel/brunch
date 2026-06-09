@@ -22,6 +22,13 @@
       "when": 1780668000000,
       "tag": "0002_spec_scoped_graph_clock",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1780904720280,
+      "tag": "0003_outstanding_black_bird",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D52-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L
 
 ## Owns
 
@@ -38,6 +38,32 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **LSN staleness tracking** — Pi extension records current LSN at session
   start, checks at `prepareNextTurn`, injects `worldUpdate` with optional
   context refresh when stale.
+
+## Runtime affordance coverage ledger
+
+Runtime posture affordances are pure derivations over projected runtime state plus
+spec readiness grade. `projections/session/affordances.ts` owns legal option sets
+and default-on-switch values; `session.runtimeState` currently exposes only the
+selected value per axis. Deferred means eligible or known but not currently
+transported for that consumer.
+
+| Row | Canonical owner | Agent | RPC | Web | Reason for deferred |
+| --- | --- | --- | --- | --- | --- |
+| `goal.options` | `affordances.goal.legalOptions` | required | deferred | deferred | Transport follows a concrete UI/client need; agent already needs legality. |
+| `goal.default_on_switch` | `affordances.goal.defaultOnSwitch` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
+| `goal.selection` | `session.runtimeState.agent.goal` | required | required | deferred | RPC already reports current posture; web has no posture UI yet. |
+| `strategy.options` | `affordances.strategy.legalOptions` | required | deferred | deferred | Transport follows a concrete UI/client need; AUTO excludes `freestyle`. |
+| `strategy.default_on_switch` | `affordances.strategy.defaultOnSwitch` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
+| `strategy.selection` | `session.runtimeState.agent.strategy` | required | required | deferred | RPC already reports current posture; web has no posture UI yet. |
+| `lens.options` | `affordances.lens.legalOptions` | required | deferred | deferred | Transport follows a concrete UI/client need. |
+| `lens.default_on_switch` | `affordances.lens.defaultOnSwitch` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
+| `lens.selection` | `session.runtimeState.agent.lens` | required | required | deferred | RPC already reports current posture; web has no posture UI yet. |
+| `active-review-set` | product-state-gated review-cycle surface | deferred | deferred | deferred | Needs current review-set product state; not derivable from runtime policy alone. |
+| `turn-mode` | product-state-gated freestyle-vs-structured turn surface | deferred | deferred | deferred | Needs current turn/exchange mode state; not derivable from runtime policy alone. |
+
+`runtime-affordances-coverage.test.ts` guards the required subsets: agent rows
+must remain covered by the shared derivation, RPC rows by the public session
+schema, and the product-state-gated rows must stay explicit deferred tripwires.
 
 ## Does NOT own
 

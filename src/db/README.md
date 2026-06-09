@@ -94,11 +94,16 @@ owned by their boundary.
 
 ## Current schema posture
 
-The current graph tables are spec-scoped: `specs`, `nodes`, `edges`,
-`node_kind_counters`, `graph_clock`, `change_log`, and
-`reconciliation_need`. `graph_clock` is keyed by `spec_id`; `change_log` carries
-`spec_id` and is keyed by `(spec_id, lsn)`, so a bare LSN is comparable only
-inside one spec.
+The current graph and graph-adjacent tables are spec-scoped: `specs`, `nodes`,
+`edges`, `node_kind_counters`, `graph_clock`, `change_log`,
+`reconciliation_need`, and `elicitation_backlog`. `graph_clock` is keyed by
+`spec_id`; `change_log` carries `spec_id` and is keyed by `(spec_id, lsn)`, so
+a bare LSN is comparable only inside one spec.
+
+`elicitation_backlog` is the prospective sibling of `reconciliation_need`: a
+flat process-agenda register, not a graph plane or node table. It still lives
+here only as storage substrate; graph-owned command/query code continues to own
+its semantics.
 
 `nodes.kind_ordinal` is persisted as the storage half of the D62-L projected-code
 contract. `node_kind_counters` owns monotonic per-`(spec_id, plane, kind)`

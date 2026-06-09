@@ -3,6 +3,18 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-06-08 Sync archive
+
+Archived from `memory/PLAN.md` during the post-merge ln-sync once the 2026-06-08 coverage burst (`runtime-affordances-and-legality`, `capture-quality-spike`, `minimal-authority-shell`, cross-cut body-depth, `elicitation-backlog`) became the live completion window. These prior bursts move here.
+
+- 2026-06-06 `project-graph-review-cycle` (FE-809) — Done: `project-graph` now has active review tools at commitment readiness, real agent proposal generation reaches `present_review_set`, approval goes through public `session.submitExchangeResponse`, `CommandExecutor.acceptReviewSet` commits the exact reviewed batch with `basis: explicit`, and graph/session invalidations publish with `{specId, lsn}`. Verified: `src/.pi/agents/state.test.ts`, `src/.pi/__tests__/prompting.test.ts`, `src/probes/project-graph-review-cycle-proof.test.ts`, and real run `.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/`.
+
+- 2026-06-06 `topology-readmes-and-boundaries` — Done: root product entrypoints moved to `app/`/`workspace/`/`scripts`; reusable graph/session/exchanges/workspace projection helpers moved to `projections/`; reusable markdown/text renderers moved to `renderers/`; `src/projections/topology-boundaries.test.ts` now guards the projection/renderer adapter boundary; and D40-L runtime-state policy now shares `elicit-read-only` tool-policy definitions from `projections/session/runtime-policy.ts` while `.pi/extensions/runtime` remains the Pi tool adapter. Verified: targeted topology/runtime tests and `npm run verify`.
+
+- 2026-06-05 `capture-response-to-graph` (FE-807) — Done: synchronous response-capture tracer. Added a narrow labeled-text translator for `Goal:`, `Context:`, `Constraint:`, and `Criterion:` facts; wired public `session.submitExchangeResponse` to capture through the transcript binding's spec and `CommandExecutor.commitGraph({basis: explicit})`; returned loud capture outcomes; published graph invalidations; and added a public-RPC proof that activation/trigger/submit/overview exposes captured projected codes. Verified: `src/graph/capture/structured-response.test.ts`, `src/rpc/handlers.test.ts`, `src/probes/capture-response-to-graph-proof.test.ts`.
+
+- 2026-06-05 `dev-seed-fixtures` — Done: first product-driven fixture curation tracer. Added deterministic `bilal-port-variants/macro-view-grounded-intent` explicit-only intent base, a `fixture-curation` probe runner/report summarizer, and run artifacts proving `gpt-5.5` used real `read_graph`/`commit_graph` product tools to persist two implicit requirement nodes plus six implicit edges through `CommandExecutor`. Verified: `src/probes/fixture-curation-loop.test.ts`, `src/graph/seed-fixtures.test.ts`, real run `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/`.
+
 ## 2026-06-06 Sync archive
 
 Archived from `memory/PLAN.md` during topology-chain sync so the live plan keeps only active/next/parallel definitions plus the last few completion summaries.

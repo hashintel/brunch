@@ -75,7 +75,7 @@ Regression earned → proving is a state transition, not a third mode: downgrade
 
 #### Coverage frontiers (a frontier shape, not a posture)
 
-Posture ranks the next *vertical* slice; it has no completeness test, so vertical tracers can leave a horizontal capability layer permanently shallow while every slice is "done." A **coverage frontier** closes that gap with a layer-level **aggregate DoD** — "no required row in a closed enumerated inventory is left open" — while each row still builds under `proving` or `earned`. It is therefore a different frontier *shape*, not a third posture, and it does not relax the anti-sprawl norm: it fires only over a **closed, enumerated** surface (named load-bearing layer, up-front inventory, required-vs-deferred marking). `ln-plan` recognizes and bounds it; the row ledger lives in a `Mode: coverage` scope file under `memory/cards/` (authored via `ln-scope`); `ln-build` closes rows. The shape is young: do not promote it to a canonical posture or doc type before rule-of-three.
+Posture ranks the next *vertical* slice; it has no completeness test, so vertical tracers can leave a horizontal capability layer permanently shallow while every slice is "done." A **coverage frontier** closes that gap with a layer-level **aggregate DoD** — "no required row in a closed enumerated inventory is left open" — while each row still builds under `proving` or `earned`. It is therefore a different frontier *shape*, not a third posture. The rule-of-three is now met in this repo, so coverage has a first-class planning reference at `.agents/skills/ln-plan/references/coverage.md`: use it for the admission gate, buildability classes (`buildable-now` / `evidence-gated` / `wait-gated`), temporary-ledger protocol, and anti-patterns (`category laundering`, `wrong-input derivation`, `residue denial`, `sequencing leakage`, `symmetry regrowth`). `ln-plan` recognizes and bounds the frontier; the row ledger lives in a `Mode: coverage` scope file under `memory/cards/` (authored via `ln-scope`); `ln-build` closes rows; `ln-sync` audits the contradictions coverage mode tends to create.
 
 #### Posture distribution across skills
 
@@ -117,6 +117,7 @@ Posture ranks the next *vertical* slice; it has no completeness test, so vertica
 | `ln-scope` | A frontier item or next step needs a thin vertical slice with target behavior and acceptance criteria. | Scope card / slice definition. |
 | `ln-build` | A scoped slice is ready for TDD implementation. | Code, tests, inner-loop verification, and PLAN updates when appropriate. |
 | `ln-diagnose` | Something is broken, failing, flaky, slow, or nondeterministic. | Trusted repro loop, falsified hypotheses, regression oracle, route back to planning if needed. |
+| `ln-induct` | Review-bot comments or point observations may be symptomatic of a systemic-ish fault. | An induced diagnostic lens, an audit for unsampled instances, and a triaged report. |
 | `ln-review` | After implementation bursts, or when architecture/model hygiene needs an opinionated audit. | Quality findings and next-step recommendations. |
 | `ln-refactor` | Working code needs restructuring without behavior change. | Refactor plan as tiny safe commits. |
 
@@ -154,6 +155,7 @@ There is currently no project-local `ln-map` skill in `.agents/skills/`. If you 
 | “Can this technical approach work?” | `ln-spike` |
 | “Can we make the idea tangible before committing?” | `ln-prototype` |
 | “Why is this failing?” | `ln-diagnose` |
+| “Is this small finding a symptom of something systemic?” | `ln-induct` |
 | “Is this code still conceptually clean?” | `ln-review` |
 | “How do we restructure safely?” | `ln-refactor` |
 | “Are the docs still true?” | `ln-sync` |
