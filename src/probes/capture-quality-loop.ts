@@ -344,8 +344,7 @@ function summarizeScenario(
 function verdictFor(totals: CaptureQualityReport['totals']): CaptureQualityReport['verdict'] {
   if (totals.falseCommitCount > 0) {
     return {
-      a22ConfidenceShift:
-        'negative: the measured extractor committed at least one low-confidence implication',
+      a22ConfidenceShift: 'negative: the measured extractor made at least one high-confidence false commit',
       recommendation: 'keep_parked',
       summary:
         'Do not graduate generalized capture until the extraction prompt/model can keep undecided implications out of high-confidence graph truth.',

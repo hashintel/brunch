@@ -150,7 +150,7 @@ src/probes/
 
 ## Card 3 — Accurate capture-quality negative verdict
 
-Status: next
+Status: done
 Weight: light
 
 ### Objective

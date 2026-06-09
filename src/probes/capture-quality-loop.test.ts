@@ -156,7 +156,7 @@ describe('capture quality report', () => {
     expect(report.totals.falseCommitCount).toBe(1);
     expect(report.verdict).toMatchObject({
       recommendation: 'keep_parked',
-      a22ConfidenceShift: expect.stringContaining('negative'),
+      a22ConfidenceShift: 'negative: the measured extractor made at least one high-confidence false commit',
     });
   });
 
