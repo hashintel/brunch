@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { EDGE_CATEGORIES } from '../../db/schema.js';
+import { EDGE_CATEGORIES } from '../schema/kinds.js';
 import { EDGE_CATEGORY_METADATA, edgeEndpointRole } from './category-policy.js';
 
 const EXPECTED_EDGE_CATEGORY_METADATA = {

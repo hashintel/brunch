@@ -8,13 +8,13 @@
  * later by capture-reflection. It is a flat table, not a graph node/plane.
  */
 
-import * as schema from '../../db/schema.js';
 import type { Lsn, NodeId } from '../atoms.js';
+import { ELICITATION_BACKLOG_STATUSES, LENS_AFFINITIES } from './kinds.js';
 import type { NodeBasis, NodePlane, ReadinessBand } from './nodes.js';
 
-type ElicitationBacklogStatus = (typeof schema.ELICITATION_BACKLOG_STATUSES)[number];
+type ElicitationBacklogStatus = (typeof ELICITATION_BACKLOG_STATUSES)[number];
 
-export type ElicitationBacklogLensAffinity = (typeof schema.LENS_AFFINITIES)[number];
+export type ElicitationBacklogLensAffinity = (typeof LENS_AFFINITIES)[number];
 
 export interface ElicitationBacklogEntry {
   readonly id: string;

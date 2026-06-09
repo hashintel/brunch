@@ -17,9 +17,13 @@ export {
   ORACLE_KINDS,
   DESIGN_KINDS,
   PLAN_KINDS,
+  NODE_PLANES,
   NODE_BASES,
   READINESS_GRADES,
-} from '../db/schema.js';
+  READINESS_BANDS,
+  LENS_AFFINITIES,
+  ELICITATION_BACKLOG_STATUSES,
+} from './schema/kinds.js';
 
 export type { EdgeCategory, GraphEdge } from './schema/edges.js';
 

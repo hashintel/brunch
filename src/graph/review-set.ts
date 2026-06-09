@@ -14,6 +14,7 @@ import {
   type RoleNamedEdgeDraftOf,
 } from './command-executor/role-named-edge-draft.js';
 import { EDGE_CATEGORY_METADATA } from './policy/category-policy.js';
+import { EDGE_CATEGORIES, EDGE_STANCES, NODE_PLANES } from './schema/kinds.js';
 import type { NodePlane } from './schema/nodes.js';
 import { parseGraphNodeCode } from './schema/nodes.js';
 
@@ -65,9 +66,9 @@ export type ReviewSetTranslationResult = ReviewSetTranslationSuccess | Structura
 
 const VALID_LENSES = ['intent', 'design', 'oracle'] as const;
 const VALID_EPISTEMIC_STATUSES = ['inferred', 'assumed', 'asserted', 'observed'] as const;
-const VALID_PLANES = ['intent', 'oracle', 'design', 'plan'] as const;
-const VALID_CATEGORIES = schema.EDGE_CATEGORIES as unknown as readonly string[];
-const VALID_STANCES = schema.EDGE_STANCES as unknown as readonly string[];
+const VALID_PLANES = NODE_PLANES;
+const VALID_CATEGORIES = EDGE_CATEGORIES as unknown as readonly string[];
+const VALID_STANCES = EDGE_STANCES as unknown as readonly string[];
 
 export function translateReviewSetPayloadToMutateGraph(options: {
   readonly db: Pick<BrunchDb, 'select'>;
