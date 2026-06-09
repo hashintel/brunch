@@ -1,4 +1,4 @@
-import type { Plan } from './types.js';
+import type { Plan, PlanMode } from './types.js';
 
 /**
  * Structural snapshot of the relevant portion of a completed brunch
@@ -7,6 +7,12 @@ import type { Plan } from './types.js';
  * builder is a separate slice.
  */
 export interface CompletedSpecSnapshot {
+  /**
+   * The specification's grounding mode. Carried onto the emitted plan so
+   * `brunch cook` resolves the worktree strategy from plan truth rather
+   * than file location. Absent → `greenfield` (authored/legacy snapshots).
+   */
+  mode?: PlanMode;
   requirements: readonly KnowledgeItemSnapshot[];
   criteria: readonly KnowledgeItemSnapshot[];
   edges: readonly KnowledgeEdgeSnapshot[];
@@ -56,6 +62,7 @@ export function projectPlanFromSpec(snapshot: CompletedSpecSnapshot): Plan {
   });
 
   return {
+    mode: snapshot.mode ?? 'greenfield',
     epics: [
       {
         id: DEFAULT_EPIC_ID,

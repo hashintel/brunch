@@ -24,11 +24,19 @@ const emptyEnrichment: PlanningEnrichment = {
 };
 
 const emptyPlan: Plan = {
+  mode: 'greenfield',
   epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
   slices: [],
 };
 
 describe('reconcilePlan', () => {
+  it('preserves the projected plan mode onto the reconciled plan', () => {
+    const greenfield = reconcilePlan({ ...emptyPlan, mode: 'greenfield' }, emptyEnrichment);
+    const brownfield = reconcilePlan({ ...emptyPlan, mode: 'brownfield' }, emptyEnrichment);
+    expect(greenfield.plan.mode).toBe('greenfield');
+    expect(brownfield.plan.mode).toBe('brownfield');
+  });
+
   it('returns an empty plan and zero warnings when both inputs are empty', () => {
     const result = reconcilePlan(emptyPlan, emptyEnrichment);
 
@@ -43,6 +51,7 @@ describe('reconcilePlan', () => {
 
   it('synthesizes one unit-test verification per surviving slice at tests/<sliceId>.test.ts', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [
         { id: 'req-1', epic_id: 'default', definition: 'First', depends_on: [], verification: [] },
@@ -62,6 +71,7 @@ describe('reconcilePlan', () => {
 
   it('enriches slice.definition with verifying-criteria text from the projected verification array', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [
         {
@@ -90,6 +100,7 @@ describe('reconcilePlan', () => {
 
   it('drops dependsOn references to nonexistent slice ids with a warning', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [{ id: 'req-1', epic_id: 'default', definition: 'A', depends_on: [], verification: [] }],
     };
@@ -111,6 +122,7 @@ describe('reconcilePlan', () => {
 
   it('drops self-loops (slice depending on itself) with a warning', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [{ id: 'req-1', epic_id: 'default', definition: 'A', depends_on: [], verification: [] }],
     };
@@ -131,6 +143,7 @@ describe('reconcilePlan', () => {
 
   it('drops a non-buildable slice with a warning and drops incoming deps onto it', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [
         {
@@ -173,6 +186,7 @@ describe('reconcilePlan', () => {
 
   it('breaks a 2-cycle by dropping the incoming edges of the lex-smallest sliceId', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [
         { id: 'req-a', epic_id: 'default', definition: 'A', depends_on: [], verification: [] },
@@ -203,6 +217,7 @@ describe('reconcilePlan', () => {
 
   it('breaks a 3-cycle deterministically across re-runs', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [
         { id: 'req-a', epic_id: 'default', definition: 'A', depends_on: [], verification: [] },
@@ -243,6 +258,7 @@ describe('reconcilePlan', () => {
 
   it('drops an empty epic and assigns orphan slices to a synthesized default epic', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [
         { id: 'req-1', epic_id: 'default', definition: 'A', depends_on: [], verification: [] },
@@ -284,6 +300,7 @@ describe('reconcilePlan', () => {
 
   it('does not synthesize a default epic when every surviving slice is covered', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [{ id: 'req-1', epic_id: 'default', definition: 'A', depends_on: [], verification: [] }],
     };
@@ -301,6 +318,7 @@ describe('reconcilePlan', () => {
 
   it('returns structurally-equal outputs across two identical calls (determinism pin)', () => {
     const projected: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [
         {

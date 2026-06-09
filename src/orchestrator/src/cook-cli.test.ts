@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -9,8 +9,9 @@ import {
   createPetrinautStreamSetup,
   parseCookArgs,
   recordCookExitStatus,
-  resolveCookMode,
+  resolveCookPlan,
   resolvePetrinautStreamPort,
+  resolveSandboxPlan,
 } from './cook-cli.js';
 import type { PetrinautEvent } from './petrinaut-events.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
@@ -41,8 +42,11 @@ describe('parseCookArgs', () => {
     expect(opts.maxRetries).toBe(5);
   });
 
-  it('throws on missing dir', () => {
-    expect(() => parseCookArgs(['--policy=serial'])).toThrow('Usage');
+  it('defaults dir to the launch cwd when no positional dir is given', () => {
+    const expected = resolve(process.env.BRUNCH_LAUNCH_CWD || process.cwd());
+    expect(parseCookArgs([]).dir).toBe(expected);
+    expect(parseCookArgs(['--spec=3']).dir).toBe(expected);
+    expect(parseCookArgs(['--policy=serial']).dir).toBe(expected);
   });
 
   it('throws on unknown policy', () => {
@@ -366,118 +370,95 @@ describe('createPetrinautStreamSetup', () => {
   });
 });
 
-describe('resolveCookMode', () => {
-  const dirs: string[] = [];
+const dirs: string[] = [];
+
+function makeTmpDir(prefix = 'cook-resolve-'): string {
+  const d = mkdtempSync(join(tmpdir(), prefix));
+  dirs.push(d);
+  return d;
+}
+
+function initCleanGitRepo(dir: string): void {
+  execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
+  execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
+  writeFileSync(join(dir, 'README.md'), 'seed\n');
+  execFileSync('git', ['add', '.'], { cwd: dir });
+  execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: dir });
+}
+
+describe('resolveCookPlan', () => {
   afterEach(() => {
     for (const d of dirs) rmSync(d, { recursive: true, force: true });
     dirs.length = 0;
   });
 
-  function makeTmpDir(prefix = 'cook-resolve-'): string {
-    const d = mkdtempSync(join(tmpdir(), prefix));
-    dirs.push(d);
-    return d;
-  }
+  // resolveCookPlan resolves WHERE the plan lives. It no longer decides
+  // greenfield vs brownfield (that is now plan truth read after loadPlan)
+  // and does no git gate (that moves to resolveSandboxPlan for brownfield).
 
-  function initCleanGitRepo(dir: string): void {
-    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
-    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
-    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: dir });
-    writeFileSync(join(dir, 'README.md'), 'seed\n');
-    execFileSync('git', ['add', '.'], { cwd: dir });
-    execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: dir });
-  }
-
-  it('resolves fixture mode when <dir>/plan.yaml exists', () => {
+  it('resolves the authored <dir>/plan.yaml', () => {
     const d = makeTmpDir();
     writeFileSync(join(d, 'plan.yaml'), 'epics: []\nslices: []\n');
 
-    const result = resolveCookMode(d);
-    expect(result.mode).toBe('fixture');
-    if (result.mode === 'fixture') {
+    const result = resolveCookPlan(d);
+    expect(result.kind).toBe('resolved');
+    if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(d, 'plan.yaml'));
+      expect(result.sourceDir).toBe(d);
     }
   });
 
-  it('resolves codebase mode when <dir>/.brunch/cook/plan.yaml exists and git working tree is clean', () => {
+  it('resolves a spec plan without requiring a git repo or clean tree', () => {
+    // No git init, no clean-tree gate — greenfield spec plans must resolve
+    // even in a non-git directory. The git gate is brownfield-only now.
     const d = makeTmpDir();
-    initCleanGitRepo(d);
     mkdirSync(join(d, '.brunch', 'cook'), { recursive: true });
     writeFileSync(join(d, '.brunch', 'cook', 'plan.yaml'), 'epics: []\nslices: []\n');
 
-    const result = resolveCookMode(d);
-    expect(result.mode).toBe('codebase');
-    if (result.mode === 'codebase') {
+    const result = resolveCookPlan(d);
+    expect(result.kind).toBe('resolved');
+    if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(d, '.brunch', 'cook', 'plan.yaml'));
       expect(result.sourceDir).toBe(d);
     }
   });
 
-  it('refuses codebase mode when working tree has uncommitted changes', () => {
-    const d = makeTmpDir();
-    initCleanGitRepo(d);
-    mkdirSync(join(d, '.brunch', 'cook'), { recursive: true });
-    writeFileSync(join(d, '.brunch', 'cook', 'plan.yaml'), 'epics: []\nslices: []\n');
-    // Introduce dirty state: modify the committed README
-    writeFileSync(join(d, 'README.md'), 'modified\n');
-
-    const result = resolveCookMode(d);
-    expect(result.mode).toBe('error');
-    if (result.mode === 'error') {
-      expect(result.message).toMatch(/uncommitted|dirty|working tree/i);
-    }
-  });
-
-  it('refuses codebase mode when <dir> is not a git repo', () => {
-    const d = makeTmpDir();
-    mkdirSync(join(d, '.brunch', 'cook'), { recursive: true });
-    writeFileSync(join(d, '.brunch', 'cook', 'plan.yaml'), 'epics: []\nslices: []\n');
-
-    const result = resolveCookMode(d);
-    expect(result.mode).toBe('error');
-    if (result.mode === 'error') {
-      expect(result.message).toMatch(/git/i);
-    }
-  });
-
-  it('returns error when no plan found at either location', () => {
+  it('returns error when no plan found at any location', () => {
     const d = makeTmpDir();
 
-    const result = resolveCookMode(d);
-    expect(result.mode).toBe('error');
-    if (result.mode === 'error') {
+    const result = resolveCookPlan(d);
+    expect(result.kind).toBe('error');
+    if (result.kind === 'error') {
       expect(result.message).toMatch(/plan/i);
     }
   });
 
   it('resolves explicit --spec=<id> from .brunch/cook/specs/<id>/plan.yaml', () => {
     const d = makeTmpDir();
-    initCleanGitRepo(d);
     const specDir = join(d, '.brunch', 'cook', 'specs', '7');
     mkdirSync(specDir, { recursive: true });
     writeFileSync(join(specDir, 'plan.yaml'), 'epics: []\nslices: []\n');
 
-    const result = resolveCookMode(d, 7);
-    expect(result.mode).toBe('codebase');
-    if (result.mode === 'codebase') {
+    const result = resolveCookPlan(d, 7);
+    expect(result.kind).toBe('resolved');
+    if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(specDir, 'plan.yaml'));
     }
   });
 
   it('errors when explicit --spec=<id> plan is missing', () => {
     const d = makeTmpDir();
-    initCleanGitRepo(d);
 
-    const result = resolveCookMode(d, 99);
-    expect(result.mode).toBe('error');
-    if (result.mode === 'error') {
+    const result = resolveCookPlan(d, 99);
+    expect(result.kind).toBe('error');
+    if (result.kind === 'error') {
       expect(result.message).toMatch(/spec 99/);
     }
   });
 
   it('auto-picks the newest spec plan by mtime when no --spec is given', () => {
     const d = makeTmpDir();
-    initCleanGitRepo(d);
     const older = join(d, '.brunch', 'cook', 'specs', '1');
     const newer = join(d, '.brunch', 'cook', 'specs', '2');
     mkdirSync(older, { recursive: true });
@@ -488,39 +469,78 @@ describe('resolveCookMode', () => {
     const past = new Date(Date.now() - 60_000);
     utimesSync(join(older, 'plan.yaml'), past, past);
 
-    const result = resolveCookMode(d);
-    expect(result.mode).toBe('codebase');
-    if (result.mode === 'codebase') {
+    const result = resolveCookPlan(d);
+    expect(result.kind).toBe('resolved');
+    if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(newer, 'plan.yaml'));
     }
   });
 
   it('falls back to legacy .brunch/cook/plan.yaml when no spec plans exist', () => {
     const d = makeTmpDir();
-    initCleanGitRepo(d);
     mkdirSync(join(d, '.brunch', 'cook'), { recursive: true });
     writeFileSync(join(d, '.brunch', 'cook', 'plan.yaml'), 'epics: []\nslices: []\n');
 
-    const result = resolveCookMode(d);
-    expect(result.mode).toBe('codebase');
-    if (result.mode === 'codebase') {
+    const result = resolveCookPlan(d);
+    expect(result.kind).toBe('resolved');
+    if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(d, '.brunch', 'cook', 'plan.yaml'));
     }
   });
 
   it('prefers a newer spec plan over the legacy top-level plan', () => {
     const d = makeTmpDir();
-    initCleanGitRepo(d);
     mkdirSync(join(d, '.brunch', 'cook'), { recursive: true });
     writeFileSync(join(d, '.brunch', 'cook', 'plan.yaml'), 'epics: []\nslices: []\n');
     const specDir = join(d, '.brunch', 'cook', 'specs', '5');
     mkdirSync(specDir, { recursive: true });
     writeFileSync(join(specDir, 'plan.yaml'), 'epics: []\nslices: []\n');
 
-    const result = resolveCookMode(d);
-    expect(result.mode).toBe('codebase');
-    if (result.mode === 'codebase') {
+    const result = resolveCookPlan(d);
+    expect(result.kind).toBe('resolved');
+    if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(specDir, 'plan.yaml'));
+    }
+  });
+});
+
+describe('resolveSandboxPlan', () => {
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  it('chooses an empty (fixture) worktree for greenfield without touching git', () => {
+    // No git repo at all — greenfield must never run the clean-tree gate.
+    const d = makeTmpDir();
+    expect(resolveSandboxPlan('greenfield', d)).toEqual({ kind: 'fixture' });
+  });
+
+  it('chooses a cwd clone (codebase) for brownfield on a clean git repo', () => {
+    const d = makeTmpDir();
+    initCleanGitRepo(d);
+    expect(resolveSandboxPlan('brownfield', d)).toEqual({ kind: 'codebase', sourceDir: d });
+  });
+
+  it('errors for brownfield when the working tree is dirty', () => {
+    const d = makeTmpDir();
+    initCleanGitRepo(d);
+    writeFileSync(join(d, 'README.md'), 'modified\n');
+
+    const result = resolveSandboxPlan('brownfield', d);
+    expect(result.kind).toBe('error');
+    if (result.kind === 'error') {
+      expect(result.message).toMatch(/uncommitted|dirty|working tree/i);
+    }
+  });
+
+  it('errors for brownfield when <dir> is not a git repo', () => {
+    const d = makeTmpDir();
+
+    const result = resolveSandboxPlan('brownfield', d);
+    expect(result.kind).toBe('error');
+    if (result.kind === 'error') {
+      expect(result.message).toMatch(/git/i);
     }
   });
 });

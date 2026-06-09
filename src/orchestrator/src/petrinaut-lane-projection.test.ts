@@ -14,6 +14,7 @@ import type { Plan } from './types.js';
 // preserve the `dep-signal:slice-a:slice-b` fan-out that `return-done` emits or
 // slice-b never unlocks.
 const twoSlicePlan: Plan = {
+  mode: 'greenfield',
   epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
   slices: [
     {

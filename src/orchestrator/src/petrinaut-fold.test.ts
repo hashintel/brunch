@@ -79,6 +79,7 @@ describe('createNetFolding — foldedPlaces', () => {
 
   it('keeps dep-signal edges distinct when one slice has multiple upstream dependencies', () => {
     const multiDepPlan: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
       slices: [
         {
@@ -176,6 +177,7 @@ describe('createNetFolding — divergence is bounded to dependency gates', () =>
   // staying slice-scoped means a uniform lifecycle transition silently failed
   // to fold — the graph re-expands while reading as "fold worked".
   const depPlan: Plan = {
+    mode: 'greenfield',
     epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
     slices: [
       {

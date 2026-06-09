@@ -34,7 +34,7 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('');
   console.log('Commands:');
   console.log('  agent                     Run a JSONL capability session on stdin/stdout.');
-  console.log('  cook <dir> [flags]        Run the orchestrator on a plan directory.');
+  console.log('  cook [dir] [flags]        Run the orchestrator on a plan directory (default: cwd).');
   console.log(
     '  plan <specId> [flags]     Emit .brunch/cook/specs/<specId>/plan.yaml from a completed specification.',
   );

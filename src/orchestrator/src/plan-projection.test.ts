@@ -10,6 +10,18 @@ import { loadPlan } from './plan-loader.js';
 import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 
 describe('projectPlanFromSpec', () => {
+  it('defaults the plan mode to greenfield when the snapshot omits a mode', () => {
+    const plan = projectPlanFromSpec({ requirements: [], criteria: [], edges: [] });
+    expect(plan.mode).toBe('greenfield');
+  });
+
+  it('carries the snapshot mode onto the plan', () => {
+    const greenfield = projectPlanFromSpec({ mode: 'greenfield', requirements: [], criteria: [], edges: [] });
+    const brownfield = projectPlanFromSpec({ mode: 'brownfield', requirements: [], criteria: [], edges: [] });
+    expect(greenfield.mode).toBe('greenfield');
+    expect(brownfield.mode).toBe('brownfield');
+  });
+
   it('returns a single default epic and zero slices for an empty snapshot', () => {
     const snapshot: CompletedSpecSnapshot = {
       requirements: [],

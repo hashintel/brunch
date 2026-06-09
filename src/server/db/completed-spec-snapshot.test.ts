@@ -23,6 +23,7 @@ import {
   createTurn,
   getOrCreateSpecification,
   linkKnowledgeItemToTurn,
+  updateSpecificationMode,
   type DB,
 } from '../db.js';
 import {
@@ -171,7 +172,20 @@ describe('buildCompletedSpecSnapshot', () => {
 
     const snapshot = buildCompletedSpecSnapshot(db, specification.id);
 
-    expect(snapshot).toEqual({ requirements: [], criteria: [], edges: [] });
+    expect(snapshot).toEqual({ mode: 'greenfield', requirements: [], criteria: [], edges: [] });
+  });
+
+  it('carries the specification mode onto the snapshot (greenfield by default)', () => {
+    const { specificationId } = seedCompletedSpec();
+
+    expect(buildCompletedSpecSnapshot(db, specificationId).mode).toBe('greenfield');
+  });
+
+  it('carries a brownfield specification mode onto the snapshot', () => {
+    const { specificationId } = seedCompletedSpec();
+    updateSpecificationMode(db, specificationId, 'brownfield');
+
+    expect(buildCompletedSpecSnapshot(db, specificationId).mode).toBe('brownfield');
   });
 
   it('rejects planning when the criteria phase has not been confirmed', () => {
