@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -1555,7 +1556,7 @@ describe('Engine contract test #13 — resource pool bounds concurrency', () => 
 // ---------------------------------------------------------------------------
 
 describe('Adapter: sandbox-per-slice isolation', () => {
-  it('each action handler receives a per-slice sandboxDir (parallel-safe)', async () => {
+  it('greenfield action handlers all receive the single shared run sandbox', async () => {
     const sandboxDirs = new Map<string, string>();
 
     const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
@@ -1578,70 +1579,82 @@ describe('Adapter: sandbox-per-slice isolation', () => {
     });
 
     expect(result.status).toBe('completed');
-    for (const [key, dir] of sandboxDirs) {
-      const sliceId = key.split(':')[0]!;
-      expect(dir).toBe(`/tmp/run/${sliceId}`);
-      expect(simplePlan.slices.find((s) => s.id === sliceId)?.epic_id).toBe('epic-1');
+    for (const dir of sandboxDirs.values()) {
+      expect(dir).toBe('/tmp/run');
     }
     expect(sandboxDirs.size).toBeGreaterThanOrEqual(2);
   });
 
-  it('parallel slices in the same epic receive distinct sandboxDirs', async () => {
-    const parallelPlan: Plan = {
-      mode: 'greenfield',
-      epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
-      slices: [
-        {
-          id: 'p1',
-          epic_id: 'e1',
-          definition: 'S1',
-          depends_on: [],
-          verification: [{ kind: 'unit-test', target: 't1' }],
-        },
-        {
-          id: 'p2',
-          epic_id: 'e1',
-          definition: 'S2',
-          depends_on: [],
-          verification: [{ kind: 'unit-test', target: 't2' }],
-        },
-        {
-          id: 'p3',
-          epic_id: 'e1',
-          definition: 'S3',
-          depends_on: [],
-          verification: [{ kind: 'unit-test', target: 't3' }],
-        },
-      ],
-    };
+  it('brownfield slices receive distinct per-slice worktree dirs under the run sandbox', async () => {
+    const repo = mkdtempSync(join(tmpdir(), 'cook-ec-bf-'));
+    try {
+      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: repo });
+      execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: repo });
+      execFileSync('git', ['config', 'user.name', 'T'], { cwd: repo });
+      writeFileSync(join(repo, 'README.md'), 'x\n');
+      execFileSync('git', ['add', '.'], { cwd: repo });
+      execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: repo });
 
-    const sandboxDirs = new Set<string>();
-    const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
-    const trackingActions: ActionHandlers = {};
-    for (const [key, handler] of Object.entries(fakes.actions)) {
-      trackingActions[key] = async (ctx: ActionContext) => {
-        sandboxDirs.add(ctx.sandboxDir);
-        return handler!(ctx);
+      const parallelPlan: Plan = {
+        mode: 'brownfield',
+        epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
+        slices: [
+          {
+            id: 'p1',
+            epic_id: 'e1',
+            definition: 'S1',
+            depends_on: [],
+            verification: [{ kind: 'unit-test', target: 't1' }],
+          },
+          {
+            id: 'p2',
+            epic_id: 'e1',
+            definition: 'S2',
+            depends_on: [],
+            verification: [{ kind: 'unit-test', target: 't2' }],
+          },
+          {
+            id: 'p3',
+            epic_id: 'e1',
+            definition: 'S3',
+            depends_on: [],
+            verification: [{ kind: 'unit-test', target: 't3' }],
+          },
+        ],
       };
-    }
 
-    const result = await createOrchestrator('parallel').run({
-      plan: parallelPlan,
-      sandboxDir: '/tmp/parallel-run',
-      actions: trackingActions,
-      reports: fakes.reports,
-      testRunner: fakes.testRunner,
-      policy: { maxRetries: 3 },
-    });
+      const sandboxDirs = new Set<string>();
+      const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
+      const trackingActions: ActionHandlers = {};
+      for (const [key, handler] of Object.entries(fakes.actions)) {
+        trackingActions[key] = async (ctx: ActionContext) => {
+          sandboxDirs.add(ctx.sandboxDir);
+          return handler!(ctx);
+        };
+      }
 
-    expect(result.status).toBe('completed');
-    expect(sandboxDirs.size).toBeGreaterThan(1);
-    for (const dir of sandboxDirs) {
-      expect(dir.startsWith('/tmp/parallel-run/')).toBe(true);
+      const result = await createOrchestrator('parallel').run({
+        plan: parallelPlan,
+        sandboxDir: repo,
+        actions: trackingActions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        sandboxMode: 'codebase',
+        runId: 'run-bf',
+      });
+
+      expect(result.status).toBe('completed');
+      expect(sandboxDirs.size).toBeGreaterThan(1);
+      for (const dir of sandboxDirs) {
+        expect(dir.startsWith(repo + '/')).toBe(true);
+      }
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
     }
   });
 
-  it('verify-epic receives a merged epic sandbox under <parent>/__epic__/<epicId>/ (not slice worktree, not parent)', async () => {
+  it('greenfield verify-epic runs in place against the single run tree — no per-slice dir, no __epic__ merge', async () => {
     const verifyPlan: Plan = {
       mode: 'greenfield',
       epics: [
@@ -1665,9 +1678,9 @@ describe('Adapter: sandbox-per-slice isolation', () => {
 
     const parent = mkdtempSync(join(tmpdir(), 'cook-ec-'));
     try {
-      // Seed the slice worktree with a file so the merge has something to copy.
-      mkdirSync(join(parent, 'sv'), { recursive: true });
-      writeFileSync(join(parent, 'sv', 'slice-marker.txt'), 'from-slice-sv');
+      // Greenfield slices accrete into the single run tree, so slice output
+      // lives directly under the run sandbox (not a per-slice <parent>/sv/ dir).
+      writeFileSync(join(parent, 'slice-marker.txt'), 'from-slice-sv');
 
       let verifyEpicSandboxDir = '';
       const fakes = createFakes({ evalSequence: [true], semanticResults: [true], verifyEpicResult: true });
@@ -1689,18 +1702,78 @@ describe('Adapter: sandbox-per-slice isolation', () => {
       });
 
       expect(result.status).toBe('completed');
-      expect(verifyEpicSandboxDir).toBe(join(parent, '__epic__', 'ev'));
-      // Merge produced a real dir holding the slice worktree seed file.
+      // verify-epic runs against the single run tree in place...
+      expect(verifyEpicSandboxDir).toBe(parent);
       expect(existsSync(join(verifyEpicSandboxDir, 'slice-marker.txt'))).toBe(true);
+      // ...with no __epic__ merge dir and no merge event.
+      expect(existsSync(join(parent, '__epic__'))).toBe(false);
+      expect(fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged')).toBeUndefined();
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
 
-      // An epic-sandbox-merged event was appended before verify-epic.
-      const merged = fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged');
-      expect(merged).toBeDefined();
-      expect(merged?.payload).toMatchObject({
-        epicSandboxDir: join(parent, '__epic__', 'ev'),
-        sliceIds: ['sv'],
-        conflicts: [],
+  it('greenfield slices accrete into one shared tree — no per-slice dirs, and a dependent slice sees its dep output', async () => {
+    // b depends_on a. Under single-tree greenfield + serial, slice-a writes
+    // into the run sandbox and slice-b reads that same dir (accretion), with
+    // no per-slice <parent>/a or <parent>/b dirs.
+    const depPlan: Plan = {
+      mode: 'greenfield',
+      epics: [{ id: 'e1', summary: 'E', depends_on: [], verification: [] }],
+      slices: [
+        {
+          id: 'a',
+          epic_id: 'e1',
+          definition: 'A',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+        {
+          id: 'b',
+          epic_id: 'e1',
+          definition: 'B',
+          depends_on: ['a'],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+      ],
+    };
+
+    const parent = mkdtempSync(join(tmpdir(), 'cook-ec-accrete-'));
+    try {
+      const fakes = createFakes();
+      const actions: ActionHandlers = { ...fakes.actions };
+      // slice-a writes a.txt; slice-b reads a.txt from its own cwd and records what it saw.
+      actions['write-code'] = async (ctx: ActionContext) => {
+        if (ctx.slice.id === 'a') {
+          writeFileSync(join(ctx.sandboxDir, 'a.txt'), 'AAA');
+        } else if (ctx.slice.id === 'b') {
+          const aPath = join(ctx.sandboxDir, 'a.txt');
+          writeFileSync(
+            join(ctx.sandboxDir, 'b-saw-a.txt'),
+            existsSync(aPath) ? readFileSync(aPath, 'utf8') : 'MISSING',
+          );
+        }
+        return fakes.actions['write-code']!(ctx);
+      };
+
+      const result = await createOrchestrator('serial').run({
+        plan: depPlan,
+        sandboxDir: parent,
+        actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
       });
+
+      expect(result.status).toBe('completed');
+      // Single shared tree: slice output lands directly under the run sandbox...
+      expect(existsSync(join(parent, 'a.txt'))).toBe(true);
+      // ...and slice-b saw slice-a's output through the same dir (accretion).
+      expect(readFileSync(join(parent, 'b-saw-a.txt'), 'utf8')).toBe('AAA');
+      // No per-slice worktree dirs, no __epic__ merge dir.
+      expect(existsSync(join(parent, 'a'))).toBe(false);
+      expect(existsSync(join(parent, 'b'))).toBe(false);
+      expect(existsSync(join(parent, '__epic__'))).toBe(false);
     } finally {
       rmSync(parent, { recursive: true, force: true });
     }
