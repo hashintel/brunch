@@ -21,7 +21,8 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
 
 - **review-set payload translation** (`review-set.ts`) — validates exact
   user-reviewable review-set payloads, resolves projected existing-node codes
-  inside the selected spec, and translates them to explicit-basis graph batches.
+  inside the selected spec, and translates them to explicit-basis `mutateGraph`
+  batches.
   `CommandExecutor.acceptReviewSet` is the only graph mutation entrypoint for
   accepted review sets and records `operation: "accept_review_set"`.
 
@@ -115,26 +116,30 @@ graph/
     updateReadinessGrade
     createNode
     per-kind node ordinal allocation
-    commitGraph / dryRunCommitGraph
+    mutateGraph / dryRunMutateGraph
     acceptReviewSet
     create/resolve reconciliation need
 
   command-executor/
-    commit-graph-types.ts
-      commitGraph input/result/diagnostic types re-exported by command-executor.ts
-    commit-graph-batch.ts
-      private commitGraph batch planner
+    graph-mutation-types.ts
+      mutateGraph input/result/diagnostic types re-exported by command-executor.ts
+    create-graph-batch.ts
+      private create-only planner shared by direct-create callers and mutateGraph
+    graph-mutation-planner.ts
+      mixed create/patch/delete planner
       dry-run/commit structural parity
       temporary endpoint graph for supersession acyclicity
+    graph-mutation-writer.ts
+      mutation write/apply path for mutateGraph and acceptReviewSet
 
   review-set.ts
     review-set payload contract
     selected-spec projected-code resolution
-    explicit-basis command translation
+    explicit-basis mutateGraph translation
 
   capture/
     structured-response.ts
-      deterministic labeled-answer capture to explicit-basis commitGraph input
+      deterministic labeled-answer capture to explicit-basis mutateGraph input
 
   queries.ts
     getGraphOverview
@@ -193,21 +198,29 @@ CommandExecutor
 ## Fractal split points
 
 Keep `command-executor.ts` and `queries.ts` as public entry points. The first
-real split is now `command-executor/commit-graph-batch.ts`: private planner code
-for the commitGraph seam, imported only by the public `command-executor.ts`
-entrypoint. Future splits should follow the same pattern: split by semantic
-responsibility, keep external imports pointed at the root entrypoint, and avoid
-folder scaffolding until pressure is real.
+real split is now `command-executor/graph-mutation-planner.ts` and
+`command-executor/graph-mutation-writer.ts`: private planning/apply code for the
+`mutateGraph` seam, imported only by the public `command-executor.ts`
+entrypoint. `create-graph-batch.ts` remains the narrower shared planner for the
+create-only subset used by review-set translation and test/dev helpers. Future
+splits should follow the same pattern: split by semantic responsibility, keep
+external imports pointed at the root entrypoint, and avoid folder scaffolding
+until pressure is real.
 
 ```pseudo
 graph/command-executor/
-  commit-graph-types.ts
-    commitGraph input/result/diagnostic types re-exported by command-executor.ts
-  commit-graph-batch.ts
+  graph-mutation-types.ts
+    mutateGraph input/result/diagnostic types re-exported by command-executor.ts
+  create-graph-batch.ts
+    create-only planner and result formatting
+  graph-mutation-planner.ts
     planned edge endpoints
     existing/batch ref validation
+    patch/delete validation
     supersession-cycle detection over existing ids + temporary batch keys
-    created-node result formatter
+  graph-mutation-writer.ts
+    create/update/delete application
+    change-log payload emission
 
 graph/queries/
   row-mappers.ts

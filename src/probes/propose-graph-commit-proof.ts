@@ -10,8 +10,8 @@ import { appendBrunchAgentRuntimeSwitch, type BrunchAgentState } from '../.pi/ex
 import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
 import {
   openWorkspaceGraphRuntime,
-  type CommitGraphSuccess,
   type Diagnostic,
+  type MutateGraphSuccess,
   type StructuralIllegal,
 } from '../graph/index.js';
 import type { GraphSlice } from '../graph/queries.js';
@@ -49,7 +49,7 @@ export interface ProposeGraphCommitProofArtifacts {
 }
 
 type CommitGraphAttemptStatus =
-  | CommitGraphSuccess['status']
+  | MutateGraphSuccess['status']
   | StructuralIllegal['status']
   | 'needs_human'
   | 'policy_blocked'
@@ -354,15 +354,15 @@ export function summarizeProposeGraphCommitProof(
     probeId: PROBE_ID,
     runId: input.runId,
     generatedAt: input.generatedAt,
-    mission: 'Prove the propose-graph strategy can commit graph truth through commit_graph.',
+    mission: 'Prove the propose-graph strategy can commit graph truth through mutate_graph.',
     evaluationFocus:
       scenarioId === 'existing-code-ref'
         ? 'A14-L selected-spec projected-code reference through the default runtime.'
         : scenarioId === 'retry-diagnostics'
-          ? 'A14-L retry behavior after structured commit_graph diagnostics.'
+          ? 'A14-L retry behavior after structured mutate_graph diagnostics.'
           : scenarioId === 'ambiguity-no-overcommit'
             ? 'A14-L ambiguity handling without unsupported graph overcommit.'
-            : 'A14-L structural legality for direct commitGraph batches.',
+            : 'A14-L structural legality for direct mutateGraph batches.',
     scenarioId,
     success,
     cwd: input.cwd,

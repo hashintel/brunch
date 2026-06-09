@@ -19,6 +19,7 @@ import {
   specs,
 } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
+import { runCreateOnlyMutation } from './test-support/create-only-mutation.js';
 
 function createTestDb(): BrunchDb {
   return createDb(':memory:');
@@ -572,7 +573,7 @@ describe('CommandExecutor', () => {
   describe('createReconciliationNeed', () => {
     it('creates a recon need targeting an edge and returns success with id and lsn', () => {
       // Seed a node and edge first
-      const batch = executor.commitGraph({
+      const batch = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
@@ -582,7 +583,7 @@ describe('CommandExecutor', () => {
       });
       expect(batch.status).toBe('success');
       if (batch.status !== 'success') throw new Error('unreachable');
-      const edgeId = batch.edges[0]!;
+      const edgeId = batch.createdEdges[0]!;
 
       const result = executor.createReconciliationNeed({
         specId,
@@ -598,7 +599,7 @@ describe('CommandExecutor', () => {
     });
 
     it('creates a recon need targeting a node pair', () => {
-      const batch = executor.commitGraph({
+      const batch = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
@@ -839,7 +840,7 @@ describe('CommandExecutor', () => {
 
   describe('resolveReconciliationNeed', () => {
     it('resolves an open need and records resolvedAtLsn', () => {
-      const batch = executor.commitGraph({
+      const batch = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
@@ -852,7 +853,7 @@ describe('CommandExecutor', () => {
 
       const create = executor.createReconciliationNeed({
         specId,
-        target: { kind: 'edge', edgeId: batch.edges[0]! },
+        target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
         needKind: 'edge_revalidation',
       });
       expect(create.status).toBe('success');
@@ -873,7 +874,7 @@ describe('CommandExecutor', () => {
       const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other-spec' });
       expect(otherSpec.status).toBe('success');
       if (otherSpec.status !== 'success') throw new Error('unreachable');
-      const batch = executor.commitGraph({
+      const batch = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
@@ -885,7 +886,7 @@ describe('CommandExecutor', () => {
       if (batch.status !== 'success') throw new Error('unreachable');
       const create = executor.createReconciliationNeed({
         specId,
-        target: { kind: 'edge', edgeId: batch.edges[0]! },
+        target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
         needKind: 'edge_revalidation',
       });
       expect(create.status).toBe('success');
@@ -907,7 +908,7 @@ describe('CommandExecutor', () => {
     });
 
     it('rejects already-resolved need', () => {
-      const batch = executor.commitGraph({
+      const batch = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
@@ -920,7 +921,7 @@ describe('CommandExecutor', () => {
 
       const create = executor.createReconciliationNeed({
         specId,
-        target: { kind: 'edge', edgeId: batch.edges[0]! },
+        target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
         needKind: 'edge_revalidation',
       });
       expect(create.status).toBe('success');

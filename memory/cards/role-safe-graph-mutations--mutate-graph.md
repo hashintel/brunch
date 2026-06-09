@@ -17,7 +17,7 @@ Created:  2026-06-09
 - **Linear issue:** Role-safe graph mutations and completion of full stack graph tools.
 - **Branch/worktree:** `ln/fe-824-full-stack-graph-tools` (already active in this worktree).
 - **Canonical build source:** this file only. Do **not** build from the superseded cards except as historical context.
-- **Build order is binding:** Card 1 → Card 2 → Card 3 → Card 4 → Card 5. Each card depends on the previous card's public shape.
+- **Build order is binding:** Card 1 → Card 2 → Card 3 → Card 4 → Card 4.5 → Card 5. Each card depends on the previous card's public shape. Card 5 must not start until the Card 4.5 judo checkpoint is complete.
 - **Branch posture:** pre-release/free-rewrite. Retire exposed `commitGraph` / `commit_graph` by break-and-repair; do not add a compatibility bridge that accepts both `{ category, source, target }` and role-named edge drafts at authored boundaries.
 - **Inner loop:** after meaningful edits run file-scoped tests where practical, then `npm run fix`; before handoff/commit run `npm run verify`.
 - **Card completion marker:** when a card lands, change that card's `Status:` from `next` to `done` and move the next card to `next` if needed. Keep superseded cards superseded.
@@ -39,11 +39,14 @@ Created:  2026-06-09
 4. Card 4 — Review-set proposals use role-named mutation drafts
    Port the second LLM-authored edge boundary while preserving acceptReviewSet audit semantics.
 
+4.5 Card 4.5 — Judo checkpoint before dev curation
+    Retire remaining public/internal `commitGraph` dialect residue and split the mutation blob before Card 5 adds another adapter.
+
 5. Card 5 — Dev curation RPC exposes mutateGraph by projected codes
    Add the local curation entrypoint after the product/tool/review paths share one grammar.
 ```
 
-Do not reorder: Card 1 prevents role drift; Card 2 creates the command grammar; Card 3 proves the live tool/direct-writer path; Card 4 closes the review-set LLM boundary; Card 5 exposes the complete grammar to dev curation without inventing a parallel curation dialect.
+Do not reorder: Card 1 prevents role drift; Card 2 creates the command grammar; Card 3 proves the live tool/direct-writer path; Card 4 closes the review-set LLM boundary; Card 4.5 deletes remaining stale shape/structure before another adapter is added; Card 5 exposes the complete grammar to dev curation without inventing a parallel curation dialect.
 
 Frontier-level cross-cutting obligations:
 
@@ -175,7 +178,7 @@ src/graph/
 
 ## Card 2 — Atomic `mutateGraph` command engine
 
-Status: next
+Status: done (residue moved to Card 4.5)
 Weight: full
 
 ### Target Behavior
@@ -438,6 +441,128 @@ src/.pi/__tests__/
 docs/design/GRAPH_MODEL.md                     ~
 memory/SPEC.md                                  ~
 .fixtures/runs/project-graph-review-cycle/      ?
+```
+
+## Card 4.5 — Judo checkpoint before dev curation
+
+Status: done
+Weight: full
+
+### Why this checkpoint exists
+
+Cards 1–4 proved the role-named `mutateGraph` path, but the branch still carries two maintainability hazards that would get worse if Card 5 simply adds a dev adapter:
+
+1. **The old creation dialect still exists in the code topology.** `commitGraph` / `dryRunCommitGraph`, `CommitGraphInput`, `BatchEdgeInput`, `BatchNodeInput`, stale `commit-result` topology comments, and SPEC/README text still make `{ nodes, edges }` / `{ category, source, target }` look canonical.
+2. **`CommandExecutor` absorbed the mutation planner.** The root file is already large and now owns the full create/patch/delete planning loop inline. Card 5 would add another boundary on top of a tangled private implementation instead of a deep command module.
+
+This is the code-judo move before Card 5: **delete the stale public dialect and extract the mutation internals that already exist**. Do not rearrange the same complexity under new names; make the remaining public flow visibly smaller.
+
+### Current shape → desired shape
+
+```pseudo chain
+current
+  CommandExecutor
+    ├─ public commitGraph(input: CommitGraphInput)
+    │    └─ planCommitGraph -> writePlannedGraphBatch(operation='commit_graph')
+    ├─ public mutateGraph(input: MutateGraphInput)
+    │    └─ inline planMutateGraph -> writePlannedMutationBatch
+    └─ acceptReviewSet
+         └─ translateReviewSetPayloadToMutateGraph
+            -> inline planMutateGraph
+            -> writePlannedGraphBatch(operation='accept_review_set')
+
+  graph/index.ts exports CommitGraphInput / BatchEdgeInput / BatchNodeInput
+  rpc/dev still exposes dev.graph.commitGraph (Card 5 target)
+  SPEC/README/stubs still teach commitGraph as canonical
+```
+
+```pseudo chain
+desired before Card 5
+  CommandExecutor
+    ├─ public mutateGraph(input: MutateGraphInput)
+    │    └─ planGraphMutation + writeGraphMutation
+    └─ acceptReviewSet
+         └─ translateReviewSetPayloadToMutateGraph
+            -> planGraphMutation + writeGraphMutation(operation='accept_review_set')
+
+  command-executor/
+    graph-mutation-types.ts      # public authored mutation input/result types
+    graph-mutation-planner.ts    # pure planning/validation over create/patch/delete
+    graph-mutation-writer.ts     # transaction write helper hidden behind CommandExecutor
+    role-named-edge-draft.ts     # role endpoint normalizer
+
+  no exposed commitGraph / dryRunCommitGraph method
+  no graph/index export of creation-only CommitGraphInput / BatchEdgeInput / BatchNodeInput
+  docs/stubs/SPEC name mutateGraph as the canonical graph mutation command
+```
+
+### Target Behavior
+
+Before Card 5 adds `dev.graph.mutateGraph`, the graph command layer presents only `mutateGraph` as the authored mutation grammar. Any creation-only helpers that survive are private implementation details or test-local helpers over `mutateGraph`, not public methods/exports and not boundary docs.
+
+### Risks and Assumptions
+
+```pseudo
+- RISK: extracting planner/writer becomes structural theatre.
+  → MITIGATION: move only existing mutateGraph planning/writing code out of `command-executor.ts`; keep `CommandExecutor` as the public entrypoint and do not add factories/services.
+- RISK: tests keep `commitGraph` alive as a convenience, preserving the old dialect by inertia.
+  → MITIGATION: replace test setup with small local helpers that call `mutateGraph` create-only ops; helper names must not reintroduce product API language.
+- RISK: `acceptReviewSet` loses its audit operation if it uses the generic writer.
+  → MITIGATION: shared writer accepts the change-log operation (`mutate_graph` vs `accept_review_set`) while the payload remains workflow-specific.
+- RISK: SPEC/doc reconciliation expands into a broad planning sync.
+  → MITIGATION: touch only D27-L/D53-L/D26-L/D55-L/D63-L/A14-L/I34-L/I40-L/lexicon lines that still call `commitGraph` the canonical graph command, plus graph topology README/stubs that a Card 5 builder will read.
+```
+
+### Acceptance Criteria
+
+```pseudo tree
+pre-card5 judo checkpoint
+├── public API collapse
+│   ├── ✓ `CommandExecutor` exposes `mutateGraph` / `dryRunMutateGraph`, not public `commitGraph` / `dryRunCommitGraph`
+│   ├── ✓ `src/graph/index.ts` stops exporting creation-only `CommitGraphInput`, `CommitGraphSuccess`, `BatchEdgeInput`, and `BatchNodeInput`
+│   ├── ✓ production callers use `mutateGraph`; tests use mutateGraph-backed local helpers when they need setup data
+│   └── ✓ `rg "\.commitGraph\(|dryRunCommitGraph|dev\.graph\.commitGraph" src/graph src/.pi src/projections src/renderers` has no live product matches (Card 5 may still own `src/rpc/methods/dev-graph.ts` until it replaces the method)
+├── command-executor depth
+│   ├── ✓ `command-executor.ts` delegates mutation planning/writing to `command-executor/graph-mutation-*` modules and loses the long inline `planMutateGraph` / `writePlannedMutationBatch` bodies
+│   ├── ✓ mutation planning remains table/validator driven; no second endpoint-role map appears
+│   ├── ✓ `acceptReviewSet` shares the mutation planner/writer while preserving `operation: "accept_review_set"`
+│   └── ✓ the root `CommandExecutor` remains the only public mutation boundary; no new service/factory layer is introduced
+├── stale topology/doc cleanup
+│   ├── ✓ `src/graph/README.md` current topology names mutateGraph and the new command-executor submodules, not commitGraph as a public seam
+│   ├── ✓ `src/projections/graph/commit-result.ts` and `src/renderers/graph/commit-result.ts` are renamed or retitled to mutate-result if the topology seam still matters; do not delete intentional stubs unless their documented seam is obsolete
+│   ├── ✓ `memory/SPEC.md` D27-L/D53-L/D26-L/D55-L/D63-L/A14-L/I34-L/I40-L/lexicon no longer describe `commitGraph` / `commit_graph` as canonical
+│   └── ✓ unrelated `package-lock.json` bin-path drift is removed unless a current code change actually requires it
+└── verification
+    ├── ✓ existing mutateGraph / review-set / graph-tool tests still pass
+    ├── ✓ tests prove create-only graph setup through mutateGraph preserves one LSN/change-log row and explicit/implicit basis semantics
+    └── ✓ `npm run fix` passes before Card 5 starts
+```
+
+### Verification Approach
+
+```pseudo
+- Inner: file-scoped tests around command-executor graph mutation, review-set acceptance, graph tool adapter, seed fixture, and capture.
+- Inner: grep/source assertions for stale `commitGraph` public API and docs that drive builder behavior.
+- Gate for this checkpoint: `npm run fix`; Card 5 still owns full `npm run verify` after dev RPC lands.
+```
+
+### Expected touched paths (tentative)
+
+```pseudo tree
+src/graph/
+├── command-executor.ts                         ~   # shrink to orchestration
+├── command-executor/
+│   ├── commit-graph-types.ts                   ~   # rename/split if still useful; no public commitGraph contract
+│   ├── graph-mutation-types.ts                 +?  # canonical mutateGraph types
+│   ├── graph-mutation-planner.ts               +?  # create/patch/delete validation + plan
+│   ├── graph-mutation-writer.ts                +?  # transaction write helper, operation-aware
+│   └── commit-graph-batch.test.ts              ~   # setup helpers call mutateGraph
+├── index.ts                                    ~
+└── README.md                                   ~
+src/projections/graph/commit-result.ts          ~ / rename?
+src/renderers/graph/commit-result.ts            ~ / rename?
+memory/SPEC.md                                  ~
+package-lock.json                               ~   # remove unrelated drift if present
 ```
 
 ## Card 5 — Dev curation RPC exposes `mutateGraph` by projected codes

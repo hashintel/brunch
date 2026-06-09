@@ -39,7 +39,11 @@ describe('minimal authority matrix', () => {
         status: 'success',
         lsn: 1,
         createdNodes: {},
-        edges: [],
+        createdEdges: [],
+        updatedNodes: [],
+        updatedEdges: [],
+        deletedNodes: [],
+        deletedEdges: [],
       }),
       commandResultStatus({
         status: 'structural_illegal',

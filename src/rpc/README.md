@@ -223,9 +223,9 @@ dev.graph.commitGraph
     edges: [{category, source, target, stance?, rationale?}]
       source/target: batch ref | {existingCode}
   result: success(lsn, createdNodes, edges) | structural_illegal(diagnostics)
-  effects: commits atomically through CommandExecutor and publishes graph projection invalidations
+  effects: translates the legacy create-only dev payload into `mutateGraph`, then commits atomically through `CommandExecutor` and publishes graph projection invalidations
   gate: explicit local harness only; absent from default public RPC and read-only sidecars
-  caveat: fixture curation helper, not evidence that propose-graph's real agent commit_graph tool path works
+  caveat: transitional fixture-curation helper; canonical graph mutation surfaces are `mutateGraph` / `mutate_graph`, and Card 5 retires this create-only dialect
 ```
 
 ## Product update notifications
@@ -326,7 +326,7 @@ synchronous response capture (current POC tracer)
     Constraint: ...
     Criterion: ...
   -> graph/capture translator
-  -> CommandExecutor.commitGraph({basis: explicit})
+  -> CommandExecutor.mutateGraph({createBasis: explicit, ops})
   -> selected-spec graph truth
 
 ```
@@ -347,7 +347,7 @@ if no exchange is pending:
 
 ## `propose-graph` flow
 
-In `propose-graph`, the browser does not submit graph nodes or edges and does not call `commitGraph` directly.
+In `propose-graph`, the browser does not submit graph nodes or edges and does not call `mutateGraph` directly.
 
 ```pseudo
 session.triggerExchange
@@ -361,13 +361,13 @@ session.submitExchangeResponse
      with optional comment
 
 agent continues after acceptance
-  -> agent calls commitGraph({ nodes, edges }) internally
+  -> agent calls mutateGraph({ createBasis, ops }) internally
   -> CommandExecutor validates and commits atomically
   -> graph projections update
   -> future graph.coherenceSummary updates only after coherence semantics are defined
 ```
 
-The user reviews the concept-level proposal. The graph becomes product truth only after the internal `commitGraph` path succeeds.
+The user reviews the concept-level proposal. The graph becomes product truth only after the internal `mutateGraph` path succeeds.
 
 ## Names absent from current public RPC
 

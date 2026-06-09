@@ -5,6 +5,7 @@ import { graphClock, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import { getOpenElicitationBacklogEntries, getOpenReconciliationNeeds } from './queries.js';
 import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
+import { runCreateOnlyMutation } from './test-support/create-only-mutation.js';
 
 function createTestDb(): BrunchDb {
   return createDb(':memory:');
@@ -41,7 +42,7 @@ describe('getOpenReconciliationNeeds', () => {
   });
 
   it('returns open needs as typed domain objects and excludes resolved needs', () => {
-    const batch = executor.commitGraph({
+    const batch = runCreateOnlyMutation(executor, {
       specId,
       nodes: [
         { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'R1' },
@@ -54,7 +55,7 @@ describe('getOpenReconciliationNeeds', () => {
 
     const create = executor.createReconciliationNeed({
       specId,
-      target: { kind: 'edge', edgeId: batch.edges[0]! },
+      target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
       needKind: 'edge_revalidation',
       reason: 'upstream changed',
     });
@@ -64,7 +65,7 @@ describe('getOpenReconciliationNeeds', () => {
     expect(getOpenReconciliationNeeds(db, specId)).toMatchObject([
       {
         kind: 'edge_revalidation',
-        target: { kind: 'edge', edgeId: batch.edges[0]! },
+        target: { kind: 'edge', edgeId: batch.createdEdges[0]! },
         rationale: 'upstream changed',
       },
     ]);

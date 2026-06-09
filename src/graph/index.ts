@@ -60,13 +60,9 @@ export { CommandExecutor } from './command-executor.js';
 export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';
 export type { WorkspaceGraphRuntime } from './workspace-store.js';
 export type {
-  BatchEdgeInput,
-  BatchEdgeRef,
-  BatchNodeInput,
-  CommitGraphInput,
-  CommitGraphSuccess,
   Diagnostic,
   EdgePatch,
+  GraphMutationNodeRef,
   GraphMutationOp,
   MutateGraphInput,
   MutateGraphSuccess,

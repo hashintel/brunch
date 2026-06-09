@@ -24,25 +24,9 @@ export interface CreatedGraphNodeResult {
 
 export type CreatedGraphNodes = Readonly<Record<string, CreatedGraphNodeResult>>;
 
-/** Successful commitGraph batch execution. */
-export interface CommitGraphSuccess {
-  readonly status: 'success';
-  readonly lsn: number;
-  readonly createdNodes: CreatedGraphNodes;
-  readonly edges: readonly number[];
-}
+export type GraphMutationNodeRef = string | { readonly existing: number };
 
-/** Result of a commitGraph command. */
-export type CommitGraphResult = CommitGraphSuccess | StructuralIllegal;
-
-/** Result of a commitGraph dry-run validation. */
-export type CommitGraphDryRunResult = DryRunSuccess | StructuralIllegal;
-
-/** Reference to a node endpoint in a batch edge. */
-export type BatchEdgeRef = string | { readonly existing: number };
-
-/** A node to create inside a commitGraph batch. */
-export interface BatchNodeInput {
+export interface CreateGraphNodeInput {
   readonly ref: string;
   readonly plane: NodePlane;
   readonly kind: string;
@@ -52,21 +36,19 @@ export interface BatchNodeInput {
   readonly detail?: unknown;
 }
 
-/** An edge to create inside a commitGraph batch. */
-export interface BatchEdgeInput {
+export interface CreateGraphEdgeInput {
   readonly category: string;
-  readonly source: BatchEdgeRef;
-  readonly target: BatchEdgeRef;
+  readonly source: GraphMutationNodeRef;
+  readonly target: GraphMutationNodeRef;
   readonly stance?: string | undefined;
   readonly rationale?: string | undefined;
 }
 
-/** Input for the commitGraph atomic batch mutation. */
-export interface CommitGraphInput {
+export interface CreateGraphInput {
   readonly specId: number;
   readonly basis?: NodeBasis | undefined;
-  readonly nodes: readonly BatchNodeInput[];
-  readonly edges: readonly BatchEdgeInput[];
+  readonly nodes: readonly CreateGraphNodeInput[];
+  readonly edges: readonly CreateGraphEdgeInput[];
 }
 
 export interface NodePatch {
@@ -80,18 +62,18 @@ export interface EdgePatch {
   readonly rationale?: string | null | undefined;
 }
 
-export type MutateGraphNodeRef = { readonly existing: number };
-export type MutateGraphEdgeRef = { readonly existing: number };
+export type ExistingGraphNodeRef = { readonly existing: number };
+export type ExistingGraphEdgeRef = { readonly existing: number };
 
 export type GraphMutationOp =
-  | ({ readonly op: 'create_node' } & BatchNodeInput)
+  | ({ readonly op: 'create_node' } & CreateGraphNodeInput)
   | ({ readonly op: 'create_edge' } & import('./role-named-edge-draft.js').RoleNamedEdgeDraft)
-  | { readonly op: 'patch_node'; readonly node: MutateGraphNodeRef; readonly patch: NodePatch }
-  | { readonly op: 'patch_edge'; readonly edge: MutateGraphEdgeRef; readonly patch: EdgePatch }
-  | { readonly op: 'delete_edge'; readonly edge: MutateGraphEdgeRef }
+  | { readonly op: 'patch_node'; readonly node: ExistingGraphNodeRef; readonly patch: NodePatch }
+  | { readonly op: 'patch_edge'; readonly edge: ExistingGraphEdgeRef; readonly patch: EdgePatch }
+  | { readonly op: 'delete_edge'; readonly edge: ExistingGraphEdgeRef }
   | {
       readonly op: 'delete_node';
-      readonly node: MutateGraphNodeRef;
+      readonly node: ExistingGraphNodeRef;
       readonly deleteIncidentEdges?: boolean | undefined;
     };
 

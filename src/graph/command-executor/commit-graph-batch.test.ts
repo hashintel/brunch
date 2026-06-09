@@ -4,7 +4,9 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import { changeLog, edges, graphClock, nodeKindCounters, nodes, specs } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
-import type { CommitGraphInput, CommitGraphResult } from '../command-executor.js';
+import type { MutateGraphDryRunResult, MutateGraphResult } from '../command-executor.js';
+import type { CreateOnlyMutationInput } from '../test-support/create-only-mutation.js';
+import { dryRunCreateOnlyMutation, runCreateOnlyMutation } from '../test-support/create-only-mutation.js';
 
 function createTestDb(): BrunchDb {
   return createDb(':memory:');
@@ -17,8 +19,8 @@ function graphClockLsn(db: BrunchDb, specId: number): number {
 }
 
 function expectMatchingStructuralDiagnostics(
-  dryRun: ReturnType<CommandExecutor['dryRunCommitGraph']>,
-  commit: CommitGraphResult,
+  dryRun: MutateGraphDryRunResult,
+  commit: MutateGraphResult,
 ): void {
   expect(dryRun.status).toBe('structural_illegal');
   expect(commit.status).toBe('structural_illegal');
@@ -28,7 +30,7 @@ function expectMatchingStructuralDiagnostics(
   expect(commit.diagnostics).toEqual(dryRun.diagnostics);
 }
 
-describe('CommandExecutor commitGraph', () => {
+describe('CommandExecutor create-only mutateGraph helper', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
   let specId: number;
@@ -44,14 +46,14 @@ describe('CommandExecutor commitGraph', () => {
   });
 
   // ==========================================================================
-  // commitGraph
+  // create-only mutateGraph helper
   // ==========================================================================
 
-  describe('commitGraph', () => {
+  describe('create-only batches over mutateGraph', () => {
     // --- success path ---
 
     it('creates multiple nodes + edges in one transaction with one LSN', () => {
-      const input: CommitGraphInput = {
+      const input: CreateOnlyMutationInput = {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'requirement', title: 'Req A' },
@@ -60,13 +62,13 @@ describe('CommandExecutor commitGraph', () => {
         edges: [{ category: 'boundary', source: 'n2', target: 'n1' }],
       };
 
-      const result = executor.commitGraph(input);
+      const result = runCreateOnlyMutation(executor, input);
       expect(result.status).toBe('success');
       if (result.status !== 'success') throw new Error('unreachable');
 
       expect(result.lsn).toBe(1);
       expect(Object.keys(result.createdNodes)).toHaveLength(2);
-      expect(result.edges).toHaveLength(1);
+      expect(result.createdEdges).toHaveLength(1);
 
       // Verify DB state
       expect(db.select().from(nodes).all()).toHaveLength(2);
@@ -76,13 +78,13 @@ describe('CommandExecutor commitGraph', () => {
     it('plans commits inside the transaction before allocating an LSN', () => {
       const guardedDb = db as BrunchDb & { select: BrunchDb['select'] };
       const originalSelect = guardedDb.select;
-      let result: ReturnType<CommandExecutor['commitGraph']> | undefined;
+      let result: MutateGraphResult | undefined;
 
       guardedDb.select = (() => {
-        throw new Error('commitGraph planned outside its transaction');
+        throw new Error('create-only batch planned outside its transaction');
       }) as BrunchDb['select'];
       try {
-        result = executor.commitGraph({
+        result = runCreateOnlyMutation(executor, {
           specId,
           nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Goal' }],
           edges: [],
@@ -101,7 +103,7 @@ describe('CommandExecutor commitGraph', () => {
       if (otherSpec.status !== 'success') throw new Error('unreachable');
 
       executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing goal' });
-      const firstBatch = executor.commitGraph({
+      const firstBatch = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'goal', plane: 'intent', kind: 'goal', title: 'Batch goal' },
@@ -110,7 +112,7 @@ describe('CommandExecutor commitGraph', () => {
         ],
         edges: [],
       });
-      const otherSpecBatch = executor.commitGraph({
+      const otherSpecBatch = runCreateOnlyMutation(executor, {
         specId: otherSpec.specId,
         nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Other goal' }],
         edges: [],
@@ -191,7 +193,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('resolves intra-batch refs to real NodeIds', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'a', plane: 'intent', kind: 'assumption', title: 'A1' },
@@ -217,7 +219,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('applies one batch approval basis to all created nodes and edges', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         basis: 'implicit',
         nodes: [
@@ -242,11 +244,11 @@ describe('CommandExecutor commitGraph', () => {
           .all()
           .map((row) => row.basis),
       ).toEqual(['implicit']);
-      expect(JSON.parse(db.select().from(changeLog).all()[0]!.payload).basis).toBe('implicit');
+      expect(JSON.parse(db.select().from(changeLog).all()[0]!.payload).createBasis).toBe('implicit');
     });
 
     it('rejects retired accepted_review_set basis at the command boundary', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         basis: 'accepted_review_set' as never,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'G1' }],
@@ -266,7 +268,7 @@ describe('CommandExecutor commitGraph', () => {
       const pre = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing goal' });
       if (pre.status !== 'success') throw new Error('unreachable');
 
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'requirement', title: 'New req' }],
         edges: [
@@ -287,7 +289,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('returns projected node codes for created-node refs without accepting code refs at mutation boundary', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'requirement', title: 'New req' }],
         edges: [],
@@ -299,7 +301,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('returns one created-node identity shape and edges array in success result', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'x', plane: 'intent', kind: 'context', title: 'Ctx' },
@@ -314,11 +316,11 @@ describe('CommandExecutor commitGraph', () => {
       expect(result.createdNodes['y']!.id).toBeTypeOf('number');
       expect(result.createdNodes['y']!.code).toBe('TH1');
       expect(result.createdNodes['x']!.id).not.toBe(result.createdNodes['y']!.id);
-      expect(result.edges).toEqual([]);
+      expect(result.createdEdges).toEqual([]);
     });
 
     it('appends one change_log entry for the entire batch', () => {
-      executor.commitGraph({
+      runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'G1' },
@@ -329,16 +331,16 @@ describe('CommandExecutor commitGraph', () => {
 
       const logs = db.select().from(changeLog).all();
       expect(logs).toHaveLength(1);
-      expect(logs[0]!.operation).toBe('commit_graph');
+      expect(logs[0]!.operation).toBe('mutate_graph');
       const payload = JSON.parse(logs[0]!.payload);
-      expect(Object.keys(payload.nodes)).toHaveLength(2);
-      expect(payload.edges).toHaveLength(1);
+      expect(Object.keys(payload.createdNodes)).toHaveLength(2);
+      expect(payload.createdEdges).toHaveLength(1);
     });
 
     // --- edge structural validation ---
 
     it('rejects edge with invalid category', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'G' },
@@ -349,11 +351,11 @@ describe('CommandExecutor commitGraph', () => {
 
       expect(result.status).toBe('structural_illegal');
       if (result.status !== 'structural_illegal') throw new Error('unreachable');
-      expect(result.diagnostics.some((d) => d.field.includes('category'))).toBe(true);
+      expect(result.diagnostics.some((d) => d.message.includes('unknown edge category'))).toBe(true);
     });
 
     it('rejects proof edge without stance', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'criterion', title: 'Cr' },
@@ -364,11 +366,11 @@ describe('CommandExecutor commitGraph', () => {
 
       expect(result.status).toBe('structural_illegal');
       if (result.status !== 'structural_illegal') throw new Error('unreachable');
-      expect(result.diagnostics.some((d) => d.field.includes('stance'))).toBe(true);
+      expect(result.diagnostics.some((d) => d.message.includes('require stance'))).toBe(true);
     });
 
     it('rejects support edge without stance', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'context', title: 'Ctx' },
@@ -381,7 +383,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('rejects non-proof/non-support edge with stance', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'assumption', title: 'A' },
@@ -392,11 +394,11 @@ describe('CommandExecutor commitGraph', () => {
 
       expect(result.status).toBe('structural_illegal');
       if (result.status !== 'structural_illegal') throw new Error('unreachable');
-      expect(result.diagnostics.some((d) => d.field.includes('stance'))).toBe(true);
+      expect(result.diagnostics.some((d) => d.message.includes('do not accept stance'))).toBe(true);
     });
 
     it('rejects edge referencing non-existent existing node', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'G' }],
         edges: [{ category: 'dependency', source: { existing: 9999 }, target: 'n1' }],
@@ -408,7 +410,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('rejects edge with unresolvable intra-batch ref', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'G' }],
         edges: [{ category: 'dependency', source: 'n1', target: 'missing_ref' }],
@@ -420,7 +422,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('rejects self-loop edge', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'G' }],
         edges: [{ category: 'association', source: 'n1', target: 'n1' }],
@@ -434,7 +436,7 @@ describe('CommandExecutor commitGraph', () => {
     // --- node validation reuse ---
 
     it('rejects batch node with invalid kind-for-plane', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'check', title: 'Wrong' }],
         edges: [],
@@ -446,7 +448,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('rejects batch decision without detail', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'decision', title: 'D' }],
         edges: [],
@@ -458,7 +460,7 @@ describe('CommandExecutor commitGraph', () => {
     // --- all-or-nothing (I34-L) ---
 
     it('if any node fails validation, entire batch rejected — nothing written', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'Valid' },
@@ -473,7 +475,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('if any edge fails validation, no nodes written', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'Valid goal' },
@@ -492,14 +494,14 @@ describe('CommandExecutor commitGraph', () => {
     it('does not advance the target spec clock when a batch rolls back after sibling-spec mutations', () => {
       const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other' });
       if (otherSpec.status !== 'success') throw new Error('unreachable');
-      executor.commitGraph({
+      runCreateOnlyMutation(executor, {
         specId: otherSpec.specId,
         nodes: [{ ref: 'other-goal', plane: 'intent', kind: 'goal', title: 'Other goal' }],
         edges: [],
       });
 
       const before = graphClockLsn(db, specId);
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'valid', plane: 'intent', kind: 'goal', title: 'Valid goal' },
@@ -518,7 +520,7 @@ describe('CommandExecutor commitGraph', () => {
       const older = executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'R1' });
       if (newer.status !== 'success' || older.status !== 'success') throw new Error('unreachable');
       expect(
-        executor.commitGraph({
+        runCreateOnlyMutation(executor, {
           specId,
           nodes: [],
           edges: [
@@ -531,7 +533,7 @@ describe('CommandExecutor commitGraph', () => {
         }).status,
       ).toBe('success');
 
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [],
         edges: [
@@ -544,7 +546,7 @@ describe('CommandExecutor commitGraph', () => {
       });
 
       expectMatchingStructuralDiagnostics(
-        executor.dryRunCommitGraph({
+        dryRunCreateOnlyMutation(executor, {
           specId,
           nodes: [],
           edges: [
@@ -563,7 +565,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('rejects intra-batch supersession cycles', () => {
-      const input: CommitGraphInput = {
+      const input: CreateOnlyMutationInput = {
         specId,
         nodes: [
           { ref: 'a', plane: 'intent', kind: 'requirement', title: 'A' },
@@ -575,8 +577,8 @@ describe('CommandExecutor commitGraph', () => {
         ],
       };
 
-      const dryRun = executor.dryRunCommitGraph(input);
-      const result = executor.commitGraph(input);
+      const dryRun = dryRunCreateOnlyMutation(executor, input);
+      const result = runCreateOnlyMutation(executor, input);
 
       expectMatchingStructuralDiagnostics(dryRun, result);
       expect(db.select().from(nodes).all()).toHaveLength(0);
@@ -589,7 +591,7 @@ describe('CommandExecutor commitGraph', () => {
       const b = executor.createNode({ specId, plane: 'intent', kind: 'requirement', title: 'B' });
       if (a.status !== 'success' || b.status !== 'success') throw new Error('unreachable');
       expect(
-        executor.commitGraph({
+        runCreateOnlyMutation(executor, {
           specId,
           nodes: [],
           edges: [
@@ -598,7 +600,7 @@ describe('CommandExecutor commitGraph', () => {
         }).status,
       ).toBe('success');
 
-      const input: CommitGraphInput = {
+      const input: CreateOnlyMutationInput = {
         specId,
         nodes: [{ ref: 'c', plane: 'intent', kind: 'requirement', title: 'C' }],
         edges: [
@@ -607,8 +609,8 @@ describe('CommandExecutor commitGraph', () => {
         ],
       };
 
-      const dryRun = executor.dryRunCommitGraph(input);
-      const result = executor.commitGraph(input);
+      const dryRun = dryRunCreateOnlyMutation(executor, input);
+      const result = runCreateOnlyMutation(executor, input);
 
       expectMatchingStructuralDiagnostics(dryRun, result);
       expect(db.select().from(nodes).all()).toHaveLength(2);
@@ -616,7 +618,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('if post-insert edge validation fails, no nodes, change log, or counter state is written', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'Valid goal' },
@@ -633,7 +635,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('diagnostics include which entry failed', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'OK' }],
         edges: [{ category: 'dependency', source: 'n1', target: { existing: 9999 } }],
@@ -650,7 +652,7 @@ describe('CommandExecutor commitGraph', () => {
       const b = executor.createNode({ specId, plane: 'intent', kind: 'assumption', title: 'A1' });
       if (a.status !== 'success' || b.status !== 'success') throw new Error('unreachable');
 
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [],
         edges: [
@@ -665,11 +667,11 @@ describe('CommandExecutor commitGraph', () => {
       expect(result.status).toBe('success');
       if (result.status !== 'success') throw new Error('unreachable');
       expect(Object.keys(result.createdNodes)).toHaveLength(0);
-      expect(result.edges).toHaveLength(1);
+      expect(result.createdEdges).toHaveLength(1);
     });
 
     it('node-only batch (no edges)', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'context', title: 'C1' },
@@ -681,24 +683,24 @@ describe('CommandExecutor commitGraph', () => {
       expect(result.status).toBe('success');
       if (result.status !== 'success') throw new Error('unreachable');
       expect(Object.keys(result.createdNodes)).toHaveLength(2);
-      expect(result.edges).toEqual([]);
+      expect(result.createdEdges).toEqual([]);
     });
 
     it('empty batch → structural_illegal', () => {
-      const result = executor.commitGraph({ specId, nodes: [], edges: [] });
+      const result = runCreateOnlyMutation(executor, { specId, nodes: [], edges: [] });
       expect(result.status).toBe('structural_illegal');
     });
 
     it('dry-run rejects nonexistent spec before review-set proposals can be surfaced', () => {
       const missingSpecId = specId + 10_000;
-      const input: CommitGraphInput = {
+      const input: CreateOnlyMutationInput = {
         specId: missingSpecId,
         nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Missing spec goal' }],
         edges: [],
       };
 
-      const dryRun = executor.dryRunCommitGraph(input);
-      const commit = executor.commitGraph(input);
+      const dryRun = dryRunCreateOnlyMutation(executor, input);
+      const commit = runCreateOnlyMutation(executor, input);
 
       expect(dryRun).toMatchObject({
         status: 'structural_illegal',
@@ -714,7 +716,7 @@ describe('CommandExecutor commitGraph', () => {
     it('dry-run and commit return matching diagnostics for structural-illegal families', () => {
       const existing = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing' });
       if (existing.status !== 'success') throw new Error('unreachable');
-      const cases: CommitGraphInput[] = [
+      const cases: CreateOnlyMutationInput[] = [
         {
           specId,
           basis: 'accepted_review_set' as never,
@@ -763,7 +765,10 @@ describe('CommandExecutor commitGraph', () => {
       ];
 
       for (const input of cases) {
-        expectMatchingStructuralDiagnostics(executor.dryRunCommitGraph(input), executor.commitGraph(input));
+        expectMatchingStructuralDiagnostics(
+          dryRunCreateOnlyMutation(executor, input),
+          runCreateOnlyMutation(executor, input),
+        );
       }
     });
 
@@ -773,7 +778,7 @@ describe('CommandExecutor commitGraph', () => {
       const pre = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Existing' });
       if (pre.status !== 'success') throw new Error('unreachable');
 
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'new', plane: 'intent', kind: 'requirement', title: 'New' }],
         edges: [
@@ -795,7 +800,7 @@ describe('CommandExecutor commitGraph', () => {
     // --- LSN behavior ---
 
     it('uses one LSN for the entire batch (not per-entity)', () => {
-      const result = executor.commitGraph({
+      const result = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'n1', plane: 'intent', kind: 'goal', title: 'G1' },
@@ -844,7 +849,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('patches only mutable node and edge fields without rewriting basis', () => {
-      const seed = executor.commitGraph({
+      const seed = runCreateOnlyMutation(executor, {
         specId,
         basis: 'implicit',
         nodes: [
@@ -869,7 +874,7 @@ describe('CommandExecutor commitGraph', () => {
       });
       if (seed.status !== 'success') throw new Error('unreachable');
 
-      const edgeId = seed.edges[0]!;
+      const edgeId = seed.createdEdges[0]!;
       const decisionId = seed.createdNodes['decision']!.id;
       const result = executor.mutateGraph({
         specId,
@@ -906,7 +911,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('rejects identity-field patch attempts before LSN allocation', () => {
-      const seed = executor.commitGraph({
+      const seed = runCreateOnlyMutation(executor, {
         specId,
         nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Goal' }],
         edges: [],
@@ -934,7 +939,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('rejects deleting a node with incident edges unless cascade is explicit', () => {
-      const seed = executor.commitGraph({
+      const seed = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'a', plane: 'intent', kind: 'goal', title: 'A' },
@@ -961,7 +966,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('deletes a node and its incident edges in one transaction when cascade is explicit', () => {
-      const seed = executor.commitGraph({
+      const seed = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'a', plane: 'intent', kind: 'goal', title: 'A' },
@@ -972,7 +977,7 @@ describe('CommandExecutor commitGraph', () => {
       if (seed.status !== 'success') throw new Error('unreachable');
 
       const nodeId = seed.createdNodes['a']!.id;
-      const edgeId = seed.edges[0]!;
+      const edgeId = seed.createdEdges[0]!;
       const result = executor.mutateGraph({
         specId,
         ops: [{ op: 'delete_node', node: { existing: nodeId }, deleteIncidentEdges: true }],
@@ -987,7 +992,7 @@ describe('CommandExecutor commitGraph', () => {
     });
 
     it('runs mixed create, patch, and delete ops under one LSN and one audit row', () => {
-      const seed = executor.commitGraph({
+      const seed = runCreateOnlyMutation(executor, {
         specId,
         nodes: [
           { ref: 'oldGoal', plane: 'intent', kind: 'goal', title: 'Old goal' },
@@ -999,7 +1004,7 @@ describe('CommandExecutor commitGraph', () => {
 
       const oldGoalId = seed.createdNodes['oldGoal']!.id;
       const oldReqId = seed.createdNodes['oldReq']!.id;
-      const oldEdgeId = seed.edges[0]!;
+      const oldEdgeId = seed.createdEdges[0]!;
       const result = executor.mutateGraph({
         specId,
         createBasis: 'explicit',
@@ -1045,7 +1050,7 @@ describe('CommandExecutor commitGraph', () => {
     it('rejects sibling-spec node refs before writing anything', () => {
       const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other' });
       if (otherSpec.status !== 'success') throw new Error('unreachable');
-      const otherSeed = executor.commitGraph({
+      const otherSeed = runCreateOnlyMutation(executor, {
         specId: otherSpec.specId,
         nodes: [{ ref: 'other', plane: 'intent', kind: 'goal', title: 'Other' }],
         edges: [],

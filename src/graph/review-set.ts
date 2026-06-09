@@ -3,12 +3,12 @@ import { and, eq } from 'drizzle-orm';
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type {
-  BatchEdgeRef,
-  BatchNodeInput,
+  CreateGraphNodeInput,
   Diagnostic,
+  GraphMutationNodeRef,
   MutateGraphInput,
   StructuralIllegal,
-} from './command-executor.js';
+} from './command-executor/graph-mutation-types.js';
 import {
   roleNamedEdgeDraftEndpoints,
   type RoleNamedEdgeDraftOf,
@@ -80,7 +80,7 @@ export function translateReviewSetPayloadToMutateGraph(options: {
   const payload = options.payload as ReviewSetProposalPayload;
   const ops: Array<MutateGraphInput['ops'][number]> = payload.entityDrafts.map((draft) => ({
     op: 'create_node',
-    ...toBatchNodeInput(draft),
+    ...toCreateGraphNodeInput(draft),
   }));
   for (let index = 0; index < payload.edgeDrafts.length; index++) {
     const edge = payload.edgeDrafts[index]!;
@@ -120,7 +120,7 @@ export function translateReviewSetPayloadToMutateGraph(options: {
   };
 }
 
-function toBatchNodeInput(draft: ReviewSetEntityDraft): BatchNodeInput {
+function toCreateGraphNodeInput(draft: ReviewSetEntityDraft): CreateGraphNodeInput {
   return {
     ref: draft.draftId,
     plane: draft.plane,
@@ -296,9 +296,9 @@ function endpointFieldPath(draft: ReviewSetEdgeDraft, index: number, position: '
 }
 function replaceRoleNamedEndpoints(
   draft: ReviewSetEdgeDraft,
-  source: BatchEdgeRef,
-  target: BatchEdgeRef,
-): RoleNamedEdgeDraftOf<BatchEdgeRef> {
+  source: GraphMutationNodeRef,
+  target: GraphMutationNodeRef,
+): RoleNamedEdgeDraftOf<GraphMutationNodeRef> {
   switch (draft.category) {
     case 'dependency':
       return { ...draft, dependency: source, dependent: target };
@@ -345,7 +345,7 @@ function resolveReviewSetEndpoint(
   specId: number,
   endpoint: ReviewSetEndpointRef,
   path: string,
-): { readonly status: 'success'; readonly ref: BatchEdgeRef } | StructuralIllegal {
+): { readonly status: 'success'; readonly ref: GraphMutationNodeRef } | StructuralIllegal {
   if ('draftId' in endpoint) return { status: 'success', ref: endpoint.draftId };
 
   const parsed = parseGraphNodeCode(endpoint.existingCode);

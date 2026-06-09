@@ -1,6 +1,6 @@
 import { EDGE_CATEGORY_METADATA } from '../policy/category-policy.js';
 import type { EdgeCategory, EdgeStance } from '../schema/edges.js';
-import { type BatchEdgeInput, type BatchEdgeRef } from './commit-graph-types.js';
+import type { CreateGraphEdgeInput, GraphMutationNodeRef } from './graph-mutation-types.js';
 
 type RoleNamedEdgeDraftByCategory<Ref> = {
   readonly dependency: {
@@ -56,7 +56,7 @@ type RoleNamedEdgeDraftByCategory<Ref> = {
 };
 
 export type RoleNamedEdgeDraftOf<Ref> = RoleNamedEdgeDraftByCategory<Ref>[EdgeCategory];
-export type RoleNamedEdgeDraft = RoleNamedEdgeDraftOf<BatchEdgeRef>;
+export type RoleNamedEdgeDraft = RoleNamedEdgeDraftOf<GraphMutationNodeRef>;
 
 type NonAssociationCategory = Exclude<EdgeCategory, 'association'>;
 type NonAssociationRoleNamedEdgeDraft = Exclude<RoleNamedEdgeDraft, { readonly category: 'association' }>;
@@ -74,7 +74,7 @@ function assertStanceLocality(draft: RoleNamedEdgeDraft): void {
   }
 }
 
-function normalizeNonAssociationEdgeDraft(draft: NonAssociationRoleNamedEdgeDraft): BatchEdgeInput {
+function normalizeNonAssociationEdgeDraft(draft: NonAssociationRoleNamedEdgeDraft): CreateGraphEdgeInput {
   const { source, target } = roleNamedEdgeDraftEndpoints(draft);
 
   return {
@@ -86,7 +86,7 @@ function normalizeNonAssociationEdgeDraft(draft: NonAssociationRoleNamedEdgeDraf
   };
 }
 
-export function normalizeRoleNamedEdgeDraft(draft: RoleNamedEdgeDraft): BatchEdgeInput {
+export function normalizeRoleNamedEdgeDraft(draft: RoleNamedEdgeDraft): CreateGraphEdgeInput {
   assertStanceLocality(draft);
 
   if (draft.category === 'association') {
@@ -110,13 +110,16 @@ export function roleNamedEdgeDraftEndpoints<Ref>(draft: RoleNamedEdgeDraftOf<Ref
   }
 
   const metadata = EDGE_CATEGORY_METADATA[draft.category as NonAssociationCategory];
+  if (!metadata) {
+    throw new Error(`unknown edge category "${String(draft.category)}"`);
+  }
   return {
     source: draft[metadata.sourceRole as keyof typeof draft] as Ref,
     target: draft[metadata.targetRole as keyof typeof draft] as Ref,
   };
 }
 
-export function roleNamedEdgeDraftFromBatchEdgeInput(input: BatchEdgeInput): RoleNamedEdgeDraft {
+export function roleNamedEdgeDraftFromCreateEdgeInput(input: CreateGraphEdgeInput): RoleNamedEdgeDraft {
   const metadata = EDGE_CATEGORY_METADATA[input.category as EdgeCategory];
 
   if (input.category === 'association') {

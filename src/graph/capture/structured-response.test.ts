@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { CommandExecutor } from '../command-executor.js';
-import type { MutateGraphInput, MutateGraphResult } from '../command-executor/commit-graph-types.js';
+import type { MutateGraphInput, MutateGraphResult } from '../command-executor/graph-mutation-types.js';
 import { captureExplicitTextFacts, captureStructuredResponseFacts } from './structured-response.js';
 
 class RecordingExecutor {

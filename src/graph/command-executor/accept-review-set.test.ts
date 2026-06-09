@@ -97,12 +97,12 @@ describe('CommandExecutor.acceptReviewSet', () => {
     expect(JSON.parse(logs[0]!.payload)).toMatchObject({
       specId,
       proposalEntryId: 'tool-result-42',
-      basis: 'explicit',
-      nodes: {
+      createBasis: 'explicit',
+      createdNodes: {
         'goal-launch': expect.any(Number),
         'req-rollback': expect.any(Number),
       },
-      edges: [expect.any(Number)],
+      createdEdges: [expect.any(Number)],
     });
   });
 

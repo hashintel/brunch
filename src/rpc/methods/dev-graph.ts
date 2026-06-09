@@ -1,6 +1,13 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
+import type {
+  CreateGraphEdgeInput,
+  CreateGraphInput,
+  CreateGraphNodeInput,
+  GraphMutationNodeRef,
+} from '../../graph/command-executor/graph-mutation-types.js';
+import { roleNamedEdgeDraftFromCreateEdgeInput } from '../../graph/command-executor/role-named-edge-draft.js';
 import {
   DESIGN_KINDS,
   EDGE_CATEGORIES,
@@ -9,10 +16,6 @@ import {
   ORACLE_KINDS,
   PLAN_KINDS,
   parseGraphNodeCode,
-  type BatchEdgeInput,
-  type BatchEdgeRef,
-  type BatchNodeInput,
-  type CommitGraphInput,
   type Diagnostic,
   type StructuralIllegal,
 } from '../../graph/index.js';
@@ -107,7 +110,11 @@ const DevCommitGraphResultSchema = Type.Union([
           { additionalProperties: false },
         ),
       ),
-      edges: Type.Array(Type.Number()),
+      createdEdges: Type.Array(Type.Number()),
+      updatedNodes: Type.Array(Type.Number()),
+      updatedEdges: Type.Array(Type.Number()),
+      deletedNodes: Type.Array(Type.Number()),
+      deletedEdges: Type.Array(Type.Number()),
     },
     { additionalProperties: false },
   ),
@@ -150,7 +157,20 @@ export const devGraphRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[
 
       const graph = await context.getGraphRuntime();
       const input = translateDevCommitGraph(params.value, graph.forSpec(params.value.specId).resolveNodeCode);
-      const result = 'status' in input ? input : graph.commandExecutor.commitGraph(input);
+      const result =
+        'status' in input
+          ? input
+          : graph.commandExecutor.mutateGraph({
+              specId: input.specId,
+              createBasis: input.basis,
+              ops: [
+                ...input.nodes.map((node) => ({ op: 'create_node' as const, ...node })),
+                ...input.edges.map((edge) => ({
+                  op: 'create_edge' as const,
+                  ...roleNamedEdgeDraftFromCreateEdgeInput(edge),
+                })),
+              ],
+            });
       if (result.status === 'success') {
         context.productUpdates?.publish(
           graphMutationProductUpdates({ specId: params.value.specId, lsn: result.lsn }),
@@ -176,9 +196,9 @@ function parseDevCommitGraphParams(value: unknown): DevCommitGraphParamsParseRes
 function translateDevCommitGraph(
   params: DevCommitGraphParams,
   resolveNodeCode: (code: string) => number | undefined,
-): CommitGraphInput | StructuralIllegal {
+): CreateGraphInput | StructuralIllegal {
   const diagnostics: Diagnostic[] = [];
-  const nodes: BatchNodeInput[] = params.nodes.map((node) => ({
+  const nodes: CreateGraphNodeInput[] = params.nodes.map((node) => ({
     ref: node.ref,
     plane: node.plane,
     kind: node.kind,
@@ -187,7 +207,7 @@ function translateDevCommitGraph(
     source: node.source,
     detail: node.detail,
   }));
-  const edges: BatchEdgeInput[] = [];
+  const edges: CreateGraphEdgeInput[] = [];
 
   for (const [index, edge] of params.edges.entries()) {
     const source = normalizeEdgeRef(edge.source, resolveNodeCode, `edges[${index}].source`, diagnostics);
@@ -207,7 +227,7 @@ function translateDevCommitGraph(
 }
 
 type NormalizedEdgeRef =
-  | { readonly status: 'valid'; readonly ref: BatchEdgeRef }
+  | { readonly status: 'valid'; readonly ref: GraphMutationNodeRef }
   | { readonly status: 'invalid' };
 
 function normalizeEdgeRef(

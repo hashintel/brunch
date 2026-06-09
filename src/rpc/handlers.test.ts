@@ -8,6 +8,7 @@ import type { TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import { runCreateOnlyMutation } from '../graph/test-support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import { projectPresentReviewSet } from '../projections/exchanges/present-review-set.js';
@@ -175,7 +176,7 @@ async function createGraphRpcFixture(): Promise<{
     throw new Error('failed to create graph RPC fixture specs');
   }
 
-  const commitA = graph.commandExecutor.commitGraph({
+  const commitA = runCreateOnlyMutation(graph.commandExecutor, {
     specId: specA.specId,
     nodes: [
       { ref: 'requirement', plane: 'intent', kind: 'requirement', title: 'Spec A requirement' },
@@ -183,7 +184,7 @@ async function createGraphRpcFixture(): Promise<{
     ],
     edges: [{ category: 'dependency', source: 'requirement', target: 'constraint' }],
   });
-  const commitB = graph.commandExecutor.commitGraph({
+  const commitB = runCreateOnlyMutation(graph.commandExecutor, {
     specId: specB.specId,
     nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Spec B goal' }],
     edges: [],
@@ -1308,7 +1309,7 @@ describe('JSON-RPC handlers', () => {
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     const workspace = await coordinatorInstance.createSetupSession({ specTitle: 'Review approval spec' });
     const graph = await openWorkspaceGraphRuntime(cwd);
-    const existing = graph.commandExecutor.commitGraph({
+    const existing = runCreateOnlyMutation(graph.commandExecutor, {
       specId: workspace.spec.id,
       nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Existing selected-spec goal' }],
       edges: [],
@@ -2530,7 +2531,7 @@ describe('JSON-RPC handlers', () => {
         status: 'success',
         lsn: expect.any(Number),
         createdNodes: { thesis: { id: expect.any(Number), code: 'TH1' } },
-        edges: [expect.any(Number)],
+        createdEdges: [expect.any(Number)],
       },
     });
     if (!('result' in response)) throw new Error('expected commit success');
@@ -2616,7 +2617,7 @@ describe('JSON-RPC handlers', () => {
       result: {
         status: 'structural_illegal',
         diagnostics: expect.arrayContaining([
-          expect.objectContaining({ field: 'edges[0].stance', message: expect.any(String) }),
+          expect.objectContaining({ message: expect.stringContaining('stance') }),
         ]),
       },
     });

@@ -11,10 +11,10 @@ import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
 import {
   formatGraphNodeCode,
   openWorkspaceGraphRuntime,
-  type CommitGraphSuccess,
   type Diagnostic,
   type GraphNode,
   type GraphSlice,
+  type MutateGraphSuccess,
   type StructuralIllegal,
 } from '../graph/index.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
@@ -27,7 +27,7 @@ const DEFAULT_SEED_SET = 'bilal-port-variants';
 const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
 
 type FixtureCurationCommitStatus =
-  | CommitGraphSuccess['status']
+  | MutateGraphSuccess['status']
   | StructuralIllegal['status']
   | 'needs_human'
   | 'policy_blocked'
@@ -235,11 +235,11 @@ export function summarizeFixtureCurationRun(input: FixtureCurationSummaryInput):
   const hasSuccessfulCommit = commitGraphAttempts.some((attempt) => attempt.status === 'success');
 
   if (commitGraphAttempts.length === 0) {
-    friction.push('No commit_graph tool result was recorded in the session transcript.');
+    friction.push('No graph mutation tool result was recorded in the session transcript.');
   }
   if (!hasSuccessfulCommit && commitGraphAttempts.length > 0) {
     friction.push(
-      `No commit_graph attempt succeeded; final status was ${commitGraphAttempts.at(-1)!.status}.`,
+      `No graph mutation attempt succeeded; final status was ${commitGraphAttempts.at(-1)!.status}.`,
     );
   }
   if (implicitNodeCount === 0) {

@@ -10,8 +10,8 @@
  */
 
 import type {
-  BatchEdgeRef,
   Diagnostic,
+  GraphMutationNodeRef,
   GraphMutationOp,
   MutateGraphInput,
   MutateGraphResult,
@@ -153,7 +153,7 @@ function normalizeRoleNamedEdgeDraftOp(
 }
 
 type EdgeRefNormalization =
-  | { readonly status: 'valid'; readonly ref: BatchEdgeRef }
+  | { readonly status: 'valid'; readonly ref: GraphMutationNodeRef }
   | { readonly status: 'invalid' };
 
 function normalizeEdgeRef(

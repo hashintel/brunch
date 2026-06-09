@@ -1,10 +1,10 @@
 import type { CommandExecutor } from '../command-executor.js';
 import type {
-  BatchNodeInput,
+  CreateGraphNodeInput,
   CreatedGraphNodes,
   Diagnostic,
   MutateGraphInput,
-} from '../command-executor/commit-graph-types.js';
+} from '../command-executor/graph-mutation-types.js';
 import type { NodePlane } from '../schema/nodes.js';
 
 const LABELED_FACTS: Record<string, { readonly kind: string; readonly ref: string } | undefined> = {
@@ -93,7 +93,7 @@ function textAnswer(answer: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-type CapturedNode = BatchNodeInput;
+type CapturedNode = CreateGraphNodeInput;
 
 function extractLabeledIntentNodes(text: string, source: string): CapturedNode[] {
   const captured: CapturedNode[] = [];
