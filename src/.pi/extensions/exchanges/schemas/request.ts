@@ -18,7 +18,6 @@ export const zCancelledOutcome = z
       .strict(),
   })
   .strict();
-export type CancelledOutcome = z.infer<typeof zCancelledOutcome>;
 export const CancelledOutcomeSchema = z.toJSONSchema(zCancelledOutcome, {
   unrepresentable: 'throw',
 });
@@ -32,13 +31,11 @@ export const zUnavailableOutcome = z
       .strict(),
   })
   .strict();
-export type UnavailableOutcome = z.infer<typeof zUnavailableOutcome>;
 export const UnavailableOutcomeSchema = z.toJSONSchema(zUnavailableOutcome, {
   unrepresentable: 'throw',
 });
 
 export const zChoiceKind = z.enum(['listed', 'other', 'none']);
-export type ChoiceKind = z.infer<typeof zChoiceKind>;
 export const ChoiceKindSchema = z.toJSONSchema(zChoiceKind, {
   unrepresentable: 'throw',
 });
@@ -74,7 +71,6 @@ const zChoiceAnsweredPayload = z
     }
   });
 export const zRequestChoiceAnswered = zChoiceAnsweredPayload;
-export type RequestChoiceAnswered = z.infer<typeof zRequestChoiceAnswered>;
 
 const zChoicesAnsweredPayload = z
   .object({
@@ -95,7 +91,6 @@ const zChoicesAnsweredPayload = z
     }
   });
 export const zRequestChoicesAnswered = zChoicesAnsweredPayload;
-export type RequestChoicesAnswered = z.infer<typeof zRequestChoicesAnswered>;
 
 export const zRequestAnswerDetails = z.union([
   zRequestDetailsHeader
@@ -173,7 +168,6 @@ export const RequestChoicesDetailsSchema = z.toJSONSchema(zRequestChoicesDetails
 });
 
 export const zReviewDecision = z.enum(['approve', 'request_changes', 'reject']);
-export type ReviewDecision = z.infer<typeof zReviewDecision>;
 export const ReviewDecisionSchema = z.toJSONSchema(zReviewDecision, {
   unrepresentable: 'throw',
 });
@@ -201,7 +195,6 @@ const zReviewAnsweredPayload = z.union([
     .strict(),
 ]);
 export const zRequestReviewAnswered = zReviewAnsweredPayload;
-export type RequestReviewAnswered = z.infer<typeof zRequestReviewAnswered>;
 
 export const zRequestReviewDetails = z.union([
   zRequestDetailsHeader

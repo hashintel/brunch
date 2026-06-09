@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
-import type { GraphOverview } from '../../../graph/queries.js';
+import type { GraphSlice } from '../../../graph/queries.js';
 
-export function GraphOverviewPanel(options: { overview: GraphOverview }) {
+export function GraphOverviewPanel(options: { overview: GraphSlice }) {
   const { overview } = options;
   const [focusedNodeId, setFocusedNodeId] = useState<number | null>(null);
   const nodeGroups = groupNodes(overview.nodes);
@@ -23,11 +23,11 @@ export function GraphOverviewPanel(options: { overview: GraphOverview }) {
         <dl aria-label="Graph counts" className="grid grid-cols-3 gap-2 md:min-w-80">
           <div className="rounded-2xl bg-white/65 p-4 text-center">
             <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">Nodes</dt>
-            <dd className="text-brunch-ink mt-1 text-3xl font-semibold">{overview.nodeCount}</dd>
+            <dd className="text-brunch-ink mt-1 text-3xl font-semibold">{overview.nodes.length}</dd>
           </div>
           <div className="rounded-2xl bg-white/65 p-4 text-center">
             <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">Edges</dt>
-            <dd className="text-brunch-ink mt-1 text-3xl font-semibold">{overview.edgeCount}</dd>
+            <dd className="text-brunch-ink mt-1 text-3xl font-semibold">{overview.edges.length}</dd>
           </div>
           <div className="rounded-2xl bg-white/65 p-4 text-center">
             <dt className="text-brunch-muted font-mono text-[0.68rem] tracking-[0.22em] uppercase">LSN</dt>
@@ -102,11 +102,11 @@ export function GraphOverviewPanel(options: { overview: GraphOverview }) {
   );
 }
 
-function groupNodes(nodes: GraphOverview['nodes']): Array<{
+function groupNodes(nodes: GraphSlice['nodes']): Array<{
   label: string;
-  nodes: GraphOverview['nodes'];
+  nodes: GraphSlice['nodes'];
 }> {
-  const groups = new Map<string, Array<GraphOverview['nodes'][number]>>();
+  const groups = new Map<string, Array<GraphSlice['nodes'][number]>>();
   for (const node of nodes) {
     const label = `${node.plane} / ${node.kind}`;
     const group = groups.get(label);
@@ -121,7 +121,7 @@ function groupNodes(nodes: GraphOverview['nodes']): Array<{
     .map(([label, groupedNodes]) => ({ label, nodes: groupedNodes }));
 }
 
-function summarizeEdges(edges: GraphOverview['edges']): Array<[string, number]> {
+function summarizeEdges(edges: GraphSlice['edges']): Array<[string, number]> {
   const counts = new Map<string, number>();
   for (const edge of edges) {
     counts.set(edge.category, (counts.get(edge.category) ?? 0) + 1);

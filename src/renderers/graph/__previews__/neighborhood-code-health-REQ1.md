@@ -1,0 +1,6 @@
+[Selected-spec node context]
+- anchor: [REQ1] intent/requirement: Stage 2 must compute three configuration spaces with the semantics defined in T20: M_current (satisfies constraints and current baseline, e…
+- anchor body: Stage 2 must compute three configuration spaces with the semantics defined in T20: M_current (satisfies constraints and current baseline, excluding alternatives requiring locked-b…
+- downstream (reconcile if anchor changes):
+  - required by [D11] intent/decision: Adopt the two-stage split with a hard schema boundary forbidding solver outputs from Stag… {hard}
+  - required by [T4] intent/term: Three configuration spaces are defined: M_current (satisfies constraints and cu… {hard}

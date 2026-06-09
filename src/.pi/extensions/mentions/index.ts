@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import type { AutocompleteItem, AutocompleteSuggestions } from '@earendil-works/pi-tui';
 
-export interface GraphMentionCandidate {
+interface GraphMentionCandidate {
   code: string;
   title: string;
   description?: string;
@@ -14,29 +14,6 @@ export interface GraphMentionSource {
 
 const EMPTY_GRAPH_MENTION_SOURCE: GraphMentionSource = {
   listMentionCandidates: () => [],
-};
-
-export const FIXTURE_GRAPH_MENTION_SOURCE: GraphMentionSource = {
-  listMentionCandidates: () => [
-    {
-      code: 'D12',
-      title: 'Transcript-native structured prompts',
-      description: 'Structured elicitation prompt/response entries stay visible in Pi JSONL.',
-      plane: 'design',
-    },
-    {
-      code: 'I9',
-      title: 'Mention ledger uses stable handles',
-      description: 'Inserted # handles are transcript text; labels are UI-only.',
-      plane: 'intent',
-    },
-    {
-      code: 'A10',
-      title: 'Persistent TUI chrome seam',
-      description: 'Brunch chrome renders through Pi UI primitives without forking Pi.',
-      plane: 'intent',
-    },
-  ],
 };
 
 export function registerBrunchMentionAutocomplete(
@@ -123,5 +100,3 @@ function candidateToAutocompleteItem(candidate: GraphMentionCandidate): Autocomp
     ...(candidate.description !== undefined ? { description: candidate.description } : {}),
   };
 }
-
-export default registerBrunchMentionAutocomplete;

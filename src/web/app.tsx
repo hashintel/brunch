@@ -7,7 +7,7 @@ import { indexRoute, rootRoute, type BrunchWebRouterContext } from './routes/roo
 import { specRoute } from './routes/spec.js';
 import type { WebSocketRpcClient } from './rpc-client.js';
 
-export type BrunchWebRouter = AnyRouter;
+type BrunchWebRouter = AnyRouter;
 
 export interface BrunchWebRuntime {
   queryClient: BrunchWebRouterContext['queryClient'];

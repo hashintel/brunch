@@ -45,25 +45,25 @@ export const PendingStructuredExchangeSchema = z.toJSONSchema(zPendingStructured
   unrepresentable: 'throw',
 });
 
-export interface StructuredExchangeTextResponseInput {
+interface StructuredExchangeTextResponseInput {
   exchangeId: string;
   answer: { text: string };
   note?: string | undefined;
 }
 
-export interface StructuredExchangeSingleChoiceResponseInput {
+interface StructuredExchangeSingleChoiceResponseInput {
   exchangeId: string;
   answer: { optionId: string };
   note?: string | undefined;
 }
 
-export interface StructuredExchangeMultiChoiceResponseInput {
+interface StructuredExchangeMultiChoiceResponseInput {
   exchangeId: string;
   answer: { optionIds: string[] };
   note?: string | undefined;
 }
 
-export interface StructuredExchangeReviewResponseInput {
+interface StructuredExchangeReviewResponseInput {
   exchangeId: string;
   answer: { review: { decision: 'approve' | 'request_changes' | 'reject'; comment?: string | undefined } };
   note?: string | undefined;
@@ -75,12 +75,12 @@ export type StructuredExchangeResponseInput =
   | StructuredExchangeMultiChoiceResponseInput
   | StructuredExchangeReviewResponseInput;
 
-export interface AcceptedToolTextContent {
+interface AcceptedToolTextContent {
   type: 'text';
   text: string;
 }
 
-export interface AcceptedToolResultMessage {
+interface AcceptedToolResultMessage {
   role: 'toolResult';
   toolCallId: string;
   toolName: string;

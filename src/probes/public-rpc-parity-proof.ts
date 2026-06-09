@@ -48,7 +48,7 @@ interface PendingResult {
   exchange: PendingExchange;
 }
 
-export interface PublicRpcParityProofArtifacts {
+interface PublicRpcParityProofArtifacts {
   runDir: string;
   sessionJsonl: string;
   transcriptMarkdown: string;

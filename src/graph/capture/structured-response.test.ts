@@ -24,7 +24,7 @@ describe('captureStructuredResponseFacts', () => {
         goal: { id: 11, code: 'G1' },
         context: { id: 12, code: 'CTX1' },
         constraint: { id: 13, code: 'CON1' },
-        criterion: { id: 14, code: 'CR1' },
+        criterion: { id: 14, code: 'AC1' },
       },
       edges: [],
     });
@@ -51,7 +51,7 @@ describe('captureStructuredResponseFacts', () => {
         goal: { id: 11, code: 'G1' },
         context: { id: 12, code: 'CTX1' },
         constraint: { id: 13, code: 'CON1' },
-        criterion: { id: 14, code: 'CR1' },
+        criterion: { id: 14, code: 'AC1' },
       },
     });
     expect(executor.calls).toEqual([

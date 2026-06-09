@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 
-export type ProjectIdentitySource = 'package.json' | 'pyproject.toml' | 'cargo.toml' | 'go.mod' | 'directory';
+type ProjectIdentitySource = 'package.json' | 'pyproject.toml' | 'cargo.toml' | 'go.mod' | 'directory';
 
 export interface ProjectIdentity {
   /** Human-facing project name, as written in the source artifact. */

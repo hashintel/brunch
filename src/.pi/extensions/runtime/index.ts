@@ -28,30 +28,14 @@ export {
   projectBrunchAgentState,
   type ResolvedBrunchAgentState,
 } from '../../../projections/session/runtime-state.js';
-export type {
-  AgentRoleDefinition,
-  OperationalModeDefinition,
-} from '../../../projections/session/runtime-policy.js';
+
 export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   appendBrunchAgentRuntimeInit,
   appendBrunchAgentRuntimeSwitch,
-  type AgentGoalId,
-  type AgentGoalSelection,
-  type AgentLensId,
-  type AgentLensSelection,
-  type AgentRoleId,
-  type AgentStrategyId,
-  type AgentStrategySelection,
-  type AutoAxisSelection,
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
   type BrunchAgentStateEntrySessionManager,
-  type ModelPreference,
-  type OperationalModeId,
-  type PromptPackId,
-  type ThinkingLevel,
-  type ToolPolicyId,
 } from '../../../session/runtime-state.js';
 import {
   projectBrunchAgentState,
@@ -312,5 +296,3 @@ export function registerBrunchOperationalModePolicy(pi: ExtensionAPI) {
     };
   });
 }
-
-export default registerBrunchOperationalModePolicy;

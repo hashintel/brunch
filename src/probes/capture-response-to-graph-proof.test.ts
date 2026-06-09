@@ -20,7 +20,7 @@ describe('capture response to graph proof', () => {
       capture: { status: 'captured', nodeCount: 4, lsn: expect.any(Number) },
       graph: {
         nodeCount: 4,
-        codes: ['G1', 'CTX1', 'CON1', 'CR1'],
+        codes: ['G1', 'CTX1', 'CON1', 'AC1'],
         lsn: expect.any(Number),
       },
       updates: expect.arrayContaining([
@@ -54,7 +54,7 @@ describe('capture response to graph proof', () => {
     expect(sessionJsonl).toContain('Goal: Help product teams turn elicitation answers into graph truth.');
     expect(transcript).toContain('Tool result: request_answer');
     expect(persistedReport.capture).toEqual(report.capture);
-    expect(persistedReport.graph.codes).toEqual(['G1', 'CTX1', 'CON1', 'CR1']);
+    expect(persistedReport.graph.codes).toEqual(['G1', 'CTX1', 'CON1', 'AC1']);
     expect(persistedReport.friction).toEqual([]);
     // Persisted refs stay fixture-root-relative and the temp cwd is scrubbed.
     expect(JSON.stringify(persistedReport.artifacts)).not.toContain(fixtureRoot);

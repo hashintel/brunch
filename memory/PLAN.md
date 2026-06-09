@@ -27,11 +27,52 @@ All delivery frontiers must also continue materializing the locked source topolo
 
 The multi-spec workspace model is now explicit: a workspace is the cwd; multiple specs may coexist under it; each session binds to exactly one spec; each POC spec owns its own intent graph; cross-spec claim sharing/adoption is deferred (D11-L, D21-L, D61-L). Delivery work must target an explicit selected/current spec and must not accidentally recreate a workspace-global graph.
 
-Planning is currently carrying two shapes at once: canonical frontier sequencing in this file, and a temporary elicitor capability ledger in `memory/CROSS_CUT_PLAN.md`. The authority split must stay hard: `PLAN.md` owns frontier ids, ordering, and dependency judgments; `CROSS_CUT_PLAN.md` only inventories the temporary READ/WRITE/KNOW row surface. The current planning move is therefore to promote any cross-cut row that has escaped row-sized work back into a real frontier. `elicitation-backlog` (the D65-L *substrate*) was the first such promotion and is landed; the prompt-resource body-depth pass is also built (1ca02e38). **The cross-cut is not yet exhausted:** its Seam 3a `"what to ask next" driver` row is still `partial · ●`, and the seam DoD holds a seam open while any `●` row is `partial`. That row — the *live per-turn elicitation-backlog driver* (read open entries → rank → select next question; capture-reflection grows/closes entries) — is a required elicitor capability that has escaped row-sized work, so per the cross-cut's own rule it is promoted here as the `elicitation-driver` frontier. It is buildable now (the FE-823 read-back exists) and is **not** POC-ship-critical (the POC delivery cut de-scopes elicitation quality), so it sequences as a coverage frontier, not a ship-gate blocker.
+Planning is currently carrying two shapes at once: canonical frontier sequencing in this file, and a temporary elicitor capability ledger in `memory/CROSS_CUT_PLAN.md`. The authority split must stay hard: `PLAN.md` owns frontier ids, ordering, and dependency judgments; `CROSS_CUT_PLAN.md` only inventories the temporary READ/WRITE/KNOW row surface. The current planning move is therefore to promote any cross-cut row that has escaped row-sized work back into a real frontier. `elicitation-backlog` (the D65-L *substrate*) was the first such promotion and is landed; the prompt-resource body-depth pass is also built (1ca02e38). **The cross-cut is not yet exhausted:** its Seam 3a `"what to ask next" driver` row is still `partial · ●`, and the seam DoD holds a seam open while any `●` row is `partial`. That row — the *live per-turn elicitation-backlog driver* (read open entries → rank → select next question; capture-reflection grows/closes entries) — is a required elicitor capability that has escaped row-sized work, so per the cross-cut's own rule it is promoted here as the `elicitation-driver` frontier. It is buildable now (the FE-823 read-back exists) and is **not** POC-ship-critical (the POC delivery cut de-scopes elicitation quality). It is itself a bounded feature, not a coverage frontier; as the cross-cut's promoted closing row it sequences ahead of fresh coverage breadth, but it is not a ship-gate blocker.
 
 The `graph-observed-shapes` coverage frontier has now landed (the consumer-specific read-shape inventory is ratified in `src/graph/README.md` and guarded by a drift test). With `minimal-authority-shell` also done, the active delivery path is `poc-live-ship-gate` (now unblocked).
 
 The remaining coverage frontiers are being deliberately de-fogged rather than left parked, because "wait for a forcing function" can hide capability layers we simply never built. Each is reclassified: `runtime-affordances-and-legality` is mostly **buildable-now** — its core is one Brunch-owned `affordances(resolvedState)` derivation over legality/default tables that already exist, so it is being re-inventoried as a coverage ledger (only its `active-review-set` / `turn-mode` rows are genuinely product-state-gated and stay tripwired). `exchanges-and-generalized-capture` is **evidence-gated**: the exchange topology is enumerable now, but capture quality beyond directly-labeled facts (A22-L) needs a measurement, so it is being attacked with a capture-quality spike rather than awaited. The `elicitation-driver` frontier (promoted above) is likewise buildable now.
+
+**Coverage-layer re-classification (2026-06-08 ln-plan, applying the hardened coverage protocol).** Re-asking "where are the *real* coverage frontiers" gives a tight answer: the coverage layer is mostly already closed. `graph-observed-shapes` and `runtime-affordances-and-legality` are both done genuine coverage. `exchanges-and-generalized-capture` **fails the coverage admission gate** — the remaining load-bearing unknown is capture *semantics* (a vertical proving slice with false-commit protection), not breadth closure; the exchange surface is largely built, with some breadth still explicitly deferred / topology-stubbed (e.g. `present-candidates` across all three layers), so it is reclassified to a bounded proving feature plus a delete-oriented symmetry audit, not a breadth fill. The genuinely-open coverage is **one pipeline, not scattered locking chores** — see the next subsection. The remaining open stages are `projection-shape-coverage`, `renderer-golden-coverage`, and `prompt-composition-golden-coverage`, and per the 2026-06-08 deep per-plane pass (below) they are now the **near-term spine**, sequenced in dependency order, each completing its **full ledger** with a human-in-the-loop design→lock rhythm. This revises the earlier "parallel/discretionary, never preempt `elicitation-driver`" disposition: the user has elevated the pipeline-coverage trio to the next 2–3 frontiers. `elicitation-driver` and `exchanges-and-generalized-capture` remain bounded features sequenced after the trio (`elicitation-driver` pairs naturally with the COMPOSE stage, which locks the oracle its behavior rides on); `poc-live-ship-gate` remains the in-flight delivery gate, proceeding independently on the FE-811 branch.
+
+A new graph-mutation planning result has been promoted into the rolling plan as `role-safe-graph-mutations`. It folds the prior role-named edge-surface scope and semantic seed-curation mutation scope into one initiative: `mutateGraph` / `mutate_graph` becomes the canonical authored graph-mutation grammar, create-edge ops use role-named endpoint fields, and exposed `commitGraph` / `commit_graph` is retired by break-and-repair rather than preserved as a weaker parallel API. This frontier is orthogonal to the context-pipeline coverage trio, but it is load-bearing for any future relation capture from unstructured data and for dev fixture curation; downstream capture/curation work must aim at `mutateGraph`, not recreate `{category, source, target}` at a new boundary.
+
+### Context-pipeline coverage (the next design/lock spine)
+
+The four LLM-facing context concerns are not independent — they are the stages of **one pipeline** (D60-L): **PULL → PROJECT → RENDER → COMPOSE → surface**. Coverage means *each stage carries its appropriate oracle over a complete, ledgered inventory*. The stages must be closed **in dependency order**, because each downstream lock is only stable once its upstream shape is locked (projection invariants churn while read shapes still move; renderer goldens churn while projection shapes still move; prompt goldens churn while renderer output still moves).
+
+**PULL is not one done stage — it has two halves.** The *graph* read surface is the template and is **done**: ledgered (`src/graph/README.md` observed-read-shape ledger) + drift-guarded (`observed-shapes-coverage.test.ts`). The *session* read surface (`session/workspace-context.ts`, `session/workspace-session-coordinator.ts`, `session/runtime-state.ts`, …) is behaviorally tested but **not yet inventoried as a closed read-shape ledger**. Because the session/workspace projections lock against those session reads, that PULL half must be ledgered before its downstream projection invariants are frozen. (The earlier "Stage 1 PULL is done" claim was graph-only.)
+
+The oracle *kind* differs by stage — this is the load-bearing distinction the flat "lock everything" framing hid:
+
+- **info-preserving stages (PULL, PROJECT)** want **invariant / no-loss / shape** oracles. A golden here is the wrong tool — brittle, and it cannot even catch the failure that matters (a projection silently dropping a field the renderer also hides).
+- **lossy stages (RENDER, COMPOSE)** want **golden locks + semantic invariants**, because output wording/shape is itself the contract.
+
+```
+context-pipeline/                                          D60-L
+├── PULL      graph reads    queries.ts          invariant + drift   ✓ DONE   #pull
+│             session reads  session/*           behaviorally tested ◐ un-ledgered
+├── PROJECT   @projections  projections/        no-loss / shape     ○ open   #project   -> renderer
+├── RENDER    @renderers    renderers/          golden + invariant  ◐ open   #render    -> compose
+└── COMPOSE   @pi-agents    compose.ts+skills/  golden + invariant  ◐ open   #compose
+
+dependency:  pull(session) -> #project -> #render -> #compose   (lock upstream before downstream)
+```
+
+**Per-frontier deliverable:** the *complete* ledger for that plane (every module given a disposition — `✓` locked / `●` keep+lock / `◐` keep-decide / `✗` delete-inline / `○` leave — with owner + oracle), authored in the plane's README. The PROJECT ledger is now authored in `src/projections/README.md` (it applies an **earns-its-place gate before the oracle gate**: a single-consumer pass-through that only re-wraps its source is indirection to delete, not a row to lock). `renderers/README.md` still claims a ledger that does not yet exist. Not "close the gaps" — close the inventory.
+
+**Human-in-the-loop design→lock rhythm** (so the user reviews each row before it is frozen):
+
+```
+per ledger row:
+  1. enumerate        — name the module/case and its consumers
+  2. preview/contract — golden-kind: generate output via harness (npm run render / new compose preview), user eyeballs
+                        invariant-kind: state the no-loss/shape contract, user reviews "what must be preserved"
+  3. design checkpoint — user approves the shape/wording/contract        [USER IN LOOP]
+  4. lock             — golden-kind: toMatchFileSnapshot writes on first run, diffs after
+                        invariant-kind: shape/round-trip assertion
+  5. mark ●           — update the plane ledger
+```
 
 ## Sequencing
 
@@ -41,15 +82,27 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 
 ### Next
 
-1. `poc-live-ship-gate` — final fresh-cwd runbook remains the delivery gate, but its prepared live-mention-autocomplete slice is currently parked off the critical path.
-2. `elicitation-driver` — **first coverage follow-on**: it closes the last open required cross-cut row (Seam 3a `"what to ask next" driver`) and retires the temporary dual-plan state, so it sequences ahead of any fresh coverage frontier. Buildable-now on the FE-823 substrate; not POC-ship-critical.
-3. `capture-quality-spike` — evidence spike that measures generalized-capture fitness (A22-L) so `exchanges-and-generalized-capture` can graduate from horizon on real evidence rather than waiting (`memory/cards/capture-quality--fitness-spike.md`).
+The near-term spine has two independent tracks. The **context-pipeline coverage trio** remains sequenced in strict dependency order (lock upstream shape before downstream output). `role-safe-graph-mutations` is a graph-mutation grammar frontier that can run before or alongside the trio, and must land before relation-bearing generalized capture or semantic fixture curation rely on the new mutation surface.
+
+1. `role-safe-graph-mutations` — **authored graph-mutation grammar**; structural / proving. Fold the role-named edge-surface and semantic graph-mutation cards into one frontier: introduce `mutateGraph` / `mutate_graph`, make create-edge ops role-named, port current `commitGraph` callers, and retire exposed `commitGraph` / `commit_graph` by break-and-repair. Current execution pointer: `memory/cards/role-safe-graph-mutations--mutate-graph.md`.
+2. `projection-shape-coverage` — **PROJECT stage** (`#project`); invariant / no-loss kind. Ledger authored in `src/projections/README.md`. Two sub-steps: (a) **PULL-session prerequisite** — ledger the session read surface (`session/workspace-context`, `workspace-session-coordinator`, `runtime-state`) the session/workspace projections lock against; (b) **earns-its-place audit then lock** — delete/inline the `✗` indirection (`workspace/workspace-context`: single-consumer tag wrapper), resolve the `◐` exchange family (direct-lock vs keep-transitive), and add a shape/no-loss invariant to each `●` survivor (`graph/neighborhood`, `session/transcript-context`, `session/runtime-state`, `workspace/workspace-state`). The graph projection stubs (`overview`, `commit-result`, `reconciliation-needs`) are `export {}` topology stubs, **not** dark implementations — leave them. Upstream of everything else in the trio; do this first so renderer goldens lock against stable shapes.
+3. `renderer-golden-coverage` — **RENDER stage** (`#render`); golden + invariant kind. **Depends on `projection-shape-coverage`.** Create the renderer ledger (README claims one that does not exist), extend the preview harness past `graph-neighborhood`, and golden-lock every durable renderer (only `graph/neighborhood` + `session/runtime-frame` are locked; the rest are dark or only transitively covered via the `.pi` adapter).
+4. `prompt-composition-golden-coverage` — **COMPOSE stage** (`#compose`); golden + invariant kind. **Depends on `renderer-golden-coverage`.** Add a composed-prompt preview harness, golden-lock partial bodies and a representative composed-prompt matrix (axis × grade × pin) on top of the existing invariants. `elicitation-driver` rides on this stage's locked oracle, so it follows.
+
+### After the trio
+
+5. `elicitation-driver` — **bounded feature; cross-cut closing row** (not itself coverage): closes the last open required cross-cut row (Seam 3a `"what to ask next" driver`) and retires the temporary dual-plan state. Buildable-now on the FE-823 substrate; pairs with the COMPOSE stage (it adds per-turn behavior over the composition oracle locked there); not POC-ship-critical.
+6. `exchanges-and-generalized-capture` — **bounded proving feature** (not coverage): the remaining load-bearing unknown is capture *semantics*, not breadth closure. Narrow high-confidence extractive capture with a false-commit guard; treat any exchange-layer cleanup as delete-oriented audit, not breadth fill. Relation-bearing capture must use the role-named `mutateGraph` grammar from `role-safe-graph-mutations`; do not revive `{category, source, target}` in a capture-local edge dialect.
+
+### Delivery gate (in flight, independent)
+
+- `poc-live-ship-gate` — FE-811 delivery gate; only the final fresh-cwd runbook remains (live-mention-autocomplete + ship-gate residue landed 2026-06-08 on `ln/fe-811-ship-gate-residue-and-mentions`, PR #179). Proceeds on its own branch; not a coverage frontier and does not compete with the trio for design attention.
 
 ### Parallel / Low-conflict
 
 - `probes-and-transcripts-evolution` — continuous probe/report/transcript hardening as each delivery frontier lands evidence.
 - `topology-readmes-and-boundaries` — small doc/test hardening when a frontier moves files or exposes a boundary; should remain attached to the frontier when possible rather than becoming an abstract cleanup project.
-- `dev-seed-fixtures` — rich, real seed data for local dev / manual / observer testing: the consolidated seed contract, the `npm run seed` loader, and growing/enhancing fixture sets (Bilal-port + legacy).
+- `dev-seed-fixtures` — rich, real seed data for local dev / manual / observer testing: the consolidated seed contract, the `npm run seed` loader, and growing/enhancing fixture sets (Bilal-port + legacy). Its semantic curation mutation slice is folded into / blocked by `role-safe-graph-mutations`; ongoing seed-data maintenance remains low-conflict.
 
 ### Horizon
 
@@ -123,7 +176,7 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 - **Lights up:** open backlog entries → rank → select next question per turn; capture-reflection grows/closes entries.
 - **Stabilizes:** D65-L's live elicitation behavior on top of the flat `elicitation_backlog` substrate; closes the cross-cut Seam 3a row.
 - **Objective:** Add the per-turn driver that reads open backlog entries for the selected spec, ranks them (band/priority), selects the next question to surface, and reconciles entries from capture-reflection (open new, close answered) — all on the existing FE-823 read/write substrate.
-- **Why now / unlocks:** This is buildable now (the FE-823 substrate and per-spec read-back exist) and it closes the last required cross-cut row. It is **not** POC-ship-critical (the POC delivery cut de-scopes elicitation quality), so it sequences as a coverage frontier, not a ship-gate blocker.
+- **Why now / unlocks:** This is buildable now (the FE-823 substrate and per-spec read-back exist) and it closes the last required cross-cut row. It is itself a **bounded feature, not coverage**; as the cross-cut's promoted closing row it sequences ahead of fresh coverage breadth, but it is **not** POC-ship-critical (the POC delivery cut de-scopes elicitation quality), so it is not a ship-gate blocker.
 - **Acceptance:**
   - A driver reads open entries for the selected spec and produces a deterministic ranked selection of the next question.
   - Capture-reflection can open new entries and close answered ones through the existing `CommandExecutor` path; no second mutation clock.
@@ -181,7 +234,7 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 - **Cross-cutting obligations:** Keep the gate small and real. Do not turn it into a generic e2e framework or use it to backfill unrelated polish.
 - **Traceability:** R4, R7, R10, R11, R12, R16, R19, R24, R28 / D5-L, D11-L, D19-L, D21-L, D33-L, D36-L, D52-L, D61-L, D62-L, D63-L, D64-L / I22-L, I32-L, I35-L, I38-L, I39-L, I40-L / A5-L.
 - **Design docs:** `docs/architecture/probes-and-transcripts.md`; `docs/architecture/pi-ui-extension-patterns.md`; `memory/SPEC.md` verification stance.
-- **Current execution pointer:** A prepared live-mention autocomplete scope exists at `memory/cards/poc-live-ship-gate--live-mention-autocomplete.md`; keep it parked until this frontier returns to the critical path. It remains a narrow product-path defect slice inside the ship-gate frontier, not M7 mention-ledger work.
+- **Current execution pointer:** FE-811 ship-gate hardening landed on `ln/fe-811-ship-gate-residue-and-mentions`: stale graph-snapshot/report residue in the committed fixture-curation and project-graph-review-cycle runs was regenerated to the graph-overview/workspace.state contract, the related-edge formatter now labels non-anchor edges `lateral`, and the live mention autocomplete slice now sources selected-spec graph nodes instead of fixture candidates. The remaining frontier work is the final fresh-cwd runbook gate.
 
 ### graph-observed-shapes
 
@@ -226,22 +279,122 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 - **Design docs:** `memory/SPEC.md` D40-L/D59-L; `src/projections/README.md`; `src/session/README.md`.
 - **Current execution pointer:** Done 2026-06-08. `src/projections/session/affordances.ts` now owns the shared `(resolvedState, readinessGrade)` derivation for legal goal/strategy/lens options plus default-on-switch values, reusing the same grade/AUTO legality source consumed by `.pi/agents/state.ts`; `src/session/README.md` owns the closed coverage ledger and `src/session/runtime-affordances-coverage.test.ts` guards required agent/RPC rows while leaving `active-review-set` and `turn-mode` as explicit product-state-gated deferrals.
 
-### exchanges-and-generalized-capture
+### role-safe-graph-mutations
 
-- **Name:** Exchange surface and generalized capture inventory
+- **Name:** Role-safe `mutateGraph` / `mutate_graph` as the canonical graph mutation grammar
 - **Linear:** unassigned
-- **Kind:** structural
+- **Kind:** structural / bounded feature
 - **Status:** next
 - **Certainty:** proving
-- **Unblocked by:** `capture-quality-spike` (2026-06-08) measured fixed free-prose, file/ref-bearing, and implication-heavy scenarios, reached precision 1.0 / recall 1.0 with zero false commits in the sample extraction report, and recommended graduating a narrow generalized-capture frontier with an explicit false-commit guard.
-- **Stabilizes:** The ownership split between `.pi/extensions/exchanges`, `projections/exchanges`, `renderers/exchanges`, and `session/structured-exchange-loop.ts`.
-- **Objective:** Enumerate the surviving exchange/capture families and scope generalized capture narrowly around high-confidence extractive facts; keep implication-heavy material out of graph truth unless a later slice proves a safe commitment path.
-- **Why now / unlocks:** The capture-quality spike closed the evidence gate enough to scope the next inventory. The frontier should still start with enumeration and false-commit protection rather than regrowing deleted `capture-*` topology or broad LLM commitment behavior.
+- **Folded scopes:** `memory/cards/graph--role-named-edge-surface.md` and `memory/cards/dev-seed-fixtures--semantic-graph-mutations.md` are superseded by `memory/cards/role-safe-graph-mutations--mutate-graph.md`.
+- **Lights up:** one authored graph-mutation grammar across direct agent graph writes, review-set proposal drafts, capture writes, seed-fixture loading, and dev curation RPC.
+- **Stabilizes:** D51-L/D53-L/D27-L edge-authoring boundary; agents express edges by category + endpoint roles, while `sourceId`/`targetId` stays internal storage geometry derived from `EDGE_CATEGORY_METADATA`.
+- **Objective:** Replace exposed create-only `commitGraph` / `commit_graph` with `mutateGraph` / `mutate_graph` as the canonical authored mutation command/tool. The grammar supports create/patch/delete operations, uses role-named create-edge variants (`oracle/claim`, `dependency/dependent`, `abstract/concrete`, etc.), normalizes those variants through `EDGE_CATEGORY_METADATA`, and preserves one `CommandExecutor` transaction, one spec-local LSN, one change-log row, and the existing stored edge shape.
+- **Why now / unlocks:** The edge model was intended to help agents map relations from unstructured material, but `{category, source, target}` leaves the most error-prone directionality burden at the agent boundary. The earlier semantic-mutation curation scope would otherwise mint a richer graph-write path with a different API pattern. Taking the bigger step now prevents two graph mutation dialects, gives generalized capture one safe relation grammar, and gives fixture curation patch/delete without creating a second mutation model.
+- **Break-and-repair path:** Change the canonical shape first, then let type/test failures enumerate callers. Add `RoleNamedEdgeDraft` + a drift-tested normalizer over `EDGE_CATEGORY_METADATA`; introduce `CommandExecutor.mutateGraph` / a shared mutation planner; remove/rename exposed `commit_graph` and repair prompt resources, Pi graph tool schemas/adapters, capture, seed loader, review-set translation, dev RPC, probes, and docs to `mutate_graph`. `acceptReviewSet` remains the workflow/audit command but reuses the same mutation planner. Do not keep a compatibility bridge accepting both role-named and generic source/target edge drafts; any temporary create-only helper must be private, delegate to `mutateGraph`, and be removed before frontier completion unless a same-slice caller proves it still earns its place.
 - **Acceptance:**
-  - The surviving exchange/capture families are enumerated with required vs deferred marking.
-  - Reusable exchange details justify `projections/exchanges`; single-owner reads or orchestration state stay in their owning domains.
+  - `mutateGraph` / `mutate_graph` is the one exposed authored graph-mutation grammar; exposed `commitGraph` / `commit_graph` is retired or private-only over the same engine.
+  - Create-edge ops are an 8-variant role-named union at category/role granularity; no tuple-specific relation catalogue is introduced.
+  - Role field names are test-pinned to `EDGE_CATEGORY_METADATA`; normalization to private `source`/`target` is table-driven, and generic `{category, source, target}` authored drafts are rejected at graph tool and review-set boundaries.
+  - Create/patch/delete batches are atomic: one transaction, one selected-spec LSN, one change-log row; invalid ops reject the whole batch without writes or clock advancement.
+  - Edge identity remains immutable: category, semantic endpoints / stored endpoints, stance, and basis cannot be patched; changing them requires delete+create or supersession.
+  - Policy gates op kinds by caller/posture, so the unified tool grammar does not silently grant autonomous agents deletion authority.
+  - Product writers are ported: propose-graph uses create-only ops with `createBasis: implicit`; capture and seed loading use create-only ops with `createBasis: explicit`; review-set proposals use role-named edge drafts and acceptance reuses the shared planner; dev curation RPC exposes projected-code create/patch/delete through the same command.
+- **Verification:** Inner — normalizer/drift/schema tests over all eight categories; `CommandExecutor` mutation tests for creation parity, patch/delete legality, rollback, sibling-spec rejection, LSN/change-log behavior, and no-reuse ordinals. Middle — graph tool/review-set/capture/seed/dev-RPC tests repaired to `mutateGraph`; dry-run/accept parity for review sets; grep/source tests quarantine `source`/`target` to internal planner/storage/projection code. Outer — optional propose-graph / project-graph probe regeneration if committed fixtures encode old `commit_graph` payloads.
+- **Cross-cutting obligations:** Preserve D4-L/D20-L command boundary, D16-L/A4-L spec-local mutation clock, D51-L stored edge identity, D62-L projected node codes, D63-L `basis` semantics, and D52-L ownership (`graph/` owns mutation semantics; adapters translate only at boundaries). Do not re-orient persistence to upstream/downstream and do not add a read DTO merely to mirror direction; `projection/direction.ts` remains the read projection.
+- **Traceability:** D4-L, D16-L, D20-L, D27-L, D51-L, D52-L, D53-L, D62-L, D63-L / A14-L / I1-L, I11-L, I15-L, I20-L, I34-L, I39-L, I40-L, I41-L.
+- **Design docs:** `docs/design/GRAPH_MODEL.md`; `memory/cards/role-safe-graph-mutations--mutate-graph.md`; `memory/SPEC.md` D27-L/D51-L/D53-L.
+
+### projection-shape-coverage
+
+- **Name:** Close the projections ledger with no-loss / shape invariants (PROJECT stage)
+- **Linear:** unassigned
+- **Kind:** coverage (buildable-now) / hardening
+- **Status:** next — trio stage 1 (`#project`)
+- **Certainty:** proving
+- **Pipeline position:** PROJECT — the info-preserving DTO stage between PULL and RENDER (`renderers/`). PULL has two halves: the *graph* read surface is locked/ledgered (`graph/queries.ts` + `src/graph/README.md`), but the *session* read surface the session/workspace projections lock against is tested-but-un-ledgered, so this frontier carries a PULL-session prerequisite. Upstream of `renderer-golden-coverage`; lock projection shapes before renderer goldens so the goldens do not churn against moving DTOs.
+- **Coverage-gate verdict (2026-06-08 deep per-plane pass; refined at design checkpoint):** **Passes the admission gate, and is the genuinely-new finding.** Named load-bearing layer (`src/projections/`), closeable inventory. The ledger is now authored in `src/projections/README.md`. Direct-coverage today: only `request-choice` (`✓`) and `affordances` (`✓`) plus the `topology-boundaries` import guard. The enumeration **corrected the plan's dark-zone claim**: `graph/{overview,commit-result,reconciliation-needs}` and `exchanges/present-candidates` are `export {}` **topology stubs**, not dark implementations (nothing to lock — `○`). The real `●` survivors needing invariants are `graph/neighborhood`, `session/transcript-context`, `session/runtime-state`, and `workspace/workspace-state`. The enumeration also found one `✗` indirection: `workspace/workspace-context` is a single-consumer `{ mode, data }` tag wrapper with zero transform — **delete/inline**, feed its consumer from the source read. The exchange family (`present-*`, `request-answer/choices/review`, `review-set-payload`) is `◐`: covered transitively via `.pi` tests, direct-lock optional.
+- **Oracle kind:** **invariant / no-loss / shape — NOT golden.** Projections are info-preserving (D60-L); a golden would be brittle and could not catch the failure that matters (a projection dropping a field the renderer also hides). Lock with shape assertions (required fields present, types correct) and round-trip / no-loss properties where a projection re-shapes a typed read. An **earns-its-place gate runs before the oracle gate**: a single-consumer pass-through is deleted, not locked.
+- **Boundary:** In — the `●` DTO transforms (`graph/neighborhood`, `session/transcript-context`, `session/runtime-state`, `workspace/workspace-state`), the `✗` delete (`workspace/workspace-context`), the `◐` exchange-family decision, and the PULL-session read-shape ledger. Out — `○` topology stubs (`graph/{overview,commit-result,reconciliation-needs}`, `exchanges/present-candidates`), `session/runtime-policy` (policy data, not a transform), `topology-boundaries` (already an import guard), and the already-locked `✓` rows.
+- **Aggregate DoD:** Every `●` projection carries a shape/no-loss invariant; every `✗` row is deleted/inlined with its consumer fed from source; `◐` rows resolved by explicit decision; `○` rows untouched. The session-PULL read-shape ledger exists. Every `projections/` module appears in `src/projections/README.md` with a disposition (`✓`/`●`/`◐`/`✗`/`○`) + owner + oracle.
+- **Inventory authority:** the closed ledger lives in `src/projections/README.md` (authored 2026-06-08), mirroring the `src/graph/README.md` read-shape ledger form (module × consumers × disposition × oracle). The PULL-session half gets a sibling read-shape ledger in `src/session/README.md`.
+- **Why now / unlocks:** It is the missing middle of the pipeline and the prerequisite for stable renderer goldens. Closing it makes the info-preserving half of the context pipeline (PULL+PROJECT) fully oracle-backed, matching the graph PULL template.
+- **Human-in-the-loop:** per-row design checkpoint = user reviews "what must be preserved" for each load-bearing DTO (and approves each `✗` delete) before the invariant is locked (see Context §design→lock rhythm). The enumeration/ledger pass itself was the first design checkpoint.
+- **Acceptance:**
+  - `src/projections/README.md` carries the full projections ledger (done) and `src/session/README.md` carries the session-PULL read-shape ledger.
+  - Each `●` DTO carries a shape/no-loss invariant; `workspace/workspace-context` is deleted/inlined; the `◐` exchange family is dispositioned; `○` stubs are left untouched.
+  - No golden snapshots are introduced for projections (wrong tool); `projections/` stays free of adapter/transport imports (D52-L, enforced by `topology-boundaries.test.ts`).
+- **Verification:** vitest shape/round-trip asserts co-located with each projection (or a `projections/<domain>/*.test.ts`); the existing `topology-boundaries.test.ts` continues to guard imports.
+- **Cross-cutting obligations:** Keep projections info-preserving (no lossy text — that is RENDER's job); do not duplicate a typed read as a projection just to fill a ledger row (D60-L: many callers consume the typed read directly).
+- **Traceability:** D52-L, D60-L.
+- **Design docs:** `src/projections/README.md`; `src/graph/README.md` (ledger form to mirror).
+
+### renderer-golden-coverage
+
+- **Name:** Complete the uneven renderer text-regression (golden + invariant) coverage (RENDER stage)
+- **Linear:** unassigned
+- **Kind:** coverage (buildable-now) / hardening
+- **Status:** next — trio stage 2 (`#render`); **depends on `projection-shape-coverage`**
+- **Certainty:** proving
+- **Pipeline position:** RENDER — the first lossy stage, consuming PROJECT outputs. Locks only after projection shapes are stable; upstream of `prompt-composition-golden-coverage` (composed prompts embed rendered context).
+- **Coverage-gate verdict (2026-06-08 ln-plan):** **Passes the admission gate** — an open coverage frontier. Named load-bearing layer (`src/renderers/`), closeable inventory, honest ●/○ marking, owner+oracle per row, explicit ledger authority. Classified **buildable-now**, and framed as **partial-oracle completion, not greenfield adoption**: the preview→lock→formalize loop already exists and is adopted unevenly. `toMatchFileSnapshot` goldens are live for `graph/neighborhood` and `session/runtime-frame` (`src/renderers/**/__previews__/`); what remains is closing the gaps — `workspace-state` is still invariant-only, `renderers/exchanges` has no goldens, and `src/scripts/render-preview.ts` (`npm run render`) only supports the `graph-neighborhood` renderer.
+- **Boundary:** In — the durable LLM-facing renderers under `src/renderers/{graph,workspace,session,exchanges}` (per `src/renderers/README.md`). Out — format helpers/primitives (`markdown.ts`, `toon.ts`), trivial JSON serializers (`○`), non-renderer projection DTOs, intentional topology stubs not yet owning a renderer (e.g. `present-candidates`), and any new renderer not already built (no symmetry regrowth).
+- **Aggregate DoD:** No required (`●`) durable renderer remains without a locked golden (`toMatchFileSnapshot`) plus targeted invariant asserts (e.g. "renders projected code, never raw id"; "active-context omits superseded nodes"; "no dangling edge endpoints"). Extend `render-preview.ts` to the renderers being locked.
+- **Inventory authority:** the closed ledger lives in `src/renderers/README.md`; golden artifacts co-locate with the renderer test (`src/renderers/<domain>/__previews__/<fixture>.md`), not under `.fixtures/`.
+- **Why now / unlocks:** The cross-cut named the preview→lock→formalize loop a prerequisite oracle; it shipped for two renderers but not the rest, so the un-locked renderers can drift silently. Closing the gaps makes every durable renderer-bearing surface drift-protected.
+- **Sequencing:** trio stage 2 — starts once `projection-shape-coverage` has stabilized the DTO shapes it renders. Renderer text quality is **fitness evidence**, so it is still **never a ship gate** and does not block `poc-live-ship-gate`; but per the 2026-06-08 elevation it is near-term spine work, not background discretionary hardening.
+- **Human-in-the-loop:** per-row design checkpoint = user eyeballs the `npm run render` preview and approves the wording/shape before the golden is written (see Context §design→lock rhythm).
+- **Acceptance:**
+  - Each `●` durable renderer has a golden lock that writes on first run and diffs after (matching the existing `graph/neighborhood` + `session/runtime-frame` pattern).
+  - Each `●` renderer carries at least one semantic invariant assert beyond the snapshot.
+  - `src/renderers/README.md` carries the closed ledger (renderer × required/deferred × golden-present).
+  - `render-preview.ts` covers each newly-locked renderer; no new renderer is introduced merely to fill a symmetric cell.
+- **Verification:** `npm run render` for sketch; vitest `toMatchFileSnapshot` for lock; existing invariant-style asserts for formalize. All in the renderer's co-located test file.
+- **Cross-cutting obligations:** Goldens co-locate with renderer tests (not `.fixtures/`); keep `renderers/` free of adapter/transport imports (D52-L); do not promote a renderer shape to a new consumer just to fill the ledger (consumer bleed-through); leave intentional topology stubs (`present-candidates`) alone until they own a real renderer.
+- **Traceability:** D52-L, D60-L, D62-L.
+- **Design docs:** `src/renderers/README.md`; `memory/CROSS_CUT_PLAN.md` §Renderer feedback loops.
+
+### prompt-composition-golden-coverage
+
+- **Name:** Lock the prompt partials and composition output (golden + invariant) over the agent prompt family (COMPOSE stage)
+- **Linear:** unassigned
+- **Kind:** coverage (buildable-now) / hardening
+- **Status:** next — trio stage 3 (`#compose`); **depends on `renderer-golden-coverage`**
+- **Certainty:** proving
+- **Pipeline position:** COMPOSE — the last lossy stage; composed prompts embed rendered context strings, so lock only after RENDER goldens are stable. `elicitation-driver` rides on this stage's locked oracle and follows it.
+- **Coverage-gate verdict (2026-06-08 ln-plan):** **Passes the admission gate** — an open coverage frontier of the same golden-locking kind as `renderer-golden-coverage`, surfaced from manual feedback-loop work. Named load-bearing layer (`src/.pi/skills/**` partials + `src/.pi/agents/compose.ts` composition), closeable inventory, owner+oracle per row, explicit ledger authority. Classified **buildable-now** and framed as **partial-oracle completion, not greenfield**: composition is already **invariant-rich** — `compose.test.ts` and `prompting.test.ts` assert structure, manifest legality, grade filtering, pinned/AUTO axis behavior, illegal-pin rejection, plus a `≥700`-char depth floor and a readable-resource check on every partial. What is missing is the **lock** stage: there is **no golden** of either the partial bodies or the composed-prompt output (no `__previews__`, no `toMatchFileSnapshot` for prompts; the only `.pi` inline snapshots are tool-output, not prompts), and there is **no preview harness** for composed prompts (`npm run render` only supports `graph-neighborhood`).
+- **Boundary:** In — the agent prompt partials under `src/.pi/skills/{goals,strategies,lenses,methods}` and `src/.pi/agents/definitions/{elicitor,reviewer}.md`, and the `composeAgentPrompt` output for a representative matrix of axis/grade/pin combinations. Out — tool-output snapshots (already inline-locked where useful), `state.ts` legality source (guarded elsewhere), and any new partial/axis introduced merely to fill a symmetric cell (no symmetry regrowth).
+- **Aggregate DoD:** No required (`●`) prompt partial body or representative composed-prompt output remains without a locked golden plus the existing structural/legality invariants. Add a composed-prompt preview path (extend `render-preview.ts` or a sibling script) so goldens can be regenerated deterministically.
+- **Inventory authority:** the closed ledgers live in `src/.pi/skills/README.md` (partials) and `src/.pi/agents/README.md` (composition); golden artifacts co-locate with the owning test (`src/.pi/agents/__previews__/<case>.md`), not under `.fixtures/`.
+- **Why now / unlocks:** Prompt partials and composition shape every agent turn; today they can drift in wording/depth/order while invariants stay green, because the lock stage was never adopted for prompts. Locking them makes the manual feedback loop (eyeball → lock → diff) durable instead of re-eyeballed each change.
+- **Sequencing:** trio stage 3 — starts once `renderer-golden-coverage` has stabilized the rendered context strings the composed prompt embeds. Still **never a ship gate**; `elicitation-driver` follows it (it adds per-turn behavior over the composition oracle locked here), so the two pair naturally.
+- **Human-in-the-loop:** per-row design checkpoint = user eyeballs the composed-prompt preview (new harness) and approves partial body / composed wording before each golden is written (see Context §design→lock rhythm).
+- **Acceptance:**
+  - A representative composed-prompt matrix (axis/grade/pin) has golden locks that write on first run and diff after.
+  - Each `●` partial body has at least the existing depth/readability invariant plus a body golden where wording is load-bearing.
+  - `src/.pi/skills/README.md` + `src/.pi/agents/README.md` carry the closed ledger (partial/composition-case × required/deferred × golden-present).
+  - A composed-prompt preview path exists for deterministic golden regeneration; no new partial/axis is introduced merely to fill a symmetric cell.
+- **Verification:** preview script for sketch; vitest `toMatchFileSnapshot` for lock; the existing `compose.test.ts` / `prompting.test.ts` invariants for formalize.
+- **Cross-cutting obligations:** Goldens co-locate with prompt tests (not `.fixtures/`); keep `state.ts` the single legality source (do not fork it for previews); do not promote a partial to a new agent just to fill the ledger.
+- **Traceability:** D25-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L.
+- **Design docs:** `src/.pi/skills/README.md`; `src/.pi/agents/README.md`; `memory/CROSS_CUT_PLAN.md` §Renderer feedback loops.
+
+### exchanges-and-generalized-capture
+
+- **Name:** Generalized capture (narrow extractive) + exchange-surface symmetry audit
+- **Linear:** unassigned
+- **Kind:** bounded feature
+- **Status:** next
+- **Certainty:** proving
+- **Coverage-gate verdict (2026-06-08 ln-plan):** **Not a coverage frontier.** It was sitting in the coverage slot, but the admission gate fails on the load-bearing question: the remaining required work is **vertical capture semantics** (high-confidence extractive capture with false-commit protection), not breadth closure. The exchange surface is largely built across {`.pi/extensions/exchanges`, `projections/exchanges`, `renderers/exchanges`}, with some breadth still explicitly deferred / topology-stubbed (e.g. the `present-candidates` candidate-family stub mirrored across all three layers). So the open unknown is the capture vertical, not an unbuilt inventory; reclassified as a bounded proving feature plus a delete-oriented symmetry audit.
+- **Unblocked by:** `capture-quality-spike` (2026-06-08) measured fixed free-prose, file/ref-bearing, and implication-heavy scenarios, reached precision 1.0 / recall 1.0 with zero false commits in the sample extraction report, and recommended graduating a narrow generalized-capture feature with an explicit false-commit guard.
+- **Objective:** (1) Build narrow generalized capture around high-confidence extractive facts with an explicit false-commit oracle for implication-heavy text — keep implication-heavy material out of graph truth unless a later slice proves a safe commitment path. (2) Run an **earned symmetry audit** of the already-built exchange three-layer split: confirm each `projections/exchanges` and `renderers/exchanges` file earns its place (genuine multi-consumer reuse or shared semantics), and delete symmetry regrowth where a single-owner read was mirrored into a shared layer "for symmetry."
+- **Why now / unlocks:** The capture-quality spike closed the evidence gate for the capture vertical. The audit rides along because the same symmetry the frontier would have "enumerated" is exactly where consumer-bleed-through/symmetry-regrowth hides. Start with the vertical + false-commit protection and treat the audit as deletion-oriented, not as breadth-building; do not regrow deleted `capture-*` topology or broad LLM commitment behavior.
+- **Acceptance:**
   - Capture beyond directly labeled facts starts with high-confidence extractive facts and carries an explicit false-commit oracle for implication-heavy text.
-- **Verification:** Probe-backed transcript and capture read-back oracles; include the capture-quality false-commit scenario family as a regression guard.
+  - Each retained `projections/exchanges` / `renderers/exchanges` file has a named multi-consumer or shared-semantics justification; unjustified symmetric mirrors are deleted (delete-as-progress), not documented as "covered."
+  - Single-owner reads or orchestration state stay in their owning domains; `renderers/exchanges` stays durable markdown/text/toon only.
+- **Verification:** Probe-backed transcript and capture read-back oracles; include the capture-quality false-commit scenario family as a regression guard. For the audit, the oracle is the existing topology-boundary test plus a per-file justification check.
 - **Cross-cutting obligations:** Keep `renderers/exchanges` for durable markdown/text/toon only, keep TUI presenters local, and do not reintroduce `snapshot` as an architecture noun.
 - **Traceability:** D27-L, D65-L, D66-L.
 - **Design docs:** `memory/SPEC.md` D65-L/D66-L; `src/projections/README.md`; `src/renderers/README.md`.
@@ -294,7 +447,7 @@ The remaining coverage frontiers are being deliberately de-fogged rather than le
 - **Verification:** Inner — `src/graph/seed-fixtures.test.ts` seeds real fixtures into an in-memory DB and asserts spec/node/edge counts plus spec-local change-log/clock coherence independent of seed order, rejects non-`explicit` basis, and covers the `macro-view-grounded-intent` explicit intent-only variant; `src/probes/fixture-curation-loop.test.ts` proves curation report/artifact evidence detection without an LLM. Outer — `npm run seed` smoke against a fresh cwd; real fixture-curation runs under `.fixtures/runs/fixture-curation/`; seeded-dev-rpc smoke proves `dev.graph.commitGraph` advances only the mutated spec's overview LSN.
 - **Topology materialization:** Seed data and throwaway prep scripts live under `.fixtures/seeds/`; the loader lives in `src/graph/seed-fixtures.ts` (graph/ owns `CommandExecutor` orchestration; db/ is imported only by graph/, never the reverse); no seed-only graph runtime the product launch does not use.
 - **Cross-cutting obligations:** Seeds commit only through `CommandExecutor`; directly-authored items use `basis: explicit` (the retired `accepted_review_set` value is not a basis). Respect multi-spec discipline — each fixture is one spec's own graph (D61-L). Pre-release posture: regenerate fixtures when the schema moves rather than preserving stale shapes. **Known drift:** `docs/praxis/manual-testing.md` still describes the earlier seed system (scenario-arg `npm run seed`, `.brunch/brunch.db`); reconcile it to the current loader (all-sets `npm run seed`, `.brunch/data.db`) when the legacy port (backlog item 2) lands — coordinate with the doc-reconciliation track rather than double-editing.
-- **Current execution pointer:** Active semantic-mutation curation scope exists at `memory/cards/dev-seed-fixtures--semantic-graph-mutations.md`; FE-809 graph/review work has landed, but this future scope still needs coordination because it touches `CommandExecutor` and review-set graph code. Product-driven fixture-curation tracer evidence remains the quality-review input: `macro-view-grounded-intent` is a deterministic explicit-basis Bilal variant, and `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/` proves one real `propose-graph`/`commit_graph` run created implicit intent nodes from that base.
+- **Current execution pointer:** The semantic-mutation curation scope formerly parked at `memory/cards/dev-seed-fixtures--semantic-graph-mutations.md` is folded into `role-safe-graph-mutations` (`memory/cards/role-safe-graph-mutations--mutate-graph.md`) so dev curation does not mint a second graph-write dialect. Product-driven fixture-curation tracer evidence remains the quality-review input: `macro-view-grounded-intent` is a deterministic explicit-basis Bilal variant, and `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/` proves one historical real `propose-graph`/`commit_graph` run created implicit intent nodes from that base.
 - **Traceability:** D4-L, D16-L, D19-L, D20-L, D52-L, D61-L, D62-L, D63-L / I1-L / A4-L, A14-L.
 - **Design docs:** `.fixtures/seeds/bilal-port/README.md`; `docs/design/GRAPH_MODEL.md`; `docs/praxis/manual-testing.md`.
 
@@ -323,8 +476,13 @@ nodes:
   poc-live-ship-gate             [next · P1]         final fresh-cwd composed product runbook
   graph-observed-shapes          [done · proving]    ratified consumer-specific observed-shape ledger + drift guard; no transport shape shipped
   runtime-affordances-and-legality [done · proving]  shared affordance(resolvedState, grade) derivation + coverage ledger; review-set/turn-mode rows tripwired
-  elicitation-driver             [next · proving]    live per-turn what-to-ask-next driver on FE-823 substrate; closes cross-cut Seam 3a
-  capture-quality-spike          [done · spike]      A22-L fitness evidence graduated a narrow exchanges-and-generalized-capture scope
+  role-safe-graph-mutations    [next · proving]    canonical mutateGraph/mutate_graph authored grammar; role-named edges; retire exposed commitGraph/commit_graph
+  projection-shape-coverage      [next · coverage]   TRIO stage 1 (#project, PROJECT): create projections ledger + no-loss/shape invariants over dark graph/transcript DTOs; invariant-kind, NOT golden
+  renderer-golden-coverage       [next · coverage]   TRIO stage 2 (#render, RENDER): create renderer ledger + golden-lock every durable renderer; depends on projection-shape-coverage
+  prompt-composition-golden-coverage [next · coverage] TRIO stage 3 (#compose, COMPOSE): composed-prompt preview + golden-lock partials/composition matrix; depends on renderer-golden-coverage
+  elicitation-driver             [after-trio · proving] live per-turn what-to-ask-next driver on FE-823 substrate; rides COMPOSE oracle; closes cross-cut Seam 3a
+  exchanges-and-generalized-capture [after-trio · proving] bounded feature (NOT coverage): narrow extractive capture + false-commit guard + exchange symmetry audit
+  capture-quality-spike          [done · spike]      A22-L fitness evidence graduated the narrow exchanges-and-generalized-capture feature
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
   dev-seed-fixtures                [parallel]        rich seed data substrate for dev/observer testing
@@ -337,15 +495,21 @@ edges:
   project-graph-review-cycle -[optional]->    poc-live-ship-gate
   minimal-authority-shell   -[hard]->         poc-live-ship-gate
   elicitation-backlog       -[hard]->         elicitation-driver
+  graph-tool-resilience     -[hard]->         role-safe-graph-mutations      (current graph tool + edge model exist)
+  project-graph-review-cycle -[hard]->        role-safe-graph-mutations      (current review-set proposal/accept path exists)
+  role-safe-graph-mutations -[hard]->         exchanges-and-generalized-capture (relation-bearing capture uses mutateGraph grammar)
+  role-safe-graph-mutations -[hard]->         dev-seed-fixtures              (semantic curation slice uses mutateGraph grammar)
   capture-quality-spike     -[evidence]->     exchanges-and-generalized-capture
+  projection-shape-coverage -[hard]->         renderer-golden-coverage     (lock DTO shape before renderer golden)
+  renderer-golden-coverage  -[hard]->         prompt-composition-golden-coverage  (lock rendered text before prompt golden)
+  prompt-composition-golden-coverage -[oracle]-> elicitation-driver         (compose oracle underwrites per-turn driver)
 
 parallel obligations:
   probes-and-transcripts-evolution -[evidence]-> every P0/P1 frontier
   topology-readmes-and-boundaries  -[boundary]-> every frontier that moves/claims source topology
-  dev-seed-fixtures                -[data]->     capture-response-to-graph, poc-live-ship-gate (real multi-spec graphs to exercise observer/capture)
+  dev-seed-fixtures                -[data]->     capture-response-to-graph, poc-live-ship-gate (real multi-spec graphs to exercise observer/capture; semantic curation waits on role-safe-graph-mutations)
 
 horizon:
-  exchanges-and-generalized-capture
   turn-boundary-reconciliation
   coherence-first-class
   compaction-and-conflict-widening
@@ -357,10 +521,15 @@ horizon:
 
 notes:
   - `elicitation-backlog` was the promoted D65-L *substrate* row from `memory/CROSS_CUT_PLAN.md`; the prompt-resource body-depth pass landed in 1ca02e38. The cross-cut is **not** exhausted: its Seam 3a `"what to ask next" driver` row is still `partial · ●`, which by the seam DoD keeps the seam open. That row is now disposed as the `elicitation-driver` frontier (not residue), so the remaining cross-cut obligation has a named owner in `PLAN.md`.
-  - Parallel worktree streams (2026-06-08): all three landed — (A) `crosscut-know--resource-body-depth` (1ca02e38), (B) `graph-observed-shapes--coverage-ledger` (85e73ba7), (C) `minimal-authority-shell--audit-and-guard` (68474e3f); each kept to its declared write paths and left `src/.pi/agents/state.ts` untouched, so the parallel run produced no collisions. `poc-live-ship-gate` is now unblocked (its hard dependency `minimal-authority-shell` is done). `runtime-affordances-and-legality` has since landed (00105108), so the remaining de-fogged coverage frontiers are `elicitation-driver` (buildable-now on the FE-823 substrate) and the now-graduated narrow `exchanges-and-generalized-capture` inventory — both cold-startable worktree streams.
+  - Parallel worktree streams (2026-06-08): all three landed — (A) `crosscut-know--resource-body-depth` (1ca02e38), (B) `graph-observed-shapes--coverage-ledger` (85e73ba7), (C) `minimal-authority-shell--audit-and-guard` (68474e3f); each kept to its declared write paths and left `src/.pi/agents/state.ts` untouched, so the parallel run produced no collisions. `poc-live-ship-gate` is now unblocked (its hard dependency `minimal-authority-shell` is done). `runtime-affordances-and-legality` has since landed (00105108). The 2026-06-08 ln-plan coverage re-classification then found the coverage layer mostly closed: `graph-observed-shapes` + `runtime-affordances` are done coverage, `exchanges-and-generalized-capture` is reclassified to a bounded proving feature (the remaining unknown is capture semantics, not breadth closure), and the genuinely-open coverage was then deepened (same-day per-plane pass) into the **context-pipeline coverage trio** — `projection-shape-coverage` → `renderer-golden-coverage` → `prompt-composition-golden-coverage`, now the dependency-ordered near-term spine (see the trio note below and the Context §Context-pipeline coverage section). This superseded the earlier "two discretionary locking frontiers, precedence to `elicitation-driver`" disposition.
   - Completed prerequisites: `agents-composition-layer` supplies runtime prompt/resource posture, and `live-graph-observer` supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
   - `graph-observed-shapes` is intentionally consumer-specific: do not assume every agent read shape belongs on the web observer.
-  - `exchanges-and-generalized-capture` is now graduated only narrowly: scope high-confidence extractive capture with a false-commit guard, and do not regrow deleted `capture-*` symmetry.
+  - `role-safe-graph-mutations` folds the prior role-named edge-surface card and semantic graph-mutation curation card into one frontier. The canonical authored graph command becomes `mutateGraph` / `mutate_graph`; role-named endpoint fields are normalized through `EDGE_CATEGORY_METADATA`; exposed `commitGraph` / `commit_graph` is retired by break-and-repair rather than kept as a weaker parallel API. Downstream capture and dev curation must not reintroduce `{category, source, target}` at authored boundaries.
+  - `exchanges-and-generalized-capture` is a bounded proving feature, not coverage: the remaining load-bearing unknown is capture semantics, not breadth closure. The exchange surface is largely built across the three layers, with some breadth still deferred / topology-stubbed (`present-candidates`). Scope high-confidence extractive capture with a false-commit guard, do not regrow deleted `capture-*` symmetry, and treat the exchange three-layer audit as delete-oriented (drop unjustified `projections/exchanges` / `renderers/exchanges` mirrors), not breadth-building.
+  - **Context-pipeline coverage trio (the near-term spine, 2026-06-08 deep per-plane pass).** The four LLM-facing context concerns are one pipeline — PULL → PROJECT → RENDER → COMPOSE (D60-L). PULL has **two halves**: the *graph* read surface is the done template (`graph/queries.ts` + `src/graph/README.md`: behavioral oracle for all 8 shapes + drift guard + real ledger), but the *session* read surface (`session/workspace-context`, `workspace-session-coordinator`, `runtime-state`) is tested-but-un-ledgered and must be ledgered before the session/workspace projections lock against it. The trio closes the other three stages **in dependency order**, each completing its plane's **full ledger** via the human-in-the-loop design→lock rhythm. Oracle kind differs by stage: info-preserving stages want **invariant/no-loss** locks, lossy stages want **golden** locks. The PROJECT ledger (`src/projections/README.md`, authored 2026-06-08) applies an **earns-its-place gate before the oracle gate** — `workspace/workspace-context` is `✗` delete/inline (single-consumer tag wrapper), and the plan's earlier "dark zone = graph/{overview,commit-result,reconciliation-needs}" was wrong: those are `export {}` topology stubs (`○`), not dark implementations.
+  - `projection-shape-coverage` (TRIO stage 1, `#project`) is the genuinely-new finding. Ledger authored in `src/projections/README.md`. The real `●` survivors are `graph/neighborhood`, `session/transcript-context`, `session/runtime-state`, `workspace/workspace-state`; `workspace/workspace-context` is `✗` delete/inline; the graph projection stubs (`overview`, `commit-result`, `reconciliation-needs`) are `○` topology stubs, not dark. Also carries the PULL-session read-shape ledger prerequisite. Lock with shape/no-loss invariants — **not goldens** (wrong tool for an info-preserving DTO; can't catch silent field-drop). Do it first; it stabilizes the shapes renderer goldens lock against.
+  - `renderer-golden-coverage` (TRIO stage 2, `#render`) **depends on stage 1**: only `graph/neighborhood` + `session/runtime-frame` are golden-locked; the rest are dark or only transitively covered via the `.pi` adapter. Create the renderer ledger (README claims one that does not exist), extend the preview harness past `graph-neighborhood`. Bound to durable renderers (exclude `markdown.ts` / `toon.ts` helpers and topology stubs). Never a ship gate.
+  - `prompt-composition-golden-coverage` (TRIO stage 3, `#compose`) **depends on stage 2**: `compose.test.ts` / `prompting.test.ts` are invariant-rich but no golden of partial bodies or composed output exists and there is no composed-prompt preview harness. Add the preview, golden-lock partials + a composed-prompt matrix. `elicitation-driver` rides on this stage's locked oracle and follows it. Never a ship gate.
   - `project-graph-review-cycle` is complete evidence for the optional batch proposal/review story; keep future review-quality work as follow-up, not FE-809 completion debt.
   - `topology-readmes-and-boundaries` is not a license for abstract cleanup; it rides with concrete delivery seams.
   - Multi-spec workspace discipline applies throughout: target the selected/current spec explicitly; no workspace-global graph truth in the POC.

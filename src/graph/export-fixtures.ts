@@ -13,23 +13,23 @@ import { eq } from 'drizzle-orm';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
-import { getGraphOverview, type GraphProjection } from './queries.js';
+import { queryGraph, type GraphVisibility } from './queries.js';
 import type { SeedFixture, SeedFixtureEdge, SeedFixtureNode } from './seed-fixtures.js';
 
 export interface ExportSeedFixtureInput {
   readonly specId: number;
   /**
-   * Defaults to graph truth so captured fixtures preserve any superseded
+   * Defaults to all graph truth so captured fixtures preserve any superseded
    * predecessors that remain in accepted graph history.
    */
-  readonly projection?: GraphProjection;
+  readonly show?: GraphVisibility;
 }
 
 export function exportSeedFixture(db: BrunchDb, input: ExportSeedFixtureInput): SeedFixture {
   const spec = db.select().from(schema.specs).where(eq(schema.specs.id, input.specId)).get();
   if (!spec) throw new Error(`exportSeedFixture: spec ${input.specId} does not exist`);
 
-  const overview = getGraphOverview(db, input.specId, { projection: input.projection ?? 'graph_truth' });
+  const overview = queryGraph(db, input.specId, undefined, { visibility: input.show ?? 'all' });
   const orderedNodes = [...overview.nodes].sort((a, b) => a.id - b.id);
   const localIdByNodeId = new Map(orderedNodes.map((node, index) => [node.id, index + 1]));
 
@@ -51,7 +51,7 @@ export function exportSeedFixture(db: BrunchDb, input: ExportSeedFixtureInput): 
       const targetLocalId = localIdByNodeId.get(edge.targetId);
       if (sourceLocalId == null || targetLocalId == null) {
         throw new Error(
-          `exportSeedFixture: edge ${edge.id} references a node outside the ${input.projection ?? 'graph_truth'} projection`,
+          `exportSeedFixture: edge ${edge.id} references a node outside the ${input.show ?? 'all'} visibility`,
         );
       }
       return {
@@ -83,14 +83,14 @@ interface CliArgs {
   readonly workspace: string;
   readonly specId: number;
   readonly out?: string;
-  readonly projection?: GraphProjection;
+  readonly show?: GraphVisibility;
 }
 
 function parseCliArgs(argv: readonly string[]): CliArgs {
   let workspace = process.cwd();
   let specId: number | undefined;
   let out: string | undefined;
-  let projection: GraphProjection | undefined;
+  let show: GraphVisibility | undefined;
 
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
@@ -101,12 +101,12 @@ function parseCliArgs(argv: readonly string[]): CliArgs {
       specId = parsePositiveInt(requiredValue(argv, ++index, arg), arg);
     } else if (arg === '--out' || arg === '-o') {
       out = requiredValue(argv, ++index, arg);
-    } else if (arg === '--projection') {
+    } else if (arg === '--show') {
       const value = requiredValue(argv, ++index, arg);
-      if (value !== 'graph_truth' && value !== 'active_context') {
-        throw new Error('--projection must be graph_truth or active_context');
+      if (value !== 'all' && value !== 'active') {
+        throw new Error('--show must be all or active');
       }
-      projection = value;
+      show = value;
     } else if (arg === '--help' || arg === '-h') {
       throw new UsageRequested();
     } else {
@@ -119,7 +119,7 @@ function parseCliArgs(argv: readonly string[]): CliArgs {
     workspace,
     specId,
     ...(out === undefined ? {} : { out }),
-    ...(projection === undefined ? {} : { projection }),
+    ...(show === undefined ? {} : { show }),
   };
 }
 
@@ -145,7 +145,7 @@ function usage(): string {
     '  -w, --workspace <dir>       Brunch workspace directory (default: cwd)',
     '      --spec-id <id>          Spec id to capture',
     '  -o, --out <file>            Output fixture JSON path (default: stdout)',
-    '      --projection <name>     graph_truth | active_context (default: graph_truth)',
+    '      --show <name>           all | active (default: all)',
   ].join('\n');
 }
 
@@ -154,7 +154,7 @@ async function main(): Promise<void> {
   const db = createDb(join(resolve(args.workspace), '.brunch', 'data.db'));
   const fixture = exportSeedFixture(db, {
     specId: args.specId,
-    ...(args.projection === undefined ? {} : { projection: args.projection }),
+    ...(args.show === undefined ? {} : { show: args.show }),
   });
   const rendered = formatSeedFixture(fixture);
 

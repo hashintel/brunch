@@ -400,9 +400,19 @@ describe('JSON-RPC handlers', () => {
     expect(overview).toBeDefined();
     expect(neighborhood).toBeDefined();
     expect(JSON.stringify(overview?.paramsSchema)).toContain('specId');
-    expect(JSON.stringify(overview?.resultSchema)).toContain('nodeCount');
+    const overviewResultSchema = JSON.stringify(overview?.resultSchema);
+    expect(overviewResultSchema).toContain('nodes');
+    expect(overviewResultSchema).toContain('edges');
+    expect(overviewResultSchema).toContain('lsn');
+    expect(overviewResultSchema).not.toContain('nodeCount');
+    expect(overviewResultSchema).not.toContain('edgeCount');
     expect(JSON.stringify(neighborhood?.paramsSchema)).toContain('nodeId');
-    expect(JSON.stringify(neighborhood?.resultSchema)).toContain('not_found');
+    const neighborhoodResultSchema = JSON.stringify(neighborhood?.resultSchema);
+    expect(neighborhoodResultSchema).toContain('found');
+    expect(neighborhoodResultSchema).toContain('not_found');
+    expect(neighborhoodResultSchema).not.toContain('success');
+    expect(neighborhoodResultSchema).not.toContain('anchor');
+    expect(neighborhoodResultSchema).not.toContain('neighbors');
     expect(overview?.examples).toContainEqual({
       jsonrpc: '2.0',
       id: expect.any(Number),
@@ -1365,7 +1375,7 @@ describe('JSON-RPC handlers', () => {
         review: {
           status: 'approved',
           lsn: expect.any(Number),
-          createdNodes: { 'requirement-draft': { id: expect.any(Number), code: 'R1' } },
+          createdNodes: { 'requirement-draft': { id: expect.any(Number), code: 'REQ1' } },
         },
         capture: { status: 'no_capture' },
       },
@@ -1383,7 +1393,6 @@ describe('JSON-RPC handlers', () => {
     });
     expect(overview).toMatchObject({
       result: {
-        nodeCount: 2,
         nodes: expect.arrayContaining([
           expect.objectContaining({
             kind: 'requirement',
@@ -1469,7 +1478,7 @@ describe('JSON-RPC handlers', () => {
             goal: { code: 'G1' },
             context: { code: 'CTX1' },
             constraint: { code: 'CON1' },
-            criterion: { code: 'CR1' },
+            criterion: { code: 'AC1' },
           },
         },
       },
@@ -1491,7 +1500,6 @@ describe('JSON-RPC handlers', () => {
     });
     expect(overview).toMatchObject({
       result: {
-        nodeCount: 4,
         nodes: expect.arrayContaining([
           expect.objectContaining({
             kind: 'goal',
@@ -1517,7 +1525,8 @@ describe('JSON-RPC handlers', () => {
       }),
     ).resolves.toMatchObject({
       result: {
-        nodeCount: 0,
+        nodes: [],
+        edges: [],
       },
     });
   });
@@ -1572,7 +1581,7 @@ describe('JSON-RPC handlers', () => {
             goal: { code: 'G1' },
             context: { code: 'CTX1' },
             constraint: { code: 'CON1' },
-            criterion: { code: 'CR1' },
+            criterion: { code: 'AC1' },
           },
         },
       },
@@ -1590,7 +1599,6 @@ describe('JSON-RPC handlers', () => {
     });
     expect(overview).toMatchObject({
       result: {
-        nodeCount: 4,
         nodes: expect.arrayContaining([
           expect.objectContaining({
             kind: 'goal',
@@ -1608,7 +1616,7 @@ describe('JSON-RPC handlers', () => {
         method: 'graph.overview',
         params: { specId: sibling.specId },
       }),
-    ).resolves.toMatchObject({ result: { nodeCount: 0 } });
+    ).resolves.toMatchObject({ result: { nodes: [], edges: [] } });
     const after = await readFile(workspace.session.file, 'utf8');
     expect(after.length).toBeGreaterThan(before.length);
     expect(after).toContain('Keep ordinary messages on the same selected-spec capture path.');
@@ -2346,13 +2354,17 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 50,
       result: {
-        nodeCount: 2,
-        edgeCount: 1,
+        nodes: expect.arrayContaining([
+          expect.objectContaining({ title: 'Spec A requirement', specId: fixture.specAId }),
+          expect.objectContaining({ title: 'Spec A constraint', specId: fixture.specAId }),
+        ]),
+        edges: [expect.objectContaining({ category: 'dependency', specId: fixture.specAId })],
         lsn: fixture.specALsn,
       },
     });
     if (!('result' in overviewA)) throw new Error('expected graph overview');
-    expect(JSON.stringify(overviewA.result)).toContain('Spec A requirement');
+    expect(overviewA.result).not.toHaveProperty('nodeCount');
+    expect(overviewA.result).not.toHaveProperty('edgeCount');
     expect(JSON.stringify(overviewA.result)).not.toContain('Spec B goal');
 
     const overviewB = await handlers.handle({
@@ -2364,8 +2376,15 @@ describe('JSON-RPC handlers', () => {
     expect(overviewB).toMatchObject({
       jsonrpc: '2.0',
       id: 51,
-      result: { nodeCount: 1, edgeCount: 0, lsn: fixture.specBLsn },
+      result: {
+        nodes: [expect.objectContaining({ title: 'Spec B goal' })],
+        edges: [],
+        lsn: fixture.specBLsn,
+      },
     });
+    if (!('result' in overviewB)) throw new Error('expected graph overview');
+    expect(overviewB.result).not.toHaveProperty('nodeCount');
+    expect(overviewB.result).not.toHaveProperty('edgeCount');
 
     const crossSpecNeighborhood = await handlers.handle({
       jsonrpc: '2.0',
@@ -2376,7 +2395,12 @@ describe('JSON-RPC handlers', () => {
     expect(crossSpecNeighborhood).toEqual({
       jsonrpc: '2.0',
       id: 52,
-      result: { status: 'not_found' },
+      result: {
+        selector: { id: fixture.specBNodeId },
+        status: 'not_found',
+        related: [],
+        edges: [],
+      },
     });
 
     const neighborhood = await handlers.handle({
@@ -2389,9 +2413,10 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 53,
       result: {
-        status: 'success',
-        anchor: { id: fixture.specANodeId, specId: fixture.specAId },
-        neighbors: [{ title: 'Spec A constraint', specId: fixture.specAId }],
+        selector: { id: fixture.specANodeId },
+        status: 'found',
+        node: { id: fixture.specANodeId, specId: fixture.specAId },
+        related: [{ title: 'Spec A constraint', specId: fixture.specAId }],
         edges: [{ category: 'dependency', specId: fixture.specAId }],
       },
     });
@@ -2494,7 +2519,7 @@ describe('JSON-RPC handlers', () => {
         specId: fixture.specAId,
         basis: 'explicit',
         nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Dev RPC thesis' }],
-        edges: [{ category: 'support', source: { existingCode: 'R1' }, target: 'thesis', stance: 'for' }],
+        edges: [{ category: 'support', source: { existingCode: 'REQ1' }, target: 'thesis', stance: 'for' }],
       },
     });
 
@@ -2526,8 +2551,6 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 61,
       result: {
-        nodeCount: 3,
-        edgeCount: 2,
         lsn: commitResult.lsn,
         nodes: expect.arrayContaining([expect.objectContaining({ title: 'Dev RPC thesis' })]),
         edges: expect.arrayContaining([expect.objectContaining({ category: 'support', stance: 'for' })]),
@@ -2544,8 +2567,6 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 62,
       result: {
-        nodeCount: 1,
-        edgeCount: 0,
         lsn: fixture.specBLsn,
       },
     });
@@ -2585,7 +2606,7 @@ describe('JSON-RPC handlers', () => {
         specId: fixture.specAId,
         basis: 'explicit',
         nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Invalid dev RPC thesis' }],
-        edges: [{ category: 'proof', source: { existingCode: 'R1' }, target: 'thesis' }],
+        edges: [{ category: 'proof', source: { existingCode: 'REQ1' }, target: 'thesis' }],
       },
     });
 
@@ -2610,8 +2631,6 @@ describe('JSON-RPC handlers', () => {
       jsonrpc: '2.0',
       id: 64,
       result: {
-        nodeCount: 2,
-        edgeCount: 1,
         lsn: fixture.specALsn,
       },
     });
@@ -2649,7 +2668,9 @@ describe('JSON-RPC handlers', () => {
             specId: fixture.specAId,
             basis: 'explicit',
             nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Line RPC thesis' }],
-            edges: [{ category: 'support', source: { existingCode: 'R1' }, target: 'thesis', stance: 'for' }],
+            edges: [
+              { category: 'support', source: { existingCode: 'REQ1' }, target: 'thesis', stance: 'for' },
+            ],
           },
         },
         { jsonrpc: '2.0', id: 66, method: 'graph.overview', params: { specId: fixture.specAId } },

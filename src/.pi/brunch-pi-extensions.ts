@@ -1,5 +1,6 @@
 import { type ExtensionAPI, type ExtensionFactory } from '@earendil-works/pi-coding-agent';
 
+import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { registerBrunchAlternatives } from './components/alternatives.js';
 import { registerBrunchChrome } from './extensions/chrome/index.js';
 import { type BrunchChromeState } from './extensions/chrome/index.js';
@@ -9,10 +10,7 @@ import { registerBrunchContext } from './extensions/context/index.js';
 import { registerStructuredExchange } from './extensions/exchanges/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
 import { type GraphMentionSource } from './extensions/mentions/index.js';
-import {
-  FIXTURE_GRAPH_MENTION_SOURCE,
-  registerBrunchMentionAutocomplete,
-} from './extensions/mentions/index.js';
+import { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
 import { registerBrunchOperationalModePolicy } from './extensions/runtime/index.js';
 import { registerBrunchSessionBoundary } from './extensions/session/lifecycle.js';
 import { type BrunchSessionBoundaryHandler } from './extensions/session/lifecycle.js';
@@ -23,11 +21,7 @@ import {
 
 export { registerBrunchAlternatives } from './components/alternatives.js';
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from './extensions/commands/policy.js';
-export {
-  registerBrunchMentionAutocomplete,
-  type GraphMentionCandidate,
-  type GraphMentionSource,
-} from './extensions/mentions/index.js';
+export { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
 export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -36,21 +30,6 @@ export {
   appendBrunchAgentRuntimeSwitch,
   projectBrunchAgentState,
   registerBrunchOperationalModePolicy,
-  type AgentGoalSelection,
-  type AgentGoalId,
-  type AgentLensId,
-  type AgentLensSelection,
-  type AgentRoleDefinition,
-  type AgentRoleId,
-  type AgentStrategyId,
-  type AgentStrategySelection,
-  type AutoAxisSelection,
-  type BrunchAgentState,
-  type BrunchAgentStateEntryData,
-  type BrunchAgentStateEntrySessionManager,
-  type OperationalModeDefinition,
-  type OperationalModeId,
-  type ResolvedBrunchAgentState,
 } from './extensions/runtime/index.js';
 export { registerBrunchPrompting } from './extensions/system-prompts/index.js';
 export { registerBrunchContext } from './extensions/context/index.js';
@@ -59,12 +38,7 @@ export {
   projectBrunchChromeFooterLines,
   registerBrunchChrome,
   renderBrunchChrome,
-  type BrunchChromeCoherenceVerdict,
-  type BrunchChromeFooterTelemetry,
-  type BrunchChromeStage,
   type BrunchChromeState,
-  type BrunchChromeUi,
-  type BrunchChromeWorkerStatus,
 } from './extensions/chrome/index.js';
 export {
   bindBrunchSessionBoundary,
@@ -81,15 +55,10 @@ export {
   BRUNCH_SWITCH_COMMAND,
   BRUNCH_SWITCH_SHORTCUT,
   registerBrunchCommands,
-  type BrunchCommandsOptions,
 } from './extensions/commands/index.js';
-export {
-  runBrunchWorkspaceAction,
-  runBrunchWorkspaceCommand,
-  type BrunchSpecSessionPickerOptions,
-} from './extensions/workspace/index.js';
+export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from './extensions/workspace/index.js';
 
-export { registerBrunchGraph, type BrunchGraphDeps, type GraphReaders } from './extensions/graph/index.js';
+export { registerBrunchGraph } from './extensions/graph/index.js';
 
 export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
@@ -99,13 +68,26 @@ export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
 
 type BrunchProductExtensionRegistrar = (pi: ExtensionAPI) => void | Promise<void>;
 
+function graphMentionSourceFromDeps(graph: BrunchGraphDeps | undefined): GraphMentionSource {
+  if (!graph) return { listMentionCandidates: () => [] };
+  return {
+    listMentionCandidates: () =>
+      graph.reads.queryGraph().nodes.map((node) => ({
+        code: formatGraphNodeCode(node.kind, node.kindOrdinal),
+        title: node.title,
+        plane: node.plane,
+        ...(node.body ? { description: node.body } : {}),
+      })),
+  };
+}
+
 export function createBrunchPiExtensions(
   chrome: BrunchChromeState,
   onSessionBoundary: BrunchSessionBoundaryHandler | undefined,
   options: BrunchPiExtensionsOptions,
 ): ExtensionFactory {
   return async (pi) => {
-    const graphMentionSource = options.graphMentionSource ?? FIXTURE_GRAPH_MENTION_SOURCE;
+    const graphMentionSource = options.graphMentionSource ?? graphMentionSourceFromDeps(options.graph);
     const promptContext = options.promptContext;
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => registerBrunchSessionBoundary(api, onSessionBoundary),

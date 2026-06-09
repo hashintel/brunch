@@ -1,4 +1,4 @@
-import type { GraphOverview } from '../../../graph/queries.js';
+import type { GraphSlice } from '../../../graph/queries.js';
 import { formatGraphNodeCode, type GraphNode } from '../../../graph/schema/nodes.js';
 import type { AgentLensSelection } from '../../../session/runtime-state.js';
 
@@ -11,7 +11,7 @@ export interface RenderGraphContextOptions {
 const DEFAULT_MAX_NODES = 8;
 const DEFAULT_MAX_EDGES = 8;
 
-export function renderGraphContext(overview: GraphOverview, options: RenderGraphContextOptions): string {
+export function renderGraphContext(overview: GraphSlice, options: RenderGraphContextOptions): string {
   const maxNodes = options.maxNodes ?? DEFAULT_MAX_NODES;
   const maxEdges = options.maxEdges ?? DEFAULT_MAX_EDGES;
   const emphasizedNodes = [...overview.nodes].sort((a, b) => {
@@ -22,11 +22,11 @@ export function renderGraphContext(overview: GraphOverview, options: RenderGraph
 
   const lines = [
     `[Selected-spec graph context · ${options.lens} lens]`,
-    `- selected-spec lsn: ${overview.lsn}; nodes: ${overview.nodeCount}; edges: ${overview.edgeCount}`,
+    `- selected-spec lsn: ${overview.lsn}; nodes: ${overview.nodes.length}; edges: ${overview.edges.length}`,
     `- emphasis: ${lensEmphasis(options.lens)}`,
   ];
 
-  if (overview.nodeCount === 0) {
+  if (overview.nodes.length === 0) {
     lines.push('- graph: empty');
     return lines.join('\n');
   }

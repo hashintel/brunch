@@ -26,7 +26,7 @@ interface BeforeAgentStartContextLike {
   sessionManager?: SessionManagerLike;
 }
 
-export interface BrunchPromptContext {
+interface BrunchPromptContext {
   spec: AgentPromptSpecContext;
   workspace: AgentPromptWorkspaceContext;
   session?: AgentPromptSessionContext;
@@ -91,9 +91,7 @@ function contextForPrompt(
     }),
   ];
   if (context.graphReads) {
-    renderedContexts.push(
-      renderGraphContext(context.graphReads.getGraphOverview(), { lens: state.agentLens }),
-    );
+    renderedContexts.push(renderGraphContext(context.graphReads.queryGraph(), { lens: state.agentLens }));
   }
 
   return {
@@ -107,5 +105,3 @@ async function resolvePromptContext(
 ): Promise<BrunchPromptContext> {
   return typeof promptContext === 'function' ? promptContext() : promptContext;
 }
-
-export default registerBrunchPrompting;

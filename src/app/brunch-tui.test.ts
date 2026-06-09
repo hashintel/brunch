@@ -152,11 +152,11 @@ describe('Brunch TUI boot', () => {
       );
 
       const graph = await openWorkspaceGraphRuntime(cwd);
-      expect(graph.forSpec(first.spec.id).getGraphOverview().nodeCount).toBe(0);
+      expect(graph.forSpec(first.spec.id).queryGraph().nodes).toHaveLength(0);
       expect(
         graph
           .forSpec(second.spec.id)
-          .getGraphOverview()
+          .queryGraph()
           .nodes.map((node) => node.title),
       ).toEqual(['Second current goal']);
       expect(observedUpdates).toEqual([
@@ -876,7 +876,97 @@ describe('Brunch TUI boot', () => {
     expect(commands).toEqual([]);
   });
 
-  it('wires the fixture graph-code mention source through the Brunch shell', async () => {
+  it('wires live selected-spec graph nodes through the Brunch shell mention source', async () => {
+    let providerFactory: ((current: FakeAutocompleteProvider) => FakeAutocompleteProvider) | undefined;
+    const sessionStart: Array<(event: unknown, ctx: FakeExtensionContext) => Promise<void> | void> = [];
+
+    await createBrunchPiExtensions(
+      chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-1')),
+      undefined,
+      {
+        coordinator: noOpWorkspaceCoordinator('/tmp/project'),
+        graph: {
+          specId: 1,
+          commandExecutor: {} as never,
+          reads: {
+            queryGraph: () => ({
+              nodes: [
+                {
+                  id: 1,
+                  specId: 1,
+                  plane: 'intent',
+                  kind: 'goal',
+                  kindOrdinal: 1,
+                  title: 'Live selected-spec goal',
+                  body: 'Graph-backed candidate',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [],
+              lsn: 1,
+            }),
+            getNodes: () => [],
+            resolveNodeCode: () => undefined,
+          },
+        },
+      },
+    )({
+      on: (event: string, handler: never) => {
+        if (event === 'session_start') sessionStart.push(handler);
+      },
+      registerCommand: (_name: string, _options: unknown) => {},
+      registerShortcut: (_name: string, _options: unknown) => {},
+      registerTool: (_tool: unknown) => {},
+      registerMessageRenderer: (_type: string) => {},
+      sendMessage: (_message: unknown) => {},
+      getAllTools: () => [],
+      setActiveTools: (_tools: string[]) => {},
+    } as never);
+
+    const ctx: FakeExtensionContext = {
+      sessionManager: {
+        getEntries: () => [],
+      } as unknown as FakeExtensionContext['sessionManager'],
+      ui: {
+        setHeader: (_factory) => {},
+        setFooter: (_factory) => {},
+        setStatus: (_key, _text) => {},
+        setWidget: (_key: string, _content: unknown) => {},
+        setWorkingIndicator: (_options) => {},
+        setTitle: (_title: string) => {},
+        notify: (_message: string, _type?: 'info' | 'warning' | 'error') => {},
+        addAutocompleteProvider: (factory: typeof providerFactory) => {
+          providerFactory = factory;
+        },
+      } as FakeExtensionUi & {
+        addAutocompleteProvider: (factory: typeof providerFactory) => void;
+      },
+    };
+
+    for (const handler of sessionStart) await handler({}, ctx);
+
+    const fallback: FakeAutocompleteProvider = {
+      getSuggestions: async () => ({ items: [], prefix: '' }),
+      applyCompletion: (lines) => ({ lines, cursorLine: 0, cursorCol: 0 }),
+      shouldTriggerFileCompletion: () => true,
+    };
+    const provider = providerFactory?.(fallback);
+
+    await expect(provider?.getSuggestions(['Discuss #'], 0, 9, {} as never)).resolves.toMatchObject({
+      prefix: '#',
+      items: [
+        expect.objectContaining({
+          value: '#G1',
+          label: '#G1 Live selected-spec goal',
+          description: 'Graph-backed candidate',
+        }),
+      ],
+    });
+  });
+
+  it('does not fall back to dummy mention candidates when graph deps are absent', async () => {
     let providerFactory: ((current: FakeAutocompleteProvider) => FakeAutocompleteProvider) | undefined;
     const sessionStart: Array<(event: unknown, ctx: FakeExtensionContext) => Promise<void> | void> = [];
 
@@ -926,9 +1016,9 @@ describe('Brunch TUI boot', () => {
     };
     const provider = providerFactory?.(fallback);
 
-    await expect(provider?.getSuggestions(['Discuss #'], 0, 9, {} as never)).resolves.toMatchObject({
+    await expect(provider?.getSuggestions(['Discuss #'], 0, 9, {} as never)).resolves.toEqual({
       prefix: '#',
-      items: expect.arrayContaining([expect.objectContaining({ value: '#D12' })]),
+      items: [],
     });
   });
 

@@ -185,5 +185,3 @@ export function registerBrunchAlternatives(pi: ExtensionAPI) {
     },
   });
 }
-
-export default registerBrunchAlternatives;

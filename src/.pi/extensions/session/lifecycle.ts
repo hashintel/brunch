@@ -32,5 +32,3 @@ export function registerBrunchSessionBoundary(
   });
   registerBrunchSessionBoundaryRefreshHandlers(pi, onSessionBoundary);
 }
-
-export default registerBrunchSessionBoundary;

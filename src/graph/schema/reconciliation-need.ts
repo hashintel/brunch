@@ -25,7 +25,7 @@ import type { EdgeId, Lsn, NodeId } from '../atoms.js';
  * Open extension — new kinds may be added as concrete needs surface.
  * Most needs are `edge_revalidation`.
  */
-export type ReconciliationNeedKind =
+type ReconciliationNeedKind =
   | 'edge_revalidation'
   | 'possible_relation'
   | 'possible_duplicate'

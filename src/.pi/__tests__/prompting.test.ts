@@ -19,16 +19,6 @@ import {
 } from '../extensions/runtime/index.js';
 import { registerBrunchPrompting } from '../extensions/system-prompts/index.js';
 
-function emptyGraphSlice() {
-  return {
-    lsn: 0,
-    nodeCount: 0,
-    edgeCount: 0,
-    nodes: [],
-    edges: [],
-  };
-}
-
 function runtimeEntry(state: BrunchAgentState) {
   return {
     type: 'custom',
@@ -74,10 +64,8 @@ const promptContext = {
   },
   session: { id: 'session-1', label: 'Session' },
   graphReads: {
-    getGraphOverview: () => ({
+    queryGraph: () => ({
       lsn: 4,
-      nodeCount: 2,
-      edgeCount: 1,
       nodes: [
         {
           id: 1,
@@ -115,11 +103,7 @@ const promptContext = {
         },
       ],
     }),
-    getGraphSliceByKinds: () => emptyGraphSlice(),
-    getGraphSliceByReadinessBands: () => emptyGraphSlice(),
-    getGraphGaps: () => emptyGraphSlice(),
-    getRelatedNodes: () => ({ status: 'not_found' as const }),
-    getNodeNeighborhood: () => ({ status: 'not_found' as const }),
+    getNodes: () => [],
     resolveNodeCode: () => undefined,
   },
 };
@@ -240,10 +224,8 @@ describe('Brunch prompt-pack topology', () => {
           workspace: promptContext.workspace,
           session: selected.session,
           graphReads: {
-            getGraphOverview: () => ({
+            queryGraph: () => ({
               lsn: 1,
-              nodeCount: selected.nodeTitles.length,
-              edgeCount: 0,
               nodes: selected.nodeTitles.map((title, index) => ({
                 id: index + 1,
                 specId: selected.spec.id,
@@ -257,11 +239,7 @@ describe('Brunch prompt-pack topology', () => {
               })),
               edges: [],
             }),
-            getGraphSliceByKinds: () => emptyGraphSlice(),
-            getGraphSliceByReadinessBands: () => emptyGraphSlice(),
-            getGraphGaps: () => emptyGraphSlice(),
-            getRelatedNodes: () => ({ status: 'not_found' as const }),
-            getNodeNeighborhood: () => ({ status: 'not_found' as const }),
+            getNodes: () => [],
             resolveNodeCode: () => undefined,
           },
         }),

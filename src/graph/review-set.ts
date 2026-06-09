@@ -13,20 +13,20 @@ import type {
 import type { NodePlane } from './schema/nodes.js';
 import { parseGraphNodeCode } from './schema/nodes.js';
 
-export type ReviewSetLens = 'intent' | 'design' | 'oracle';
-export type ReviewSetEpistemicStatus = 'inferred' | 'assumed' | 'asserted' | 'observed';
+type ReviewSetLens = 'intent' | 'design' | 'oracle';
+type ReviewSetEpistemicStatus = 'inferred' | 'assumed' | 'asserted' | 'observed';
 
-export interface ReviewSetProposalGrounding {
+interface ReviewSetProposalGrounding {
   readonly summary: string;
   readonly support: readonly string[];
 }
 
-export interface ReviewSetProposalPitch {
+interface ReviewSetProposalPitch {
   readonly title: string;
   readonly narrative: string;
 }
 
-export interface ReviewSetEntityDraft {
+interface ReviewSetEntityDraft {
   readonly draftId: string;
   readonly plane: NodePlane;
   readonly kind: string;
@@ -35,9 +35,9 @@ export interface ReviewSetEntityDraft {
   readonly detail?: unknown;
 }
 
-export type ReviewSetEndpointRef = { readonly draftId: string } | { readonly existingCode: string };
+type ReviewSetEndpointRef = { readonly draftId: string } | { readonly existingCode: string };
 
-export interface ReviewSetEdgeDraft {
+interface ReviewSetEdgeDraft {
   readonly category: string;
   readonly source: ReviewSetEndpointRef;
   readonly target: ReviewSetEndpointRef;
@@ -57,7 +57,7 @@ export interface ReviewSetProposalPayload {
   readonly supersedes?: string | undefined;
 }
 
-export interface ReviewSetTranslationSuccess {
+interface ReviewSetTranslationSuccess {
   readonly status: 'success';
   readonly payload: ReviewSetProposalPayload;
   readonly command: CommitGraphInput;

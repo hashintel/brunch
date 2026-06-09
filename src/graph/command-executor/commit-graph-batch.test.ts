@@ -295,7 +295,7 @@ describe('CommandExecutor commitGraph', () => {
 
       expect(result.status).toBe('success');
       if (result.status !== 'success') throw new Error('unreachable');
-      expect(result.createdNodes).toEqual({ n1: { id: expect.any(Number), code: 'R1' } });
+      expect(result.createdNodes).toEqual({ n1: { id: expect.any(Number), code: 'REQ1' } });
     });
 
     it('returns one created-node identity shape and edges array in success result', () => {

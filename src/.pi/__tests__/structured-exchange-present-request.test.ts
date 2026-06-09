@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { createDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
-import registerStructuredExchange, {
+import {
   PRESENT_OPTIONS_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_CHOICE_TOOL,
   REQUEST_CHOICES_TOOL,
   REQUEST_REVIEW_TOOL,
+  registerStructuredExchange,
 } from '../extensions/exchanges/index.js';
 import {
   findIncompleteStructuredExchangePresents,

@@ -15,7 +15,7 @@ import {
   type ResolvedBrunchAgentState,
 } from './runtime-policy.js';
 
-export interface AxisAffordance<TId extends string, TSelection extends 'auto' | TId> {
+interface AxisAffordance<TId extends string, TSelection extends 'auto' | TId> {
   readonly selection: TSelection;
   readonly legalOptions: readonly TId[];
   readonly defaultOnSwitch: TSelection;

@@ -7,7 +7,7 @@ import { workspaceStateQueryOptions } from '../queries/workspace.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 import { useBrunchUpdateSubscription } from '../subscriptions/brunch-updates.js';
 
-export type SessionProjectionTarget = {
+type SessionProjectionTarget = {
   sessionId: string;
   specId: number;
 };

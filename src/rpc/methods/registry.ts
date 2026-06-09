@@ -6,7 +6,7 @@ import type {
 import type { ProductUpdatePublisher } from '../product-updates.js';
 import type { JsonRpcRequest, JsonRpcResponse } from '../protocol.js';
 
-export type RpcMethodAccess = 'read' | 'write';
+type RpcMethodAccess = 'read' | 'write';
 
 export interface RpcMethodDefinition<Context> {
   readonly method: string;

@@ -6,10 +6,7 @@ SPEC decisions: D52-L
 
 Local executable utilities and script-facing helpers that are not product domain layers.
 
-Current utilities:
-
-- `render-preview.ts` — writes reviewable renderer previews from seeded fixtures without changing product runtime code.
-
+No standing script utilities are currently owned here.
 Print-mode workspace-state projection/rendering moved to `projections/workspace/` and `renderers/workspace/`; `app/` now calls those shared seams directly.
 
 ## Does not own

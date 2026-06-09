@@ -1,11 +1,16 @@
 // @vitest-environment jsdom
 
+import { QueryClient } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { GraphSlice, NodeNeighborhood } from '../graph/queries.js';
 import type { WorkspaceState } from '../projections/workspace/workspace-state.js';
 import { BrunchWebApp, createBrunchWebRuntime } from './app.js';
+import { graphNodeNeighborhoodQueryOptions, graphOverviewQueryOptions } from './queries/graph.js';
+import { queryKeys } from './query-keys.js';
 import type { WebSocketRpcClient, WebSocketRpcNotificationListener } from './rpc-client.js';
+import { invalidateBrunchUpdate } from './subscriptions/brunch-updates.js';
 
 interface RpcCall {
   method: string;
@@ -45,10 +50,8 @@ const selectedSpecWithoutSessionState: WorkspaceState = {
 const emptyGraphOverview = {
   nodes: [],
   edges: [],
-  nodeCount: 0,
-  edgeCount: 0,
   lsn: 0,
-};
+} satisfies GraphSlice;
 
 const populatedGraphOverview = {
   nodes: [
@@ -57,6 +60,7 @@ const populatedGraphOverview = {
       specId: 1,
       plane: 'intent',
       kind: 'requirement',
+      kindOrdinal: 1,
       title: 'Spec A requirement',
       basis: 'explicit',
       createdAtLsn: 1,
@@ -67,6 +71,7 @@ const populatedGraphOverview = {
       specId: 1,
       plane: 'intent',
       kind: 'assumption',
+      kindOrdinal: 1,
       title: 'Spec A assumption',
       basis: 'explicit',
       createdAtLsn: 1,
@@ -80,19 +85,26 @@ const populatedGraphOverview = {
       category: 'support',
       sourceId: 11,
       targetId: 10,
-      stance: 'supports',
+      stance: 'for',
       basis: 'explicit',
       createdAtLsn: 1,
       updatedAtLsn: 1,
     },
   ],
-  nodeCount: 2,
-  edgeCount: 1,
   lsn: 1,
-};
+} satisfies GraphSlice;
+const foundNeighborhood = {
+  selector: { id: 11 },
+  status: 'found',
+  node: populatedGraphOverview.nodes[1]!,
+  related: [populatedGraphOverview.nodes[0]!],
+  edges: populatedGraphOverview.edges,
+} satisfies NodeNeighborhood;
+
 function rpcClient(options?: {
   state?: WorkspaceState;
-  graphOverview?: typeof emptyGraphOverview | typeof populatedGraphOverview;
+  graphOverview?: GraphSlice;
+  nodeNeighborhood?: NodeNeighborhood;
   calls?: RpcCall[];
   listeners?: Set<WebSocketRpcNotificationListener>;
   close?: ReturnType<typeof vi.fn>;
@@ -111,6 +123,9 @@ function rpcClient(options?: {
       }
       if (method === 'graph.overview') {
         return (options?.graphOverview ?? emptyGraphOverview) as T;
+      }
+      if (method === 'graph.nodeNeighborhood') {
+        return (options?.nodeNeighborhood ?? foundNeighborhood) as T;
       }
       throw new Error(`unexpected RPC method ${method}`);
     },
@@ -168,6 +183,85 @@ describe('Brunch React web app', () => {
     expect(screen.getByText('support: 1')).toBeTruthy();
     fireEvent.click(screen.getAllByText('Focus node')[0]!);
     expect(screen.getByText('Focused read pending: graph.nodeNeighborhood(1, 11, 1)')).toBeTruthy();
+  });
+
+  it('derives graph overview presentation from GraphSlice arrays without count aliases', async () => {
+    window.history.pushState(null, '', '/spec/1');
+    const graphOverview = {
+      nodes: populatedGraphOverview.nodes,
+      edges: populatedGraphOverview.edges,
+      lsn: populatedGraphOverview.lsn,
+    } satisfies GraphSlice;
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ graphOverview }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Graph overview')).toBeTruthy();
+    expect(screen.getByText('2')).toBeTruthy();
+    expect(screen.getAllByText('1').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('support: 1')).toBeTruthy();
+  });
+
+  it('keeps graph query options typed to graph-owned RPC shapes', async () => {
+    const calls: RpcCall[] = [];
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const rpc = rpcClient({
+      calls,
+      graphOverview: populatedGraphOverview,
+      nodeNeighborhood: foundNeighborhood,
+    });
+
+    await expect(client.fetchQuery(graphOverviewQueryOptions(rpc, 1))).resolves.toEqual(
+      populatedGraphOverview,
+    );
+    await expect(client.fetchQuery(graphNodeNeighborhoodQueryOptions(rpc, 1, 11, 2))).resolves.toEqual(
+      foundNeighborhood,
+    );
+    expect(calls).toContainEqual({ method: 'graph.overview', params: { specId: 1 } });
+    expect(calls).toContainEqual({
+      method: 'graph.nodeNeighborhood',
+      params: { specId: 1, nodeId: 11, hops: 2 },
+    });
+  });
+
+  it('invalidates graph overview exactly and graph neighborhoods by selected-node prefix', () => {
+    const client = new QueryClient();
+    const overviewKey = queryKeys.graph.overview(1);
+    const otherOverviewKey = queryKeys.graph.overview(2);
+    const matchingNeighborhoodKey = queryKeys.graph.nodeNeighborhood(1, 11, 1);
+    const otherNeighborhoodKey = queryKeys.graph.nodeNeighborhood(1, 12, 1);
+    client.setQueryData(overviewKey, populatedGraphOverview);
+    client.setQueryData(otherOverviewKey, emptyGraphOverview);
+    client.setQueryData(matchingNeighborhoodKey, foundNeighborhood);
+    client.setQueryData(otherNeighborhoodKey, foundNeighborhood);
+
+    invalidateBrunchUpdate(client, {
+      jsonrpc: '2.0',
+      method: 'brunch.updated',
+      params: { updates: [{ topic: 'graph.overview', specId: 1 }] },
+    });
+    invalidateBrunchUpdate(client, {
+      jsonrpc: '2.0',
+      method: 'brunch.updated',
+      params: { updates: [{ topic: 'graph.nodeNeighborhood', specId: 1, nodeId: 11 }] },
+    });
+
+    expect(client.getQueryCache().find({ queryKey: overviewKey, exact: true })?.state.isInvalidated).toBe(
+      true,
+    );
+    expect(
+      client.getQueryCache().find({ queryKey: otherOverviewKey, exact: true })?.state.isInvalidated,
+    ).toBe(false);
+    expect(
+      client.getQueryCache().find({ queryKey: matchingNeighborhoodKey, exact: true })?.state.isInvalidated,
+    ).toBe(true);
+    expect(
+      client.getQueryCache().find({ queryKey: otherNeighborhoodKey, exact: true })?.state.isInvalidated,
+    ).toBe(false);
   });
 
   it('invalidates the exact selected-spec graph overview query on graph notifications', async () => {

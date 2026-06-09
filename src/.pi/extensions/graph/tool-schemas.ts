@@ -16,8 +16,8 @@ import {
   INTENT_KINDS,
   ORACLE_KINDS,
   PLAN_KINDS,
-  type GraphProjection,
-  type RelatedDirection,
+  type EdgeDirection,
+  type GraphVisibility,
 } from '../../../graph/index.js';
 
 const ALL_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
@@ -87,9 +87,9 @@ export const ReadGraphParams = {
   required: ['mode'],
   properties: {
     mode: { enum: ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related', 'gaps'] },
-    projection: {
-      enum: ['active_context', 'graph_truth'] satisfies readonly GraphProjection[],
-      description: 'Graph projection to read (default: active_context)',
+    show: {
+      enum: ['active', 'all'] satisfies readonly GraphVisibility[],
+      description: 'Graph visibility to read (default: active)',
     },
     nodeCode: {
       type: 'string',
@@ -117,7 +117,7 @@ export const ReadGraphParams = {
       description: 'Edge category to follow in related mode',
     },
     direction: {
-      enum: ['outgoing', 'incoming', 'both'] satisfies readonly RelatedDirection[],
+      enum: ['outgoing', 'incoming', 'both'] satisfies readonly EdgeDirection[],
       description: 'Traversal direction for related or gaps mode (default: both)',
     },
     absentEdgeCategory: {
@@ -129,40 +129,4 @@ export const ReadGraphParams = {
     'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, related nodes, or graph gaps. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters. Gaps mode requires a base filter (kinds and/or readinessBands) plus absentEdgeCategory.',
 } as const;
 
-export type ToolCommitNode = Static<typeof CommitNodeSchema>;
-export type ToolCommitEdge = Static<typeof CommitEdgeSchema>;
 export type ToolCommitGraphParams = Static<typeof CommitGraphParams>;
-export type ToolReadGraphParams =
-  | { readonly mode: 'overview'; readonly projection?: GraphProjection }
-  | {
-      readonly mode: 'neighborhood';
-      readonly nodeCode: string;
-      readonly hops?: number;
-      readonly projection?: GraphProjection;
-    }
-  | {
-      readonly mode: 'list_by_kind';
-      readonly kinds: readonly string[];
-      readonly projection?: GraphProjection;
-    }
-  | {
-      readonly mode: 'list_by_band';
-      readonly readinessBands: readonly string[];
-      readonly projection?: GraphProjection;
-    }
-  | {
-      readonly mode: 'related';
-      readonly anchorCodes: readonly string[];
-      readonly edgeCategory: (typeof EDGE_CATEGORIES)[number];
-      readonly direction?: RelatedDirection;
-      readonly hops?: number;
-      readonly projection?: GraphProjection;
-    }
-  | {
-      readonly mode: 'gaps';
-      readonly kinds?: readonly string[];
-      readonly readinessBands?: readonly string[];
-      readonly absentEdgeCategory: (typeof EDGE_CATEGORIES)[number];
-      readonly direction?: RelatedDirection;
-      readonly projection?: GraphProjection;
-    };

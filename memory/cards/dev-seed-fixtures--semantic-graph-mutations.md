@@ -1,12 +1,14 @@
 # Semantic graph mutations for fixture curation
 
-Frontier: dev-seed-fixtures
-Status:   active
+Frontier: superseded by `role-safe-graph-mutations` for the semantic mutation command; `dev-seed-fixtures` remains the seed-data frontier.
+Status:   superseded
 Mode:     chain
 Created:  2026-06-05
+Superseded: 2026-06-09 by `memory/cards/role-safe-graph-mutations--mutate-graph.md`.
 
 ## Orientation
 
+- Supersession note: this card's command-layer create/patch/delete curation scope is folded into `role-safe-graph-mutations` so semantic mutation work lands as the canonical `mutateGraph` / `mutate_graph` grammar instead of a dev-only second graph-write dialect. Keep this file as historical scoping context; build from `memory/cards/role-safe-graph-mutations--mutate-graph.md`.
 - Containing seam: `graph/CommandExecutor` as the single graph-truth mutation boundary. The current creation-only `commitGraph({nodes, edges})` shape is sufficient for `propose-graph` creation, but not for manual curation of persisted seed specs where humans must patch or remove existing graph items.
 - Relevant frontier item: `dev-seed-fixtures` because the immediate product need is curated Bilal/reference seed data that can be edited in a local DB and exported back to `.fixtures/seeds/**`. This slice also touches the cross-frontier graph mutation contract (`D4-L`, `D20-L`, `D53-L`), so it must reconcile SPEC/GRAPH_MODEL when built.
 - Volatile handoff state: a clean curation workspace exists at `.fixtures/workbenches/bilal-curation`; DB→fixture export and the one-shot RPC helper are already in place (`src/graph/export-fixtures.ts`, `src/dev/workspace-rpc.ts`). FE-809 review-cycle work has landed, but this scope still touches fresh `src/graph/command-executor.ts` and review-set graph code; coordinate before building it in a shared worktree.

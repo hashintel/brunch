@@ -13,7 +13,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { BrunchDb } from '../db/connection.js';
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
-import { getGraphOverview, getNodeNeighborhood, getOpenReconciliationNeeds } from './queries.js';
+import { getNodes, getOpenReconciliationNeeds, queryGraph } from './queries.js';
 
 function freshDbWithTwoSpecs(): {
   db: BrunchDb;
@@ -59,15 +59,15 @@ describe('graph items are owned by spec', () => {
     });
     expect(commitB.status).toBe('success');
 
-    const overviewA = getGraphOverview(db, specA);
-    const overviewB = getGraphOverview(db, specB);
+    const overviewA = queryGraph(db, specA);
+    const overviewB = queryGraph(db, specB);
 
-    expect(overviewA.nodeCount).toBe(2);
-    expect(overviewA.edgeCount).toBe(1);
+    expect(overviewA.nodes).toHaveLength(2);
+    expect(overviewA.edges).toHaveLength(1);
     expect(overviewA.nodes.every((n) => n.title.startsWith('A '))).toBe(true);
 
-    expect(overviewB.nodeCount).toBe(1);
-    expect(overviewB.edgeCount).toBe(0);
+    expect(overviewB.nodes).toHaveLength(1);
+    expect(overviewB.edges).toHaveLength(0);
     expect(overviewB.nodes[0]!.title).toBe('B goal');
   });
 
@@ -93,8 +93,8 @@ describe('graph items are owned by spec', () => {
     }
 
     // Nothing was written for spec B
-    const overviewB = getGraphOverview(db, specB);
-    expect(overviewB.nodeCount).toBe(0);
+    const overviewB = queryGraph(db, specB);
+    expect(overviewB.nodes).toHaveLength(0);
   });
 
   it('endpoint guard: an edge cannot connect nodes from different specs', () => {
@@ -139,11 +139,11 @@ describe('graph items are owned by spec', () => {
     if (seedA.status !== 'success') throw new Error('seed failed');
     const aNodeId = seedA.createdNodes['n1']!.id;
 
-    const wrongSpec = getNodeNeighborhood(db, specB, aNodeId);
-    expect(wrongSpec.status).toBe('not_found');
+    const [wrongSpec] = getNodes(db, specB, [{ id: aNodeId }]);
+    expect(wrongSpec?.status).toBe('not_found');
 
-    const rightSpec = getNodeNeighborhood(db, specA, aNodeId);
-    expect(rightSpec.status).toBe('success');
+    const [rightSpec] = getNodes(db, specA, [{ id: aNodeId }]);
+    expect(rightSpec?.status).toBe('found');
   });
 
   it('reconciliation needs are spec-scoped and reject cross-spec targets', () => {

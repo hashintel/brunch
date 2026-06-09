@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GraphOverview } from '../graph/queries.js';
+import type { GraphSlice } from '../graph/queries.js';
 import {
   summarizeProposeGraphCommitProof,
   writeProposeGraphCommitProofArtifacts,
@@ -23,7 +23,7 @@ function messageEntry(toolName: string, details: unknown, content: string): stri
   });
 }
 
-const successfulOverview: GraphOverview = {
+const successfulOverview: GraphSlice = {
   nodes: [
     {
       id: 1,
@@ -60,8 +60,6 @@ const successfulOverview: GraphOverview = {
       updatedAtLsn: 1,
     },
   ],
-  nodeCount: 2,
-  edgeCount: 1,
   lsn: 1,
 };
 
@@ -81,7 +79,7 @@ describe('propose-graph commit proof report', () => {
         {
           status: 'success',
           lsn: 1,
-          createdNodes: { goal: { id: 1, code: 'G1' }, rollback: { id: 2, code: 'R1' } },
+          createdNodes: { goal: { id: 1, code: 'G1' }, rollback: { id: 2, code: 'REQ1' } },
           edges: [1],
         },
         'Graph committed successfully',
@@ -132,7 +130,7 @@ describe('propose-graph commit proof report', () => {
         {
           status: 'success',
           lsn: 2,
-          createdNodes: { r1: { id: 2, code: 'R1' } },
+          createdNodes: { r1: { id: 2, code: 'REQ1' } },
           edges: [1],
         },
         'Graph committed successfully',
@@ -163,7 +161,7 @@ describe('propose-graph commit proof report', () => {
     });
     expect(report.committedNodes).toEqual([
       { code: 'G1', title: 'Clarify launch readiness' },
-      { code: 'R1', title: 'Expose rollback criteria' },
+      { code: 'REQ1', title: 'Expose rollback criteria' },
     ]);
   });
 
@@ -182,7 +180,7 @@ describe('propose-graph commit proof report', () => {
         {
           status: 'success',
           lsn: 2,
-          createdNodes: { p1: { id: 1, code: 'CR1' }, p2: { id: 2, code: 'G1' } },
+          createdNodes: { p1: { id: 1, code: 'AC1' }, p2: { id: 2, code: 'G1' } },
           edges: [1],
         },
         'Graph committed successfully',
@@ -232,7 +230,7 @@ describe('propose-graph commit proof report', () => {
       sessionId: 'session-1',
       maxAttempts: 2,
       sessionText,
-      overview: { ...successfulOverview, nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 1 },
+      overview: { ...successfulOverview, nodes: [], edges: [], lsn: 1 },
       prompt: 'Maybe update the graph if useful.',
       scenarioId: 'ambiguity-no-overcommit',
     });
@@ -285,7 +283,7 @@ describe('propose-graph commit proof report', () => {
       sessionId: 'session-1',
       maxAttempts: 1,
       sessionText,
-      overview: { ...successfulOverview, nodes: [], edges: [], nodeCount: 0, edgeCount: 0, lsn: 0 },
+      overview: { ...successfulOverview, nodes: [], edges: [], lsn: 0 },
       prompt: 'Commit the accepted concept.',
     });
 

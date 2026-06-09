@@ -85,7 +85,7 @@
   ],
   "productUpdates": [
     {
-      "topic": "workspace.snapshot",
+      "topic": "workspace.state",
       "specId": 1,
       "sessionId": "019e9d3e-7f21-76ae-bbc2-2955f779cdac"
     },
@@ -121,6 +121,6 @@
     "sessionJsonl": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/session.jsonl",
     "transcriptMarkdown": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/transcript.md",
     "reportJson": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/report.json",
-    "graphSnapshotJson": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/graph-snapshot.json"
+    "graphOverviewJson": "runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/graph-overview.json"
   }
 }

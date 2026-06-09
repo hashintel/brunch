@@ -14,7 +14,7 @@ import {
   type CommitGraphSuccess,
   type Diagnostic,
   type GraphNode,
-  type GraphOverview,
+  type GraphSlice,
   type StructuralIllegal,
 } from '../graph/index.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
@@ -26,7 +26,7 @@ const PROBE_ID = 'fixture-curation' as const;
 const DEFAULT_SEED_SET = 'bilal-port-variants';
 const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
 
-export type FixtureCurationCommitStatus =
+type FixtureCurationCommitStatus =
   | CommitGraphSuccess['status']
   | StructuralIllegal['status']
   | 'needs_human'
@@ -34,14 +34,14 @@ export type FixtureCurationCommitStatus =
   | 'version_conflict'
   | 'unknown';
 
-export interface FixtureCurationRuntimeStateReport {
+interface FixtureCurationRuntimeStateReport {
   readonly operationalMode: 'elicit';
   readonly agentStrategy: 'propose-graph';
   readonly agentLens: 'intent';
   readonly agentGoal: 'commit-converge';
 }
 
-export interface FixtureCurationRunOptions {
+interface FixtureCurationRunOptions {
   readonly cwd?: string;
   readonly fixtureRoot?: string;
   readonly seedSet?: string;
@@ -60,7 +60,7 @@ export interface FixtureCurationArtifacts {
   readonly graphOverviewJson: string;
 }
 
-export interface FixtureCurationCommitAttempt {
+interface FixtureCurationCommitAttempt {
   readonly index: number;
   readonly status: FixtureCurationCommitStatus;
   readonly lsn?: number;
@@ -70,7 +70,7 @@ export interface FixtureCurationCommitAttempt {
   readonly content?: string;
 }
 
-export interface FixtureCurationCreatedNode {
+interface FixtureCurationCreatedNode {
   readonly id: number;
   readonly code: string;
   readonly plane: GraphNode['plane'];
@@ -123,7 +123,7 @@ export interface FixtureCurationSummaryInput {
   readonly runtimeState: FixtureCurationRuntimeStateReport;
   readonly model?: string;
   readonly sessionText: string;
-  readonly overview: GraphOverview;
+  readonly overview: GraphSlice;
   readonly friction?: readonly string[];
 }
 
@@ -178,7 +178,7 @@ export async function runFixtureCurationLoop(
     await session.sendUserMessage(prompt);
     await session.agent.waitForIdle();
     const sessionText = await readFile(activated.session.file, 'utf8');
-    const overview = graph.forSpec(seedResult.specId).getGraphOverview();
+    const overview = graph.forSpec(seedResult.specId).queryGraph();
     let report = summarizeFixtureCurationRun({
       runId,
       generatedAt,
@@ -265,8 +265,8 @@ export function summarizeFixtureCurationRun(input: FixtureCurationSummaryInput):
     commitGraphAttempts,
     createdNodes,
     finalGraph: {
-      nodeCount: input.overview.nodeCount,
-      edgeCount: input.overview.edgeCount,
+      nodeCount: input.overview.nodes.length,
+      edgeCount: input.overview.edges.length,
       lsn: input.overview.lsn,
       explicitNodeCount,
       implicitNodeCount,
@@ -282,7 +282,7 @@ export async function writeFixtureCurationArtifacts(options: {
   readonly runId: string;
   readonly sessionText: string;
   readonly report: FixtureCurationReport;
-  readonly graphOverview: GraphOverview;
+  readonly graphOverview: GraphSlice;
 }): Promise<FixtureCurationArtifacts> {
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; the disk paths used for writing are resolved

@@ -13,5 +13,3 @@ export function registerBrunchBranchPolicyHandlers(pi: ExtensionAPI): void {
     return { cancel: true };
   });
 }
-
-export default registerBrunchBranchPolicyHandlers;

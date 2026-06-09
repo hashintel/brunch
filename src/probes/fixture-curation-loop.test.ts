@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GraphOverview } from '../graph/queries.js';
+import type { GraphSlice } from '../graph/queries.js';
 import {
   summarizeFixtureCurationRun,
   writeFixtureCurationArtifacts,
@@ -23,7 +23,7 @@ function toolResultEntry(toolName: string, details: unknown): string {
   });
 }
 
-const mixedBasisOverview: GraphOverview = {
+const mixedBasisOverview: GraphSlice = {
   nodes: [
     {
       id: 1,
@@ -61,8 +61,7 @@ const mixedBasisOverview: GraphOverview = {
       updatedAtLsn: 3,
     },
   ],
-  nodeCount: 2,
-  edgeCount: 1,
+
   lsn: 3,
 };
 
@@ -102,7 +101,7 @@ describe('fixture curation loop report', () => {
     expect(report.createdNodes).toEqual([
       {
         id: 2,
-        code: 'R1',
+        code: 'REQ1',
         plane: 'intent',
         kind: 'requirement',
         title: 'Rollback path is named',
@@ -146,8 +145,6 @@ describe('fixture curation loop report', () => {
         ...mixedBasisOverview,
         nodes: [mixedBasisOverview.nodes[0]!],
         edges: [],
-        nodeCount: 1,
-        edgeCount: 0,
       },
     });
 

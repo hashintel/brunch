@@ -48,10 +48,7 @@ export type {
   CommitGraphInput,
   CommitGraphResult,
   CommitGraphSuccess,
-  CreatedGraphNodeResult,
-  CreatedGraphNodes,
   Diagnostic,
-  DryRunSuccess,
   StructuralIllegal,
 } from './command-executor/commit-graph-types.js';
 
@@ -60,62 +57,62 @@ export type {
 // ---------------------------------------------------------------------------
 
 /** Successful command execution. */
-export interface CommandSuccess {
+interface CommandSuccess {
   readonly status: 'success';
   readonly nodeId: number;
   readonly lsn: number;
 }
 
 /** Action requires human confirmation (M6 placeholder). */
-export interface NeedsHuman {
+interface NeedsHuman {
   readonly status: 'needs_human';
 }
 
 /** Action blocked by authority policy (M6 placeholder). */
-export interface PolicyBlocked {
+interface PolicyBlocked {
   readonly status: 'policy_blocked';
 }
 
 /** Optimistic concurrency conflict (M6 placeholder). */
-export interface VersionConflict {
+interface VersionConflict {
   readonly status: 'version_conflict';
 }
 
 /** Successful reconciliation-need creation. */
-export interface ReconNeedSuccess {
+interface ReconNeedSuccess {
   readonly status: 'success';
   readonly id: number;
   readonly lsn: number;
 }
 
 /** Successful reconciliation-need resolution. */
-export interface ReconNeedResolveSuccess {
+interface ReconNeedResolveSuccess {
   readonly status: 'success';
   readonly lsn: number;
 }
 
 /** Successful spec creation. */
-export interface CreateSpecSuccess {
+interface CreateSpecSuccess {
   readonly status: 'success';
   readonly specId: number;
   readonly lsn: number;
 }
 
 /** Successful elicitation-backlog creation. */
-export interface ElicitationBacklogSuccess {
+interface ElicitationBacklogSuccess {
   readonly status: 'success';
   readonly id: number;
   readonly lsn: number;
 }
 
 /** Successful elicitation-backlog close. */
-export interface ElicitationBacklogCloseSuccess {
+interface ElicitationBacklogCloseSuccess {
   readonly status: 'success';
   readonly lsn: number;
 }
 
 /** Successful spec readiness-grade update. */
-export interface UpdateReadinessGradeSuccess {
+interface UpdateReadinessGradeSuccess {
   readonly status: 'success';
   readonly lsn: number;
 }
@@ -166,7 +163,7 @@ export type CloseElicitationBacklogEntryResult = ElicitationBacklogCloseSuccess 
 export type UpdateReadinessGradeResult = UpdateReadinessGradeSuccess | StructuralIllegal;
 
 /** Successful accepted review-set graph batch execution. */
-export interface AcceptReviewSetSuccess extends CommitGraphSuccess {}
+interface AcceptReviewSetSuccess extends CommitGraphSuccess {}
 
 /** Result of an acceptReviewSet command. */
 export type AcceptReviewSetResult = AcceptReviewSetSuccess | StructuralIllegal;
@@ -235,20 +232,20 @@ export interface CreateNodeInput {
 // ---------------------------------------------------------------------------
 
 /** Target for a reconciliation need — edge or node pair. */
-export type ReconNeedTargetEdge = {
+type ReconNeedTargetEdge = {
   readonly kind: 'edge';
   readonly edgeId: number;
 };
 
 /** Target for a reconciliation need — node pair. */
-export type ReconNeedTargetNodePair = {
+type ReconNeedTargetNodePair = {
   readonly kind: 'node_pair';
   readonly aId: number;
   readonly bId: number;
 };
 
 /** Target for a reconciliation need. */
-export type ReconNeedTarget = ReconNeedTargetEdge | ReconNeedTargetNodePair;
+type ReconNeedTarget = ReconNeedTargetEdge | ReconNeedTargetNodePair;
 
 /** Input for creating a reconciliation need. */
 export interface CreateReconNeedInput {
