@@ -13,6 +13,7 @@ import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { BunTestRunner } from './test-runner.js';
+import type { PlanMode } from './types.js';
 import { createSandbox } from './worktree.js';
 
 /**
@@ -42,7 +43,7 @@ export type CookOptions = {
   /**
    * Explicit specification id whose emitted plan (under
    * `<dir>/.brunch/cook/specs/<id>/plan.yaml`) should be cooked.
-   * When omitted, `resolveCookMode` auto-picks the most recently
+   * When omitted, `resolveCookPlan` auto-picks the most recently
    * emitted spec plan (or falls back to legacy paths).
    */
   specId?: number;
@@ -255,64 +256,85 @@ function fmtDuration(ms: number): string {
   return `${m}m ${rem.toFixed(0)}s`;
 }
 
-export type ResolvedCookMode =
-  | { mode: 'fixture'; planPath: string }
-  | { mode: 'codebase'; planPath: string; sourceDir: string }
-  | { mode: 'error'; message: string };
+export type ResolvedCookPlan =
+  | { kind: 'resolved'; planPath: string; sourceDir: string }
+  | { kind: 'error'; message: string };
 
 /**
- * Resolve cook's run mode by inspecting `<dir>` in precedence order:
+ * Resolve WHERE cook's plan lives, in precedence order:
  *
- *   1. `<dir>/plan.yaml` exists                                  → fixture mode (greenfield).
+ *   1. `<dir>/plan.yaml` exists                                  → authored fixture plan.
  *   2. Explicit `specId`:
- *        `<dir>/.brunch/cook/specs/<id>/plan.yaml` exists        → codebase mode.
+ *        `<dir>/.brunch/cook/specs/<id>/plan.yaml` exists        → that plan.
  *        missing                                                 → error.
- *   3. No `specId`, any `<dir>/.brunch/cook/specs/<n>/plan.yaml` → newest by mtime, codebase mode.
- *   4. Legacy `<dir>/.brunch/cook/plan.yaml`                     → codebase mode.
+ *   3. No `specId`, any `<dir>/.brunch/cook/specs/<n>/plan.yaml` → newest by mtime.
+ *   4. Legacy `<dir>/.brunch/cook/plan.yaml`                     → that plan.
  *   5. None of the above                                         → error.
  *
- * Codebase modes additionally require `<dir>` to be a git repo with a clean
- * working tree (untracked files ignored).
+ * Greenfield vs brownfield is NOT decided here: it is spec-derived plan
+ * truth, read from the loaded plan's `mode` by `resolveSandboxPlan`. No git
+ * gate runs here — the clean-tree requirement is brownfield-only.
  *
  * Pure function — no process exits, no side effects beyond filesystem reads.
  */
-export function resolveCookMode(dir: string, specId?: number): ResolvedCookMode {
+export function resolveCookPlan(dir: string, specId?: number): ResolvedCookPlan {
   const fixturePath = join(dir, 'plan.yaml');
   if (existsSync(fixturePath)) {
-    return { mode: 'fixture', planPath: fixturePath };
+    return { kind: 'resolved', planPath: fixturePath, sourceDir: dir };
   }
 
   const legacyPath = join(dir, '.brunch', 'cook', 'plan.yaml');
 
-  let codebasePath: string | undefined;
+  let planPath: string | undefined;
   if (specId !== undefined) {
     const explicit = specPlanPath(dir, specId);
     if (!existsSync(explicit)) {
-      return { mode: 'error', message: `No plan emitted for spec ${specId}: ${explicit}` };
+      return { kind: 'error', message: `No plan emitted for spec ${specId}: ${explicit}` };
     }
-    codebasePath = explicit;
+    planPath = explicit;
   } else {
-    codebasePath = resolveLatestSpecPlanPath(dir) ?? (existsSync(legacyPath) ? legacyPath : undefined);
+    planPath = resolveLatestSpecPlanPath(dir) ?? (existsSync(legacyPath) ? legacyPath : undefined);
   }
 
-  if (codebasePath) {
-    const gitCheck = isCleanGitWorkingTree(dir);
-    if (gitCheck.kind === 'not-git') {
-      return { mode: 'error', message: `Codebase mode requires <dir> to be a git repo: ${dir}` };
-    }
-    if (gitCheck.kind === 'dirty') {
-      return {
-        mode: 'error',
-        message: `Codebase mode refuses to run against an uncommitted working tree:\n${gitCheck.status}`,
-      };
-    }
-    return { mode: 'codebase', planPath: codebasePath, sourceDir: dir };
+  if (planPath) {
+    return { kind: 'resolved', planPath, sourceDir: dir };
   }
 
   return {
-    mode: 'error',
+    kind: 'error',
     message: `No plan found at ${fixturePath}, ${specsRootDir(dir)}/<id>/plan.yaml, or ${legacyPath}`,
   };
+}
+
+export type ResolvedSandbox =
+  | { kind: 'fixture' }
+  | { kind: 'codebase'; sourceDir: string }
+  | { kind: 'error'; message: string };
+
+/**
+ * Decide the worktree strategy from the plan's spec-derived `mode`:
+ *
+ *   - greenfield → empty (fixture) worktree, generate from scratch; no git gate.
+ *   - brownfield → clone the cwd repo (codebase); requires `dir` to be a git
+ *     repo with a clean working tree (untracked files ignored).
+ *
+ * Pure modulo the brownfield git read; no process exits.
+ */
+export function resolveSandboxPlan(planMode: PlanMode, dir: string): ResolvedSandbox {
+  if (planMode !== 'brownfield') {
+    return { kind: 'fixture' };
+  }
+  const gitCheck = isCleanGitWorkingTree(dir);
+  if (gitCheck.kind === 'not-git') {
+    return { kind: 'error', message: `Brownfield cook requires <dir> to be a git repo: ${dir}` };
+  }
+  if (gitCheck.kind === 'dirty') {
+    return {
+      kind: 'error',
+      message: `Brownfield cook refuses to run against an uncommitted working tree:\n${gitCheck.status}`,
+    };
+  }
+  return { kind: 'codebase', sourceDir: dir };
 }
 
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };
@@ -356,16 +378,26 @@ export async function runCook(opts: CookOptions): Promise<void> {
     streamPort = resolvePetrinautStreamPort({ PORT: process.env.PORT });
   }
 
-  const resolved = resolveCookMode(opts.dir, opts.specId);
-  if (resolved.mode === 'error') {
+  const resolved = resolveCookPlan(opts.dir, opts.specId);
+  if (resolved.kind === 'error') {
     console.error(resolved.message);
     process.exit(1);
   }
 
   const plan = loadPlan(resolved.planPath);
+
+  // Worktree strategy follows the plan's spec-derived mode, not its location:
+  // greenfield generates in an empty worktree; brownfield clones the cwd repo
+  // (and requires a clean tree).
+  const sandbox = resolveSandboxPlan(plan.mode, resolved.sourceDir);
+  if (sandbox.kind === 'error') {
+    console.error(sandbox.message);
+    process.exit(1);
+  }
+
   const { sandboxDir, runDir, runId } =
-    resolved.mode === 'codebase'
-      ? createSandbox(launchCwd, undefined, { mode: 'codebase', sourceDir: resolved.sourceDir })
+    sandbox.kind === 'codebase'
+      ? createSandbox(launchCwd, undefined, { mode: 'codebase', sourceDir: sandbox.sourceDir })
       : createSandbox(launchCwd);
   const reportsPath = join(runDir, 'reports.jsonl');
 
@@ -410,7 +442,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
       reports,
       testRunner,
       policy: { maxRetries: opts.maxRetries },
-      sandboxMode: resolved.mode === 'codebase' ? 'codebase' : 'fixture',
+      sandboxMode: sandbox.kind === 'codebase' ? 'codebase' : 'fixture',
       runId,
       runDir,
       // Pick the shared NetFolding (identity by default; color collapses subnets).

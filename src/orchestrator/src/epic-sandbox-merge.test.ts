@@ -23,6 +23,7 @@ import {
 import type { Plan } from './types.js';
 
 const txtLikePlan: Plan = {
+  mode: 'greenfield',
   epics: [
     { id: 'scaffolding', summary: '', depends_on: [], verification: [] },
     { id: 'text-ops', summary: '', depends_on: ['scaffolding'], verification: [] },
@@ -43,6 +44,7 @@ const txtLikePlan: Plan = {
 };
 
 const crossEpicSliceDepPlan: Plan = {
+  mode: 'greenfield',
   epics: [
     { id: 'epic-a', summary: '', depends_on: [], verification: [] },
     { id: 'epic-b', summary: '', depends_on: [], verification: [] },
@@ -68,6 +70,7 @@ describe('epicIdsForEpicVerifyMerge', () => {
 
   it('tolerates cyclic slice depends_on without stack overflow', () => {
     const cyclicPlan: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
       slices: [
         { id: 'a', epic_id: 'e1', definition: '', depends_on: ['b'], verification: [] },
@@ -80,6 +83,7 @@ describe('epicIdsForEpicVerifyMerge', () => {
 
   it('tolerates cyclic epic depends_on without stack overflow', () => {
     const cyclicPlan: Plan = {
+      mode: 'greenfield',
       epics: [
         { id: 'e1', summary: '', depends_on: ['e2'], verification: [] },
         { id: 'e2', summary: '', depends_on: ['e1'], verification: [] },
@@ -161,6 +165,7 @@ describe('seedSliceSandboxFromDeps', () => {
 
   it('uses plan order when multiple deps share a path', () => {
     const plan: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
       slices: [
         { id: 'dep-b', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
@@ -213,6 +218,7 @@ describe('seedSliceFromParentWorktree', () => {
   });
 
   const singleSlicePlan: Plan = {
+    mode: 'greenfield',
     epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
     slices: [{ id: 'only', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
   };
@@ -293,6 +299,7 @@ describe('seedSliceFromParentWorktree', () => {
   it('excludes sibling slice subdirs from the untracked copy', () => {
     const { parent, addUntracked } = makeGitParentWorktree('r4');
     const planTwo: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
       slices: [
         { id: 'first', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
@@ -318,6 +325,7 @@ describe('seedSliceFromParentWorktree', () => {
   it('rejects slice ids that collide with top-level repo entries', () => {
     const { parent } = makeGitParentWorktree('r6');
     const plan: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
       slices: [{ id: 'src', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
     };

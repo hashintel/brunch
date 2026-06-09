@@ -189,6 +189,7 @@ function withConcurrencyTracking(
 // ---------------------------------------------------------------------------
 
 const simplePlan: Plan = {
+  mode: 'greenfield',
   epics: [
     {
       id: 'epic-1',
@@ -283,6 +284,7 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 // ---------------------------------------------------------------------------
 
 const depPlan: Plan = {
+  mode: 'greenfield',
   epics: [
     {
       id: 'epic-1',
@@ -431,6 +433,7 @@ describe('Engine contract test #2 — intra-epic slice dependencies', () => {
 
 describe('Engine contract test #3 — epic dependencies', () => {
   const epicDepPlan: Plan = {
+    mode: 'greenfield',
     epics: [
       { id: 'epic-1', summary: 'First', depends_on: [], verification: [] },
       { id: 'epic-2', summary: 'Second — depends on first', depends_on: ['epic-1'], verification: [] },
@@ -484,6 +487,7 @@ describe('Engine contract test #3 — epic dependencies', () => {
 
 describe('Engine contract test #4 — epic verification passes', () => {
   const verifyPlan: Plan = {
+    mode: 'greenfield',
     epics: [
       {
         id: 'epic-v',
@@ -524,6 +528,7 @@ describe('Engine contract test #4 — epic verification passes', () => {
 
 describe('Engine contract test #5 — epic verification fails', () => {
   const verifyFailPlan: Plan = {
+    mode: 'greenfield',
     epics: [
       {
         id: 'epic-f',
@@ -1335,6 +1340,7 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
 
 describe('Engine contract test #12 — parallel fires concurrently', () => {
   const threeSlicePlan: Plan = {
+    mode: 'greenfield',
     epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
     slices: [
       {
@@ -1463,6 +1469,7 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
 
 describe('Engine contract test #13 — resource pool bounds concurrency', () => {
   const threeSlicePlan: Plan = {
+    mode: 'greenfield',
     epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
     slices: [
       {
@@ -1581,6 +1588,7 @@ describe('Adapter: sandbox-per-slice isolation', () => {
 
   it('parallel slices in the same epic receive distinct sandboxDirs', async () => {
     const parallelPlan: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'e1', summary: 'Three independent slices', depends_on: [], verification: [] }],
       slices: [
         {
@@ -1635,6 +1643,7 @@ describe('Adapter: sandbox-per-slice isolation', () => {
 
   it('verify-epic receives a merged epic sandbox under <parent>/__epic__/<epicId>/ (not slice worktree, not parent)', async () => {
     const verifyPlan: Plan = {
+      mode: 'greenfield',
       epics: [
         {
           id: 'ev',

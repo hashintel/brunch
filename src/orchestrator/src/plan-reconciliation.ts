@@ -181,7 +181,7 @@ export function reconcilePlan(
     ];
   }
 
-  return { plan: { epics: outputEpics, slices: outputSlices }, warnings };
+  return { plan: { mode: projected.mode, epics: outputEpics, slices: outputSlices }, warnings };
 }
 
 /**

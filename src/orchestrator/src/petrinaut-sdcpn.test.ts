@@ -80,6 +80,7 @@ const sdcpnFileSchema = z.object({
 });
 
 const simplePlan: Plan = {
+  mode: 'greenfield',
   epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
   slices: [
     {
@@ -93,6 +94,7 @@ const simplePlan: Plan = {
 };
 
 const depPlan: Plan = {
+  mode: 'greenfield',
   epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
   slices: [
     {

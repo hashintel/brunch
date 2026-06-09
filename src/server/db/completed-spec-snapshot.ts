@@ -20,6 +20,7 @@ import {
   getAcceptedRequirementEntitiesForSpecification,
   getEntitiesForSpecificationOnActivePath,
   getCurrentWorkflowState,
+  getSpecification,
 } from '../db.js';
 import type { DB } from '../db.js';
 
@@ -33,6 +34,9 @@ export function buildCompletedSpecSnapshot(db: DB, specificationId: number): Com
   const { relationships } = getEntitiesForSpecificationOnActivePath(db, specificationId);
 
   return {
+    // Grounding mode carried through to the plan so cook resolves the
+    // worktree strategy from spec truth. Missing spec → greenfield default.
+    mode: getSpecification(db, specificationId)?.mode ?? 'greenfield',
     requirements: requirements.map((requirement) => ({
       id: requirement.id,
       content: requirement.content,

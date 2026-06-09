@@ -22,7 +22,17 @@ export type Slice = {
   verification: Verification[];
 };
 
+/**
+ * Greenfield vs brownfield is spec-derived plan truth, not a function of
+ * where the plan file sits on disk. `brunch plan <specId>` writes the
+ * specification's mode here; `brunch cook` reads it to decide the worktree
+ * strategy (greenfield → empty worktree; brownfield → clone the cwd repo).
+ * Authored fixture plans omit it and load as `greenfield`.
+ */
+export type PlanMode = 'greenfield' | 'brownfield';
+
 export type Plan = {
+  mode: PlanMode;
   epics: Epic[];
   slices: Slice[];
 };

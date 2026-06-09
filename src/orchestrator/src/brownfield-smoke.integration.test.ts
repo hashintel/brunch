@@ -19,11 +19,11 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { resolveCookMode } from './cook-cli.js';
+import { resolveCookPlan, resolveSandboxPlan } from './cook-cli.js';
 import { createOrchestrator } from './engine.js';
 import { loadPlan } from './plan-loader.js';
 import { InMemoryReportSink } from './report-sink.js';
-import type { ActionContext, ActionHandlers, TestRunner } from './types.js';
+import type { ActionContext, ActionHandlers, PlanMode, TestRunner } from './types.js';
 import { createSandbox } from './worktree.js';
 
 describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
@@ -33,7 +33,7 @@ describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
     dirs.length = 0;
   });
 
-  function makeSeededRepo(): string {
+  function makeSeededRepo(mode: PlanMode = 'brownfield'): string {
     const dir = mkdtempSync(join(tmpdir(), 'brownfield-smoke-'));
     dirs.push(dir);
     execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
@@ -49,6 +49,7 @@ describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
     writeFileSync(
       join(dir, '.brunch', 'cook', 'plan.yaml'),
       [
+        `mode: ${mode}`,
         'epics:',
         '  - id: smoke',
         '    summary: smoke epic',
@@ -145,18 +146,24 @@ describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
   };
 
   it('source repo is byte-identical and cook artifact contains the modification', async () => {
-    const source = makeSeededRepo();
+    const source = makeSeededRepo('brownfield');
 
-    // Resolve via the same path runCook uses.
-    const resolved = resolveCookMode(source);
-    expect(resolved.mode).toBe('codebase');
-    if (resolved.mode !== 'codebase') throw new Error('unreachable');
+    // Resolve via the same path runCook uses: locate the plan, then let the
+    // plan's spec-derived mode drive the worktree strategy.
+    const resolved = resolveCookPlan(source);
+    expect(resolved.kind).toBe('resolved');
+    if (resolved.kind !== 'resolved') throw new Error('unreachable');
 
     const plan = loadPlan(resolved.planPath);
+    expect(plan.mode).toBe('brownfield');
+    const sandboxPlan = resolveSandboxPlan(plan.mode, resolved.sourceDir);
+    expect(sandboxPlan.kind).toBe('codebase');
+    if (sandboxPlan.kind !== 'codebase') throw new Error('unreachable');
+
     // baseDir = source (cwd-scoped per SPEC §A49).
     const sandbox = createSandbox(source, undefined, {
       mode: 'codebase',
-      sourceDir: resolved.sourceDir,
+      sourceDir: sandboxPlan.sourceDir,
     });
 
     const sourceHeadBefore = execFileSync('git', ['rev-parse', 'HEAD'], {
@@ -215,5 +222,33 @@ describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
       encoding: 'utf8',
     }).trim();
     expect(sliceBranch).toBe(`cook-slice/${sandbox.runId}/modify-src`);
+  });
+
+  it('a greenfield spec plan uses an empty worktree and never clones the cwd repo', () => {
+    // Same .brunch/cook/plan.yaml location, but `mode: greenfield`. The plan
+    // location no longer decides the worktree strategy — the plan's mode does.
+    const source = makeSeededRepo('greenfield');
+
+    const resolved = resolveCookPlan(source);
+    expect(resolved.kind).toBe('resolved');
+    if (resolved.kind !== 'resolved') throw new Error('unreachable');
+
+    const plan = loadPlan(resolved.planPath);
+    expect(plan.mode).toBe('greenfield');
+
+    // Greenfield resolves to a fixture (empty) worktree without any git gate.
+    const sandboxPlan = resolveSandboxPlan(plan.mode, resolved.sourceDir);
+    expect(sandboxPlan).toEqual({ kind: 'fixture' });
+
+    const branchesBefore = execFileSync('git', ['branch', '--list'], { cwd: source, encoding: 'utf8' });
+    const sandbox = createSandbox(source); // fixture mode (default)
+
+    // The worktree is empty — the repo's tracked content (src.txt) was NOT cloned in.
+    expect(existsSync(sandbox.sandboxDir)).toBe(true);
+    expect(existsSync(join(sandbox.sandboxDir, 'src.txt'))).toBe(false);
+
+    // No `cook/<runId>` branch was created — greenfield never ran `git worktree add`.
+    const branchesAfter = execFileSync('git', ['branch', '--list'], { cwd: source, encoding: 'utf8' });
+    expect(branchesAfter).toBe(branchesBefore);
   });
 });

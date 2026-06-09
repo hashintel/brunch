@@ -9,6 +9,7 @@ import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projecti
 import type { Plan } from './types.js';
 
 const samplePlan: Plan = {
+  mode: 'greenfield',
   epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
   slices: [
     { id: 'req-1', epic_id: 'default', definition: 'First requirement', depends_on: [], verification: [] },
@@ -115,6 +116,7 @@ describe('planExecutionOrdering', () => {
 
   it('short-circuits on an empty Plan without calling runModel', async () => {
     const emptyPlan: Plan = {
+      mode: 'greenfield',
       epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
       slices: [],
     };
