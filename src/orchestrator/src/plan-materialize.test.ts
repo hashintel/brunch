@@ -1,0 +1,129 @@
+// FE-829 slice 4B: tests for deterministic materialization of an architect draft.
+
+import { describe, expect, it } from 'vitest';
+
+import type { ArchitectDraft } from './plan-architect.js';
+import { materializeArchitectedPlan } from './plan-materialize.js';
+import { bunProfile } from './project-profile.js';
+import type { Plan } from './types.js';
+
+const toolchain = bunProfile.toolchain;
+
+const projected: Plan = {
+  mode: 'greenfield',
+  epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
+  slices: [
+    {
+      id: 'req-1',
+      epic_id: 'default',
+      definition: 'First requirement',
+      depends_on: [],
+      verification: [{ kind: 'criterion', target: 'renders fast' }],
+    },
+    { id: 'req-2', epic_id: 'default', definition: 'Second requirement', depends_on: [], verification: [] },
+  ],
+};
+
+function draft(overrides: Partial<ArchitectDraft> = {}): ArchitectDraft {
+  return {
+    epics: [{ id: 'core', summary: 'Core' }],
+    slices: [
+      {
+        id: 'scaffold',
+        epic_id: 'core',
+        definition: 'setup',
+        depends_on: [],
+        writes: ['package.json'],
+        derivedFrom: [],
+      },
+      {
+        id: 'a',
+        epic_id: 'core',
+        definition: 'A',
+        depends_on: ['scaffold'],
+        writes: ['src/a.ts'],
+        derivedFrom: ['req-1'],
+      },
+      {
+        id: 'b',
+        epic_id: 'core',
+        definition: 'B',
+        depends_on: ['scaffold'],
+        writes: ['src/b.ts'],
+        derivedFrom: ['req-2'],
+      },
+    ],
+    nonBuildableRequirementIds: [],
+    ...overrides,
+  };
+}
+
+describe('materializeArchitectedPlan', () => {
+  it('keeps authored ids, preserves writes, and synthesizes verification targets', () => {
+    const { plan } = materializeArchitectedPlan(projected, draft(), toolchain);
+    expect(plan.slices.map((s) => s.id)).toEqual(['scaffold', 'a', 'b']);
+    expect(plan.slices.find((s) => s.id === 'a')!.writes).toEqual(['src/a.ts']);
+    for (const slice of plan.slices) {
+      expect(slice.verification).toEqual([{ kind: 'unit-test', target: `tests/${slice.id}.test.ts` }]);
+    }
+  });
+
+  it('computes coverage from derivedFrom (a req covered by many slices counts once)', () => {
+    const d = draft();
+    d.slices[2]!.derivedFrom = ['req-1']; // both a and b now cover req-1; req-2 uncovered
+    const { coverage } = materializeArchitectedPlan(projected, d, toolchain);
+    expect(coverage.requirementIds).toEqual(['req-1', 'req-2']);
+    expect([...coverage.coveredRequirementIds].sort()).toEqual(['req-1']);
+  });
+
+  it('honors explicit non-buildable requirement ids (filtered to known ids)', () => {
+    const { coverage } = materializeArchitectedPlan(
+      projected,
+      draft({ nonBuildableRequirementIds: ['req-2', 'req-999'] }),
+      toolchain,
+    );
+    expect(coverage.nonBuildableRequirementIds).toEqual(['req-2']);
+  });
+
+  it('drops an unknown requirement ref with a warning but keeps the slice', () => {
+    const d = draft();
+    d.slices[1]!.derivedFrom = ['req-1', 'req-999'];
+    const { plan, warnings } = materializeArchitectedPlan(projected, d, toolchain);
+    expect(warnings).toContainEqual({
+      code: 'dropped-unknown-requirement-ref',
+      sliceId: 'a',
+      requirementId: 'req-999',
+    });
+    expect(plan.slices.map((s) => s.id)).toContain('a');
+  });
+
+  it('appends requirement criteria into the derived slice definition', () => {
+    const { plan } = materializeArchitectedPlan(projected, draft(), toolchain);
+    expect(plan.slices.find((s) => s.id === 'a')!.definition).toContain('renders fast');
+  });
+
+  it('drops self/dangling deps and assigns unknown-epic slices to the default epic', () => {
+    const d = draft();
+    d.slices[1]!.depends_on = ['a', 'ghost'];
+    d.slices[2]!.epic_id = 'nonexistent';
+    const { plan, warnings } = materializeArchitectedPlan(projected, d, toolchain);
+    expect(plan.slices.find((s) => s.id === 'a')!.depends_on).toEqual([]);
+    expect(warnings).toContainEqual({ code: 'dropped-self-loop', sliceId: 'a' });
+    expect(warnings).toContainEqual({
+      code: 'dropped-dependency-nonexistent-id',
+      sliceId: 'a',
+      missingId: 'ghost',
+    });
+    expect(plan.slices.find((s) => s.id === 'b')!.epic_id).toBe('default');
+    expect(plan.epics.map((e) => e.id)).toContain('default');
+  });
+
+  it('is pure — does not mutate the projected plan or the draft', () => {
+    const d = draft();
+    const dSnapshot = structuredClone(d);
+    const pSnapshot = structuredClone(projected);
+    materializeArchitectedPlan(projected, d, toolchain);
+    expect(d).toEqual(dSnapshot);
+    expect(projected).toEqual(pSnapshot);
+  });
+});

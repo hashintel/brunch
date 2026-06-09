@@ -33,11 +33,24 @@ export interface ContractExpectations {
    * Slice ids that must each appear (or be explicitly non-buildable) for
    * full requirement coverage. Omit — as authored fixtures do — to skip
    * the coverage check entirely; coverage is not derivable from a `Plan`
-   * alone.
+   * alone. Legacy 1:1 form (requirement id === slice id); use the
+   * `requirementIds` family below when slices are authored (FE-829 4B).
    */
   requirementSliceIds?: readonly string[];
   /** Requirement slice ids explicitly judged non-buildable upstream. */
   nonBuildableSliceIds?: readonly string[];
+  /**
+   * Generalized coverage (FE-829 slice 4B): requirement ids that must each
+   * be covered (appear in `coveredRequirementIds`) or be explicitly
+   * non-buildable. Decouples coverage from a 1:1 requirement↔slice mapping
+   * so an authored, decomposed plan can be checked by requirement
+   * provenance. Takes precedence over `requirementSliceIds` when set.
+   */
+  requirementIds?: readonly string[];
+  /** Requirement ids covered by ≥1 surviving slice's provenance. */
+  coveredRequirementIds?: readonly string[];
+  /** Requirement ids explicitly judged non-buildable upstream. */
+  nonBuildableRequirementIds?: readonly string[];
 }
 
 export type ContractFinding =
@@ -116,7 +129,18 @@ export function checkPlan(plan: Plan, expectations: ContractExpectations = {}): 
     }
   }
 
-  if (expectations.requirementSliceIds) {
+  // Requirement coverage. Generalized form (by provenance) takes precedence;
+  // the legacy 1:1 form (requirement id === slice id) remains for callers
+  // that have not adopted authored decomposition.
+  if (expectations.requirementIds) {
+    const covered = new Set(expectations.coveredRequirementIds ?? []);
+    const nonBuildable = new Set(expectations.nonBuildableRequirementIds ?? []);
+    for (const requiredId of expectations.requirementIds) {
+      if (!covered.has(requiredId) && !nonBuildable.has(requiredId)) {
+        findings.push({ code: 'uncovered-requirement', severity: 'error', sliceId: requiredId });
+      }
+    }
+  } else if (expectations.requirementSliceIds) {
     const nonBuildable = new Set(expectations.nonBuildableSliceIds ?? []);
     for (const requiredId of expectations.requirementSliceIds) {
       if (!sliceIds.has(requiredId) && !nonBuildable.has(requiredId)) {

@@ -1,3 +1,11 @@
+// SUPERSEDED (FE-829 slice 4B): `planExecutionOrdering` (the enrichment-
+// over-projected-slices stage) is no longer on the emitter mainline — the
+// authoring architect (`plan-architect.ts`) replaced it. What remains
+// load-bearing here is `PlanningEnrichment` + `EMPTY_ENRICHMENT`, which
+// `reconcilePlan` consumes as the deterministic projection fallback. The
+// `planExecutionOrdering` function + its prompt/seam are retained (and still
+// tested) pending a focused retirement; see PLAN `plan-build-architect`.
+//
 // FE-800 slice 2: LLM planning pass.
 // FE-829 slice 3: build-architect prompt — enriches the call with each
 // slice's requirement criteria, spec relation hints projected into

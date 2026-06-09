@@ -1,4 +1,4 @@
-// FE-829 slice 3: reference-fixture exemplars for the build-architect prompt.
+// FE-829 slices 3-4B: reference-fixture exemplars for the build-architect prompt.
 //
 // The three hand-authored reference fixtures (`parallel-utils`,
 // `layered-todo`, `resilient-pipeline`) are the target SHAPE for emitted
@@ -6,10 +6,12 @@
 // build time from the embedded text, not from `fixtures/` at runtime, since
 // the published package ships `dist` but not `fixtures/`.
 //
-// These are STRUCTURAL examples only: scaffold→fan-out→join, diamond
-// dependencies + cross-epic gate, and a linear pipeline with a buildable
-// (even if contradictory) slice. The prompt instructs the model not to copy
-// exemplar ids, paths, or domain terms.
+// They teach the structural pattern the architect must reproduce:
+// scaffold → file-disjoint per-behaviour slices → a join slice that is the
+// SOLE writer of the shared coordination file. `writes` is shown so the
+// model learns single-writer-per-file: in `parallel-utils` the scaffold does
+// NOT write `src/index.ts`; only the `barrel-exports` join slice does. The
+// prompt instructs the model not to copy exemplar ids, paths, or domain terms.
 
 export type PlanExemplar = {
   name: string;
@@ -21,130 +23,95 @@ const PARALLEL_UTILS = `epics:
   - id: scaffold
     summary: "Library scaffolding"
     depends_on: []
-    verification: []
   - id: utils
     summary: "Independent zero-dependency utility functions"
     depends_on: [scaffold]
-    verification:
-      - kind: integration-test
-        target: "tests/barrel.integration.test.ts"
 slices:
   - id: package-setup
     epic_id: scaffold
-    definition: "Set up package.json, tsconfig.json, and src/index.ts as an initially empty public barrel. The barrel-exports join slice owns the shared src/index.ts wiring after all util modules exist."
+    definition: "Set up package.json and tsconfig.json. The barrel-exports join slice creates and owns the shared src/index.ts; do not write it here."
     depends_on: []
-    verification:
-      - kind: unit-test
-        target: "tests/scaffold.test.ts"
+    writes: ["package.json", "tsconfig.json"]
   - id: chunk
     epic_id: utils
     definition: "Add chunk in src/chunk.ts. Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
-    verification:
-      - kind: unit-test
-        target: "tests/chunk.test.ts"
+    writes: ["src/chunk.ts"]
   - id: unique
     epic_id: utils
     definition: "Add unique in src/unique.ts. Do not edit src/index.ts; barrel-exports owns the shared barrel."
     depends_on: [package-setup]
-    verification:
-      - kind: unit-test
-        target: "tests/unique.test.ts"
+    writes: ["src/unique.ts"]
   - id: barrel-exports
     epic_id: utils
-    definition: "Update the shared public barrel src/index.ts to re-export every completed util module. This join slice is the only util slice that edits src/index.ts."
+    definition: "Create the shared public barrel src/index.ts re-exporting every completed util module. This join slice is the SOLE writer of src/index.ts."
     depends_on: [chunk, unique]
-    verification:
-      - kind: integration-test
-        target: "tests/barrel.integration.test.ts"`;
+    writes: ["src/index.ts"]`;
 
 const LAYERED_TODO = `epics:
   - id: core
     summary: "In-memory todo domain: types, store, validation, service"
     depends_on: []
-    verification: []
   - id: cli
     summary: "Command surface over the todo service"
     depends_on: [core]
-    verification:
-      - kind: integration-test
-        target: "tests/todo-e2e.integration.test.ts"
 slices:
   - id: types
     epic_id: core
     definition: "Add src/types.ts: the Todo type and an id() generator. The root of the domain."
     depends_on: []
-    verification:
-      - kind: unit-test
-        target: "tests/types.test.ts"
+    writes: ["src/types.ts"]
   - id: store
     epic_id: core
     definition: "Add src/store.ts: an in-memory TodoStore over the Todo type from src/types.ts."
     depends_on: [types]
-    verification:
-      - kind: unit-test
-        target: "tests/store.test.ts"
+    writes: ["src/store.ts"]
   - id: validation
     epic_id: core
     definition: "Add src/validation.ts using the Todo type from src/types.ts."
     depends_on: [types]
-    verification:
-      - kind: unit-test
-        target: "tests/validation.test.ts"
+    writes: ["src/validation.ts"]
   - id: service
     epic_id: core
     definition: "Add src/service.ts: a TodoService composing the store and validation."
     depends_on: [store, validation]
-    verification:
-      - kind: unit-test
-        target: "tests/service.test.ts"
+    writes: ["src/service.ts"]
   - id: cmd-add
     epic_id: cli
     definition: "Add src/commands/add.ts over the service."
     depends_on: [service]
-    verification:
-      - kind: unit-test
-        target: "tests/cmd-add.test.ts"`;
+    writes: ["src/commands/add.ts"]`;
 
 const RESILIENT_PIPELINE = `epics:
   - id: pipeline
     summary: "A small parse -> transform -> serialize data pipeline"
     depends_on: []
-    verification: []
 slices:
   - id: parse
     epic_id: pipeline
     definition: "Add src/parse.ts parsing simple CSV into row objects."
     depends_on: []
-    verification:
-      - kind: unit-test
-        target: "tests/parse.test.ts"
+    writes: ["src/parse.ts"]
   - id: transform-a
     epic_id: pipeline
     definition: "Add src/transform-a.ts narrowing each row to the given columns."
     depends_on: [parse]
-    verification:
-      - kind: unit-test
-        target: "tests/transform-a.test.ts"
+    writes: ["src/transform-a.ts"]
   - id: transform-b
     epic_id: pipeline
     definition: "Add src/transform-b.ts. This slice is a buildable unit even if its spec is hard to satisfy."
     depends_on: [parse]
-    verification:
-      - kind: unit-test
-        target: "tests/transform-b.test.ts"
+    writes: ["src/transform-b.ts"]
   - id: serialize
     epic_id: pipeline
     definition: "Add src/serialize.ts combining the outputs of transform-a and transform-b."
     depends_on: [transform-a, transform-b]
-    verification:
-      - kind: unit-test
-        target: "tests/serialize.test.ts"`;
+    writes: ["src/serialize.ts"]`;
 
 export const PLAN_EXEMPLARS: readonly PlanExemplar[] = [
   {
     name: 'parallel-utils',
-    shape: 'scaffold slice -> many independent slices -> join slice owning the shared barrel',
+    shape: 'scaffold -> many file-disjoint slices -> join slice that is the sole writer of the shared barrel',
     yaml: PARALLEL_UTILS,
   },
   {
@@ -155,7 +122,7 @@ export const PLAN_EXEMPLARS: readonly PlanExemplar[] = [
   },
   {
     name: 'resilient-pipeline',
-    shape: 'linear fan-out + join; every slice is a buildable unit',
+    shape: 'linear fan-out + join; every slice owns its own file',
     yaml: RESILIENT_PIPELINE,
   },
 ];
