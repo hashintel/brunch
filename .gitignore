@@ -38,6 +38,8 @@ bun.lock
 .brunch/
 brunch.db*
 todo.txt
+.fixtures/scratch/
+.fixtures/workbenches/*/.brunch/
 
 # Claude Code worktrees
 .claude/worktrees/
