@@ -1,5 +1,5 @@
 import { tmpdir } from 'node:os';
-import { resolve, sep } from 'node:path';
+import { basename, resolve, sep } from 'node:path';
 
 /**
  * Probe runs default to an ephemeral `mkdtemp` workspace under the OS temp
@@ -10,6 +10,24 @@ import { resolve, sep } from 'node:path';
  * untouched.
  */
 export const EPHEMERAL_WORKSPACE_CWD = '<ephemeral-workspace>';
+
+const PORTABLE_RUN_ID = /^[A-Za-z0-9._-]+$/u;
+
+export function assertPortableRunId(runId: string): string {
+  if (
+    runId.length === 0 ||
+    runId === '.' ||
+    runId === '..' ||
+    basename(runId) !== runId ||
+    runId.includes('\\') ||
+    !PORTABLE_RUN_ID.test(runId)
+  ) {
+    throw new Error(
+      `Artifact runId must be a portable single path segment; received ${JSON.stringify(runId)}`,
+    );
+  }
+  return runId;
+}
 
 export function portableCwd(cwd: string): string {
   const tempRoot = resolve(tmpdir());

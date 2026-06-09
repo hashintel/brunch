@@ -97,8 +97,8 @@ function validReviewPayload() {
     edgeDrafts: [
       {
         category: 'dependency',
-        source: { draftId: 'req-approve' },
-        target: { draftId: 'goal-review' },
+        dependency: { draftId: 'req-approve' },
+        dependent: { draftId: 'goal-review' },
       },
     ],
   };
@@ -269,7 +269,7 @@ describe('structured exchange present/request tools', () => {
       tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: REQUEST_REVIEW_TOOL },
       review_set: {
         nodes: [{ draft_id: 'goal-review' }, { draft_id: 'req-approve' }],
-        edges: [{ source: { draft_id: 'req-approve' }, target: { draft_id: 'goal-review' } }],
+        edges: [{ dependency: { draft_id: 'req-approve' }, dependent: { draft_id: 'goal-review' } }],
       },
     });
   });

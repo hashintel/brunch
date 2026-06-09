@@ -75,7 +75,7 @@
  *
  * Self-validating: before writing each file, the assembled seed is run
  * through the real loader (src/graph/seed-fixtures.ts) against a throwaway
- * in-memory DB, which exercises the same structural validation commitGraph
+ * in-memory DB, which exercises the same structural validation mutateGraph
  * enforces. A seed that would not commit cleanly aborts the run instead of
  * being written, so every <slug>.json on disk is guaranteed loadable.
  *
@@ -710,8 +710,8 @@ function buildSeed(result: SpecPortResult, displayName: string): SeedFixture {
 /**
  * Validate a seed against the real loader before it is written, so every
  * <slug>.json on disk is guaranteed to commit cleanly. This reuses the exact
- * structural checks commitGraph enforces — seedFixture → CommandExecutor
- * .createSpec + .commitGraph → planCommitGraph (node kind/plane/detail and
+ * structural checks mutateGraph enforces — seedFixture → CommandExecutor
+ * .createSpec + .mutateGraph → planGraphMutation (node kind/plane/detail and
  * edge category/stance/ref/cycle validation) — against a throwaway in-memory
  * DB. seedFixture throws with diagnostics on any structural rejection.
  */
@@ -793,7 +793,7 @@ function writeReadme(results: { slug: string; displayName: string; stats: Record
     'column names. `local_id` is a placeholder for autoincrement; edges reference',
     'nodes by `local_id`. No LSNs or change-log entries are pre-baked — the loader',
     '([`src/graph/seed-fixtures.ts`](../../../src/graph/seed-fixtures.ts)) wraps each spec',
-    'in one `commitGraph` transaction so the graph clock, change log, and lsn',
+    'in one `mutateGraph` transaction so the graph clock, change log, and lsn',
     "columns stay coherent under brunch's mutation contract.",
     '',
     '## Stats',

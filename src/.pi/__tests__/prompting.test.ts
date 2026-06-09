@@ -302,7 +302,7 @@ describe('Brunch prompt-pack topology', () => {
           'request_review',
           'read_graph',
           'read_session_context',
-          'commit_graph',
+          'mutate_graph',
         ].map((name) => ({ name })),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
     };
@@ -379,7 +379,7 @@ describe('Brunch prompt-pack topology', () => {
         'request_review',
         'read_graph',
         'read_session_context',
-        'commit_graph',
+        'mutate_graph',
       ],
       [
         'read',
@@ -402,7 +402,7 @@ describe('Brunch prompt-pack topology', () => {
         'request_review',
         'read_graph',
         'read_session_context',
-        'commit_graph',
+        'mutate_graph',
       ],
     ]);
     expect(defaultPrompt).toMatchObject({
@@ -413,7 +413,7 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
-        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, present_review_set, request_review, read_graph, read_session_context, commit_graph',
+        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, present_review_set, request_review, read_graph, read_session_context, mutate_graph',
       ),
     });
     expect(defaultPrompt).toMatchObject({
@@ -424,7 +424,7 @@ describe('Brunch prompt-pack topology', () => {
     });
   });
 
-  it('applies the selected-spec grade to commit_graph tool activation', async () => {
+  it('applies the selected-spec grade to mutate_graph tool activation', async () => {
     async function activeToolsForGrade(readinessGrade: ReadinessGrade) {
       const events: Record<string, (event: never, ctx?: never) => unknown> = {};
       const activeTools: string[][] = [];
@@ -439,7 +439,7 @@ describe('Brunch prompt-pack topology', () => {
               'grep',
               'read_graph',
               'read_session_context',
-              'commit_graph',
+              'mutate_graph',
               'present_review_set',
               'request_review',
             ].map((name) => ({ name })),
@@ -460,8 +460,8 @@ describe('Brunch prompt-pack topology', () => {
       return activeTools.at(-1) ?? [];
     }
 
-    await expect(activeToolsForGrade('grounding_onboarding')).resolves.not.toContain('commit_graph');
-    await expect(activeToolsForGrade('elicitation_ready')).resolves.toContain('commit_graph');
+    await expect(activeToolsForGrade('grounding_onboarding')).resolves.not.toContain('mutate_graph');
+    await expect(activeToolsForGrade('elicitation_ready')).resolves.toContain('mutate_graph');
     await expect(activeToolsForGrade('elicitation_ready')).resolves.not.toContain('present_review_set');
     await expect(activeToolsForGrade('commitments_ready')).resolves.toContain('present_review_set');
   });

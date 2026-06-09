@@ -14,6 +14,7 @@ import type { BrunchDb } from '../db/connection.js';
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
 import { getNodes, getOpenReconciliationNeeds, queryGraph } from './queries.js';
+import { runCreateOnlyMutation } from './test-support/create-only-mutation.js';
 
 function freshDbWithTwoSpecs(): {
   db: BrunchDb;
@@ -42,7 +43,7 @@ describe('graph items are owned by spec', () => {
   });
 
   it('graph ownership isolation: each spec sees only its own nodes and edges', () => {
-    const commitA = executor.commitGraph({
+    const commitA = runCreateOnlyMutation(executor, {
       specId: specA,
       nodes: [
         { ref: 'n1', plane: 'intent', kind: 'goal', title: 'A goal' },
@@ -52,7 +53,7 @@ describe('graph items are owned by spec', () => {
     });
     expect(commitA.status).toBe('success');
 
-    const commitB = executor.commitGraph({
+    const commitB = runCreateOnlyMutation(executor, {
       specId: specB,
       nodes: [{ ref: 'm1', plane: 'intent', kind: 'goal', title: 'B goal' }],
       edges: [],
@@ -71,8 +72,8 @@ describe('graph items are owned by spec', () => {
     expect(overviewB.nodes[0]!.title).toBe('B goal');
   });
 
-  it('existing-ref guard: commitGraph rejects an existing ref from another spec', () => {
-    const seed = executor.commitGraph({
+  it('existing-ref guard: the create-only mutateGraph helper rejects an existing ref from another spec', () => {
+    const seed = runCreateOnlyMutation(executor, {
       specId: specA,
       nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'A goal' }],
       edges: [],
@@ -80,7 +81,7 @@ describe('graph items are owned by spec', () => {
     if (seed.status !== 'success') throw new Error('seed failed');
     const aNodeId = seed.createdNodes['n1']!.id;
 
-    const attempt = executor.commitGraph({
+    const attempt = runCreateOnlyMutation(executor, {
       specId: specB,
       nodes: [{ ref: 'm1', plane: 'intent', kind: 'requirement', title: 'B req' }],
       edges: [{ category: 'dependency', source: 'm1', target: { existing: aNodeId } }],
@@ -98,12 +99,12 @@ describe('graph items are owned by spec', () => {
   });
 
   it('endpoint guard: an edge cannot connect nodes from different specs', () => {
-    const seedA = executor.commitGraph({
+    const seedA = runCreateOnlyMutation(executor, {
       specId: specA,
       nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'A goal' }],
       edges: [],
     });
-    const seedB = executor.commitGraph({
+    const seedB = runCreateOnlyMutation(executor, {
       specId: specB,
       nodes: [{ ref: 'm1', plane: 'intent', kind: 'goal', title: 'B goal' }],
       edges: [],
@@ -115,7 +116,7 @@ describe('graph items are owned by spec', () => {
     const bNodeId = seedB.createdNodes['m1']!.id;
 
     // Attempt edge across specs (both endpoints existing)
-    const attempt = executor.commitGraph({
+    const attempt = runCreateOnlyMutation(executor, {
       specId: specA,
       nodes: [],
       edges: [
@@ -131,7 +132,7 @@ describe('graph items are owned by spec', () => {
   });
 
   it('reader guard: getNodeNeighborhood is not_found for a node owned by another spec', () => {
-    const seedA = executor.commitGraph({
+    const seedA = runCreateOnlyMutation(executor, {
       specId: specA,
       nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'A goal' }],
       edges: [],
@@ -147,7 +148,7 @@ describe('graph items are owned by spec', () => {
   });
 
   it('reconciliation needs are spec-scoped and reject cross-spec targets', () => {
-    const seedA = executor.commitGraph({
+    const seedA = runCreateOnlyMutation(executor, {
       specId: specA,
       nodes: [
         { ref: 'n1', plane: 'intent', kind: 'goal', title: 'A goal' },
@@ -155,7 +156,7 @@ describe('graph items are owned by spec', () => {
       ],
       edges: [{ category: 'dependency', source: 'n2', target: 'n1' }],
     });
-    const seedB = executor.commitGraph({
+    const seedB = runCreateOnlyMutation(executor, {
       specId: specB,
       nodes: [{ ref: 'm1', plane: 'intent', kind: 'goal', title: 'B goal' }],
       edges: [],
@@ -163,7 +164,7 @@ describe('graph items are owned by spec', () => {
     if (seedA.status !== 'success' || seedB.status !== 'success') {
       throw new Error('seed failed');
     }
-    const aEdgeId = seedA.edges[0]!;
+    const aEdgeId = seedA.createdEdges[0]!;
     const bNodeId = seedB.createdNodes['m1']!.id;
     const aNodeId = seedA.createdNodes['n1']!.id;
 
@@ -201,10 +202,10 @@ describe('graph items are owned by spec', () => {
 });
 
 describe('tool guard: agent-facing graph tool schemas do not expose specId', () => {
-  it('CommitGraphParams has no top-level specId field', async () => {
+  it('MutateGraphParams has no top-level specId field', async () => {
     const mod = await import('../.pi/extensions/graph/tool-schemas.js');
     // Sinclair TypeBox object schemas store fields under `properties`
-    const schema = mod.CommitGraphParams as unknown as {
+    const schema = mod.MutateGraphParams as unknown as {
       properties: Record<string, unknown>;
     };
     expect(Object.keys(schema.properties)).not.toContain('specId');

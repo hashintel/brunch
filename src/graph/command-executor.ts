@@ -21,36 +21,37 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
-import {
-  formatCreatedGraphNode,
-  planCommitGraphBatch,
-  type PlannedBatchEndpoint,
-  type PlannedBatchEdge,
-} from './command-executor/commit-graph-batch.js';
+import { planGraphMutation } from './command-executor/graph-mutation-planner.js';
 import type {
-  CommitGraphDryRunResult,
-  CommitGraphInput,
-  CommitGraphResult,
-  CommitGraphSuccess,
+  EdgePatch,
   Diagnostic,
+  MutateGraphDryRunResult,
+  MutateGraphInput,
+  MutateGraphResult,
+  MutateGraphSuccess,
+  NodePatch,
   StructuralIllegal,
-} from './command-executor/commit-graph-types.js';
-import { translateReviewSetPayloadToCommitGraph } from './review-set.js';
+} from './command-executor/graph-mutation-types.js';
+import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
+import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
 import type { ElicitationBacklogLensAffinity } from './schema/elicitation-backlog.js';
 import { type NodeBasis, type NodePlane, type ReadinessBand } from './schema/nodes.js';
 
 export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
 export type {
-  BatchEdgeInput,
-  BatchEdgeRef,
-  BatchNodeInput,
-  CommitGraphDryRunResult,
-  CommitGraphInput,
-  CommitGraphResult,
-  CommitGraphSuccess,
   Diagnostic,
+  EdgePatch,
+  GraphMutationNodeRef,
+  GraphMutationOp,
+  MutateGraphDryRunResult,
+  MutateGraphInput,
+  MutateGraphResult,
+  MutateGraphSuccess,
+  NodePatch,
   StructuralIllegal,
-} from './command-executor/commit-graph-types.js';
+} from './command-executor/graph-mutation-types.js';
+export { normalizeRoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
+export type { RoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -128,7 +129,7 @@ export interface SpecRecord {
 /** Union of all possible command results. */
 export type CommandResult =
   | CommandSuccess
-  | CommitGraphSuccess
+  | MutateGraphSuccess
   | AcceptReviewSetSuccess
   | ReconNeedSuccess
   | ReconNeedResolveSuccess
@@ -163,13 +164,15 @@ export type CloseElicitationBacklogEntryResult = ElicitationBacklogCloseSuccess 
 export type UpdateReadinessGradeResult = UpdateReadinessGradeSuccess | StructuralIllegal;
 
 /** Successful accepted review-set graph batch execution. */
-interface AcceptReviewSetSuccess extends CommitGraphSuccess {}
+interface AcceptReviewSetSuccess extends MutateGraphSuccess {}
 
 /** Result of an acceptReviewSet command. */
 export type AcceptReviewSetResult = AcceptReviewSetSuccess | StructuralIllegal;
 
 /** Result of validating a review-set payload before user presentation. */
 export type AcceptReviewSetDryRunResult = { readonly status: 'success' } | StructuralIllegal;
+
+type ExistingNodeRow = typeof schema.nodes.$inferSelect;
 
 // ---------------------------------------------------------------------------
 // Input types
@@ -389,6 +392,88 @@ function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
   }
   if (input.kind === 'term' && input.detail != null) {
     validateTermDetail(input.detail, diagnostics);
+  }
+
+  return diagnostics;
+}
+
+function hasOwn(object: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function parseNodeDetail(row: ExistingNodeRow): unknown {
+  return row.detail == null ? undefined : JSON.parse(row.detail);
+}
+
+function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: NodePatch): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const patchRecord = patch as Record<string, unknown>;
+  const patchFields = Object.keys(patchRecord);
+  const allowedFields = new Set(['title', 'body', 'source', 'detail']);
+
+  if (patchFields.length === 0) {
+    diagnostics.push({ field: 'patch', message: 'patch_node requires at least one patch field' });
+    return diagnostics;
+  }
+
+  for (const field of patchFields) {
+    if (!allowedFields.has(field)) {
+      diagnostics.push({ field: `patch.${field}`, message: 'field is not patchable' });
+    }
+  }
+
+  if (hasOwn(patchRecord, 'title') && typeof patch.title !== 'string') {
+    diagnostics.push({ field: 'patch.title', message: 'title must be a string when present' });
+  }
+  if (hasOwn(patchRecord, 'body') && patch.body !== null && typeof patch.body !== 'string') {
+    diagnostics.push({ field: 'patch.body', message: 'body must be a string or null when present' });
+  }
+  if (hasOwn(patchRecord, 'source') && patch.source !== null && typeof patch.source !== 'string') {
+    diagnostics.push({ field: 'patch.source', message: 'source must be a string or null when present' });
+  }
+
+  const merged: CreateNodeInput = {
+    specId: row.spec_id,
+    plane: row.plane,
+    kind: row.kind,
+    title: hasOwn(patchRecord, 'title') ? (patch.title as string) : row.title,
+    body: hasOwn(patchRecord, 'body') ? (patch.body ?? undefined) : (row.body ?? undefined),
+    basis: row.basis,
+    source: hasOwn(patchRecord, 'source') ? (patch.source ?? undefined) : (row.source ?? undefined),
+    detail: hasOwn(patchRecord, 'detail') ? patch.detail : parseNodeDetail(row),
+  };
+
+  diagnostics.push(
+    ...validateCreateNode(merged).map((diagnostic) => ({
+      field: `patch.${diagnostic.field}`,
+      message: diagnostic.message,
+    })),
+  );
+
+  return diagnostics;
+}
+
+function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const patchRecord = patch as Record<string, unknown>;
+  const patchFields = Object.keys(patchRecord);
+
+  if (patchFields.length === 0) {
+    diagnostics.push({ field: 'patch', message: 'patch_edge requires at least one patch field' });
+    return diagnostics;
+  }
+
+  for (const field of patchFields) {
+    if (field !== 'rationale') {
+      diagnostics.push({ field: `patch.${field}`, message: 'field is not patchable' });
+    }
+  }
+
+  if (hasOwn(patchRecord, 'rationale') && patch.rationale !== null && typeof patch.rationale !== 'string') {
+    diagnostics.push({
+      field: 'patch.rationale',
+      message: 'rationale must be a string or null when present',
+    });
   }
 
   return diagnostics;
@@ -961,36 +1046,41 @@ export class CommandExecutor {
     });
   }
 
-  /**
-   * Validate a commitGraph batch without mutating graph truth.
-   *
-   * This is the product gate for review-set proposals: a user-reviewable
-   * proposal must pass the same structural checks as the eventual commit.
-   */
-  dryRunCommitGraph(input: CommitGraphInput): CommitGraphDryRunResult {
-    const result = this.planCommitGraph(input, this.db);
+  dryRunMutateGraph(input: MutateGraphInput): MutateGraphDryRunResult {
+    const result = planGraphMutation({
+      db: this.db,
+      input,
+      validateCreateNode: (op) => validateCreateNode({ ...op, specId: input.specId }),
+      validateNodePatch: validateNodePatchAgainstExisting,
+      validateEdgePatch,
+    });
     return result.status === 'structural_illegal'
       ? { status: 'structural_illegal', diagnostics: result.diagnostics }
       : { status: 'success' };
   }
 
-  /**
-   * Atomic batch creation of nodes and edges (D53-L).
-   *
-   * One transaction, one LSN. Intra-batch refs (strings) resolve to
-   * just-inserted NodeIds; existing refs ({ existing: id }) are verified
-   * against the database AND must belong to the command's spec
-   * (D61-L spec ownership). All-or-nothing: if any entry fails structural
-   * validation, the entire batch is rejected (I34-L).
-   */
-  commitGraph(input: CommitGraphInput): CommitGraphResult {
+  mutateGraph(input: MutateGraphInput): MutateGraphResult {
     return this.db.transaction((tx) => {
-      const planned = this.planCommitGraph(input, tx);
+      const planned = planGraphMutation({
+        db: tx,
+        input,
+        validateCreateNode: (op) => validateCreateNode({ ...op, specId: input.specId }),
+        validateNodePatch: validateNodePatchAgainstExisting,
+        validateEdgePatch,
+      });
       if (planned.status === 'structural_illegal') {
         return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
       }
 
-      return this.writePlannedGraphBatch(tx, input, planned.plan.edges, 'commit_graph');
+      return writeGraphMutation({
+        tx,
+        input,
+        plan: planned.plan,
+        operation: 'mutate_graph',
+        bumpExistingSpecLsn: (writerTx, specId) => this.bumpExistingSpecLsn(writerTx, specId),
+        allocateNodeKindOrdinal: (writerTx, specId, plane, kind) =>
+          this.allocateNodeKindOrdinal(writerTx, specId, plane as NodePlane, kind),
+      });
     });
   }
 
@@ -1002,13 +1092,13 @@ export class CommandExecutor {
    * truth.
    */
   dryRunAcceptReviewSet(input: AcceptReviewSetInput): AcceptReviewSetDryRunResult {
-    const translated = translateReviewSetPayloadToCommitGraph({
+    const translated = translateReviewSetPayloadToMutateGraph({
       db: this.db,
       specId: input.specId,
       payload: input.payload,
     });
     if (translated.status === 'structural_illegal') return translated;
-    return this.dryRunCommitGraph(translated.command);
+    return this.dryRunMutateGraph(translated.command);
   }
 
   /**
@@ -1020,7 +1110,7 @@ export class CommandExecutor {
    * row with operation `accept_review_set`.
    */
   acceptReviewSet(input: AcceptReviewSetInput): AcceptReviewSetResult {
-    const translated = translateReviewSetPayloadToCommitGraph({
+    const translated = translateReviewSetPayloadToMutateGraph({
       db: this.db,
       specId: input.specId,
       payload: input.payload,
@@ -1028,104 +1118,27 @@ export class CommandExecutor {
     if (translated.status === 'structural_illegal') return translated;
 
     return this.db.transaction((tx) => {
-      const planned = this.planCommitGraph(translated.command, tx);
+      const planned = planGraphMutation({
+        db: tx,
+        input: translated.command,
+        validateCreateNode: (op) => validateCreateNode({ ...op, specId: translated.command.specId }),
+        validateNodePatch: validateNodePatchAgainstExisting,
+        validateEdgePatch,
+      });
       if (planned.status === 'structural_illegal') {
         return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
       }
 
-      return this.writePlannedGraphBatch(tx, translated.command, planned.plan.edges, 'accept_review_set', {
-        proposalEntryId: input.proposalEntryId,
+      return writeGraphMutation({
+        tx,
+        input: translated.command,
+        plan: planned.plan,
+        operation: 'accept_review_set',
+        payloadExtras: { proposalEntryId: input.proposalEntryId },
+        bumpExistingSpecLsn: (writerTx, specId) => this.bumpExistingSpecLsn(writerTx, specId),
+        allocateNodeKindOrdinal: (writerTx, specId, plane, kind) =>
+          this.allocateNodeKindOrdinal(writerTx, specId, plane as NodePlane, kind),
       });
-    });
-  }
-
-  private writePlannedGraphBatch(
-    tx: Pick<BrunchDb, 'select' | 'insert' | 'update'>,
-    input: CommitGraphInput,
-    plannedEdges: readonly PlannedBatchEdge[],
-    operation: 'commit_graph' | 'accept_review_set',
-    payloadExtras: Record<string, unknown> = {},
-  ): CommitGraphSuccess {
-    const lsn = this.bumpExistingSpecLsn(tx, input.specId);
-
-    const createdNodes: Record<string, { id: number; code: string }> = {};
-    for (const bn of input.nodes) {
-      const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, bn.plane, bn.kind);
-      const row = tx
-        .insert(schema.nodes)
-        .values({
-          spec_id: input.specId,
-          plane: bn.plane,
-          kind: bn.kind,
-          kind_ordinal: kindOrdinal,
-          title: bn.title,
-          body: bn.body ?? null,
-          basis: input.basis ?? 'explicit',
-          source: bn.source ?? null,
-          detail: bn.detail != null ? JSON.stringify(bn.detail) : null,
-          created_at_lsn: lsn,
-          updated_at_lsn: lsn,
-        })
-        .returning()
-        .get();
-      createdNodes[bn.ref] = formatCreatedGraphNode(row!);
-    }
-
-    const resolvePlannedEndpoint = (endpoint: PlannedBatchEndpoint): number => {
-      if (endpoint.kind === 'existing') return endpoint.ref as number;
-      return createdNodes[endpoint.ref as string]!.id;
-    };
-
-    const edgeIds: number[] = [];
-    for (const edge of plannedEdges) {
-      const row = tx
-        .insert(schema.edges)
-        .values({
-          spec_id: input.specId,
-          category: edge.category,
-          source_id: resolvePlannedEndpoint(edge.source),
-          target_id: resolvePlannedEndpoint(edge.target),
-          stance: edge.stance,
-          basis: input.basis ?? 'explicit',
-          rationale: edge.rationale,
-          created_at_lsn: lsn,
-          updated_at_lsn: lsn,
-        })
-        .returning()
-        .get();
-      edgeIds.push(row!.id);
-    }
-
-    tx.insert(schema.changeLog)
-      .values({
-        spec_id: input.specId,
-        lsn,
-        operation,
-        payload: JSON.stringify({
-          ...payloadExtras,
-          basis: input.basis ?? 'explicit',
-          specId: input.specId,
-          nodes: Object.fromEntries(Object.entries(createdNodes).map(([ref, node]) => [ref, node.id])),
-          edges: edgeIds,
-        }),
-      })
-      .run();
-
-    return {
-      status: 'success',
-      lsn,
-      createdNodes,
-      edges: edgeIds,
-    };
-  }
-
-  private planCommitGraph(input: CommitGraphInput, db: Pick<BrunchDb, 'select'>) {
-    return planCommitGraphBatch(db, input, (nodeIndex) => {
-      const node = input.nodes[nodeIndex]!;
-      return validateCreateNode({ ...node, specId: input.specId }).map((diagnostic) => ({
-        field: `nodes[${nodeIndex}].${diagnostic.field}`,
-        message: diagnostic.message,
-      }));
     });
   }
 

@@ -78,8 +78,8 @@ Graph domain shape:
   structural invariants validated by graph/
 
 Agent tool shape:
-  commit_graph({ nodes, edges })
-  includes batch refs and existing-node refs
+  mutate_graph({ createBasis, ops })
+  includes batch refs, role-named edge endpoints, and existing-node refs
   excludes DB-owned LSN columns
 
 RPC shape:

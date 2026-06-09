@@ -71,7 +71,7 @@ stores:
 - Public surface: Brunch's own JSON-RPC — never Pi's RPC. Named product method families: `workspace.*`, `session.*`, `graph.*`, `rpc.discover`. Mutation methods route through a Brunch `CommandExecutor` independently of Pi.
 - Product reframing of Pi:
   - `workspace(cwd) → spec → session` is the canonical hierarchy. Threads are not first-class; sessions are durable linear JSONL transcripts bound to exactly one spec.
-  - The product artifact is the **intent graph** in SQLite. Mutations flow through the `CommandExecutor`; Pi just invokes `commit_graph` and `accept_review_set` tools that route to it.
+  - The product artifact is the **intent graph** in SQLite. Mutations flow through the `CommandExecutor`; Pi just invokes `mutate_graph` and `accept_review_set` tools that route to it.
   - The agent loop is **elicitation-first** / **offer-first**: at idle the user responds to structured exchanges (`present_question`/`request_answer`, `present_options`/`request_choice|choices`, `present_review_set`/`request_review`).
   - Pi's `extension_ui_request(editor)` is relayed through Brunch as a product-shaped pending exchange; clients answer through Brunch methods, and Brunch synthesizes the `extension_ui_response` back to Pi.
 - Mode axes: transport (TUI/RPC/print/web) × operational mode (`elicit` / future `execute`) × agent role (`elicitor` / `reviewer` / `reconciler` / future `executor`) × strategy × lens. SPEC D23-L holds these as separate axes by design.

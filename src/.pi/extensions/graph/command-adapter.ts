@@ -10,65 +10,93 @@
  */
 
 import type {
-  BatchEdgeInput,
-  BatchEdgeRef,
-  BatchNodeInput,
-  CommitGraphInput,
-  CommitGraphResult,
-  CommitGraphSuccess,
   Diagnostic,
+  GraphMutationNodeRef,
+  GraphMutationOp,
+  MutateGraphInput,
+  MutateGraphResult,
+  MutateGraphSuccess,
+  RoleNamedEdgeDraft,
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
+import { authoredEdgeEndpointFields } from '../../../graph/index.js';
 import type { GraphSlice, NodeNeighborhood } from '../../../graph/queries.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from '../../../graph/schema/nodes.js';
-import type { ToolCommitGraphParams } from './tool-schemas.js';
+import type { ToolMutateGraphParams } from './tool-schemas.js';
 
 export type ResolveGraphNodeCode = (code: string) => number | undefined;
 
 /**
- * Translate Pi tool params into a CommandExecutor CommitGraphInput.
+ * Translate Pi tool params into a CommandExecutor MutateGraphInput.
  *
  * The translation is thin — structural validation happens in the CommandExecutor.
  * `specId` is injected by the registrar from the selected session/spec context
  * so the agent-facing tool schema never asks the LLM for a workspace-global
  * graph target (D61-L).
  */
-export function translateCommitGraph(
-  params: ToolCommitGraphParams,
+export function translateMutateGraph(
+  params: ToolMutateGraphParams,
   specId: number,
   resolveGraphNodeCode: ResolveGraphNodeCode,
-): CommitGraphInput | StructuralIllegal {
-  const nodes: BatchNodeInput[] = params.nodes.map((n) => ({
-    ref: n.ref,
-    plane: n.plane as BatchNodeInput['plane'],
-    kind: n.kind,
-    title: n.title,
-    body: n.body,
-    source: n.source,
-    detail: n.detail,
-  }));
-
+): MutateGraphInput | StructuralIllegal {
   const diagnostics: Diagnostic[] = [];
-  const edges: BatchEdgeInput[] = [];
-  for (const [index, e] of params.edges.entries()) {
-    const source = normalizeEdgeRef(e.source, resolveGraphNodeCode, `edges[${index}].source`, diagnostics);
-    const target = normalizeEdgeRef(e.target, resolveGraphNodeCode, `edges[${index}].target`, diagnostics);
-    if (source.status === 'invalid' || target.status === 'invalid') continue;
-    edges.push({
-      category: e.category,
-      source: source.ref,
-      target: target.ref,
-      stance: e.stance,
-      rationale: e.rationale,
-    });
+  const ops: GraphMutationOp[] = [];
+  for (const [index, op] of params.ops.entries()) {
+    if (op.op === 'create_node') {
+      ops.push({
+        op: 'create_node',
+        ref: op.ref,
+        plane: op.plane,
+        kind: op.kind,
+        title: op.title,
+        body: op.body,
+        source: op.source,
+        detail: op.detail,
+      });
+      continue;
+    }
+
+    const draft = normalizeRoleNamedEdgeDraftOp(op, index, resolveGraphNodeCode, diagnostics);
+    if (draft === undefined) continue;
+    ops.push({ op: 'create_edge', ...draft });
   }
 
   if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
-  return { specId, basis: 'implicit', nodes, edges };
+  return { specId, createBasis: params.createBasis ?? 'implicit', ops };
+}
+
+function normalizeRoleNamedEdgeDraftOp(
+  op: Extract<ToolMutateGraphParams['ops'][number], { readonly op: 'create_edge' }>,
+  index: number,
+  resolveGraphNodeCode: ResolveGraphNodeCode,
+  diagnostics: Diagnostic[],
+): RoleNamedEdgeDraft | undefined {
+  const [sourceField, targetField] = authoredEdgeEndpointFields(op.category);
+  const source = normalizeEdgeRef(
+    op[sourceField as keyof typeof op] as string | { readonly existingCode: string },
+    resolveGraphNodeCode,
+    `ops[${index}].${sourceField}`,
+    diagnostics,
+  );
+  const target = normalizeEdgeRef(
+    op[targetField as keyof typeof op] as string | { readonly existingCode: string },
+    resolveGraphNodeCode,
+    `ops[${index}].${targetField}`,
+    diagnostics,
+  );
+  if (source.status === 'invalid' || target.status === 'invalid') return undefined;
+
+  return {
+    category: op.category,
+    [sourceField]: source.ref,
+    [targetField]: target.ref,
+    ...(op.rationale === undefined ? {} : { rationale: op.rationale }),
+    ...('stance' in op ? { stance: op.stance } : {}),
+  } as RoleNamedEdgeDraft;
 }
 
 type EdgeRefNormalization =
-  | { readonly status: 'valid'; readonly ref: BatchEdgeRef }
+  | { readonly status: 'valid'; readonly ref: GraphMutationNodeRef }
   | { readonly status: 'invalid' };
 
 function normalizeEdgeRef(
@@ -98,29 +126,37 @@ function normalizeEdgeRef(
 // ---------------------------------------------------------------------------
 
 /**
- * Format a CommitGraphResult as Pi tool result text content.
+ * Format a MutateGraphResult as Pi tool result text content.
  *
  * On success: human-readable summary with created ids.
  * On structural_illegal: diagnostic listing for agent self-correction.
  */
-export function formatCommitGraphResult(result: CommitGraphResult): string {
+export function formatMutateGraphResult(result: MutateGraphResult): string {
   if (result.status === 'success') {
     return formatCommitSuccess(result);
   }
   return formatStructuralIllegal(result);
 }
 
-function formatCommitSuccess(result: CommitGraphSuccess): string {
+function formatCommitSuccess(result: MutateGraphSuccess): string {
   const nodeEntries = Object.entries(result.createdNodes);
-  const lines: string[] = [`Graph committed successfully (LSN ${result.lsn}).`];
+  const lines: string[] = [`Graph mutated successfully (LSN ${result.lsn}).`];
 
   if (nodeEntries.length > 0) {
     const createdNodes = nodeEntries.map(([ref, node]) => `${ref} → ${node.code}`);
     lines.push(`Nodes created: ${createdNodes.join(', ')}`);
   }
-  if (result.edges.length > 0) {
-    lines.push(`Edges created: ${result.edges.map((id) => `#${id}`).join(', ')}`);
+  if (result.createdEdges.length > 0) {
+    lines.push(`Edges created: ${result.createdEdges.map((id) => `#${id}`).join(', ')}`);
   }
+  if (result.updatedNodes.length > 0)
+    lines.push(`Nodes updated: ${result.updatedNodes.map((id) => `#${id}`).join(', ')}`);
+  if (result.updatedEdges.length > 0)
+    lines.push(`Edges updated: ${result.updatedEdges.map((id) => `#${id}`).join(', ')}`);
+  if (result.deletedNodes.length > 0)
+    lines.push(`Nodes deleted: ${result.deletedNodes.map((id) => `#${id}`).join(', ')}`);
+  if (result.deletedEdges.length > 0)
+    lines.push(`Edges deleted: ${result.deletedEdges.map((id) => `#${id}`).join(', ')}`);
 
   return lines.join('\n');
 }

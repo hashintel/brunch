@@ -76,7 +76,7 @@ accepted graph item was user-approved:
   per-item review (the `propose-graph` direct-commit path).
 
 `basis` does **not** record the mutation pathway. The pathway lives
-in `change_log.operation` and payload (`commit_graph`,
+in `change_log.operation` and payload (`mutate_graph`,
 `accept_review_set`, post-exchange capture, etc.). Low-confidence
 inferred material still stays outside graph truth until clarified or
 accepted.
@@ -496,7 +496,7 @@ These commands land in the M5 `agent-graph-integration` extension
 under `src/.pi/extensions/graph/tools/` per D52-L. They are out of
 scope for Phase 1 stubs.
 
-### `commitGraph` — atomic batch mutation (D53-L)
+### `mutateGraph` — atomic batch mutation (D53-L)
 
 The `propose-graph` strategy's load-bearing tool. One tool call
 creates an entire subgraph — nodes and edges — in a single
@@ -507,23 +507,21 @@ same executor and uses `basis: "explicit"` because the user approved
 the exact reviewed items.
 
 ```ts
-commitGraph({
-  basis: "implicit",
-  nodes: [
-    { ref: "n1", plane: "intent", kind: "requirement", title: "...", body: "..." },
-    { ref: "n2", plane: "intent", kind: "constraint",  title: "...", body: "..." },
-    { ref: "n5", plane: "intent", kind: "invariant",  title: "...", body: "..." },
-    { ref: "n3", plane: "intent", kind: "decision",    title: "...", body: "...",
+mutateGraph({
+  createBasis: "implicit",
+  ops: [
+    { op: "create_node", ref: "n1", plane: "intent", kind: "requirement", title: "...", body: "..." },
+    { op: "create_node", ref: "n2", plane: "intent", kind: "constraint", title: "...", body: "..." },
+    { op: "create_node", ref: "n5", plane: "intent", kind: "invariant", title: "...", body: "..." },
+    { op: "create_node", ref: "n3", plane: "intent", kind: "decision", title: "...", body: "...",
       detail: { chosen_option: "...", rejected: ["..."], rationale: "..." } },
-    { ref: "n4", plane: "intent", kind: "term", title: "...",
+    { op: "create_node", ref: "n4", plane: "intent", kind: "term", title: "...",
       detail: { definition: "...", aliases: ["..."] } },
-  ],
-  edges: [
-    { category: "dependency",   source: "n1",                    target: "n2" },
-    { category: "boundary",     source: "n2",                    target: "n1" },
-    { category: "realization",  source: "n1",                    target: "n3" },
-    { category: "support",      source: { existingCode: "A1" },  target: "n1",
-                                stance: "for" },
+    { op: "create_edge", category: "dependency", dependency: "n1", dependent: "n2" },
+    { op: "create_edge", category: "boundary", boundary: "n2", subject: "n1" },
+    { op: "create_edge", category: "realization", abstract: "n1", concrete: "n3" },
+    { op: "create_edge", category: "support", support: { existingCode: "A1" }, claim: "n1",
+      stance: "for" },
   ]
 })
 ```
@@ -540,7 +538,7 @@ Reference modes:
 CommandExecutor processing:
 
 ```
-commitGraph tool call
+mutateGraph tool call
         │
         ▼
   1. Validate all nodes structurally
@@ -559,7 +557,7 @@ All-or-nothing (I34-L): if any node or edge fails, the entire batch
 is rejected. The agent may retry within a bounded budget; the user
 does not see intermediate failures.
 
-`commitGraph` and `acceptReviewSet` (D27-L) are parallel paths to the
+`mutateGraph` and `acceptReviewSet` (D27-L) are parallel paths to the
 same CommandExecutor — one for direct agent-authored commits after
 concept acceptance, one for user-reviewed batch proposals.
 

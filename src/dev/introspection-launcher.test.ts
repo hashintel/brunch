@@ -9,23 +9,33 @@ import { createInMemoryBrunchIntrospectionStore } from '../.pi/brunch-pi-extensi
 import { runBrunchIntrospectionTurn, type BrunchIntrospectionSession } from './introspection-launcher.js';
 
 describe('Brunch introspection launcher', () => {
+  it('rejects unsafe artifact run ids before constructing paths', async () => {
+    await expect(
+      runBrunchIntrospectionTurn({
+        session: createFakeSession('No artifact.'),
+        store: createInMemoryBrunchIntrospectionStore(),
+        runId: '../escape',
+      }),
+    ).rejects.toThrow('Artifact runId must be a portable single path segment');
+  });
   it('writes a paired run artifact keyed by the captured turn', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-introspection-launcher-'));
     const store = createInMemoryBrunchIntrospectionStore();
-    store.recordPassiveCapture({
-      turnId: 'turn-7',
-      capturedAt: '2026-06-09T00:00:00.000Z',
-      event: 'before_provider_request',
-      payload: { system: 'final prompt', tools: [{ name: 'read' }] },
+    const session = createFakeSession('The tool list is clear, but the graph policy is ambiguous.', () => {
+      store.recordPassiveCapture({
+        turnId: 'turn-7',
+        capturedAt: '2026-06-09T00:00:00.000Z',
+        event: 'before_provider_request',
+        payload: { system: 'final prompt', tools: [{ name: 'read' }] },
+      });
+      const latestPassiveCapture = store.latestPassiveCapture();
+      store.recordBaseReport({
+        reportedAt: '2026-06-09T00:00:01.000Z',
+        command: 'introspect',
+        baseSystemPromptOptions: { cwd, selectedTools: ['read'] },
+        ...(latestPassiveCapture ? { latestPassiveCapture } : {}),
+      });
     });
-    const latestPassiveCapture = store.latestPassiveCapture();
-    store.recordBaseReport({
-      reportedAt: '2026-06-09T00:00:01.000Z',
-      command: 'introspect',
-      baseSystemPromptOptions: { cwd, selectedTools: ['read'] },
-      ...(latestPassiveCapture ? { latestPassiveCapture } : {}),
-    });
-    const session = createFakeSession('The tool list is clear, but the graph policy is ambiguous.');
 
     const result = await runBrunchIntrospectionTurn({
       cwd,
@@ -60,6 +70,24 @@ describe('Brunch introspection launcher', () => {
     });
   });
 
+  it('rejects a stale passive capture recorded before the prompted turn', async () => {
+    const store = createInMemoryBrunchIntrospectionStore();
+    store.recordPassiveCapture({
+      turnId: 'stale-turn',
+      capturedAt: '2026-06-09T00:00:00.000Z',
+      event: 'before_provider_request',
+      payload: { system: 'stale prompt' },
+    });
+
+    await expect(
+      runBrunchIntrospectionTurn({
+        session: createFakeSession('No new capture.'),
+        store,
+        runId: 'stale-capture',
+      }),
+    ).rejects.toThrow('Introspection run did not capture a provider payload for the prompted turn');
+  });
+
   it('fails loud when the extension did not capture a provider payload', async () => {
     await expect(
       runBrunchIntrospectionTurn({
@@ -67,15 +95,58 @@ describe('Brunch introspection launcher', () => {
         store: createInMemoryBrunchIntrospectionStore(),
         runId: 'missing-capture',
       }),
-    ).rejects.toThrow('Introspection run did not capture a provider payload');
+    ).rejects.toThrow('Introspection run did not capture a provider payload for the prompted turn');
+  });
+
+  it('omits a base report from a different turn', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-introspection-launcher-'));
+    const store = createInMemoryBrunchIntrospectionStore();
+    store.recordPassiveCapture({
+      turnId: 'stale-turn',
+      capturedAt: '2026-06-09T00:00:00.000Z',
+      event: 'before_provider_request',
+      payload: { system: 'stale prompt' },
+    });
+    const staleCapture = store.latestPassiveCapture();
+    store.recordBaseReport({
+      reportedAt: '2026-06-09T00:00:01.000Z',
+      command: 'introspect',
+      baseSystemPromptOptions: { cwd, selectedTools: ['read'] },
+      ...(staleCapture ? { latestPassiveCapture: staleCapture } : {}),
+    });
+
+    const result = await runBrunchIntrospectionTurn({
+      cwd,
+      runId: 'mismatched-base-report',
+      session: createFakeSession('Fresh answer.', () => {
+        store.recordPassiveCapture({
+          turnId: 'fresh-turn',
+          capturedAt: '2026-06-09T00:00:02.000Z',
+          event: 'before_provider_request',
+          payload: { system: 'fresh prompt' },
+        });
+      }),
+      store,
+    });
+
+    expect(result.artifact.turnId).toBe('fresh-turn');
+    expect(result.artifact.mechanical).toEqual({
+      passiveCapture: {
+        turnId: 'fresh-turn',
+        capturedAt: '2026-06-09T00:00:02.000Z',
+        event: 'before_provider_request',
+        payload: { system: 'fresh prompt' },
+      },
+    });
   });
 });
 
-function createFakeSession(answerText: string): BrunchIntrospectionSession {
+function createFakeSession(answerText: string, onPrompt?: () => void): BrunchIntrospectionSession {
   const messages: BrunchIntrospectionSession['messages'] = [];
   return {
     messages,
     async prompt() {
+      onPrompt?.();
       messages.push(fauxAssistantMessage(answerText));
     },
   };

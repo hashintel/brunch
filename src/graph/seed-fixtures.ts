@@ -27,7 +27,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { BatchEdgeInput, BatchNodeInput, ReadinessGrade } from './command-executor.js';
+import type { GraphMutationOp, ReadinessGrade } from './command-executor.js';
 import { CommandExecutor } from './command-executor.js';
 import type { EdgeCategory, EdgeStance } from './schema/edges.js';
 import type { NodeBasis, NodePlane } from './schema/nodes.js';
@@ -88,8 +88,8 @@ export interface SeedResult {
 /**
  * Seed one consolidated fixture into the graph via `CommandExecutor`.
  *
- * Creates the spec, then commits all nodes and edges in a single
- * `commitGraph` batch (edges reference nodes by stringified `local_id`).
+ * Creates the spec, then mutates all nodes and edges in a single
+ * `mutateGraph` batch (edges reference nodes by stringified `local_id`).
  * The batch basis is `explicit`; fixtures carrying any other basis are
  * rejected rather than silently mis-seeded — the multi-basis case would
  * require splitting into per-basis node batches with cross-batch edge refs,
@@ -119,28 +119,27 @@ export function seedFixture(executor: CommandExecutor, fixture: SeedFixture): Se
     );
   }
 
-  const nodes: BatchNodeInput[] = fixture.nodes.map((node) => ({
-    ref: String(node.local_id),
-    plane: node.plane,
-    kind: node.kind,
-    title: node.title,
-    body: node.body ?? undefined,
-    source: node.source ?? undefined,
-    detail: node.detail ?? undefined,
-  }));
+  const ops: GraphMutationOp[] = [
+    ...fixture.nodes.map(
+      (node) =>
+        ({
+          op: 'create_node',
+          ref: String(node.local_id),
+          plane: node.plane,
+          kind: node.kind,
+          title: node.title,
+          body: node.body ?? undefined,
+          source: node.source ?? undefined,
+          detail: node.detail ?? undefined,
+        }) satisfies GraphMutationOp,
+    ),
+    ...fixture.edges.map((edge) => roleNamedSeedEdgeDraft(edge)),
+  ];
 
-  const edges: BatchEdgeInput[] = fixture.edges.map((edge) => ({
-    category: edge.category,
-    source: String(edge.source_local_id),
-    target: String(edge.target_local_id),
-    stance: edge.stance ?? undefined,
-    rationale: edge.rationale ?? undefined,
-  }));
-
-  const result = executor.commitGraph({ specId: specResult.specId, basis: 'explicit', nodes, edges });
+  const result = executor.mutateGraph({ specId: specResult.specId, createBasis: 'explicit', ops });
   if (result.status !== 'success') {
     throw new Error(
-      `seedFixture: commitGraph failed for "${fixture.spec.slug}": ${JSON.stringify(result.diagnostics)}`,
+      `seedFixture: mutateGraph failed for "${fixture.spec.slug}": ${JSON.stringify(result.diagnostics)}`,
     );
   }
 
@@ -148,8 +147,81 @@ export function seedFixture(executor: CommandExecutor, fixture: SeedFixture): Se
     slug: fixture.spec.slug,
     specId: specResult.specId,
     nodeCount: Object.keys(result.createdNodes).length,
-    edgeCount: result.edges.length,
+    edgeCount: result.createdEdges.length,
   };
+}
+
+function roleNamedSeedEdgeDraft(
+  edge: SeedFixtureEdge,
+): Extract<GraphMutationOp, { readonly op: 'create_edge' }> {
+  switch (edge.category) {
+    case 'dependency':
+      return {
+        op: 'create_edge',
+        category: 'dependency',
+        dependency: String(edge.source_local_id),
+        dependent: String(edge.target_local_id),
+        rationale: edge.rationale ?? undefined,
+      };
+    case 'proof':
+      return {
+        op: 'create_edge',
+        category: 'proof',
+        oracle: String(edge.source_local_id),
+        claim: String(edge.target_local_id),
+        stance: edge.stance ?? 'for',
+        rationale: edge.rationale ?? undefined,
+      };
+    case 'support':
+      return {
+        op: 'create_edge',
+        category: 'support',
+        support: String(edge.source_local_id),
+        claim: String(edge.target_local_id),
+        stance: edge.stance ?? 'for',
+        rationale: edge.rationale ?? undefined,
+      };
+    case 'realization':
+      return {
+        op: 'create_edge',
+        category: 'realization',
+        abstract: String(edge.source_local_id),
+        concrete: String(edge.target_local_id),
+        rationale: edge.rationale ?? undefined,
+      };
+    case 'boundary':
+      return {
+        op: 'create_edge',
+        category: 'boundary',
+        boundary: String(edge.source_local_id),
+        subject: String(edge.target_local_id),
+        rationale: edge.rationale ?? undefined,
+      };
+    case 'composition':
+      return {
+        op: 'create_edge',
+        category: 'composition',
+        whole: String(edge.source_local_id),
+        part: String(edge.target_local_id),
+        rationale: edge.rationale ?? undefined,
+      };
+    case 'association':
+      return {
+        op: 'create_edge',
+        category: 'association',
+        a: String(edge.source_local_id),
+        b: String(edge.target_local_id),
+        rationale: edge.rationale ?? undefined,
+      };
+    case 'supersession':
+      return {
+        op: 'create_edge',
+        category: 'supersession',
+        successor: String(edge.source_local_id),
+        predecessor: String(edge.target_local_id),
+        rationale: edge.rationale ?? undefined,
+      };
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -64,10 +64,10 @@ const successfulOverview: GraphSlice = {
 };
 
 describe('propose-graph commit proof report', () => {
-  it('classifies bounded retry evidence from commit_graph tool results', () => {
+  it('classifies bounded retry evidence from mutate_graph tool results', () => {
     const sessionText = [
       messageEntry(
-        'commit_graph',
+        'mutate_graph',
         {
           status: 'structural_illegal',
           diagnostics: [{ field: 'edges[0].stance', message: 'stance is required for support edges' }],
@@ -75,7 +75,7 @@ describe('propose-graph commit proof report', () => {
         'STRUCTURAL_ILLEGAL',
       ),
       messageEntry(
-        'commit_graph',
+        'mutate_graph',
         {
           status: 'success',
           lsn: 1,
@@ -122,11 +122,11 @@ describe('propose-graph commit proof report', () => {
         type: 'message',
         message: {
           role: 'assistant',
-          content: 'Calling commit_graph with {"source":{"existingCode":"G1"},"target":"r1"}',
+          content: 'Calling mutate_graph with {"support":{"existingCode":"G1"},"claim":"r1","stance":"for"}',
         },
       }),
       messageEntry(
-        'commit_graph',
+        'mutate_graph',
         {
           status: 'success',
           lsn: 2,
@@ -156,7 +156,7 @@ describe('propose-graph commit proof report', () => {
     expect(report.projectedCodeEvidence).toEqual({
       codes: ['G1'],
       seenInTranscript: true,
-      usedInCommitParams: true,
+      usedInMutateParams: true,
       existingCodeEdgePresent: true,
     });
     expect(report.committedNodes).toEqual([
@@ -168,7 +168,7 @@ describe('propose-graph commit proof report', () => {
   it('classifies retry-diagnostics scenario first/final statuses and diagnostics', () => {
     const sessionText = [
       messageEntry(
-        'commit_graph',
+        'mutate_graph',
         {
           status: 'structural_illegal',
           diagnostics: [{ field: 'edges[0].stance', message: 'stance is required for proof edges' }],
@@ -176,7 +176,7 @@ describe('propose-graph commit proof report', () => {
         'STRUCTURAL_ILLEGAL',
       ),
       messageEntry(
-        'commit_graph',
+        'mutate_graph',
         {
           status: 'success',
           lsn: 2,
@@ -251,7 +251,7 @@ describe('propose-graph commit proof report', () => {
       sessionId: 'session-1',
       maxAttempts: 2,
       sessionText: messageEntry(
-        'commit_graph',
+        'mutate_graph',
         { status: 'success', lsn: 1, createdNodes: { g1: { id: 1, code: 'G1' } }, edges: [] },
         'Graph committed successfully',
       ),
@@ -265,9 +265,9 @@ describe('propose-graph commit proof report', () => {
     expect(report.friction).toContain('Ambiguity scenario outcome was overcommit.');
   });
 
-  it('fails closed when no commit_graph attempt succeeds', () => {
+  it('fails closed when no mutate_graph attempt succeeds', () => {
     const sessionText = messageEntry(
-      'commit_graph',
+      'mutate_graph',
       {
         status: 'structural_illegal',
         diagnostics: [{ field: 'nodes[0].kind', message: 'invalid kind' }],
@@ -300,8 +300,8 @@ describe('propose-graph commit proof report', () => {
       probeId: 'propose-graph-commit',
       runId: 'artifact-run',
       generatedAt: '2026-06-02T00:00:00.000Z',
-      mission: 'Prove the propose-graph strategy can commit graph truth through commit_graph.',
-      evaluationFocus: 'A14-L structural legality for direct commitGraph batches.',
+      mission: 'Prove the propose-graph strategy can commit graph truth through mutate_graph.',
+      evaluationFocus: 'A14-L structural legality for direct mutateGraph batches.',
       success: true,
       cwd: '/tmp/brunch-proof',
       specId: 7,
@@ -320,7 +320,7 @@ describe('propose-graph commit proof report', () => {
       projectedCodeEvidence: {
         codes: ['G1'],
         seenInTranscript: true,
-        usedInCommitParams: true,
+        usedInMutateParams: true,
       },
       friction: [],
     };
@@ -329,7 +329,7 @@ describe('propose-graph commit proof report', () => {
       fixtureRoot,
       runId: report.runId,
       sessionText: messageEntry(
-        'commit_graph',
+        'mutate_graph',
         { status: 'success', lsn: 1, createdNodes: { goal: { id: 1, code: 'G1' } }, edges: [] },
         'Graph committed successfully',
       ),
@@ -343,9 +343,18 @@ describe('propose-graph commit proof report', () => {
       reportJson: 'runs/propose-graph-commit/artifact-run/report.json',
     });
     expect(await readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).toContain('propose-graph-commit');
-    expect(await readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).toContain('commit_graph');
+    expect(await readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).toContain('mutate_graph');
     expect(await readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).toContain(
       'Graph committed successfully',
     );
+
+    await expect(
+      writeProposeGraphCommitProofArtifacts({
+        fixtureRoot,
+        runId: '../escape',
+        sessionText: '',
+        report: { ...report, runId: '../escape' },
+      }),
+    ).rejects.toThrow('Artifact runId must be a portable single path segment');
   });
 });

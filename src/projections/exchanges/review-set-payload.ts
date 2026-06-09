@@ -1,3 +1,4 @@
+import type { RoleNamedEdgeDraftOf } from '../../graph/command-executor/role-named-edge-draft.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 type ReviewSetDetailsPlane = 'intent' | 'oracle' | 'design' | 'plan';
 
@@ -10,16 +11,11 @@ interface ReviewSetDetailsPayload {
     readonly body?: string | undefined;
     readonly detail?: unknown;
   }[];
-  readonly edges: readonly {
-    readonly category: string;
-    readonly source: ReviewSetDetailsEndpointRef;
-    readonly target: ReviewSetDetailsEndpointRef;
-    readonly stance?: 'for' | 'against' | undefined;
-    readonly rationale?: string | undefined;
-  }[];
+  readonly edges: readonly ReviewSetDetailsEdgeDraft[];
 }
 
 type ReviewSetDetailsEndpointRef = { readonly draft_id: string } | { readonly existing_code: string };
+type ReviewSetDetailsEdgeDraft = RoleNamedEdgeDraftOf<ReviewSetDetailsEndpointRef>;
 
 export function reviewSetProposalPayloadFromDetails(input: {
   readonly exchangeId: string;
@@ -48,19 +44,76 @@ export function reviewSetProposalPayloadFromDetails(input: {
       ...(draft.body !== undefined ? { body: draft.body } : {}),
       ...(draft.detail !== undefined ? { detail: draft.detail } : {}),
     })),
-    edgeDrafts: input.reviewSet.edges.map((draft) => ({
-      category: draft.category,
-      source: endpointRefFromDetails(draft.source),
-      target: endpointRefFromDetails(draft.target),
-      ...(draft.stance !== undefined ? { stance: draft.stance } : {}),
-      ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-    })),
+    edgeDrafts: input.reviewSet.edges.map(reviewSetEdgeDraftFromDetails),
   };
 }
 
-function endpointRefFromDetails(
-  value: ReviewSetDetailsPayload['edges'][number]['source'],
-): ReviewSetProposalPayload['edgeDrafts'][number]['source'] {
+function endpointRefFromDetails(value: ReviewSetDetailsEndpointRef) {
   if ('draft_id' in value) return { draftId: value.draft_id };
   return { existingCode: value.existing_code };
+}
+
+function reviewSetEdgeDraftFromDetails(
+  draft: ReviewSetDetailsEdgeDraft,
+): ReviewSetProposalPayload['edgeDrafts'][number] {
+  switch (draft.category) {
+    case 'dependency':
+      return {
+        category: draft.category,
+        dependency: endpointRefFromDetails(draft.dependency),
+        dependent: endpointRefFromDetails(draft.dependent),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'proof':
+      return {
+        category: draft.category,
+        oracle: endpointRefFromDetails(draft.oracle),
+        claim: endpointRefFromDetails(draft.claim),
+        stance: draft.stance,
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'support':
+      return {
+        category: draft.category,
+        support: endpointRefFromDetails(draft.support),
+        claim: endpointRefFromDetails(draft.claim),
+        stance: draft.stance,
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'realization':
+      return {
+        category: draft.category,
+        abstract: endpointRefFromDetails(draft.abstract),
+        concrete: endpointRefFromDetails(draft.concrete),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'boundary':
+      return {
+        category: draft.category,
+        boundary: endpointRefFromDetails(draft.boundary),
+        subject: endpointRefFromDetails(draft.subject),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'composition':
+      return {
+        category: draft.category,
+        whole: endpointRefFromDetails(draft.whole),
+        part: endpointRefFromDetails(draft.part),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'association':
+      return {
+        category: draft.category,
+        a: endpointRefFromDetails(draft.a),
+        b: endpointRefFromDetails(draft.b),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'supersession':
+      return {
+        category: draft.category,
+        successor: endpointRefFromDetails(draft.successor),
+        predecessor: endpointRefFromDetails(draft.predecessor),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+  }
 }

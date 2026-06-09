@@ -60,15 +60,22 @@ export { CommandExecutor } from './command-executor.js';
 export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';
 export type { WorkspaceGraphRuntime } from './workspace-store.js';
 export type {
-  BatchEdgeInput,
-  BatchEdgeRef,
-  BatchNodeInput,
-  CommitGraphInput,
-  CommitGraphSuccess,
   Diagnostic,
+  EdgePatch,
+  GraphMutationNodeRef,
+  GraphMutationOp,
+  MutateGraphInput,
+  MutateGraphSuccess,
+  NodePatch,
   ReadinessGrade,
+  RoleNamedEdgeDraft,
   SpecRecord,
   StructuralIllegal,
 } from './command-executor.js';
 
-export { translateReviewSetPayloadToCommitGraph } from './review-set.js';
+export {
+  authoredEdgeEndpointFields,
+  normalizeRoleNamedEdgeDraft,
+} from './command-executor/role-named-edge-draft.js';
+
+export { translateReviewSetPayloadToMutateGraph } from './review-set.js';

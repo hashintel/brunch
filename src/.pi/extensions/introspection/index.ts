@@ -20,6 +20,8 @@ export interface BrunchIntrospectionStore {
   recordPassiveCapture(capture: BrunchIntrospectionTurnCapture): void;
   recordBaseReport(report: BrunchIntrospectionBaseReport): void;
   latestPassiveCapture(): BrunchIntrospectionTurnCapture | undefined;
+  latestPassiveCaptureAfter(cursor: number): BrunchIntrospectionTurnCapture | undefined;
+  passiveCaptureCursor(): number;
   latestBaseReport(): BrunchIntrospectionBaseReport | undefined;
 }
 
@@ -47,6 +49,14 @@ class InMemoryStore implements InMemoryBrunchIntrospectionStore {
 
   latestPassiveCapture(): BrunchIntrospectionTurnCapture | undefined {
     return this.passiveCaptures.at(-1);
+  }
+
+  latestPassiveCaptureAfter(cursor: number): BrunchIntrospectionTurnCapture | undefined {
+    return this.passiveCaptures.slice(cursor).at(-1);
+  }
+
+  passiveCaptureCursor(): number {
+    return this.passiveCaptures.length;
   }
 
   latestBaseReport(): BrunchIntrospectionBaseReport | undefined {
@@ -95,15 +105,17 @@ export function registerBrunchIntrospection(
 }
 
 export function buildBrunchIntrospectionReport(
-  ctx: Pick<ExtensionCommandContext, 'getSystemPromptOptions'>,
+  ctx: unknown,
   store: BrunchIntrospectionStore,
   reportedAt: string,
 ): BrunchIntrospectionBaseReport {
   const latestPassiveCapture = store.latestPassiveCapture();
+  const getSystemPromptOptions = isRecord(ctx) ? ctx.getSystemPromptOptions : undefined;
   return {
     reportedAt,
     command: BRUNCH_INTROSPECTION_COMMAND,
-    baseSystemPromptOptions: ctx.getSystemPromptOptions(),
+    baseSystemPromptOptions:
+      typeof getSystemPromptOptions === 'function' ? getSystemPromptOptions() : undefined,
     ...(latestPassiveCapture ? { latestPassiveCapture } : {}),
   };
 }

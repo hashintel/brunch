@@ -3,26 +3,104 @@
  *
  * This is the adapter-boundary schema layer for agent tools. It derives enum
  * literals from graph/index.ts, but it deliberately does not import db/ or
- * Drizzle row schemas: commit_graph accepts a product command shape, not raw
+ * Drizzle row schemas: mutate_graph accepts a product command shape, not raw
  * SQLite rows.
  */
 
 import { StringEnum, Type, type Static } from '@earendil-works/pi-ai';
 
 import {
+  authoredEdgeEndpointFields,
   DESIGN_KINDS,
   EDGE_CATEGORIES,
   EDGE_STANCES,
   INTENT_KINDS,
   ORACLE_KINDS,
   PLAN_KINDS,
+  type EdgeCategory,
   type EdgeDirection,
   type GraphVisibility,
 } from '../../../graph/index.js';
 
 const ALL_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
 
-export const CommitNodeSchema = Type.Object(
+export type ToolEdgeRef = string | { readonly existingCode: string };
+export type ToolMutateCreateNodeOp = {
+  readonly op: 'create_node';
+  readonly ref: string;
+  readonly plane: 'intent' | 'oracle' | 'design' | 'plan';
+  readonly kind: (typeof ALL_KINDS)[number];
+  readonly title: string;
+  readonly body?: string | undefined;
+  readonly source?: string | undefined;
+  readonly detail?: unknown;
+};
+export type ToolMutateCreateEdgeOp =
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'dependency';
+      readonly dependency: ToolEdgeRef;
+      readonly dependent: ToolEdgeRef;
+      readonly rationale?: string | undefined;
+    }
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'proof';
+      readonly oracle: ToolEdgeRef;
+      readonly claim: ToolEdgeRef;
+      readonly stance: 'for' | 'against';
+      readonly rationale?: string | undefined;
+    }
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'support';
+      readonly support: ToolEdgeRef;
+      readonly claim: ToolEdgeRef;
+      readonly stance: 'for' | 'against';
+      readonly rationale?: string | undefined;
+    }
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'realization';
+      readonly abstract: ToolEdgeRef;
+      readonly concrete: ToolEdgeRef;
+      readonly rationale?: string | undefined;
+    }
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'boundary';
+      readonly boundary: ToolEdgeRef;
+      readonly subject: ToolEdgeRef;
+      readonly rationale?: string | undefined;
+    }
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'composition';
+      readonly whole: ToolEdgeRef;
+      readonly part: ToolEdgeRef;
+      readonly rationale?: string | undefined;
+    }
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'association';
+      readonly a: ToolEdgeRef;
+      readonly b: ToolEdgeRef;
+      readonly rationale?: string | undefined;
+    }
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'supersession';
+      readonly successor: ToolEdgeRef;
+      readonly predecessor: ToolEdgeRef;
+      readonly rationale?: string | undefined;
+    };
+export type ToolMutateGraphOp = ToolMutateCreateNodeOp | ToolMutateCreateEdgeOp;
+export interface ToolMutateGraphParams {
+  readonly createBasis?: 'explicit' | 'implicit' | undefined;
+  readonly ops: readonly ToolMutateGraphOp[];
+}
+
+export const MutateNodeSchema = Type.Object(
   {
     ref: Type.String({
       description: "Temporary batch reference id (e.g. 'n1', 'n2')",
@@ -58,24 +136,49 @@ export const EdgeRefSchema = Type.Union([
   ),
 ]);
 
-export const CommitEdgeSchema = Type.Object(
+function roleNamedCreateEdgeSchema(category: EdgeCategory) {
+  const [sourceField, targetField] = authoredEdgeEndpointFields(category);
+  return Type.Object(
+    {
+      op: Type.Literal('create_edge'),
+      category: Type.Literal(category),
+      [sourceField]: EdgeRefSchema,
+      [targetField]: EdgeRefSchema,
+      ...(category === 'proof' || category === 'support' ? { stance: StringEnum([...EDGE_STANCES]) } : {}),
+      rationale: Type.Optional(Type.String()),
+    },
+    { additionalProperties: false },
+  );
+}
+
+const MutateCreateNodeOpSchema = Type.Object(
   {
-    category: StringEnum([...EDGE_CATEGORIES]),
-    source: EdgeRefSchema,
-    target: EdgeRefSchema,
-    stance: Type.Optional(StringEnum([...EDGE_STANCES])),
-    rationale: Type.Optional(Type.String()),
+    op: Type.Literal('create_node'),
+    ref: MutateNodeSchema.properties.ref,
+    plane: MutateNodeSchema.properties.plane,
+    kind: MutateNodeSchema.properties.kind,
+    title: MutateNodeSchema.properties.title,
+    body: MutateNodeSchema.properties.body,
+    source: MutateNodeSchema.properties.source,
+    detail: MutateNodeSchema.properties.detail,
   },
   { additionalProperties: false },
 );
 
-export const CommitGraphParams = Type.Object(
+export const MutateCreateEdgeSchema = Type.Union(
+  EDGE_CATEGORIES.map((category) => roleNamedCreateEdgeSchema(category)),
+);
+
+export const MutateGraphParams = Type.Object(
   {
-    nodes: Type.Array(CommitNodeSchema, {
-      description: 'Nodes to create in this batch',
-    }),
-    edges: Type.Array(CommitEdgeSchema, {
-      description: 'Edges to create, referencing batch refs or existing node codes',
+    createBasis: Type.Optional(
+      StringEnum(['explicit', 'implicit'] as const, {
+        description: 'Basis for newly created nodes and edges in this batch',
+      }),
+    ),
+    ops: Type.Array(Type.Union([MutateCreateNodeOpSchema, MutateCreateEdgeSchema]), {
+      description:
+        'Create-only graph mutation operations. Edges use role-named endpoints and may reference batch refs or existing node codes.',
     }),
   },
   { additionalProperties: false },
@@ -129,4 +232,4 @@ export const ReadGraphParams = {
     'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, related nodes, or graph gaps. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters. Gaps mode requires a base filter (kinds and/or readinessBands) plus absentEdgeCategory.',
 } as const;
 
-export type ToolCommitGraphParams = Static<typeof CommitGraphParams>;
+export type ToolMutateGraphParamsSchema = Static<typeof MutateGraphParams>;

@@ -18,7 +18,7 @@ const REGISTERED_POC_TOOLS = [
   ...SIDE_EFFECTING_POC_TOOLS,
   'present_question',
   'request_answer',
-  'commit_graph',
+  'mutate_graph',
 ] as const;
 
 function piWithRegisteredTools(toolNames: readonly string[]): ExtensionAPI {
@@ -39,7 +39,11 @@ describe('minimal authority matrix', () => {
         status: 'success',
         lsn: 1,
         createdNodes: {},
-        edges: [],
+        createdEdges: [],
+        updatedNodes: [],
+        updatedEdges: [],
+        deletedNodes: [],
+        deletedEdges: [],
       }),
       commandResultStatus({
         status: 'structural_illegal',

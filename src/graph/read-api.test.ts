@@ -4,6 +4,7 @@ import { createDb, type BrunchDb } from '../db/connection.js';
 import { graphClock, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import { getNodes, queryGraph } from './queries.js';
+import { runCreateOnlyMutation } from './test-support/create-only-mutation.js';
 
 function createTestDb(): BrunchDb {
   return createDb(':memory:');
@@ -34,7 +35,7 @@ describe('graph read API', () => {
     expect(legacy.status).toBe('success');
     if (legacy.status !== 'success') throw new Error('unreachable');
 
-    const batch = executor.commitGraph({
+    const batch = runCreateOnlyMutation(executor, {
       specId,
       nodes: [{ ref: 'r2', plane: 'intent', kind: 'requirement', title: 'Current requirement' }],
       edges: [{ category: 'supersession', source: 'r2', target: { existing: legacy.nodeId } }],
@@ -50,7 +51,7 @@ describe('graph read API', () => {
   });
 
   it('getNodes resolves ids and codes, preserving selector order and per-node context', () => {
-    const batch = executor.commitGraph({
+    const batch = runCreateOnlyMutation(executor, {
       specId,
       nodes: [
         { ref: 'g1', plane: 'intent', kind: 'goal', title: 'Goal' },
@@ -82,7 +83,7 @@ describe('graph read API', () => {
   });
 
   it('queryGraph supports positive and negative node/edge predicates', () => {
-    const batch = executor.commitGraph({
+    const batch = runCreateOnlyMutation(executor, {
       specId,
       nodes: [
         { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Proved requirement' },

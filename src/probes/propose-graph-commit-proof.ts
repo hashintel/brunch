@@ -10,15 +10,15 @@ import { appendBrunchAgentRuntimeSwitch, type BrunchAgentState } from '../.pi/ex
 import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
 import {
   openWorkspaceGraphRuntime,
-  type CommitGraphSuccess,
   type Diagnostic,
+  type MutateGraphSuccess,
   type StructuralIllegal,
 } from '../graph/index.js';
 import type { GraphSlice } from '../graph/queries.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { portableCwd } from './portable-report.js';
+import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'propose-graph-commit' as const;
 const DEFAULT_MAX_ATTEMPTS = 2;
@@ -48,17 +48,17 @@ export interface ProposeGraphCommitProofArtifacts {
   reportJson: string;
 }
 
-type CommitGraphAttemptStatus =
-  | CommitGraphSuccess['status']
+type MutateGraphAttemptStatus =
+  | MutateGraphSuccess['status']
   | StructuralIllegal['status']
   | 'needs_human'
   | 'policy_blocked'
   | 'version_conflict'
   | 'unknown';
 
-interface CommitGraphAttemptReport {
+interface MutateGraphAttemptReport {
   index: number;
-  status: CommitGraphAttemptStatus;
+  status: MutateGraphAttemptStatus;
   lsn?: number;
   nodeRefs?: Record<string, number>;
   edgeIds?: number[];
@@ -83,9 +83,9 @@ export interface ProposeGraphCommitProofReport {
   maxAttempts: number;
   attemptCount: number;
   retryCount: number;
-  firstAttemptStatus: CommitGraphAttemptStatus | 'not_called';
-  finalStatus: CommitGraphAttemptStatus | 'not_called';
-  attempts: CommitGraphAttemptReport[];
+  firstAttemptStatus: MutateGraphAttemptStatus | 'not_called';
+  finalStatus: MutateGraphAttemptStatus | 'not_called';
+  attempts: MutateGraphAttemptReport[];
   finalGraph: {
     nodeCount: number;
     edgeCount: number;
@@ -96,7 +96,7 @@ export interface ProposeGraphCommitProofReport {
   projectedCodeEvidence: {
     codes: string[];
     seenInTranscript: boolean;
-    usedInCommitParams: boolean;
+    usedInMutateParams: boolean;
     existingCodeEdgePresent?: boolean;
   };
   ambiguityOutcome?: AmbiguityNoOvercommitOutcome;
@@ -124,7 +124,7 @@ export async function runProposeGraphCommitProof(
   options: ProposeGraphCommitProofOptions = {},
 ): Promise<ProposeGraphCommitProofReport> {
   const cwd = options.cwd ?? (await mkdtemp(join(tmpdir(), 'brunch-propose-graph-commit-')));
-  const runId = options.runId ?? defaultRunId();
+  const runId = assertPortableRunId(options.runId ?? defaultRunId());
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const scenarioId = options.scenarioId ?? 'direct-commit';
   const prompt = options.prompt ?? defaultProofPrompt(scenarioId);
@@ -261,7 +261,7 @@ function shouldRetry(report: ProposeGraphCommitProofReport): boolean {
 export function summarizeProposeGraphCommitProof(
   input: ProposeGraphCommitProofSummaryInput,
 ): ProposeGraphCommitProofReport {
-  const attempts = commitGraphAttemptsFromSession(input.sessionText);
+  const attempts = mutateGraphAttemptsFromSession(input.sessionText);
   const firstAttemptStatus = attempts[0]?.status ?? 'not_called';
   const finalStatus = attempts.at(-1)?.status ?? 'not_called';
   const successfulAttempt = lastSuccessfulAttempt(attempts);
@@ -283,7 +283,7 @@ export function summarizeProposeGraphCommitProof(
     success =
       success &&
       projectedCodeEvidence.seenInTranscript &&
-      projectedCodeEvidence.usedInCommitParams &&
+      projectedCodeEvidence.usedInMutateParams &&
       projectedCodeEvidence.existingCodeEdgePresent === true;
   }
   const ambiguityOutcome =
@@ -304,16 +304,16 @@ export function summarizeProposeGraphCommitProof(
   }
 
   if (attempts.length === 0 && scenarioId !== 'ambiguity-no-overcommit') {
-    friction.push('No commit_graph tool result was recorded.');
+    friction.push('No mutate_graph tool result was recorded.');
   }
   if (attempts.length > input.maxAttempts) {
-    friction.push(`commit_graph attempts exceeded maxAttempts=${input.maxAttempts}.`);
+    friction.push(`mutate_graph attempts exceeded maxAttempts=${input.maxAttempts}.`);
   }
   if (successfulAttempt === undefined && attempts.length > 0) {
-    friction.push(`No commit_graph attempt succeeded; final status was ${finalStatus}.`);
+    friction.push(`No mutate_graph attempt succeeded; final status was ${finalStatus}.`);
   }
   if (successfulAttempt !== undefined && input.overview.nodes.length === 0) {
-    friction.push('commit_graph reported success but graph overview is empty.');
+    friction.push('mutate_graph reported success but graph overview is empty.');
   }
   if (scenarioId === 'existing-code-ref') {
     if (!projectedCodeEvidence.seenInTranscript) {
@@ -321,9 +321,9 @@ export function summarizeProposeGraphCommitProof(
         `Expected projected code ${input.expectedExistingCode ?? '<unknown>'} was not visible in the transcript.`,
       );
     }
-    if (!projectedCodeEvidence.usedInCommitParams) {
+    if (!projectedCodeEvidence.usedInMutateParams) {
       friction.push(
-        `No commit_graph call used expected existingCode ${input.expectedExistingCode ?? '<unknown>'}.`,
+        `No mutate_graph call used expected existingCode ${input.expectedExistingCode ?? '<unknown>'}.`,
       );
     }
     if (projectedCodeEvidence.existingCodeEdgePresent !== true) {
@@ -354,15 +354,15 @@ export function summarizeProposeGraphCommitProof(
     probeId: PROBE_ID,
     runId: input.runId,
     generatedAt: input.generatedAt,
-    mission: 'Prove the propose-graph strategy can commit graph truth through commit_graph.',
+    mission: 'Prove the propose-graph strategy can commit graph truth through mutate_graph.',
     evaluationFocus:
       scenarioId === 'existing-code-ref'
         ? 'A14-L selected-spec projected-code reference through the default runtime.'
         : scenarioId === 'retry-diagnostics'
-          ? 'A14-L retry behavior after structured commit_graph diagnostics.'
+          ? 'A14-L retry behavior after structured mutate_graph diagnostics.'
           : scenarioId === 'ambiguity-no-overcommit'
             ? 'A14-L ambiguity handling without unsupported graph overcommit.'
-            : 'A14-L structural legality for direct commitGraph batches.',
+            : 'A14-L structural legality for direct mutateGraph batches.',
     scenarioId,
     success,
     cwd: input.cwd,
@@ -390,7 +390,7 @@ export function summarizeProposeGraphCommitProof(
 
 function ambiguityNoOvercommitOutcome(
   sessionText: string,
-  attempts: readonly CommitGraphAttemptReport[],
+  attempts: readonly MutateGraphAttemptReport[],
   overview: GraphSlice,
 ): AmbiguityNoOvercommitOutcome {
   if (
@@ -423,7 +423,7 @@ function projectedCodeEvidenceFromSummaryInput(
     ...new Set([...nodeById.values()].filter((code) => expectedCode === undefined || code === expectedCode)),
   ];
   const seenInTranscript = expectedCode === undefined || input.sessionText.includes(expectedCode);
-  const usedInCommitParams =
+  const usedInMutateParams =
     expectedCode === undefined ||
     input.sessionText.includes(`"existingCode":"${expectedCode}"`) ||
     input.sessionText.includes(`"existingCode": "${expectedCode}"`) ||
@@ -446,14 +446,14 @@ function projectedCodeEvidenceFromSummaryInput(
   return {
     codes,
     seenInTranscript,
-    usedInCommitParams,
+    usedInMutateParams,
     ...(existingCodeEdgePresent !== undefined ? { existingCodeEdgePresent } : {}),
   };
 }
 
 function lastSuccessfulAttempt(
-  attempts: readonly CommitGraphAttemptReport[],
-): CommitGraphAttemptReport | undefined {
+  attempts: readonly MutateGraphAttemptReport[],
+): MutateGraphAttemptReport | undefined {
   for (let index = attempts.length - 1; index >= 0; index -= 1) {
     const attempt = attempts[index];
     if (attempt?.status === 'success') return attempt;
@@ -461,8 +461,8 @@ function lastSuccessfulAttempt(
   return undefined;
 }
 
-function commitGraphAttemptsFromSession(sessionText: string): CommitGraphAttemptReport[] {
-  const attempts: CommitGraphAttemptReport[] = [];
+function mutateGraphAttemptsFromSession(sessionText: string): MutateGraphAttemptReport[] {
+  const attempts: MutateGraphAttemptReport[] = [];
   for (const line of sessionText.split('\n')) {
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
@@ -470,20 +470,20 @@ function commitGraphAttemptsFromSession(sessionText: string): CommitGraphAttempt
     if (!isRecord(entry) || entry.type !== 'message') continue;
 
     const message = entry.message;
-    if (!isRecord(message) || message.role !== 'toolResult' || message.toolName !== 'commit_graph') {
+    if (!isRecord(message) || message.role !== 'toolResult' || message.toolName !== 'mutate_graph') {
       continue;
     }
-    attempts.push(commitGraphAttemptFromMessage(attempts.length + 1, message));
+    attempts.push(mutateGraphAttemptFromMessage(attempts.length + 1, message));
   }
   return attempts;
 }
 
-function commitGraphAttemptFromMessage(
+function mutateGraphAttemptFromMessage(
   index: number,
   message: Record<string, unknown>,
-): CommitGraphAttemptReport {
+): MutateGraphAttemptReport {
   const details = isRecord(message.details) ? message.details : undefined;
-  const status = commitGraphStatus(details?.status);
+  const status = mutateGraphStatus(details?.status);
   return {
     index,
     status,
@@ -497,7 +497,7 @@ function commitGraphAttemptFromMessage(
   };
 }
 
-function commitGraphStatus(value: unknown): CommitGraphAttemptStatus {
+function mutateGraphStatus(value: unknown): MutateGraphAttemptStatus {
   if (
     value === 'success' ||
     value === 'structural_illegal' ||
@@ -550,7 +550,8 @@ export async function writeProposeGraphCommitProofArtifacts(options: {
 }): Promise<ProposeGraphCommitProofArtifacts> {
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; disk paths are resolved against the fixture root.
-  const runDirRef = `runs/${PROBE_ID}/${options.runId}`;
+  const runId = assertPortableRunId(options.runId);
+  const runDirRef = `runs/${PROBE_ID}/${runId}`;
   const artifacts: ProposeGraphCommitProofArtifacts = {
     runDir: runDirRef,
     sessionJsonl: `${runDirRef}/session.jsonl`,
@@ -605,29 +606,29 @@ function defaultProofPrompt(scenarioId: ProposeGraphCommitScenarioId): string {
   if (scenarioId === 'existing-code-ref') {
     return `Brunch A14-L probe: the selected specification graph already contains a launch-readiness goal.
 
-Use read_graph once in overview mode. Find the projected code for the existing launch-readiness goal, then use commit_graph to create one new requirement node titled "Rollback path is documented" and one legal edge connecting that new requirement to the existing goal by using the existing node's projected code as {existingCode: "G1"}. Do not recreate the existing goal. Stop after a successful commit_graph result.`;
+Use read_graph once in overview mode. Find the projected code for the existing launch-readiness goal, then use mutate_graph to create one new requirement node titled "Rollback path is documented" and one legal edge connecting that new requirement to the existing goal by using the existing node's projected code as {existingCode: "G1"}. Do not recreate the existing goal. Stop after a successful mutate_graph result.`;
   }
   if (scenarioId === 'retry-diagnostics') {
     return `Brunch A14-L retry diagnostics probe.
 
-Use read_graph once in overview mode. Then intentionally make exactly one structurally illegal commit_graph attempt by creating two intent-plane nodes and a proof edge between them without the required stance field. Read the STRUCTURAL_ILLEGAL diagnostics. Then retry once with a corrected complete batch that creates the same two nodes and a legal proof edge with stance "for". Stop after the corrected commit_graph succeeds.`;
+Use read_graph once in overview mode. Then intentionally make exactly one structurally illegal mutate_graph attempt by creating two intent-plane nodes and a proof edge between them without the required stance field. Read the STRUCTURAL_ILLEGAL diagnostics. Then retry once with a corrected complete batch that creates the same two nodes and a legal proof edge with stance "for". Stop after the corrected mutate_graph succeeds.`;
   }
   if (scenarioId === 'ambiguity-no-overcommit') {
     return `Brunch A14-L ambiguity/no-overcommit probe.
 
 The user says: "Maybe our launch process has some risk somewhere; please update the spec graph if that seems useful."
 
-Use read_graph once in overview mode. Because the prompt does not provide a concrete accepted graph fact, do not call commit_graph. Instead, respond with a concise clarification request or explanation that there is not enough accepted graph truth to commit yet.`;
+Use read_graph once in overview mode. Because the prompt does not provide a concrete accepted graph fact, do not call mutate_graph. Instead, respond with a concise clarification request or explanation that there is not enough accepted graph truth to commit yet.`;
   }
 
-  return `Brunch A14-L probe: the user has accepted the following concept-level proposal and asked you to persist it now.\n\nConcept: A Brunch specification workspace needs an explicit launch-readiness subgraph that records the launch goal, the rollback requirement, the operator visibility criterion, and the assumption that users can recover from a failed launch.\n\nUse the read_graph tool once in overview mode, then use commit_graph to persist a coherent intent-plane graph. Requirements for the commit_graph call:\n- create at least four intent-plane nodes\n- include at least one goal, one requirement, one criterion, and one assumption\n- create at least three edges connecting the nodes\n- use only legal edge categories from the tool guidance\n- include stance only on support or proof edges\n- avoid decision and term nodes for this proof so detail schemas are not needed\n\nIf commit_graph returns STRUCTURAL_ILLEGAL, read the diagnostics and retry once with a corrected complete batch. Stop after a successful commit_graph result.`;
+  return `Brunch A14-L probe: the user has accepted the following concept-level proposal and asked you to persist it now.\n\nConcept: A Brunch specification workspace needs an explicit launch-readiness subgraph that records the launch goal, the rollback requirement, the operator visibility criterion, and the assumption that users can recover from a failed launch.\n\nUse the read_graph tool once in overview mode, then use mutate_graph to persist a coherent intent-plane graph. Requirements for the mutate_graph call:\n- create at least four intent-plane nodes\n- include at least one goal, one requirement, one criterion, and one assumption\n- create at least three edges connecting the nodes\n- use only legal edge categories from the tool guidance\n- include stance only on support or proof edges\n- avoid decision and term nodes for this proof so detail schemas are not needed\n\nIf mutate_graph returns STRUCTURAL_ILLEGAL, read the diagnostics and retry once with a corrected complete batch. Stop after a successful mutate_graph result.`;
 }
 
 function retryPrompt(diagnostics: readonly Diagnostic[]): string {
   const renderedDiagnostics = diagnostics
     .map((diagnostic) => `- ${diagnostic.field}: ${diagnostic.message}`)
     .join('\n');
-  return `The previous commit_graph attempt was structurally illegal. Retry once with a complete corrected batch. Diagnostics:\n${renderedDiagnostics}`;
+  return `The previous mutate_graph attempt was structurally illegal. Retry once with a complete corrected batch. Diagnostics:\n${renderedDiagnostics}`;
 }
 
 function defaultRunId(): string {

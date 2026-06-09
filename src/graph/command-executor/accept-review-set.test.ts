@@ -32,8 +32,8 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
     edgeDrafts: [
       {
         category: 'realization',
-        source: { draftId: 'req-rollback' },
-        target: { draftId: 'goal-launch' },
+        abstract: { draftId: 'req-rollback' },
+        concrete: { draftId: 'goal-launch' },
       },
     ],
     ...overrides,
@@ -97,12 +97,12 @@ describe('CommandExecutor.acceptReviewSet', () => {
     expect(JSON.parse(logs[0]!.payload)).toMatchObject({
       specId,
       proposalEntryId: 'tool-result-42',
-      basis: 'explicit',
-      nodes: {
+      createBasis: 'explicit',
+      createdNodes: {
         'goal-launch': expect.any(Number),
         'req-rollback': expect.any(Number),
       },
-      edges: [expect.any(Number)],
+      createdEdges: [expect.any(Number)],
     });
   });
 
@@ -122,9 +122,9 @@ describe('CommandExecutor.acceptReviewSet', () => {
         edgeDrafts: [
           {
             category: 'support',
-            source: { draftId: 'req-rollback' },
-            target: { draftId: 'goal-launch' },
-          },
+            support: { draftId: 'req-rollback' },
+            claim: { draftId: 'goal-launch' },
+          } as never,
         ],
       }),
     });

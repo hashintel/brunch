@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createDb, type BrunchDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
 import { queryGraph } from './queries.js';
-import { translateReviewSetPayloadToCommitGraph, type ReviewSetProposalPayload } from './review-set.js';
+import { translateReviewSetPayloadToMutateGraph, type ReviewSetProposalPayload } from './review-set.js';
 
 function seedSpec(db: BrunchDb): number {
   const result = new CommandExecutor(db).createSpec({ name: 'Test Spec', slug: 'test' });
@@ -47,14 +47,14 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
     edgeDrafts: [
       {
         category: 'dependency',
-        source: { draftId: 'req-rollback' },
-        target: { draftId: 'goal-launch' },
+        dependency: { draftId: 'req-rollback' },
+        dependent: { draftId: 'goal-launch' },
         rationale: 'Rollback capability is required for safe launch.',
       },
       {
         category: 'support',
-        source: { draftId: 'crit-observable' },
-        target: { draftId: 'goal-launch' },
+        support: { draftId: 'crit-observable' },
+        claim: { draftId: 'goal-launch' },
         stance: 'for',
         rationale: 'Observability supports a safe launch decision.',
       },
@@ -69,14 +69,13 @@ describe('review-set graph payload translation', () => {
     const executor = new CommandExecutor(db);
     const specId = seedSpec(db);
 
-    const result = translateReviewSetPayloadToCommitGraph({ db, specId, payload: validPayload() });
+    const result = translateReviewSetPayloadToMutateGraph({ db, specId, payload: validPayload() });
 
     expect(result).toMatchObject({ status: 'success' });
     if (result.status !== 'success') throw new Error('unreachable');
-    expect(result.command).toMatchObject({ specId, basis: 'explicit' });
-    expect(result.command.nodes).toHaveLength(3);
-    expect(result.command.edges).toHaveLength(2);
-    expect(executor.dryRunCommitGraph(result.command)).toEqual({ status: 'success' });
+    expect(result.command).toMatchObject({ specId, createBasis: 'explicit' });
+    expect(result.command.ops).toHaveLength(5);
+    expect(executor.dryRunMutateGraph(result.command)).toEqual({ status: 'success' });
     expect(queryGraph(db, specId)).toMatchObject({ nodes: [], edges: [], lsn: 1 });
   });
 
@@ -91,8 +90,8 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             relation: 'supports',
-            source: { draftId: 'crit-observable' },
-            target: { draftId: 'goal-launch' },
+            support: { draftId: 'crit-observable' },
+            claim: { draftId: 'goal-launch' },
           },
         ],
       },
@@ -101,8 +100,8 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             category: 'support',
-            source: { draftId: 'crit-observable' },
-            target: { draftId: 'goal-launch' },
+            support: { draftId: 'crit-observable' },
+            claim: { draftId: 'goal-launch' },
             stance: 'maybe',
           },
         ],
@@ -110,7 +109,7 @@ describe('review-set graph payload translation', () => {
     ];
 
     for (const payload of cases) {
-      const result = translateReviewSetPayloadToCommitGraph({ db, specId, payload });
+      const result = translateReviewSetPayloadToMutateGraph({ db, specId, payload });
       expect(result.status).toBe('structural_illegal');
     }
   });
@@ -136,40 +135,89 @@ describe('review-set graph payload translation', () => {
     });
     if (existingA.status !== 'success' || existingB.status !== 'success') throw new Error('unreachable');
 
-    const valid = translateReviewSetPayloadToCommitGraph({
+    const valid = translateReviewSetPayloadToMutateGraph({
       db,
       specId: specA,
       payload: validPayload({
         edgeDrafts: [
           {
             category: 'realization',
-            source: { existingCode: 'G1' },
-            target: { draftId: 'req-rollback' },
+            abstract: { existingCode: 'G1' },
+            concrete: { draftId: 'req-rollback' },
           },
         ],
       }),
     });
     expect(valid.status).toBe('success');
     if (valid.status !== 'success') throw new Error('unreachable');
-    expect(valid.command.edges[0]!.source).toEqual({ existing: existingA.nodeId });
+    expect(valid.command.ops[3]).toMatchObject({
+      op: 'create_edge',
+      abstract: { existing: existingA.nodeId },
+      concrete: 'req-rollback',
+    });
 
-    const unresolved = translateReviewSetPayloadToCommitGraph({
+    const unresolved = translateReviewSetPayloadToMutateGraph({
       db,
       specId: specB.specId,
       payload: validPayload({
         edgeDrafts: [
           {
             category: 'realization',
-            source: { existingCode: 'REQ1' },
-            target: { draftId: 'req-rollback' },
+            abstract: { existingCode: 'REQ1' },
+            concrete: { draftId: 'req-rollback' },
           },
         ],
       }),
     });
     expect(unresolved).toMatchObject({
       status: 'structural_illegal',
-      diagnostics: [{ field: 'edgeDrafts[0].source.existingCode' }],
+      diagnostics: [{ field: 'edgeDrafts[0].abstract.existingCode' }],
     });
+  });
+
+  it('rejects generic source/target review-set edges and keeps stance local to proof/support', () => {
+    const db = createDb(':memory:');
+    const specId = seedSpec(db);
+
+    const generic = translateReviewSetPayloadToMutateGraph({
+      db,
+      specId,
+      payload: validPayload({
+        edgeDrafts: [
+          {
+            category: 'dependency',
+            source: { draftId: 'req-rollback' },
+            target: { draftId: 'goal-launch' },
+          } as never,
+        ],
+      }),
+    });
+    expect(generic.status).toBe('structural_illegal');
+    if (generic.status !== 'structural_illegal') throw new Error('unreachable');
+    expect(generic.diagnostics.map((diagnostic) => diagnostic.field)).toEqual(
+      expect.arrayContaining([
+        'edgeDrafts[0].source',
+        'edgeDrafts[0].target',
+        'edgeDrafts[0].dependency',
+        'edgeDrafts[0].dependent',
+      ]),
+    );
+
+    const nonStance = translateReviewSetPayloadToMutateGraph({
+      db,
+      specId,
+      payload: validPayload({
+        edgeDrafts: [
+          {
+            category: 'dependency',
+            dependency: { draftId: 'req-rollback' },
+            dependent: { draftId: 'goal-launch' },
+            stance: 'for',
+          } as never,
+        ],
+      }),
+    });
+    expect(nonStance).toMatchObject({ status: 'structural_illegal' });
   });
 
   it('rejects raw existing DB ids and per-item basis fields in the review payload contract', () => {
@@ -184,15 +232,15 @@ describe('review-set graph payload translation', () => {
         edgeDrafts: [
           {
             category: 'realization',
-            source: { existing: 1 },
-            target: { draftId: 'goal-launch' },
+            abstract: { existing: 1 },
+            concrete: { draftId: 'goal-launch' },
           } as never,
         ],
       }),
     ];
 
     for (const payload of cases) {
-      const result = translateReviewSetPayloadToCommitGraph({ db, specId, payload });
+      const result = translateReviewSetPayloadToMutateGraph({ db, specId, payload });
       expect(result.status).toBe('structural_illegal');
     }
   });

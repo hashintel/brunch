@@ -3,7 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { portableCwd } from './portable-report.js';
+import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'capture-quality' as const;
 
@@ -202,7 +202,7 @@ export async function runCaptureQualityMeasurement(
     options.extractionFile ?? join(fixtureRoot, 'runs', PROBE_ID, 'sample-llm-extractions.json');
   const extractions = await readScenarioExtractions(extractionFile);
   let report = summarizeCaptureQualityRun({
-    runId: options.runId ?? defaultRunId(),
+    runId: assertPortableRunId(options.runId ?? defaultRunId()),
     generatedAt: new Date().toISOString(),
     cwd: options.cwd ?? process.cwd(),
     extractorName: options.extractorName ?? 'sample-llm-output',
@@ -275,7 +275,8 @@ export async function writeCaptureQualityArtifacts(options: {
   readonly scenarios: readonly CaptureQualityScenario[];
   readonly extractions: readonly CaptureQualityScenarioExtraction[];
 }): Promise<CaptureQualityArtifacts> {
-  const runDirRef = `runs/${PROBE_ID}/${options.report.runId}`;
+  const runId = assertPortableRunId(options.report.runId);
+  const runDirRef = `runs/${PROBE_ID}/${runId}`;
   const artifacts: CaptureQualityArtifacts = {
     runDir: runDirRef,
     scenariosJson: `${runDirRef}/scenarios.json`,
@@ -343,8 +344,7 @@ function summarizeScenario(
 function verdictFor(totals: CaptureQualityReport['totals']): CaptureQualityReport['verdict'] {
   if (totals.falseCommitCount > 0) {
     return {
-      a22ConfidenceShift:
-        'negative: the measured extractor committed at least one low-confidence implication',
+      a22ConfidenceShift: 'negative: the measured extractor made at least one high-confidence false commit',
       recommendation: 'keep_parked',
       summary:
         'Do not graduate generalized capture until the extraction prompt/model can keep undecided implications out of high-confidence graph truth.',

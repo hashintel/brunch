@@ -248,7 +248,7 @@ describe('Brunch CLI dispatch', () => {
       });
 
       expect(code).toBe(0);
-      expect(JSON.stringify(JSON.parse(chunks.join('')))).toContain('dev.graph.commitGraph');
+      expect(JSON.stringify(JSON.parse(chunks.join('')))).toContain('dev.graph.mutateGraph');
     } finally {
       if (previous === undefined) {
         delete process.env.BRUNCH_DEV_RPC;

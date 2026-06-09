@@ -90,7 +90,7 @@ describe('Brunch TUI boot', () => {
 
     try {
       const toolNames = created.session.getAllTools().map((tool) => tool.name);
-      expect(toolNames).toContain('commit_graph');
+      expect(toolNames).toContain('mutate_graph');
       expect(toolNames).toContain('read_graph');
     } finally {
       created.session.dispose();
@@ -127,7 +127,7 @@ describe('Brunch TUI boot', () => {
     });
 
     try {
-      const commitGraph = created.session.getToolDefinition('commit_graph') as
+      const mutateGraph = created.session.getToolDefinition('mutate_graph') as
         | {
             execute: (
               id: string,
@@ -138,13 +138,14 @@ describe('Brunch TUI boot', () => {
             ) => unknown;
           }
         | undefined;
-      expect(commitGraph).toBeDefined();
+      expect(mutateGraph).toBeDefined();
 
-      await commitGraph!.execute(
+      await mutateGraph!.execute(
         'commit-after-switch',
         {
-          nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Second current goal' }],
-          edges: [],
+          ops: [
+            { op: 'create_node', ref: 'n1', plane: 'intent', kind: 'goal', title: 'Second current goal' },
+          ],
         },
         undefined,
         undefined,

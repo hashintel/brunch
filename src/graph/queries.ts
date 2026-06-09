@@ -301,6 +301,14 @@ export function resolveGraphNodeCode(db: BrunchDb, specId: number, code: string)
     .get()?.id;
 }
 
+export function resolveGraphEdgeId(db: BrunchDb, specId: number, edgeId: number): number | undefined {
+  return db
+    .select({ id: schema.edges.id })
+    .from(schema.edges)
+    .where(and(eq(schema.edges.spec_id, specId), eq(schema.edges.id, edgeId)))
+    .get()?.id;
+}
+
 function rowToReconNeed(row: typeof schema.reconciliationNeed.$inferSelect): ReconciliationNeed {
   const target: ReconciliationNeedTarget =
     row.target_kind === 'edge'

@@ -156,8 +156,29 @@ describe('capture quality report', () => {
     expect(report.totals.falseCommitCount).toBe(1);
     expect(report.verdict).toMatchObject({
       recommendation: 'keep_parked',
-      a22ConfidenceShift: expect.stringContaining('negative'),
+      a22ConfidenceShift: 'negative: the measured extractor made at least one high-confidence false commit',
     });
+  });
+
+  it('rejects unsafe artifact run ids before constructing paths', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-capture-quality-artifacts-'));
+    const report = summarizeCaptureQualityRun({
+      runId: '../escape',
+      generatedAt: '2026-06-08T00:00:00.000Z',
+      cwd: fixtureRoot,
+      extractorName: 'fixture-fed',
+      scenarios: CAPTURE_QUALITY_SCENARIOS,
+      extractions: goodExtractions,
+    });
+
+    await expect(
+      writeCaptureQualityArtifacts({
+        fixtureRoot,
+        report,
+        scenarios: CAPTURE_QUALITY_SCENARIOS,
+        extractions: goodExtractions,
+      }),
+    ).rejects.toThrow('Artifact runId must be a portable single path segment');
   });
 
   it('writes portable scenario, extraction, report, and verdict artifacts', async () => {

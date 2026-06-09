@@ -8,7 +8,7 @@ import { createRpcHandlers } from '../rpc/handlers.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product-updates.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { portableCwd } from './portable-report.js';
+import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 interface JsonRpcSuccess<T> {
   readonly jsonrpc: '2.0';
@@ -83,12 +83,13 @@ const CAPTURE_TEXT = [
 export async function runCaptureResponseToGraphProof(
   options: CaptureResponseToGraphProofOptions = {},
 ): Promise<CaptureResponseToGraphProofReport> {
-  const runId =
+  const runId = assertPortableRunId(
     options.runId ??
-    new Date()
-      .toISOString()
-      .replaceAll(':', '-')
-      .replace(/\.\d{3}Z$/, 'Z');
+      new Date()
+        .toISOString()
+        .replaceAll(':', '-')
+        .replace(/\.\d{3}Z$/, 'Z'),
+  );
   const generatedAt = new Date().toISOString();
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-capture-response-'));
   const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -193,6 +194,7 @@ export async function runCaptureResponseToGraphProof(
 
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; disk paths are resolved against the fixture root.
+  assertPortableRunId(runId);
   const runDirRef = `runs/capture-response-to-graph/${runId}`;
   const diskPath = (ref: string) => resolve(fixtureRoot, ref);
   const artifacts = {

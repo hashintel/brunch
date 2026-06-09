@@ -5,12 +5,12 @@ import * as schema from '../../db/schema.js';
 import type { EdgeCategory, EdgeStance } from '../schema/edges.js';
 import { formatGraphNodeCode, type NodeKind } from '../schema/nodes.js';
 import type {
-  BatchEdgeInput,
-  BatchEdgeRef,
-  CommitGraphInput,
+  CreateGraphEdgeInput,
+  CreateGraphInput,
   CreatedGraphNodeResult,
   Diagnostic,
-} from './commit-graph-types.js';
+  GraphMutationNodeRef,
+} from './graph-mutation-types.js';
 
 const VALID_CATEGORIES = schema.EDGE_CATEGORIES as unknown as string[];
 const STANCE_REQUIRED_CATEGORIES = new Set(['proof', 'support']);
@@ -30,7 +30,7 @@ export interface PlannedBatchEdge {
   readonly rationale: string | null;
 }
 
-export interface CommitGraphBatchPlan {
+export interface CreateGraphBatchPlan {
   readonly edges: readonly PlannedBatchEdge[];
 }
 
@@ -47,12 +47,12 @@ export function formatCreatedGraphNode(row: InsertedNodeRow): CreatedGraphNodeRe
   };
 }
 
-export function planCommitGraphBatch(
+export function planCreateGraphBatch(
   db: Pick<BrunchDb, 'select'>,
-  input: CommitGraphInput,
+  input: CreateGraphInput,
   validateNode: (nodeIndex: number) => readonly Diagnostic[],
 ):
-  | { readonly status: 'success'; readonly plan: CommitGraphBatchPlan }
+  | { readonly status: 'success'; readonly plan: CreateGraphBatchPlan }
   | { readonly status: 'structural_illegal'; readonly diagnostics: readonly Diagnostic[] } {
   const diagnostics: Diagnostic[] = [];
   if (input.nodes.length === 0 && input.edges.length === 0) {
@@ -136,7 +136,7 @@ export function planCommitGraphBatch(
   return { status: 'success', plan: { edges: plannedEdges } };
 }
 
-function addExistingRefId(ref: BatchEdgeRef, refs: Set<number>): void {
+function addExistingRefId(ref: GraphMutationNodeRef, refs: Set<number>): void {
   if (typeof ref === 'string') return;
   refs.add(ref.existing);
 }
@@ -146,7 +146,7 @@ function endpointKey(endpoint: PlannedBatchEndpoint): string | number {
 }
 
 function resolveEndpointRef(
-  ref: BatchEdgeRef,
+  ref: GraphMutationNodeRef,
   specId: number,
   batchRefs: ReadonlyMap<string, string>,
   existingNodeIds: ReadonlySet<number>,
@@ -176,7 +176,7 @@ function resolveEndpointRef(
 }
 
 function validateAndPlanBatchEdge(
-  input: BatchEdgeInput,
+  input: CreateGraphEdgeInput,
   index: number,
   batchRefs: ReadonlyMap<string, string>,
   existingNodeIds: ReadonlySet<number>,

@@ -56,14 +56,14 @@ describe('seedFixture', () => {
     expect(edgeRows).toHaveLength(fixture.edges.length);
     expect(nodeRows.every((row) => row.basis === 'explicit')).toBe(true);
 
-    // Graph clock advanced once per command for this spec: createSpec + commitGraph = lsn 2.
+    // Graph clock advanced once per command for this spec: createSpec + mutateGraph = lsn 2.
     expect(graphClockLsn(db, result.specId)).toBe(2);
 
     // Change log records both mutations in order for this spec.
     const logs = db.select().from(changeLog).all();
     expect(logs.map((row) => [row.spec_id, row.operation])).toEqual([
       [result.specId, 'create_spec'],
-      [result.specId, 'commit_graph'],
+      [result.specId, 'mutate_graph'],
     ]);
   });
 
@@ -146,9 +146,9 @@ describe('seedFixture', () => {
         .all(),
     ).toEqual([
       { specId: first.specId, lsn: 1, operation: 'create_spec' },
-      { specId: first.specId, lsn: 2, operation: 'commit_graph' },
+      { specId: first.specId, lsn: 2, operation: 'mutate_graph' },
       { specId: second.specId, lsn: 1, operation: 'create_spec' },
-      { specId: second.specId, lsn: 2, operation: 'commit_graph' },
+      { specId: second.specId, lsn: 2, operation: 'mutate_graph' },
     ]);
   });
 

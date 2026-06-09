@@ -10,9 +10,9 @@ import {
   type GraphVisibility,
 } from '../../graph/queries.js';
 import {
-  translateCommitGraph,
-  formatCommitGraphResult,
+  translateMutateGraph,
   formatGraphOverview,
+  formatMutateGraphResult,
 } from '../extensions/graph/command-adapter.js';
 import { registerBrunchGraph, type GraphReaders } from '../extensions/graph/index.js';
 
@@ -39,10 +39,18 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
 
 describe('graph tool adapter', () => {
   it('translates existing projected codes before handing edges to CommandExecutor', () => {
-    const input = translateCommitGraph(
+    const input = translateMutateGraph(
       {
-        nodes: [{ ref: 'n1', plane: 'intent', kind: 'goal', title: 'Test goal' }],
-        edges: [{ category: 'support', source: { existingCode: 'G1' }, target: 'n1', stance: 'for' }],
+        ops: [
+          { op: 'create_node', ref: 'n1', plane: 'intent', kind: 'goal', title: 'Test goal' },
+          {
+            op: 'create_edge',
+            category: 'support',
+            support: { existingCode: 'G1' },
+            claim: 'n1',
+            stance: 'for',
+          },
+        ],
       },
       7,
       (code) => (code === 'G1' ? 42 : undefined),
@@ -50,7 +58,13 @@ describe('graph tool adapter', () => {
 
     expect('status' in input).toBe(false);
     if ('status' in input) throw new Error('unreachable');
-    expect(input.edges[0]!.source).toEqual({ existing: 42 });
+    expect(input.ops[1]).toMatchObject({
+      op: 'create_edge',
+      category: 'support',
+      support: { existing: 42 },
+      claim: 'n1',
+      stance: 'for',
+    });
   });
 
   it('formats graph slices for LLM-facing tool content', () => {
@@ -59,7 +73,7 @@ describe('graph tool adapter', () => {
 });
 
 describe('graph tools end-to-end', () => {
-  it('commit_graph creates nodes and read_graph overview reads the selected-spec slice', async () => {
+  it('mutate_graph creates nodes and read_graph overview reads the selected-spec slice', async () => {
     const db = createTestDb();
     const executor = new CommandExecutor(db);
     const specId = seedSpec(db);
@@ -73,19 +87,19 @@ describe('graph tools end-to-end', () => {
       reads,
     });
 
-    const commit = tools.find((tool) => tool.name === 'commit_graph')!;
+    const commit = tools.find((tool) => tool.name === 'mutate_graph')!;
     const read = tools.find((tool) => tool.name === 'read_graph')!;
 
     const commitResult = (await commit.execute('tool-1', {
-      nodes: [
-        { ref: 'n1', plane: 'intent', kind: 'goal', title: 'Build graph API' },
-        { ref: 'n2', plane: 'intent', kind: 'requirement', title: 'Expose queryGraph' },
+      ops: [
+        { op: 'create_node', ref: 'n1', plane: 'intent', kind: 'goal', title: 'Build graph API' },
+        { op: 'create_node', ref: 'n2', plane: 'intent', kind: 'requirement', title: 'Expose queryGraph' },
+        { op: 'create_edge', category: 'dependency', dependency: 'n2', dependent: 'n1' },
       ],
-      edges: [{ category: 'dependency', source: 'n2', target: 'n1' }],
     } as never)) as { content: readonly { text: string }[]; details: { status: string } };
 
     expect(commitResult.details.status).toBe('success');
-    expect(formatCommitGraphResult(commitResult.details as never)).toContain('Graph committed successfully');
+    expect(formatMutateGraphResult(commitResult.details as never)).toContain('Graph mutated successfully');
 
     const readResult = (await read.execute('tool-2', { mode: 'overview' } as never)) as {
       content: readonly { text: string }[];

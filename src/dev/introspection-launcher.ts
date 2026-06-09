@@ -8,6 +8,7 @@ import type {
   BrunchIntrospectionStore,
   BrunchIntrospectionTurnCapture,
 } from '../.pi/brunch-pi-extensions.js';
+import { assertPortableRunId } from '../probes/portable-report.js';
 import { latestAssistantText } from './agent-messages.js';
 
 export type BrunchIntrospectionSession = Pick<AgentSession, 'prompt' | 'messages'>;
@@ -48,19 +49,24 @@ export async function runBrunchIntrospectionTurn(
 ): Promise<BrunchIntrospectionLauncherResult> {
   const now = options.now ?? (() => new Date());
   const generatedAt = now().toISOString();
-  const runId = options.runId ?? `introspection-${generatedAt.replaceAll(':', '').replaceAll('.', '')}`;
+  const runId = assertPortableRunId(
+    options.runId ?? `introspection-${generatedAt.replaceAll(':', '').replaceAll('.', '')}`,
+  );
   const prompt = options.prompt ?? DEFAULT_INTROSPECTION_PROMPT;
+  const passiveCaptureCursor = options.store.passiveCaptureCursor();
 
   await options.session.prompt(prompt, { expandPromptTemplates: false, source: 'rpc' });
 
-  const passiveCapture = options.store.latestPassiveCapture();
+  const passiveCapture = options.store.latestPassiveCaptureAfter(passiveCaptureCursor);
   if (!passiveCapture) {
     throw new Error(
-      'Introspection run did not capture a provider payload. Is the introspection extension enabled?',
+      'Introspection run did not capture a provider payload for the prompted turn. Is the introspection extension enabled?',
     );
   }
 
-  const baseReport = options.store.latestBaseReport();
+  const latestBaseReport = options.store.latestBaseReport();
+  const baseReport =
+    latestBaseReport?.latestPassiveCapture?.turnId === passiveCapture.turnId ? latestBaseReport : undefined;
   const artifact: BrunchIntrospectionRunArtifact = {
     runId,
     generatedAt,

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { runCreateOnlyMutation } from '../graph/test-support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import {
@@ -272,7 +273,7 @@ describe('web host', () => {
     workspace.session.manager.appendMessage(assistantMessage('Question'));
     workspace.session.manager.appendMessage(userMessage('Answer'));
     const graph = await openWorkspaceGraphRuntime(cwd);
-    const commit = graph.commandExecutor.commitGraph({
+    const commit = runCreateOnlyMutation(graph.commandExecutor, {
       specId: workspace.spec.id,
       nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Visible goal' }],
       edges: [],

@@ -1,5 +1,5 @@
 /**
- * Formats projected commit_graph mutation results into model-facing text.
+ * Formats projected mutate_graph mutation results into model-facing text.
  *
  * Input:
  * - projected output from projections/graph/commit-result.ts

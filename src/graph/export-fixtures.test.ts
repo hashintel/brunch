@@ -4,6 +4,7 @@ import { createDb, type BrunchDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
 import { exportSeedFixture, formatSeedFixture } from './export-fixtures.js';
 import { seedFixture, type SeedFixture } from './seed-fixtures.js';
+import { runCreateOnlyMutation } from './test-support/create-only-mutation.js';
 
 function normalizeFixture(fixture: SeedFixture): SeedFixture {
   return {
@@ -96,7 +97,7 @@ describe('exportSeedFixture', () => {
     expect(created.status).toBe('success');
     if (created.status !== 'success') return;
 
-    const committed = executor.commitGraph({
+    const committed = runCreateOnlyMutation(executor, {
       specId: created.specId,
       basis: 'explicit',
       nodes: [

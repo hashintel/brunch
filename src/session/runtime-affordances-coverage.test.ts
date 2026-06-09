@@ -123,11 +123,11 @@ describe('runtime affordances coverage ledger', () => {
 
   it('covers all agent-required rows through the shared affordances derivation', () => {
     const derived = affordances(resolveBrunchAgentState(DEFAULT_BRUNCH_AGENT_STATE), 'commitments_ready');
-    const derivedRows = Object.entries(derived).flatMap(([axis, axisAffordance]) =>
-      Object.keys(axisAffordance).map((field) =>
-        field === 'legalOptions' ? `${axis}.options` : `${axis}.default_on_switch`,
-      ),
-    );
+    const derivedRows = Object.entries(derived).flatMap(([axis, axisAffordance]) => {
+      const { selection: _selection, ...derivedFields } = axisAffordance;
+      expect(Object.keys(derivedFields).sort()).toEqual(['defaultOnSwitch', 'legalOptions']);
+      return [`${axis}.options`, `${axis}.default_on_switch`];
+    });
 
     expect(new Set(derivedRows)).toEqual(
       new Set(requiredRowsFor('agent').filter((row) => !row.endsWith('.selection'))),

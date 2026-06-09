@@ -119,5 +119,5 @@ code, that slice owns the dependency/import change.
 - `agent-browser` was verified on 2026-06-04 with the sandbox launch args above.
 - A browser-observable FE-795 smoke opened a fresh selected-spec web dashboard,
   observed empty graph state, committed a node through the default Brunch
-  runtime `commit_graph` tool path with the shared product-update bus, and
+  runtime `mutate_graph` tool path with the shared product-update bus, and
   observed the browser update without page reload.

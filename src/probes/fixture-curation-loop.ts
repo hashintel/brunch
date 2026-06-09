@@ -11,23 +11,23 @@ import { createBrunchAgentSessionRuntimeFactory } from '../app/brunch-tui.js';
 import {
   formatGraphNodeCode,
   openWorkspaceGraphRuntime,
-  type CommitGraphSuccess,
   type Diagnostic,
   type GraphNode,
   type GraphSlice,
+  type MutateGraphSuccess,
   type StructuralIllegal,
 } from '../graph/index.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { portableCwd } from './portable-report.js';
+import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'fixture-curation' as const;
 const DEFAULT_SEED_SET = 'bilal-port-variants';
 const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
 
 type FixtureCurationCommitStatus =
-  | CommitGraphSuccess['status']
+  | MutateGraphSuccess['status']
   | StructuralIllegal['status']
   | 'needs_human'
   | 'policy_blocked'
@@ -94,8 +94,8 @@ export interface FixtureCurationReport {
   readonly runtimeState: FixtureCurationRuntimeStateReport;
   readonly model?: string;
   readonly success: boolean;
-  readonly commitGraphAttemptCount: number;
-  readonly commitGraphAttempts: FixtureCurationCommitAttempt[];
+  readonly mutateGraphAttemptCount: number;
+  readonly mutateGraphAttempts: FixtureCurationCommitAttempt[];
   readonly createdNodes: FixtureCurationCreatedNode[];
   readonly finalGraph: {
     readonly nodeCount: number;
@@ -137,7 +137,7 @@ export async function runFixtureCurationLoop(
   const seedSet = options.seedSet ?? DEFAULT_SEED_SET;
   const seedSlug = options.seedSlug ?? DEFAULT_SEED_SLUG;
   const selectedBaseProfile = options.selectedBaseProfile ?? 'grounded-intent';
-  const runId = options.runId ?? defaultRunId();
+  const runId = assertPortableRunId(options.runId ?? defaultRunId());
   const prompt = options.prompt ?? defaultCurationPrompt();
   const generatedAt = new Date().toISOString();
   const fixture = await readSeedFixture(join(fixtureRoot, 'seeds', seedSet, `${seedSlug}.json`));
@@ -213,7 +213,7 @@ export async function runFixtureCurationLoop(
 }
 
 export function summarizeFixtureCurationRun(input: FixtureCurationSummaryInput): FixtureCurationReport {
-  const commitGraphAttempts = commitGraphAttemptsFromSession(input.sessionText);
+  const mutateGraphAttempts = mutateGraphAttemptsFromSession(input.sessionText);
   const createdNodes = input.overview.nodes.flatMap((node): FixtureCurationCreatedNode[] => {
     if (node.basis !== 'implicit') return [];
     return [
@@ -232,14 +232,14 @@ export function summarizeFixtureCurationRun(input: FixtureCurationSummaryInput):
   const explicitEdgeCount = input.overview.edges.filter((edge) => edge.basis === 'explicit').length;
   const implicitEdgeCount = input.overview.edges.filter((edge) => edge.basis === 'implicit').length;
   const friction = [...(input.friction ?? [])];
-  const hasSuccessfulCommit = commitGraphAttempts.some((attempt) => attempt.status === 'success');
+  const hasSuccessfulCommit = mutateGraphAttempts.some((attempt) => attempt.status === 'success');
 
-  if (commitGraphAttempts.length === 0) {
-    friction.push('No commit_graph tool result was recorded in the session transcript.');
+  if (mutateGraphAttempts.length === 0) {
+    friction.push('No graph mutation tool result was recorded in the session transcript.');
   }
-  if (!hasSuccessfulCommit && commitGraphAttempts.length > 0) {
+  if (!hasSuccessfulCommit && mutateGraphAttempts.length > 0) {
     friction.push(
-      `No commit_graph attempt succeeded; final status was ${commitGraphAttempts.at(-1)!.status}.`,
+      `No graph mutation attempt succeeded; final status was ${mutateGraphAttempts.at(-1)!.status}.`,
     );
   }
   if (implicitNodeCount === 0) {
@@ -261,8 +261,8 @@ export function summarizeFixtureCurationRun(input: FixtureCurationSummaryInput):
     runtimeState: input.runtimeState,
     ...(input.model !== undefined ? { model: input.model } : {}),
     success: hasSuccessfulCommit && implicitNodeCount > 0,
-    commitGraphAttemptCount: commitGraphAttempts.length,
-    commitGraphAttempts,
+    mutateGraphAttemptCount: mutateGraphAttempts.length,
+    mutateGraphAttempts,
     createdNodes,
     finalGraph: {
       nodeCount: input.overview.nodes.length,
@@ -287,7 +287,8 @@ export async function writeFixtureCurationArtifacts(options: {
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; the disk paths used for writing are resolved
   // against the (possibly absolute) fixture root.
-  const runDirRef = `runs/${PROBE_ID}/${options.runId}`;
+  const runId = assertPortableRunId(options.runId);
+  const runDirRef = `runs/${PROBE_ID}/${runId}`;
   const artifacts: FixtureCurationArtifacts = {
     runDir: runDirRef,
     sessionJsonl: `${runDirRef}/session.jsonl`,
@@ -319,7 +320,7 @@ async function readSeedFixture(path: string): Promise<SeedFixture> {
   return JSON.parse(await readFile(path, 'utf8')) as SeedFixture;
 }
 
-function commitGraphAttemptsFromSession(sessionText: string): FixtureCurationCommitAttempt[] {
+function mutateGraphAttemptsFromSession(sessionText: string): FixtureCurationCommitAttempt[] {
   const attempts: FixtureCurationCommitAttempt[] = [];
   for (const line of sessionText.split('\n')) {
     const trimmed = line.trim();
@@ -327,22 +328,22 @@ function commitGraphAttemptsFromSession(sessionText: string): FixtureCurationCom
     const entry = parseJson(trimmed);
     if (!isRecord(entry) || entry.type !== 'message') continue;
     const message = entry.message;
-    if (!isRecord(message) || message.role !== 'toolResult' || message.toolName !== 'commit_graph') {
+    if (!isRecord(message) || message.role !== 'toolResult' || message.toolName !== 'mutate_graph') {
       continue;
     }
-    attempts.push(commitGraphAttemptFromMessage(attempts.length + 1, message));
+    attempts.push(mutateGraphAttemptFromMessage(attempts.length + 1, message));
   }
   return attempts;
 }
 
-function commitGraphAttemptFromMessage(
+function mutateGraphAttemptFromMessage(
   index: number,
   message: Record<string, unknown>,
 ): FixtureCurationCommitAttempt {
   const details = isRecord(message.details) ? message.details : undefined;
   return {
     index,
-    status: commitGraphStatus(details?.status),
+    status: mutateGraphStatus(details?.status),
     ...(typeof details?.lsn === 'number' ? { lsn: details.lsn } : {}),
     ...(isCreatedNodeRecord(details?.createdNodes)
       ? { nodeRefs: mapCreatedNodeIds(details.createdNodes) }
@@ -353,7 +354,7 @@ function commitGraphAttemptFromMessage(
   };
 }
 
-function commitGraphStatus(value: unknown): FixtureCurationCommitStatus {
+function mutateGraphStatus(value: unknown): FixtureCurationCommitStatus {
   if (
     value === 'success' ||
     value === 'structural_illegal' ||
@@ -369,7 +370,7 @@ function commitGraphStatus(value: unknown): FixtureCurationCommitStatus {
 function defaultCurationPrompt(): string {
   return `Brunch fixture-curation tracer: the selected spec is a Bilal-derived explicit base seed named "${DEFAULT_SEED_SLUG}".
 
-Use read_graph once in overview mode. Then use commit_graph exactly once to add a small intent-plane expansion that improves launch/usefulness of this existing spec without duplicating base nodes. Create one to three new intent-plane nodes, connect them legally to existing graph truth when possible, use basis implicit through the propose-graph tool path, and stop after a successful commit_graph result.`;
+Use read_graph once in overview mode. Then use mutate_graph exactly once to add a small intent-plane expansion that improves launch/usefulness of this existing spec without duplicating base nodes. Create one to three new intent-plane nodes, connect them legally to existing graph truth when possible, use basis implicit through the propose-graph tool path, and stop after a successful mutate_graph result.`;
 }
 
 function defaultRunId(): string {

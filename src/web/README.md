@@ -397,10 +397,10 @@ ProposeGraphExchange route/panel
 
   after submit:
     pendingExchange invalidates immediately
-    graph projections update only after agent-internal commitGraph succeeds
+    graph projections update only after agent-internal mutateGraph succeeds
 ```
 
-The browser does not call `commitGraph`, does not submit node/edge drafts in `propose-graph`, and does not treat proposal prose as graph truth.
+The browser does not call `mutateGraph` directly, does not submit node/edge drafts in `propose-graph`, and does not treat proposal prose as graph truth.
 
 ## Testing expectations
 

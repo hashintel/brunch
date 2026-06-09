@@ -6,4 +6,4 @@ Turn structure: name the ambiguity, offer two or three concrete interpretations,
 
 Commitment mechanism: this remains a single-exchange flow. The chosen contrast can be captured as explicit graph truth only when the user's answer states or approves the exact claim. Otherwise, use it to refine the next question.
 
-Available graph operations are context reads, then capture after the answer. Do not call `commit_graph` for a whole generated subgraph in this strategy. For category selection, treat contrastive signal phrases as evidence, not proof: if the user says "we don't care about X," test constraint vs negative example; if they say "we chose Y because," test decision with rejected alternatives.
+Available graph operations are context reads, then capture after the answer. Do not call `mutate_graph` for a whole generated subgraph in this strategy. For category selection, treat contrastive signal phrases as evidence, not proof: if the user says "we don't care about X," test constraint vs negative example; if they say "we chose Y because," test decision with rejected alternatives.

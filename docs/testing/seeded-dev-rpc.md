@@ -5,8 +5,8 @@ Use this guide when you want a practical local Brunch workspace populated with r
 This is a **local development harness**:
 
 - reusable seed files under `.fixtures/seeds/**` are explicit starting truth;
-- `dev.graph.commitGraph` is opt-in and routes through `CommandExecutor`, but is not a product API;
-- product-flow proof still comes from transcript-backed runs that use the real agent tools (`read_graph` / `commit_graph`).
+- `dev.graph.mutateGraph` is opt-in and routes through `CommandExecutor`, but is not a product API;
+- product-flow proof still comes from transcript-backed runs that use the real agent tools (`read_graph` / `mutate_graph`).
 
 ## 0. Choose an isolated workspace
 
@@ -59,7 +59,7 @@ brunch_rpc() {
 }
 ```
 
-`BRUNCH_DEV_RPC=1` enables `dev.graph.commitGraph`. Without that env var, the method is absent from discovery and calls return `Method not found`.
+`BRUNCH_DEV_RPC=1` enables `dev.graph.mutateGraph`. Without that env var, the method is absent from discovery and calls return `Method not found`.
 
 RPC output may include `brunch.updated` notifications as separate JSON lines. Filter responses by `id` when scripting:
 
@@ -104,7 +104,7 @@ ordering.
 
 ## 4. Activate a session when session methods matter
 
-Graph reads and `dev.graph.commitGraph` take explicit `specId` and do not require a selected session. Session methods do.
+Graph reads and `dev.graph.mutateGraph` take explicit `specId` and do not require a selected session. Session methods do.
 
 Create a new session for a seeded spec:
 
@@ -115,15 +115,15 @@ brunch_rpc "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"workspace.activate\",\"pa
 
 Then session calls such as `session.triggerExchange`, `session.pendingExchange`, `session.submitExchangeResponse`, and `session.runtimeState` operate on that selected session unless you pass an explicit session target where supported.
 
-## 5. Make a dev graph commit
+## 5. Make a dev graph mutation
 
-Use `dev.graph.commitGraph` for exact local curation or seam testing. Default to `basis: "explicit"` when you are manually authoring fixture truth.
+Use `dev.graph.mutateGraph` for exact local curation or seam testing. Default to `createBasis: "explicit"` when you are manually authoring new fixture truth.
 
 The example below adds a thesis and connects it to an existing goal. Replace `G1` with a real code from your `graph.overview` output.
 
 ```bash
 cat > /tmp/brunch-dev-commit.json <<JSON
-{"jsonrpc":"2.0","id":90,"method":"dev.graph.commitGraph","params":{"specId":$SPEC_ID,"basis":"explicit","nodes":[{"ref":"th1","plane":"intent","kind":"thesis","title":"The macro view should make derivation history legible from structure alone.","body":"Manual dev curation thesis for local fixture testing.","source":"manual-dev-rpc"}],"edges":[{"category":"support","source":{"existingCode":"G1"},"target":"th1","stance":"for","rationale":"The existing goal motivates this thesis."}]}}
+{"jsonrpc":"2.0","id":90,"method":"dev.graph.mutateGraph","params":{"specId":$SPEC_ID,"createBasis":"explicit","ops":[{"op":"create_node","ref":"th1","plane":"intent","kind":"thesis","title":"The macro view should make derivation history legible from structure alone.","body":"Manual dev curation thesis for local fixture testing.","source":"manual-dev-rpc"},{"op":"create_edge","category":"support","support":{"existingCode":"G1"},"claim":"th1","stance":"for","rationale":"The existing goal motivates this thesis."}]}}
 JSON
 
 (
@@ -172,11 +172,11 @@ For inspection without writing:
 - `explicit` — exact human-authored/manual curation or exact reviewed items.
 - `implicit` — agent materialized specific graph items after concept-level acceptance.
 
-Do not use `dev.graph.commitGraph` with `basis: "implicit"` as evidence that the product `propose-graph` flow works. Product proof requires a transcript with a real `commit_graph` tool result.
+Do not use `dev.graph.mutateGraph` with `createBasis: "implicit"` as evidence that the product `propose-graph` flow works. Product proof requires a transcript with a real `mutate_graph` tool result.
 
 ## 6. Run the product-path fixture curation tracer
 
-When you need proof that the agent/tool path can expand a seeded fixture, run the curation probe. It loads an explicit base variant and asks the real Brunch runtime to use `read_graph` then `commit_graph`.
+When you need proof that the agent/tool path can expand a seeded fixture, run the curation probe. It loads an explicit base variant and asks the real Brunch runtime to use `read_graph` then `mutate_graph`.
 
 ```bash
 "$REPO/node_modules/.bin/tsx" "$REPO/src/probes/fixture-curation-loop.ts" \
@@ -195,17 +195,17 @@ A successful run writes:
 └── graph-overview.json
 ```
 
-The existing reference run is `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/`. Its report shows 70 explicit base nodes plus implicit product-created nodes/edges from one real `commit_graph` tool call.
+The checked-in reference run `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/` is historical pre-migration evidence from the earlier `commit_graph` tool. Fresh runs of `src/probes/fixture-curation-loop.ts` now use `mutate_graph` and should be preferred when you need current product-path proof.
 
 ## 7. Browser/TUI notes
 
-The TUI-started web sidecar is read-only. It can observe graph updates from the same host, but it does not expose `dev.graph.commitGraph`.
+The TUI-started web sidecar is read-only. It can observe graph updates from the same host, but it does not expose `dev.graph.mutateGraph`.
 
 For agent-addressable dev mutations, run a separate `BRUNCH_DEV_RPC=1 --mode=rpc` command against the same workspace directory. Keep to the one-writer discipline: do not run concurrent dev RPC writes and TUI/agent writes against the same workspace unless you are deliberately testing concurrency behavior.
 
 ## Troubleshooting
 
-- `Method not found` for `dev.graph.commitGraph`: check `BRUNCH_DEV_RPC=1` and ensure you are using `--mode=rpc`, not the TUI-started web sidecar.
+- `Method not found` for `dev.graph.mutateGraph`: check `BRUNCH_DEV_RPC=1` and ensure you are using `--mode=rpc`, not the TUI-started web sidecar.
 - `graph node code "G1" does not resolve`: inspect `graph.overview` for the selected `specId`; codes are spec-scoped.
 - Empty `workspace.selectionState`: check that you seeded from the same `$DEV_WORKSPACE` directory you are using for RPC.
 - Stale or surprising graph state: reset only the scratch workspace with `rm -rf "$DEV_WORKSPACE/.brunch"`, then reseed.

@@ -3,7 +3,7 @@
 - totals: 54 node(s), 30 edge(s)
 - design/interface (2):
   - [API1] design/interface: Public Brunch JSON-RPC session.* methods
-  - [API2] design/interface: commit_graph agent-facing tool schema
+  - [API2] design/interface: mutate_graph agent-facing tool schema
 - design/module (4):
   - [MOD1] design/module: CommandExecutor — the graph mutation authority
   - [MOD2] design/module: .pi/agents/compose — runtime header plus gated prompt-resource manifest
@@ -36,7 +36,7 @@
   - [G2] intent/goal: Surface cross-session graph changes to the agent coherently at turn boundaries
 - intent/invariant (4):
   - [INV1] intent/invariant: One spec-local LSN per commit; exactly one graph_clock row per spec
-  - [INV2] intent/invariant: commitGraph batch validation is all-or-nothing
+  - [INV2] intent/invariant: mutateGraph batch validation is all-or-nothing
   - [INV3] intent/invariant: Same-spec supersession edges form an acyclic directed graph
   - …1 more node(s) omitted
 - intent/requirement (5):
