@@ -17,6 +17,7 @@
 // Reconciliation still runs against an empty enrichment so the caller
 // receives a usable orderless plan rather than no plan at all.
 
+import { repairPlan } from './plan-contract.js';
 import {
   defaultRunModel,
   planExecutionOrdering,
@@ -31,6 +32,7 @@ import {
   reconciliationWarningCategory,
   type ReconciliationWarning,
 } from './plan-reconciliation.js';
+import { defaultToolchain, type Toolchain } from './project-profile.js';
 import type { Plan } from './types.js';
 
 const EMPTY_ENRICHMENT: PlanningEnrichment = {
@@ -44,7 +46,10 @@ const EMPTY_ENRICHMENT: PlanningEnrichment = {
  * with `planning-failed` so a caller iterating `warnings` sees both
  * reconciliation transformations and LLM-stage failures in one stream.
  */
-export type EmitterWarning = ReconciliationWarning | { code: 'planning-failed'; reason: string };
+export type EmitterWarning =
+  | ReconciliationWarning
+  | { code: 'synthesized-integration-seam'; epicId: string; target: string }
+  | { code: 'planning-failed'; reason: string };
 
 export type EmitPlanResult = {
   plan: Plan;
@@ -58,6 +63,12 @@ export type EmitPlanOptions = {
    * anthropic adapter (`defaultRunModel`). Tests inject a stub.
    */
   runModel?: RunModel;
+  /**
+   * Toolchain descriptor that shapes verification targets. Defaults to
+   * the bun profile. Threaded through reconciliation and the contract
+   * repair so synthesized targets are derived, not hardcoded.
+   */
+  toolchain?: Toolchain;
 };
 
 export async function emitPlanFromSnapshot(
@@ -65,17 +76,28 @@ export async function emitPlanFromSnapshot(
   options: EmitPlanOptions = {},
 ): Promise<EmitPlanResult> {
   const runModel = options.runModel ?? defaultRunModel;
+  const toolchain = options.toolchain ?? defaultToolchain;
 
   const projected = projectPlanFromSpec(snapshot);
   const planningResult = await planExecutionOrdering(projected, runModel);
   const enrichment = planningResult.status === 'succeeded' ? planningResult.enrichment : EMPTY_ENRICHMENT;
-  const { plan, warnings: reconciliationWarnings } = reconcilePlan(projected, enrichment);
+  const { plan: candidate, warnings: reconciliationWarnings } = reconcilePlan(
+    projected,
+    enrichment,
+    toolchain,
+  );
+
+  // Gate output on the executability contract: deterministic repair
+  // synthesizes the per-epic integration seam reconciliation does not,
+  // so every emitted plan satisfies the strict `emitted` profile.
+  const { plan, repairs } = repairPlan(candidate, toolchain);
 
   const warnings: EmitterWarning[] = [];
   if (planningResult.status === 'failed') {
     warnings.push({ code: 'planning-failed', reason: planningResult.reason });
   }
   warnings.push(...reconciliationWarnings);
+  warnings.push(...repairs);
 
   return { plan, warnings, planningResult };
 }
@@ -88,6 +110,7 @@ export async function emitPlanFromSnapshot(
  */
 export function emitterWarningCategory(warning: EmitterWarning): 'transformation' | 'synthesis' | 'failure' {
   if (warning.code === 'planning-failed') return 'failure';
+  if (warning.code === 'synthesized-integration-seam') return 'synthesis';
   return reconciliationWarningCategory(warning);
 }
 
@@ -98,6 +121,9 @@ export function emitterWarningCategory(warning: EmitterWarning): 'transformation
 export function formatEmitterWarning(warning: EmitterWarning): string {
   if (warning.code === 'planning-failed') {
     return `planning-failed  ${warning.reason}`;
+  }
+  if (warning.code === 'synthesized-integration-seam') {
+    return `synthesized-integration-seam  ${warning.epicId} → ${warning.target}`;
   }
   return formatReconciliationWarning(warning);
 }

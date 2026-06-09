@@ -6,7 +6,9 @@
 // redirects, breaks, or synthesizes a value surfaces as a typed
 // ReconciliationWarning so the reviewer can audit slice 2's output.
 
+import { breakDependencyCycles } from './plan-graph.js';
 import type { PlanningEnrichment } from './plan-llm-planning.js';
+import { defaultToolchain, type Toolchain } from './project-profile.js';
 import type { Epic, Plan, Slice } from './types.js';
 
 export type ReconciliationWarning =
@@ -25,6 +27,7 @@ const DEFAULT_EPIC_SUMMARY = 'All requirements';
 export function reconcilePlan(
   projected: Plan,
   enrichment: PlanningEnrichment,
+  toolchain: Toolchain = defaultToolchain,
 ): { plan: Plan; warnings: ReconciliationWarning[] } {
   const warnings: ReconciliationWarning[] = [];
 
@@ -82,37 +85,18 @@ export function reconcilePlan(
     dependsOnBySliceId.set(entry.sliceId, filtered);
   }
 
-  // 3. Cycle-break via Kahn's algorithm with lex-smallest tie-break.
-  //    When no in-degree-zero node remains, drop all "remaining" incoming
-  //    deps of the lex-smallest remaining sliceId (warning per edge).
-  const remaining = new Set(survivingIds);
-  while (remaining.size > 0) {
-    const ready: string[] = [];
-    for (const id of remaining) {
-      const deps = dependsOnBySliceId.get(id) ?? [];
-      if (deps.every((dep) => !remaining.has(dep))) ready.push(id);
-    }
-    if (ready.length > 0) {
-      for (const id of ready) remaining.delete(id);
-      continue;
-    }
-    const sorted = [...remaining].sort();
-    const target = sorted[0]!;
-    const deps = dependsOnBySliceId.get(target) ?? [];
-    const kept: string[] = [];
-    for (const dep of deps) {
-      if (remaining.has(dep)) {
-        warnings.push({
-          code: 'cycle-break-dropped-edge',
-          sliceId: target,
-          droppedDependsOn: dep,
-        });
-      } else {
-        kept.push(dep);
-      }
-    }
-    dependsOnBySliceId.set(target, kept);
-    // Loop continues; `target` now has zero remaining-in-degree.
+  // 3. Cycle-break via the shared Kahn policy (lex-smallest tie-break),
+  //    so reconciliation and the FE-829 PlanContract repair never drift.
+  const { dependsOnById: acyclicDeps, droppedEdges } = breakDependencyCycles(
+    survivingIds,
+    dependsOnBySliceId,
+  );
+  for (const edge of droppedEdges) {
+    warnings.push({
+      code: 'cycle-break-dropped-edge',
+      sliceId: edge.sliceId,
+      droppedDependsOn: edge.dependsOn,
+    });
   }
 
   // 4. Resolve epic grouping. LLM-proposed epics with zero surviving slices
@@ -152,13 +136,13 @@ export function reconcilePlan(
 
   // 5. Construct output slices in projected order with synthesized verification.
   const outputSlices: Slice[] = survivingSlices.map((slice) => {
-    const target = `tests/${slice.id}.test.ts`;
+    const target = toolchain.sliceTarget(slice.id);
     warnings.push({ code: 'synthesized-verification-target', sliceId: slice.id, target });
     return {
       id: slice.id,
       epic_id: epicAssignment.get(slice.id) ?? slice.epic_id,
       definition: enrichDefinitionWithCriteria(slice),
-      depends_on: dependsOnBySliceId.get(slice.id) ?? [],
+      depends_on: acyclicDeps.get(slice.id) ?? [],
       verification: [{ kind: 'unit-test', target }],
     };
   });
