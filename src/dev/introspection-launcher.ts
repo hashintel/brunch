@@ -22,7 +22,6 @@ export interface BrunchIntrospectionLauncherOptions {
   readonly runId?: string;
   readonly prompt?: string;
   readonly now?: () => Date;
-  readonly env?: { PI_OFFLINE?: string };
 }
 
 export interface BrunchIntrospectionRunArtifact {
@@ -50,8 +49,6 @@ const DEFAULT_INTROSPECTION_PROMPT =
 export async function runBrunchIntrospectionTurn(
   options: BrunchIntrospectionLauncherOptions,
 ): Promise<BrunchIntrospectionLauncherResult> {
-  liftBrunchIntrospectionOfflineDefault(options.env ?? process.env);
-
   const now = options.now ?? (() => new Date());
   const generatedAt = now().toISOString();
   const runId = options.runId ?? `introspection-${generatedAt.replaceAll(':', '').replaceAll('.', '')}`;
@@ -88,10 +85,6 @@ export async function runBrunchIntrospectionTurn(
   await writeFile(join(artifactDir, 'manifest.json'), `${JSON.stringify(artifact, null, 2)}\n`);
 
   return { artifactDir, artifact };
-}
-
-export function liftBrunchIntrospectionOfflineDefault(env: { PI_OFFLINE?: string } = process.env): void {
-  env.PI_OFFLINE = '0';
 }
 
 function latestAssistantText(messages: readonly unknown[]): string {

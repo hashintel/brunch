@@ -32,7 +32,6 @@ describe('Brunch introspection launcher', () => {
       store,
       prompt: 'What is confusing?',
       now: () => new Date('2026-06-09T00:00:02.000Z'),
-      env: { PI_OFFLINE: '1' },
     });
 
     expect(result.artifact).toMatchObject({
@@ -57,27 +56,6 @@ describe('Brunch introspection launcher', () => {
     await expect(readJson(join(result.artifactDir, 'subjective.json'))).resolves.toEqual({
       answerText: 'The tool list is clear, but the graph policy is ambiguous.',
     });
-  });
-
-  it('lifts the product offline default for the dev-gated real-provider loop', async () => {
-    const env = { PI_OFFLINE: '1' };
-    const store = createInMemoryBrunchIntrospectionStore();
-    store.recordPassiveCapture({
-      turnId: 'turn-online',
-      capturedAt: '2026-06-09T00:00:00.000Z',
-      event: 'before_provider_request',
-      payload: { messages: [] },
-    });
-
-    await runBrunchIntrospectionTurn({
-      env,
-      store,
-      session: createFakeSession('Online dev loop.'),
-      runId: 'online-mode',
-      cwd: join(process.cwd(), '.tmp', 'introspection-online-test'),
-    });
-
-    expect(env.PI_OFFLINE).toBe('0');
   });
 
   it('fails loud when the extension did not capture a provider payload', async () => {

@@ -13,7 +13,6 @@ export {
   type BrunchFauxLauncherResult,
 } from './faux-launcher.js';
 export {
-  liftBrunchIntrospectionOfflineDefault,
   runBrunchIntrospectionTurn,
   type BrunchIntrospectionLauncherOptions,
   type BrunchIntrospectionLauncherResult,

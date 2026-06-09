@@ -27,7 +27,7 @@ Product probes may import the shared provider config when they need deterministi
 
 ## Introspection loop (D69-L)
 
-`runBrunchIntrospectionTurn()` is the paired-run artifact writer for the dev-only introspection loop. The Pi side is the explicit, read-only `src/.pi/extensions/introspection/` registrar, included only when `createBrunchPiExtensions(..., { introspection: { enabled: true } })` is passed. Product Brunch sessions omit it by default and keep the D39-L offline default.
+`runBrunchIntrospectionTurn()` is the paired-run artifact writer for the dev-only introspection loop. The Pi side is the explicit, read-only `src/.pi/extensions/introspection/` registrar, included only when `createBrunchPiExtensions(..., { introspection: { enabled: true } })` is passed. Product Brunch sessions omit it by default and keep the D39-L offline default. The launcher does not mutate `process.env`; any future online real-provider lift belongs at session construction with save/restore scoping.
 
 The passive extension tap records the final `before_provider_request` payload. The launcher then drives a subjective `session.prompt(...)` turn and writes the correlated run under `.fixtures/runs/introspection/<run-id>/`:
 
