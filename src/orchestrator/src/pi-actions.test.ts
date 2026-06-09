@@ -1,12 +1,60 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { createPiActions, evaluateVerificationTargets, toolsForAction } from './pi-actions.js';
+import {
+  createPiActions,
+  epicVerifyTask,
+  evaluateVerificationTargets,
+  sliceTestTask,
+  toolsForAction,
+} from './pi-actions.js';
+import { brunchProfile, bunProfile } from './project-profile.js';
 import { InMemoryReportSink } from './report-sink.js';
-import type { ActionContext } from './types.js';
+import type { ActionContext, Epic, Slice } from './types.js';
+
+const promptsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'prompts');
+
+describe('cook task builders carry the toolchain conventions, not a hardcoded stack', () => {
+  const slice: Slice = {
+    id: 'chunk',
+    epic_id: 'utils',
+    definition: 'Add chunk()',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+  };
+  const epic: Epic = {
+    id: 'utils',
+    summary: 'Utilities',
+    depends_on: [],
+    verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+  };
+
+  it('slice test task injects the bun conventions for the bun toolchain', () => {
+    const task = sliceTestTask(slice, bunProfile.toolchain);
+    expect(task).toContain('chunk');
+    expect(task).toContain('bun:test');
+  });
+
+  it('slice test task injects vitest conventions (no bun) for the brunch toolchain', () => {
+    const task = sliceTestTask(slice, brunchProfile.toolchain);
+    expect(task).toContain('vitest');
+    expect(task).not.toContain('bun');
+  });
+
+  it('epic verify task carries the toolchain conventions', () => {
+    expect(epicVerifyTask(epic, brunchProfile.toolchain)).toContain('vitest');
+    expect(epicVerifyTask(epic, bunProfile.toolchain)).toContain('bun:test');
+  });
+
+  it('the test-writer prompt no longer hardcodes a stack', () => {
+    const prompt = readFileSync(join(promptsDir, 'test-writer.md'), 'utf8');
+    expect(prompt).not.toContain('bun');
+  });
+});
 
 describe('evaluateVerificationTargets — done reflects real test execution', () => {
   it('done only when at least one target exists and every target passes', async () => {

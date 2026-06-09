@@ -12,9 +12,10 @@ import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-s
 import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
+import { resolveToolchain } from './project-profile.js';
 import { promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
-import { BunTestRunner } from './test-runner.js';
+import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
 import { createSandbox } from './worktree.js';
 
@@ -456,12 +457,13 @@ export async function runCook(opts: CookOptions): Promise<void> {
   console.error('');
 
   const reports = new FileReportSink(reportsPath);
-  const testRunner = new BunTestRunner();
+  const toolchain = resolveToolchain(plan.profile);
+  const testRunner = new ToolchainTestRunner(toolchain);
 
   const engine = createOrchestrator(opts.policy);
 
   const runStart = Date.now();
-  const actions = createPiActions({ verbose: opts.verbose, runStart });
+  const actions = createPiActions({ verbose: opts.verbose, runStart, toolchain });
 
   // Stand up the live-stream setup handle when streaming is enabled.
   // Auto-open is suppressed by `--no-petrinaut-open` or CI.

@@ -7,6 +7,14 @@ export type ProfileId = 'bun' | 'brunch';
 export interface Toolchain {
   sliceTarget(sliceId: string): string;
   epicTarget(epicId: string): string;
+  /** Argv that runs a single test target in the cook sandbox. */
+  testCommand(target: string): string[];
+  /**
+   * Agent-facing description of the test framework + import conventions,
+   * injected into the cook test-writer task so prompts carry no hardcoded
+   * stack (greenfield worktrees have no surrounding code to infer from).
+   */
+  testConventions: string;
 }
 
 export interface ProjectProfile {
@@ -19,6 +27,9 @@ export const bunProfile: ProjectProfile = {
   toolchain: {
     sliceTarget: (sliceId) => `tests/${sliceId}.test.ts`,
     epicTarget: (epicId) => `tests/${epicId}.integration.test.ts`,
+    testCommand: (target) => ['bun', 'test', target],
+    testConventions:
+      'Use bun\'s test runner: `import { describe, expect, it } from "bun:test"`. The harness runs each target with `bun test <target>`.',
   },
 };
 
@@ -28,6 +39,9 @@ export const brunchProfile: ProjectProfile = {
   toolchain: {
     sliceTarget: (sliceId) => `${sliceId}.test.ts`,
     epicTarget: (epicId) => `${epicId}.integration.test.ts`,
+    testCommand: (target) => ['npx', 'vitest', 'run', target],
+    testConventions:
+      'Use vitest: `import { describe, expect, it } from "vitest"`. The harness runs each target with `vitest run <target>`.',
   },
 };
 
