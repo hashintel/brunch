@@ -52,6 +52,11 @@ Brunch depends on the latest pi line and a dev-gated source-alias resolves `@ear
 - ASSUMPTION: pi-mono lives at a stable sibling path (/Users/lunelson/.pi/pi-mono)
     → IMPACT IF FALSE: alias resolution fails on other machines
     → VALIDATE: resolve the alias base from an env var or repo-relative lookup, document in src/dev/README.md
+- GOTCHA: the alias MUST include @earendil-works/pi-agent-core even though Brunch never imports it directly.
+  Brunch directly imports only pi-coding-agent + pi-ai (pi-tui is a declared dep, no src import), but
+  pi-coding-agent's *source* imports pi-agent-core (agent-session.ts, sdk.ts). Aliasing coding-agent to
+  source without also aliasing agent-core yields a mixed source/dist graph (duplicate module identities).
+  All four packages are published at 0.79.0 (npm latest), so the bump + four-package alias are both clean.
 ```
 
 ### Posture check (proving)
