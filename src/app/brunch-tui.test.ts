@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_INTROSPECTION_COMMAND,
   BRUNCH_LENS_COMMAND,
   BRUNCH_MODE_COMMAND,
   BRUNCH_STRATEGY_COMMAND,
@@ -20,6 +21,7 @@ import {
   BRUNCH_SWITCH_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
+  createInMemoryBrunchIntrospectionStore,
   registerBrunchAlternatives,
   registerBrunchOperationalModePolicy,
   runBrunchWorkspaceCommand,
@@ -43,6 +45,7 @@ import {
   createBrunchSettingsManager,
   createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
+  runWithScopedBrunchOfflineDefault,
 } from './brunch-tui.js';
 
 describe('Brunch TUI boot', () => {
@@ -282,6 +285,141 @@ describe('Brunch TUI boot', () => {
       'update:graph.overview',
       'sidecar-close',
     ]);
+  });
+
+  it('threads BRUNCH_DEV introspection state into the interactive launch context', async () => {
+    const previous = process.env.BRUNCH_DEV;
+    const workspace = readyWorkspace('/tmp/project', 'session-ready');
+    const observed: unknown[] = [];
+
+    try {
+      process.env.BRUNCH_DEV = '1';
+      await runBrunchTui({
+        cwd: '/tmp/project',
+        autoOpen: false,
+        coordinator: {
+          inspectWorkspace: async () => ({
+            cwd: '/tmp/project',
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          }),
+          activateWorkspace: async () => workspace,
+          bindCurrentSpecToReplacementSession: async () => workspace,
+        },
+        runWorkspaceDialogPreflight: async () => ({
+          action: 'continue',
+          specId: workspace.spec.id,
+          sessionFile: workspace.session.file,
+        }),
+        webSidecarRunner: async () => null,
+        launchInteractive: async ({ dev }) => {
+          observed.push(dev?.introspection.enabled);
+          expect(dev?.introspection.store).toBeDefined();
+        },
+      });
+
+      delete process.env.BRUNCH_DEV;
+      await runBrunchTui({
+        cwd: '/tmp/project',
+        autoOpen: false,
+        coordinator: {
+          inspectWorkspace: async () => ({
+            cwd: '/tmp/project',
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          }),
+          activateWorkspace: async () => workspace,
+          bindCurrentSpecToReplacementSession: async () => workspace,
+        },
+        runWorkspaceDialogPreflight: async () => ({
+          action: 'continue',
+          specId: workspace.spec.id,
+          sessionFile: workspace.session.file,
+        }),
+        webSidecarRunner: async () => null,
+        launchInteractive: async ({ dev }) => {
+          observed.push(dev);
+        },
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.BRUNCH_DEV;
+      } else {
+        process.env.BRUNCH_DEV = previous;
+      }
+    }
+
+    expect(observed).toEqual([true, undefined]);
+  });
+
+  it('registers TUI-gated introspection last when the launch context enables it', async () => {
+    const events: string[] = [];
+    const commands: string[] = [];
+    const store = createInMemoryBrunchIntrospectionStore();
+
+    await createBrunchPiExtensions(
+      chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-1')),
+      undefined,
+      {
+        coordinator: noOpWorkspaceCoordinator('/tmp/project'),
+        introspection: { enabled: true, store },
+      },
+    )({
+      on: (event: string) => events.push(event),
+      registerCommand: (name: string) => commands.push(name),
+      registerShortcut: (_name: string, _options: unknown) => {},
+      registerTool: (_tool: unknown) => {},
+      registerMessageRenderer: (_type: string) => {},
+      sendMessage: (_message: unknown) => {},
+      getAllTools: () => [],
+      setActiveTools: (_tools: string[]) => {},
+    } as never);
+
+    expect(commands.at(-1)).toBe(BRUNCH_INTROSPECTION_COMMAND);
+    expect(events.at(-1)).toBe('before_provider_request');
+  });
+
+  it('scopes the Brunch offline default and restores PI_OFFLINE in finally', async () => {
+    const productEnv: { PI_OFFLINE?: string } = {};
+    await expect(
+      runWithScopedBrunchOfflineDefault({
+        dev: false,
+        env: productEnv,
+        run: async () => {
+          expect(productEnv.PI_OFFLINE).toBe('1');
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(productEnv.PI_OFFLINE).toBeUndefined();
+
+    const devEnv: { PI_OFFLINE?: string } = { PI_OFFLINE: '1' };
+    await expect(
+      runWithScopedBrunchOfflineDefault({
+        dev: true,
+        env: devEnv,
+        run: async () => {
+          expect(devEnv.PI_OFFLINE).toBeUndefined();
+          throw new Error('prove finally restore');
+        },
+      }),
+    ).rejects.toThrow('prove finally restore');
+    expect(devEnv.PI_OFFLINE).toBe('1');
+  });
+
+  it('keeps src/dev build-excluded', async () => {
+    const buildConfig = JSON.parse(
+      await readFile(join(import.meta.dirname, '..', '..', 'tsconfig.build.json'), 'utf8'),
+    ) as {
+      exclude?: string[];
+    };
+
+    expect(buildConfig.exclude).toContain('src/dev');
   });
 
   it('opens the advertised sidecar route only through the injected opener', async () => {

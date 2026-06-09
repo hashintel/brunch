@@ -89,7 +89,7 @@ dev-enabled full RPC host only:
   writes:
     dev.graph.mutateGraph
   absent unless:
-    createRpcHandlers({devRpc: true}) or BRUNCH_DEV_RPC=1 in CLI rpc mode
+    createRpcHandlers({devRpc: true}) or BRUNCH_DEV=1 in CLI rpc mode
   still absent from:
     default full RPC discovery
     TUI-started web sidecar

@@ -54,12 +54,12 @@ brunch_rpc() {
   (
     cd "$DEV_WORKSPACE"
     printf '%s\n' "$payload" | \
-      BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/app/brunch.ts" --mode=rpc
+      BRUNCH_DEV=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/app/brunch.ts" --mode=rpc
   )
 }
 ```
 
-`BRUNCH_DEV_RPC=1` enables `dev.graph.mutateGraph`. Without that env var, the method is absent from discovery and calls return `Method not found`.
+`BRUNCH_DEV=1` enables `dev.graph.mutateGraph`. Without that switch, the method is absent from discovery and calls return `Method not found`.
 
 RPC output may include `brunch.updated` notifications as separate JSON lines. Filter responses by `id` when scripting:
 
@@ -68,7 +68,7 @@ brunch_rpc '{"jsonrpc":"2.0","id":1,"method":"rpc.discover"}' \
   | jq 'select(.id == 1).result.methods[].method'
 ```
 
-For one-shot command-line work, prefer the dev helper. It sets `BRUNCH_DEV_RPC=1`, sends one request, filters notifications, and prints only the response result:
+For one-shot command-line work, prefer the dev helper. It sets `BRUNCH_DEV=1`, sends one request, filters notifications, and prints only the response result:
 
 ```bash
 "$REPO/node_modules/.bin/tsx" "$REPO/src/dev/workspace-rpc.ts" \
@@ -128,7 +128,7 @@ JSON
 
 (
   cd "$DEV_WORKSPACE"
-  BRUNCH_DEV_RPC=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/app/brunch.ts" --mode=rpc < /tmp/brunch-dev-commit.json
+  BRUNCH_DEV=1 "$REPO/node_modules/.bin/tsx" "$REPO/src/app/brunch.ts" --mode=rpc < /tmp/brunch-dev-commit.json
 ) | jq 'select(.id == 90)'
 ```
 
@@ -201,11 +201,11 @@ The checked-in reference run `.fixtures/runs/fixture-curation/fixture-curation-2
 
 The TUI-started web sidecar is read-only. It can observe graph updates from the same host, but it does not expose `dev.graph.mutateGraph`.
 
-For agent-addressable dev mutations, run a separate `BRUNCH_DEV_RPC=1 --mode=rpc` command against the same workspace directory. Keep to the one-writer discipline: do not run concurrent dev RPC writes and TUI/agent writes against the same workspace unless you are deliberately testing concurrency behavior.
+For agent-addressable dev mutations, run a separate `BRUNCH_DEV=1 --mode=rpc` command against the same workspace directory. Keep to the one-writer discipline: do not run concurrent dev RPC writes and TUI/agent writes against the same workspace unless you are deliberately testing concurrency behavior.
 
 ## Troubleshooting
 
-- `Method not found` for `dev.graph.mutateGraph`: check `BRUNCH_DEV_RPC=1` and ensure you are using `--mode=rpc`, not the TUI-started web sidecar.
+- `Method not found` for `dev.graph.mutateGraph`: check `BRUNCH_DEV=1` and ensure you are using `--mode=rpc`, not the TUI-started web sidecar.
 - `graph node code "G1" does not resolve`: inspect `graph.overview` for the selected `specId`; codes are spec-scoped.
 - Empty `workspace.selectionState`: check that you seeded from the same `$DEV_WORKSPACE` directory you are using for RPC.
 - Stale or surprising graph state: reset only the scratch workspace with `rm -rf "$DEV_WORKSPACE/.brunch"`, then reseed.

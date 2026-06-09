@@ -1,3 +1,4 @@
+import { isAbsolute, resolve } from 'node:path';
 import process from 'node:process';
 import type { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +12,7 @@ import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from '../session/workspace-session-coordinator.js';
+import { isBrunchDevEnabled } from './brunch-dev.js';
 import { runBrunchTui } from './brunch-tui.js';
 
 export interface WebHostRunnerOptions {
@@ -30,7 +32,7 @@ export interface BrunchCliOptions {
 
 export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<number> {
   const argv = options.argv ?? process.argv.slice(2);
-  const cwd = options.cwd ?? process.cwd();
+  const cwd = parseCwd(argv) ?? options.cwd ?? process.cwd();
   const mode = parseMode(argv);
   const coordinator = options.coordinator ?? createWorkspaceSessionCoordinator({ cwd });
 
@@ -50,7 +52,7 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
         coordinator,
         cwd,
         productUpdates,
-        devRpc: process.env.BRUNCH_DEV_RPC === '1',
+        devRpc: isBrunchDevEnabled(),
       }),
       productUpdates,
     });
@@ -106,6 +108,25 @@ function stdoutStream(stdout: Writable | ((chunk: string) => void) | undefined):
       return true;
     },
   } as Writable;
+}
+
+function parseCwd(argv: string[]): string | undefined {
+  const flagIndex = argv.indexOf('--cwd');
+  if (flagIndex >= 0) {
+    const value = argv[flagIndex + 1];
+    if (!value) throw new Error('--cwd requires a value');
+    return resolveCliCwd(value);
+  }
+
+  const cwdEquals = argv.find((arg) => arg.startsWith('--cwd='));
+  if (!cwdEquals) return undefined;
+  const value = cwdEquals.slice('--cwd='.length);
+  if (!value) throw new Error('--cwd requires a value');
+  return resolveCliCwd(value);
+}
+
+function resolveCliCwd(value: string): string {
+  return isAbsolute(value) ? value : resolve(process.cwd(), value);
 }
 
 function parseMode(argv: string[]): string {

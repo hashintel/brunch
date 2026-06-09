@@ -10,7 +10,12 @@ import {
   type CreateAgentSessionRuntimeFactory,
 } from '@earendil-works/pi-coding-agent';
 
-import { chromeStateForWorkspace, createBrunchPiExtensions } from '../.pi/brunch-pi-extensions.js';
+import {
+  chromeStateForWorkspace,
+  createBrunchPiExtensions,
+  createInMemoryBrunchIntrospectionStore,
+  type BrunchIntrospectionStore,
+} from '../.pi/brunch-pi-extensions.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
 import {
@@ -32,6 +37,7 @@ import {
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
+import { isBrunchDevEnabled } from './brunch-dev.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -64,6 +70,14 @@ export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState;
   coordinator: BrunchTuiCoordinator;
   productUpdates?: ProductUpdatePublisher;
+  dev?: BrunchTuiDevOptions;
+}
+
+export interface BrunchTuiDevOptions {
+  readonly introspection: {
+    readonly enabled: true;
+    readonly store: BrunchIntrospectionStore;
+  };
 }
 
 export interface BrunchTuiOptions {
@@ -88,6 +102,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const inventory = await coordinator.inspectWorkspace();
   const decision = await chooseSpecSessionActivationDecision(inventory, options);
   const workspaceState = await coordinator.activateWorkspace(decision);
+  const dev = createBrunchTuiDevOptions();
 
   if (workspaceState.status === 'cancelled') {
     return;
@@ -115,10 +130,21 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       workspace: workspaceState,
       coordinator,
       productUpdates,
+      ...(dev ? { dev } : {}),
     });
   } finally {
     await webSidecar?.close();
   }
+}
+
+function createBrunchTuiDevOptions(): BrunchTuiDevOptions | undefined {
+  if (!isBrunchDevEnabled()) return undefined;
+  return {
+    introspection: {
+      enabled: true,
+      store: createInMemoryBrunchIntrospectionStore(),
+    },
+  };
 }
 
 async function chooseSpecSessionActivationDecision(
@@ -190,10 +216,10 @@ function legacyRelatedNodes(
   };
 }
 
-export function createBrunchAgentSessionRuntimeFactory({
-  coordinator,
-  productUpdates,
-}: BrunchTuiLaunchContext): CreateAgentSessionRuntimeFactory {
+export function createBrunchAgentSessionRuntimeFactory(
+  context: BrunchTuiLaunchContext,
+): CreateAgentSessionRuntimeFactory {
+  const { coordinator, productUpdates } = context;
   return async ({ cwd, agentDir: runtimeAgentDir, sessionManager }) => {
     let currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
     const graph = await openWorkspaceGraphRuntime(cwd);
@@ -293,6 +319,7 @@ export function createBrunchAgentSessionRuntimeFactory({
         createBrunchPiExtensions(chromeStateForWorkspace(currentWorkspace), bindCurrentWorkspace, {
           coordinator,
           graph: graphDeps,
+          ...(context.dev ? { introspection: context.dev.introspection } : {}),
           promptContext: () => {
             const specId = currentWorkspace.spec.id;
             const selectedSpec = graph.commandExecutor.getSpec(specId);
@@ -374,6 +401,35 @@ async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<voi
     sessionManager: context.workspace.session.manager,
   });
 
-  applyBrunchOfflineDefault();
-  await new InteractiveMode(runtime).run();
+  await runWithScopedBrunchOfflineDefault({
+    dev: context.dev?.introspection.enabled === true,
+    env: process.env,
+    run: async () => {
+      await new InteractiveMode(runtime).run();
+    },
+  });
+}
+
+export async function runWithScopedBrunchOfflineDefault(options: {
+  readonly dev: boolean;
+  readonly env?: { PI_OFFLINE?: string };
+  readonly run: () => Promise<void>;
+}): Promise<void> {
+  const env = options.env ?? process.env;
+  const previous = env.PI_OFFLINE;
+  const hadPrevious = Object.hasOwn(env, 'PI_OFFLINE');
+  try {
+    if (options.dev) {
+      delete env.PI_OFFLINE;
+    } else {
+      applyBrunchOfflineDefault(env);
+    }
+    await options.run();
+  } finally {
+    if (hadPrevious && previous !== undefined) {
+      env.PI_OFFLINE = previous;
+    } else {
+      delete env.PI_OFFLINE;
+    }
+  }
 }

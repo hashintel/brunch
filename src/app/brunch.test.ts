@@ -1,6 +1,6 @@
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import { SessionManager } from '@earendil-works/pi-coding-agent';
@@ -104,6 +104,30 @@ describe('Brunch CLI dispatch', () => {
 
     expect(code).toBe(0);
     expect(launchedTui).toBe(true);
+  });
+
+  it('parses --cwd for TUI launch and resolves relative paths against process cwd', async () => {
+    const launchedCwds: string[] = [];
+
+    await runBrunchCli({
+      argv: ['--cwd', '.fixtures/workbenches/demo'],
+      coordinator: coordinator(),
+      launchTui: async (options) => {
+        launchedCwds.push(options?.cwd ?? '<missing>');
+      },
+    });
+    await runBrunchCli({
+      argv: ['--cwd=/tmp/brunch-absolute'],
+      coordinator: coordinator(),
+      launchTui: async (options) => {
+        launchedCwds.push(options?.cwd ?? '<missing>');
+      },
+    });
+
+    expect(launchedCwds).toEqual([
+      resolve(process.cwd(), '.fixtures/workbenches/demo'),
+      '/tmp/brunch-absolute',
+    ]);
   });
 
   it('routes --mode print through the coordinator state and exits', async () => {
@@ -244,11 +268,11 @@ describe('Brunch CLI dispatch', () => {
     });
   });
 
-  it('gates dev RPC methods in CLI rpc mode behind BRUNCH_DEV_RPC=1', async () => {
-    const previous = process.env.BRUNCH_DEV_RPC;
+  it('gates dev RPC methods in CLI rpc mode behind BRUNCH_DEV=1', async () => {
+    const previous = process.env.BRUNCH_DEV;
     const stdout = new PassThrough();
     const chunks = collectStream(stdout);
-    process.env.BRUNCH_DEV_RPC = '1';
+    process.env.BRUNCH_DEV = '1';
     try {
       const code = await runBrunchCli({
         argv: ['--mode=rpc'],
@@ -262,9 +286,9 @@ describe('Brunch CLI dispatch', () => {
       expect(JSON.stringify(JSON.parse(chunks.join('')))).toContain('dev.graph.mutateGraph');
     } finally {
       if (previous === undefined) {
-        delete process.env.BRUNCH_DEV_RPC;
+        delete process.env.BRUNCH_DEV;
       } else {
-        process.env.BRUNCH_DEV_RPC = previous;
+        process.env.BRUNCH_DEV = previous;
       }
     }
   });
