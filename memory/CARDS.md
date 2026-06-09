@@ -128,7 +128,7 @@ Full: reverses the Card-1 decision (single-tree scope narrowed to serial), reint
 
 ## Card 4 — Whole-plan-merge promotion for greenfield parallel (FULL)
 
-**Status:** next (downstream of Card 3)
+**Status:** done — `mergeCompletedSlicesIntoTree` (extracted shared `mergeSliceDirsInto` core, reused by the epic merge) unions all completed slice dirs into one tree (declaration-order-wins, collisions reported). `promotionSourceDir` (pure, tested): shared → sandbox unchanged; per-slice → whole-plan merge under `<runDir>/__promote__`. runCook promotion uses it, prints conflicts, then `promoteGreenfieldRun`. Collision policy = order-wins + report (LLM reconciliation logged as Horizon `parallel-merge-conflict-reconciliation`). Verify gate green (1750 tests).
 
 ### Target Behavior
 

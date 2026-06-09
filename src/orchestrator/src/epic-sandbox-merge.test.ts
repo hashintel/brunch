@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   epicIdsForEpicVerifyMerge,
+  mergeCompletedSlicesIntoTree,
   mergeSlicesIntoEpicSandbox,
   seedSliceFromParentWorktree,
   seedSliceSandboxFromDeps,
@@ -573,5 +574,38 @@ describe('mergeSlicesIntoEpicSandbox', () => {
     ]);
     expect(existsSync(join(result.epicSandboxDir, 'tests/version.test.ts'))).toBe(true);
     expect(existsSync(join(result.epicSandboxDir, 'tests/slugify.test.ts'))).toBe(true);
+  });
+});
+
+describe('mergeCompletedSlicesIntoTree', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  it('unions completed slice dirs into one tree, order-wins on collisions', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'wp-merge-'));
+    dirs.push(parent);
+    mkdirSync(join(parent, 'a'), { recursive: true });
+    mkdirSync(join(parent, 'b'), { recursive: true });
+    writeFileSync(join(parent, 'a', 'a.txt'), 'A');
+    writeFileSync(join(parent, 'a', 'shared.txt'), 'from-a');
+    writeFileSync(join(parent, 'b', 'b.txt'), 'B');
+    writeFileSync(join(parent, 'b', 'shared.txt'), 'from-b');
+
+    const dest = join(parent, '__promote__');
+    const result = mergeCompletedSlicesIntoTree({
+      parentSandboxDir: parent,
+      sliceIds: ['a', 'b'],
+      destDir: dest,
+    });
+
+    expect(readFileSync(join(dest, 'a.txt'), 'utf8')).toBe('A');
+    expect(readFileSync(join(dest, 'b.txt'), 'utf8')).toBe('B');
+    // 'b' is later in declaration order, so it wins the shared path.
+    expect(readFileSync(join(dest, 'shared.txt'), 'utf8')).toBe('from-b');
+    expect(result.conflicts).toEqual([{ path: 'shared.txt', slices: ['a', 'b'], winner: 'b' }]);
+    expect(result.mergeDir).toBe(dest);
   });
 });

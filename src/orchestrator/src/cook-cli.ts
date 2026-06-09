@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { createOrchestrator } from './engine.js';
+import { type MergeConflict, mergeCompletedSlicesIntoTree } from './epic-sandbox-merge.js';
 import { FileReportSink } from './file-report-sink.js';
 import { loadLocalEnvFile } from './local-env.js';
 import type { FiringPolicy } from './petri-net.js';
@@ -14,7 +15,7 @@ import { loadPlan } from './plan-loader.js';
 import { promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { BunTestRunner } from './test-runner.js';
-import type { PlanMode } from './types.js';
+import type { Plan, PlanMode } from './types.js';
 import { createSandbox } from './worktree.js';
 
 /**
@@ -351,6 +352,30 @@ export function resolveSandboxPlan(planMode: PlanMode, dir: string): ResolvedSan
   return { kind: 'codebase', sourceDir: dir };
 }
 
+/**
+ * The tree to promote after a completed greenfield run. The shared layout
+ * promotes the run sandbox directly; the per-slice (parallel) layout merges all
+ * completed slices into one whole-plan tree (declaration-order-wins, collisions
+ * reported) under `<runDir>/__promote__`.
+ */
+export function promotionSourceDir(opts: {
+  sliceLayout: 'shared' | 'per-slice';
+  sandboxDir: string;
+  runDir: string;
+  plan: Plan;
+  completedSliceIds: string[];
+}): { dir: string; conflicts: MergeConflict[] } {
+  if (opts.sliceLayout === 'shared') return { dir: opts.sandboxDir, conflicts: [] };
+  const completed = new Set(opts.completedSliceIds);
+  const ordered = opts.plan.slices.map((s) => s.id).filter((id) => completed.has(id));
+  const merge = mergeCompletedSlicesIntoTree({
+    parentSandboxDir: opts.sandboxDir,
+    sliceIds: ordered,
+    destDir: join(opts.runDir, '__promote__'),
+  });
+  return { dir: merge.mergeDir, conflicts: merge.conflicts };
+}
+
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };
 
 function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
@@ -509,8 +534,20 @@ export async function runCook(opts: CookOptions): Promise<void> {
         console.error('');
       } else {
         try {
-          const promoted = promoteGreenfieldRun({
+          const source = promotionSourceDir({
+            sliceLayout,
             sandboxDir,
+            runDir,
+            plan,
+            completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
+          });
+          for (const c of source.conflicts) {
+            console.error(
+              `  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`,
+            );
+          }
+          const promoted = promoteGreenfieldRun({
+            sandboxDir: source.dir,
             target: opts.outDir,
             runId,
             force: opts.force,
