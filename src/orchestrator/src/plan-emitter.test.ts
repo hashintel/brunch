@@ -150,6 +150,26 @@ describe('emitPlanFromSnapshot', () => {
     }
   });
 
+  it('falls back when the architect authors zero slices and marks every requirement non-buildable', async () => {
+    // Degenerate draft: no slices, no epics, but all projected requirements
+    // declared non-buildable so coverage is vacuously satisfied. Without the
+    // guard this passes the emitted contract and ships an empty plan.yaml.
+    const draft: ArchitectDraft = {
+      epics: [],
+      slices: [],
+      nonBuildableRequirementIds: ['req-10', 'req-11'],
+    };
+    const result = await emitPlanFromSnapshot(snapshot, { runModel: draftModel(draft) });
+
+    // The deterministic projection re-establishes the req-* slices.
+    expect(result.plan.slices.map((s) => s.id)).toEqual(['req-10', 'req-11']);
+    const fb = result.warnings.find((w) => w.code === 'architect-failed-fallback-to-projection');
+    expect(fb).toBeDefined();
+    if (fb && fb.code === 'architect-failed-fallback-to-projection') {
+      expect(fb.reason).toContain('no buildable slices');
+    }
+  });
+
   it('falls back when the architect output is malformed (parse error)', async () => {
     const result = await emitPlanFromSnapshot(snapshot, {
       runModel: async () => ({ epics: [], slices: [{ id: 'x' }] }),

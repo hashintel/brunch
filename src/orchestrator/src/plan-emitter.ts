@@ -107,6 +107,22 @@ export async function emitPlanFromSnapshot(
     return fallback(projected, toolchain, architectResult, describeCheckFailure(check));
   }
 
+  // A degenerate architect draft — zero authored slices while the projected
+  // requirement universe is non-empty — passes the contract (nothing to fault)
+  // yet would ship an empty, cook-executable-looking `plan.yaml` that does no
+  // work. This happens when the architect marks every requirement
+  // non-buildable (coverage is then vacuously satisfied). Treat it as an
+  // authoring failure and fall back to the deterministic projection, which
+  // always yields slices for a non-empty universe.
+  if (repaired.slices.length === 0 && projected.slices.length > 0) {
+    return fallback(
+      projected,
+      toolchain,
+      architectResult,
+      'authored plan has no buildable slices for a non-empty requirement universe',
+    );
+  }
+
   // Surface design-class contract warnings (e.g. a file-write-conflict) so an
   // authored plan never ships an unresolved file-ownership clash silently.
   const warnings: EmitterWarning[] = [...materializeWarnings, ...repairs];
