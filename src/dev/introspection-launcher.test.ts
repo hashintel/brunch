@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { fauxAssistantMessage } from '@earendil-works/pi-ai';
@@ -9,7 +10,7 @@ import { runBrunchIntrospectionTurn, type BrunchIntrospectionSession } from './i
 
 describe('Brunch introspection launcher', () => {
   it('writes a paired run artifact keyed by the captured turn', async () => {
-    const cwd = join(process.cwd(), '.tmp', 'introspection-launcher-test');
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-introspection-launcher-'));
     const store = createInMemoryBrunchIntrospectionStore();
     store.recordPassiveCapture({
       turnId: 'turn-7',
