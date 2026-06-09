@@ -12,6 +12,8 @@ const sourceNodeModules = join(packageRoot, 'node_modules');
 const viteConfigFile = join(packageRoot, 'vite.config.ts');
 const tempDirs: string[] = [];
 
+const envWithApiKey: NodeJS.ProcessEnv = { ...process.env, ANTHROPIC_API_KEY: 'sk-ant-test' };
+
 type CommandResult = {
   code: number | null;
   stderr: string;
@@ -199,10 +201,23 @@ describe('published CLI entrypoint', () => {
       expect(result.stdout).toContain(flag);
     }
     expect(result.stdout).toContain('PETRINAUT_URL');
+    expect(result.stdout).toContain('ANTHROPIC_API_KEY');
+  });
+
+  it('refuses to start without ANTHROPIC_API_KEY and points at the fix', async () => {
+    const { ANTHROPIC_API_KEY: _ignored, ...envWithoutKey } = process.env;
+    const result = await runCli([], makeTempDir('brunch-no-key-'), {
+      ...envWithoutKey,
+      BRUNCH_NO_OPEN: '1',
+    });
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('ANTHROPIC_API_KEY is not set');
+    expect(result.stderr).toContain('.env');
   });
 
   it('rejects `brunch plan` invocations with no spec id', async () => {
-    const result = await runCli(['plan'], makeTempDir('brunch-plan-usage-'));
+    const result = await runCli(['plan'], makeTempDir('brunch-plan-usage-'), envWithApiKey);
 
     expect(result.code).not.toBe(0);
     expect(result.stderr).toContain('Failed to run brunch plan');
@@ -210,7 +225,7 @@ describe('published CLI entrypoint', () => {
   });
 
   it('rejects `brunch plan <non-numeric>` with a friendly usage error', async () => {
-    const result = await runCli(['plan', 'abc'], makeTempDir('brunch-plan-bad-id-'));
+    const result = await runCli(['plan', 'abc'], makeTempDir('brunch-plan-bad-id-'), envWithApiKey);
 
     expect(result.code).not.toBe(0);
     expect(result.stderr).toContain('Failed to run brunch plan');
@@ -218,7 +233,7 @@ describe('published CLI entrypoint', () => {
   });
 
   it('reports `specification <id> not found` when the project DB is empty', async () => {
-    const result = await runCli(['plan', '999'], makeTempDir('brunch-plan-missing-'));
+    const result = await runCli(['plan', '999'], makeTempDir('brunch-plan-missing-'), envWithApiKey);
 
     expect(result.code).not.toBe(0);
     expect(result.stderr).toContain('Failed to run brunch plan');
@@ -241,7 +256,7 @@ describe('published CLI entrypoint', () => {
       input: { name: 'Packaged agent spec' },
     })}\n${JSON.stringify({ id: 'read-1', capability: 'spec.getStatus', input: { specId: 1 } })}\n`;
 
-    const result = await runCli(['agent'], workspaceCwd, process.env, input);
+    const result = await runCli(['agent'], workspaceCwd, envWithApiKey, input);
     const responses = result.stdout
       .trim()
       .split('\n')
@@ -295,7 +310,7 @@ describe('published CLI entrypoint', () => {
     const child = spawn(process.execPath, [getInstalledBinEntrypoint()], {
       cwd: workspaceCwd,
       env: {
-        ...process.env,
+        ...envWithApiKey,
         BRUNCH_NO_OPEN: '1',
       },
       stdio: ['ignore', 'pipe', 'pipe'],

@@ -10,6 +10,26 @@ export { loadLocalEnvFile } from '../orchestrator/src/local-env.js';
 
 const DEFAULT_BACKEND_PORT = 3000;
 
+export function isAnthropicApiKeyConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(env.ANTHROPIC_API_KEY?.trim());
+}
+
+export const MISSING_ANTHROPIC_API_KEY_MESSAGE = [
+  'ANTHROPIC_API_KEY is not set. Brunch needs it for the interview and planning',
+  'features and will not start without it. Set it in a .env file in this directory:',
+  '',
+  '    echo "ANTHROPIC_API_KEY=sk-ant-..." > .env',
+  '',
+  'or export it in your shell, then run Brunch again.',
+].join('\n');
+
+export function exitIfAnthropicApiKeyMissing(env: NodeJS.ProcessEnv = process.env): void {
+  if (!isAnthropicApiKeyConfigured(env)) {
+    console.error(MISSING_ANTHROPIC_API_KEY_MESSAGE);
+    process.exit(1);
+  }
+}
+
 function normalizeConfiguredValue(value: string | undefined): string | null {
   const normalizedValue = value?.trim();
   return normalizedValue ? normalizedValue : null;
