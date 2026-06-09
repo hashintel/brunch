@@ -115,6 +115,13 @@ export type OrchestratorInput = {
    */
   sandboxMode?: 'fixture' | 'codebase';
   /**
+   * 'per-slice' (default): each slice runs in its own dir (greenfield) or git
+   *   worktree (codebase), merged into `__epic__/<epicId>/` for verification.
+   * 'shared': all slices accrete into the single run sandbox; verify-epic runs
+   *   in place, no per-slice dirs, no merge. Only valid for serial greenfield.
+   */
+  sliceLayout?: 'shared' | 'per-slice';
+  /**
    * Required in `codebase` mode: the run id used to name slice-level branches
    * (`cook/<runId>/<sliceId>`). Unused in fixture mode.
    */

@@ -44,7 +44,7 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
     '  --spec=<id>                      Pick .brunch/cook/specs/<id>/plan.yaml (default: newest spec)',
   );
   console.log(
-    '  --policy=serial|parallel         Firing policy (default: serial; greenfield is serial-only)',
+    '  --policy=serial|parallel         Firing policy (default: serial; serial greenfield runs in one shared tree)',
   );
   console.log('  --max-retries=N                  Retry budget per slice (default: 3)');
   console.log(

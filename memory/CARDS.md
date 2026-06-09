@@ -72,6 +72,108 @@ Full: reverses the per-slice-isolation decision for greenfield (a non-trivial de
 
 **Status:** done — new `promote-run.ts` (`promoteGreenfieldRun`): empty target → git init + commit on `main`; existing repo → commit on `cook/<runId>` branch (user's branch intact); non-empty target refused unless `--force`; deterministic committer identity. Wired into `runCook` gated on `--out` (opt-in) + greenfield + `result.status === 'completed'` (halt/brownfield promote nothing, print artifact path). `--out`/`--force` added to `parseCookArgs` + CLI help. Verify gate green (1748 tests). Durable decision/invariant + PLAN frontier deferred to ln-sync.
 
+> **Model pivot (2026-06-09, "both, policy-selected"):** single-tree is no longer greenfield-wide. greenfield+**serial** → single tree (Cards 1+2); greenfield+**parallel** → per-slice isolation (race-safe) + whole-plan-merge promotion (Cards 3+4 below). Brownfield unchanged.
+
+---
+
+## Card 3 — Slice layout is policy-selected, not greenfield-wide (FULL)
+
+**Status:** done — `OrchestratorInput.sliceLayout: 'shared' | 'per-slice'` (default `per-slice`); net-compiler gates single-tree branches on `sliceLayout === 'shared'` (per-slice prep: codebase→worktree, else→mkdir; resolveSliceCwd shared→sandboxDir else→seedSliceSandboxFromDeps; verify-epic shared→in place else→`__epic__` merge). runCook sets `sliceLayout = fixture && serial ? 'shared' : 'per-slice'`; `assertPolicyForMode` parallel refusal **retired** (greenfield parallel allowed). Card-1 greenfield tests pass `sliceLayout:'shared'`; new greenfield+parallel test asserts per-slice dirs + `__epic__` merge. Verify gate green (1747 tests; one unrelated app.test.ts flake passed on re-run).
+
+### Target Behavior
+
+The orchestrator runs greenfield slices in one shared tree only under serial policy; under parallel policy greenfield slices get isolated per-slice dirs with an `__epic__` merge, and brownfield is unchanged.
+
+### Boundary Crossings
+
+```
+→ runCook computes sliceLayout = (greenfield && serial) ? 'shared' : 'per-slice'  (cook-cli.ts)
+→ assertPolicyForMode parallel refusal REMOVED (greenfield parallel now allowed)  (cook-cli.ts)
+→ OrchestratorInput.sliceLayout: 'shared' | 'per-slice' (default 'per-slice')  (types.ts)
+→ wireHandlers per-slice prep: codebase → seedSliceFromParentWorktree; else per-slice → mkdir; shared → nothing  (net-compiler.ts)
+→ resolveSliceCwd: shared → sandboxDir; per-slice → seedSliceSandboxFromDeps  (net-compiler.ts)
+→ verify-epic: shared → in place; per-slice → mergeSlicesIntoEpicSandbox  (net-compiler.ts)
+```
+
+### Risks and Assumptions
+
+```
+- RISK: Card-1 greenfield tests assume single-tree by default → MITIGATION: those tests pass sliceLayout:'shared' explicitly (they test the shared path); a new greenfield+parallel test asserts per-slice dirs + __epic__ merge.
+- RISK: decoupling layout (shared vs per-slice) from seeding (worktree vs plain dir) → MITIGATION: prep loop keys worktree-vs-mkdir on sandboxMode==='codebase'; everything else keys single-tree on sliceLayout==='shared'. Brownfield = per-slice + worktree always.
+- DECISION (reverses Card 1's "greenfield ⇒ single-tree/serial-only"): single-tree now requires greenfield && serial; greenfield parallel restores per-slice isolation. assertPolicyForMode parallel refusal is retired.
+- ASSUMPTION: greenfield+parallel per-slice isolation is just the pre-FE-827 plain-dir model (mkdir + seedSliceSandboxFromDeps + __epic__ merge) → VALIDATE: contract tests for that path.
+```
+
+### Acceptance Criteria
+
+```
+✓ layout-shared — greenfield+serial (sliceLayout 'shared'): no per-slice dirs, no __epic__, verify-epic in place (Card-1 tests, updated to pass sliceLayout)
+✓ layout-per-slice-greenfield — greenfield+parallel: per-slice dirs created, deps seeded per slice, verify-epic merges __epic__/<epicId>/
+✓ parallel-allowed — runCook no longer refuses greenfield + --policy=parallel; assertPolicyForMode retired/repurposed
+✓ brownfield-unchanged — codebase path still worktrees + __epic__; contract suite + brownfield-smoke green
+```
+
+### Verification Approach
+
+```
+- Inner: net-compiler adapter/contract tests for the three layouts; runCook sliceLayout selection (pure helper if extracted)
+- Middle: engine-contract greenfield+parallel run produces per-slice dirs + __epic__; greenfield+serial single tree
+```
+
+### Promotion note
+
+Full: reverses the Card-1 decision (single-tree scope narrowed to serial), reintroduces greenfield parallel. Reconcile the final model in SPEC via ln-sync (the single-tree decision becomes layout-policy-selected).
+
+---
+
+## Card 4 — Whole-plan-merge promotion for greenfield parallel (FULL)
+
+**Status:** next (downstream of Card 3)
+
+### Target Behavior
+
+A completed greenfield parallel run promotes a single whole-plan merge of all completed slice trees into the target as a reviewable git commit.
+
+### Boundary Crossings
+
+```
+→ runCook, run completed + greenfield + --out  (cook-cli.ts)
+→ serial (shared) → promote sandboxDir directly (Card 2, unchanged)
+→ parallel (per-slice) → merge ALL completed slices into one whole-plan dir (declaration-order-wins, collisions reported)  (epic-sandbox-merge.ts: whole-plan merge)
+→ promoteGreenfieldRun(mergeDir, ...) → commit-on-branch  (promote-run.ts, reused)
+→ print promoted path + branch/commit + any collisions
+```
+
+### Risks and Assumptions
+
+```
+- RISK: cross-slice path collisions silently last-writer-win → MITIGATION: reuse the merge's declaration-order-wins + conflicts list; print conflicts on promote. Final whole-plan verify is a documented follow-on (per-epic verify-epic already ran).
+- RISK: which slices to merge → MITIGATION: only ctx-completed slices, plan declaration order (mirror sliceIdsForEpicVerifyMerge across the whole plan).
+- ASSUMPTION: mergeSlicesIntoEpicSandbox generalizes to whole-plan (it is filesystem copy, git-agnostic) → VALIDATE: whole-plan-merge unit test.
+- DECISION: greenfield promotion source = sandboxDir (serial) | whole-plan merge (parallel); brownfield promotion stays a separate follow-on.
+```
+
+### Acceptance Criteria
+
+```
+✓ whole-plan-merge — a function merges all completed slice dirs into one tree (order-wins, conflicts reported); unit-tested on tmpdirs
+✓ promote-parallel-greenfield — completed greenfield parallel run + --out lands the merged tree as a commit (files = union of slice outputs)
+✓ promote-serial-unchanged — greenfield serial + --out still copy-commits sandboxDir (Card 2 regression)
+✓ collisions-surfaced — a path produced by two slices is reported on promote
+```
+
+### Verification Approach
+
+```
+- Inner: whole-plan-merge unit test (tmpdir slice dirs); promote-run reused tests
+- Middle: engine-contract greenfield+parallel end-to-end then promote into a tmpdir target
+- Outer: optional manual brunch cook greenfield --policy=parallel --out=<dir>
+```
+
+### Promotion note
+
+Full: adds a whole-plan merge seam + a second greenfield promotion source. Reconcile via ln-sync. Whole-plan re-verify deferred (follow-on).
+
 ### Target Behavior
 
 After a completed greenfield cook run, `brunch cook` promotes the run-sandbox tree into the target directory as a reviewable result, and promotes nothing when the run did not complete.

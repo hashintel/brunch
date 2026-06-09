@@ -334,15 +334,6 @@ export type ResolvedSandbox =
  *
  * Pure modulo the brownfield git read; no process exits.
  */
-/** Greenfield runs slices in one shared tree, so parallel would race — serial only. Brownfield isolates slices, so any policy is fine. */
-export function assertPolicyForMode(planMode: PlanMode, policy: FiringPolicy): void {
-  if (planMode !== 'brownfield' && policy === 'parallel') {
-    throw new Error(
-      'Greenfield cook runs in a single shared tree and requires serial execution; --policy=parallel is only supported for brownfield.',
-    );
-  }
-}
-
 export function resolveSandboxPlan(planMode: PlanMode, dir: string): ResolvedSandbox {
   if (planMode !== 'brownfield') {
     return { kind: 'fixture' };
@@ -409,19 +400,16 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   const plan = loadPlan(resolved.planPath);
 
-  try {
-    assertPolicyForMode(plan.mode, opts.policy);
-  } catch (err) {
-    console.error(err instanceof Error ? err.message : String(err));
-    process.exit(1);
-  }
-
   // Worktree strategy follows the plan's spec-derived mode, not its location.
   const sandbox = resolveSandboxPlan(plan.mode, resolved.sourceDir);
   if (sandbox.kind === 'error') {
     console.error(sandbox.message);
     process.exit(1);
   }
+
+  // Single shared tree only for serial greenfield (parallel would race on it);
+  // every other case isolates slices per-slice.
+  const sliceLayout = sandbox.kind === 'fixture' && opts.policy === 'serial' ? 'shared' : 'per-slice';
 
   const { sandboxDir, runDir, runId } =
     sandbox.kind === 'codebase'
@@ -471,6 +459,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
       testRunner,
       policy: { maxRetries: opts.maxRetries },
       sandboxMode: sandbox.kind === 'codebase' ? 'codebase' : 'fixture',
+      sliceLayout,
       runId,
       runDir,
       // Pick the shared NetFolding (identity by default; color collapses subnets).
