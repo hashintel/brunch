@@ -2,60 +2,61 @@ import { EDGE_CATEGORY_METADATA } from '../policy/category-policy.js';
 import type { EdgeCategory, EdgeStance } from '../schema/edges.js';
 import { type BatchEdgeInput, type BatchEdgeRef } from './commit-graph-types.js';
 
-type RoleNamedEdgeDraftByCategory = {
+type RoleNamedEdgeDraftByCategory<Ref> = {
   readonly dependency: {
     readonly category: 'dependency';
-    readonly dependency: BatchEdgeRef;
-    readonly dependent: BatchEdgeRef;
+    readonly dependency: Ref;
+    readonly dependent: Ref;
     readonly rationale?: string | undefined;
   };
   readonly proof: {
     readonly category: 'proof';
-    readonly oracle: BatchEdgeRef;
-    readonly claim: BatchEdgeRef;
+    readonly oracle: Ref;
+    readonly claim: Ref;
     readonly stance: EdgeStance;
     readonly rationale?: string | undefined;
   };
   readonly support: {
     readonly category: 'support';
-    readonly support: BatchEdgeRef;
-    readonly claim: BatchEdgeRef;
+    readonly support: Ref;
+    readonly claim: Ref;
     readonly stance: EdgeStance;
     readonly rationale?: string | undefined;
   };
   readonly realization: {
     readonly category: 'realization';
-    readonly abstract: BatchEdgeRef;
-    readonly concrete: BatchEdgeRef;
+    readonly abstract: Ref;
+    readonly concrete: Ref;
     readonly rationale?: string | undefined;
   };
   readonly boundary: {
     readonly category: 'boundary';
-    readonly boundary: BatchEdgeRef;
-    readonly subject: BatchEdgeRef;
+    readonly boundary: Ref;
+    readonly subject: Ref;
     readonly rationale?: string | undefined;
   };
   readonly composition: {
     readonly category: 'composition';
-    readonly whole: BatchEdgeRef;
-    readonly part: BatchEdgeRef;
+    readonly whole: Ref;
+    readonly part: Ref;
     readonly rationale?: string | undefined;
   };
   readonly association: {
     readonly category: 'association';
-    readonly a: BatchEdgeRef;
-    readonly b: BatchEdgeRef;
+    readonly a: Ref;
+    readonly b: Ref;
     readonly rationale?: string | undefined;
   };
   readonly supersession: {
     readonly category: 'supersession';
-    readonly successor: BatchEdgeRef;
-    readonly predecessor: BatchEdgeRef;
+    readonly successor: Ref;
+    readonly predecessor: Ref;
     readonly rationale?: string | undefined;
   };
 };
 
-export type RoleNamedEdgeDraft = RoleNamedEdgeDraftByCategory[EdgeCategory];
+export type RoleNamedEdgeDraftOf<Ref> = RoleNamedEdgeDraftByCategory<Ref>[EdgeCategory];
+export type RoleNamedEdgeDraft = RoleNamedEdgeDraftOf<BatchEdgeRef>;
 
 type NonAssociationCategory = Exclude<EdgeCategory, 'association'>;
 type NonAssociationRoleNamedEdgeDraft = Exclude<RoleNamedEdgeDraft, { readonly category: 'association' }>;
@@ -74,9 +75,7 @@ function assertStanceLocality(draft: RoleNamedEdgeDraft): void {
 }
 
 function normalizeNonAssociationEdgeDraft(draft: NonAssociationRoleNamedEdgeDraft): BatchEdgeInput {
-  const metadata = EDGE_CATEGORY_METADATA[draft.category as NonAssociationCategory];
-  const source = draft[metadata.sourceRole as keyof typeof draft] as BatchEdgeRef;
-  const target = draft[metadata.targetRole as keyof typeof draft] as BatchEdgeRef;
+  const { source, target } = roleNamedEdgeDraftEndpoints(draft);
 
   return {
     category: draft.category,
@@ -100,6 +99,21 @@ export function normalizeRoleNamedEdgeDraft(draft: RoleNamedEdgeDraft): BatchEdg
   }
 
   return normalizeNonAssociationEdgeDraft(draft);
+}
+
+export function roleNamedEdgeDraftEndpoints<Ref>(draft: RoleNamedEdgeDraftOf<Ref>): {
+  readonly source: Ref;
+  readonly target: Ref;
+} {
+  if (draft.category === 'association') {
+    return { source: draft.a, target: draft.b };
+  }
+
+  const metadata = EDGE_CATEGORY_METADATA[draft.category as NonAssociationCategory];
+  return {
+    source: draft[metadata.sourceRole as keyof typeof draft] as Ref,
+    target: draft[metadata.targetRole as keyof typeof draft] as Ref,
+  };
 }
 
 export function roleNamedEdgeDraftFromBatchEdgeInput(input: BatchEdgeInput): RoleNamedEdgeDraft {

@@ -1333,8 +1333,8 @@ describe('JSON-RPC handlers', () => {
         {
           category: 'support',
           stance: 'for',
-          source: { draftId: 'requirement-draft' },
-          target: { existingCode: 'G1' },
+          support: { draftId: 'requirement-draft' },
+          claim: { existingCode: 'G1' },
           rationale: 'The reviewed requirement supports the selected-spec goal.',
         },
       ],

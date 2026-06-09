@@ -43,7 +43,7 @@ import type {
   StructuralIllegal,
 } from './command-executor/commit-graph-types.js';
 import { normalizeRoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
-import { translateReviewSetPayloadToCommitGraph } from './review-set.js';
+import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
 import type { ElicitationBacklogLensAffinity } from './schema/elicitation-backlog.js';
 import { type NodeBasis, type NodePlane, type ReadinessBand } from './schema/nodes.js';
 
@@ -1145,13 +1145,13 @@ export class CommandExecutor {
    * truth.
    */
   dryRunAcceptReviewSet(input: AcceptReviewSetInput): AcceptReviewSetDryRunResult {
-    const translated = translateReviewSetPayloadToCommitGraph({
+    const translated = translateReviewSetPayloadToMutateGraph({
       db: this.db,
       specId: input.specId,
       payload: input.payload,
     });
     if (translated.status === 'structural_illegal') return translated;
-    return this.dryRunCommitGraph(translated.command);
+    return this.dryRunMutateGraph(translated.command);
   }
 
   /**
@@ -1163,7 +1163,7 @@ export class CommandExecutor {
    * row with operation `accept_review_set`.
    */
   acceptReviewSet(input: AcceptReviewSetInput): AcceptReviewSetResult {
-    const translated = translateReviewSetPayloadToCommitGraph({
+    const translated = translateReviewSetPayloadToMutateGraph({
       db: this.db,
       specId: input.specId,
       payload: input.payload,
@@ -1171,14 +1171,20 @@ export class CommandExecutor {
     if (translated.status === 'structural_illegal') return translated;
 
     return this.db.transaction((tx) => {
-      const planned = this.planCommitGraph(translated.command, tx);
+      const planned = this.planMutateGraph(translated.command, tx);
       if (planned.status === 'structural_illegal') {
         return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
       }
 
-      return this.writePlannedGraphBatch(tx, translated.command, planned.plan.edges, 'accept_review_set', {
-        proposalEntryId: input.proposalEntryId,
-      });
+      return this.writePlannedGraphBatch(
+        tx,
+        planned.plan.createInput,
+        planned.plan.createEdges,
+        'accept_review_set',
+        {
+          proposalEntryId: input.proposalEntryId,
+        },
+      );
     });
   }
 

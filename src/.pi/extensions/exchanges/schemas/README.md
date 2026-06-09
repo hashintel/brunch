@@ -186,8 +186,21 @@ review_set:
       detail?: object
   edges:
     - category: dependency | proof | support | realization | boundary | composition | association | supersession
-      source: { draft_id: "req-approval" } | { existing_code: "G1" }
-      target: { draft_id: "goal-review" } | { existing_code: "G1" }
+      dependency?: { draft_id: "req-approval" } | { existing_code: "REQ1" }
+      dependent?: { draft_id: "goal-review" } | { existing_code: "G1" }
+      oracle?: { draft_id: "check-launch" } | { existing_code: "CHK1" }
+      claim?: { draft_id: "goal-review" } | { existing_code: "G1" }
+      support?: { draft_id: "req-approval" } | { existing_code: "REQ1" }
+      abstract?: { draft_id: "goal-review" } | { existing_code: "G1" }
+      concrete?: { draft_id: "req-approval" } | { existing_code: "REQ1" }
+      boundary?: { draft_id: "guardrail" } | { existing_code: "B1" }
+      subject?: { draft_id: "goal-review" } | { existing_code: "G1" }
+      whole?: { draft_id: "goal-review" } | { existing_code: "G1" }
+      part?: { draft_id: "req-approval" } | { existing_code: "REQ1" }
+      a?: { draft_id: "req-approval" } | { existing_code: "REQ1" }
+      b?: { draft_id: "goal-review" } | { existing_code: "G1" }
+      successor?: { draft_id: "goal-review-v2" } | { existing_code: "G2" }
+      predecessor?: { draft_id: "goal-review-v1" } | { existing_code: "G1" }
       stance?: for | against
       rationale?: markdown
 ```

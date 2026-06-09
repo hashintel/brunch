@@ -6,6 +6,7 @@ import {
   STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
   zPresentReviewSetDetails,
 } from '../../.pi/extensions/exchanges/schemas/index.js';
+import { roleNamedEdgeDraftEndpoints } from '../../graph/command-executor/role-named-edge-draft.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 
 export interface PresentReviewSetProjection {
@@ -48,19 +49,78 @@ function reviewSetDetailsPayload(payload: ReviewSetProposalPayload): ReviewSetDe
       ...(draft.body !== undefined ? { body: draft.body } : {}),
       ...(draft.detail !== undefined ? { detail: draft.detail } : {}),
     })),
-    edges: payload.edgeDrafts.map((draft) => ({
-      category: draft.category,
-      source: endpointRefDetails(draft.source),
-      target: endpointRefDetails(draft.target),
-      ...(draft.stance === 'for' || draft.stance === 'against' ? { stance: draft.stance } : {}),
-      ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
-    })),
+    edges: payload.edgeDrafts.map(reviewSetEdgeDetails),
   };
 }
 
-function endpointRefDetails(
-  value: ReviewSetProposalPayload['edgeDrafts'][number]['source'],
-): ReviewSetDetailsPayload['edges'][number]['source'] {
+function reviewSetEdgeDetails(
+  draft: ReviewSetProposalPayload['edgeDrafts'][number],
+): ReviewSetDetailsPayload['edges'][number] {
+  const { source, target } = roleNamedEdgeDraftEndpoints(draft);
+
+  switch (draft.category) {
+    case 'dependency':
+      return {
+        category: 'dependency',
+        dependency: endpointRefDetails(source),
+        dependent: endpointRefDetails(target),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'proof':
+      return {
+        category: 'proof',
+        oracle: endpointRefDetails(source),
+        claim: endpointRefDetails(target),
+        stance: draft.stance,
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'support':
+      return {
+        category: 'support',
+        support: endpointRefDetails(source),
+        claim: endpointRefDetails(target),
+        stance: draft.stance,
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'realization':
+      return {
+        category: 'realization',
+        abstract: endpointRefDetails(source),
+        concrete: endpointRefDetails(target),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'boundary':
+      return {
+        category: 'boundary',
+        boundary: endpointRefDetails(source),
+        subject: endpointRefDetails(target),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'composition':
+      return {
+        category: 'composition',
+        whole: endpointRefDetails(source),
+        part: endpointRefDetails(target),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'association':
+      return {
+        category: 'association',
+        a: endpointRefDetails(source),
+        b: endpointRefDetails(target),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'supersession':
+      return {
+        category: 'supersession',
+        successor: endpointRefDetails(source),
+        predecessor: endpointRefDetails(target),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+  }
+}
+
+function endpointRefDetails(value: { readonly draftId: string } | { readonly existingCode: string }) {
   if ('draftId' in value) return { draft_id: value.draftId };
   return { existing_code: value.existingCode };
 }

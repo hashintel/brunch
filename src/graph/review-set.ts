@@ -3,13 +3,17 @@ import { and, eq } from 'drizzle-orm';
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type {
-  BatchEdgeInput,
   BatchEdgeRef,
   BatchNodeInput,
-  CommitGraphInput,
   Diagnostic,
+  MutateGraphInput,
   StructuralIllegal,
 } from './command-executor.js';
+import {
+  roleNamedEdgeDraftEndpoints,
+  type RoleNamedEdgeDraftOf,
+} from './command-executor/role-named-edge-draft.js';
+import { EDGE_CATEGORY_METADATA } from './policy/category-policy.js';
 import type { NodePlane } from './schema/nodes.js';
 import { parseGraphNodeCode } from './schema/nodes.js';
 
@@ -37,13 +41,7 @@ interface ReviewSetEntityDraft {
 
 type ReviewSetEndpointRef = { readonly draftId: string } | { readonly existingCode: string };
 
-interface ReviewSetEdgeDraft {
-  readonly category: string;
-  readonly source: ReviewSetEndpointRef;
-  readonly target: ReviewSetEndpointRef;
-  readonly stance?: string | undefined;
-  readonly rationale?: string | undefined;
-}
+type ReviewSetEdgeDraft = RoleNamedEdgeDraftOf<ReviewSetEndpointRef>;
 
 export interface ReviewSetProposalPayload {
   readonly schemaVersion: 1;
@@ -60,7 +58,7 @@ export interface ReviewSetProposalPayload {
 interface ReviewSetTranslationSuccess {
   readonly status: 'success';
   readonly payload: ReviewSetProposalPayload;
-  readonly command: CommitGraphInput;
+  readonly command: MutateGraphInput;
 }
 
 export type ReviewSetTranslationResult = ReviewSetTranslationSuccess | StructuralIllegal;
@@ -71,7 +69,7 @@ const VALID_PLANES = ['intent', 'oracle', 'design', 'plan'] as const;
 const VALID_CATEGORIES = schema.EDGE_CATEGORIES as unknown as readonly string[];
 const VALID_STANCES = schema.EDGE_STANCES as unknown as readonly string[];
 
-export function translateReviewSetPayloadToCommitGraph(options: {
+export function translateReviewSetPayloadToMutateGraph(options: {
   readonly db: Pick<BrunchDb, 'select'>;
   readonly specId: number;
   readonly payload: unknown;
@@ -80,30 +78,31 @@ export function translateReviewSetPayloadToCommitGraph(options: {
   if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
 
   const payload = options.payload as ReviewSetProposalPayload;
-  const edges: BatchEdgeInput[] = [];
+  const ops: Array<MutateGraphInput['ops'][number]> = payload.entityDrafts.map((draft) => ({
+    op: 'create_node',
+    ...toBatchNodeInput(draft),
+  }));
   for (let index = 0; index < payload.edgeDrafts.length; index++) {
     const edge = payload.edgeDrafts[index]!;
+    const { source: sourceRef, target: targetRef } = roleNamedEdgeDraftEndpoints(edge);
     const source = resolveReviewSetEndpoint(
       options.db,
       options.specId,
-      edge.source,
-      `edgeDrafts[${index}].source`,
+      sourceRef,
+      endpointFieldPath(edge, index, 'source'),
     );
     const target = resolveReviewSetEndpoint(
       options.db,
       options.specId,
-      edge.target,
-      `edgeDrafts[${index}].target`,
+      targetRef,
+      endpointFieldPath(edge, index, 'target'),
     );
     if (source.status === 'structural_illegal') diagnostics.push(...source.diagnostics);
     if (target.status === 'structural_illegal') diagnostics.push(...target.diagnostics);
     if (source.status === 'success' && target.status === 'success') {
-      edges.push({
-        category: edge.category,
-        source: source.ref,
-        target: target.ref,
-        ...(edge.stance !== undefined ? { stance: edge.stance } : {}),
-        ...(edge.rationale !== undefined ? { rationale: edge.rationale } : {}),
+      ops.push({
+        op: 'create_edge',
+        ...replaceRoleNamedEndpoints(edge, source.ref, target.ref),
       });
     }
   }
@@ -115,9 +114,8 @@ export function translateReviewSetPayloadToCommitGraph(options: {
     payload,
     command: {
       specId: options.specId,
-      basis: 'explicit',
-      nodes: payload.entityDrafts.map(toBatchNodeInput),
-      edges,
+      createBasis: 'explicit',
+      ops,
     },
   };
 }
@@ -242,14 +240,83 @@ function validateEdgeDrafts(value: unknown, diagnostics: Diagnostic[]): void {
         message: 'targetDraftId is retired; use target.draftId',
       });
     }
+    if ('source' in draft) {
+      diagnostics.push({ field: `${path}.source`, message: 'source is retired; use role-named endpoints' });
+    }
+    if ('target' in draft) {
+      diagnostics.push({ field: `${path}.target`, message: 'target is retired; use role-named endpoints' });
+    }
     if (!isOneOf(draft.category, VALID_CATEGORIES))
       diagnostics.push({ field: `${path}.category`, message: 'invalid edge category' });
     if (draft.stance !== undefined && !isOneOf(draft.stance, VALID_STANCES)) {
       diagnostics.push({ field: `${path}.stance`, message: 'invalid stance' });
     }
-    validateEndpointShape(draft.source, `${path}.source`, diagnostics);
-    validateEndpointShape(draft.target, `${path}.target`, diagnostics);
+
+    if (!isOneOf(draft.category, VALID_CATEGORIES)) {
+      return;
+    }
+
+    validateRoleNamedReviewSetEdgeDraft(draft as ReviewSetEdgeDraft, index, diagnostics);
   });
+}
+
+function validateRoleNamedReviewSetEdgeDraft(
+  draft: ReviewSetEdgeDraft,
+  index: number,
+  diagnostics: Diagnostic[],
+): void {
+  const path = `edgeDrafts[${index}]`;
+  if ((draft.category === 'proof' || draft.category === 'support') && draft.stance === undefined) {
+    diagnostics.push({ field: `${path}.stance`, message: 'stance is required for proof/support edges' });
+  }
+  if (
+    draft.category !== 'proof' &&
+    draft.category !== 'support' &&
+    'stance' in draft &&
+    draft.stance !== undefined
+  ) {
+    diagnostics.push({ field: `${path}.stance`, message: 'stance is allowed only on proof/support edges' });
+  }
+
+  const sourceField = endpointFieldPath(draft, index, 'source');
+  const targetField = endpointFieldPath(draft, index, 'target');
+  const { source, target } = roleNamedEdgeDraftEndpoints(draft);
+  validateEndpointShape(source, sourceField, diagnostics);
+  validateEndpointShape(target, targetField, diagnostics);
+}
+
+function endpointFieldPath(draft: ReviewSetEdgeDraft, index: number, position: 'source' | 'target'): string {
+  const path = `edgeDrafts[${index}]`;
+  if (draft.category === 'association') {
+    return `${path}.${position === 'source' ? 'a' : 'b'}`;
+  }
+
+  const metadata = EDGE_CATEGORY_METADATA[draft.category as keyof typeof EDGE_CATEGORY_METADATA];
+  return `${path}.${position === 'source' ? metadata.sourceRole : metadata.targetRole}`;
+}
+function replaceRoleNamedEndpoints(
+  draft: ReviewSetEdgeDraft,
+  source: BatchEdgeRef,
+  target: BatchEdgeRef,
+): RoleNamedEdgeDraftOf<BatchEdgeRef> {
+  switch (draft.category) {
+    case 'dependency':
+      return { ...draft, dependency: source, dependent: target };
+    case 'proof':
+      return { ...draft, oracle: source, claim: target };
+    case 'support':
+      return { ...draft, support: source, claim: target };
+    case 'realization':
+      return { ...draft, abstract: source, concrete: target };
+    case 'boundary':
+      return { ...draft, boundary: source, subject: target };
+    case 'composition':
+      return { ...draft, whole: source, part: target };
+    case 'association':
+      return { ...draft, a: source, b: target };
+    case 'supersession':
+      return { ...draft, successor: source, predecessor: target };
+  }
 }
 
 function validateEndpointShape(value: unknown, path: string, diagnostics: Diagnostic[]): void {

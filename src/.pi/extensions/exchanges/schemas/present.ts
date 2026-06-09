@@ -72,15 +72,68 @@ export const ReviewSetNodeDraftSchema = z.toJSONSchema(zReviewSetNodeDraft, {
   unrepresentable: 'throw',
 });
 
-export const zReviewSetEdgeDraft = z
-  .object({
-    category: z.string().min(1),
-    source: zReviewSetEndpointRef,
-    target: zReviewSetEndpointRef,
-    stance: z.enum(['for', 'against']).optional(),
-    rationale: zMarkdown.optional(),
-  })
-  .strict();
+const zReviewSetEdgeBase = z.object({ rationale: zMarkdown.optional() }).strict();
+
+export const zReviewSetEdgeDraft = z.union([
+  zReviewSetEdgeBase
+    .extend({
+      category: z.literal('dependency'),
+      dependency: zReviewSetEndpointRef,
+      dependent: zReviewSetEndpointRef,
+    })
+    .strict(),
+  zReviewSetEdgeBase
+    .extend({
+      category: z.literal('proof'),
+      oracle: zReviewSetEndpointRef,
+      claim: zReviewSetEndpointRef,
+      stance: z.enum(['for', 'against']),
+    })
+    .strict(),
+  zReviewSetEdgeBase
+    .extend({
+      category: z.literal('support'),
+      support: zReviewSetEndpointRef,
+      claim: zReviewSetEndpointRef,
+      stance: z.enum(['for', 'against']),
+    })
+    .strict(),
+  zReviewSetEdgeBase
+    .extend({
+      category: z.literal('realization'),
+      abstract: zReviewSetEndpointRef,
+      concrete: zReviewSetEndpointRef,
+    })
+    .strict(),
+  zReviewSetEdgeBase
+    .extend({
+      category: z.literal('boundary'),
+      boundary: zReviewSetEndpointRef,
+      subject: zReviewSetEndpointRef,
+    })
+    .strict(),
+  zReviewSetEdgeBase
+    .extend({
+      category: z.literal('composition'),
+      whole: zReviewSetEndpointRef,
+      part: zReviewSetEndpointRef,
+    })
+    .strict(),
+  zReviewSetEdgeBase
+    .extend({
+      category: z.literal('association'),
+      a: zReviewSetEndpointRef,
+      b: zReviewSetEndpointRef,
+    })
+    .strict(),
+  zReviewSetEdgeBase
+    .extend({
+      category: z.literal('supersession'),
+      successor: zReviewSetEndpointRef,
+      predecessor: zReviewSetEndpointRef,
+    })
+    .strict(),
+]);
 export const ReviewSetEdgeDraftSchema = z.toJSONSchema(zReviewSetEdgeDraft, {
   unrepresentable: 'throw',
 });

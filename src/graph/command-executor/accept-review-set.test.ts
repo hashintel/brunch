@@ -32,8 +32,8 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
     edgeDrafts: [
       {
         category: 'realization',
-        source: { draftId: 'req-rollback' },
-        target: { draftId: 'goal-launch' },
+        abstract: { draftId: 'req-rollback' },
+        concrete: { draftId: 'goal-launch' },
       },
     ],
     ...overrides,
@@ -122,9 +122,9 @@ describe('CommandExecutor.acceptReviewSet', () => {
         edgeDrafts: [
           {
             category: 'support',
-            source: { draftId: 'req-rollback' },
-            target: { draftId: 'goal-launch' },
-          },
+            support: { draftId: 'req-rollback' },
+            claim: { draftId: 'goal-launch' },
+          } as never,
         ],
       }),
     });

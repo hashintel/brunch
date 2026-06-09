@@ -1,3 +1,4 @@
+import { roleNamedEdgeDraftEndpoints } from '../../graph/command-executor/role-named-edge-draft.js';
 import type { PresentReviewSetProjection } from '../../projections/exchanges/present-review-set.js';
 
 export function formatPresentReviewSet(projection: PresentReviewSetProjection): string {
@@ -27,9 +28,10 @@ export function formatPresentReviewSet(projection: PresentReviewSetProjection): 
 
   lines.push('', '### Edge drafts');
   payload.edgeDrafts.forEach((draft) => {
-    const source = 'draftId' in draft.source ? draft.source.draftId : draft.source.existingCode;
-    const target = 'draftId' in draft.target ? draft.target.draftId : draft.target.existingCode;
-    const stance = draft.stance ? ` [${draft.stance}]` : '';
+    const { source: sourceRef, target: targetRef } = roleNamedEdgeDraftEndpoints(draft);
+    const source = 'draftId' in sourceRef ? sourceRef.draftId : sourceRef.existingCode;
+    const target = 'draftId' in targetRef ? targetRef.draftId : targetRef.existingCode;
+    const stance = draft.category === 'proof' || draft.category === 'support' ? ` [${draft.stance}]` : '';
     lines.push('', `- ${source} —${draft.category}${stance}→ ${target}`);
     if (draft.rationale) lines.push(`  ${draft.rationale}`);
   });

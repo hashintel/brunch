@@ -190,8 +190,8 @@ describe('structured exchange present schemas', () => {
           edges: [
             {
               category: 'dependency',
-              source: { draft_id: 'req-approval' },
-              target: { existing_code: 'G1' },
+              dependency: { draft_id: 'req-approval' },
+              dependent: { existing_code: 'G1' },
             },
           ],
         },
@@ -222,8 +222,8 @@ describe('structured exchange present schemas', () => {
         edges: [
           {
             category: 'dependency',
-            source: { draft_id: 'req-approval' },
-            target: { existing_code: 'G1' },
+            dependency: { draft_id: 'req-approval' },
+            dependent: { existing_code: 'G1' },
           },
         ],
       },
@@ -262,7 +262,7 @@ describe('structured exchange present schemas', () => {
         ...reviewSetDetails,
         review_set: {
           ...reviewSetDetails.review_set,
-          edges: [{ ...reviewSetDetails.review_set.edges[0], source: { existing: 1 } }],
+          edges: [{ ...reviewSetDetails.review_set.edges[0], dependency: { existing: 1 } }],
         },
       }),
     ).toThrow();

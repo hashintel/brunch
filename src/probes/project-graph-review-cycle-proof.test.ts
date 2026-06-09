@@ -101,8 +101,8 @@ function presentReviewSetEntry(): string {
       edges: [
         {
           category: 'support',
-          source: { draft_id: 'req-resolution-state' },
-          target: { existing_code: 'G1' },
+          support: { draft_id: 'req-resolution-state' },
+          claim: { existing_code: 'G1' },
           stance: 'for',
         },
       ],
