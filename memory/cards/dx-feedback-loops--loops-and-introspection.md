@@ -180,11 +180,14 @@ One read-only, dev-gated introspection extension — loaded only through the exp
 
 ```
 → src/.pi/extensions/introspection/ (new read-only extension)
-→ mechanical: passive before_provider_request + before_agent_start tap; on-demand /introspect via ctx.getSystemPromptOptions()
+→ mechanical (a): passive before_provider_request/before_agent_start tap — records the FINAL post-mutation payload the model receives
+→ mechanical (b): on-demand /introspect — reports BASE system-prompt inputs via ctx.getSystemPromptOptions() (base only) + the latest passive capture
 → subjective: src/dev/ real-provider launcher driving session.prompt(...)
-→ dev-gated inclusion point in createBrunchPiExtensions (src/.pi/brunch-pi-extensions.ts)
+→ dev-gated inclusion point in createBrunchPiExtensions (src/.pi/brunch-pi-extensions.ts) — registered LAST in the extensions[] list
 → exit: .fixtures/runs/introspection/<run-id>/ holds mechanical payload + subjective answer, correlated by turn
 ```
+
+> Capture-exactness contract (verified in pi 0.79.0 source): `before_provider_request` is a registration-ordered transformation chain (`runner.ts emitBeforeProviderRequest` threads `currentPayload` through each extension), so only a tap registered *after* all Brunch mutators sees the final payload. `ctx.getSystemPromptOptions()` returns pi's `_baseSystemPromptOptions` — base inputs only; it does **not** reflect later `before_agent_start`/`before_provider_request` mutations. "Exactly what the model receives" therefore belongs to the passive tap, not `/introspect`.
 
 ### Risks and Assumptions
 
@@ -209,7 +212,8 @@ Scores on **invariants** (locks in the D69-L read-only capture contract) and **p
 
 ```
 ✓ pass-through — a test asserts the extension returns every captured payload unchanged (observation-only)
-✓ mechanical capture — passive tap + /introspect produce the provider payload and assembled prompt options for a turn
+✓ registered-last — the introspection registrar is appended after all Brunch mutators in createBrunchPiExtensions; a test asserts its before_provider_request tap sees the post-mutation payload
+✓ mechanical capture — passive tap records the final provider payload; /introspect reports base getSystemPromptOptions inputs + the latest passive capture (no claim of exactness for /introspect)
 ✓ subjective capture — the real-provider launcher's session.prompt answer is captured and correlated to the same turn
 ✓ paired run — a well-formed .fixtures/runs/introspection/<run-id>/ holds mechanical payload + subjective answer keyed by turn
 ✓ sealed-profile — outside dev/introspection mode the extension is absent and the D39-L offline default holds
