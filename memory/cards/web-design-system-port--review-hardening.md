@@ -75,7 +75,7 @@ src/web/
 
 ---
 
-## Card 2 — Make `DrawerCard`'s disclosure contract executable · status: next
+## Card 2 — Make `DrawerCard`'s disclosure contract executable · status: done
 
 ### Objective
 
