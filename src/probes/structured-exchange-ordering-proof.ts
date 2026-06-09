@@ -156,8 +156,14 @@ export async function runStructuredExchangeOrderingProof(
 async function writeOrderingExtension(cwd: string): Promise<string> {
   const extensionPath = join(cwd, 'structured-exchange-ordering-extension.ts');
   const adapterPath = resolve('src/.pi/extensions/exchanges/index.ts');
-  const fauxHarnessPath = resolve('src/dev/faux-harness.ts');
-  const content = `
+  const fauxProviderPath = resolve('src/probes/faux-provider.ts');
+  const content = orderingExtensionSource(adapterPath, fauxProviderPath);
+  await writeFile(extensionPath, content, 'utf8');
+  return extensionPath;
+}
+
+export function orderingExtensionSource(adapterPath: string, fauxProviderPath: string): string {
+  return `
     import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
     import {
       fauxAssistantMessage,
@@ -165,7 +171,7 @@ async function writeOrderingExtension(cwd: string): Promise<string> {
       registerFauxProvider,
     } from "@earendil-works/pi-ai"
     import { registerStructuredExchange } from ${JSON.stringify(adapterPath)}
-    import { BRUNCH_FAUX_HARNESS_ENV_API_KEY, brunchFauxProviderConfig, defaultBrunchFauxModel } from ${JSON.stringify(fauxHarnessPath)}
+    import { BRUNCH_FAUX_HARNESS_ENV_API_KEY, brunchFauxProviderConfig, defaultBrunchFauxModel } from ${JSON.stringify(fauxProviderPath)}
 
     export default function(pi: ExtensionAPI): void {
       registerStructuredExchange(pi)
@@ -220,8 +226,6 @@ async function writeOrderingExtension(cwd: string): Promise<string> {
       })
     }
   `;
-  await writeFile(extensionPath, content, 'utf8');
-  return extensionPath;
 }
 
 function orderingEvents(events: readonly unknown[]): string[] {

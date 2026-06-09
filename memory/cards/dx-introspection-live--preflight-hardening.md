@@ -72,7 +72,7 @@ Done 2026-06-09. `DEFAULT_PI_SOURCE_ROOT` is derived from `homedir()`, root alia
 
 ---
 
-## Card 2 — Keep structured-exchange proof buildable outside `src/dev` · status: next
+## Card 2 — Keep structured-exchange proof buildable outside `src/dev` · status: done
 
 ### Objective
 
@@ -117,6 +117,10 @@ src/dev/faux-harness.ts                           ?
 src/dev/README.md                                 ?
 tsconfig.build.json                               ? (only to assert exclusion, not to remove it)
 ```
+
+### Result
+
+Done 2026-06-09. The generated ordering-proof extension now imports build-included `src/probes/faux-provider.ts` instead of `src/dev/faux-harness.ts`; `src/dev/faux-harness.ts` re-exports the shared provider config for dev callers. A focused source assertion guards generated extension content against `src/dev/**` imports, and `npm run build` passes while `tsconfig.build.json` continues excluding `src/dev/**`.
 
 ---
 

@@ -1,8 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { runStructuredExchangeOrderingProof } from './structured-exchange-ordering-proof.js';
+import {
+  orderingExtensionSource,
+  runStructuredExchangeOrderingProof,
+} from './structured-exchange-ordering-proof.js';
 
 describe('structured-exchange ordering proof', () => {
+  it('generates an extension without importing build-excluded dev modules', () => {
+    const source = orderingExtensionSource(
+      '/repo/src/.pi/extensions/exchanges/index.ts',
+      '/repo/src/probes/faux-provider.ts',
+    );
+
+    expect(source).toContain('/repo/src/probes/faux-provider.ts');
+    expect(source).not.toContain('/src/dev/');
+  });
+
   it('runs same-assistant-message present_options before request_choice with sequential tools', async () => {
     const proof = await runStructuredExchangeOrderingProof();
 
