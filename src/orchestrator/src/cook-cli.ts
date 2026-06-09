@@ -106,10 +106,11 @@ export function parseCookArgs(args: string[]): CookOptions {
     }
   }
 
+  // The directory is optional: with no positional argument, cook runs against
+  // the launch cwd (where it looks for `.brunch/`). `BRUNCH_LAUNCH_CWD` mirrors
+  // the launchCwd `runCook` uses, so the resolved dir matches the run root.
   if (!dir) {
-    throw new Error(
-      'Usage: brunch cook <dir> [--spec=<id>] [--policy=serial|parallel] [--max-retries=N] [--petrinaut-fold=color|identity] [--petrinaut-lanes=both|mechanical] [--petrinaut-stream [--petrinaut-url=<url>] [--no-petrinaut-open]] [--verbose]',
-    );
+    dir = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
   }
 
   // Companion-flag validation: stream-only flags require --petrinaut-stream.

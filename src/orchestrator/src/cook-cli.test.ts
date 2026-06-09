@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -42,8 +42,11 @@ describe('parseCookArgs', () => {
     expect(opts.maxRetries).toBe(5);
   });
 
-  it('throws on missing dir', () => {
-    expect(() => parseCookArgs(['--policy=serial'])).toThrow('Usage');
+  it('defaults dir to the launch cwd when no positional dir is given', () => {
+    const expected = resolve(process.env.BRUNCH_LAUNCH_CWD || process.cwd());
+    expect(parseCookArgs([]).dir).toBe(expected);
+    expect(parseCookArgs(['--spec=3']).dir).toBe(expected);
+    expect(parseCookArgs(['--policy=serial']).dir).toBe(expected);
   });
 
   it('throws on unknown policy', () => {
