@@ -153,14 +153,46 @@ describe('materializeArchitectedPlan', () => {
       writes: ['src/cli.ts'],
       derivedFrom: [],
     });
-    const { plan } = materializeArchitectedPlan(projected, d, toolchain);
+    const { plan, warnings } = materializeArchitectedPlan(projected, d, toolchain);
     const core = plan.epics.find((e) => e.id === 'core')!;
     const cli = plan.epics.find((e) => e.id === 'cli')!;
-    // `ghost` is not a surviving epic → silently filtered; the core↔cli
-    // cycle is broken deterministically so at most one edge survives.
+    // `ghost` is not a surviving epic → dropped with a typed warning (never
+    // silently); the core↔cli cycle is broken deterministically so at most
+    // one edge survives.
     expect(cli.depends_on).not.toContain('ghost');
+    expect(warnings).toContainEqual({
+      code: 'dropped-epic-dependency-nonexistent-id',
+      epicId: 'cli',
+      missingId: 'ghost',
+    });
     const edgeCount = core.depends_on.length + cli.depends_on.length;
     expect(edgeCount).toBeLessThanOrEqual(1);
+  });
+
+  it('warns when an epic gate points at an epic dropped for being empty', () => {
+    const d = draft({
+      epics: [
+        { id: 'core', summary: 'Core' },
+        { id: 'cli', summary: 'CLI', depends_on: ['core', 'docs'] },
+        { id: 'docs', summary: 'Docs' }, // no slices → dropped as empty
+      ],
+    });
+    d.slices.push({
+      id: 'c',
+      epic_id: 'cli',
+      definition: 'C',
+      depends_on: [],
+      writes: ['src/cli.ts'],
+      derivedFrom: [],
+    });
+    const { plan, warnings } = materializeArchitectedPlan(projected, d, toolchain);
+    expect(plan.epics.map((e) => e.id)).not.toContain('docs');
+    expect(plan.epics.find((e) => e.id === 'cli')!.depends_on).toEqual(['core']);
+    expect(warnings).toContainEqual({
+      code: 'dropped-epic-dependency-nonexistent-id',
+      epicId: 'cli',
+      missingId: 'docs',
+    });
   });
 
   it('is pure — does not mutate the projected plan or the draft', () => {

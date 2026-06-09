@@ -32,7 +32,8 @@ export interface CoverageExpectations {
 
 export type MaterializeWarning =
   | ReconciliationWarning
-  | { code: 'dropped-unknown-requirement-ref'; sliceId: string; requirementId: string };
+  | { code: 'dropped-unknown-requirement-ref'; sliceId: string; requirementId: string }
+  | { code: 'dropped-epic-dependency-nonexistent-id'; epicId: string; missingId: string };
 
 export function materializeArchitectedPlan(
   projected: Plan,
@@ -142,16 +143,23 @@ export function materializeArchitectedPlan(
   const survivingEpicIds = new Set(survivingEpics.map((epic) => epic.id));
 
   // Preserve authored cross-epic gates (e.g. `cli` waiting on `core`),
-  // cleaned with the same policy as slices: self/dangling edges (incl. deps
-  // on dropped/empty epics) are filtered out, then cycles are broken via the
-  // shared Kahn pass so emitted multi-epic plans keep upstream→downstream
-  // order instead of running every epic concurrently.
+  // cleaned with the same policy as slices: an edge onto an epic that is not
+  // in the output (unknown id, or one dropped for being empty) is removed and
+  // surfaced as a typed warning — never silently — so a mistyped or stale gate
+  // is auditable rather than vanishing. Cycles are then broken via the shared
+  // Kahn pass so emitted multi-epic plans keep upstream→downstream order
+  // instead of running every epic concurrently.
   const cleanedEpicDeps = new Map<string, string[]>();
   for (const epic of survivingEpics) {
-    cleanedEpicDeps.set(
-      epic.id,
-      (epic.depends_on ?? []).filter((dep) => survivingEpicIds.has(dep)),
-    );
+    const kept: string[] = [];
+    for (const dep of epic.depends_on ?? []) {
+      if (survivingEpicIds.has(dep)) {
+        kept.push(dep);
+      } else {
+        warnings.push({ code: 'dropped-epic-dependency-nonexistent-id', epicId: epic.id, missingId: dep });
+      }
+    }
+    cleanedEpicDeps.set(epic.id, kept);
   }
   const { dependsOnById: acyclicEpicDeps, droppedEdges: droppedEpicEdges } = breakDependencyCycles(
     survivingEpicIds,

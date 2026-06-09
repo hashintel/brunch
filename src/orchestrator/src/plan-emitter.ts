@@ -51,6 +51,7 @@ export type EmitterWarning =
   | ReconciliationWarning
   | { code: 'synthesized-integration-seam'; epicId: string; target: string }
   | { code: 'dropped-unknown-requirement-ref'; sliceId: string; requirementId: string }
+  | { code: 'dropped-epic-dependency-nonexistent-id'; epicId: string; missingId: string }
   | { code: 'file-write-conflict'; severity: 'warning'; path: string; sliceIds: string[] }
   | { code: 'architect-failed-fallback-to-projection'; reason: string };
 
@@ -178,7 +179,11 @@ function describeCheckFailure(check: ContractResult): string {
 export function emitterWarningCategory(warning: EmitterWarning): 'transformation' | 'synthesis' | 'failure' {
   if (warning.code === 'architect-failed-fallback-to-projection') return 'failure';
   if (warning.code === 'synthesized-integration-seam') return 'synthesis';
-  if (warning.code === 'dropped-unknown-requirement-ref' || warning.code === 'file-write-conflict') {
+  if (
+    warning.code === 'dropped-unknown-requirement-ref' ||
+    warning.code === 'dropped-epic-dependency-nonexistent-id' ||
+    warning.code === 'file-write-conflict'
+  ) {
     return 'transformation';
   }
   return reconciliationWarningCategory(warning);
@@ -197,6 +202,9 @@ export function formatEmitterWarning(warning: EmitterWarning): string {
   }
   if (warning.code === 'dropped-unknown-requirement-ref') {
     return `dropped-unknown-requirement-ref  ${warning.sliceId} → ${warning.requirementId}`;
+  }
+  if (warning.code === 'dropped-epic-dependency-nonexistent-id') {
+    return `dropped-epic-dependency-nonexistent-id  ${warning.epicId} → ${warning.missingId}`;
   }
   if (warning.code === 'file-write-conflict') {
     return `file-write-conflict  ${warning.path} ← ${warning.sliceIds.join(', ')}`;
