@@ -114,6 +114,68 @@ describe('planExecutionOrdering', () => {
     }
   });
 
+  it('includes each slice\u2019s acceptance criteria in the prompt (FE-829 slice 3)', async () => {
+    const planWithCriteria: Plan = {
+      mode: 'greenfield',
+      epics: [{ id: 'default', summary: 'All requirements', depends_on: [], verification: [] }],
+      slices: [
+        {
+          id: 'req-1',
+          epic_id: 'default',
+          definition: 'First requirement',
+          depends_on: [],
+          verification: [{ kind: 'criterion', target: 'the widget renders within 100ms' }],
+        },
+      ],
+    };
+
+    let capturedPrompt = '';
+    await planExecutionOrdering(planWithCriteria, async (prompt) => {
+      capturedPrompt = prompt;
+      return { sliceDependencies: [], epics: [], nonBuildableSliceIds: [] };
+    });
+
+    expect(capturedPrompt).toContain('the widget renders within 100ms');
+  });
+
+  it('includes projected relation hints in the prompt (FE-829 slice 3)', async () => {
+    let capturedPrompt = '';
+    await planExecutionOrdering(
+      samplePlan,
+      async (prompt) => {
+        capturedPrompt = prompt;
+        return { sliceDependencies: [], epics: [], nonBuildableSliceIds: [] };
+      },
+      { relations: [{ fromSliceId: 'req-2', relation: 'depends_on', toSliceId: 'req-1' }] },
+    );
+
+    expect(capturedPrompt).toContain('req-2 depends_on req-1');
+  });
+
+  it('inlines the reference fixtures as few-shot exemplars (FE-829 slice 3)', async () => {
+    let capturedPrompt = '';
+    await planExecutionOrdering(samplePlan, async (prompt) => {
+      capturedPrompt = prompt;
+      return { sliceDependencies: [], epics: [], nonBuildableSliceIds: [] };
+    });
+
+    expect(capturedPrompt).toContain('parallel-utils');
+    expect(capturedPrompt).toContain('layered-todo');
+    expect(capturedPrompt).toContain('resilient-pipeline');
+    // a recognizable structural cue from an exemplar's join slice
+    expect(capturedPrompt).toContain('barrel-exports');
+  });
+
+  it('instructs the model not to invent, split, or rename slices (FE-829 slice 3)', async () => {
+    let capturedPrompt = '';
+    await planExecutionOrdering(samplePlan, async (prompt) => {
+      capturedPrompt = prompt;
+      return { sliceDependencies: [], epics: [], nonBuildableSliceIds: [] };
+    });
+
+    expect(capturedPrompt).toContain('Do NOT invent, split, merge,');
+  });
+
   it('short-circuits on an empty Plan without calling runModel', async () => {
     const emptyPlan: Plan = {
       mode: 'greenfield',

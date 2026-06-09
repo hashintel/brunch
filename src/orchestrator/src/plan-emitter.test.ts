@@ -41,6 +41,27 @@ describe('emitPlanFromSnapshot', () => {
     expect(result.warnings.some((w) => w.code === 'synthesized-verification-target')).toBe(true);
   });
 
+  it('threads snapshot-derived relation hints into the planning prompt (FE-829 slice 3)', async () => {
+    const relationalSnapshot: CompletedSpecSnapshot = {
+      requirements: [
+        { id: 10, content: 'First requirement', kindOrdinal: 1 },
+        { id: 11, content: 'Second requirement', kindOrdinal: 2 },
+      ],
+      criteria: [],
+      edges: [{ fromItemId: 11, toItemId: 10, relation: 'depends_on' }],
+    };
+
+    let capturedPrompt = '';
+    const runModel: RunModel = async (prompt) => {
+      capturedPrompt = prompt;
+      return { sliceDependencies: [], epics: [], nonBuildableSliceIds: [] };
+    };
+
+    await emitPlanFromSnapshot(relationalSnapshot, { runModel });
+
+    expect(capturedPrompt).toContain('req-11 depends_on req-10');
+  });
+
   it('falls back to an empty enrichment when the runModel throws — plan still emits, planningResult is failed', async () => {
     const runModel: RunModel = async () => {
       throw new Error('boom');

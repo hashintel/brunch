@@ -25,6 +25,7 @@ import {
   type PlanningResult,
   type RunModel,
 } from './plan-llm-planning.js';
+import { projectPlanningContext } from './plan-planning-context.js';
 import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 import {
   formatReconciliationWarning,
@@ -79,8 +80,9 @@ export async function emitPlanFromSnapshot(
   const runModel = options.runModel ?? defaultRunModel;
 
   const projected = projectPlanFromSpec(snapshot);
+  const planningContext = projectPlanningContext(snapshot);
   const toolchain = options.toolchain ?? resolveToolchain(projected.profile);
-  const planningResult = await planExecutionOrdering(projected, runModel);
+  const planningResult = await planExecutionOrdering(projected, runModel, planningContext);
   const enrichment = planningResult.status === 'succeeded' ? planningResult.enrichment : EMPTY_ENRICHMENT;
   const { plan: candidate, warnings: reconciliationWarnings } = reconcilePlan(
     projected,

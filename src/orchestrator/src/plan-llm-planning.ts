@@ -1,4 +1,11 @@
 // FE-800 slice 2: LLM planning pass.
+// FE-829 slice 3: build-architect prompt — enriches the call with each
+// slice's requirement criteria, spec relation hints projected into
+// slice-id space (`PlanningContext`), and the reference fixtures inlined
+// as few-shot exemplars. The OUTPUT schema is unchanged: the planner
+// still only classifies, groups, and orders the existing `req-*` slices.
+// Requirement decomposition / file-ownership is slice 4 (needs
+// `Slice.writes` + the D160-K amendment).
 //
 // Pure function that takes a slice-1 projected Plan plus an injected
 // `runModel` LLM seam, performs one structured LLM round-trip, and
@@ -6,15 +13,17 @@
 // and non-buildable slice ids.
 //
 // Slice 2 enforces SHAPE only — id existence, cycles, dangling deps
-// onto constraint slices, and epic-coverage gaps are slice 3's
-// deterministic reconciliation. Failures (thrown LLM, parse error,
+// onto constraint slices, and epic-coverage gaps are the deterministic
+// reconciliation/contract stages. Failures (thrown LLM, parse error,
 // malformed shape) collapse to a recoverable `{ status: 'failed' }`
-// result so slice 3 can fall back instead of crashing.
+// result so the emitter can fall back instead of crashing.
 
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, Output } from 'ai';
 import * as z from 'zod/v4';
 
+import { buildExemplarBlock } from './plan-exemplars.js';
+import { EMPTY_PLANNING_CONTEXT, type PlanningContext } from './plan-planning-context.js';
 import type { Plan } from './types.js';
 
 export const planningEnrichmentSchema = z.object({
@@ -42,7 +51,11 @@ export type PlanningResult =
 
 export type RunModel = (prompt: string) => Promise<unknown>;
 
-export async function planExecutionOrdering(plan: Plan, runModel: RunModel): Promise<PlanningResult> {
+export async function planExecutionOrdering(
+  plan: Plan,
+  runModel: RunModel,
+  context: PlanningContext = EMPTY_PLANNING_CONTEXT,
+): Promise<PlanningResult> {
   if (plan.slices.length === 0) {
     return {
       status: 'succeeded',
@@ -50,7 +63,7 @@ export async function planExecutionOrdering(plan: Plan, runModel: RunModel): Pro
     };
   }
 
-  const prompt = buildPlanningPrompt(plan);
+  const prompt = buildPlanningPrompt(plan, context);
 
   let raw: unknown;
   try {
@@ -70,14 +83,34 @@ export async function planExecutionOrdering(plan: Plan, runModel: RunModel): Pro
   return { status: 'succeeded', enrichment: parsed.data };
 }
 
-function buildPlanningPrompt(plan: Plan): string {
-  const sliceLines = plan.slices.map((slice) => `- ${slice.id}: ${slice.definition}`).join('\n');
+function buildPlanningPrompt(plan: Plan, context: PlanningContext): string {
   const allSliceIds = plan.slices.map((slice) => slice.id).join(', ');
 
+  const sliceBlocks = plan.slices
+    .map((slice) => {
+      const criteria = slice.verification
+        .filter((target) => target.kind === 'criterion')
+        .map((target) => `    - ${target.target}`);
+      const criteriaBlock =
+        criteria.length > 0
+          ? ['  Acceptance criteria:', ...criteria].join('\n')
+          : '  Acceptance criteria: (none)';
+      return [`- ${slice.id}: ${slice.definition}`, criteriaBlock].join('\n');
+    })
+    .join('\n');
+
+  const relationLines =
+    context.relations.length > 0
+      ? context.relations
+          .map((relation) => `- ${relation.fromSliceId} ${relation.relation} ${relation.toSliceId}`)
+          .join('\n')
+      : '(none)';
+
   return [
-    'You are sequencing a software build plan derived from a product specification.',
-    '',
-    'Each slice corresponds to one product requirement. Your job is to produce three things:',
+    'You are a build architect turning a completed product specification into an',
+    'executable build plan. The slices below already exist — one per requirement.',
+    'You may only CLASSIFY, GROUP, and ORDER them. Do NOT invent, split, merge,',
+    'rename, or remove slices, and do not emit file paths. Produce three things:',
     '',
     '1. `sliceDependencies`: for each slice, the list of OTHER slice ids it must be built AFTER.',
     '   Only emit ordering edges that are real engineering prerequisites (e.g. a slice that',
@@ -98,8 +131,20 @@ function buildPlanningPrompt(plan: Plan): string {
     '',
     `Available slice ids: ${allSliceIds}`,
     '',
-    'Plan slices:',
-    sliceLines,
+    'Plan slices (definition + acceptance criteria):',
+    sliceBlocks,
+    '',
+    'Spec relation hints (epistemic, NOT automatic build dependencies — use them to',
+    'infer real engineering prerequisites, ignore those that are merely topical):',
+    relationLines,
+    '',
+    'Reference exemplars — these hand-authored plans show the target DEPENDENCY and',
+    'EPIC shape (scaffold→fan-out→join, diamonds, cross-epic gates). Use them as',
+    'STRUCTURAL guidance only; do not copy their ids, file paths, or domain terms.',
+    buildExemplarBlock(),
+    '',
+    'Output only the three fields described above (`sliceDependencies`, `epics`,',
+    '`nonBuildableSliceIds`) over the existing slice ids.',
   ].join('\n');
 }
 
