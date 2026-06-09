@@ -183,9 +183,20 @@ describe('Brunch CLI dispatch', () => {
       jsonrpc: '2.0',
       method: 'brunch.updated',
       params: {
-        topics: ['workspace.state', 'session.pendingExchange', 'session.exchanges', 'session.runtimeState'],
+        topics: [
+          'workspace.state',
+          'workspace.selectionState',
+          'session.pendingExchange',
+          'session.exchanges',
+          'session.runtimeState',
+        ],
         updates: [
           { topic: 'workspace.state', specId: workspace.spec.id, sessionId: workspace.session.id },
+          {
+            topic: 'workspace.selectionState',
+            specId: workspace.spec.id,
+            sessionId: workspace.session.id,
+          },
           {
             topic: 'session.pendingExchange',
             specId: workspace.spec.id,

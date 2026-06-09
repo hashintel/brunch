@@ -589,6 +589,7 @@ describe('JSON-RPC handlers', () => {
 
     expect(observed).toEqual([
       { topic: 'workspace.state', specId: 1, sessionId: 'session-1' },
+      { topic: 'workspace.selectionState', specId: 1, sessionId: 'session-1' },
       { topic: 'session.pendingExchange', specId: 1, sessionId: 'session-1' },
       { topic: 'session.exchanges', specId: 1, sessionId: 'session-1' },
       { topic: 'session.runtimeState', specId: 1, sessionId: 'session-1' },

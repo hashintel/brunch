@@ -261,6 +261,55 @@ describe('Brunch React web app', () => {
     });
   });
 
+  it('invalidates workspace selection state from product updates and legacy topic arrays', () => {
+    const client = new QueryClient();
+    const selectionKey = queryKeys.workspace.selectionState();
+    client.setQueryData(selectionKey, emptySelectionState);
+
+    invalidateBrunchUpdate(client, {
+      jsonrpc: '2.0',
+      method: 'brunch.updated',
+      params: { updates: [{ topic: 'workspace.selectionState' }] },
+    });
+
+    expect(client.getQueryCache().find({ queryKey: selectionKey, exact: true })?.state.isInvalidated).toBe(
+      true,
+    );
+
+    client.setQueryData(selectionKey, emptySelectionState);
+    invalidateBrunchUpdate(client, {
+      jsonrpc: '2.0',
+      method: 'brunch.updated',
+      params: { topics: ['workspace.selectionState'] },
+    });
+
+    expect(client.getQueryCache().find({ queryKey: selectionKey, exact: true })?.state.isInvalidated).toBe(
+      true,
+    );
+  });
+
+  it('refetches workspace selection state after a brunch.updated selection notification', async () => {
+    const calls: RpcCall[] = [];
+    const listeners = new Set<WebSocketRpcNotificationListener>();
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ calls, listeners, selectionState: populatedSelectionState }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    await screen.findByText('Second spec');
+    calls.length = 0;
+    for (const listener of listeners) {
+      listener({
+        jsonrpc: '2.0',
+        method: 'brunch.updated',
+        params: { updates: [{ topic: 'workspace.selectionState' }] },
+      });
+    }
+
+    await waitFor(() => expect(calls).toContainEqual({ method: 'workspace.selectionState' }));
+  });
+
   it('invalidates graph overview exactly and graph neighborhoods by selected-node prefix', () => {
     const client = new QueryClient();
     const overviewKey = queryKeys.graph.overview(1);
