@@ -72,7 +72,12 @@ export async function runStructuredExchangeOrderingProof(
     {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, NO_COLOR: '1', PI_OFFLINE: '1' },
+      env: {
+        ...process.env,
+        BRUNCH_ORDERING_FAUX_API_KEY: 'brunch-ordering-faux-key',
+        NO_COLOR: '1',
+        PI_OFFLINE: '1',
+      },
     },
   );
 
@@ -170,7 +175,7 @@ async function writeOrderingExtension(cwd: string): Promise<string> {
       pi.registerProvider("brunch-ordering", {
         api: provider.api as never,
         baseUrl: "https://example.invalid",
-        apiKey: "BRUNCH_ORDERING_FAUX_API_KEY",
+        apiKey: "$BRUNCH_ORDERING_FAUX_API_KEY",
         models: [
           {
             id: "ordering-model",

@@ -23,7 +23,7 @@ Frontier cross-cutting obligations (all three cards):
 
 ## Card 1 — Latest pi + dev source-alias (full · land-early shared unblocker)
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -98,6 +98,22 @@ src/dev/
 ├── README.md           +
 └── pi-source-alias.test.ts  +
 ```
+
+### Build result
+
+Done 2026-06-09 (builder + review correction). Bumped pi deps to `^0.79.0`. The source-alias is **runtime-only and `PI_SOURCE`-gated**, living in [src/dev/pi-source-alias.ts](file:///Users/lunelson/Code/hashintel/brunch-next/src/dev/pi-source-alias.ts) and consumed by `vite.config.ts` (covers `vite` + `vitest`). Added the `pi-source-alias` smoke test. `npm run verify` passes (598 tests, tsc build, web build). Drift absorbed during bump: the sealed-settings audit now covers pi 0.79.0 `getWebSocketConnectTimeoutMs`; the ordering probe uses the `$ENV` provider api-key form with an explicit faux key.
+
+**Review correction (what the first build got wrong):** the builder had added pi-source `paths` + `allowImportingTsExtensions` to base `tsconfig.json` and neutralizers (`paths:{}`, `allowImportingTsExtensions:false`) to `tsconfig.build.json`. That made a personal source checkout the *unconditional* type-resolution default for everyone (tsconfig paths cannot be env-gated) and was unnecessary — the published 0.79.0 packages ship `dist/index.d.ts`. Both were reverted. **Types resolve from installed `dist`; only runtime resolution is aliased, gated by `PI_SOURCE`.** `src/dev` is also excluded from `tsconfig.build.json` (dev-only substrate, must not ship to app `dist`).
+
+---
+
+## Notes for Cards 2 & 3 (carry-forward from Card 1)
+
+1. **Type vs runtime split is the load-bearing rule.** Types + default resolution = installed `dist` `.d.ts` (no `tsconfig` `paths`, ever). No-rebuild source iteration = the `PI_SOURCE`-gated alias in `src/dev/pi-source-alias.ts`. Do not reintroduce pi `paths` into `tsconfig.json`.
+2. **The alias only covers `vite` + `vitest`.** The faux launcher (Card 2) and any introspection capture tests (Card 3) should run under **vitest**, so they get source resolution for free under `PI_SOURCE=1`. The **`tsx`** loops (`npm run dev` TUI, and Card 3's subjective real-provider launcher if run via tsx) do *not* read `vite.config.ts`. When a tsx loop first needs live pi-source edits, add an opt-in `tsconfig.dev.json` (extends `./tsconfig.json`, adds pi `paths` + `allowImportingTsExtensions`) and run `tsx --tsconfig tsconfig.dev.json`. Deferred until actually exercised — do not add speculatively.
+3. **`src/dev/` is excluded from the production build** (`tsconfig.build.json`). Card 2's front door (`index.ts`, `faux-harness.ts`, `faux-launcher.ts`) lives here and stays out of app `dist`. Anything that must ship to product must not live in `src/dev/`.
+4. **Import convention:** inside `src/`, import sibling modules with `.js` specifiers (NodeNext resolves to `.ts`) — e.g. `./pi-source-alias.js`. `exactOptionalPropertyTypes` is on, so pass omitted optionals as absent (`{}`), not `{ key: undefined }`. `vite.config.ts` is the one exception: it's loaded by vite's esbuild loader and imports `src/dev` with a `.ts` specifier.
+5. **0.79.0 faux-provider shape (Card 2 factory):** provider `apiKey` uses the `$ENV_VAR` interpolation form (set the env var + reference it as `"$VAR"`), not a bare literal key — see the migrated `structured-exchange-ordering-proof.ts`. The shared faux-harness factory should encode this form once.
 
 ---
 
