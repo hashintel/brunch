@@ -22,6 +22,7 @@ import type { Plan } from './types.js';
 // ---------------------------------------------------------------------------
 
 const simplePlan: Plan = {
+  mode: 'greenfield',
   epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
   slices: [
     {

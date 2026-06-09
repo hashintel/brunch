@@ -15,5 +15,8 @@ export function loadPlan(yamlPath: string): Plan {
     throw new Error(`Invalid plan: missing or non-array "slices" in ${yamlPath}`);
   }
 
-  return parsed;
+  // Mode is spec-derived plan truth; authored/legacy plans that omit it
+  // (or carry an unrecognized value) load as greenfield so cook uses an
+  // empty worktree rather than cloning the cwd repo.
+  return { ...parsed, mode: parsed.mode === 'brownfield' ? 'brownfield' : 'greenfield' };
 }

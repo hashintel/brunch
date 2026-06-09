@@ -37,6 +37,22 @@ slices:
     expect(plan.slices[0]!.verification).toEqual([{ kind: 'unit-test', target: 'tests/s1.test.ts' }]);
   });
 
+  it('defaults a plan with no mode field to greenfield', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cook-plan-'));
+    const yamlPath = join(dir, 'plan.yaml');
+    writeFileSync(yamlPath, 'epics: []\nslices: []\n');
+
+    expect(loadPlan(yamlPath).mode).toBe('greenfield');
+  });
+
+  it('preserves an explicit brownfield mode', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cook-plan-'));
+    const yamlPath = join(dir, 'plan.yaml');
+    writeFileSync(yamlPath, 'mode: brownfield\nepics: []\nslices: []\n');
+
+    expect(loadPlan(yamlPath).mode).toBe('brownfield');
+  });
+
   it('throws on missing file', () => {
     expect(() => loadPlan('/tmp/nonexistent-plan.yaml')).toThrow();
   });

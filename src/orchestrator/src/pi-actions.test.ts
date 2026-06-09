@@ -74,6 +74,7 @@ describe('createPiActions evaluate-done', () => {
         sandboxDir,
         reports,
         plan: {
+          mode: 'greenfield',
           epics: [{ id: 'epic-1', summary: 'Epic', depends_on: [], verification: [] }],
           slices: [
             {

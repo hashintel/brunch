@@ -59,6 +59,7 @@ describe('evalEnablingGuard', () => {
 // ---------------------------------------------------------------------------
 
 const simplePlan: Plan = {
+  mode: 'greenfield',
   epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
   slices: [
     {
@@ -72,6 +73,7 @@ const simplePlan: Plan = {
 };
 
 const depPlan: Plan = {
+  mode: 'greenfield',
   epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
   slices: [
     {
@@ -92,6 +94,7 @@ const depPlan: Plan = {
 };
 
 const multiTargetPlan: Plan = {
+  mode: 'greenfield',
   epics: [{ id: 'epic-1', summary: 'E', depends_on: [], verification: [] }],
   slices: [
     {
@@ -338,6 +341,7 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
   it('verify-epic decomposes into producer + pass sibling + fail halt-sibling', () => {
     // verifyPlan: epic-1 has verification, slice-1 inside it.
     const verifyPlan = {
+      mode: 'greenfield' as const,
       epics: [
         {
           id: 'epic-1',
@@ -447,6 +451,7 @@ describe('FE-761 Slice 2a: halted-as-place', () => {
 
   it('declares epic:<eid>:halted place for every epic with verification', () => {
     const verifyPlan: Plan = {
+      mode: 'greenfield',
       epics: [
         {
           id: 'epic-1',
