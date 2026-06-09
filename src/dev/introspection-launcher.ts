@@ -1,14 +1,17 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { AgentSession } from '@earendil-works/pi-coding-agent';
+
 import type {
   BrunchIntrospectionBaseReport,
   BrunchIntrospectionStore,
   BrunchIntrospectionTurnCapture,
 } from '../.pi/brunch-pi-extensions.js';
+import { latestAssistantText } from './agent-messages.js';
 
 export interface BrunchIntrospectionSession {
-  readonly messages?: readonly unknown[];
+  readonly messages?: AgentSession['messages'];
   prompt(
     text: string,
     options?: { expandPromptTemplates?: boolean; source?: 'rpc' | 'interactive' | 'print' },
@@ -85,23 +88,4 @@ export async function runBrunchIntrospectionTurn(
   await writeFile(join(artifactDir, 'manifest.json'), `${JSON.stringify(artifact, null, 2)}\n`);
 
   return { artifactDir, artifact };
-}
-
-function latestAssistantText(messages: readonly unknown[]): string {
-  for (let index = messages.length - 1; index >= 0; index--) {
-    const message = messages[index];
-    if (!isRecord(message) || message.role !== 'assistant') continue;
-    const content = message.content;
-    if (!Array.isArray(content)) continue;
-    return content
-      .flatMap((block) =>
-        isRecord(block) && block.type === 'text' && typeof block.text === 'string' ? [block.text] : [],
-      )
-      .join('\n');
-  }
-  return '';
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

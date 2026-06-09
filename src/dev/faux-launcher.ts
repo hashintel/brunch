@@ -1,5 +1,6 @@
 import { fauxAssistantMessage } from '@earendil-works/pi-ai';
 
+import { latestAssistantText } from './agent-messages.js';
 import { createBrunchFauxHarness, type BrunchFauxHarnessOptions } from './faux-harness.js';
 
 export interface BrunchFauxLauncherOptions extends BrunchFauxHarnessOptions {
@@ -33,23 +34,4 @@ export async function runBrunchFauxTurn(
   } finally {
     harness.dispose();
   }
-}
-
-function latestAssistantText(messages: readonly unknown[]): string {
-  for (let index = messages.length - 1; index >= 0; index--) {
-    const message = messages[index];
-    if (!isRecord(message) || message.role !== 'assistant') continue;
-    const content = message.content;
-    if (!Array.isArray(content)) continue;
-    return content
-      .flatMap((block) =>
-        isRecord(block) && block.type === 'text' && typeof block.text === 'string' ? [block.text] : [],
-      )
-      .join('\n');
-  }
-  return '';
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { fauxAssistantMessage } from '@earendil-works/pi-ai';
 import { describe, expect, it } from 'vitest';
 
 import { createInMemoryBrunchIntrospectionStore } from '../.pi/brunch-pi-extensions.js';
@@ -70,11 +71,11 @@ describe('Brunch introspection launcher', () => {
 });
 
 function createFakeSession(answerText: string): BrunchIntrospectionSession {
-  const messages: unknown[] = [];
+  const messages: BrunchIntrospectionSession['messages'] = [];
   return {
     messages,
     async prompt() {
-      messages.push({ role: 'assistant', content: [{ type: 'text', text: answerText }] });
+      messages.push(fauxAssistantMessage(answerText));
     },
   };
 }
