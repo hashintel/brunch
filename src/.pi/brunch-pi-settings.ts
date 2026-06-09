@@ -79,6 +79,7 @@ export const BRUNCH_SETTINGS_AUDITED_GETTERS = [
   'getCollapseChangelog',
   'getEnableInstallTelemetry',
   'getHttpIdleTimeoutMs',
+  'getWebSocketConnectTimeoutMs',
   'getPackages',
   'getExtensionPaths',
   'getSkillPaths',

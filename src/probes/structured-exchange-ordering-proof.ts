@@ -72,7 +72,12 @@ export async function runStructuredExchangeOrderingProof(
     {
       cwd,
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, NO_COLOR: '1', PI_OFFLINE: '1' },
+      env: {
+        ...process.env,
+        BRUNCH_FAUX_HARNESS_API_KEY: 'brunch-ordering-faux-key',
+        NO_COLOR: '1',
+        PI_OFFLINE: '1',
+      },
     },
   );
 
@@ -151,6 +156,7 @@ export async function runStructuredExchangeOrderingProof(
 async function writeOrderingExtension(cwd: string): Promise<string> {
   const extensionPath = join(cwd, 'structured-exchange-ordering-extension.ts');
   const adapterPath = resolve('src/.pi/extensions/exchanges/index.ts');
+  const fauxHarnessPath = resolve('src/dev/faux-harness.ts');
   const content = `
     import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
     import {
@@ -159,30 +165,24 @@ async function writeOrderingExtension(cwd: string): Promise<string> {
       registerFauxProvider,
     } from "@earendil-works/pi-ai"
     import { registerStructuredExchange } from ${JSON.stringify(adapterPath)}
+    import { BRUNCH_FAUX_HARNESS_ENV_API_KEY, brunchFauxProviderConfig, defaultBrunchFauxModel } from ${JSON.stringify(fauxHarnessPath)}
 
     export default function(pi: ExtensionAPI): void {
       registerStructuredExchange(pi)
+      const model = defaultBrunchFauxModel({
+        model: {
+          provider: "brunch-ordering",
+          api: "brunch-ordering-api",
+          modelId: "ordering-model",
+          modelName: "Ordering proof model",
+        },
+      })
       const provider = registerFauxProvider({
-        provider: "brunch-ordering",
-        api: "brunch-ordering-api",
-        models: [{ id: "ordering-model", name: "Ordering proof model" }],
+        provider: model.provider,
+        api: model.api + "-faux-source",
+        models: [{ id: model.modelId, name: model.modelName }],
       })
-      pi.registerProvider("brunch-ordering", {
-        api: provider.api as never,
-        baseUrl: "https://example.invalid",
-        apiKey: "BRUNCH_ORDERING_FAUX_API_KEY",
-        models: [
-          {
-            id: "ordering-model",
-            name: "Ordering proof model",
-            reasoning: false,
-            input: ["text"],
-            cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-            contextWindow: 128000,
-            maxTokens: 16384,
-          },
-        ],
-      })
+      pi.registerProvider(model.provider, brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_ENV_API_KEY))
       provider.setResponses([
         fauxAssistantMessage([
           fauxToolCall("present_options", {
