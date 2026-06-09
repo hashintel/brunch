@@ -10,13 +10,7 @@ import type {
 } from '../.pi/brunch-pi-extensions.js';
 import { latestAssistantText } from './agent-messages.js';
 
-export interface BrunchIntrospectionSession {
-  readonly messages?: AgentSession['messages'];
-  prompt(
-    text: string,
-    options?: { expandPromptTemplates?: boolean; source?: 'rpc' | 'interactive' | 'print' },
-  ): Promise<unknown>;
-}
+export type BrunchIntrospectionSession = Pick<AgentSession, 'prompt' | 'messages'>;
 
 export interface BrunchIntrospectionLauncherOptions {
   readonly session: BrunchIntrospectionSession;
@@ -77,7 +71,7 @@ export async function runBrunchIntrospectionTurn(
       ...(baseReport ? { baseReport } : {}),
     },
     subjective: {
-      answerText: latestAssistantText(options.session.messages ?? []),
+      answerText: latestAssistantText(options.session.messages),
     },
   };
 
