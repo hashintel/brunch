@@ -12,7 +12,9 @@ epics:
   - id: core
     summary: "In-memory todo domain: types, store, validation, service"
     depends_on: []
-    verification: []
+    verification:
+      - kind: integration-test
+        target: "tests/todo-core.integration.test.ts"
 
   - id: cli
     summary: "Command surface over the todo service"
@@ -26,6 +28,7 @@ slices:
     epic_id: core
     definition: "Add src/types.ts: `Todo` (id: string, title: string, done: boolean) and an `id()` generator. The root of the domain."
     depends_on: []
+    writes: ["src/types.ts"]
     verification:
       - kind: unit-test
         target: "tests/types.test.ts"
@@ -34,6 +37,7 @@ slices:
     epic_id: core
     definition: "Add src/store.ts: an in-memory `TodoStore` with add/get/list/update/remove over the `Todo` type from src/types.ts."
     depends_on: [types]
+    writes: ["src/store.ts"]
     verification:
       - kind: unit-test
         target: "tests/store.test.ts"
@@ -42,6 +46,7 @@ slices:
     epic_id: core
     definition: "Add src/validation.ts: `validateTitle(title: string)` (non-empty, <= 200 chars) and `validateTodo(t: Todo)`, throwing on invalid input. Uses the `Todo` type from src/types.ts."
     depends_on: [types]
+    writes: ["src/validation.ts"]
     verification:
       - kind: unit-test
         target: "tests/validation.test.ts"
@@ -50,6 +55,7 @@ slices:
     epic_id: core
     definition: "Add src/service.ts: a `TodoService` composing the store (src/store.ts) and validation (src/validation.ts) — addTodo validates then stores; listTodos/completeTodo delegate to the store."
     depends_on: [store, validation]
+    writes: ["src/service.ts"]
     verification:
       - kind: unit-test
         target: "tests/service.test.ts"
@@ -58,6 +64,7 @@ slices:
     epic_id: cli
     definition: "Add src/commands/add.ts: `add(service, title)` creating a todo via the service and returning its id."
     depends_on: [service]
+    writes: ["src/commands/add.ts"]
     verification:
       - kind: unit-test
         target: "tests/cmd-add.test.ts"
@@ -66,6 +73,7 @@ slices:
     epic_id: cli
     definition: "Add src/commands/list.ts: `list(service)` returning formatted lines for each todo (`[ ]`/`[x]` + title)."
     depends_on: [service]
+    writes: ["src/commands/list.ts"]
     verification:
       - kind: unit-test
         target: "tests/cmd-list.test.ts"
@@ -74,6 +82,7 @@ slices:
     epic_id: cli
     definition: "Add src/commands/done.ts: `done(service, id)` marking a todo complete via the service; throws if the id is unknown."
     depends_on: [service]
+    writes: ["src/commands/done.ts"]
     verification:
       - kind: unit-test
         target: "tests/cmd-done.test.ts"
