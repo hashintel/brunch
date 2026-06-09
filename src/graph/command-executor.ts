@@ -17,7 +17,7 @@
  * even though pre-M6 policy classification is minimal.
  */
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
@@ -28,13 +28,21 @@ import {
   type PlannedBatchEdge,
 } from './command-executor/commit-graph-batch.js';
 import type {
+  EdgePatch,
+  GraphMutationOp,
   CommitGraphDryRunResult,
   CommitGraphInput,
   CommitGraphResult,
   CommitGraphSuccess,
   Diagnostic,
+  MutateGraphDryRunResult,
+  MutateGraphInput,
+  MutateGraphResult,
+  MutateGraphSuccess,
+  NodePatch,
   StructuralIllegal,
 } from './command-executor/commit-graph-types.js';
+import { normalizeRoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
 import { translateReviewSetPayloadToCommitGraph } from './review-set.js';
 import type { ElicitationBacklogLensAffinity } from './schema/elicitation-backlog.js';
 import { type NodeBasis, type NodePlane, type ReadinessBand } from './schema/nodes.js';
@@ -49,6 +57,13 @@ export type {
   CommitGraphResult,
   CommitGraphSuccess,
   Diagnostic,
+  EdgePatch,
+  GraphMutationOp,
+  MutateGraphDryRunResult,
+  MutateGraphInput,
+  MutateGraphResult,
+  MutateGraphSuccess,
+  NodePatch,
   StructuralIllegal,
 } from './command-executor/commit-graph-types.js';
 export { normalizeRoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
@@ -172,6 +187,32 @@ export type AcceptReviewSetResult = AcceptReviewSetSuccess | StructuralIllegal;
 
 /** Result of validating a review-set payload before user presentation. */
 export type AcceptReviewSetDryRunResult = { readonly status: 'success' } | StructuralIllegal;
+
+type ExistingNodeRow = typeof schema.nodes.$inferSelect;
+
+interface PlannedNodePatch {
+  readonly nodeId: number;
+  readonly patch: NodePatch;
+}
+
+interface PlannedEdgePatch {
+  readonly edgeId: number;
+  readonly patch: EdgePatch;
+}
+
+interface PlannedNodeDelete {
+  readonly nodeId: number;
+  readonly incidentEdgeIds: readonly number[];
+}
+
+interface PlannedMutateGraph {
+  readonly createInput: CommitGraphInput;
+  readonly createEdges: readonly PlannedBatchEdge[];
+  readonly patchNodes: readonly PlannedNodePatch[];
+  readonly patchEdges: readonly PlannedEdgePatch[];
+  readonly deleteEdges: readonly number[];
+  readonly deleteNodes: readonly PlannedNodeDelete[];
+}
 
 // ---------------------------------------------------------------------------
 // Input types
@@ -391,6 +432,88 @@ function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
   }
   if (input.kind === 'term' && input.detail != null) {
     validateTermDetail(input.detail, diagnostics);
+  }
+
+  return diagnostics;
+}
+
+function hasOwn(object: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function parseNodeDetail(row: ExistingNodeRow): unknown {
+  return row.detail == null ? undefined : JSON.parse(row.detail);
+}
+
+function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: NodePatch): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const patchRecord = patch as Record<string, unknown>;
+  const patchFields = Object.keys(patchRecord);
+  const allowedFields = new Set(['title', 'body', 'source', 'detail']);
+
+  if (patchFields.length === 0) {
+    diagnostics.push({ field: 'patch', message: 'patch_node requires at least one patch field' });
+    return diagnostics;
+  }
+
+  for (const field of patchFields) {
+    if (!allowedFields.has(field)) {
+      diagnostics.push({ field: `patch.${field}`, message: 'field is not patchable' });
+    }
+  }
+
+  if (hasOwn(patchRecord, 'title') && typeof patch.title !== 'string') {
+    diagnostics.push({ field: 'patch.title', message: 'title must be a string when present' });
+  }
+  if (hasOwn(patchRecord, 'body') && patch.body !== null && typeof patch.body !== 'string') {
+    diagnostics.push({ field: 'patch.body', message: 'body must be a string or null when present' });
+  }
+  if (hasOwn(patchRecord, 'source') && patch.source !== null && typeof patch.source !== 'string') {
+    diagnostics.push({ field: 'patch.source', message: 'source must be a string or null when present' });
+  }
+
+  const merged: CreateNodeInput = {
+    specId: row.spec_id,
+    plane: row.plane,
+    kind: row.kind,
+    title: hasOwn(patchRecord, 'title') ? (patch.title as string) : row.title,
+    body: hasOwn(patchRecord, 'body') ? (patch.body ?? undefined) : (row.body ?? undefined),
+    basis: row.basis,
+    source: hasOwn(patchRecord, 'source') ? (patch.source ?? undefined) : (row.source ?? undefined),
+    detail: hasOwn(patchRecord, 'detail') ? patch.detail : parseNodeDetail(row),
+  };
+
+  diagnostics.push(
+    ...validateCreateNode(merged).map((diagnostic) => ({
+      field: `patch.${diagnostic.field}`,
+      message: diagnostic.message,
+    })),
+  );
+
+  return diagnostics;
+}
+
+function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const patchRecord = patch as Record<string, unknown>;
+  const patchFields = Object.keys(patchRecord);
+
+  if (patchFields.length === 0) {
+    diagnostics.push({ field: 'patch', message: 'patch_edge requires at least one patch field' });
+    return diagnostics;
+  }
+
+  for (const field of patchFields) {
+    if (field !== 'rationale') {
+      diagnostics.push({ field: `patch.${field}`, message: 'field is not patchable' });
+    }
+  }
+
+  if (hasOwn(patchRecord, 'rationale') && patch.rationale !== null && typeof patch.rationale !== 'string') {
+    diagnostics.push({
+      field: 'patch.rationale',
+      message: 'rationale must be a string or null when present',
+    });
   }
 
   return diagnostics;
@@ -976,6 +1099,13 @@ export class CommandExecutor {
       : { status: 'success' };
   }
 
+  dryRunMutateGraph(input: MutateGraphInput): MutateGraphDryRunResult {
+    const result = this.planMutateGraph(input, this.db);
+    return result.status === 'structural_illegal'
+      ? { status: 'structural_illegal', diagnostics: result.diagnostics }
+      : { status: 'success' };
+  }
+
   /**
    * Atomic batch creation of nodes and edges (D53-L).
    *
@@ -993,6 +1123,17 @@ export class CommandExecutor {
       }
 
       return this.writePlannedGraphBatch(tx, input, planned.plan.edges, 'commit_graph');
+    });
+  }
+
+  mutateGraph(input: MutateGraphInput): MutateGraphResult {
+    return this.db.transaction((tx) => {
+      const planned = this.planMutateGraph(input, tx);
+      if (planned.status === 'structural_illegal') {
+        return { status: 'structural_illegal' as const, diagnostics: planned.diagnostics };
+      }
+
+      return this.writePlannedMutationBatch(tx, input, planned.plan);
     });
   }
 
@@ -1129,6 +1270,434 @@ export class CommandExecutor {
         message: diagnostic.message,
       }));
     });
+  }
+
+  private planMutateGraph(input: MutateGraphInput, db: Pick<BrunchDb, 'select'>) {
+    const diagnostics: Diagnostic[] = [];
+
+    if (input.ops.length === 0) {
+      return {
+        status: 'structural_illegal' as const,
+        diagnostics: [{ field: 'ops', message: 'empty mutation batch — nothing to mutate' }],
+      };
+    }
+
+    const createNodes = input.ops.filter(
+      (op): op is Extract<GraphMutationOp, { readonly op: 'create_node' }> => op.op === 'create_node',
+    );
+    const createEdges = input.ops.filter(
+      (op): op is Extract<GraphMutationOp, { readonly op: 'create_edge' }> => op.op === 'create_edge',
+    );
+    const patchNodes = input.ops.filter(
+      (op): op is Extract<GraphMutationOp, { readonly op: 'patch_node' }> => op.op === 'patch_node',
+    );
+    const patchEdges = input.ops.filter(
+      (op): op is Extract<GraphMutationOp, { readonly op: 'patch_edge' }> => op.op === 'patch_edge',
+    );
+    const deleteEdges = input.ops.filter(
+      (op): op is Extract<GraphMutationOp, { readonly op: 'delete_edge' }> => op.op === 'delete_edge',
+    );
+    const deleteNodes = input.ops.filter(
+      (op): op is Extract<GraphMutationOp, { readonly op: 'delete_node' }> => op.op === 'delete_node',
+    );
+
+    const normalizedCreateEdges = createEdges.flatMap((edge) => {
+      try {
+        return [normalizeRoleNamedEdgeDraft(edge)];
+      } catch (error) {
+        diagnostics.push({
+          field: `ops[${input.ops.indexOf(edge)}]`,
+          message: error instanceof Error ? error.message : 'invalid create_edge op',
+        });
+        return [];
+      }
+    });
+
+    const createInput: CommitGraphInput = {
+      specId: input.specId,
+      basis: input.createBasis,
+      nodes: createNodes.map(({ ref, plane, kind, title, body, source, detail }) => ({
+        ref,
+        plane,
+        kind,
+        title,
+        body,
+        source,
+        detail,
+      })),
+      edges: normalizedCreateEdges,
+    };
+
+    const createPlan =
+      createInput.nodes.length === 0 && createInput.edges.length === 0
+        ? { status: 'success' as const, plan: { edges: [] as const } }
+        : this.planCommitGraph(createInput, db);
+    if (createPlan.status === 'structural_illegal') {
+      diagnostics.push(...createPlan.diagnostics);
+    }
+
+    const referencedNodeIds = new Set<number>();
+    const referencedEdgeIds = new Set<number>();
+    for (const op of patchNodes) referencedNodeIds.add(op.node.existing);
+    for (const op of deleteNodes) referencedNodeIds.add(op.node.existing);
+    for (const op of patchEdges) referencedEdgeIds.add(op.edge.existing);
+    for (const op of deleteEdges) referencedEdgeIds.add(op.edge.existing);
+
+    const nodeRows =
+      referencedNodeIds.size === 0
+        ? []
+        : db
+            .select()
+            .from(schema.nodes)
+            .where(inArray(schema.nodes.id, [...referencedNodeIds]))
+            .all();
+    const edgeRows =
+      referencedEdgeIds.size === 0
+        ? []
+        : db
+            .select()
+            .from(schema.edges)
+            .where(inArray(schema.edges.id, [...referencedEdgeIds]))
+            .all();
+
+    const nodeRowsById = new Map(nodeRows.map((row) => [row.id, row]));
+    const edgeRowsById = new Map(edgeRows.map((row) => [row.id, row]));
+
+    const patchNodeTargets = new Set<number>();
+    const plannedNodePatches: PlannedNodePatch[] = [];
+    for (const op of patchNodes) {
+      const path = `ops[${input.ops.indexOf(op)}]`;
+      const row = nodeRowsById.get(op.node.existing);
+      if (!row) {
+        diagnostics.push({
+          field: `${path}.node.existing`,
+          message: `node ${op.node.existing} does not exist`,
+        });
+        continue;
+      }
+      if (row.spec_id !== input.specId) {
+        diagnostics.push({
+          field: `${path}.node.existing`,
+          message: `node ${op.node.existing} belongs to a different spec (command spec ${input.specId})`,
+        });
+        continue;
+      }
+      if (patchNodeTargets.has(op.node.existing)) {
+        diagnostics.push({
+          field: `${path}.node.existing`,
+          message: `node ${op.node.existing} is patched more than once`,
+        });
+        continue;
+      }
+      patchNodeTargets.add(op.node.existing);
+      diagnostics.push(
+        ...validateNodePatchAgainstExisting(row, op.patch).map((diagnostic) => ({
+          field: `${path}.${diagnostic.field}`,
+          message: diagnostic.message,
+        })),
+      );
+      plannedNodePatches.push({ nodeId: op.node.existing, patch: op.patch });
+    }
+
+    const patchEdgeTargets = new Set<number>();
+    const plannedEdgePatches: PlannedEdgePatch[] = [];
+    for (const op of patchEdges) {
+      const path = `ops[${input.ops.indexOf(op)}]`;
+      const row = edgeRowsById.get(op.edge.existing);
+      if (!row) {
+        diagnostics.push({
+          field: `${path}.edge.existing`,
+          message: `edge ${op.edge.existing} does not exist`,
+        });
+        continue;
+      }
+      if (row.spec_id !== input.specId) {
+        diagnostics.push({
+          field: `${path}.edge.existing`,
+          message: `edge ${op.edge.existing} belongs to a different spec (command spec ${input.specId})`,
+        });
+        continue;
+      }
+      if (patchEdgeTargets.has(op.edge.existing)) {
+        diagnostics.push({
+          field: `${path}.edge.existing`,
+          message: `edge ${op.edge.existing} is patched more than once`,
+        });
+        continue;
+      }
+      patchEdgeTargets.add(op.edge.existing);
+      diagnostics.push(
+        ...validateEdgePatch(op.patch).map((diagnostic) => ({
+          field: `${path}.${diagnostic.field}`,
+          message: diagnostic.message,
+        })),
+      );
+      plannedEdgePatches.push({ edgeId: op.edge.existing, patch: op.patch });
+    }
+
+    const deletedEdgeIds = new Set<number>();
+    const plannedEdgeDeletes: number[] = [];
+    for (const op of deleteEdges) {
+      const path = `ops[${input.ops.indexOf(op)}]`;
+      const row = edgeRowsById.get(op.edge.existing);
+      if (!row) {
+        diagnostics.push({
+          field: `${path}.edge.existing`,
+          message: `edge ${op.edge.existing} does not exist`,
+        });
+        continue;
+      }
+      if (row.spec_id !== input.specId) {
+        diagnostics.push({
+          field: `${path}.edge.existing`,
+          message: `edge ${op.edge.existing} belongs to a different spec (command spec ${input.specId})`,
+        });
+        continue;
+      }
+      if (deletedEdgeIds.has(op.edge.existing)) {
+        diagnostics.push({
+          field: `${path}.edge.existing`,
+          message: `edge ${op.edge.existing} is deleted more than once`,
+        });
+        continue;
+      }
+      deletedEdgeIds.add(op.edge.existing);
+      plannedEdgeDeletes.push(op.edge.existing);
+    }
+
+    const deletedNodeIds = new Set<number>();
+    const deletedExistingNodeIds = new Set(deleteNodes.map((op) => op.node.existing));
+    const createEdgePlans = createPlan.status === 'success' ? createPlan.plan.edges : [];
+    const plannedNodeDeletes: PlannedNodeDelete[] = [];
+    for (const op of deleteNodes) {
+      const path = `ops[${input.ops.indexOf(op)}]`;
+      const row = nodeRowsById.get(op.node.existing);
+      if (!row) {
+        diagnostics.push({
+          field: `${path}.node.existing`,
+          message: `node ${op.node.existing} does not exist`,
+        });
+        continue;
+      }
+      if (row.spec_id !== input.specId) {
+        diagnostics.push({
+          field: `${path}.node.existing`,
+          message: `node ${op.node.existing} belongs to a different spec (command spec ${input.specId})`,
+        });
+        continue;
+      }
+      if (deletedNodeIds.has(op.node.existing)) {
+        diagnostics.push({
+          field: `${path}.node.existing`,
+          message: `node ${op.node.existing} is deleted more than once`,
+        });
+        continue;
+      }
+      deletedNodeIds.add(op.node.existing);
+
+      if (patchNodeTargets.has(op.node.existing)) {
+        diagnostics.push({
+          field: `${path}.node.existing`,
+          message: `node ${op.node.existing} cannot be patched and deleted in one batch`,
+        });
+      }
+
+      const incidentRows = db
+        .select({ id: schema.edges.id })
+        .from(schema.edges)
+        .where(
+          and(
+            eq(schema.edges.spec_id, input.specId),
+            sql`(${schema.edges.source_id} = ${op.node.existing} or ${schema.edges.target_id} = ${op.node.existing})`,
+          ),
+        )
+        .all();
+
+      const remainingIncidentEdgeIds = incidentRows
+        .map((edge) => edge.id)
+        .filter((edgeId) => !deletedEdgeIds.has(edgeId));
+
+      const createsIncidentEdge = createEdgePlans.some(
+        (edge) =>
+          (edge.source.kind === 'existing' && edge.source.ref === op.node.existing) ||
+          (edge.target.kind === 'existing' && edge.target.ref === op.node.existing),
+      );
+      if (createsIncidentEdge) {
+        diagnostics.push({
+          field: `${path}.node.existing`,
+          message: `node ${op.node.existing} cannot be deleted in the same batch that creates incident edges`,
+        });
+      }
+
+      if (!op.deleteIncidentEdges && remainingIncidentEdgeIds.length > 0) {
+        diagnostics.push({
+          field: `${path}.deleteIncidentEdges`,
+          message: `node ${op.node.existing} has incident edges; set deleteIncidentEdges to true to delete it`,
+        });
+      }
+
+      plannedNodeDeletes.push({ nodeId: op.node.existing, incidentEdgeIds: remainingIncidentEdgeIds });
+    }
+
+    for (const edgeId of patchEdgeTargets) {
+      const row = edgeRowsById.get(edgeId);
+      if (!row) {
+        continue;
+      }
+      if (
+        deletedEdgeIds.has(edgeId) ||
+        deletedExistingNodeIds.has(row.source_id) ||
+        deletedExistingNodeIds.has(row.target_id)
+      ) {
+        diagnostics.push({
+          field: 'ops',
+          message: `edge ${edgeId} cannot be patched when it is deleted or attached to a deleted node in the same batch`,
+        });
+      }
+    }
+
+    if (diagnostics.length > 0 || createPlan.status === 'structural_illegal') {
+      return { status: 'structural_illegal' as const, diagnostics };
+    }
+
+    return {
+      status: 'success' as const,
+      plan: {
+        createInput,
+        createEdges: createPlan.plan.edges,
+        patchNodes: plannedNodePatches,
+        patchEdges: plannedEdgePatches,
+        deleteEdges: plannedEdgeDeletes,
+        deleteNodes: plannedNodeDeletes,
+      },
+    };
+  }
+
+  private writePlannedMutationBatch(
+    tx: Pick<BrunchDb, 'select' | 'insert' | 'update' | 'delete'>,
+    input: MutateGraphInput,
+    plan: PlannedMutateGraph,
+  ): MutateGraphSuccess {
+    const lsn = this.bumpExistingSpecLsn(tx, input.specId);
+
+    const createdNodes: Record<string, { id: number; code: string }> = {};
+    for (const node of plan.createInput.nodes) {
+      const kindOrdinal = this.allocateNodeKindOrdinal(tx, input.specId, node.plane, node.kind);
+      const row = tx
+        .insert(schema.nodes)
+        .values({
+          spec_id: input.specId,
+          plane: node.plane,
+          kind: node.kind,
+          kind_ordinal: kindOrdinal,
+          title: node.title,
+          body: node.body ?? null,
+          basis: input.createBasis ?? 'explicit',
+          source: node.source ?? null,
+          detail: node.detail != null ? JSON.stringify(node.detail) : null,
+          created_at_lsn: lsn,
+          updated_at_lsn: lsn,
+        })
+        .returning()
+        .get();
+      createdNodes[node.ref] = formatCreatedGraphNode(row!);
+    }
+
+    const resolvePlannedEndpoint = (endpoint: PlannedBatchEndpoint): number => {
+      if (endpoint.kind === 'existing') return endpoint.ref as number;
+      return createdNodes[endpoint.ref as string]!.id;
+    };
+
+    const createdEdges: number[] = [];
+    for (const edge of plan.createEdges) {
+      const row = tx
+        .insert(schema.edges)
+        .values({
+          spec_id: input.specId,
+          category: edge.category,
+          source_id: resolvePlannedEndpoint(edge.source),
+          target_id: resolvePlannedEndpoint(edge.target),
+          stance: edge.stance,
+          basis: input.createBasis ?? 'explicit',
+          rationale: edge.rationale,
+          created_at_lsn: lsn,
+          updated_at_lsn: lsn,
+        })
+        .returning({ id: schema.edges.id })
+        .get();
+      createdEdges.push(row!.id);
+    }
+
+    const updatedNodes: number[] = [];
+    for (const node of plan.patchNodes) {
+      const patchRecord = node.patch as Record<string, unknown>;
+      const values: Record<string, unknown> = { updated_at_lsn: lsn };
+      if (hasOwn(patchRecord, 'title')) values['title'] = node.patch.title;
+      if (hasOwn(patchRecord, 'body')) values['body'] = node.patch.body ?? null;
+      if (hasOwn(patchRecord, 'source')) values['source'] = node.patch.source ?? null;
+      if (hasOwn(patchRecord, 'detail')) {
+        values['detail'] = node.patch.detail == null ? null : JSON.stringify(node.patch.detail);
+      }
+      tx.update(schema.nodes).set(values).where(eq(schema.nodes.id, node.nodeId)).run();
+      updatedNodes.push(node.nodeId);
+    }
+
+    const updatedEdges: number[] = [];
+    for (const edge of plan.patchEdges) {
+      const patchRecord = edge.patch as Record<string, unknown>;
+      const values: Record<string, unknown> = { updated_at_lsn: lsn };
+      if (hasOwn(patchRecord, 'rationale')) values['rationale'] = edge.patch.rationale ?? null;
+      tx.update(schema.edges).set(values).where(eq(schema.edges.id, edge.edgeId)).run();
+      updatedEdges.push(edge.edgeId);
+    }
+
+    const deletedEdges = new Set<number>();
+    for (const edgeId of plan.deleteEdges) {
+      tx.delete(schema.edges).where(eq(schema.edges.id, edgeId)).run();
+      deletedEdges.add(edgeId);
+    }
+
+    const deletedNodes: number[] = [];
+    for (const node of plan.deleteNodes) {
+      for (const edgeId of node.incidentEdgeIds) {
+        if (deletedEdges.has(edgeId)) {
+          continue;
+        }
+        tx.delete(schema.edges).where(eq(schema.edges.id, edgeId)).run();
+        deletedEdges.add(edgeId);
+      }
+      tx.delete(schema.nodes).where(eq(schema.nodes.id, node.nodeId)).run();
+      deletedNodes.push(node.nodeId);
+    }
+
+    tx.insert(schema.changeLog)
+      .values({
+        spec_id: input.specId,
+        lsn,
+        operation: 'mutate_graph',
+        payload: JSON.stringify({
+          specId: input.specId,
+          createBasis: input.createBasis ?? 'explicit',
+          createdNodes: Object.fromEntries(Object.entries(createdNodes).map(([ref, node]) => [ref, node.id])),
+          createdEdges,
+          updatedNodes,
+          updatedEdges,
+          deletedNodes,
+          deletedEdges: [...deletedEdges],
+        }),
+      })
+      .run();
+
+    return {
+      status: 'success',
+      lsn,
+      createdNodes,
+      createdEdges,
+      updatedNodes,
+      updatedEdges,
+      deletedNodes,
+      deletedEdges: [...deletedEdges],
+    };
   }
 
   /**

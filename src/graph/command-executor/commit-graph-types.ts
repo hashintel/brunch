@@ -68,3 +68,49 @@ export interface CommitGraphInput {
   readonly nodes: readonly BatchNodeInput[];
   readonly edges: readonly BatchEdgeInput[];
 }
+
+export interface NodePatch {
+  readonly title?: string | undefined;
+  readonly body?: string | null | undefined;
+  readonly source?: string | null | undefined;
+  readonly detail?: unknown;
+}
+
+export interface EdgePatch {
+  readonly rationale?: string | null | undefined;
+}
+
+export type MutateGraphNodeRef = { readonly existing: number };
+export type MutateGraphEdgeRef = { readonly existing: number };
+
+export type GraphMutationOp =
+  | ({ readonly op: 'create_node' } & BatchNodeInput)
+  | ({ readonly op: 'create_edge' } & import('./role-named-edge-draft.js').RoleNamedEdgeDraft)
+  | { readonly op: 'patch_node'; readonly node: MutateGraphNodeRef; readonly patch: NodePatch }
+  | { readonly op: 'patch_edge'; readonly edge: MutateGraphEdgeRef; readonly patch: EdgePatch }
+  | { readonly op: 'delete_edge'; readonly edge: MutateGraphEdgeRef }
+  | {
+      readonly op: 'delete_node';
+      readonly node: MutateGraphNodeRef;
+      readonly deleteIncidentEdges?: boolean | undefined;
+    };
+
+export interface MutateGraphInput {
+  readonly specId: number;
+  readonly createBasis?: NodeBasis | undefined;
+  readonly ops: readonly GraphMutationOp[];
+}
+
+export interface MutateGraphSuccess {
+  readonly status: 'success';
+  readonly lsn: number;
+  readonly createdNodes: CreatedGraphNodes;
+  readonly createdEdges: readonly number[];
+  readonly updatedNodes: readonly number[];
+  readonly updatedEdges: readonly number[];
+  readonly deletedNodes: readonly number[];
+  readonly deletedEdges: readonly number[];
+}
+
+export type MutateGraphResult = MutateGraphSuccess | StructuralIllegal;
+export type MutateGraphDryRunResult = DryRunSuccess | StructuralIllegal;

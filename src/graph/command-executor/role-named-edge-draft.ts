@@ -101,3 +101,26 @@ export function normalizeRoleNamedEdgeDraft(draft: RoleNamedEdgeDraft): BatchEdg
 
   return normalizeNonAssociationEdgeDraft(draft);
 }
+
+export function roleNamedEdgeDraftFromBatchEdgeInput(input: BatchEdgeInput): RoleNamedEdgeDraft {
+  const metadata = EDGE_CATEGORY_METADATA[input.category as EdgeCategory];
+
+  if (input.category === 'association') {
+    return {
+      category: 'association',
+      a: input.source,
+      b: input.target,
+      ...(input.rationale === undefined ? {} : { rationale: input.rationale }),
+    };
+  }
+
+  const draft = {
+    category: input.category,
+    [metadata.sourceRole]: input.source,
+    [metadata.targetRole]: input.target,
+    ...(input.rationale === undefined ? {} : { rationale: input.rationale }),
+    ...(input.stance === undefined ? {} : { stance: input.stance }),
+  };
+
+  return draft as RoleNamedEdgeDraft;
+}

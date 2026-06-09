@@ -816,4 +816,259 @@ describe('CommandExecutor commitGraph', () => {
       }
     });
   });
+
+  describe('mutateGraph', () => {
+    it('creates nodes and role-named edges in one atomic batch', () => {
+      const result = executor.mutateGraph({
+        specId,
+        createBasis: 'implicit',
+        ops: [
+          { op: 'create_node', ref: 'goal', plane: 'intent', kind: 'goal', title: 'Goal' },
+          { op: 'create_node', ref: 'req', plane: 'intent', kind: 'requirement', title: 'Requirement' },
+          { op: 'create_edge', category: 'dependency', dependency: 'goal', dependent: 'req' },
+        ],
+      });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.createdEdges).toHaveLength(1);
+      expect(result.updatedNodes).toEqual([]);
+      expect(result.deletedNodes).toEqual([]);
+      expect(graphClockLsn(db, specId)).toBe(1);
+
+      const edgeRow = db.select().from(edges).get()!;
+      expect(edgeRow.basis).toBe('implicit');
+      expect(edgeRow.source_id).toBe(result.createdNodes['goal']!.id);
+      expect(edgeRow.target_id).toBe(result.createdNodes['req']!.id);
+      expect(db.select().from(changeLog).get()!.operation).toBe('mutate_graph');
+    });
+
+    it('patches only mutable node and edge fields without rewriting basis', () => {
+      const seed = executor.commitGraph({
+        specId,
+        basis: 'implicit',
+        nodes: [
+          {
+            ref: 'decision',
+            plane: 'intent',
+            kind: 'decision',
+            title: 'Old',
+            detail: { chosen_option: 'A', rejected: ['B'], rationale: 'why' },
+          },
+          { ref: 'criterion', plane: 'intent', kind: 'criterion', title: 'Criterion' },
+        ],
+        edges: [
+          {
+            category: 'proof',
+            source: 'criterion',
+            target: 'decision',
+            stance: 'for',
+            rationale: 'old rationale',
+          },
+        ],
+      });
+      if (seed.status !== 'success') throw new Error('unreachable');
+
+      const edgeId = seed.edges[0]!;
+      const decisionId = seed.createdNodes['decision']!.id;
+      const result = executor.mutateGraph({
+        specId,
+        ops: [
+          {
+            op: 'patch_node',
+            node: { existing: decisionId },
+            patch: {
+              title: 'New title',
+              body: 'Body',
+              source: 'user',
+              detail: { chosen_option: 'A', rejected: ['B', 'C'], rationale: 'better why' },
+            },
+          },
+          { op: 'patch_edge', edge: { existing: edgeId }, patch: { rationale: 'new rationale' } },
+        ],
+      });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.updatedNodes).toEqual([decisionId]);
+      expect(result.updatedEdges).toEqual([edgeId]);
+
+      const nodeRow = db.select().from(nodes).where(eq(nodes.id, decisionId)).get()!;
+      const edgeRow = db.select().from(edges).where(eq(edges.id, edgeId)).get()!;
+      expect(nodeRow.title).toBe('New title');
+      expect(nodeRow.body).toBe('Body');
+      expect(nodeRow.source).toBe('user');
+      expect(nodeRow.basis).toBe('implicit');
+      expect(nodeRow.updated_at_lsn).toBe(result.lsn);
+      expect(edgeRow.rationale).toBe('new rationale');
+      expect(edgeRow.basis).toBe('implicit');
+      expect(edgeRow.updated_at_lsn).toBe(result.lsn);
+    });
+
+    it('rejects identity-field patch attempts before LSN allocation', () => {
+      const seed = executor.commitGraph({
+        specId,
+        nodes: [{ ref: 'goal', plane: 'intent', kind: 'goal', title: 'Goal' }],
+        edges: [],
+      });
+      if (seed.status !== 'success') throw new Error('unreachable');
+
+      const before = graphClockLsn(db, specId);
+      const result = executor.mutateGraph({
+        specId,
+        ops: [
+          {
+            op: 'patch_node',
+            node: { existing: seed.createdNodes['goal']!.id },
+            patch: { kind: 'requirement' } as never,
+          },
+        ],
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics).toEqual(
+        expect.arrayContaining([expect.objectContaining({ field: expect.stringContaining('patch.kind') })]),
+      );
+      expect(graphClockLsn(db, specId)).toBe(before);
+    });
+
+    it('rejects deleting a node with incident edges unless cascade is explicit', () => {
+      const seed = executor.commitGraph({
+        specId,
+        nodes: [
+          { ref: 'a', plane: 'intent', kind: 'goal', title: 'A' },
+          { ref: 'b', plane: 'intent', kind: 'requirement', title: 'B' },
+        ],
+        edges: [{ category: 'dependency', source: 'a', target: 'b' }],
+      });
+      if (seed.status !== 'success') throw new Error('unreachable');
+
+      const before = graphClockLsn(db, specId);
+      const result = executor.mutateGraph({
+        specId,
+        ops: [{ op: 'delete_node', node: { existing: seed.createdNodes['a']!.id } }],
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: expect.stringContaining('deleteIncidentEdges') }),
+        ]),
+      );
+      expect(graphClockLsn(db, specId)).toBe(before);
+    });
+
+    it('deletes a node and its incident edges in one transaction when cascade is explicit', () => {
+      const seed = executor.commitGraph({
+        specId,
+        nodes: [
+          { ref: 'a', plane: 'intent', kind: 'goal', title: 'A' },
+          { ref: 'b', plane: 'intent', kind: 'requirement', title: 'B' },
+        ],
+        edges: [{ category: 'dependency', source: 'a', target: 'b' }],
+      });
+      if (seed.status !== 'success') throw new Error('unreachable');
+
+      const nodeId = seed.createdNodes['a']!.id;
+      const edgeId = seed.edges[0]!;
+      const result = executor.mutateGraph({
+        specId,
+        ops: [{ op: 'delete_node', node: { existing: nodeId }, deleteIncidentEdges: true }],
+      });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.deletedNodes).toEqual([nodeId]);
+      expect(result.deletedEdges).toEqual([edgeId]);
+      expect(db.select().from(nodes).where(eq(nodes.id, nodeId)).get()).toBeUndefined();
+      expect(db.select().from(edges).where(eq(edges.id, edgeId)).get()).toBeUndefined();
+    });
+
+    it('runs mixed create, patch, and delete ops under one LSN and one audit row', () => {
+      const seed = executor.commitGraph({
+        specId,
+        nodes: [
+          { ref: 'oldGoal', plane: 'intent', kind: 'goal', title: 'Old goal' },
+          { ref: 'oldReq', plane: 'intent', kind: 'requirement', title: 'Old req' },
+        ],
+        edges: [{ category: 'dependency', source: 'oldGoal', target: 'oldReq' }],
+      });
+      if (seed.status !== 'success') throw new Error('unreachable');
+
+      const oldGoalId = seed.createdNodes['oldGoal']!.id;
+      const oldReqId = seed.createdNodes['oldReq']!.id;
+      const oldEdgeId = seed.edges[0]!;
+      const result = executor.mutateGraph({
+        specId,
+        createBasis: 'explicit',
+        ops: [
+          {
+            op: 'create_node',
+            ref: 'newCriterion',
+            plane: 'intent',
+            kind: 'criterion',
+            title: 'New criterion',
+          },
+          {
+            op: 'create_edge',
+            category: 'proof',
+            oracle: 'newCriterion',
+            claim: { existing: oldGoalId },
+            stance: 'for',
+            rationale: 'measured',
+          },
+          { op: 'patch_node', node: { existing: oldGoalId }, patch: { title: 'Renamed goal' } },
+          { op: 'delete_edge', edge: { existing: oldEdgeId } },
+          { op: 'delete_node', node: { existing: oldReqId }, deleteIncidentEdges: true },
+        ],
+      });
+
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+      expect(result.lsn).toBe(graphClockLsn(db, specId));
+      expect(result.createdEdges).toHaveLength(1);
+      expect(result.updatedNodes).toEqual([oldGoalId]);
+      expect(result.deletedNodes).toEqual([oldReqId]);
+      expect(result.deletedEdges).toEqual([oldEdgeId]);
+
+      const logs = db.select().from(changeLog).all();
+      expect(logs).toHaveLength(2);
+      expect(logs.at(-1)!.operation).toBe('mutate_graph');
+      const payload = JSON.parse(logs.at(-1)!.payload);
+      expect(payload.updatedNodes).toEqual([oldGoalId]);
+      expect(payload.deletedNodes).toEqual([oldReqId]);
+      expect(payload.deletedEdges).toEqual([oldEdgeId]);
+    });
+
+    it('rejects sibling-spec node refs before writing anything', () => {
+      const otherSpec = executor.createSpec({ name: 'Other Spec', slug: 'other' });
+      if (otherSpec.status !== 'success') throw new Error('unreachable');
+      const otherSeed = executor.commitGraph({
+        specId: otherSpec.specId,
+        nodes: [{ ref: 'other', plane: 'intent', kind: 'goal', title: 'Other' }],
+        edges: [],
+      });
+      if (otherSeed.status !== 'success') throw new Error('unreachable');
+
+      const before = graphClockLsn(db, specId);
+      const changeLogCountBefore = db.select().from(changeLog).all().length;
+      const result = executor.mutateGraph({
+        specId,
+        ops: [
+          {
+            op: 'patch_node',
+            node: { existing: otherSeed.createdNodes['other']!.id },
+            patch: { title: 'Illegal' },
+          },
+        ],
+      });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(graphClockLsn(db, specId)).toBe(before);
+      expect(db.select().from(changeLog).all()).toHaveLength(changeLogCountBefore);
+    });
+  });
 });
