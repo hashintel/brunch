@@ -1576,6 +1576,7 @@ describe('Adapter: sandbox-per-slice isolation', () => {
       reports: fakes.reports,
       testRunner: fakes.testRunner,
       policy: { maxRetries: 3 },
+      sliceLayout: 'shared',
     });
 
     expect(result.status).toBe('completed');
@@ -1699,6 +1700,7 @@ describe('Adapter: sandbox-per-slice isolation', () => {
         reports: fakes.reports,
         testRunner: fakes.testRunner,
         policy: { maxRetries: 3 },
+        sliceLayout: 'shared',
       });
 
       expect(result.status).toBe('completed');
@@ -1763,6 +1765,7 @@ describe('Adapter: sandbox-per-slice isolation', () => {
         reports: fakes.reports,
         testRunner: fakes.testRunner,
         policy: { maxRetries: 3 },
+        sliceLayout: 'shared',
       });
 
       expect(result.status).toBe('completed');
@@ -1774,6 +1777,63 @@ describe('Adapter: sandbox-per-slice isolation', () => {
       expect(existsSync(join(parent, 'a'))).toBe(false);
       expect(existsSync(join(parent, 'b'))).toBe(false);
       expect(existsSync(join(parent, '__epic__'))).toBe(false);
+    } finally {
+      rmSync(parent, { recursive: true, force: true });
+    }
+  });
+
+  it('greenfield with per-slice layout isolates slices and merges into __epic__ (parallel-safe path)', async () => {
+    const verifyPlan: Plan = {
+      mode: 'greenfield',
+      epics: [
+        {
+          id: 'ev',
+          summary: 'Verified',
+          depends_on: [],
+          verification: [{ kind: 'integration-test', target: 't' }],
+        },
+      ],
+      slices: [
+        {
+          id: 'sv',
+          epic_id: 'ev',
+          definition: 'S',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+      ],
+    };
+
+    const parent = mkdtempSync(join(tmpdir(), 'cook-ec-ps-'));
+    try {
+      let verifyEpicSandboxDir = '';
+      const fakes = createFakes();
+      const trackingActions: ActionHandlers = {};
+      for (const [key, handler] of Object.entries(fakes.actions)) {
+        trackingActions[key] = async (ctx: ActionContext) => {
+          if (key === 'write-code') writeFileSync(join(ctx.sandboxDir, 'slice-marker.txt'), 'sv');
+          if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
+          return handler!(ctx);
+        };
+      }
+
+      const result = await createOrchestrator('parallel').run({
+        plan: verifyPlan,
+        sandboxDir: parent,
+        actions: trackingActions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        sliceLayout: 'per-slice',
+      });
+
+      expect(result.status).toBe('completed');
+      // slice ran in its own per-slice dir...
+      expect(existsSync(join(parent, 'sv'))).toBe(true);
+      // ...and verify-epic ran against the merged __epic__/<epicId>/ tree.
+      expect(verifyEpicSandboxDir).toBe(join(parent, '__epic__', 'ev'));
+      expect(existsSync(join(verifyEpicSandboxDir, 'slice-marker.txt'))).toBe(true);
+      expect(fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged')).toBeDefined();
     } finally {
       rmSync(parent, { recursive: true, force: true });
     }

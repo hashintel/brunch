@@ -5,8 +5,11 @@
 //   3. compilePlan(input, ctx) → PetriNet            (convenience wrapper)
 // ---------------------------------------------------------------------------
 
+import { mkdirSync } from 'node:fs';
+
 import {
   mergeSlicesIntoEpicSandbox,
+  resolveSliceWorktreeDir,
   seedSliceFromParentWorktree,
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
@@ -560,8 +563,10 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
   // In codebase mode, seed each slice dir with the parent worktree's contents
   // (the source repo's HEAD via `git worktree add`) so pi-actions can modify
   // existing code instead of writing into an empty dir.
-  // Brownfield isolates each slice in its own git worktree; greenfield accretes
-  // every slice into the single run sandbox (no per-slice dirs, no __epic__ merge).
+  // 'shared' (serial greenfield): all slices accrete into the run sandbox.
+  // 'per-slice': each slice gets its own git worktree (codebase) or plain dir
+  // (greenfield parallel), merged into __epic__ for verification.
+  const sliceLayout = input.sliceLayout ?? 'per-slice';
   if (input.sandboxMode === 'codebase') {
     if (!input.runId) {
       throw new Error('codebase mode requires input.runId (used to name slice-level git branches)');
@@ -569,12 +574,16 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
     for (const slice of plan.slices) {
       seedSliceFromParentWorktree(input.sandboxDir, slice.id, plan, input.runId);
     }
+  } else if (sliceLayout === 'per-slice') {
+    for (const slice of plan.slices) {
+      mkdirSync(resolveSliceWorktreeDir(input.sandboxDir, slice.id), { recursive: true });
+    }
   }
 
   const resolveSliceCwd = (slice: Slice): string =>
-    input.sandboxMode === 'codebase'
-      ? seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, { preserveExisting: true })
-      : input.sandboxDir;
+    sliceLayout === 'shared'
+      ? input.sandboxDir
+      : seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, { preserveExisting: true });
 
   // Register transitions with wired fire handlers
   for (const skel of blueprint.transitions) {
@@ -843,10 +852,10 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         fire = async (consumed) => {
           const inputToken = consumed[0]!;
           const deferred = (async () => {
-            // Brownfield verifies against a merged `__epic__/<epicId>/`; the
-            // greenfield run sandbox is already the merged tree (verify in place).
+            // Per-slice layouts verify against a merged `__epic__/<epicId>/`;
+            // the shared run sandbox is already the merged tree (verify in place).
             let epicSandboxDir: string;
-            if (input.sandboxMode === 'codebase') {
+            if (sliceLayout !== 'shared') {
               const mergeSliceIds = sliceIdsInMergeOrder.filter(
                 (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
               );
