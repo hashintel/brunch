@@ -106,6 +106,7 @@ export function createBrunchPiExtensions(
   return async (pi) => {
     const graphMentionSource = options.graphMentionSource ?? graphMentionSourceFromDeps(options.graph);
     const promptContext = options.promptContext;
+    const introspectionOptions = options.introspection;
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => registerBrunchSessionBoundary(api, onSessionBoundary),
       (api) => registerBrunchChrome(api, chrome),
@@ -126,11 +127,14 @@ export function createBrunchPiExtensions(
         }),
       (api) => registerBrunchCommands(api, options),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
-      ...(options.introspection?.enabled
+      ...(introspectionOptions?.enabled
         ? [
             (api: ExtensionAPI) => {
-              const introspection = options.introspection!;
-              registerBrunchIntrospection(api, introspection);
+              const { store, clock } = introspectionOptions;
+              registerBrunchIntrospection(api, {
+                ...(store ? { store } : {}),
+                ...(clock ? { clock } : {}),
+              });
             },
           ]
         : []),
