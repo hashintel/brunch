@@ -19,6 +19,7 @@ import type {
   RoleNamedEdgeDraft,
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
+import { authoredEdgeEndpointFields } from '../../../graph/index.js';
 import type { GraphSlice, NodeNeighborhood } from '../../../graph/queries.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from '../../../graph/schema/nodes.js';
 import type { ToolMutateGraphParams } from './tool-schemas.js';
@@ -70,86 +71,28 @@ function normalizeRoleNamedEdgeDraftOp(
   resolveGraphNodeCode: ResolveGraphNodeCode,
   diagnostics: Diagnostic[],
 ): RoleNamedEdgeDraft | undefined {
-  const resolve = (field: string, ref: string | { readonly existingCode: string }) =>
-    normalizeEdgeRef(ref, resolveGraphNodeCode, `ops[${index}].${field}`, diagnostics);
+  const [sourceField, targetField] = authoredEdgeEndpointFields(op.category);
+  const source = normalizeEdgeRef(
+    op[sourceField as keyof typeof op] as string | { readonly existingCode: string },
+    resolveGraphNodeCode,
+    `ops[${index}].${sourceField}`,
+    diagnostics,
+  );
+  const target = normalizeEdgeRef(
+    op[targetField as keyof typeof op] as string | { readonly existingCode: string },
+    resolveGraphNodeCode,
+    `ops[${index}].${targetField}`,
+    diagnostics,
+  );
+  if (source.status === 'invalid' || target.status === 'invalid') return undefined;
 
-  switch (op.category) {
-    case 'dependency': {
-      const dependency = resolve('dependency', op.dependency);
-      const dependent = resolve('dependent', op.dependent);
-      if (dependency.status === 'invalid' || dependent.status === 'invalid') return undefined;
-      return {
-        category: 'dependency',
-        dependency: dependency.ref,
-        dependent: dependent.ref,
-        rationale: op.rationale,
-      };
-    }
-    case 'proof': {
-      const oracle = resolve('oracle', op.oracle);
-      const claim = resolve('claim', op.claim);
-      if (oracle.status === 'invalid' || claim.status === 'invalid') return undefined;
-      return {
-        category: 'proof',
-        oracle: oracle.ref,
-        claim: claim.ref,
-        stance: op.stance,
-        rationale: op.rationale,
-      };
-    }
-    case 'support': {
-      const support = resolve('support', op.support);
-      const claim = resolve('claim', op.claim);
-      if (support.status === 'invalid' || claim.status === 'invalid') return undefined;
-      return {
-        category: 'support',
-        support: support.ref,
-        claim: claim.ref,
-        stance: op.stance,
-        rationale: op.rationale,
-      };
-    }
-    case 'realization': {
-      const abstract = resolve('abstract', op.abstract);
-      const concrete = resolve('concrete', op.concrete);
-      if (abstract.status === 'invalid' || concrete.status === 'invalid') return undefined;
-      return {
-        category: 'realization',
-        abstract: abstract.ref,
-        concrete: concrete.ref,
-        rationale: op.rationale,
-      };
-    }
-    case 'boundary': {
-      const boundary = resolve('boundary', op.boundary);
-      const subject = resolve('subject', op.subject);
-      if (boundary.status === 'invalid' || subject.status === 'invalid') return undefined;
-      return { category: 'boundary', boundary: boundary.ref, subject: subject.ref, rationale: op.rationale };
-    }
-    case 'composition': {
-      const whole = resolve('whole', op.whole);
-      const part = resolve('part', op.part);
-      if (whole.status === 'invalid' || part.status === 'invalid') return undefined;
-      return { category: 'composition', whole: whole.ref, part: part.ref, rationale: op.rationale };
-    }
-    case 'association': {
-      const a = resolve('a', op.a);
-      const b = resolve('b', op.b);
-      if (a.status === 'invalid' || b.status === 'invalid') return undefined;
-      return { category: 'association', a: a.ref, b: b.ref, rationale: op.rationale };
-    }
-    case 'supersession': {
-      const successor = resolve('successor', op.successor);
-      const predecessor = resolve('predecessor', op.predecessor);
-      if (successor.status === 'invalid' || predecessor.status === 'invalid') return undefined;
-      return {
-        category: 'supersession',
-        successor: successor.ref,
-        predecessor: predecessor.ref,
-        rationale: op.rationale,
-      };
-    }
-  }
+  return {
+    category: op.category,
+    [sourceField]: source.ref,
+    [targetField]: target.ref,
+    ...(op.rationale === undefined ? {} : { rationale: op.rationale }),
+    ...('stance' in op ? { stance: op.stance } : {}),
+  } as RoleNamedEdgeDraft;
 }
 
 type EdgeRefNormalization =

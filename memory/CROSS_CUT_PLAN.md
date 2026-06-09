@@ -98,11 +98,11 @@ DoD: every ● row is `have` or `built`.
 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `commit_graph` atomic batch **create** | have | ● | — | — | implicit basis |
+| `mutate_graph` atomic authored graph mutation | built | ● | — | done — role-safe graph mutations (5cbca632) | create-only for agent-facing tool; role-named edge endpoints; implicit default basis |
 | `present_review_set`/`request_review` → `acceptReviewSet` | have | ● | — | — | explicit basis |
 | auto-capture (synchronous, labeled-text) | built | ● | — | done — `session.submitMessage` capture (5f5e6ac8) | shared explicit-text core reused on ordinary-message path; D66-L |
-| generalized graph mutation (create/patch/delete) engine | spec | ○ | proving | card `dev-seed-fixtures--semantic-graph-mutations` | follow-on #4 owns agent patch/delete (Q5) |
-| agent-facing `commit_graph` patch/delete | new | ○ | proving | Q5 | default lean: agent stays creation-only |
+| generalized graph mutation (create/patch/delete) engine | built | ○ | proving | done — `CommandExecutor.mutateGraph` | dev RPC exposes create/patch/delete; autonomous agent tool remains create-only |
+| agent-facing patch/delete via `mutate_graph` | deferred | ○ | proving | Q5 | default lean: agent stays creation-only |
 | spec title/description update tool | new | ○ | earned | later | none exists |
 | workspace display-name update | new | ○ | proving | Q-state | unclear elicitor vs product/RPC |
 | ~~agent self-switch of posture~~ | — | — | — | RESOLVED Q4 | **dissolved — agent switches nothing**; switches are user/system (D40-L) |
@@ -128,7 +128,7 @@ DoD: every ● row is `have` or `built`.
 | 6 method resources scaffolding | have | ● | — | — | run-structured-exchange, infer-and-capture, commit-graph, read-context, generate-proposal, review-for-gaps |
 | method **content depth** | built | ● | — | done — deepened bodies + manifest-wide depth test (1ca02e38) | each method gives tool-routing/sequencing guidance, not tool-description restatement |
 | generalized capture (free text, files, refs; iterative passes) | built | ● | — | done — labeled-text core on `session.submitMessage` (5f5e6ac8) | `built` = the **POC bar only** (directly-labeled facts). Richer free-text/files/refs capture is **out of this row's scope by design**, not unfinished here: the `capture-quality-spike` (A22-L) has since landed (2026-06-08, precision/recall 1.0, zero false commits) and narrowly graduated the PLAN frontier `exchanges-and-generalized-capture`, which now owns the richer capture with an explicit false-commit guard. D66-L |
-| exchange-tool `.description()` / `promptGuidelines` | built | ● | — | done — all 7 exchange tools carry both (drift correction 2026-06-07) | `src/.pi/extensions/exchanges/*` already match the `commit_graph` pattern |
+| exchange-tool `.description()` / `promptGuidelines` | built | ● | — | done — all 7 exchange tools carry both (drift correction 2026-06-07) | `src/.pi/extensions/exchanges/*` match the graph-tool description/prompt-guidance pattern |
 | skill-commands (`gap-review`, `arbitrary-enhance`) | new | ○ | proving | Q6 (deferred) | off critical path |
 
 ### Renderer feedback-loop note
@@ -228,9 +228,9 @@ built. Ordered by leverage.
   fourth observed read shape (gap query). Scoped: `memory/cards/crosscut-read--graph-gaps.md`.
   Directly serves the D65-L `elicitation_backlog` "what to ask next" driver (theses w/o
   proof, requirements w/o realization, claims w/o support).
-- **Q5 — Agent `commit_graph` patch/delete.** Owned by the seed-fixtures card
-  follow-on #4. Default lean: agent stays creation-only; deletion not silently
-  exposed to autonomous agents.
+- **Q5 — Agent `mutate_graph` patch/delete.** Deferred after role-safe graph mutations.
+  Default lean: the autonomous agent-facing tool stays creation-only; deletion is not
+  silently exposed to agents just because dev RPC curation can patch/delete.
 - **Q6 — Skill-commands. DEFERRED (off critical path for POC).** Idea recorded:
   user-invoked slash/skill-commands (e.g. `gap-review`, `arbitrary-enhance`) for
   on-demand operations. **Affordance**: authority-gated by `op_mode` like any tool;
