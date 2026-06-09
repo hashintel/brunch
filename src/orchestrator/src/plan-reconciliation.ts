@@ -7,9 +7,21 @@
 // ReconciliationWarning so the reviewer can audit slice 2's output.
 
 import { breakDependencyCycles } from './plan-graph.js';
-import type { PlanningEnrichment } from './plan-llm-planning.js';
 import { defaultToolchain, type Toolchain } from './project-profile.js';
 import type { Epic, Plan, Slice } from './types.js';
+
+/**
+ * The deterministic-fallback enrichment that `reconcilePlan` consumes: per-slice
+ * dependency edges, epic grouping, and non-buildable slice ids over the slice-1
+ * projected universe. Originally the output of the (now-retired) slice-3 LLM
+ * planner; on today's mainline `plan-emitter` supplies an empty enrichment so
+ * reconciliation runs as the pure projection fallback when authoring fails.
+ */
+export type PlanningEnrichment = {
+  sliceDependencies: { sliceId: string; dependsOn: string[] }[];
+  epics: { id: string; summary: string; sliceIds: string[] }[];
+  nonBuildableSliceIds: string[];
+};
 
 export type ReconciliationWarning =
   | { code: 'synthesized-verification-target'; sliceId: string; target: string }

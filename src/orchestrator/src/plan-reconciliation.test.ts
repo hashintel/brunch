@@ -6,11 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 
-import type { PlanningEnrichment } from './plan-llm-planning.js';
 import { loadPlan } from './plan-loader.js';
 import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 import {
   formatReconciliationWarning,
+  type PlanningEnrichment,
   reconcilePlan,
   reconciliationWarningCategory,
   type ReconciliationWarning,

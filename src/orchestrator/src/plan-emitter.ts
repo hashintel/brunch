@@ -23,7 +23,6 @@ import {
   type RunModel,
 } from './plan-architect.js';
 import { checkPlan, repairPlan, type ContractResult } from './plan-contract.js';
-import { type PlanningEnrichment } from './plan-llm-planning.js';
 import { materializeArchitectedPlan, type MaterializeWarning } from './plan-materialize.js';
 import { projectPlanningContext } from './plan-planning-context.js';
 import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
@@ -31,6 +30,7 @@ import {
   formatReconciliationWarning,
   reconcilePlan,
   reconciliationWarningCategory,
+  type PlanningEnrichment,
   type ReconciliationWarning,
 } from './plan-reconciliation.js';
 import { resolveToolchain, type Toolchain } from './project-profile.js';

@@ -1,10 +1,10 @@
 // FE-829 slice 3: deterministic planning context for the build-architect
 // LLM stage.
 //
-// The LLM planner (`planExecutionOrdering`) reasons in slice-id space
+// The build-architect (`architectPlan`) reasons in slice-id space
 // (`req-<itemId>`), but the spec's relation edges live in the raw
 // `CompletedSpecSnapshot` between requirement/criterion item ids. This
-// module projects those edges into slice-id space so the planner can be
+// module projects those edges into slice-id space so the architect can be
 // handed *semantic* relation hints without recoupling it to raw graph ids.
 //
 // Pure and deterministic — this is the testable seam that lets slice 3

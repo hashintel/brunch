@@ -1,7 +1,7 @@
 // FE-829 slice 4B: the build-architect AUTHORING stage.
 //
-// Where slice 3's `planExecutionOrdering` only classified/grouped/ordered
-// the pre-projected 1:1 `req-*` slices, the architect AUTHORS a fresh
+// Where the retired slice-3 planner only classified/grouped/ordered the
+// pre-projected 1:1 `req-*` slices, the architect AUTHORS a fresh
 // slice set: it may decompose one requirement into a scaffold slice, N
 // file-disjoint per-behaviour slices, and a join slice that owns shared
 // coordination files. Each authored slice declares the repo-relative file
@@ -165,8 +165,8 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * Production LLM seam. Mirrors `plan-llm-planning.ts`'s adapter: single
- * structured round-trip, no tools, schema-validated downstream.
+ * Production LLM seam: a single structured round-trip, no tools,
+ * schema-validated downstream.
  */
 export const defaultArchitectRunModel: RunModel = async (prompt) => {
   const result = await generateText({
