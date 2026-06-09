@@ -4,7 +4,7 @@ Frontier: superseded by `role-safe-graph-mutations`
 Status:   superseded
 Mode:     chain
 Created:  2026-06-08
-Superseded: 2026-06-09 by `memory/cards/role-safe-graph-mutations--mutate-graph.md`.
+Superseded: 2026-06-09 by the completed `role-safe-graph-mutations` frontier.
 
 ## Orientation
 

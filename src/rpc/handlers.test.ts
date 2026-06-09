@@ -2467,7 +2467,7 @@ describe('JSON-RPC handlers', () => {
     });
 
     await expect(
-      defaultHandlers.handle({ jsonrpc: '2.0', id: 56, method: 'dev.graph.commitGraph', params: {} }),
+      defaultHandlers.handle({ jsonrpc: '2.0', id: 56, method: 'dev.graph.mutateGraph', params: {} }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
       id: 56,
@@ -2492,15 +2492,15 @@ describe('JSON-RPC handlers', () => {
         }
       ).methods.map((entry) => entry.method);
 
-    expect(methodNames(defaultDiscovery)).not.toContain('dev.graph.commitGraph');
-    expect(methodNames(readOnlyDiscovery)).not.toContain('dev.graph.commitGraph');
-    expect(methodNames(devDiscovery)).toContain('dev.graph.commitGraph');
+    expect(methodNames(defaultDiscovery)).not.toContain('dev.graph.mutateGraph');
+    expect(methodNames(readOnlyDiscovery)).not.toContain('dev.graph.mutateGraph');
+    expect(methodNames(devDiscovery)).toContain('dev.graph.mutateGraph');
     expect(JSON.stringify(devDiscovery.result)).toContain('existingCode');
     expect(JSON.stringify(devDiscovery.result)).toContain('explicit');
     expect(JSON.stringify(devDiscovery.result)).toContain('implicit');
   });
 
-  it('commits explicit graph batches through dev RPC and reads them back through public graph RPC', async () => {
+  it('applies create mutateGraph ops through dev RPC and reads them back through public graph RPC', async () => {
     const fixture = await createGraphRpcFixture();
     const productUpdates = createProductUpdatePublisher();
     const updates: unknown[] = [];
@@ -2515,12 +2515,20 @@ describe('JSON-RPC handlers', () => {
     const response = await handlers.handle({
       jsonrpc: '2.0',
       id: 60,
-      method: 'dev.graph.commitGraph',
+      method: 'dev.graph.mutateGraph',
       params: {
         specId: fixture.specAId,
-        basis: 'explicit',
-        nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Dev RPC thesis' }],
-        edges: [{ category: 'support', source: { existingCode: 'REQ1' }, target: 'thesis', stance: 'for' }],
+        createBasis: 'explicit',
+        ops: [
+          { op: 'create_node', ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Dev RPC thesis' },
+          {
+            op: 'create_edge',
+            category: 'support',
+            support: { existingCode: 'REQ1' },
+            claim: 'thesis',
+            stance: 'for',
+          },
+        ],
       },
     });
 
@@ -2573,7 +2581,150 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('rejects invalid dev graph commits without partial persistence', async () => {
+  it('applies patch and delete mutateGraph ops through dev RPC', async () => {
+    const fixture = await createGraphRpcFixture();
+    const productUpdates = createProductUpdatePublisher();
+    const handlers = createRpcHandlers({
+      coordinator: coordinator(),
+      cwd: fixture.cwd,
+      productUpdates,
+      devRpc: true,
+    });
+
+    const createResponse = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 62,
+      method: 'dev.graph.mutateGraph',
+      params: {
+        specId: fixture.specAId,
+        createBasis: 'explicit',
+        ops: [
+          {
+            op: 'create_node',
+            ref: 'thesis',
+            plane: 'intent',
+            kind: 'thesis',
+            title: 'Dev RPC thesis',
+            body: 'Original thesis body',
+          },
+          {
+            op: 'create_edge',
+            category: 'support',
+            support: { existingCode: 'REQ1' },
+            claim: 'thesis',
+            stance: 'for',
+            rationale: 'Original rationale',
+          },
+        ],
+      },
+    });
+    if (
+      !('result' in createResponse) ||
+      (createResponse.result as { status?: string }).status !== 'success'
+    ) {
+      throw new Error('expected create mutateGraph success');
+    }
+
+    const createResult = createResponse.result as {
+      readonly status: 'success';
+      readonly createdNodes: {
+        readonly thesis: {
+          readonly id: number;
+        };
+      };
+      readonly createdEdges: readonly number[];
+    };
+
+    const thesisId = createResult.createdNodes.thesis.id;
+    const edgeId = createResult.createdEdges[0]!;
+
+    const patchResponse = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 63,
+      method: 'dev.graph.mutateGraph',
+      params: {
+        specId: fixture.specAId,
+        ops: [
+          {
+            op: 'patch_node',
+            node: { existingCode: 'TH1' },
+            patch: { title: 'Patched thesis', body: 'Patched thesis body' },
+          },
+          {
+            op: 'patch_edge',
+            edgeId,
+            patch: { rationale: 'Patched rationale' },
+          },
+        ],
+      },
+    });
+
+    expect(patchResponse).toMatchObject({
+      jsonrpc: '2.0',
+      id: 63,
+      result: {
+        status: 'success',
+        updatedNodes: [thesisId],
+        updatedEdges: [edgeId],
+      },
+    });
+
+    const deleteEdgeResponse = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 64,
+      method: 'dev.graph.mutateGraph',
+      params: {
+        specId: fixture.specAId,
+        ops: [{ op: 'delete_edge', edgeId }],
+      },
+    });
+
+    expect(deleteEdgeResponse).toMatchObject({
+      jsonrpc: '2.0',
+      id: 64,
+      result: {
+        status: 'success',
+        deletedEdges: [edgeId],
+      },
+    });
+
+    const deleteNodeResponse = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 65,
+      method: 'dev.graph.mutateGraph',
+      params: {
+        specId: fixture.specAId,
+        ops: [{ op: 'delete_node', node: { existingCode: 'TH1' } }],
+      },
+    });
+
+    expect(deleteNodeResponse).toMatchObject({
+      jsonrpc: '2.0',
+      id: 65,
+      result: {
+        status: 'success',
+        deletedNodes: [thesisId],
+      },
+    });
+
+    const overview = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 66,
+      method: 'graph.overview',
+      params: { specId: fixture.specAId },
+    });
+
+    expect(overview).toMatchObject({
+      jsonrpc: '2.0',
+      id: 66,
+      result: {
+        nodes: expect.not.arrayContaining([expect.objectContaining({ title: 'Patched thesis' })]),
+        edges: expect.not.arrayContaining([expect.objectContaining({ id: edgeId })]),
+      },
+    });
+  });
+
+  it('rejects invalid dev mutateGraph ops without partial persistence', async () => {
     const fixture = await createGraphRpcFixture();
     const handlers = createRpcHandlers({
       coordinator: coordinator(),
@@ -2584,53 +2735,121 @@ describe('JSON-RPC handlers', () => {
     await expect(
       handlers.handle({
         jsonrpc: '2.0',
-        id: 62,
-        method: 'dev.graph.commitGraph',
+        id: 67,
+        method: 'dev.graph.mutateGraph',
         params: {
           specId: fixture.specAId,
-          basis: 'accepted_review_set',
-          nodes: [],
-          edges: [],
+          createBasis: 'accepted_review_set',
+          ops: [],
         },
       }),
     ).resolves.toMatchObject({
       jsonrpc: '2.0',
-      id: 62,
+      id: 67,
+      error: { code: -32602, message: 'Invalid params' },
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 68,
+        method: 'dev.graph.mutateGraph',
+        params: {
+          specId: fixture.specAId,
+          createBasis: 'explicit',
+          ops: [
+            {
+              op: 'create_node',
+              ref: 'thesis',
+              plane: 'intent',
+              kind: 'thesis',
+              title: 'Invalid dev RPC thesis',
+            },
+            {
+              op: 'create_edge',
+              category: 'support',
+              source: { existingCode: 'REQ1' },
+              target: 'thesis',
+              stance: 'for',
+            },
+          ],
+        },
+      }),
+    ).resolves.toMatchObject({
+      jsonrpc: '2.0',
+      id: 68,
       error: { code: -32602, message: 'Invalid params' },
     });
 
     const invalid = await handlers.handle({
       jsonrpc: '2.0',
-      id: 63,
-      method: 'dev.graph.commitGraph',
+      id: 69,
+      method: 'dev.graph.mutateGraph',
       params: {
         specId: fixture.specAId,
-        basis: 'explicit',
-        nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Invalid dev RPC thesis' }],
-        edges: [{ category: 'proof', source: { existingCode: 'REQ1' }, target: 'thesis' }],
+        ops: [
+          {
+            op: 'patch_node',
+            node: { existingCode: 'not-a-code' },
+            patch: { title: 'Invalid dev RPC thesis' },
+          },
+        ],
       },
     });
 
     expect(invalid).toMatchObject({
       jsonrpc: '2.0',
-      id: 63,
+      id: 69,
       result: {
         status: 'structural_illegal',
         diagnostics: expect.arrayContaining([
-          expect.objectContaining({ message: expect.stringContaining('stance') }),
+          expect.objectContaining({ message: expect.stringContaining('malformed graph node code') }),
+        ]),
+      },
+    });
+
+    const siblingCode = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 70,
+      method: 'dev.graph.mutateGraph',
+      params: {
+        specId: fixture.specAId,
+        createBasis: 'explicit',
+        ops: [
+          { op: 'create_node', ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Sibling code thesis' },
+          {
+            op: 'create_edge',
+            category: 'support',
+            support: { existingCode: 'G1' },
+            claim: 'thesis',
+            stance: 'for',
+          },
+        ],
+      },
+    });
+
+    expect(siblingCode).toMatchObject({
+      jsonrpc: '2.0',
+      id: 70,
+      result: {
+        status: 'structural_illegal',
+        diagnostics: expect.arrayContaining([
+          expect.objectContaining({
+            message: expect.stringContaining('does not resolve in the selected spec'),
+          }),
         ]),
       },
     });
 
     const overview = await handlers.handle({
       jsonrpc: '2.0',
-      id: 64,
+      id: 71,
       method: 'graph.overview',
       params: { specId: fixture.specAId },
     });
     expect(overview).toMatchObject({
       jsonrpc: '2.0',
-      id: 64,
+      id: 71,
       result: {
         lsn: fixture.specALsn,
       },
@@ -2664,13 +2883,19 @@ describe('JSON-RPC handlers', () => {
         {
           jsonrpc: '2.0',
           id: 65,
-          method: 'dev.graph.commitGraph',
+          method: 'dev.graph.mutateGraph',
           params: {
             specId: fixture.specAId,
-            basis: 'explicit',
-            nodes: [{ ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Line RPC thesis' }],
-            edges: [
-              { category: 'support', source: { existingCode: 'REQ1' }, target: 'thesis', stance: 'for' },
+            createBasis: 'explicit',
+            ops: [
+              { op: 'create_node', ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Line RPC thesis' },
+              {
+                op: 'create_edge',
+                category: 'support',
+                support: { existingCode: 'REQ1' },
+                claim: 'thesis',
+                stance: 'for',
+              },
             ],
           },
         },

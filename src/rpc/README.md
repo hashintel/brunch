@@ -87,7 +87,7 @@ full RPC host:
 
 dev-enabled full RPC host only:
   writes:
-    dev.graph.commitGraph
+    dev.graph.mutateGraph
   absent unless:
     createRpcHandlers({devRpc: true}) or BRUNCH_DEV_RPC=1 in CLI rpc mode
   still absent from:
@@ -214,18 +214,23 @@ graph.nodeNeighborhood
   result: success(anchor, neighbors, edges) | not_found
   source: SQLite graph reader for the explicit spec
 
-dev.graph.commitGraph
+dev.graph.mutateGraph
   access: write
   params:
     specId
-    basis: explicit | implicit
-    nodes: [{ref, plane, kind, title, body?, source?, detail?}]
-    edges: [{category, source, target, stance?, rationale?}]
-      source/target: batch ref | {existingCode}
-  result: success(lsn, createdNodes, edges) | structural_illegal(diagnostics)
-  effects: translates the legacy create-only dev payload into `mutateGraph`, then commits atomically through `CommandExecutor` and publishes graph projection invalidations
+    createBasis?: explicit | implicit
+    ops:
+      - {op: create_node, ref, plane, kind, title, body?, source?, detail?}
+      - {op: create_edge, category, <role-named-endpoints>, stance?, rationale?}
+        role-named endpoints: batch ref | {existingCode}
+      - {op: patch_node, node: {existingCode}, patch}
+      - {op: patch_edge, edgeId, patch}
+      - {op: delete_edge, edgeId}
+      - {op: delete_node, node: {existingCode}, deleteIncidentEdges?}
+  result: success(lsn, createdNodes, createdEdges, updatedNodes, updatedEdges, deletedNodes, deletedEdges) | structural_illegal(diagnostics)
+  effects: resolves projected node codes / selected-spec edge ids at the boundary, commits atomically through `CommandExecutor.mutateGraph`, and publishes graph projection invalidations
   gate: explicit local harness only; absent from default public RPC and read-only sidecars
-  caveat: transitional fixture-curation helper; canonical graph mutation surfaces are `mutateGraph` / `mutate_graph`, and Card 5 retires this create-only dialect
+  caveat: local curation harness only; product-path proof still comes from transcript-backed `mutate_graph` tool runs
 ```
 
 ## Product update notifications

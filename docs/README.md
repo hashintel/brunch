@@ -27,7 +27,7 @@ planning state:
 
 ## Testing guides
 
-- [`docs/testing/seeded-dev-rpc.md`](./testing/seeded-dev-rpc.md) — set up a seeded local Brunch workspace, inspect it over JSON-RPC, use the gated `dev.graph.commitGraph` harness, and run the product-path fixture curation tracer.
+- [`docs/testing/seeded-dev-rpc.md`](./testing/seeded-dev-rpc.md) — set up a seeded local Brunch workspace, inspect it over JSON-RPC, use the gated `dev.graph.mutateGraph` harness, and run the product-path fixture curation tracer.
 
 ## Behavioral kernels
 
