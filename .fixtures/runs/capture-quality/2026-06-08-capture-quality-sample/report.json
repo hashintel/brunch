@@ -3,7 +3,7 @@
   "probeId": "capture-quality",
   "runId": "2026-06-08-capture-quality-sample",
   "generatedAt": "2026-06-08T09:44:38.831Z",
-  "cwd": "/Users/lunelson/Code/hashintel/brunch-next-chi",
+  "cwd": "<ephemeral-workspace>",
   "extractorName": "sample-llm-output",
   "scenarioCount": 3,
   "totals": {

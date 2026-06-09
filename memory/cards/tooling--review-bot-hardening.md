@@ -101,7 +101,7 @@ src/dev/
 
 ## Card 2 — Portable capture-quality sample report
 
-Status: next
+Status: done
 Weight: light
 
 ### Objective
