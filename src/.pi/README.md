@@ -1,13 +1,13 @@
 # .pi/ — Brunch Pi runtime surface
 
-SPEC decisions: D25-L, D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L
+SPEC decisions: D25-L, D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L, D69-L
 
 This directory is Brunch's sealed Pi-harness surface. It contains the agent personas/resources, Pi-native skill resources, product extension registrars, and reusable TUI components that run inside the embedded Pi coding-agent harness.
 
 ## Owns
 
 - Pi-facing agent prompt assembly and runtime prompt resources.
-- Pi extension registration: tools, lifecycle hooks, command handlers, autocomplete, TUI chrome, workspace dialogs.
+- Pi extension registration: tools, lifecycle hooks, command handlers, autocomplete, TUI chrome, workspace dialogs, and dev-gated read-only introspection.
 - Pi-native skills/resources that the agent reads on demand.
 - Reusable Pi TUI components used by those extensions.
 

@@ -9,6 +9,10 @@ import { registerBrunchBranchPolicyHandlers } from './extensions/commands/policy
 import { registerBrunchContext } from './extensions/context/index.js';
 import { registerStructuredExchange } from './extensions/exchanges/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
+import {
+  registerBrunchIntrospection,
+  type BrunchIntrospectionOptions,
+} from './extensions/introspection/index.js';
 import { type GraphMentionSource } from './extensions/mentions/index.js';
 import { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
 import { registerBrunchOperationalModePolicy } from './extensions/runtime/index.js';
@@ -59,11 +63,24 @@ export {
 export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from './extensions/workspace/index.js';
 
 export { registerBrunchGraph } from './extensions/graph/index.js';
+export {
+  BRUNCH_INTROSPECTION_COMMAND,
+  createInMemoryBrunchIntrospectionStore,
+  registerBrunchIntrospection,
+  type BrunchIntrospectionBaseReport,
+  type BrunchIntrospectionStore,
+  type BrunchIntrospectionTurnCapture,
+} from './extensions/introspection/index.js';
 
 export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
   graph?: BrunchGraphDeps;
   promptContext?: BrunchPromptContextProvider;
+  introspection?: BrunchPiIntrospectionOptions;
+}
+
+export interface BrunchPiIntrospectionOptions extends BrunchIntrospectionOptions {
+  readonly enabled: boolean;
 }
 
 type BrunchProductExtensionRegistrar = (pi: ExtensionAPI) => void | Promise<void>;
@@ -109,6 +126,14 @@ export function createBrunchPiExtensions(
         }),
       (api) => registerBrunchCommands(api, options),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
+      ...(options.introspection?.enabled
+        ? [
+            (api: ExtensionAPI) => {
+              const introspection = options.introspection!;
+              registerBrunchIntrospection(api, introspection);
+            },
+          ]
+        : []),
     ];
 
     for (const registerExtension of extensions) {

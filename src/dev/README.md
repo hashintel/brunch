@@ -24,3 +24,15 @@ Brunch tracks the latest published `@earendil-works/pi-*` line. Two resolution c
 - `brunchFauxProviderConfig()` owns the pi 0.79 `$ENV` provider API-key shape and the bridge needed when `pi-coding-agent` and top-level `pi-ai` resolve as separate installed package instances.
 
 Product probes may import the shared provider config when they need deterministic faux wiring, but they remain product-verification probes under `src/probes/`; they do not become dev loops merely because they share infrastructure.
+
+## Introspection loop (D69-L)
+
+`runBrunchIntrospectionTurn()` is the paired-run artifact writer for the dev-only introspection loop. The Pi side is the explicit, read-only `src/.pi/extensions/introspection/` registrar, included only when `createBrunchPiExtensions(..., { introspection: { enabled: true } })` is passed. Product Brunch sessions omit it by default and keep the D39-L offline default.
+
+The passive extension tap records the final `before_provider_request` payload. The launcher then drives a subjective `session.prompt(...)` turn and writes the correlated run under `.fixtures/runs/introspection/<run-id>/`:
+
+- `mechanical.json` — latest passive provider-payload capture plus optional `/introspect` base-prompt report
+- `subjective.json` — assistant answer text from the subjective prompt
+- `manifest.json` — paired summary keyed by the same captured turn id
+
+The `/introspect` command reports `ctx.getSystemPromptOptions()` base inputs plus the latest passive capture; it deliberately does not claim to reconstruct exact model input. Exactness belongs to the passive provider-payload tap registered last in the Brunch extension bundle.

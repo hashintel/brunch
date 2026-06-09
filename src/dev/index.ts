@@ -12,4 +12,12 @@ export {
   type BrunchFauxLauncherOptions,
   type BrunchFauxLauncherResult,
 } from './faux-launcher.js';
+export {
+  liftBrunchIntrospectionOfflineDefault,
+  runBrunchIntrospectionTurn,
+  type BrunchIntrospectionLauncherOptions,
+  type BrunchIntrospectionLauncherResult,
+  type BrunchIntrospectionRunArtifact,
+  type BrunchIntrospectionSession,
+} from './introspection-launcher.js';
 export * as workspaceRpc from './workspace-rpc.js';
