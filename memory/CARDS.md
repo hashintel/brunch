@@ -76,7 +76,7 @@ Promoted to full: reverses §D50 decision (mode ≠ location), changes the `plan
 
 ## Card 2 — Cook directory argument is optional, defaulting to cwd (LIGHT)
 
-**Status:** next (independent of Card 1)
+**Status:** done — `parseCookArgs` defaults a missing positional dir to `BRUNCH_LAUNCH_CWD || process.cwd()` (no throw); cli.ts help reads `cook [dir]`. Verify gate green. Stayed light; R46 `[dir]` phrasing touch deferred to ln-sync.
 
 ### Objective
 
