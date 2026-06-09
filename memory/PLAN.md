@@ -63,6 +63,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 - `petri-graph-compilation` — compile Petri nets from workspace plan-graph + relation policy; depends on `intent-graph-semantics` (FE-700). Extends the existing FE-700 relation-policy registry.
 - `petri-simulation-oracle` — reachability analysis, deadlock detection, resume from durable markings. Planning oracle for plan-shape defects. Depends on `petri-graph-compilation`.
+- `parallel-merge-conflict-reconciliation` — LLM-assisted reconciliation of real content collisions in the parallel-greenfield whole-plan merge (two slices, same path, different content), replacing deterministic order-wins. Must be gated: LLM proposes → mandatory post-merge whole-plan verify (tests are the oracle) → repair or refuse. Reintroduces non-determinism at the assembly point, so it fights the FE-813 harness-fidelity direction (D161-K) and needs the verify gate to be trustworthy. Depends on `cook-greenfield-single-tree` (FE-827) whole-plan merge + a whole-plan verify step.
 - `relation-first-observer-enrichment`
 - `architect-generator-loop`
 - `server-mini-library-compartmentalization`
