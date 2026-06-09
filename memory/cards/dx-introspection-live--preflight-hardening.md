@@ -21,7 +21,7 @@ Frontier-level cross-cutting obligations this slice carries:
 
 ---
 
-## Card 1 — Make the `PI_SOURCE` alias portable and exact · status: next
+## Card 1 — Make the `PI_SOURCE` alias portable and exact · status: done
 
 ### Objective
 
@@ -65,6 +65,10 @@ src/dev/
 └── README.md                ~
 memory/PLAN.md               ?
 ```
+
+### Result
+
+Done 2026-06-09. `DEFAULT_PI_SOURCE_ROOT` is derived from `homedir()`, root aliases are exact regex matches, subpath aliases cover the intended source files, and docs/PLAN now state the vite/vitest-only boundary with `tsx` source mode deferred to an opt-in dev tsconfig.
 
 ---
 

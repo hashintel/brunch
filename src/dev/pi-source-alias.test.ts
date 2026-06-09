@@ -1,6 +1,9 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { piSourceAlias } from './pi-source-alias.js';
+import { DEFAULT_PI_SOURCE_ROOT, piSourceAlias } from './pi-source-alias.js';
 
 function loadViteAlias(env: { PI_SOURCE?: string; PI_SOURCE_ROOT?: string }) {
   const previous = { PI_SOURCE: process.env.PI_SOURCE, PI_SOURCE_ROOT: process.env.PI_SOURCE_ROOT };
@@ -20,6 +23,10 @@ function loadViteAlias(env: { PI_SOURCE?: string; PI_SOURCE_ROOT?: string }) {
 }
 
 describe('pi source alias', () => {
+  it('derives the default checkout path portably', () => {
+    expect(DEFAULT_PI_SOURCE_ROOT).toBe(join(homedir(), '.pi', 'pi-mono'));
+  });
+
   it('types and default resolution stay on installed dist packages', () => {
     // The published 0.79.0 packages ship their own dist/index.d.ts, so types and
     // default runtime resolution come from node_modules — no tsconfig paths needed.
@@ -31,7 +38,7 @@ describe('pi source alias', () => {
     expect(loadViteAlias({})).toEqual([]);
   });
 
-  it('points vite at the pi-mono source checkout only behind PI_SOURCE', () => {
+  it('points vite root aliases at pi-mono source only behind PI_SOURCE', () => {
     // Use the current process cwd as a guaranteed-existing PI_SOURCE_ROOT so the
     // existsSync guard passes on any machine; assert the alias mirrors that root.
     const root = process.cwd();
@@ -39,13 +46,44 @@ describe('pi source alias', () => {
 
     expect(alias).toEqual(
       expect.arrayContaining([
-        { find: '@earendil-works/pi-ai', replacement: `${root}/packages/ai/src/index.ts` },
-        { find: '@earendil-works/pi-agent-core', replacement: `${root}/packages/agent/src/index.ts` },
+        { find: /^@earendil-works\/pi-ai$/, replacement: `${root}/packages/ai/src/index.ts` },
+        { find: /^@earendil-works\/pi-agent-core$/, replacement: `${root}/packages/agent/src/index.ts` },
         {
-          find: '@earendil-works/pi-coding-agent',
+          find: /^@earendil-works\/pi-coding-agent$/,
           replacement: `${root}/packages/coding-agent/src/index.ts`,
         },
-        { find: '@earendil-works/pi-tui', replacement: `${root}/packages/tui/src/index.ts` },
+        { find: /^@earendil-works\/pi-tui$/, replacement: `${root}/packages/tui/src/index.ts` },
+      ]),
+    );
+  });
+
+  it('resolves package subpaths to their source files', () => {
+    const root = process.cwd();
+    const alias = loadViteAlias({ PI_SOURCE: '1', PI_SOURCE_ROOT: root });
+
+    expect(alias).toEqual(
+      expect.arrayContaining([
+        { find: /^@earendil-works\/pi-ai\/oauth$/, replacement: `${root}/packages/ai/src/oauth.ts` },
+        {
+          find: /^@earendil-works\/pi-ai\/(.*)$/,
+          replacement: `${root}/packages/ai/src/$1.ts`,
+        },
+        {
+          find: /^@earendil-works\/pi-coding-agent\/hooks$/,
+          replacement: `${root}/packages/coding-agent/src/core/hooks/index.ts`,
+        },
+        {
+          find: /^@earendil-works\/pi-coding-agent\/(.*)$/,
+          replacement: `${root}/packages/coding-agent/src/$1.ts`,
+        },
+        {
+          find: /^@earendil-works\/pi-agent-core\/(.*)$/,
+          replacement: `${root}/packages/agent/src/$1.ts`,
+        },
+        {
+          find: /^@earendil-works\/pi-tui\/(.*)$/,
+          replacement: `${root}/packages/tui/src/$1.ts`,
+        },
       ]),
     );
   });

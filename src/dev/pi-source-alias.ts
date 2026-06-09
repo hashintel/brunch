@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 
 import { type AliasOptions } from 'vite';
 
-const DEFAULT_PI_SOURCE_ROOT = '/Users/lunelson/.pi/pi-mono';
+export const DEFAULT_PI_SOURCE_ROOT = join(homedir(), '.pi', 'pi-mono');
 
 /**
  * Dev-only source alias for the pi packages (D67-L).
@@ -26,30 +27,30 @@ export function piSourceAlias(): AliasOptions {
   if (process.env.PI_SOURCE !== '1' || !existsSync(piMonoRoot)) return [];
 
   return [
-    { find: '@earendil-works/pi-ai', replacement: resolve(piMonoRoot, 'packages/ai/src/index.ts') },
-    { find: '@earendil-works/pi-ai/oauth', replacement: resolve(piMonoRoot, 'packages/ai/src/oauth.ts') },
+    { find: /^@earendil-works\/pi-ai$/, replacement: resolve(piMonoRoot, 'packages/ai/src/index.ts') },
+    { find: /^@earendil-works\/pi-ai\/oauth$/, replacement: resolve(piMonoRoot, 'packages/ai/src/oauth.ts') },
     { find: /^@earendil-works\/pi-ai\/(.*)$/, replacement: resolve(piMonoRoot, 'packages/ai/src/$1.ts') },
     {
-      find: '@earendil-works/pi-agent-core',
+      find: /^@earendil-works\/pi-agent-core$/,
       replacement: resolve(piMonoRoot, 'packages/agent/src/index.ts'),
     },
     {
       find: /^@earendil-works\/pi-agent-core\/(.*)$/,
-      replacement: resolve(piMonoRoot, 'packages/agent/src/$1'),
+      replacement: resolve(piMonoRoot, 'packages/agent/src/$1.ts'),
     },
     {
-      find: '@earendil-works/pi-coding-agent',
+      find: /^@earendil-works\/pi-coding-agent$/,
       replacement: resolve(piMonoRoot, 'packages/coding-agent/src/index.ts'),
     },
     {
-      find: '@earendil-works/pi-coding-agent/hooks',
+      find: /^@earendil-works\/pi-coding-agent\/hooks$/,
       replacement: resolve(piMonoRoot, 'packages/coding-agent/src/core/hooks/index.ts'),
     },
     {
       find: /^@earendil-works\/pi-coding-agent\/(.*)$/,
-      replacement: resolve(piMonoRoot, 'packages/coding-agent/src/$1'),
+      replacement: resolve(piMonoRoot, 'packages/coding-agent/src/$1.ts'),
     },
-    { find: '@earendil-works/pi-tui', replacement: resolve(piMonoRoot, 'packages/tui/src/index.ts') },
-    { find: /^@earendil-works\/pi-tui\/(.*)$/, replacement: resolve(piMonoRoot, 'packages/tui/src/$1') },
+    { find: /^@earendil-works\/pi-tui$/, replacement: resolve(piMonoRoot, 'packages/tui/src/index.ts') },
+    { find: /^@earendil-works\/pi-tui\/(.*)$/, replacement: resolve(piMonoRoot, 'packages/tui/src/$1.ts') },
   ];
 }
