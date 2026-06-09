@@ -70,8 +70,6 @@ export interface PlanEvalReport {
   evidence: PlanEvalEvidence;
 }
 
-const INTEGRATION_KIND = 'integration-test';
-
 // Soft heuristics (sharpness, dependency-signal) carry half weight: they are
 // useful trend signals but legitimately vary with the spec, so they should
 // not dominate the summary score.
@@ -91,7 +89,10 @@ const METRIC_WEIGHTS: Record<keyof PlanEvalMetrics, number> = {
  * `expectations`), then layers the eval-harness-specific hard rules and the
  * structural metric vector on top.
  */
-export function evaluatePlanShape(plan: Plan, expectations: ContractExpectations = {}): PlanEvalReport {
+export function evaluatePlanShape(
+  plan: Plan,
+  expectations: Omit<ContractExpectations, 'profile'> = {},
+): PlanEvalReport {
   const contract = checkPlan(plan, { ...expectations, profile: 'emitted' });
 
   const sliceCountByEpic = new Map<string, number>();
@@ -107,13 +108,15 @@ export function evaluatePlanShape(plan: Plan, expectations: ContractExpectations
     .filter((slice) => (slice.writes ?? []).length === 0)
     .map((slice) => slice.id);
 
-  const multiSliceEpicsMissingSeam = plan.epics
-    .filter(
-      (epic) =>
-        (sliceCountByEpic.get(epic.id) ?? 0) >= 2 &&
-        !epic.verification.some((v) => v.kind === INTEGRATION_KIND),
-    )
-    .map((epic) => epic.id);
+  // The contract owns the seam invariant (what counts as multi-slice / an
+  // integration seam). Derive the missing-seam set from the findings it
+  // already produced under the strict profile rather than re-detecting it, so
+  // eval and contract cannot drift. The epic-count map below is retained only
+  // for the `integrationSeamCoverage` denominator (total multi-slice epics),
+  // which the findings do not carry.
+  const multiSliceEpicsMissingSeam = contract.findings
+    .filter((f) => f.code === 'multi-slice-epic-missing-integration-seam')
+    .map((f) => f.epicId);
 
   const redundantEdges = findRedundantEdges(plan);
 
