@@ -18,8 +18,13 @@ function git(args: string[], cwd: string): string {
 // Deterministic committer so promotion never depends on (or mutates) global git config.
 const COMMIT_IDENTITY = ['-c', 'user.name=brunch', '-c', 'user.email=cook@brunch'];
 
-function isEmptyDir(dir: string): boolean {
-  return !existsSync(dir) || readdirSync(dir).length === 0;
+function isPromotionAllowedWithoutForce(dir: string): boolean {
+  if (!existsSync(dir)) return true;
+  const entries = readdirSync(dir);
+  if (entries.length === 0) return true;
+  // Freshly `git init` target: only `.git`, no tracked files yet (D166-K).
+  if (entries.length === 1 && entries[0] === '.git' && isGitRepoRoot(dir)) return true;
+  return false;
 }
 
 // True only when `dir` is itself a repo root — not merely nested inside one
@@ -45,7 +50,7 @@ export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
   const target = resolve(opts.target);
   mkdirSync(target, { recursive: true });
 
-  if (!isEmptyDir(target) && !opts.force) {
+  if (!isPromotionAllowedWithoutForce(target) && !opts.force) {
     throw new Error(
       `Refusing to promote into a non-empty target: ${target}. Pass --force to land on a cook/${opts.runId} branch.`,
     );

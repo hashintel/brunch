@@ -86,6 +86,20 @@ describe('promoteGreenfieldRun', () => {
     ).toBe('');
   });
 
+  it('lands on a cook/<runId> branch in a freshly git-init target without --force', () => {
+    const sandbox = makeSandbox();
+    const target = tmpTarget();
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: target });
+
+    const result = promoteGreenfieldRun({ sandboxDir: sandbox, target, runId: 'r1', force: false });
+
+    expect(result.branch).toBe('cook/r1');
+    expect(existsSync(join(target, 'index.ts'))).toBe(true);
+    expect(execFileSync('git', ['branch', '--show-current'], { cwd: target, encoding: 'utf8' }).trim()).toBe(
+      'cook/r1',
+    );
+  });
+
   it('lands on a cook/<runId> branch in an existing repo with --force, leaving the original branch intact', () => {
     const sandbox = makeSandbox();
     const target = tmpTarget();
