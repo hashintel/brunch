@@ -20,7 +20,7 @@ Frontier-level cross-cutting obligations this slice carries:
 
 ---
 
-## Card 1 — Thread `workspace.selectionState` through web invalidation · status: next
+## Card 1 — Thread `workspace.selectionState` through web invalidation · status: done
 
 ### Objective
 

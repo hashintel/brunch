@@ -73,6 +73,7 @@ export function selectedSessionProductUpdates(target?: {
 }): readonly ProductUpdate[] {
   return [
     productUpdate('workspace.state', target),
+    productUpdate('workspace.selectionState', target),
     productUpdate('session.pendingExchange', target),
     productUpdate('session.exchanges', target),
     productUpdate('session.runtimeState', target),

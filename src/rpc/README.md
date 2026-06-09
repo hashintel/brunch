@@ -261,7 +261,7 @@ Current web code only uses the read sidecar. Write hooks are named here as the e
 ```pseudo
 query key families:
   workspace.state       -> ['workspace.state']
-  workspace.selectionState -> ['workspace.selectionState']        # target, not yet implemented in web queryKeys
+  workspace.selectionState -> ['workspace.selectionState']
   session.pendingExchange  -> ['session.pendingExchange', specId, sessionId]  # target
   session.exchanges        -> ['session.exchanges', specId, sessionId]        # target
   session.runtimeState     -> ['session.runtimeState', specId, sessionId]
@@ -273,7 +273,7 @@ query key families:
 | --- | --- | --- | --- |
 | `rpc.discover` | `rpcDiscoveryQueryOptions(rpc)` | not implemented; optional debug/adaptive UI only | none |
 | `workspace.state` | `workspaceStateQueryOptions(rpc)` | implemented; root/spec loaders prime it | exact `workspace.state` |
-| `workspace.selectionState` | `workspaceSelectionStateQueryOptions(rpc)` | target; picker route not built | `workspace.selectionState` or activation success |
+| `workspace.selectionState` | `workspaceSelectionStateQueryOptions(rpc)` | implemented; root route reads picker inventory | exact `workspace.selectionState` or activation success |
 | `workspace.activate` | `activateWorkspaceMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates workspace + selected session resources |
 | `session.pendingExchange` | `pendingExchangeQueryOptions(rpc, target)` | target; no current web panel | `session.pendingExchange` |
 | `session.exchanges` | `sessionExchangesQueryOptions(rpc, target)` | target; no current web history panel | `session.exchanges` |

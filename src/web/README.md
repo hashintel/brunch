@@ -39,7 +39,7 @@ web/
       graph.nodeNeighborhood
 
   queries/
-    workspace.ts -> workspace.state query options
+    workspace.ts -> workspace.state + workspace.selectionState query options
     session.ts   -> session.runtimeState query options
     graph.ts     -> graph overview/neighborhood query options
 
@@ -285,14 +285,15 @@ current implemented hooks:
     query key: ['graph.nodeNeighborhood', specId, nodeId, hops]
     route status: query option exists; selection UI not yet wired
 
+  workspace.selectionState
+    workspaceSelectionStateQueryOptions(rpc)
+    query key: ['workspace.selectionState']
+    route status: root route reads picker inventory
+
 planned read hooks:
   rpc.discover
     rpcDiscoveryQueryOptions(rpc)
     Purpose: optional capability/schema introspection for debug panels and adaptive clients.
-
-  workspace.selectionState
-    workspaceSelectionStateQueryOptions(rpc)
-    Purpose: boot/picker inventory and whether explicit activation is required.
 
   session.pendingExchange
     pendingExchangeQueryOptions(rpc, target)
@@ -339,6 +340,9 @@ useBrunchUpdateInvalidation(rpc, queryClient)
   for each notification:
     if topic == workspace.state:
       invalidate queryKeys.workspace.state
+
+    if topic == workspace.selectionState:
+      invalidate queryKeys.workspace.selectionState
 
     if topic == session.pendingExchange:
       invalidate exact pendingExchange key
