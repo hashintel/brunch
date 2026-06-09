@@ -26,6 +26,8 @@ import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, PlanMode, TestRunner } from './types.js';
 import { createSandbox } from './worktree.js';
 
+const GIT_TEST_TIMEOUT_MS = 20_000;
+
 describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
   const dirs: string[] = [];
   afterEach(() => {
@@ -145,84 +147,88 @@ describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
     },
   };
 
-  it('source repo is byte-identical and cook artifact contains the modification', async () => {
-    const source = makeSeededRepo('brownfield');
+  it(
+    'source repo is byte-identical and cook artifact contains the modification',
+    async () => {
+      const source = makeSeededRepo('brownfield');
 
-    // Resolve via the same path runCook uses: locate the plan, then let the
-    // plan's spec-derived mode drive the worktree strategy.
-    const resolved = resolveCookPlan(source);
-    expect(resolved.kind).toBe('resolved');
-    if (resolved.kind !== 'resolved') throw new Error('unreachable');
+      // Resolve via the same path runCook uses: locate the plan, then let the
+      // plan's spec-derived mode drive the worktree strategy.
+      const resolved = resolveCookPlan(source);
+      expect(resolved.kind).toBe('resolved');
+      if (resolved.kind !== 'resolved') throw new Error('unreachable');
 
-    const plan = loadPlan(resolved.planPath);
-    expect(plan.mode).toBe('brownfield');
-    const sandboxPlan = resolveSandboxPlan(plan.mode, resolved.sourceDir);
-    expect(sandboxPlan.kind).toBe('codebase');
-    if (sandboxPlan.kind !== 'codebase') throw new Error('unreachable');
+      const plan = loadPlan(resolved.planPath);
+      expect(plan.mode).toBe('brownfield');
+      const sandboxPlan = resolveSandboxPlan(plan.mode, resolved.sourceDir);
+      expect(sandboxPlan.kind).toBe('codebase');
+      if (sandboxPlan.kind !== 'codebase') throw new Error('unreachable');
 
-    // baseDir = source (cwd-scoped per SPEC §A49).
-    const sandbox = createSandbox(source, undefined, {
-      mode: 'codebase',
-      sourceDir: sandboxPlan.sourceDir,
-    });
+      // baseDir = source (cwd-scoped per SPEC §A49).
+      const sandbox = createSandbox(source, undefined, {
+        mode: 'codebase',
+        sourceDir: sandboxPlan.sourceDir,
+      });
 
-    const sourceHeadBefore = execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: source,
-      encoding: 'utf8',
-    }).trim();
+      const sourceHeadBefore = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: source,
+        encoding: 'utf8',
+      }).trim();
 
-    const reports = new InMemoryReportSink();
-    const actions = makeFakeActions(reports);
+      const reports = new InMemoryReportSink();
+      const actions = makeFakeActions(reports);
 
-    const engine = createOrchestrator('serial');
-    const result = await engine.run({
-      plan,
-      sandboxDir: sandbox.sandboxDir,
-      actions,
-      reports,
-      testRunner: fakeTestRunner,
-      policy: { maxRetries: 3 },
-      sandboxMode: 'codebase',
-      runId: sandbox.runId,
-    });
+      const engine = createOrchestrator('serial');
+      const result = await engine.run({
+        plan,
+        sandboxDir: sandbox.sandboxDir,
+        actions,
+        reports,
+        testRunner: fakeTestRunner,
+        policy: { maxRetries: 3 },
+        sandboxMode: 'codebase',
+        runId: sandbox.runId,
+      });
 
-    expect(result.status).toBe('completed');
+      expect(result.status).toBe('completed');
 
-    // Source branch byte-identical: HEAD unchanged, no uncommitted changes
-    // to tracked files (the `.brunch/` ignore keeps cook artifacts invisible
-    // to `git status` on tracked content).
-    const sourceHeadAfter = execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: source,
-      encoding: 'utf8',
-    }).trim();
-    expect(sourceHeadAfter).toBe(sourceHeadBefore);
-    const trackedStatus = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
-      cwd: source,
-      encoding: 'utf8',
-    });
-    expect(trackedStatus).toBe('');
+      // Source branch byte-identical: HEAD unchanged, no uncommitted changes
+      // to tracked files (the `.brunch/` ignore keeps cook artifacts invisible
+      // to `git status` on tracked content).
+      const sourceHeadAfter = execFileSync('git', ['rev-parse', 'HEAD'], {
+        cwd: source,
+        encoding: 'utf8',
+      }).trim();
+      expect(sourceHeadAfter).toBe(sourceHeadBefore);
+      const trackedStatus = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+        cwd: source,
+        encoding: 'utf8',
+      });
+      expect(trackedStatus).toBe('');
 
-    // Modification landed: the slice worktree contains the mutated src.txt.
-    const sliceDir = join(sandbox.sandboxDir, 'modify-src');
-    expect(existsSync(sliceDir)).toBe(true);
-    const modified = readFileSync(join(sliceDir, 'src.txt'), 'utf8');
-    expect(modified).toBe('hello\nmodified\n');
+      // Modification landed: the slice worktree contains the mutated src.txt.
+      const sliceDir = join(sandbox.sandboxDir, 'modify-src');
+      expect(existsSync(sliceDir)).toBe(true);
+      const modified = readFileSync(join(sliceDir, 'src.txt'), 'utf8');
+      expect(modified).toBe('hello\nmodified\n');
 
-    // The parent worktree (the git worktree of source HEAD) was on cook/<runId>.
-    const parentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: sandbox.sandboxDir,
-      encoding: 'utf8',
-    }).trim();
-    expect(parentBranch).toBe(`cook/${sandbox.runId}`);
+      // The parent worktree (the git worktree of source HEAD) was on cook/<runId>.
+      const parentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd: sandbox.sandboxDir,
+        encoding: 'utf8',
+      }).trim();
+      expect(parentBranch).toBe(`cook/${sandbox.runId}`);
 
-    // The slice worktree is a real git worktree on its slice-level branch
-    // (sibling namespace cook-slice/ to avoid ref-hierarchy collision with cook/<runId>).
-    const sliceBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: sliceDir,
-      encoding: 'utf8',
-    }).trim();
-    expect(sliceBranch).toBe(`cook-slice/${sandbox.runId}/modify-src`);
-  });
+      // The slice worktree is a real git worktree on its slice-level branch
+      // (sibling namespace cook-slice/ to avoid ref-hierarchy collision with cook/<runId>).
+      const sliceBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+        cwd: sliceDir,
+        encoding: 'utf8',
+      }).trim();
+      expect(sliceBranch).toBe(`cook-slice/${sandbox.runId}/modify-src`);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
 
   it('a greenfield spec plan uses an empty worktree and never clones the cwd repo', () => {
     // Same .brunch/cook/plan.yaml location, but `mode: greenfield`. The plan

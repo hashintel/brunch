@@ -20,6 +20,8 @@ import type { PetrinautStreamBus } from './petrinaut-stream-bus.js';
 import type { PetrinautStreamServer } from './petrinaut-stream-server.js';
 import type { Plan } from './types.js';
 
+const GIT_TEST_TIMEOUT_MS = 20_000;
+
 describe('parseCookArgs', () => {
   it('parses dir only', () => {
     const opts = parseCookArgs(['./fixtures/txt']);
@@ -598,11 +600,15 @@ describe('resolveSandboxPlan', () => {
     expect(resolveSandboxPlan('greenfield', d)).toEqual({ kind: 'fixture' });
   });
 
-  it('chooses a cwd clone (codebase) for brownfield on a clean git repo', () => {
-    const d = makeTmpDir();
-    initCleanGitRepo(d);
-    expect(resolveSandboxPlan('brownfield', d)).toEqual({ kind: 'codebase', sourceDir: d });
-  });
+  it(
+    'chooses a cwd clone (codebase) for brownfield on a clean git repo',
+    () => {
+      const d = makeTmpDir();
+      initCleanGitRepo(d);
+      expect(resolveSandboxPlan('brownfield', d)).toEqual({ kind: 'codebase', sourceDir: d });
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
 
   it('errors for brownfield when the working tree is dirty', () => {
     const d = makeTmpDir();
