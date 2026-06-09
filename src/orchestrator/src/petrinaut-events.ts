@@ -64,10 +64,19 @@ export type PetrinautTransitionFiredEvent = {
   output: Record<string, PetrinautToken[]>;
 };
 
+/** The three terminal event kinds a run can end on. Canonical across the stream seam. */
+export type TerminalEventKind = 'net_completed' | 'net_halted' | 'net_deadlocked';
+
 export type PetrinautTerminalEvent = {
-  kind: 'net_completed' | 'net_halted' | 'net_deadlocked';
+  kind: TerminalEventKind;
   ts: string;
   runId: string;
+  /**
+   * Halt reason, verbatim from the halt token (or the run error on the
+   * exception path). Present only for `net_halted`; the wire surfaces it on
+   * the leading `status` and the `terminal` frames (FE-819 Card B).
+   */
+  reason?: string;
 };
 
 export type PetrinautEvent =
@@ -161,7 +170,12 @@ export function createPetrinautEventStream(opts: CreatePetrinautEventStreamOpts)
         case 'net_completed':
         case 'net_halted':
         case 'net_deadlocked': {
-          publish({ kind: event.kind, ts: event.ts, runId });
+          publish({
+            kind: event.kind,
+            ts: event.ts,
+            runId,
+            ...(event.reason !== undefined ? { reason: event.reason } : {}),
+          });
           return;
         }
       }

@@ -1,36 +1,18 @@
-import { existsSync, readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
-import { join } from 'node:path';
-import { parseEnv } from 'node:util';
 
 import type { Express } from 'express';
 
 import { resolveBrunchProject } from './project.js';
+
+// Re-exported so existing `src/server` callers keep their import site; the
+// canonical implementation lives in the orchestrator (lower) layer.
+export { loadLocalEnvFile } from '../orchestrator/src/local-env.js';
 
 const DEFAULT_BACKEND_PORT = 3000;
 
 function normalizeConfiguredValue(value: string | undefined): string | null {
   const normalizedValue = value?.trim();
   return normalizedValue ? normalizedValue : null;
-}
-
-export function loadLocalEnvFile(cwd: string): void {
-  const envFilePath = join(cwd, '.env');
-  if (!existsSync(envFilePath)) {
-    return;
-  }
-
-  const parsed = parseEnv(readFileSync(envFilePath, 'utf8'));
-  for (const [key, value] of Object.entries(parsed)) {
-    if (value === '') {
-      continue;
-    }
-    if (process.env[key] !== undefined && process.env[key] !== '') {
-      continue;
-    }
-
-    process.env[key] = value;
-  }
 }
 
 function parsePort(value: string, source: 'BRUNCH_PORT' | 'PORT'): number {

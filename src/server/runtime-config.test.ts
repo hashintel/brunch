@@ -1,15 +1,10 @@
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  getBackendProxyTarget,
-  loadLocalEnvFile,
-  resolveBackendPort,
-  resolveConfiguredDbPath,
-} from './runtime-config.js';
+import { getBackendProxyTarget, resolveBackendPort, resolveConfiguredDbPath } from './runtime-config.js';
 
 describe('runtime config', () => {
   const tempDirs: string[] = [];
@@ -73,85 +68,5 @@ describe('runtime config', () => {
   it('rejects invalid explicit backend ports', () => {
     expect(() => resolveBackendPort({ BRUNCH_PORT: 'not-a-port' })).toThrow('Invalid BRUNCH_PORT value');
     expect(() => resolveBackendPort({ PORT: '70000' })).toThrow('Invalid PORT value');
-  });
-
-  it('loads values from a local .env file when the shell env does not already provide them', () => {
-    const cwd = makeTempDir();
-    writeFileSync(join(cwd, '.env'), 'ANTHROPIC_API_KEY=file-value\nBRUNCH_PORT=4310\n');
-
-    const previousApiKey = process.env.ANTHROPIC_API_KEY;
-    const previousPort = process.env.BRUNCH_PORT;
-
-    delete process.env.ANTHROPIC_API_KEY;
-    delete process.env.BRUNCH_PORT;
-
-    try {
-      loadLocalEnvFile(cwd);
-
-      expect(process.env.ANTHROPIC_API_KEY).toBe('file-value');
-      expect(process.env.BRUNCH_PORT).toBe('4310');
-    } finally {
-      if (previousApiKey === undefined) {
-        delete process.env.ANTHROPIC_API_KEY;
-      } else {
-        process.env.ANTHROPIC_API_KEY = previousApiKey;
-      }
-
-      if (previousPort === undefined) {
-        delete process.env.BRUNCH_PORT;
-      } else {
-        process.env.BRUNCH_PORT = previousPort;
-      }
-    }
-  });
-
-  it('preserves shell env values over non-empty values from a local .env file', () => {
-    const cwd = makeTempDir();
-    writeFileSync(join(cwd, '.env'), 'ANTHROPIC_API_KEY=file-value\n');
-
-    const previousApiKey = process.env.ANTHROPIC_API_KEY;
-    process.env.ANTHROPIC_API_KEY = 'shell-value';
-
-    try {
-      loadLocalEnvFile(cwd);
-
-      expect(process.env.ANTHROPIC_API_KEY).toBe('shell-value');
-    } finally {
-      if (previousApiKey === undefined) {
-        delete process.env.ANTHROPIC_API_KEY;
-      } else {
-        process.env.ANTHROPIC_API_KEY = previousApiKey;
-      }
-    }
-  });
-
-  it('does not override shell env values with blank placeholders from a local .env file', () => {
-    const cwd = makeTempDir();
-    writeFileSync(join(cwd, '.env'), 'ANTHROPIC_API_KEY=\nBRUNCH_PORT=\n');
-
-    const previousApiKey = process.env.ANTHROPIC_API_KEY;
-    const previousPort = process.env.BRUNCH_PORT;
-
-    process.env.ANTHROPIC_API_KEY = 'shell-value';
-    process.env.BRUNCH_PORT = '3000';
-
-    try {
-      loadLocalEnvFile(cwd);
-
-      expect(process.env.ANTHROPIC_API_KEY).toBe('shell-value');
-      expect(process.env.BRUNCH_PORT).toBe('3000');
-    } finally {
-      if (previousApiKey === undefined) {
-        delete process.env.ANTHROPIC_API_KEY;
-      } else {
-        process.env.ANTHROPIC_API_KEY = previousApiKey;
-      }
-
-      if (previousPort === undefined) {
-        delete process.env.BRUNCH_PORT;
-      } else {
-        process.env.BRUNCH_PORT = previousPort;
-      }
-    }
   });
 });
