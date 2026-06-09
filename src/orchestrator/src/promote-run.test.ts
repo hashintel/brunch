@@ -86,6 +86,21 @@ describe('promoteGreenfieldRun', () => {
     ).toBe('');
   });
 
+  it('does not copy .git metadata from the promotion source', () => {
+    const sandbox = makeSandbox();
+    mkdirSync(join(sandbox, '.git'));
+    writeFileSync(join(sandbox, '.git', 'evil-marker'), 'stale-worktree\n');
+
+    const target = tmpTarget();
+    const result = promoteGreenfieldRun({ sandboxDir: sandbox, target, runId: 'r1', force: false });
+
+    expect(existsSync(join(target, 'index.ts'))).toBe(true);
+    expect(existsSync(join(target, '.git', 'evil-marker'))).toBe(false);
+    expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: target, encoding: 'utf8' }).trim()).toBe(
+      result.commit,
+    );
+  });
+
   it('lands on a cook/<runId> branch in a freshly git-init target without --force', () => {
     const sandbox = makeSandbox();
     const target = tmpTarget();

@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 
 export type PromoteResult = { target: string; branch: string; commit: string };
 
@@ -17,6 +17,9 @@ function git(args: string[], cwd: string): string {
 
 // Deterministic committer so promotion never depends on (or mutates) global git config.
 const COMMIT_IDENTITY = ['-c', 'user.name=brunch', '-c', 'user.email=cook@brunch'];
+
+/** Never copy git/brunch metadata from the promotion source (matches slice-merge walks). */
+const PROMOTION_COPY_SKIP = new Set(['.git', '.brunch']);
 
 function isPromotionAllowedWithoutForce(dir: string): boolean {
   if (!existsSync(dir)) return true;
@@ -65,7 +68,10 @@ export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
     git(['init', '-q', '-b', branch], target);
   }
 
-  cpSync(opts.sandboxDir, target, { recursive: true });
+  cpSync(opts.sandboxDir, target, {
+    recursive: true,
+    filter: (src) => !PROMOTION_COPY_SKIP.has(basename(src)),
+  });
   git(['add', '-A'], target);
   git([...COMMIT_IDENTITY, 'commit', '-q', '-m', `cook: ${opts.runId}`], target);
 
