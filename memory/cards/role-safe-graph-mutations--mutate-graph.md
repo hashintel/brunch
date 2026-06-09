@@ -12,6 +12,39 @@ Created:  2026-06-09
 - Main risk: landing patch/delete curation or role-named edges separately would create two graph mutation dialects. This chain takes the bigger step: `mutateGraph` / `mutate_graph` becomes the one authored graph-mutation grammar, and exposed `commitGraph` / `commit_graph` is retired by break-and-repair.
 - Posture: proving (inherited from `role-safe-graph-mutations`). Landing this stabilizes the edge-authoring seam future relation capture, review-set projection, seed loading, and dev curation will aim at.
 
+## Builder handoff
+
+- **Linear issue:** Role-safe graph mutations and completion of full stack graph tools.
+- **Branch/worktree:** `ln/fe-824-full-stack-graph-tools` (already active in this worktree).
+- **Canonical build source:** this file only. Do **not** build from the superseded cards except as historical context.
+- **Build order is binding:** Card 1 → Card 2 → Card 3 → Card 4 → Card 5. Each card depends on the previous card's public shape.
+- **Branch posture:** pre-release/free-rewrite. Retire exposed `commitGraph` / `commit_graph` by break-and-repair; do not add a compatibility bridge that accepts both `{ category, source, target }` and role-named edge drafts at authored boundaries.
+- **Inner loop:** after meaningful edits run file-scoped tests where practical, then `npm run fix`; before handoff/commit run `npm run verify`.
+- **Card completion marker:** when a card lands, change that card's `Status:` from `next` to `done` and move the next card to `next` if needed. Keep superseded cards superseded.
+
+## Build order
+
+```text
+1. Card 1 — Graph-owned role-named edge draft normalizer
+   Establish the role vocabulary and table-driven normalizer. No tool/schema rewrite yet.
+
+2. Card 2 — Atomic mutateGraph command engine
+   Add the canonical command/planner using Card 1's role-named create-edge ops.
+   Any surviving commitGraph helper must be private and delegate to mutateGraph.
+
+3. Card 3 — Exposed graph tool and direct writers port to mutate_graph
+   Replace the Pi tool surface and direct writers (propose-graph, capture, seeds).
+   End state: exposed graph mutation tool is mutate_graph, not commit_graph.
+
+4. Card 4 — Review-set proposals use role-named mutation drafts
+   Port the second LLM-authored edge boundary while preserving acceptReviewSet audit semantics.
+
+5. Card 5 — Dev curation RPC exposes mutateGraph by projected codes
+   Add the local curation entrypoint after the product/tool/review paths share one grammar.
+```
+
+Do not reorder: Card 1 prevents role drift; Card 2 creates the command grammar; Card 3 proves the live tool/direct-writer path; Card 4 closes the review-set LLM boundary; Card 5 exposes the complete grammar to dev curation without inventing a parallel curation dialect.
+
 Frontier-level cross-cutting obligations:
 
 - Preserve D4-L/D20-L: all graph mutations route through `CommandExecutor` and return structured command results.
@@ -68,7 +101,7 @@ No compatibility bridge: generic `{ category, source, target }` authored drafts 
 
 ## Card 1 — Graph-owned role-named edge draft normalizer
 
-Status: next
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -142,7 +175,7 @@ src/graph/
 
 ## Card 2 — Atomic `mutateGraph` command engine
 
-Status: next after Card 1
+Status: next
 Weight: full
 
 ### Target Behavior

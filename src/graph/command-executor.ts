@@ -51,6 +51,8 @@ export type {
   Diagnostic,
   StructuralIllegal,
 } from './command-executor/commit-graph-types.js';
+export { normalizeRoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
+export type { RoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
 
 // ---------------------------------------------------------------------------
 // Result types

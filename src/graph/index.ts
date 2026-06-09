@@ -67,8 +67,11 @@ export type {
   CommitGraphSuccess,
   Diagnostic,
   ReadinessGrade,
+  RoleNamedEdgeDraft,
   SpecRecord,
   StructuralIllegal,
 } from './command-executor.js';
+
+export { normalizeRoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
 
 export { translateReviewSetPayloadToCommitGraph } from './review-set.js';
