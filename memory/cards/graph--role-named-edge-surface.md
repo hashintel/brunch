@@ -1,12 +1,17 @@
 # Role-named edge surface for agent-authored graph mutations
 
-Frontier: n/a (touches locked D51-L / D53-L / D27-L; see Traceability + Routing)
-Status:   active
+Frontier: superseded by `role-safe-graph-mutations`
+Status:   superseded
 Mode:     chain
 Created:  2026-06-08
+Superseded: 2026-06-09 by `memory/cards/role-safe-graph-mutations--mutate-graph.md`.
 
 ## Orientation
 
+- **Supersession note:** this card's role-named edge-surface design is folded into
+  the `role-safe-graph-mutations` frontier, where it becomes part of the
+  canonical `mutateGraph` / `mutate_graph` grammar rather than a standalone
+  `commit_graph` remediation.
 - **Seam:** the *agent-authored edge boundary* — the two places an LLM emits an
   edge before `CommandExecutor`: the `commit_graph` Pi tool schema
   (`src/.pi/extensions/graph/tool-schemas.ts` → `command-adapter.ts`,
