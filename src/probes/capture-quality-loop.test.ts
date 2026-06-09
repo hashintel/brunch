@@ -160,6 +160,27 @@ describe('capture quality report', () => {
     });
   });
 
+  it('rejects unsafe artifact run ids before constructing paths', async () => {
+    const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-capture-quality-artifacts-'));
+    const report = summarizeCaptureQualityRun({
+      runId: '../escape',
+      generatedAt: '2026-06-08T00:00:00.000Z',
+      cwd: fixtureRoot,
+      extractorName: 'fixture-fed',
+      scenarios: CAPTURE_QUALITY_SCENARIOS,
+      extractions: goodExtractions,
+    });
+
+    await expect(
+      writeCaptureQualityArtifacts({
+        fixtureRoot,
+        report,
+        scenarios: CAPTURE_QUALITY_SCENARIOS,
+        extractions: goodExtractions,
+      }),
+    ).rejects.toThrow('Artifact runId must be a portable single path segment');
+  });
+
   it('writes portable scenario, extraction, report, and verdict artifacts', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-capture-quality-artifacts-'));
     const report = summarizeCaptureQualityRun({

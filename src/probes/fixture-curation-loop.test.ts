@@ -199,6 +199,16 @@ describe('fixture curation loop report', () => {
     await expect(readFile(join(fixtureRoot, artifacts.graphOverviewJson), 'utf8')).resolves.toContain(
       '"basis": "implicit"',
     );
+
+    await expect(
+      writeFixtureCurationArtifacts({
+        fixtureRoot,
+        runId: '../escape',
+        sessionText: '',
+        report: { ...report, runId: '../escape' },
+        graphOverview: mixedBasisOverview,
+      }),
+    ).rejects.toThrow('Artifact runId must be a portable single path segment');
   });
 
   it('persists portable, fixture-relative artifact references in report JSON', async () => {

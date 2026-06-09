@@ -7,6 +7,11 @@ import { describe, expect, it } from 'vitest';
 import { runCaptureResponseToGraphProof } from './capture-response-to-graph-proof.js';
 
 describe('capture response to graph proof', () => {
+  it('rejects unsafe artifact run ids before constructing paths', async () => {
+    await expect(runCaptureResponseToGraphProof({ runId: '../escape' })).rejects.toThrow(
+      'Artifact runId must be a portable single path segment',
+    );
+  });
   it('proves public RPC activation, trigger, submit, and overview path without graph/capture imports', async () => {
     const report = await runCaptureResponseToGraphProof({ runId: 'unit-proof' });
 

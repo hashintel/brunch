@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { portableCwd } from './portable-report.js';
+import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PUBLIC_RPC_PARITY_PERMUTATION_COUNT = 3;
 
@@ -163,7 +163,7 @@ function responseFor(exchange: PendingExchange): ProofResponse {
 export async function runPublicRpcParityProof(
   options: PublicRpcParityProofOptions = {},
 ): Promise<PublicRpcParityProofReport> {
-  const runId = options.runId ?? defaultRunId();
+  const runId = assertPortableRunId(options.runId ?? defaultRunId());
   const generatedAt = new Date().toISOString();
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-public-rpc-parity-'));
   const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -381,7 +381,8 @@ async function writeProofArtifacts(options: {
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; the disk paths used for writing are resolved
   // against the (possibly absolute) fixture root.
-  const runDirRef = `runs/public-rpc-parity/${options.runId}`;
+  const runId = assertPortableRunId(options.runId);
+  const runDirRef = `runs/public-rpc-parity/${runId}`;
   const artifacts: PublicRpcParityProofArtifacts = {
     runDir: runDirRef,
     sessionJsonl: `${runDirRef}/session.jsonl`,

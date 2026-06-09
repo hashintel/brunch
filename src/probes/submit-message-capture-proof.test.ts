@@ -7,6 +7,11 @@ import { describe, expect, it } from 'vitest';
 import { runSubmitMessageCaptureProof } from './submit-message-capture-proof.js';
 
 describe('submit message capture proof', () => {
+  it('rejects unsafe artifact run ids before constructing paths', async () => {
+    await expect(runSubmitMessageCaptureProof({ runId: '../escape' })).rejects.toThrow(
+      'Artifact runId must be a portable single path segment',
+    );
+  });
   it('proves public RPC submitMessage captures ordinary labeled text into graph truth', async () => {
     const report = await runSubmitMessageCaptureProof({ runId: 'unit-proof' });
 

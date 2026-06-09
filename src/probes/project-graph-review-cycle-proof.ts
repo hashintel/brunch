@@ -16,7 +16,7 @@ import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product
 import type { JsonRpcResponse } from '../rpc/protocol.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { portableCwd } from './portable-report.js';
+import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'project-graph-review-cycle' as const;
 const DEFAULT_SEED_SET = 'bilal-port-variants';
@@ -175,7 +175,7 @@ export async function runProjectGraphReviewCycleProof(
   );
   const seedSet = options.seedSet ?? DEFAULT_SEED_SET;
   const seedSlug = options.seedSlug ?? DEFAULT_SEED_SLUG;
-  const runId = options.runId ?? defaultRunId();
+  const runId = assertPortableRunId(options.runId ?? defaultRunId());
   const prompt = options.prompt ?? defaultProjectGraphPrompt();
   const generatedAt = new Date().toISOString();
   const fixture = await readSeedFixture(join(fixtureRoot, 'seeds', seedSet, `${seedSlug}.json`));
@@ -403,7 +403,8 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; the disk paths used for writing are resolved
   // against the (possibly absolute) fixture root.
-  const runDirRef = `runs/${PROBE_ID}/${options.runId}`;
+  const runId = assertPortableRunId(options.runId);
+  const runDirRef = `runs/${PROBE_ID}/${runId}`;
   const artifacts: ProjectGraphReviewCycleArtifacts = {
     runDir: runDirRef,
     sessionJsonl: `${runDirRef}/session.jsonl`,

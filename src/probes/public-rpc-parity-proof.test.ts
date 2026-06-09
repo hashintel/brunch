@@ -7,6 +7,11 @@ import { describe, expect, it } from 'vitest';
 import { runPublicRpcParityProof } from './public-rpc-parity-proof.js';
 
 describe('public Brunch RPC structured-exchange parity proof', () => {
+  it('rejects unsafe artifact run ids before constructing paths', async () => {
+    await expect(runPublicRpcParityProof({ runId: '../escape' })).rejects.toThrow(
+      'Artifact runId must be a portable single path segment',
+    );
+  });
   it('drives each deterministic structured-exchange permutation from a fresh cwd', async () => {
     const report = await runPublicRpcParityProof();
 

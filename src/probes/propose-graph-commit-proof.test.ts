@@ -347,5 +347,14 @@ describe('propose-graph commit proof report', () => {
     expect(await readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).toContain(
       'Graph committed successfully',
     );
+
+    await expect(
+      writeProposeGraphCommitProofArtifacts({
+        fixtureRoot,
+        runId: '../escape',
+        sessionText: '',
+        report: { ...report, runId: '../escape' },
+      }),
+    ).rejects.toThrow('Artifact runId must be a portable single path segment');
   });
 });

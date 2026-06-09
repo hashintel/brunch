@@ -18,7 +18,7 @@ import type { GraphSlice } from '../graph/queries.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { portableCwd } from './portable-report.js';
+import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'propose-graph-commit' as const;
 const DEFAULT_MAX_ATTEMPTS = 2;
@@ -124,7 +124,7 @@ export async function runProposeGraphCommitProof(
   options: ProposeGraphCommitProofOptions = {},
 ): Promise<ProposeGraphCommitProofReport> {
   const cwd = options.cwd ?? (await mkdtemp(join(tmpdir(), 'brunch-propose-graph-commit-')));
-  const runId = options.runId ?? defaultRunId();
+  const runId = assertPortableRunId(options.runId ?? defaultRunId());
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const scenarioId = options.scenarioId ?? 'direct-commit';
   const prompt = options.prompt ?? defaultProofPrompt(scenarioId);
@@ -550,7 +550,8 @@ export async function writeProposeGraphCommitProofArtifacts(options: {
 }): Promise<ProposeGraphCommitProofArtifacts> {
   // Persisted artifact references are fixture-root-relative so committed
   // reports stay portable; disk paths are resolved against the fixture root.
-  const runDirRef = `runs/${PROBE_ID}/${options.runId}`;
+  const runId = assertPortableRunId(options.runId);
+  const runDirRef = `runs/${PROBE_ID}/${runId}`;
   const artifacts: ProposeGraphCommitProofArtifacts = {
     runDir: runDirRef,
     sessionJsonl: `${runDirRef}/session.jsonl`,

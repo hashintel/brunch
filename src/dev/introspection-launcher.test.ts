@@ -9,6 +9,15 @@ import { createInMemoryBrunchIntrospectionStore } from '../.pi/brunch-pi-extensi
 import { runBrunchIntrospectionTurn, type BrunchIntrospectionSession } from './introspection-launcher.js';
 
 describe('Brunch introspection launcher', () => {
+  it('rejects unsafe artifact run ids before constructing paths', async () => {
+    await expect(
+      runBrunchIntrospectionTurn({
+        session: createFakeSession('No artifact.'),
+        store: createInMemoryBrunchIntrospectionStore(),
+        runId: '../escape',
+      }),
+    ).rejects.toThrow('Artifact runId must be a portable single path segment');
+  });
   it('writes a paired run artifact keyed by the captured turn', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-introspection-launcher-'));
     const store = createInMemoryBrunchIntrospectionStore();

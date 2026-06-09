@@ -268,6 +268,16 @@ describe('project-graph review-cycle proof report', () => {
     await expect(readFile(join(fixtureRoot, artifacts.graphOverviewJson), 'utf8')).resolves.toContain(
       'Macro view names impasse resolution state',
     );
+
+    await expect(
+      writeProjectGraphReviewCycleArtifacts({
+        fixtureRoot,
+        runId: '../escape',
+        sessionText: '',
+        report: { ...report, runId: '../escape' },
+        graphOverview: approvedOverview,
+      }),
+    ).rejects.toThrow('Artifact runId must be a portable single path segment');
   });
 
   it('persists portable, fixture-relative artifact references in report JSON', async () => {

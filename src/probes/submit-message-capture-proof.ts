@@ -8,7 +8,7 @@ import { createRpcHandlers } from '../rpc/handlers.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product-updates.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { portableCwd } from './portable-report.js';
+import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 interface JsonRpcSuccess<T> {
   readonly jsonrpc: '2.0';
@@ -75,12 +75,13 @@ const CAPTURE_TEXT = [
 export async function runSubmitMessageCaptureProof(
   options: SubmitMessageCaptureProofOptions = {},
 ): Promise<SubmitMessageCaptureProofReport> {
-  const runId =
+  const runId = assertPortableRunId(
     options.runId ??
-    new Date()
-      .toISOString()
-      .replaceAll(':', '-')
-      .replace(/\.\d{3}Z$/, 'Z');
+      new Date()
+        .toISOString()
+        .replaceAll(':', '-')
+        .replace(/\.\d{3}Z$/, 'Z'),
+  );
   const generatedAt = new Date().toISOString();
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-submit-message-'));
   const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -161,6 +162,7 @@ export async function runSubmitMessageCaptureProof(
   };
 
   if (options.fixtureRoot === undefined) return reportWithoutArtifacts;
+  assertPortableRunId(runId);
   const runDirRef = `runs/submit-message-capture/${runId}`;
   const diskPath = (ref: string) => resolve(options.fixtureRoot!, ref);
   const artifacts = {
