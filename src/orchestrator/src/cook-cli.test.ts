@@ -138,6 +138,21 @@ describe('parseCookArgs', () => {
     expect(opts.force).toBe(true);
   });
 
+  it('resolves relative dir and --out against BRUNCH_LAUNCH_CWD, not the CLI cwd', () => {
+    const launchCwd = mkdtempSync(join(tmpdir(), 'brunch-launch-'));
+    const prev = process.env.BRUNCH_LAUNCH_CWD;
+    process.env.BRUNCH_LAUNCH_CWD = launchCwd;
+    try {
+      const opts = parseCookArgs(['./proj', '--out=../out']);
+      expect(opts.dir).toBe(resolve(launchCwd, './proj'));
+      expect(opts.outDir).toBe(resolve(launchCwd, '../out'));
+    } finally {
+      if (prev === undefined) delete process.env.BRUNCH_LAUNCH_CWD;
+      else process.env.BRUNCH_LAUNCH_CWD = prev;
+      rmSync(launchCwd, { recursive: true, force: true });
+    }
+  });
+
   it('parses --spec=<id> and exposes it on opts', () => {
     expect(parseCookArgs(['./f', '--spec=42']).specId).toBe(42);
   });
