@@ -22,6 +22,7 @@ import {
 } from '../db.js';
 import { supportsKnowledgeRelationship } from '../knowledge-relationship-policy.js';
 import { serializeParts } from '../parts.js';
+import { cookFixtureSpecScenarios } from './cook-fixture-specs.js';
 import {
   createFixtureReviewQuestionInput,
   serializeFixtureAcceptedReviewUserParts,
@@ -1273,6 +1274,7 @@ const walkthroughScenarioNameSet = new Set<string>(walkthroughScenarioNames);
 export const publicScenarios: Record<string, ScenarioFn> = {
   ...scenarios,
   ...phaseTransitionScenarios,
+  ...cookFixtureSpecScenarios,
 };
 export const publicScenarioNames = [
   ...walkthroughScenarioNames.filter((name) => name in publicScenarios),
