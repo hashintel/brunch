@@ -73,6 +73,9 @@ export type {
   StructuralIllegal,
 } from './command-executor.js';
 
-export { normalizeRoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
+export {
+  authoredEdgeEndpointFields,
+  normalizeRoleNamedEdgeDraft,
+} from './command-executor/role-named-edge-draft.js';
 
 export { translateReviewSetPayloadToMutateGraph } from './review-set.js';

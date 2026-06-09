@@ -10,6 +10,7 @@
 import { StringEnum, Type, type Static } from '@earendil-works/pi-ai';
 
 import {
+  authoredEdgeEndpointFields,
   DESIGN_KINDS,
   EDGE_CATEGORIES,
   EDGE_STANCES,
@@ -136,98 +137,18 @@ export const EdgeRefSchema = Type.Union([
 ]);
 
 function roleNamedCreateEdgeSchema(category: EdgeCategory) {
-  switch (category) {
-    case 'dependency':
-      return Type.Object(
-        {
-          op: Type.Literal('create_edge'),
-          category: Type.Literal('dependency'),
-          dependency: EdgeRefSchema,
-          dependent: EdgeRefSchema,
-          rationale: Type.Optional(Type.String()),
-        },
-        { additionalProperties: false },
-      );
-    case 'proof':
-      return Type.Object(
-        {
-          op: Type.Literal('create_edge'),
-          category: Type.Literal('proof'),
-          oracle: EdgeRefSchema,
-          claim: EdgeRefSchema,
-          stance: StringEnum([...EDGE_STANCES]),
-          rationale: Type.Optional(Type.String()),
-        },
-        { additionalProperties: false },
-      );
-    case 'support':
-      return Type.Object(
-        {
-          op: Type.Literal('create_edge'),
-          category: Type.Literal('support'),
-          support: EdgeRefSchema,
-          claim: EdgeRefSchema,
-          stance: StringEnum([...EDGE_STANCES]),
-          rationale: Type.Optional(Type.String()),
-        },
-        { additionalProperties: false },
-      );
-    case 'realization':
-      return Type.Object(
-        {
-          op: Type.Literal('create_edge'),
-          category: Type.Literal('realization'),
-          abstract: EdgeRefSchema,
-          concrete: EdgeRefSchema,
-          rationale: Type.Optional(Type.String()),
-        },
-        { additionalProperties: false },
-      );
-    case 'boundary':
-      return Type.Object(
-        {
-          op: Type.Literal('create_edge'),
-          category: Type.Literal('boundary'),
-          boundary: EdgeRefSchema,
-          subject: EdgeRefSchema,
-          rationale: Type.Optional(Type.String()),
-        },
-        { additionalProperties: false },
-      );
-    case 'composition':
-      return Type.Object(
-        {
-          op: Type.Literal('create_edge'),
-          category: Type.Literal('composition'),
-          whole: EdgeRefSchema,
-          part: EdgeRefSchema,
-          rationale: Type.Optional(Type.String()),
-        },
-        { additionalProperties: false },
-      );
-    case 'association':
-      return Type.Object(
-        {
-          op: Type.Literal('create_edge'),
-          category: Type.Literal('association'),
-          a: EdgeRefSchema,
-          b: EdgeRefSchema,
-          rationale: Type.Optional(Type.String()),
-        },
-        { additionalProperties: false },
-      );
-    case 'supersession':
-      return Type.Object(
-        {
-          op: Type.Literal('create_edge'),
-          category: Type.Literal('supersession'),
-          successor: EdgeRefSchema,
-          predecessor: EdgeRefSchema,
-          rationale: Type.Optional(Type.String()),
-        },
-        { additionalProperties: false },
-      );
-  }
+  const [sourceField, targetField] = authoredEdgeEndpointFields(category);
+  return Type.Object(
+    {
+      op: Type.Literal('create_edge'),
+      category: Type.Literal(category),
+      [sourceField]: EdgeRefSchema,
+      [targetField]: EdgeRefSchema,
+      ...(category === 'proof' || category === 'support' ? { stance: StringEnum([...EDGE_STANCES]) } : {}),
+      rationale: Type.Optional(Type.String()),
+    },
+    { additionalProperties: false },
+  );
 }
 
 const MutateCreateNodeOpSchema = Type.Object(

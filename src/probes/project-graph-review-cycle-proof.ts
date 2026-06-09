@@ -554,7 +554,7 @@ Proposal constraints:
 - Include at least one edge using category "support" with stance "for" or category "realization".
 - When referencing existing graph truth, use existingCode strings from read_graph output, never raw ids.
 - Use schemaVersion 1, lens "intent", epistemicStatus "inferred", non-empty grounding.summary, grounding.support, pitch.title, and pitch.narrative.
-- Do not call commit_graph.
+- Do not call mutate_graph directly.
 - Do not call request_review; stop after a successful present_review_set so the external Brunch RPC reviewer can approve it.`;
 }
 

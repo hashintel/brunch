@@ -58,8 +58,19 @@ type RoleNamedEdgeDraftByCategory<Ref> = {
 export type RoleNamedEdgeDraftOf<Ref> = RoleNamedEdgeDraftByCategory<Ref>[EdgeCategory];
 export type RoleNamedEdgeDraft = RoleNamedEdgeDraftOf<GraphMutationNodeRef>;
 
-type NonAssociationCategory = Exclude<EdgeCategory, 'association'>;
 type NonAssociationRoleNamedEdgeDraft = Exclude<RoleNamedEdgeDraft, { readonly category: 'association' }>;
+
+export function authoredEdgeEndpointFields(category: EdgeCategory): readonly [string, string] {
+  if (category === 'association') {
+    return ['a', 'b'];
+  }
+
+  const metadata = EDGE_CATEGORY_METADATA[category];
+  if (!metadata) {
+    throw new Error(`unknown edge category "${String(category)}"`);
+  }
+  return [metadata.sourceRole, metadata.targetRole];
+}
 
 function assertStanceLocality(draft: RoleNamedEdgeDraft): void {
   if (draft.category === 'proof' || draft.category === 'support') {
@@ -105,36 +116,20 @@ export function roleNamedEdgeDraftEndpoints<Ref>(draft: RoleNamedEdgeDraftOf<Ref
   readonly source: Ref;
   readonly target: Ref;
 } {
-  if (draft.category === 'association') {
-    return { source: draft.a, target: draft.b };
-  }
-
-  const metadata = EDGE_CATEGORY_METADATA[draft.category as NonAssociationCategory];
-  if (!metadata) {
-    throw new Error(`unknown edge category "${String(draft.category)}"`);
-  }
+  const [sourceField, targetField] = authoredEdgeEndpointFields(draft.category);
   return {
-    source: draft[metadata.sourceRole as keyof typeof draft] as Ref,
-    target: draft[metadata.targetRole as keyof typeof draft] as Ref,
+    source: draft[sourceField as keyof typeof draft] as Ref,
+    target: draft[targetField as keyof typeof draft] as Ref,
   };
 }
 
 export function roleNamedEdgeDraftFromCreateEdgeInput(input: CreateGraphEdgeInput): RoleNamedEdgeDraft {
-  const metadata = EDGE_CATEGORY_METADATA[input.category as EdgeCategory];
-
-  if (input.category === 'association') {
-    return {
-      category: 'association',
-      a: input.source,
-      b: input.target,
-      ...(input.rationale === undefined ? {} : { rationale: input.rationale }),
-    };
-  }
+  const [sourceField, targetField] = authoredEdgeEndpointFields(input.category as EdgeCategory);
 
   const draft = {
     category: input.category,
-    [metadata.sourceRole]: input.source,
-    [metadata.targetRole]: input.target,
+    [sourceField]: input.source,
+    [targetField]: input.target,
     ...(input.rationale === undefined ? {} : { rationale: input.rationale }),
     ...(input.stance === undefined ? {} : { stance: input.stance }),
   };

@@ -33,8 +33,10 @@ for the current architecture.
 - `runs/public-rpc-parity/2026-05-29-public-rpc-parity/` — FE-744 public Brunch
   JSON-RPC structured-exchange parity proof.
 - `runs/fixture-curation/fixture-curation-2026-06-05T104440Z/` —
-  dev-seed-fixtures tracer proving a Bilal-derived explicit base seed can be expanded
-  through the real `propose-graph`/`commit_graph` product path with implicit graph readback.
+  historical pre-D53-L dev-seed-fixtures tracer proving a Bilal-derived explicit
+  base seed could be expanded through the then-current real
+  `propose-graph`/`commit_graph` product path with implicit graph readback.
+  Fresh probe runs should now use `mutate_graph`.
 - `runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/` —
   FE-809 tracer proving a Bilal-derived explicit base seed can drive real
   `project-graph` proposal generation through `present_review_set`, public RPC

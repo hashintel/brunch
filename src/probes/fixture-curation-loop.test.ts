@@ -66,7 +66,7 @@ const mixedBasisOverview: GraphSlice = {
 };
 
 describe('fixture curation loop report', () => {
-  it('requires real commit_graph transcript evidence and implicit graph readback', () => {
+  it('requires real mutate_graph transcript evidence and implicit graph readback', () => {
     const report = summarizeFixtureCurationRun({
       runId: 'fixture-curation-test',
       generatedAt: '2026-06-05T00:00:00.000Z',
@@ -85,7 +85,7 @@ describe('fixture curation loop report', () => {
       model: 'test-model',
       sessionText: [
         toolResultEntry('read_graph', { status: 'success' }),
-        toolResultEntry('commit_graph', {
+        toolResultEntry('mutate_graph', {
           status: 'success',
           lsn: 3,
           createdNodes: { rollback: { id: 2 } },
@@ -96,8 +96,8 @@ describe('fixture curation loop report', () => {
     });
 
     expect(report.success).toBe(true);
-    expect(report.commitGraphAttemptCount).toBe(1);
-    expect(report.commitGraphAttempts[0]).toMatchObject({ status: 'success', lsn: 3 });
+    expect(report.mutateGraphAttemptCount).toBe(1);
+    expect(report.mutateGraphAttempts[0]).toMatchObject({ status: 'success', lsn: 3 });
     expect(report.createdNodes).toEqual([
       {
         id: 2,
@@ -135,7 +135,7 @@ describe('fixture curation loop report', () => {
         agentLens: 'intent',
         agentGoal: 'commit-converge',
       },
-      sessionText: toolResultEntry('commit_graph', {
+      sessionText: toolResultEntry('mutate_graph', {
         status: 'success',
         lsn: 2,
         createdNodes: {},
@@ -170,7 +170,7 @@ describe('fixture curation loop report', () => {
         agentLens: 'intent',
         agentGoal: 'commit-converge',
       },
-      sessionText: toolResultEntry('commit_graph', {
+      sessionText: toolResultEntry('mutate_graph', {
         status: 'success',
         lsn: 3,
         createdNodes: { node: { id: 2 } },
@@ -181,14 +181,14 @@ describe('fixture curation loop report', () => {
     const artifacts = await writeFixtureCurationArtifacts({
       fixtureRoot,
       runId: 'fixture-curation-test',
-      sessionText: toolResultEntry('commit_graph', { status: 'success' }),
+      sessionText: toolResultEntry('mutate_graph', { status: 'success' }),
       report,
       graphOverview: mixedBasisOverview,
     });
 
     expect(artifacts.runDir).toBe('runs/fixture-curation/fixture-curation-test');
     await expect(readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).resolves.toContain(
-      '"toolName":"commit_graph"',
+      '"toolName":"mutate_graph"',
     );
     await expect(readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).resolves.toContain(
       '## Raw session JSONL',
@@ -218,7 +218,7 @@ describe('fixture curation loop report', () => {
         agentLens: 'intent',
         agentGoal: 'commit-converge',
       },
-      sessionText: toolResultEntry('commit_graph', {
+      sessionText: toolResultEntry('mutate_graph', {
         status: 'success',
         lsn: 3,
         createdNodes: { node: { id: 2 } },
@@ -229,7 +229,7 @@ describe('fixture curation loop report', () => {
     const artifacts = await writeFixtureCurationArtifacts({
       fixtureRoot,
       runId: 'portable-run',
-      sessionText: toolResultEntry('commit_graph', { status: 'success' }),
+      sessionText: toolResultEntry('mutate_graph', { status: 'success' }),
       report,
       graphOverview: mixedBasisOverview,
     });

@@ -195,7 +195,7 @@ A successful run writes:
 └── graph-overview.json
 ```
 
-The existing reference run is `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/`. Its report shows 70 explicit base nodes plus implicit product-created nodes/edges from one real `mutate_graph` tool call.
+The checked-in reference run `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/` is historical pre-migration evidence from the earlier `commit_graph` tool. Fresh runs of `src/probes/fixture-curation-loop.ts` now use `mutate_graph` and should be preferred when you need current product-path proof.
 
 ## 7. Browser/TUI notes
 

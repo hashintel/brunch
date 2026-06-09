@@ -13,9 +13,9 @@ import type {
   StructuralIllegal,
 } from '../../graph/command-executor/graph-mutation-types.js';
 import {
+  authoredEdgeEndpointFields,
   DESIGN_KINDS,
   EDGE_CATEGORIES,
-  EDGE_CATEGORY_METADATA,
   EDGE_STANCES,
   INTENT_KINDS,
   ORACLE_KINDS,
@@ -65,13 +65,13 @@ const DevCreateNodeOpSchema = Type.Object(
 );
 
 const DevCreateEdgeOpSchemas = EDGE_CATEGORIES.map((category) => {
-  const metadata = EDGE_CATEGORY_METADATA[category];
+  const [sourceField, targetField] = authoredEdgeEndpointFields(category);
   return Type.Object(
     {
       op: Type.Literal('create_edge'),
       category: Type.Literal(category),
-      [metadata.sourceRole]: DevCreateEdgeEndpointSchema,
-      [metadata.targetRole]: DevCreateEdgeEndpointSchema,
+      [sourceField]: DevCreateEdgeEndpointSchema,
+      [targetField]: DevCreateEdgeEndpointSchema,
       ...(category === 'proof' || category === 'support' ? { stance: EdgeStanceSchema } : {}),
       rationale: Type.Optional(Type.String()),
     },
@@ -419,17 +419,17 @@ function translateCreateEdgeOp(
   resolveNodeCode: (code: string) => number | undefined,
   diagnostics: Diagnostic[],
 ): Extract<GraphMutationOp, { readonly op: 'create_edge' }> | undefined {
-  const metadata = EDGE_CATEGORY_METADATA[op.category];
+  const [sourceField, targetField] = authoredEdgeEndpointFields(op.category);
   const source = normalizeGraphMutationNodeRef(
-    op[metadata.sourceRole as keyof DevCreateEdgeOp] as DevCreateEdgeEndpoint,
+    op[sourceField as keyof DevCreateEdgeOp] as DevCreateEdgeEndpoint,
     resolveNodeCode,
-    `${path}.${metadata.sourceRole}`,
+    `${path}.${sourceField}`,
     diagnostics,
   );
   const target = normalizeGraphMutationNodeRef(
-    op[metadata.targetRole as keyof DevCreateEdgeOp] as DevCreateEdgeEndpoint,
+    op[targetField as keyof DevCreateEdgeOp] as DevCreateEdgeEndpoint,
     resolveNodeCode,
-    `${path}.${metadata.targetRole}`,
+    `${path}.${targetField}`,
     diagnostics,
   );
   if (source.status === 'invalid' || target.status === 'invalid') return undefined;
@@ -437,8 +437,8 @@ function translateCreateEdgeOp(
   return {
     op: 'create_edge',
     category: op.category,
-    [metadata.sourceRole]: source.ref,
-    [metadata.targetRole]: target.ref,
+    [sourceField]: source.ref,
+    [targetField]: target.ref,
     ...(op.rationale === undefined ? {} : { rationale: op.rationale }),
     ...('stance' in op ? { stance: op.stance } : {}),
   } as Extract<GraphMutationOp, { readonly op: 'create_edge' }>;

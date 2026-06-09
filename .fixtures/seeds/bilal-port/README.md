@@ -65,7 +65,7 @@ Node/edge field shape mirrors [`src/db/schema.ts`](../../../src/db/schema.ts)
 column names. `local_id` is a placeholder for autoincrement; edges reference
 nodes by `local_id`. No LSNs or change-log entries are pre-baked — the loader
 ([`src/graph/seed-fixtures.ts`](../../../src/graph/seed-fixtures.ts)) wraps each spec
-in one `commitGraph` transaction so the graph clock, change log, and lsn
+in one `mutateGraph` transaction so the graph clock, change log, and lsn
 columns stay coherent under brunch's mutation contract.
 
 ## Stats
