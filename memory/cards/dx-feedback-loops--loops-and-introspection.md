@@ -119,7 +119,7 @@ Done 2026-06-09 (builder + review correction). Bumped pi deps to `^0.79.0`. The 
 
 ## Card 2 — `src/dev/` front door + shared faux-harness factory + faux launcher (full)
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -186,6 +186,10 @@ src/dev/
 src/probes/structured-exchange-ordering-proof.ts  ~
 src/.pi/brunch-pi-settings.ts                      ?
 ```
+
+### Build result
+
+Done 2026-06-09. Added the `src/dev/index.ts` front door, a shared in-memory faux `AgentSession` factory, and a scripted faux launcher. The factory encodes pi 0.79's `$ENV` api-key provider config and bridges the installed-package split where `pi-coding-agent` may use its nested `pi-ai` registry while Brunch imports top-level `pi-ai` faux helpers. `structured-exchange-ordering-proof.ts` now reuses the shared faux provider config while remaining a product-verification probe. `src/dev/README.md` documents the faux loop. `npm run verify` passes (601 tests, tsc build, web build).
 
 ---
 

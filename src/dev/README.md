@@ -14,3 +14,13 @@ Brunch tracks the latest published `@earendil-works/pi-*` line. Two resolution c
 ### tsx source mode (Cards 2–3, when needed)
 
 `vitest`/`vite` are covered by the alias above. The **`tsx`**-run loops (`npm run dev` TUI, probes) do **not** read `vite.config.ts`; tsx resolves through `tsconfig`. When a real-provider/TUI source-iteration loop actually needs no-rebuild pi edits, add an opt-in `tsconfig.dev.json` (extends `./tsconfig.json`, adds the pi `paths` + `allowImportingTsExtensions`) and run `tsx --tsconfig tsconfig.dev.json`. Do **not** add those paths to the base `tsconfig.json`. This is intentionally deferred — Card 1 only needs the vitest-level alias proven by `pi-source-alias.test.ts`.
+
+## Faux loop (D68-L)
+
+`src/dev/index.ts` is the dev front door. It exports the shared faux-harness factory and the scripted faux launcher, plus the existing workspace RPC helper namespace.
+
+- `createBrunchFauxHarness()` boots an in-memory Pi `AgentSession` with in-memory auth, model registry, session manager, settings manager, no active tools, and a deterministic faux provider.
+- `runBrunchFauxTurn()` is the smoke launcher: it scripts one prompt→assistant turn with no network I/O and returns the assistant text plus provider call count.
+- `brunchFauxProviderConfig()` owns the pi 0.79 `$ENV` provider API-key shape and the bridge needed when `pi-coding-agent` and top-level `pi-ai` resolve as separate installed package instances.
+
+Product probes may import the shared provider config when they need deterministic faux wiring, but they remain product-verification probes under `src/probes/`; they do not become dev loops merely because they share infrastructure.
