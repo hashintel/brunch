@@ -118,6 +118,51 @@ describe('materializeArchitectedPlan', () => {
     expect(plan.epics.map((e) => e.id)).toContain('default');
   });
 
+  it('preserves authored cross-epic dependencies', () => {
+    const d = draft({
+      epics: [
+        { id: 'core', summary: 'Core' },
+        { id: 'cli', summary: 'CLI', depends_on: ['core'] },
+      ],
+    });
+    d.slices.push({
+      id: 'c',
+      epic_id: 'cli',
+      definition: 'C',
+      depends_on: [],
+      writes: ['src/cli.ts'],
+      derivedFrom: [],
+    });
+    const { plan } = materializeArchitectedPlan(projected, d, toolchain);
+    expect(plan.epics.find((e) => e.id === 'cli')!.depends_on).toEqual(['core']);
+    expect(plan.epics.find((e) => e.id === 'core')!.depends_on).toEqual([]);
+  });
+
+  it('drops epic deps on dropped/empty epics and breaks epic cycles', () => {
+    const d = draft({
+      epics: [
+        { id: 'core', summary: 'Core', depends_on: ['cli'] },
+        { id: 'cli', summary: 'CLI', depends_on: ['core', 'ghost'] },
+      ],
+    });
+    d.slices.push({
+      id: 'c',
+      epic_id: 'cli',
+      definition: 'C',
+      depends_on: [],
+      writes: ['src/cli.ts'],
+      derivedFrom: [],
+    });
+    const { plan } = materializeArchitectedPlan(projected, d, toolchain);
+    const core = plan.epics.find((e) => e.id === 'core')!;
+    const cli = plan.epics.find((e) => e.id === 'cli')!;
+    // `ghost` is not a surviving epic → silently filtered; the core↔cli
+    // cycle is broken deterministically so at most one edge survives.
+    expect(cli.depends_on).not.toContain('ghost');
+    const edgeCount = core.depends_on.length + cli.depends_on.length;
+    expect(edgeCount).toBeLessThanOrEqual(1);
+  });
+
   it('is pure — does not mutate the projected plan or the draft', () => {
     const d = draft();
     const dSnapshot = structuredClone(d);

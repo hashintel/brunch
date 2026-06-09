@@ -138,13 +138,45 @@ export function materializeArchitectedPlan(
   for (const epicId of epicIdBySlice.values()) {
     sliceCountByEpic.set(epicId, (sliceCountByEpic.get(epicId) ?? 0) + 1);
   }
+  const survivingEpics = draft.epics.filter((epic) => (sliceCountByEpic.get(epic.id) ?? 0) > 0);
+  const survivingEpicIds = new Set(survivingEpics.map((epic) => epic.id));
+
+  // Preserve authored cross-epic gates (e.g. `cli` waiting on `core`),
+  // cleaned with the same policy as slices: self/dangling edges (incl. deps
+  // on dropped/empty epics) are filtered out, then cycles are broken via the
+  // shared Kahn pass so emitted multi-epic plans keep upstream→downstream
+  // order instead of running every epic concurrently.
+  const cleanedEpicDeps = new Map<string, string[]>();
+  for (const epic of survivingEpics) {
+    cleanedEpicDeps.set(
+      epic.id,
+      (epic.depends_on ?? []).filter((dep) => survivingEpicIds.has(dep)),
+    );
+  }
+  const { dependsOnById: acyclicEpicDeps, droppedEdges: droppedEpicEdges } = breakDependencyCycles(
+    survivingEpicIds,
+    cleanedEpicDeps,
+  );
+  for (const edge of droppedEpicEdges) {
+    warnings.push({
+      code: 'cycle-break-dropped-edge',
+      sliceId: edge.sliceId,
+      droppedDependsOn: edge.dependsOn,
+    });
+  }
+
   const outputEpics: Epic[] = [];
   for (const epic of draft.epics) {
-    if ((sliceCountByEpic.get(epic.id) ?? 0) === 0) {
+    if (!survivingEpicIds.has(epic.id)) {
       warnings.push({ code: 'dropped-empty-epic', epicId: epic.id, epicSummary: epic.summary });
       continue;
     }
-    outputEpics.push({ id: epic.id, summary: epic.summary, depends_on: [], verification: [] });
+    outputEpics.push({
+      id: epic.id,
+      summary: epic.summary,
+      depends_on: acyclicEpicDeps.get(epic.id) ?? [],
+      verification: [],
+    });
   }
   if (hasOrphan && !outputEpics.some((epic) => epic.id === DEFAULT_EPIC_ID)) {
     outputEpics.push({
