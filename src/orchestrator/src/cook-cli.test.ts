@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   createPetrinautStreamSetup,
+  assertPolicyForMode,
   parseCookArgs,
   recordCookExitStatus,
   resolveCookPlan,
@@ -501,6 +502,18 @@ describe('resolveCookPlan', () => {
     if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(specDir, 'plan.yaml'));
     }
+  });
+});
+
+describe('assertPolicyForMode', () => {
+  it('rejects parallel for greenfield (single shared tree races under parallel)', () => {
+    expect(() => assertPolicyForMode('greenfield', 'parallel')).toThrow(/serial/i);
+  });
+
+  it('allows serial for greenfield and any policy for brownfield', () => {
+    expect(() => assertPolicyForMode('greenfield', 'serial')).not.toThrow();
+    expect(() => assertPolicyForMode('brownfield', 'parallel')).not.toThrow();
+    expect(() => assertPolicyForMode('brownfield', 'serial')).not.toThrow();
   });
 });
 
