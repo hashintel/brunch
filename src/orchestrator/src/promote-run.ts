@@ -1,0 +1,65 @@
+import { execFileSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+export type PromoteResult = { target: string; branch: string; commit: string };
+
+export type PromoteOptions = {
+  sandboxDir: string;
+  target: string;
+  runId: string;
+  force: boolean;
+};
+
+function git(args: string[], cwd: string): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+}
+
+// Deterministic committer so promotion never depends on (or mutates) global git config.
+const COMMIT_IDENTITY = ['-c', 'user.name=brunch', '-c', 'user.email=cook@brunch'];
+
+function isEmptyDir(dir: string): boolean {
+  return !existsSync(dir) || readdirSync(dir).length === 0;
+}
+
+function isGitRepo(dir: string): boolean {
+  try {
+    return git(['rev-parse', '--is-inside-work-tree'], dir) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Land a completed greenfield run's single tree into `target` as a reviewable
+ * git commit (commit-on-branch). Never a silent overwrite: an empty target is
+ * git-init'd and committed on `main`; an existing repo lands on a `cook/<runId>`
+ * branch (the user's branch is untouched); a non-empty target is refused unless
+ * `force`.
+ */
+export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
+  const target = resolve(opts.target);
+  mkdirSync(target, { recursive: true });
+
+  if (!isEmptyDir(target) && !opts.force) {
+    throw new Error(
+      `Refusing to promote into a non-empty target: ${target}. Pass --force to land on a cook/${opts.runId} branch.`,
+    );
+  }
+
+  let branch: string;
+  if (isGitRepo(target)) {
+    branch = `cook/${opts.runId}`;
+    git(['checkout', '-q', '-b', branch], target);
+  } else {
+    branch = 'main';
+    git(['init', '-q', '-b', branch], target);
+  }
+
+  cpSync(opts.sandboxDir, target, { recursive: true });
+  git(['add', '-A'], target);
+  git([...COMMIT_IDENTITY, 'commit', '-q', '-m', `cook: ${opts.runId}`], target);
+
+  const commit = git(['rev-parse', 'HEAD'], target);
+  return { target, branch, commit };
+}

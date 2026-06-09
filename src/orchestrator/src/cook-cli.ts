@@ -11,6 +11,7 @@ import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-s
 import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
+import { promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { BunTestRunner } from './test-runner.js';
 import type { PlanMode } from './types.js';
@@ -40,6 +41,10 @@ export type CookOptions = {
   petrinautUrl?: string;
   /** Whether to auto-launch the system browser; CI=true also suppresses at runtime. */
   petrinautOpen: boolean;
+  /** Target dir to promote a completed greenfield run into (opt-in). Omitted → no promotion. */
+  outDir?: string;
+  /** Allow promoting into a non-empty target (otherwise refused). */
+  force: boolean;
   /**
    * Explicit specification id whose emitted plan (under
    * `<dir>/.brunch/cook/specs/<id>/plan.yaml`) should be cooked.
@@ -60,6 +65,8 @@ export function parseCookArgs(args: string[]): CookOptions {
   let petrinautUrl: string | undefined;
   let petrinautOpen = true;
   let specId: number | undefined;
+  let outDir: string | undefined;
+  let force = false;
   let sawNoOpen = false;
   let sawUrl = false;
 
@@ -99,6 +106,10 @@ export function parseCookArgs(args: string[]): CookOptions {
     } else if (arg === '--no-petrinaut-open') {
       petrinautOpen = false;
       sawNoOpen = true;
+    } else if (arg.startsWith('--out=')) {
+      outDir = resolve(arg.slice('--out='.length));
+    } else if (arg === '--force') {
+      force = true;
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
     } else if (!arg.startsWith('-')) {
@@ -131,6 +142,8 @@ export function parseCookArgs(args: string[]): CookOptions {
     petrinautStream,
     petrinautUrl,
     petrinautOpen,
+    force,
+    ...(outDir !== undefined ? { outDir } : {}),
     ...(specId !== undefined ? { specId } : {}),
   };
 }
@@ -495,6 +508,36 @@ export async function runCook(opts: CookOptions): Promise<void> {
     console.error('');
     console.error(`  ${result.reports.length} events → ${reportsPath}`);
     console.error('');
+
+    // Promotion-back is opt-in via --out and greenfield-only; a run that did
+    // not complete promotes nothing (the artifact stays inspectable).
+    if (opts.outDir) {
+      if (sandbox.kind === 'codebase') {
+        console.error(`  !  --out promotion is greenfield-only; brownfield output stays at ${sandboxDir}`);
+        console.error('');
+      } else if (!ok) {
+        console.error(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
+        console.error('');
+      } else {
+        try {
+          const promoted = promoteGreenfieldRun({
+            sandboxDir,
+            target: opts.outDir,
+            runId,
+            force: opts.force,
+          });
+          console.error(
+            `  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`,
+          );
+          console.error('');
+        } catch (err) {
+          console.error(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          console.error('');
+          recordCookExitStatus(false);
+          return;
+        }
+      }
+    }
 
     recordCookExitStatus(ok);
     return;
