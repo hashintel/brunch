@@ -127,6 +127,16 @@ describe('parseCookArgs', () => {
     );
   });
 
+  it('parses --out=<dir> and --force, defaulting to none', () => {
+    const plain = parseCookArgs(['./f']);
+    expect(plain.outDir).toBeUndefined();
+    expect(plain.force).toBe(false);
+
+    const opts = parseCookArgs(['./f', '--out=../proj', '--force']);
+    expect(opts.outDir).toBe(resolve('../proj'));
+    expect(opts.force).toBe(true);
+  });
+
   it('parses --spec=<id> and exposes it on opts', () => {
     expect(parseCookArgs(['./f', '--spec=42']).specId).toBe(42);
   });

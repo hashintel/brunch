@@ -70,7 +70,7 @@ Full: reverses the per-slice-isolation decision for greenfield (a non-trivial de
 
 ## Card 2 — Verified promotion-back for greenfield (FULL)
 
-**Status:** next (downstream of Card 1 — promotes the single tree; scope independent of Card 1's internals)
+**Status:** done — new `promote-run.ts` (`promoteGreenfieldRun`): empty target → git init + commit on `main`; existing repo → commit on `cook/<runId>` branch (user's branch intact); non-empty target refused unless `--force`; deterministic committer identity. Wired into `runCook` gated on `--out` (opt-in) + greenfield + `result.status === 'completed'` (halt/brownfield promote nothing, print artifact path). `--out`/`--force` added to `parseCookArgs` + CLI help. Verify gate green (1748 tests). Durable decision/invariant + PLAN frontier deferred to ln-sync.
 
 ### Target Behavior
 
