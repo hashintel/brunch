@@ -362,7 +362,7 @@ memory/SPEC.md                        ~
 
 ## Card 4 — Review-set proposals use role-named mutation drafts
 
-Status: next after Card 3
+Status: done
 Weight: full
 
 ### Target Behavior
@@ -442,7 +442,7 @@ memory/SPEC.md                                  ~
 
 ## Card 5 — Dev curation RPC exposes `mutateGraph` by projected codes
 
-Status: next after Card 4
+Status: next
 Weight: full
 
 ### Target Behavior
