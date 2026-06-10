@@ -377,7 +377,11 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Name:** Toolchain profile expansion — more TS runtimes + live/strict profile selection
 - **Linear:** FE-843 · branch `ka/fe-843-toolchain-profiles` (stacked on FE-841)
 - **Kind:** structural (selection decision + I130-K refinement); cards 1/3 bounded
+<<<<<<< HEAD
 - **Status:** branch-complete (2026-06-10) — all 3 cards landed (1: data-driven registry + 4 TS profiles; 2: selection live + strict; 3: architect classifies profile from spec prose); card queue retired. SPEC promotion (I130-K refinement + agent-install assumption) rides with ln-sync at PR tie-off. Outer-loop validation outstanding: greenfield cook smoke `--profile=node-vitest` (conventions-prose oracle + A98 install assumption).
+=======
+- **Status:** active — 3-card queue in `memory/CARDS.md` (1: data-driven registry + `node-vitest`/`node-test`/`node-jest`/`deno`; 2: selection live + strict; 3: architect classifies profile from spec prose)
+>>>>>>> 546b1349 (FE-843: Frontier setup — toolchain-profile-expansion plan entry + 3-card queue)
 - **Objective:** Expand the FE-829 `Toolchain` contract (`project-profile.ts`) so cook builds on more technologies: profiles as data literals compiled into the existing `Toolchain` interface (consumers untouched); profile resolved once at plan time (`--profile` flag ≫ `snapshot.profile` ≫ architect-classified ≫ `bun`), persisted into `plan.yaml`; cook errors on unknown ids (lenient on absent, mirroring the `checkPlan` base/emitted split). The architect's existing schema-constrained call gains an optional profile enum — classification reads projected spec prose only (D160-K intact, no host introspection).
 - **Why now / unlocks:** Today both implemented profiles are TypeScript and the selection path is dead (`snapshot.profile` never populated) — every cook run silently resolves to bun, and a typo'd profile id silently defaults rather than erroring. Without live selection, adding profiles changes nothing at runtime; without more profiles, "brunch builds on different technologies" is false in practice.
 - **Design (ln-design 2026-06-10):** flat data registry (A) over composed axes (B — deferred until real combo demand; retreat is cheap since the consumer surface never changes); no harness install verb — the cook agent scaffolds + installs per A98 (pressure trigger: first profile where the runner fails for missing install). Deferred follow-ons: fail/infra test-outcome split in `ToolchainTestRunner`, brownfield drift-check at cook open (path-neutral by type), `brunch detect` CLI convenience. Durable end-state for selection: the spec interview captures stack as a structured field (the D164-K `mode` pattern); the chain already reserves that rung.
@@ -386,6 +390,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Traceability:** Requirements 46–50; A98, D160-K, D164-K (pattern), D167-K; refines I130-K (resolved profile persisted; strict-on-unknown). New assumption on build: agent-side install suffices for node profiles. Refinement on `plan-build-architect` (FE-829).
 - **Design docs:** `docs/design/orchestrator.md`; SPEC §Future Direction Cook plan generation.
 
+<<<<<<< HEAD
 ### agent-extension-host
 
 - **Name:** Agent extension host — dual-mode (`elicit`/`execute`) pi-harness contract
@@ -531,6 +536,8 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Traceability:** Requirements 46–50; FE-738 acceptance criterion 5 (deferred); spec §graph-revision.
 - **Design docs:** `docs/next/architecture/plan-graph-petri-orchestration.md`; `docs/design/orchestrator.md`.
 
+=======
+>>>>>>> 546b1349 (FE-843: Frontier setup — toolchain-profile-expansion plan entry + 3-card queue)
 ### petrinaut-colour-fold
 
 - **Name:** Petrinaut export — colour-fold per-slice subnet
