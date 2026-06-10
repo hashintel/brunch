@@ -26,7 +26,7 @@
 - Inner: vitest unit (project-profile.test.ts) — registry invariants + command shapes
 - Middle: existing consumer suites unchanged
 
-## Card 2 (full) — Selection live and strict — `next`
+## Card 2 (full) — Selection live and strict — `done` (2026-06-10; cook-side strictness lives in `resolveToolchain` itself, pinned by project-profile tests — no separate cook-cli harness needed. I130-K refinement + agent-install assumption → SPEC at ln-sync tie-off.)
 
 ### Target Behavior
 
