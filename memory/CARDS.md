@@ -4,7 +4,7 @@
 
 # Cards — toolchain-profile-expansion (FE-843)
 
-## Card 1 (light) — Data-driven profile registry + TS profiles — `next`
+## Card 1 (light) — Data-driven profile registry + TS profiles — `done` (2026-06-10)
 
 ### Objective
 
