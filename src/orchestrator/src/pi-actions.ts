@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -82,17 +82,22 @@ interface RunPiOpts {
 /** The pi SDK session factory — injectable so the drive loop is testable without a model or network. */
 export type SessionFactory = typeof createAgentSession;
 
-// One reused per-process agent/auth dir — per-call mkdtemp would leak a
-// credential-bearing auth.json every action. Safe to share (read-only after write).
-let sharedAgentDir: string | undefined;
-function agentDir(): string {
-  return (sharedAgentDir ??= mkdtempSync(join(tmpdir(), 'brunch-pi-')));
+function createAgentDir(): string {
+  return mkdtempSync(join(tmpdir(), 'brunch-pi-'));
+}
+
+function removeAgentDir(path: string): void {
+  rmSync(path, { recursive: true, force: true });
+}
+
+function piTimeoutError(timeoutMs: number): Error {
+  return new Error(`pi timed out after ${timeoutMs / 1000}s`);
 }
 
 // Map one action's inputs to SDK session config — tools/model/system-prompt, no
 // context/skills, in-memory session. Auth from brunch's own ANTHROPIC_API_KEY, not
 // the user's ~/.pi credentials, which is what keeps a fresh checkout self-contained.
-async function buildSessionOptions(opts: RunPiOpts): Promise<CreateAgentSessionOptions> {
+async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promise<CreateAgentSessionOptions> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error(
@@ -100,7 +105,6 @@ async function buildSessionOptions(opts: RunPiOpts): Promise<CreateAgentSessionO
     );
   }
 
-  const isolatedDir = agentDir();
   const authStorage = AuthStorage.create(join(isolatedDir, 'auth.json'));
   authStorage.setRuntimeApiKey('anthropic', apiKey);
   const modelRegistry = ModelRegistry.inMemory(authStorage);
@@ -134,9 +138,11 @@ async function buildSessionOptions(opts: RunPiOpts): Promise<CreateAgentSessionO
   };
 }
 
-// In-process (not a spawned CLI) so brunch is self-contained. Output is buffered
-// from text_delta events, never written to brunch's stdout (keeps the cook SSE
-// stream clean); the timeout aborts cooperatively.
+// In-process (not a spawned CLI) so brunch is self-contained. Each run gets a
+// throwaway agent/auth dir to keep concurrent slices isolated; the dir is removed
+// after the session ends. Output is buffered from text_delta events, never written
+// to brunch's stdout (keeps the cook SSE stream clean); the timeout covers both
+// session setup and the prompt turn, aborting cooperatively once a session exists.
 async function runPi(
   opts: RunPiOpts,
   deps: { createSession?: SessionFactory; timeoutMs?: number; maxOutput?: number } = {},
@@ -146,38 +152,59 @@ async function runPi(
   const maxOutput = deps.maxOutput ?? PI_MAX_OUTPUT;
   const start = Date.now();
 
-  const { session } = await createSession(await buildSessionOptions(opts));
-
+  const isolatedDir = createAgentDir();
+  let session: Awaited<ReturnType<SessionFactory>>['session'] | undefined;
   let captured = '';
   let overflowed = false;
-  const unsubscribe = session.subscribe((event) => {
-    if (event.type === 'message_update' && event.assistantMessageEvent.type === 'text_delta') {
-      captured += event.assistantMessageEvent.delta;
-      if (captured.length > maxOutput && !overflowed) {
-        overflowed = true;
-        void session.abort();
-      }
-    }
+  let timedOut = false;
+  let promptError: unknown;
+  let unsubscribe: (() => void) | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      timedOut = true;
+      void session?.abort();
+      reject(piTimeoutError(timeoutMs));
+    }, timeoutMs);
   });
 
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    void session.abort();
-  }, timeoutMs);
-
-  let promptError: unknown;
   try {
-    await session.prompt(opts.task);
-  } catch (err) {
-    promptError = err;
+    const setup = (async () => {
+      const created = await createSession(await buildSessionOptions(opts, isolatedDir));
+      if (timedOut) {
+        created.session.dispose();
+      }
+      return created.session;
+    })();
+
+    session = await Promise.race([setup, timeout]);
+
+    unsubscribe = session.subscribe((event) => {
+      if (event.type === 'message_update' && event.assistantMessageEvent.type === 'text_delta') {
+        if (overflowed) return;
+        const delta = event.assistantMessageEvent.delta;
+        if (captured.length + delta.length > maxOutput) {
+          overflowed = true;
+          void session?.abort();
+          return;
+        }
+        captured += delta;
+      }
+    });
+
+    try {
+      await Promise.race([session.prompt(opts.task), timeout]);
+    } catch (err) {
+      promptError = err;
+    }
   } finally {
-    clearTimeout(timer);
-    unsubscribe();
-    session.dispose();
+    if (timer) clearTimeout(timer);
+    unsubscribe?.();
+    session?.dispose();
+    removeAgentDir(isolatedDir);
   }
 
-  if (timedOut) throw new Error(`pi timed out after ${timeoutMs / 1000}s`);
+  if (timedOut) throw piTimeoutError(timeoutMs);
   if (overflowed) throw new Error(`pi output exceeded ${Math.floor(maxOutput / (1024 * 1024))}MB buffer`);
   if (promptError) {
     const detail = promptError instanceof Error ? promptError.message : JSON.stringify(promptError);

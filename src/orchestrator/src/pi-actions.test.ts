@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -162,7 +162,7 @@ describe('createPiActions evaluate-done', () => {
 // A controllable stand-in for the SDK boundary so runPi's drive logic can be
 // tested without network or a real model. abort() unsticks a hung prompt the
 // way the real session does.
-function makeFakeSession(behavior: { emit?: string; hang?: boolean }) {
+function makeFakeSession(behavior: { emit?: string | readonly unknown[]; hang?: boolean }) {
   const calls = { prompt: [] as string[], aborted: false, disposed: false };
   let listener: ((event: unknown) => void) | undefined;
   let resolveHang: (() => void) | undefined;
@@ -173,10 +173,12 @@ function makeFakeSession(behavior: { emit?: string; hang?: boolean }) {
     },
     async prompt(text: string) {
       calls.prompt.push(text);
-      if (behavior.emit) {
+      const emissions = Array.isArray(behavior.emit) ? behavior.emit : [behavior.emit];
+      for (const delta of emissions) {
+        if (delta === undefined) continue;
         listener?.({
           type: 'message_update',
-          assistantMessageEvent: { type: 'text_delta', delta: behavior.emit },
+          assistantMessageEvent: { type: 'text_delta', delta },
         });
       }
       if (behavior.hang) await new Promise<void>((res) => (resolveHang = res));
@@ -301,7 +303,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
     }
   });
 
-  it('reuses one shared agent dir across calls (no per-call temp-dir leak)', async () => {
+  it('uses an isolated agent dir per call and removes it after the session ends', async () => {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
@@ -312,10 +314,33 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
       }) as unknown as SessionFactory;
 
       await runPi(baseOpts(sandboxDir, 'read'), { createSession });
+      const firstDir = agentDirs[0];
       await runPi(baseOpts(sandboxDir, 'read'), { createSession });
 
-      expect(agentDirs[0]).toBeDefined();
-      expect(agentDirs[1]).toBe(agentDirs[0]);
+      expect(firstDir).toBeDefined();
+      expect(agentDirs[1]).toBeDefined();
+      expect(agentDirs[1]).not.toBe(firstDir);
+      expect(existsSync(firstDir!)).toBe(false);
+      expect(existsSync(agentDirs[1]!)).toBe(false);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects on timeout even while session creation is still pending', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const createSession = (async () => new Promise(() => {})) as unknown as SessionFactory;
+      const outcome = await Promise.race([
+        runPi(baseOpts(sandboxDir, 'read'), { createSession, timeoutMs: 20 }).then(
+          () => 'resolved',
+          (err: unknown) => (err instanceof Error ? err.message : String(err)),
+        ),
+        new Promise<string>((resolve) => setTimeout(() => resolve('still pending'), 80)),
+      ]);
+
+      expect(outcome).toMatch(/timed out/);
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }
@@ -331,6 +356,35 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
         /exceeded/,
       );
       expect(fake.calls.aborted).toBe(true);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('does not keep appending text deltas after the output cap aborts the session', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    let appendedAfterOverflow = false;
+    try {
+      const fake = makeFakeSession({
+        emit: [
+          'x'.repeat(50),
+          {
+            toString() {
+              appendedAfterOverflow = true;
+              return 'should not be appended';
+            },
+          },
+        ],
+      });
+      const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+
+      await expect(runPi(baseOpts(sandboxDir, 'read'), { createSession, maxOutput: 10 })).rejects.toThrow(
+        /exceeded/,
+      );
+
+      expect(fake.calls.aborted).toBe(true);
+      expect(appendedAfterOverflow).toBe(false);
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }
