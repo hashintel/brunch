@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   createPetrinautStreamSetup,
   parseCookArgs,
+  promotionSourceDir,
   recordCookExitStatus,
   resolveCookPlan,
   resolvePetrinautStreamPort,
@@ -17,6 +18,7 @@ import type { PetrinautEvent } from './petrinaut-events.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
 import type { PetrinautStreamBus } from './petrinaut-stream-bus.js';
 import type { PetrinautStreamServer } from './petrinaut-stream-server.js';
+import type { Plan } from './types.js';
 
 describe('parseCookArgs', () => {
   it('parses dir only', () => {
@@ -124,6 +126,16 @@ describe('parseCookArgs', () => {
     expect(() => parseCookArgs(['./f', '--no-petrinaut-open'])).toThrow(
       /--no-petrinaut-open requires --petrinaut-stream/i,
     );
+  });
+
+  it('parses --out=<dir> and --force, defaulting to none', () => {
+    const plain = parseCookArgs(['./f']);
+    expect(plain.outDir).toBeUndefined();
+    expect(plain.force).toBe(false);
+
+    const opts = parseCookArgs(['./f', '--out=../proj', '--force']);
+    expect(opts.outDir).toBe(resolve('../proj'));
+    expect(opts.force).toBe(true);
   });
 
   it('parses --spec=<id> and exposes it on opts', () => {
@@ -501,6 +513,61 @@ describe('resolveCookPlan', () => {
     if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(specDir, 'plan.yaml'));
     }
+  });
+});
+
+describe('promotionSourceDir', () => {
+  const psDirs: string[] = [];
+  afterEach(() => {
+    for (const d of psDirs) rmSync(d, { recursive: true, force: true });
+    psDirs.length = 0;
+  });
+
+  const plan: Plan = {
+    mode: 'greenfield',
+    epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+    slices: [
+      { id: 'a', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
+      { id: 'b', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
+    ],
+  };
+
+  it('returns the run sandbox unchanged for the shared layout (no merge)', () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'ps-shared-'));
+    const runDir = mkdtempSync(join(tmpdir(), 'ps-run-'));
+    psDirs.push(sandbox, runDir);
+
+    const r = promotionSourceDir({
+      sliceLayout: 'shared',
+      sandboxDir: sandbox,
+      runDir,
+      plan,
+      completedSliceIds: ['a', 'b'],
+    });
+    expect(r.dir).toBe(sandbox);
+    expect(r.conflicts).toEqual([]);
+    expect(existsSync(join(runDir, '__promote__'))).toBe(false);
+  });
+
+  it('merges completed slices in declaration order for the per-slice layout', () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'ps-perslice-'));
+    const runDir = mkdtempSync(join(tmpdir(), 'ps-run-'));
+    psDirs.push(sandbox, runDir);
+    mkdirSync(join(sandbox, 'a'));
+    writeFileSync(join(sandbox, 'a', 'a.txt'), 'A');
+    mkdirSync(join(sandbox, 'b'));
+    writeFileSync(join(sandbox, 'b', 'b.txt'), 'B');
+
+    const r = promotionSourceDir({
+      sliceLayout: 'per-slice',
+      sandboxDir: sandbox,
+      runDir,
+      plan,
+      completedSliceIds: ['b', 'a'],
+    });
+    expect(existsSync(join(r.dir, 'a.txt'))).toBe(true);
+    expect(existsSync(join(r.dir, 'b.txt'))).toBe(true);
+    expect(r.dir).not.toBe(sandbox);
   });
 });
 

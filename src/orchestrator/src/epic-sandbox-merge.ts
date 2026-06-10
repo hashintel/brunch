@@ -292,20 +292,20 @@ export function seedSliceSandboxFromDeps(
   return sliceDir;
 }
 
-export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
-  const epicSandboxDir = resolveEpicSandboxDir(opts.parentSandboxDir, opts.epicId);
-
-  if (existsSync(epicSandboxDir)) {
-    rmSync(epicSandboxDir, { recursive: true, force: true });
+// Union the given slice dirs into destDir in list order (later wins on path
+// collisions). Returns the per-path collision report. Shared by per-epic and
+// whole-plan merges.
+function mergeSliceDirsInto(parentSandboxDir: string, sliceIds: string[], destDir: string): MergeConflict[] {
+  if (existsSync(destDir)) {
+    rmSync(destDir, { recursive: true, force: true });
   }
-  mkdirSync(epicSandboxDir, { recursive: true });
+  mkdirSync(destDir, { recursive: true });
 
   const writers = new Map<string, string[]>();
-  const parent = resolve(opts.parentSandboxDir);
-  const epicRoot = resolve(parent, EPIC_MERGE_SEGMENT);
+  const epicRoot = resolve(resolve(parentSandboxDir), EPIC_MERGE_SEGMENT);
 
-  for (const sliceId of opts.sliceIds) {
-    const sliceDir = resolveSliceWorktreeDir(opts.parentSandboxDir, sliceId);
+  for (const sliceId of sliceIds) {
+    const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
     if (sliceDir === epicRoot || sliceDir.startsWith(epicRoot + sep)) continue;
     if (!existsSync(sliceDir)) continue;
 
@@ -314,21 +314,35 @@ export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
       const list = writers.get(rel) ?? [];
       list.push(sliceId);
       writers.set(rel, list);
-
-      const dest = join(epicSandboxDir, rel);
-      copyIntoTree(file, dest, epicSandboxDir);
+      copyIntoTree(file, join(destDir, rel), destDir);
     }
   }
 
   const conflicts: MergeConflict[] = [];
   for (const [path, slices] of writers) {
-    if (slices.length > 1) {
-      conflicts.push({ path, slices, winner: slices[slices.length - 1]! });
-    }
+    if (slices.length > 1) conflicts.push({ path, slices, winner: slices[slices.length - 1]! });
   }
   conflicts.sort((a, b) => a.path.localeCompare(b.path));
+  return conflicts;
+}
 
+export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
+  const epicSandboxDir = resolveEpicSandboxDir(opts.parentSandboxDir, opts.epicId);
+  const conflicts = mergeSliceDirsInto(opts.parentSandboxDir, opts.sliceIds, epicSandboxDir);
   return { epicSandboxDir, conflicts };
+}
+
+export type WholePlanMergeResult = { mergeDir: string; conflicts: MergeConflict[] };
+
+// Union all completed slice dirs into one tree (the whole-plan promotion source
+// for parallel greenfield). `sliceIds` should be in plan declaration order.
+export function mergeCompletedSlicesIntoTree(opts: {
+  parentSandboxDir: string;
+  sliceIds: string[];
+  destDir: string;
+}): WholePlanMergeResult {
+  const conflicts = mergeSliceDirsInto(opts.parentSandboxDir, opts.sliceIds, opts.destDir);
+  return { mergeDir: opts.destDir, conflicts };
 }
 
 function* walkFiles(rootDir: string, dir: string = rootDir): Iterable<string> {

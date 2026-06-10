@@ -19,7 +19,7 @@ import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprin
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
 import { createReport } from './report-helpers.js';
-import type { ActionContext, OrchestratorInput, Plan, RunCtx, RunPolicy } from './types.js';
+import type { ActionContext, OrchestratorInput, Plan, RunCtx, RunPolicy, Slice } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Place-id helpers
@@ -563,16 +563,27 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
   // In codebase mode, seed each slice dir with the parent worktree's contents
   // (the source repo's HEAD via `git worktree add`) so pi-actions can modify
   // existing code instead of writing into an empty dir.
-  for (const slice of plan.slices) {
-    if (input.sandboxMode === 'codebase') {
-      if (!input.runId) {
-        throw new Error('codebase mode requires input.runId (used to name slice-level git branches)');
-      }
+  // 'shared' (serial greenfield): all slices accrete into the run sandbox.
+  // 'per-slice': each slice gets its own git worktree (codebase) or plain dir
+  // (greenfield parallel), merged into __epic__ for verification.
+  const sliceLayout = input.sliceLayout ?? 'per-slice';
+  if (input.sandboxMode === 'codebase') {
+    if (!input.runId) {
+      throw new Error('codebase mode requires input.runId (used to name slice-level git branches)');
+    }
+    for (const slice of plan.slices) {
       seedSliceFromParentWorktree(input.sandboxDir, slice.id, plan, input.runId);
-    } else {
+    }
+  } else if (sliceLayout === 'per-slice') {
+    for (const slice of plan.slices) {
       mkdirSync(resolveSliceWorktreeDir(input.sandboxDir, slice.id), { recursive: true });
     }
   }
+
+  const resolveSliceCwd = (slice: Slice): string =>
+    sliceLayout === 'shared'
+      ? input.sandboxDir
+      : seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, { preserveExisting: true });
 
   // Register transitions with wired fire handlers
   for (const skel of blueprint.transitions) {
@@ -626,9 +637,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               slice,
               epic,
               plan,
-              sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
-                preserveExisting: true,
-              }),
+              sandboxDir: resolveSliceCwd(slice),
               reports,
             };
             const reportId = await actions[actionKey]!(actCtx);
@@ -704,9 +713,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
 
           const deferred = (async () => {
             const slice = plan.slices.find((s) => s.id === sliceId)!;
-            const sandboxDir = seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
-              preserveExisting: true,
-            });
+            const sandboxDir = resolveSliceCwd(slice);
             const results = [];
             for (const target of targets) {
               results.push({ target, ...(await testRunner.run(target, sandboxDir)) });
@@ -770,9 +777,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               slice,
               epic,
               plan,
-              sandboxDir: seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, {
-                preserveExisting: true,
-              }),
+              sandboxDir: resolveSliceCwd(slice),
               reports,
             };
             const reportId = await actions[actionKey]!(actCtx);
@@ -847,33 +852,41 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         fire = async (consumed) => {
           const inputToken = consumed[0]!;
           const deferred = (async () => {
-            const mergeSliceIds = sliceIdsInMergeOrder.filter(
-              (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
-            );
-            const merge = mergeSlicesIntoEpicSandbox({
-              parentSandboxDir: input.sandboxDir,
-              epicId,
-              sliceIds: mergeSliceIds,
-            });
-            ctx.reportIds.push(
-              createReport(reports, {
+            // Per-slice layouts verify against a merged `__epic__/<epicId>/`;
+            // the shared run sandbox is already the merged tree (verify in place).
+            let epicSandboxDir: string;
+            if (sliceLayout !== 'shared') {
+              const mergeSliceIds = sliceIdsInMergeOrder.filter(
+                (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
+              );
+              const merge = mergeSlicesIntoEpicSandbox({
+                parentSandboxDir: input.sandboxDir,
                 epicId,
-                sliceId: '',
-                actor: 'orchestrator',
-                event: 'epic-sandbox-merged',
-                payload: {
-                  epicSandboxDir: merge.epicSandboxDir,
-                  sliceIds: mergeSliceIds,
-                  conflicts: merge.conflicts,
-                },
-              }),
-            );
+                sliceIds: mergeSliceIds,
+              });
+              ctx.reportIds.push(
+                createReport(reports, {
+                  epicId,
+                  sliceId: '',
+                  actor: 'orchestrator',
+                  event: 'epic-sandbox-merged',
+                  payload: {
+                    epicSandboxDir: merge.epicSandboxDir,
+                    sliceIds: mergeSliceIds,
+                    conflicts: merge.conflicts,
+                  },
+                }),
+              );
+              epicSandboxDir = merge.epicSandboxDir;
+            } else {
+              epicSandboxDir = input.sandboxDir;
+            }
 
             const actCtx: ActionContext = {
               slice,
               epic,
               plan,
-              sandboxDir: merge.epicSandboxDir,
+              sandboxDir: epicSandboxDir,
               reports,
             };
             const reportId = await actions[actionKey]!(actCtx);

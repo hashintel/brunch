@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { createOrchestrator } from './engine.js';
+import { type MergeConflict, mergeCompletedSlicesIntoTree } from './epic-sandbox-merge.js';
 import { FileReportSink } from './file-report-sink.js';
 import { loadLocalEnvFile } from './local-env.js';
 import type { FiringPolicy } from './petri-net.js';
@@ -11,9 +12,10 @@ import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-s
 import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
+import { promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { BunTestRunner } from './test-runner.js';
-import type { PlanMode } from './types.js';
+import type { Plan, PlanMode } from './types.js';
 import { createSandbox } from './worktree.js';
 
 /**
@@ -40,6 +42,10 @@ export type CookOptions = {
   petrinautUrl?: string;
   /** Whether to auto-launch the system browser; CI=true also suppresses at runtime. */
   petrinautOpen: boolean;
+  /** Target dir to promote a completed greenfield run into (opt-in). Omitted → no promotion. */
+  outDir?: string;
+  /** Allow promoting into a non-empty target (otherwise refused). */
+  force: boolean;
   /**
    * Explicit specification id whose emitted plan (under
    * `<dir>/.brunch/cook/specs/<id>/plan.yaml`) should be cooked.
@@ -60,6 +66,8 @@ export function parseCookArgs(args: string[]): CookOptions {
   let petrinautUrl: string | undefined;
   let petrinautOpen = true;
   let specId: number | undefined;
+  let outDir: string | undefined;
+  let force = false;
   let sawNoOpen = false;
   let sawUrl = false;
 
@@ -99,6 +107,10 @@ export function parseCookArgs(args: string[]): CookOptions {
     } else if (arg === '--no-petrinaut-open') {
       petrinautOpen = false;
       sawNoOpen = true;
+    } else if (arg.startsWith('--out=')) {
+      outDir = resolve(arg.slice('--out='.length));
+    } else if (arg === '--force') {
+      force = true;
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
     } else if (!arg.startsWith('-')) {
@@ -131,6 +143,8 @@ export function parseCookArgs(args: string[]): CookOptions {
     petrinautStream,
     petrinautUrl,
     petrinautOpen,
+    force,
+    ...(outDir !== undefined ? { outDir } : {}),
     ...(specId !== undefined ? { specId } : {}),
   };
 }
@@ -338,6 +352,30 @@ export function resolveSandboxPlan(planMode: PlanMode, dir: string): ResolvedSan
   return { kind: 'codebase', sourceDir: dir };
 }
 
+/**
+ * The tree to promote after a completed greenfield run. The shared layout
+ * promotes the run sandbox directly; the per-slice (parallel) layout merges all
+ * completed slices into one whole-plan tree (declaration-order-wins, collisions
+ * reported) under `<runDir>/__promote__`.
+ */
+export function promotionSourceDir(opts: {
+  sliceLayout: 'shared' | 'per-slice';
+  sandboxDir: string;
+  runDir: string;
+  plan: Plan;
+  completedSliceIds: string[];
+}): { dir: string; conflicts: MergeConflict[] } {
+  if (opts.sliceLayout === 'shared') return { dir: opts.sandboxDir, conflicts: [] };
+  const completed = new Set(opts.completedSliceIds);
+  const ordered = opts.plan.slices.map((s) => s.id).filter((id) => completed.has(id));
+  const merge = mergeCompletedSlicesIntoTree({
+    parentSandboxDir: opts.sandboxDir,
+    sliceIds: ordered,
+    destDir: join(opts.runDir, '__promote__'),
+  });
+  return { dir: merge.mergeDir, conflicts: merge.conflicts };
+}
+
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };
 
 function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
@@ -387,14 +425,16 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   const plan = loadPlan(resolved.planPath);
 
-  // Worktree strategy follows the plan's spec-derived mode, not its location:
-  // greenfield generates in an empty worktree; brownfield clones the cwd repo
-  // (and requires a clean tree).
+  // Worktree strategy follows the plan's spec-derived mode, not its location.
   const sandbox = resolveSandboxPlan(plan.mode, resolved.sourceDir);
   if (sandbox.kind === 'error') {
     console.error(sandbox.message);
     process.exit(1);
   }
+
+  // Single shared tree only for serial greenfield (parallel would race on it);
+  // every other case isolates slices per-slice.
+  const sliceLayout = sandbox.kind === 'fixture' && opts.policy === 'serial' ? 'shared' : 'per-slice';
 
   const { sandboxDir, runDir, runId } =
     sandbox.kind === 'codebase'
@@ -444,6 +484,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
       testRunner,
       policy: { maxRetries: opts.maxRetries },
       sandboxMode: sandbox.kind === 'codebase' ? 'codebase' : 'fixture',
+      sliceLayout,
       runId,
       runDir,
       // Pick the shared NetFolding (identity by default; color collapses subnets).
@@ -481,6 +522,48 @@ export async function runCook(opts: CookOptions): Promise<void> {
     console.error('');
     console.error(`  ${result.reports.length} events → ${reportsPath}`);
     console.error('');
+
+    // Promotion-back is opt-in via --out and greenfield-only; a run that did
+    // not complete promotes nothing (the artifact stays inspectable).
+    if (opts.outDir) {
+      if (sandbox.kind === 'codebase') {
+        console.error(`  !  --out promotion is greenfield-only; brownfield output stays at ${sandboxDir}`);
+        console.error('');
+      } else if (!ok) {
+        console.error(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
+        console.error('');
+      } else {
+        try {
+          const source = promotionSourceDir({
+            sliceLayout,
+            sandboxDir,
+            runDir,
+            plan,
+            completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
+          });
+          for (const c of source.conflicts) {
+            console.error(
+              `  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`,
+            );
+          }
+          const promoted = promoteGreenfieldRun({
+            sandboxDir: source.dir,
+            target: opts.outDir,
+            runId,
+            force: opts.force,
+          });
+          console.error(
+            `  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`,
+          );
+          console.error('');
+        } catch (err) {
+          console.error(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          console.error('');
+          recordCookExitStatus(false);
+          return;
+        }
+      }
+    }
 
     recordCookExitStatus(ok);
     return;

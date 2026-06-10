@@ -43,8 +43,16 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log(
     '  --spec=<id>                      Pick .brunch/cook/specs/<id>/plan.yaml (default: newest spec)',
   );
-  console.log('  --policy=serial|parallel         Firing policy (default: serial)');
+  console.log(
+    '  --policy=serial|parallel         Firing policy (default: serial; serial greenfield runs in one shared tree)',
+  );
   console.log('  --max-retries=N                  Retry budget per slice (default: 3)');
+  console.log(
+    '  --out=<dir>                      Promote a completed greenfield run into <dir> as a git commit',
+  );
+  console.log(
+    '  --force                          Allow --out promotion into a non-empty target (lands on cook/<runId>)',
+  );
   console.log('  --petrinaut-fold=color|identity  Petri-net projection mode (default: identity)');
   console.log(
     '  --petrinaut-lanes=both|mechanical  Lane projection; mechanical hides the semantic lane (default: both)',
