@@ -47,7 +47,7 @@ function isPathInside(child: string, parent: string): boolean {
   return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
 }
 
-/** Refuse targets that alias or nest the promotion source — git init/copy would mutate the run artifact. */
+/** Refuse targets that alias or sit inside the promotion source — git init/copy would mutate the run artifact. */
 function assertDistinctPromotionPaths(target: string, sandboxDir: string): void {
   const canonicalTarget = realpathSync(target);
   const canonicalSource = realpathSync(sandboxDir);
@@ -57,9 +57,9 @@ function assertDistinctPromotionPaths(target: string, sandboxDir: string): void 
   if (isPathInside(canonicalTarget, canonicalSource)) {
     throw new Error(`Refusing to promote into a path inside the promotion source: ${target}`);
   }
-  if (isPathInside(canonicalSource, canonicalTarget)) {
-    throw new Error(`Refusing to promote into a descendant of the promotion source: ${target}`);
-  }
+  // An ancestor target (e.g. project root with --out=.) is allowed: the run
+  // worktree normally lives under <cwd>/.brunch/cook/... and D166-K lands on
+  // cook/<runId> there. cpSync skips .brunch/.git from the source tree.
 }
 
 function checkoutCookBranch(target: string, runId: string): void {

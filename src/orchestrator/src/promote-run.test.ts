@@ -110,6 +110,25 @@ describe('promoteGreenfieldRun', () => {
     expect(existsSync(join(sandbox, '.git'))).toBe(false);
   });
 
+  it('allows promoting into an ancestor of the promotion source (e.g. project root)', () => {
+    const outer = tmpTarget();
+    const sandbox = join(outer, '.brunch', 'cook', 'runs', 'run-1', 'worktree');
+    mkdirSync(sandbox, { recursive: true });
+    writeFileSync(join(sandbox, 'index.ts'), 'export const x = 1;\n');
+
+    const id = ['-c', 'user.name=t', '-c', 'user.email=t@e'];
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: outer });
+    writeFileSync(join(outer, 'README.md'), '# proj\n');
+    execFileSync('git', ['add', '.'], { cwd: outer });
+    execFileSync('git', [...id, 'commit', '-q', '-m', 'base'], { cwd: outer });
+
+    const result = promoteGreenfieldRun({ sandboxDir: sandbox, target: outer, runId: 'r1', force: true });
+
+    expect(result.branch).toBe('cook/r1');
+    expect(readFileSync(join(outer, 'index.ts'), 'utf8')).toContain('export const x');
+    expect(existsSync(sandbox)).toBe(true);
+  });
+
   it('refuses when the target is nested inside the promotion source', () => {
     const sandbox = makeSandbox();
     const target = join(sandbox, 'nested-out');
