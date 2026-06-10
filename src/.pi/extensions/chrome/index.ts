@@ -23,6 +23,7 @@ import type {
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
 } from '../../../session/workspace-session-coordinator.js';
+import { BrunchStartupHeader } from '../../components/chrome-header.js';
 
 type BrunchChromeStage = 'idle' | 'streaming' | 'observer-review';
 type BrunchChromeWorkerStatus = 'idle' | 'queued' | 'running' | 'blocked';
@@ -61,6 +62,10 @@ interface BrunchChromeModelTelemetry {
   contextWindow?: number;
 }
 
+interface BrunchChromeStartupHeaderState {
+  decision: 'newSpec' | 'newSession';
+}
+
 export interface BrunchChromeFooterTelemetry {
   gitBranch?: string | null;
   statuses?: ReadonlyMap<string, string>;
@@ -84,6 +89,7 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
     label?: string;
   };
   webSidecarUrl?: string;
+  startupHeader?: BrunchChromeStartupHeaderState;
   runtime?: BrunchChromeRuntimeState;
   build?: BrunchChromeBuildState;
   contextUsage?: BrunchChromeContextUsage;
@@ -94,7 +100,7 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   coherence?: BrunchChromeCoherenceVerdict;
 }
 
-export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setTitle' | 'setWidget'>;
+export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle' | 'setWidget'>;
 
 type BrunchChromeTheme = Pick<Theme, 'fg'>;
 
@@ -177,7 +183,7 @@ function truncateChromeLine(text: string, width: number, theme: BrunchChromeThem
 
 export function chromeStateForWorkspace(
   workspace: WorkspaceSessionReadyState,
-  options: { webSidecarUrl?: string } = {},
+  options: { webSidecarUrl?: string; startupHeader?: BrunchChromeStartupHeaderState } = {},
 ): BrunchChromeState {
   return {
     ...workspace.chrome,
@@ -186,6 +192,7 @@ export function chromeStateForWorkspace(
       label: workspace.session.name ?? workspace.session.id,
     },
     ...(options.webSidecarUrl ? { webSidecarUrl: options.webSidecarUrl } : {}),
+    ...(options.startupHeader ? { startupHeader: options.startupHeader } : {}),
   };
 }
 
@@ -217,6 +224,20 @@ export function renderBrunchChrome(
       },
     };
   });
+  if (chrome.startupHeader) {
+    ui.setHeader(
+      (_tui, theme) =>
+        new BrunchStartupHeader(
+          {
+            project: formatProject(chrome),
+            spec: formatSpec(chrome),
+            session: chrome.session.label ?? chrome.session.id,
+            ...(chrome.webSidecarUrl ? { sidecarUrl: chrome.webSidecarUrl } : {}),
+          },
+          theme,
+        ),
+    );
+  }
   if (chrome.webSidecarUrl) {
     ui.setWidget('brunch.sidecar', [formatSidecarWidgetLine(chrome.webSidecarUrl)], {
       placement: 'aboveEditor',

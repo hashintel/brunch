@@ -20,7 +20,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 extensions/
 ├── README.md
 ├── AUDIT.md                 temporary audit note; do not treat as topology source
-├── chrome/                  TUI title/footer/sidecar-widget chrome projection
+├── chrome/                  TUI header/title/footer/sidecar-widget chrome projection
 ├── commands/                /brunch:* commands, shortcut, branch/tree policy
 ├── compaction/              auto-compaction anchor contract and future hook
 ├── context/                 snapshot/context Pi tools

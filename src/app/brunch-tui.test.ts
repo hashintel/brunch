@@ -221,7 +221,7 @@ describe('Brunch TUI boot', () => {
     }
   });
 
-  it('runs inspect, preflight, and activation before launching interactive mode', async () => {
+  it('runs inspect, preflight, activation, and decision propagation before launching interactive mode', async () => {
     const events: string[] = [];
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
 
@@ -254,12 +254,13 @@ describe('Brunch TUI boot', () => {
           sessionFile: workspace.session.file,
         };
       },
-      launchInteractive: async ({ workspace: launched }) => {
-        events.push(`launch:${launched.session.id}`);
+      launchInteractive: async ({ workspace: launched, activationDecision }) => {
+        expect(activationDecision).toBeDefined();
+        events.push(`launch:${launched.session.id}:${activationDecision?.action}`);
       },
     });
 
-    expect(events).toEqual(['inspect', 'preflight', 'activate:continue', 'launch:session-ready']);
+    expect(events).toEqual(['inspect', 'preflight', 'activate:continue', 'launch:session-ready:continue']);
   });
 
   it('starts a web sidecar on the active spec route with the shared update publisher before interactive mode', async () => {

@@ -1,7 +1,9 @@
 import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
+import { visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import type { WorkspaceSessionReadyState } from '../../session/workspace-session-coordinator.js';
+import { BrunchStartupHeader } from '../components/chrome-header.js';
 import {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
@@ -133,6 +135,63 @@ describe('Brunch chrome projection', () => {
     expect(calls.find((call) => call.method === 'setTitle')?.args).toEqual(['brunch — project · Spec One']);
   });
 
+  it('installs the full startup header only when chrome state requests it', async () => {
+    const calls: FakeUiCall[] = [];
+
+    renderBrunchChrome(fakeChromeUi(calls), {
+      cwd: '/tmp/project',
+      project: { name: 'Project One', slug: 'project-one' },
+      spec: { id: 1, title: 'Spec One' },
+      session: { id: 'session-1', label: 'Spec One — session 1' },
+      phase: 'elicitation',
+      chatMode: 'responding-to-elicitation',
+      webSidecarUrl: 'http://127.0.0.1:49152/spec/1',
+      startupHeader: { decision: 'newSession' },
+    });
+
+    const headerFactory = calls.find((call) => call.method === 'setHeader')?.args[0];
+    expect(headerFactory).toEqual(expect.any(Function));
+
+    const component = (headerFactory as (tui: unknown, theme: FakeTheme) => BrunchStartupHeader)(
+      undefined,
+      fakeTheme,
+    );
+    expect(component.render(80).join('\n')).toContain('brunch — Project One');
+    expect(component.render(80).join('\n')).toContain('Spec One');
+    expect(component.render(80).join('\n')).toContain('Spec One — session 1');
+    expect(component.render(80).join('\n')).toContain('http://127.0.0.1:49152/spec/1');
+    component.setExpanded(true);
+    expect(component.render(80).join('\n')).toContain('Current session');
+    expect(component.render(80).join('\n')).toContain('Graph capture');
+
+    const resumedCalls: FakeUiCall[] = [];
+    renderBrunchChrome(fakeChromeUi(resumedCalls), {
+      cwd: '/tmp/project',
+      spec: { id: 1, title: 'Spec One' },
+      session: { id: 'session-1' },
+      phase: 'elicitation',
+      chatMode: 'responding-to-elicitation',
+    });
+    expect(resumedCalls.some((call) => call.method === 'setHeader')).toBe(false);
+  });
+
+  it('keeps startup header text width-safe and newline-safe', () => {
+    const component = new BrunchStartupHeader(
+      {
+        project: 'Project\nOne',
+        spec: 'Spec\rOne',
+        session: 'Session\tOne',
+        sidecarUrl: 'http://127.0.0.1:49152/spec/1\nignored',
+      },
+      fakeTheme,
+    );
+
+    expect(component.render(36).every((line) => !/[\r\n\t]/.test(line))).toBe(true);
+    expect(component.render(36).every((line) => visibleWidth(line) <= 36)).toBe(true);
+    component.setExpanded(true);
+    expect(component.render(36).every((line) => !/[\r\n\t]/.test(line))).toBe(true);
+  });
+
   it('projects the active web sidecar URL into an upper widget only when present', async () => {
     const calls: FakeUiCall[] = [];
 
@@ -201,6 +260,13 @@ function fakeChromeUi(calls: FakeUiCall[]): FakeExtensionUi {
     notify: (_message: string, _type?: 'info' | 'warning' | 'error') => {},
   };
 }
+
+const fakeTheme = {
+  fg: (_color: string, text: string) => text,
+  bold: (text: string) => text,
+};
+
+type FakeTheme = typeof fakeTheme;
 
 type FakeExtensionUi = Pick<
   ExtensionUIContext,

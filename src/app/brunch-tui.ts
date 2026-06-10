@@ -71,6 +71,7 @@ export interface BrunchTuiLaunchContext {
   coordinator: BrunchTuiCoordinator;
   productUpdates?: ProductUpdatePublisher;
   webSidecarUrl?: string;
+  activationDecision?: SpecSessionActivationDecision;
   dev?: BrunchTuiDevOptions;
 }
 
@@ -132,6 +133,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       coordinator,
       productUpdates,
       ...(webSidecarUrl ? { webSidecarUrl } : {}),
+      activationDecision: decision,
       ...(dev ? { dev } : {}),
     });
   } finally {
@@ -154,6 +156,12 @@ function shouldAutoOpenWebSidecar(
   dev: BrunchTuiDevOptions | undefined,
 ): boolean {
   return autoOpen ?? dev === undefined;
+}
+
+function isNewSessionActivation(
+  decision: SpecSessionActivationDecision | undefined,
+): decision is Extract<SpecSessionActivationDecision, { action: 'newSpec' | 'newSession' }> {
+  return decision?.action === 'newSpec' || decision?.action === 'newSession';
 }
 
 async function chooseSpecSessionActivationDecision(
@@ -326,10 +334,12 @@ export function createBrunchAgentSessionRuntimeFactory(
       agentDir: runtimeAgentDir,
       extensionFactories: [
         createBrunchPiExtensions(
-          chromeStateForWorkspace(
-            currentWorkspace,
-            context.webSidecarUrl ? { webSidecarUrl: context.webSidecarUrl } : {},
-          ),
+          chromeStateForWorkspace(currentWorkspace, {
+            ...(context.webSidecarUrl ? { webSidecarUrl: context.webSidecarUrl } : {}),
+            ...(isNewSessionActivation(context.activationDecision)
+              ? { startupHeader: { decision: context.activationDecision.action } }
+              : {}),
+          }),
           bindCurrentWorkspace,
           {
             coordinator,
