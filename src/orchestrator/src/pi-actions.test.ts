@@ -346,6 +346,37 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
     }
   });
 
+  it('keeps the agent dir alive until late setup settles after a timeout', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      let releaseSetup!: () => void;
+      let agentDir: string | undefined;
+      let dirExistedWhenSetupSettled = false;
+      const createSession = (async (options: { agentDir?: string }) => {
+        agentDir = options.agentDir;
+        await new Promise<void>((resolve) => {
+          releaseSetup = resolve;
+        });
+        dirExistedWhenSetupSettled = existsSync(agentDir!);
+        return { session: makeFakeSession({ emit: 'too late' }).session };
+      }) as unknown as SessionFactory;
+
+      await expect(runPi(baseOpts(sandboxDir, 'read'), { createSession, timeoutMs: 20 })).rejects.toThrow(
+        /timed out/,
+      );
+
+      releaseSetup();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(dirExistedWhenSetupSettled).toBe(true);
+      expect(agentDir).toBeDefined();
+      expect(existsSync(agentDir!)).toBe(false);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
   it('aborts and rejects when captured output exceeds the size cap', async () => {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));

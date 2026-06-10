@@ -153,6 +153,12 @@ async function runPi(
   const start = Date.now();
 
   const isolatedDir = createAgentDir();
+  let cleanedAgentDir = false;
+  const cleanupAgentDir = (): void => {
+    if (cleanedAgentDir) return;
+    cleanedAgentDir = true;
+    removeAgentDir(isolatedDir);
+  };
   let session: Awaited<ReturnType<SessionFactory>>['session'] | undefined;
   let captured = '';
   let overflowed = false;
@@ -176,6 +182,14 @@ async function runPi(
       }
       return created.session;
     })();
+    void setup.then(
+      () => {
+        if (timedOut && !session) cleanupAgentDir();
+      },
+      () => {
+        if (timedOut && !session) cleanupAgentDir();
+      },
+    );
 
     session = await Promise.race([setup, timeout]);
 
@@ -201,7 +215,7 @@ async function runPi(
     if (timer) clearTimeout(timer);
     unsubscribe?.();
     session?.dispose();
-    removeAgentDir(isolatedDir);
+    if (session || !timedOut) cleanupAgentDir();
   }
 
   if (timedOut) throw piTimeoutError(timeoutMs);
