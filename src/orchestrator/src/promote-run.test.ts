@@ -101,6 +101,39 @@ describe('promoteGreenfieldRun', () => {
     );
   });
 
+  it('refuses when the target is the promotion source tree', () => {
+    const sandbox = makeSandbox();
+
+    expect(() =>
+      promoteGreenfieldRun({ sandboxDir: sandbox, target: sandbox, runId: 'r1', force: false }),
+    ).toThrow(/promotion source/i);
+    expect(existsSync(join(sandbox, '.git'))).toBe(false);
+  });
+
+  it('refuses when the target is nested inside the promotion source', () => {
+    const sandbox = makeSandbox();
+    const target = join(sandbox, 'nested-out');
+
+    expect(() => promoteGreenfieldRun({ sandboxDir: sandbox, target, runId: 'r1', force: false })).toThrow(
+      /inside the promotion source/i,
+    );
+    expect(existsSync(join(sandbox, 'nested-out', '.git'))).toBe(false);
+  });
+
+  it('re-promotes onto an existing cook/<runId> branch', () => {
+    const sandbox = makeSandbox();
+    const target = tmpTarget();
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: target });
+
+    const first = promoteGreenfieldRun({ sandboxDir: sandbox, target, runId: 'r1', force: false });
+    writeFileSync(join(sandbox, 'index.ts'), 'export const x = 2;\n');
+    const second = promoteGreenfieldRun({ sandboxDir: sandbox, target, runId: 'r1', force: true });
+
+    expect(second.branch).toBe('cook/r1');
+    expect(second.commit).not.toBe(first.commit);
+    expect(readFileSync(join(target, 'index.ts'), 'utf8')).toContain('export const x = 2');
+  });
+
   it('lands on a cook/<runId> branch in a freshly git-init target without --force', () => {
     const sandbox = makeSandbox();
     const target = tmpTarget();

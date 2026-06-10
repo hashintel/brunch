@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
+import { basename, isAbsolute, relative, resolve } from 'node:path';
 
 export type PromoteResult = { target: string; branch: string; commit: string };
 
@@ -42,6 +42,36 @@ function isGitRepoRoot(dir: string): boolean {
   }
 }
 
+function isPathInside(child: string, parent: string): boolean {
+  const rel = relative(parent, child);
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel);
+}
+
+/** Refuse targets that alias or nest the promotion source — git init/copy would mutate the run artifact. */
+function assertDistinctPromotionPaths(target: string, sandboxDir: string): void {
+  const canonicalTarget = realpathSync(target);
+  const canonicalSource = realpathSync(sandboxDir);
+  if (canonicalTarget === canonicalSource) {
+    throw new Error(`Refusing to promote into the promotion source: ${target}`);
+  }
+  if (isPathInside(canonicalTarget, canonicalSource)) {
+    throw new Error(`Refusing to promote into a path inside the promotion source: ${target}`);
+  }
+  if (isPathInside(canonicalSource, canonicalTarget)) {
+    throw new Error(`Refusing to promote into a descendant of the promotion source: ${target}`);
+  }
+}
+
+function checkoutCookBranch(target: string, runId: string): void {
+  const branch = `cook/${runId}`;
+  try {
+    git(['rev-parse', '--verify', `refs/heads/${branch}`], target);
+    git(['checkout', '-q', branch], target);
+  } catch {
+    git(['checkout', '-q', '-b', branch], target);
+  }
+}
+
 /**
  * Land a completed greenfield run's single tree into `target` as a reviewable
  * git commit (commit-on-branch). Never a silent overwrite: an empty target is
@@ -51,7 +81,9 @@ function isGitRepoRoot(dir: string): boolean {
  */
 export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
   const target = resolve(opts.target);
+  const sandboxDir = resolve(opts.sandboxDir);
   mkdirSync(target, { recursive: true });
+  assertDistinctPromotionPaths(target, sandboxDir);
 
   if (!isPromotionAllowedWithoutForce(target) && !opts.force) {
     throw new Error(
@@ -62,13 +94,13 @@ export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
   let branch: string;
   if (isGitRepoRoot(target)) {
     branch = `cook/${opts.runId}`;
-    git(['checkout', '-q', '-b', branch], target);
+    checkoutCookBranch(target, opts.runId);
   } else {
     branch = 'main';
     git(['init', '-q', '-b', branch], target);
   }
 
-  cpSync(opts.sandboxDir, target, {
+  cpSync(sandboxDir, target, {
     recursive: true,
     filter: (src) => !PROMOTION_COPY_SKIP.has(basename(src)),
   });
