@@ -1,6 +1,19 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { fauxAssistantMessage } from '@earendil-works/pi-ai';
+import { DefaultResourceLoader } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import {
+  BRUNCH_INTROSPECT_QUERY_TOOL,
+  BRUNCH_SESSION_QUERY_TOOL,
+  chromeStateForWorkspace,
+  createBrunchPiExtensions,
+  createInMemoryBrunchIntrospectionStore,
+} from '../.pi/brunch-pi-extensions.js';
+import { createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
   BRUNCH_FAUX_HARNESS_ENV_API_KEY,
@@ -23,6 +36,7 @@ describe('createBrunchFauxHarness', () => {
       expect(harness.session.sessionFile).toBeUndefined();
       expect(harness.session.getActiveToolNames()).toEqual([]);
       expect(harness.provider.getPendingResponseCount()).toBe(1);
+      expect(harness.providerContexts).toEqual([]);
       expect(process.env.BRUNCH_FAUX_HARNESS_API_KEY).toBeUndefined();
     } finally {
       harness.dispose();
@@ -31,6 +45,119 @@ describe('createBrunchFauxHarness', () => {
       } else {
         process.env.BRUNCH_FAUX_HARNESS_API_KEY = previousApiKey;
       }
+    }
+  });
+
+  it('captures provider contexts and active tools as a Tier-1 faux-session oracle', async () => {
+    const harness = await createBrunchFauxHarness({
+      responses: [fauxAssistantMessage('captured')],
+      customTools: [
+        {
+          name: 'probe_tool',
+          label: 'Probe tool',
+          description: 'Probe tool',
+          parameters: { type: 'object', properties: {}, additionalProperties: false },
+          execute: async () => ({
+            content: [{ type: 'text', text: 'ok' }],
+            details: { ok: true },
+            isError: false,
+          }),
+        },
+      ],
+    });
+
+    try {
+      await harness.session.prompt('capture this', { expandPromptTemplates: false, source: 'rpc' });
+
+      expect(harness.providerContexts).toHaveLength(1);
+      expect(harness.providerContexts[0]?.activeToolNames).toEqual(['probe_tool']);
+      expect(JSON.stringify(harness.providerContexts[0]?.messages)).toContain('capture this');
+    } finally {
+      harness.dispose();
+    }
+  });
+
+  it('captures Brunch-composed provider payloads through the Tier-1 faux-session seam', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tier-1-faux-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-tier-1-agent-'));
+    const store = createInMemoryBrunchIntrospectionStore();
+    const profile = createBrunchPiSettings({
+      cwd,
+      agentDir,
+      extensionFactories: [
+        createBrunchPiExtensions(
+          chromeStateForWorkspace(
+            {
+              status: 'ready',
+              cwd,
+              spec: { id: 1, title: 'Tier-1 faux spec' },
+              session: { id: 'session-1', file: join(cwd, 'session.jsonl'), manager: {} as never },
+              chrome: {
+                cwd,
+                spec: { id: 1, title: 'Tier-1 faux spec' },
+                phase: 'elicitation',
+                chatMode: 'responding-to-elicitation',
+              },
+            },
+            {},
+          ),
+          undefined,
+          {
+            coordinator: {} as never,
+            graphMentionSource: { listMentionCandidates: () => [] },
+            promptContext: () => ({
+              spec: { id: 1, name: 'Tier-1 faux spec', readinessGrade: 'commitments_ready' },
+              workspace: { cwd },
+              session: { id: 'session-1', label: 'Tier-1 session' },
+            }),
+            introspection: { enabled: true, store },
+          },
+        ),
+      ],
+    });
+    const resourceLoader = new DefaultResourceLoader({
+      cwd,
+      agentDir,
+      settingsManager: profile.settingsManager,
+      ...profile.resourceLoaderOptions,
+    });
+    await resourceLoader.reload();
+    const harness = await createBrunchFauxHarness({
+      cwd,
+      responses: [fauxAssistantMessage('captured brunch payload')],
+      resourceLoader,
+      settingsManager: profile.settingsManager,
+    });
+
+    try {
+      await harness.session.prompt('capture the real Brunch payload', {
+        expandPromptTemplates: false,
+        source: 'rpc',
+      });
+
+      const systemPrompt = harness.providerContexts[0]?.systemPrompt;
+      const activeToolsLine = systemPrompt?.split('\n').find((line) => line.startsWith('- active tools:'));
+      expect(harness.providerContexts).toHaveLength(1);
+      expect(systemPrompt).toContain('[Brunch agent control]');
+      expect(systemPrompt).toContain('<available_strategies>');
+      expect(activeToolsLine).toContain('read');
+      expect(activeToolsLine).toContain('grep');
+      expect(activeToolsLine).toContain('find');
+      expect(activeToolsLine).toContain('ls');
+      expect(activeToolsLine).toContain(BRUNCH_SESSION_QUERY_TOOL);
+      expect(activeToolsLine).toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
+      expect(activeToolsLine).not.toContain('bash');
+      expect(activeToolsLine).not.toContain('edit');
+      expect(activeToolsLine).not.toContain('write');
+      expect(JSON.stringify(harness.providerContexts[0]?.messages)).toContain(
+        'capture the real Brunch payload',
+      );
+    } finally {
+      harness.dispose();
+      await Promise.all([
+        rm(cwd, { recursive: true, force: true }),
+        rm(agentDir, { recursive: true, force: true }),
+      ]);
     }
   });
 

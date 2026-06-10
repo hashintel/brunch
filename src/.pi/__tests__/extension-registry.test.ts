@@ -117,6 +117,56 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(sessionStartIndexes[0]).toBeLessThan(sessionStartIndexes[1] ?? -1);
   });
 
+  it('wires prepareNextTurn into the live session boundary and leaves provider-request as guard-only', async () => {
+    let graphLsn = 3;
+    const appended: Array<{ customType: string; data: unknown }> = [];
+    const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
+    const sessionManager = {
+      getEntries: () => appended.map((entry) => ({ type: 'custom', ...entry })),
+      appendCustomEntry(customType: string, data: unknown) {
+        appended.push({ customType, data });
+      },
+    };
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graph: {
+        specId: 1,
+        commandExecutor: {} as never,
+        reads: {
+          queryGraph: () =>
+            ({
+              lsn: graphLsn,
+              nodes: [{ id: 10, kind: 'goal', title: 'Live goal', updatedAtLsn: graphLsn }],
+              edges: [],
+            }) as never,
+          getNodes: () => [],
+          resolveNodeCode: () => undefined,
+        },
+      },
+    })(recordingApiWithEvents(events));
+
+    await events.get('before_agent_start')?.[0]?.({}, { sessionManager });
+
+    expect(appended).toEqual([
+      {
+        customType: 'worldUpdate',
+        data: expect.objectContaining({ specId: 1, currentLsn: 3, changedSinceLsn: 0 }),
+      },
+    ]);
+
+    await expect(
+      events.get('before_provider_request')?.[0]?.({}, { sessionManager }),
+    ).resolves.toBeUndefined();
+    expect(appended).toHaveLength(1);
+
+    graphLsn = 4;
+    await expect(events.get('before_provider_request')?.[0]?.({}, { sessionManager })).rejects.toThrow(
+      /prepareNextTurn must run before prompt composition/,
+    );
+    expect(appended).toHaveLength(1);
+  });
+
   it('does not retain the filesystem-discovery product-extension protocol', async () => {
     const shell = await readFile(join(projectRoot(), 'src/.pi/brunch-pi-extensions.ts'), 'utf8');
     const discoveryExport = ['discover', 'BrunchProductExtensionEntries'].join('');
@@ -152,6 +202,36 @@ const brunchChromeFixture = {
     label: 'Fixture session',
   },
 };
+
+function recordingApiWithEvents(events: Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>) {
+  return {
+    on(eventName: string, handler: (event: any, ctx: any) => Promise<void> | void) {
+      events.set(eventName, [...(events.get(eventName) ?? []), handler]);
+    },
+    registerTool() {},
+    registerCommand() {},
+    registerShortcut() {},
+    registerMessageRenderer() {},
+    sendMessage() {},
+    getAllTools: () =>
+      [
+        'read',
+        'grep',
+        'find',
+        'ls',
+        'present_alternatives',
+        PRESENT_QUESTION_TOOL,
+        PRESENT_OPTIONS_TOOL,
+        REQUEST_ANSWER_TOOL,
+        REQUEST_CHOICE_TOOL,
+        REQUEST_CHOICES_TOOL,
+        'bash',
+        'edit',
+        'write',
+      ].map((name) => ({ name })),
+    setActiveTools() {},
+  } as never;
+}
 
 function createRecordingExtensionApi() {
   const eventNames: string[] = [];

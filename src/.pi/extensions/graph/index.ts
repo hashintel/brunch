@@ -17,6 +17,7 @@ import type {
 } from '../../../graph/index.js';
 import { formatNeighborhood } from '../../../renderers/graph/node-neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
+import { stampOwnMutationWatermark } from '../../../session/prepare-next-turn.js';
 import {
   translateMutateGraph,
   formatGraphOverview,
@@ -71,6 +72,8 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       const text = formatMutateGraphResult(result);
       if (result.status === 'success') {
         deps.productUpdates?.publish(graphMutationProductUpdates({ specId, lsn: result.lsn }));
+        const carrier = stampOwnMutationWatermark({ specId, lsn: result.lsn, source: 'mutate_graph' });
+        pi.appendEntry(carrier.customType, carrier.data);
       }
 
       return { content: [{ type: 'text' as const, text }], details: result };
@@ -110,6 +113,10 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         const slice = reads.queryGraph(undefined, options);
         text = formatGraphOverview(slice);
         details = slice;
+        pi.appendEntry('brunch.graph_overview_snapshot', {
+          specId: deps.specId,
+          snapshotLsn: slice.lsn,
+        });
       } else if (params.mode === 'list_by_kind') {
         const slice = reads.queryGraph({ kinds: params.kinds as readonly NodeKind[] }, options);
         text = formatGraphOverview(slice, 'Graph slice by kind');

@@ -80,12 +80,21 @@ describe('graph tools end-to-end', () => {
     const reads = createGraphReads(db, specId);
     const tools: Array<{ name: string; execute: (toolCallId: string, params: never) => Promise<unknown> }> =
       [];
+    const carriers: Array<{ customType: string; data: unknown }> = [];
 
-    registerBrunchGraph({ registerTool: (tool: unknown) => tools.push(tool as never) } as never, {
-      specId,
-      commandExecutor: executor,
-      reads,
-    });
+    registerBrunchGraph(
+      {
+        registerTool: (tool: unknown) => tools.push(tool as never),
+        appendEntry(customType: string, data: unknown) {
+          carriers.push({ customType, data });
+        },
+      } as never,
+      {
+        specId,
+        commandExecutor: executor,
+        reads,
+      },
+    );
 
     const commit = tools.find((tool) => tool.name === 'mutate_graph')!;
     const read = tools.find((tool) => tool.name === 'read_graph')!;
@@ -96,18 +105,34 @@ describe('graph tools end-to-end', () => {
         { op: 'create_node', ref: 'n2', plane: 'intent', kind: 'requirement', title: 'Expose queryGraph' },
         { op: 'create_edge', category: 'dependency', dependency: 'n2', dependent: 'n1' },
       ],
-    } as never)) as { content: readonly { text: string }[]; details: { status: string } };
+    } as never)) as {
+      content: readonly { text: string }[];
+      details: { status: string; lsn: number };
+    };
 
     expect(commitResult.details.status).toBe('success');
     expect(formatMutateGraphResult(commitResult.details as never)).toContain('Graph mutated successfully');
+    expect(carriers).toEqual([
+      {
+        customType: 'brunch.own_mutation',
+        data: { specId, lsn: commitResult.details.lsn, source: 'mutate_graph' },
+      },
+    ]);
 
     const readResult = (await read.execute('tool-2', { mode: 'overview' } as never)) as {
       content: readonly { text: string }[];
-      details: { nodes: readonly unknown[]; edges: readonly unknown[] };
+      details: { nodes: readonly unknown[]; edges: readonly unknown[]; lsn: number };
     };
 
     expect(readResult.details.nodes).toHaveLength(2);
     expect(readResult.details.edges).toHaveLength(1);
     expect(readResult.content[0]!.text).toContain('Build graph API');
+    expect(carriers.at(-1)).toEqual({
+      customType: 'brunch.graph_overview_snapshot',
+      data: { specId, snapshotLsn: readResult.details.lsn },
+    });
+
+    await read.execute('tool-3', { mode: 'neighborhood', nodeCode: 'G1' } as never);
+    expect(carriers).toHaveLength(2);
   });
 });

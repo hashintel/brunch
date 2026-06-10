@@ -7,7 +7,7 @@ This directory is Brunch's sealed Pi-harness surface. It contains the agent pers
 ## Owns
 
 - Pi-facing agent prompt assembly and runtime prompt resources.
-- Pi extension registration: tools, lifecycle hooks, command handlers, autocomplete, TUI chrome, workspace dialogs, and dev-gated read-only introspection.
+- Pi extension registration: tools, lifecycle hooks, command handlers, autocomplete, TUI chrome, workspace dialogs, and dev-gated read-only introspection. `extensions/session/lifecycle.ts` adapts Pi session/turn hooks into one ordered Brunch session-boundary pipeline: workspace rebinding first, then continuity preparation steps. `extensions/graph/index.ts` stamps the live watermark carriers for own mutations and full graph-overview reads.
 - Pi-native skills/resources that the agent reads on demand.
 - Reusable Pi TUI components used by those extensions.
 

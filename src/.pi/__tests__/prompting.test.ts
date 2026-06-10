@@ -78,7 +78,7 @@ function groundingGaps(coverage: Partial<Record<NodeKind, number>> = {}): Elicit
 }
 
 const promptContext = {
-  spec: { id: 1, name: 'Spec', readinessGrade: 'commitments_ready' as const },
+  spec: { id: 1, name: 'Spec' },
   workspace: {
     cwd: '/tmp/brunch',
     posture: workspacePosture({
@@ -234,7 +234,7 @@ describe('Brunch prompt-pack topology', () => {
   it('refreshes selected-spec prompt context through the shell session-boundary path before composing', async () => {
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
     let selected = {
-      spec: { id: 1, name: 'Launch spec', readinessGrade: 'commitments_ready' as const },
+      spec: { id: 1, name: 'Launch spec' },
       session: { id: 'launch-session', label: 'Launch session' },
       nodeTitles: ['Launch-only node'],
     };
@@ -247,7 +247,7 @@ describe('Brunch prompt-pack topology', () => {
       },
       async () => {
         selected = {
-          spec: { id: 2, name: 'Switched spec', readinessGrade: 'commitments_ready' as const },
+          spec: { id: 2, name: 'Switched spec' },
           session: { id: 'switched-session', label: 'Switched session' },
           nodeTitles: ['Switched current node'],
         };

@@ -15,11 +15,13 @@ import {
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
+import { mentionEntry, resolveMentionFacts } from '../../session/mention-ledger.js';
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,
   type SessionProjectionTarget,
 } from '../../session/session-projection-reader.js';
+import { startAssistantTurn } from '../../session/start-assistant-turn.js';
 import {
   acceptedResponseFromParams,
   nextDeterministicStructuredExchange,
@@ -496,6 +498,7 @@ async function handleTriggerExchange(
     coordinator: DefaultWorkspaceCoordinator;
     cwd: string;
     productUpdates?: ProductUpdatePublisher;
+    getGraphRuntime: () => Promise<WorkspaceGraphRuntime>;
   },
 ): Promise<JsonRpcResponse> {
   const state = await options.coordinator.openDefaultWorkspace();
@@ -516,10 +519,22 @@ async function handleTriggerExchange(
     });
   }
 
+  const currentLsn = (await options.getGraphRuntime())
+    .forSpec(existingTarget.envelope.binding.specId)
+    .queryGraph().lsn;
+  const origination = startAssistantTurn({
+    specId: existingTarget.envelope.binding.specId,
+    currentLsn,
+    entries: existingTarget.envelope.entries,
+    origin: existingTarget.envelope.entries.length <= 3 ? 'new_session' : 'manual_trigger',
+  });
   const exchange = nextDeterministicStructuredExchange(
     projectLinearSessionExchangeProjection(existingTarget.envelope).exchanges.length,
   );
   const manager = state.session.manager;
+  for (const entry of origination.seedEntries) {
+    manager.appendCustomEntry(entry.customType, entry.data);
+  }
   manager.appendMessage(presentToolResultMessage(exchange));
   flushSessionEntries(manager, state.session.file);
 
@@ -588,6 +603,7 @@ async function handleSubmitMessage(
       : state.session.manager.appendMessage(ordinaryUserMessage(params.text));
   flushSessionEntries(state.session.manager, state.session.file);
 
+  const graph = await options.getGraphRuntime();
   const capture =
     params.interruption === true
       ? ({
@@ -598,8 +614,19 @@ async function handleSubmitMessage(
           specId: target.envelope.binding.specId,
           text: params.text,
           source: `session_message:${messageId}`,
-          commandExecutor: (await options.getGraphRuntime()).commandExecutor,
+          commandExecutor: graph.commandExecutor,
         });
+
+  if (params.interruption !== true) {
+    for (const fact of resolveMentionFacts({
+      text: params.text,
+      specId: target.envelope.binding.specId,
+      graph,
+    })) {
+      state.session.manager.appendCustomEntry('brunch.mention', mentionEntry(fact).data);
+    }
+    flushSessionEntries(state.session.manager, state.session.file);
+  }
 
   const result: SubmitMessageResult = {
     status: 'accepted',

@@ -1,3 +1,7 @@
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
@@ -70,6 +74,52 @@ describe('Brunch introspection extension', () => {
     expect(store.latestPassiveCapture()?.payload).toEqual({ wrapped: { original: true } });
   });
 
+  it('mirrors the latest captured final system prompt into the workspace debug cache', async () => {
+    const api = createFakeExtensionApi();
+    const store = createInMemoryBrunchIntrospectionStore();
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-introspection-debug-'));
+
+    registerBrunchIntrospection(api.api as never, {
+      store,
+      clock: fixedClock,
+      debugCache: { cwd },
+    });
+
+    await api.emitBeforeProviderRequest({ payload: { system: 'first final prompt' } });
+    await api.emitBeforeProviderRequest({ payload: { system: 'second final prompt' } });
+
+    await expect(readFile(join(cwd, '.brunch/debug/system-prompt.md'), 'utf8')).resolves.toBe(
+      'second final prompt',
+    );
+  });
+
+  it('appends only explicit Brunch-owned text tool results to the workspace debug cache', async () => {
+    const api = createFakeExtensionApi();
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-introspection-tools-'));
+
+    registerBrunchIntrospection(api.api as never, {
+      clock: fixedClock,
+      debugCache: { cwd },
+    });
+
+    await api.emitToolResult({
+      toolName: 'read_graph',
+      content: [{ type: 'text', text: 'graph block' }],
+    });
+    await api.emitToolResult({
+      toolName: 'read',
+      content: [{ type: 'text', text: 'built-in block' }],
+    });
+    await api.emitToolResult({
+      toolName: 'brunch_session_query',
+      content: [{ type: 'text', text: 'query block' }],
+    });
+
+    await expect(readFile(join(cwd, '.brunch/debug/tool-contents.md'), 'utf8')).resolves.toBe(
+      'graph block\n\n---\n\nquery block',
+    );
+  });
+
   it('is absent by default and registered last when dev introspection is enabled', async () => {
     const productApi = createFakeExtensionApi();
 
@@ -90,7 +140,9 @@ describe('Brunch introspection extension', () => {
 
     expect(devApi.commandNames.at(-1)).toBe(BRUNCH_INTROSPECTION_COMMAND);
     expect(devApi.toolNames.slice(-2)).toEqual([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]);
-    expect(devApi.eventNames.slice(-2)).toEqual(['before_agent_start', 'before_provider_request']);
+    expect(devApi.eventNames).toEqual(
+      expect.arrayContaining(['before_agent_start', 'before_provider_request', 'tool_result']),
+    );
   });
 
   it('advertises registered dev query tools only when introspection is enabled', async () => {
@@ -175,6 +227,11 @@ function createFakeExtensionApi() {
         await Promise.all(
           (handlers.get('before_provider_request') ?? []).map((handler) => handler(event, {})),
         ),
+      );
+    },
+    async emitToolResult(event: unknown): Promise<unknown> {
+      return last(
+        await Promise.all((handlers.get('tool_result') ?? []).map((handler) => handler(event, {}))),
       );
     },
     async runProviderRequestChain(event: { payload: unknown }): Promise<unknown> {

@@ -1,6 +1,15 @@
-import { type ExtensionAPI, type ExtensionFactory } from '@earendil-works/pi-coding-agent';
+import {
+  type ExtensionAPI,
+  type ExtensionFactory,
+  type SessionManager,
+} from '@earendil-works/pi-coding-agent';
 
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
+import {
+  prepareNextTurn,
+  type GraphChangeItem,
+  type PrepareNextTurnResult,
+} from '../session/prepare-next-turn.js';
 import { registerBrunchAlternatives } from './components/alternatives.js';
 import { registerBrunchChrome } from './extensions/chrome/index.js';
 import { type BrunchChromeState } from './extensions/chrome/index.js';
@@ -22,7 +31,10 @@ import { registerBrunchMentionAutocomplete } from './extensions/mentions/index.j
 import { registerBrunchOperationalModePolicy } from './extensions/runtime/index.js';
 import { BRUNCH_SESSION_QUERY_TOOL, registerBrunchSessionQuery } from './extensions/session-query/index.js';
 import { registerBrunchSessionBoundary } from './extensions/session/lifecycle.js';
-import { type BrunchSessionBoundaryHandler } from './extensions/session/lifecycle.js';
+import {
+  type BrunchSessionBoundaryHandler,
+  type BrunchSessionBoundaryPipelineStep,
+} from './extensions/session/lifecycle.js';
 import {
   registerBrunchPrompting,
   type BrunchPromptContextProvider,
@@ -125,8 +137,14 @@ export function createBrunchPiExtensions(
     const devAllowedToolNames = introspectionOptions?.enabled
       ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]
       : undefined;
+    const continuityStep = options.graph ? createPrepareNextTurnContinuityStep(options.graph) : undefined;
     const extensions: BrunchProductExtensionRegistrar[] = [
-      (api) => registerBrunchSessionBoundary(api, onSessionBoundary),
+      (api) => {
+        registerBrunchSessionBoundary(api, onSessionBoundary, {
+          continuitySteps: continuityStep ? [continuityStep] : [],
+        });
+        if (options.graph) registerBrunchContinuityGuard(api, options.graph);
+      },
       (api) => registerBrunchChrome(api, chrome),
       registerBrunchBranchPolicyHandlers,
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
@@ -150,10 +168,11 @@ export function createBrunchPiExtensions(
       ...(introspectionOptions?.enabled
         ? [
             (api: ExtensionAPI) => {
-              const { store, clock } = introspectionOptions;
+              const { store, clock, debugCache } = introspectionOptions;
               const introspectionStore = registerBrunchIntrospection(api, {
                 ...(store ? { store } : {}),
                 ...(clock ? { clock } : {}),
+                ...(debugCache ? { debugCache } : {}),
               });
               registerBrunchSessionQuery(api);
               registerBrunchIntrospectQuery(api, { store: introspectionStore });
@@ -166,4 +185,58 @@ export function createBrunchPiExtensions(
       await registerExtension(pi);
     }
   };
+}
+
+function createPrepareNextTurnContinuityStep(graph: BrunchGraphDeps): BrunchSessionBoundaryPipelineStep {
+  return ({ sessionManager }) => {
+    const result = prepareNextTurnForGraph(graph, sessionManager);
+    for (const entry of result.entriesToAppend) {
+      sessionManager.appendCustomEntry(entry.customType, entry.data);
+    }
+  };
+}
+
+function registerBrunchContinuityGuard(pi: ExtensionAPI, graph: BrunchGraphDeps): void {
+  pi.on('before_provider_request', async (_event, ctx) => {
+    const result = prepareNextTurnForGraph(graph, ctx.sessionManager as SessionManager);
+    if (result.entriesToAppend.length > 0) {
+      throw new Error(
+        'Continuity drift remained before provider request; prepareNextTurn must run before prompt composition.',
+      );
+    }
+  });
+}
+
+function prepareNextTurnForGraph(
+  graph: BrunchGraphDeps,
+  sessionManager: SessionManager,
+): PrepareNextTurnResult {
+  const snapshot = graph.reads.queryGraph(undefined, { visibility: 'all' });
+  return prepareNextTurn({
+    specId: graph.specId,
+    currentLsn: snapshot.lsn,
+    entries: sessionManager.getEntries(),
+    changes: graphChangesFromSnapshot(graph.specId, snapshot),
+  });
+}
+
+function graphChangesFromSnapshot(
+  specId: number,
+  snapshot: ReturnType<BrunchGraphDeps['reads']['queryGraph']>,
+): readonly GraphChangeItem[] {
+  return [
+    ...snapshot.nodes.map((node) => ({
+      specId,
+      lsn: node.updatedAtLsn,
+      entityId: node.id,
+      kind: node.kind,
+      title: node.title,
+    })),
+    ...snapshot.edges.map((edge) => ({
+      specId,
+      lsn: edge.updatedAtLsn,
+      entityId: edge.id,
+      kind: edge.category,
+    })),
+  ];
 }
