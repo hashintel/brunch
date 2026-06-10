@@ -77,6 +77,25 @@ npx @hashintel/brunch cook "$(pwd)" --spec=<specId> --policy=parallel
 
 Review the emitted YAML — verification targets must point at real test files.
 
+### Run all three demo specs end-to-end (SPEC → plan → cook)
+
+The three cook fixtures are also seeded as completed specs (reversed from their `plan.yaml`), so the
+orchestrator can be driven from spec truth — the build-architect re-derives the slice DAG the
+fixtures hand-author. Seed one, then plan + cook it; the loop does all three:
+
+```bash
+for s in parallel-utils-spec layered-todo-spec resilient-pipeline-spec; do
+  id=$(npm run seed -- "$s" | grep -oE 'project [0-9]+' | grep -oE '[0-9]+' | tail -1)
+  echo "▶ $s → spec $id"
+  npx tsx src/server/cli.ts plan "$id"                                   # architect emits plan.yaml
+  npx tsx src/server/cli.ts cook "$(pwd)" --spec="$id" --policy=parallel  # add --petrinaut-stream to watch live
+done
+```
+
+These are greenfield specs (cook runs in empty per-slice worktrees). Use `npm run seed -- <name>-spec`
+for one in isolation, or `<name>-kickoff` (e.g. `parallel-utils-kickoff`) to seed a blank spec and
+drive the interview live from scratch instead.
+
 ## 8. Inspect a run
 
 ```bash
