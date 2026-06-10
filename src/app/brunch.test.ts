@@ -12,7 +12,7 @@ import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from '../session/workspace-session-coordinator.js';
-import { runBrunchCli, type WebHostRunnerOptions } from './brunch.js';
+import { runBrunchCli } from './brunch.js';
 
 function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
   return {
@@ -74,20 +74,14 @@ function collectStream(stream: PassThrough): string[] {
 }
 
 describe('Brunch CLI dispatch', () => {
-  it('routes --mode web through an injectable web host runner', async () => {
-    let launchedWith: WebHostRunnerOptions | null = null;
-
-    const code = await runBrunchCli({
-      argv: ['--mode=web'],
-      cwd: '/tmp/brunch-project',
-      coordinator: coordinator(),
-      webHostRunner: async (options) => {
-        launchedWith = options;
-      },
-    });
-
-    expect(code).toBe(0);
-    expect(launchedWith).toMatchObject({ cwd: '/tmp/brunch-project' });
+  it('rejects --mode web as a deferred feature (web UI runs only as the TUI sidecar)', async () => {
+    await expect(
+      runBrunchCli({
+        argv: ['--mode=web'],
+        cwd: '/tmp/brunch-project',
+        coordinator: coordinator(),
+      }),
+    ).rejects.toThrow(/web mode is not available yet/u);
   });
 
   it('routes empty argv to the TUI launch path', async () => {

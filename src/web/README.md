@@ -2,7 +2,7 @@
 
 Canonical references: `docs/architecture/prd.md` §Browser / web client, `src/rpc/README.md`
 
-This directory owns the browser client for `brunch --mode web`. The browser is a thin remote head over the Brunch host: one React app, one WebSocket-backed Brunch JSON-RPC client, TanStack Router for route/data preloading, and TanStack Query for cache ownership and update scheduling.
+This directory owns the browser client served as the **TUI web sidecar**: when you launch the TUI (`brunch`, i.e. `--mode tui`), `runBrunchTui` starts a local web host and opens the browser to it. The browser is a thin remote head over the Brunch host: one React app, one WebSocket-backed Brunch JSON-RPC client, TanStack Router for route/data preloading, and TanStack Query for cache ownership and update scheduling. A standalone web-only mode (`--mode web`) is deferred — the web UI is not useful without the TUI driving the session — so it currently errors with a "not available yet" message.
 
 The web client must not read SQLite, Pi RPC, local JSONL, or `.brunch/workspace.json` directly. It speaks Brunch public RPC method names and renders product projections. Its current graph observer subset is `graph.overview` + `graph.nodeNeighborhood`; `src/graph/README.md` owns the observed-shape ledger and keeps additional graph-owned shapes deliberate rather than accidental bleed-through from agent/RPC needs.
 
@@ -47,14 +47,31 @@ web/
     brunch-updates.ts
       brunch.updated -> exact Query invalidation where possible
 
+  app-meta.ts
+    static product chrome (name/version/tagline) + home-path abbreviation
+    APP_VERSION injected from package.json via vite `__BRUNCH_VERSION__` define
+
+  components/
+    app-header.tsx  global header (product identity + workspace path)
+    icons.tsx       inline SVG glyphs (chevron / eye / eye-off), no icon dep
+    node-card.tsx   plane-accented node presentation primitives
+    drawer-card.tsx reusable card-with-collapsible-drawer
+
   routes/
     root.tsx
-      root subscription + `/` workspace/session proof route
+      root subscription + global-header layout (Outlet)
+      `/` index route: workspace spec list
     spec.tsx
       `/spec/$specId` loader primes workspace.state + graph.overview
+      renders the knowledge-graph structured list
 
-  features/graph/GraphOverview.tsx
-    read-only selected-spec graph projection
+  features/graph/
+    structured-list-view.tsx
+      read-only KnowledgeGraphView: counts sub-header + kind filter chips +
+      collapsible per-kind sections of node cards (ported from the prior
+      trunk's -structured-list-view, minus chat/annotate/inline-edit)
+    kind-display.ts
+      presentation-only kind section ordering + plural section labels
 
   *.test.tsx / *.test.ts
     component, route/cache, and transport oracles for current web proof

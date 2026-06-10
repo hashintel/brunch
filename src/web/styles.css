@@ -57,6 +57,12 @@
     color: var(--color-ink);
   }
 
+  /* App shell owns scrolling via internal overflow regions. */
+  html,
+  body {
+    overflow: hidden;
+  }
+
   button,
   input,
   textarea,

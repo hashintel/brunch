@@ -96,28 +96,29 @@ If they can, JSONL remains the transcript authority for the POC. If they cannot,
 
 ### User-facing modes
 
-Brunch should expose one local product with four presentation modes:
+Brunch is one local product driven by a single `--mode` flag. It currently exposes three presentation modes:
 
-1. `brunch-cli` - default TUI over the local agent host.
-2. `brunch-cli --mode web` - launches a local HTTP server and browser UI over the same host.
-3. `brunch-cli --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
-4. `brunch-cli --mode print` - runs one-shot, headless prompts for scripting and pipelines.
+1. `brunch-cli` (default; `--mode tui`) - TUI over the local agent host. While the TUI runs it also starts a read-only browser **sidecar** over the same host; the sidecar is not a separate mode.
+2. `brunch-cli --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
+3. `brunch-cli --mode print` - runs one-shot, headless prompts for scripting and pipelines.
 
-These modes are not four different products. They are four ways of driving one Brunch host.
+A standalone web mode is a **planned future feature**, not a current `--mode` value: the browser UI is useless without the TUI driving the session, so for now it ships only as the TUI sidecar. `--mode web` currently errors with "not available yet."
+
+These modes are not different products. They are ways of driving one Brunch host.
 
 ### Human-interactive versus headless behavior
 
 Brunch should explicitly separate capabilities that can run unattended from capabilities that require a live human.
 
 - Reads, queries, subscriptions, and safe agent-owned writes should work across all modes.
-- Confirmation-gated or human-only actions should be native in TUI and web, routable in RPC, and rejected or auto-policy-gated in print mode.
+- Confirmation-gated or human-only actions should be native in the TUI (and the planned web surface), routable in RPC, and rejected or auto-policy-gated in print mode.
 - `needs_human` should be a first-class structured outcome rather than an exceptional failure path.
 
 ### Mode Capability Matrix
 
-Not every capability is symmetric across all four modes. The asymmetry follows from the medium, not from a split architecture.
+Not every capability is symmetric across modes. The asymmetry follows from the medium, not from a split architecture. The Web column describes the **planned** web surface (a future mode); today the browser appears only as the read-only TUI sidecar.
 
-| Capability | TUI | Web | Print | RPC |
+| Capability | TUI | Web (planned) | Print | RPC |
 | --- | --- | --- | --- | --- |
 | Read graph state / queries | yes | yes | yes | yes |
 | Write agent-owned graph fields | yes | yes | yes | yes |
@@ -143,9 +144,9 @@ Brunch should be structured as a local host with shared storage, shared mutation
           |                            |                            |
           v                            v                            v
     +-----------+               +-------------+               +-----------+
-    | TUI mode   |               | web mode    |               | rpc/print |
-    | pi-driven  |               | local HTTP  |               | adapters  |
-    | surface    |               | + WS shell  |               |           |
+    | TUI mode   |               | web sidecar |               | rpc/print |
+    | pi-driven  |               | (TUI-driven)|               | adapters  |
+    | surface    |               |  planned    |               |           |
     +-----+------+               +------+------+               +-----+-----+
           |                             |                            |
           +-----------------------------+----------------------------+
@@ -538,7 +539,7 @@ Prove whether pi JSONL sessions are sufficient as the transcript authority for t
 
 Prove the browser can be a thin remote head over the same Brunch host.
 
-- `--mode web` serves a native Brunch React app
+- the browser is served as a read-only **TUI sidecar** (standalone `--mode web` is deferred to a future milestone)
 - the app uses TanStack Router and TanStack Query over one WebSocket RPC client
 - no second backend API is invented
 
@@ -595,7 +596,7 @@ Prove that long-running sessions remain grounded.
 
 1. A user starts `brunch` in a project directory, creates the first graph items with the agent, quits, and resumes later with all state preserved under `.brunch/`.
 2. Raw assistant and user turn payloads, plus Brunch-specific turn data, survive reload through pi JSONL sessions or a clearly justified fallback.
-3. A user opens TUI and web mode against the same workspace, edits graph items in one surface, and sees the other surface update live through subscriptions.
+3. A user runs the TUI and opens the read-only web sidecar against the same workspace; edits made via the TUI/agent appear live in the sidecar through subscriptions. (Editing from the browser is a future web-mode capability.)
 4. A second session or direct edit changes an item relevant to the first session; the next agent turn receives a `worldUpdate` and reacts coherently.
 5. A change introduces a semantic graph violation; the UI shows coherence as degraded and the agent is informed on the next turn.
 6. The agent attempts a human-gated change in print or RPC mode and receives a structured `needs_human` or version-conflict response instead of silently mutating state.

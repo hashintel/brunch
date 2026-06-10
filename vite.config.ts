@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -7,8 +9,13 @@ import { defineConfig } from 'vite';
 // NodeNext convention instead.)
 import { piSourceAlias } from './src/dev/pi-source-alias.ts';
 
+const { version } = createRequire(import.meta.url)('./package.json') as { version: string };
+
 export default defineConfig(() => ({
   plugins: [react(), tailwindcss()],
+  define: {
+    __BRUNCH_VERSION__: JSON.stringify(version),
+  },
   resolve: {
     alias: piSourceAlias(),
   },
