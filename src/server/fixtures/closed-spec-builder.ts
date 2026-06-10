@@ -242,20 +242,34 @@ export function seedClosedSpecFromKnowledge(
     linkKnowledgeItemToTurn(db, create(item), turn.id, 'captured');
     designHead = turn.id;
   }
+  const designProposalTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: designHead,
+    question: '',
+    answer: 'We have enough design context',
+  });
+  updateTurn(db, designProposalTurn.id, {
+    assistant_parts: serializeFixturePhaseProposalAssistantParts({
+      turnId: designProposalTurn.id,
+      phase: 'design',
+      summary: summaries.design,
+    }),
+  });
+  advanceHead(db, projectId, designProposalTurn.id);
   const designOutcome = createPhaseOutcome(db, {
     specificationId: projectId,
     phase: 'design',
-    proposal_turn_id: designHead,
+    proposal_turn_id: designProposalTurn.id,
     summary: summaries.design,
   });
   const designConfirmationTurn = createTurn(db, projectId, {
     phase: 'design',
-    parent_turn_id: designHead,
+    parent_turn_id: designProposalTurn.id,
     question: '',
     answer: 'Confirm elicitation closure',
     user_parts: serializeFixturePhaseConfirmationUserParts({
       phase: 'design',
-      proposalTurnId: designHead,
+      proposalTurnId: designProposalTurn.id,
     }),
   });
   confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
