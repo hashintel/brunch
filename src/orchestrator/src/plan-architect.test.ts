@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { architectPlan } from './plan-architect.js';
+import { architectDraftSchema, architectPlan } from './plan-architect.js';
 import type { Plan } from './types.js';
 
 const projected: Plan = {
@@ -57,6 +57,30 @@ describe('architectPlan', () => {
       expect(result.draft.slices[1]!.writes).toEqual(['src/a.ts']);
       expect(result.draft.slices[1]!.derivedFrom).toEqual(['req-1']);
       expect(result.draft.nonBuildableRequirementIds).toEqual(['req-2']);
+    }
+  });
+
+  it('rejects duplicate epic ids in the architect draft schema', () => {
+    const parsed = architectDraftSchema.safeParse({
+      epics: [
+        { id: 'core', summary: 'Core' },
+        { id: 'core', summary: 'Duplicate core' },
+      ],
+      slices: [
+        {
+          id: 'a',
+          epic_id: 'core',
+          definition: 'A',
+          depends_on: [],
+          writes: ['src/a.ts'],
+          derivedFrom: ['req-1'],
+        },
+      ],
+      nonBuildableRequirementIds: [],
+    });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues.some((issue) => issue.message.includes('Duplicate epic id'))).toBe(true);
     }
   });
 

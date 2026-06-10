@@ -167,6 +167,15 @@ describe('materializeArchitectedPlan', () => {
     });
     const edgeCount = core.depends_on.length + cli.depends_on.length;
     expect(edgeCount).toBeLessThanOrEqual(1);
+    const epicCycleWarnings = warnings.filter((warning) => warning.code === 'cycle-break-dropped-epic-edge');
+    expect(epicCycleWarnings.length).toBeGreaterThan(0);
+    for (const warning of epicCycleWarnings) {
+      expect(warning).toMatchObject({
+        code: 'cycle-break-dropped-epic-edge',
+        epicId: expect.stringMatching(/^(core|cli)$/),
+      });
+      expect('sliceId' in warning).toBe(false);
+    }
   });
 
   it('warns when an epic gate points at an epic dropped for being empty', () => {

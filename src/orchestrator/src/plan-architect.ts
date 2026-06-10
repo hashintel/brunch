@@ -49,16 +49,29 @@ export const architectDraftSchema = z
     nonBuildableRequirementIds: z.array(z.string()),
   })
   .superRefine((draft, ctx) => {
-    const seen = new Set<string>();
+    const seenSliceIds = new Set<string>();
     for (const [index, slice] of draft.slices.entries()) {
-      if (seen.has(slice.id)) {
+      if (seenSliceIds.has(slice.id)) {
         ctx.addIssue({
           code: 'custom',
           message: `Duplicate slice id: ${slice.id}`,
           path: ['slices', index, 'id'],
         });
       } else {
-        seen.add(slice.id);
+        seenSliceIds.add(slice.id);
+      }
+    }
+
+    const seenEpicIds = new Set<string>();
+    for (const [index, epic] of draft.epics.entries()) {
+      if (seenEpicIds.has(epic.id)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Duplicate epic id: ${epic.id}`,
+          path: ['epics', index, 'id'],
+        });
+      } else {
+        seenEpicIds.add(epic.id);
       }
     }
   });

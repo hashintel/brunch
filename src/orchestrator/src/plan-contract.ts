@@ -62,6 +62,7 @@ export type ContractFinding =
   | { code: 'multi-slice-epic-missing-integration-seam'; severity: 'warning' | 'error'; epicId: string }
   | { code: 'uncovered-requirement'; severity: 'error'; sliceId: string }
   | { code: 'duplicate-slice-id'; severity: 'error'; sliceId: string }
+  | { code: 'duplicate-epic-id'; severity: 'error'; epicId: string }
   | { code: 'file-write-conflict'; severity: 'warning'; path: string; sliceIds: string[] };
 
 export interface ContractResult {
@@ -93,6 +94,15 @@ export function checkPlan(plan: Plan, expectations: ContractExpectations = {}): 
       findings.push({ code: 'duplicate-slice-id', severity: 'error', sliceId: slice.id });
     } else {
       seenSliceIds.add(slice.id);
+    }
+  }
+
+  const seenEpicIds = new Set<string>();
+  for (const epic of plan.epics) {
+    if (seenEpicIds.has(epic.id)) {
+      findings.push({ code: 'duplicate-epic-id', severity: 'error', epicId: epic.id });
+    } else {
+      seenEpicIds.add(epic.id);
     }
   }
 

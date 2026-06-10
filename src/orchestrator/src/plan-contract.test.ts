@@ -104,6 +104,19 @@ describe('checkPlan', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('flags duplicate epic ids', () => {
+    const result = checkPlan(
+      plan([epic('core'), epic('core', { summary: 'duplicate' })], [slice('a', 'core')]),
+      { profile: 'emitted' },
+    );
+    expect(result.findings).toContainEqual({
+      code: 'duplicate-epic-id',
+      severity: 'error',
+      epicId: 'core',
+    });
+    expect(result.ok).toBe(false);
+  });
+
   it('flags a self-dependency', () => {
     const result = checkPlan(plan([epic('e')], [slice('a', 'e', { depends_on: ['a'] })]));
     expect(result.findings).toContainEqual({ code: 'self-dependency', severity: 'error', sliceId: 'a' });

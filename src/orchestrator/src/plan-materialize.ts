@@ -33,7 +33,8 @@ export interface CoverageExpectations {
 export type MaterializeWarning =
   | ReconciliationWarning
   | { code: 'dropped-unknown-requirement-ref'; sliceId: string; requirementId: string }
-  | { code: 'dropped-epic-dependency-nonexistent-id'; epicId: string; missingId: string };
+  | { code: 'dropped-epic-dependency-nonexistent-id'; epicId: string; missingId: string }
+  | { code: 'cycle-break-dropped-epic-edge'; epicId: string; droppedDependsOn: string };
 
 export function materializeArchitectedPlan(
   projected: Plan,
@@ -167,8 +168,8 @@ export function materializeArchitectedPlan(
   );
   for (const edge of droppedEpicEdges) {
     warnings.push({
-      code: 'cycle-break-dropped-edge',
-      sliceId: edge.sliceId,
+      code: 'cycle-break-dropped-epic-edge',
+      epicId: edge.sliceId,
       droppedDependsOn: edge.dependsOn,
     });
   }
