@@ -145,6 +145,7 @@ export async function emitPlanFromSnapshot(
 
   const architectResult = await architectPlan(projected, runModel, planningContext);
 
+<<<<<<< HEAD
   // Selection chain: flag ≫ detected (brownfield) ≫ spec ≫ architect-classified
   // ≫ bun. Resolved exactly once, here; both paths below stamp the result onto
   // the emitted plan. A failed architect simply skips its rung.
@@ -170,6 +171,14 @@ export async function emitPlanFromSnapshot(
     const testDir = (options.detectTestDir ?? detectTestDir)(options.repoDir);
     if (testDir !== null) toolchain = withTestDir(toolchain, testDir);
   }
+=======
+  // Selection chain: explicit flag ≫ spec profile ≫ architect-classified ≫
+  // bun. Resolved exactly once, here; both paths below stamp the result onto
+  // the emitted plan. A failed architect simply skips its rung.
+  const classified = architectResult.status === 'succeeded' ? architectResult.draft.profile : null;
+  const profile: ProfileId = options.profile ?? projected.profile ?? classified ?? 'bun';
+  const toolchain = options.toolchain ?? resolveToolchain(profile);
+>>>>>>> b84fbda3 (FE-843: Architect classifies the toolchain profile from spec prose)
 
   if (architectResult.status === 'failed') {
     return fallback(projected, profile, toolchain, architectResult, architectResult.reason);
