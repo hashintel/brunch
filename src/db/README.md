@@ -1,6 +1,6 @@
 # db/ — Persistence substrate
 
-SPEC decisions: D16-L, D41-L, D52-L, D54-L, D62-L
+SPEC decisions: D16-L, D41-L, D52-L, D54-L, D62-L, D75-L
 
 ## Owns
 
@@ -105,8 +105,10 @@ a bare LSN is comparable only inside one spec.
 
 `elicitation_gaps` is the prospective sibling of `reconciliation_need`: a
 flat typed coverage-obligation register, not a graph plane or node table. It
-stores obligation/disposition/meta only; graph-owned command/query code derives
-structural coverage from graph truth at read time.
+stores obligation/disposition/meta only: `refers_to` names the graph node kind
+that the obligation points at, `question` carries situated elicitor prose, and
+graph-owned command/query code derives structural coverage from graph truth at
+read time.
 
 `nodes.kind_ordinal` is persisted as the storage half of the D62-L projected-code
 contract. `node_kind_counters` owns monotonic per-`(spec_id, plane, kind)`

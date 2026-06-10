@@ -1,7 +1,7 @@
 # graph/ — Graph domain layer
 
 Canonical reference: `docs/design/GRAPH_MODEL.md`
-SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L
+SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D75-L
 
 ## Owns
 
@@ -11,6 +11,8 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
   and structured command results. It also owns prospective-register writes for
   `elicitation_gaps` (`createSpec` seeding plus create/disposition commands),
   because the gap register shares the same spec-local LSN and audit boundary.
+  Gaps name obligations by `refersTo: NodeKind` + free-form `question`, not
+  a parallel typology enum.
 
 - **mutateGraph** — atomic graph mutation for direct writers and future curation:
   one tool call, one transaction, one selected-spec LSN, all-or-nothing. The
@@ -38,8 +40,8 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
 
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
-  `ReconciliationNeed`, `ElicitationGap`, kind/category types,
-  per-kind node ordinals, and derived intent-kind grouping. Raw domain enum
+  `ReconciliationNeed`, `ElicitationGap` (`refersTo` + `question`),
+  kind/category types, per-kind node ordinals, and derived intent-kind grouping. Raw domain enum
   taxonomy lives in the zero-import `schema/kinds.ts` leaf so web-facing graph
   imports do not pull in Drizzle.
 

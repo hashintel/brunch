@@ -414,7 +414,8 @@ describe('CommandExecutor', () => {
       expect(
         db
           .select({
-            name: elicitationGaps.name,
+            refersTo: elicitationGaps.refers_to,
+            question: elicitationGaps.question,
             disposition: elicitationGaps.disposition,
             basis: elicitationGaps.basis,
             readinessBand: elicitationGaps.readiness_band,
@@ -429,21 +430,20 @@ describe('CommandExecutor', () => {
           .all(),
       ).toEqual(
         [
-          'domain',
-          'protagonist',
-          'pain_pull',
-          'constraint',
-          'value',
-          'context_of_use',
-          'success_sketch',
-          'solution_boundary',
-        ].map((name, index) => ({
-          name,
+          ['context', 'What kind of thing is this, and what domain or environment does it live in?', 3],
+          ['thesis', 'Who is this for, and what pull or pain makes it worth doing?', 3],
+          ['goal', 'What outcome or value should this create?', 3],
+          ['constraint', 'What binding constraints, non-goals, or boundaries already shape the work?', 3],
+          ['term', 'What key word or domain term needs a shared definition?', 1],
+          ['assumption', 'What are we assuming that might be false?', 1],
+        ].map(([refersTo, question, importance]) => ({
+          refersTo,
+          question,
           disposition: 'open',
           basis: 'implicit',
           readinessBand: 'grounding',
           predicateKind: 'presence',
-          importance: index < 4 ? 3 : 1,
+          importance,
           planeAffinity: 'intent',
           lensAffinity: 'intent',
           createdAtLsn: result.lsn,
@@ -664,7 +664,8 @@ describe('CommandExecutor', () => {
     it('creates an open gap and preserves the arose-from pointer', () => {
       const parent = executor.createElicitationGap({
         specId,
-        name: 'domain',
+        refersTo: 'context',
+        question: 'What kind of product is this?',
         rationale: 'Name the product domain.',
         band: 'grounding',
         predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
@@ -676,10 +677,11 @@ describe('CommandExecutor', () => {
 
       const child = executor.createElicitationGap({
         specId,
-        name: 'follow_on',
+        refersTo: 'thesis',
+        question: 'Which user is blocked most by the current version?',
         rationale: 'Clarify which user is blocked most by the current version.',
         band: 'grounding',
-        predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
+        predicate: { kind: 'presence', plane: 'intent', nodeKind: 'thesis', minimum: 1 },
         planeAffinity: 'intent',
         lensAffinity: 'intent',
         aroseFromGapId: parent.id,
@@ -690,7 +692,8 @@ describe('CommandExecutor', () => {
 
       expect(db.select().from(elicitationGaps).where(eq(elicitationGaps.id, child.id)).get()).toMatchObject({
         spec_id: specId,
-        name: 'follow_on',
+        refers_to: 'thesis',
+        question: 'Which user is blocked most by the current version?',
         rationale: 'Clarify which user is blocked most by the current version.',
         disposition: 'open',
         basis: 'explicit',
@@ -707,16 +710,24 @@ describe('CommandExecutor', () => {
     it('rejects malformed gaps without writing rows or advancing the clock', () => {
       const result = executor.createElicitationGap({
         specId,
-        name: '   ',
+        refersTo: 'not_a_kind' as never,
+        question: '   ',
         rationale: '   ',
         band: 'later' as never,
-        predicate: { kind: 'presence', minimum: 0 },
+        predicate: { kind: 'presence', minimum: 0, nodeKind: 'not_a_kind' as never },
       });
 
       expect(result.status).toBe('structural_illegal');
       if (result.status !== 'structural_illegal') throw new Error('unreachable');
       expect(result.diagnostics.map((diagnostic) => diagnostic.field)).toEqual(
-        expect.arrayContaining(['name', 'rationale', 'band', 'predicate.minimum']),
+        expect.arrayContaining([
+          'refersTo',
+          'question',
+          'rationale',
+          'band',
+          'predicate.minimum',
+          'predicate.nodeKind',
+        ]),
       );
       expect(db.select().from(elicitationGaps).all()).toEqual([]);
       expect(graphClockLsn(db, specId)).toBe(0);
@@ -728,7 +739,8 @@ describe('CommandExecutor', () => {
     it('sets a non-derivable disposition and records resolvedByNodeId and dispositionSetAtLsn', () => {
       const entry = executor.createElicitationGap({
         specId,
-        name: 'manual_grounding',
+        refersTo: 'thesis',
+        question: 'Is the audience and pain clear enough?',
         rationale: 'Judge whether grounding is sufficient.',
         band: 'grounding',
         predicate: { kind: 'manual', rubric: 'Sufficiently grounded for generative work.' },
@@ -770,7 +782,8 @@ describe('CommandExecutor', () => {
     it('rejects hand-setting answered for structural predicates', () => {
       const entry = executor.createElicitationGap({
         specId,
-        name: 'domain',
+        refersTo: 'context',
+        question: 'What kind of product is this?',
         rationale: 'Name the product domain.',
         band: 'grounding',
         predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
@@ -795,7 +808,8 @@ describe('CommandExecutor', () => {
     it('rejects a resolved-by node from another spec', () => {
       const entry = executor.createElicitationGap({
         specId,
-        name: 'manual_grounding',
+        refersTo: 'thesis',
+        question: 'Is the audience and pain clear enough?',
         rationale: 'Judge whether grounding is sufficient.',
         band: 'grounding',
         predicate: { kind: 'manual', rubric: 'Sufficiently grounded for generative work.' },

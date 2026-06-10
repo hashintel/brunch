@@ -94,7 +94,7 @@ describe('getElicitationGaps', () => {
     expect(other.status).toBe('success');
     if (other.status !== 'success') throw new Error('unreachable');
 
-    const before = getElicitationGaps(db, specId).find((gap) => gap.name === 'domain')!;
+    const before = getElicitationGaps(db, specId).find((gap) => gap.refersTo === 'context')!;
     expect(before.coverage).toBe(0);
     expect(before.answered).toBe(false);
     expect(before.disposition).toBe('open');
@@ -107,13 +107,18 @@ describe('getElicitationGaps', () => {
     });
     expect(resolvedNode.status).toBe('success');
 
-    const after = getElicitationGaps(db, specId).find((gap) => gap.name === 'domain')!;
+    const after = getElicitationGaps(db, specId).find((gap) => gap.refersTo === 'context')!;
     expect(after.coverage).toBe(1);
     expect(after.answered).toBe(true);
     expect(after.disposition).toBe('answered');
 
-    expect(getElicitationGaps(db, specId)).toHaveLength(8);
-    expect(getElicitationGaps(db, other.specId)).toHaveLength(8);
-    expect(getElicitationGaps(db, other.specId).find((gap) => gap.name === 'domain')!.answered).toBe(false);
+    expect(before.question).toBe(
+      'What kind of thing is this, and what domain or environment does it live in?',
+    );
+    expect(getElicitationGaps(db, specId)).toHaveLength(6);
+    expect(getElicitationGaps(db, other.specId)).toHaveLength(6);
+    expect(getElicitationGaps(db, other.specId).find((gap) => gap.refersTo === 'context')!.answered).toBe(
+      false,
+    );
   });
 });

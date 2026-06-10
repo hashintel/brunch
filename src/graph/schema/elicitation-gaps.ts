@@ -44,7 +44,8 @@ export type GapPredicate =
 export interface ElicitationGap {
   readonly id: string;
   readonly specId: number;
-  readonly name: string;
+  readonly refersTo: NodeKind;
+  readonly question: string;
   readonly rationale: string;
   readonly basis: NodeBasis;
   readonly band: ReadinessBand;

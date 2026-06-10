@@ -47,7 +47,7 @@ import {
   READINESS_BANDS,
   READINESS_GRADES,
 } from './schema/kinds.js';
-import { type NodeBasis, type NodePlane, type ReadinessBand } from './schema/nodes.js';
+import { type NodeBasis, type NodeKind, type NodePlane, type ReadinessBand } from './schema/nodes.js';
 
 export type ReadinessGrade = (typeof READINESS_GRADES)[number];
 export type {
@@ -213,7 +213,8 @@ export interface AcceptReviewSetInput {
 /** Input for creating an elicitation gap. */
 export interface CreateElicitationGapInput {
   readonly specId: number;
-  readonly name: string;
+  readonly refersTo: NodeKind;
+  readonly question: string;
   readonly rationale: string;
   readonly basis?: NodeBasis | undefined;
   readonly band: ReadinessBand;
@@ -296,12 +297,19 @@ const KINDS_REQUIRING_DETAIL = new Set<string>(['decision', 'term']);
 const VALID_READINESS_GRADES = READINESS_GRADES as unknown as string[];
 const VALID_NODE_BASES = NODE_BASES as unknown as string[];
 const VALID_READINESS_BANDS = READINESS_BANDS as unknown as string[];
+const VALID_NODE_KINDS = [
+  ...INTENT_KINDS,
+  ...ORACLE_KINDS,
+  ...DESIGN_KINDS,
+  ...PLAN_KINDS,
+] as readonly string[];
 const VALID_GAP_DISPOSITIONS = GAP_DISPOSITIONS as unknown as string[];
 const VALID_GAP_PREDICATE_KINDS = GAP_PREDICATE_KINDS as unknown as string[];
 const VALID_LENS_AFFINITIES = LENS_AFFINITIES as unknown as string[];
 
 const SEEDED_ELICITATION_GAPS: readonly {
-  readonly name: string;
+  readonly refersTo: NodeKind;
+  readonly question: string;
   readonly rationale: string;
   readonly basis: NodeBasis;
   readonly band: ReadinessBand;
@@ -311,7 +319,8 @@ const SEEDED_ELICITATION_GAPS: readonly {
   readonly lensAffinity: ElicitationGapLensAffinity;
 }[] = [
   {
-    name: 'domain',
+    refersTo: 'context',
+    question: 'What kind of thing is this, and what domain or environment does it live in?',
     rationale: 'Anchors what kind of thing is being specified and the domain it belongs to.',
     basis: 'implicit',
     band: 'grounding',
@@ -321,18 +330,20 @@ const SEEDED_ELICITATION_GAPS: readonly {
     lensAffinity: 'intent',
   },
   {
-    name: 'protagonist',
-    rationale: 'Identifies who the spec is for or who is most affected by the outcome.',
+    refersTo: 'thesis',
+    question: 'Who is this for, and what pull or pain makes it worth doing?',
+    rationale: 'Identifies the primary audience and why the work matters for them.',
     basis: 'implicit',
     band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'thesis', minimum: 1 },
     importance: 3,
     planeAffinity: 'intent',
     lensAffinity: 'intent',
   },
   {
-    name: 'pain_pull',
-    rationale: 'States the problem, pain, or pull that makes the work worth doing.',
+    refersTo: 'goal',
+    question: 'What outcome or value should this create?',
+    rationale: 'Clarifies the desired outcome or payoff the work should create.',
     basis: 'implicit',
     band: 'grounding',
     predicate: { kind: 'presence', plane: 'intent', nodeKind: 'goal', minimum: 1 },
@@ -341,7 +352,8 @@ const SEEDED_ELICITATION_GAPS: readonly {
     lensAffinity: 'intent',
   },
   {
-    name: 'constraint',
+    refersTo: 'constraint',
+    question: 'What binding constraints, non-goals, or boundaries already shape the work?',
     rationale: 'Captures binding constraints or non-negotiable boundaries already shaping the work.',
     basis: 'implicit',
     band: 'grounding',
@@ -351,41 +363,23 @@ const SEEDED_ELICITATION_GAPS: readonly {
     lensAffinity: 'intent',
   },
   {
-    name: 'value',
-    rationale: 'Clarifies the benefit or value the work should create.',
+    refersTo: 'term',
+    question: 'What key word or domain term needs a shared definition?',
+    rationale: 'Pins ubiquitous language before naming drift becomes specification ambiguity.',
     basis: 'implicit',
     band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'goal', minimum: 1 },
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'term', minimum: 1 },
     importance: 1,
     planeAffinity: 'intent',
     lensAffinity: 'intent',
   },
   {
-    name: 'context_of_use',
-    rationale: 'Describes when, where, or under what conditions the result will be used.',
+    refersTo: 'assumption',
+    question: 'What are we assuming that might be false?',
+    rationale: 'Surfaces early bets and fragility without turning them into hidden readiness gates.',
     basis: 'implicit',
     band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
-    importance: 1,
-    planeAffinity: 'intent',
-    lensAffinity: 'intent',
-  },
-  {
-    name: 'success_sketch',
-    rationale: 'Sketches what success looks like or how goodness will be recognized.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'criterion', minimum: 1 },
-    importance: 1,
-    planeAffinity: 'intent',
-    lensAffinity: 'intent',
-  },
-  {
-    name: 'solution_boundary',
-    rationale: 'Names non-goals or boundaries around what the solution is explicitly not.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'constraint', minimum: 1 },
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'assumption', minimum: 1 },
     importance: 1,
     planeAffinity: 'intent',
     lensAffinity: 'intent',
@@ -436,6 +430,9 @@ function validateGapPredicate(predicate: GapPredicate, diagnostics: Diagnostic[]
     }
     if (predicate.band !== undefined && !isReadinessBand(predicate.band)) {
       diagnostics.push({ field: 'predicate.band', message: 'band is not valid' });
+    }
+    if (predicate.nodeKind !== undefined && !VALID_NODE_KINDS.includes(predicate.nodeKind)) {
+      diagnostics.push({ field: 'predicate.nodeKind', message: 'node kind is not valid' });
     }
     if (predicate.nodeKind === undefined && predicate.band === undefined) {
       diagnostics.push({ field: 'predicate', message: 'presence predicate needs nodeKind or band' });
@@ -582,8 +579,12 @@ function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
 function validateCreateElicitationGap(input: CreateElicitationGapInput): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
-  if (!input.name.trim()) {
-    diagnostics.push({ field: 'name', message: 'name must be non-empty' });
+  if (!VALID_NODE_KINDS.includes(input.refersTo)) {
+    diagnostics.push({ field: 'refersTo', message: `"${String(input.refersTo)}" is not a valid node kind` });
+  }
+
+  if (!input.question.trim()) {
+    diagnostics.push({ field: 'question', message: 'question must be non-empty' });
   }
 
   if (!input.rationale.trim()) {
@@ -775,7 +776,8 @@ export class CommandExecutor {
       .values(
         SEEDED_ELICITATION_GAPS.map((entry) => ({
           spec_id: specId,
-          name: entry.name,
+          refers_to: entry.refersTo,
+          question: entry.question,
           rationale: entry.rationale,
           basis: entry.basis,
           readiness_band: entry.band,
@@ -886,7 +888,8 @@ export class CommandExecutor {
         .insert(schema.elicitationGaps)
         .values({
           spec_id: input.specId,
-          name: input.name.trim(),
+          refers_to: input.refersTo,
+          question: input.question.trim(),
           rationale: input.rationale.trim(),
           basis: input.basis ?? 'explicit',
           readiness_band: input.band,
@@ -909,7 +912,7 @@ export class CommandExecutor {
           payload: JSON.stringify({
             id: entry!.id,
             specId: input.specId,
-            name: input.name.trim(),
+            refersTo: input.refersTo,
             band: input.band,
             predicateKind: input.predicate.kind,
             planeAffinity: input.planeAffinity,

@@ -379,7 +379,8 @@ function rowToElicitationGap(db: BrunchDb, row: typeof schema.elicitationGaps.$i
   const entry: MutableElicitationGap = {
     id: String(row.id),
     specId: row.spec_id,
-    name: row.name,
+    refersTo: row.refers_to as ElicitationGap['refersTo'],
+    question: row.question,
     rationale: row.rationale,
     disposition,
     basis: row.basis as ElicitationGap['basis'],

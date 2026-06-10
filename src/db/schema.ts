@@ -151,7 +151,8 @@ export const elicitationGaps = sqliteTable('elicitation_gaps', {
   spec_id: integer()
     .notNull()
     .references(() => specs.id),
-  name: text().notNull(),
+  refers_to: text().notNull(),
+  question: text().notNull(),
   rationale: text().notNull(),
   disposition: text({ enum: GAP_DISPOSITIONS }).notNull().default('open'),
   basis: text({ enum: NODE_BASES }).notNull().default('explicit'),

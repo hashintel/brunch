@@ -88,8 +88,8 @@ per ledger row:
 
 Post-`ln-spec` implications that are **upstream** of the context-pipeline trio's readiness/chrome-touching locks (see Context §Readiness / elicitation-gaps remodel). Land the hard chain before stage 1 freezes `workspace/workspace-state` + `session/runtime-state` shapes, or bracket those fields in the trio.
 
-1. `gaps-node-kind-reference` — **depends on `elicitation-gaps-remodel` (done).** Reshape the gaps substrate onto node kinds per D75-L: `refersTo: NodeKind` + a free-form `question` replaces the typology `name` enum; reseed grounding by node kind (floor `context`/`thesis`/`goal`/`constraint` plus the now-covered `term`/`assumption`); `capability → NodeKind[]` replaces `RelevantGapName`. Absorbs the retired refactor plan (folded into D75-L). Upstream of `capability-readiness`.
-2. `capability-readiness` — **depends on `gaps-node-kind-reference`.** Replace the stored-grade gate (`readiness_grade`, `updateReadinessGrade`, `READINESS_GRADES`, `MIN_GRADE` proxies) with JIT capability→relevant-gaps judgment over the node-kind map; add the soft derived `readiness estimate` (UI-only); remove `chrome.phase` / `chrome.chatMode`.
+1. `gaps-node-kind-reference` — **done 2026-06-10.** Reshaped the gaps substrate onto node kinds per D75-L: `refersTo: NodeKind` + a free-form `question` replaced the typology `name` enum; reseeded grounding by node kind (floor `context`/`thesis`/`goal`/`constraint` plus `term`/`assumption`); `capability → NodeKind[]` replaced `RelevantGapName`. Absorbed the retired refactor plan (folded into D75-L).
+2. `capability-readiness` — **depends on `gaps-node-kind-reference` (done).** Replace the stored-grade gate (`readiness_grade`, `updateReadinessGrade`, `READINESS_GRADES`, `MIN_GRADE` proxies) with JIT capability→relevant-gaps judgment over the node-kind map; add the soft derived `readiness estimate` (UI-only); remove `chrome.phase` / `chrome.chatMode`.
 
 ### Next
 
@@ -206,7 +206,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Name:** Gaps reference node kinds; retire the grounding-typology vocabulary (D75-L)
 - **Linear:** unassigned — create in FE / brunch when the frontier starts.
 - **Kind:** structural
-- **Status:** next (heads the readiness chain, ahead of `capability-readiness`)
+- **Status:** done
 - **Certainty:** proving
 - **Depends on:** `elicitation-gaps-remodel` (done — reshapes its `name`-typology output onto node kinds).
 - **Retires:** the `GROUNDING_GAP_TYPOLOGIES` seed catalog (8 typology names), the closed gap-`name` typology enum, and `capability-readiness`'s `RelevantGapName` union (D75-L); absorbs the retired refactor plan, folded into D75-L (do not enshrine the catalog).
@@ -224,7 +224,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Cross-cutting obligations:** anti-shadowing (D65-L/D75-L) — the table never stores domain content; the `NodeKind` union stays owned by the drizzle-free leaf `graph/schema/kinds.ts` (D73-L) — gaps import it, never redefine it; the `CommandExecutor` boundary + shared `{specId, lsn}` / `change_log` clock are unchanged.
 - **Traceability:** D54-L, D56-L, D57-L, D60-L, D64-L, D65-L, D73-L, D74-L, D75-L / A24-L, A27-L / I30-L. Supersedes the grounding typology catalog, the gap-`name` typology enum, and `RelevantGapName`; absorbs the retired refactor plan.
 - **Design docs:** `memory/SPEC.md` D75-L / D65-L; `docs/design/ELICITATION_QUESTIONS.md`; `src/graph/schema/elicitation-gaps.ts`; `src/graph/command-executor.ts`; `src/projections/session/capability-readiness.ts`; `src/graph/README.md`; `src/db/README.md`; `src/projections/README.md`.
-- **Current execution pointer:** `memory/cards/gaps-node-kind-reference--node-kind-reference.md` (active, single full card).
+- **Current execution pointer:** Done 2026-06-10. Replaced gap `name` with `refersTo: NodeKind` + `question` across schema, DB, `CommandExecutor`, reads, and capability-readiness; added migration `0004_gaps_node_kind_reference`; reseeded grounding by node kind (`context`, `thesis`, `goal`, `constraint`, plus `term`/`assumption`); proved live presence coverage still flips, required-kind absence fails loud, and two `thesis` gaps discriminate independently by question+satisfier. Topology READMEs reconciled.
 
 ### capability-readiness
 
@@ -665,7 +665,7 @@ nodes:
   renderer-golden-coverage       [next · coverage]   TRIO stage 2 (#render, RENDER): create renderer ledger + golden-lock every durable renderer; depends on projection-shape-coverage
   prompt-composition-golden-coverage [next · coverage] TRIO stage 3 (#compose, COMPOSE): composed-prompt preview + golden-lock partials/composition matrix; depends on renderer-golden-coverage
   elicitation-gaps-remodel       [done · proving]    remodeled elicitation_gaps obligation register; live presence derivation (grounding typology catalog superseded by gaps-node-kind-reference, D75-L)
-  gaps-node-kind-reference       [next · proving]    reshape gaps onto node kinds (refersTo NodeKind + question); reseed grounding by kind; capability->NodeKind[] replaces RelevantGapName; absorbs retired refactor plan (D75-L)
+  gaps-node-kind-reference       [done · proving]    D75-L node-kind gap reference landed; typology name/RelevantGapName retired; same-kind discrimination probe covered
   capability-readiness           [next · proving]    JIT capability->relevant-gaps gate + readiness estimate (UI-only); retire readiness_grade / MIN_GRADE / chrome.phase+chatMode
   runtime-vocab-leaf             [parallel · proving] src/session/schema/kinds.ts source-of-truth leaf for op_mode/strategy/lens/goal (D73-L direction); decision-3 follow-on
   elicitation-driver             [after-trio · proving] live per-turn what-to-ask-next driver on remodeled elicitation_gaps; rides COMPOSE oracle; closes cross-cut Seam 3a
