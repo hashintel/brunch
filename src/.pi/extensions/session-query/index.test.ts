@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { fauxAssistantMessage, fauxToolCall } from '@earendil-works/pi-ai';
+import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchFauxHarness } from '../../../dev/index.js';
@@ -233,8 +234,18 @@ function draft07TupleSmells(node: unknown, path = '$'): string[] {
   return smells;
 }
 
-function messageEntry(id: string, message: Record<string, unknown>) {
-  return { type: 'message', id, parentId: null, timestamp: '2026-06-09T00:00:00.000Z', message };
+// Faux session entries for the dynamic projector. The entry envelope is the
+// canonical SessionEntry shape; only the inner message payload is cast, since
+// these fixtures deliberately use partial role shapes to exercise path
+// projection rather than reconstruct every required AgentMessage field.
+function messageEntry(id: string, message: Record<string, unknown>): SessionEntry {
+  return {
+    type: 'message',
+    id,
+    parentId: null,
+    timestamp: '2026-06-09T00:00:00.000Z',
+    message: message as unknown as Extract<SessionEntry, { type: 'message' }>['message'],
+  };
 }
 
 function toolResultMessage(text: string) {

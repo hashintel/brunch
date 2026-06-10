@@ -1,4 +1,4 @@
-import { defineTool, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { defineTool, type ExtensionAPI, type SessionEntry } from '@earendil-works/pi-coding-agent';
 import * as z from 'zod';
 
 import { devToolParameters } from '../shared/pi-tool-schema.js';
@@ -14,8 +14,6 @@ import {
 
 export const BRUNCH_SESSION_QUERY_TOOL = 'brunch_session_query';
 const DEFAULT_LAST_MATCHING = 1;
-
-type BrunchSessionEntry = Record<string, unknown>;
 
 const zFind = z
   .object({
@@ -84,7 +82,7 @@ export function createBrunchSessionQueryTool() {
     parameters: devToolParameters(zBrunchSessionQueryParams),
     async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
       const params = zBrunchSessionQueryParams.parse(rawParams);
-      const branch = ctx.sessionManager.getBranch().map((entry) => entry as unknown as BrunchSessionEntry);
+      const branch = ctx.sessionManager.getBranch();
       const rows = querySessionBranch(branch, params);
       const serialized = params.format === 'text' ? rowsToSessionText(rows) : JSON.stringify(rows, null, 2);
       const maxBytes = params.maxBytes ?? DEFAULT_MAX_BYTES;
@@ -108,7 +106,7 @@ export function createBrunchSessionQueryTool() {
 }
 
 export function querySessionBranch(
-  branch: readonly BrunchSessionEntry[],
+  branch: readonly SessionEntry[],
   params: BrunchSessionQueryParams,
 ): BrunchSessionQueryRow[] {
   const matches = branch
@@ -118,24 +116,24 @@ export function querySessionBranch(
 
   return windowed.map(({ entry, index }) => ({
     ref: refForEntry(entry, index),
-    value: projectEntry(entry, params.select),
+    value: projectSelection(queryableEntry(entry), params.select),
   }));
 }
 
 function countMatchingEntries(
-  branch: readonly BrunchSessionEntry[],
+  branch: readonly SessionEntry[],
   find: BrunchSessionQueryParams['find'],
 ): number {
   return branch.filter((entry) => entryMatchesFind(entry, find)).length;
 }
 
-function entryMatchesFind(entry: BrunchSessionEntry, find: BrunchSessionQueryParams['find']): boolean {
-  const message = messageForEntry(entry);
+function entryMatchesFind(entry: SessionEntry, find: BrunchSessionQueryParams['find']): boolean {
+  const view = queryableEntry(entry);
   if (find.role !== undefined && roleFor(entry) !== find.role) return false;
-  if (find.toolName !== undefined && valueAt(message, ['toolName']) !== find.toolName) return false;
-  if (find.toolCallId !== undefined && valueAt(message, ['toolCallId']) !== find.toolCallId) return false;
+  if (find.toolName !== undefined && valueAt(view, ['toolName']) !== find.toolName) return false;
+  if (find.toolCallId !== undefined && valueAt(view, ['toolCallId']) !== find.toolCallId) return false;
   if (find.customType !== undefined && customTypeFor(entry) !== find.customType) return false;
-  if (find.isError !== undefined && valueAt(message, ['isError']) !== find.isError) return false;
+  if (find.isError !== undefined && valueAt(view, ['isError']) !== find.isError) return false;
   if (find.contains !== undefined && !textForContains(entry).includes(find.contains)) return false;
   return true;
 }
@@ -146,31 +144,27 @@ function windowMatches<T>(matches: readonly T[], find: BrunchSessionQueryParams[
   return find.range ? ranged : ranged.slice(-DEFAULT_LAST_MATCHING);
 }
 
-// Project over one normalized queryable view so a `select` path addresses the
-// same object returned when `select` is omitted. Pi entry shapes differ by kind
-// — message entries (user/assistant/toolResult) nest payload under `.message`
-// with sidecars like `details`/`data` at the entry level, while custom entries
-// are already flat — so the view flattens message fields and entry-level
-// sidecars together. The result: `content[0].text` and `details` resolve
-// uniformly across entry kinds.
-function projectEntry(entry: BrunchSessionEntry, select: BrunchSessionQueryParams['select']): unknown {
-  return projectSelection(queryableEntry(entry), select);
+// One normalized queryable view per entry so a `select` path addresses the same
+// object returned when `select` is omitted. `SessionEntry` is Pi's canonical
+// discriminated union (`getBranch(): SessionEntry[]`): only `message` entries
+// nest their payload under `.message`, while custom/bash/summary entries keep
+// their fields and sidecars (`details`/`data`) at the entry level. Narrowing on
+// `entry.type` flattens the message variant so `content[0].text`, `role`, and
+// `details` resolve uniformly across entry kinds.
+function queryableEntry(entry: SessionEntry): Record<string, unknown> {
+  if (entry.type === 'message') {
+    const { message, ...sidecars } = entry;
+    return { ...sidecars, ...message };
+  }
+  return { ...entry };
 }
 
-function queryableEntry(entry: BrunchSessionEntry): BrunchSessionEntry {
-  const message = messageForEntry(entry);
-  if (message === entry) return entry;
-  const { message: _nestedMessage, ...entrySidecars } = entry;
-  return { ...entrySidecars, ...message };
-}
-
-function refForEntry(entry: BrunchSessionEntry, index: number): BrunchSessionQueryRef {
-  const message = messageForEntry(entry);
+function refForEntry(entry: SessionEntry, index: number): BrunchSessionQueryRef {
   const role = roleFor(entry);
-  const toolName = valueAt(message, ['toolName']);
+  const toolName = valueAt(queryableEntry(entry), ['toolName']);
   const customType = customTypeFor(entry);
   return {
-    ...(typeof entry.id === 'string' ? { id: entry.id } : {}),
+    id: entry.id,
     index,
     ...(role ? { role } : {}),
     ...(typeof toolName === 'string' ? { toolName } : {}),
@@ -178,33 +172,27 @@ function refForEntry(entry: BrunchSessionEntry, index: number): BrunchSessionQue
   };
 }
 
-function messageForEntry(entry: BrunchSessionEntry): Record<string, unknown> {
-  return isRecord(entry.message) ? entry.message : entry;
-}
-
-function roleFor(entry: BrunchSessionEntry): string | undefined {
-  const message = messageForEntry(entry);
-  const role = valueAt(message, ['role']);
+function roleFor(entry: SessionEntry): string | undefined {
+  const role = valueAt(queryableEntry(entry), ['role']);
   if (typeof role === 'string') return role;
-  if (entry.type === 'custom_message' || entry.type === 'custom') return 'custom';
+  if (entry.type === 'custom' || entry.type === 'custom_message') return 'custom';
   return undefined;
 }
 
-function customTypeFor(entry: BrunchSessionEntry): string | undefined {
-  const message = messageForEntry(entry);
-  const customType = valueAt(message, ['customType']) ?? entry.customType;
+function customTypeFor(entry: SessionEntry): string | undefined {
+  const customType = valueAt(queryableEntry(entry), ['customType']);
   return typeof customType === 'string' ? customType : undefined;
 }
 
-function textForContains(entry: BrunchSessionEntry): string {
-  const message = messageForEntry(entry);
+function textForContains(entry: SessionEntry): string {
+  const view = queryableEntry(entry);
   const chunks = [
-    ...textChunks(valueAt(message, ['content'])),
-    valueAt(message, ['output']),
-    valueAt(message, ['command']),
-    valueAt(message, ['summary']),
-    valueAt(entry, ['data']),
-    valueAt(entry, ['details']),
+    ...textChunks(valueAt(view, ['content'])),
+    valueAt(view, ['output']),
+    valueAt(view, ['command']),
+    valueAt(view, ['summary']),
+    valueAt(view, ['data']),
+    valueAt(view, ['details']),
   ];
   return chunks
     .filter((chunk) => chunk !== undefined)
