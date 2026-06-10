@@ -90,12 +90,15 @@ export async function emitPlanFromSnapshot(
 
   const projected = projectPlanFromSpec(snapshot);
   const planningContext = projectPlanningContext(snapshot);
-  // Selection chain: explicit flag ≫ spec profile ≫ bun. Resolved exactly
-  // once, here; both paths below stamp the result onto the emitted plan.
-  const profile: ProfileId = options.profile ?? projected.profile ?? 'bun';
-  const toolchain = options.toolchain ?? resolveToolchain(profile);
 
   const architectResult = await architectPlan(projected, runModel, planningContext);
+
+  // Selection chain: explicit flag ≫ spec profile ≫ architect-classified ≫
+  // bun. Resolved exactly once, here; both paths below stamp the result onto
+  // the emitted plan. A failed architect simply skips its rung.
+  const classified = architectResult.status === 'succeeded' ? architectResult.draft.profile : null;
+  const profile: ProfileId = options.profile ?? projected.profile ?? classified ?? 'bun';
+  const toolchain = options.toolchain ?? resolveToolchain(profile);
 
   if (architectResult.status === 'failed') {
     return fallback(projected, profile, toolchain, architectResult, architectResult.reason);
