@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
+import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
 import {
   BRUNCH_INTROSPECTION_COMMAND,
   createInMemoryBrunchIntrospectionStore,
@@ -78,6 +79,7 @@ describe('Brunch introspection extension', () => {
 
     expect(productApi.commandNames).not.toContain(BRUNCH_INTROSPECTION_COMMAND);
     expect(productApi.toolNames).not.toContain(BRUNCH_SESSION_QUERY_TOOL);
+    expect(productApi.toolNames).not.toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
     expect(productApi.eventNames).not.toContain('before_provider_request');
 
     const devApi = createFakeExtensionApi();
@@ -87,8 +89,29 @@ describe('Brunch introspection extension', () => {
     })(devApi.api as never);
 
     expect(devApi.commandNames.at(-1)).toBe(BRUNCH_INTROSPECTION_COMMAND);
-    expect(devApi.toolNames.at(-1)).toBe(BRUNCH_SESSION_QUERY_TOOL);
+    expect(devApi.toolNames.slice(-2)).toEqual([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]);
     expect(devApi.eventNames.slice(-2)).toEqual(['before_agent_start', 'before_provider_request']);
+  });
+
+  it('advertises registered dev query tools only when introspection is enabled', async () => {
+    const productApi = createFakeExtensionApi();
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, { coordinator: {} as never })(
+      productApi.api as never,
+    );
+    await productApi.emitBeforeAgentStart({ systemPrompt: 'base' });
+
+    const devApi = createFakeExtensionApi();
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      introspection: { enabled: true, store: createInMemoryBrunchIntrospectionStore() },
+    })(devApi.api as never);
+    await devApi.emitBeforeAgentStart({ systemPrompt: 'base' });
+
+    expect(productApi.activeToolSets.at(-1)).not.toContain(BRUNCH_SESSION_QUERY_TOOL);
+    expect(productApi.activeToolSets.at(-1)).not.toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
+    expect(devApi.activeToolSets.at(-1)).toEqual(
+      expect.arrayContaining([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]),
+    );
   });
 });
 
@@ -110,6 +133,7 @@ function createFakeExtensionApi() {
   const toolNames: string[] = [];
   const handlers = new Map<string, Array<(event: unknown, ctx: unknown) => unknown>>();
   const commands = new Map<string, { handler(args: string, ctx: FakeCommandContext): Promise<void> }>();
+  const activeToolSets: string[][] = [];
   const api = {
     on(eventName: string, handler: (event: unknown, ctx: unknown) => unknown) {
       eventNames.push(eventName);
@@ -128,8 +152,11 @@ function createFakeExtensionApi() {
     registerShortcut() {},
     registerMessageRenderer() {},
     sendMessage() {},
-    getAllTools: () => ['read', 'grep', 'find', 'ls', 'bash'].map((name) => ({ name })),
-    setActiveTools() {},
+    getAllTools: () =>
+      [...new Set(['read', 'grep', 'find', 'ls', 'bash', ...toolNames])].map((name) => ({ name })),
+    setActiveTools(tools: string[]) {
+      activeToolSets.push(tools);
+    },
   };
 
   return {
@@ -137,6 +164,7 @@ function createFakeExtensionApi() {
     eventNames,
     commandNames,
     toolNames,
+    activeToolSets,
     async emitBeforeAgentStart(event: unknown): Promise<unknown> {
       return last(
         await Promise.all((handlers.get('before_agent_start') ?? []).map((handler) => handler(event, {}))),

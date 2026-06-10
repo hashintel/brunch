@@ -51,6 +51,7 @@ export interface BrunchPostureToolPolicyInput {
   registeredToolNames: readonly string[];
   state: ResolvedBrunchAgentState;
   readinessGrade: ReadinessGrade;
+  devAllowedToolNames?: readonly string[] | undefined;
 }
 
 const METHOD_MIN_GRADE: Record<MethodId, ReadinessGrade> = {
@@ -262,6 +263,7 @@ export function activeToolNamesForPosture({
   registeredToolNames,
   state,
   readinessGrade,
+  devAllowedToolNames = [],
 }: BrunchPostureToolPolicyInput): string[] {
   const toolPolicy = toolPolicyForRuntimeState(state);
   const legalTools = new Set<string>(toolPolicy.baseAllowedToolNames);
@@ -269,6 +271,9 @@ export function activeToolNamesForPosture({
     for (const toolName of METHOD_TOOL_NAMES[method] ?? []) {
       legalTools.add(toolName);
     }
+  }
+  for (const toolName of devAllowedToolNames) {
+    legalTools.add(toolName);
   }
 
   const blockedTools = new Set<string>(toolPolicy.blockedToolNames);

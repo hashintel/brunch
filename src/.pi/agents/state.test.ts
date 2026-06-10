@@ -69,6 +69,40 @@ describe('agent posture policy', () => {
     expect(elicitationTools).not.toContain('present_review_set');
   });
 
+  it('allows registered dev tool names only through the injected dev allow-list', () => {
+    const state = projectBrunchAgentState([]);
+    const productTools = activeToolNamesForPosture({
+      registeredToolNames: [...registeredToolNames, 'brunch_session_query'],
+      state,
+      readinessGrade: 'grounding_onboarding',
+    });
+    const devTools = activeToolNamesForPosture({
+      registeredToolNames: [...registeredToolNames, 'brunch_session_query'],
+      state,
+      readinessGrade: 'grounding_onboarding',
+      devAllowedToolNames: ['brunch_session_query'],
+    });
+
+    expect(productTools).not.toContain('brunch_session_query');
+    expect(devTools).toContain('brunch_session_query');
+    expect(productTools).toEqual(
+      activeToolNamesForPosture({ registeredToolNames, state, readinessGrade: 'grounding_onboarding' }),
+    );
+  });
+
+  it('keeps blocked tools blocked and never advertises unregistered dev tool names', () => {
+    const state = projectBrunchAgentState([]);
+    const tools = activeToolNamesForPosture({
+      registeredToolNames,
+      state,
+      readinessGrade: 'grounding_onboarding',
+      devAllowedToolNames: ['bash', 'brunch_session_query'],
+    });
+
+    expect(tools).not.toContain('bash');
+    expect(tools).not.toContain('brunch_session_query');
+  });
+
   it('keeps freestyle pin-only while leaving elicit tool authority unchanged', () => {
     const autoState = projectBrunchAgentState([]);
     const pinnedFreestyle = projectBrunchAgentState([
