@@ -29,7 +29,7 @@ extensions/
 ├── introspection/           dev-gated read-only provider-payload tap + /introspect command
 ├── introspect-query/        dev-gated read-only brunch_introspect_query tool over captured payloads
 ├── session-query/           dev-gated read-only brunch_session_query tool over current branch
-├── shared/                  projection/truncation helpers shared by dev query tools
+├── shared/                  projection/truncation helpers + Zod→Pi schema adapter for dev query tools
 ├── mentions/                #graph mention prompt hint + autocomplete provider
 ├── runtime/                 active-tool policy and tool/user_bash guards
 ├── session/                 session lifecycle hooks
@@ -52,6 +52,6 @@ rules:
 
 ## Migration notes
 
-`exchanges/schemas/` is the intentional current exception to "adapter-only": it owns the Zod-authored structured-exchange details schema per D37-L/D41-L until a separate schema-ownership slice moves or names that seam. `exchanges/pi-schema.ts` remains the only Zod-to-Pi `TSchema` adapter.
+`exchanges/schemas/` is the intentional current exception to "adapter-only": it owns the Zod-authored structured-exchange details schema per D37-L/D41-L until a separate schema-ownership slice moves or names that seam. Zod-to-Pi `TSchema` conversion is confined to two per-plane adapters: `exchanges/pi-schema.ts` (structured-exchange) and `shared/pi-tool-schema.ts` (dev-gated query tools). Both export JSON Schema draft 2020-12 (`z.toJSONSchema`), which strict provider validators require.
 
 `exchanges/shared/markdown.ts` contains Pi-rendering helpers. Move only reusable product markdown/text rendering into the future renderer seam; keep Pi `renderCall` / `renderResult` widgets and UI-only message components local to `.pi/`.

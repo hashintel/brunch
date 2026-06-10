@@ -98,11 +98,32 @@ describe('brunch_session_query', () => {
         find: { role: 'toolResult' },
         select: ['content[*].text', 'details.review.status'],
       })[0]?.value,
-    ).toEqual({ 'content[*].text': 'GRAPH EXACT VALUE', 'details.review.status': 'clear' });
+    ).toEqual({
+      'content[*].text': 'GRAPH EXACT VALUE',
+      'details.review.status': 'clear',
+    });
   });
 
-  it('returns the whole matched entry when select is omitted', () => {
-    expect(querySessionBranch(branch, { find: { toolCallId: 'call-1' } })[0]?.value).toEqual(branch[2]);
+  it('roots select at the same normalized view returned when select is omitted', () => {
+    // No-select returns a flat view: message fields and entry sidecars merged,
+    // so the model sees content/role/details at the top level.
+    const entry = querySessionBranch(branch, { find: { toolCallId: 'call-1' } })[0]?.value;
+    expect(entry).toEqual({
+      type: 'message',
+      id: 't1',
+      parentId: null,
+      timestamp: '2026-06-09T00:00:00.000Z',
+      role: 'toolResult',
+      toolCallId: 'call-1',
+      toolName: 'read_graph',
+      content: [{ type: 'text', text: 'GRAPH EXACT VALUE' }],
+      details: { review: { status: 'clear' } },
+      isError: false,
+    });
+    // The path the model naturally reaches for from the no-select shape resolves.
+    expect(
+      querySessionBranch(branch, { find: { toolCallId: 'call-1' }, select: 'content[0].text' })[0]?.value,
+    ).toEqual('GRAPH EXACT VALUE');
   });
 
   it('returns multiple projected rows for multi-match queries', () => {
@@ -182,7 +203,35 @@ describe('brunch_session_query', () => {
     registerBrunchSessionQuery({ registerTool: (tool: { name: string }) => tools.push(tool) } as never);
     expect(tools.map((tool) => tool.name)).toEqual([BRUNCH_SESSION_QUERY_TOOL]);
   });
+
+  it('advertises a JSON Schema draft 2020-12 parameter schema (range uses prefixItems, no draft-07 tuple form)', () => {
+    const schema = createBrunchSessionQueryTool().parameters as Record<string, unknown>;
+    expect(schema.$schema).toContain('draft/2020-12');
+    expect(draft07TupleSmells(schema)).toEqual([]);
+    const range = (
+      ((schema.properties as Record<string, Record<string, unknown>>).find.properties ?? {}) as Record<
+        string,
+        Record<string, unknown>
+      >
+    ).range;
+    expect(range).toHaveProperty('prefixItems');
+  });
 });
+
+// Anthropic rejects tool schemas that are not draft 2020-12; the draft-07 tuple
+// form (array-valued `items` + `additionalItems`) is the specific violation that
+// kept brunch_session_query from being callable live once it was advertised.
+function draft07TupleSmells(node: unknown, path = '$'): string[] {
+  if (Array.isArray(node)) return node.flatMap((item, i) => draft07TupleSmells(item, `${path}[${i}]`));
+  if (typeof node !== 'object' || node === null) return [];
+  const record = node as Record<string, unknown>;
+  const smells: string[] = [];
+  if (Array.isArray(record.items)) smells.push(`${path}.items is an array`);
+  if ('additionalItems' in record) smells.push(`${path}.additionalItems present`);
+  for (const [key, value] of Object.entries(record))
+    smells.push(...draft07TupleSmells(value, `${path}.${key}`));
+  return smells;
+}
 
 function messageEntry(id: string, message: Record<string, unknown>) {
   return { type: 'message', id, parentId: null, timestamp: '2026-06-09T00:00:00.000Z', message };

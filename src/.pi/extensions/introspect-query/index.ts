@@ -1,10 +1,11 @@
-import { type ExtensionAPI, type ToolDefinition } from '@earendil-works/pi-coding-agent';
-import { Type, type Static } from 'typebox';
+import { defineTool, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import * as z from 'zod';
 
 import {
   type BrunchIntrospectionStore,
   type BrunchIntrospectionTurnCapture,
 } from '../introspection/index.js';
+import { devToolParameters } from '../shared/pi-tool-schema.js';
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -17,22 +18,25 @@ import {
 
 export const BRUNCH_INTROSPECT_QUERY_TOOL = 'brunch_introspect_query';
 
-const FindSchema = Type.Optional(
-  Type.Object({
-    capture: Type.Optional(Type.Literal('latest')),
-    turnId: Type.Optional(Type.String()),
-    nth: Type.Optional(Type.Number({ minimum: 1 })),
-  }),
-);
+const zFind = z
+  .object({
+    capture: z.literal('latest').optional(),
+    turnId: z.string().optional(),
+    nth: z.number().min(1).optional(),
+  })
+  .strict()
+  .optional();
 
-const BrunchIntrospectQueryParams = Type.Object({
-  find: FindSchema,
-  select: Type.Optional(Type.Union([Type.String(), Type.Array(Type.String())])),
-  maxBytes: Type.Optional(Type.Number({ minimum: 1 })),
-  format: Type.Optional(Type.Union([Type.Literal('json'), Type.Literal('text')])),
-});
+const zBrunchIntrospectQueryParams = z
+  .object({
+    find: zFind,
+    select: z.union([z.string(), z.array(z.string())]).optional(),
+    maxBytes: z.number().min(1).optional(),
+    format: z.enum(['json', 'text']).optional(),
+  })
+  .strict();
 
-export type BrunchIntrospectQueryParams = Static<typeof BrunchIntrospectQueryParams>;
+export type BrunchIntrospectQueryParams = z.infer<typeof zBrunchIntrospectQueryParams>;
 
 export interface BrunchIntrospectQueryRef {
   readonly turnId: string;
@@ -66,10 +70,8 @@ export function registerBrunchIntrospectQuery(
   pi.registerTool(createBrunchIntrospectQueryTool(options.store));
 }
 
-export function createBrunchIntrospectQueryTool(
-  store: BrunchIntrospectionStore,
-): ToolDefinition<typeof BrunchIntrospectQueryParams, BrunchIntrospectQueryDetails> {
-  return {
+export function createBrunchIntrospectQueryTool(store: BrunchIntrospectionStore) {
+  return defineTool<ReturnType<typeof devToolParameters>, BrunchIntrospectQueryDetails>({
     name: BRUNCH_INTROSPECT_QUERY_TOOL,
     label: 'Brunch introspect query',
     description: [
@@ -83,8 +85,9 @@ export function createBrunchIntrospectQueryTool(
       'Use brunch_introspect_query when the user asks what prompt, tools, or provider payload you actually received; quote returned values verbatim rather than paraphrasing when exactness matters.',
       'Treat baseOptions as base prompt inputs only; use payload for the final provider-serialized request.',
     ],
-    parameters: BrunchIntrospectQueryParams,
-    async execute(_toolCallId, params) {
+    parameters: devToolParameters(zBrunchIntrospectQueryParams),
+    async execute(_toolCallId, rawParams) {
+      const params = zBrunchIntrospectQueryParams.parse(rawParams);
       const rows = queryIntrospectionCaptures(store, params);
       const serialized =
         params.format === 'text' ? rowsToIntrospectText(rows) : JSON.stringify(rows, null, 2);
@@ -102,7 +105,7 @@ export function createBrunchIntrospectQueryTool(
 
       return { content: [{ type: 'text', text: content }], details };
     },
-  };
+  });
 }
 
 export function queryIntrospectionCaptures(

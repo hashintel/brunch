@@ -1,6 +1,7 @@
-import { type ExtensionAPI, type ToolDefinition } from '@earendil-works/pi-coding-agent';
-import { Type, type Static } from 'typebox';
+import { defineTool, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import * as z from 'zod';
 
+import { devToolParameters } from '../shared/pi-tool-schema.js';
 import {
   DEFAULT_MAX_BYTES,
   DEFAULT_MAX_LINES,
@@ -16,33 +17,29 @@ const DEFAULT_LAST_MATCHING = 1;
 
 type BrunchSessionEntry = Record<string, unknown>;
 
-const FindSchema = Type.Object({
-  role: Type.Optional(
-    Type.Union([
-      Type.Literal('user'),
-      Type.Literal('assistant'),
-      Type.Literal('toolResult'),
-      Type.Literal('custom'),
-      Type.Literal('bashExecution'),
-    ]),
-  ),
-  toolName: Type.Optional(Type.String()),
-  toolCallId: Type.Optional(Type.String()),
-  customType: Type.Optional(Type.String()),
-  isError: Type.Optional(Type.Boolean()),
-  contains: Type.Optional(Type.String()),
-  last: Type.Optional(Type.Number({ minimum: 1 })),
-  range: Type.Optional(Type.Tuple([Type.Number({ minimum: 0 }), Type.Number({ minimum: 0 })])),
-});
+const zFind = z
+  .object({
+    role: z.enum(['user', 'assistant', 'toolResult', 'custom', 'bashExecution']).optional(),
+    toolName: z.string().optional(),
+    toolCallId: z.string().optional(),
+    customType: z.string().optional(),
+    isError: z.boolean().optional(),
+    contains: z.string().optional(),
+    last: z.number().min(1).optional(),
+    range: z.tuple([z.number().min(0), z.number().min(0)]).optional(),
+  })
+  .strict();
 
-const BrunchSessionQueryParams = Type.Object({
-  find: FindSchema,
-  select: Type.Optional(Type.Union([Type.String(), Type.Array(Type.String())])),
-  maxBytes: Type.Optional(Type.Number({ minimum: 1 })),
-  format: Type.Optional(Type.Union([Type.Literal('json'), Type.Literal('text')])),
-});
+const zBrunchSessionQueryParams = z
+  .object({
+    find: zFind,
+    select: z.union([z.string(), z.array(z.string())]).optional(),
+    maxBytes: z.number().min(1).optional(),
+    format: z.enum(['json', 'text']).optional(),
+  })
+  .strict();
 
-export type BrunchSessionQueryParams = Static<typeof BrunchSessionQueryParams>;
+export type BrunchSessionQueryParams = z.infer<typeof zBrunchSessionQueryParams>;
 
 export interface BrunchSessionQueryRef {
   readonly id?: string;
@@ -69,16 +66,14 @@ export function registerBrunchSessionQuery(pi: ExtensionAPI): void {
   pi.registerTool(createBrunchSessionQueryTool());
 }
 
-export function createBrunchSessionQueryTool(): ToolDefinition<
-  typeof BrunchSessionQueryParams,
-  BrunchSessionQueryDetails
-> {
-  return {
+export function createBrunchSessionQueryTool() {
+  return defineTool<ReturnType<typeof devToolParameters>, BrunchSessionQueryDetails>({
     name: BRUNCH_SESSION_QUERY_TOOL,
     label: 'Brunch session query',
     description: [
       'Read-only dev tool for querying the current Pi session branch. Finds entries by predicate and returns verbatim projected value(s).',
       'Use brunch_session_query when the user asks you to inspect or quote prior session messages, tool calls/results, or custom entries. Echo returned values verbatim in a fenced block when asked for exact bytes.',
+      'select is a dotted/indexed path rooted at the matched entry (the object returned when select is omitted, a flat view where message fields and entry sidecars are merged), e.g. "content[0].text" for a tool result\'s text, "content[*].text" for every text block, or "details" for the structured sidecar. Omit select to see the whole entry first.',
       `Output is truncated to maxBytes (default ${formatSize(DEFAULT_MAX_BYTES)}) or ${DEFAULT_MAX_LINES} lines; truncated full output is saved to a temp file.`,
     ].join(' '),
     promptSnippet:
@@ -86,8 +81,9 @@ export function createBrunchSessionQueryTool(): ToolDefinition<
     promptGuidelines: [
       'Use brunch_session_query when the user asks for exact prior session-log values; quote returned values verbatim rather than paraphrasing when exactness matters.',
     ],
-    parameters: BrunchSessionQueryParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    parameters: devToolParameters(zBrunchSessionQueryParams),
+    async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
+      const params = zBrunchSessionQueryParams.parse(rawParams);
       const branch = ctx.sessionManager.getBranch().map((entry) => entry as unknown as BrunchSessionEntry);
       const rows = querySessionBranch(branch, params);
       const serialized = params.format === 'text' ? rowsToSessionText(rows) : JSON.stringify(rows, null, 2);
@@ -108,7 +104,7 @@ export function createBrunchSessionQueryTool(): ToolDefinition<
         details,
       };
     },
-  };
+  });
 }
 
 export function querySessionBranch(
@@ -150,9 +146,22 @@ function windowMatches<T>(matches: readonly T[], find: BrunchSessionQueryParams[
   return find.range ? ranged : ranged.slice(-DEFAULT_LAST_MATCHING);
 }
 
+// Project over one normalized queryable view so a `select` path addresses the
+// same object returned when `select` is omitted. Pi entry shapes differ by kind
+// — message entries (user/assistant/toolResult) nest payload under `.message`
+// with sidecars like `details`/`data` at the entry level, while custom entries
+// are already flat — so the view flattens message fields and entry-level
+// sidecars together. The result: `content[0].text` and `details` resolve
+// uniformly across entry kinds.
 function projectEntry(entry: BrunchSessionEntry, select: BrunchSessionQueryParams['select']): unknown {
-  if (select === undefined) return entry;
-  return projectSelection(messageForEntry(entry), select);
+  return projectSelection(queryableEntry(entry), select);
+}
+
+function queryableEntry(entry: BrunchSessionEntry): BrunchSessionEntry {
+  const message = messageForEntry(entry);
+  if (message === entry) return entry;
+  const { message: _nestedMessage, ...entrySidecars } = entry;
+  return { ...entrySidecars, ...message };
 }
 
 function refForEntry(entry: BrunchSessionEntry, index: number): BrunchSessionQueryRef {

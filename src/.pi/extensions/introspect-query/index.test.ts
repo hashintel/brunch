@@ -132,7 +132,26 @@ describe('brunch_introspect_query', () => {
     });
     expect(tools.map((tool) => tool.name)).toEqual([BRUNCH_INTROSPECT_QUERY_TOOL]);
   });
+
+  it('advertises a JSON Schema draft 2020-12 parameter schema (no draft-07 tuple form)', () => {
+    const schema = createBrunchIntrospectQueryTool(createInMemoryBrunchIntrospectionStore())
+      .parameters as Record<string, unknown>;
+    expect(schema.$schema).toContain('draft/2020-12');
+    expect(draft07TupleSmells(schema)).toEqual([]);
+  });
 });
+
+function draft07TupleSmells(node: unknown, path = '$'): string[] {
+  if (Array.isArray(node)) return node.flatMap((item, i) => draft07TupleSmells(item, `${path}[${i}]`));
+  if (typeof node !== 'object' || node === null) return [];
+  const record = node as Record<string, unknown>;
+  const smells: string[] = [];
+  if (Array.isArray(record.items)) smells.push(`${path}.items is an array`);
+  if ('additionalItems' in record) smells.push(`${path}.additionalItems present`);
+  for (const [key, value] of Object.entries(record))
+    smells.push(...draft07TupleSmells(value, `${path}.${key}`));
+  return smells;
+}
 
 function seededStore(): BrunchIntrospectionStore {
   const store = createInMemoryBrunchIntrospectionStore();
