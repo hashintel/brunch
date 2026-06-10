@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { brunchProfile, bunProfile, resolveToolchain } from './project-profile.js';
+import { brunchProfile, bunProfile, PROFILES, resolveToolchain } from './project-profile.js';
 
 describe('toolchain target shaping', () => {
   it('bun puts tests under tests/ with bun naming', () => {
@@ -32,6 +32,74 @@ describe('toolchain test conventions are framework-specific', () => {
   it('brunch conventions mention vitest, not bun', () => {
     expect(brunchProfile.toolchain.testConventions).toContain('vitest');
     expect(brunchProfile.toolchain.testConventions).not.toContain('bun');
+  });
+});
+
+describe('expanded TS profiles', () => {
+  it('node-vitest runs vitest via npx with tests/ layout', () => {
+    const toolchain = resolveToolchain('node-vitest');
+    expect(toolchain.sliceTarget('chunk')).toBe('tests/chunk.test.ts');
+    expect(toolchain.epicTarget('utils')).toBe('tests/utils.integration.test.ts');
+    expect(toolchain.testCommand('tests/x.test.ts')).toEqual(['npx', 'vitest', 'run', 'tests/x.test.ts']);
+    expect(toolchain.testConventions).toContain('vitest');
+  });
+
+  it('node-test runs the built-in node:test runner', () => {
+    const toolchain = resolveToolchain('node-test');
+    expect(toolchain.testCommand('tests/x.test.ts')).toEqual(['node', '--test', 'tests/x.test.ts']);
+    expect(toolchain.testConventions).toContain('node:test');
+  });
+
+  it('node-jest runs jest by path with ts-jest conventions', () => {
+    const toolchain = resolveToolchain('node-jest');
+    expect(toolchain.testCommand('tests/x.test.ts')).toEqual([
+      'npx',
+      'jest',
+      '--runTestsByPath',
+      'tests/x.test.ts',
+    ]);
+    expect(toolchain.testConventions).toContain('ts-jest');
+  });
+
+  it('deno runs deno test with --allow-all and no install step', () => {
+    const toolchain = resolveToolchain('deno');
+    expect(toolchain.testCommand('tests/x.test.ts')).toEqual([
+      'deno',
+      'test',
+      '--allow-all',
+      'tests/x.test.ts',
+    ]);
+    expect(toolchain.testConventions).toContain('Deno.test');
+  });
+});
+
+describe('registry invariants (every profile)', () => {
+  const profiles = Object.values(PROFILES);
+
+  it('embeds the slice/epic id in both targets', () => {
+    for (const { id, toolchain } of profiles) {
+      expect(toolchain.sliceTarget('SLICE_X'), id).toContain('SLICE_X');
+      expect(toolchain.epicTarget('EPIC_X'), id).toContain('EPIC_X');
+      expect(toolchain.sliceTarget('SLICE_X'), id).not.toContain('{id}');
+    }
+  });
+
+  it('embeds the target in exactly one command argument, with no leftover placeholder', () => {
+    for (const { id, toolchain } of profiles) {
+      const argv = toolchain.testCommand('TARGET_X');
+      expect(
+        argv.filter((arg) => arg.includes('TARGET_X')),
+        id,
+      ).toHaveLength(1);
+      expect(argv.join(' '), id).not.toContain('{target}');
+    }
+  });
+
+  it('carries non-empty agent-facing conventions naming the run command', () => {
+    for (const { id, toolchain } of profiles) {
+      expect(toolchain.testConventions.length, id).toBeGreaterThan(0);
+      expect(toolchain.testConventions, id).toContain('The harness runs each target with');
+    }
   });
 });
 
