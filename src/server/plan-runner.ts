@@ -22,24 +22,30 @@ import {
   type EmitterWarning,
 } from '../orchestrator/src/plan-emitter.js';
 import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.js';
+import { parseProfileId, type ProfileId } from '../orchestrator/src/project-profile.js';
 import { parseSpecId, specPlanPath } from '../orchestrator/src/spec-plan-paths.js';
 
 export type PlanOptions = {
   specificationId: number;
   outDir: string;
   verbose: boolean;
+  /** Toolchain profile override; wins over the spec's profile. */
+  profile?: ProfileId;
 };
 
-const USAGE = 'Usage: brunch plan <specId> [--out=<dir>] [--verbose]';
+const USAGE = 'Usage: brunch plan <specId> [--out=<dir>] [--profile=<id>] [--verbose]';
 
 export function parsePlanArgs(args: string[], defaultOutDir: string = process.cwd()): PlanOptions {
   let specIdRaw: string | undefined;
   let outDir = resolve(defaultOutDir);
   let verbose = false;
+  let profile: ProfileId | undefined;
 
   for (const arg of args) {
     if (arg.startsWith('--out=')) {
       outDir = resolve(arg.slice('--out='.length));
+    } else if (arg.startsWith('--profile=')) {
+      profile = parseProfileId(arg.slice('--profile='.length));
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
     } else if (arg.startsWith('-')) {
@@ -57,7 +63,7 @@ export function parsePlanArgs(args: string[], defaultOutDir: string = process.cw
 
   const specificationId = parseSpecId(specIdRaw, 'spec id');
 
-  return { specificationId, outDir, verbose };
+  return { specificationId, outDir, verbose, profile };
 }
 
 export type RunPlanArgs = {
@@ -65,6 +71,8 @@ export type RunPlanArgs = {
   snapshot: CompletedSpecSnapshot;
   outDir: string;
   verbose: boolean;
+  /** Toolchain profile override (`--profile`); wins over the spec's profile. */
+  profile?: ProfileId;
   /** Injectable LLM seam. Defaults to the production anthropic adapter via the emitter. */
   runModel?: RunModel;
   /** Injectable stderr writer. Defaults to `console.error`. */
@@ -81,8 +89,10 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   log(`  out        ${args.outDir}`);
   log('');
 
-  const emitOptions = args.runModel ? { runModel: args.runModel } : {};
-  const result = await emitPlanFromSnapshot(args.snapshot, emitOptions);
+  const result = await emitPlanFromSnapshot(args.snapshot, {
+    ...(args.runModel ? { runModel: args.runModel } : {}),
+    ...(args.profile ? { profile: args.profile } : {}),
+  });
 
   // Spec-scoped output path. Each spec gets its own subdir so multiple
   // specs can live side-by-side on the same project / branch. `brunch

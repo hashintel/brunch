@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { brunchProfile, bunProfile, PROFILES, resolveToolchain } from './project-profile.js';
+import {
+  brunchProfile,
+  bunProfile,
+  parseProfileId,
+  PROFILES,
+  resolveToolchain,
+  UnknownProfileError,
+} from './project-profile.js';
 
 describe('toolchain target shaping', () => {
   it('bun puts tests under tests/ with bun naming', () => {
@@ -108,9 +115,23 @@ describe('resolveToolchain', () => {
     expect(resolveToolchain('brunch')).toBe(brunchProfile.toolchain);
   });
 
-  it('falls back to bun for an absent or unknown profile', () => {
+  it('falls back to bun for an absent profile (hand-authored fixtures)', () => {
     expect(resolveToolchain(undefined)).toBe(bunProfile.toolchain);
-    // @ts-expect-error — exercise the runtime fallback for an unrecognized id.
-    expect(resolveToolchain('rust')).toBe(bunProfile.toolchain);
+  });
+
+  it('throws UnknownProfileError for an unrecognized id, listing valid profiles', () => {
+    // @ts-expect-error — exercise the runtime guard against unvalidated YAML.
+    expect(() => resolveToolchain('rust')).toThrow(UnknownProfileError);
+    // @ts-expect-error — same call, message shape.
+    expect(() => resolveToolchain('rust')).toThrow(/rust.*bun.*node-vitest/s);
+  });
+});
+
+describe('parseProfileId', () => {
+  it('accepts every registered id and rejects unknown values', () => {
+    for (const id of Object.keys(PROFILES)) {
+      expect(parseProfileId(id)).toBe(id);
+    }
+    expect(() => parseProfileId('rust')).toThrow(UnknownProfileError);
   });
 });

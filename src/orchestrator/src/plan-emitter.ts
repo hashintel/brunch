@@ -33,7 +33,7 @@ import {
   type PlanningEnrichment,
   type ReconciliationWarning,
 } from './plan-reconciliation.js';
-import { resolveToolchain, type Toolchain } from './project-profile.js';
+import { resolveToolchain, type ProfileId, type Toolchain } from './project-profile.js';
 import type { Plan } from './types.js';
 
 const EMPTY_ENRICHMENT: PlanningEnrichment = {
@@ -70,8 +70,14 @@ export type EmitPlanOptions = {
    */
   runModel?: RunModel;
   /**
+   * Toolchain profile override (the `--profile` CLI flag). Wins over the
+   * spec's `profile`; the resolved id is always stamped onto the emitted
+   * plan so `brunch cook` reads the same profile the emitter used.
+   */
+  profile?: ProfileId;
+  /**
    * Toolchain descriptor that shapes verification targets. Defaults to the
-   * one resolved from the spec's `profile` (`resolveToolchain`).
+   * one resolved from the selected profile (`resolveToolchain`).
    */
   toolchain?: Toolchain;
 };
@@ -84,19 +90,22 @@ export async function emitPlanFromSnapshot(
 
   const projected = projectPlanFromSpec(snapshot);
   const planningContext = projectPlanningContext(snapshot);
-  const toolchain = options.toolchain ?? resolveToolchain(projected.profile);
+  // Selection chain: explicit flag ≫ spec profile ≫ bun. Resolved exactly
+  // once, here; both paths below stamp the result onto the emitted plan.
+  const profile: ProfileId = options.profile ?? projected.profile ?? 'bun';
+  const toolchain = options.toolchain ?? resolveToolchain(profile);
 
   const architectResult = await architectPlan(projected, runModel, planningContext);
 
   if (architectResult.status === 'failed') {
-    return fallback(projected, toolchain, architectResult, architectResult.reason);
+    return fallback(projected, profile, toolchain, architectResult, architectResult.reason);
   }
 
   const {
     plan: materialized,
     coverage,
     warnings: materializeWarnings,
-  } = materializeArchitectedPlan(projected, architectResult.draft, toolchain);
+  } = materializeArchitectedPlan({ ...projected, profile }, architectResult.draft, toolchain);
   const { plan: repaired, repairs } = repairPlan(materialized, toolchain);
   const check = checkPlan(repaired, {
     profile: 'emitted',
@@ -106,7 +115,7 @@ export async function emitPlanFromSnapshot(
   });
 
   if (!check.ok) {
-    return fallback(projected, toolchain, architectResult, describeCheckFailure(check));
+    return fallback(projected, profile, toolchain, architectResult, describeCheckFailure(check));
   }
 
   // A degenerate architect draft — zero authored slices while the projected
@@ -119,6 +128,7 @@ export async function emitPlanFromSnapshot(
   if (repaired.slices.length === 0 && projected.slices.length > 0) {
     return fallback(
       projected,
+      profile,
       toolchain,
       architectResult,
       'authored plan has no buildable slices for a non-empty requirement universe',
@@ -148,12 +158,13 @@ export async function emitPlanFromSnapshot(
  */
 function fallback(
   projected: Plan,
+  profile: ProfileId,
   toolchain: Toolchain,
   architectResult: ArchitectResult,
   reason: string,
 ): EmitPlanResult {
   const { plan: candidate, warnings: reconciliationWarnings } = reconcilePlan(
-    projected,
+    { ...projected, profile },
     EMPTY_ENRICHMENT,
     toolchain,
   );

@@ -104,13 +104,29 @@ export const PROFILES: Record<ProfileId, ProjectProfile> = Object.fromEntries(
 export const bunProfile: ProjectProfile = PROFILES.bun;
 export const brunchProfile: ProjectProfile = PROFILES.brunch;
 
+export const PROFILE_IDS = Object.keys(PROFILE_DATA) as readonly ProfileId[];
+
+export class UnknownProfileError extends Error {
+  constructor(value: string) {
+    super(`Unknown toolchain profile "${value}". Valid profiles: ${PROFILE_IDS.join(', ')}.`);
+    this.name = 'UnknownProfileError';
+  }
+}
+
+/** Validate an externally-supplied profile id (CLI flag, hand-edited YAML). */
+export function parseProfileId(value: string): ProfileId {
+  if (!(value in PROFILE_DATA)) throw new UnknownProfileError(value);
+  return value as ProfileId;
+}
+
 /**
- * Resolve the toolchain for a plan's profile id, falling back to bun for
- * an absent or unrecognized profile (the same lenient default `loadPlan`
- * applies to `mode`).
+ * Resolve the toolchain for a plan's profile id. Absent → bun (lenient, for
+ * hand-authored fixture plans); unknown → `UnknownProfileError`, so a typo'd
+ * id in plan.yaml fails loudly instead of silently running under bun.
  */
 export function resolveToolchain(profile?: ProfileId): Toolchain {
-  return (profile ? PROFILES[profile] : undefined)?.toolchain ?? bunProfile.toolchain;
+  if (profile === undefined) return bunProfile.toolchain;
+  return PROFILES[parseProfileId(profile)].toolchain;
 }
 
 export const defaultToolchain: Toolchain = bunProfile.toolchain;
