@@ -5,10 +5,21 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { createBrunchFauxHarness } from '../../dev/index.js';
 import { openWorkspaceCommandExecutor } from '../../graph/index.js';
 import { seedFixture, type SeedFixture } from '../../graph/seed-fixtures.js';
-import { createSessionBindingData } from '../../session/session-binding.js';
+import { createSessionBindingData, SESSION_BINDING_TYPE } from '../../session/session-binding.js';
 import { registerBrunchContext } from '../extensions/context/index.js';
+
+function collectContextTools() {
+  const tools = new Map<string, { execute: (...args: any[]) => Promise<unknown> }>();
+  registerBrunchContext({
+    registerTool(tool: { name: string; execute: (...args: any[]) => Promise<unknown> }) {
+      tools.set(tool.name, tool);
+    },
+  } as never);
+  return tools;
+}
 
 describe('context tools', () => {
   it('read_workspace_context returns a gitignore-aware cwd inventory', async () => {
@@ -238,6 +249,55 @@ describe('context tools', () => {
       'Beta Commitments',
     ]);
     expect(result.details.data.sessions.map((session) => session.turnCount)).toEqual([1, 2]);
+  });
+
+  // Authentic oracle: drive the context tools against the faux harness's REAL
+  // SessionManager instead of a hand-written fake. The real manager keeps the
+  // Pi header behind getHeader() and excludes it from getEntries(), so this
+  // would have failed the header-search bugs (read_session_context always
+  // not_ready, read_workspace_context resolving cwd to process.cwd()). A lying
+  // mock cannot reproduce that split; the real session machinery does.
+  it('context tools resolve against the faux harness real SessionManager (header via getHeader)', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-context-faux-'));
+    await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
+    await writeFile(join(cwd, 'faux-guard-doc.md'), '# Faux guard\n');
+
+    const harness = await createBrunchFauxHarness({ cwd });
+    try {
+      const sessionManager = harness.session.sessionManager;
+      sessionManager.appendCustomEntry(SESSION_BINDING_TYPE, createSessionBindingData({ specId: 4 }));
+
+      // The real header is reachable only via getHeader(); getEntries() returns
+      // SessionEntry[], whose `type` provably never includes 'session' (a search
+      // for it is now a compile error — the original bug's root cause). The
+      // header below comes from getHeader(); getEntries() holds only the binding.
+      const headerId = sessionManager.getHeader()?.id;
+      expect(typeof headerId).toBe('string');
+
+      const tools = collectContextTools();
+      const ctx = { sessionManager };
+
+      const sessionResult = (await tools
+        .get('read_session_context')!
+        .execute('faux-session', {}, undefined, undefined, ctx)) as { details: unknown };
+      expect(sessionResult.details).toMatchObject({
+        status: 'ready',
+        specId: 4,
+        sessionId: headerId,
+      });
+
+      const workspaceResult = (await tools
+        .get('read_workspace_context')!
+        .execute('faux-workspace', { mode: 'cwd_inventory' }, undefined, undefined, ctx)) as {
+        details: { data: { markdownFiles: Array<{ path: string }> } };
+      };
+      // cwd came from the header (the temp workbench), not process.cwd().
+      expect(workspaceResult.details.data.markdownFiles.map((file) => file.path)).toContain(
+        'faux-guard-doc.md',
+      );
+    } finally {
+      harness.dispose();
+    }
   });
 });
 
