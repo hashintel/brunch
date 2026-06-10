@@ -34,10 +34,12 @@ import type {
 } from './command-executor/graph-mutation-types.js';
 import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
 import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
-import type { ElicitationBacklogLensAffinity } from './schema/elicitation-backlog.js';
+import type { ElicitationGapLensAffinity, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
 import {
   DESIGN_KINDS,
   INTENT_KINDS,
+  GAP_DISPOSITIONS,
+  GAP_PREDICATE_KINDS,
   LENS_AFFINITIES,
   NODE_BASES,
   ORACLE_KINDS,
@@ -109,15 +111,15 @@ interface CreateSpecSuccess {
   readonly lsn: number;
 }
 
-/** Successful elicitation-backlog creation. */
-interface ElicitationBacklogSuccess {
+/** Successful elicitation-gap creation. */
+interface ElicitationGapSuccess {
   readonly status: 'success';
   readonly id: number;
   readonly lsn: number;
 }
 
-/** Successful elicitation-backlog close. */
-interface ElicitationBacklogCloseSuccess {
+/** Successful elicitation-gap disposition update. */
+interface ElicitationGapDispositionSuccess {
   readonly status: 'success';
   readonly lsn: number;
 }
@@ -144,8 +146,8 @@ export type CommandResult =
   | ReconNeedSuccess
   | ReconNeedResolveSuccess
   | CreateSpecSuccess
-  | ElicitationBacklogSuccess
-  | ElicitationBacklogCloseSuccess
+  | ElicitationGapSuccess
+  | ElicitationGapDispositionSuccess
   | UpdateReadinessGradeSuccess
   | StructuralIllegal
   | NeedsHuman
@@ -164,11 +166,11 @@ export type ResolveReconNeedResult = ReconNeedResolveSuccess | StructuralIllegal
 /** Result of a createSpec command. */
 export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
 
-/** Result of a createElicitationBacklogEntry command. */
-export type CreateElicitationBacklogEntryResult = ElicitationBacklogSuccess | StructuralIllegal;
+/** Result of a createElicitationGap command. */
+export type CreateElicitationGapResult = ElicitationGapSuccess | StructuralIllegal;
 
-/** Result of a closeElicitationBacklogEntry command. */
-export type CloseElicitationBacklogEntryResult = ElicitationBacklogCloseSuccess | StructuralIllegal;
+/** Result of a setElicitationGapDisposition command. */
+export type SetElicitationGapDispositionResult = ElicitationGapDispositionSuccess | StructuralIllegal;
 
 /** Result of an updateReadinessGrade command. */
 export type UpdateReadinessGradeResult = UpdateReadinessGradeSuccess | StructuralIllegal;
@@ -208,23 +210,28 @@ export interface AcceptReviewSetInput {
   readonly payload: unknown;
 }
 
-/** Input for creating an elicitation-backlog entry. */
-export interface CreateElicitationBacklogEntryInput {
+/** Input for creating an elicitation gap. */
+export interface CreateElicitationGapInput {
   readonly specId: number;
-  readonly kind: string;
-  readonly question: string;
+  readonly name: string;
+  readonly rationale: string;
   readonly basis?: NodeBasis | undefined;
-  readonly readinessBand: ReadinessBand;
+  readonly band: ReadinessBand;
+  readonly predicate: GapPredicate;
+  readonly importance?: number | undefined;
   readonly planeAffinity?: NodePlane | undefined;
-  readonly lensAffinity?: ElicitationBacklogLensAffinity | undefined;
-  readonly aroseFromEntryId?: number | undefined;
-  readonly rationale?: string | undefined;
+  readonly lensAffinity?: ElicitationGapLensAffinity | undefined;
+  readonly aroseFromGapId?: number | undefined;
 }
 
-/** Input for closing an elicitation-backlog entry. */
-export interface CloseElicitationBacklogEntryInput {
+/** Input for updating an elicitation gap's non-derivable disposition. */
+export interface SetElicitationGapDispositionInput {
   readonly specId: number;
   readonly id: number;
+  readonly disposition: Extract<
+    GapDisposition,
+    'open' | 'answered' | 'not_applicable' | 'irrelevant' | 'reopened'
+  >;
   readonly resolvedByNodeId?: number | undefined;
 }
 
@@ -289,45 +296,97 @@ const KINDS_REQUIRING_DETAIL = new Set<string>(['decision', 'term']);
 const VALID_READINESS_GRADES = READINESS_GRADES as unknown as string[];
 const VALID_NODE_BASES = NODE_BASES as unknown as string[];
 const VALID_READINESS_BANDS = READINESS_BANDS as unknown as string[];
+const VALID_GAP_DISPOSITIONS = GAP_DISPOSITIONS as unknown as string[];
+const VALID_GAP_PREDICATE_KINDS = GAP_PREDICATE_KINDS as unknown as string[];
 const VALID_LENS_AFFINITIES = LENS_AFFINITIES as unknown as string[];
 
-const SEEDED_ELICITATION_BACKLOG: readonly {
-  readonly kind: string;
-  readonly question: string;
+const SEEDED_ELICITATION_GAPS: readonly {
+  readonly name: string;
+  readonly rationale: string;
   readonly basis: NodeBasis;
-  readonly readinessBand: ReadinessBand;
+  readonly band: ReadinessBand;
+  readonly predicate: GapPredicate;
+  readonly importance: number;
   readonly planeAffinity: NodePlane;
-  readonly lensAffinity: ElicitationBacklogLensAffinity;
+  readonly lensAffinity: ElicitationGapLensAffinity;
 }[] = [
   {
-    kind: 'domain_anchor_question',
-    question: 'What is the thing or domain we are specifying?',
-    basis: 'explicit',
-    readinessBand: 'grounding',
+    name: 'domain',
+    rationale: 'Anchors what kind of thing is being specified and the domain it belongs to.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
+    importance: 3,
     planeAffinity: 'intent',
     lensAffinity: 'intent',
   },
   {
-    kind: 'protagonist_anchor_question',
-    question: 'Who is this for, or who is most affected by it?',
-    basis: 'explicit',
-    readinessBand: 'grounding',
+    name: 'protagonist',
+    rationale: 'Identifies who the spec is for or who is most affected by the outcome.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
+    importance: 3,
     planeAffinity: 'intent',
     lensAffinity: 'intent',
   },
   {
-    kind: 'pain_anchor_question',
-    question: 'What problem, pain, or pull is driving this work?',
-    basis: 'explicit',
-    readinessBand: 'grounding',
+    name: 'pain_pull',
+    rationale: 'States the problem, pain, or pull that makes the work worth doing.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'goal', minimum: 1 },
+    importance: 3,
     planeAffinity: 'intent',
     lensAffinity: 'intent',
   },
   {
-    kind: 'constraint_anchor_question',
-    question: 'What constraints or non-negotiable boundaries already shape it?',
-    basis: 'explicit',
-    readinessBand: 'grounding',
+    name: 'constraint',
+    rationale: 'Captures binding constraints or non-negotiable boundaries already shaping the work.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'constraint', minimum: 1 },
+    importance: 3,
+    planeAffinity: 'intent',
+    lensAffinity: 'intent',
+  },
+  {
+    name: 'value',
+    rationale: 'Clarifies the benefit or value the work should create.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'goal', minimum: 1 },
+    importance: 1,
+    planeAffinity: 'intent',
+    lensAffinity: 'intent',
+  },
+  {
+    name: 'context_of_use',
+    rationale: 'Describes when, where, or under what conditions the result will be used.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
+    importance: 1,
+    planeAffinity: 'intent',
+    lensAffinity: 'intent',
+  },
+  {
+    name: 'success_sketch',
+    rationale: 'Sketches what success looks like or how goodness will be recognized.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'criterion', minimum: 1 },
+    importance: 1,
+    planeAffinity: 'intent',
+    lensAffinity: 'intent',
+  },
+  {
+    name: 'solution_boundary',
+    rationale: 'Names non-goals or boundaries around what the solution is explicitly not.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'constraint', minimum: 1 },
+    importance: 1,
     planeAffinity: 'intent',
     lensAffinity: 'intent',
   },
@@ -349,8 +408,39 @@ function isReadinessBand(value: string): value is ReadinessBand {
   return VALID_READINESS_BANDS.includes(value);
 }
 
-function isElicitationBacklogLensAffinity(value: string): value is ElicitationBacklogLensAffinity {
+function isElicitationGapLensAffinity(value: string): value is ElicitationGapLensAffinity {
   return VALID_LENS_AFFINITIES.includes(value);
+}
+
+function isGapDisposition(value: string): value is GapDisposition {
+  return VALID_GAP_DISPOSITIONS.includes(value);
+}
+
+function validateGapPredicate(predicate: GapPredicate, diagnostics: Diagnostic[]): void {
+  if (typeof predicate !== 'object' || predicate === null) {
+    diagnostics.push({ field: 'predicate', message: 'predicate must be an object' });
+    return;
+  }
+
+  if (!VALID_GAP_PREDICATE_KINDS.includes(predicate.kind)) {
+    diagnostics.push({ field: 'predicate.kind', message: 'predicate kind is not valid' });
+    return;
+  }
+
+  if (predicate.kind === 'presence') {
+    if (!Number.isInteger(predicate.minimum) || predicate.minimum < 1) {
+      diagnostics.push({ field: 'predicate.minimum', message: 'minimum must be a positive integer' });
+    }
+    if (predicate.plane !== undefined && !isNodePlane(predicate.plane)) {
+      diagnostics.push({ field: 'predicate.plane', message: 'plane is not valid' });
+    }
+    if (predicate.band !== undefined && !isReadinessBand(predicate.band)) {
+      diagnostics.push({ field: 'predicate.band', message: 'band is not valid' });
+    }
+    if (predicate.nodeKind === undefined && predicate.band === undefined) {
+      diagnostics.push({ field: 'predicate', message: 'presence predicate needs nodeKind or band' });
+    }
+  }
 }
 
 function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
@@ -489,27 +579,33 @@ function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
   return diagnostics;
 }
 
-function validateCreateElicitationBacklogEntry(input: CreateElicitationBacklogEntryInput): Diagnostic[] {
+function validateCreateElicitationGap(input: CreateElicitationGapInput): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
-  if (!input.kind.trim()) {
-    diagnostics.push({ field: 'kind', message: 'kind must be non-empty' });
+  if (!input.name.trim()) {
+    diagnostics.push({ field: 'name', message: 'name must be non-empty' });
   }
 
-  if (!input.question.trim()) {
-    diagnostics.push({ field: 'question', message: 'question must be non-empty' });
+  if (!input.rationale.trim()) {
+    diagnostics.push({ field: 'rationale', message: 'rationale must be non-empty' });
   }
 
   if (input.basis !== undefined && !isNodeBasis(input.basis)) {
     diagnostics.push({ field: 'basis', message: 'basis must be explicit or implicit' });
   }
 
-  if (!isReadinessBand(input.readinessBand)) {
+  if (!isReadinessBand(input.band)) {
     diagnostics.push({
-      field: 'readinessBand',
-      message: `"${String(input.readinessBand)}" is not a valid readiness band`,
+      field: 'band',
+      message: `"${String(input.band)}" is not a valid readiness band`,
     });
   }
+
+  if (input.importance !== undefined && (!Number.isInteger(input.importance) || input.importance < 1)) {
+    diagnostics.push({ field: 'importance', message: 'importance must be a positive integer' });
+  }
+
+  validateGapPredicate(input.predicate, diagnostics);
 
   if (input.planeAffinity !== undefined && !isNodePlane(input.planeAffinity)) {
     diagnostics.push({
@@ -518,7 +614,7 @@ function validateCreateElicitationBacklogEntry(input: CreateElicitationBacklogEn
     });
   }
 
-  if (input.lensAffinity !== undefined && !isElicitationBacklogLensAffinity(input.lensAffinity)) {
+  if (input.lensAffinity !== undefined && !isElicitationGapLensAffinity(input.lensAffinity)) {
     diagnostics.push({
       field: 'lensAffinity',
       message: `"${String(input.lensAffinity)}" is not a valid lens affinity`,
@@ -674,15 +770,18 @@ export class CommandExecutor {
     return existing.nextOrdinal;
   }
 
-  private seedElicitationBacklog(tx: Pick<BrunchDb, 'insert'>, specId: number, lsn: number): void {
-    tx.insert(schema.elicitationBacklog)
+  private seedElicitationGaps(tx: Pick<BrunchDb, 'insert'>, specId: number, lsn: number): void {
+    tx.insert(schema.elicitationGaps)
       .values(
-        SEEDED_ELICITATION_BACKLOG.map((entry) => ({
+        SEEDED_ELICITATION_GAPS.map((entry) => ({
           spec_id: specId,
-          kind: entry.kind,
-          question: entry.question,
+          name: entry.name,
+          rationale: entry.rationale,
           basis: entry.basis,
-          readiness_band: entry.readinessBand,
+          readiness_band: entry.band,
+          predicate_kind: entry.predicate.kind,
+          predicate: JSON.stringify(entry.predicate),
+          importance: entry.importance,
           plane_affinity: entry.planeAffinity,
           lens_affinity: entry.lensAffinity,
           created_at_lsn: lsn,
@@ -717,7 +816,7 @@ export class CommandExecutor {
 
       const lsn = this.createInitialSpecClock(tx, row!.id);
 
-      this.seedElicitationBacklog(tx, row!.id, lsn);
+      this.seedElicitationGaps(tx, row!.id, lsn);
 
       tx.insert(schema.changeLog)
         .values({
@@ -732,11 +831,9 @@ export class CommandExecutor {
     });
   }
 
-  /** Create an elicitation-backlog entry through the command boundary. */
-  createElicitationBacklogEntry(
-    input: CreateElicitationBacklogEntryInput,
-  ): CreateElicitationBacklogEntryResult {
-    const diagnostics = validateCreateElicitationBacklogEntry(input);
+  /** Create an elicitation gap through the command boundary. */
+  createElicitationGap(input: CreateElicitationGapInput): CreateElicitationGapResult {
+    const diagnostics = validateCreateElicitationGap(input);
     if (diagnostics.length > 0) {
       return { status: 'structural_illegal', diagnostics };
     }
@@ -754,21 +851,18 @@ export class CommandExecutor {
         };
       }
 
-      if (input.aroseFromEntryId != null) {
+      if (input.aroseFromGapId != null) {
         const parent = tx
-          .select({ id: schema.elicitationBacklog.id, specId: schema.elicitationBacklog.spec_id })
-          .from(schema.elicitationBacklog)
-          .where(eq(schema.elicitationBacklog.id, input.aroseFromEntryId))
+          .select({ id: schema.elicitationGaps.id, specId: schema.elicitationGaps.spec_id })
+          .from(schema.elicitationGaps)
+          .where(eq(schema.elicitationGaps.id, input.aroseFromGapId))
           .get();
 
         if (!parent) {
           return {
             status: 'structural_illegal' as const,
             diagnostics: [
-              {
-                field: 'aroseFromEntryId',
-                message: `elicitation backlog entry ${input.aroseFromEntryId} does not exist`,
-              },
+              { field: 'aroseFromGapId', message: `elicitation gap ${input.aroseFromGapId} does not exist` },
             ],
           };
         }
@@ -778,10 +872,8 @@ export class CommandExecutor {
             status: 'structural_illegal' as const,
             diagnostics: [
               {
-                field: 'aroseFromEntryId',
-                message:
-                  `elicitation backlog entry ${input.aroseFromEntryId} belongs to a different spec ` +
-                  `(command spec ${input.specId})`,
+                field: 'aroseFromGapId',
+                message: `elicitation gap ${input.aroseFromGapId} belongs to a different spec`,
               },
             ],
           };
@@ -791,35 +883,38 @@ export class CommandExecutor {
       const lsn = this.bumpExistingSpecLsn(tx, input.specId);
 
       const entry = tx
-        .insert(schema.elicitationBacklog)
+        .insert(schema.elicitationGaps)
         .values({
           spec_id: input.specId,
-          kind: input.kind.trim(),
-          question: input.question.trim(),
+          name: input.name.trim(),
+          rationale: input.rationale.trim(),
           basis: input.basis ?? 'explicit',
-          readiness_band: input.readinessBand,
+          readiness_band: input.band,
+          predicate_kind: input.predicate.kind,
+          predicate: JSON.stringify(input.predicate),
+          importance: input.importance ?? 1,
           plane_affinity: input.planeAffinity ?? null,
           lens_affinity: input.lensAffinity ?? null,
-          arose_from_entry_id: input.aroseFromEntryId ?? null,
-          rationale: input.rationale ?? null,
+          arose_from_gap_id: input.aroseFromGapId ?? null,
           created_at_lsn: lsn,
         })
-        .returning({ id: schema.elicitationBacklog.id })
+        .returning({ id: schema.elicitationGaps.id })
         .get();
 
       tx.insert(schema.changeLog)
         .values({
           spec_id: input.specId,
           lsn,
-          operation: 'create_elicitation_backlog_entry',
+          operation: 'create_elicitation_gap',
           payload: JSON.stringify({
             id: entry!.id,
             specId: input.specId,
-            kind: input.kind.trim(),
-            readinessBand: input.readinessBand,
+            name: input.name.trim(),
+            band: input.band,
+            predicateKind: input.predicate.kind,
             planeAffinity: input.planeAffinity,
             lensAffinity: input.lensAffinity,
-            ...(input.aroseFromEntryId != null ? { aroseFromEntryId: input.aroseFromEntryId } : {}),
+            ...(input.aroseFromGapId != null ? { aroseFromGapId: input.aroseFromGapId } : {}),
           }),
         })
         .run();
@@ -828,36 +923,40 @@ export class CommandExecutor {
     });
   }
 
-  /** Close an elicitation-backlog entry through the command boundary. */
-  closeElicitationBacklogEntry(input: CloseElicitationBacklogEntryInput): CloseElicitationBacklogEntryResult {
+  /** Set an elicitation gap's non-derivable disposition through the command boundary. */
+  setElicitationGapDisposition(input: SetElicitationGapDispositionInput): SetElicitationGapDispositionResult {
+    if (!isGapDisposition(input.disposition)) {
+      return {
+        status: 'structural_illegal',
+        diagnostics: [{ field: 'disposition', message: 'disposition is not valid' }],
+      };
+    }
+
     return this.db.transaction((tx) => {
-      const entry = tx
+      const gap = tx
         .select()
-        .from(schema.elicitationBacklog)
-        .where(
-          and(
-            eq(schema.elicitationBacklog.id, input.id),
-            eq(schema.elicitationBacklog.spec_id, input.specId),
-          ),
-        )
+        .from(schema.elicitationGaps)
+        .where(and(eq(schema.elicitationGaps.id, input.id), eq(schema.elicitationGaps.spec_id, input.specId)))
         .get();
 
-      if (!entry) {
+      if (!gap) {
         return {
           status: 'structural_illegal' as const,
           diagnostics: [
-            {
-              field: 'id',
-              message: `elicitation backlog entry ${input.id} does not exist for spec ${input.specId}`,
-            },
+            { field: 'id', message: `elicitation gap ${input.id} does not exist for spec ${input.specId}` },
           ],
         };
       }
 
-      if (entry.status === 'closed') {
+      if (input.disposition === 'answered' && gap.predicate_kind !== 'manual') {
         return {
           status: 'structural_illegal' as const,
-          diagnostics: [{ field: 'id', message: `elicitation backlog entry ${input.id} is already closed` }],
+          diagnostics: [
+            {
+              field: 'disposition',
+              message: 'structural gap answered state is graph-derived, not hand-settable',
+            },
+          ],
         };
       }
 
@@ -872,10 +971,7 @@ export class CommandExecutor {
           return {
             status: 'structural_illegal' as const,
             diagnostics: [
-              {
-                field: 'resolvedByNodeId',
-                message: `node ${input.resolvedByNodeId} does not exist`,
-              },
+              { field: 'resolvedByNodeId', message: `node ${input.resolvedByNodeId} does not exist` },
             ],
           };
         }
@@ -886,9 +982,7 @@ export class CommandExecutor {
             diagnostics: [
               {
                 field: 'resolvedByNodeId',
-                message:
-                  `node ${input.resolvedByNodeId} belongs to a different spec ` +
-                  `(command spec ${input.specId})`,
+                message: `node ${input.resolvedByNodeId} belongs to a different spec`,
               },
             ],
           };
@@ -897,28 +991,24 @@ export class CommandExecutor {
 
       const lsn = this.bumpExistingSpecLsn(tx, input.specId);
 
-      tx.update(schema.elicitationBacklog)
+      tx.update(schema.elicitationGaps)
         .set({
-          status: 'closed',
+          disposition: input.disposition,
           resolved_by_node_id: input.resolvedByNodeId ?? null,
-          closed_at_lsn: lsn,
+          disposition_set_at_lsn: lsn,
         })
-        .where(
-          and(
-            eq(schema.elicitationBacklog.id, input.id),
-            eq(schema.elicitationBacklog.spec_id, input.specId),
-          ),
-        )
+        .where(and(eq(schema.elicitationGaps.id, input.id), eq(schema.elicitationGaps.spec_id, input.specId)))
         .run();
 
       tx.insert(schema.changeLog)
         .values({
           spec_id: input.specId,
           lsn,
-          operation: 'close_elicitation_backlog_entry',
+          operation: 'set_elicitation_gap_disposition',
           payload: JSON.stringify({
             id: input.id,
             specId: input.specId,
+            disposition: input.disposition,
             ...(input.resolvedByNodeId != null ? { resolvedByNodeId: input.resolvedByNodeId } : {}),
           }),
         })

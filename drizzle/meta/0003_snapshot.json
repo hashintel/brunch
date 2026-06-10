@@ -193,8 +193,8 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "elicitation_backlog": {
-      "name": "elicitation_backlog",
+    "elicitation_gaps": {
+      "name": "elicitation_gaps",
       "columns": {
         "id": {
           "name": "id",
@@ -210,22 +210,22 @@
           "notNull": true,
           "autoincrement": false
         },
-        "kind": {
-          "name": "kind",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "question": {
-          "name": "question",
+        "rationale": {
+          "name": "rationale",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "status": {
-          "name": "status",
+        "disposition": {
+          "name": "disposition",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -247,6 +247,28 @@
           "notNull": true,
           "autoincrement": false
         },
+        "predicate_kind": {
+          "name": "predicate_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "predicate": {
+          "name": "predicate",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "importance": {
+          "name": "importance",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
         "plane_affinity": {
           "name": "plane_affinity",
           "type": "text",
@@ -261,8 +283,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "arose_from_entry_id": {
-          "name": "arose_from_entry_id",
+        "arose_from_gap_id": {
+          "name": "arose_from_gap_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -275,13 +297,6 @@
           "notNull": false,
           "autoincrement": false
         },
-        "rationale": {
-          "name": "rationale",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "created_at_lsn": {
           "name": "created_at_lsn",
           "type": "integer",
@@ -289,8 +304,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "closed_at_lsn": {
-          "name": "closed_at_lsn",
+        "disposition_set_at_lsn": {
+          "name": "disposition_set_at_lsn",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
@@ -299,9 +314,9 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "elicitation_backlog_spec_id_specs_id_fk": {
-          "name": "elicitation_backlog_spec_id_specs_id_fk",
-          "tableFrom": "elicitation_backlog",
+        "elicitation_gaps_spec_id_specs_id_fk": {
+          "name": "elicitation_gaps_spec_id_specs_id_fk",
+          "tableFrom": "elicitation_gaps",
           "tableTo": "specs",
           "columnsFrom": [
             "spec_id"
@@ -312,12 +327,12 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "elicitation_backlog_arose_from_entry_id_elicitation_backlog_id_fk": {
-          "name": "elicitation_backlog_arose_from_entry_id_elicitation_backlog_id_fk",
-          "tableFrom": "elicitation_backlog",
-          "tableTo": "elicitation_backlog",
+        "elicitation_gaps_arose_from_gap_id_elicitation_gaps_id_fk": {
+          "name": "elicitation_gaps_arose_from_gap_id_elicitation_gaps_id_fk",
+          "tableFrom": "elicitation_gaps",
+          "tableTo": "elicitation_gaps",
           "columnsFrom": [
-            "arose_from_entry_id"
+            "arose_from_gap_id"
           ],
           "columnsTo": [
             "id"
@@ -325,9 +340,9 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "elicitation_backlog_resolved_by_node_id_nodes_id_fk": {
-          "name": "elicitation_backlog_resolved_by_node_id_nodes_id_fk",
-          "tableFrom": "elicitation_backlog",
+        "elicitation_gaps_resolved_by_node_id_nodes_id_fk": {
+          "name": "elicitation_gaps_resolved_by_node_id_nodes_id_fk",
+          "tableFrom": "elicitation_gaps",
           "tableTo": "nodes",
           "columnsFrom": [
             "resolved_by_node_id"

@@ -9,8 +9,8 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
   graph/spec writes. It hides structural validation, transaction mechanics,
   spec-local LSN allocation, per-kind node ordinal allocation, change-log append,
   and structured command results. It also owns prospective-register writes for
-  `elicitation_backlog` (`createSpec` seeding plus create/close entry commands),
-  because the backlog shares the same spec-local LSN and audit boundary.
+  `elicitation_gaps` (`createSpec` seeding plus create/disposition commands),
+  because the gap register shares the same spec-local LSN and audit boundary.
 
 - **mutateGraph** — atomic graph mutation for direct writers and future curation:
   one tool call, one transaction, one selected-spec LSN, all-or-nothing. The
@@ -33,12 +33,12 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
   detail levels: active-context and graph-truth overview, node
   neighborhood, selected-spec graph-code lookup, open reconciliation needs, and
-  open elicitation-backlog entries. These return typed domain objects or
+  elicitation gaps. These return typed domain objects or
   internal ids, not Drizzle rows.
 
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
-  `ReconciliationNeed`, `ElicitationBacklogEntry`, kind/category types,
+  `ReconciliationNeed`, `ElicitationGap`, kind/category types,
   per-kind node ordinals, and derived intent-kind grouping. Raw domain enum
   taxonomy lives in the zero-import `schema/kinds.ts` leaf so web-facing graph
   imports do not pull in Drizzle.
@@ -70,7 +70,7 @@ D60-L read-shape ownership is explicit: every durable graph read shape has one c
 | `gaps` | `getGraphGaps` | required | n/a | n/a | Agent/RPC-only diagnostic shape; not a web observer projection. |
 | `related` | `getRelatedNodes` | required | n/a | n/a | Agent/RPC-only traversal helper; not a web observer projection. |
 | `reconciliation_needs` | `getOpenReconciliationNeeds` | deferred | deferred | deferred | Agent-internal register read; no transport consumer yet. |
-| `elicitation_backlog` | `getOpenElicitationBacklogEntries` | deferred | deferred | deferred | Agent-internal prospective-register read; per-turn driver follow-on owns exposure. |
+| `elicitation_gaps` | `getElicitationGaps` | deferred | deferred | deferred | Agent-internal prospective-register read; per-turn driver follow-on owns exposure. |
 
 `observed-shapes-coverage.test.ts` guards the required subsets against accidental drift: the tool mode union must stay at the six required agent shapes, while RPC and web stay at `overview` + `neighborhood` until a scoped feature deliberately promotes another row.
 
@@ -120,7 +120,7 @@ graph/
     CommandExecutor
     command input/result types
     createSpec
-    create/close elicitation-backlog entry
+    create/set elicitation-gap disposition
     updateReadinessGrade
     createNode
     per-kind node ordinal allocation
@@ -153,7 +153,7 @@ graph/
     getGraphOverview
     getNodeNeighborhood
     resolveGraphNodeCode
-    getOpenElicitationBacklogEntries
+    getElicitationGaps
     getOpenReconciliationNeeds
     row -> domain mapping
 
@@ -165,7 +165,7 @@ graph/
   schema/
     kinds.ts
       zero-import domain enum taxonomy leaf
-    elicitation-backlog.ts
+    elicitation-gaps.ts
     nodes.ts
     edges.ts
     reconciliation-need.ts

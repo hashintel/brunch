@@ -11,7 +11,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { createDb, type BrunchDb } from '../db/connection.js';
 import {
   changeLog,
-  elicitationBacklog,
+  elicitationGaps,
   graphClock,
   nodeKindCounters,
   nodes,
@@ -406,7 +406,7 @@ describe('CommandExecutor', () => {
       ).toEqual([{ specId: result.specId, lsn: 1 }]);
     });
 
-    it('seeds explicit grounding backlog entries for the new spec at create-spec LSN', () => {
+    it('seeds grounding typology gaps for the new spec at create-spec LSN', () => {
       const result = executor.createSpec({ name: 'Grounded Spec', slug: 'grounded-spec' });
       expect(result.status).toBe('success');
       if (result.status !== 'success') throw new Error('unreachable');
@@ -414,60 +414,41 @@ describe('CommandExecutor', () => {
       expect(
         db
           .select({
-            kind: elicitationBacklog.kind,
-            question: elicitationBacklog.question,
-            status: elicitationBacklog.status,
-            basis: elicitationBacklog.basis,
-            readinessBand: elicitationBacklog.readiness_band,
-            planeAffinity: elicitationBacklog.plane_affinity,
-            lensAffinity: elicitationBacklog.lens_affinity,
-            createdAtLsn: elicitationBacklog.created_at_lsn,
+            name: elicitationGaps.name,
+            disposition: elicitationGaps.disposition,
+            basis: elicitationGaps.basis,
+            readinessBand: elicitationGaps.readiness_band,
+            predicateKind: elicitationGaps.predicate_kind,
+            importance: elicitationGaps.importance,
+            planeAffinity: elicitationGaps.plane_affinity,
+            lensAffinity: elicitationGaps.lens_affinity,
+            createdAtLsn: elicitationGaps.created_at_lsn,
           })
-          .from(elicitationBacklog)
-          .where(eq(elicitationBacklog.spec_id, result.specId))
+          .from(elicitationGaps)
+          .where(eq(elicitationGaps.spec_id, result.specId))
           .all(),
-      ).toEqual([
-        {
-          kind: 'domain_anchor_question',
-          question: 'What is the thing or domain we are specifying?',
-          status: 'open',
-          basis: 'explicit',
+      ).toEqual(
+        [
+          'domain',
+          'protagonist',
+          'pain_pull',
+          'constraint',
+          'value',
+          'context_of_use',
+          'success_sketch',
+          'solution_boundary',
+        ].map((name, index) => ({
+          name,
+          disposition: 'open',
+          basis: 'implicit',
           readinessBand: 'grounding',
+          predicateKind: 'presence',
+          importance: index < 4 ? 3 : 1,
           planeAffinity: 'intent',
           lensAffinity: 'intent',
           createdAtLsn: result.lsn,
-        },
-        {
-          kind: 'protagonist_anchor_question',
-          question: 'Who is this for, or who is most affected by it?',
-          status: 'open',
-          basis: 'explicit',
-          readinessBand: 'grounding',
-          planeAffinity: 'intent',
-          lensAffinity: 'intent',
-          createdAtLsn: result.lsn,
-        },
-        {
-          kind: 'pain_anchor_question',
-          question: 'What problem, pain, or pull is driving this work?',
-          status: 'open',
-          basis: 'explicit',
-          readinessBand: 'grounding',
-          planeAffinity: 'intent',
-          lensAffinity: 'intent',
-          createdAtLsn: result.lsn,
-        },
-        {
-          kind: 'constraint_anchor_question',
-          question: 'What constraints or non-negotiable boundaries already shape it?',
-          status: 'open',
-          basis: 'explicit',
-          readinessBand: 'grounding',
-          planeAffinity: 'intent',
-          lensAffinity: 'intent',
-          createdAtLsn: result.lsn,
-        },
-      ]);
+        })),
+      );
     });
 
     it('scopes create_spec audit LSNs to the newly created spec', () => {
@@ -679,120 +660,145 @@ describe('CommandExecutor', () => {
     });
   });
 
-  describe('createElicitationBacklogEntry', () => {
-    it('creates an open backlog entry and preserves the arose-from pointer', () => {
-      const parent = executor.createElicitationBacklogEntry({
+  describe('createElicitationGap', () => {
+    it('creates an open gap and preserves the arose-from pointer', () => {
+      const parent = executor.createElicitationGap({
         specId,
-        kind: 'domain_anchor_question',
-        question: 'What is the thing or domain we are specifying?',
-        readinessBand: 'grounding',
+        name: 'domain',
+        rationale: 'Name the product domain.',
+        band: 'grounding',
+        predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
         planeAffinity: 'intent',
         lensAffinity: 'intent',
       });
       expect(parent.status).toBe('success');
       if (parent.status !== 'success') throw new Error('unreachable');
 
-      const child = executor.createElicitationBacklogEntry({
+      const child = executor.createElicitationGap({
         specId,
-        kind: 'follow_on_question',
-        question: 'Which user is blocked most by the current version?',
-        readinessBand: 'grounding',
+        name: 'follow_on',
+        rationale: 'Clarify which user is blocked most by the current version.',
+        band: 'grounding',
+        predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
         planeAffinity: 'intent',
         lensAffinity: 'intent',
-        aroseFromEntryId: parent.id,
+        aroseFromGapId: parent.id,
       });
 
       expect(child.status).toBe('success');
       if (child.status !== 'success') throw new Error('unreachable');
 
-      expect(
-        db.select().from(elicitationBacklog).where(eq(elicitationBacklog.id, child.id)).get(),
-      ).toMatchObject({
+      expect(db.select().from(elicitationGaps).where(eq(elicitationGaps.id, child.id)).get()).toMatchObject({
         spec_id: specId,
-        kind: 'follow_on_question',
-        question: 'Which user is blocked most by the current version?',
-        status: 'open',
+        name: 'follow_on',
+        rationale: 'Clarify which user is blocked most by the current version.',
+        disposition: 'open',
         basis: 'explicit',
         readiness_band: 'grounding',
+        predicate_kind: 'presence',
         plane_affinity: 'intent',
         lens_affinity: 'intent',
-        arose_from_entry_id: parent.id,
+        arose_from_gap_id: parent.id,
         created_at_lsn: child.lsn,
-        closed_at_lsn: null,
+        disposition_set_at_lsn: null,
       });
     });
 
-    it('rejects malformed entries without writing rows or advancing the clock', () => {
-      const result = executor.createElicitationBacklogEntry({
+    it('rejects malformed gaps without writing rows or advancing the clock', () => {
+      const result = executor.createElicitationGap({
         specId,
-        kind: '   ',
-        question: '   ',
-        readinessBand: 'later' as never,
+        name: '   ',
+        rationale: '   ',
+        band: 'later' as never,
+        predicate: { kind: 'presence', minimum: 0 },
       });
 
       expect(result.status).toBe('structural_illegal');
       if (result.status !== 'structural_illegal') throw new Error('unreachable');
       expect(result.diagnostics.map((diagnostic) => diagnostic.field)).toEqual(
-        expect.arrayContaining(['kind', 'question', 'readinessBand']),
+        expect.arrayContaining(['name', 'rationale', 'band', 'predicate.minimum']),
       );
-      expect(db.select().from(elicitationBacklog).all()).toEqual([]);
+      expect(db.select().from(elicitationGaps).all()).toEqual([]);
       expect(graphClockLsn(db, specId)).toBe(0);
       expect(db.select().from(changeLog).all()).toEqual([]);
     });
   });
 
-  describe('closeElicitationBacklogEntry', () => {
-    it('closes an open entry and records resolvedByNodeId and closedAtLsn', () => {
-      const entry = executor.createElicitationBacklogEntry({
+  describe('setElicitationGapDisposition', () => {
+    it('sets a non-derivable disposition and records resolvedByNodeId and dispositionSetAtLsn', () => {
+      const entry = executor.createElicitationGap({
         specId,
-        kind: 'domain_anchor_question',
-        question: 'What is the thing or domain we are specifying?',
-        readinessBand: 'grounding',
+        name: 'manual_grounding',
+        rationale: 'Judge whether grounding is sufficient.',
+        band: 'grounding',
+        predicate: { kind: 'manual', rubric: 'Sufficiently grounded for generative work.' },
       });
       expect(entry.status).toBe('success');
       if (entry.status !== 'success') throw new Error('unreachable');
 
-      const node = executor.createNode({
-        specId,
-        plane: 'intent',
-        kind: 'goal',
-        title: 'Clarified goal',
-      });
+      const node = executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Clarified goal' });
       expect(node.status).toBe('success');
       if (node.status !== 'success') throw new Error('unreachable');
 
-      const close = executor.closeElicitationBacklogEntry({
+      const setDisposition = executor.setElicitationGapDisposition({
         specId,
         id: entry.id,
+        disposition: 'answered',
         resolvedByNodeId: node.nodeId,
       });
 
-      expect(close.status).toBe('success');
-      if (close.status !== 'success') throw new Error('unreachable');
-      expect(close.lsn).toBeGreaterThan(node.lsn);
+      expect(setDisposition.status).toBe('success');
+      if (setDisposition.status !== 'success') throw new Error('unreachable');
+      expect(setDisposition.lsn).toBeGreaterThan(node.lsn);
       expect(
         db
           .select({
-            status: elicitationBacklog.status,
-            resolvedByNodeId: elicitationBacklog.resolved_by_node_id,
-            closedAtLsn: elicitationBacklog.closed_at_lsn,
+            disposition: elicitationGaps.disposition,
+            resolvedByNodeId: elicitationGaps.resolved_by_node_id,
+            dispositionSetAtLsn: elicitationGaps.disposition_set_at_lsn,
           })
-          .from(elicitationBacklog)
-          .where(eq(elicitationBacklog.id, entry.id))
+          .from(elicitationGaps)
+          .where(eq(elicitationGaps.id, entry.id))
           .get(),
       ).toEqual({
-        status: 'closed',
+        disposition: 'answered',
         resolvedByNodeId: node.nodeId,
-        closedAtLsn: close.lsn,
+        dispositionSetAtLsn: setDisposition.lsn,
       });
     });
 
-    it('rejects a resolved-by node from another spec', () => {
-      const entry = executor.createElicitationBacklogEntry({
+    it('rejects hand-setting answered for structural predicates', () => {
+      const entry = executor.createElicitationGap({
         specId,
-        kind: 'domain_anchor_question',
-        question: 'What is the thing or domain we are specifying?',
-        readinessBand: 'grounding',
+        name: 'domain',
+        rationale: 'Name the product domain.',
+        band: 'grounding',
+        predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
+      });
+      expect(entry.status).toBe('success');
+      if (entry.status !== 'success') throw new Error('unreachable');
+
+      const result = executor.setElicitationGapDisposition({ specId, id: entry.id, disposition: 'answered' });
+
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics[0]!.field).toBe('disposition');
+      expect(
+        db
+          .select({ disposition: elicitationGaps.disposition })
+          .from(elicitationGaps)
+          .where(eq(elicitationGaps.id, entry.id))
+          .get(),
+      ).toEqual({ disposition: 'open' });
+    });
+
+    it('rejects a resolved-by node from another spec', () => {
+      const entry = executor.createElicitationGap({
+        specId,
+        name: 'manual_grounding',
+        rationale: 'Judge whether grounding is sufficient.',
+        band: 'grounding',
+        predicate: { kind: 'manual', rubric: 'Sufficiently grounded for generative work.' },
       });
       expect(entry.status).toBe('success');
       if (entry.status !== 'success') throw new Error('unreachable');
@@ -809,30 +815,27 @@ describe('CommandExecutor', () => {
       expect(otherNode.status).toBe('success');
       if (otherNode.status !== 'success') throw new Error('unreachable');
 
-      const close = executor.closeElicitationBacklogEntry({
+      const result = executor.setElicitationGapDisposition({
         specId,
         id: entry.id,
+        disposition: 'answered',
         resolvedByNodeId: otherNode.nodeId,
       });
 
-      expect(close.status).toBe('structural_illegal');
-      if (close.status !== 'structural_illegal') throw new Error('unreachable');
-      expect(close.diagnostics[0]!.field).toBe('resolvedByNodeId');
+      expect(result.status).toBe('structural_illegal');
+      if (result.status !== 'structural_illegal') throw new Error('unreachable');
+      expect(result.diagnostics[0]!.field).toBe('resolvedByNodeId');
       expect(
         db
           .select({
-            status: elicitationBacklog.status,
-            resolvedByNodeId: elicitationBacklog.resolved_by_node_id,
-            closedAtLsn: elicitationBacklog.closed_at_lsn,
+            disposition: elicitationGaps.disposition,
+            resolvedByNodeId: elicitationGaps.resolved_by_node_id,
+            dispositionSetAtLsn: elicitationGaps.disposition_set_at_lsn,
           })
-          .from(elicitationBacklog)
-          .where(eq(elicitationBacklog.id, entry.id))
+          .from(elicitationGaps)
+          .where(eq(elicitationGaps.id, entry.id))
           .get(),
-      ).toEqual({
-        status: 'open',
-        resolvedByNodeId: null,
-        closedAtLsn: null,
-      });
+      ).toEqual({ disposition: 'open', resolvedByNodeId: null, dispositionSetAtLsn: null });
     });
   });
 

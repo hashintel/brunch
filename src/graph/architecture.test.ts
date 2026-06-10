@@ -49,7 +49,7 @@ describe('I26-L architectural boundary', () => {
 
   it('db/schema.ts does not own domain enum const arrays', () => {
     const result = execSync(
-      `rg "export const (INTENT_KINDS|ORACLE_KINDS|DESIGN_KINDS|PLAN_KINDS|NODE_PLANES|NODE_BASES|EDGE_CATEGORIES|EDGE_STANCES|READINESS_GRADES|READINESS_BANDS|LENS_AFFINITIES|ELICITATION_BACKLOG_STATUSES)" src/db/schema.ts || true`,
+      `rg "export const (INTENT_KINDS|ORACLE_KINDS|DESIGN_KINDS|PLAN_KINDS|NODE_PLANES|NODE_BASES|EDGE_CATEGORIES|EDGE_STANCES|READINESS_GRADES|READINESS_BANDS|LENS_AFFINITIES|GAP_DISPOSITIONS|GAP_PREDICATE_KINDS)" src/db/schema.ts || true`,
       { cwd: process.cwd(), encoding: 'utf-8' },
     );
 
