@@ -223,6 +223,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Cross-cutting obligations:** Readiness never bars graph truth or work (I31-L); `CommandExecutor` must not reject a node for a later-band kind (D64-L). The deferred milestone gate for export/plan/execute op-modes stays deferred (D45-L). Replace grade-gate tests across `compose.test.ts` / `prompting.test.ts` and createSpec/getSpec rather than preserving them.
 - **Traceability:** D25-L, D30-L, D32-L, D45-L, D57-L, D58-L, D59-L, D64-L, D65-L, D73-L, D74-L / A27-L / I25-L, I31-L. Supersedes stored-grade gating and the `chrome.phase` / `chrome.chatMode` fields.
 - **Design docs:** `memory/SPEC.md` D45-L / D74-L; `src/projections/session/runtime-policy.ts`; `src/projections/workspace/workspace-state.ts`.
+- **Current execution pointer:** D74-L JIT gate tracer done 2026-06-10 via `memory/cards/capability-readiness--jit-gate.md`: explicit capability→grounding-gap map, proceed / low-epistemic / negotiate outcome, live presence-coverage flip, no grade-symbol import. Deferred follow-ons remain to re-scope because their shape depends on the gate interface: readiness-estimate projection, consumer rewire off `MIN_GRADE`, stored-grade deletion, `chrome.phase`/`chatMode` removal.
 
 ### runtime-vocab-leaf
 

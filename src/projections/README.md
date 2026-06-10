@@ -28,6 +28,7 @@ Disposition: `✓` locked · `●` keep + lock (earns place, needs invariant) ·
 | `session/transcript-context` | 2 | ● | Real transform: filters session entries + Pi-SDK convert. Invariant: no non-empty transcript entry dropped. Consumes the Pi SDK (external trust boundary), not a PULL surface we own. |
 | `session/runtime-state` | 13 | ● | Most-consumed projection; flattens runtime state. Direct flattened-shape invariant guards the field set every consumer relies on. |
 | `session/affordances` | 1 | ✓ | `affordances.test.ts` — legality + default-on-switch derivation tested directly. |
+| `session/capability-readiness` | 0 | ✓ | D74-L tracer gate, not a reusable DTO. `capability-readiness.test.ts` locks the explicit capability→grounding-gap map, proceed / low-epistemic / negotiate outcomes, no-refusal invariant, and live presence-coverage flip. Consumer rewire remains deferred by the active scope card. |
 | `session/runtime-policy` | 4 | ○ | Policy/definitions data, not a DTO transform. Legality source already guarded via `affordances.test.ts` + `.pi` state tests. |
 | `workspace/workspace-context` | 1 | ✗ | Pure `{ mode, data }` tag wrapper — zero transform, single consumer (`.pi/extensions/context/get-cwd.ts`). Source `session/workspace-context.ts` already exports the shapes + `inspect*` and can feed the consumer directly. Delete / inline. |
 | `workspace/workspace-state` | 4 | ● | Real flatten of the `WorkspaceSessionState` union to a narrow DTO. Shape invariant across status variants (`ready` / `needs_human` / base). |
