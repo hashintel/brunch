@@ -38,6 +38,7 @@ Older brief-library examples were retired; future behavioral-kernel evidence sho
 ## Horizon design notes
 
 - [`docs/design/SPEC_INITIATIVE_MODEL.md`](../design/SPEC_INITIATIVE_MODEL.md) — working design proposal for spec as initiative/problem lifecycle, claim as truth-bearing unit, projected current truth, and repo-native branching/merge implications for planning data.
+- [`docs/design/ELICITATION_QUESTIONS.md`](../design/ELICITATION_QUESTIONS.md) — priming catalog of elicitation questions organized by graph node kind; the questions are projectable examples that feed the elicitor agent, anchoring gaps on the node-kind ontology rather than a parallel typology vocabulary.
 
 ## Working conventions
 
