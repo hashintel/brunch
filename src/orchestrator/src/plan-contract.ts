@@ -61,6 +61,7 @@ export type ContractFinding =
   | { code: 'slice-missing-epic'; severity: 'error'; sliceId: string; epicId: string }
   | { code: 'multi-slice-epic-missing-integration-seam'; severity: 'warning' | 'error'; epicId: string }
   | { code: 'uncovered-requirement'; severity: 'error'; sliceId: string }
+  | { code: 'duplicate-slice-id'; severity: 'error'; sliceId: string }
   | { code: 'file-write-conflict'; severity: 'warning'; path: string; sliceIds: string[] };
 
 export interface ContractResult {
@@ -85,6 +86,15 @@ export function checkPlan(plan: Plan, expectations: ContractExpectations = {}): 
   const dependsOnById = new Map<string, readonly string[]>(
     plan.slices.map((slice) => [slice.id, slice.depends_on] as const),
   );
+
+  const seenSliceIds = new Set<string>();
+  for (const slice of plan.slices) {
+    if (seenSliceIds.has(slice.id)) {
+      findings.push({ code: 'duplicate-slice-id', severity: 'error', sliceId: slice.id });
+    } else {
+      seenSliceIds.add(slice.id);
+    }
+  }
 
   for (const slice of plan.slices) {
     for (const dep of slice.depends_on) {

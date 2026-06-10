@@ -23,7 +23,7 @@ epics:
 slices:
   - id: package-setup
     epic_id: scaffold
-    definition: "Set up package.json (type: module, bun test), tsconfig.json, and src/index.ts as an initially empty public barrel. Do not export utilities here; the barrel-exports join slice owns the shared src/index.ts wiring after all util modules exist."
+    definition: "Set up package.json (type: module, bun test) and tsconfig.json. The barrel-exports join slice creates and owns the shared src/index.ts; do not write it here."
     depends_on: []
     writes: ["package.json", "tsconfig.json"]
     verification:

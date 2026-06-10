@@ -91,6 +91,19 @@ describe('checkPlan', () => {
     expect(codes(result.findings)).toContain('dependency-cycle');
   });
 
+  it('flags duplicate slice ids', () => {
+    const result = checkPlan(
+      plan([epic('e')], [slice('a', 'e'), slice('a', 'e', { definition: 'duplicate' })]),
+      { profile: 'emitted' },
+    );
+    expect(result.findings).toContainEqual({
+      code: 'duplicate-slice-id',
+      severity: 'error',
+      sliceId: 'a',
+    });
+    expect(result.ok).toBe(false);
+  });
+
   it('flags a self-dependency', () => {
     const result = checkPlan(plan([epic('e')], [slice('a', 'e', { depends_on: ['a'] })]));
     expect(result.findings).toContainEqual({ code: 'self-dependency', severity: 'error', sliceId: 'a' });

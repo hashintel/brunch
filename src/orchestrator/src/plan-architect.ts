@@ -27,26 +27,41 @@ import { buildExemplarBlock } from './plan-exemplars.js';
 import { EMPTY_PLANNING_CONTEXT, type PlanningContext } from './plan-planning-context.js';
 import type { Plan } from './types.js';
 
-export const architectDraftSchema = z.object({
-  epics: z.array(
-    z.object({
-      id: z.string(),
-      summary: z.string(),
-      depends_on: z.array(z.string()).optional(),
-    }),
-  ),
-  slices: z.array(
-    z.object({
-      id: z.string(),
-      epic_id: z.string(),
-      definition: z.string(),
-      depends_on: z.array(z.string()),
-      writes: z.array(z.string()),
-      derivedFrom: z.array(z.string()),
-    }),
-  ),
-  nonBuildableRequirementIds: z.array(z.string()),
+const architectSliceSchema = z.object({
+  id: z.string(),
+  epic_id: z.string(),
+  definition: z.string(),
+  depends_on: z.array(z.string()),
+  writes: z.array(z.string()),
+  derivedFrom: z.array(z.string()),
 });
+
+export const architectDraftSchema = z
+  .object({
+    epics: z.array(
+      z.object({
+        id: z.string(),
+        summary: z.string(),
+        depends_on: z.array(z.string()).optional(),
+      }),
+    ),
+    slices: z.array(architectSliceSchema),
+    nonBuildableRequirementIds: z.array(z.string()),
+  })
+  .superRefine((draft, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, slice] of draft.slices.entries()) {
+      if (seen.has(slice.id)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `Duplicate slice id: ${slice.id}`,
+          path: ['slices', index, 'id'],
+        });
+      } else {
+        seen.add(slice.id);
+      }
+    }
+  });
 
 export type ArchitectDraft = z.infer<typeof architectDraftSchema>;
 
