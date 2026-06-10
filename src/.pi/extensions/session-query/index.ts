@@ -15,9 +15,26 @@ import {
 export const BRUNCH_SESSION_QUERY_TOOL = 'brunch_session_query';
 const DEFAULT_LAST_MATCHING = 1;
 
+// The query `role` predicate matches `roleFor(entry)`, which surfaces a message
+// entry's `message.role`. Anchor the predicate vocabulary to that canonical
+// union: `satisfies Record<EntryRole, true>` makes a new Pi role a build error
+// until it is listed here, and the Zod enum is constructed from these keys so the
+// runtime contract cannot drift from the type.
+type EntryRole = Extract<SessionEntry, { type: 'message' }>['message']['role'];
+const ENTRY_ROLES = {
+  user: true,
+  assistant: true,
+  toolResult: true,
+  custom: true,
+  bashExecution: true,
+  branchSummary: true,
+  compactionSummary: true,
+} as const satisfies Record<EntryRole, true>;
+const ENTRY_ROLE_NAMES = Object.keys(ENTRY_ROLES) as [EntryRole, ...EntryRole[]];
+
 const zFind = z
   .object({
-    role: z.enum(['user', 'assistant', 'toolResult', 'custom', 'bashExecution']).optional(),
+    role: z.enum(ENTRY_ROLE_NAMES).optional(),
     toolName: z.string().optional(),
     toolCallId: z.string().optional(),
     customType: z.string().optional(),
