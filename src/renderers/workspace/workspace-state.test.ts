@@ -20,8 +20,6 @@ function readyState(): WorkspaceSessionState {
     chrome: {
       cwd,
       spec: { id: 1, title: 'Alpha spec' },
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
     },
   };
 }
@@ -38,15 +36,15 @@ describe('print state', () => {
         id: 'session-1',
         file: '/tmp/brunch-project/.brunch/sessions/session-1.jsonl',
       },
-      chrome: {
-        phase: 'elicitation',
-        chatMode: 'responding-to-elicitation',
-      },
+      chrome: {},
     });
-    expect(renderWorkspaceState(state)).toContain('Brunch workspace state');
-    expect(renderWorkspaceState(state)).toContain('status: ready');
-    expect(renderWorkspaceState(state)).toContain('spec: Alpha spec (1)');
-    expect(renderWorkspaceState(state)).toContain('session: session-1');
+    const rendered = renderWorkspaceState(state);
+    expect(rendered).toContain('Brunch workspace state');
+    expect(rendered).toContain('status: ready');
+    expect(rendered).toContain('spec: Alpha spec (1)');
+    expect(rendered).toContain('session: session-1');
+    expect(rendered).not.toContain('phase:');
+    expect(rendered).not.toContain('chatMode:');
   });
 
   it('renders select-spec as state instead of prompting', () => {
@@ -56,8 +54,6 @@ describe('print state', () => {
       chrome: {
         cwd,
         spec: null,
-        phase: 'select_spec',
-        chatMode: 'select-spec',
       },
     });
 

@@ -96,7 +96,6 @@ describe('inspectWorkspaceCwdInventory', () => {
         specId: alpha.specId,
         specTitle: 'Alpha Grounding',
         turnCount: 1,
-        readinessGrade: 'grounding_onboarding',
       },
       {
         id: 'beta-session',
@@ -104,7 +103,6 @@ describe('inspectWorkspaceCwdInventory', () => {
         specId: beta.specId,
         specTitle: 'Beta Commitments',
         turnCount: 2,
-        readinessGrade: 'commitments_ready',
       },
     ]);
   });

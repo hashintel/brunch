@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "rd-loop",
-    "name": "RD-Loop (frontier-governance harness for autonomous R&D)",
-    "readiness_grade": "planning_ready"
+    "name": "RD-Loop (frontier-governance harness for autonomous R&D)"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Govern autonomous R&D as a controlled epistemic process, not a single agent trying hard", "basis": "explicit", "source": "concept-2-b.md" },

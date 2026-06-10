@@ -17,11 +17,13 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { NodeKind } from '../../../graph/schema/nodes.js';
 import {
   isToolBlockedForRuntimeState,
   toolPolicyForRuntimeState,
 } from '../../../projections/session/runtime-policy.js';
-import { activeToolNamesForPosture, type ReadinessGrade } from '../../agents/state.js';
+import { activeToolNamesForPosture } from '../../agents/state.js';
 
 export {
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -80,13 +82,13 @@ function supportsBrunchAgentStateEntries(
 export function activeToolNamesForBrunchAgentState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
-  readinessGrade: ReadinessGrade = 'grounding_onboarding',
+  gaps: readonly ElicitationGap[],
   devAllowedToolNames?: readonly string[],
 ): string[] {
   return activeToolNamesForPosture({
     registeredToolNames: pi.getAllTools().map((tool) => tool.name),
     state,
-    readinessGrade,
+    gaps,
     devAllowedToolNames,
   });
 }
@@ -97,8 +99,30 @@ function applyBrunchToolPolicy(
   devAllowedToolNames?: readonly string[],
 ): void {
   pi.setActiveTools(
-    activeToolNamesForBrunchAgentState(pi, state, 'grounding_onboarding', devAllowedToolNames),
+    activeToolNamesForBrunchAgentState(pi, state, conservativeUncoveredGaps(), devAllowedToolNames),
   );
+}
+
+function conservativeUncoveredGaps(): readonly ElicitationGap[] {
+  return (['context', 'thesis', 'goal', 'constraint'] as const).map((kind) => gap(kind));
+}
+
+function gap(refersTo: NodeKind): ElicitationGap {
+  return {
+    id: `${refersTo}:runtime-policy-fallback`,
+    specId: 0,
+    refersTo,
+    question: `${refersTo} question`,
+    rationale: 'Conservative fallback before selected-spec gaps are available.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
+    importance: 1,
+    coverage: 0,
+    answered: false,
+    disposition: 'open',
+    createdAtLsn: 0,
+  };
 }
 
 interface TextLikeContent {

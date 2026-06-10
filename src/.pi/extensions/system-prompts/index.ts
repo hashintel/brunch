@@ -1,5 +1,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { NodeKind } from '../../../graph/schema/nodes.js';
 import {
   composeAgentPrompt,
   renderCwdContext,
@@ -57,19 +59,15 @@ export function registerBrunchPrompting(
     const resolvedPromptContext = await resolvePromptContext(promptContext);
 
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
+    const gaps = gapsForPrompt(resolvedPromptContext);
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
-        ? activeToolNamesForBrunchAgentState(
-            pi,
-            state,
-            resolvedPromptContext.spec.readinessGrade,
-            options.devAllowedToolNames,
-          )
+        ? activeToolNamesForBrunchAgentState(pi, state, gaps, options.devAllowedToolNames)
         : [];
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);
     }
-    const context = contextForPrompt(resolvedPromptContext, state);
+    const context = contextForPrompt(resolvedPromptContext, state, gaps);
     const { prompt } = composeAgentPrompt({
       agentId: state.agentRole,
       sessionState: state,
@@ -77,6 +75,7 @@ export function registerBrunchPrompting(
       workspace: resolvedPromptContext.workspace,
       context,
       activeTools,
+      gaps,
     });
 
     if (prompt.trim().length === 0) return undefined;
@@ -88,15 +87,41 @@ export function registerBrunchPrompting(
   });
 }
 
+function gapsForPrompt(context: BrunchPromptContext): readonly ElicitationGap[] {
+  return (
+    context.graphReads?.getElicitationGaps?.(context.spec.id) ?? conservativeUncoveredGaps(context.spec.id)
+  );
+}
+
+function conservativeUncoveredGaps(specId: number): readonly ElicitationGap[] {
+  return (['context', 'thesis', 'goal', 'constraint'] as const).map((kind) => ({
+    id: `${kind}:prompt-fallback`,
+    specId,
+    refersTo: kind as NodeKind,
+    question: `${kind} question`,
+    rationale: 'Conservative fallback when graph gap reads are not wired.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', minimum: 1, nodeKind: kind as NodeKind },
+    importance: 1,
+    coverage: 0,
+    answered: false,
+    disposition: 'open',
+    createdAtLsn: 0,
+  }));
+}
+
 function contextForPrompt(
   context: BrunchPromptContext,
   state: ReturnType<typeof projectState>,
+  gaps: readonly ElicitationGap[],
 ): AgentPromptContextBundle {
   const renderedContexts = [
     renderCwdContext({
       spec: context.spec,
       workspace: context.workspace,
       ...(context.session ? { session: context.session } : {}),
+      gaps,
     }),
   ];
   if (context.graphReads) {

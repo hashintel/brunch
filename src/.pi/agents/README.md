@@ -10,7 +10,7 @@ The markdown resources the agent reads on demand live beside this layer but are 
 
 ```text
 .pi/agents/definitions/   keyed agent role prompts
-.pi/skills/goals/         grade-derived objectives
+.pi/skills/goals/         capability-readiness-derived objectives
 .pi/skills/strategies/    interaction shapes
 .pi/skills/lenses/        topical focus lenses
 .pi/skills/methods/       tool-routing / sequencing guidance
@@ -29,9 +29,9 @@ The markdown resources the agent reads on demand live beside this layer but are 
 ```text
 agents/
 ├── README.md
-├── state.ts          axis enums + legal (op_mode × goal × strategy × lens) tuple table;
-│                       also owns each resource's {name, description, location} manifest entry
-├── compose.ts        projection -> runtime header + gated manifest
+├── state.ts          resource manifests + gap-driven method/tool legality;
+│                       reuses runtime-policy for goal/strategy/lens legality
+├── compose.ts        projection + elicitation gaps -> runtime header + gated manifest
 ├── index.ts          public entry for prompt assembly imports
 ├── definitions/      keyed Pi session-agent roles; body = system-prompt resource
 │   ├── elicitor.md
@@ -44,11 +44,11 @@ agents/
 
 ## Composition model
 
-`composeAgentPrompt(agentId, sessionState, spec, workspace, context)` emits:
+`composeAgentPrompt(agentId, sessionState, spec, workspace, context, gaps)` emits:
 
 1. agent control header — identity, model/thinking expectation, role derived from `op_mode`, tool authority;
-2. runtime-state header — current pinned/AUTO `goal`/`strategy`/`lens`, readiness grade, posture;
-3. resource manifests — `<available_goals>`, `<available_strategies>`, `<available_lenses>`, `<available_methods>` entries, filtered by tuple/grade/`op_mode`/allow-list;
+2. runtime-state header — current pinned/AUTO `goal`/`strategy`/`lens`, current spec line with the soft per-band readiness estimate, posture;
+3. resource manifests — `<available_goals>`, `<available_strategies>`, `<available_lenses>`, `<available_methods>` entries, filtered by `op_mode`/allow-list plus capability-readiness over selected-spec elicitation gaps;
 4. compact pushed context — minimal context handles and rendered context blocks.
 
 Detailed goal/strategy/lens/method bodies are markdown resources under `.pi/skills/` and are loaded with `read` when detail matters. Manifest metadata is code-owned in `state.ts`, not filesystem-discovered.
@@ -61,7 +61,7 @@ RENDER  -> reusable renderers eventually; .pi/agents/contexts chooses audience/d
 SURFACE -> extensions/system-prompts/ or read_graph / context read tools
 ```
 
-`contexts/` is not a `<available_*>` manifest resource family. It chooses which typed pull to expose, how much detail to include, and how lens/grade/mode shape the prompt-facing string.
+`contexts/` is not a `<available_*>` manifest resource family. It chooses which typed pull to expose, how much detail to include, and how lens/gaps/mode shape the prompt-facing string.
 
 ## Imported by
 

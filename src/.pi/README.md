@@ -52,4 +52,4 @@ rules:
 
 Production Brunch does not rely on ambient discovery from the repository root. The product shell imports extension factories explicitly; tests for extensions/components live in `.pi/__tests__/`.
 
-`SYSTEM.md` / `APPEND_SYSTEM.md` are Pi's static ambient prompt files. Brunch's dynamic selected-spec/runtime prompt contribution is per-turn and therefore uses `before_agent_start` in `extensions/system-prompts/`, appending to the already assembled Pi system prompt by returning `systemPrompt: event.systemPrompt + brunchPrompt`.
+`SYSTEM.md` / `APPEND_SYSTEM.md` are Pi's static ambient prompt files. Brunch's dynamic selected-spec/runtime/gap-driven prompt contribution is per-turn and therefore uses `before_agent_start` in `extensions/system-prompts/`, appending to the already assembled Pi system prompt by returning `systemPrompt: event.systemPrompt + brunchPrompt`.

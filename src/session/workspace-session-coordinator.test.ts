@@ -32,8 +32,8 @@ describe('WorkspaceSessionCoordinator', () => {
     expect(result.chrome.cwd).toBe(cwd);
     expect(result.chrome.spec?.id).toBeTypeOf('number');
     expect(result.chrome.spec?.title).toBe('Scratch spec');
-    expect(result.chrome.phase).toBe('elicitation');
-    expect(result.chrome.chatMode).toBe('responding-to-elicitation');
+    expect(result.chrome).not.toHaveProperty('phase');
+    expect(result.chrome).not.toHaveProperty('chatMode');
 
     const oracle = await verifyWorkspaceSessionStores({
       cwd,

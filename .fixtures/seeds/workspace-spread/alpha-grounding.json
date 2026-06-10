@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "alpha-grounding",
-    "name": "Alpha Grounding",
-    "readiness_grade": "grounding_onboarding"
+    "name": "Alpha Grounding"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Help a user orient inside one workspace", "basis": "explicit", "source": "fixture" },

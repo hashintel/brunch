@@ -6,6 +6,7 @@ import type { CommandExecutor } from '../../../graph/command-executor.js';
 import type {
   EdgeCategory,
   EdgeDirection,
+  ElicitationGap,
   GraphFilter,
   GraphSlice,
   GraphVisibility,
@@ -32,6 +33,7 @@ export interface GraphReaders {
     options?: { hops?: number; visibility?: GraphVisibility },
   ) => readonly NodeNeighborhood[];
   readonly resolveNodeCode: (code: string) => number | undefined;
+  readonly getElicitationGaps?: (specId: number) => readonly ElicitationGap[];
 }
 
 export interface BrunchGraphDeps {

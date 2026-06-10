@@ -4,10 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import Database from 'better-sqlite3';
+import { asc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { createDb } from './connection.js';
-import { changeLog, edges, graphClock, nodeKindCounters, nodes, specs } from './schema.js';
+import { changeLog, edges, elicitationGaps, graphClock, nodeKindCounters, nodes, specs } from './schema.js';
 
 describe('createDb', () => {
   it('creates a missing database file and can reopen it idempotently', async () => {
@@ -16,9 +17,7 @@ describe('createDb', () => {
 
     try {
       const db = createDb(dbPath);
-      db.insert(specs)
-        .values({ name: 'Spec A', slug: 'spec-a', readiness_grade: 'grounding_onboarding' })
-        .run();
+      db.insert(specs).values({ name: 'Spec A', slug: 'spec-a' }).run();
 
       const specId = db.select({ id: specs.id }).from(specs).get()!.id;
       db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
@@ -99,6 +98,52 @@ describe('createDb', () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it('migrates a populated pre-node-kind elicitation gap table', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'brunch-db-legacy-gaps-'));
+    const dbPath = join(dir, 'legacy.db');
+
+    try {
+      await createLegacy0003ElicitationGapDatabase(dbPath);
+
+      const db = createDb(dbPath);
+
+      expect(
+        db
+          .select({
+            refersTo: elicitationGaps.refers_to,
+            question: elicitationGaps.question,
+            rationale: elicitationGaps.rationale,
+          })
+          .from(elicitationGaps)
+          .orderBy(asc(elicitationGaps.id))
+          .all(),
+      ).toEqual([
+        {
+          refersTo: 'context',
+          question: 'What kind of thing is this, and what domain or environment does it live in?',
+          rationale: 'Anchors the domain.',
+        },
+        {
+          refersTo: 'thesis',
+          question: 'Who is this for?',
+          rationale: 'Identifies the main actor.',
+        },
+        {
+          refersTo: 'criterion',
+          question: 'How will we recognize success or good enough?',
+          rationale: 'Sketches what success looks like.',
+        },
+        {
+          refersTo: 'goal',
+          question: 'custom_goal_gap',
+          rationale: 'Custom legacy row should still migrate.',
+        },
+      ]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 async function createLegacy0000Database(dbPath: string): Promise<void> {
@@ -153,8 +198,8 @@ async function createLegacy0000SpecOnlyHistoryDatabase(dbPath: string): Promise<
 
       INSERT INTO change_log (lsn, operation, payload)
       VALUES
-        (1, 'create_spec', '{"specId":1,"name":"Spec-only history","slug":"spec-only-history","readinessGrade":"grounding_onboarding"}'),
-        (4, 'update_spec_readiness_grade', '{"specId":1,"readinessGrade":"elicitation_ready"}');
+        (1, 'create_spec', '{"specId":1,"name":"Spec-only history","slug":"spec-only-history"}'),
+        (4, 'legacy_spec_history', '{"specId":1}');
 
       CREATE TABLE "__drizzle_migrations" (
         id SERIAL PRIMARY KEY,
@@ -192,3 +237,80 @@ async function createLegacy0000EmptySpecDatabase(dbPath: string): Promise<void> 
     sqlite.close();
   }
 }
+
+async function createLegacy0003ElicitationGapDatabase(dbPath: string): Promise<void> {
+  const migrations = await Promise.all([
+    readMigration('0000_deep_maria_hill.sql'),
+    readMigration('0001_aspiring_orphan.sql'),
+    readMigration('0002_spec_scoped_graph_clock.sql'),
+    readMigration('0003_outstanding_black_bird.sql'),
+  ]);
+  const sqlite = new Database(dbPath);
+
+  try {
+    for (const migration of migrations) {
+      sqlite.exec(migration.sql.toString('utf8'));
+    }
+
+    sqlite.exec(`
+      INSERT INTO specs (id, name, slug, readiness_grade)
+      VALUES (1, 'Legacy gap spec', 'legacy-gap-spec', 'grounding_onboarding');
+
+      INSERT INTO graph_clock (spec_id, lsn)
+      VALUES (1, 4);
+
+      INSERT INTO elicitation_gaps (
+        id,
+        spec_id,
+        name,
+        rationale,
+        disposition,
+        basis,
+        readiness_band,
+        predicate_kind,
+        predicate,
+        importance,
+        plane_affinity,
+        lens_affinity,
+        created_at_lsn
+      )
+      VALUES
+        (1, 1, 'domain', 'Anchors the domain.', 'open', 'implicit', 'grounding', 'presence', '{"kind":"presence","plane":"intent","nodeKind":"context","minimum":1}', 3, 'intent', 'intent', 1),
+        (2, 1, 'protagonist', 'Identifies the main actor.', 'open', 'implicit', 'grounding', 'presence', '{"kind":"presence","plane":"intent","nodeKind":"context","minimum":1}', 3, 'intent', 'intent', 2),
+        (3, 1, 'success_sketch', 'Sketches what success looks like.', 'open', 'implicit', 'grounding', 'presence', '{"kind":"presence","plane":"intent","nodeKind":"criterion","minimum":1}', 1, 'intent', 'intent', 3),
+        (4, 1, 'custom_goal_gap', 'Custom legacy row should still migrate.', 'open', 'explicit', 'grounding', 'presence', '{"kind":"presence","plane":"intent","nodeKind":"goal","minimum":1}', 1, 'intent', 'intent', 4);
+
+      CREATE TABLE "__drizzle_migrations" (
+        id SERIAL PRIMARY KEY,
+        hash text NOT NULL,
+        created_at numeric
+      );
+    `);
+
+    for (const migration of migrations) {
+      sqlite
+        .prepare('INSERT INTO "__drizzle_migrations" (hash, created_at) VALUES (?, ?)')
+        .run(createHash('sha256').update(migration.sql).digest('hex'), migration.createdAt);
+    }
+  } finally {
+    sqlite.close();
+  }
+}
+
+async function readMigration(
+  name: keyof typeof MIGRATION_CREATED_AT,
+): Promise<{ readonly sql: Buffer; readonly createdAt: number }> {
+  const sql = await readFile(new URL(`../../drizzle/${name}`, import.meta.url));
+
+  return {
+    sql,
+    createdAt: MIGRATION_CREATED_AT[name],
+  };
+}
+
+const MIGRATION_CREATED_AT = {
+  '0000_deep_maria_hill.sql': 1780478757603,
+  '0001_aspiring_orphan.sql': 1780577981107,
+  '0002_spec_scoped_graph_clock.sql': 1780668000000,
+  '0003_outstanding_black_bird.sql': 1780904720280,
+} as const;

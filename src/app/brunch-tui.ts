@@ -354,7 +354,6 @@ export function createBrunchAgentSessionRuntimeFactory(
                 spec: {
                   id: selectedSpec.id,
                   name: selectedSpec.name,
-                  readinessGrade: selectedSpec.readinessGrade,
                 },
                 workspace: { cwd },
                 session: {

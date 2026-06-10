@@ -48,7 +48,6 @@ describe('seedFixture', () => {
     expect(specRows).toHaveLength(1);
     expect(specRows[0]!.id).toBe(result.specId);
     expect(specRows[0]!.slug).toBe('code-health');
-    expect(specRows[0]!.readiness_grade).toBe('commitments_ready');
 
     // Node / edge rows persisted, all scoped to the seeded spec.
     const nodeRows = db.select().from(nodes).where(eq(nodes.spec_id, result.specId)).all();
@@ -116,18 +115,15 @@ describe('seedFixture', () => {
     expect(specEdges.some((row) => row.category === 'proof' && row.target_id === thesisId)).toBe(false);
   });
 
-  it('loads the workspace-spread fixtures into one DB with distinct slugs and readiness grades', () => {
+  it('loads the workspace-spread fixtures into one DB with distinct slugs', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);
     const alpha = seedFixture(executor, loadFixture('alpha-grounding', 'workspace-spread'));
     const beta = seedFixture(executor, loadFixture('beta-commitments', 'workspace-spread'));
 
-    const specRows = db.select({ slug: specs.slug, readinessGrade: specs.readiness_grade }).from(specs).all();
+    const specRows = db.select({ slug: specs.slug }).from(specs).all();
 
-    expect(specRows).toEqual([
-      { slug: 'alpha-grounding', readinessGrade: 'grounding_onboarding' },
-      { slug: 'beta-commitments', readinessGrade: 'commitments_ready' },
-    ]);
+    expect(specRows).toEqual([{ slug: 'alpha-grounding' }, { slug: 'beta-commitments' }]);
     expect(graphClockLsn(db, alpha.specId)).toBe(2);
     expect(graphClockLsn(db, beta.specId)).toBe(2);
   });
@@ -157,7 +153,7 @@ describe('seedFixture', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);
     const fixture: SeedFixture = {
-      spec: { slug: 'off-basis', name: 'Off Basis', readiness_grade: 'grounding_onboarding' },
+      spec: { slug: 'off-basis', name: 'Off Basis' },
       nodes: [{ local_id: 1, plane: 'intent', kind: 'goal', title: 'A goal', basis: 'implicit' }],
       edges: [],
     };

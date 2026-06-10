@@ -27,7 +27,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { GraphMutationOp, ReadinessGrade } from './command-executor.js';
+import type { GraphMutationOp } from './command-executor.js';
 import { CommandExecutor } from './command-executor.js';
 import type { EdgeCategory, EdgeStance } from './schema/edges.js';
 import type { NodeBasis, NodePlane } from './schema/nodes.js';
@@ -41,7 +41,6 @@ import { openWorkspaceCommandExecutor } from './workspace-store.js';
 export interface SeedFixtureSpec {
   readonly slug: string;
   readonly name: string;
-  readonly readiness_grade: ReadinessGrade;
 }
 
 /** A node row in a consolidated fixture; `local_id` is referenced by edges. */
@@ -111,7 +110,6 @@ export function seedFixture(executor: CommandExecutor, fixture: SeedFixture): Se
   const specResult = executor.createSpec({
     name: fixture.spec.name,
     slug: fixture.spec.slug,
-    readinessGrade: fixture.spec.readiness_grade,
   });
   if (specResult.status !== 'success') {
     throw new Error(

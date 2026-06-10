@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "code-health",
-    "name": "Code Health",
-    "readiness_grade": "commitments_ready"
+    "name": "Code Health"
   },
   "nodes": [
     {

@@ -15,6 +15,8 @@ describe('Brunch chrome projection', () => {
     const state = chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-real'));
 
     expect(state.session.id).toBe('session-real');
+    expect(state).not.toHaveProperty('phase');
+    expect(state).not.toHaveProperty('chatMode');
   });
 
   it('populates session.label from workspace session name when available', () => {
@@ -39,8 +41,6 @@ describe('Brunch chrome projection', () => {
       cwd: '/tmp/project',
       spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1', label: 'Interview #1' },
-      phase: 'elicitation' as const,
-      chatMode: 'responding-to-elicitation' as const,
       webSidecarUrl: 'http://127.0.0.1:49152/spec/1',
     };
 
@@ -58,8 +58,6 @@ describe('Brunch chrome projection', () => {
       cwd: '/tmp/project',
       spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1', label: 'Interview #1' },
-      phase: 'elicitation' as const,
-      chatMode: 'responding-to-elicitation' as const,
       runtime: {
         bundle: 'elicit-default',
         role: 'elicitor',
@@ -87,8 +85,6 @@ describe('Brunch chrome projection', () => {
         cwd: '/tmp/project',
         spec: { id: 1, title: 'Spec One' },
         session: { id: 'session-1', label: 'Interview #1' },
-        phase: 'elicitation',
-        chatMode: 'responding-to-elicitation',
         runtime: {
           bundle: 'elicit-default',
           role: 'elicitor',
@@ -127,8 +123,6 @@ describe('Brunch chrome projection', () => {
       cwd: '/tmp/project',
       spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1' },
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
     });
 
     expect(calls.map((call) => call.method)).toEqual(['setFooter', 'setTitle']);
@@ -145,8 +139,6 @@ describe('Brunch chrome projection', () => {
       project: { name: 'Project One', slug: 'project-one' },
       spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1', label: 'Spec One — session 1' },
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
       webSidecarUrl: 'http://127.0.0.1:49152/spec/1',
       startupHeader: { decision: 'newSession' },
     });
@@ -175,8 +167,6 @@ describe('Brunch chrome projection', () => {
       cwd: '/tmp/project',
       spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1' },
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
     });
     expect(resumedCalls.some((call) => call.method === 'setHeader')).toBe(false);
   });
@@ -221,8 +211,6 @@ describe('Brunch chrome projection', () => {
       cwd: '/tmp/project',
       spec: { id: 1, title: 'Spec One' },
       session: { id: 'session-1' },
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
       webSidecarUrl: 'http://127.0.0.1:49152/spec/1\nignored',
     });
 
@@ -245,8 +233,6 @@ function readyWorkspace(cwd: string, sessionId: string, sessionName?: string): W
     chrome: {
       cwd,
       spec,
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
     },
   };
 }

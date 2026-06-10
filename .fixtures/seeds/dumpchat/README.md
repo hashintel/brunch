@@ -21,7 +21,7 @@ Faithful vs. projected:
   milestone / frontier / slice nodes are plausible projections from the intent,
   marked `source: "projected"`.
 
-`readiness_grade` is `commitments_ready`: the source spec commits firmly to
+The source spec commits firmly to
 decisions, invariants, and selector policy, but carries no explicit plan.
 
 Coverage (a by-product of being faithful, not the goal):

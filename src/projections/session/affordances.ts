@@ -1,4 +1,4 @@
-import type { ReadinessGrade } from '../../graph/index.js';
+import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import type {
   AgentGoalId,
   AgentGoalSelection,
@@ -29,22 +29,22 @@ export interface RuntimeAffordances {
 
 export function affordances(
   state: ResolvedBrunchAgentState,
-  readinessGrade: ReadinessGrade,
+  gaps: readonly ElicitationGap[],
 ): RuntimeAffordances {
   return {
     goal: {
       selection: state.agentGoal,
-      legalOptions: axisOptionsForRuntimeState('goal', state, readinessGrade),
+      legalOptions: axisOptionsForRuntimeState('goal', state, gaps),
       defaultOnSwitch: defaultGoalForRuntimeState(state),
     },
     strategy: {
       selection: state.agentStrategy,
-      legalOptions: axisOptionsForRuntimeState('strategy', state, readinessGrade),
+      legalOptions: axisOptionsForRuntimeState('strategy', state, gaps),
       defaultOnSwitch: defaultStrategyForRuntimeState(state),
     },
     lens: {
       selection: state.agentLens,
-      legalOptions: axisOptionsForRuntimeState('lens', state, readinessGrade),
+      legalOptions: axisOptionsForRuntimeState('lens', state, gaps),
       defaultOnSwitch: defaultLensForRuntimeState(state),
     },
   };

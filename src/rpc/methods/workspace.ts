@@ -199,10 +199,7 @@ function workspaceActivationResultFromState(state: WorkspaceActivationState) {
       status: 'cancelled' as const,
       cwd: state.cwd,
       spec: state.chrome.spec,
-      chrome: {
-        phase: state.chrome.phase,
-        chatMode: state.chrome.chatMode,
-      },
+      chrome: {},
     };
   }
 

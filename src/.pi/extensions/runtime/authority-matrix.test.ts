@@ -2,6 +2,8 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import type { CommandResult } from '../../../graph/command-executor.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { NodeKind } from '../../../graph/schema/nodes.js';
 import {
   isToolBlockedForRuntimeState,
   TOOL_POLICY_DEFINITIONS,
@@ -20,6 +22,26 @@ const REGISTERED_POC_TOOLS = [
   'request_answer',
   'mutate_graph',
 ] as const;
+
+function gap(refersTo: NodeKind): ElicitationGap {
+  return {
+    id: `${refersTo}:gap`,
+    specId: 1,
+    refersTo,
+    question: `${refersTo} question`,
+    rationale: `${refersTo} rationale`,
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
+    importance: 1,
+    coverage: 0,
+    answered: false,
+    disposition: 'open',
+    createdAtLsn: 1,
+  };
+}
+
+const uncoveredGaps = ['context', 'thesis', 'goal', 'constraint'].map((kind) => gap(kind as NodeKind));
 
 function piWithRegisteredTools(toolNames: readonly string[]): ExtensionAPI {
   return {
@@ -76,14 +98,9 @@ describe('minimal authority matrix', () => {
       expect(isToolBlockedForRuntimeState(state, toolName)).toBe(true);
     }
 
-    expect(activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state)).toEqual([
-      'read',
-      'grep',
-      'find',
-      'ls',
-      'present_question',
-      'request_answer',
-    ]);
+    expect(
+      activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state, uncoveredGaps),
+    ).toEqual(['read', 'grep', 'find', 'ls', 'present_question', 'request_answer']);
   });
 
   it('represents needs_human as structured data instead of a TUI-only dialog', () => {

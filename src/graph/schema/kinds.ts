@@ -35,13 +35,6 @@ export const EDGE_CATEGORIES = [
 
 export const EDGE_STANCES = ['for', 'against'] as const;
 
-export const READINESS_GRADES = [
-  'grounding_onboarding',
-  'elicitation_ready',
-  'commitments_ready',
-  'planning_ready',
-] as const;
-
 export const READINESS_BANDS = ['grounding', 'elicitation', 'commitment'] as const;
 
 export const LENS_AFFINITIES = ['intent', 'design', 'oracle'] as const;

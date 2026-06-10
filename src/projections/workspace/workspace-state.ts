@@ -11,10 +11,7 @@ export interface WorkspaceState {
     id: string;
     file: string;
   };
-  chrome: {
-    phase: 'select_spec' | 'elicitation';
-    chatMode: 'select-spec' | 'responding-to-elicitation';
-  };
+  chrome: Record<string, never>;
   reason?: string;
 }
 
@@ -23,10 +20,7 @@ export function projectWorkspaceState(state: WorkspaceSessionState): WorkspaceSt
     status: state.status,
     cwd: state.cwd,
     spec: state.chrome.spec,
-    chrome: {
-      phase: state.chrome.phase,
-      chatMode: state.chrome.chatMode,
-    },
+    chrome: {},
   };
 
   if (state.status === 'ready') {

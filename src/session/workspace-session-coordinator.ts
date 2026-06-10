@@ -56,8 +56,6 @@ export interface WorkspaceSessionChromeState {
   cwd: string;
   project?: WorkspaceProjectState;
   spec: WorkspaceSpecState | null;
-  phase: 'select_spec' | 'elicitation';
-  chatMode: 'select-spec' | 'responding-to-elicitation';
 }
 
 export interface WorkspaceSessionReadyState {
@@ -683,8 +681,6 @@ function chromeState(
     cwd,
     project: project ?? projectStateFromCwd(cwd),
     spec,
-    phase: spec ? 'elicitation' : 'select_spec',
-    chatMode: spec ? 'responding-to-elicitation' : 'select-spec',
   };
 }
 

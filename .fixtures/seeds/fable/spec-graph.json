@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "fable",
-    "name": "Fable (Vite-native component workbench)",
-    "readiness_grade": "planning_ready"
+    "name": "Fable (Vite-native component workbench)"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Build a Vite-native component workbench with a small deep core and explicit framework adapters", "basis": "explicit", "source": "memory/SPEC.md" },

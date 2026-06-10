@@ -1,4 +1,4 @@
-import type { ReadinessGrade } from '../../graph/index.js';
+import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import type {
   AgentGoalId,
   AgentGoalSelection,
@@ -14,6 +14,7 @@ import type {
   ThinkingLevel,
   ToolPolicyId,
 } from '../../session/runtime-state.js';
+import { evaluateCapabilityReadiness, type CapabilityId } from './capability-readiness.js';
 
 export interface ToolPolicyDefinition {
   id: ToolPolicyId;
@@ -87,79 +88,70 @@ export const TOOL_POLICY_DEFINITIONS: Record<ToolPolicyId, ToolPolicyDefinition>
   },
 };
 
-export const GRADE_RANK: Record<ReadinessGrade, number> = {
-  grounding_onboarding: 0,
-  elicitation_ready: 1,
-  commitments_ready: 2,
-  planning_ready: 3,
-};
-
-export const GOAL_MIN_GRADE: Record<AgentGoalId, ReadinessGrade> = {
-  'grounding-advance': 'grounding_onboarding',
-  'elicit-expand': 'elicitation_ready',
-  'commit-converge': 'commitments_ready',
-  'capture-posture': 'grounding_onboarding',
-};
-
-export const STRATEGY_MIN_GRADE: Record<AgentStrategyId, ReadinessGrade> = {
-  freestyle: 'grounding_onboarding',
-  'step-wise-decision-tree': 'grounding_onboarding',
-  'step-wise-disambiguate': 'grounding_onboarding',
-  'propose-graph': 'elicitation_ready',
-  'project-graph': 'commitments_ready',
-};
-
 export const AUTO_EXCLUDED_STRATEGIES = new Set<AgentStrategyId>(['freestyle']);
 
-export const LENS_MIN_GRADE: Record<AgentLensId, ReadinessGrade> = {
-  intent: 'grounding_onboarding',
-  design: 'elicitation_ready',
-  oracle: 'elicitation_ready',
+const GOAL_CAPABILITY: Partial<Record<AgentGoalId, CapabilityId>> = {
+  'elicit-expand': 'generative-lens',
+  'commit-converge': 'commitment-review',
 };
 
-export type RuntimeAffordanceAxis = 'goal' | 'strategy' | 'lens';
+const STRATEGY_CAPABILITY: Partial<Record<AgentStrategyId, CapabilityId>> = {
+  'propose-graph': 'propose-graph',
+  'project-graph': 'project-graph',
+};
 
-export function isGradeLegal<TId extends string>(
-  id: TId,
-  readinessGrade: ReadinessGrade,
-  minGrades: Record<TId, ReadinessGrade>,
+const LENS_CAPABILITY: Partial<Record<AgentLensId, CapabilityId>> = {
+  design: 'generative-lens',
+  oracle: 'generative-lens',
+};
+
+export function isCapabilityLegalForGaps(
+  capability: CapabilityId | undefined,
+  gaps: readonly ElicitationGap[],
 ): boolean {
-  return GRADE_RANK[readinessGrade] >= GRADE_RANK[minGrades[id]];
+  // Floor options carry no capability gate — always legal.
+  if (!capability) return true;
+  // A `negotiate` outcome omits the option (readiness, not a refusal — I31-L holds at the
+  // execution boundary). A missing-register-kind throw is a seeding/config bug and must
+  // fail loud (gaps-node-kind-reference: config bug ≠ uncovered) — do not swallow it.
+  return evaluateCapabilityReadiness(capability, gaps).status !== 'negotiate';
 }
+
+export type RuntimeAffordanceAxis = 'goal' | 'strategy' | 'lens';
 
 export function axisOptionsForRuntimeState(
   axis: 'goal',
   state: ResolvedBrunchAgentState,
-  readinessGrade: ReadinessGrade,
+  gaps: readonly ElicitationGap[],
 ): readonly AgentGoalId[];
 export function axisOptionsForRuntimeState(
   axis: 'strategy',
   state: ResolvedBrunchAgentState,
-  readinessGrade: ReadinessGrade,
+  gaps: readonly ElicitationGap[],
 ): readonly AgentStrategyId[];
 export function axisOptionsForRuntimeState(
   axis: 'lens',
   state: ResolvedBrunchAgentState,
-  readinessGrade: ReadinessGrade,
+  gaps: readonly ElicitationGap[],
 ): readonly AgentLensId[];
 export function axisOptionsForRuntimeState(
   axis: RuntimeAffordanceAxis,
   state: ResolvedBrunchAgentState,
-  readinessGrade: ReadinessGrade,
+  gaps: readonly ElicitationGap[],
 ): readonly (AgentGoalId | AgentStrategyId | AgentLensId)[] {
   if (axis === 'goal') {
     return state.agentRoleDefinition.allowedGoals.filter((id) =>
-      isGradeLegal(id, readinessGrade, GOAL_MIN_GRADE),
+      isCapabilityLegalForGaps(GOAL_CAPABILITY[id], gaps),
     );
   }
   if (axis === 'strategy') {
     const legal = state.agentRoleDefinition.allowedStrategies.filter((id) =>
-      isGradeLegal(id, readinessGrade, STRATEGY_MIN_GRADE),
+      isCapabilityLegalForGaps(STRATEGY_CAPABILITY[id], gaps),
     );
     return state.agentStrategy === 'auto' ? legal.filter((id) => !AUTO_EXCLUDED_STRATEGIES.has(id)) : legal;
   }
   return state.agentRoleDefinition.allowedLenses.filter((id) =>
-    isGradeLegal(id, readinessGrade, LENS_MIN_GRADE),
+    isCapabilityLegalForGaps(LENS_CAPABILITY[id], gaps),
   );
 }
 

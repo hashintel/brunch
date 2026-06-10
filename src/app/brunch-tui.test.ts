@@ -824,7 +824,7 @@ describe('Brunch TUI boot', () => {
       {
         coordinator: noOpWorkspaceCoordinator(cwd),
         promptContext: {
-          spec: { id: 1, name: 'Spec One', readinessGrade: 'grounding_onboarding' },
+          spec: { id: 1, name: 'Spec One' },
           workspace: { cwd },
         },
       },
@@ -1078,8 +1078,6 @@ describe('Brunch TUI boot', () => {
         chrome: {
           cwd: '/tmp/project',
           spec: null,
-          phase: 'select_spec',
-          chatMode: 'select-spec',
         },
       }),
     });
@@ -1108,8 +1106,6 @@ describe('Brunch TUI boot', () => {
         chrome: {
           cwd: '/tmp/project',
           spec: null,
-          phase: 'select_spec',
-          chatMode: 'select-spec',
         },
       }),
     });
@@ -1738,8 +1734,6 @@ function readyWorkspace(cwd: string, sessionId: string): WorkspaceSessionReadySt
     chrome: {
       cwd,
       spec,
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
     },
   };
 }

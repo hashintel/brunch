@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "beta-commitments",
-    "name": "Beta Commitments",
-    "readiness_grade": "commitments_ready"
+    "name": "Beta Commitments"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "requirement", "title": "Workspace overviews should report node counts per spec", "basis": "explicit", "source": "fixture" },

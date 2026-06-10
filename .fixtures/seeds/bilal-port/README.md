@@ -55,7 +55,7 @@ Each `<slug>.json` is the seed contract consumed by the loader:
 
 ```
 {
-  "spec":  { "slug", "name", "readiness_grade" },
+  "spec":  { "slug", "name" },
   "nodes": [ { "local_id", "plane", "kind", "title", "body?", "basis", "source?", "detail?" } ],
   "edges": [ { "category", "source_local_id", "target_local_id", "stance?", "basis", "rationale?" } ]
 }

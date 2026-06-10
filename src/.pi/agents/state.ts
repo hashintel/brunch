@@ -1,18 +1,15 @@
 import { fileURLToPath } from 'node:url';
 
-import type { ReadinessGrade } from '../../graph/index.js';
+import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
+import type { CapabilityId } from '../../projections/session/capability-readiness.js';
 import {
   AUTO_EXCLUDED_STRATEGIES,
-  GOAL_MIN_GRADE,
-  LENS_MIN_GRADE,
-  STRATEGY_MIN_GRADE,
-  isGradeLegal,
+  axisOptionsForRuntimeState,
+  isCapabilityLegalForGaps,
   toolPolicyForRuntimeState,
   type ResolvedBrunchAgentState,
 } from '../../projections/session/runtime-policy.js';
 import type { AgentGoalId, AgentLensId, AgentRoleId, AgentStrategyId } from '../../session/runtime-state.js';
-
-export type { ReadinessGrade };
 type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods' | 'definitions';
 export type MethodId =
   | 'run-structured-exchange'
@@ -50,17 +47,14 @@ export interface PromptManifests {
 export interface BrunchPostureToolPolicyInput {
   registeredToolNames: readonly string[];
   state: ResolvedBrunchAgentState;
-  readinessGrade: ReadinessGrade;
+  gaps: readonly ElicitationGap[];
   devAllowedToolNames?: readonly string[] | undefined;
 }
 
-const METHOD_MIN_GRADE: Record<MethodId, ReadinessGrade> = {
-  'run-structured-exchange': 'grounding_onboarding',
-  'infer-and-capture': 'grounding_onboarding',
-  'read-context': 'grounding_onboarding',
-  'commit-graph': 'elicitation_ready',
-  'generate-proposal': 'commitments_ready',
-  'review-for-gaps': 'commitments_ready',
+const METHOD_CAPABILITY: Partial<Record<MethodId, CapabilityId>> = {
+  'commit-graph': 'propose-graph',
+  'generate-proposal': 'project-graph',
+  'review-for-gaps': 'commitment-review',
 };
 
 const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
@@ -205,7 +199,7 @@ export const METHOD_RESOURCES: Record<MethodId, PromptResourceManifestEntry> = {
 
 export function manifestsForState(
   state: ResolvedBrunchAgentState,
-  readinessGrade: ReadinessGrade,
+  gaps: readonly ElicitationGap[],
 ): PromptManifests {
   const definition = AGENT_PROMPT_DEFINITIONS[state.agentRole];
   if (!definition) {
@@ -223,8 +217,7 @@ export function manifestsForState(
       selection: state.agentGoal,
       allowed: definition.allowedGoals,
       resources: GOAL_RESOURCES,
-      minGrades: GOAL_MIN_GRADE,
-      readinessGrade,
+      legalIds: axisOptionsForRuntimeState('goal', state, gaps),
       state,
     }),
     strategies: selectAxisResources({
@@ -232,8 +225,7 @@ export function manifestsForState(
       selection: state.agentStrategy,
       allowed: definition.allowedStrategies,
       resources: STRATEGY_RESOURCES,
-      minGrades: STRATEGY_MIN_GRADE,
-      readinessGrade,
+      legalIds: axisOptionsForRuntimeState('strategy', state, gaps),
       state,
       autoExcluded: AUTO_EXCLUDED_STRATEGIES,
     }),
@@ -242,32 +234,33 @@ export function manifestsForState(
       selection: state.agentLens,
       allowed: definition.allowedLenses,
       resources: LENS_RESOURCES,
-      minGrades: LENS_MIN_GRADE,
-      readinessGrade,
+      legalIds: axisOptionsForRuntimeState('lens', state, gaps),
       state,
     }),
-    methods: methodIdsForState(state, readinessGrade).map((method) => METHOD_RESOURCES[method]),
+    methods: methodIdsForState(state, gaps).map((method) => METHOD_RESOURCES[method]),
   };
 }
 
 export function methodIdsForState(
   state: ResolvedBrunchAgentState,
-  readinessGrade: ReadinessGrade,
+  gaps: readonly ElicitationGap[],
 ): readonly MethodId[] {
   const definition = AGENT_PROMPT_DEFINITIONS[state.agentRole];
   if (!definition || definition.id !== state.agentRole || state.operationalMode !== 'elicit') return [];
-  return definition.allowedMethods.filter((method) => isGradeLegal(method, readinessGrade, METHOD_MIN_GRADE));
+  return definition.allowedMethods.filter((method) =>
+    isCapabilityLegalForGaps(METHOD_CAPABILITY[method], gaps),
+  );
 }
 
 export function activeToolNamesForPosture({
   registeredToolNames,
   state,
-  readinessGrade,
+  gaps,
   devAllowedToolNames = [],
 }: BrunchPostureToolPolicyInput): string[] {
   const toolPolicy = toolPolicyForRuntimeState(state);
   const legalTools = new Set<string>(toolPolicy.baseAllowedToolNames);
-  for (const method of methodIdsForState(state, readinessGrade)) {
+  for (const method of methodIdsForState(state, gaps)) {
     for (const toolName of METHOD_TOOL_NAMES[method] ?? []) {
       legalTools.add(toolName);
     }
@@ -286,8 +279,7 @@ function selectAxisResources<TId extends string>({
   selection,
   allowed,
   resources,
-  minGrades,
-  readinessGrade,
+  legalIds,
   state,
   autoExcluded,
 }: {
@@ -295,18 +287,17 @@ function selectAxisResources<TId extends string>({
   selection: 'auto' | TId;
   allowed: readonly TId[];
   resources: Record<TId, PromptResourceManifestEntry>;
-  minGrades: Record<TId, ReadinessGrade>;
-  readinessGrade: ReadinessGrade;
+  legalIds: readonly TId[];
   state: ResolvedBrunchAgentState;
   autoExcluded?: ReadonlySet<TId>;
 }): readonly PromptResourceManifestEntry[] {
-  const legal = allowed.filter((id) => isGradeLegal(id, readinessGrade, minGrades));
+  const legal = allowed.filter((id) => legalIds.includes(id));
   if (selection === 'auto') {
     return legal.filter((id) => !autoExcluded?.has(id)).map((id) => resources[id]);
   }
   if (!legal.includes(selection)) {
     throw new Error(
-      `Pinned ${label} "${selection}" is not legal for ${state.agentRole} in ${state.operationalMode} at readiness grade ${readinessGrade}.`,
+      `Pinned ${label} "${selection}" is not legal for ${state.agentRole} in ${state.operationalMode}; capability-readiness returned negotiate for current elicitation gaps.`,
     );
   }
   return [resources[selection]];

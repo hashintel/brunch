@@ -30,8 +30,6 @@ function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
               chrome: {
                 cwd: '/tmp/brunch-project',
                 spec: { id: 1, title: 'Alpha spec' },
-                phase: 'elicitation' as const,
-                chatMode: 'responding-to-elicitation' as const,
               },
             }
           : {
@@ -39,8 +37,6 @@ function coordinator(sessionFile?: string): WorkspaceSessionCoordinator {
               chrome: {
                 cwd: '/tmp/brunch-project',
                 spec: null,
-                phase: 'select_spec' as const,
-                chatMode: 'select-spec' as const,
               },
             }),
         cwd: '/tmp/brunch-project',
@@ -313,16 +309,13 @@ describe('Brunch CLI dispatch', () => {
     expect(printOutput).toContain('status: ready');
     expect(printOutput).toContain(`cwd: ${rpcState.cwd}`);
     expect(printOutput).toContain('spec: Parity spec');
-    expect(printOutput).toContain(`phase: ${rpcState.chrome.phase}`);
-    expect(printOutput).toContain(`chatMode: ${rpcState.chrome.chatMode}`);
+    expect(printOutput).not.toContain('phase:');
+    expect(printOutput).not.toContain('chatMode:');
     expect(rpcState).toMatchObject({
       status: 'ready',
       cwd,
       spec: { title: 'Parity spec' },
-      chrome: {
-        phase: 'elicitation',
-        chatMode: 'responding-to-elicitation',
-      },
+      chrome: {},
     });
   });
 });

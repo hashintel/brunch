@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
+import type { NodeKind } from '../../graph/schema/nodes.js';
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
@@ -17,13 +19,11 @@ const projectRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.ur
 const groundingSpec = {
   id: 1,
   name: 'Grounding Spec',
-  readinessGrade: 'grounding_onboarding' as const,
 };
 
 const elicitationSpec = {
   id: 1,
   name: 'Elicitation Spec',
-  readinessGrade: 'elicitation_ready' as const,
 };
 
 const workspace = {
@@ -42,6 +42,32 @@ function workspacePosture(posture: WorkspacePostureState): WorkspacePostureState
   return posture;
 }
 
+function gap(refersTo: NodeKind, coverage = 1): ElicitationGap {
+  return {
+    id: `${refersTo}:gap`,
+    specId: 1,
+    refersTo,
+    question: `${refersTo} question`,
+    rationale: `${refersTo} rationale`,
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
+    importance: 1,
+    coverage,
+    answered: coverage >= 1,
+    disposition: coverage >= 1 ? 'answered' : 'open',
+    createdAtLsn: 1,
+  };
+}
+
+const coveredGaps = ['context', 'thesis', 'goal', 'constraint'].map((kind) => gap(kind as NodeKind));
+const zeroCoverageGaps = coveredGaps.map((record) => ({
+  ...record,
+  coverage: 0,
+  answered: false,
+  disposition: 'open' as const,
+}));
+
 const context = {
   contextHandles: ['graph-overview: compact selected-spec graph summary available via read tools'],
   renderedContexts: [
@@ -58,12 +84,16 @@ describe('composeAgentPrompt', () => {
       workspace,
       context,
       activeTools: ['read', 'grep', 'present_options'],
+      gaps: zeroCoverageGaps,
     });
 
     expect(result.prompt).toContain('[Brunch agent control]');
     expect(result.prompt).toContain('- agent: elicitor');
     expect(result.prompt).toContain('[Brunch runtime state]');
-    expect(result.prompt).toContain('- spec: Grounding Spec (#1), readiness_grade=grounding_onboarding');
+    expect(result.prompt).toContain(
+      '- spec: Grounding Spec (#1), readiness estimate (soft; gates nothing): grounding=0.00, elicitation=0.00, commitment=0.00',
+    );
+    expect(result.prompt).not.toContain('readiness_grade=');
     expect(result.prompt).toContain(
       '- workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; sourcing=strip-or-build',
     );
@@ -103,6 +133,7 @@ describe('composeAgentPrompt', () => {
         renderedContexts: ['[Selected-spec graph context · intent lens]\n- emphasis: intent claims'],
       },
       activeTools: ['read'],
+      gaps: coveredGaps,
     });
     const design = composeAgentPrompt({
       agentId: 'elicitor',
@@ -127,6 +158,7 @@ describe('composeAgentPrompt', () => {
         renderedContexts: ['[Selected-spec graph context · design lens]\n- emphasis: design modules'],
       },
       activeTools: ['read'],
+      gaps: coveredGaps,
     });
 
     expect(intent.prompt).toContain('[Selected-spec graph context · intent lens]');
@@ -138,7 +170,7 @@ describe('composeAgentPrompt', () => {
     expect(design.manifests.lenses.map((entry) => entry.name)).toEqual(['design']);
   });
 
-  it('filters AUTO axes by grade and allow-list, while pinned legal axes point at only the pinned resource', () => {
+  it('filters AUTO axes by gap coverage and allow-list, while pinned legal axes point at only the pinned resource', () => {
     const auto = composeAgentPrompt({
       agentId: 'elicitor',
       sessionState: projectBrunchAgentState([
@@ -159,17 +191,20 @@ describe('composeAgentPrompt', () => {
       spec: elicitationSpec,
       workspace,
       activeTools: ['read'],
+      gaps: coveredGaps,
     });
 
     expect(auto.manifests.goals.map((entry) => entry.name)).toEqual([
       'grounding-advance',
       'elicit-expand',
+      'commit-converge',
       'capture-posture',
     ]);
     expect(auto.manifests.strategies.map((entry) => entry.name)).toEqual([
       'step-wise-decision-tree',
       'step-wise-disambiguate',
       'propose-graph',
+      'project-graph',
     ]);
     expect(auto.manifests.lenses.map((entry) => entry.name)).toEqual(['intent', 'design', 'oracle']);
 
@@ -195,6 +230,7 @@ describe('composeAgentPrompt', () => {
       spec: elicitationSpec,
       workspace,
       activeTools: ['read'],
+      gaps: coveredGaps,
     });
 
     expect(pinned.manifests.goals.map((entry) => entry.name)).toEqual(['elicit-expand']);
@@ -221,14 +257,19 @@ describe('composeAgentPrompt', () => {
       spec: groundingSpec,
       workspace,
       activeTools: ['read'],
+      gaps: zeroCoverageGaps,
     });
 
     expect(pinnedFreestyle.manifests.strategies.map((entry) => entry.name)).toEqual(['freestyle']);
+    expect(auto.prompt).toContain(
+      '- spec: Elicitation Spec (#1), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, commitment=0.00',
+    );
+    expect(auto.prompt).not.toContain('readiness_grade=');
     expect(auto.prompt).not.toContain('name="freestyle"');
     expect(pinnedFreestyle.prompt).toContain('name="freestyle"');
   });
 
-  it('rejects illegal pinned grade-gated selections loudly', () => {
+  it('rejects illegal pinned gap-gated selections loudly', () => {
     expect(() =>
       composeAgentPrompt({
         agentId: 'elicitor',
@@ -250,9 +291,10 @@ describe('composeAgentPrompt', () => {
         spec: groundingSpec,
         workspace,
         activeTools: ['read'],
+        gaps: zeroCoverageGaps,
       }),
     ).toThrow(
-      'Pinned goal "commit-converge" is not legal for elicitor in elicit at readiness grade grounding_onboarding.',
+      'Pinned goal "commit-converge" is not legal for elicitor in elicit; capability-readiness returned negotiate for current elicitation gaps.',
     );
   });
 
@@ -263,6 +305,7 @@ describe('composeAgentPrompt', () => {
       spec: elicitationSpec,
       workspace,
       activeTools: ['read'],
+      gaps: coveredGaps,
     });
 
     for (const entry of Object.values(result.manifests).flat()) {

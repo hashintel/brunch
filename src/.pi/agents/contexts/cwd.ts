@@ -1,4 +1,9 @@
-import type { AgentPromptSpecContext, AgentPromptWorkspaceContext } from '../compose.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import {
+  renderSoftReadinessEstimate,
+  type AgentPromptSpecContext,
+  type AgentPromptWorkspaceContext,
+} from '../compose.js';
 
 export interface AgentPromptSessionContext {
   readonly id?: string;
@@ -9,13 +14,14 @@ export interface RenderCwdContextInput {
   readonly spec: AgentPromptSpecContext;
   readonly workspace: AgentPromptWorkspaceContext;
   readonly session?: AgentPromptSessionContext;
+  readonly gaps: readonly ElicitationGap[];
 }
 
 export function renderCwdContext(input: RenderCwdContextInput): string {
   return [
     '[Selected workspace context]',
     `- cwd: ${input.workspace.cwd}`,
-    `- selected spec: ${input.spec.name} (#${input.spec.id}); readiness_grade=${input.spec.readinessGrade}`,
+    `- selected spec: ${input.spec.name} (#${input.spec.id}); ${renderSoftReadinessEstimate(input.gaps)}`,
     `- selected session: ${renderSession(input.session)}`,
     `- workspace posture: ${renderPosture(input.workspace.posture)}`,
     '- ambient Pi resources: not scanned; Brunch prompt resources come only from code-owned manifests',

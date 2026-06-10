@@ -4,9 +4,10 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
+import type { NodeKind } from '../../graph/schema/nodes.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import { composeAgentPrompt } from '../agents/compose.js';
-import type { ReadinessGrade } from '../agents/state.js';
 import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
 import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
 import { createInMemoryBrunchIntrospectionStore } from '../extensions/introspection/index.js';
@@ -50,6 +51,30 @@ class FakeRuntimeStateSessionManager {
     this.entries.push({ type: 'custom', customType, data });
     return `entry-${this.entries.length}`;
   }
+}
+
+function gap(refersTo: NodeKind, coverage = 1): ElicitationGap {
+  return {
+    id: `${refersTo}:gap`,
+    specId: 1,
+    refersTo,
+    question: `${refersTo} question`,
+    rationale: `${refersTo} rationale`,
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
+    importance: 1,
+    coverage,
+    answered: coverage >= 1,
+    disposition: coverage >= 1 ? 'answered' : 'open',
+    createdAtLsn: 1,
+  };
+}
+
+function groundingGaps(coverage: Partial<Record<NodeKind, number>> = {}): ElicitationGap[] {
+  return ['context', 'thesis', 'goal', 'constraint'].map((kind) =>
+    gap(kind as NodeKind, coverage[kind as NodeKind] ?? 1),
+  );
 }
 
 const promptContext = {
@@ -108,6 +133,7 @@ const promptContext = {
     }),
     getNodes: () => [],
     resolveNodeCode: () => undefined,
+    getElicitationGaps: () => groundingGaps(),
   },
 };
 
@@ -130,6 +156,7 @@ describe('Brunch prompt-pack topology', () => {
       spec: promptContext.spec,
       workspace: promptContext.workspace,
       activeTools: ['read', 'grep', 'present_options'],
+      gaps: groundingGaps(),
     });
 
     expect(result.prompt).toContain('[Brunch agent control]');
@@ -189,6 +216,14 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.stringContaining('- active tools: read, grep, present_options, request_answer'),
     });
     expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining(
+        '- selected spec: Spec (#1); readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, commitment=0.00',
+      ),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.not.stringContaining('readiness_grade='),
+    });
+    expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('[Selected-spec graph context · design lens]'),
     });
     expect(result).toMatchObject({
@@ -207,8 +242,6 @@ describe('Brunch prompt-pack topology', () => {
     await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
-        chatMode: 'responding-to-elicitation',
-        phase: 'elicitation',
         spec: { id: 1, title: 'Launch spec' },
         session: { id: 'launch-session', label: 'Launch session' },
       },
@@ -244,6 +277,7 @@ describe('Brunch prompt-pack topology', () => {
             }),
             getNodes: () => [],
             resolveNodeCode: () => undefined,
+            getElicitationGaps: () => groundingGaps(),
           },
         }),
       },
@@ -435,8 +469,6 @@ describe('Brunch prompt-pack topology', () => {
     await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
-        chatMode: 'responding-to-elicitation',
-        phase: 'elicitation',
         spec: { id: 1, title: 'Spec' },
         session: { id: 'session-1', label: 'Session' },
       },
@@ -482,8 +514,8 @@ describe('Brunch prompt-pack topology', () => {
     expect(promptResult?.systemPrompt).toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
   });
 
-  it('applies the selected-spec grade to mutate_graph tool activation', async () => {
-    async function activeToolsForGrade(readinessGrade: ReadinessGrade) {
+  it('applies selected-spec gaps to mutate_graph tool activation', async () => {
+    async function activeToolsForGaps(gaps: readonly ElicitationGap[]) {
       const events: Record<string, (event: never, ctx?: never) => unknown> = {};
       const activeTools: string[][] = [];
       registerBrunchPrompting(
@@ -505,7 +537,7 @@ describe('Brunch prompt-pack topology', () => {
         } as never,
         {
           ...promptContext,
-          spec: { ...promptContext.spec, readinessGrade },
+          graphReads: { ...promptContext.graphReads, getElicitationGaps: () => gaps },
         },
       );
 
@@ -518,10 +550,13 @@ describe('Brunch prompt-pack topology', () => {
       return activeTools.at(-1) ?? [];
     }
 
-    await expect(activeToolsForGrade('grounding_onboarding')).resolves.not.toContain('mutate_graph');
-    await expect(activeToolsForGrade('elicitation_ready')).resolves.toContain('mutate_graph');
-    await expect(activeToolsForGrade('elicitation_ready')).resolves.not.toContain('present_review_set');
-    await expect(activeToolsForGrade('commitments_ready')).resolves.toContain('present_review_set');
+    await expect(
+      activeToolsForGaps(groundingGaps({ context: 0, thesis: 0, goal: 0, constraint: 0 })),
+    ).resolves.not.toContain('mutate_graph');
+    await expect(activeToolsForGaps(groundingGaps({ context: 0.5 }))).resolves.toContain('mutate_graph');
+    await expect(activeToolsForGaps(groundingGaps({ context: 0.5 }))).resolves.toContain(
+      'present_review_set',
+    );
   });
 
   it('is registered by the explicit shell after operational-mode policy and appends composed manifests', async () => {
@@ -531,8 +566,6 @@ describe('Brunch prompt-pack topology', () => {
     await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
-        chatMode: 'responding-to-elicitation',
-        phase: 'elicitation',
         spec: { id: 1, title: 'Spec' },
         session: { id: 'session-1', label: 'Session' },
       },
@@ -599,8 +632,6 @@ describe('Brunch prompt-pack topology', () => {
     await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
-        chatMode: 'responding-to-elicitation',
-        phase: 'elicitation',
         spec: { id: 1, title: 'Spec' },
         session: { id: 'session-1', label: 'Session' },
       },
