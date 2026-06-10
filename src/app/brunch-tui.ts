@@ -412,24 +412,27 @@ async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<voi
 
 export async function runWithScopedBrunchOfflineDefault(options: {
   readonly dev: boolean;
-  readonly env?: { PI_OFFLINE?: string };
+  readonly env?: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string };
   readonly run: () => Promise<void>;
 }): Promise<void> {
   const env = options.env ?? process.env;
-  const previous = env.PI_OFFLINE;
-  const hadPrevious = Object.hasOwn(env, 'PI_OFFLINE');
+  const previousOffline = env.PI_OFFLINE;
+  const previousSkipVersionCheck = env.PI_SKIP_VERSION_CHECK;
+  const hadPreviousOffline = Object.hasOwn(env, 'PI_OFFLINE');
+  const hadPreviousSkipVersionCheck = Object.hasOwn(env, 'PI_SKIP_VERSION_CHECK');
   try {
-    if (options.dev) {
-      delete env.PI_OFFLINE;
-    } else {
-      applyBrunchOfflineDefault(env);
-    }
+    applyBrunchOfflineDefault(env);
     await options.run();
   } finally {
-    if (hadPrevious && previous !== undefined) {
-      env.PI_OFFLINE = previous;
+    if (hadPreviousOffline && previousOffline !== undefined) {
+      env.PI_OFFLINE = previousOffline;
     } else {
       delete env.PI_OFFLINE;
+    }
+    if (hadPreviousSkipVersionCheck && previousSkipVersionCheck !== undefined) {
+      env.PI_SKIP_VERSION_CHECK = previousSkipVersionCheck;
+    } else {
+      delete env.PI_SKIP_VERSION_CHECK;
     }
   }
 }

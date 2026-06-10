@@ -431,8 +431,8 @@ describe('Brunch TUI boot', () => {
     expect(events.at(-1)).toBe('before_provider_request');
   });
 
-  it('scopes the Brunch offline default and restores PI_OFFLINE in finally', async () => {
-    const productEnv: { PI_OFFLINE?: string } = {};
+  it('scopes Pi startup update suppression and restores update-check env in finally', async () => {
+    const productEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {};
     await expect(
       runWithScopedBrunchOfflineDefault({
         dev: false,
@@ -443,19 +443,37 @@ describe('Brunch TUI boot', () => {
       }),
     ).resolves.toBeUndefined();
     expect(productEnv.PI_OFFLINE).toBeUndefined();
+    expect(productEnv.PI_SKIP_VERSION_CHECK).toBeUndefined();
 
-    const devEnv: { PI_OFFLINE?: string } = { PI_OFFLINE: '1' };
+    const devEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {};
     await expect(
       runWithScopedBrunchOfflineDefault({
         dev: true,
         env: devEnv,
         run: async () => {
-          expect(devEnv.PI_OFFLINE).toBeUndefined();
+          expect(devEnv.PI_OFFLINE).toBe('1');
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(devEnv.PI_OFFLINE).toBeUndefined();
+
+    const overriddenEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {
+      PI_OFFLINE: 'already-offline',
+      PI_SKIP_VERSION_CHECK: 'user-skip',
+    };
+    await expect(
+      runWithScopedBrunchOfflineDefault({
+        dev: true,
+        env: overriddenEnv,
+        run: async () => {
+          expect(overriddenEnv.PI_OFFLINE).toBe('already-offline');
+          expect(overriddenEnv.PI_SKIP_VERSION_CHECK).toBe('user-skip');
           throw new Error('prove finally restore');
         },
       }),
     ).rejects.toThrow('prove finally restore');
-    expect(devEnv.PI_OFFLINE).toBe('1');
+    expect(overriddenEnv.PI_OFFLINE).toBe('already-offline');
+    expect(overriddenEnv.PI_SKIP_VERSION_CHECK).toBe('user-skip');
   });
 
   it('keeps src/dev build-excluded', async () => {
