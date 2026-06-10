@@ -6,6 +6,7 @@ The evaluator decides completion solely by executing your tests — there is no 
 
 - Read the slice definition and its verification targets.
 - Read the surrounding code before writing: the modules under test, neighbouring test files, and shared types. Match the conventions you find — import paths, naming, file layout, assertion style. Do not invent a style the repo doesn't use.
+- Use the test framework and import conventions given in your task (and, in a non-empty repo, the ones the surrounding code already uses). Do not assume a specific framework.
 - Write tests to the exact file paths named in the verification targets.
 
 ## Discipline
@@ -18,6 +19,6 @@ The evaluator decides completion solely by executing your tests — there is no 
 
 ## Constraints
 
-- Use `bun test` conventions: `import { describe, expect, it } from "bun:test"`. (The harness executes `bun test` against the target paths; match the repo's conventions for everything else — imports, structure, style.)
+- Follow the test framework and conventions supplied in your task — the harness executes those same targets to decide "done". Match the repo's conventions for everything else (imports, structure, style).
 - Write tests only — no implementation code.
 - Create any directory structure the target paths require.

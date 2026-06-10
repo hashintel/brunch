@@ -13,13 +13,16 @@ epics:
   - id: pipeline
     summary: "A small parse → transform → serialize data pipeline"
     depends_on: []
-    verification: []
+    verification:
+      - kind: integration-test
+        target: "tests/pipeline.integration.test.ts"
 
 slices:
   - id: parse
     epic_id: pipeline
     definition: "Add src/parse.ts: `parse(input: string): Record<string, string>[]` parsing simple CSV (header row + comma-separated rows) into row objects."
     depends_on: []
+    writes: ["src/parse.ts"]
     verification:
       - kind: unit-test
         target: "tests/parse.test.ts"
@@ -28,6 +31,7 @@ slices:
     epic_id: pipeline
     definition: "Add src/transform-a.ts: `selectColumns(rows, cols: string[])` returning each row narrowed to the given columns."
     depends_on: [parse]
+    writes: ["src/transform-a.ts"]
     verification:
       - kind: unit-test
         target: "tests/transform-a.test.ts"
@@ -37,6 +41,7 @@ slices:
     epic_id: pipeline
     definition: "Add src/transform-b.ts: `normalize(value: string): string` that MUST satisfy BOTH of these at once, for every input: (A) return the value completely unchanged; (B) return the value upper-cased. These cannot both hold — this slice is expected to halt."
     depends_on: [parse]
+    writes: ["src/transform-b.ts"]
     verification:
       - kind: unit-test
         target: "tests/transform-b.test.ts"
@@ -45,6 +50,7 @@ slices:
     epic_id: pipeline
     definition: "Add src/serialize.ts: `serialize(rows): string` rendering rows back to CSV, combining the outputs of transform-a and transform-b."
     depends_on: [transform-a, transform-b]
+    writes: ["src/serialize.ts"]
     verification:
       - kind: unit-test
         target: "tests/serialize.test.ts"

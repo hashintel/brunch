@@ -12,9 +12,10 @@ import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-s
 import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
+import { resolveToolchain } from './project-profile.js';
 import { promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
-import { BunTestRunner } from './test-runner.js';
+import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
 import { createSandbox } from './worktree.js';
 
@@ -108,7 +109,9 @@ export function parseCookArgs(args: string[]): CookOptions {
       petrinautOpen = false;
       sawNoOpen = true;
     } else if (arg.startsWith('--out=')) {
-      outDir = resolve(arg.slice('--out='.length));
+      // Resolved against the launch cwd below — not the CLI child's cwd, which
+      // via `bin/brunch` is the package root rather than the user's project.
+      outDir = arg.slice('--out='.length);
     } else if (arg === '--force') {
       force = true;
     } else if (arg === '--verbose' || arg === '-v') {
@@ -121,8 +124,11 @@ export function parseCookArgs(args: string[]): CookOptions {
   // The directory is optional: with no positional argument, cook runs against
   // the launch cwd (where it looks for `.brunch/`). `BRUNCH_LAUNCH_CWD` mirrors
   // the launchCwd `runCook` uses, so the resolved dir matches the run root.
+  // Relative `dir`/`--out` resolve against this launch cwd too, not the CLI
+  // child's cwd (the package root via `bin/brunch`).
+  const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
   if (!dir) {
-    dir = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
+    dir = launchCwd;
   }
 
   // Companion-flag validation: stream-only flags require --petrinaut-stream.
@@ -134,7 +140,7 @@ export function parseCookArgs(args: string[]): CookOptions {
   }
 
   return {
-    dir: resolve(dir),
+    dir: resolve(launchCwd, dir),
     policy,
     maxRetries,
     verbose,
@@ -144,7 +150,7 @@ export function parseCookArgs(args: string[]): CookOptions {
     petrinautUrl,
     petrinautOpen,
     force,
-    ...(outDir !== undefined ? { outDir } : {}),
+    ...(outDir !== undefined ? { outDir: resolve(launchCwd, outDir) } : {}),
     ...(specId !== undefined ? { specId } : {}),
   };
 }
@@ -456,12 +462,13 @@ export async function runCook(opts: CookOptions): Promise<void> {
   console.error('');
 
   const reports = new FileReportSink(reportsPath);
-  const testRunner = new BunTestRunner();
+  const toolchain = resolveToolchain(plan.profile);
+  const testRunner = new ToolchainTestRunner(toolchain);
 
   const engine = createOrchestrator(opts.policy);
 
   const runStart = Date.now();
-  const actions = createPiActions({ verbose: opts.verbose, runStart });
+  const actions = createPiActions({ verbose: opts.verbose, runStart, toolchain });
 
   // Stand up the live-stream setup handle when streaming is enabled.
   // Auto-open is suppressed by `--no-petrinaut-open` or CI.

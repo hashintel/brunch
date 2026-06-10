@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
-import type { PlanningEnrichment, RunModel } from '../orchestrator/src/plan-llm-planning.js';
+import type { ArchitectDraft, RunModel } from '../orchestrator/src/plan-architect.js';
 import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.js';
 import type { Plan } from '../orchestrator/src/types.js';
 import { parsePlanArgs, runPlan } from './plan-runner.js';
@@ -90,16 +90,31 @@ describe('runPlan', () => {
     };
     const dir = mkdtempSync(join(tmpdir(), 'plan-runner-'));
 
-    // 2-cycle req-10 ↔ req-11: reconciliation drops one incoming edge.
-    const enrichment: PlanningEnrichment = {
-      sliceDependencies: [
-        { sliceId: 'req-10', dependsOn: ['req-11'] },
-        { sliceId: 'req-11', dependsOn: ['req-10'] },
+    // Authored 2-cycle a ↔ b (covering both reqs): materialization drops one
+    // incoming edge and the multi-slice epic gets its synthesized seam.
+    const draft: ArchitectDraft = {
+      epics: [{ id: 'core', summary: 'Core' }],
+      slices: [
+        {
+          id: 'a',
+          epic_id: 'core',
+          definition: 'A',
+          depends_on: ['b'],
+          writes: ['src/a.ts'],
+          derivedFrom: ['req-10'],
+        },
+        {
+          id: 'b',
+          epic_id: 'core',
+          definition: 'B',
+          depends_on: ['a'],
+          writes: ['src/b.ts'],
+          derivedFrom: ['req-11'],
+        },
       ],
-      epics: [{ id: 'core', summary: 'Core', sliceIds: ['req-10', 'req-11'] }],
-      nonBuildableSliceIds: [],
+      nonBuildableRequirementIds: [],
     };
-    const runModel: RunModel = async () => enrichment;
+    const runModel: RunModel = async () => draft;
 
     return { snapshot, dir, runModel };
   }
@@ -119,7 +134,7 @@ describe('runPlan', () => {
 
     const planPath = join(dir, '.brunch', 'cook', 'specs', '2', 'plan.yaml');
     const reloaded = parseYaml(readFileSync(planPath, 'utf8')) as Plan;
-    expect(reloaded.slices.map((slice) => slice.id)).toEqual(['req-10', 'req-11']);
+    expect(reloaded.slices.map((slice) => slice.id)).toEqual(['a', 'b']);
 
     // Transformation warning (cycle break) is always printed.
     expect(stderrLines.some((line) => line.includes('cycle-break-dropped-edge'))).toBe(true);
@@ -147,7 +162,7 @@ describe('runPlan', () => {
     expect(synth.length).toBe(2);
   });
 
-  it('surfaces planning-failed as a stderr warning line when the LLM throws', async () => {
+  it('surfaces the architect fallback as a stderr warning line when the LLM throws', async () => {
     const snapshot: CompletedSpecSnapshot = {
       requirements: [{ id: 10, content: 'Only req', kindOrdinal: 1 }],
       criteria: [],
@@ -173,9 +188,11 @@ describe('runPlan', () => {
     const reloaded = parseYaml(readFileSync(planPath, 'utf8')) as Plan;
     expect(reloaded.slices.map((slice) => slice.id)).toEqual(['req-10']);
 
-    expect(stderrLines.some((line) => line.startsWith('  !  ') && line.includes('planning-failed'))).toBe(
-      true,
-    );
+    expect(
+      stderrLines.some(
+        (line) => line.startsWith('  !  ') && line.includes('architect-failed-fallback-to-projection'),
+      ),
+    ).toBe(true);
     expect(stderrLines.some((line) => line.includes('llm-boom'))).toBe(true);
   });
 });

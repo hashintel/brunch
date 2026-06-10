@@ -53,6 +53,38 @@ slices:
     expect(loadPlan(yamlPath).mode).toBe('brownfield');
   });
 
+  it('preserves a slice\u2019s writes field, leaving it undefined when omitted (FE-829 slice 4)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cook-plan-'));
+    const yamlPath = join(dir, 'plan.yaml');
+    writeFileSync(
+      yamlPath,
+      [
+        'epics:',
+        '  - id: e',
+        '    summary: e',
+        '    depends_on: []',
+        '    verification: []',
+        'slices:',
+        '  - id: a',
+        '    epic_id: e',
+        '    definition: a',
+        '    depends_on: []',
+        '    verification: []',
+        '    writes: ["src/a.ts"]',
+        '  - id: b',
+        '    epic_id: e',
+        '    definition: b',
+        '    depends_on: []',
+        '    verification: []',
+        '',
+      ].join('\n'),
+    );
+
+    const loaded = loadPlan(yamlPath);
+    expect(loaded.slices[0]!.writes).toEqual(['src/a.ts']);
+    expect(loaded.slices[1]!.writes).toBeUndefined();
+  });
+
   it('throws on missing file', () => {
     expect(() => loadPlan('/tmp/nonexistent-plan.yaml')).toThrow();
   });

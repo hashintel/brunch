@@ -14,13 +14,13 @@ import { dirname, resolve } from 'node:path';
 
 import { stringify as stringifyYaml } from 'yaml';
 
+import type { RunModel } from '../orchestrator/src/plan-architect.js';
 import {
   emitPlanFromSnapshot,
   emitterWarningCategory,
   formatEmitterWarning,
   type EmitterWarning,
 } from '../orchestrator/src/plan-emitter.js';
-import type { RunModel } from '../orchestrator/src/plan-llm-planning.js';
 import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.js';
 import { parseSpecId, specPlanPath } from '../orchestrator/src/spec-plan-paths.js';
 

@@ -13,9 +13,12 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { BunTestRunner } from './test-runner.js';
+import { bunProfile, type Toolchain } from './project-profile.js';
+import { ToolchainTestRunner } from './test-runner.js';
 
-describe('BunTestRunner output fidelity', () => {
+const bun = bunProfile.toolchain;
+
+describe('ToolchainTestRunner output fidelity (bun)', () => {
   const dirs: string[] = [];
 
   function makeSandbox(testFileContent: string): string {
@@ -35,7 +38,7 @@ describe('BunTestRunner output fidelity', () => {
         `test('deliberately fails', () => { expect(1).toBe(2); });\n`,
     );
 
-    const result = await new BunTestRunner().run('sample.test.ts', sandbox);
+    const result = await new ToolchainTestRunner(bun).run('sample.test.ts', sandbox);
 
     expect(result.passed).toBe(false);
     expect(result.output).toContain('1 fail');
@@ -47,9 +50,36 @@ describe('BunTestRunner output fidelity', () => {
       `import { expect, test } from 'bun:test';\n` + `test('passes', () => { expect(1).toBe(1); });\n`,
     );
 
-    const result = await new BunTestRunner().run('sample.test.ts', sandbox);
+    const result = await new ToolchainTestRunner(bun).run('sample.test.ts', sandbox);
 
     expect(result.passed).toBe(true);
     expect(result.output).toContain('1 pass');
+  });
+});
+
+describe('ToolchainTestRunner honors the toolchain test command', () => {
+  function fakeToolchain(testCommand: (target: string) => string[]): Toolchain {
+    return {
+      sliceTarget: (id) => id,
+      epicTarget: (id) => id,
+      testCommand,
+      testConventions: 'fake',
+    };
+  }
+
+  it('runs the argv the toolchain returns, not a hardcoded `bun test`', async () => {
+    const pass = fakeToolchain((target) => [
+      'node',
+      '-e',
+      `process.stdout.write(${JSON.stringify(target)});process.exit(0)`,
+    ]);
+    const fail = fakeToolchain(() => ['node', '-e', 'process.exit(1)']);
+
+    const passed = await new ToolchainTestRunner(pass).run('the-target', process.cwd());
+    expect(passed.passed).toBe(true);
+    expect(passed.output).toContain('the-target');
+
+    const failed = await new ToolchainTestRunner(fail).run('x', process.cwd());
+    expect(failed.passed).toBe(false);
   });
 });

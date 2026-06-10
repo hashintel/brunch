@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { promoteGreenfieldRun } from './promote-run.js';
 
 const dirs: string[] = [];
+const GIT_TEST_TIMEOUT_MS = 20_000;
 afterEach(() => {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
   dirs.length = 0;
@@ -167,19 +168,23 @@ describe('promoteGreenfieldRun', () => {
     );
   });
 
-  it('lands on a cook/<runId> branch in an existing repo with --force, leaving the original branch intact', () => {
-    const sandbox = makeSandbox();
-    const target = tmpTarget();
-    const id = ['-c', 'user.name=t', '-c', 'user.email=t@e'];
-    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: target });
-    writeFileSync(join(target, 'existing.txt'), 'keep\n');
-    execFileSync('git', ['add', '.'], { cwd: target });
-    execFileSync('git', [...id, 'commit', '-q', '-m', 'existing'], { cwd: target });
+  it(
+    'lands on a cook/<runId> branch in an existing repo with --force, leaving the original branch intact',
+    () => {
+      const sandbox = makeSandbox();
+      const target = tmpTarget();
+      const id = ['-c', 'user.name=t', '-c', 'user.email=t@e'];
+      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: target });
+      writeFileSync(join(target, 'existing.txt'), 'keep\n');
+      execFileSync('git', ['add', '.'], { cwd: target });
+      execFileSync('git', [...id, 'commit', '-q', '-m', 'existing'], { cwd: target });
 
-    const result = promoteGreenfieldRun({ sandboxDir: sandbox, target, runId: 'r1', force: true });
+      const result = promoteGreenfieldRun({ sandboxDir: sandbox, target, runId: 'r1', force: true });
 
-    expect(result.branch).toBe('cook/r1');
-    expect(existsSync(join(target, 'index.ts'))).toBe(true);
-    expect(execFileSync('git', ['branch', '--list'], { cwd: target, encoding: 'utf8' })).toContain('main');
-  });
+      expect(result.branch).toBe('cook/r1');
+      expect(existsSync(join(target, 'index.ts'))).toBe(true);
+      expect(execFileSync('git', ['branch', '--list'], { cwd: target, encoding: 'utf8' })).toContain('main');
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
 });

@@ -2,9 +2,10 @@ import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
 import { sliceLabel } from './slice-label.js';
-import type { ActionContext, ActionHandlers } from './types.js';
+import type { ActionContext, ActionHandlers, Epic, Slice } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const promptsDir = __dirname.includes('dist')
@@ -173,9 +174,10 @@ export async function evaluateVerificationTargets(
   return { done: results.length > 0 && results.every((r) => r.passed), results };
 }
 
-async function runBunTest(target: string, sandboxDir: string): Promise<boolean> {
+async function runTest(toolchain: Toolchain, target: string, sandboxDir: string): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
-    const child = spawn('bun', ['test', target], {
+    const [command, ...args] = toolchain.testCommand(target);
+    const child = spawn(command!, args, {
       cwd: sandboxDir,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -212,16 +214,37 @@ function report(ctx: ActionContext, actor: string, event: string, payload: Recor
 // Actions
 // ---------------------------------------------------------------------------
 
-export function createPiActions(opts?: { verbose?: boolean; runStart?: number }): ActionHandlers {
+/**
+ * Build the cook test-writer task for one slice. The concrete test
+ * framework / import conventions come from the toolchain — never hardcoded
+ * — so the prompt stays stack-agnostic (slice 2 of plan-build-architect).
+ */
+export function sliceTestTask(slice: Slice, toolchain: Toolchain): string {
+  const targets = slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ');
+  return `Write failing tests for slice "${slice.id}": ${slice.definition}\nVerification targets: ${targets}\nWrite test files that will initially fail. ${toolchain.testConventions}`;
+}
+
+/** Build the cook epic-verify task — toolchain-supplied conventions, as above. */
+export function epicVerifyTask(epic: Epic, toolchain: Toolchain): string {
+  const targets = epic.verification.map((v) => `${v.kind}: ${v.target}`).join(', ');
+  return `Write an integration test for epic "${epic.id}": ${epic.summary}\nThis test should verify that all slices in this epic work together correctly.\nVerification targets: ${targets}\nWrite the test file(s). ${toolchain.testConventions} Then run them to verify they pass.`;
+}
+
+export function createPiActions(opts?: {
+  verbose?: boolean;
+  runStart?: number;
+  toolchain?: Toolchain;
+}): ActionHandlers {
   _verbose = opts?.verbose ?? false;
   t0 = opts?.runStart ?? Date.now();
+  const toolchain = opts?.toolchain ?? defaultToolchain;
 
   return {
     'evaluate-done': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
       log('?', `evaluate  ${label}`);
       const { done, results } = await evaluateVerificationTargets(ctx.slice.verification, (target) =>
-        runBunTest(target, ctx.sandboxDir),
+        runTest(toolchain, target, ctx.sandboxDir),
       );
       for (const r of results) {
         log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
@@ -233,7 +256,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
     'write-tests': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
       log('▸', `tests     ${label}`);
-      const task = `Write failing tests for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nWrite test files that will initially fail. Use bun test conventions.`;
+      const task = sliceTestTask(ctx.slice, toolchain);
 
       await runPi({
         label: `tests     ${label}`,
@@ -278,9 +301,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
 
     'verify-epic': async (ctx: ActionContext) => {
       log('▸', `verify    ${ctx.epic.id}`);
-      const targets = ctx.epic.verification.map((v) => `${v.kind}: ${v.target}`).join(', ');
-
-      const writeTask = `Write an integration test for epic "${ctx.epic.id}": ${ctx.epic.summary}\nThis test should verify that all slices in this epic work together correctly.\nVerification targets: ${targets}\nWrite the test file(s) using bun test conventions. Then run them with "bun test" to verify they pass.`;
+      const writeTask = epicVerifyTask(ctx.epic, toolchain);
 
       await runPi({
         label: `verify    ${ctx.epic.id} (write)`,
@@ -293,7 +314,7 @@ export function createPiActions(opts?: { verbose?: boolean; runStart?: number })
 
       let allPassed = true;
       for (const v of ctx.epic.verification) {
-        const passed = await runBunTest(v.target, ctx.sandboxDir);
+        const passed = await runTest(toolchain, v.target, ctx.sandboxDir);
         log(passed ? '✓' : '✗', `verify    ${v.target}`);
         allPassed &&= passed;
       }

@@ -20,6 +20,8 @@ import type { PetrinautStreamBus } from './petrinaut-stream-bus.js';
 import type { PetrinautStreamServer } from './petrinaut-stream-server.js';
 import type { Plan } from './types.js';
 
+const GIT_TEST_TIMEOUT_MS = 20_000;
+
 describe('parseCookArgs', () => {
   it('parses dir only', () => {
     const opts = parseCookArgs(['./fixtures/txt']);
@@ -136,6 +138,21 @@ describe('parseCookArgs', () => {
     const opts = parseCookArgs(['./f', '--out=../proj', '--force']);
     expect(opts.outDir).toBe(resolve('../proj'));
     expect(opts.force).toBe(true);
+  });
+
+  it('resolves relative dir and --out against BRUNCH_LAUNCH_CWD, not the CLI cwd', () => {
+    const launchCwd = mkdtempSync(join(tmpdir(), 'brunch-launch-'));
+    const prev = process.env.BRUNCH_LAUNCH_CWD;
+    process.env.BRUNCH_LAUNCH_CWD = launchCwd;
+    try {
+      const opts = parseCookArgs(['./proj', '--out=../out']);
+      expect(opts.dir).toBe(resolve(launchCwd, './proj'));
+      expect(opts.outDir).toBe(resolve(launchCwd, '../out'));
+    } finally {
+      if (prev === undefined) delete process.env.BRUNCH_LAUNCH_CWD;
+      else process.env.BRUNCH_LAUNCH_CWD = prev;
+      rmSync(launchCwd, { recursive: true, force: true });
+    }
   });
 
   it('parses --spec=<id> and exposes it on opts', () => {
@@ -583,11 +600,15 @@ describe('resolveSandboxPlan', () => {
     expect(resolveSandboxPlan('greenfield', d)).toEqual({ kind: 'fixture' });
   });
 
-  it('chooses a cwd clone (codebase) for brownfield on a clean git repo', () => {
-    const d = makeTmpDir();
-    initCleanGitRepo(d);
-    expect(resolveSandboxPlan('brownfield', d)).toEqual({ kind: 'codebase', sourceDir: d });
-  });
+  it(
+    'chooses a cwd clone (codebase) for brownfield on a clean git repo',
+    () => {
+      const d = makeTmpDir();
+      initCleanGitRepo(d);
+      expect(resolveSandboxPlan('brownfield', d)).toEqual({ kind: 'codebase', sourceDir: d });
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
 
   it('errors for brownfield when the working tree is dirty', () => {
     const d = makeTmpDir();
