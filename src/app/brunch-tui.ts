@@ -158,10 +158,10 @@ function shouldAutoOpenWebSidecar(
   return autoOpen ?? dev === undefined;
 }
 
-function isNewSessionActivation(
+export function startupHeaderForActivation(
   decision: SpecSessionActivationDecision | undefined,
-): decision is Extract<SpecSessionActivationDecision, { action: 'newSpec' | 'newSession' }> {
-  return decision?.action === 'newSpec' || decision?.action === 'newSession';
+): { decision: Exclude<SpecSessionActivationDecision['action'], 'cancel'> } | undefined {
+  return decision && decision.action !== 'cancel' ? { decision: decision.action } : undefined;
 }
 
 async function chooseSpecSessionActivationDecision(
@@ -329,6 +329,7 @@ export function createBrunchAgentSessionRuntimeFactory(
     const bindCurrentWorkspace = async (replacementSessionManager: typeof sessionManager) => {
       currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
     };
+    const startupHeader = startupHeaderForActivation(context.activationDecision);
     const profile = createBrunchPiSettings({
       cwd,
       agentDir: runtimeAgentDir,
@@ -336,9 +337,7 @@ export function createBrunchAgentSessionRuntimeFactory(
         createBrunchPiExtensions(
           chromeStateForWorkspace(currentWorkspace, {
             ...(context.webSidecarUrl ? { webSidecarUrl: context.webSidecarUrl } : {}),
-            ...(isNewSessionActivation(context.activationDecision)
-              ? { startupHeader: { decision: context.activationDecision.action } }
-              : {}),
+            ...(startupHeader ? { startupHeader } : {}),
           }),
           bindCurrentWorkspace,
           {

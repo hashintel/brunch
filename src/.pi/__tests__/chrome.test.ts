@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { WorkspaceSessionReadyState } from '../../session/workspace-session-coordinator.js';
 import { BrunchStartupHeader } from '../components/chrome-header.js';
-import {
+import chromeExtension, {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
@@ -41,12 +41,14 @@ describe('Brunch chrome projection', () => {
       session: { id: 'session-1', label: 'Interview #1' },
       phase: 'elicitation' as const,
       chatMode: 'responding-to-elicitation' as const,
+      webSidecarUrl: 'http://127.0.0.1:49152/spec/1',
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
       '/tmp/project  no model',
       'no branch  ctx ──────────── ?% ?/0',
       'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
+      'web-ui: http://127.0.0.1:49152/spec/1',
       '',
     ]);
   });
@@ -156,13 +158,17 @@ describe('Brunch chrome projection', () => {
       undefined,
       fakeTheme,
     );
-    expect(component.render(80).join('\n')).toContain('brunch — Project One');
-    expect(component.render(80).join('\n')).toContain('Spec One');
-    expect(component.render(80).join('\n')).toContain('Spec One — session 1');
-    expect(component.render(80).join('\n')).toContain('http://127.0.0.1:49152/spec/1');
+    const collapsedLines = component.render(120);
+    expect(collapsedLines.slice(0, 6)).toEqual(['', '', '', '', '', '']);
+    expect(collapsedLines.join('\n')).toContain('brunch v0.1.0');
+    expect(collapsedLines.join('\n')).toContain('/brunch switch');
+    expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
+    expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');
+    expect(collapsedLines.join('\n')).not.toContain('Spec One — session 1');
     component.setExpanded(true);
-    expect(component.render(80).join('\n')).toContain('Current session');
-    expect(component.render(80).join('\n')).toContain('Graph capture');
+    expect(component.render(120).join('\n')).toContain('Current session: Spec One — session 1');
+    expect(component.render(120).join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
+    expect(component.render(120).join('\n')).toContain('Graph capture');
 
     const resumedCalls: FakeUiCall[] = [];
     renderBrunchChrome(fakeChromeUi(resumedCalls), {
@@ -173,6 +179,22 @@ describe('Brunch chrome projection', () => {
       chatMode: 'responding-to-elicitation',
     });
     expect(resumedCalls.some((call) => call.method === 'setHeader')).toBe(false);
+  });
+
+  it('installs dev fallback header through the src/.pi extension entrypoint', async () => {
+    const calls: FakeUiCall[] = [];
+    const sessionStart: Array<(event: unknown, ctx: { ui: FakeExtensionUi }) => Promise<void> | void> = [];
+
+    chromeExtension({
+      on: (event: string, handler: never) => {
+        if (event === 'session_start') sessionStart.push(handler);
+      },
+    } as never);
+
+    expect(sessionStart).toHaveLength(1);
+    await sessionStart[0]!({}, { ui: fakeChromeUi(calls) });
+
+    expect(calls.map((call) => call.method)).toEqual(['setFooter', 'setHeader', 'setTitle']);
   });
 
   it('keeps startup header text width-safe and newline-safe', () => {
@@ -192,7 +214,7 @@ describe('Brunch chrome projection', () => {
     expect(component.render(36).every((line) => !/[\r\n\t]/.test(line))).toBe(true);
   });
 
-  it('projects the active web sidecar URL into an upper widget only when present', async () => {
+  it('does not project the active web sidecar URL into an upper widget', async () => {
     const calls: FakeUiCall[] = [];
 
     renderBrunchChrome(fakeChromeUi(calls), {
@@ -204,22 +226,7 @@ describe('Brunch chrome projection', () => {
       webSidecarUrl: 'http://127.0.0.1:49152/spec/1\nignored',
     });
 
-    expect(calls.find((call) => call.method === 'setWidget')?.args).toEqual([
-      'brunch.sidecar',
-      ['Web dashboard: http://127.0.0.1:49152/spec/1 ignored'],
-      { placement: 'aboveEditor' },
-    ]);
-
-    const withoutSidecarCalls: FakeUiCall[] = [];
-    renderBrunchChrome(fakeChromeUi(withoutSidecarCalls), {
-      cwd: '/tmp/project',
-      spec: { id: 1, title: 'Spec One' },
-      session: { id: 'session-1' },
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
-    });
-
-    expect(withoutSidecarCalls.some((call) => call.method === 'setWidget')).toBe(false);
+    expect(calls.some((call) => call.method === 'setWidget')).toBe(false);
   });
 });
 

@@ -48,6 +48,7 @@ import {
   createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
   runWithScopedBrunchOfflineDefault,
+  startupHeaderForActivation,
 } from './brunch-tui.js';
 
 describe('Brunch TUI boot', () => {
@@ -261,6 +262,26 @@ describe('Brunch TUI boot', () => {
     });
 
     expect(events).toEqual(['inspect', 'preflight', 'activate:continue', 'launch:session-ready:continue']);
+  });
+
+  it('requests startup header chrome for every activated launch decision', () => {
+    expect(
+      startupHeaderForActivation({ action: 'continue', specId: 1, sessionFile: '/s/one.jsonl' }),
+    ).toEqual({
+      decision: 'continue',
+    });
+    expect(
+      startupHeaderForActivation({ action: 'openSession', specId: 1, sessionFile: '/s/two.jsonl' }),
+    ).toEqual({
+      decision: 'openSession',
+    });
+    expect(startupHeaderForActivation({ action: 'newSession', specId: 1 })).toEqual({
+      decision: 'newSession',
+    });
+    expect(startupHeaderForActivation({ action: 'newSpec', title: 'New spec' })).toEqual({
+      decision: 'newSpec',
+    });
+    expect(startupHeaderForActivation({ action: 'cancel' })).toBeUndefined();
   });
 
   it('starts a web sidecar on the active spec route with the shared update publisher before interactive mode', async () => {

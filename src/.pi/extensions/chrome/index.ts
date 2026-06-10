@@ -63,7 +63,7 @@ interface BrunchChromeModelTelemetry {
 }
 
 interface BrunchChromeStartupHeaderState {
-  decision: 'newSpec' | 'newSession';
+  decision: 'continue' | 'openSession' | 'newSpec' | 'newSession';
 }
 
 export interface BrunchChromeFooterTelemetry {
@@ -100,12 +100,11 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   coherence?: BrunchChromeCoherenceVerdict;
 }
 
-export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle' | 'setWidget'>;
+export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle'>;
 
 type BrunchChromeTheme = Pick<Theme, 'fg'>;
 
 const CONTEXT_GAUGE_WIDTH = 12;
-const SIDECAR_WIDGET_WIDTH = 120;
 const BAR_FILLED = '━';
 const BAR_EMPTY = '─';
 
@@ -135,6 +134,9 @@ export function projectBrunchChromeFooterLines(
     branchLine,
     truncateChromeLine(renderBrunchStatusLine(chrome, telemetry, theme), available, theme),
   ];
+  if (chrome.webSidecarUrl) {
+    lines.push(truncateChromeLine(formatWebUiLine(chrome.webSidecarUrl, theme), available, theme));
+  }
   if (statuses.length > 0) {
     lines.push(truncateChromeLine(statuses.join(' '), available, theme));
   }
@@ -155,8 +157,8 @@ function sanitizeStatusText(text: string): string {
     .trim();
 }
 
-function formatSidecarWidgetLine(url: string): string {
-  return truncateToWidth(`Web dashboard: ${sanitizeStatusText(url)}`, SIDECAR_WIDGET_WIDTH, '...');
+function formatWebUiLine(url: string, theme: BrunchChromeTheme | undefined): string {
+  return style(theme, 'dim', `web-ui: ${sanitizeStatusText(url)}`);
 }
 
 function alignChromeColumns(left: string, right: string, width: number): string {
@@ -238,11 +240,6 @@ export function renderBrunchChrome(
         ),
     );
   }
-  if (chrome.webSidecarUrl) {
-    ui.setWidget('brunch.sidecar', [formatSidecarWidgetLine(chrome.webSidecarUrl)], {
-      placement: 'aboveEditor',
-    });
-  }
   ui.setTitle(formatChromeTitle(chrome));
 }
 
@@ -269,7 +266,16 @@ export function registerBrunchChrome(pi: ExtensionAPI, chrome: BrunchChromeState
   });
 }
 
-export default function brunchChrome(_pi: ExtensionAPI): void {}
+export default function brunchChrome(pi: ExtensionAPI): void {
+  registerBrunchChrome(pi, {
+    cwd: process.cwd(),
+    spec: null,
+    session: { id: 'direct-pi' },
+    phase: 'select_spec',
+    chatMode: 'select-spec',
+    startupHeader: { decision: 'continue' },
+  });
+}
 
 function footerTelemetryFromContext(ctx: ExtensionContext, pi: ExtensionAPI): BrunchChromeFooterTelemetry {
   const liveContextUsage = ctx.getContextUsage();

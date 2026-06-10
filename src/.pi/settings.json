@@ -1,3 +1,7 @@
 {
-  "extensions": ["-extensions/runtime/index.ts", "-extensions/commands/policy.ts"]
+  "extensions": [
+    "extensions/chrome/index.ts",
+    "-extensions/runtime/index.ts",
+    "-extensions/commands/policy.ts"
+  ]
 }
