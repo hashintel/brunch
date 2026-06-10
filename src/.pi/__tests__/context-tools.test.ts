@@ -73,8 +73,10 @@ describe('context tools', () => {
 
     const result = (await tools.get('read_session_context')!.execute('context-1', {}, undefined, undefined, {
       sessionManager: {
+        // The Pi header is reachable only via getHeader(); getEntries() never
+        // contains a 'session' entry.
+        getHeader: () => ({ type: 'session', id: 'session-1', cwd: '/tmp/brunch' }),
         getEntries: () => [
-          { type: 'session', id: 'session-1', cwd: '/tmp/brunch' },
           {
             id: 'binding-1',
             type: 'custom',
@@ -140,7 +142,8 @@ describe('context tools', () => {
 
     const result = (await tools.get('read_session_context')!.execute('context-2', {}, undefined, undefined, {
       sessionManager: {
-        getEntries: () => [{ type: 'session', id: 'session-1', cwd: '/tmp/brunch' }],
+        getHeader: () => ({ type: 'session', id: 'session-1', cwd: '/tmp/brunch' }),
+        getEntries: () => [],
       },
     })) as {
       content: Array<{ type: 'text'; text: string }>;
@@ -152,6 +155,43 @@ describe('context tools', () => {
       status: 'not_ready',
       reason: 'missing_binding',
       sessionId: 'session-1',
+    });
+  });
+
+  it('read_session_context reports missing_session_header only when getHeader() is null', async () => {
+    const tools = new Map<string, { execute: (...args: any[]) => Promise<unknown> }>();
+
+    registerBrunchContext({
+      registerTool(tool: { name: string; execute: (...args: any[]) => Promise<unknown> }) {
+        tools.set(tool.name, tool);
+      },
+    } as never);
+
+    // Regression: the header lives behind getHeader(), not in getEntries(). A
+    // present binding in getEntries() with a null header must still be
+    // not_ready / missing_session_header, never ready.
+    const result = (await tools.get('read_session_context')!.execute('context-3', {}, undefined, undefined, {
+      sessionManager: {
+        getHeader: () => null,
+        getEntries: () => [
+          {
+            id: 'binding-1',
+            type: 'custom',
+            parentId: null,
+            customType: 'brunch.session_binding',
+            data: createSessionBindingData({ specId: 1 }),
+          },
+        ],
+      },
+    })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: unknown;
+    };
+
+    expect(result.details).toEqual({
+      status: 'not_ready',
+      reason: 'missing_session_header',
+      sessionId: null,
     });
   });
 
