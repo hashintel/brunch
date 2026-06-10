@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 
-import type { FileEntry } from '@earendil-works/pi-coding-agent';
+import type { SessionHeader } from '@earendil-works/pi-coding-agent';
 
 import {
   projectWorkspaceCwdContext,
@@ -13,8 +13,12 @@ import {
   inspectWorkspaceOverview,
 } from '../../../session/workspace-context.js';
 
+// The session cwd lives on the Pi header, which is reachable only via
+// getHeader() — not getEntries() (SessionEntry[], header excluded). Searching
+// getEntries() for it previously always missed, silently falling back to
+// process.cwd() and inventorying the wrong directory.
 interface SessionManagerLike {
-  getEntries(): readonly FileEntry[];
+  getHeader(): SessionHeader | null;
 }
 
 export async function readWorkspaceContext(
@@ -33,12 +37,6 @@ export async function readWorkspaceContext(
 }
 
 function resolveWorkspaceCwd(sessionManager?: SessionManagerLike): string {
-  const header = sessionManager?.getEntries().find(isSessionHeaderEntry);
+  const header = sessionManager?.getHeader();
   return typeof header?.cwd === 'string' ? resolve(header.cwd) : process.cwd();
-}
-
-function isSessionHeaderEntry(
-  entry: FileEntry,
-): entry is FileEntry & { readonly type: 'session'; readonly cwd: string } {
-  return entry.type === 'session' && typeof (entry as { cwd?: unknown }).cwd === 'string';
 }

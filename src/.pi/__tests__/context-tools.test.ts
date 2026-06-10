@@ -45,7 +45,7 @@ describe('context tools', () => {
       .get('read_workspace_context')!
       .execute('context-cwd', { mode: 'cwd_inventory' }, undefined, undefined, {
         sessionManager: {
-          getEntries: () => [{ type: 'session', id: 'session-1', cwd }],
+          getHeader: () => ({ type: 'session', id: 'session-1', cwd }),
         },
       })) as {
       content: Array<{ type: 'text'; text: string }>;
@@ -219,7 +219,7 @@ describe('context tools', () => {
       .get('read_workspace_context')!
       .execute('context-overview', { mode: 'workspace_overview' }, undefined, undefined, {
         sessionManager: {
-          getEntries: () => [{ type: 'session', id: 'session-1', cwd }],
+          getHeader: () => ({ type: 'session', id: 'session-1', cwd }),
         },
       })) as {
       content: Array<{ type: 'text'; text: string }>;
