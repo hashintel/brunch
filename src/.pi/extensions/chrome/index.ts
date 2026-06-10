@@ -83,6 +83,7 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
     id: string;
     label?: string;
   };
+  webSidecarUrl?: string;
   runtime?: BrunchChromeRuntimeState;
   build?: BrunchChromeBuildState;
   contextUsage?: BrunchChromeContextUsage;
@@ -93,11 +94,12 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   coherence?: BrunchChromeCoherenceVerdict;
 }
 
-export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setTitle'>;
+export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setTitle' | 'setWidget'>;
 
 type BrunchChromeTheme = Pick<Theme, 'fg'>;
 
 const CONTEXT_GAUGE_WIDTH = 12;
+const SIDECAR_WIDGET_WIDTH = 120;
 const BAR_FILLED = '━';
 const BAR_EMPTY = '─';
 
@@ -147,6 +149,10 @@ function sanitizeStatusText(text: string): string {
     .trim();
 }
 
+function formatSidecarWidgetLine(url: string): string {
+  return truncateToWidth(`Web dashboard: ${sanitizeStatusText(url)}`, SIDECAR_WIDGET_WIDTH, '...');
+}
+
 function alignChromeColumns(left: string, right: string, width: number): string {
   if (!Number.isFinite(width)) return `${left}  ${right}`;
 
@@ -169,13 +175,17 @@ function truncateChromeLine(text: string, width: number, theme: BrunchChromeThem
   return Number.isFinite(width) ? truncateToWidth(text, width, style(theme, 'dim', '...')) : text;
 }
 
-export function chromeStateForWorkspace(workspace: WorkspaceSessionReadyState): BrunchChromeState {
+export function chromeStateForWorkspace(
+  workspace: WorkspaceSessionReadyState,
+  options: { webSidecarUrl?: string } = {},
+): BrunchChromeState {
   return {
     ...workspace.chrome,
     session: {
       id: workspace.session.id,
       label: workspace.session.name ?? workspace.session.id,
     },
+    ...(options.webSidecarUrl ? { webSidecarUrl: options.webSidecarUrl } : {}),
   };
 }
 
@@ -207,6 +217,11 @@ export function renderBrunchChrome(
       },
     };
   });
+  if (chrome.webSidecarUrl) {
+    ui.setWidget('brunch.sidecar', [formatSidecarWidgetLine(chrome.webSidecarUrl)], {
+      placement: 'aboveEditor',
+    });
+  }
   ui.setTitle(formatChromeTitle(chrome));
 }
 

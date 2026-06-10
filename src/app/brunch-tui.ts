@@ -70,6 +70,7 @@ export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState;
   coordinator: BrunchTuiCoordinator;
   productUpdates?: ProductUpdatePublisher;
+  webSidecarUrl?: string;
   dev?: BrunchTuiDevOptions;
 }
 
@@ -121,7 +122,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
   if (webSidecarUrl) {
     (options.advertiseWebSidecar ?? advertiseWebSidecar)(webSidecarUrl);
-    if (options.autoOpen !== false) {
+    if (shouldAutoOpenWebSidecar(options.autoOpen, dev)) {
       await (options.openBrowser ?? openBrowser)(webSidecarUrl);
     }
   }
@@ -130,6 +131,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       workspace: workspaceState,
       coordinator,
       productUpdates,
+      ...(webSidecarUrl ? { webSidecarUrl } : {}),
       ...(dev ? { dev } : {}),
     });
   } finally {
@@ -145,6 +147,13 @@ function createBrunchTuiDevOptions(): BrunchTuiDevOptions | undefined {
       store: createInMemoryBrunchIntrospectionStore(),
     },
   };
+}
+
+function shouldAutoOpenWebSidecar(
+  autoOpen: boolean | undefined,
+  dev: BrunchTuiDevOptions | undefined,
+): boolean {
+  return autoOpen ?? dev === undefined;
 }
 
 async function chooseSpecSessionActivationDecision(
@@ -316,31 +325,38 @@ export function createBrunchAgentSessionRuntimeFactory(
       cwd,
       agentDir: runtimeAgentDir,
       extensionFactories: [
-        createBrunchPiExtensions(chromeStateForWorkspace(currentWorkspace), bindCurrentWorkspace, {
-          coordinator,
-          graph: graphDeps,
-          ...(context.dev ? { introspection: context.dev.introspection } : {}),
-          promptContext: () => {
-            const specId = currentWorkspace.spec.id;
-            const selectedSpec = graph.commandExecutor.getSpec(specId);
-            if (!selectedSpec) {
-              throw new Error(`No selected spec found for Brunch prompt context: ${specId}`);
-            }
-            return {
-              spec: {
-                id: selectedSpec.id,
-                name: selectedSpec.name,
-                readinessGrade: selectedSpec.readinessGrade,
-              },
-              workspace: { cwd },
-              session: {
-                id: currentWorkspace.session.id,
-                ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
-              },
-              graphReads: graphDeps.reads,
-            };
+        createBrunchPiExtensions(
+          chromeStateForWorkspace(
+            currentWorkspace,
+            context.webSidecarUrl ? { webSidecarUrl: context.webSidecarUrl } : {},
+          ),
+          bindCurrentWorkspace,
+          {
+            coordinator,
+            graph: graphDeps,
+            ...(context.dev ? { introspection: context.dev.introspection } : {}),
+            promptContext: () => {
+              const specId = currentWorkspace.spec.id;
+              const selectedSpec = graph.commandExecutor.getSpec(specId);
+              if (!selectedSpec) {
+                throw new Error(`No selected spec found for Brunch prompt context: ${specId}`);
+              }
+              return {
+                spec: {
+                  id: selectedSpec.id,
+                  name: selectedSpec.name,
+                  readinessGrade: selectedSpec.readinessGrade,
+                },
+                workspace: { cwd },
+                session: {
+                  id: currentWorkspace.session.id,
+                  ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
+                },
+                graphReads: graphDeps.reads,
+              };
+            },
           },
-        }),
+        ),
       ],
     });
     const services = await createAgentSessionServices({

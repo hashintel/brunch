@@ -106,7 +106,7 @@ src/.pi/
 
 ## Card 2 — Dev sidecar stays visible without browser auto-open
 
-Status: next
+Status: done
 Weight: full
 
 ### Target Behavior

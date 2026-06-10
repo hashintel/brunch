@@ -117,15 +117,7 @@ describe('Brunch chrome projection', () => {
 
   it('renders Brunch chrome through one wrapper over Pi UI calls', async () => {
     const calls: FakeUiCall[] = [];
-    const ui: FakeExtensionUi = {
-      setHeader: (...args: unknown[]) => calls.push({ method: 'setHeader', args }),
-      setFooter: (...args: unknown[]) => calls.push({ method: 'setFooter', args }),
-      setStatus: (...args: unknown[]) => calls.push({ method: 'setStatus', args }),
-      setWidget: (...args: unknown[]) => calls.push({ method: 'setWidget', args }),
-      setWorkingIndicator: (_options) => {},
-      setTitle: (...args: unknown[]) => calls.push({ method: 'setTitle', args }),
-      notify: (_message: string, _type?: 'info' | 'warning' | 'error') => {},
-    };
+    const ui = fakeChromeUi(calls);
 
     renderBrunchChrome(ui, {
       cwd: '/tmp/project',
@@ -139,6 +131,36 @@ describe('Brunch chrome projection', () => {
     expect(calls.find((call) => call.method === 'setFooter')?.args[0]).toEqual(expect.any(Function));
     expect(calls.some((call) => call.method === 'setStatus')).toBe(false);
     expect(calls.find((call) => call.method === 'setTitle')?.args).toEqual(['brunch — project · Spec One']);
+  });
+
+  it('projects the active web sidecar URL into an upper widget only when present', async () => {
+    const calls: FakeUiCall[] = [];
+
+    renderBrunchChrome(fakeChromeUi(calls), {
+      cwd: '/tmp/project',
+      spec: { id: 1, title: 'Spec One' },
+      session: { id: 'session-1' },
+      phase: 'elicitation',
+      chatMode: 'responding-to-elicitation',
+      webSidecarUrl: 'http://127.0.0.1:49152/spec/1\nignored',
+    });
+
+    expect(calls.find((call) => call.method === 'setWidget')?.args).toEqual([
+      'brunch.sidecar',
+      ['Web dashboard: http://127.0.0.1:49152/spec/1 ignored'],
+      { placement: 'aboveEditor' },
+    ]);
+
+    const withoutSidecarCalls: FakeUiCall[] = [];
+    renderBrunchChrome(fakeChromeUi(withoutSidecarCalls), {
+      cwd: '/tmp/project',
+      spec: { id: 1, title: 'Spec One' },
+      session: { id: 'session-1' },
+      phase: 'elicitation',
+      chatMode: 'responding-to-elicitation',
+    });
+
+    expect(withoutSidecarCalls.some((call) => call.method === 'setWidget')).toBe(false);
   });
 });
 
@@ -166,6 +188,18 @@ function readyWorkspace(cwd: string, sessionId: string, sessionName?: string): W
 interface FakeUiCall {
   method: string;
   args: unknown[];
+}
+
+function fakeChromeUi(calls: FakeUiCall[]): FakeExtensionUi {
+  return {
+    setHeader: (...args: unknown[]) => calls.push({ method: 'setHeader', args }),
+    setFooter: (...args: unknown[]) => calls.push({ method: 'setFooter', args }),
+    setStatus: (...args: unknown[]) => calls.push({ method: 'setStatus', args }),
+    setWidget: (...args: unknown[]) => calls.push({ method: 'setWidget', args }),
+    setWorkingIndicator: (_options) => {},
+    setTitle: (...args: unknown[]) => calls.push({ method: 'setTitle', args }),
+    notify: (_message: string, _type?: 'info' | 'warning' | 'error') => {},
+  };
 }
 
 type FakeExtensionUi = Pick<
