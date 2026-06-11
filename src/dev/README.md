@@ -19,7 +19,7 @@ Brunch tracks the latest published `@earendil-works/pi-*` line. Two resolution c
 
 `src/dev/index.ts` is the dev front door. It exports the shared faux-harness factory and the scripted faux launcher, plus the existing workspace RPC helper namespace. The tiny faux-provider config used by buildable probes lives in `src/probes/faux-provider.ts`; `src/dev/faux-harness.ts` re-exports it for dev-loop callers without making probes import build-excluded `src/dev/**` modules.
 
-- `createBrunchFauxHarness()` boots an in-memory Pi `AgentSession` with in-memory auth, model registry, session manager, settings manager, no active tools, and a deterministic faux provider.
+- `createBrunchFauxHarness()` boots an in-memory Pi `AgentSession` with in-memory auth, model registry, session manager, and a deterministic faux provider. By default it also uses in-memory settings and no active tools; Tier-1 callers may pass a Brunch-configured `resourceLoader`/`settingsManager` pair so the faux provider captures the real extension-mutated payload. It records `providerContexts` for Tier-1 assertions over exact provider messages and active tools after Brunch mutation.
 - `runBrunchFauxTurn()` is the smoke launcher: it scripts one prompt→assistant turn with no network I/O and returns the assistant text plus provider call count.
 - `brunchFauxProviderConfig()` defaults to the literal in-process dev key and accepts an explicit api-key override. Subprocess probes pass the pi 0.79 `$ENV` form themselves; the in-process harness does not mutate `process.env` to satisfy a subprocess concern.
 
@@ -29,10 +29,23 @@ Product probes may import `src/probes/faux-provider.ts` when they need determini
 
 `runBrunchIntrospectionTurn()` is the paired-run artifact writer for the dev-only introspection loop. The Pi side is the explicit, read-only `src/.pi/extensions/introspection/` registrar, included only when `createBrunchPiExtensions(..., { introspection: { enabled: true } })` is passed. Product Brunch sessions omit it by default and keep the D39-L offline default. The launcher does not mutate `process.env`; any future online real-provider lift belongs at session construction with save/restore scoping.
 
+## Tier-2 real boot loop (FE-847)
+
+`runTier2RealBootFauxTurn()` is the real-boot harness for runtime choreography tests: it enters through `runBrunchTui`, drives one faux-provider turn, and exposes the captured provider context, active tool names, transcript entries, session file, and rendered transcript. `bootTier2RuntimeThroughRunBrunchTui()` owns real runtime boot proofs such as ready context and `BRUNCH_DEV`-gated query-tool registration. `resumeTier2Fixture()` writes a fixture JSONL transcript, reopens it through the workspace/session coordinator, and reports original vs resumed session-file state so restart/resume assertions do not need local fake boot helpers.
+
+## Proof ownership ledger
+
+- **Unit:** pure derivations and local policy tables (`projections/session/*`, `session/*` helpers).
+- **Tier-1 faux session:** exact provider context after in-memory Brunch mutation, prompt/tool payloads, and hook mutation proof via `createBrunchFauxHarness().providerContexts`.
+- **Tier-2 real boot:** `runBrunchTui` boot, ready context, runtime registration, transcript files, and restart/resume state via `tier-2-harness.ts`.
+- **Probe/transport:** public JSON-RPC, CLI, subprocess, and cross-process parity claims.
+
+## Introspection loop (D69-L)
+
 The passive extension tap records the final `before_provider_request` payload. The launcher then drives a subjective `session.prompt(...)` turn and writes the correlated scratch run under repo-root `.fixtures/scratch/introspection/<run-id>/`, independent of the workspace cwd it targets:
 
 - `mechanical.json` — latest passive provider-payload capture plus optional `/introspect` base-prompt report
 - `subjective.json` — assistant answer text from the subjective prompt
 - `manifest.json` — paired summary keyed by the same captured turn id
 
-The `/introspect` command reports `ctx.getSystemPromptOptions()` base inputs plus the latest passive capture; it deliberately does not claim to reconstruct exact model input. Exactness belongs to the passive provider-payload tap registered last in the Brunch extension bundle.
+The `/introspect` command reports `ctx.getSystemPromptOptions()` base inputs plus the latest passive capture; it deliberately does not claim to reconstruct exact model input. Exactness belongs to the passive provider-payload tap registered last in the Brunch extension bundle. In `BRUNCH_DEV` real TUI launches, that same passive capture mirrors the latest final system prompt bytes into `.brunch/debug/system-prompt.md`; Brunch-owned text `tool_result` content appends to `.brunch/debug/tool-contents.md`. This is an ephemeral workspace debug cache, separate from repo-root `.fixtures/scratch/` evidence, and does not attempt `renderResult()` flattening.

@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L
 
 ## Owns
 
@@ -38,9 +38,12 @@ plus the coordination logic for workspace/spec/session lifecycle.
 
 - **Session envelope** — canonical session envelope reader (spec/session pair).
 
-- **LSN staleness tracking** — Pi extension records current LSN at session
-  start, checks at `prepareNextTurn`, injects `worldUpdate` with optional
-  context refresh when stale.
+- **Turn-boundary choreography** — write-side seam for the assistant-visible
+  watermark, `worldUpdate`, mention staleness, and honest assistant origination.
+  `prepare-next-turn.ts` owns the single pre-turn continuity writer; Pi lifecycle
+  hooks adapt it through `.pi/extensions/session/lifecycle.ts`, and
+  `before_provider_request` is a guard-only check. `start-assistant-turn.ts`
+  owns the origination decision and context seed entries.
 
 ## Runtime affordance coverage ledger
 

@@ -79,6 +79,7 @@ export interface BrunchTuiDevOptions {
   readonly introspection: {
     readonly enabled: true;
     readonly store: BrunchIntrospectionStore;
+    readonly debugCache: { readonly cwd: string };
   };
 }
 
@@ -104,7 +105,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const inventory = await coordinator.inspectWorkspace();
   const decision = await chooseSpecSessionActivationDecision(inventory, options);
   const workspaceState = await coordinator.activateWorkspace(decision);
-  const dev = createBrunchTuiDevOptions();
+  const dev = createBrunchTuiDevOptions(cwd);
 
   if (workspaceState.status === 'cancelled') {
     return;
@@ -141,12 +142,13 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   }
 }
 
-function createBrunchTuiDevOptions(): BrunchTuiDevOptions | undefined {
+function createBrunchTuiDevOptions(cwd: string): BrunchTuiDevOptions | undefined {
   if (!isBrunchDevEnabled()) return undefined;
   return {
     introspection: {
       enabled: true,
       store: createInMemoryBrunchIntrospectionStore(),
+      debugCache: { cwd },
     },
   };
 }

@@ -1,5 +1,11 @@
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
+import {
+  appendToolContentToDebugCache,
+  mirrorSystemPromptToDebugCache,
+  type BrunchDebugCacheOptions,
+} from './debug-cache.js';
+
 export const BRUNCH_INTROSPECTION_COMMAND = 'introspect';
 
 export interface BrunchIntrospectionTurnCapture {
@@ -29,6 +35,7 @@ export interface BrunchIntrospectionStore {
 export interface BrunchIntrospectionOptions {
   readonly store?: BrunchIntrospectionStore;
   readonly clock?: () => Date;
+  readonly debugCache?: BrunchDebugCacheOptions;
 }
 
 export interface InMemoryBrunchIntrospectionStore extends BrunchIntrospectionStore {
@@ -87,13 +94,20 @@ export function registerBrunchIntrospection(
     nextTurnOrdinal += 1;
   });
 
-  pi.on('before_provider_request', (event) => {
+  pi.on('before_provider_request', async (event) => {
+    const payload = isRecord(event) && 'payload' in event ? event.payload : undefined;
     store.recordPassiveCapture({
       turnId: activeTurnId,
       capturedAt: now(),
       event: 'before_provider_request',
-      payload: isRecord(event) && 'payload' in event ? event.payload : undefined,
+      payload,
     });
+    if (options.debugCache) await mirrorSystemPromptToDebugCache(options.debugCache, payload);
+    return undefined;
+  });
+
+  pi.on('tool_result', async (event) => {
+    if (options.debugCache) await appendToolContentToDebugCache(options.debugCache, event);
     return undefined;
   });
 

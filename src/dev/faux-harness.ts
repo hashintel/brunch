@@ -1,12 +1,17 @@
 import {
   registerFauxProvider,
+  type AssistantMessage,
+  type Context,
   type FauxProviderRegistration,
+  type FauxResponseFactory,
   type FauxResponseStep,
+  type StreamOptions,
 } from '@earendil-works/pi-ai';
 import {
   AuthStorage,
   createAgentSession,
   ModelRegistry,
+  type ResourceLoader,
   SessionManager,
   SettingsManager,
   type AgentSession,
@@ -33,12 +38,22 @@ export interface BrunchFauxHarnessOptions {
   readonly responses?: readonly FauxResponseStep[];
   readonly model?: Partial<BrunchFauxModelOptions>;
   readonly customTools?: readonly ToolDefinition<any, any>[];
+  readonly resourceLoader?: ResourceLoader;
+  readonly settingsManager?: SettingsManager;
+}
+
+export interface ProviderContextSnapshot {
+  readonly systemPrompt?: string;
+  readonly messages: Context['messages'];
+  readonly tools: NonNullable<Context['tools']>;
+  readonly activeToolNames: readonly string[];
 }
 
 export interface BrunchFauxHarness {
   readonly session: AgentSession;
   readonly provider: FauxProviderRegistration;
   readonly model: BrunchFauxModelOptions;
+  readonly providerContexts: readonly ProviderContextSnapshot[];
   dispose(): void;
 }
 
@@ -51,7 +66,10 @@ export async function createBrunchFauxHarness(
     api: `${model.api}-faux-source`,
     models: [{ id: model.modelId, name: model.modelName, input: ['text'] }],
   });
-  provider.setResponses([...(options.responses ?? [])]);
+  const providerContexts: ProviderContextSnapshot[] = [];
+  provider.setResponses(
+    (options.responses ?? []).map((response) => captureFauxResponse(response, providerContexts)),
+  );
 
   const authStorage = AuthStorage.inMemory({
     [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
@@ -70,20 +88,46 @@ export async function createBrunchFauxHarness(
     authStorage,
     modelRegistry,
     model: registeredModel,
+    ...(options.resourceLoader ? { resourceLoader: options.resourceLoader } : {}),
     sessionManager: SessionManager.inMemory(options.cwd),
-    settingsManager: SettingsManager.inMemory({ quietStartup: true }),
+    settingsManager: options.settingsManager ?? SettingsManager.inMemory({ quietStartup: true }),
     ...(options.customTools?.length
       ? { tools: options.customTools.map((tool) => tool.name), customTools: [...options.customTools] }
-      : { noTools: 'all' as const }),
+      : options.resourceLoader
+        ? {}
+        : { noTools: 'all' as const }),
   });
 
   return {
     session,
     provider,
     model,
+    providerContexts,
     dispose() {
       session.dispose();
       provider.unregister();
     },
+  };
+}
+
+function captureFauxResponse(
+  response: FauxResponseStep,
+  providerContexts: ProviderContextSnapshot[],
+): FauxResponseFactory {
+  return async (context: Context, options: StreamOptions | undefined, state, model) => {
+    providerContexts.push(snapshotProviderContext(context));
+    return typeof response === 'function'
+      ? response(context, options, state, model)
+      : (response as AssistantMessage);
+  };
+}
+
+export function snapshotProviderContext(context: Context): ProviderContextSnapshot {
+  const tools = [...(context.tools ?? [])];
+  return {
+    ...(context.systemPrompt === undefined ? {} : { systemPrompt: context.systemPrompt }),
+    messages: [...context.messages],
+    tools,
+    activeToolNames: tools.map((tool) => tool.name),
   };
 }
