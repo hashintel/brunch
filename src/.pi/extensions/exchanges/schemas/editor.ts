@@ -1,5 +1,7 @@
 import * as z from 'zod';
 
+import type { RequestOutcomeKey } from './request.js';
+
 /**
  * Editor wire envelope for `request_choices`.
  *
@@ -27,14 +29,30 @@ export const zRequestChoicesEditorChoice = z.object({
 });
 export type RequestChoicesEditorChoice = z.infer<typeof zRequestChoicesEditorChoice>;
 
+/**
+ * Editor wire statuses are an `Exclude<>` projection of the transcript outcome
+ * union: the client can answer or cancel, while `unavailable` is tool-authored
+ * only. The marker record drift-couples the set in both directions.
+ */
+export type RequestChoicesEditorStatus = Exclude<RequestOutcomeKey, 'unavailable'>;
+
+const editorStatusMarkers = {
+  answered: true,
+  cancelled: true,
+} satisfies Record<RequestChoicesEditorStatus, true>;
+
+export const REQUEST_CHOICES_EDITOR_STATUSES = Object.keys(
+  editorStatusMarkers,
+) as readonly RequestChoicesEditorStatus[];
+
 export const zRequestChoicesEditorResponse = z.discriminatedUnion('status', [
   z.object({
-    status: z.literal('cancelled'),
+    status: z.literal('cancelled' satisfies RequestChoicesEditorStatus),
     choices: z.array(zRequestChoicesEditorChoice).optional(),
     comment: z.string().optional(),
   }),
   z.object({
-    status: z.literal('answered'),
+    status: z.literal('answered' satisfies RequestChoicesEditorStatus),
     choices: z.array(zRequestChoicesEditorChoice),
     comment: z.string(),
   }),

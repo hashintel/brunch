@@ -1,13 +1,21 @@
-import type { RequestChoicesDetails, SelectedChoice } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type {
+  RequestChoicesDetails,
+  RequestOutcomeKey,
+  SelectedChoice,
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
+  REQUEST_OUTCOME_KEYS,
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
   zRequestChoicesDetails,
 } from '../../.pi/extensions/exchanges/schemas/index.js';
 
-export type { RequestChoicesDetails, SelectedChoice };
+// Re-exported so session-side consumers can reach the outcome union without
+// importing extension internals.
+export { REQUEST_OUTCOME_KEYS };
+export type { RequestChoicesDetails, RequestOutcomeKey, SelectedChoice };
 export function projectRequestChoices(input: {
   readonly exchangeId: string;
-  readonly status: 'answered' | 'cancelled' | 'unavailable';
+  readonly status: RequestOutcomeKey;
   readonly choices?: readonly SelectedChoice[] | undefined;
   readonly comment?: string | undefined;
   readonly message?: string | undefined;

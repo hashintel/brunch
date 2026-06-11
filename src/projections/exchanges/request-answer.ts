@@ -1,4 +1,7 @@
-import type { RequestAnswerDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type {
+  RequestAnswerDetails,
+  RequestOutcomeKey,
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
   zRequestAnswerDetails,
@@ -7,7 +10,7 @@ import {
 export type { RequestAnswerDetails };
 export function projectRequestAnswer(input: {
   readonly exchangeId: string;
-  readonly status: 'answered' | 'cancelled' | 'unavailable';
+  readonly status: RequestOutcomeKey;
   readonly answer?: string | undefined;
   readonly message?: string | undefined;
 }): RequestAnswerDetails {
