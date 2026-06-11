@@ -4,8 +4,10 @@
  * keeping the graph clock and change log coherent.
  */
 
-import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { eq } from 'drizzle-orm';
@@ -16,7 +18,8 @@ import { changeLog, edges, graphClock, nodes, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import { EDGE_CATEGORIES } from './schema/kinds.js';
 import { NODE_KIND_METADATA, type ReadinessBand } from './schema/nodes.js';
-import { seedFixture, type SeedFixture } from './seed-fixtures.js';
+import { runSeedFixturesCli, seedFixture, type SeedFixture } from './seed-fixtures.js';
+import { openWorkspaceCommandExecutor } from './workspace-store.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -30,6 +33,132 @@ function graphClockLsn(db: BrunchDb, specId: number): number {
     db.select({ lsn: graphClock.lsn }).from(graphClock).where(eq(graphClock.spec_id, specId)).get()?.lsn ?? 0
   );
 }
+
+describe('seed fixture CLI', () => {
+  it.each([
+    { name: 'missing args', argv: [] },
+    { name: 'missing workspace value', argv: ['--workspace', '--seed', 'workspace-spread/alpha-grounding'] },
+    { name: 'missing seed value', argv: ['--workspace', 'target', '--seed'] },
+    {
+      name: 'unknown arg',
+      argv: ['--workspace', 'target', '--seed', 'workspace-spread/alpha-grounding', '--extra'],
+    },
+    {
+      name: 'duplicate workspace flag',
+      argv: ['--workspace', 'one', '--workspace', 'two', '--seed', 'workspace-spread/alpha-grounding'],
+    },
+    {
+      name: 'duplicate seed flag',
+      argv: [
+        '--workspace',
+        'target',
+        '--seed',
+        'workspace-spread/alpha-grounding',
+        '--seed',
+        'yamlbase/spec-graph',
+      ],
+    },
+    {
+      name: 'parent seed set',
+      argv: ['--workspace', 'target', '--seed', '../workspace-spread/alpha-grounding'],
+    },
+    {
+      name: 'parent seed slug',
+      argv: ['--workspace', 'target', '--seed', 'workspace-spread/../alpha-grounding'],
+    },
+    {
+      name: 'absolute seed ref',
+      argv: ['--workspace', 'target', '--seed', '/workspace-spread/alpha-grounding'],
+    },
+  ])('rejects malformed input without creating a cwd DB: $name', async ({ argv }) => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-seed-cwd-'));
+    let stderr = '';
+
+    const code = await runSeedFixturesCli({
+      argv,
+      cwd,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('Usage: npm run seed -- --workspace <dir> --seed <set>/<slug>');
+    expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+  });
+
+  it('accepts equals-form flags when values are unambiguous and safe', async () => {
+    const shellCwd = await mkdtemp(join(tmpdir(), 'brunch-seed-shell-'));
+    const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
+    let stdout = '';
+
+    const code = await runSeedFixturesCli({
+      argv: [`--workspace=${targetWorkspace}`, '--seed=workspace-spread/alpha-grounding'],
+      cwd: shellCwd,
+      stdout: (chunk) => {
+        stdout += chunk;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('seeded workspace-spread/alpha-grounding → spec');
+    expect(existsSync(join(shellCwd, '.brunch', 'data.db'))).toBe(false);
+    expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
+  });
+
+  it('reports the selected seed ref rather than the fixture internal spec slug', async () => {
+    const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
+    let stdout = '';
+
+    const code = await runSeedFixturesCli({
+      argv: ['--workspace', targetWorkspace, '--seed', 'yamlbase/spec-graph'],
+      stdout: (chunk) => {
+        stdout += chunk;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('seeded yamlbase/spec-graph → spec');
+    expect(stdout).not.toContain('seeded yamlbase/yamlbase → spec');
+  });
+
+  it('seeds only the selected fixture into the named workspace and reports the destination DB', async () => {
+    const shellCwd = await mkdtemp(join(tmpdir(), 'brunch-seed-shell-'));
+    const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
+    let stdout = '';
+
+    const code = await runSeedFixturesCli({
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/alpha-grounding'],
+      cwd: shellCwd,
+      stdout: (chunk) => {
+        stdout += chunk;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('seeded workspace-spread/alpha-grounding → spec');
+    expect(stdout).toContain(`Destination: ${join(targetWorkspace, '.brunch', 'data.db')}`);
+    expect(existsSync(join(shellCwd, '.brunch', 'data.db'))).toBe(false);
+    expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
+
+    const executor = await openWorkspaceCommandExecutor(targetWorkspace);
+    const specRows = executor.listSpecs();
+    expect(specRows.map((spec) => spec.slug)).toEqual(['alpha-grounding']);
+    const alpha = specRows[0]!;
+    const db = createDb(join(targetWorkspace, '.brunch', 'data.db'));
+    expect(db.select().from(nodes).where(eq(nodes.spec_id, alpha.id)).all()).toHaveLength(
+      loadFixture('alpha-grounding', 'workspace-spread').nodes.length,
+    );
+    expect(
+      db
+        .select({ operation: changeLog.operation })
+        .from(changeLog)
+        .where(eq(changeLog.spec_id, alpha.id))
+        .all()
+        .map((row) => row.operation),
+    ).toEqual(['create_spec', 'mutate_graph']);
+  });
+});
 
 describe('seedFixture', () => {
   it('seeds the code-health fixture into a real DB via the command layer', () => {

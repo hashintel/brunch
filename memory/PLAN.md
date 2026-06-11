@@ -121,7 +121,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 
 - `probes-and-transcripts-evolution` — continuous probe/report/transcript hardening as each delivery frontier lands evidence.
 - `topology-readmes-and-boundaries` — small doc/test hardening when a frontier moves files or exposes a boundary; should remain attached to the frontier when possible rather than becoming an abstract cleanup project.
-- `dev-seed-fixtures` — rich, real seed data for local dev / manual / observer testing: the consolidated seed contract, the `npm run seed` loader, and growing/enhancing fixture sets (Bilal-port + legacy). Its semantic curation mutation slice is folded into / blocked by `role-safe-graph-mutations`; ongoing seed-data maintenance remains low-conflict.
+- `dev-seed-fixtures` — **partially built as a folded-in FE-848 DX hardening slice**: clarified the seed/workbench contract from SPEC D79-L, replaced the catch-all current-cwd `npm run seed` flow with explicit target-workspace + seed selection, and proved one seeded workbench through `npm run dev -- --cwd ...` / product RPC. Remaining follow-up is the seed disposition catalog and optional explicit all-seeds opt-in. Its semantic curation mutation slice is complete via `role-safe-graph-mutations`; ongoing seed-data maintenance remains low-conflict.
 - `dx-introspection-live` — done 2026-06-11. DX follow-on to `dx-feedback-loops`: hardened the four-role `.fixtures/` topology + `--cwd` launch (D70-L), unified dev gating under `BRUNCH_DEV`, wired introspection into the real TUI (D71-L), made introspection conversational (A26-L), and added the workspace-local `.brunch/debug/` cache for final system prompt + Brunch-owned tool-result contents. `tool-renders` flattening remains deferred until a concrete renderer-debugging need appears.
 - `runtime-vocab-leaf` — establish `src/session/schema/kinds.ts` as the drizzle-free source-of-truth leaf for the session/runtime axis enums (`op_mode`, `strategy`, `lens`, `goal`, `auto` sentinel), mirroring `graph/schema/kinds.ts` (D73-L ownership direction). The decision-3 follow-on; independent of the remodel chain and the trio. Must not recreate `READINESS_GRADES` (retired by `capability-readiness`).
 
@@ -675,26 +675,30 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 
 ### dev-seed-fixtures
 
-- **Name:** Development seed-fixture substrate (Bilal-port + legacy specs)
-- **Linear:** unassigned
-- **Kind:** tooling / dev-substrate
-- **Status:** parallel / continuous
-- **Objective:** Maintain rich, real seed data for local dev and manual/observer testing: the consolidated `{spec,nodes,edges}` seed contract under `.fixtures/seeds/<set>/<slug>.json`, the `src/graph/seed-fixtures.ts` loader (`npm run seed`) that commits each fixture through `CommandExecutor`, and the throwaway per-set port scripts that produce seed files. Grow set coverage and graph quality as delivery frontiers need data to exercise.
-- **Why now / unlocks:** Delivery frontiers (`capture-response-to-graph`, the live-graph observer follow-on, `poc-live-ship-gate`) need real multi-spec graph data to exercise UI/agent/observer behavior without hand-authoring. The Bilal port already provides three loadable specs; enhancing them surfaces under-represented planes/kinds (notably `thesis`/`goal`) for richer capture and observer demos.
+- **Name:** Explicit dev seeding and launchable workbench flow
+- **Linear:** FE-848 — folded into the current prompt-context refinement branch by user decision on 2026-06-11; no separate Linear issue for this low-conflict DX hardening slice.
+- **Kind:** hardening / dev-substrate
+- **Status:** parallel / partially built (folded into FE-848 branch)
+- **Certainty:** proving
+- **Lights up:** A fresh `.fixtures/workbenches/<name>` can be seeded with one named fixture, launched with `npm run dev -- --cwd .fixtures/workbenches/<name>`, and inspected as that workbench's DB — not the repo-root `.brunch/` and not an accidental all-seeds dump.
+- **Stabilizes:** D70-L/D79-L fixture topology and I48-L target-workspace-scoped seeding; gives later manual, observer, and capture probes a reproducible local graph state to aim from.
+- **Objective:** Clarify and harden the dev DB seeding flow around the four-role `.fixtures/` contract. Replace the current ambiguous mental model — `npm run seed` loads every tracked seed into whatever shell cwd happens to be active — with an explicit seed command that names the target workspace and selected seed set/slug (with all-seeds as an explicit opt-in). Catalog the captured seed fixtures by consumer disposition, update workbench docs to name the seed(s) they expect, and prove a seeded workbench through the real launch path.
+- **Why now / unlocks:** The current root-dev behavior and `--cwd` workbench convention now conflict: root `.brunch/` can contain stale local DB state, workbench `.brunch/` is untracked but under-documented, and several newly captured seeds exist without a consumer. This frontier is the cheapest tracer bullet for D79-L/I48-L and prevents later manual/observer tests from depending on invisible local state.
 - **Acceptance:**
-  - Seed contract stays loadable: each set's port script self-validates every `<slug>.json` through the real loader (same structural checks `CommandExecutor.mutateGraph` enforces) before writing.
-  - `npm run seed` loads every `.fixtures/seeds/<set>/<slug>.json` into the workspace DB through `CommandExecutor` (never direct row inserts), preserving spec-local graph clock / change log / LSN coherence.
-  - New seed sets follow the established shape: vendored `_originals/`, throwaway `_port-script.ts`, consolidated `<slug>.json`, generated `README.md`; derived variant sets may instead document the deterministic filter over an existing seed set and keep mixed-basis product-run output under `.fixtures/runs/`.
-  - Product curation runs over seeds leave transcript-backed artifacts (`session.jsonl`, `transcript.md`, `report.json`, and graph readback when graph truth is the proof target) and prove real `mutate_graph` transcript evidence plus implicit graph rows; any retained pre-migration `commit_graph` runs are historical only. Mixed-basis graph readbacks are not registered as reusable seeds.
-- **Enhancement backlog (captured, not yet scoped):**
-  1. Enhance Bilal-port fixtures *through Brunch itself* by feeding the original briefs Bilal authored, to recover `thesis`/`goal` structure the current ported graphs under-express.
-  2. Port and enhance the earlier product version's fixtures (the legacy walkthrough scenarios in `docs/praxis/manual-testing.md`), raising quality through better semantic definition (kinds, detail) and internal connection (edges).
-- **Verification:** Inner — `src/graph/seed-fixtures.test.ts` seeds real fixtures into an in-memory DB and asserts spec/node/edge counts plus spec-local change-log/clock coherence independent of seed order, rejects non-`explicit` basis, and covers the `macro-view-grounded-intent` explicit intent-only variant; `src/probes/fixture-curation-loop.test.ts` proves curation report/artifact evidence detection without an LLM. Outer — `npm run seed` smoke against a fresh cwd; real fixture-curation runs under `.fixtures/runs/fixture-curation/`; seeded-dev-rpc smoke proves `dev.graph.mutateGraph` advances only the mutated spec's overview LSN.
-- **Topology materialization:** Seed data and throwaway prep scripts live under `.fixtures/seeds/`; the loader lives in `src/graph/seed-fixtures.ts` (graph/ owns `CommandExecutor` orchestration; db/ is imported only by graph/, never the reverse); no seed-only graph runtime the product launch does not use.
-- **Cross-cutting obligations:** Seeds commit only through `CommandExecutor`; directly-authored items use `basis: explicit` (the retired `accepted_review_set` value is not a basis). Respect multi-spec discipline — each fixture is one spec's own graph (D61-L). Pre-release posture: regenerate fixtures when the schema moves rather than preserving stale shapes. **Known drift:** `docs/praxis/manual-testing.md` still describes the earlier seed system (scenario-arg `npm run seed`, `.brunch/brunch.db`); reconcile it to the current loader (all-sets `npm run seed`, `.brunch/data.db`) when the legacy port (backlog item 2) lands — coordinate with the doc-reconciliation track rather than double-editing.
-- **Current execution pointer:** The semantic-mutation curation scope is complete via `role-safe-graph-mutations`, so dev curation no longer mints a second graph-write dialect. Product-driven fixture-curation tracer evidence remains the quality-review input: `macro-view-grounded-intent` is a deterministic explicit-basis Bilal variant; fresh runs now prove `mutate_graph`, while the checked-in `.fixtures/runs/fixture-curation/fixture-curation-2026-06-05T104440Z/` artifact is historical pre-migration `commit_graph` evidence until regenerated.
-- **Traceability:** D4-L, D16-L, D19-L, D20-L, D52-L, D61-L, D62-L, D63-L / I1-L / A4-L, A14-L.
-- **Design docs:** `.fixtures/seeds/bilal-port/README.md`; `docs/design/GRAPH_MODEL.md`; `docs/praxis/manual-testing.md`.
+  - ✅ Seed CLI supports selecting one fixture by set/slug and target workspace by path; malformed, unknown, duplicate, or unsafe flag input fails with usage before any workspace DB opens.
+  - ◐ An all-seeds batch remains possible only through a future explicit flag or explicit command name; no ambient all-seeds default remains.
+  - ✅ Every seeded spec routes through `seedFixture`/`CommandExecutor`, preserving spec-local LSN, change-log, elicitation-gap seeding, and structural validation; no seed path writes SQLite rows directly.
+  - ✅ CLI output names the destination `.brunch/data.db` and each selected `set/slug → specId`; defaults are explicit in help text and tests.
+  - ✅ `npm run dev` / `npm run dev -- --cwd <workbench>` never seeds implicitly; launch observes existing workspace DB state only.
+  - ✅ `.fixtures/README.md` and the `live-graph-observer` workbench README document the canonical flow (`seed` then `dev -- --cwd`) and clarify root/workbench `.brunch/` as local runtime state, not canonical fixture truth; the workbench docs name the TUI sidecar instead of unsupported standalone `--mode web`.
+  - ◐ Captured seeds (`brunch-self`, `dumpchat`, `fable`, `rd-loop`, `yamlbase`, plus existing Bilal/coverage sets) still need a small disposition catalog: `test`, `preview`, `manual workbench`, `probe input`, or `parked`.
+  - ✅ A fresh-workbench tracer seeds one named fixture, reads `workspace.selectionState` through product RPC with `--cwd`, and proves graph state came from the workbench `.brunch/data.db` only.
+- **Verification:** Inner — seed CLI parse/target-resolution tests; set/slug filtering tests; explicit all-seeds mode test; CommandExecutor/change-log assertions on a temp workspace DB; docs/help snapshot or string tests for visible destination reporting. Middle — fresh workbench smoke using a temp or fixture workbench: seed one fixture, launch via `runBrunchCli({ argv: ['--cwd', workbench, '--mode', 'print' | 'rpc'] })` or equivalent, assert selected workspace state plus graph overview are scoped to that workbench. Optional outer — manual `BRUNCH_DEV=1 npm run dev -- --cwd .fixtures/workbenches/<name>` against a live model after the deterministic tracer passes.
+- **Topology materialization:** Seed data and throwaway prep scripts remain under `.fixtures/seeds/`; launchable cwd containers remain under `.fixtures/workbenches/`; the graph-domain seed loader remains in `src/graph/seed-fixtures.ts` unless the CLI grows enough to warrant a thin `src/scripts/` wrapper; workbench runtime DBs stay under gitignored `.brunch/` and are never committed.
+- **Cross-cutting obligations:** Preserve D20-L/D52-L graph ownership — the loader orchestrates `CommandExecutor`, not DB internals. Preserve D70-L role separation — seed JSON is input, workbench DB state is local runtime, runs are curated evidence, scratch is ephemeral. Do not add auto-seeding to app startup, and do not treat repo-root `.brunch/` as canonical test fixture state. Pre-release posture allows regenerating or reclassifying stale seed files rather than maintaining compatibility with obsolete local DBs.
+- **Branch:** `ln/fe-848-prompt-context-refine` (folded-in slice; no separate Graphite branch).
+- **Traceability:** D16-L, D20-L, D52-L, D61-L, D63-L, D70-L, D71-L, D79-L; I1-L, I11-L, I48-L.
+- **Design docs:** `.fixtures/README.md`; `.fixtures/workbenches/live-graph-observer/README.md`; `docs/design/GRAPH_MODEL.md`.
 
 ### web-design-system-port
 
@@ -762,7 +766,7 @@ nodes:
   capture-quality-spike          [done · spike]      A22-L fitness evidence graduated the narrow exchanges-and-generalized-capture feature
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
-  dev-seed-fixtures                [parallel]        rich seed data substrate for dev/observer testing
+  dev-seed-fixtures                [parallel · proving] explicit seed selection + target-workspace-scoped workbench launch; catalog captured seeds; prove D79/I48 tracer
   web-design-system-port           [done · earned]     ported prior-trunk tokens + card primitives into src/web; retired invented warm aesthetic; read-only, no spine deps
   dx-tier-2-harness              [active · proving]  FE-847 Tier-2 DX chassis (real boot + faux turn + payload/transcript oracle + fixture resume) + coverage-first scaffold (skipped I45-I47) + topology stubs
   turn-boundary-reconciliation   [next · proving]   M7 product write-side: watermark projection (S1) + prepareNextTurn reconciler/worldUpdate/own-write stamping (S2) + submit-time mention ledger/staleness (S3)
@@ -784,7 +788,7 @@ edges:
   graph-tool-resilience     -[hard]->         role-safe-graph-mutations      (current graph tool + edge model exist)
   project-graph-review-cycle -[hard]->        role-safe-graph-mutations      (current review-set proposal/accept path exists)
   role-safe-graph-mutations -[hard]->         exchanges-and-generalized-capture (relation-bearing capture uses mutateGraph grammar)
-  role-safe-graph-mutations -[hard]->         dev-seed-fixtures              (semantic curation slice uses mutateGraph grammar)
+  role-safe-graph-mutations -[already-satisfied]-> dev-seed-fixtures          (semantic curation now uses the canonical mutateGraph grammar; D79 hardening no longer needs a second graph-write dialect)
   capture-quality-spike     -[evidence]->     exchanges-and-generalized-capture
   projection-shape-coverage -[hard]->         renderer-golden-coverage     (lock DTO shape before renderer golden)
   renderer-golden-coverage  -[hard]->         prompt-composition-golden-coverage  (lock rendered text before prompt golden)
@@ -800,7 +804,7 @@ edges:
 parallel obligations:
   probes-and-transcripts-evolution -[evidence]-> every P0/P1 frontier
   topology-readmes-and-boundaries  -[boundary]-> every frontier that moves/claims source topology
-  dev-seed-fixtures                -[data]->     capture-response-to-graph, poc-live-ship-gate (real multi-spec graphs to exercise observer/capture; semantic curation waits on role-safe-graph-mutations)
+  dev-seed-fixtures                -[data]->     capture-response-to-graph, poc-live-ship-gate (explicit seeded workbenches provide reproducible real graphs for observer/capture; ongoing semantic curation already rides mutateGraph)
 
 horizon:
   coherence-first-class

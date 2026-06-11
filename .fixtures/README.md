@@ -40,6 +40,19 @@ probe report/transcript artifacts, then track it. Dev launchers must resolve
 scratch from the repo-root `.fixtures/scratch/`, independent of the workspace cwd
 they target.
 
+Seed workbench state explicitly; `npm run dev` never seeds by implication. From
+the repo root, load one tracked seed into one named workspace with:
+
+```sh
+npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
+```
+
+The seed command writes only the target workspace's `.brunch/data.db` and reports
+that destination path plus the `set/slug → specId` mapping. Running `npm run seed`
+without `--workspace` and `--seed` fails with usage instead of loading every seed
+into the shell cwd.
+
 ## Current runs
 
 - `runs/public-rpc-parity/2026-05-29-public-rpc-parity/` — FE-744 public Brunch
