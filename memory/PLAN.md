@@ -116,7 +116,7 @@ per ledger row:
 
 | Block | Frontier | Linear | Branch |
 | --- | --- | --- | --- |
-| 1 | `elicitation-driver` | FE-852 (existing) | `ln/fe-852-prompting-and-elicitation` |
+| 1 | `elicitation-driver` | FE-852 (existing) | `ln/fe-852-below-the-line` (also carries the FE-848 seed-DX prep as preamble) |
 | 2 | `generalized-capture` | new FE issue (create on start) | new, stacks on block 1 |
 | 3 | `poc-live-ship-gate` | FE-811 (existing) | new, stacks on block 2 |
 
