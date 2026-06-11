@@ -111,7 +111,6 @@ function applyRuntimeSwitch(pi: ExtensionAPI, ctx: RuntimeSwitchContext, patch: 
       getEntries: () => ctx.sessionManager.getEntries(),
       appendCustomEntry: (customType, data) => {
         pi.appendEntry(customType, data);
-        return 'brunch-runtime-switch';
       },
     },
     nextState,

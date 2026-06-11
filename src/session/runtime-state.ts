@@ -155,7 +155,7 @@ export function latestValidBrunchAgentStateEntryData(
 
 export interface BrunchAgentStateEntrySessionManager {
   getEntries(): readonly CustomEntryLike[];
-  appendCustomEntry(customType: string, data: BrunchAgentStateEntryData): string;
+  appendCustomEntry(customType: string, data: BrunchAgentStateEntryData): void;
 }
 
 function requireValidBrunchAgentState(state: BrunchAgentState): BrunchAgentState {
@@ -169,29 +169,30 @@ function requireValidBrunchAgentState(state: BrunchAgentState): BrunchAgentState
 export function appendBrunchAgentRuntimeInit(
   sessionManager: BrunchAgentStateEntrySessionManager,
   source: BrunchAgentStateEntryData['source'] = 'extension',
-): string | undefined {
+): boolean {
   if (latestValidBrunchAgentStateEntryData(sessionManager.getEntries())) {
-    return undefined;
+    return false;
   }
 
-  return sessionManager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
+  sessionManager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
     schemaVersion: 1,
     reason: 'init',
     state: DEFAULT_BRUNCH_AGENT_STATE,
     source,
   });
+  return true;
 }
 
 export function appendBrunchAgentRuntimeSwitch(
   sessionManager: BrunchAgentStateEntrySessionManager,
   state: BrunchAgentState,
   source: BrunchAgentStateEntryData['source'] = 'user',
-): string {
+): void {
   const validState = requireValidBrunchAgentState(state);
   const previous =
     latestValidBrunchAgentStateEntryData(sessionManager.getEntries())?.state ?? DEFAULT_BRUNCH_AGENT_STATE;
 
-  return sessionManager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
+  sessionManager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {
     schemaVersion: 1,
     reason: 'switch',
     state: validState,
