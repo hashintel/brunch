@@ -19,10 +19,15 @@
  * upstream format.
  *
  * CLI (dev only, run via tsx):
- *   npm run seed -- --workspace <dir> --seed <set>/<slug>
+ *   npm run seed -- --workspace <dir> --seed <set>/<slug> [--reset]
+ *
+ * `--reset` deletes only the target workspace's `.brunch/data.db` (plus its
+ * `-wal`/`-shm` sidecars) before seeding — never the `.brunch/` directory or
+ * any other workspace state — so "fresh workbench from one named seed" is a
+ * single command.
  */
 
-import { readFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -236,11 +241,18 @@ interface SeedCliOptions {
 
 interface ParsedSeedCliArgs {
   readonly workspace: string;
+  readonly reset: boolean;
   readonly seed: {
     readonly ref: string;
     readonly set: string;
     readonly slug: string;
   };
+}
+
+/** Workspace DB files removed by `--reset`; strictly file-scoped, never directories. */
+function workspaceDbFiles(workspace: string): readonly string[] {
+  const dbPath = join(workspace, '.brunch', 'data.db');
+  return [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
 }
 
 /** Read one `<slug>.json` fixture under a seed-set dir. */
@@ -261,6 +273,11 @@ export async function runSeedFixturesCli(options: SeedCliOptions = {}): Promise<
   try {
     const destinationDb = join(parsed.workspace, '.brunch', 'data.db');
     const fixture = await readSelectedSeed(parsed.seed.set, parsed.seed.slug);
+    if (parsed.reset) {
+      for (const file of workspaceDbFiles(parsed.workspace)) {
+        await rm(file, { force: true });
+      }
+    }
     const executor = await openWorkspaceCommandExecutor(parsed.workspace);
     const result = seedFixture(executor, fixture);
     stdout(
@@ -277,8 +294,14 @@ export async function runSeedFixturesCli(options: SeedCliOptions = {}): Promise<
 
 function parseSeedCliArgs(argv: readonly string[], cwd: string): ParsedSeedCliArgs | null {
   const values = new Map<string, string>();
+  let reset = false;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]!;
+    if (arg === '--reset') {
+      if (reset) return null;
+      reset = true;
+      continue;
+    }
     if (arg === '--workspace' || arg === '--seed') {
       const value = argv[index + 1];
       if (!safeFlagValue(value) || values.has(arg)) return null;
@@ -308,6 +331,7 @@ function parseSeedCliArgs(argv: readonly string[], cwd: string): ParsedSeedCliAr
 
   return {
     workspace: isAbsolute(workspace) ? workspace : resolve(cwd, workspace),
+    reset,
     seed: { ref: seed, set, slug },
   };
 }
@@ -321,7 +345,10 @@ function safeSeedPart(value: string | undefined): value is string {
 }
 
 function seedUsage(): string {
-  return 'Usage: npm run seed -- --workspace <dir> --seed <set>/<slug>\n';
+  return (
+    'Usage: npm run seed -- --workspace <dir> --seed <set>/<slug> [--reset]\n' +
+    '  --reset  delete the target workspace .brunch/data.db (+ -wal/-shm) before seeding\n'
+  );
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

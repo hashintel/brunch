@@ -509,6 +509,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 - **Topology materialization:** Seed data and throwaway prep scripts remain under `.fixtures/seeds/`; launchable cwd containers remain under `.fixtures/workbenches/`; the graph-domain seed loader remains in `src/graph/seed-fixtures.ts` unless the CLI grows enough to warrant a thin `src/scripts/` wrapper; workbench runtime DBs stay under gitignored `.brunch/` and are never committed.
 - **Cross-cutting obligations:** Preserve D20-L/D52-L graph ownership — the loader orchestrates `CommandExecutor`, not DB internals. Preserve D70-L role separation — seed JSON is input, workbench DB state is local runtime, runs are curated evidence, scratch is ephemeral. Do not add auto-seeding to app startup, and do not treat repo-root `.brunch/` as canonical test fixture state. Pre-release posture allows regenerating or reclassifying stale seed files rather than maintaining compatibility with obsolete local DBs.
 - **Branch:** `ln/fe-848-prompt-context-refine` (folded-in slice; no separate Graphite branch).
+- **Current execution pointer:** `memory/cards/dev-seed-fixtures--seed-dx-hygiene.md` (chain: `--reset` wipe flag → manual-testing.md doc retirement → continuous all-seeds currency test).
 - **Traceability:** D16-L, D20-L, D52-L, D61-L, D63-L, D70-L, D71-L, D79-L; I1-L, I11-L, I48-L.
 - **Design docs:** `.fixtures/README.md`; `.fixtures/workbenches/live-graph-observer/README.md`; `docs/design/GRAPH_MODEL.md`.
 

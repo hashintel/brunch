@@ -49,7 +49,9 @@ npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
 ```
 
 The seed command writes only the target workspace's `.brunch/data.db` and reports
-that destination path plus the `set/slug → specId` mapping. Running `npm run seed`
+that destination path plus the `set/slug → specId` mapping. Add `--reset` to wipe
+the target workspace's `data.db` (+ `-wal`/`-shm`) before seeding — the wipe is
+strictly file-scoped and leaves the rest of `.brunch/` (e.g. `debug/`) intact. Running `npm run seed`
 without `--workspace` and `--seed` fails with usage instead of loading every seed
 into the shell cwd.
 

@@ -5,7 +5,7 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -85,6 +85,64 @@ describe('seed fixture CLI', () => {
     expect(code).toBe(1);
     expect(stderr).toContain('Usage: npm run seed -- --workspace <dir> --seed <set>/<slug>');
     expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+  });
+
+  it('rejects --reset without the required flags and documents it in usage', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-seed-cwd-'));
+    let stderr = '';
+
+    const code = await runSeedFixturesCli({
+      argv: ['--reset'],
+      cwd,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('--reset');
+    expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+  });
+
+  it('--reset on a fresh workspace with no DB is a no-op and seeds cleanly', async () => {
+    const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
+    let stdout = '';
+
+    const code = await runSeedFixturesCli({
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/alpha-grounding', '--reset'],
+      stdout: (chunk) => {
+        stdout += chunk;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('seeded workspace-spread/alpha-grounding → spec');
+    expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
+  });
+
+  it('--reset wipes only the workspace DB files so reseed yields a single fresh spec', async () => {
+    const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
+
+    const first = await runSeedFixturesCli({
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/alpha-grounding'],
+      stdout: () => {},
+    });
+    expect(first).toBe(0);
+
+    // Unrelated local state in .brunch/ must survive a reset (e.g. debug cache).
+    const debugDir = join(targetWorkspace, '.brunch', 'debug');
+    await mkdir(debugDir, { recursive: true });
+    await writeFile(join(debugDir, 'system-prompt.md'), 'keep me', 'utf8');
+
+    const second = await runSeedFixturesCli({
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/beta-commitments', '--reset'],
+      stdout: () => {},
+    });
+    expect(second).toBe(0);
+
+    const executor = await openWorkspaceCommandExecutor(targetWorkspace);
+    expect(executor.listSpecs().map((spec) => spec.slug)).toEqual(['beta-commitments']);
+    expect(readFileSync(join(debugDir, 'system-prompt.md'), 'utf8')).toBe('keep me');
   });
 
   it('accepts equals-form flags when values are unambiguous and safe', async () => {
