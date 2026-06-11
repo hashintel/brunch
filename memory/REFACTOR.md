@@ -7,6 +7,14 @@ Origin: /expert-typescript-typing review of the exchanges editor seam, after the
 remediation talkthrough exposed the envelope vocabulary collision that misled both
 a bot-comment review and the original kick-classifier author.
 
+**STATUS 2026-06-11: commits 1-4 are DONE** (two-lane worktree fan-out, merged as
+5e76459c, 5eaaa1ae, 1c25357a, 2b8f1c5c; verify green, 804 tests). The single-select
+editor arm was deleted per user decision. Outcome-union ownership landed stronger
+than planned: `RequestOutcomeKey` is type-projected from the details-schema union
+and drift-locked both directions. **This file stays alive only for the carried
+suspended item below** — delete it once the stacked-branch migration fix is
+verified on reintegration.
+
 ## Problem Statement
 
 Four type-fork families, all "duplicate the owner's state space closer to where I
