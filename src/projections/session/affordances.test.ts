@@ -122,6 +122,10 @@ describe('runtime affordances derivation', () => {
     );
   });
 
+  it('fails loud on an empty gap register (wiring bug — every spec is seeded with floor gaps)', () => {
+    expect(() => axisOptionsForRuntimeState('strategy', resolved(), [])).toThrow(/no elicitation gap/);
+  });
+
   it('derives per-axis legal options without grade-gate symbols', () => {
     expect(axisOptionsForRuntimeState('lens', resolved(), groundingGaps({ thesis: 0 }))).toEqual(['intent']);
 

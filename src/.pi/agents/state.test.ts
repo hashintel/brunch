@@ -209,6 +209,13 @@ describe('agent posture policy', () => {
     );
   });
 
+  it('fails loud on an empty gap register instead of returning empty manifests', () => {
+    // Every spec is seeded with floor gaps at creation; an empty register reaching
+    // manifest derivation is a wiring bug, never a legal quiet posture.
+    const state = projectBrunchAgentState([]);
+    expect(() => manifestsForState(state, [])).toThrow(/no elicitation gap/);
+  });
+
   it('keeps state.ts free of grade-gate symbols', () => {
     const source = readFileSync(fileURLToPath(new URL('./state.ts', import.meta.url)), 'utf8');
     expect(source).not.toMatch(/ReadinessGrade|GRADE_RANK|MIN_GRADE|isGradeLegal/);

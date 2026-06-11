@@ -139,7 +139,6 @@ export function axisOptionsForRuntimeState(
   state: ResolvedBrunchAgentState,
   gaps: readonly ElicitationGap[],
 ): readonly (AgentGoalId | AgentStrategyId | AgentLensId)[] {
-  if (gaps.length === 0) return [];
   if (axis === 'goal') {
     return state.agentRoleDefinition.allowedGoals.filter((id) =>
       isCapabilityLegalForGaps(GOAL_CAPABILITY[id], gaps),
