@@ -4,6 +4,11 @@ Created: 2026-06-11 · Temporary execution aid; delete when complete or supersed
 Context: post-build audit of commits ac84abb2..bbc4b4e6 against the (now-deleted)
 review-fix scope cards. Verified findings, not speculation.
 
+**STATUS 2026-06-11: commits 1-9 and the discovered 7b are DONE** (0bc9cf24..
+5ad41d58 on ln/fe-847-turn-boundary-closure; verify green, 806 tests, zero
+Tier-2 todos). **This file stays alive only for item 10 (suspended)** — delete
+it once the stacked-branch migration fix is verified on reintegration.
+
 ## Problem Statement
 
 The build pass delivered the continuity chain and new-session kick well, but left
