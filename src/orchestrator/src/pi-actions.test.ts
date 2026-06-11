@@ -866,6 +866,27 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
     }
   });
 
+  it('shadows the built-in file tools with sandbox-confined definitions (FE-853)', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const fake = makeFakeSession({ emit: 'ok' });
+      let capturedCustomTools: Array<{ name: string }> | undefined;
+      const createSession = (async (options: { customTools?: Array<{ name: string }> }) => {
+        capturedCustomTools = options.customTools;
+        return { session: fake.session };
+      }) as unknown as SessionFactory;
+
+      await runPi(baseOpts(sandboxDir, 'read,write,edit,bash'), { createSession });
+
+      // Same names as the built-ins, so the SDK registry overrides them and the
+      // per-action allowlist (I126-K) keeps filtering both the same way.
+      expect(capturedCustomTools?.map((t) => t.name).sort()).toEqual(['edit', 'read', 'write']);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
   it('captures agent output without writing it to process.stdout', async () => {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
