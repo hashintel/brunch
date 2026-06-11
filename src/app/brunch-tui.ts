@@ -128,7 +128,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   });
   const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
   if (webSidecarUrl) {
-    (options.advertiseWebSidecar ?? advertiseWebSidecar)(webSidecarUrl);
+    options.advertiseWebSidecar?.(webSidecarUrl);
     if (shouldAutoOpenWebSidecar(options.autoOpen, dev)) {
       await (options.openBrowser ?? openBrowser)(webSidecarUrl);
     }
@@ -442,10 +442,6 @@ async function startDefaultWebSidecar({
 
 function webSidecarRoutePath(specId: number): string {
   return `/spec/${specId}`;
-}
-
-function advertiseWebSidecar(url: string): void {
-  process.stdout.write(`Brunch web sidecar listening on ${url}\n`);
 }
 
 async function openBrowser(url: string): Promise<void> {

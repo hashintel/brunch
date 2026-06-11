@@ -45,6 +45,21 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `before_provider_request` is a guard-only check. `start-assistant-turn.ts`
   owns the origination decision and context seed entries.
 
+## Session PULL read-shape ledger
+
+D60-L read-shape ownership is explicit for the session-domain sources the
+PROJECT-stage DTOs lock against. These are source reads/facts, not reusable
+projection seams; consumers should expose only the subset they need, and a
+consumer that merely tags an existing source shape should read the source
+directly instead of growing a wrapper.
+
+| Shape | Canonical owner | Current consumers | Disposition / reason |
+| --- | --- | --- | --- |
+| `cwd_inventory` | `inspectWorkspaceCwdInventory` | `read_workspace_context`, `renderers/workspace/workspace-context.ts` | Direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
+| `workspace_overview` | `inspectWorkspaceOverview` | `read_workspace_context`, `renderers/workspace/workspace-context.ts` | Direct PULL read. Same rationale as `cwd_inventory`: the source shape is already the consumer shape. |
+| `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`) | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set. |
+| `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `projections/session/affordances.ts`, `.pi/extensions/runtime/` | Transcript-backed source read. Projection/policy layers derive from these facts rather than storing parallel hidden runtime memory. |
+
 ## Runtime affordance coverage ledger
 
 Runtime posture affordances are pure derivations over projected runtime state plus
@@ -80,8 +95,11 @@ schema, and the product-state-gated rows must stay explicit deferred tripwires.
 ## Imported by
 
 - `.pi/agents/contexts/` — for session/transcript context reads.
+- `.pi/extensions/context/` — for direct workspace kickoff inventory / overview reads.
 - `projections/session/` — for reusable transcript-context DTO projection.
+- `projections/workspace/` — for reusable workspace-state DTO projection.
 - `renderers/session/` — for reusable transcript markdown rendering.
+- `renderers/workspace/` — for workspace inventory / overview text rendering over source session read shapes.
 - `rpc/` — for session.* and workspace.* RPC handlers.
 - `.pi/extensions/` — for session lifecycle hooks.
 

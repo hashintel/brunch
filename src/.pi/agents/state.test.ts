@@ -158,7 +158,7 @@ describe('agent posture policy', () => {
     );
   });
 
-  it('throws on an illegal pinned axis with a negotiate outcome message, not a grade', () => {
+  it('keeps a pinned goal visible when capability-readiness negotiates, while gated methods stay absent', () => {
     const state = projectBrunchAgentState([
       {
         type: 'custom',
@@ -178,9 +178,10 @@ describe('agent posture policy', () => {
       },
     ]);
 
-    expect(() => manifestsForState(state, groundingFloorGaps({ coverage: { thesis: 0 } }))).toThrow(
-      'Pinned goal "commit-converge" is not legal for elicitor in elicit; capability-readiness returned negotiate for current elicitation gaps.',
-    );
+    const manifests = manifestsForState(state, groundingFloorGaps({ coverage: { thesis: 0 } }));
+
+    expect(manifests.goals.map((entry) => entry.name)).toEqual(['commit-converge']);
+    expect(manifests.methods.map((entry) => entry.name)).not.toContain('review-for-gaps');
   });
 
   it('fails loud on an empty gap register instead of returning empty manifests', () => {

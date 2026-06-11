@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { projectSessionRuntimeState } from '../projections/session/runtime-state.js';
-import { NonLinearTranscriptError, type BrunchSessionEnvelope } from './brunch-session-envelope.js';
+import {
+  NonLinearTranscriptError,
+  type BrunchSessionEnvelope,
+} from '../../session/brunch-session-envelope.js';
 import {
   AGENT_STRATEGY_IDS,
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   type BrunchAgentState,
-} from './runtime-state.js';
-import { createSessionBindingData } from './session-binding.js';
+} from '../../session/runtime-state.js';
+import { createSessionBindingData } from '../../session/session-binding.js';
+import { projectSessionRuntimeState } from './runtime-state.js';
 
 function envelope(entries: BrunchSessionEnvelope['entries'] = []): BrunchSessionEnvelope {
   return {
@@ -43,7 +46,7 @@ function runtimeEntry(id: string, state: BrunchAgentState, parentId = 'binding-1
   } as never;
 }
 
-describe('session runtime-state projection', () => {
+describe('runtime-state projection', () => {
   it('accepts freestyle as a real strategy id in runtime state parsing', () => {
     expect(AGENT_STRATEGY_IDS).toContain('freestyle');
 

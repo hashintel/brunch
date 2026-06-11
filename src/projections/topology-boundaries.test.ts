@@ -46,6 +46,10 @@ function importedSourcePaths(file: string): string[] {
     .filter((path) => path.startsWith(SOURCE_ROOT));
 }
 
+function sourceImportersOf(target: string): string[] {
+  return sourceFilesUnder(SOURCE_ROOT).filter((file) => importedSourcePaths(file).includes(target));
+}
+
 describe('projection and renderer topology boundaries', () => {
   it('keeps reusable projections out of adapter and transport layers', () => {
     const offenders = sourceFilesUnder(PROJECTIONS_ROOT).flatMap((file) => {
@@ -69,6 +73,11 @@ describe('projection and renderer topology boundaries', () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it('keeps graph neighborhood as a direct graph read instead of a projection layer', () => {
+    expect(sourceImportersOf('src/projections/graph/neighborhood.ts')).toEqual([]);
+  });
+
   it('keeps runtime-state transcript facts from importing reusable runtime projections', () => {
     expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain(
       'src/projections/session/runtime-state.ts',

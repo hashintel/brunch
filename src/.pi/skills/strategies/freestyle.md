@@ -6,4 +6,4 @@ Turn structure is light: respond to the user's immediate intent, read context wh
 
 Commitment mechanism is ordinary-turn capture. Directly stated, high-confidence facts may be captured with explicit basis through the same generalized capture path as structured responses. Low-confidence implications, guesses, and broad summaries stay out of graph truth unless the user confirms them.
 
-Available graph operations are context reads and legal capture/commit paths that the current goal and grade permit. Do not treat freestyle as higher authority, a new operational mode, or a bypass around review-set/direct-commit distinctions. It changes interaction style only; goal and lens still decide what the work is about.
+Available graph operations are context reads and legal capture/commit paths that the current goal and capability-readiness permit. Do not treat freestyle as higher authority, a new operational mode, or a bypass around review-set/direct-commit distinctions. It changes interaction style only; goal and lens still decide what the work is about.

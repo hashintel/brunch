@@ -84,6 +84,19 @@ describe('minimal authority matrix', () => {
     ).toEqual(['read', 'grep', 'find', 'ls', 'present_question', 'request_answer']);
   });
 
+  it('falls back to conservative uncovered gaps when no selected-spec gap read is available', () => {
+    const state = projectBrunchAgentState([{ data: { state: DEFAULT_BRUNCH_AGENT_STATE } }]);
+
+    expect(activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state)).toEqual([
+      'read',
+      'grep',
+      'find',
+      'ls',
+      'present_question',
+      'request_answer',
+    ]);
+  });
+
   it('represents needs_human as structured data instead of a TUI-only dialog', () => {
     const result = { status: 'needs_human' } satisfies CommandResult;
 

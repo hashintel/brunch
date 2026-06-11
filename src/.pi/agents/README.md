@@ -48,7 +48,7 @@ agents/
 
 1. agent control header — identity, model/thinking expectation, role derived from `op_mode`, tool authority;
 2. runtime-state header — current pinned/AUTO `goal`/`strategy`/`lens`, current spec line with the soft per-band readiness estimate, posture;
-3. resource manifests — `<available_goals>`, `<available_strategies>`, `<available_lenses>`, `<available_methods>` entries, filtered by `op_mode`/allow-list plus capability-readiness over selected-spec elicitation gaps;
+3. resource manifests — `<available_goals>`, `<available_strategies>`, `<available_lenses>`, `<available_methods>` entries, filtered by `op_mode`/allow-list plus capability-readiness over selected-spec elicitation gaps; AUTO axes list only currently legal choices, while role/mode-legal pinned axes remain visible even when readiness negotiates and gated methods/tools stay withheld;
 4. compact pushed context — minimal context handles and rendered context blocks.
 
 Detailed goal/strategy/lens/method bodies are markdown resources under `.pi/skills/` and are loaded with `read` when detail matters. Manifest metadata is code-owned in `state.ts`, not filesystem-discovered.
