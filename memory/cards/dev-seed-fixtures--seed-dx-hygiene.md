@@ -73,7 +73,11 @@ src/graph/
 
 ## Card 2 — retire stale manual-testing doc contract
 
-Status: next
+Status: done (2026-06-11) — divergence note: staleness was deeper than scoped
+(retired `issue-tracker-*` scenario catalog, `src/server/fixtures/corpus.ts`
+capture flow, phase language); rewrote the whole doc to the workbench/sidecar
+contract rather than patching the wipe section only. Spotted but NOT touched:
+`docs/praxis/dev-server-logs.md` also looks stale (vite/api/agent-tail world).
 
 ### Objective
 
