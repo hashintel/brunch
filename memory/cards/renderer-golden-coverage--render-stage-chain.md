@@ -1,22 +1,22 @@
 # Renderer Golden Coverage Chain
 
 Frontier: renderer-golden-coverage
-Status:   active
+Status:   prepared / next
 Mode:     chain
 Created:  2026-06-11
 
 ## Orientation
 
 - Seam: RENDER-stage reusable lossy text under `src/renderers/` plus the sketch → lock → formalize oracle loop that keeps LLM-facing wording from drifting silently.
-- Frontier: `renderer-golden-coverage`, now the next sequenced trio work after `projection-shape-coverage` closed on this branch.
+- Frontier: `renderer-golden-coverage`, the next sequenced trio work after the current FE-852 `elicitation-driver` writeback residue is resolved or explicitly deferred.
 - Current truth in-tree:
   - already locked: `graph/graph-slice`, `graph/node-neighborhood`, `session/runtime-frame`
   - uncovered likely `●`: `session/transcript`, `workspace/workspace-state`, `exchanges/request-*`, `exchanges/present-question`, `exchanges/present-options`, `exchanges/present-review-set`
   - disposition still needs an honest call: `workspace/workspace-context` is named as a consumer seam in `src/session/README.md`, but current code-path grep finds no live caller
   - explicit `○` / topology stubs that should stay out unless their seam activates: `graph/commit-result.ts`, `graph/reconciliation-needs.ts`, `exchanges/present-candidates.ts`
 - Known doc drift to retire first:
-  - `memory/PLAN.md` previously spoke as if `src/scripts/render-preview.ts` / `npm run render` already existed; they do not.
   - `memory/CROSS_CUT_PLAN.md` still describes file-snapshot locks as net-new even though `graph/` and `session/runtime-frame` now use `toMatchFileSnapshot`.
+  - Re-check whether `src/renderers/workspace/workspace-context.ts` has a live caller before snapshotting it; a renderer module that only exists for symmetry should be deleted or demoted.
 - Main risk: snapshotting dead or single-owner rows for symmetry, or overbuilding a preview framework before the ledger names exactly which renderers still matter.
 - Cross-cutting obligations: preserve D52-L (`renderers/` stays free of adapter/transport imports); keep goldens co-located with renderer tests under `src/renderers/**/__previews__/`; keep `○` stubs untouched; preserve the human eyeball step before lock.
 
@@ -57,7 +57,7 @@ Before adding any more goldens, close the authority gap around what counts as a 
 
 ✓ The ledger makes an explicit call on `workspace/workspace-context`: keep-and-cover only if it still owns a real consumer seam; otherwise demote or retire it.
 
-✓ `memory/PLAN.md` and any touched cross-cut notes stop claiming a preview harness already exists when it does not.
+✓ Any touched cross-cut notes stop treating file-snapshot locks as net-new and align with the already-locked graph/session renderer rows.
 
 ✓ This card chooses one honest sketch path for the rest of the frontier: either materialize a minimal shared preview harness (`src/scripts/render-preview.ts` + `npm run render`) or explicitly narrow the frontier to test-local preview generation. Later cards should not reopen that choice.
 
@@ -209,7 +209,7 @@ src/renderers/README.md ~
 
 ### Objective
 
-Close the remaining exchange prompt-side rows, then reconcile the ledger so `renderer-golden-coverage` can hand off cleanly to `prompt-composition-golden-coverage`.
+Close the remaining exchange prompt-side rows, then reconcile the ledger so `renderer-golden-coverage` can close cleanly and release the full-stack real-rendered-context COMPOSE tripwire.
 
 ### Light-card cold-start reads
 
@@ -227,7 +227,7 @@ Close the remaining exchange prompt-side rows, then reconcile the ledger so `ren
 
 ✓ `present-candidates` remains explicit `○` / topology stub unless the active codebase now gives it a real consumer.
 
-✓ Final docs mark every `●` row in `src/renderers/README.md` as covered and every `○` row explicit, so the frontier can advance to `prompt-composition-golden-coverage`.
+✓ Final docs mark every `●` row in `src/renderers/README.md` as covered and every `○` row explicit, and `src/.pi/agents/README.md` can flip the full-stack real-rendered-context COMPOSE row from tripwired to covered if this frontier supplies that proof.
 
 ### Out of scope / guardrails
 
