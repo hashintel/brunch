@@ -169,7 +169,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Linear:** FE-847 — built as a slice group under the FE-847 issue; no separate issue.
 - **Branch:** `ln/fe-847-turn-boundary-closure` (stacked successor FE-847 branch, shared with `kick-and-context-seeding`).
 - **Kind:** structural / product mechanics (M7)
-- **Status:** active (turn-boundary choreography; not POC-ship-critical)
+- **Status:** done 2026-06-11 (turn-boundary choreography; not POC-ship-critical)
 - **Certainty:** proving
 - **Retires:** A4-L (the remaining "M7 still needs generated `worldUpdate` traces" subclaim) and A9-L (session-scoped `(entity_id, seen_lsn)` mention-ledger granularity is the right staleness grain).
 - **Depends on:** `dx-tier-2-harness` chassis + scaffold (same branch; the chassis is the oracle these slices assert through and supplies the topology stubs they fill).
@@ -188,7 +188,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Topology materialization:** The `prepareNextTurn` reconciler and watermark projection land at their final homes (`src/session/` reconciler, `src/projections/session/` watermark) filling the FE-847 topology stubs; submit-time mention resolution at `session.submitMessage`; tool-result watermark stamping at the graph read/mutation adapters.
 - **Traceability:** D14-L, D15-L, D17-L, D37-L, D43-L, D49-L, D76-L, D77-L; A4-L, A9-L; I1-L, I4-L, I9-L, I45-L, I47-L.
 - **Design docs:** `memory/SPEC.md` D76-L–D77-L, I9-L, I45-L, I47-L; `src/session/README.md`; `src/projections/README.md`; `src/projections/session/runtime-state.ts`.
-- **Current execution pointer:** Core S1-S3 mechanics landed on FE-847; the remaining builder entry is `memory/cards/turn-boundary-reconciliation--continuity-chain.md`, which closes the frontier by flipping the skipped Tier-2 I45/I47 scaffold live, proving mention resolution/staleness through the real submit path, and preserving the latest watermark carrier across compaction/resume.
+- **Current execution pointer:** Done 2026-06-11 on FE-847. The Tier-2 I45 scaffold is live, the live provider guard delegates to `guardBeforeProviderRequest`, submit-time mention facts feed the live reconciler staleness path, side-task/reviewer drains are threaded through the adapter, and the compaction anchor contract preserves the latest watermark carrier family (`brunch.context_seed`, `brunch.graph_overview_snapshot`, `brunch.own_mutation`, `worldUpdate`).
 
 ### kick-and-context-seeding
 

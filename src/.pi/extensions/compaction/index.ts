@@ -61,10 +61,28 @@ export const compactionAnchorContract = {
         'D14-L, I9-L — staleness hints the agent has not yet acted upon must survive so the re-read affordance is not silently dropped.',
     },
     {
+      kind: 'brunch.context_seed',
+      select: 'latest',
+      rationale:
+        'D76-L, I47-L — boot/context seeds carry the assistant-visible snapshot LSN; the latest seed must survive compaction so the projected watermark does not regress.',
+    },
+    {
+      kind: 'brunch.graph_overview_snapshot',
+      select: 'latest',
+      rationale:
+        'D76-L, I47-L — whole-spec overview reads are global watermark carriers; the latest carrier must survive compaction alongside worldUpdate.',
+    },
+    {
+      kind: 'brunch.own_mutation',
+      select: 'latest',
+      rationale:
+        'D76-L, I47-L — own graph mutations are already assistant-visible watermark carriers and must not be re-announced after compaction.',
+    },
+    {
       kind: 'worldUpdate',
       select: 'latest',
       rationale:
-        'R13, I4-L — the latest cross-session graph delta must remain available so the agent does not re-derive world state from an outdated snapshot.',
+        'R13, I4-L, D76-L, I47-L — the latest cross-session graph delta is one watermark carrier, not the whole carrier family; preserving it prevents re-deriving world state from an outdated snapshot.',
     },
   ],
 } as const satisfies CompactionAnchorContract;

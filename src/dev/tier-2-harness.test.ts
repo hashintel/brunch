@@ -1,6 +1,7 @@
 import { type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { compactionAnchorContract } from '../.pi/extensions/compaction/index.js';
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import { projectAssistantVisibleWatermark } from '../projections/session/assistant-visible-watermark.js';
@@ -319,11 +320,31 @@ describe.skip('FE-847 coverage-first scaffold — I46-L honest origination', () 
   it('trailing side-task or reviewer drains are continuity-only and do not manufacture or mask debt');
 });
 
-describe.skip('FE-847 coverage-first scaffold — I47-L carrier discipline and idempotence', () => {
-  it('no redundant worldUpdate is emitted immediately after a seed naming the current snapshot LSN');
-  it('compaction and resume preserve the latest watermark carrier so projection cannot regress');
-  it('boot/resume seeding derives dedupe from transcript projection rather than hidden flags');
-  it('continuity assertions use sets and {specId, lsn} properties rather than payload-order goldens');
+describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempotence', () => {
+  it.todo('no redundant worldUpdate is emitted immediately after a seed naming the current snapshot LSN');
+
+  it('compaction and resume preserve the latest watermark carrier so projection cannot regress', () => {
+    const latestAnchorsByKind = new Map(
+      compactionAnchorContract.anchors
+        .filter((anchor) => anchor.select === 'latest')
+        .map((anchor) => [anchor.kind, anchor.select]),
+    );
+    expect(latestAnchorsByKind.get('brunch.context_seed')).toBe('latest');
+    expect(latestAnchorsByKind.get('brunch.graph_overview_snapshot')).toBe('latest');
+    expect(latestAnchorsByKind.get('brunch.own_mutation')).toBe('latest');
+    expect(latestAnchorsByKind.get('worldUpdate')).toBe('latest');
+
+    const specId = 1;
+    const compactedEntries = [
+      { type: 'custom', customType: 'brunch.context_seed', data: { specId, snapshotLsn: 2 } },
+      { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 5 } },
+      { type: 'custom', customType: 'brunch.graph_overview_snapshot', data: { specId, snapshotLsn: 8 } },
+    ];
+    expect(projectAssistantVisibleWatermark(compactedEntries, { specId })).toEqual({ specId, lsn: 8 });
+  });
+
+  it.todo('boot/resume seeding derives dedupe from transcript projection rather than hidden flags');
+  it.todo('continuity assertions use sets and {specId, lsn} properties rather than payload-order goldens');
 });
 
 async function readSessionContextDetails(session: {
