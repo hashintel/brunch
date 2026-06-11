@@ -880,8 +880,11 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
       await runPi(baseOpts(sandboxDir, 'read,write,edit,bash'), { createSession });
 
       // Same names as the built-ins, so the SDK registry overrides them and the
-      // per-action allowlist (I126-K) keeps filtering both the same way.
-      expect(capturedCustomTools?.map((t) => t.name).sort()).toEqual(['edit', 'read', 'write']);
+      // per-action allowlist (I126-K) keeps filtering both the same way. On
+      // macOS the bash tool is shadowed too (seatbelt spawn hook).
+      const expected =
+        process.platform === 'darwin' ? ['bash', 'edit', 'read', 'write'] : ['edit', 'read', 'write'];
+      expect(capturedCustomTools?.map((t) => t.name).sort()).toEqual(expected);
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }

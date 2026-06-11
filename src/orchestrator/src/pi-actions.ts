@@ -26,7 +26,7 @@ import { buildProbeSpec, runProbe } from './app-probe.js';
 import type { CookEvent } from './presenter/events.js';
 import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
-import { createConfinedFileTools } from './sandbox-guard.js';
+import { createConfinedTools } from './sandbox-guard.js';
 import { sliceLabel } from './slice-label.js';
 import { runVerification, ToolchainTestRunner } from './test-runner.js';
 import type {
@@ -158,7 +158,10 @@ function buildInstrumentedTools(
   onStart: (label: string) => void,
   onSettle: () => void,
 ): ToolDefinition[] {
+  const confinedTools = new Map(createConfinedTools(cwd).map((def) => [def.name, def]));
   return names.flatMap((name) => {
+    const def = confinedTools.get(name);
+    if (def) return [instrumentToolDefinition(def, onStart, onSettle)];
     const build = TOOL_DEF_BUILDERS[name as keyof typeof TOOL_DEF_BUILDERS];
     if (!build) return [];
     return [instrumentToolDefinition(build(cwd) as ToolDefinition, onStart, onSettle)];

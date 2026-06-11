@@ -1,3 +1,4 @@
+import { execFile } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -9,10 +10,29 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createConfinedFileOperations } from './sandbox-guard.js';
+import {
+  buildSeatbeltProfile,
+  createConfinedFileOperations,
+  createSeatbeltSpawnHook,
+  wrapCommandInSeatbelt,
+} from './sandbox-guard.js';
+
+const bash = promisify(execFile);
+const onMac = process.platform === 'darwin';
+
+/** Run a command string exactly as the pi bash tool does: `<shell> -c <command>`. */
+async function runAsBashTool(command: string): Promise<{ ok: boolean; stdout: string }> {
+  try {
+    const { stdout } = await bash('/bin/bash', ['-c', command]);
+    return { ok: true, stdout };
+  } catch (err) {
+    return { ok: false, stdout: (err as { stdout?: string }).stdout ?? '' };
+  }
+}
 
 let sandboxDir: string;
 let outsideDir: string;
@@ -98,5 +118,65 @@ describe('confined write and edit operations', () => {
     await ops.edit.access(inside);
     await ops.edit.writeFile(inside, 'edited');
     expect((await ops.edit.readFile(inside)).toString('utf8')).toBe('edited');
+  });
+});
+
+describe.skipIf(!onMac)('seatbelt-confined bash commands (macOS)', () => {
+  const profileFor = (sandbox: string, denyRead: string[]) =>
+    buildSeatbeltProfile({ writeRoots: [sandbox], denyReadSubpaths: denyRead });
+
+  it('denies writes outside the sandbox and allows them inside', async () => {
+    const profile = profileFor(sandboxDir, []);
+    const outside = await runAsBashTool(
+      wrapCommandInSeatbelt(profile, `echo evil > ${join(outsideDir, 'evil.txt')}`),
+    );
+    expect(outside.ok).toBe(false);
+    expect(existsSync(join(outsideDir, 'evil.txt'))).toBe(false);
+
+    const inside = await runAsBashTool(
+      wrapCommandInSeatbelt(profile, `echo ok > ${join(sandboxDir, 'ok.txt')}`),
+    );
+    expect(inside.ok).toBe(true);
+    expect(readFileSync(join(sandboxDir, 'ok.txt'), 'utf8').trim()).toBe('ok');
+  });
+
+  it('denies reads of protected subpaths', async () => {
+    const profile = profileFor(sandboxDir, [outsideDir]);
+    const read = await runAsBashTool(wrapCommandInSeatbelt(profile, `cat ${join(outsideDir, 'secret.txt')}`));
+    expect(read.ok).toBe(false);
+    expect(read.stdout).not.toContain('secret');
+  });
+
+  it('survives single quotes in the wrapped command', async () => {
+    const profile = profileFor(sandboxDir, []);
+    const result = await runAsBashTool(wrapCommandInSeatbelt(profile, `echo 'it'\\''s quoted'`));
+    expect(result.ok).toBe(true);
+    expect(result.stdout.trim()).toBe("it's quoted");
+  });
+});
+
+describe('seatbelt spawn hook', () => {
+  it('rewrites only the command, preserving cwd and env', () => {
+    const hook = createSeatbeltSpawnHook(sandboxDir);
+    if (!onMac) {
+      expect(hook).toBeUndefined();
+      return;
+    }
+    expect(hook).toBeDefined();
+    const ctx = { command: 'echo hi', cwd: sandboxDir, env: { PATH: '/usr/bin' } as NodeJS.ProcessEnv };
+    const rewritten = hook!(ctx);
+    expect(rewritten.command).toMatch(/^sandbox-exec -p /);
+    expect(rewritten.command).toContain('echo hi');
+    expect(rewritten.cwd).toBe(sandboxDir);
+    expect(rewritten.env).toBe(ctx.env);
+  });
+
+  it('denies reading TCC-protected user folders by default', () => {
+    if (!onMac) return;
+    const hook = createSeatbeltSpawnHook(sandboxDir)!;
+    const { command } = hook({ command: 'ls', cwd: sandboxDir, env: process.env });
+    for (const folder of ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures']) {
+      expect(command).toContain(`/${folder}`);
+    }
   });
 });
