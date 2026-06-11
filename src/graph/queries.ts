@@ -13,7 +13,12 @@ import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type { Lsn } from './atoms.js';
 import type { EdgeCategory, GraphEdge } from './schema/edges.js';
-import type { ElicitationGap, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
+import {
+  gapPredicateSupport,
+  type ElicitationGap,
+  type GapDisposition,
+  type GapPredicate,
+} from './schema/elicitation-gaps.js';
 import {
   NODE_KIND_METADATA,
   parseGraphNodeCode,
@@ -361,8 +366,10 @@ function deriveGapCoverage(
 ): number {
   if (disposition === 'not_applicable' || disposition === 'irrelevant' || disposition === 'answered')
     return 1;
+  // manual rides disposition only; unsupported arms are boundary-rejected (gapPredicateSupport).
+  if (gapPredicateSupport(predicate.kind) !== 'structural') return 0;
   if (predicate.kind === 'presence') return derivePresenceCoverage(db, specId, predicate);
-  return 0;
+  throw new Error(`structural gap predicate kind ${predicate.kind} has no derivation implemented`);
 }
 
 function rowToElicitationGap(db: BrunchDb, row: typeof schema.elicitationGaps.$inferSelect): ElicitationGap {

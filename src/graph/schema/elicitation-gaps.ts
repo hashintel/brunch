@@ -18,6 +18,31 @@ export type GapPredicateKind = (typeof GAP_PREDICATE_KINDS)[number];
 
 export type ElicitationGapLensAffinity = (typeof LENS_AFFINITIES)[number];
 
+/**
+ * Single owner of per-arm predicate semantics. Boundary validation
+ * (CommandExecutor rejects `unsupported` arms) and coverage derivation
+ * (queries derive only `structural` arms; `manual` rides disposition)
+ * both consume this classifier. The never check makes adding a
+ * GapPredicate arm without deciding its semantics a compile error.
+ */
+export type GapPredicateSupport = 'structural' | 'manual' | 'unsupported';
+
+export function gapPredicateSupport(kind: GapPredicateKind): GapPredicateSupport {
+  switch (kind) {
+    case 'presence':
+      return 'structural';
+    case 'manual':
+      return 'manual';
+    case 'field':
+    case 'coverage':
+      return 'unsupported';
+    default: {
+      const unhandled: never = kind;
+      throw new Error(`Unhandled gap predicate kind: ${String(unhandled)}`);
+    }
+  }
+}
+
 export type GapPredicate =
   | {
       readonly kind: 'presence';

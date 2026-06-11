@@ -34,7 +34,12 @@ import type {
 } from './command-executor/graph-mutation-types.js';
 import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
 import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
-import type { ElicitationGapLensAffinity, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
+import {
+  gapPredicateSupport,
+  type ElicitationGapLensAffinity,
+  type GapDisposition,
+  type GapPredicate,
+} from './schema/elicitation-gaps.js';
 import {
   DESIGN_KINDS,
   INTENT_KINDS,
@@ -396,7 +401,7 @@ function validateGapPredicate(predicate: GapPredicate, diagnostics: Diagnostic[]
     return;
   }
 
-  if (predicate.kind === 'field' || predicate.kind === 'coverage') {
+  if (gapPredicateSupport(predicate.kind) === 'unsupported') {
     diagnostics.push({ field: 'predicate.kind', message: 'predicate kind not yet supported' });
     return;
   }
