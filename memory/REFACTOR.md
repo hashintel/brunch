@@ -1,162 +1,151 @@
-# Refactor: review-fix remediation — close the gaps the build pass papered over
+# Refactor: source-of-truth typing collapse — structured-exchange editor seam + gap fixtures
 
 Created: 2026-06-11 · Temporary execution aid; delete when complete or superseded.
-Context: post-build audit of commits ac84abb2..bbc4b4e6 against the (now-deleted)
-review-fix scope cards. Verified findings, not speculation.
-
-**STATUS 2026-06-11: commits 1-9 and the discovered 7b are DONE** (0bc9cf24..
-5ad41d58 on ln/fe-847-turn-boundary-closure; verify green, 806 tests, zero
-Tier-2 todos). **This file stays alive only for item 10 (suspended)** — delete
-it once the stacked-branch migration fix is verified on reintegration.
+Supersedes: the 2026-06-11 review-fix remediation plan (commits 0bc9cf24..d596f266,
+all done) — except its suspended migration item, carried forward at the bottom.
+Origin: /expert-typescript-typing review of the exchanges editor seam, after the
+remediation talkthrough exposed the envelope vocabulary collision that misled both
+a bot-comment review and the original kick-classifier author.
 
 ## Problem Statement
 
-The build pass delivered the continuity chain and new-session kick well, but left
-five classes of debt, two of them dishonest rather than merely incomplete:
+Four type-fork families, all "duplicate the owner's state space closer to where I
+happen to be working":
 
-1. **Claimed-done work that is todo.** PLAN marks `kick-and-context-seeding` done,
-   but the four I46 resume-origination scaffold rows and two I47 idempotence rows
-   remain `it.todo` in the Tier-2 suite (`src/dev/tier-2-harness.test.ts:345-377`)
-   — including the behaviors PLAN's pointer explicitly claims proven (request-result
-   terminal statuses idle; resume-tail classification ignores continuity notices).
-2. **The silent-fallback lens rebuilt in new clothes.** The gap-legality fix made
-   `getElicitationGaps` required on `GraphReaders` but left `graphReads` optional on
-   the prompt context, falling back to `?? []`; an out-of-card commit then absorbed
-   the empty case with quiet empty-manifest/empty-options early-returns at two more
-   layers. Missing-wiring is again invisible — three layers deep now. The Tier-2
-   real-boot legality assertion the card required does not exist.
-3. **A placeholder swapped for a placeholder.** The runtime-switch append adapter
-   returns a hardcoded string instead of `''`; the helper's declared contract
-   (returns the created entry id) is still violated. The footer still has no
-   re-render trigger after a posture switch, so the stale-footer bug survives.
-4. **Half-state env scoping.** `runWithScopedBrunchOfflineDefault` still accepts a
-   `dev` flag it never reads, and still saves/restores `PI_SKIP_VERSION_CHECK`
-   without ever setting it.
-5. **Silently narrowed acceptance.** The predicate-semantics "one exhaustive
-   never-checked owner" was not built (if-chains; a new union arm without semantics
-   still compiles), and migration 0004 + seeds were not regenerated; PLAN's pointer
-   was rewritten to omit both rather than flag them.
+1. **Two divergent editor wire envelopes for one job.** The editor-prefill pattern
+   exists for exactly one reason (user-confirmed): `request_choices` is the one
+   exchange whose response payload cannot ride Pi built-ins, and `ctx.ui.custom`
+   cannot cross RPC — so a JSON envelope is prefilled into `ctx.ui.editor` for the
+   client to edit. But two envelopes grew: the product tool's local one
+   (`...request_choices.editor`: response `{status, choices[], comment}`) and the
+   probe-only "shared" fallback (`...editor`: response `{status, answers[], note}`,
+   plus a single-select arm no product code reaches). Both are hand-parsed; no
+   schema owns either; the result envelope next door uses the same words
+   (`answered`/`cancelled`) with different grammar (outcome keys, not a status
+   string) — the trap that has now claimed two reviewers.
+2. **The outcome union `'answered' | 'cancelled' | 'unavailable'` is restated** in
+   the projection input types, the editor envelopes (as a subset), and the session
+   debt-classifier's terminal-keys check — four files, zero owners, while the
+   request details schemas already carry these as their branch keys.
+3. **The grounding-gap fixture builder is cloned across nine-plus test files**,
+   each hand-building the same `ElicitationGap` literal with a coverage knob,
+   while production's `conservativeUncoveredFloorGaps` builds the same shape
+   privately a tenth time.
+4. **Hand-written editor-response interfaces** in both envelope sites, derivable
+   from the schema that should exist per (1).
 
-```pseudo graph (current — gap legality)
-brunch-tui reads ──required──▶ GraphReaders.getElicitationGaps ✓
-prompt context ──optional?──▶ gapsForPrompt ──?? []──▶ legality layers
-                                            └─ gaps.length===0 → quiet empty posture (×2 layers)
-Tier-2 suite ──╳ no real-boot legality assertion
+```pseudo graph (current)
+schemas/request.ts ──owns──▶ zRequestChoicesDetails (outcome KEYS)
+request-choices tool ──hand-writes──▶ local editor envelope + EditorResponse + parser
+editor-fallback (probe-only) ──hand-writes──▶ second divergent envelope + parser + single-select arm
+projections/exchanges ──restates──▶ 'answered'|'cancelled'|'unavailable' inline
+session debt-classifier ──restates──▶ same three literals as key checks
+9+ test files ──each hand-build──▶ ElicitationGap grounding fixtures
+runtime/index ──privately builds──▶ conservativeUncoveredFloorGaps (same shape, 10th copy)
 ```
 
-```pseudo graph (desired — gap legality)
-brunch-tui reads ──required──▶ GraphReaders.getElicitationGaps ✓
-prompt context ──required──▶ gapsForPrompt (no fallback)
-empty gaps on a seeded spec ──▶ loud invariant error (wiring bug, not a posture)
-Tier-2 suite ──✓ real boot: seeded coverage drives manifests/tool legality
+```pseudo graph (desired)
+schemas/request.ts ──owns──▶ zRequestChoicesDetails
+                   ──owns──▶ zRequestChoicesEditorEnvelope (NEW: the one wire envelope)
+                   ──owns──▶ REQUEST_OUTCOME_KEYS / RequestOutcome (NEW: projected, not declared)
+request-choices tool ──derives──▶ prefill template (satisfies) + response (z.infer) + safeParse
+RPC probe ──consumes──▶ the same canonical envelope (divergent fallback deleted or converged)
+projections/exchanges ──projects──▶ RequestOutcome; re-exports keys for session-side consumers
+session debt-classifier ──derives or drift-tests──▶ terminal keys against the schema branches
+graph/schema gaps sub-tree ──owns──▶ groundingFloorGaps({coverage}) builder
+runtime floor + all test fixtures ──import──▶ that one builder
 ```
 
 ## Solution
 
-Every claim in PLAN matches the test suite; every wiring absence is a compile error
-or a loud runtime error, never a quiet posture; every declared contract is honored
-by its adapters; the six remaining scaffold rows run live through the real
-boot/resume harness (the resume chassis `resumeTier2Fixture` already exists).
+One owner per state space: the editor envelope, the outcome union, and the
+grounding-gap fixture each get exactly one declaration site; every other
+appearance becomes an import, inference, or projection. Most of the diff is
+deletion.
 
 ## Commits
 
-Ordered by safety: doc honesty → contract/structural alignment → small behavioral →
-type-contract tightening → live proofs (riskiest last, since they may reveal the
-resume kick path needs product fixes).
+Ordered extractions-first; every commit leaves verify green. Commits 1→3 are
+sequential on one seam; commit 4 is independent (parallel-safe lane for fan-out).
 
-1. **PLAN honesty.** Revert the kick-and-context-seeding frontier to active with a
-   pointer naming exactly what remains (the six todo rows); amend the
-   turn-boundary-reconciliation pointer to note the I47 idempotence residue it
-   shares. Doc-only.
-2. **Honest entry-id contract.** Either thread the real entry id from the Pi append
-   API through the runtime-switch adapter, or — if Pi does not return one — change
-   the helper signature and its session-manager interface to void and delete the
-   return-value expectation everywhere. No placeholder values of any kind survive.
-3. **Predicate-semantics single owner.** Extract one exhaustive switch over the
-   predicate kind (never-checked) that both boundary validation and coverage
-   derivation ride, preserving current behavior exactly (presence implemented;
-   field/coverage rejected loudly; manual pass-through). Adding a union arm without
-   semantics becomes a compile error. Pure structure, no behavior change.
-4. **Env-scoping pick-one.** Remove the dead dev flag from the scoped-offline
-   helper (no caller branches on it); make the offline default also set the
-   version-check skip variable — or, if the version-check noise is judged not real,
-   delete its save/restore instead. Both env-scope test cases assert the chosen
-   end state. No half-state.
-5. **Footer refresh on posture switch.** After a runtime switch the chrome footer
-   re-renders from re-projected state, via the existing footer render-request
-   binding seam. A test pins switch-then-render shows the new strategy/lens.
-6. **Loud gap-legality contract.** Make the graph readers required on the prompt
-   context for the production composition path (harness/test constructors that
-   genuinely lack a reader use an explicitly named narrowed type, not optionality);
-   delete the empty-array fallback; replace the two quiet empty-gaps early-returns
-   with a loud invariant error (a seeded spec always has floor gaps — empty means
-   wiring bug); document on the context type which optional members are
-   intended-optional and why. Compiler finds every construction site.
-7. **Tier-2 live-legality assertion.** Real-boot test: a session over a seeded spec
-   derives prompt/tool legality from that spec's actual gap coverage, and covered
-   floor gaps unlock posture that uncovered gaps keep locked. This is the missing
-   card acceptance and the durable oracle for commit 6.
-8. **Flip the I46 resume rows live.** The four todo rows through the existing
-   resume-fixture chassis: pre-reconcile user tail still earns a kick behind
-   continuity notices; request/system leaves stay idle — proven against the real
-   exchange result envelope as the exchanges extension writes it, settling the
-   response-status question; crash-after-notice still kicks on unresolved debt;
-   trailing drains neither manufacture nor mask debt. Fold in whatever product
-   fixes the tests force (this commit may split if they do).
-9. **Flip the I47 idempotence rows live.** Repeated boot does not duplicate seed or
-   world-update entries (dedupe derived from transcript projection); the dedicated
-   no-redundant-world-update-after-seed row asserts through real boot; the
-   sets-and-properties meta-row either becomes a real assertion helper used by the
-   suite or is retired as a stated suite convention rather than a phantom todo.
-7b. **(Discovered during commit 7) Runtime-switch tool posture from real gaps.**
-    `applyRuntimeSwitch` recomputes active tools with a hardcoded empty gap
-    register, so a posture switch floor-locks capability-gated tools until the
-    next turn boundary corrects it — the same optional-wiring fault family.
-    Thread a selected-spec gap reader into the commands extension from the
-    composition root (mirroring the chrome-refresh handle) and derive the
-    post-switch tool set from real coverage.
-
-10. **Migration coherence — SUSPENDED (2026-06-11).** Another agent is fixing the
-    0004 migration on the branch stacked on top of this one. Do not touch drizzle/
-    in this refactor; the derive-with-'context'-fallback vs read-side-throw concern
-    is handed to that branch. Re-check on reintegration that the concern was
-    actually covered there before deleting this line.
+1. **Extract the canonical editor-envelope schema.** Add the request-choices
+   editor envelope as a zod schema co-located with the request details schemas
+   (the product tool's current shape is canonical — it is the live contract).
+   The tool's prefill template is typed against the schema's input, its response
+   type is inferred, and its hand-written interface and parser are deleted in
+   favor of safeParse. Behavior-preserving; existing exchange tests unchanged.
+   Add one envelope round-trip test (prefill → edited response → parse →
+   projection into result details) as the seam's lock.
+2. **Extract the outcome-union owner.** Export the outcome key list and its type
+   from the request schemas module (projected from the details-schema branches,
+   not redeclared); the projection input types and the editor envelope's
+   answered/cancelled subset become projections of it; re-export through the
+   exchanges projections layer so session-side consumers can reach it without
+   importing extension internals. The session debt-classifier's terminal-keys
+   check derives from the re-export — or, if that coupling is rejected during
+   build, keeps its literals and gains a drift test pinning them to the schema
+   branches. Either way the union has one owner.
+3. **Converge or delete the probe-side envelope.** Rewrite the RPC
+   structured-exchange probe onto the canonical envelope and delete the
+   divergent fallback envelope, its parser, and its hand-written types. DECISION
+   GATE in-commit: the fallback's single-select arm is probe-only reachable; per
+   the request_choices-only rationale it should be deleted — but if the probe is
+   meant to prove a single-select RPC editor path, keep that arm and derive its
+   types instead. Confirm with the user before deleting; default is delete.
+4. **Extract the grounding-gap fixture builder.** One builder with a coverage
+   knob, owned alongside the gaps schema; production's conservative floor rides
+   it (production owns the shape, tests import it — never the reverse); the
+   nine-plus per-test-file clones are deleted. Suite stays green as the proof.
 
 ## Decisions
 
-- Runtime-switch append contract: real id or void — resolved by what the Pi API
-  returns; recorded when commit 2 lands.
-- Prompt-context reader optionality: production path requires readers; narrowed
-  harness type is the only sanctioned readerless construction.
-- Empty gaps on a seeded spec is an invariant violation (loud), not a legal posture
-  (quiet). Reverses the out-of-card "handle absent gaps safely" patch.
-- Predicate semantics get exactly one exhaustive owner module/function; validate
-  and derive are its two riders.
-- Migration 0004: regenerate vs waive — explicit user call in commit 10.
-- Topology READMEs: none expected to change (no files move); if commit 3's
-  extraction adds a module under the graph schema sub-tree, that directory has no
-  README to update.
+- The product request-choices envelope is canonical; the probe-side envelope is
+  drift, not a second contract.
+- Zod owns the editor envelope: the edited JSON returns from an agent-as-user
+  over RPC, which is the repo's LLM-boundary rule — this is doctrinal, not an
+  exception.
+- The outcome union is projected from the details schemas, never redeclared;
+  its session-side consumption goes through the projections re-export (preferred)
+  or a drift test (fallback), keeping session free of extension-internal imports.
+- Fixture/production convergence direction: production owns the grounding-floor
+  shape; fixtures import it.
+- The single-select editor arm's fate is the one open decision (commit 3 gate).
+- Topology READMEs: add the two-envelope rationale (why the editor channel
+  exists at all: ctx.ui.custom cannot cross RPC; Pi built-ins cover the other
+  request shapes; multi-choice is the one payload needing it) to the exchanges
+  directory README in the same commit as the schema extraction — that note is
+  the trap-prevention payload of this whole refactor.
 
 ## Testing Decisions
 
-- The Tier-2 suite is the oracle of record for resume origination, idempotence,
-  and live legality — real boot/resume, set/property assertions over
-  `{specId, lsn}`, never payload-order goldens (suite convention).
-- The request-idle proof must use a fixture carrying the exchange result envelope
-  exactly as the exchanges extension writes it — that fixture IS the test of the
-  response-status classifier; a hand-built shape would re-prove nothing.
-- Commit 3 is behavior-preserving: existing predicate unit tests must pass
-  unchanged; only their organization may move.
-- Prior art: the live I45 rows and the new-session seed-then-kick test show the
-  established real-boot assertion style to follow.
+- Behavior-preservation is the rule for commits 1, 2, 4: existing
+  structured-exchange, schema, and gap tests pass unchanged; only their imports
+  move.
+- The new envelope round-trip test (commit 1) is the only net-new oracle: it
+  proves prefill, parse, and projection share one schema, which is the property
+  whose absence caused both review failures.
+- If the drift-test fallback is chosen in commit 2, it asserts the classifier's
+  key literals equal the schema branch keys — same pattern as the existing
+  observed-shapes drift guards.
+- Prior art: the schemas module's existing zod-parse-at-projection idiom
+  (`zRequestChoicesDetails.parse` in projections) and the
+  observed-shapes-coverage drift test.
 
 ## Out of Scope
 
-- The ln-sync canonical-doc pass: D35-L vs startup-header behavior, the stale
-  `memory/cards/tooling--runtime-state-commands.md` card, the live-vs-harness
-  blind-spot row for SPEC, and graduating the two induct lenses into ln-review.
-- Any restacking or editing of parent branches (user decision: fix at top of stack).
-- Drains live production: no side-task/reviewer drain producer exists yet; the
-  optional supplier stays, but commit 8's drain row documents that intent where the
-  classifier consumes it.
-- New product behavior beyond what flipping the scaffold rows forces.
+- The PI_OFFLINE dev-default question — parked, low stakes: the TUI-branding
+  concern (Pi's version-check interjection, not suppressed by quietStartup) is
+  now served unconditionally by the PI_SKIP_VERSION_CHECK default from the
+  remediation pass, decoupling it from PI_OFFLINE entirely. Decide only when a
+  dev loop actually wants provider-reachable TUI launches.
+- The ln-sync canonical-doc pass (D35-L startup-header alignment, stale
+  runtime-state-commands card, live-vs-harness blind-spot row, graduating the
+  two induct lenses into ln-review).
+- request_answer's plain-string editor use — not an envelope, nothing to unify.
+
+## Carried forward — SUSPENDED (from the completed remediation plan)
+
+- **Migration 0004 coherence:** another agent is fixing the 0004 migration on
+  the branch stacked on top of this one. Do not touch drizzle/ here. On
+  reintegration, verify the derive-with-'context'-fallback vs read-side-throw
+  concern was actually covered there before deleting this note.
