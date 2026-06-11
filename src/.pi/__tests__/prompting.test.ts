@@ -8,6 +8,8 @@ import type { WorkspacePostureState } from '../../session/workspace-session-coor
 import { composeAgentPrompt } from '../agents/compose.js';
 import type { ReadinessGrade } from '../agents/state.js';
 import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
+import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
+import { createInMemoryBrunchIntrospectionStore } from '../extensions/introspection/index.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -17,6 +19,7 @@ import {
   type BrunchAgentStateEntryData,
   registerBrunchOperationalModePolicy,
 } from '../extensions/runtime/index.js';
+import { BRUNCH_SESSION_QUERY_TOOL } from '../extensions/session-query/index.js';
 import { registerBrunchPrompting } from '../extensions/system-prompts/index.js';
 
 function runtimeEntry(state: BrunchAgentState) {
@@ -422,6 +425,61 @@ describe('Brunch prompt-pack topology', () => {
     expect(switchedPrompt).toMatchObject({
       systemPrompt: expect.stringContaining('[Selected-spec graph context · oracle lens]'),
     });
+  });
+
+  it('keeps dev query tools in the prompt active-tools list when introspection is enabled', async () => {
+    const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
+    const toolNames: string[] = [];
+    const activeTools: string[][] = [];
+
+    await createBrunchPiExtensions(
+      {
+        cwd: '/tmp/brunch',
+        chatMode: 'responding-to-elicitation',
+        phase: 'elicitation',
+        spec: { id: 1, title: 'Spec' },
+        session: { id: 'session-1', label: 'Session' },
+      },
+      undefined,
+      {
+        coordinator: {} as never,
+        graphMentionSource: { listMentionCandidates: () => [] },
+        promptContext,
+        introspection: { enabled: true, store: createInMemoryBrunchIntrospectionStore() },
+      },
+    )({
+      on: (eventName: string, handler: (event: never, ctx?: never) => unknown) => {
+        events[eventName] ??= [];
+        events[eventName].push(handler);
+      },
+      registerTool(tool: { name: string }) {
+        toolNames.push(tool.name);
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () =>
+        [...new Set(['read', 'grep', 'bash', 'write', ...toolNames])].map((name) => ({ name })),
+      setActiveTools: (tools: string[]) => activeTools.push(tools),
+    } as never);
+
+    const results = await Promise.all(
+      (events.before_agent_start ?? []).map((handler) =>
+        Promise.resolve(
+          handler({ systemPrompt: 'base' } as never, { sessionManager: { getEntries: () => [] } } as never),
+        ),
+      ),
+    );
+    const promptResult = results.find(
+      (result) => typeof (result as { systemPrompt?: unknown } | undefined)?.systemPrompt === 'string',
+    ) as { systemPrompt: string } | undefined;
+
+    expect(activeTools.at(-1)).toEqual(
+      expect.arrayContaining([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]),
+    );
+    expect(promptResult?.systemPrompt).toContain(BRUNCH_SESSION_QUERY_TOOL);
+    expect(promptResult?.systemPrompt).toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
   });
 
   it('applies the selected-spec grade to mutate_graph tool activation', async () => {

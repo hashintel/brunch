@@ -9,7 +9,7 @@ import {
 //
 // Ported / adapted from the prior trunk's knowledge-card.tsx. The old UI
 // keyed accents per KnowledgeKind; this trunk groups accents by the node's
-// conceptual plane (intent / oracle / design / plan) — D67-L. Reference-code
+// conceptual plane (intent / oracle / design / plan) — D72-L. Reference-code
 // labels remain canonical: NODE_KIND_METADATA + kindOrdinal (D62-L).
 
 export interface PlaneAccent {
@@ -19,7 +19,7 @@ export interface PlaneAccent {
   readonly bg: string;
 }
 
-// Accent per plane — exhaustive over NodePlane (I42-L). Adding a plane without
+// Accent per plane — exhaustive over NodePlane (I43-L). Adding a plane without
 // an accent is a compile error via `satisfies`.
 export const PLANE_ACCENT = {
   intent: { text: '#2563eb', bg: 'rgba(37, 99, 235, 0.08)' },

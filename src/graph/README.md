@@ -39,7 +39,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D6
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
   `ReconciliationNeed`, `ElicitationBacklogEntry`, kind/category types,
-  per-kind node ordinals, and derived intent-kind grouping.
+  per-kind node ordinals, and derived intent-kind grouping. Raw domain enum
+  taxonomy lives in the zero-import `schema/kinds.ts` leaf so web-facing graph
+  imports do not pull in Drizzle.
 
 - **Policy** (`policy/category-policy.ts`) — the single per-category
   metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact
@@ -85,8 +87,14 @@ not compare bare LSN values across sibling specs.
 
 ## Imports from
 
-- `db/` — Drizzle table definitions, enum arrays, and connection handle.
-  `graph/` is the only application layer that should import `db/` directly.
+- `db/` — Drizzle table definitions and connection handle. `graph/` is the
+  only application layer that should import `db/` directly.
+
+## Imported by `db/`
+
+- `schema/kinds.ts` — the single sanctioned `db/` → `graph/` edge (D73-L).
+  It is a zero-import taxonomy leaf containing only domain enum literals for
+  column constraints and graph-domain types.
 
 ## Imported by
 
@@ -155,6 +163,8 @@ graph/
     openWorkspaceCommandExecutor(cwd)
 
   schema/
+    kinds.ts
+      zero-import domain enum taxonomy leaf
     elicitation-backlog.ts
     nodes.ts
     edges.ts
@@ -171,8 +181,11 @@ graph/
 ## Boundary flow
 
 ```pseudo
-db/schema.ts
-  Drizzle rows + enum literals
+graph/schema/kinds.ts
+  domain enum literals
+      │
+      ├─► db/schema.ts
+      │     Drizzle rows + enum column constraints
       │
       ▼
 graph/schema/*.ts

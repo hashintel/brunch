@@ -10,12 +10,17 @@ import { registerBrunchContext } from './extensions/context/index.js';
 import { registerStructuredExchange } from './extensions/exchanges/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
 import {
+  BRUNCH_INTROSPECT_QUERY_TOOL,
+  registerBrunchIntrospectQuery,
+} from './extensions/introspect-query/index.js';
+import {
   registerBrunchIntrospection,
   type BrunchIntrospectionOptions,
 } from './extensions/introspection/index.js';
 import { type GraphMentionSource } from './extensions/mentions/index.js';
 import { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
 import { registerBrunchOperationalModePolicy } from './extensions/runtime/index.js';
+import { BRUNCH_SESSION_QUERY_TOOL, registerBrunchSessionQuery } from './extensions/session-query/index.js';
 import { registerBrunchSessionBoundary } from './extensions/session/lifecycle.js';
 import { type BrunchSessionBoundaryHandler } from './extensions/session/lifecycle.js';
 import {
@@ -71,6 +76,16 @@ export {
   type BrunchIntrospectionStore,
   type BrunchIntrospectionTurnCapture,
 } from './extensions/introspection/index.js';
+export {
+  BRUNCH_SESSION_QUERY_TOOL,
+  createBrunchSessionQueryTool,
+  registerBrunchSessionQuery,
+} from './extensions/session-query/index.js';
+export {
+  BRUNCH_INTROSPECT_QUERY_TOOL,
+  createBrunchIntrospectQueryTool,
+  registerBrunchIntrospectQuery,
+} from './extensions/introspect-query/index.js';
 
 export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
@@ -107,16 +122,21 @@ export function createBrunchPiExtensions(
     const graphMentionSource = options.graphMentionSource ?? graphMentionSourceFromDeps(options.graph);
     const promptContext = options.promptContext;
     const introspectionOptions = options.introspection;
+    const devAllowedToolNames = introspectionOptions?.enabled
+      ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]
+      : undefined;
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => registerBrunchSessionBoundary(api, onSessionBoundary),
       (api) => registerBrunchChrome(api, chrome),
       registerBrunchBranchPolicyHandlers,
-      registerBrunchOperationalModePolicy,
+      (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
       // Prompting registers immediately after operational-mode policy and
       // before mention autocomplete when prompt context is provided; its
       // position in this list is the registration order, not a splice index.
-      ...(promptContext ? [(api: ExtensionAPI) => registerBrunchPrompting(api, promptContext)] : []),
+      ...(promptContext
+        ? [(api: ExtensionAPI) => registerBrunchPrompting(api, promptContext, { devAllowedToolNames })]
+        : []),
       (api) => registerBrunchMentionAutocomplete(api, graphMentionSource),
       registerBrunchAlternatives,
       (api) =>
@@ -131,10 +151,12 @@ export function createBrunchPiExtensions(
         ? [
             (api: ExtensionAPI) => {
               const { store, clock } = introspectionOptions;
-              registerBrunchIntrospection(api, {
+              const introspectionStore = registerBrunchIntrospection(api, {
                 ...(store ? { store } : {}),
                 ...(clock ? { clock } : {}),
               });
+              registerBrunchSessionQuery(api);
+              registerBrunchIntrospectQuery(api, { store: introspectionStore });
             },
           ]
         : []),

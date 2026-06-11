@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,7 +6,11 @@ import { fauxAssistantMessage } from '@earendil-works/pi-ai';
 import { describe, expect, it } from 'vitest';
 
 import { createInMemoryBrunchIntrospectionStore } from '../.pi/brunch-pi-extensions.js';
-import { runBrunchIntrospectionTurn, type BrunchIntrospectionSession } from './introspection-launcher.js';
+import {
+  introspectionArtifactDir,
+  runBrunchIntrospectionTurn,
+  type BrunchIntrospectionSession,
+} from './introspection-launcher.js';
 
 describe('Brunch introspection launcher', () => {
   it('rejects unsafe artifact run ids before constructing paths', async () => {
@@ -18,8 +22,8 @@ describe('Brunch introspection launcher', () => {
       }),
     ).rejects.toThrow('Artifact runId must be a portable single path segment');
   });
-  it('writes a paired run artifact keyed by the captured turn', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-introspection-launcher-'));
+  it('writes a paired scratch artifact keyed by the captured turn', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-introspection-workbench-'));
     const store = createInMemoryBrunchIntrospectionStore();
     const session = createFakeSession('The tool list is clear, but the graph policy is ambiguous.', () => {
       store.recordPassiveCapture({
@@ -46,6 +50,8 @@ describe('Brunch introspection launcher', () => {
       now: () => new Date('2026-06-09T00:00:02.000Z'),
     });
 
+    expect(result.artifactDir).toBe(introspectionArtifactDir('test-run'));
+    expect(result.artifactDir).not.toContain(`${cwd}/.fixtures/`);
     expect(result.artifact).toMatchObject({
       runId: 'test-run',
       generatedAt: '2026-06-09T00:00:02.000Z',
@@ -68,6 +74,7 @@ describe('Brunch introspection launcher', () => {
     await expect(readJson(join(result.artifactDir, 'subjective.json'))).resolves.toEqual({
       answerText: 'The tool list is clear, but the graph policy is ambiguous.',
     });
+    await rm(result.artifactDir, { recursive: true, force: true });
   });
 
   it('rejects a stale passive capture recorded before the prompted turn', async () => {
@@ -138,6 +145,7 @@ describe('Brunch introspection launcher', () => {
         payload: { system: 'fresh prompt' },
       },
     });
+    await rm(result.artifactDir, { recursive: true, force: true });
   });
 });
 

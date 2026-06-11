@@ -3,16 +3,19 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
 import {
+  createAgentSessionRuntime,
   SessionManager,
   type ExtensionCommandContext,
   type ExtensionContext,
   type ExtensionUIContext,
   type RegisteredCommand,
+  type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import {
   BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_INTROSPECTION_COMMAND,
   BRUNCH_LENS_COMMAND,
   BRUNCH_MODE_COMMAND,
   BRUNCH_STRATEGY_COMMAND,
@@ -20,6 +23,7 @@ import {
   BRUNCH_SWITCH_SHORTCUT,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
+  createInMemoryBrunchIntrospectionStore,
   registerBrunchAlternatives,
   registerBrunchOperationalModePolicy,
   runBrunchWorkspaceCommand,
@@ -43,6 +47,7 @@ import {
   createBrunchSettingsManager,
   createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
+  runWithScopedBrunchOfflineDefault,
 } from './brunch-tui.js';
 
 describe('Brunch TUI boot', () => {
@@ -70,6 +75,50 @@ describe('Brunch TUI boot', () => {
     expect(oracle.ok).toBe(true);
     if (!oracle.ok) {
       expect(oracle.errors).toEqual([]);
+    }
+  });
+
+  it('boots the real runtime seam with ready context and BRUNCH_DEV-gated query tools', async () => {
+    const productBoot = await bootRuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      expect(productBoot.runtime.session.sessionManager.getHeader()).toMatchObject({
+        cwd: productBoot.cwd,
+        id: expect.any(String),
+        type: 'session',
+      });
+      await expect(readSessionContextDetails(productBoot.runtime.session)).resolves.toMatchObject({
+        status: 'ready',
+        specId: expect.any(Number),
+      });
+      await expect(readWorkspaceContextMarkdownFiles(productBoot.runtime.session)).resolves.toContain(
+        'boot-seam.md',
+      );
+      expect(productBoot.runtime.session.getAllTools().map((tool) => tool.name)).not.toEqual(
+        expect.arrayContaining(['brunch_session_query', 'brunch_introspect_query']),
+      );
+      expect(productBoot.runtime.session.getActiveToolNames()).not.toEqual(
+        expect.arrayContaining(['brunch_session_query', 'brunch_introspect_query']),
+      );
+    } finally {
+      await productBoot.runtime.dispose();
+      productBoot.restoreEnv();
+    }
+
+    const devBoot = await bootRuntimeThroughRunBrunchTui({ dev: true });
+    try {
+      expect(devBoot.runtime.session.sessionManager.getHeader()).toMatchObject({ cwd: devBoot.cwd });
+      await expect(readSessionContextDetails(devBoot.runtime.session)).resolves.toMatchObject({
+        status: 'ready',
+      });
+      expect(devBoot.runtime.session.getAllTools().map((tool) => tool.name)).toEqual(
+        expect.arrayContaining(['brunch_session_query', 'brunch_introspect_query']),
+      );
+      expect(devBoot.runtime.session.getActiveToolNames()).toEqual(
+        expect.arrayContaining(['brunch_session_query', 'brunch_introspect_query']),
+      );
+    } finally {
+      await devBoot.runtime.dispose();
+      devBoot.restoreEnv();
     }
   });
 
@@ -282,6 +331,141 @@ describe('Brunch TUI boot', () => {
       'update:graph.overview',
       'sidecar-close',
     ]);
+  });
+
+  it('threads BRUNCH_DEV introspection state into the interactive launch context', async () => {
+    const previous = process.env.BRUNCH_DEV;
+    const workspace = readyWorkspace('/tmp/project', 'session-ready');
+    const observed: unknown[] = [];
+
+    try {
+      process.env.BRUNCH_DEV = '1';
+      await runBrunchTui({
+        cwd: '/tmp/project',
+        autoOpen: false,
+        coordinator: {
+          inspectWorkspace: async () => ({
+            cwd: '/tmp/project',
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          }),
+          activateWorkspace: async () => workspace,
+          bindCurrentSpecToReplacementSession: async () => workspace,
+        },
+        runWorkspaceDialogPreflight: async () => ({
+          action: 'continue',
+          specId: workspace.spec.id,
+          sessionFile: workspace.session.file,
+        }),
+        webSidecarRunner: async () => null,
+        launchInteractive: async ({ dev }) => {
+          observed.push(dev?.introspection.enabled);
+          expect(dev?.introspection.store).toBeDefined();
+        },
+      });
+
+      delete process.env.BRUNCH_DEV;
+      await runBrunchTui({
+        cwd: '/tmp/project',
+        autoOpen: false,
+        coordinator: {
+          inspectWorkspace: async () => ({
+            cwd: '/tmp/project',
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          }),
+          activateWorkspace: async () => workspace,
+          bindCurrentSpecToReplacementSession: async () => workspace,
+        },
+        runWorkspaceDialogPreflight: async () => ({
+          action: 'continue',
+          specId: workspace.spec.id,
+          sessionFile: workspace.session.file,
+        }),
+        webSidecarRunner: async () => null,
+        launchInteractive: async ({ dev }) => {
+          observed.push(dev);
+        },
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.BRUNCH_DEV;
+      } else {
+        process.env.BRUNCH_DEV = previous;
+      }
+    }
+
+    expect(observed).toEqual([true, undefined]);
+  });
+
+  it('registers TUI-gated introspection last when the launch context enables it', async () => {
+    const events: string[] = [];
+    const commands: string[] = [];
+    const store = createInMemoryBrunchIntrospectionStore();
+
+    await createBrunchPiExtensions(
+      chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-1')),
+      undefined,
+      {
+        coordinator: noOpWorkspaceCoordinator('/tmp/project'),
+        introspection: { enabled: true, store },
+      },
+    )({
+      on: (event: string) => events.push(event),
+      registerCommand: (name: string) => commands.push(name),
+      registerShortcut: (_name: string, _options: unknown) => {},
+      registerTool: (_tool: unknown) => {},
+      registerMessageRenderer: (_type: string) => {},
+      sendMessage: (_message: unknown) => {},
+      getAllTools: () => [],
+      setActiveTools: (_tools: string[]) => {},
+    } as never);
+
+    expect(commands.at(-1)).toBe(BRUNCH_INTROSPECTION_COMMAND);
+    expect(events.at(-1)).toBe('before_provider_request');
+  });
+
+  it('scopes the Brunch offline default and restores PI_OFFLINE in finally', async () => {
+    const productEnv: { PI_OFFLINE?: string } = {};
+    await expect(
+      runWithScopedBrunchOfflineDefault({
+        dev: false,
+        env: productEnv,
+        run: async () => {
+          expect(productEnv.PI_OFFLINE).toBe('1');
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(productEnv.PI_OFFLINE).toBeUndefined();
+
+    const devEnv: { PI_OFFLINE?: string } = { PI_OFFLINE: '1' };
+    await expect(
+      runWithScopedBrunchOfflineDefault({
+        dev: true,
+        env: devEnv,
+        run: async () => {
+          expect(devEnv.PI_OFFLINE).toBeUndefined();
+          throw new Error('prove finally restore');
+        },
+      }),
+    ).rejects.toThrow('prove finally restore');
+    expect(devEnv.PI_OFFLINE).toBe('1');
+  });
+
+  it('keeps src/dev build-excluded', async () => {
+    const buildConfig = JSON.parse(
+      await readFile(join(import.meta.dirname, '..', '..', 'tsconfig.build.json'), 'utf8'),
+    ) as {
+      exclude?: string[];
+    };
+
+    expect(buildConfig.exclude).toContain('src/dev');
   });
 
   it('opens the advertised sidecar route only through the injected opener', async () => {
@@ -1246,6 +1430,83 @@ describe('Brunch TUI boot', () => {
     expect(settingsSource).toContain('SettingsManager.inMemory');
   });
 });
+
+async function bootRuntimeThroughRunBrunchTui(options: { dev: boolean }) {
+  const cwd = await mkdtemp(join(tmpdir(), `brunch-boot-seam-${options.dev ? 'dev' : 'prod'}-`));
+  const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+  await writeFile(join(cwd, 'boot-seam.md'), '# Boot seam\n');
+
+  const previousDev = process.env.BRUNCH_DEV;
+  const hadPreviousDev = Object.hasOwn(process.env, 'BRUNCH_DEV');
+  if (options.dev) {
+    process.env.BRUNCH_DEV = '1';
+  } else {
+    delete process.env.BRUNCH_DEV;
+  }
+
+  const restoreEnv = () => {
+    if (hadPreviousDev && previousDev !== undefined) {
+      process.env.BRUNCH_DEV = previousDev;
+    } else {
+      delete process.env.BRUNCH_DEV;
+    }
+  };
+
+  let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
+  try {
+    await runBrunchTui({
+      cwd,
+      autoOpen: false,
+      runWorkspaceDialogPreflight: async () => ({ action: 'newSpec', title: 'Boot seam smoke' }),
+      webSidecarRunner: async () => null,
+      launchInteractive: async (context) => {
+        runtime = await createAgentSessionRuntime(createBrunchAgentSessionRuntimeFactory(context), {
+          cwd,
+          agentDir,
+          sessionManager: context.workspace.session.manager,
+        });
+      },
+    });
+  } catch (error) {
+    restoreEnv();
+    throw error;
+  }
+
+  if (!runtime) {
+    restoreEnv();
+    throw new Error('runBrunchTui did not reach launchInteractive');
+  }
+
+  return { cwd, runtime, restoreEnv };
+}
+
+async function readSessionContextDetails(session: {
+  getToolDefinition(name: string): ToolDefinition | undefined;
+  sessionManager: unknown;
+}) {
+  const tool = session.getToolDefinition('read_session_context');
+  if (!tool) throw new Error('read_session_context tool is not registered');
+  const result = await tool.execute('boot-session-context', {}, undefined, undefined, {
+    sessionManager: session.sessionManager,
+  } as never);
+  return result.details;
+}
+
+async function readWorkspaceContextMarkdownFiles(session: {
+  getToolDefinition(name: string): ToolDefinition | undefined;
+  sessionManager: unknown;
+}): Promise<string[]> {
+  const tool = session.getToolDefinition('read_workspace_context');
+  if (!tool) throw new Error('read_workspace_context tool is not registered');
+  const result = (await tool.execute(
+    'boot-workspace-context',
+    { mode: 'cwd_inventory' },
+    undefined,
+    undefined,
+    { sessionManager: session.sessionManager } as never,
+  )) as { details: { data: { markdownFiles: Array<{ path: string }> } } };
+  return result.details.data.markdownFiles.map((file) => file.path);
+}
 
 async function writeHostilePiSettings(cwd: string, agentDir: string): Promise<void> {
   const hostileSettings = {

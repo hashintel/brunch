@@ -12,8 +12,9 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { EDGE_CATEGORIES, changeLog, edges, graphClock, nodes, specs } from '../db/schema.js';
+import { changeLog, edges, graphClock, nodes, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
+import { EDGE_CATEGORIES } from './schema/kinds.js';
 import { NODE_KIND_METADATA, type ReadinessBand } from './schema/nodes.js';
 import { seedFixture, type SeedFixture } from './seed-fixtures.js';
 

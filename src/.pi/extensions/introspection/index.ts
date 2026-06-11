@@ -19,6 +19,7 @@ export interface BrunchIntrospectionBaseReport {
 export interface BrunchIntrospectionStore {
   recordPassiveCapture(capture: BrunchIntrospectionTurnCapture): void;
   recordBaseReport(report: BrunchIntrospectionBaseReport): void;
+  allPassiveCaptures(): readonly BrunchIntrospectionTurnCapture[];
   latestPassiveCapture(): BrunchIntrospectionTurnCapture | undefined;
   latestPassiveCaptureAfter(cursor: number): BrunchIntrospectionTurnCapture | undefined;
   passiveCaptureCursor(): number;
@@ -45,6 +46,10 @@ class InMemoryStore implements InMemoryBrunchIntrospectionStore {
 
   recordBaseReport(report: BrunchIntrospectionBaseReport): void {
     this.baseReports.push(report);
+  }
+
+  allPassiveCaptures(): readonly BrunchIntrospectionTurnCapture[] {
+    return this.passiveCaptures;
   }
 
   latestPassiveCapture(): BrunchIntrospectionTurnCapture | undefined {

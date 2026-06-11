@@ -1,4 +1,4 @@
-import type { ExtensionAPI, FileEntry } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, SessionEntry, SessionHeader } from '@earendil-works/pi-coding-agent';
 
 import {
   projectSessionRuntimeState,
@@ -8,15 +8,18 @@ import {
   renderRuntimeFrame,
   type SessionRuntimeFrameRenderInput,
 } from '../../../renderers/session/runtime-frame.js';
-import {
-  NonLinearTranscriptError,
-  type BrunchSessionEnvelope,
-} from '../../../session/brunch-session-envelope.js';
+import { NonLinearTranscriptError } from '../../../session/brunch-session-envelope.js';
 import { isSessionBindingEntry } from '../../../session/session-binding.js';
 import { readWorkspaceContext } from './get-cwd.js';
 
+// Mirror the real ReadonlySessionManager surface this projection uses. The Pi
+// session header is NOT part of getEntries() (which returns SessionEntry[]); it
+// is only reachable via getHeader(). Typing getEntries() as FileEntry[] here
+// previously hid that: the header lookup searched getEntries() for a 'session'
+// entry that can never appear, so the frame was always missing_session_header.
 interface SessionManagerLike {
-  getEntries(): readonly FileEntry[];
+  getHeader(): SessionHeader | null;
+  getEntries(): readonly SessionEntry[];
 }
 
 export function registerBrunchContext(pi: ExtensionAPI): void {
@@ -96,12 +99,12 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
 function projectSessionContext(
   sessionManager: SessionManagerLike | undefined,
 ): RuntimeStateProjection | SessionRuntimeFrameRenderInput {
-  const entries = sessionManager?.getEntries() ?? [];
-  const header = entries.find(isSessionHeaderEntry);
+  const header = sessionManager?.getHeader() ?? undefined;
   if (!header) {
     return { status: 'not_ready', reason: 'missing_session_header', sessionId: null };
   }
 
+  const entries = sessionManager?.getEntries() ?? [];
   const binding = entries.find(isSessionBindingEntry);
   if (!binding) {
     return { status: 'not_ready', reason: 'missing_binding', sessionId: header.id };
@@ -119,8 +122,4 @@ function projectSessionContext(
     }
     throw error;
   }
-}
-
-function isSessionHeaderEntry(entry: FileEntry): entry is BrunchSessionEnvelope['header'] {
-  return entry.type === 'session' && typeof entry.id === 'string';
 }

@@ -60,6 +60,7 @@ Concrete cues to look for:
 - A magic check inferring readiness/state from an object's incidental shape instead of a named constant or predicate. Repair: name the predicate against the canonical constant.
 - Ordering or position encoded by a numeric index/splice rather than by structure. Repair: make the order declarative.
 - A type alias or name that implies a wider contract than it points at. Repair: point it at the real union, or rename.
+- A method-shaped read/cache surface added without the matching update path (RPC method, query key, publisher topic, client invalidator, and README ledger entry drifting apart). Repair: thread the method-shaped topic through the whole publish/invalidate path, and lock it with a narrow invalidation/publisher test.
 
 Collect findings as numbered items (category: `contract`). Frame each as: the assumed contract in one sentence, the failure mode when it breaks, and which of the three repairs applies. Most are concrete fixes (`ln-scope`/`ln-build`); clusters across a seam route to `ln-refactor`.
 

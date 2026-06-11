@@ -1,11 +1,11 @@
 /**
  * Drizzle table definitions — canonical column-level source of truth.
  *
- * SPEC decisions: D16-L, D51-L, D54-L, D56-L
+ * SPEC decisions: D16-L, D51-L, D54-L, D56-L, D73-L
  * Canonical reference: docs/design/GRAPH_MODEL.md
  *
- * Enum const arrays are exported for reuse by graph/ domain types
- * and by Pi tool parameter schemas (via typebox v1.x).
+ * Domain enum taxonomy lives in graph/schema/kinds.ts; this persistence layer
+ * imports those literals for column constraints.
  */
 
 import { sql } from 'drizzle-orm';
@@ -18,58 +18,16 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/sqlite-core';
 
-// ---------------------------------------------------------------------------
-// Shared enum arrays — the single source for text enum columns,
-// graph/ domain types, and Pi tool parameter schemas.
-// ---------------------------------------------------------------------------
-
-export const INTENT_KINDS = [
-  'goal',
-  'thesis',
-  'term',
-  'context',
-  'requirement',
-  'assumption',
-  'constraint',
-  'invariant',
-  'decision',
-  'criterion',
-  'example',
-] as const;
-
-export const ORACLE_KINDS = ['check', 'validation_method', 'evidence', 'obligation'] as const;
-
-export const DESIGN_KINDS = ['module', 'interface'] as const;
-
-export const PLAN_KINDS = ['milestone', 'frontier', 'slice'] as const;
-
-export const NODE_BASES = ['explicit', 'implicit'] as const;
-
-export const EDGE_CATEGORIES = [
-  'dependency',
-  'proof',
-  'support',
-  'realization',
-  'boundary',
-  'composition',
-  'association',
-  'supersession',
-] as const;
-
-export const EDGE_STANCES = ['for', 'against'] as const;
-
-export const READINESS_GRADES = [
-  'grounding_onboarding',
-  'elicitation_ready',
-  'commitments_ready',
-  'planning_ready',
-] as const;
-
-export const READINESS_BANDS = ['grounding', 'elicitation', 'commitment'] as const;
-
-export const LENS_AFFINITIES = ['intent', 'design', 'oracle'] as const;
-
-export const ELICITATION_BACKLOG_STATUSES = ['open', 'closed'] as const;
+import {
+  EDGE_CATEGORIES,
+  EDGE_STANCES,
+  ELICITATION_BACKLOG_STATUSES,
+  LENS_AFFINITIES,
+  NODE_BASES,
+  NODE_PLANES,
+  READINESS_BANDS,
+  READINESS_GRADES,
+} from '../graph/schema/kinds.js';
 
 // ---------------------------------------------------------------------------
 // Tables
@@ -89,7 +47,7 @@ export const nodes = sqliteTable(
     spec_id: integer()
       .notNull()
       .references(() => specs.id),
-    plane: text({ enum: ['intent', 'oracle', 'design', 'plan'] }).notNull(),
+    plane: text({ enum: NODE_PLANES }).notNull(),
     kind: text().notNull(), // validated at domain layer against plane-specific enum
     kind_ordinal: integer().notNull(),
     title: text().notNull(),
@@ -143,7 +101,7 @@ export const nodeKindCounters = sqliteTable(
     spec_id: integer()
       .notNull()
       .references(() => specs.id),
-    plane: text({ enum: ['intent', 'oracle', 'design', 'plan'] }).notNull(),
+    plane: text({ enum: NODE_PLANES }).notNull(),
     kind: text().notNull(),
     next_ordinal: integer().notNull().default(1),
   },
@@ -197,7 +155,7 @@ export const elicitationBacklog = sqliteTable('elicitation_backlog', {
   status: text({ enum: ELICITATION_BACKLOG_STATUSES }).notNull().default('open'),
   basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
   readiness_band: text({ enum: READINESS_BANDS }).notNull(),
-  plane_affinity: text({ enum: ['intent', 'oracle', 'design', 'plan'] }),
+  plane_affinity: text({ enum: NODE_PLANES }),
   lens_affinity: text({ enum: LENS_AFFINITIES }),
   arose_from_entry_id: integer().references((): AnySQLiteColumn => elicitationBacklog.id),
   resolved_by_node_id: integer().references(() => nodes.id),

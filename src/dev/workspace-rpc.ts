@@ -84,7 +84,7 @@ function usage(): string {
     'Options:',
     '  -w, --workspace <dir>   Brunch workspace directory (default: cwd)',
     '      --full-response     Print the full JSON-RPC response instead of result only',
-    '      --no-dev-rpc        Do not set BRUNCH_DEV_RPC=1',
+    '      --no-dev-rpc        Do not set BRUNCH_DEV=1',
   ].join('\n');
 }
 
@@ -110,7 +110,7 @@ function runRpc(args: CliArgs): JsonRpcResponse {
       encoding: 'utf8',
       env: {
         ...process.env,
-        ...(args.devRpc ? { BRUNCH_DEV_RPC: '1' } : {}),
+        ...(args.devRpc ? { BRUNCH_DEV: '1' } : {}),
       },
     },
   );

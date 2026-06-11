@@ -35,9 +35,19 @@ import type {
 import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
 import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
 import type { ElicitationBacklogLensAffinity } from './schema/elicitation-backlog.js';
+import {
+  DESIGN_KINDS,
+  INTENT_KINDS,
+  LENS_AFFINITIES,
+  NODE_BASES,
+  ORACLE_KINDS,
+  PLAN_KINDS,
+  READINESS_BANDS,
+  READINESS_GRADES,
+} from './schema/kinds.js';
 import { type NodeBasis, type NodePlane, type ReadinessBand } from './schema/nodes.js';
 
-export type ReadinessGrade = (typeof schema.READINESS_GRADES)[number];
+export type ReadinessGrade = (typeof READINESS_GRADES)[number];
 export type {
   Diagnostic,
   EdgePatch,
@@ -269,17 +279,17 @@ export interface ResolveReconNeedInput {
 // ---------------------------------------------------------------------------
 
 const VALID_KINDS_BY_PLANE: Record<string, readonly string[]> = {
-  intent: schema.INTENT_KINDS as unknown as string[],
-  oracle: schema.ORACLE_KINDS as unknown as string[],
-  design: schema.DESIGN_KINDS as unknown as string[],
-  plan: schema.PLAN_KINDS as unknown as string[],
+  intent: INTENT_KINDS as unknown as string[],
+  oracle: ORACLE_KINDS as unknown as string[],
+  design: DESIGN_KINDS as unknown as string[],
+  plan: PLAN_KINDS as unknown as string[],
 };
 
 const KINDS_REQUIRING_DETAIL = new Set<string>(['decision', 'term']);
-const VALID_READINESS_GRADES = schema.READINESS_GRADES as unknown as string[];
-const VALID_NODE_BASES = schema.NODE_BASES as unknown as string[];
-const VALID_READINESS_BANDS = schema.READINESS_BANDS as unknown as string[];
-const VALID_LENS_AFFINITIES = schema.LENS_AFFINITIES as unknown as string[];
+const VALID_READINESS_GRADES = READINESS_GRADES as unknown as string[];
+const VALID_NODE_BASES = NODE_BASES as unknown as string[];
+const VALID_READINESS_BANDS = READINESS_BANDS as unknown as string[];
+const VALID_LENS_AFFINITIES = LENS_AFFINITIES as unknown as string[];
 
 const SEEDED_ELICITATION_BACKLOG: readonly {
   readonly kind: string;

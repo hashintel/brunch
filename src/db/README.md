@@ -6,8 +6,10 @@ SPEC decisions: D16-L, D41-L, D52-L, D54-L, D62-L
 
 - **Drizzle table definitions** (`schema.ts`) — the canonical column-level
   source of truth for persisted graph/workspace rows. It owns the SQLite table
-  names, column names, and shared enum `const` arrays (`INTENT_KINDS`,
-  `READINESS_GRADES`, `EDGE_CATEGORIES`, etc.).
+  names and column names. Domain enum taxonomy (`INTENT_KINDS`,
+  `READINESS_GRADES`, `EDGE_CATEGORIES`, etc.) is owned by
+  `graph/schema/kinds.ts`; `db/schema.ts` imports those literals only for
+  column constraints.
 
 - **Row schema derivation** (`row-schemas.ts`) — runtime insert/select schemas
   derived from Drizzle tables via `drizzle-typebox`. Do not hand-author parallel
@@ -39,19 +41,20 @@ SPEC decisions: D16-L, D41-L, D52-L, D54-L, D62-L
 
 - `graph/` is the only application layer that imports `db/` directly.
   Non-`graph/` code imports graph-domain APIs instead.
+- The single sanctioned `db/` → `graph/` import is `db/schema.ts` importing
+  the zero-import taxonomy leaf `graph/schema/kinds.ts` (D73-L).
 
 ## Enum flow
 
 ```pseudo
-db/schema.ts
+graph/schema/kinds.ts
   owns:
-    enum const arrays
-    Drizzle table definitions
+    domain enum const arrays
+    zero imports; no drizzle
 
-  ├─► db/row-schemas.ts
-  │     drizzle-typebox insert/select schemas
-  │     @sinclair/typebox 0.34
-  │     persistence boundary only
+  ├─► db/schema.ts
+  │     Drizzle table definitions
+  │     text({ enum }) column constraints
   │
   ├─► graph/schema/nodes.ts
   │     type IntentKind = typeof INTENT_KINDS[number]
@@ -89,8 +92,8 @@ RPC shape:
 ```
 
 Do not derive agent tools or RPC contracts directly from Drizzle row schemas.
-Only enum literals should flow outward from `db/schema.ts`; object shapes are
-owned by their boundary.
+Enum literals flow from `graph/schema/kinds.ts`; object shapes are owned by
+their boundary.
 
 ## Current schema posture
 

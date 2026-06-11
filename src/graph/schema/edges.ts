@@ -10,13 +10,13 @@
  * agent-facing link* command surface land with subsequent M4/M5 slices.
  */
 
-import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from '../../db/schema.js';
 import type { EdgeId, Lsn, NodeId } from '../atoms.js';
+import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from './kinds.js';
 
 /**
  * Closed set of structural edge categories.
  *
- * Derived from `db/schema.ts` — the single enum source.
+ * Derived from `graph/schema/kinds.ts` — the single enum source.
  *
  * - `dependency`   dependency  → dependent      hard upstream; cascade
  * - `proof`        oracle      → claim          witness or refutation (stance required)

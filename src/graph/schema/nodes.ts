@@ -8,8 +8,8 @@
  * agent-facing node command surface land with subsequent slices.
  */
 
-import { DESIGN_KINDS, INTENT_KINDS, NODE_BASES, ORACLE_KINDS, PLAN_KINDS } from '../../db/schema.js';
 import type { Lsn, NodeId } from '../atoms.js';
+import { DESIGN_KINDS, INTENT_KINDS, NODE_BASES, NODE_PLANES, ORACLE_KINDS, PLAN_KINDS } from './kinds.js';
 
 // ---------------------------------------------------------------------------
 // Planes & basis
@@ -24,18 +24,18 @@ import type { Lsn, NodeId } from '../atoms.js';
  *  - `design`  how it's shaped
  *  - `plan`    how it's sequenced
  */
-export type NodePlane = 'intent' | 'oracle' | 'design' | 'plan';
+export type NodePlane = (typeof NODE_PLANES)[number];
 
 /**
  * Whether this exact graph item was approved (`explicit`) or materialized from
  * an approved concept without per-item review (`implicit`).
  *
- * Derived from `db/schema.ts` — same semantics as EdgeBasis.
+ * Derived from `graph/schema/kinds.ts` — same semantics as EdgeBasis.
  */
 export type NodeBasis = (typeof NODE_BASES)[number];
 
 // ---------------------------------------------------------------------------
-// Kind taxonomy — derived from db/schema.ts const arrays
+// Kind taxonomy — derived from graph/schema/kinds.ts const arrays
 // ---------------------------------------------------------------------------
 
 /**

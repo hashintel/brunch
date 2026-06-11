@@ -46,7 +46,11 @@ function projectState(ctx: BeforeAgentStartContextLike | undefined) {
   return projectBrunchAgentState(ctx?.sessionManager?.getEntries() ?? []);
 }
 
-export function registerBrunchPrompting(pi: ExtensionAPI, promptContext: BrunchPromptContextProvider): void {
+export function registerBrunchPrompting(
+  pi: ExtensionAPI,
+  promptContext: BrunchPromptContextProvider,
+  options: { devAllowedToolNames?: readonly string[] | undefined } = {},
+): void {
   if (!supportsPrompting(pi)) return;
 
   pi.on('before_agent_start', async (event, ctx) => {
@@ -55,7 +59,12 @@ export function registerBrunchPrompting(pi: ExtensionAPI, promptContext: BrunchP
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
-        ? activeToolNamesForBrunchAgentState(pi, state, resolvedPromptContext.spec.readinessGrade)
+        ? activeToolNamesForBrunchAgentState(
+            pi,
+            state,
+            resolvedPromptContext.spec.readinessGrade,
+            options.devAllowedToolNames,
+          )
         : [];
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);

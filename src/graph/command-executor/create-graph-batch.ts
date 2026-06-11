@@ -3,6 +3,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import type { BrunchDb } from '../../db/connection.js';
 import * as schema from '../../db/schema.js';
 import type { EdgeCategory, EdgeStance } from '../schema/edges.js';
+import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from '../schema/kinds.js';
 import { formatGraphNodeCode, type NodeKind } from '../schema/nodes.js';
 import type {
   CreateGraphEdgeInput,
@@ -12,10 +13,10 @@ import type {
   GraphMutationNodeRef,
 } from './graph-mutation-types.js';
 
-const VALID_CATEGORIES = schema.EDGE_CATEGORIES as unknown as string[];
+const VALID_CATEGORIES = EDGE_CATEGORIES as unknown as string[];
 const STANCE_REQUIRED_CATEGORIES = new Set(['proof', 'support']);
-const VALID_STANCES = schema.EDGE_STANCES as unknown as string[];
-const VALID_BASES = schema.NODE_BASES as unknown as string[];
+const VALID_STANCES = EDGE_STANCES as unknown as string[];
+const VALID_BASES = NODE_BASES as unknown as string[];
 
 export interface PlannedBatchEndpoint {
   readonly kind: 'batch' | 'existing';

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { EDGE_CATEGORIES } from '../../db/schema.js';
 import { EDGE_CATEGORY_METADATA } from '../policy/category-policy.js';
+import { EDGE_CATEGORIES } from '../schema/kinds.js';
 import { normalizeRoleNamedEdgeDraft, type RoleNamedEdgeDraft } from './role-named-edge-draft.js';
 
 const EDGE_DRAFT_FIXTURES = {
