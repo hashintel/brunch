@@ -86,23 +86,16 @@ per ledger row:
 
 - (none) — the FE-847 turn-boundary closure completed 2026-06-11 (see Turn-boundary choreography below). One handed-off residue: migration `0004_gaps_node_kind_reference` coherence (the in-place journal-tag rewrite + the derive-with-'context'-fallback that the new read-side `predicate_kind` throw would reject) is being fixed by another agent on the stacked successor branch — on reintegration, verify that fix actually covers the concern before considering it closed; do not touch `drizzle/` on this branch meanwhile.
 
-### Turn-boundary choreography (Tier-2 layer)
+### Recently Completed
 
-Core runtime choreography specced/scoped now (Context §Turn-boundary choreography; SPEC D76-L–D78-L, I45-L–I47-L). FE-847 lays the chassis + coverage-first scaffold; the product write-side then fills the scaffold slice by slice. **Branch-mechanics override (user, 2026-06-11): `dx-tier-2-harness` stays on `ln/fe-847-dx-introspection-tier-2`, while the remaining product closures (`turn-boundary-reconciliation` and `kick-and-context-seeding`) continue together on the stacked successor branch `ln/fe-847-turn-boundary-closure`.** This is a stack-management exception only: same FE-847 issue, same sequential closure, no new frontier or Linear split. Each grouping still flips its own scaffold tests live.
-
-1. `turn-boundary-reconciliation` (M7 product mechanics; slice group on FE-847) — S1 assistant-visible watermark projection (D76-L), S2 the `prepareNextTurn` one-writer reconciler + `worldUpdate` + own-write/full-overview watermark stamping (D77-L), S3 submit-time mention ledger + staleness (I9-L). Carries its share of S5 (carrier discipline / no-redundant-`worldUpdate`-after-seed idempotence, I47-L).
-2. `kick-and-context-seeding` (product mechanics; slice group on FE-847) — **sequenced after `turn-boundary-reconciliation` S1/S2** (the seed must advance the watermark and the kick decision interacts with reconciler-inserted notices). S4 honest assistant-origination behind `session.triggerExchange` (`startAssistantTurn({ origin })`) + boot/resume context seeding (D78-L). Carries its share of S5 (boot/resume seed idempotence, pre-reconcile-tail kick policy, I46-L/I47-L).
-
-### Readiness & elicitation-gaps remodel (recommended ahead of the trio)
-
-Post-`ln-spec` implications that are **upstream** of the context-pipeline trio's readiness/chrome-touching locks (see Context §Readiness / elicitation-gaps remodel). Land the hard chain before stage 1 freezes `workspace/workspace-state` + `session/runtime-state` shapes, or bracket those fields in the trio.
-
-1. `gaps-node-kind-reference` — **done 2026-06-10.** Reshaped the gaps substrate onto node kinds per D75-L: `refersTo: NodeKind` + a free-form `question` replaced the typology `name` enum; reseeded grounding by node kind (floor `context`/`thesis`/`goal`/`constraint` plus `term`/`assumption`); `capability → NodeKind[]` replaced `RelevantGapName`. Absorbed the retired refactor plan (folded into D75-L).
-2. `capability-readiness` — **done 2026-06-11 (depends on `gaps-node-kind-reference`, done).** Runtime affordances, method/manifest/tool legality, soft derived readiness estimate projection, agent-prompt display, workspace/chrome display, and the stored-grade deletion sweep now read `ElicitationGap[]` / gap coverage rather than a persisted grade. `specs.readiness_grade`, `updateReadinessGrade`, `READINESS_GRADES`, residual grade prompt carriers, and fixture/probe grade setup are retired.
+- 2026-06-11 **Turn-boundary choreography (Tier-2 layer) complete** — `turn-boundary-reconciliation` and `kick-and-context-seeding` both done on FE-847 (`ln/fe-847-turn-boundary-closure`); every I45/I46/I47 scaffold row runs live through real boot/restart; full definitions retained below for re-entry. The same branch carried the review-fix remediation (PR-comment defects fixed at top of stack, user-routed) and the typing-collapse refactor (canonical editor envelope, projected outcome union, shared grounding-gap fixture builder).
+- 2026-06-11 `capability-readiness` — done after the grade-deletion sweep plus the remediation's live-wiring closure (required `getElicitationGaps`, conservative-fallback deletion, Tier-2 legality oracle); definition retained below.
+- 2026-06-10 `gaps-node-kind-reference` — done; gaps reference node kinds per D75-L (definition archived).
+- Older completed frontiers: `docs/archive/PLAN_HISTORY.md` (12 definitions archived 2026-06-11).
 
 ### Next
 
-The near-term spine has two tracks. The **context-pipeline coverage trio** remains the elevated product-coverage spine, sequenced in strict dependency order (lock upstream shape before downstream output). `role-safe-graph-mutations` is a graph-mutation grammar frontier that can run before or alongside the trio, and must land before relation-bearing generalized capture or semantic fixture curation rely on the new mutation surface. The `dx-feedback-loops` DX substrate and its `dx-introspection-live` follow-on are complete and no longer gate this list; the remaining FE-847 closure work is the active parallel product track.
+The near-term spine has two tracks. The **context-pipeline coverage trio** remains the elevated product-coverage spine, sequenced in strict dependency order (lock upstream shape before downstream output). `role-safe-graph-mutations` is a graph-mutation grammar frontier that can run before or alongside the trio, and must land before relation-bearing generalized capture or semantic fixture curation rely on the new mutation surface. The `dx-feedback-loops` DX substrate, its `dx-introspection-live` follow-on, and the FE-847 turn-boundary closure are all complete and no longer gate this list.
 
 1. `projection-shape-coverage` — **PROJECT stage** (`#project`); invariant / no-loss kind. Ledger authored in `src/projections/README.md`. Two sub-steps: (a) **PULL-session prerequisite** — ledger the session read surface (`session/workspace-context`, `workspace-session-coordinator`, `runtime-state`) the session/workspace projections lock against; (b) **earns-its-place audit then lock** — delete/inline the `✗` indirection (`workspace/workspace-context`: single-consumer tag wrapper), resolve the `◐` exchange family (direct-lock vs keep-transitive), and add a shape/no-loss invariant to each `●` survivor (`graph/neighborhood`, `session/transcript-context`, `session/runtime-state`, `workspace/workspace-state`). The graph projection stubs (`overview`, `commit-result`, `reconciliation-needs`) are `export {}` topology stubs, **not** dark implementations — leave them. Upstream of everything else in the trio; do this first so renderer goldens lock against stable shapes.
 2. `renderer-golden-coverage` — **RENDER stage** (`#render`); golden + invariant kind. **Depends on `projection-shape-coverage`.** Create the renderer ledger (README claims one that does not exist), extend the preview harness past `graph-neighborhood`, and golden-lock every durable renderer (only `graph/neighborhood` + `session/runtime-frame` are locked; the rest are dark or only transitively covered via the `.pi` adapter).
@@ -136,32 +129,6 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - `geolog-and-petri-execution` — exploratory, parallel to Brunch proper.
 
 ## Frontier Definitions
-
-### dx-tier-2-harness
-
-- **Name:** Tier-2 DX chassis — real-boot + faux-turn + payload/transcript oracle + fixture resume
-- **Linear:** FE-847 — DX introspection Tier 2
-- **Branch:** `ln/fe-847-dx-introspection-tier-2`
-- **Kind:** structural / dev-substrate
-- **Status:** done
-- **Certainty:** proving
-- **Retires:** part of A25-L — extends the DX-loop proof from faux-provider scripted turns (`dx-feedback-loops`) to a reusable *real-boot* Tier-2 chassis that captures the provider payload and inspects the resulting transcript.
-- **Lights up:** A Tier-2 test chassis that did not exist — `runBrunchTui` boots for real, one faux model turn runs, the provider payload is captured, the resulting transcript is inspected, and a session resumes from a fixture transcript — the harness every turn-boundary-choreography product slice asserts its mechanics through.
-- **Stabilizes:** The Tier-2 harness seam plus the coverage-first scaffold for I45-L–I47-L (the skipped invariant suite + intentional topology stubs the watermark projection, the `prepareNextTurn` reconciler, and the origination primitive will fill).
-- **Objective:** Build the thin Tier-2 chassis (S0) only: (1) a real `runBrunchTui` boot path usable in test, (2) one faux model turn driven end-to-end with no network/keys, (3) provider-payload capture + transcript-inspection oracles, (4) fixture-transcript resume. Then **author the coverage-first scaffold** for the whole turn-boundary-choreography layer: the I45-L–I47-L invariant suite as `it.todo` / `describe.skip` keyed to its enabling slice, plus intentional `export {}` topology stubs (ownership comment per AGENTS.md) for the not-yet-built modules — including **one shared continuity-entry classifier** (`isWatermarkCarrier` / `isContinuityOnlyNonDebtEntry`) so S1/S2 watermark projection and S4 resume-kick classification share one taxonomy of carrier vs. continuity-only-non-debt vs. debt-bearing entries rather than duplicating hardcoded lists. The scaffold's first tests must encode the three SPEC edge cases — seed/full-overview snapshots advance the watermark while narrow reads do not; no redundant `worldUpdate` immediately after a seed naming the current snapshot LSN; the resume kick decision is taken on the pre-reconcile tail (a user tail still earns a kick after the reconciler inserts seed/staleness notices) — and assert `worldUpdate.items` / watermark / kick outcomes as **sets and `{specId, lsn}` properties, not payload-order goldens** (no canonical item sort is specified), so the suite stays deterministic.
-- **Why now / unlocks:** The user has elevated the turn-boundary-choreography layer to core mechanics and wants the proving infrastructure laid in while the concept is fresh. The chassis is buildable now and is the harness through which S1–S5 product mechanics are proven; authoring the skipped scaffold now stops the edge cases from being lost before their slices exist.
-- **Acceptance:**
-  - A test can boot the real `runBrunchTui` orchestration, run one faux model turn, capture the exact provider payload, and inspect the resulting transcript entries — with no network, keys, or tokens.
-  - A session can resume from a fixture transcript through the same chassis.
-  - The I45-L–I47-L invariant suite exists as skipped (`it.todo` / `describe.skip`) tests keyed to their enabling slices (`turn-boundary-reconciliation`, `kick-and-context-seeding`), and the three SPEC edge cases are each present as a named skipped case.
-  - Intentional topology stubs exist for the assistant-visible watermark projection, the `prepareNextTurn` reconciler, and the origination primitive — `export {}` + ownership/IO/future-callers comment per AGENTS.md.
-  - No product mechanics land on this frontier: the watermark/reconciler/kick modules stay stubs; `npm run verify` is green with the scaffold tests skipped (no slice lands green by leaving its own tests skipped — that obligation is on the product frontiers).
-- **Verification:** Inner — chassis unit tests (boot, faux turn, payload capture, transcript inspect, fixture resume); a test asserting the scaffold suite is present-but-skipped and the topology stubs compile. The skip ledger is itself the layer's live coverage map (SPEC §Design Notes, coverage-first scaffold).
-- **Cross-cutting obligations:** Preserve the D39-L sealed-profile boundary and the `dx-feedback-loops`/`dx-introspection-live` DX conventions — the chassis is a dev/test substrate, observes but does not shape product behavior, and stays distinct from `src/probes/` product-verification runs. Do not fold S1–S5 product mechanics into S0. Topology stubs follow AGENTS.md §intentional topology stubs.
-- **Topology materialization:** Chassis/harness lives under `src/dev/` (Tier-2 test front door) reusing the shared faux harness; topology stubs land at their final product homes (assistant-visible watermark projection under `src/projections/session/`, the `prepareNextTurn` reconciler and origination primitive under `src/session/` per their READMEs, and the shared continuity-entry classifier at the boundary both consume — `src/projections/session/` if read-side-owned) so the dependency direction is legible before behavior exists.
-- **Traceability:** D37-L, D39-L, D43-L, D68-L, D69-L, D76-L, D77-L, D78-L; A25-L; I45-L, I46-L, I47-L.
-- **Design docs:** `memory/SPEC.md` D76-L–D78-L, I45-L–I47-L, §Verification Design (coverage-first scaffold design note); `src/dev/README.md`; `src/session/README.md`; `src/projections/README.md`.
-- **Current execution pointer:** Done 2026-06-10 with 2026-06-11 closure on FE-847. The real `runBrunchTui` boot chassis, faux-turn payload/transcript oracle, fixture resume path, skipped I45-L–I47-L scaffold, and topology stubs are in place; the final follow-on tightened Tier-1 proof so Brunch-configured faux sessions now own the definitive provider-facing prompt/tool payload assertion.
 
 ### turn-boundary-reconciliation
 
@@ -217,103 +184,6 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Traceability:** D12-L, D37-L, D49-L, D66-L, D75-L, D76-L, D78-L; R16; I13-L, I46-L, I47-L.
 - **Design docs:** `memory/SPEC.md` D78-L, I46-L, I47-L; `src/session/README.md`.
 - **Current execution pointer:** Done 2026-06-11 on FE-847 (closure completed by the review-fix remediation pass). All I46/I47 Tier-2 scaffold rows run live with no skips/todos: new-session seed-then-kick through real boot; resume kick on the pre-reconcile user tail (including behind continuity notices and after earlier completed exchanges — the prior blanket exchange-result suppression was a real bug); `request_*` leaves idle against the **real** result envelope (outcome is `answered`/`cancelled`/`unavailable` key presence per `projections/exchanges`, not a status string — the prior classifier read a field that never exists and would have re-kicked answered tails); crash-after-notice reboot kicks without duplicating the seed; drains neither manufacture nor mask debt; boot/resume dedupe proven across an actual restart via `rebootTier2Runtime`. Kick origin now derives from projected transcript state (no message entries = new session), not entry counts.
-
-### project-graph-review-cycle
-
-- **Name:** Project-graph review-set proposal and atomic acceptance
-- **Linear:** [FE-809](https://linear.app/hash/issue/FE-809/project-graph-review-set-proposal-and-atomic-acceptance)
-- **Branch:** `ln/fe-809-project-graph-review-cycle`
-- **Kind:** structural / bounded feature
-- **Status:** done
-- **Certainty:** proving
-- **Stabilizes:** I15-L, I20-L, I34-L, I40-L — exact review approval must become one explicit-basis atomic graph batch, not a path-shaped basis value or partial commit; only structurally valid review payloads may become user-reviewable.
-- **Lights up:** `project-graph` proposal → dry-run-valid `present_review_set` → approval → `acceptReviewSet` graph commit.
-- **Objective:** Wire the `project-graph` strategy from real agent proposal generation through `present_review_set` / `request_review`, dry-run gating, approve/request-changes/reject response handling, and atomic `acceptReviewSet` commit.
-- **Why now / unlocks:** This is the P1 proposal/review story. It is only P0 if the POC demo requires user-reviewed batch graph commitments rather than direct `propose-graph` and capture paths.
-- **Acceptance:**
-  - The agent can generate a review-set payload with required lens, epistemic status, and grounding/support metadata.
-  - Only dry-run-valid proposals surface as reviewable; invalid generations remain internal to retry/regeneration.
-  - Approve commits the entire batch through one `CommandExecutor` call, one LSN, one change-log entry, and `basis: explicit`; partial acceptance is not representable.
-  - Request-changes and reject are transcript-visible outcomes; request-changes can trigger a successor proposal or an explicit deferred path.
-  - Web/TUI can observe the proposal/decision state enough for the POC; full review UX polish may remain thin.
-- **Verification:** Inner — review-set schema tests, dry-run/real-run differential tests, accept atomicity tests. Middle — structured-exchange review-cycle fixture; no-bypass checks. Outer — targeted probe: `project-graph` proposes, user approves, graph updates and web observer sees it.
-- **Topology materialization:** Review payload schemas live under `.pi/extensions/exchanges` as the current structured-exchange schema seam; reusable review payload construction/rendering lives under `projections/exchanges/` and `renderers/exchanges/`; proposal validation/translation lives in `graph/` review modules; agent strategy resource lives in `.pi/skills/strategies/project-graph.md`; web observes via RPC projections.
-- **Cross-cutting obligations:** Preserve D27-L: review-set proposal is a structured-exchange payload, not a standalone public review-set entity. Reviewer advisory writes remain deferred unless explicitly scoped. Existing-node references and review payloads use projected graph codes at adapter/UI boundaries, not raw DB ids.
-- **Traceability:** R21, R23 / D4-L, D20-L, D26-L, D27-L, D51-L, D53-L, D62-L, D63-L / I11-L, I15-L, I20-L, I34-L, I40-L / A14-L, A16-L.
-- **Design docs:** `docs/design/REVIEW_SETS.md`; `docs/design/GRAPH_MODEL.md`; `memory/SPEC.md` D27-L.
-- **Current execution pointer:** Done 2026-06-06. Structured-exchange schema/emission lock and approval wiring are complete, and `.fixtures/runs/project-graph-review-cycle/2026-06-06-project-graph-review-cycle/` proves the real `project-graph` agent path: selected-spec graph read, dry-run-gated `present_review_set`, public-RPC approval through `session.submitExchangeResponse`, one explicit-basis `acceptReviewSet` graph commit, and graph invalidations with `{specId, lsn}`. The probe also fixed a real policy gap: commitment-grade `generate-proposal` now activates `present_review_set` / `request_review` for the Brunch runtime tool posture.
-
-### elicitation-backlog
-
-- **Name:** Elicitation backlog substrate and agenda read-back
-- **Linear:** [FE-823](https://linear.app/hash/issue/FE-823/elicitation-backlog-substrate-and-agenda-read-back)
-- **Kind:** structural / bounded feature
-- **Status:** done
-- **Certainty:** proving
-- **Retires:** A24-L — test whether a flat prospective register is sufficient before any plane/pointer promotion.
-- **Lights up:** `createSpec` seed → `CommandExecutor` backlog mutation → per-spec read-back on the real graph boundary.
-- **Stabilizes:** D65-L's missing "what to ask next" substrate and the rule that prospective agenda state shares the spec-local LSN / change-log boundary.
-- **Objective:** Materialize D65-L `elicitation_backlog` as a flat table routed through `CommandExecutor`, seed it at spec creation, and provide per-spec read-back so the current elicitor coverage push has a real substrate instead of a homeless driver row.
-- **Why now / unlocks:** This is the remaining required elicitor-coverage row that has escaped row-sized work. Promoting it back into `PLAN.md` keeps PLAN authoritative, gives the temporary cross-cut a named completion target, and unlocks later per-turn "what to ask next" behavior without prematurely inventing either a second planning system or a graph plane.
-- **Acceptance:**
-  - The flat table exists with a generated migration and a reconciliation-need-mirroring shape.
-  - Create/close operations route through `CommandExecutor`, allocate one spec-local LSN + one `change_log` row each, and return structured failures on malformed input.
-  - `createSpec` seeds the grounding-band starter agenda for the new spec only.
-  - A graph-owned read path returns open backlog entries per spec with stable fields.
-- **Verification:** Inner — schema/migration and `CommandExecutor` tests for create/close/seed/LSN/change-log behavior. Middle — graph query read-back and sibling-spec isolation. Outer — none yet; the per-turn driver remains a follow-on once the substrate proves useful.
-- **Cross-cutting obligations:** Preserve D4-L/D20-L command boundary, D16-L/A4-L one `{specId, lsn}` mutation clock, D63-L basis-as-provenance-directness, D52-L graph-owned table + read, and D65-L flat-table-only modeling — no graph node/plane and no unknown→unknown edges.
-- **Traceability:** D4-L, D8-L, D16-L, D20-L, D52-L, D63-L, D64-L, D65-L / A24-L.
-- **Design docs:** `memory/SPEC.md` D65-L; `docs/design/GRAPH_MODEL.md`.
-- **Current execution pointer:** Done 2026-06-08 on FE-823. Materialized `elicitation_backlog` as a flat table plus generated migration, seeded grounding questions at `createSpec`, routed create/close mutations through `CommandExecutor` on the shared spec-local LSN/change-log seam, and added graph-owned per-spec read-back. The remaining prompt-resource body pass stays in `memory/CROSS_CUT_PLAN.md` as temporary coverage completion work; the live per-turn driver remains a follow-on, not frontier completion debt.
-
-### elicitation-gaps-remodel
-
-- **Name:** Elicitation-gaps obligation remodel (backlog → typed coverage gaps)
-- **Linear:** unassigned — create in FE / brunch when the frontier starts (sibling, not under FE-531).
-- **Kind:** structural / bounded feature
-- **Status:** done
-- **Certainty:** proving
-- **Retires:** A24-L (flat-register sufficiency, now under the obligation model rather than the question-instance model) and A27-L (per-band gap-satisfaction predicate expressibility at acceptable LLM cost).
-- **Lights up:** the typed coverage-obligation register — each gap carries `name` + `rationale` + `band` + `presence|field|coverage|manual` predicate + `importance` + derived `coverage` + `disposition` — replacing the FE-823 question-instance / `open|closed` backlog.
-- **Stabilizes:** D65-L's gap obligation model; I30-L gap-disposition capture; the anti-shadowing line (the table holds obligation/disposition/meta only, never domain content — that lives in the graph).
-- **Objective:** Remodel the FE-823 `elicitation_backlog` table/type into `elicitation_gaps`: (a) rename module/type/table (`graph/schema/elicitation-backlog.ts` → `elicitation-gaps.ts`, `ElicitationBacklogEntry` → `ElicitationGap`); (b) replace the literal `question` field with a stable `name` (typology key — machine identity + display label) plus a mandatory meta `rationale`; (c) replace `status` / `ELICITATION_BACKLOG_STATUSES` with a `disposition` enum (`open | answered | not_applicable | irrelevant | reopened`) stored only where non-derivable (scope judgments + `manual` satisficiency); (d) add a `predicate` tagged union (`presence | field | coverage | manual`); (e) split the ambiguous rating into `importance` (pre-answer weight) + derived `coverage` (post-answer strength); (f) seed the grounding band from the collated **grounding typology catalog** (floor `domain` / `protagonist` / `pain_pull` / `constraint`; progressive drivers `value` / `context_of_use` / `success_sketch` / `solution_boundary`) in `command-executor.ts`, replacing the four `*_anchor_question` literals. Pre-release posture: regenerate the migration and seed; do not preserve the backlog row shape.
-- **Why now / unlocks:** D65-L reconceived the backlog as typed obligations; both `capability-readiness` and `elicitation-driver` read this remodeled substrate, so its shape must land first. It is also upstream of the context-pipeline trio's readiness/chrome-touching locks (the gaps register surfaces through projections/renderers).
-- **Acceptance:**
-  - The table is `elicitation_gaps` with a regenerated migration; no `question` / `status` / `ELICITATION_BACKLOG_STATUSES` residue remains.
-  - Each gap carries name + rationale + band + predicate + importance + derived coverage + disposition.
-  - Structural `answered` is derived **live** from the graph (never hand-set); only scope dispositions (`not_applicable` / `irrelevant`) and `manual` satisficiency are stored.
-  - `createSpec` seeds the grounding typology catalog (floor + progressive drivers), not literal questions; the four `*_anchor_question` literals are gone.
-  - Mutations still route through `CommandExecutor` on the shared spec-local `{specId, lsn}` / `change_log` boundary; per-spec read-back returns gaps.
-- **Verification:** Inner — gaps schema/disposition tests; seed-set test asserting the grounding typology catalog (floor vs progressive); CommandExecutor create / close-disposition tests; live-derived `answered` test (graph presence flips coverage with no hand-set). Middle — per-band predicate expressibility fixtures (A27-L); capture-reflection spawning an elicitation-band gap. Outer — per-spec read-back probe over a seeded spec.
-- **Cross-cutting obligations:** Anti-shadowing — the table never holds domain content (which lives in the graph). Gaps commit only through `CommandExecutor` (`basis` via provenance-directness, D63-L: user-raised `explicit`, agent-inferred `implicit`). Multi-spec discipline — each gap belongs to one spec's register.
-- **Traceability:** D8-L, D30-L, D57-L, D60-L, D63-L, D64-L, D65-L, D74-L / A24-L, A27-L / I30-L. Supersedes the FE-823 backlog row shape.
-- **Design docs:** `memory/SPEC.md` D65-L and §Grounding typology catalog; `src/graph/README.md`; `src/db/README.md`.
-- **Current execution pointer:** Done 2026-06-10. Replaced FE-823 `elicitation_backlog` with the D65-L `elicitation_gaps` obligation register, regenerated the table/migration metadata, seeded the grounding typology catalog, routed create/disposition mutations through `CommandExecutor`, and proved live `presence` coverage/answered derivation at read-back with sibling-spec isolation. `field`/`coverage` predicate derivation and `manual` LLM satisficiency remain named follow-ons for capability-readiness / later predicate slices. **Superseded in part by `gaps-node-kind-reference` (D75-L):** the grounding typology catalog and gap-`name` enum are retired in favor of `refersTo: NodeKind` + a free-form question; the flat-table substrate, predicate union, disposition, and live derivation this frontier established stand. **2026-06-11 predicate-hardening follow-on landed:** `field`/`coverage` gap predicates now reject loudly until derivation exists, open presence gaps dedupe by `(specId, nodeKind)`, and gap hydration fails on `predicate_kind` / predicate JSON divergence instead of silently reading an inconsistent row.
-
-### gaps-node-kind-reference
-
-- **Name:** Gaps reference node kinds; retire the grounding-typology vocabulary (D75-L)
-- **Linear:** unassigned — create in FE / brunch when the frontier starts.
-- **Kind:** structural
-- **Status:** done
-- **Certainty:** proving
-- **Depends on:** `elicitation-gaps-remodel` (done — reshapes its `name`-typology output onto node kinds).
-- **Retires:** the `GROUNDING_GAP_TYPOLOGIES` seed catalog (8 typology names), the closed gap-`name` typology enum, and `capability-readiness`'s `RelevantGapName` union (D75-L); absorbs the retired refactor plan, folded into D75-L (do not enshrine the catalog).
-- **Lights up:** an `elicitation_gaps` row that names its obligation by `refersTo: NodeKind` + a free-form `question`; capability-relevant gaps expressed as a `capability → NodeKind[]` map (grounding floor = `context` + `thesis` + `goal` + `constraint`).
-- **Stabilizes:** D75-L (one ontology — gaps reference the node-kind taxonomy, not a parallel vocabulary) and the anti-shadowing line (the table holds obligation/disposition/meta, never domain content).
-- **Objective:** Implement the D75-L substrate reshape. (1) `graph/schema/elicitation-gaps.ts`: replace `name` (typology key) with `refersTo: NodeKind` + a free-form `question`, keeping `rationale` / `band` / `predicate` / `importance` / derived `coverage` / `disposition`; regenerate the table + migration (pre-release free-rewrite, no typology residue). (2) `graph/command-executor.ts`: reseed grounding from node kinds — floor `context` / `thesis` / `goal` / `constraint` plus the now-covered `term` / `assumption` — instead of the 8-entry `SEEDED_ELICITATION_GAPS` catalog; draw seeded question text from the `docs/design/ELICITATION_QUESTIONS.md` priming examples. (3) `projections/session/capability-readiness.ts`: replace `RelevantGapName` + `CAPABILITY_RELEVANT_GAPS` with a `capability → NodeKind[]` map; a referenced kind absent from the register still fails loud (config bug ≠ uncovered). (4) Reconcile the graph / db / projections topology READMEs + the seed-set and capability-readiness tests.
-- **Why now / unlocks:** D75-L is canonical but the code still implements the typology catalog; this is the upstream substrate reshape `capability-readiness` builds its gate on, so it lands before that frontier rewires the gate. It is also upstream of the trio's projection-shape lock (the gaps register surfaces through projections).
-- **Acceptance:**
-  - `ElicitationGap` carries `refersTo: NodeKind` + `question`; no typology `name` enum, no `GROUNDING_GAP_TYPOLOGIES`, no `RelevantGapName` remain; table/migration regenerated with no typology residue.
-  - `createSpec` seeds grounding gaps by node kind (floor + `term` / `assumption`), not the eight literal typologies.
-  - capability-readiness reads a `capability → NodeKind[]` map; the grounding floor is grounded `context` + `thesis` + `goal` + `constraint`; a referenced kind absent from the register fails loud.
-  - Live presence-derived coverage/answered still flips from graph truth; two same-kind gaps (e.g. two `thesis` questions) are discriminated by question + `manual` / `coverage` satisfier, not aliased by a blunt presence count.
-  - graph / db / projections READMEs and the affected tests reconciled.
-- **Verification:** Inner — gaps schema test (`refersTo: NodeKind`, no name enum); reseed test asserting the grounding floor by node kind incl. `term` / `assumption`; capability-readiness map test over node kinds incl. loud-fail-on-miss; live presence coverage flip preserved. Middle — the **discrimination probe** (the proving unknown): two `thesis`-referencing gaps resolve independently via question + judgment, not one shared presence count — retiring the presence-aliasing risk the retired refactor plan only deferred. Outer — per-spec seeded read-back probe.
-- **Cross-cutting obligations:** anti-shadowing (D65-L/D75-L) — the table never stores domain content; the `NodeKind` union stays owned by the drizzle-free leaf `graph/schema/kinds.ts` (D73-L) — gaps import it, never redefine it; the `CommandExecutor` boundary + shared `{specId, lsn}` / `change_log` clock are unchanged.
-- **Traceability:** D54-L, D56-L, D57-L, D60-L, D64-L, D65-L, D73-L, D74-L, D75-L / A24-L, A27-L / I30-L. Supersedes the grounding typology catalog, the gap-`name` typology enum, and `RelevantGapName`; absorbs the retired refactor plan.
-- **Design docs:** `memory/SPEC.md` D75-L / D65-L; `docs/design/ELICITATION_QUESTIONS.md`; `src/graph/schema/elicitation-gaps.ts`; `src/graph/command-executor.ts`; `src/projections/session/capability-readiness.ts`; `src/graph/README.md`; `src/db/README.md`; `src/projections/README.md`.
-- **Current execution pointer:** Done 2026-06-10. Replaced gap `name` with `refersTo: NodeKind` + `question` across schema, DB, `CommandExecutor`, reads, and capability-readiness; added migration `0004_gaps_node_kind_reference`; reseeded grounding by node kind (`context`, `thesis`, `goal`, `constraint`, plus `term`/`assumption`); proved live presence coverage still flips, required-kind absence fails loud, and two `thesis` gaps discriminate independently by question+satisfier. Topology READMEs reconciled.
 
 ### capability-readiness
 
@@ -382,29 +252,6 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Traceability:** D16-L, D20-L, D52-L, D63-L, D64-L, D65-L / A24-L.
 - **Design docs:** `memory/SPEC.md` D65-L; `docs/design/GRAPH_MODEL.md`.
 
-### minimal-authority-shell
-
-- **Name:** Minimal POC authority shell over graph/session actions
-- **Linear:** [FE-810](https://linear.app/hash/issue/FE-810/minimal-poc-authority-shell-over-graphsession-actions)
-- **Branch:** to create — `ln/fe-810-minimal-authority-shell`
-- **Kind:** hardening
-- **Status:** done
-- **Certainty:** proving
-- **Stabilizes:** D20-L/D40-L command-result and elicit-mode authority seams for the current POC graph/session paths.
-- **Objective:** Fill only the authority behavior required for a credible POC: graph writes keep returning structured command results, `elicit` suppresses obvious side-effecting tools, and headless/RPC paths surface structured `needs_human` where the POC actually reaches human-only actions.
-- **Why now / unlocks:** Full M6 can remain horizon, but the POC must not look unsafe or mode-specific when graph/capture/review paths are exercised.
-- **Acceptance:**
-  - `CommandExecutor` result discriminants remain the only graph mutation outcome surface for agent, RPC, and capture writes.
-  - `elicit` operational mode blocks or hides side-effecting Pi tools already identified as unsafe for the POC; remaining strict built-in suppression limits are named as A18-L residue, not ignored.
-  - Any human-only action encountered by current POC paths returns structured `needs_human` in headless/RPC rather than throwing a TUI-only dialog assumption.
-  - No new standalone authority service is introduced.
-- **Verification:** Inner — policy/result-shape tests for touched actions. Middle — small authority matrix over current POC paths (agent graph tool, capture write, review approve if present, RPC/headless selection). Outer — manual smoke only if a TUI-visible policy path changes.
-- **Topology materialization:** Policy lives in `graph/policy` and `.pi/extensions/runtime/` / command-policy adapters as appropriate; no caller-side policy snippets in `web/`, `rpc/`, or agent resources.
-- **Cross-cutting obligations:** This is a minimal shell, not full M6. Do not widen into comprehensive RBAC/permissions unless a current POC path needs it.
-- **Traceability:** R5, R6, R10 / D20-L, D34-L, D40-L / A18-L, A3-L.
-- **Design docs:** `memory/SPEC.md` D20-L/D34-L/D40-L; `docs/reference/pi-extensions.md`.
-- **Current execution pointer:** Done 2026-06-08. Added `src/.pi/extensions/runtime/authority-matrix.test.ts` as the minimal authority guard: it locks the `CommandResult` discriminant vocabulary (including structured `needs_human` representability), proves `elicit-read-only` derives allowed/blocked tool authority from the shared projected runtime policy, and verifies the POC side-effecting tools (`bash`, `edit`, `write`) are not reachable in `elicit`. No standalone authority service was introduced, `src/.pi/agents/state.ts` stayed untouched, and A18-L strict built-in suppression remains named residue rather than closed.
-
 ### poc-live-ship-gate
 
 - **Name:** POC live ship gate and runbook oracle
@@ -430,76 +277,6 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Traceability:** R4, R7, R10, R11, R12, R16, R19, R24, R28 / D5-L, D11-L, D19-L, D21-L, D33-L, D36-L, D52-L, D61-L, D62-L, D63-L, D64-L / I22-L, I32-L, I35-L, I38-L, I39-L, I40-L / A5-L.
 - **Design docs:** `docs/architecture/probes-and-transcripts.md`; `docs/architecture/pi-ui-extension-patterns.md`; `memory/SPEC.md` verification stance.
 - **Current execution pointer:** FE-811 ship-gate hardening landed on `ln/fe-811-ship-gate-residue-and-mentions`: stale graph-snapshot/report residue in the committed fixture-curation and project-graph-review-cycle runs was regenerated to the graph-overview/workspace.state contract, the related-edge formatter now labels non-anchor edges `lateral`, and the live mention autocomplete slice now sources selected-spec graph nodes instead of fixture candidates. The remaining frontier work is the final fresh-cwd runbook gate.
-
-### graph-observed-shapes
-
-- **Name:** Graph observed-shape inventory by consumer
-- **Linear:** unassigned
-- **Kind:** structural
-- **Status:** done
-- **Certainty:** proving
-- **Lights up:** One canonical observed-shape matrix across graph readers, RPC methods, and web observer surfaces.
-- **Stabilizes:** D60-L read-shape ownership, D33-L web read-only observer scope, and the rule that `src/projections/` exists only for reusable multi-consumer DTOs.
-- **Objective:** Decide the canonical graph read-shape set per consumer (agent/tooling, RPC, web) and align `graph/`, `rpc/`, and `web/` to that inventory without forcing every agent-oriented shape onto the web.
-- **Why now / unlocks:** The read-shape story is currently fragmented across domain queries, Pi adapter helpers, RPC methods, and web features. This is the strongest follow-on coverage frontier because it keeps `projections/` from becoming an indirection grab bag and makes the observed-shape story legible before more surfaces accrete.
-- **Acceptance:**
-  - A closed enumerated coverage ledger exists with required vs deferred shapes per consumer.
-  - Each required consumer shape has one canonical owner; adapter-local formatting no longer stands in for a durable read shape.
-  - Web remains a read-only observer; web adoption is deliberate, not accidental bleed-through from agent/RPC needs.
-  - Any DTOs that survive in `src/projections/` justify multi-consumer reuse; single-owner reads stay in their owning domains.
-- **Verification:** Inner — graph query / RPC / web query tests for adopted shapes. Middle — selected-spec observer/read-path smoke over seeded graph data. Outer — manual spot-check only if the web observer UX changes materially.
-- **Cross-cutting obligations:** Do not promote all read shapes everywhere. `list_by_kind` / `list_by_band` are plausible web shapes; `related` / `gaps` may remain agent/RPC-only. Keep graph-owned read logic out of `db/`, and keep `src/renderers/` limited to durable LLM/session text rather than arbitrary observer DTOs.
-- **Traceability:** D33-L, D51-L, D52-L, D60-L, D64-L.
-- **Design docs:** `src/graph/README.md`; `src/rpc/README.md`; `src/web/README.md`.
-- **Current execution pointer:** Done 2026-06-08. `src/graph/README.md` now owns the closed observed-shape ledger: `read_graph` requires the six agent shapes, RPC and web require only `overview` + `neighborhood`, `list_by_kind` / `list_by_band` remain web-eligible deferred, and register reads remain deferred until a per-turn driver/consumer needs them. `src/graph/observed-shapes-coverage.test.ts` guards the tool/RPC/web required subsets; no transport shape shipped in this frontier.
-
-### runtime-affordances-and-legality
-
-- **Name:** Runtime affordances and legality surface
-- **Linear:** unassigned
-- **Kind:** structural
-- **Status:** done
-- **Certainty:** proving
-- **Lights up:** A shared affordance/default-on-switch projection across TUI, web, and RPC if runtime posture controls widen again.
-- **Stabilizes:** D40-L's projection-as-truth model and the shared legality/default semantics over goal/strategy/lens.
-- **Objective:** Consolidate what runtime posture options are legal, default-on-switch, and visible across transport boundaries without replacing the append-only runtime-state projection model with a state machine.
-- **Why now / unlocks:** The shared legality tables already exist, but the next UI/control pass could fork them client-side if this surface stays implicit. Keeping it queued protects the "Brunch-owned shared affordance logic" rule before another posture pass lands piecemeal.
-- **Acceptance:**
-  - The scoped frontier closes the required affordance rows across user/system switch surfaces, resolved-state read-back, and shared legality/default projections.
-  - No client reimplements availability/legality rules locally.
-  - Active review-set state or freestyle-vs-structured turn mode only joins when it becomes real product state, not as speculative scaffolding.
-- **Verification:** Inner — shared affordance projection and switch-reducer tests. Middle — TUI/RPC/web parity checks if a new surface lands. Outer — manual only when a user-visible posture control changes.
-- **Cross-cutting obligations:** Keep truth append-only in `brunch.agent_runtime_state`; affordances are pure derivations over shared tables. Do not add xstate or a persisted machine without new evidence.
-- **Traceability:** D25-L, D40-L, D59-L, D66-L.
-- **Design docs:** `memory/SPEC.md` D40-L/D59-L; `src/projections/README.md`; `src/session/README.md`.
-- **Current execution pointer:** Done 2026-06-08. `src/projections/session/affordances.ts` now owns the shared `(resolvedState, readinessGrade)` derivation for legal goal/strategy/lens options plus default-on-switch values, reusing the same grade/AUTO legality source consumed by `.pi/agents/state.ts`; `src/session/README.md` owns the closed coverage ledger and `src/session/runtime-affordances-coverage.test.ts` guards required agent/RPC rows while leaving `active-review-set` and `turn-mode` as explicit product-state-gated deferrals.
-
-### role-safe-graph-mutations
-
-- **Name:** Role-safe `mutateGraph` / `mutate_graph` as the canonical graph mutation grammar
-- **Linear:** unassigned
-- **Kind:** structural / bounded feature
-- **Status:** done
-- **Certainty:** proving
-- **Folded scopes:** the former role-named edge-surface and semantic graph-mutation curation cards were consumed by this frontier and deleted during sync; `mutateGraph` / `mutate_graph` is now the one authored grammar.
-- **Lights up:** one authored graph-mutation grammar across direct agent graph writes, review-set proposal drafts, capture writes, seed-fixture loading, and dev curation RPC.
-- **Stabilizes:** D51-L/D53-L/D27-L edge-authoring boundary; agents express edges by category + endpoint roles, while `sourceId`/`targetId` stays internal storage geometry derived from `EDGE_CATEGORY_METADATA`.
-- **Objective:** Replace exposed create-only `commitGraph` / `commit_graph` with `mutateGraph` / `mutate_graph` as the canonical authored mutation command/tool. The grammar supports create/patch/delete operations, uses role-named create-edge variants (`oracle/claim`, `dependency/dependent`, `abstract/concrete`, etc.), normalizes those variants through `EDGE_CATEGORY_METADATA`, and preserves one `CommandExecutor` transaction, one spec-local LSN, one change-log row, and the existing stored edge shape.
-- **Why now / unlocks:** The edge model was intended to help agents map relations from unstructured material, but `{category, source, target}` leaves the most error-prone directionality burden at the agent boundary. The earlier semantic-mutation curation scope would otherwise mint a richer graph-write path with a different API pattern. Taking the bigger step now prevents two graph mutation dialects, gives generalized capture one safe relation grammar, and gives fixture curation patch/delete without creating a second mutation model.
-- **Break-and-repair path:** Change the canonical shape first, then let type/test failures enumerate callers. Add `RoleNamedEdgeDraft` + a drift-tested normalizer over `EDGE_CATEGORY_METADATA`; introduce `CommandExecutor.mutateGraph` / a shared mutation planner; remove/rename exposed `commit_graph` and repair prompt resources, Pi graph tool schemas/adapters, capture, seed loader, review-set translation, dev RPC, probes, and docs to `mutate_graph`. `acceptReviewSet` remains the workflow/audit command but reuses the same mutation planner. Do not keep a compatibility bridge accepting both role-named and generic source/target edge drafts; any temporary create-only helper must be private, delegate to `mutateGraph`, and be removed before frontier completion unless a same-slice caller proves it still earns its place.
-- **Acceptance:**
-  - `mutateGraph` / `mutate_graph` is the one exposed authored graph-mutation grammar; exposed `commitGraph` / `commit_graph` is retired or private-only over the same engine.
-  - Create-edge ops are an 8-variant role-named union at category/role granularity; no tuple-specific relation catalogue is introduced.
-  - Role field names are test-pinned to `EDGE_CATEGORY_METADATA`; normalization to private `source`/`target` is table-driven, and generic `{category, source, target}` authored drafts are rejected at graph tool and review-set boundaries.
-  - Create/patch/delete batches are atomic: one transaction, one selected-spec LSN, one change-log row; invalid ops reject the whole batch without writes or clock advancement.
-  - Edge identity remains immutable: category, semantic endpoints / stored endpoints, stance, and basis cannot be patched; changing them requires delete+create or supersession.
-  - Policy gates op kinds by caller/posture, so the unified tool grammar does not silently grant autonomous agents deletion authority.
-  - Product writers are ported: propose-graph uses create-only ops with `createBasis: implicit`; capture and seed loading use create-only ops with `createBasis: explicit`; review-set proposals use role-named edge drafts and acceptance reuses the shared planner; dev curation RPC exposes projected-code create/patch/delete through the same command.
-- **Verification:** Inner — normalizer/drift/schema tests over all eight categories; `CommandExecutor` mutation tests for creation parity, patch/delete legality, rollback, sibling-spec rejection, LSN/change-log behavior, and no-reuse ordinals. Middle — graph tool/review-set/capture/seed/dev-RPC tests repaired to `mutateGraph`; dry-run/accept parity for review sets; grep/source tests quarantine `source`/`target` to internal planner/storage/projection code. Outer — product probes and docs point at `mutate_graph`; any retained pre-migration `commit_graph` artifacts are explicitly historical until regenerated.
-- **Cross-cutting obligations:** Preserve D4-L/D20-L command boundary, D16-L/A4-L spec-local mutation clock, D51-L stored edge identity, D62-L projected node codes, D63-L `basis` semantics, and D52-L ownership (`graph/` owns mutation semantics; adapters translate only at boundaries). Do not re-orient persistence to upstream/downstream and do not add a read DTO merely to mirror direction; `projection/direction.ts` remains the read projection.
-- **Traceability:** D4-L, D16-L, D20-L, D27-L, D51-L, D52-L, D53-L, D62-L, D63-L / A14-L / I1-L, I11-L, I15-L, I20-L, I34-L, I39-L, I40-L, I41-L.
-- **Design docs:** `docs/design/GRAPH_MODEL.md`; `memory/SPEC.md` D27-L/D51-L/D53-L; `src/graph/README.md`; `src/rpc/README.md`; `docs/testing/seeded-dev-rpc.md`.
-- **Current execution pointer:** Done 2026-06-09. `CommandExecutor` now exposes one public authored mutation seam (`mutateGraph` / `dryRunMutateGraph`) over the extracted planner/writer modules; direct tool writes, review-set acceptance, capture, seed loading, and dev curation all converge on that grammar. The dev-only RPC boundary is now `dev.graph.mutateGraph`, using role-named create-edge ops plus projected node-code / selected-spec edge-id resolution before it enters `CommandExecutor`. Follow-up closure on the same date: the product probes now prompt for and parse `mutate_graph`, current docs describe `mutate_graph` as the active tool, the checked-in 2026-06-05 fixture-curation run is labeled historical pre-migration `commit_graph` evidence, and schema coverage guards the authored edge surfaces against endpoint-role drift.
 
 ### projection-shape-coverage
 
@@ -624,55 +401,6 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Traceability:** D52-L, D39-L, D4-L.
 - **Design docs:** `src/README.md`; `src/.pi/README.md`; `src/.pi/agents/README.md`; `src/.pi/skills/README.md`; `src/.pi/extensions/README.md`; `src/db/README.md`; `src/graph/README.md`; `src/projections/README.md`; `src/renderers/README.md`; `src/rpc/README.md`; `src/session/README.md`; `src/web/README.md`.
 
-### dx-feedback-loops
-
-- **Name:** First-class developer feedback loops over the pi harness
-- **Linear:** FE-825 — https://linear.app/hash/issue/FE-825/first-class-developer-feedback-loops-over-the-pi-harness
-- **Kind:** structural / dev-substrate
-- **Status:** done
-- **Certainty:** proving
-- **Retires:** A25-L — first validation that tracking the latest `pi-coding-agent` line (via dep bump + dev source-alias) lands without sealed-profile regression.
-- **Lights up:** A consolidated `src/dev/` front door exposing three named end-to-end loops (faux / real-provider / introspection) that did not exist as a first-class iteration surface, with vite/vitest able to run against pi *source* with no rebuild.
-- **Stabilizes:** The DX-loop seam (D68-L) and the read-only introspection capture contract (D69-L) that future contributors aim from.
-- **Objective:** Make working over the pi harness fast and observable. (1) Bump `@earendil-works/pi-*` to latest (`0.79.0`) and add a dev source-alias resolving those packages to the sibling `pi-mono` `src/` checkout in `vitest` + `vite`, mirroring pi's own alias list, while published builds keep resolving `dist`; `tsx` source mode remains an explicit future opt-in via a dev tsconfig, not the default path (D67-L). (2) Consolidate three loops behind one `src/dev/` front door owning the launchers plus a shared faux-harness factory; migrate ad hoc faux wiring onto the factory (D68-L). (3) Add one read-only, dev-gated introspection extension wired through `brunch-pi-extensions.ts` that captures exactly what the model receives — mechanical via passive `before_provider_request`/`before_agent_start` tap + on-demand `/introspect` (`ctx.getSystemPromptOptions()`), subjective via launcher `session.prompt` — both writing one `.fixtures/scratch/introspection/<run-id>/` run (D69-L/D70-L).
-- **Why now / unlocks:** The only fast iteration path today is ad hoc faux wiring scattered across `src/probes/`; the user has elevated DX loops to first-class. This is a substrate that accelerates every later frontier, and its version-bump+alias slice is a shared unblocker best landed before the trio's pi-facing churn. Not POC-ship-critical.
-- **Acceptance:**
-  - pi deps are at latest and a dev source-alias resolves `@earendil-works/pi-{ai,agent-core,tui,coding-agent}` to the `pi-mono` `src/` checkout in `vitest` and `vite`; the published/`dist` resolution path is unchanged, and `tsx` source mode is deferred to an opt-in dev tsconfig if a later real-provider loop needs it.
-  - A single `src/dev/` front door owns the faux, real-provider, and introspection launchers plus one shared faux-harness factory; existing ad hoc faux setup (e.g. `src/probes/structured-exchange-ordering-proof.ts`, `src/.pi/brunch-pi-settings.ts`) is migrated onto the factory or explicitly justified in place.
-  - The faux launcher boots an in-memory `AgentSession` over the pi faux provider and runs a scripted turn end-to-end with no network, keys, or tokens.
-  - One read-only, dev-gated introspection extension loads only through the explicit `brunch-pi-extensions.ts` bundle, returns every captured payload unchanged, and produces a well-formed paired `.fixtures/scratch/introspection/<run-id>/` run (mechanical payload + subjective answer correlated by turn).
-  - Product runs are unaffected: outside dev/introspection mode the introspection extension is absent and the D39-L offline default holds.
-- **Verification:** Inner — alias-resolution + faux-harness-factory boot unit tests; a test asserting the introspection extension returns payloads unchanged (observation-only); a sealed-profile test that the extension is absent and offline default intact under product mode. Middle — faux launcher scripted-turn smoke; introspection run-artifact shape assertion under `.fixtures/scratch/introspection/`. Outer — manual real-provider introspection session against a live model: ask the model to enumerate and critique tools/skills and eyeball the paired capture (the I38-L discretionary-loading fitness check; tracked, not gated).
-- **Cross-cutting obligations:** Preserve the D39-L sealed-profile boundary — introspection loads via the explicit static bundle (never ambient discovery), observes but never mutates payloads, and its offline-lift + extension inclusion are dev-gated, never product defaults. Dev loops are means-of-building and stay distinct from `src/probes/` product-verification probe runs; any durable evidence a dev loop produces lands as a probe run under the `.fixtures/runs/` contract, not a parallel artifact path (D68-L). Pi version bumps are routine adaptation, not deferred migrations; keep the dev alias mirroring pi's own `tsconfig.json` paths list and do not pin back (D67-L).
-- **Topology materialization:** `src/dev/` becomes the dev front door (launchers + shared faux-harness factory); the introspection extension lives under `src/.pi/extensions/` per D39-L topology and is wired in `src/.pi/brunch-pi-extensions.ts`; dev source-alias config lives in `vite.config.ts` through the `PI_SOURCE`-gated runtime alias, while base `tsconfig.json` stays paths-free; introspection artifacts are written under `.fixtures/scratch/introspection/`.
-- **Traceability:** D39-L, D58-L, D67-L, D68-L, D69-L; A25-L; I38-L.
-- **Design docs:** `memory/SPEC.md` §Development Feedback Loops (DX) and D67-L–D69-L; a new `src/dev/README.md`; `pi-mono/packages/coding-agent/docs/development.md` and `vitest.config.ts` for the alias pattern.
-- **Current execution pointer:** Done 2026-06-09. The chain landed the latest-pi bump and `PI_SOURCE`-gated runtime alias, the `src/dev/` faux front door and shared faux harness, and the dev-gated read-only introspection extension plus paired run-artifact launcher. Verification: `npm run verify` (608 tests, tsc build, web build). The follow-on frontier `dx-introspection-live` is now also done: the real TUI wiring, `--cwd` launch surface, unified `BRUNCH_DEV` gate, dev query tools, and workspace-local `.brunch/debug/` cache all landed on 2026-06-11.
-
-### dx-introspection-live
-
-- **Name:** Live, conversational agent-input introspection in the real dev TUI
-- **Linear:** FE-825 — https://linear.app/hash/issue/FE-825/first-class-developer-feedback-loops-over-the-pi-harness
-- **Kind:** structural / dev-substrate (capability expansion over `dx-feedback-loops`)
-- **Status:** done
-- **Certainty:** proving
-- **Retires:** A26-L — proof that conversational introspection is buildable as a read-only dev session-query-back tool without weakening D39-L sealing.
-- **Lights up:** Running `BRUNCH_DEV=1 npm run dev -- --cwd .fixtures/workbenches/<name>` boots the *real* Brunch TUI against a chosen fixture workspace with the introspection extension live and the model able to query exact prior session-log values back into chat for discussion — a loop that did not exist before this frontier (the extension was built but dormant, and dev runs polluted the operating cwd).
-- **Stabilizes:** The four-role `.fixtures/` topology (D70-L), the unified `BRUNCH_DEV` dev gate + `--cwd` launch surface (D71-L), and the conversational session-query contract (A26-L) that future introspection work aims from.
-- **Objective:** Make introspection actually *usable live* and *conversational*. Preflight hardening has already formalized scratch artifact routing and moved probe faux wiring out of `src/dev/**`; slice 1 added `--cwd <dir>`, unified dev gating under `BRUNCH_DEV`, and wired the introspection extension into the real TUI launch path only when enabled. Slice 2 replaces the earlier fixed self-report schema idea with a general read-only `brunch_session_query` tool over `ctx.sessionManager.getBranch()`: predicate match session entries, project exact values, truncate/spill large output, and let the agent echo/discuss those returned bytes in normal chat. The follow-on live-advertisement/payload-query slice makes registered dev query tools actually active under the D40-L allow-list and adds `brunch_introspect_query` over captured provider payloads plus base prompt options. Live-model compliance remains outer-loop fitness, not a product prompt/resource contract.
-- **Why now / unlocks:** When this frontier started, `dx-feedback-loops` had built the introspection machinery but left it dormant — the capability the user actually wanted (interrogate the live in-product agent about how it reads Brunch's tools/skills, and get clarity feedback in chat) was not yet reachable. This frontier closed that gap and hardened the fixtures topology every dev loop and probe shares. Not POC-ship-critical; a DX substrate that accelerates later product frontiers (especially the I38-L discretionary-loading and tool/skill-clarity questions).
-- **Acceptance:**
-  - `runBrunchCli` accepts `--cwd <dir>` (defaulting to `process.cwd()`) so a dev session can target `.fixtures/workbenches/<name>` without `cd`.
-  - A single `BRUNCH_DEV` switch enables dev RPC, introspection registration, scratch routing, and the offline lift together; `BRUNCH_DEV_RPC` is fully retired (no remaining references in code or docs).
-  - With `BRUNCH_DEV=1`, the real Brunch TUI registers the introspection extension last in the `before_provider_request` chain and a live model turn produces a paired scratch run; without `BRUNCH_DEV`, the extension never registers and the D39-L offline default holds.
-  - The agent can call `brunch_session_query` on demand to return verbatim projected value(s) from predicate-matched session entries, including multi-match structured-exchange pairs/triplets; the agent can call `brunch_introspect_query` to return verbatim projected value(s) from captured provider payloads and base prompt options. Both tools are dev instrumentation, never product behavior.
-- **Verification:** Inner — `--cwd` parse unit test; scratch-path resolution test (artifact root is repo-`.fixtures/scratch/`, independent of operating cwd); `BRUNCH_DEV` gating test at the `brunch-tui.ts` call site (extension absent when unset, present + last-ordered when set); build-exclusion assertion for `src/dev/**`; offline-lift save/restore test; dev query-tool find/project/truncation and active-tool advertisement tests. Middle — faux-driven introspection scratch-run shape assertion; faux/tool tests where `brunch_session_query` and `brunch_introspect_query` receive verbatim projected values. Outer — manual `BRUNCH_DEV=1 npm run dev -- --cwd .fixtures/workbenches/<name>` session against a live model: ask the agent to pull exact prior/session and provider-payload values through the dev query tools, echo them in fenced blocks, and discuss tool/skill clarity (tracked, not gated).
-- **Cross-cutting obligations:** Preserve the D39-L sealed-profile boundary — introspection stays read-only (observes/queries, never mutates payloads or session state), loads only via the explicit `brunch-pi-extensions.ts` bundle (never ambient discovery), and all dev affordances stay behind `BRUNCH_DEV`; the dev query-tool union is injected from the factory into both runtime active-tool policy and prompt composition, then still loses to blocked tools and registered-tool intersection (D40-L/I42-L). The offline lift is save/restore-scoped at the session-construction site, never a naked global `process.env` mutation. Dev scratch output stays distinct from `src/probes/` product-verification runs; durable evidence is reached only by explicit promotion into the tracked `runs/` contract (D70-L), not a parallel artifact path. Conversational query tools are dev instrumentation; they must not leak into product behavior or the sealed profile.
-- **Topology materialization:** `.fixtures/scratch/` (gitignored) has joined `seeds/`/`workbenches/`/`runs/`; `--cwd` parsing lands in `src/app/brunch.ts` / `runBrunchCli`; `BRUNCH_DEV` gating and the introspection `{ enabled }` wire-up land in `src/app/brunch-tui.ts`; the provider-payload tap remains in `src/.pi/extensions/introspection/`; conversational query planes live in `src/.pi/extensions/session-query/` and `src/.pi/extensions/introspect-query/`, sharing projection/truncation helpers from `src/.pi/extensions/shared/query-projection.ts`; `.gitignore`, `.fixtures/README.md`, `src/dev/README.md`, and `src/.pi/extensions/README.md` reconcile to the new topology and gate.
-- **Traceability:** D39-L, D58-L, D67-L, D68-L, D69-L, D70-L, D71-L; A26-L; I38-L, I42-L.
-- **Design docs:** `memory/SPEC.md` §Development Feedback Loops and D69-L–D71-L, A26-L, I42-L; `.fixtures/README.md`; `src/dev/README.md`; `src/.pi/extensions/introspection/README.md`; `src/.pi/extensions/session-query/README.md`; `src/.pi/extensions/introspect-query/README.md`.
-- **Current execution pointer:** Done 2026-06-11. Slices 1-2, the dev-query active-tool follow-on, and the workspace debug-cache chain are done: `BRUNCH_DEV` real TUI launches can mirror the latest final system prompt and append explicit Brunch-owned text tool-result content into launch-cwd `.brunch/debug/` while repo-root `.fixtures/scratch/` remains the durable paired-run artifact path. `tool-renders` flattening remains explicitly deferred until a concrete renderer-debugging need appears.
-
 ### dev-seed-fixtures
 
 - **Name:** Explicit dev seeding and launchable workbench flow
@@ -699,27 +427,6 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Branch:** `ln/fe-848-prompt-context-refine` (folded-in slice; no separate Graphite branch).
 - **Traceability:** D16-L, D20-L, D52-L, D61-L, D63-L, D70-L, D71-L, D79-L; I1-L, I11-L, I48-L.
 - **Design docs:** `.fixtures/README.md`; `.fixtures/workbenches/live-graph-observer/README.md`; `docs/design/GRAPH_MODEL.md`.
-
-### web-design-system-port
-
-- **Name:** Web client visual design-system port
-- **Linear:** unassigned
-- **Kind:** bounded feature (web presentation)
-- **Certainty:** earned — the target design exists and works in `../brunch/src/client`; the closure is *materialize the port + delete the invented aesthetic*, not retire an unknown. (Project default is `proving`; this frontier overrides because the design is known.)
-- **Status:** done (all three cards landed 2026-06-09; exhausted scope files deleted during sync)
-- **Objective:** Replace the agent-invented "warm brunch" web aesthetic with the prior trunk's restrained design language (D72-L). Two materializations and one deletion: (a) **tokens** — port the token system into `src/web/styles.css` (Inter + Geist Mono; `ink/sub/hint/rule/wash/tint` ramp + link/plane accents; 11–16px type scale; `--shadow-card` family); (b) **primitives** — copy `DrawerCard`, `KindBadge`, `CountBadge`, `RefBadge` into a new `src/web/components/`, adapted from the old `KnowledgeKind` knowledge-card pattern to this trunk's `NodeKind`/`NodePlane` with a plane-organized accent map; (c) **re-skin** the three existing views (`WorkspaceChrome`, `GraphOverviewPanel`, `SessionPanel`) as a *style + component-pattern port of the views we have* (scope correction, user 2026-06-09) — preserving behavior except invented dead scaffolding — and delete the warm gradients, `backdrop-blur`, oversized radii/shadows, translucent surfaces, and wide-tracked uppercase labels. The non-functional "Focus node" placeholder (never called `graph.nodeNeighborhood`) was removed; the "Edge categories" summary was kept (restyled, user finds it useful).
-- **Why now / unlocks:** The current web UI's visual language was invented wholesale by the agent that built it and does not match the product's established look. Realigning now keeps the read-only observer surface presentable for manual/observer testing and stops the invented aesthetic from being copied forward into future web views. Independent of the delivery spine — touches no data, RPC, query, subscription, or routing code.
-- **Acceptance:**
-  - `src/web/styles.css` carries the ported token system; no warm-palette tokens, body gradients, or `backdrop-blur` remain.
-  - `src/web/components/` holds the ported primitives; the accent map is exhaustive over `NodePlane`, with a compile-time `satisfies Record<NodePlane, PlaneAccent>` guard, while reference-code labels stay canonical via `NODE_KIND_METADATA` + `kindOrdinal` (I43-L).
-  - The three views render in the ported language: quiet metadata-row chrome, `plane / kind`-grouped node cards with canonical reference codes (`NODE_KIND_METADATA` labels + `kindOrdinal`) and plane-accented `KindBadge`/`CountBadge`, plain session card. The "Edge categories" summary is kept (restyled as `RefBadge` chips); the non-functional "Focus node" placeholder is removed.
-  - Read-only contract preserved: no change to queries, RPC client, subscriptions, routes, or projection inputs.
-  - Existing web tests preserved; only the two Focus-node assertions removed; `npm run verify` is green (28 web tests, oxlint type-aware clean, build clean).
-- **Verification:** Inner — `npm run verify` (oxlint type-aware + oxfmt + vitest + build); update `src/web/app.test.tsx` and any view tests that assert retired class names / `aria-label`s. Outer — manual browser check of `/` and `/spec/$specId` against a seeded spec (`npm run seed` then launch web mode) to confirm the chrome, kind-grouped graph cards, and session panel match the prior trunk's look.
-- **Topology materialization:** Stays inside `src/web` per D52-L (`web/` is a standalone build target; must not read SQLite/Pi RPC/JSONL directly). New `src/web/components/` owns ported primitives; only `src/web` imports from it. Component/style patterns are copied (not shared) from `../brunch`. Exception to `sourcing: strip-or-build`: the webfont packages `@fontsource-variable/inter` + `@fontsource-variable/geist-mono` were added with user approval (2026-06-09) — the fonts are the most visible design token; the "no new packages" line was not a hard rule.
-- **Cross-cutting obligations:** Pre-release posture (`migration: free-rewrite`) — discard the invented design freely; do not preserve it for compatibility. Read-only invariant (D33-L one-writer/many-observer): this frontier adds no web write paths. Node reference codes must use the canonical `NODE_KIND_METADATA` projection (D62-L), not a web-local relabeling.
-- **Traceability:** D10-L, D52-L, D62-L, D72-L / I43-L, I39-L.
-- **Design docs:** `../brunch/src/client/index.css`, `../brunch/src/client/components/drawer-card.tsx`, `../brunch/src/client/components/knowledge-card.tsx` (reference source — separate checkout, not imported).
 
 ## Recently Completed
 - 2026-06-09 `role-safe-graph-mutations` — Done: retired the remaining public `commitGraph` residue, extracted the shared mutation planner/writer out of `CommandExecutor`, and completed the last boundary migration so dev curation now exposes `dev.graph.mutateGraph` with role-named create-edge ops plus projected node-code / selected-spec edge-id resolution. Follow-up closure on the same frontier: reconciled the remaining product probes and current docs to the canonical `mutateGraph` / `mutate_graph` grammar, explicitly marked the checked-in 2026-06-05 fixture-curation artifact as historical pre-migration `commit_graph` evidence, and added role-named edge schema coverage across the Pi tool and dev RPC boundaries. Verified: `npx vitest run src/rpc/handlers.test.ts src/app/brunch.test.ts src/probes/fixture-curation-loop.test.ts src/probes/propose-graph-commit-proof.test.ts src/graph/mutate-graph-edge-schema.test.ts` and `npm run verify`.
