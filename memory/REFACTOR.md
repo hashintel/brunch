@@ -103,6 +103,14 @@ resume kick path needs product fixes).
    no-redundant-world-update-after-seed row asserts through real boot; the
    sets-and-properties meta-row either becomes a real assertion helper used by the
    suite or is retired as a stated suite convention rather than a phantom todo.
+7b. **(Discovered during commit 7) Runtime-switch tool posture from real gaps.**
+    `applyRuntimeSwitch` recomputes active tools with a hardcoded empty gap
+    register, so a posture switch floor-locks capability-gated tools until the
+    next turn boundary corrects it — the same optional-wiring fault family.
+    Thread a selected-spec gap reader into the commands extension from the
+    composition root (mirroring the chrome-refresh handle) and derive the
+    post-switch tool set from real coverage.
+
 10. **Migration coherence — SUSPENDED (2026-06-11).** Another agent is fixing the
     0004 migration on the branch stacked on top of this one. Do not touch drizzle/
     in this refactor; the derive-with-'context'-fallback vs read-side-throw concern

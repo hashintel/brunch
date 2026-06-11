@@ -27,6 +27,7 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import {
   AGENT_LENS_IDS,
   AGENT_STRATEGY_IDS,
@@ -54,6 +55,13 @@ export const BRUNCH_SWITCH_SHORTCUT = 'ctrl+shift+b';
 export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
   /** Called after a runtime posture switch so chrome (footer) re-renders from re-projected state. */
   readonly requestChromeRefresh?: () => void;
+  /**
+   * Must-wire: the post-switch tool posture derives from these gaps. Required
+   * so a composition root cannot leave runtime switches recomputing legality
+   * from an empty register (which silently floor-locks gated tools until the
+   * next turn boundary).
+   */
+  readonly getElicitationGaps: () => readonly ElicitationGap[];
 };
 
 interface BrunchStubCommand {
@@ -103,7 +111,7 @@ function applyRuntimeSwitch(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
   patch: RuntimeSwitchPatch,
-  requestChromeRefresh: (() => void) | undefined,
+  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
 ): void {
   const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
   const nextState = {
@@ -126,13 +134,20 @@ function applyRuntimeSwitch(
   );
 
   pi.setActiveTools(
-    activeToolNamesForBrunchAgentState(pi, projectBrunchAgentState(ctx.sessionManager.getEntries()), []),
+    activeToolNamesForBrunchAgentState(
+      pi,
+      projectBrunchAgentState(ctx.sessionManager.getEntries()),
+      options.getElicitationGaps(),
+    ),
   );
-  requestChromeRefresh?.();
+  options.requestChromeRefresh?.();
   ctx.ui.notify(`Brunch ${patch.axis} set to ${patch.value}.`, 'info');
 }
 
-function registerRuntimeSwitchCommands(pi: ExtensionAPI, requestChromeRefresh?: () => void): void {
+function registerRuntimeSwitchCommands(
+  pi: ExtensionAPI,
+  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
+): void {
   pi.registerCommand(BRUNCH_LENS_COMMAND, {
     description: `Change the active Brunch lens (${['auto', ...AGENT_LENS_IDS].join(', ')})`,
     getArgumentCompletions: (prefix) =>
@@ -169,7 +184,7 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, requestChromeRefresh?: 
           ctx.ui.notify(lensUsage(), 'error');
           return;
         }
-        applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: picked }, requestChromeRefresh);
+        applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: picked }, options);
         return;
       }
       if (!isLensSelection(selection)) {
@@ -179,7 +194,7 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, requestChromeRefresh?: 
         );
         return;
       }
-      applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: selection }, requestChromeRefresh);
+      applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: selection }, options);
     },
   });
 
@@ -219,7 +234,7 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, requestChromeRefresh?: 
           ctx.ui.notify(strategyUsage(), 'error');
           return;
         }
-        applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: picked }, requestChromeRefresh);
+        applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: picked }, options);
         return;
       }
       if (!isStrategySelection(selection)) {
@@ -229,7 +244,7 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, requestChromeRefresh?: 
         );
         return;
       }
-      applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: selection }, requestChromeRefresh);
+      applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: selection }, options);
     },
   });
 
@@ -259,10 +274,8 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, requestChromeRefresh?: 
   });
 }
 
-export function registerBrunchCommands(
-  pi: ExtensionAPI,
-  { coordinator, requestChromeRefresh }: BrunchCommandsOptions,
-): void {
+export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommandsOptions): void {
+  const { coordinator } = options;
   pi.registerCommand(BRUNCH_SWITCH_COMMAND, {
     description: 'Open the Brunch spec/session picker',
     handler: async (_args, ctx: ExtensionCommandContext) => {
@@ -279,7 +292,7 @@ export function registerBrunchCommands(
     });
   }
 
-  registerRuntimeSwitchCommands(pi, requestChromeRefresh);
+  registerRuntimeSwitchCommands(pi, options);
 
   pi.registerShortcut?.(BRUNCH_SWITCH_SHORTCUT, {
     description: 'Open the Brunch spec/session picker',

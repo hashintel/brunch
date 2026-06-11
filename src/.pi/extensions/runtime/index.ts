@@ -99,11 +99,17 @@ function applyBrunchToolPolicy(
   devAllowedToolNames?: readonly string[],
 ): void {
   pi.setActiveTools(
-    activeToolNamesForBrunchAgentState(pi, state, conservativeUncoveredGaps(), devAllowedToolNames),
+    activeToolNamesForBrunchAgentState(pi, state, conservativeUncoveredFloorGaps(), devAllowedToolNames),
   );
 }
 
-function conservativeUncoveredGaps(): readonly ElicitationGap[] {
+/**
+ * Explicit fail-closed posture for composition points where selected-spec gap
+ * reads are not available (registration-time policy before context exists, or
+ * a composition with no graph). Never a substitute for real gap reads on a
+ * live selected-spec path.
+ */
+export function conservativeUncoveredFloorGaps(): readonly ElicitationGap[] {
   return (['context', 'thesis', 'goal', 'constraint'] as const).map((kind) => gap(kind));
 }
 

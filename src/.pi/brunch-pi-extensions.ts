@@ -31,7 +31,10 @@ import {
 } from './extensions/introspection/index.js';
 import { type GraphMentionSource } from './extensions/mentions/index.js';
 import { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
-import { registerBrunchOperationalModePolicy } from './extensions/runtime/index.js';
+import {
+  conservativeUncoveredFloorGaps,
+  registerBrunchOperationalModePolicy,
+} from './extensions/runtime/index.js';
 import { BRUNCH_SESSION_QUERY_TOOL, registerBrunchSessionQuery } from './extensions/session-query/index.js';
 import { registerBrunchSessionBoundary } from './extensions/session/lifecycle.js';
 import {
@@ -102,7 +105,13 @@ export {
   registerBrunchIntrospectQuery,
 } from './extensions/introspect-query/index.js';
 
-export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
+export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, 'getElicitationGaps'> {
+  /**
+   * Optional override; when omitted, the composition derives the commands'
+   * gap reader from `graph` (selected-spec reads) or, with no graph in the
+   * composition, an explicitly conservative uncovered floor.
+   */
+  getElicitationGaps?: BrunchCommandsOptions['getElicitationGaps'];
   graphMentionSource?: GraphMentionSource;
   graph?: BrunchGraphDeps;
   promptContext?: BrunchPromptContextProvider;
@@ -145,6 +154,10 @@ export function createBrunchPiExtensions(
       ? createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains)
       : undefined;
     const chromeRefresh: { current: (() => void) | null } = { current: null };
+    const graph = options.graph;
+    const commandGapReads =
+      options.getElicitationGaps ??
+      (graph ? () => graph.reads.getElicitationGaps(graph.specId) : conservativeUncoveredFloorGaps); // no graph in this composition: explicit fail-closed floor
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => {
         registerBrunchSessionBoundary(api, onSessionBoundary, {
@@ -179,6 +192,7 @@ export function createBrunchPiExtensions(
         registerBrunchCommands(api, {
           ...options,
           requestChromeRefresh: () => chromeRefresh.current?.(),
+          getElicitationGaps: commandGapReads,
         }),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
       ...(introspectionOptions?.enabled
