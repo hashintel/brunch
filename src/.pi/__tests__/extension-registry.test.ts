@@ -117,6 +117,31 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(sessionStartIndexes[0]).toBeLessThan(sessionStartIndexes[1] ?? -1);
   });
 
+  it('registers both graph-register and elicitation-register tools when graph deps are provided', async () => {
+    const recording = createRecordingExtensionApi();
+
+    await createBrunchPiExtensions(brunchChromeFixture, recording.onSessionBoundary, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+      graph: {
+        specId: 1,
+        commandExecutor: {} as never,
+        reads: {
+          queryGraph: () => ({ lsn: 1, nodes: [], edges: [] }) as never,
+          getNodes: () => [],
+          resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
+        },
+      },
+    })(recording.api);
+
+    expect(recording.toolNames).toEqual(
+      expect.arrayContaining(['mutate_graph', 'read_graph', 'read_elicitation_gaps']),
+    );
+    // the elicitation register is a dedicated tool, not a read_graph mode
+    expect(recording.toolNames.filter((name) => name === 'read_elicitation_gaps')).toHaveLength(1);
+  });
+
   it('wires prepareNextTurn into the live session boundary and leaves provider-request as guard-only', async () => {
     let graphLsn = 3;
     const appended: Array<{ customType: string; data: unknown }> = [];

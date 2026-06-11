@@ -505,6 +505,7 @@ describe('Brunch prompt-pack topology', () => {
               'grep',
               'read_graph',
               'read_session_context',
+              'read_elicitation_gaps',
               'mutate_graph',
               'present_review_set',
               'request_review',
@@ -534,6 +535,10 @@ describe('Brunch prompt-pack topology', () => {
     );
     await expect(activeToolsForGaps(groundingFloorGaps({ coverage: { context: 0.5 } }))).resolves.toContain(
       'present_review_set',
+    );
+    // the elicitation read tool rides the ungated read-context method
+    await expect(activeToolsForGaps(groundingFloorGaps({ defaultCoverage: 0 }))).resolves.toContain(
+      'read_elicitation_gaps',
     );
   });
 

@@ -19,6 +19,7 @@ import { type BrunchChromeState } from './extensions/chrome/index.js';
 import { registerBrunchCommands, type BrunchCommandsOptions } from './extensions/commands/index.js';
 import { registerBrunchBranchPolicyHandlers } from './extensions/commands/policy.js';
 import { registerBrunchContext } from './extensions/context/index.js';
+import { registerBrunchElicitation } from './extensions/elicitation/index.js';
 import { registerStructuredExchange } from './extensions/exchanges/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
 import {
@@ -195,6 +196,9 @@ export function createBrunchPiExtensions(
           getElicitationGaps: commandGapReads,
         }),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
+      // Elicitation register is a distinct tool surface from the graph register,
+      // but it reads through the same workspace graph runtime deps.
+      ...(options.graph ? [(api: ExtensionAPI) => registerBrunchElicitation(api, options.graph!)] : []),
       ...(introspectionOptions?.enabled
         ? [
             (api: ExtensionAPI) => {

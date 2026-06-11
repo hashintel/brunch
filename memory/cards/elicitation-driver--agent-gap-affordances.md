@@ -80,7 +80,14 @@ src/app/brunch-tui.test.ts ~?
 
 ## Card 2 — `read_elicitation_gaps` pull tool
 
-Status: next
+Status: done (2026-06-11) — divergences from declared paths: (1)
+`src/.pi/agents/state.ts` — the tool had to join `METHOD_TOOL_NAMES['read-context']`
+or posture legality would filter it from the provider payload; (2)
+`src/graph/observed-shapes-coverage.test.ts` — flipped the `elicitation_gaps`
+row to `tool: required` and extended the tool-surface check to cover dedicated
+register tools; (3) registration + activation proofs landed in the existing
+`extension-registry.test.ts` / `prompting.test.ts` rather than a new faux
+harness boot (same Tier-1 seam, cheaper).
 
 ### Objective
 
