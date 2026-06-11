@@ -77,6 +77,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 - `cook-artifact-lifecycle` — **FE-883**, branch `ka/fe-883-orchestrator-improvements` (on FE-864). Wire the already-built `run-artifact.ts` git-merge composer (871ef087) into the live promotion/verify path, replacing the file-copy union; then worktree/branch GC. Slice 1a (composer correct under dep-seeding) landed; wiring + GC remain. Execution queue in `memory/CARDS.md`.
 - `epic-verify-recovery` — **FE-884**, branch `ka/fe-884-epic-verify-recovery` (stacked on FE-883's `ka/fe-883-worktree-gc`). Make a failed epic verification recoverable instead of terminal: a remediation loop on the verify-epic fail-sibling (detect-and-reject + dual re-verify + diff-transfer round-trip), epic infra/timeout classification (B), then partial promotion (C). Slices A + B landed; C remains. Per-branch queue in `memory/CARDS.md` (FE-884 on this branch).
+- `cook-agent-confinement` — confine cook's agent tool surface (path-guarded file ops, seatbelt-wrapped bash/test children: deny writes outside the run sandbox, deny reads of TCC-protected user folders); stacks on FE-841's in-process SDK seam, independent of semantic-stack work.
 - `first-run-provider-setup` — provider/key UX and runtime seam can progress independently of semantic-stack work.
 - `workspace-gitignore-assist` — small workspace hygiene surface with low overlap.
 - `productized-web-research` — waits on prompt/context scenario substrate for probe quality, but can remain separate from semantic schema work.
@@ -229,6 +230,20 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Depends on:** `orchestrator-poc` (done), `cook-codebase-mode` (done). Complements `spec-to-cook-plan`'s integration-blind-verification follow-on (the emitter emits integration-demanding targets; this frontier makes the harness actually *run* them); upstream of any future integration oracle.
 - **Lexicon:** `evaluator` = read-only observer of verification results, distinct from the test-runner / code-writer; ties to `ln-oracles` "requisite variety."
 - **Design docs:** `docs/design/orchestrator.md`; SPEC §Verification Design.
+
+### cook-agent-confinement
+
+- **Name:** Cook agent confinement — OS-level restriction of spawned agent children to the run sandbox
+- **Linear:** unassigned (create on start)
+- **Kind:** hardening
+- **Status:** planned
+- **Objective:** Confine cook's agent tool surface so a misbehaving agent *cannot* read TCC-protected user folders (`~/Desktop`, `~/Documents`, `~/Downloads`, `~/Music`, `~/Pictures` / Photos library) or write outside the run sandbox + TMPDIR — regardless of what its `bash` tool decides to run. **Seam reshaped by FE-841 (PR #194, in-process pi SDK):** tools are now injectable SDK config, so confinement attaches at three points: (a) **file tools** — inject path-guarded `ReadOperations`/`WriteOperations`/`EditOperations` that refuse paths outside `sandboxDir` (pure TypeScript, deterministic, cross-platform); (b) **bash tool** — `createBashToolDefinition(cwd, { spawnHook })` rewrites every command to run under a macOS seatbelt profile (`sandbox-exec -p`: deny-write outside `<runDir>`, deny-read on TCC-protected folders, allow network + toolchain reads); (c) **`runTest` children** (`bun test` / `npx vitest`) — the one remaining plain spawn, wrapped in the same profile. Non-macOS: file-tool guards still apply; bash/runTest confinement degrades to a documented no-op (Landlock/bwrap is a follow-on, not in scope).
+- **Why now / unlocks:** 2026-06-11 field diagnosis: macOS TCC prompts ("Terminal wants to access Apple Music / Photos / Desktop") fired on a fresh machine during a brunch cook demo run. A fully-audited 16-agent instrumented run found **zero** sandbox escapes — agents behaved — but the guarantee is currently statistical, not structural: every agent holds unrestricted `read,write,edit,bash`. Confinement makes the guarantee structural, removes a scary first-run permission dialog from the demo/distribution path, and is the lightweight native step below the deferred sandcastle/container-isolation trigger (criterion (c) in `cook-codebase-mode`'s future-direction note).
+- **Acceptance:** (1) On macOS, `runPi` and `runTest` children run under a confinement profile; a probe child attempting `ls ~/Desktop`, `find ~`, or a write outside the run sandbox fails with a permission error. (2) A full `layered-todo` greenfield cook run (serial + parallel) completes green under confinement — no functional regression from toolchain reads, `~/.pi` auth, or network. (3) Brownfield mode still works (worktree + CoW-copied `node_modules` are inside the confined write root). (4) Non-macOS: confinement degrades to a documented no-op; cook still runs. (5) Candidate invariant promoted on build: *cook agent children cannot read TCC-protected user folders or write outside their run sandbox.*
+- **Verification:** Unit test on the profile/arg builder (pure); integration test spawning a confined child that attempts the three escape classes and asserting EPERM; existing cook fixture smoke green under confinement; fresh-machine "no TCC prompt" check stays a manual outer-loop oracle (note in `docs/praxis/manual-testing.md` if it earns a row).
+- **Depends on:** `pi-sdk-embedding` (FE-841, PR #194) — the in-process SDK is the seam all three confinement points attach to. Touches the same `pi-actions.ts` file as FE-829's toolchain work — stack on top of FE-841.
+- **Lexicon:** *confinement* = OS-level child-process restriction; *sandbox* keeps its existing meaning (the run worktree dir, `sandboxDir`).
+- **Design docs:** `docs/design/orchestrator.md` (agent dispatch section).
 
 ### petri-petrinaut-semantics
 
@@ -965,6 +980,7 @@ agent-fixture-substrate + intent-graph-semantics
               └──→ absorbs / reshapes progressive detail / recursive deflation
 
 TRACK E — Low-conflict parallel work
+cook-agent-confinement (hardening; attaches to FE-841's in-process SDK tool seam — stack atop PR #194)
 first-run-provider-setup
 workspace-gitignore-assist
 productized-web-research
