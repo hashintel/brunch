@@ -48,6 +48,7 @@ import {
   createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
   runWithScopedBrunchOfflineDefault,
+  startupHeaderForActivation,
 } from './brunch-tui.js';
 
 describe('Brunch TUI boot', () => {
@@ -221,7 +222,7 @@ describe('Brunch TUI boot', () => {
     }
   });
 
-  it('runs inspect, preflight, and activation before launching interactive mode', async () => {
+  it('runs inspect, preflight, activation, and decision propagation before launching interactive mode', async () => {
     const events: string[] = [];
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
 
@@ -254,12 +255,33 @@ describe('Brunch TUI boot', () => {
           sessionFile: workspace.session.file,
         };
       },
-      launchInteractive: async ({ workspace: launched }) => {
-        events.push(`launch:${launched.session.id}`);
+      launchInteractive: async ({ workspace: launched, activationDecision }) => {
+        expect(activationDecision).toBeDefined();
+        events.push(`launch:${launched.session.id}:${activationDecision?.action}`);
       },
     });
 
-    expect(events).toEqual(['inspect', 'preflight', 'activate:continue', 'launch:session-ready']);
+    expect(events).toEqual(['inspect', 'preflight', 'activate:continue', 'launch:session-ready:continue']);
+  });
+
+  it('requests startup header chrome for every activated launch decision', () => {
+    expect(
+      startupHeaderForActivation({ action: 'continue', specId: 1, sessionFile: '/s/one.jsonl' }),
+    ).toEqual({
+      decision: 'continue',
+    });
+    expect(
+      startupHeaderForActivation({ action: 'openSession', specId: 1, sessionFile: '/s/two.jsonl' }),
+    ).toEqual({
+      decision: 'openSession',
+    });
+    expect(startupHeaderForActivation({ action: 'newSession', specId: 1 })).toEqual({
+      decision: 'newSession',
+    });
+    expect(startupHeaderForActivation({ action: 'newSpec', title: 'New spec' })).toEqual({
+      decision: 'newSpec',
+    });
+    expect(startupHeaderForActivation({ action: 'cancel' })).toBeUndefined();
   });
 
   it('starts a web sidecar on the active spec route with the shared update publisher before interactive mode', async () => {
@@ -431,8 +453,8 @@ describe('Brunch TUI boot', () => {
     expect(events.at(-1)).toBe('before_provider_request');
   });
 
-  it('scopes the Brunch offline default and restores PI_OFFLINE in finally', async () => {
-    const productEnv: { PI_OFFLINE?: string } = {};
+  it('scopes Pi startup update suppression and restores update-check env in finally', async () => {
+    const productEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {};
     await expect(
       runWithScopedBrunchOfflineDefault({
         dev: false,
@@ -443,19 +465,37 @@ describe('Brunch TUI boot', () => {
       }),
     ).resolves.toBeUndefined();
     expect(productEnv.PI_OFFLINE).toBeUndefined();
+    expect(productEnv.PI_SKIP_VERSION_CHECK).toBeUndefined();
 
-    const devEnv: { PI_OFFLINE?: string } = { PI_OFFLINE: '1' };
+    const devEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {};
     await expect(
       runWithScopedBrunchOfflineDefault({
         dev: true,
         env: devEnv,
         run: async () => {
-          expect(devEnv.PI_OFFLINE).toBeUndefined();
+          expect(devEnv.PI_OFFLINE).toBe('1');
+        },
+      }),
+    ).resolves.toBeUndefined();
+    expect(devEnv.PI_OFFLINE).toBeUndefined();
+
+    const overriddenEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {
+      PI_OFFLINE: 'already-offline',
+      PI_SKIP_VERSION_CHECK: 'user-skip',
+    };
+    await expect(
+      runWithScopedBrunchOfflineDefault({
+        dev: true,
+        env: overriddenEnv,
+        run: async () => {
+          expect(overriddenEnv.PI_OFFLINE).toBe('already-offline');
+          expect(overriddenEnv.PI_SKIP_VERSION_CHECK).toBe('user-skip');
           throw new Error('prove finally restore');
         },
       }),
     ).rejects.toThrow('prove finally restore');
-    expect(devEnv.PI_OFFLINE).toBe('1');
+    expect(overriddenEnv.PI_OFFLINE).toBe('already-offline');
+    expect(overriddenEnv.PI_SKIP_VERSION_CHECK).toBe('user-skip');
   });
 
   it('keeps src/dev build-excluded', async () => {
@@ -515,6 +555,122 @@ describe('Brunch TUI boot', () => {
       'sidecar-close',
     ]);
   });
+  it('defaults browser auto-open off under BRUNCH_DEV while still advertising the sidecar route', async () => {
+    const previous = process.env.BRUNCH_DEV;
+    const events: string[] = [];
+    const workspace = readyWorkspace('/tmp/project', 'session-ready');
+
+    try {
+      process.env.BRUNCH_DEV = '1';
+      await runBrunchTui({
+        cwd: '/tmp/project',
+        coordinator: {
+          inspectWorkspace: async () => ({
+            cwd: '/tmp/project',
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          }),
+          activateWorkspace: async () => workspace,
+          bindCurrentSpecToReplacementSession: async () => workspace,
+        },
+        runWorkspaceDialogPreflight: async () => ({
+          action: 'continue',
+          specId: workspace.spec.id,
+          sessionFile: workspace.session.file,
+        }),
+        webSidecarRunner: async () => ({
+          url: 'http://127.0.0.1:49152',
+          async close() {
+            events.push('sidecar-close');
+          },
+        }),
+        advertiseWebSidecar: (url) => {
+          events.push(`advertise:${url}`);
+        },
+        openBrowser: async (url) => {
+          events.push(`open:${url}`);
+        },
+        launchInteractive: async ({ webSidecarUrl }) => {
+          events.push(`launch:${webSidecarUrl}`);
+        },
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.BRUNCH_DEV;
+      } else {
+        process.env.BRUNCH_DEV = previous;
+      }
+    }
+
+    expect(events).toEqual([
+      'advertise:http://127.0.0.1:49152/spec/1',
+      'launch:http://127.0.0.1:49152/spec/1',
+      'sidecar-close',
+    ]);
+  });
+
+  it('honors explicit browser auto-open under BRUNCH_DEV', async () => {
+    const previous = process.env.BRUNCH_DEV;
+    const events: string[] = [];
+    const workspace = readyWorkspace('/tmp/project', 'session-ready');
+
+    try {
+      process.env.BRUNCH_DEV = '1';
+      await runBrunchTui({
+        cwd: '/tmp/project',
+        autoOpen: true,
+        coordinator: {
+          inspectWorkspace: async () => ({
+            cwd: '/tmp/project',
+            currentSpec: workspace.spec,
+            currentSessionFile: workspace.session.file,
+            needsNewSpec: false,
+            specs: [],
+            unavailableSessions: [],
+          }),
+          activateWorkspace: async () => workspace,
+          bindCurrentSpecToReplacementSession: async () => workspace,
+        },
+        runWorkspaceDialogPreflight: async () => ({
+          action: 'continue',
+          specId: workspace.spec.id,
+          sessionFile: workspace.session.file,
+        }),
+        webSidecarRunner: async () => ({
+          url: 'http://127.0.0.1:49152',
+          async close() {
+            events.push('sidecar-close');
+          },
+        }),
+        advertiseWebSidecar: (url) => {
+          events.push(`advertise:${url}`);
+        },
+        openBrowser: async (url) => {
+          events.push(`open:${url}`);
+        },
+        launchInteractive: async () => {
+          events.push('launch');
+        },
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.BRUNCH_DEV;
+      } else {
+        process.env.BRUNCH_DEV = previous;
+      }
+    }
+
+    expect(events).toEqual([
+      'advertise:http://127.0.0.1:49152/spec/1',
+      'open:http://127.0.0.1:49152/spec/1',
+      'launch',
+      'sidecar-close',
+    ]);
+  });
+
   it('can disable browser auto-open while still advertising the active spec sidecar route', async () => {
     const events: string[] = [];
     const workspace = readyWorkspace('/tmp/project', 'session-ready');

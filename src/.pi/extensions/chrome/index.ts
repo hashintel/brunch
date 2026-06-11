@@ -23,6 +23,7 @@ import type {
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
 } from '../../../session/workspace-session-coordinator.js';
+import { BrunchStartupHeader } from '../../components/chrome-header.js';
 
 type BrunchChromeStage = 'idle' | 'streaming' | 'observer-review';
 type BrunchChromeWorkerStatus = 'idle' | 'queued' | 'running' | 'blocked';
@@ -61,6 +62,10 @@ interface BrunchChromeModelTelemetry {
   contextWindow?: number;
 }
 
+interface BrunchChromeStartupHeaderState {
+  decision: 'continue' | 'openSession' | 'newSpec' | 'newSession';
+}
+
 export interface BrunchChromeFooterTelemetry {
   gitBranch?: string | null;
   statuses?: ReadonlyMap<string, string>;
@@ -83,6 +88,8 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
     id: string;
     label?: string;
   };
+  webSidecarUrl?: string;
+  startupHeader?: BrunchChromeStartupHeaderState;
   runtime?: BrunchChromeRuntimeState;
   build?: BrunchChromeBuildState;
   contextUsage?: BrunchChromeContextUsage;
@@ -93,7 +100,7 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   coherence?: BrunchChromeCoherenceVerdict;
 }
 
-export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setTitle'>;
+export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle'>;
 
 type BrunchChromeTheme = Pick<Theme, 'fg'>;
 
@@ -127,6 +134,9 @@ export function projectBrunchChromeFooterLines(
     branchLine,
     truncateChromeLine(renderBrunchStatusLine(chrome, telemetry, theme), available, theme),
   ];
+  if (chrome.webSidecarUrl) {
+    lines.push(truncateChromeLine(formatWebUiLine(chrome.webSidecarUrl, theme), available, theme));
+  }
   if (statuses.length > 0) {
     lines.push(truncateChromeLine(statuses.join(' '), available, theme));
   }
@@ -145,6 +155,10 @@ function sanitizeStatusText(text: string): string {
     .replace(/[\r\n\t]/g, ' ')
     .replace(/ +/g, ' ')
     .trim();
+}
+
+function formatWebUiLine(url: string, theme: BrunchChromeTheme | undefined): string {
+  return style(theme, 'dim', `web-ui: ${sanitizeStatusText(url)}`);
 }
 
 function alignChromeColumns(left: string, right: string, width: number): string {
@@ -169,13 +183,18 @@ function truncateChromeLine(text: string, width: number, theme: BrunchChromeThem
   return Number.isFinite(width) ? truncateToWidth(text, width, style(theme, 'dim', '...')) : text;
 }
 
-export function chromeStateForWorkspace(workspace: WorkspaceSessionReadyState): BrunchChromeState {
+export function chromeStateForWorkspace(
+  workspace: WorkspaceSessionReadyState,
+  options: { webSidecarUrl?: string; startupHeader?: BrunchChromeStartupHeaderState } = {},
+): BrunchChromeState {
   return {
     ...workspace.chrome,
     session: {
       id: workspace.session.id,
       label: workspace.session.name ?? workspace.session.id,
     },
+    ...(options.webSidecarUrl ? { webSidecarUrl: options.webSidecarUrl } : {}),
+    ...(options.startupHeader ? { startupHeader: options.startupHeader } : {}),
   };
 }
 
@@ -207,6 +226,20 @@ export function renderBrunchChrome(
       },
     };
   });
+  if (chrome.startupHeader) {
+    ui.setHeader(
+      (_tui, theme) =>
+        new BrunchStartupHeader(
+          {
+            project: formatProject(chrome),
+            spec: formatSpec(chrome),
+            session: chrome.session.label ?? chrome.session.id,
+            ...(chrome.webSidecarUrl ? { sidecarUrl: chrome.webSidecarUrl } : {}),
+          },
+          theme,
+        ),
+    );
+  }
   ui.setTitle(formatChromeTitle(chrome));
 }
 
@@ -233,7 +266,16 @@ export function registerBrunchChrome(pi: ExtensionAPI, chrome: BrunchChromeState
   });
 }
 
-export default function brunchChrome(_pi: ExtensionAPI): void {}
+export default function brunchChrome(pi: ExtensionAPI): void {
+  registerBrunchChrome(pi, {
+    cwd: process.cwd(),
+    spec: null,
+    session: { id: 'direct-pi' },
+    phase: 'select_spec',
+    chatMode: 'select-spec',
+    startupHeader: { decision: 'continue' },
+  });
+}
 
 function footerTelemetryFromContext(ctx: ExtensionContext, pi: ExtensionAPI): BrunchChromeFooterTelemetry {
   const liveContextUsage = ctx.getContextUsage();

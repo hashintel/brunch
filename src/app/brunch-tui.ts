@@ -70,6 +70,8 @@ export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState;
   coordinator: BrunchTuiCoordinator;
   productUpdates?: ProductUpdatePublisher;
+  webSidecarUrl?: string;
+  activationDecision?: SpecSessionActivationDecision;
   dev?: BrunchTuiDevOptions;
 }
 
@@ -121,7 +123,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
   if (webSidecarUrl) {
     (options.advertiseWebSidecar ?? advertiseWebSidecar)(webSidecarUrl);
-    if (options.autoOpen !== false) {
+    if (shouldAutoOpenWebSidecar(options.autoOpen, dev)) {
       await (options.openBrowser ?? openBrowser)(webSidecarUrl);
     }
   }
@@ -130,6 +132,8 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       workspace: workspaceState,
       coordinator,
       productUpdates,
+      ...(webSidecarUrl ? { webSidecarUrl } : {}),
+      activationDecision: decision,
       ...(dev ? { dev } : {}),
     });
   } finally {
@@ -145,6 +149,19 @@ function createBrunchTuiDevOptions(): BrunchTuiDevOptions | undefined {
       store: createInMemoryBrunchIntrospectionStore(),
     },
   };
+}
+
+function shouldAutoOpenWebSidecar(
+  autoOpen: boolean | undefined,
+  dev: BrunchTuiDevOptions | undefined,
+): boolean {
+  return autoOpen ?? dev === undefined;
+}
+
+export function startupHeaderForActivation(
+  decision: SpecSessionActivationDecision | undefined,
+): { decision: Exclude<SpecSessionActivationDecision['action'], 'cancel'> } | undefined {
+  return decision && decision.action !== 'cancel' ? { decision: decision.action } : undefined;
 }
 
 async function chooseSpecSessionActivationDecision(
@@ -312,35 +329,43 @@ export function createBrunchAgentSessionRuntimeFactory(
     const bindCurrentWorkspace = async (replacementSessionManager: typeof sessionManager) => {
       currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
     };
+    const startupHeader = startupHeaderForActivation(context.activationDecision);
     const profile = createBrunchPiSettings({
       cwd,
       agentDir: runtimeAgentDir,
       extensionFactories: [
-        createBrunchPiExtensions(chromeStateForWorkspace(currentWorkspace), bindCurrentWorkspace, {
-          coordinator,
-          graph: graphDeps,
-          ...(context.dev ? { introspection: context.dev.introspection } : {}),
-          promptContext: () => {
-            const specId = currentWorkspace.spec.id;
-            const selectedSpec = graph.commandExecutor.getSpec(specId);
-            if (!selectedSpec) {
-              throw new Error(`No selected spec found for Brunch prompt context: ${specId}`);
-            }
-            return {
-              spec: {
-                id: selectedSpec.id,
-                name: selectedSpec.name,
-                readinessGrade: selectedSpec.readinessGrade,
-              },
-              workspace: { cwd },
-              session: {
-                id: currentWorkspace.session.id,
-                ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
-              },
-              graphReads: graphDeps.reads,
-            };
+        createBrunchPiExtensions(
+          chromeStateForWorkspace(currentWorkspace, {
+            ...(context.webSidecarUrl ? { webSidecarUrl: context.webSidecarUrl } : {}),
+            ...(startupHeader ? { startupHeader } : {}),
+          }),
+          bindCurrentWorkspace,
+          {
+            coordinator,
+            graph: graphDeps,
+            ...(context.dev ? { introspection: context.dev.introspection } : {}),
+            promptContext: () => {
+              const specId = currentWorkspace.spec.id;
+              const selectedSpec = graph.commandExecutor.getSpec(specId);
+              if (!selectedSpec) {
+                throw new Error(`No selected spec found for Brunch prompt context: ${specId}`);
+              }
+              return {
+                spec: {
+                  id: selectedSpec.id,
+                  name: selectedSpec.name,
+                  readinessGrade: selectedSpec.readinessGrade,
+                },
+                workspace: { cwd },
+                session: {
+                  id: currentWorkspace.session.id,
+                  ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
+                },
+                graphReads: graphDeps.reads,
+              };
+            },
           },
-        }),
+        ),
       ],
     });
     const services = await createAgentSessionServices({
@@ -412,24 +437,27 @@ async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<voi
 
 export async function runWithScopedBrunchOfflineDefault(options: {
   readonly dev: boolean;
-  readonly env?: { PI_OFFLINE?: string };
+  readonly env?: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string };
   readonly run: () => Promise<void>;
 }): Promise<void> {
   const env = options.env ?? process.env;
-  const previous = env.PI_OFFLINE;
-  const hadPrevious = Object.hasOwn(env, 'PI_OFFLINE');
+  const previousOffline = env.PI_OFFLINE;
+  const previousSkipVersionCheck = env.PI_SKIP_VERSION_CHECK;
+  const hadPreviousOffline = Object.hasOwn(env, 'PI_OFFLINE');
+  const hadPreviousSkipVersionCheck = Object.hasOwn(env, 'PI_SKIP_VERSION_CHECK');
   try {
-    if (options.dev) {
-      delete env.PI_OFFLINE;
-    } else {
-      applyBrunchOfflineDefault(env);
-    }
+    applyBrunchOfflineDefault(env);
     await options.run();
   } finally {
-    if (hadPrevious && previous !== undefined) {
-      env.PI_OFFLINE = previous;
+    if (hadPreviousOffline && previousOffline !== undefined) {
+      env.PI_OFFLINE = previousOffline;
     } else {
       delete env.PI_OFFLINE;
+    }
+    if (hadPreviousSkipVersionCheck && previousSkipVersionCheck !== undefined) {
+      env.PI_SKIP_VERSION_CHECK = previousSkipVersionCheck;
+    } else {
+      delete env.PI_SKIP_VERSION_CHECK;
     }
   }
 }

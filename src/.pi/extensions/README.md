@@ -1,6 +1,6 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D69-L
+SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D69-L, D71-L
 
 ## Owns
 
@@ -20,7 +20,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 extensions/
 ├── README.md
 ├── AUDIT.md                 temporary audit note; do not treat as topology source
-├── chrome/                  TUI title/footer/chrome projection
+├── chrome/                  TUI header/title/footer/sidecar-widget chrome projection
 ├── commands/                /brunch:* commands, shortcut, branch/tree policy
 ├── compaction/              auto-compaction anchor contract and future hook
 ├── context/                 snapshot/context Pi tools
@@ -49,6 +49,39 @@ rules:
   projections/        x> .pi/, rpc/, app/, web/                                      [no transport/UI imports]
   renderers/          x> .pi/, rpc/, app/, web/                                      [no transport/UI imports]
 ```
+
+## TUI launch chrome
+
+`chrome/` is the only product extension that should install Brunch's persistent TUI shell chrome. It receives launch facts from `src/app/brunch-tui.ts` through `BrunchChromeState`; it does not read web host, workspace, or activation state itself.
+
+```pseudo tree
+launch facts -> BrunchChromeState
+├── cwd/spec/session                 -> footer + terminal title
+├── webSidecarUrl?                   -> header + footer `web-ui:` line
+└── startupHeader? [continue|openSession|newSpec|newSession]
+    -> ctx.ui.setHeader(...)
+    -> .pi/components/chrome-header.ts
+```
+
+```pseudo chain
+runBrunchTui
+  -> chooseSpecSessionActivationDecision
+  -> activateWorkspace
+  -> start web sidecar
+  -> decide browser auto-open [BRUNCH_DEV defaults off, explicit option wins]
+  -> launchPiInteractive(context)
+  -> createBrunchPiExtensions(chromeStateForWorkspace(...))
+  -> registerBrunchChrome
+  -> session_start
+  -> renderBrunchChrome(ctx.ui, chrome)
+```
+
+Chrome-specific rules:
+
+- Keep raw `setHeader`, `setFooter`, and `setTitle` calls inside the chrome wrapper unless a later SPEC decision names another owner.
+- The web sidecar URL is chrome state rendered as a `web-ui:` line in the startup header and footer, not a `setStatus` contribution, upper widget, or transport concern for `.pi/extensions/`.
+- The startup header is TUI-only, non-transcript chrome shown on Brunch-activated TUI launches (`continue`, `openSession`, `newSpec`, or `newSession`) so the product shell does not fall back to Pi's quiet empty header.
+- `chrome/` may delegate reusable component rendering to `.pi/components/`, but `.pi/components/` must not register Pi hooks.
 
 ## Migration notes
 

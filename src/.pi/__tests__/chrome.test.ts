@@ -1,8 +1,10 @@
 import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
+import { visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
 import type { WorkspaceSessionReadyState } from '../../session/workspace-session-coordinator.js';
-import {
+import { BrunchStartupHeader } from '../components/chrome-header.js';
+import chromeExtension, {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
@@ -39,12 +41,14 @@ describe('Brunch chrome projection', () => {
       session: { id: 'session-1', label: 'Interview #1' },
       phase: 'elicitation' as const,
       chatMode: 'responding-to-elicitation' as const,
+      webSidecarUrl: 'http://127.0.0.1:49152/spec/1',
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
       '/tmp/project  no model',
       'no branch  ctx ──────────── ?% ?/0',
       'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
+      'web-ui: http://127.0.0.1:49152/spec/1',
       '',
     ]);
   });
@@ -117,15 +121,7 @@ describe('Brunch chrome projection', () => {
 
   it('renders Brunch chrome through one wrapper over Pi UI calls', async () => {
     const calls: FakeUiCall[] = [];
-    const ui: FakeExtensionUi = {
-      setHeader: (...args: unknown[]) => calls.push({ method: 'setHeader', args }),
-      setFooter: (...args: unknown[]) => calls.push({ method: 'setFooter', args }),
-      setStatus: (...args: unknown[]) => calls.push({ method: 'setStatus', args }),
-      setWidget: (...args: unknown[]) => calls.push({ method: 'setWidget', args }),
-      setWorkingIndicator: (_options) => {},
-      setTitle: (...args: unknown[]) => calls.push({ method: 'setTitle', args }),
-      notify: (_message: string, _type?: 'info' | 'warning' | 'error') => {},
-    };
+    const ui = fakeChromeUi(calls);
 
     renderBrunchChrome(ui, {
       cwd: '/tmp/project',
@@ -139,6 +135,98 @@ describe('Brunch chrome projection', () => {
     expect(calls.find((call) => call.method === 'setFooter')?.args[0]).toEqual(expect.any(Function));
     expect(calls.some((call) => call.method === 'setStatus')).toBe(false);
     expect(calls.find((call) => call.method === 'setTitle')?.args).toEqual(['brunch — project · Spec One']);
+  });
+
+  it('installs the full startup header only when chrome state requests it', async () => {
+    const calls: FakeUiCall[] = [];
+
+    renderBrunchChrome(fakeChromeUi(calls), {
+      cwd: '/tmp/project',
+      project: { name: 'Project One', slug: 'project-one' },
+      spec: { id: 1, title: 'Spec One' },
+      session: { id: 'session-1', label: 'Spec One — session 1' },
+      phase: 'elicitation',
+      chatMode: 'responding-to-elicitation',
+      webSidecarUrl: 'http://127.0.0.1:49152/spec/1',
+      startupHeader: { decision: 'newSession' },
+    });
+
+    const headerFactory = calls.find((call) => call.method === 'setHeader')?.args[0];
+    expect(headerFactory).toEqual(expect.any(Function));
+
+    const component = (headerFactory as (tui: unknown, theme: FakeTheme) => BrunchStartupHeader)(
+      undefined,
+      fakeTheme,
+    );
+    const collapsedLines = component.render(120);
+    expect(collapsedLines.slice(0, 6)).toEqual(['', '', '', '', '', '']);
+    expect(collapsedLines.join('\n')).toContain('brunch v0.1.0');
+    expect(collapsedLines.join('\n')).toContain('/brunch switch');
+    expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
+    expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');
+    expect(collapsedLines.join('\n')).not.toContain('Spec One — session 1');
+    component.setExpanded(true);
+    expect(component.render(120).join('\n')).toContain('Current session: Spec One — session 1');
+    expect(component.render(120).join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
+    expect(component.render(120).join('\n')).toContain('Graph capture');
+
+    const resumedCalls: FakeUiCall[] = [];
+    renderBrunchChrome(fakeChromeUi(resumedCalls), {
+      cwd: '/tmp/project',
+      spec: { id: 1, title: 'Spec One' },
+      session: { id: 'session-1' },
+      phase: 'elicitation',
+      chatMode: 'responding-to-elicitation',
+    });
+    expect(resumedCalls.some((call) => call.method === 'setHeader')).toBe(false);
+  });
+
+  it('installs dev fallback header through the src/.pi extension entrypoint', async () => {
+    const calls: FakeUiCall[] = [];
+    const sessionStart: Array<(event: unknown, ctx: { ui: FakeExtensionUi }) => Promise<void> | void> = [];
+
+    chromeExtension({
+      on: (event: string, handler: never) => {
+        if (event === 'session_start') sessionStart.push(handler);
+      },
+    } as never);
+
+    expect(sessionStart).toHaveLength(1);
+    await sessionStart[0]!({}, { ui: fakeChromeUi(calls) });
+
+    expect(calls.map((call) => call.method)).toEqual(['setFooter', 'setHeader', 'setTitle']);
+  });
+
+  it('keeps startup header text width-safe and newline-safe', () => {
+    const component = new BrunchStartupHeader(
+      {
+        project: 'Project\nOne',
+        spec: 'Spec\rOne',
+        session: 'Session\tOne',
+        sidecarUrl: 'http://127.0.0.1:49152/spec/1\nignored',
+      },
+      fakeTheme,
+    );
+
+    expect(component.render(36).every((line) => !/[\r\n\t]/.test(line))).toBe(true);
+    expect(component.render(36).every((line) => visibleWidth(line) <= 36)).toBe(true);
+    component.setExpanded(true);
+    expect(component.render(36).every((line) => !/[\r\n\t]/.test(line))).toBe(true);
+  });
+
+  it('does not project the active web sidecar URL into an upper widget', async () => {
+    const calls: FakeUiCall[] = [];
+
+    renderBrunchChrome(fakeChromeUi(calls), {
+      cwd: '/tmp/project',
+      spec: { id: 1, title: 'Spec One' },
+      session: { id: 'session-1' },
+      phase: 'elicitation',
+      chatMode: 'responding-to-elicitation',
+      webSidecarUrl: 'http://127.0.0.1:49152/spec/1\nignored',
+    });
+
+    expect(calls.some((call) => call.method === 'setWidget')).toBe(false);
   });
 });
 
@@ -167,6 +255,25 @@ interface FakeUiCall {
   method: string;
   args: unknown[];
 }
+
+function fakeChromeUi(calls: FakeUiCall[]): FakeExtensionUi {
+  return {
+    setHeader: (...args: unknown[]) => calls.push({ method: 'setHeader', args }),
+    setFooter: (...args: unknown[]) => calls.push({ method: 'setFooter', args }),
+    setStatus: (...args: unknown[]) => calls.push({ method: 'setStatus', args }),
+    setWidget: (...args: unknown[]) => calls.push({ method: 'setWidget', args }),
+    setWorkingIndicator: (_options) => {},
+    setTitle: (...args: unknown[]) => calls.push({ method: 'setTitle', args }),
+    notify: (_message: string, _type?: 'info' | 'warning' | 'error') => {},
+  };
+}
+
+const fakeTheme = {
+  fg: (_color: string, text: string) => text,
+  bold: (text: string) => text,
+};
+
+type FakeTheme = typeof fakeTheme;
 
 type FakeExtensionUi = Pick<
   ExtensionUIContext,

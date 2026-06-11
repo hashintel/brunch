@@ -52,6 +52,14 @@ describe('Brunch explicit Pi extension registry', () => {
     }
   });
 
+  it('keeps the src/.pi chrome entrypoint activated for direct Pi iteration', async () => {
+    const settings = JSON.parse(await readFile(join(projectRoot(), 'src/.pi/settings.json'), 'utf8')) as {
+      extensions?: unknown;
+    };
+
+    expect(settings.extensions).toContain('extensions/chrome/index.ts');
+  });
+
   it('registers product extensions from the shell in explicit order', async () => {
     const recording = createRecordingExtensionApi();
 
