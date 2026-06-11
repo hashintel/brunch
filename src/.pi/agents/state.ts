@@ -210,6 +210,9 @@ export function manifestsForState(
       `Agent "${state.agentRole}" is not legal in operational mode "${state.operationalMode}".`,
     );
   }
+  if (gaps.length === 0) {
+    return { goals: [], strategies: [], lenses: [], methods: [] };
+  }
 
   return {
     goals: selectAxisResources({
