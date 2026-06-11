@@ -73,6 +73,10 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).toContain(
       '- workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; sourcing=strip-or-build',
     );
+    expect(result.prompt).toContain('[Brunch elicitation recommendation]');
+    expect(result.prompt).toContain('- next question: constraint question');
+    expect(result.prompt).toContain('- refers to: constraint');
+    expect(result.prompt).toContain('- rationale: constraint rationale');
     expect(result.prompt).toContain('[Brunch pushed context]');
     expect(result.prompt).toContain('handle: graph-overview: compact selected-spec graph summary');
     expect(result.prompt).toContain('[Selected-spec graph context · intent lens]');
@@ -243,6 +247,19 @@ describe('composeAgentPrompt', () => {
     expect(auto.prompt).not.toContain('readiness_grade=');
     expect(auto.prompt).not.toContain('name="freestyle"');
     expect(pinnedFreestyle.prompt).toContain('name="freestyle"');
+  });
+
+  it('omits the elicitation recommendation when no open gaps remain', () => {
+    const result = composeAgentPrompt({
+      agentId: 'elicitor',
+      sessionState: projectBrunchAgentState([]),
+      spec: groundingSpec,
+      workspace,
+      activeTools: ['read'],
+      gaps: coveredGaps,
+    });
+
+    expect(result.prompt).not.toContain('[Brunch elicitation recommendation]');
   });
 
   it('keeps pinned readiness-thin selections in the prompt while gated methods remain filtered out', () => {
