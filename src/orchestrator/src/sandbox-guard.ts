@@ -56,12 +56,6 @@ async function assertInsideSandbox(sandboxRoot: string, absolutePath: string): P
   }
 }
 
-/**
- * File operations for the pi SDK's read/write/edit tools that refuse any path
- * outside `sandboxDir` (absolute escapes, `../` traversal, and symlink escapes
- * alike), then delegate to the local filesystem. Paths arrive already resolved
- * against the session cwd, so containment here is a complete choke point.
- */
 // ---------------------------------------------------------------------------
 // Confinement policy — the sandbox is the agent's world
 // ---------------------------------------------------------------------------
@@ -153,10 +147,23 @@ export function deriveConfinementPolicy(
   return {
     sandboxRoot,
     readRoots: dedupe([...base, ...toolchain, sandboxRoot]),
-    writeRoots: dedupe([sandboxRoot, '/dev', ...writeCaches]),
+    // Specific device nodes, not the whole /dev tree — a tool needs the null
+    // sink, tty, and randomness, never raw disks.
+    writeRoots: dedupe([sandboxRoot, ...WRITABLE_DEVICE_NODES, ...writeCaches]),
     network: true,
   };
 }
+
+/** The only device nodes an agent command legitimately writes; never raw disks. */
+const WRITABLE_DEVICE_NODES = [
+  '/dev/null',
+  '/dev/zero',
+  '/dev/random',
+  '/dev/urandom',
+  '/dev/tty',
+  '/dev/stdout',
+  '/dev/stderr',
+];
 
 // `/bin/sh` → dirname twice is `/`, which would grant the whole filesystem and
 // defeat limit-mode. Drop root entirely; the static base lists real OS dirs.
@@ -216,6 +223,7 @@ export function compileSeatbeltProfile(policy: ConfinementPolicy, home: string =
     `(allow file-write* ${allowWrites})`,
     `(deny file-read-data ${denyReads})`,
     `(allow file-read-data ${allowReads})`,
+    ...(policy.network ? [] : ['(deny network*)']),
   ].join('\n');
 }
 
@@ -285,6 +293,12 @@ export function createConfinedTools(sandboxDir: string): ToolDefinition[] {
   ] as ToolDefinition[];
 }
 
+/**
+ * File operations for the pi SDK's read/write/edit tools that refuse any path
+ * outside `sandboxDir` (absolute escapes, `../` traversal, and symlink escapes
+ * alike), then delegate to the local filesystem. Paths arrive already resolved
+ * against the session cwd, so containment here is a complete choke point.
+ */
 export function createConfinedFileOperations(sandboxDir: string): ConfinedFileOperations {
   const sandboxRoot = realpathSync(resolve(sandboxDir));
 

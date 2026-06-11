@@ -142,6 +142,24 @@ describe('confinement policy derivation', () => {
     expect(policy.readRoots).not.toContain(homedir());
     expect(policy.writeRoots).not.toContain(homedir());
   });
+
+  it('grants specific device nodes for writing, not the whole /dev tree', () => {
+    const policy = deriveConfinementPolicy(sandboxDir);
+    expect(policy.writeRoots).not.toContain('/dev');
+    expect(policy.writeRoots).toContain('/dev/null');
+  });
+});
+
+describe('seatbelt profile honors the network policy flag', () => {
+  const base = { sandboxRoot: '/s', readRoots: ['/s'], writeRoots: ['/s'] };
+
+  it('leaves network allowed by default (network: true)', () => {
+    expect(compileSeatbeltProfile({ ...base, network: true })).not.toContain('(deny network');
+  });
+
+  it('denies network when the policy says so (network: false)', () => {
+    expect(compileSeatbeltProfile({ ...base, network: false })).toContain('(deny network*)');
+  });
 });
 
 describe.skipIf(!onMac)('seatbelt limit-mode profile (macOS)', () => {
@@ -188,6 +206,37 @@ describe.skipIf(!onMac)('seatbelt limit-mode profile (macOS)', () => {
     const result = await runAsBashTool(wrapCommandInSeatbelt(limitProfile(), `echo 'it'\\''s quoted'`));
     expect(result.ok).toBe(true);
     expect(result.stdout.trim()).toBe("it's quoted");
+  });
+
+  // The real deployment shape: the sandbox lives under ~/.brunch, i.e. INSIDE a
+  // denied zone. Correctness rests on the re-grant winning over the home deny.
+  it('reads the sandbox even when it is nested inside the denied home zone, while a sibling secret stays denied', async () => {
+    const fakeHome = mkdtempSync(join(tmpdir(), 'brunch-home-'));
+    try {
+      const nestedSandbox = join(fakeHome, '.brunch', 'cook', 'runs', 'r1', 'worktree');
+      mkdirSync(nestedSandbox, { recursive: true });
+      writeFileSync(join(nestedSandbox, 'work.txt'), 'work');
+      mkdirSync(join(fakeHome, '.ssh'), { recursive: true });
+      writeFileSync(join(fakeHome, '.ssh', 'id_rsa'), 'PRIVATE-KEY');
+
+      const policy = { ...deriveConfinementPolicy(nestedSandbox), sandboxRoot: realpathSync(nestedSandbox) };
+      policy.readRoots = [...policy.readRoots, realpathSync(nestedSandbox)];
+      const profile = compileSeatbeltProfile(policy, realpathSync(fakeHome));
+
+      const secret = await runAsBashTool(
+        wrapCommandInSeatbelt(profile, `cat ${join(fakeHome, '.ssh', 'id_rsa')}`),
+      );
+      expect(secret.ok).toBe(false);
+      expect(secret.stdout).not.toContain('PRIVATE-KEY');
+
+      const work = await runAsBashTool(
+        wrapCommandInSeatbelt(profile, `cat ${join(nestedSandbox, 'work.txt')}`),
+      );
+      expect(work.ok).toBe(true);
+      expect(work.stdout).toContain('work');
+    } finally {
+      rmSync(fakeHome, { recursive: true, force: true });
+    }
   });
 });
 
