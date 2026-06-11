@@ -312,12 +312,42 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
   });
 });
 
-describe.skip('FE-847 coverage-first scaffold — I46-L honest origination', () => {
-  it('a new session seeds context and kicks an assistant-originated turn with no fabricated user entry');
-  it('resume kick uses the pre-reconcile tail so a user tail still earns a kick after continuity notices');
-  it('request_* and system leaves stay idle on resume');
-  it('crash-after-notice-before-provider still kicks when the underlying debt is unanswered');
-  it('trailing side-task or reviewer drains are continuity-only and do not manufacture or mask debt');
+describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
+  it('a new session seeds context and kicks an assistant-originated turn with no fabricated user entry', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const specId = await readSessionContextSpecId(boot.runtime.session);
+      const entries = boot.runtime.session.sessionManager.getEntries();
+      expect(customEntries(entries, 'brunch.context_seed')).toEqual([
+        expect.objectContaining({ data: { specId, snapshotLsn: expect.any(Number) } }),
+      ]);
+      expect(entries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'message',
+            message: expect.objectContaining({ role: 'toolResult', toolName: 'present_options' }),
+          }),
+        ]),
+      );
+      expect(entries).not.toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ message: expect.objectContaining({ role: 'user' }) }),
+        ]),
+      );
+      await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
+      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toHaveLength(0);
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
+  it.todo(
+    'resume kick uses the pre-reconcile tail so a user tail still earns a kick after continuity notices',
+  );
+  it.todo('request_* and system leaves stay idle on resume');
+  it.todo('crash-after-notice-before-provider still kicks when the underlying debt is unanswered');
+  it.todo('trailing side-task or reviewer drains are continuity-only and do not manufacture or mask debt');
 });
 
 describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempotence', () => {

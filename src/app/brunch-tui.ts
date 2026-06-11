@@ -28,6 +28,12 @@ import {
 } from '../graph/index.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
+import { projectLinearSessionExchangeProjection } from '../session/exchange-projection.js';
+import { startAssistantTurn } from '../session/start-assistant-turn.js';
+import {
+  nextDeterministicStructuredExchange,
+  presentToolResultMessage,
+} from '../session/structured-exchange-loop.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -369,6 +375,12 @@ export function createBrunchAgentSessionRuntimeFactory(
         ),
       ],
     });
+    seedAndKickAssistantTurn({
+      specId: currentWorkspace.spec.id,
+      currentLsn: graph.forSpec(currentWorkspace.spec.id).queryGraph().lsn,
+      sessionManager,
+    });
+
     const services = await createAgentSessionServices({
       cwd,
       agentDir: runtimeAgentDir,
@@ -385,6 +397,33 @@ export function createBrunchAgentSessionRuntimeFactory(
       diagnostics: services.diagnostics,
     };
   };
+}
+
+function seedAndKickAssistantTurn(options: {
+  readonly specId: number;
+  readonly currentLsn: number;
+  readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
+}): void {
+  const entries = options.sessionManager.getEntries();
+  const exchangeProjection = projectLinearSessionExchangeProjection({
+    binding: { specId: options.specId },
+    entries,
+    header: options.sessionManager.getHeader(),
+  });
+  if (exchangeProjection.openPrompt) return;
+
+  const decision = startAssistantTurn({
+    specId: options.specId,
+    currentLsn: options.currentLsn,
+    entries,
+    origin: entries.length <= 3 ? 'new_session' : 'resume_debt',
+  });
+  for (const entry of decision.seedEntries) {
+    options.sessionManager.appendCustomEntry(entry.customType, entry.data);
+  }
+  if (decision.action === 'start') {
+    options.sessionManager.appendMessage(presentToolResultMessage(nextDeterministicStructuredExchange(0)));
+  }
 }
 
 async function startDefaultWebSidecar({

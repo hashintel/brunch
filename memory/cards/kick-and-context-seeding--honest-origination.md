@@ -16,6 +16,8 @@ Created:  2026-06-11
 
 ## Card 1 - Prove new-session seed-then-kick through the real boot seam
 
+Status: done (2026-06-11)
+
 ### Objective
 
 A real new-session boot seeds context and starts an assistant-originated first turn before the first provider call, without fabricating any user transcript entry.
