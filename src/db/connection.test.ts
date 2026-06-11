@@ -99,47 +99,16 @@ describe('createDb', () => {
     }
   });
 
-  it('migrates a populated pre-node-kind elicitation gap table', async () => {
+  it('recreates elicitation gaps when a backlog-era table survives into a 0003-ledger DB', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-db-legacy-gaps-'));
     const dbPath = join(dir, 'legacy.db');
 
     try {
-      await createLegacy0003ElicitationGapDatabase(dbPath);
+      await createLegacy0003BacklogDriftDatabase(dbPath);
 
       const db = createDb(dbPath);
 
-      expect(
-        db
-          .select({
-            refersTo: elicitationGaps.refers_to,
-            question: elicitationGaps.question,
-            rationale: elicitationGaps.rationale,
-          })
-          .from(elicitationGaps)
-          .orderBy(asc(elicitationGaps.id))
-          .all(),
-      ).toEqual([
-        {
-          refersTo: 'context',
-          question: 'What kind of thing is this, and what domain or environment does it live in?',
-          rationale: 'Anchors the domain.',
-        },
-        {
-          refersTo: 'thesis',
-          question: 'Who is this for?',
-          rationale: 'Identifies the main actor.',
-        },
-        {
-          refersTo: 'criterion',
-          question: 'How will we recognize success or good enough?',
-          rationale: 'Sketches what success looks like.',
-        },
-        {
-          refersTo: 'goal',
-          question: 'custom_goal_gap',
-          rationale: 'Custom legacy row should still migrate.',
-        },
-      ]);
+      expect(db.select().from(elicitationGaps).orderBy(asc(elicitationGaps.id)).all()).toEqual([]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -238,7 +207,7 @@ async function createLegacy0000EmptySpecDatabase(dbPath: string): Promise<void> 
   }
 }
 
-async function createLegacy0003ElicitationGapDatabase(dbPath: string): Promise<void> {
+async function createLegacy0003BacklogDriftDatabase(dbPath: string): Promise<void> {
   const migrations = await Promise.all([
     readMigration('0000_deep_maria_hill.sql'),
     readMigration('0001_aspiring_orphan.sql'),
@@ -248,37 +217,48 @@ async function createLegacy0003ElicitationGapDatabase(dbPath: string): Promise<v
   const sqlite = new Database(dbPath);
 
   try {
-    for (const migration of migrations) {
+    for (const migration of migrations.slice(0, 3)) {
       sqlite.exec(migration.sql.toString('utf8'));
     }
 
     sqlite.exec(`
+      CREATE TABLE elicitation_backlog (
+        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        spec_id INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        question TEXT NOT NULL,
+        status TEXT DEFAULT 'open' NOT NULL,
+        basis TEXT DEFAULT 'explicit' NOT NULL,
+        readiness_band TEXT NOT NULL,
+        plane_affinity TEXT,
+        lens_affinity TEXT,
+        arose_from_entry_id INTEGER,
+        resolved_by_node_id INTEGER,
+        rationale TEXT,
+        created_at_lsn INTEGER NOT NULL,
+        closed_at_lsn INTEGER
+      );
+
       INSERT INTO specs (id, name, slug, readiness_grade)
       VALUES (1, 'Legacy gap spec', 'legacy-gap-spec', 'grounding_onboarding');
 
       INSERT INTO graph_clock (spec_id, lsn)
       VALUES (1, 4);
 
-      INSERT INTO elicitation_gaps (
+      INSERT INTO elicitation_backlog (
         id,
         spec_id,
-        name,
-        rationale,
-        disposition,
+        kind,
+        question,
+        status,
         basis,
         readiness_band,
-        predicate_kind,
-        predicate,
-        importance,
         plane_affinity,
         lens_affinity,
+        rationale,
         created_at_lsn
       )
-      VALUES
-        (1, 1, 'domain', 'Anchors the domain.', 'open', 'implicit', 'grounding', 'presence', '{"kind":"presence","plane":"intent","nodeKind":"context","minimum":1}', 3, 'intent', 'intent', 1),
-        (2, 1, 'protagonist', 'Identifies the main actor.', 'open', 'implicit', 'grounding', 'presence', '{"kind":"presence","plane":"intent","nodeKind":"context","minimum":1}', 3, 'intent', 'intent', 2),
-        (3, 1, 'success_sketch', 'Sketches what success looks like.', 'open', 'implicit', 'grounding', 'presence', '{"kind":"presence","plane":"intent","nodeKind":"criterion","minimum":1}', 1, 'intent', 'intent', 3),
-        (4, 1, 'custom_goal_gap', 'Custom legacy row should still migrate.', 'open', 'explicit', 'grounding', 'presence', '{"kind":"presence","plane":"intent","nodeKind":"goal","minimum":1}', 1, 'intent', 'intent', 4);
+      VALUES (1, 1, 'grounding', 'Who is this for?', 'open', 'explicit', 'grounding', 'intent', 'intent', 'Legacy backlog row from a stacked branch.', 1);
 
       CREATE TABLE "__drizzle_migrations" (
         id SERIAL PRIMARY KEY,

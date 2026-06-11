@@ -1,17 +1,15 @@
-import type { WorkspaceContextProjection } from '../../projections/workspace/workspace-context.js';
+import type { WorkspaceCwdInventory, WorkspaceOverview } from '../../session/workspace-context.js';
 
-export function renderWorkspaceContext(context: WorkspaceContextProjection): string {
-  if (context.mode === 'workspace_overview') {
+export function renderWorkspaceContext(context: WorkspaceCwdInventory | WorkspaceOverview): string {
+  if ('specs' in context) {
     return renderWorkspaceOverview(context);
   }
 
   return renderWorkspaceCwd(context);
 }
 
-function renderWorkspaceCwd(
-  context: Extract<WorkspaceContextProjection, { readonly mode: 'cwd_inventory' }>,
-): string {
-  const { data: inventory } = context;
+function renderWorkspaceCwd(context: WorkspaceCwdInventory): string {
+  const inventory = context;
   const lines = [
     '[Workspace cwd inventory]',
     `- cwd: ${inventory.cwd}`,
@@ -44,10 +42,8 @@ function renderWorkspaceCwd(
   return `${lines.join('\n')}\n`;
 }
 
-function renderWorkspaceOverview(
-  context: Extract<WorkspaceContextProjection, { readonly mode: 'workspace_overview' }>,
-): string {
-  const { data: overview } = context;
+function renderWorkspaceOverview(context: WorkspaceOverview): string {
+  const overview = context;
   const lines = [
     '[Workspace overview]',
     `- cwd: ${overview.cwd}`,

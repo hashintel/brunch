@@ -2,15 +2,12 @@ import { resolve } from 'node:path';
 
 import type { SessionHeader } from '@earendil-works/pi-coding-agent';
 
-import {
-  projectWorkspaceCwdContext,
-  projectWorkspaceOverviewContext,
-  type WorkspaceContextProjection,
-} from '../../../projections/workspace/workspace-context.js';
 import { renderWorkspaceContext } from '../../../renderers/workspace/workspace-context.js';
 import {
   inspectWorkspaceCwdInventory,
   inspectWorkspaceOverview,
+  type WorkspaceCwdInventory,
+  type WorkspaceOverview,
 } from '../../../session/workspace-context.js';
 
 // The session cwd lives on the Pi header, which is reachable only via
@@ -24,12 +21,12 @@ interface SessionManagerLike {
 export async function readWorkspaceContext(
   mode: 'cwd_inventory' | 'workspace_overview',
   sessionManager?: SessionManagerLike,
-): Promise<{ readonly text: string; readonly details: WorkspaceContextProjection }> {
+): Promise<{ readonly text: string; readonly details: WorkspaceCwdInventory | WorkspaceOverview }> {
   const cwd = resolveWorkspaceCwd(sessionManager);
   const details =
     mode === 'workspace_overview'
-      ? projectWorkspaceOverviewContext(await inspectWorkspaceOverview(cwd))
-      : projectWorkspaceCwdContext(await inspectWorkspaceCwdInventory(cwd));
+      ? await inspectWorkspaceOverview(cwd)
+      : await inspectWorkspaceCwdInventory(cwd);
   return {
     text: renderWorkspaceContext(details),
     details,

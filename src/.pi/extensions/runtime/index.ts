@@ -82,13 +82,13 @@ function supportsBrunchAgentStateEntries(
 export function activeToolNamesForBrunchAgentState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
-  gaps: readonly ElicitationGap[] = [],
+  gaps?: readonly ElicitationGap[],
   devAllowedToolNames?: readonly string[],
 ): string[] {
   return activeToolNamesForPosture({
     registeredToolNames: pi.getAllTools().map((tool) => tool.name),
     state,
-    gaps,
+    gaps: gaps ?? conservativeUncoveredFloorGaps(),
     devAllowedToolNames,
   });
 }

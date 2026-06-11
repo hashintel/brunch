@@ -245,33 +245,40 @@ describe('composeAgentPrompt', () => {
     expect(pinnedFreestyle.prompt).toContain('name="freestyle"');
   });
 
-  it('rejects illegal pinned gap-gated selections loudly', () => {
-    expect(() =>
-      composeAgentPrompt({
-        agentId: 'elicitor',
-        sessionState: projectBrunchAgentState([
-          {
-            type: 'custom',
-            customType: 'brunch.agent_runtime_state',
-            data: {
-              schemaVersion: 1,
-              reason: 'switch',
-              source: 'user',
-              state: {
-                ...DEFAULT_BRUNCH_AGENT_STATE,
-                agentGoal: 'commit-converge',
-              },
+  it('keeps pinned readiness-thin selections in the prompt while gated methods remain filtered out', () => {
+    const result = composeAgentPrompt({
+      agentId: 'elicitor',
+      sessionState: projectBrunchAgentState([
+        {
+          type: 'custom',
+          customType: 'brunch.agent_runtime_state',
+          data: {
+            schemaVersion: 1,
+            reason: 'switch',
+            source: 'user',
+            state: {
+              ...DEFAULT_BRUNCH_AGENT_STATE,
+              agentStrategy: 'project-graph',
+              agentGoal: 'commit-converge',
             },
           },
-        ]),
-        spec: groundingSpec,
-        workspace,
-        activeTools: ['read'],
-        gaps: zeroCoverageGaps,
-      }),
-    ).toThrow(
-      'Pinned goal "commit-converge" is not legal for elicitor in elicit; capability-readiness returned negotiate for current elicitation gaps.',
-    );
+        },
+      ]),
+      spec: groundingSpec,
+      workspace,
+      activeTools: ['read'],
+      gaps: zeroCoverageGaps,
+    });
+
+    expect(result.prompt).toContain('- goal: commit-converge');
+    expect(result.prompt).toContain('- strategy: project-graph');
+    expect(result.manifests.goals.map((entry) => entry.name)).toEqual(['commit-converge']);
+    expect(result.manifests.strategies.map((entry) => entry.name)).toEqual(['project-graph']);
+    expect(result.manifests.methods.map((entry) => entry.name)).toEqual([
+      'run-structured-exchange',
+      'infer-and-capture',
+      'read-context',
+    ]);
   });
 
   it('advertises only readable .pi prompt resources without filesystem discovery', async () => {

@@ -60,17 +60,15 @@ describe('context tools', () => {
         },
       })) as {
       content: Array<{ type: 'text'; text: string }>;
-      details: { mode: 'cwd_inventory'; data: { markdownFiles: Array<{ path: string }> } };
+      details: { markdownFiles: Array<{ path: string }> };
     };
 
     expect(result.content[0]?.text).toContain('[Workspace cwd inventory]');
     expect(result.content[0]?.text).toContain('existing .brunch state detected');
     expect(result.content[0]?.text).toContain('session-1.jsonl');
-    expect(result.details.mode).toBe('cwd_inventory');
-    expect(result.details.data.markdownFiles.map((file) => file.path)).toEqual([
-      'README.md',
-      'visible/guide.md',
-    ]);
+    expect(result.details).not.toHaveProperty('mode');
+    expect(result.details).not.toHaveProperty('data');
+    expect(result.details.markdownFiles.map((file) => file.path)).toEqual(['README.md', 'visible/guide.md']);
   });
 
   it('read_session_context returns runtime-frame markdown plus typed details', async () => {
@@ -234,22 +232,17 @@ describe('context tools', () => {
         },
       })) as {
       content: Array<{ type: 'text'; text: string }>;
-      details: {
-        mode: 'workspace_overview';
-        data: { specs: Array<{ title: string }>; sessions: Array<{ turnCount: number }> };
-      };
+      details: { specs: Array<{ title: string }>; sessions: Array<{ turnCount: number }> };
     };
 
     expect(result.content[0]?.text).toContain('[Workspace overview]');
     expect(result.content[0]?.text).toContain('Alpha Grounding');
     expect(result.content[0]?.text).toContain('Beta Commitments');
     expect(result.content[0]?.text).not.toContain('readiness_grade=');
-    expect(result.details.mode).toBe('workspace_overview');
-    expect(result.details.data.specs.map((spec) => spec.title)).toEqual([
-      'Alpha Grounding',
-      'Beta Commitments',
-    ]);
-    expect(result.details.data.sessions.map((session) => session.turnCount)).toEqual([1, 2]);
+    expect(result.details).not.toHaveProperty('mode');
+    expect(result.details).not.toHaveProperty('data');
+    expect(result.details.specs.map((spec) => spec.title)).toEqual(['Alpha Grounding', 'Beta Commitments']);
+    expect(result.details.sessions.map((session) => session.turnCount)).toEqual([1, 2]);
   });
 
   // Authentic oracle: drive the context tools against the faux harness's REAL
@@ -290,12 +283,10 @@ describe('context tools', () => {
       const workspaceResult = (await tools
         .get('read_workspace_context')!
         .execute('faux-workspace', { mode: 'cwd_inventory' }, undefined, undefined, ctx)) as {
-        details: { data: { markdownFiles: Array<{ path: string }> } };
+        details: { markdownFiles: Array<{ path: string }> };
       };
       // cwd came from the header (the temp workbench), not process.cwd().
-      expect(workspaceResult.details.data.markdownFiles.map((file) => file.path)).toContain(
-        'faux-guard-doc.md',
-      );
+      expect(workspaceResult.details.markdownFiles.map((file) => file.path)).toContain('faux-guard-doc.md');
     } finally {
       harness.dispose();
     }

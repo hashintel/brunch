@@ -301,11 +301,14 @@ function selectAxisResources<TId extends string>({
   if (selection === 'auto') {
     return legal.filter((id) => !autoExcluded?.has(id)).map((id) => resources[id]);
   }
-  if (!legal.includes(selection)) {
+  if (!allowed.includes(selection)) {
     throw new Error(
-      `Pinned ${label} "${selection}" is not legal for ${state.agentRole} in ${state.operationalMode}; capability-readiness returned negotiate for current elicitation gaps.`,
+      `Pinned ${label} "${selection}" is not allowed for ${state.agentRole} in ${state.operationalMode}.`,
     );
   }
+  // User/system pins are authority signals. When readiness negotiates, keep the
+  // pinned axis visible and let method/tool legality carry the negotiation
+  // boundary instead of crashing prompt assembly.
   return [resources[selection]];
 }
 

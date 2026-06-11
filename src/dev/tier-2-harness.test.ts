@@ -715,6 +715,6 @@ async function readWorkspaceContextMarkdownFiles(session: {
     undefined,
     undefined,
     { sessionManager: session.sessionManager } as never,
-  )) as { details: { data: { markdownFiles: Array<{ path: string }> } } };
-  return result.details.data.markdownFiles.map((file) => file.path);
+  )) as { details: { markdownFiles: Array<{ path: string }> } };
+  return result.details.markdownFiles.map((file) => file.path);
 }
