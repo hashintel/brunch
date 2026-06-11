@@ -13,11 +13,7 @@ import { REQUEST_CHOICE_TOOL, requestChoiceTool } from './request-choice.js';
 import { REQUEST_CHOICES_TOOL, requestChoicesTool } from './request-choices.js';
 import { REQUEST_REVIEW_TOOL, requestReviewTool } from './request-review.js';
 
-export {
-  buildStructuredExchangeEditorPrefill,
-  parseStructuredExchangeEditorResponse,
-  structuredExchangeResultFromEditor,
-} from './shared/editor-fallback.js';
+export { requestChoicesViaEditor, type RequestChoicesEditorFlowParams } from './request-choices.js';
 export {
   findIncompleteStructuredExchangePresents,
   isStructuredExchangePresentDetails,

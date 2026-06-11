@@ -89,6 +89,66 @@ function matchSelectedChoices(
   return matched;
 }
 
+export interface RequestChoicesEditorFlowParams {
+  readonly exchangeId: string;
+  readonly prompt: string;
+  readonly choices: readonly StructuredExchangeChoice[];
+  readonly allowOther?: boolean;
+  readonly allowNone?: boolean;
+  readonly commentPrompt?: string;
+}
+
+/**
+ * The full editor exchange for request_choices: schema-derived prefill, edited
+ * JSON back, schema parse, choice matching, and projection into canonical
+ * result details. The tool drives it through `ctx.ui.editor`; the RPC proof
+ * probe drives it through a raw RPC editor relay.
+ */
+export async function requestChoicesViaEditor(
+  params: RequestChoicesEditorFlowParams,
+  openEditor: (prefill: string) => Promise<string | undefined>,
+) {
+  const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
+    const details = projectRequestChoices({ exchangeId: params.exchangeId, status, message });
+    return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
+  };
+
+  const prefillParams: Parameters<typeof buildRequestChoicesEditorPrefill>[0] = {
+    prompt: params.prompt,
+    choices: params.choices,
+  };
+  if (params.allowOther !== undefined) prefillParams.allowOther = params.allowOther;
+  if (params.allowNone !== undefined) prefillParams.allowNone = params.allowNone;
+  if (params.commentPrompt !== undefined) prefillParams.commentPrompt = params.commentPrompt;
+
+  const edited = await openEditor(buildRequestChoicesEditorPrefill(prefillParams));
+  if (edited === undefined) return terminal('cancelled');
+
+  const response = parseRequestChoicesEditorResponse(edited);
+  if (!response) return terminal('unavailable', 'request_choices editor fallback returned invalid JSON');
+  if (response.status === 'cancelled') return terminal('cancelled');
+
+  const matchParams: Parameters<typeof matchSelectedChoices>[1] = { choices: params.choices };
+  if (params.allowOther !== undefined) matchParams.allowOther = params.allowOther;
+  if (params.allowNone !== undefined) matchParams.allowNone = params.allowNone;
+
+  const matched = matchSelectedChoices(response.choices, matchParams);
+  if (typeof matched === 'string') return terminal('unavailable', matched);
+
+  const comment = normalizeOptionalText(response.comment);
+  if (matched.some((choice) => choice.kind === 'other' || choice.kind === 'none') && comment === undefined) {
+    return terminal('unavailable', 'request_choices requires a comment for Other or None selections');
+  }
+
+  const details = projectRequestChoices({
+    exchangeId: params.exchangeId,
+    status: 'answered',
+    choices: matched,
+    comment,
+  });
+  return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
+}
+
 export const requestChoicesTool = defineTool({
   name: REQUEST_CHOICES_TOOL,
   label: 'Request choices',
@@ -105,53 +165,25 @@ export const requestChoicesTool = defineTool({
 
   async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
     const params = zRequestChoicesParams.parse(rawParams) satisfies RequestChoicesParams;
-    const choices = params.choices.map((choice) => ({ id: choice.id, label: choice.label }));
-    const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
-      const details = projectRequestChoices({ exchangeId: params.exchangeId, status, message });
-      return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
-    };
 
     if (!ctx.hasUI || typeof ctx.ui.editor !== 'function') {
-      return terminal('unavailable', 'request_choices requires interactive UI');
+      const details = projectRequestChoices({
+        exchangeId: params.exchangeId,
+        status: 'unavailable',
+        message: 'request_choices requires interactive UI',
+      });
+      return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
     }
 
-    const editorPrefillParams: Parameters<typeof buildRequestChoicesEditorPrefill>[0] = {
-      prompt: params.prompt,
-      choices,
-    };
-    if (params.allowOther !== undefined) editorPrefillParams.allowOther = params.allowOther;
-    if (params.allowNone !== undefined) editorPrefillParams.allowNone = params.allowNone;
-    if (params.commentPrompt !== undefined) editorPrefillParams.commentPrompt = params.commentPrompt;
-
-    const edited = await ctx.ui.editor(buildRequestChoicesEditorPrefill(editorPrefillParams));
-    if (edited === undefined) return terminal('cancelled');
-
-    const response = parseRequestChoicesEditorResponse(edited);
-    if (!response) return terminal('unavailable', 'request_choices editor fallback returned invalid JSON');
-    if (response.status === 'cancelled') return terminal('cancelled');
-
-    const matchParams: Parameters<typeof matchSelectedChoices>[1] = { choices };
-    if (params.allowOther !== undefined) matchParams.allowOther = params.allowOther;
-    if (params.allowNone !== undefined) matchParams.allowNone = params.allowNone;
-
-    const matched = matchSelectedChoices(response.choices, matchParams);
-    if (typeof matched === 'string') return terminal('unavailable', matched);
-
-    const comment = normalizeOptionalText(response.comment);
-    if (
-      matched.some((choice) => choice.kind === 'other' || choice.kind === 'none') &&
-      comment === undefined
-    ) {
-      return terminal('unavailable', 'request_choices requires a comment for Other or None selections');
-    }
-
-    const details = projectRequestChoices({
+    const flowParams: RequestChoicesEditorFlowParams = {
       exchangeId: params.exchangeId,
-      status: 'answered',
-      choices: matched,
-      comment,
-    });
-    return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
+      prompt: params.prompt,
+      choices: params.choices,
+      ...(params.allowOther !== undefined ? { allowOther: params.allowOther } : {}),
+      ...(params.allowNone !== undefined ? { allowNone: params.allowNone } : {}),
+      ...(params.commentPrompt !== undefined ? { commentPrompt: params.commentPrompt } : {}),
+    };
+    return requestChoicesViaEditor(flowParams, (prefill) => ctx.ui.editor(prefill));
   },
 
   renderCall() {
