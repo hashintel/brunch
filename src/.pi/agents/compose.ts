@@ -1,3 +1,4 @@
+import { selectElicitationGap } from '../../graph/elicitation-driver.js';
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import { READINESS_BANDS } from '../../graph/schema/kinds.js';
 import { readinessEstimate } from '../../projections/session/readiness-estimate.js';
@@ -47,6 +48,7 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
   const prompt = joinSections([
     renderAgentControl(input, definition),
     renderRuntimeState(input),
+    renderElicitationRecommendation(input),
     renderPushedContext(input.context),
     renderManifestFamily('available_goals', manifests.goals),
     renderManifestFamily('available_strategies', manifests.strategies),
@@ -98,6 +100,21 @@ function renderPosture(posture: AgentPromptWorkspaceContext['posture']): string 
     Boolean(entry[1]?.trim()),
   );
   return entries.length > 0 ? entries.map(([key, value]) => `${key}=${value}`).join('; ') : 'unrecorded';
+}
+
+function renderElicitationRecommendation(input: ComposeAgentPromptInput): string {
+  const gap = selectElicitationGap(input.gaps, input.sessionState);
+  if (!gap) return '';
+  return [
+    '[Brunch elicitation recommendation]',
+    `- next question: ${oneLine(gap.question)}`,
+    `- refers to: ${gap.refersTo}`,
+    `- rationale: ${oneLine(gap.rationale)}`,
+  ].join('\n');
+}
+
+function oneLine(value: string): string {
+  return value.trim().replaceAll(/\s+/g, ' ');
 }
 
 function renderPushedContext(context: AgentPromptContextBundle | undefined): string {

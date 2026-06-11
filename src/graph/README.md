@@ -38,6 +38,10 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   elicitation gaps. These return typed domain objects or
   internal ids, not Drizzle rows.
 
+- **Elicitation driver** (`elicitation-driver.ts`) — pure read-only rank/select
+  policy over selected-spec `ElicitationGap[]`. It owns the deterministic
+  what-to-ask-next ordering (band → importance → coverage → affinity → stable
+  tiebreak) and imports no DB, session, projection, or prompt layers.
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
   `ReconciliationNeed`, `ElicitationGap` (`refersTo` + `question`),
@@ -72,7 +76,7 @@ D60-L read-shape ownership is explicit: every durable graph read shape has one c
 | `gaps` | `getGraphGaps` | required | n/a | n/a | Agent/RPC-only diagnostic shape; not a web observer projection. |
 | `related` | `getRelatedNodes` | required | n/a | n/a | Agent/RPC-only traversal helper; not a web observer projection. |
 | `reconciliation_needs` | `getOpenReconciliationNeeds` | deferred | deferred | deferred | Agent-internal register read; no transport consumer yet. |
-| `elicitation_gaps` | `getElicitationGaps` | deferred | deferred | deferred | Exposed through the selected-spec graph-read seam for prompt/tool readiness; not a `read_graph`/RPC/web projection until the per-turn driver promotes it. |
+| `elicitation_gaps` | `getElicitationGaps` | deferred | deferred | deferred | Consumed by prompt readiness and the read-only elicitation driver through the selected-spec graph-read seam; still not a `read_graph`/RPC/web projection. |
 
 `observed-shapes-coverage.test.ts` guards the required subsets against accidental drift: the tool mode union must stay at the six required agent shapes, while RPC and web stay at `overview` + `neighborhood` until a scoped feature deliberately promotes another row.
 
@@ -104,7 +108,7 @@ not compare bare LSN values across sibling specs.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
 - `projections/graph/` — topology stubs for deferred graph PROJECT seams; node-neighborhood consumers read `NodeNeighborhood` directly from `queries.ts`.
 - `renderers/graph/` — reusable lossy markdown/text rendering over projected graph DTOs.
-- `.pi/agents/contexts/` — future prompt context renderers.
+- `.pi/agents/` — prompt composition consumes the read-only elicitation driver and context renderers consume graph reads.
 - `probes/` — graph proof drivers.
 
 ## Current topology
@@ -158,6 +162,9 @@ graph/
     getOpenReconciliationNeeds
     row -> domain mapping
 
+  elicitation-driver.ts
+    pure read-only rank/select over ElicitationGap[]
+    no DB writes, no prompt-layer imports, no driver-local state
 
   workspace-store.ts
     openWorkspaceGraphRuntime(cwd)
@@ -209,8 +216,8 @@ CommandExecutor
       │     public product projections
       │     session.submitExchangeResponse capture wiring
       │
-      └─► .pi/agents/contexts future context orchestration
-            prompt context reads and render inputs
+      └─► .pi/agents
+            elicitation recommendation selection and prompt context render inputs
 ```
 
 ## Fractal split points

@@ -36,7 +36,7 @@ itself.
 
 - `memory/PLAN.md` owns frontier ids, sequencing, dependency judgment, and which work is active next.
 - This file owns only the temporary elicitor READ / WRITE / KNOW row inventory and its aggregate coverage DoD.
-- When one row escapes row-sized work, it gets promoted back into PLAN. As of 2026-06-08, the D65-L substrate row is the landed PLAN frontier `elicitation-backlog`, and the prompt-resource body-depth pass landed in 1ca02e38. **The cross-cut is not yet exhausted:** the Seam 3a `"what to ask next" driver` row is still `partial · ●`, so by the aggregate DoD below this seam stays open. That row has now escaped row-sized work and is disposed as the PLAN frontier `elicitation-driver` — when it lands, this row flips to `built` and the cross-cut closes.
+- When one row escapes row-sized work, it gets promoted back into PLAN. As of 2026-06-08, the D65-L substrate row is the landed PLAN frontier `elicitation-backlog`, and the prompt-resource body-depth pass landed in 1ca02e38. **The cross-cut is not yet exhausted:** the Seam 3a `"what to ask next" driver` row is still `partial · ●`, so by the aggregate DoD below this seam stays open. The read-only driver half landed on FE-852 (rank/select + composed-prompt surfacing); the remaining row obligation is capture-reflection writeback through the existing `CommandExecutor` gap mutation boundary. PLAN owns that active residue under `elicitation-driver`; this file should be deleted once that micro-decision lands or is explicitly deferred out of the POC row.
 
 ## The seams (locked)
 
@@ -88,7 +88,7 @@ DoD: every ● row is `have` or `built`.
 | graph slice — IS_NOT / absence queries | built | ● | — | done — `read_graph` `gaps` mode (79f92bc5) | D60-L 4th shape; serves D65-L backlog |
 | workspace context — tree + file counts (gitignore-aware) | built | ● | — | done — `read_workspace_context` `cwd_inventory` (54ae7f86) | D60-L `cwd`; stub replaced |
 | workspace context — specs overview (title, #sessions, #nodes) | built | ● | — | done — `read_workspace_context` `workspace_overview` (3642b777) | D60-L; fork resolved → agent-context read |
-| workspace context — sessions overview (turn count, grade) | built | ● | — | done — `workspace_overview` (3642b777) | D60-L |
+| workspace context — sessions overview (turn count, readiness-free session facts) | built | ● | — | done — `workspace_overview` (3642b777); later grade fields retired by capability-readiness | D60-L, D45-L |
 | session context read — binding + runtime frame | built | ● | — | done — `read_session_context` tool + `renderRuntimeFrame` (b2a89e04) | projection reused; R1 matcher remediation folded in |
 | auto-feed / pushed read surface + deterministic trigger | spec | ○ | proving | later | D60-L *pushed*; nice-to-have |
 
@@ -117,7 +117,7 @@ DoD: every ● row is `have` or `built`.
 | goals / strategies / lenses scaffolding + legal-tuple gating | have | ● | — | — | `.pi/agents/state.ts` |
 | goal/strategy/lens **content depth** | built | ● | — | done — deepened bodies + manifest-wide depth test (1ca02e38) | each body now carries its facet guidance; ≥700-char floor guarded in `compose.test.ts` |
 | `freestyle` strategy | built | ● | — | done — pin-only strategy (8de7f166) | AUTO-excluded, no added authority; D66-L |
-| "what to ask next" driver | partial | ● | proving | promoted → PLAN `elicitation-driver` | flat-table substrate landed via FE-823; live per-turn driver + capture-reflection now disposed as the `elicitation-driver` frontier (last open ● row) |
+| "what to ask next" driver | partial | ● | proving | active → PLAN `elicitation-driver` | read/rank/select + COMPOSE surfacing landed on FE-852; remaining closure is capture-reflection writeback (spawn gaps / set dispositions) through the existing command boundary, with no second mutation clock |
 
 ### Seam 3b — KNOW / mechanics (methods)
 
@@ -217,8 +217,8 @@ built. Ordered by leverage.
   closed gap-name catalog with `refersTo: NodeKind` plus a free-form `question`. The
   missing substrate for the "what to ask next" objective and generalized capture is
   therefore the obligation register, not a new graph node kind. `basis` generalized to
-  provenance-directness (D63-L). Remaining scope-level detail: live ranking, mutation
-  ergonomics, and the goal-layer relationship.
+  provenance-directness (D63-L). FE-852 has since proven live ranking/select; remaining
+  scope-level detail is capture-reflection mutation ergonomics and the goal-layer relationship.
 - **Q1 — Negative/IS_NOT graph queries. RESOLVED → dedicated `gaps` mode.** Add a fourth
   `read_graph` mode `gaps`: a base class filter (`kinds` and/or `readinessBands`) plus a
   required `absentEdgeCategory` and optional `direction` (default `both`), returning
@@ -273,9 +273,10 @@ order is coverage-driven: close ● ledger rows seam by seam.
    `promptGuidelines` (drift correction 2026-06-07), and goal/strategy/lens/method body depth
    (1ca02e38 — deepened bodies + a manifest-wide ≥700-char depth test in `compose.test.ts`) are
    all built. FE-823 landed the D65-L substrate tracer (flat table, `createSpec` seed,
-   command/query seam). Skill-commands (Q6) stay deferred. The remaining open ● row is the live
-   per-turn "what to ask next" driver + capture-reflection, now disposed as the PLAN frontier
-   `elicitation-driver`; the seam is not done until it lands.
+   command/query seam), and FE-852 landed read/rank/select + COMPOSE surfacing. Skill-commands
+   (Q6) stay deferred. The remaining open ● row is capture-reflection writeback for the live
+   per-turn driver, now disposed as active PLAN frontier `elicitation-driver`; the seam is not
+   done until that micro-decision lands or is explicitly deferred out of the POC row.
 5. **Spec reconcile** — promote the D40-L/D59-L one-line refinements (on confirmation),
    land Q1 negative-query touch, fold D65-L/D66-L outcomes into SPEC/PLAN.
 
@@ -297,9 +298,7 @@ named prerequisite oracle, not optional polish.
   New graph-slice renderers land in `src/renderers/graph/`.
 - Seed infra is real: `npm run seed` → `src/graph/seed-fixtures.ts` (`seedFixture(executor,
   fixture)`); `src/scripts/` exists as the executables home (D52-L) and may import domain.
-- **The lock stage is net-new.** Current render tests are *invariant-only* (`.toContain(...)`,
-  e.g. `workspace-state.test.ts`) — there is **no `toMatchFileSnapshot` / golden pattern
-  in the repo yet**. The eyeball-lock stage *is* the missing oracle, not an existing habit.
+- **The lock stage now exists but is incomplete.** `graph/` and `session/runtime-frame` already use co-located `toMatchFileSnapshot` previews, while several durable `workspace/`, `session/transcript`, and `exchanges/` renderers remain invariant-only or transitively covered. The missing oracle is not a new testing primitive; it is the closed renderer ledger plus applying the existing eyeball-lock pattern to the surviving required rows.
 
 **Three-stage loop — sketch → lock → formalize:**
 
