@@ -248,7 +248,7 @@ function registerRuntimeSwitchCommands(pi: ExtensionAPI, requestChromeRefresh?: 
         return;
       }
       if (selection === current.operationalMode) {
-        ctx.ui.notify('Brunch mode is already elicit.', 'info');
+        ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
         return;
       }
       ctx.ui.notify(
