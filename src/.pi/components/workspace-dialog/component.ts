@@ -279,7 +279,7 @@ function readLogo(): string[] {
   });
 }
 
-function supportsTruecolor(): boolean {
+export function supportsTruecolor(): boolean {
   const colorterm = process.env.COLORTERM?.toLowerCase() ?? '';
   const term = process.env.TERM?.toLowerCase() ?? '';
   return colorterm === 'truecolor' || colorterm === '24bit' || term.includes('truecolor');

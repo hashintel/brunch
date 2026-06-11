@@ -111,7 +111,7 @@ function applyRuntimeSwitch(pi: ExtensionAPI, ctx: RuntimeSwitchContext, patch: 
       getEntries: () => ctx.sessionManager.getEntries(),
       appendCustomEntry: (customType, data) => {
         pi.appendEntry(customType, data);
-        return '';
+        return 'brunch-runtime-switch';
       },
     },
     nextState,
@@ -119,7 +119,7 @@ function applyRuntimeSwitch(pi: ExtensionAPI, ctx: RuntimeSwitchContext, patch: 
   );
 
   pi.setActiveTools(
-    activeToolNamesForBrunchAgentState(pi, projectBrunchAgentState(ctx.sessionManager.getEntries())),
+    activeToolNamesForBrunchAgentState(pi, projectBrunchAgentState(ctx.sessionManager.getEntries()), []),
   );
   ctx.ui.notify(`Brunch ${patch.axis} set to ${patch.value}.`, 'info');
 }

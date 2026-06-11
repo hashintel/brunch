@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { type ReactNode, useRef, useState } from 'react';
 
 import type { GraphSlice } from '../../../graph/queries.js';
 import { NODE_KIND_METADATA, type NodeKind } from '../../../graph/schema/nodes.js';
@@ -230,7 +230,7 @@ function EmptyState({
 }: {
   title: string;
   description: string;
-  action?: React.ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <div className="border-rule bg-tint flex flex-col items-center gap-2 rounded-xl border p-8 text-center">

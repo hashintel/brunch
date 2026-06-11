@@ -1,4 +1,5 @@
 import { type ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { type Component } from '@earendil-works/pi-tui';
 
 import {
   DEMO_MODEL_SEGMENTS,
@@ -14,12 +15,6 @@ export const BRUNCH_TUI_STYLE_LAB_COMMAND = 'brunch:tui-style-lab';
 
 export interface BrunchTuiLabOptions {
   readonly enabled?: boolean;
-}
-
-interface Component {
-  render(width: number): string[];
-  handleInput?(data: string): void;
-  invalidate(): void;
 }
 
 export function registerBrunchTuiLab(pi: ExtensionAPI, options: BrunchTuiLabOptions = {}): void {

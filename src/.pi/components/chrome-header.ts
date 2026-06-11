@@ -5,6 +5,7 @@ import type { Theme } from '@earendil-works/pi-coding-agent';
 import { type Component, truncateToWidth } from '@earendil-works/pi-tui';
 
 import { formatBrunchProductIdentity, readBrunchAnsiLogo } from './brunch-identity.js';
+import { supportsTruecolor } from './workspace-dialog/component.js';
 
 export interface BrunchStartupHeaderFacts {
   project: string;
@@ -20,23 +21,16 @@ const PACKAGE_JSON_URL = new URL('../../../package.json', import.meta.url);
 const LOCAL_BUILD_TIME = formatBuildTime(new Date());
 
 export class BrunchStartupHeader implements Component {
-  private expanded = false;
-
   constructor(
     private readonly facts: BrunchStartupHeaderFacts,
     private readonly theme: Pick<Theme, 'fg' | 'bold'>,
   ) {}
 
-  setExpanded(expanded: boolean): void {
-    this.expanded = expanded;
-  }
-
   invalidate(): void {}
 
   render(width: number): string[] {
     const safeWidth = Math.max(MIN_WIDTH, width);
-    const lines = this.expanded ? this.expandedLines() : this.collapsedLines();
-    return lines.map((line) => truncateToWidth(line, safeWidth, '...'));
+    return this.collapsedLines().map((line) => truncateToWidth(line, safeWidth, '...'));
   }
 
   private collapsedLines(): string[] {
@@ -49,30 +43,13 @@ export class BrunchStartupHeader implements Component {
     ];
   }
 
-  private expandedLines(): string[] {
-    return [
-      ...this.topPaddingLines(),
-      ...this.identityLines(),
-      '',
-      this.shortcutHelpLine(),
-      this.webOrExpandHelpLine(),
-      '',
-      `Project: ${sanitizeText(this.facts.project)}`,
-      `Selected spec: ${sanitizeText(this.facts.spec)}`,
-      `Current session: ${sanitizeText(this.facts.session)}`,
-      'Graph capture: mention graph items with #codes; accepted graph truth flows through Brunch commands.',
-      'Runtime posture: use Brunch mode/strategy/lens controls; AUTO choices stay within the active manifest.',
-      'Help: use /brunch to switch spec/session; use structured prompts or chat to continue elicitation.',
-    ];
-  }
-
   private topPaddingLines(): string[] {
     return Array.from({ length: HEADER_TOP_PADDING_LINES }, () => '');
   }
 
   private identityLines(): string[] {
     return formatBrunchProductIdentity({
-      logoLines: readBrunchAnsiLogo({ assetUrl: ASSET_DIR, truecolor: true }),
+      logoLines: readBrunchAnsiLogo({ assetUrl: ASSET_DIR, truecolor: supportsTruecolor() }),
       version: brunchVersion(),
       theme: this.theme,
     });
@@ -81,7 +58,7 @@ export class BrunchStartupHeader implements Component {
   private shortcutHelpLine(): string {
     return this.theme.fg(
       'dim',
-      'escape interrupt · ctrl+c/ctrl+d clear/exit · /brunch switch · # mention · ! bash · ctrl+o more',
+      'escape interrupt · ctrl+c/ctrl+d clear/exit · /brunch switch · # mention · ! bash',
     );
   }
 
@@ -89,7 +66,10 @@ export class BrunchStartupHeader implements Component {
     if (this.facts.sidecarUrl) {
       return this.theme.fg('dim', `web-ui: ${sanitizeText(this.facts.sidecarUrl)}`);
     }
-    return this.theme.fg('dim', 'Press ctrl+o to show full Brunch startup help and active surfaces.');
+    return this.theme.fg(
+      'dim',
+      'Graph capture flows through Brunch commands; runtime posture follows mode/strategy/lens.',
+    );
   }
 }
 
