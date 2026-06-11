@@ -1,29 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../graph/schema/nodes.js';
+import { groundingFloorGaps } from '../graph/schema/elicitation-gap-fixtures.js';
 import { affordances } from '../projections/session/affordances.js';
 import { resolveBrunchAgentState } from '../projections/session/runtime-state.js';
 import { sessionRpcMethods } from '../rpc/methods/session.js';
 import { DEFAULT_BRUNCH_AGENT_STATE } from './runtime-state.js';
-
-function gap(refersTo: NodeKind): ElicitationGap {
-  return {
-    id: `${refersTo}:gap`,
-    specId: 1,
-    refersTo,
-    question: `${refersTo} question`,
-    rationale: `${refersTo} rationale`,
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage: 1,
-    answered: true,
-    disposition: 'answered',
-    createdAtLsn: 1,
-  };
-}
 
 const runtimeAffordanceLedger = [
   {
@@ -142,12 +123,7 @@ describe('runtime affordances coverage ledger', () => {
   });
 
   it('covers all agent-required rows through the shared affordances derivation', () => {
-    const derived = affordances(resolveBrunchAgentState(DEFAULT_BRUNCH_AGENT_STATE), [
-      gap('context'),
-      gap('thesis'),
-      gap('goal'),
-      gap('constraint'),
-    ]);
+    const derived = affordances(resolveBrunchAgentState(DEFAULT_BRUNCH_AGENT_STATE), groundingFloorGaps());
     const derivedRows = Object.entries(derived).flatMap(([axis, axisAffordance]) => {
       const { selection: _selection, ...derivedFields } = axisAffordance;
       expect(Object.keys(derivedFields).sort()).toEqual(['defaultOnSwitch', 'legalOptions']);

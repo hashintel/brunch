@@ -28,6 +28,11 @@ import {
 } from '../graph/index.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
+import { startAssistantTurn } from '../session/start-assistant-turn.js';
+import {
+  nextDeterministicStructuredExchange,
+  presentToolResultMessage,
+} from '../session/structured-exchange-loop.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -325,6 +330,7 @@ export function createBrunchAgentSessionRuntimeFactory(
               };
         },
         resolveNodeCode: (code: string) => graph.forSpec(currentWorkspace.spec.id).resolveNodeCode(code),
+        getElicitationGaps: () => graph.forSpec(currentWorkspace.spec.id).getElicitationGaps(),
       },
       ...(productUpdates && { productUpdates }),
     };
@@ -369,6 +375,12 @@ export function createBrunchAgentSessionRuntimeFactory(
         ),
       ],
     });
+    seedAndKickAssistantTurn({
+      specId: currentWorkspace.spec.id,
+      currentLsn: graph.forSpec(currentWorkspace.spec.id).queryGraph().lsn,
+      sessionManager,
+    });
+
     const services = await createAgentSessionServices({
       cwd,
       agentDir: runtimeAgentDir,
@@ -385,6 +397,34 @@ export function createBrunchAgentSessionRuntimeFactory(
       diagnostics: services.diagnostics,
     };
   };
+}
+
+function isMessageEntry(entry: unknown): boolean {
+  return typeof entry === 'object' && entry !== null && (entry as { type?: unknown }).type === 'message';
+}
+
+function seedAndKickAssistantTurn(options: {
+  readonly specId: number;
+  readonly currentLsn: number;
+  readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
+}): void {
+  const entries = options.sessionManager.getEntries();
+  // Origin is derived from projected transcript state, not counts or flags
+  // (I46/I47): a transcript with no conversational message entries is a new
+  // session; anything else takes the resume-debt decision, which itself
+  // dedupes re-kicks (a prior kick's present_* tail owes nothing).
+  const decision = startAssistantTurn({
+    specId: options.specId,
+    currentLsn: options.currentLsn,
+    entries,
+    origin: entries.some(isMessageEntry) ? 'resume_debt' : 'new_session',
+  });
+  for (const entry of decision.seedEntries) {
+    options.sessionManager.appendCustomEntry(entry.customType, entry.data);
+  }
+  if (decision.action === 'start') {
+    options.sessionManager.appendMessage(presentToolResultMessage(nextDeterministicStructuredExchange(0)));
+  }
 }
 
 async function startDefaultWebSidecar({
@@ -428,7 +468,6 @@ async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<voi
   });
 
   await runWithScopedBrunchOfflineDefault({
-    dev: context.dev?.introspection.enabled === true,
     env: process.env,
     run: async () => {
       await new InteractiveMode(runtime).run();
@@ -437,7 +476,6 @@ async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<voi
 }
 
 export async function runWithScopedBrunchOfflineDefault(options: {
-  readonly dev: boolean;
   readonly env?: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string };
   readonly run: () => Promise<void>;
 }): Promise<void> {

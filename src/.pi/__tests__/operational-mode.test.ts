@@ -203,8 +203,8 @@ describe('Brunch agent runtime-state projection', () => {
   it('appends init only when the transcript has no valid runtime state', () => {
     const manager = new FakeRuntimeStateSessionManager();
 
-    expect(appendBrunchAgentRuntimeInit(manager)).toBe('entry-1');
-    expect(appendBrunchAgentRuntimeInit(manager)).toBeUndefined();
+    expect(appendBrunchAgentRuntimeInit(manager)).toBe(true);
+    expect(appendBrunchAgentRuntimeInit(manager)).toBe(false);
     expect(manager.entries).toHaveLength(1);
     expect(manager.entries[0]?.data).toEqual({
       schemaVersion: 1,
@@ -225,7 +225,7 @@ describe('Brunch agent runtime-state projection', () => {
       agentGoal: 'capture-posture',
     };
 
-    expect(appendBrunchAgentRuntimeSwitch(manager, latestState, 'user')).toBe('entry-2');
+    appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
 
     expect(manager.entries[1]?.data).toEqual({
       schemaVersion: 1,

@@ -4,8 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../graph/schema/nodes.js';
+import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
@@ -42,31 +41,8 @@ function workspacePosture(posture: WorkspacePostureState): WorkspacePostureState
   return posture;
 }
 
-function gap(refersTo: NodeKind, coverage = 1): ElicitationGap {
-  return {
-    id: `${refersTo}:gap`,
-    specId: 1,
-    refersTo,
-    question: `${refersTo} question`,
-    rationale: `${refersTo} rationale`,
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage,
-    answered: coverage >= 1,
-    disposition: coverage >= 1 ? 'answered' : 'open',
-    createdAtLsn: 1,
-  };
-}
-
-const coveredGaps = ['context', 'thesis', 'goal', 'constraint'].map((kind) => gap(kind as NodeKind));
-const zeroCoverageGaps = coveredGaps.map((record) => ({
-  ...record,
-  coverage: 0,
-  answered: false,
-  disposition: 'open' as const,
-}));
+const coveredGaps = groundingFloorGaps();
+const zeroCoverageGaps = groundingFloorGaps({ defaultCoverage: 0 });
 
 const context = {
   contextHandles: ['graph-overview: compact selected-spec graph summary available via read tools'],

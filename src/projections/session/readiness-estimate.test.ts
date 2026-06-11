@@ -3,41 +3,16 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
+import { presenceGap } from '../../graph/schema/elicitation-gap-fixtures.js';
 import { READINESS_BANDS } from '../../graph/schema/kinds.js';
-import type { NodeKind, ReadinessBand } from '../../graph/schema/nodes.js';
 import { readinessEstimate } from './readiness-estimate.js';
-
-function gap(overrides: {
-  readonly id?: string;
-  readonly band: ReadinessBand;
-  readonly coverage: number;
-  readonly importance?: number;
-  readonly refersTo?: NodeKind;
-}): ElicitationGap {
-  return {
-    id: overrides.id ?? `${overrides.band}:${overrides.refersTo ?? 'context'}:${overrides.coverage}`,
-    specId: 1,
-    refersTo: overrides.refersTo ?? 'context',
-    question: `${overrides.band} question`,
-    rationale: `${overrides.band} rationale`,
-    basis: 'implicit',
-    band: overrides.band,
-    predicate: { kind: 'presence', minimum: 1, nodeKind: overrides.refersTo ?? 'context' },
-    importance: overrides.importance ?? 1,
-    coverage: overrides.coverage,
-    answered: overrides.coverage >= 1,
-    disposition: overrides.coverage >= 1 ? 'answered' : 'open',
-    createdAtLsn: 1,
-  };
-}
 
 describe('readiness estimate projection', () => {
   it('returns coverage for every readiness band', () => {
     const estimate = readinessEstimate([
-      gap({ band: 'grounding', coverage: 1 }),
-      gap({ band: 'elicitation', coverage: 0.5 }),
-      gap({ band: 'commitment', coverage: 0.25 }),
+      presenceGap({ refersTo: 'context', band: 'grounding', coverage: 1 }),
+      presenceGap({ refersTo: 'context', band: 'elicitation', coverage: 0.5 }),
+      presenceGap({ refersTo: 'context', band: 'commitment', coverage: 0.25 }),
     ]);
 
     expect(Object.keys(estimate.coverage)).toEqual([...READINESS_BANDS]);
@@ -45,7 +20,9 @@ describe('readiness estimate projection', () => {
   });
 
   it('reports an empty band as zero coverage', () => {
-    expect(readinessEstimate([gap({ band: 'grounding', coverage: 0.75 })]).coverage).toEqual({
+    expect(
+      readinessEstimate([presenceGap({ refersTo: 'context', band: 'grounding', coverage: 0.75 })]).coverage,
+    ).toEqual({
       grounding: 0.75,
       elicitation: 0,
       commitment: 0,
@@ -54,8 +31,8 @@ describe('readiness estimate projection', () => {
 
   it('uses an importance-weighted mean per band', () => {
     const estimate = readinessEstimate([
-      gap({ band: 'elicitation', coverage: 1, importance: 3 }),
-      gap({ band: 'elicitation', coverage: 0, importance: 1 }),
+      presenceGap({ refersTo: 'context', band: 'elicitation', coverage: 1, importance: 3 }),
+      presenceGap({ refersTo: 'context', band: 'elicitation', coverage: 0, importance: 1 }),
     ]);
 
     expect(estimate.coverage.elicitation).toBe(0.75);
@@ -63,12 +40,12 @@ describe('readiness estimate projection', () => {
 
   it('regresses honestly when gap coverage lowers and rises when coverage improves', () => {
     const lower = readinessEstimate([
-      gap({ id: 'same', band: 'commitment', coverage: 0.25 }),
-      gap({ id: 'other', band: 'commitment', coverage: 0.75 }),
+      presenceGap({ refersTo: 'context', id: 'same', band: 'commitment', coverage: 0.25 }),
+      presenceGap({ refersTo: 'context', id: 'other', band: 'commitment', coverage: 0.75 }),
     ]);
     const higher = readinessEstimate([
-      gap({ id: 'same', band: 'commitment', coverage: 0.75 }),
-      gap({ id: 'other', band: 'commitment', coverage: 0.75 }),
+      presenceGap({ refersTo: 'context', id: 'same', band: 'commitment', coverage: 0.75 }),
+      presenceGap({ refersTo: 'context', id: 'other', band: 'commitment', coverage: 0.75 }),
     ]);
 
     expect(lower.coverage.commitment).toBe(0.5);

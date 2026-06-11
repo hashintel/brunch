@@ -1,7 +1,8 @@
+import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { graphClock, specs } from '../db/schema.js';
+import { elicitationGaps, graphClock, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
 import { getElicitationGaps, getOpenReconciliationNeeds } from './queries.js';
 import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
@@ -118,5 +119,13 @@ describe('getElicitationGaps', () => {
     expect(getElicitationGaps(db, other.specId).find((gap) => gap.refersTo === 'context')!.answered).toBe(
       false,
     );
+  });
+
+  it('fails loudly when predicate columns diverge from predicate JSON', () => {
+    const row = db.select().from(elicitationGaps).where(eq(elicitationGaps.spec_id, specId)).get();
+    if (!row) throw new Error('expected seeded elicitation gap');
+    db.update(elicitationGaps).set({ predicate_kind: 'manual' }).where(eq(elicitationGaps.id, row.id)).run();
+
+    expect(() => getElicitationGaps(db, specId)).toThrow(/predicate_kind manual does not match/);
   });
 });

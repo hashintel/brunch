@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   graphHandlesInText,
   mentionEntry,
+  mentionFactsFromEntries,
   resolveMentionFacts,
   stalenessEntriesForMentions,
 } from './mention-ledger.js';
@@ -35,6 +36,15 @@ describe('mention ledger', () => {
       customType: 'brunch.mention',
       data: { entityId: '101', handle: 'G1', seenLsn: 4 },
     });
+  });
+
+  it('projects mention facts from transcript custom entries', () => {
+    expect(
+      mentionFactsFromEntries([
+        { type: 'custom', customType: 'brunch.mention', data: { entityId: '101', handle: 'G1', seenLsn: 4 } },
+        { type: 'custom', customType: 'brunch.mention', data: { entityId: 102, handle: 'G2', seenLsn: 4 } },
+      ]),
+    ).toEqual([{ entityId: '101', handle: 'G1', seenLsn: 4 }]);
   });
 
   it('emits staleness only when the entity changed since it was last seen', () => {

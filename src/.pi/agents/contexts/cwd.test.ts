@@ -1,26 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../../graph/schema/nodes.js';
+import { presenceGap } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { renderCwdContext } from './cwd.js';
-
-function gap(refersTo: NodeKind, coverage: number, band: ElicitationGap['band']): ElicitationGap {
-  return {
-    id: `${refersTo}:gap`,
-    specId: 42,
-    refersTo,
-    question: `${refersTo} question`,
-    rationale: `${refersTo} rationale`,
-    basis: 'implicit',
-    band,
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage,
-    answered: coverage >= 1,
-    disposition: coverage >= 1 ? 'answered' : 'open',
-    createdAtLsn: 1,
-  };
-}
 
 describe('renderCwdContext', () => {
   it('renders selected-spec/session/posture facts without ambient resource discovery', () => {
@@ -35,7 +16,10 @@ describe('renderCwdContext', () => {
         },
       },
       session: { id: 'session-7', label: 'Grounding' },
-      gaps: [gap('context', 0.5, 'grounding'), gap('requirement', 1, 'elicitation')],
+      gaps: [
+        presenceGap({ refersTo: 'context', coverage: 0.5, band: 'grounding', specId: 42 }),
+        presenceGap({ refersTo: 'requirement', coverage: 1, band: 'elicitation', specId: 42 }),
+      ],
     });
 
     expect(rendered).toContain('- cwd: /repo/product');

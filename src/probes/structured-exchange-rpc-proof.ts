@@ -52,9 +52,9 @@ interface StructuredExchangeRpcProofOptions {
 const PROOF_CUSTOM_TYPE = 'brunch.structured_exchange_rpc_proof_result';
 
 const scenario = {
-  mission: 'Complete an option-based structured exchange as an agent-as-user evaluator.',
+  mission: 'Complete a multi-choice structured exchange as an agent-as-user evaluator.',
   evaluationFocus:
-    'Verify that selected option answers and an optional note survive the Pi RPC editor fallback as structured terminal details.',
+    'Verify that selected choices and an optional comment survive the Pi RPC request_choices editor envelope as structured terminal details.',
   maxTurns: 1,
 };
 
@@ -138,31 +138,25 @@ async function writeProofExtension(cwd: string): Promise<string> {
   const adapterPath = resolve('src/.pi/extensions/exchanges/index.ts');
   const content = `
     import type { ExtensionAPI } from "@earendil-works/pi-coding-agent"
-    import {
-      buildStructuredExchangeEditorPrefill,
-      structuredExchangeResultFromEditor,
-    } from ${JSON.stringify(adapterPath)}
+    import { requestChoicesViaEditor } from ${JSON.stringify(adapterPath)}
 
     const params = {
-      question: "Which implementation path should the evaluator choose?",
-      context: "Scenario: prove option answers plus notes over Pi RPC.",
-      mode: "multi-select",
-      options: [
-        { label: "Ship RPC fallback", value: "rpc-fallback" },
-        { label: "Wait for web relay", value: "wait-web" },
-        { label: "Escalate blocker", value: "blocker" },
+      exchangeId: "structured-exchange-rpc-proof",
+      prompt: "Which implementation path should the evaluator choose?",
+      choices: [
+        { id: "rpc-fallback", label: "Ship RPC fallback" },
+        { id: "wait-web", label: "Wait for web relay" },
+        { id: "blocker", label: "Escalate blocker" },
       ],
     } as const
 
     export default function(pi: ExtensionAPI): void {
       pi.registerCommand("brunch-structured-exchange-rpc-proof", {
-        description: "Exercise Brunch structured-exchange RPC editor fallback.",
+        description: "Exercise the Brunch request_choices editor envelope over Pi RPC.",
         handler: async (_args, ctx) => {
-          const edited = await ctx.ui.editor(
-            "Answer structured exchange as JSON",
-            buildStructuredExchangeEditorPrefill(params),
+          const result = await requestChoicesViaEditor(params, (prefill) =>
+            ctx.ui.editor("Answer structured exchange as JSON", prefill),
           )
-          const result = structuredExchangeResultFromEditor(params, edited)
           const details = {
             ...result.details,
             probe: { name: "structured-exchange-rpc-proof", transport: "pi-rpc-editor" },
@@ -200,15 +194,8 @@ function answeredEditorPayload(prefill: string | undefined): string {
   const payload = JSON.parse(prefill) as { response?: unknown };
   payload.response = {
     status: 'answered',
-    answers: [
-      {
-        type: 'option',
-        label: 'Ship RPC fallback',
-        value: 'rpc-fallback',
-        index: 1,
-      },
-    ],
-    note: 'Proceed, but report any relay friction separately.',
+    choices: [{ id: 'rpc-fallback', label: 'Ship RPC fallback' }],
+    comment: 'Proceed, but report any relay friction separately.',
   };
   return `${JSON.stringify(payload, null, 2)}\n`;
 }

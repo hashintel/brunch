@@ -1,4 +1,5 @@
 import type { WorkspaceGraphRuntime } from '../graph/workspace-store.js';
+import type { TranscriptEntryLike } from '../projections/session/continuity-entry-classifier.js';
 
 export interface MentionFact {
   readonly entityId: string;
@@ -56,6 +57,24 @@ export function mentionEntry(fact: MentionFact): MentionEntry {
   return { type: 'custom', customType: 'brunch.mention', data: fact };
 }
 
+export function mentionFactsFromEntries(entries: readonly TranscriptEntryLike[]): readonly MentionFact[] {
+  return entries.flatMap((entry) => {
+    if (entry.customType !== 'brunch.mention' || !isRecord(entry.data)) return [];
+    const entityId = typeof entry.data.entityId === 'string' ? entry.data.entityId : undefined;
+    const handle = typeof entry.data.handle === 'string' ? entry.data.handle : undefined;
+    const seenLsn = typeof entry.data.seenLsn === 'number' ? entry.data.seenLsn : undefined;
+    if (!entityId || !handle || seenLsn === undefined) return [];
+    return [
+      {
+        entityId,
+        handle,
+        seenLsn,
+        ...(typeof entry.data.title === 'string' ? { title: entry.data.title } : {}),
+      },
+    ];
+  });
+}
+
 export function stalenessEntriesForMentions(options: {
   readonly mentions: readonly MentionFact[];
   readonly currentByEntityId: ReadonlyMap<string, number>;
@@ -76,4 +95,8 @@ export function stalenessEntriesForMentions(options: {
       },
     ];
   });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

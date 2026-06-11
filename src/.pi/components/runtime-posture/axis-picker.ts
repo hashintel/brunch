@@ -1,3 +1,5 @@
+import { type Component } from '@earendil-works/pi-tui';
+
 import {
   AGENT_LENS_IDS,
   AGENT_STRATEGY_IDS,
@@ -12,12 +14,6 @@ import {
   type LabTheme,
   type TrackSegment,
 } from '../tui-lab/index.js';
-
-interface Component {
-  render(width: number): string[];
-  handleInput?(data: string): void;
-  invalidate(): void;
-}
 
 interface RuntimeAxisPickerOptions<TSelection extends string> {
   readonly title: string;

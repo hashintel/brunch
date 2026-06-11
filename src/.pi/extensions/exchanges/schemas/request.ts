@@ -229,3 +229,26 @@ export type RequestDetails = z.infer<typeof zRequestDetails>;
 export const RequestDetailsSchema = z.toJSONSchema(zRequestDetails, {
   unrepresentable: 'throw',
 });
+
+type KeysOfUnion<T> = T extends unknown ? keyof T : never;
+
+/**
+ * Request outcome keys, projected from the details-schema union branches.
+ * Every request details branch extends the shared header + `tool_meta` with
+ * exactly one of these keys; the transcript carries the outcome as key
+ * presence, never a status string.
+ */
+export type RequestOutcomeKey = Exclude<
+  KeysOfUnion<RequestDetails>,
+  KeysOfUnion<z.infer<typeof zRequestDetailsHeader>> | 'tool_meta'
+>;
+
+// `satisfies Record<RequestOutcomeKey, true>` drift-couples this list to the
+// schema branches in both directions: a missing or extra key fails to compile.
+const requestOutcomeKeyMarkers = {
+  answered: true,
+  cancelled: true,
+  unavailable: true,
+} satisfies Record<RequestOutcomeKey, true>;
+
+export const REQUEST_OUTCOME_KEYS = Object.keys(requestOutcomeKeyMarkers) as readonly RequestOutcomeKey[];

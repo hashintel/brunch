@@ -142,6 +142,7 @@ describe('Brunch explicit Pi extension registry', () => {
             }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
         },
       },
     })(recordingApiWithEvents(events));
@@ -161,10 +162,65 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(appended).toHaveLength(1);
 
     graphLsn = 4;
-    await expect(events.get('before_provider_request')?.[0]?.({}, { sessionManager })).rejects.toThrow(
-      /prepareNextTurn must run before prompt composition/,
+    await expect(
+      events.get('before_provider_request')?.[0]?.({}, { sessionManager }),
+    ).resolves.toBeUndefined();
+    expect(appended).toEqual([
+      {
+        customType: 'worldUpdate',
+        data: expect.objectContaining({ specId: 1, currentLsn: 3, changedSinceLsn: 0 }),
+      },
+      {
+        customType: 'worldUpdate',
+        data: expect.objectContaining({ specId: 1, currentLsn: 4, changedSinceLsn: 3 }),
+      },
+    ]);
+  });
+
+  it('threads transcript mentions and continuity drains into the live prepareNextTurn adapter', async () => {
+    const appended: Array<{ customType: string; data: unknown }> = [
+      { customType: 'brunch.context_seed', data: { specId: 1, snapshotLsn: 1 } },
+      { customType: 'brunch.mention', data: { entityId: '10', handle: 'G1', seenLsn: 1 } },
+    ];
+    const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
+    const sessionManager = {
+      getEntries: () => appended.map((entry) => ({ type: 'custom', ...entry })),
+      appendCustomEntry(customType: string, data: unknown) {
+        appended.push({ customType, data });
+      },
+    };
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      continuityDrains: () => [{ kind: 'side_task', id: 'side-1', summary: 'Side task done' }],
+      graph: {
+        specId: 1,
+        commandExecutor: {} as never,
+        reads: {
+          queryGraph: () =>
+            ({
+              lsn: 2,
+              nodes: [{ id: 10, kind: 'goal', title: 'Live goal', updatedAtLsn: 2 }],
+              edges: [],
+            }) as never,
+          getNodes: () => [],
+          resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
+        },
+      },
+    })(recordingApiWithEvents(events));
+
+    await events.get('before_agent_start')?.[0]?.({}, { sessionManager });
+
+    expect(appended).toEqual(
+      expect.arrayContaining([
+        {
+          customType: 'brunch.mention_staleness_hint',
+          data: { entityId: '10', handle: 'G1', seenLsn: 1, currentLsn: 2 },
+        },
+        { customType: 'brunch.side_task_result', data: { id: 'side-1', summary: 'Side task done' } },
+      ]),
     );
-    expect(appended).toHaveLength(1);
   });
 
   it('does not retain the filesystem-discovery product-extension protocol', async () => {

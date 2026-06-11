@@ -12,6 +12,10 @@ function message(role: 'user' | 'assistant', content: string) {
   return { type: 'message', message: { role, content, timestamp: 0 } };
 }
 
+function toolResult(toolName: string, details: Record<string, unknown> = {}) {
+  return { type: 'message', message: { role: 'toolResult', toolName, details, timestamp: 0 } };
+}
+
 describe('startAssistantTurn', () => {
   it('seeds and starts a new assistant-originated session without fabricating a user turn', () => {
     const decision = startAssistantTurn({
@@ -46,6 +50,19 @@ describe('startAssistantTurn', () => {
   });
 
   it('stays idle for request/system leaves and for explicit freestyle while AUTO remains offer-first', () => {
+    // Real request_* envelopes carry the outcome as key presence
+    // (answered/cancelled/unavailable), never a status string field.
+    expect(
+      latestTailOwesAssistant([toolResult('request_clarification', { answered: { choices: [] } })]),
+    ).toBe(false);
+    expect(latestTailOwesAssistant([toolResult('request_clarification', { cancelled: {} })])).toBe(false);
+    expect(
+      latestTailOwesAssistant([toolResult('request_clarification', { unavailable: { message: 'no UI' } })]),
+    ).toBe(false);
+    // A status string alone is not a real terminal envelope — still pending.
+    expect(latestTailOwesAssistant([toolResult('request_clarification', { status: 'answered' })])).toBe(true);
+    expect(latestTailOwesAssistant([toolResult('present_options')])).toBe(false);
+
     expect(
       startAssistantTurn({
         specId,

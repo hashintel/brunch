@@ -258,16 +258,21 @@ export async function runSeedFixturesCli(options: SeedCliOptions = {}): Promise<
     return 1;
   }
 
-  const destinationDb = join(parsed.workspace, '.brunch', 'data.db');
-  const fixture = await readSelectedSeed(parsed.seed.set, parsed.seed.slug);
-  const executor = await openWorkspaceCommandExecutor(parsed.workspace);
-  const result = seedFixture(executor, fixture);
-  stdout(
-    `seeded ${parsed.seed.ref} → spec ${result.specId} ` +
-      `(${result.nodeCount} nodes, ${result.edgeCount} edges)\n`,
-  );
-  stdout(`Destination: ${destinationDb}\n`);
-  return 0;
+  try {
+    const destinationDb = join(parsed.workspace, '.brunch', 'data.db');
+    const fixture = await readSelectedSeed(parsed.seed.set, parsed.seed.slug);
+    const executor = await openWorkspaceCommandExecutor(parsed.workspace);
+    const result = seedFixture(executor, fixture);
+    stdout(
+      `seeded ${parsed.seed.ref} → spec ${result.specId} ` +
+        `(${result.nodeCount} nodes, ${result.edgeCount} edges)\n`,
+    );
+    stdout(`Destination: ${destinationDb}\n`);
+    return 0;
+  } catch (error) {
+    stderr(`${error instanceof Error ? error.message : String(error)}\n`);
+    return 1;
+  }
 }
 
 function parseSeedCliArgs(argv: readonly string[], cwd: string): ParsedSeedCliArgs | null {

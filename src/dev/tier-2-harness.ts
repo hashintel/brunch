@@ -138,6 +138,118 @@ export async function bootTier2RuntimeThroughRunBrunchTui(options: { readonly de
   return { cwd, runtime, restoreEnv };
 }
 
+export type Tier2FixtureEntry =
+  | { readonly type: 'message'; readonly message: unknown }
+  | { readonly type: 'custom'; readonly customType: string; readonly data: unknown };
+
+/**
+ * Boot the real runBrunchTui runtime over a pre-seeded fixture transcript —
+ * the resume-side counterpart of bootTier2RuntimeThroughRunBrunchTui. The
+ * fixture builder receives the created spec id so continuity entries can
+ * carry real {specId, lsn} facts.
+ */
+export async function bootTier2RuntimeFromFixture(options: {
+  readonly fixtureEntries: (specId: number) => readonly Tier2FixtureEntry[];
+  readonly specTitle?: string;
+}) {
+  const cwd = await mkdtemp(join(tmpdir(), 'brunch-tier-2-resume-boot-'));
+  const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+
+  const previousDev = process.env.BRUNCH_DEV;
+  const hadPreviousDev = Object.hasOwn(process.env, 'BRUNCH_DEV');
+  delete process.env.BRUNCH_DEV;
+  const restoreEnv = () => {
+    if (hadPreviousDev && previousDev !== undefined) {
+      process.env.BRUNCH_DEV = previousDev;
+    } else {
+      delete process.env.BRUNCH_DEV;
+    }
+  };
+
+  try {
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinator.createSetupSession({
+      specTitle: options.specTitle ?? 'Tier 2 resume fixture spec',
+      createNewSpec: true,
+    });
+    for (const entry of options.fixtureEntries(workspace.spec.id)) {
+      if (entry.type === 'custom') {
+        workspace.session.manager.appendCustomEntry(entry.customType, entry.data);
+      } else {
+        workspace.session.manager.appendMessage(entry.message as never);
+      }
+    }
+    flushSessionEntries(workspace.session.manager, workspace.session.file);
+
+    let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
+    await runBrunchTui({
+      cwd,
+      autoOpen: false,
+      coordinator,
+      runWorkspaceDialogPreflight: async () => ({
+        action: 'openSession',
+        specId: workspace.spec.id,
+        sessionFile: workspace.session.file,
+      }),
+      webSidecarRunner: async () => null,
+      launchInteractive: async (context) => {
+        runtime = await createAgentSessionRuntime(createBrunchAgentSessionRuntimeFactory(context), {
+          cwd,
+          agentDir,
+          sessionManager: context.workspace.session.manager,
+        });
+      },
+    });
+    if (!runtime) {
+      restoreEnv();
+      throw new Error('runBrunchTui did not reach launchInteractive for the fixture resume boot');
+    }
+    return { cwd, specId: workspace.spec.id, sessionFile: workspace.session.file, runtime, restoreEnv };
+  } catch (error) {
+    restoreEnv();
+    throw error;
+  }
+}
+
+/**
+ * Re-boot the real runtime over an existing session — the actual-restart half
+ * of the I47 idempotence proof. Pi defers JSONL writes until an assistant
+ * message exists, so the prior runtime's entries are flushed to the session
+ * file first; the reboot then reads continuity purely from transcript
+ * projection (no hidden flags survive the restart).
+ */
+export async function rebootTier2Runtime(options: {
+  readonly cwd: string;
+  readonly specId: number;
+  readonly sessionFile: string;
+  readonly flushManager?: unknown;
+}) {
+  if (options.flushManager) flushSessionEntries(options.flushManager, options.sessionFile);
+  const coordinator = createWorkspaceSessionCoordinator({ cwd: options.cwd });
+  const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+  let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
+  await runBrunchTui({
+    cwd: options.cwd,
+    autoOpen: false,
+    coordinator,
+    runWorkspaceDialogPreflight: async () => ({
+      action: 'openSession',
+      specId: options.specId,
+      sessionFile: options.sessionFile,
+    }),
+    webSidecarRunner: async () => null,
+    launchInteractive: async (context) => {
+      runtime = await createAgentSessionRuntime(createBrunchAgentSessionRuntimeFactory(context), {
+        cwd: options.cwd,
+        agentDir,
+        sessionManager: context.workspace.session.manager,
+      });
+    },
+  });
+  if (!runtime) throw new Error('runBrunchTui did not reach launchInteractive for the reboot');
+  return { runtime };
+}
+
 export async function resumeTier2Fixture(options: {
   readonly cwd?: string;
   readonly fixtureJsonl: string;

@@ -1,4 +1,7 @@
-import type { RequestReviewDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type {
+  RequestOutcomeKey,
+  RequestReviewDetails,
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
   zRequestReviewDetails,
@@ -9,7 +12,7 @@ export type ReviewDecision = 'approve' | 'request_changes' | 'reject';
 
 export function projectRequestReview(input: {
   readonly exchangeId: string;
-  readonly status: 'answered' | 'cancelled' | 'unavailable';
+  readonly status: RequestOutcomeKey;
   readonly review?: ReviewDecision | undefined;
   readonly comment?: string | undefined;
   readonly message?: string | undefined;

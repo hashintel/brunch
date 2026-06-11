@@ -1,3 +1,4 @@
+import { REQUEST_OUTCOME_KEYS } from '../projections/exchanges/request-choices.js';
 import { projectAssistantVisibleWatermark } from '../projections/session/assistant-visible-watermark.js';
 import {
   isContinuityOnlyNonDebtEntry,
@@ -66,20 +67,27 @@ export function latestTailOwesAssistant(entries: readonly TranscriptEntryLike[])
     if (message?.role === 'user') return true;
     if (message?.role === 'toolResult') {
       const toolName = typeof message.toolName === 'string' ? message.toolName : '';
-      return toolName.startsWith('request_') && responseStatus(message) !== 'answered';
+      if (toolName.startsWith('request_')) return !isTerminalRequestResult(message);
+      if (toolName.startsWith('present_')) return false;
     }
     return false;
   }
   return false;
 }
 
-function responseStatus(message: Record<string, unknown>): string | undefined {
+/**
+ * Real request_* result envelopes (projections/exchanges) carry their outcome
+ * as key presence — `REQUEST_OUTCOME_KEYS` — never a status string field. A
+ * request result with none of those keys is still pending.
+ */
+function isTerminalRequestResult(message: Record<string, unknown>): boolean {
   const details = isRecord(message.details)
     ? message.details
     : isRecord(message.data)
       ? message.data
       : undefined;
-  return typeof details?.status === 'string' ? details.status : undefined;
+  if (!details) return false;
+  return REQUEST_OUTCOME_KEYS.some((key) => key in details);
 }
 
 function messageRecord(entry: TranscriptEntryLike): Record<string, unknown> | undefined {

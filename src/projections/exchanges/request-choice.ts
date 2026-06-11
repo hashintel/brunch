@@ -1,16 +1,20 @@
-import type { RequestChoiceDetails, SelectedChoice } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type {
+  RequestChoiceDetails,
+  RequestOutcomeKey,
+  SelectedChoice,
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
   zRequestChoiceDetails,
 } from '../../.pi/extensions/exchanges/schemas/index.js';
 
-export type { RequestChoiceDetails, SelectedChoice };
+export type { RequestChoiceDetails, RequestOutcomeKey, SelectedChoice };
 export type RequestChoicePresentTool = 'present_options' | 'present_candidates';
 
 export function projectRequestChoice(input: {
   readonly exchangeId: string;
   readonly respondsToPresentTool: RequestChoicePresentTool;
-  readonly status: 'answered' | 'cancelled' | 'unavailable';
+  readonly status: RequestOutcomeKey;
   readonly choice?: SelectedChoice | undefined;
   readonly comment?: string | undefined;
   readonly message?: string | undefined;

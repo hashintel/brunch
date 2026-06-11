@@ -1618,6 +1618,35 @@ describe('JSON-RPC handlers', () => {
     expect(after).toContain('Keep ordinary messages on the same selected-spec capture path.');
   });
 
+  it('resolves stable graph mentions at submit time for the selected session transcript', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-message-mentions-'));
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinatorInstance.createSetupSession({ specTitle: 'Mention spec' });
+    const graph = await openWorkspaceGraphRuntime(cwd);
+    const node = graph.commandExecutor.createNode({
+      specId: workspace.spec.id,
+      plane: 'intent',
+      kind: 'goal',
+      title: 'Mentioned goal',
+    });
+    if (node.status !== 'success') throw new Error('failed to create mention fixture node');
+    const handlers = createRpcHandlers({ coordinator: coordinatorInstance, cwd });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 283,
+        method: 'session.submitMessage',
+        params: { text: 'Please check #G1 before the next turn.' },
+      }),
+    ).resolves.toMatchObject({ result: { status: 'accepted', interruption: false } });
+
+    const sessionText = await readFile(workspace.session.file, 'utf8');
+    expect(sessionText).toContain('brunch.mention');
+    expect(sessionText).toContain('Mentioned goal');
+    expect(sessionText).toContain(`"seenLsn":${node.lsn}`);
+  });
+
   it('rejects ordinary messages while a structured exchange is pending unless they are explicit interruptions', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-message-pending-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });

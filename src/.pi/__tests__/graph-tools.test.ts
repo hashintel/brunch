@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import {
+  getElicitationGaps,
   getNodes,
   queryGraph,
   resolveGraphNodeCode,
@@ -34,6 +35,7 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
       queryGraph(db, specId, filter, options),
     getNodes: (selectors, options) => getNodes(db, specId, selectors, options),
     resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
+    getElicitationGaps: () => getElicitationGaps(db, specId),
   };
 }
 

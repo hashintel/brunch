@@ -6,39 +6,12 @@ import { describe, expect, it } from 'vitest';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import { getElicitationGaps } from '../../graph/queries.js';
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../graph/schema/nodes.js';
+import { groundingFloorGaps, presenceGap } from '../../graph/schema/elicitation-gap-fixtures.js';
 import {
   CAPABILITY_RELEVANT_GAPS,
   evaluateCapabilityReadiness,
   type CapabilityReadinessOutcome,
 } from './capability-readiness.js';
-
-function gap(
-  overrides: Partial<ElicitationGap> & Pick<ElicitationGap, 'refersTo' | 'coverage'>,
-): ElicitationGap {
-  return {
-    id: overrides.id ?? `${overrides.refersTo}:${overrides.question ?? 'gap'}`,
-    specId: overrides.specId ?? 1,
-    refersTo: overrides.refersTo,
-    question: overrides.question ?? `${overrides.refersTo} question`,
-    rationale: overrides.rationale ?? `${overrides.refersTo} rationale`,
-    basis: overrides.basis ?? 'implicit',
-    band: overrides.band ?? 'grounding',
-    predicate: overrides.predicate ?? { kind: 'presence', minimum: 1, nodeKind: overrides.refersTo },
-    importance: overrides.importance ?? 1,
-    coverage: overrides.coverage,
-    answered: overrides.answered ?? overrides.coverage >= 1,
-    disposition: overrides.disposition ?? (overrides.coverage >= 1 ? 'answered' : 'open'),
-    createdAtLsn: overrides.createdAtLsn ?? 1,
-  };
-}
-
-function floorGaps(coverage: Partial<Record<NodeKind, number>> = {}): ElicitationGap[] {
-  return ['context', 'thesis', 'goal', 'constraint'].map((kind) =>
-    gap({ refersTo: kind as NodeKind, coverage: coverage[kind as NodeKind] ?? 1 }),
-  );
-}
 
 function expectOutcomeStatus(
   outcome: CapabilityReadinessOutcome,
@@ -62,13 +35,16 @@ describe('capability readiness over elicitation gaps', () => {
   });
 
   it('proceeds when all relevant gaps are covered', () => {
-    const outcome = evaluateCapabilityReadiness('propose-graph', floorGaps());
+    const outcome = evaluateCapabilityReadiness('propose-graph', groundingFloorGaps());
 
     expect(outcome).toEqual({ status: 'proceed' });
   });
 
   it('negotiates with establishment-offer-shaped missing gaps when relevant grounding gaps are uncovered', () => {
-    const outcome = evaluateCapabilityReadiness('project-graph', floorGaps({ thesis: 0, goal: 0 }));
+    const outcome = evaluateCapabilityReadiness(
+      'project-graph',
+      groundingFloorGaps({ coverage: { thesis: 0, goal: 0 } }),
+    );
 
     expect(outcome.status).toBe('negotiate');
     if (outcome.status !== 'negotiate') return;
@@ -82,13 +58,16 @@ describe('capability readiness over elicitation gaps', () => {
   });
 
   it('proceeds at low epistemic status when relevant gaps have only partial coverage', () => {
-    const outcome = evaluateCapabilityReadiness('generative-lens', floorGaps({ thesis: 0.5 }));
+    const outcome = evaluateCapabilityReadiness(
+      'generative-lens',
+      groundingFloorGaps({ coverage: { thesis: 0.5 } }),
+    );
 
     expect(outcome).toEqual({ status: 'proceed_low_epistemic', coverage: 0.875 });
   });
 
   it('fails loud when a required kind has no referring gap record', () => {
-    expect(() => evaluateCapabilityReadiness('propose-graph', floorGaps().slice(0, 3))).toThrow(
+    expect(() => evaluateCapabilityReadiness('propose-graph', groundingFloorGaps().slice(0, 3))).toThrow(
       /no elicitation gap for constraint/,
     );
   });
@@ -125,14 +104,14 @@ describe('capability readiness over elicitation gaps', () => {
 
   it('proves same-kind gaps resolve independently through their own question and satisfier', () => {
     const outcome = evaluateCapabilityReadiness('propose-graph', [
-      ...floorGaps(),
-      gap({
+      ...groundingFloorGaps(),
+      presenceGap({
         id: 'thesis:stakeholder',
         refersTo: 'thesis',
         question: 'Who is the primary user?',
         coverage: 1,
       }),
-      gap({
+      presenceGap({
         id: 'thesis:pain',
         refersTo: 'thesis',
         question: 'Why is this painful enough to solve now?',
@@ -153,9 +132,9 @@ describe('capability readiness over elicitation gaps', () => {
 
   it('never returns a refusal outcome and does not import grade-gate symbols', () => {
     const outcomes = [
-      evaluateCapabilityReadiness('propose-graph', floorGaps({ context: 0 })),
-      evaluateCapabilityReadiness('propose-graph', floorGaps({ context: 0.25 })),
-      evaluateCapabilityReadiness('propose-graph', floorGaps()),
+      evaluateCapabilityReadiness('propose-graph', groundingFloorGaps({ coverage: { context: 0 } })),
+      evaluateCapabilityReadiness('propose-graph', groundingFloorGaps({ coverage: { context: 0.25 } })),
+      evaluateCapabilityReadiness('propose-graph', groundingFloorGaps()),
     ];
 
     expect(outcomes.map((outcome) => outcome.status)).toEqual([

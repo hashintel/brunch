@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../graph/schema/nodes.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import { composeAgentPrompt } from '../agents/compose.js';
 import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
@@ -51,30 +51,6 @@ class FakeRuntimeStateSessionManager {
     this.entries.push({ type: 'custom', customType, data });
     return `entry-${this.entries.length}`;
   }
-}
-
-function gap(refersTo: NodeKind, coverage = 1): ElicitationGap {
-  return {
-    id: `${refersTo}:gap`,
-    specId: 1,
-    refersTo,
-    question: `${refersTo} question`,
-    rationale: `${refersTo} rationale`,
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage,
-    answered: coverage >= 1,
-    disposition: coverage >= 1 ? 'answered' : 'open',
-    createdAtLsn: 1,
-  };
-}
-
-function groundingGaps(coverage: Partial<Record<NodeKind, number>> = {}): ElicitationGap[] {
-  return ['context', 'thesis', 'goal', 'constraint'].map((kind) =>
-    gap(kind as NodeKind, coverage[kind as NodeKind] ?? 1),
-  );
 }
 
 const promptContext = {
@@ -133,7 +109,7 @@ const promptContext = {
     }),
     getNodes: () => [],
     resolveNodeCode: () => undefined,
-    getElicitationGaps: () => groundingGaps(),
+    getElicitationGaps: () => groundingFloorGaps(),
   },
 };
 
@@ -156,7 +132,7 @@ describe('Brunch prompt-pack topology', () => {
       spec: promptContext.spec,
       workspace: promptContext.workspace,
       activeTools: ['read', 'grep', 'present_options'],
-      gaps: groundingGaps(),
+      gaps: groundingFloorGaps(),
     });
 
     expect(result.prompt).toContain('[Brunch agent control]');
@@ -277,7 +253,7 @@ describe('Brunch prompt-pack topology', () => {
             }),
             getNodes: () => [],
             resolveNodeCode: () => undefined,
-            getElicitationGaps: () => groundingGaps(),
+            getElicitationGaps: () => groundingFloorGaps(),
           },
         }),
       },
@@ -550,11 +526,13 @@ describe('Brunch prompt-pack topology', () => {
       return activeTools.at(-1) ?? [];
     }
 
-    await expect(
-      activeToolsForGaps(groundingGaps({ context: 0, thesis: 0, goal: 0, constraint: 0 })),
-    ).resolves.not.toContain('mutate_graph');
-    await expect(activeToolsForGaps(groundingGaps({ context: 0.5 }))).resolves.toContain('mutate_graph');
-    await expect(activeToolsForGaps(groundingGaps({ context: 0.5 }))).resolves.toContain(
+    await expect(activeToolsForGaps(groundingFloorGaps({ defaultCoverage: 0 }))).resolves.not.toContain(
+      'mutate_graph',
+    );
+    await expect(activeToolsForGaps(groundingFloorGaps({ coverage: { context: 0.5 } }))).resolves.toContain(
+      'mutate_graph',
+    );
+    await expect(activeToolsForGaps(groundingFloorGaps({ coverage: { context: 0.5 } }))).resolves.toContain(
       'present_review_set',
     );
   });

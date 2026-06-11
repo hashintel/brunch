@@ -190,10 +190,7 @@ describe('Brunch chrome projection', () => {
     expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
     expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');
     expect(collapsedLines.join('\n')).not.toContain('Spec One — session 1');
-    component.setExpanded(true);
-    expect(component.render(120).join('\n')).toContain('Current session: Spec One — session 1');
     expect(component.render(120).join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
-    expect(component.render(120).join('\n')).toContain('Graph capture');
 
     const resumedCalls: FakeUiCall[] = [];
     renderBrunchChrome(fakeChromeUi(resumedCalls), {
@@ -233,7 +230,6 @@ describe('Brunch chrome projection', () => {
 
     expect(component.render(36).every((line) => !/[\r\n\t]/.test(line))).toBe(true);
     expect(component.render(36).every((line) => visibleWidth(line) <= 36)).toBe(true);
-    component.setExpanded(true);
     expect(component.render(36).every((line) => !/[\r\n\t]/.test(line))).toBe(true);
   });
 

@@ -29,10 +29,13 @@ schemas/
   request.ts
   capture.ts
   params.ts
+  editor.ts
   index.ts
 ```
 
-The organization is layer-first: shared vocabulary, tool parameter schemas, present details, request details, capture details, and one public export barrel.
+The organization is layer-first: shared vocabulary, tool parameter schemas, present details, request details, capture details, the `request_choices` editor wire envelope, and one public export barrel.
+
+`editor.ts` is not part of the transcript details model: it owns the JSON envelope prefilled into `ctx.ui.editor` for `request_choices` (the one request payload Pi built-ins cannot carry over RPC). Its wire-level `status` string never appears in transcript details, which carry outcomes as key presence.
 
 ## Source boundaries
 

@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { type ReactNode, useId, useState } from 'react';
 
 // ── Drawer card — reusable card-with-collapsible-drawer ─────────────
 //
@@ -20,9 +20,9 @@ export function DrawerCard({
   locked = false,
   compact = false,
 }: {
-  header: React.ReactNode;
-  summary?: React.ReactNode;
-  children?: React.ReactNode;
+  header: ReactNode;
+  summary?: ReactNode;
+  children?: ReactNode;
   defaultExpanded?: boolean;
   /** When true, the header is not clickable and state does not toggle. */
   locked?: boolean;
@@ -32,7 +32,7 @@ export function DrawerCard({
   const hasDrawer = children !== undefined && children !== null;
   const hasSummary = summary !== undefined && summary !== null;
   const canToggle = hasDrawer && !locked;
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [expanded, setExpanded] = useState(canToggle && defaultExpanded);
   const drawerId = useId();
 
   const showDrawer = expanded ? hasDrawer : hasSummary;

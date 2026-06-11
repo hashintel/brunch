@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import { projectBrunchAgentState } from '../../projections/session/runtime-state.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
@@ -40,6 +41,7 @@ function commandHarness(options: { customResult?: unknown; customAvailable?: boo
   const commands = new Map<string, RegisteredCommand>();
   const activeToolNames: string[][] = [];
   const customCalls: Array<{ factory: (...args: unknown[]) => unknown; options: unknown }> = [];
+  const chromeRefreshes: number[] = [];
   const ctx: FakeCommandContext = {
     ui: {
       notify(message, level) {
@@ -74,10 +76,16 @@ function commandHarness(options: { customResult?: unknown; customAvailable?: boo
         activeToolNames.push(names);
       },
     } as never,
-    { coordinator: {} as never },
+    {
+      coordinator: {} as never,
+      requestChromeRefresh: () => {
+        chromeRefreshes.push(chromeRefreshes.length + 1);
+      },
+      getElicitationGaps: () => groundingFloorGaps(),
+    },
   );
 
-  return { commands, ctx, entries, notifications, activeToolNames, customCalls };
+  return { commands, ctx, entries, notifications, activeToolNames, customCalls, chromeRefreshes };
 }
 
 describe('Brunch runtime switch commands', () => {
@@ -193,6 +201,30 @@ describe('Brunch runtime switch commands', () => {
       expect.objectContaining({ level: 'error', message: expect.stringContaining('Unknown strategy') }),
       expect.objectContaining({ level: 'error', message: expect.stringContaining('Unknown lens') }),
     ]);
+  });
+
+  it('derives the post-switch tool posture from the supplied gap reader, not an empty register', async () => {
+    const harness = commandHarness();
+
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('propose-graph', harness.ctx);
+
+    // The harness gap reader reports a covered grounding floor, so the
+    // recomputed active tools must include the capability-gated mutate_graph
+    // instead of the floor-locked set an empty register would produce.
+    expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['mutate_graph']));
+  });
+
+  it('requests a chrome refresh after a successful runtime switch and not on rejection or cancel', async () => {
+    const harness = commandHarness({ customResult: undefined });
+
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('propose-graph', harness.ctx);
+    expect(harness.chromeRefreshes).toHaveLength(1);
+
+    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('unknown-lens', harness.ctx);
+    expect(harness.chromeRefreshes).toHaveLength(1);
+
+    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
+    expect(harness.chromeRefreshes).toHaveLength(1);
   });
 
   it('reports mode and accepts explicit elicit as a no-op instead of inventing future modes', async () => {

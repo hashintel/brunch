@@ -34,7 +34,12 @@ import type {
 } from './command-executor/graph-mutation-types.js';
 import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
 import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
-import type { ElicitationGapLensAffinity, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
+import {
+  gapPredicateSupport,
+  type ElicitationGapLensAffinity,
+  type GapDisposition,
+  type GapPredicate,
+} from './schema/elicitation-gaps.js';
 import {
   DESIGN_KINDS,
   INTENT_KINDS,
@@ -396,6 +401,11 @@ function validateGapPredicate(predicate: GapPredicate, diagnostics: Diagnostic[]
     return;
   }
 
+  if (gapPredicateSupport(predicate.kind) === 'unsupported') {
+    diagnostics.push({ field: 'predicate.kind', message: 'predicate kind not yet supported' });
+    return;
+  }
+
   if (predicate.kind === 'presence') {
     if (!Number.isInteger(predicate.minimum) || predicate.minimum < 1) {
       diagnostics.push({ field: 'predicate.minimum', message: 'minimum must be a positive integer' });
@@ -582,6 +592,10 @@ function validateCreateElicitationGap(input: CreateElicitationGapInput): Diagnos
   }
 
   validateGapPredicate(input.predicate, diagnostics);
+
+  if (input.predicate.kind === 'manual' && !input.predicate.rubric.trim()) {
+    diagnostics.push({ field: 'predicate.rubric', message: 'manual predicate rubric must be non-empty' });
+  }
 
   if (input.planeAffinity !== undefined && !isNodePlane(input.planeAffinity)) {
     diagnostics.push({
@@ -814,6 +828,32 @@ export class CommandExecutor {
           status: 'structural_illegal' as const,
           diagnostics: [{ field: 'specId', message: `spec ${input.specId} does not exist` }],
         };
+      }
+
+      if (input.predicate.kind === 'presence' && input.predicate.nodeKind !== undefined) {
+        const duplicate = tx
+          .select({ id: schema.elicitationGaps.id })
+          .from(schema.elicitationGaps)
+          .where(
+            and(
+              eq(schema.elicitationGaps.spec_id, input.specId),
+              eq(schema.elicitationGaps.predicate_kind, 'presence'),
+              eq(schema.elicitationGaps.refers_to, input.predicate.nodeKind),
+              eq(schema.elicitationGaps.disposition, 'open'),
+            ),
+          )
+          .get();
+        if (duplicate) {
+          return {
+            status: 'structural_illegal' as const,
+            diagnostics: [
+              {
+                field: 'predicate.nodeKind',
+                message: `open presence gap already exists for ${input.predicate.nodeKind}: ${duplicate.id}`,
+              },
+            ],
+          };
+        }
       }
 
       if (input.aroseFromGapId != null) {

@@ -673,6 +673,50 @@ describe('CommandExecutor', () => {
       });
     });
 
+    it('rejects unsupported field and coverage predicates', () => {
+      for (const predicate of [
+        { kind: 'field', nodeKind: 'goal', field: 'title' },
+        { kind: 'coverage', subjectKind: 'goal', relation: 'support' },
+      ] as const) {
+        const result = executor.createElicitationGap({
+          specId,
+          refersTo: 'goal',
+          question: 'Unsupported?',
+          rationale: 'This arm has no derivation yet.',
+          band: 'grounding',
+          predicate,
+        });
+        expect(result).toMatchObject({
+          status: 'structural_illegal',
+          diagnostics: [{ field: 'predicate.kind', message: 'predicate kind not yet supported' }],
+        });
+      }
+    });
+
+    it('rejects duplicate open presence kind-floor gaps', () => {
+      const first = executor.createElicitationGap({
+        specId,
+        refersTo: 'module',
+        question: 'Name a module.',
+        rationale: 'One module floor is enough.',
+        band: 'grounding',
+        predicate: { kind: 'presence', nodeKind: 'module', minimum: 1 },
+      });
+      expect(first.status).toBe('success');
+      const duplicate = executor.createElicitationGap({
+        specId,
+        refersTo: 'module',
+        question: 'Name another module.',
+        rationale: 'This aliases the same floor.',
+        band: 'grounding',
+        predicate: { kind: 'presence', nodeKind: 'module', minimum: 1 },
+      });
+      expect(duplicate).toMatchObject({
+        status: 'structural_illegal',
+        diagnostics: [expect.objectContaining({ field: 'predicate.nodeKind' })],
+      });
+    });
+
     it('rejects malformed gaps without writing rows or advancing the clock', () => {
       const result = executor.createElicitationGap({
         specId,

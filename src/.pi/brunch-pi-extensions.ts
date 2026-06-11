@@ -5,8 +5,11 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
+import { mentionFactsFromEntries } from '../session/mention-ledger.js';
 import {
+  guardBeforeProviderRequest,
   prepareNextTurn,
+  type ContinuityDrain,
   type GraphChangeItem,
   type PrepareNextTurnResult,
 } from '../session/prepare-next-turn.js';
@@ -28,7 +31,10 @@ import {
 } from './extensions/introspection/index.js';
 import { type GraphMentionSource } from './extensions/mentions/index.js';
 import { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
-import { registerBrunchOperationalModePolicy } from './extensions/runtime/index.js';
+import {
+  conservativeUncoveredFloorGaps,
+  registerBrunchOperationalModePolicy,
+} from './extensions/runtime/index.js';
 import { BRUNCH_SESSION_QUERY_TOOL, registerBrunchSessionQuery } from './extensions/session-query/index.js';
 import { registerBrunchSessionBoundary } from './extensions/session/lifecycle.js';
 import {
@@ -99,11 +105,18 @@ export {
   registerBrunchIntrospectQuery,
 } from './extensions/introspect-query/index.js';
 
-export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
+export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, 'getElicitationGaps'> {
+  /**
+   * Optional override; when omitted, the composition derives the commands'
+   * gap reader from `graph` (selected-spec reads) or, with no graph in the
+   * composition, an explicitly conservative uncovered floor.
+   */
+  getElicitationGaps?: BrunchCommandsOptions['getElicitationGaps'];
   graphMentionSource?: GraphMentionSource;
   graph?: BrunchGraphDeps;
   promptContext?: BrunchPromptContextProvider;
   introspection?: BrunchPiIntrospectionOptions;
+  continuityDrains?: () => readonly ContinuityDrain[];
 }
 
 export interface BrunchPiIntrospectionOptions extends BrunchIntrospectionOptions {
@@ -137,15 +150,27 @@ export function createBrunchPiExtensions(
     const devAllowedToolNames = introspectionOptions?.enabled
       ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]
       : undefined;
-    const continuityStep = options.graph ? createPrepareNextTurnContinuityStep(options.graph) : undefined;
+    const continuityStep = options.graph
+      ? createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains)
+      : undefined;
+    const chromeRefresh: { current: (() => void) | null } = { current: null };
+    const graph = options.graph;
+    const commandGapReads =
+      options.getElicitationGaps ??
+      (graph ? () => graph.reads.getElicitationGaps(graph.specId) : conservativeUncoveredFloorGaps); // no graph in this composition: explicit fail-closed floor
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => {
         registerBrunchSessionBoundary(api, onSessionBoundary, {
           continuitySteps: continuityStep ? [continuityStep] : [],
         });
-        if (options.graph) registerBrunchContinuityGuard(api, options.graph);
+        if (options.graph) registerBrunchContinuityGuard(api, options.graph, options.continuityDrains);
       },
-      (api) => registerBrunchChrome(api, chrome),
+      (api) =>
+        registerBrunchChrome(api, chrome, {
+          bindChromeRefresh: (refresh) => {
+            chromeRefresh.current = refresh;
+          },
+        }),
       registerBrunchBranchPolicyHandlers,
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
@@ -163,7 +188,12 @@ export function createBrunchPiExtensions(
             ? { specId: options.graph.specId, commandExecutor: options.graph.commandExecutor }
             : undefined,
         }),
-      (api) => registerBrunchCommands(api, options),
+      (api) =>
+        registerBrunchCommands(api, {
+          ...options,
+          requestChromeRefresh: () => chromeRefresh.current?.(),
+          getElicitationGaps: commandGapReads,
+        }),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
       ...(introspectionOptions?.enabled
         ? [
@@ -187,36 +217,48 @@ export function createBrunchPiExtensions(
   };
 }
 
-function createPrepareNextTurnContinuityStep(graph: BrunchGraphDeps): BrunchSessionBoundaryPipelineStep {
+function createPrepareNextTurnContinuityStep(
+  graph: BrunchGraphDeps,
+  getContinuityDrains: (() => readonly ContinuityDrain[]) | undefined,
+): BrunchSessionBoundaryPipelineStep {
   return ({ sessionManager }) => {
-    const result = prepareNextTurnForGraph(graph, sessionManager);
+    const result = prepareNextTurnForGraph(graph, sessionManager, getContinuityDrains);
     for (const entry of result.entriesToAppend) {
       sessionManager.appendCustomEntry(entry.customType, entry.data);
     }
   };
 }
 
-function registerBrunchContinuityGuard(pi: ExtensionAPI, graph: BrunchGraphDeps): void {
+function registerBrunchContinuityGuard(
+  pi: ExtensionAPI,
+  graph: BrunchGraphDeps,
+  getContinuityDrains: (() => readonly ContinuityDrain[]) | undefined,
+): void {
   pi.on('before_provider_request', async (_event, ctx) => {
-    const result = prepareNextTurnForGraph(graph, ctx.sessionManager as SessionManager);
-    if (result.entriesToAppend.length > 0) {
-      throw new Error(
-        'Continuity drift remained before provider request; prepareNextTurn must run before prompt composition.',
-      );
-    }
+    const sessionManager = ctx.sessionManager as SessionManager;
+    await guardBeforeProviderRequest({
+      prepare: () => prepareNextTurnForGraph(graph, sessionManager, getContinuityDrains),
+      append: (entry) => {
+        sessionManager.appendCustomEntry(entry.customType, entry.data);
+      },
+    });
   });
 }
 
 function prepareNextTurnForGraph(
   graph: BrunchGraphDeps,
   sessionManager: SessionManager,
+  getContinuityDrains: (() => readonly ContinuityDrain[]) | undefined,
 ): PrepareNextTurnResult {
   const snapshot = graph.reads.queryGraph(undefined, { visibility: 'all' });
+  const entries = sessionManager.getEntries();
   return prepareNextTurn({
     specId: graph.specId,
     currentLsn: snapshot.lsn,
-    entries: sessionManager.getEntries(),
+    entries,
     changes: graphChangesFromSnapshot(graph.specId, snapshot),
+    mentions: mentionFactsFromEntries(entries),
+    drains: getContinuityDrains?.() ?? [],
   });
 }
 

@@ -17,8 +17,8 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../../graph/schema/nodes.js';
 import {
   isToolBlockedForRuntimeState,
   toolPolicyForRuntimeState,
@@ -82,7 +82,7 @@ function supportsBrunchAgentStateEntries(
 export function activeToolNamesForBrunchAgentState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
-  gaps: readonly ElicitationGap[],
+  gaps: readonly ElicitationGap[] = [],
   devAllowedToolNames?: readonly string[],
 ): string[] {
   return activeToolNamesForPosture({
@@ -99,30 +99,24 @@ function applyBrunchToolPolicy(
   devAllowedToolNames?: readonly string[],
 ): void {
   pi.setActiveTools(
-    activeToolNamesForBrunchAgentState(pi, state, conservativeUncoveredGaps(), devAllowedToolNames),
+    activeToolNamesForBrunchAgentState(pi, state, conservativeUncoveredFloorGaps(), devAllowedToolNames),
   );
 }
 
-function conservativeUncoveredGaps(): readonly ElicitationGap[] {
-  return (['context', 'thesis', 'goal', 'constraint'] as const).map((kind) => gap(kind));
-}
-
-function gap(refersTo: NodeKind): ElicitationGap {
-  return {
-    id: `${refersTo}:runtime-policy-fallback`,
+/**
+ * Explicit fail-closed posture for composition points where selected-spec gap
+ * reads are not available (registration-time policy before context exists, or
+ * a composition with no graph). Never a substitute for real gap reads on a
+ * live selected-spec path.
+ */
+export function conservativeUncoveredFloorGaps(): readonly ElicitationGap[] {
+  return groundingFloorGaps({
+    defaultCoverage: 0,
     specId: 0,
-    refersTo,
-    question: `${refersTo} question`,
+    idSuffix: 'runtime-policy-fallback',
     rationale: 'Conservative fallback before selected-spec gaps are available.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage: 0,
-    answered: false,
-    disposition: 'open',
     createdAtLsn: 0,
-  };
+  });
 }
 
 interface TextLikeContent {

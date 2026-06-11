@@ -1,7 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../../graph/schema/nodes.js';
 import {
   composeAgentPrompt,
   renderCwdContext,
@@ -31,9 +30,17 @@ interface BeforeAgentStartContextLike {
 interface BrunchPromptContext {
   spec: AgentPromptSpecContext;
   workspace: AgentPromptWorkspaceContext;
+  /** Intended-optional: display label only; prompts render without a session label. */
   session?: AgentPromptSessionContext;
+  /** Intended-optional: extra caller-supplied handles/contexts merged into the bundle. */
   context?: AgentPromptContextBundle;
-  graphReads?: GraphReaders;
+  /**
+   * Must-wire: legality (gaps), tool posture, and graph context all derive from
+   * these reads. Required so a composition root that forgets them is a type
+   * error, never a silent fallback posture (the lesson of the FE-844/FE-847
+   * review pass: an optional hook here froze live legality at a floor).
+   */
+  graphReads: GraphReaders;
 }
 
 export type BrunchPromptContextProvider =
@@ -88,27 +95,7 @@ export function registerBrunchPrompting(
 }
 
 function gapsForPrompt(context: BrunchPromptContext): readonly ElicitationGap[] {
-  return (
-    context.graphReads?.getElicitationGaps?.(context.spec.id) ?? conservativeUncoveredGaps(context.spec.id)
-  );
-}
-
-function conservativeUncoveredGaps(specId: number): readonly ElicitationGap[] {
-  return (['context', 'thesis', 'goal', 'constraint'] as const).map((kind) => ({
-    id: `${kind}:prompt-fallback`,
-    specId,
-    refersTo: kind as NodeKind,
-    question: `${kind} question`,
-    rationale: 'Conservative fallback when graph gap reads are not wired.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: kind as NodeKind },
-    importance: 1,
-    coverage: 0,
-    answered: false,
-    disposition: 'open',
-    createdAtLsn: 0,
-  }));
+  return context.graphReads.getElicitationGaps(context.spec.id);
 }
 
 function contextForPrompt(
@@ -124,9 +111,7 @@ function contextForPrompt(
       gaps,
     }),
   ];
-  if (context.graphReads) {
-    renderedContexts.push(renderGraphContext(context.graphReads.queryGraph(), { lens: state.agentLens }));
-  }
+  renderedContexts.push(renderGraphContext(context.graphReads.queryGraph(), { lens: state.agentLens }));
 
   return {
     ...(context.context?.contextHandles ? { contextHandles: context.context.contextHandles } : {}),
