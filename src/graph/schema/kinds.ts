@@ -46,4 +46,6 @@ export const READINESS_BANDS = ['grounding', 'elicitation', 'commitment'] as con
 
 export const LENS_AFFINITIES = ['intent', 'design', 'oracle'] as const;
 
-export const ELICITATION_BACKLOG_STATUSES = ['open', 'closed'] as const;
+export const GAP_DISPOSITIONS = ['open', 'answered', 'not_applicable', 'irrelevant', 'reopened'] as const;
+
+export const GAP_PREDICATE_KINDS = ['presence', 'field', 'coverage', 'manual'] as const;

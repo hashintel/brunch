@@ -13,7 +13,7 @@ import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type { Lsn } from './atoms.js';
 import type { EdgeCategory, GraphEdge } from './schema/edges.js';
-import type { ElicitationBacklogEntry } from './schema/elicitation-backlog.js';
+import type { ElicitationGap, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
 import {
   NODE_KIND_METADATA,
   parseGraphNodeCode,
@@ -335,57 +335,92 @@ export function getOpenReconciliationNeeds(db: BrunchDb, specId: number): Reconc
   return rows.map(rowToReconNeed);
 }
 
-function rowToElicitationBacklogEntry(
-  row: typeof schema.elicitationBacklog.$inferSelect,
-): ElicitationBacklogEntry {
-  type MutableElicitationBacklogEntry = {
-    -readonly [K in keyof ElicitationBacklogEntry]: ElicitationBacklogEntry[K];
+function derivePresenceCoverage(
+  db: BrunchDb,
+  specId: number,
+  predicate: Extract<GapPredicate, { kind: 'presence' }>,
+): number {
+  const rows = db.select().from(schema.nodes).where(eq(schema.nodes.spec_id, specId)).all();
+  const count = rows.filter((row) => {
+    if (predicate.plane !== undefined && row.plane !== predicate.plane) return false;
+    if (predicate.nodeKind !== undefined && row.kind !== predicate.nodeKind) return false;
+    if (predicate.band !== undefined) {
+      const metadata = NODE_KIND_METADATA[row.kind as NodeKind];
+      if (!(metadata.readinessBands as readonly ReadinessBand[]).includes(predicate.band)) return false;
+    }
+    return true;
+  }).length;
+  return Math.min(1, count / predicate.minimum);
+}
+
+function deriveGapCoverage(
+  db: BrunchDb,
+  specId: number,
+  predicate: GapPredicate,
+  disposition: GapDisposition,
+): number {
+  if (disposition === 'not_applicable' || disposition === 'irrelevant' || disposition === 'answered')
+    return 1;
+  if (predicate.kind === 'presence') return derivePresenceCoverage(db, specId, predicate);
+  return 0;
+}
+
+function rowToElicitationGap(db: BrunchDb, row: typeof schema.elicitationGaps.$inferSelect): ElicitationGap {
+  type MutableElicitationGap = {
+    -readonly [K in keyof ElicitationGap]: ElicitationGap[K];
   };
 
-  const entry: MutableElicitationBacklogEntry = {
+  const storedDisposition = row.disposition as GapDisposition;
+  const predicate = JSON.parse(row.predicate) as GapPredicate;
+  const coverage = deriveGapCoverage(db, row.spec_id, predicate, storedDisposition);
+  const answered = coverage >= 1;
+  const disposition = answered && storedDisposition === 'open' ? 'answered' : storedDisposition;
+
+  const entry: MutableElicitationGap = {
     id: String(row.id),
     specId: row.spec_id,
-    kind: row.kind,
+    refersTo: row.refers_to as ElicitationGap['refersTo'],
     question: row.question,
-    status: row.status as ElicitationBacklogEntry['status'],
-    basis: row.basis as ElicitationBacklogEntry['basis'],
-    readinessBand: row.readiness_band as ElicitationBacklogEntry['readinessBand'],
+    rationale: row.rationale,
+    disposition,
+    basis: row.basis as ElicitationGap['basis'],
+    band: row.readiness_band as ElicitationGap['band'],
+    predicate,
+    importance: row.importance,
+    coverage,
+    answered,
     createdAtLsn: row.created_at_lsn,
   };
 
   if (row.plane_affinity != null) {
-    entry.planeAffinity = row.plane_affinity as NonNullable<ElicitationBacklogEntry['planeAffinity']>;
+    entry.planeAffinity = row.plane_affinity as NonNullable<ElicitationGap['planeAffinity']>;
   }
 
   if (row.lens_affinity != null) {
-    entry.lensAffinity = row.lens_affinity as NonNullable<ElicitationBacklogEntry['lensAffinity']>;
+    entry.lensAffinity = row.lens_affinity as NonNullable<ElicitationGap['lensAffinity']>;
   }
 
-  if (row.arose_from_entry_id != null) {
-    entry.aroseFromEntryId = String(row.arose_from_entry_id);
+  if (row.arose_from_gap_id != null) {
+    entry.aroseFromGapId = String(row.arose_from_gap_id);
   }
 
   if (row.resolved_by_node_id != null) {
     entry.resolvedByNodeId = row.resolved_by_node_id;
   }
 
-  if (row.rationale != null) {
-    entry.rationale = row.rationale;
-  }
-
-  if (row.closed_at_lsn != null) {
-    entry.closedAtLsn = row.closed_at_lsn;
+  if (row.disposition_set_at_lsn != null) {
+    entry.dispositionSetAtLsn = row.disposition_set_at_lsn;
   }
 
   return entry;
 }
 
-export function getOpenElicitationBacklogEntries(db: BrunchDb, specId: number): ElicitationBacklogEntry[] {
+export function getElicitationGaps(db: BrunchDb, specId: number): ElicitationGap[] {
   const rows = db
     .select()
-    .from(schema.elicitationBacklog)
-    .where(and(eq(schema.elicitationBacklog.status, 'open'), eq(schema.elicitationBacklog.spec_id, specId)))
-    .orderBy(schema.elicitationBacklog.created_at_lsn, schema.elicitationBacklog.id)
+    .from(schema.elicitationGaps)
+    .where(eq(schema.elicitationGaps.spec_id, specId))
+    .orderBy(schema.elicitationGaps.created_at_lsn, schema.elicitationGaps.id)
     .all();
-  return rows.map(rowToElicitationBacklogEntry);
+  return rows.map((row) => rowToElicitationGap(db, row));
 }

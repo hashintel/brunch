@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb, type BrunchDb } from '../db/connection.js';
 import { graphClock, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
-import { getOpenElicitationBacklogEntries, getOpenReconciliationNeeds } from './queries.js';
+import { getElicitationGaps, getOpenReconciliationNeeds } from './queries.js';
 import { NODE_KIND_METADATA, parseGraphNodeCode } from './schema/nodes.js';
 import { runCreateOnlyMutation } from './test-support/create-only-mutation.js';
 
@@ -75,7 +75,7 @@ describe('getOpenReconciliationNeeds', () => {
   });
 });
 
-describe('getOpenElicitationBacklogEntries', () => {
+describe('getElicitationGaps', () => {
   let db: BrunchDb;
   let executor: CommandExecutor;
   let specId: number;
@@ -89,40 +89,36 @@ describe('getOpenElicitationBacklogEntries', () => {
     specId = created.specId;
   });
 
-  it('returns only open entries for the requested spec', () => {
+  it('returns gaps for the requested spec with live presence-derived coverage', () => {
     const other = executor.createSpec({ name: 'Other Spec', slug: 'other-spec' });
     expect(other.status).toBe('success');
     if (other.status !== 'success') throw new Error('unreachable');
 
-    const created = executor.createElicitationBacklogEntry({
-      specId,
-      kind: 'follow_on_question',
-      question: 'What evidence would prove this is working?',
-      readinessBand: 'elicitation',
-      planeAffinity: 'oracle',
-      lensAffinity: 'oracle',
-    });
-    expect(created.status).toBe('success');
-    if (created.status !== 'success') throw new Error('unreachable');
+    const before = getElicitationGaps(db, specId).find((gap) => gap.refersTo === 'context')!;
+    expect(before.coverage).toBe(0);
+    expect(before.answered).toBe(false);
+    expect(before.disposition).toBe('open');
 
     const resolvedNode = executor.createNode({
       specId,
       plane: 'intent',
-      kind: 'goal',
-      title: 'Goal clarified',
+      kind: 'context',
+      title: 'Brunch is a local spec-workspace product',
     });
     expect(resolvedNode.status).toBe('success');
-    if (resolvedNode.status !== 'success') throw new Error('unreachable');
 
-    expect(
-      executor.closeElicitationBacklogEntry({
-        specId,
-        id: created.id,
-        resolvedByNodeId: resolvedNode.nodeId,
-      }).status,
-    ).toBe('success');
+    const after = getElicitationGaps(db, specId).find((gap) => gap.refersTo === 'context')!;
+    expect(after.coverage).toBe(1);
+    expect(after.answered).toBe(true);
+    expect(after.disposition).toBe('answered');
 
-    expect(getOpenElicitationBacklogEntries(db, specId)).toHaveLength(4);
-    expect(getOpenElicitationBacklogEntries(db, other.specId)).toHaveLength(4);
+    expect(before.question).toBe(
+      'What kind of thing is this, and what domain or environment does it live in?',
+    );
+    expect(getElicitationGaps(db, specId)).toHaveLength(6);
+    expect(getElicitationGaps(db, other.specId)).toHaveLength(6);
+    expect(getElicitationGaps(db, other.specId).find((gap) => gap.refersTo === 'context')!.answered).toBe(
+      false,
+    );
   });
 });

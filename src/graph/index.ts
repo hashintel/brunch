@@ -22,10 +22,12 @@ export {
   READINESS_GRADES,
   READINESS_BANDS,
   LENS_AFFINITIES,
-  ELICITATION_BACKLOG_STATUSES,
+  GAP_DISPOSITIONS,
+  GAP_PREDICATE_KINDS,
 } from './schema/kinds.js';
 
 export type { EdgeCategory, GraphEdge } from './schema/edges.js';
+export type { ElicitationGap, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
 
 export type { GraphNode, NodeKind, ReadinessBand } from './schema/nodes.js';
 
@@ -45,12 +47,7 @@ export type { AnchorRole, EdgeLabelInput } from './projection/labels.js';
 export { edgeImpact, relationFromAnchor } from './projection/direction.js';
 export type { AnchoredRelation, EdgeImpact, EdgeRelation } from './projection/direction.js';
 
-export {
-  queryGraph,
-  getNodes,
-  getOpenElicitationBacklogEntries,
-  getOpenReconciliationNeeds,
-} from './queries.js';
+export { queryGraph, getNodes, getElicitationGaps, getOpenReconciliationNeeds } from './queries.js';
 export type {
   EdgeDirection,
   GraphSlice,

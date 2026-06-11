@@ -21,7 +21,8 @@ import {
 import {
   EDGE_CATEGORIES,
   EDGE_STANCES,
-  ELICITATION_BACKLOG_STATUSES,
+  GAP_DISPOSITIONS,
+  GAP_PREDICATE_KINDS,
   LENS_AFFINITIES,
   NODE_BASES,
   NODE_PLANES,
@@ -145,21 +146,24 @@ export const reconciliationNeed = sqliteTable('reconciliation_need', {
   resolved_at_lsn: integer(),
 });
 
-export const elicitationBacklog = sqliteTable('elicitation_backlog', {
+export const elicitationGaps = sqliteTable('elicitation_gaps', {
   id: integer().primaryKey({ autoIncrement: true }),
   spec_id: integer()
     .notNull()
     .references(() => specs.id),
-  kind: text().notNull(), // open taxonomy: grounding anchors today, richer agenda kinds later
+  refers_to: text().notNull(),
   question: text().notNull(),
-  status: text({ enum: ELICITATION_BACKLOG_STATUSES }).notNull().default('open'),
+  rationale: text().notNull(),
+  disposition: text({ enum: GAP_DISPOSITIONS }).notNull().default('open'),
   basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
   readiness_band: text({ enum: READINESS_BANDS }).notNull(),
+  predicate_kind: text({ enum: GAP_PREDICATE_KINDS }).notNull(),
+  predicate: text().notNull(),
+  importance: integer().notNull().default(1),
   plane_affinity: text({ enum: NODE_PLANES }),
   lens_affinity: text({ enum: LENS_AFFINITIES }),
-  arose_from_entry_id: integer().references((): AnySQLiteColumn => elicitationBacklog.id),
+  arose_from_gap_id: integer().references((): AnySQLiteColumn => elicitationGaps.id),
   resolved_by_node_id: integer().references(() => nodes.id),
-  rationale: text(),
   created_at_lsn: integer().notNull(),
-  closed_at_lsn: integer(),
+  disposition_set_at_lsn: integer(),
 });

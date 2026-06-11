@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d9b2bf4a-2462-4820-b5ef-4ad514c15a1d",
-  "prevId": "d52c1722-788f-4bc4-9b5d-4bb832520ac4",
+  "id": "4ae1e0f1-9aa2-4188-b2b0-1c9b2b39a320",
+  "prevId": "d9b2bf4a-2462-4820-b5ef-4ad514c15a1d",
   "tables": {
     "change_log": {
       "name": "change_log",
@@ -210,8 +210,15 @@
           "notNull": true,
           "autoincrement": false
         },
-        "name": {
-          "name": "name",
+        "refers_to": {
+          "name": "refers_to",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "question": {
+          "name": "question",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

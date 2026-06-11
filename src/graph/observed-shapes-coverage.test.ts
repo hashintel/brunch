@@ -55,8 +55,8 @@ const observedShapeLedger = [
     web: 'deferred',
   },
   {
-    shape: 'elicitation_backlog',
-    owner: 'getOpenElicitationBacklogEntries',
+    shape: 'elicitation_gaps',
+    owner: 'getElicitationGaps',
     tool: 'deferred',
     rpc: 'deferred',
     web: 'deferred',
@@ -91,7 +91,7 @@ describe('graph observed-shape coverage ledger', () => {
       'getGraphGaps',
       'getRelatedNodes',
       'getOpenReconciliationNeeds',
-      'getOpenElicitationBacklogEntries',
+      'getElicitationGaps',
     ]);
   });
 
