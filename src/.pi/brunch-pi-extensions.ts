@@ -6,6 +6,7 @@ import {
 
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import {
+  guardBeforeProviderRequest,
   prepareNextTurn,
   type GraphChangeItem,
   type PrepareNextTurnResult,
@@ -198,12 +199,13 @@ function createPrepareNextTurnContinuityStep(graph: BrunchGraphDeps): BrunchSess
 
 function registerBrunchContinuityGuard(pi: ExtensionAPI, graph: BrunchGraphDeps): void {
   pi.on('before_provider_request', async (_event, ctx) => {
-    const result = prepareNextTurnForGraph(graph, ctx.sessionManager as SessionManager);
-    if (result.entriesToAppend.length > 0) {
-      throw new Error(
-        'Continuity drift remained before provider request; prepareNextTurn must run before prompt composition.',
-      );
-    }
+    const sessionManager = ctx.sessionManager as SessionManager;
+    await guardBeforeProviderRequest({
+      prepare: () => prepareNextTurnForGraph(graph, sessionManager),
+      append: (entry) => {
+        sessionManager.appendCustomEntry(entry.customType, entry.data);
+      },
+    });
   });
 }
 

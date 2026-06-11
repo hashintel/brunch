@@ -17,6 +17,8 @@ Created:  2026-06-11
 
 ## Card 1 - Flip the I45 watermark/world-update scaffold live through Tier-2
 
+Status: done (2026-06-11)
+
 ### Objective
 
 The real Tier-2 boot/resume harness proves assistant-visible watermark and `worldUpdate` behavior across seed, overview, foreign-write, and same-session-capture cases by replacing the skipped I45 scaffold rows with live assertions.

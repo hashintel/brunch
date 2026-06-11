@@ -161,10 +161,19 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(appended).toHaveLength(1);
 
     graphLsn = 4;
-    await expect(events.get('before_provider_request')?.[0]?.({}, { sessionManager })).rejects.toThrow(
-      /prepareNextTurn must run before prompt composition/,
-    );
-    expect(appended).toHaveLength(1);
+    await expect(
+      events.get('before_provider_request')?.[0]?.({}, { sessionManager }),
+    ).resolves.toBeUndefined();
+    expect(appended).toEqual([
+      {
+        customType: 'worldUpdate',
+        data: expect.objectContaining({ specId: 1, currentLsn: 3, changedSinceLsn: 0 }),
+      },
+      {
+        customType: 'worldUpdate',
+        data: expect.objectContaining({ specId: 1, currentLsn: 4, changedSinceLsn: 3 }),
+      },
+    ]);
   });
 
   it('does not retain the filesystem-discovery product-extension protocol', async () => {

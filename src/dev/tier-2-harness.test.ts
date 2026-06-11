@@ -1,7 +1,9 @@
 import { type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { openWorkspaceGraphRuntime } from '../graph/index.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
+import { projectAssistantVisibleWatermark } from '../projections/session/assistant-visible-watermark.js';
 import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
 import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE } from '../session/runtime-state.js';
 import {
@@ -132,14 +134,181 @@ describe('FE-847 Tier-2 real boot harness', () => {
   });
 });
 
-describe.skip('FE-847 coverage-first scaffold — I45-L assistant-visible watermark', () => {
-  it('seed and full-overview snapshots advance the watermark while narrow getNodes/queryNodes reads do not');
-  it(
-    'worldUpdate emits only the strict-greater set when current_lsn exceeds the assistant-visible watermark',
-  );
-  it('bare LSNs are never compared across specs; watermark comparisons use {specId, lsn}');
-  it('a foreign write between snapshot read and seed insertion is not masked by the seed');
-  it('same-session capture is surfaced by the next worldUpdate rather than swallowed as already visible');
+describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark', () => {
+  it('seed and full-overview snapshots advance the watermark while narrow getNodes/queryNodes reads do not', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const specId = await readSessionContextSpecId(boot.runtime.session);
+      const graph = await openWorkspaceGraphRuntime(boot.cwd);
+      const first = graph.commandExecutor.createNode({
+        specId,
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Narrow-read goal',
+      });
+      if (first.status !== 'success') throw new Error('Failed to create Tier-2 graph fixture node');
+
+      await executeReadGraph(boot.runtime.session, { mode: 'list_by_kind', kinds: ['goal'], show: 'all' });
+      await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
+      const afterNarrowRead = boot.runtime.session.sessionManager.getEntries();
+      expect(customEntries(afterNarrowRead, 'worldUpdate')).toEqual([
+        expect.objectContaining({
+          data: expect.objectContaining({
+            specId,
+            currentLsn: first.lsn,
+            changedSinceLsn: 0,
+            items: expect.arrayContaining([
+              expect.objectContaining({ lsn: first.lsn, title: 'Narrow-read goal' }),
+            ]),
+          }),
+        }),
+      ]);
+
+      await executeReadGraph(boot.runtime.session, { mode: 'overview', show: 'all' });
+      const afterOverview = boot.runtime.session.sessionManager.getEntries();
+      expect(projectAssistantVisibleWatermark(afterOverview, { specId })).toEqual({ specId, lsn: first.lsn });
+      await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
+      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toHaveLength(1);
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
+  it('worldUpdate emits the strict-greater set through the live provider guard retry', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const specId = await readSessionContextSpecId(boot.runtime.session);
+      boot.runtime.session.sessionManager.appendCustomEntry('brunch.context_seed', {
+        specId,
+        snapshotLsn: 1,
+      });
+      const graph = await openWorkspaceGraphRuntime(boot.cwd);
+      const stale = graph.commandExecutor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Old' });
+      const fresh = graph.commandExecutor.createNode({
+        specId,
+        plane: 'intent',
+        kind: 'requirement',
+        title: 'Fresh',
+      });
+      if (stale.status !== 'success' || fresh.status !== 'success') {
+        throw new Error('Failed to create Tier-2 graph fixture nodes');
+      }
+
+      await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
+
+      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toEqual([
+        expect.objectContaining({
+          data: expect.objectContaining({
+            specId,
+            currentLsn: fresh.lsn,
+            changedSinceLsn: 1,
+            items: [expect.objectContaining({ lsn: stale.lsn }), expect.objectContaining({ lsn: fresh.lsn })],
+          }),
+        }),
+      ]);
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
+  it('bare LSNs are never compared across specs; watermark comparisons use {specId, lsn}', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const specId = await readSessionContextSpecId(boot.runtime.session);
+      boot.runtime.session.sessionManager.appendCustomEntry('brunch.context_seed', {
+        specId: specId + 1,
+        snapshotLsn: 99,
+      });
+      const graph = await openWorkspaceGraphRuntime(boot.cwd);
+      const node = graph.commandExecutor.createNode({
+        specId,
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Spec-local',
+      });
+      if (node.status !== 'success') throw new Error('Failed to create Tier-2 graph fixture node');
+
+      await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
+
+      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')[0]).toEqual(
+        expect.objectContaining({
+          data: expect.objectContaining({ specId, changedSinceLsn: 0, currentLsn: node.lsn }),
+        }),
+      );
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
+  it('a foreign write between snapshot read and seed insertion is not masked by the seed', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const specId = await readSessionContextSpecId(boot.runtime.session);
+      boot.runtime.session.sessionManager.appendCustomEntry('brunch.context_seed', {
+        specId,
+        snapshotLsn: 1,
+      });
+      const graph = await openWorkspaceGraphRuntime(boot.cwd);
+      const node = graph.commandExecutor.createNode({
+        specId,
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Foreign write after seed snapshot',
+      });
+      if (node.status !== 'success') throw new Error('Failed to create Tier-2 graph fixture node');
+
+      await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
+
+      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')[0]).toEqual(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            specId,
+            changedSinceLsn: 1,
+            items: [expect.objectContaining({ title: 'Foreign write after seed snapshot' })],
+          }),
+        }),
+      );
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
+  it('same-session capture is surfaced by the next worldUpdate rather than swallowed as already visible', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const specId = await readSessionContextSpecId(boot.runtime.session);
+      boot.runtime.session.sessionManager.appendCustomEntry('brunch.context_seed', {
+        specId,
+        snapshotLsn: 1,
+      });
+      const graph = await openWorkspaceGraphRuntime(boot.cwd);
+      const node = graph.commandExecutor.createNode({
+        specId,
+        plane: 'intent',
+        kind: 'context',
+        title: 'Captured from submit',
+      });
+      if (node.status !== 'success') throw new Error('Failed to create Tier-2 graph fixture node');
+
+      await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
+
+      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')[0]).toEqual(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            specId,
+            items: [expect.objectContaining({ title: 'Captured from submit' })],
+          }),
+        }),
+      );
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
 });
 
 describe.skip('FE-847 coverage-first scaffold — I46-L honest origination', () => {
@@ -167,6 +336,41 @@ async function readSessionContextDetails(session: {
     sessionManager: session.sessionManager,
   } as never);
   return result.details;
+}
+
+async function readSessionContextSpecId(session: {
+  getToolDefinition(name: string): ToolDefinition | undefined;
+  sessionManager: unknown;
+}): Promise<number> {
+  const details = await readSessionContextDetails(session);
+  if (!isRecord(details) || typeof details.specId !== 'number') {
+    throw new Error('read_session_context did not return a numeric specId');
+  }
+  return details.specId;
+}
+
+async function executeReadGraph(
+  session: { getToolDefinition(name: string): ToolDefinition | undefined; sessionManager: unknown },
+  params: Record<string, unknown>,
+): Promise<unknown> {
+  const tool = session.getToolDefinition('read_graph');
+  if (!tool) throw new Error('read_graph tool is not registered');
+  return tool.execute('tier-2-read-graph', params, undefined, undefined, {
+    sessionManager: session.sessionManager,
+  } as never);
+}
+
+function customEntries(entries: readonly unknown[], customType: string): ReadonlyArray<{ data: unknown }> {
+  return entries.filter(
+    (entry): entry is { customType: string; data: unknown } =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      (entry as { customType?: unknown }).customType === customType,
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 async function readWorkspaceContextMarkdownFiles(session: {
