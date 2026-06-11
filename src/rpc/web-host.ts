@@ -23,7 +23,7 @@ export interface RunningWebHost {
 }
 
 const MISSING_WEB_BUNDLE_MESSAGE =
-  'Brunch web bundle is missing. Run npm run build:web before starting web mode.';
+  'Brunch web bundle is missing. Run npm run build:web before starting the web sidecar.';
 
 export async function startWebHost(options: WebHostOptions): Promise<RunningWebHost> {
   void options.cwd;

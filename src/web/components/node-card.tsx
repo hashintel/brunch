@@ -50,6 +50,27 @@ export function KindBadge({ kind, plane }: { kind: NodeKind; plane: NodePlane })
   );
 }
 
+/** Reference-code chip (e.g. `G1`, `CTX2`) tinted by the node's plane. */
+export function NodeRefChip({
+  kind,
+  plane,
+  kindOrdinal,
+}: {
+  kind: NodeKind;
+  plane: NodePlane;
+  kindOrdinal: number;
+}) {
+  const accent = planeAccent(plane);
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded px-1.5 py-0.5 font-mono text-xs font-medium"
+      style={{ color: accent.text, backgroundColor: accent.bg }}
+    >
+      {nodeRefCode(kind, kindOrdinal)}
+    </span>
+  );
+}
+
 /** Small mono count chip. */
 export function CountBadge({ count }: { count: number }) {
   return (

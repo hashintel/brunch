@@ -7,7 +7,6 @@ import { projectWorkspaceState } from '../projections/workspace/workspace-state.
 import { renderWorkspaceState } from '../renderers/workspace/workspace-state.js';
 import { createRpcHandlers, runJsonRpcLineServer } from '../rpc/handlers.js';
 import { createProductUpdatePublisher } from '../rpc/product-updates.js';
-import { startWebHost } from '../rpc/web-host.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
@@ -15,18 +14,12 @@ import {
 import { isBrunchDevEnabled } from './brunch-dev.js';
 import { runBrunchTui } from './brunch-tui.js';
 
-export interface WebHostRunnerOptions {
-  cwd: string;
-  coordinator: WorkspaceSessionCoordinator;
-}
-
 export interface BrunchCliOptions {
   argv?: string[];
   cwd?: string;
   coordinator?: WorkspaceSessionCoordinator;
   stdin?: Readable;
   stdout?: Writable | ((chunk: string) => void);
-  webHostRunner?: (options: WebHostRunnerOptions) => Promise<void>;
   launchTui?: typeof runBrunchTui;
 }
 
@@ -60,8 +53,12 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   }
 
   if (mode === 'web') {
-    await (options.webHostRunner ?? runDefaultWebHost)({ cwd, coordinator });
-    return 0;
+    // Standalone web mode is deferred: the web UI is useless without the TUI
+    // driving it, so the browser client is served only as the TUI sidecar
+    // (see runBrunchTui). A dedicated headless web host is a future feature.
+    throw new Error(
+      'Brunch web mode is not available yet. The web UI is served as a sidecar when you launch the TUI — run `brunch` (or `brunch --mode tui`) instead.',
+    );
   }
 
   if (mode === 'tui') {
@@ -74,15 +71,6 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
   }
 
   throw new Error(`Unsupported Brunch mode: ${mode}`);
-}
-
-async function runDefaultWebHost(options: WebHostRunnerOptions): Promise<void> {
-  const host = await startWebHost({
-    cwd: options.cwd,
-    coordinator: options.coordinator,
-  });
-  process.stdout.write(`Brunch web listening on ${host.url}\n`);
-  await new Promise<void>(() => {});
 }
 
 function writeStdout(stdout: Writable | ((chunk: string) => void) | undefined, chunk: string): void {
