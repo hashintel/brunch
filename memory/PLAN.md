@@ -117,12 +117,14 @@ per ledger row:
 | Block | Frontier | Linear | Branch |
 | --- | --- | --- | --- |
 | 1 | `elicitation-driver` | FE-852 (existing) | `ln/fe-852-below-the-line` (also carries the FE-848 seed-DX prep as preamble) |
-| 2 | `generalized-capture` | new FE issue (create on start) | new, stacks on block 1 |
-| 3 | `poc-live-ship-gate` | FE-811 (existing) | new, stacks on block 2 |
+| 2 | `context-seed-payload` | new FE issue (create on start) | new, stacks on block 1 |
+| 3 | `generalized-capture` | new FE issue (create on start) | new, stacks on block 2 |
+| 4 | `poc-live-ship-gate` | FE-811 (existing) | new, stacks on block 3 |
 
-1. `elicitation-driver` (FE-852) — **demo block 1**: capture-reflection writeback (spawn gaps / set dispositions through the existing `CommandExecutor` boundary, no second mutation clock). Read/rank/select + prompt surfacing already landed.
-2. `generalized-capture` (new FE) — **demo block 2**: narrow high-confidence extractive capture with the false-commit guard. Its own frontier (promoted out of `exchanges-and-generalized-capture`); **not** an FE-811 slice. Relation-bearing capture uses the `mutateGraph` grammar from `role-safe-graph-mutations`.
-3. `poc-live-ship-gate` (FE-811) — **demo block 3**: the fresh-cwd runbook that composes blocks 1–2 through **public entrypoints only**, with the scoped anti-cheat import guard, a named posture observable, and real product renderers / web output as evidence.
+1. `elicitation-driver` (FE-852) — **demo block 1**: capture-reflection writeback (spawn gaps / set dispositions through the existing `CommandExecutor` boundary, no second mutation clock), plus the agent's elicitation read affordance (`read_elicitation_gaps` pull tool) and retirement of the vestigial `read_graph` `gaps` mode. Read/rank/select + prompt surfacing already landed.
+2. `context-seed-payload` (new FE) — **demo block 2**: fill the lost content half of D78-L — the `brunch.context_seed` continuity entry carries a real spec-graph overview + elicitation grounding-floor framing, so a new session boots with auto-injected context, gets kicked, and opens with a question grounded in the ranked gaps. The mechanism (seed-then-kick, dedupe, compaction survival) is already proven; this frontier fills the payload and proves startup completeness end-to-end.
+3. `generalized-capture` (new FE) — **demo block 3**: narrow high-confidence extractive capture with the false-commit guard. Its own frontier (promoted out of `exchanges-and-generalized-capture`); **not** an FE-811 slice. Relation-bearing capture uses the `mutateGraph` grammar from `role-safe-graph-mutations`.
+4. `poc-live-ship-gate` (FE-811) — **demo block 4**: the fresh-cwd runbook that composes blocks 1–3 through **public entrypoints only**, with the scoped anti-cheat import guard, a named posture observable, and real product renderers / web output as evidence.
 
 **Demo lane — top line (client presentation: web readout + TUI chrome; second simultaneous worktree).**
 
@@ -276,6 +278,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 - **Promoted from:** `memory/CROSS_CUT_PLAN.md` Seam 3a `"what to ask next" driver` row (D65-L), which remained `partial · ●` after the `elicitation-backlog` substrate landed. Per the cross-cut's own DoD a seam stays open while any `●` row is partial, so the row is disposed here as a real frontier rather than residue.
 - **Depends on:** `elicitation-gaps-remodel` (hard — the driver ranks/selects over the remodeled `elicitation_gaps` obligation shape, not the FE-823 question/`status` backlog).
 - **Current execution pointer:** Rank/select + observable surfacing landed 2026-06-11; the consumed scope card was retired. Next scope should resolve capture-reflection writeback via a micro-decision on how gap spawn/disposition ops surface to the agent (`mutateGraph` grammar extension vs dedicated op) — `createElicitationGap`/`setElicitationGapDisposition` exist on `CommandExecutor` but have no non-test callers yet.
+- **Scope additions (2026-06-11 grill):** (1) **`read_elicitation_gaps` pull tool** — agent read affordance over `getElicitationGaps` exposing the full ranked agenda, not just the top-1 surfaced in the prompt; keeps the elicitation register a distinct tool rather than a `read_graph` mode. (2) **Kill the `read_graph` `gaps` mode** and its `brunch-tui` `getGraphGaps` adapter — it means *topology* gaps (`lacksEdge`), has zero internal callers, and squats on the canonical "gaps" name. The `hasEdge`/`lacksEdge` `GraphFilter` API is deliberate and **kept**; exposing the comprehensive query API to the agent (a `read_graph` power-up) is **deferred** until a concrete agent flow needs it — noted here so the deferral is visible, not lost.
 - **Lights up:** open gaps → rank (band / importance / coverage / affinity / stable tiebreak) → select next question per turn; capture-reflection spawning/closing remains deferred.
 - **Stabilizes:** D65-L's read-only live elicitation behavior on top of the `elicitation_gaps` substrate; the writeback half remains open.
 - **Objective:** Add the per-turn driver that reads open gaps for the selected spec, ranks them (band + importance + derived coverage), selects the next question to surface, and later reconciles gaps from capture-reflection (spawn new, set disposition on answered/scope-judged) — all on the remodeled `elicitation_gaps` read/write substrate.
@@ -289,6 +292,28 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 - **Cross-cutting obligations:** Preserve the D4-L/D20-L command boundary and the D16-L/A4-L one-`{specId, lsn}` clock; keep the substrate flat (no graph plane, no gap→gap edges beyond the degenerate `arose_from`/`resolved_by` pointers); no second planning system.
 - **Traceability:** D16-L, D20-L, D52-L, D63-L, D64-L, D65-L / A24-L.
 - **Design docs:** `memory/SPEC.md` D65-L; `docs/design/GRAPH_MODEL.md`.
+
+### context-seed-payload
+
+- **Name:** New-session context seed carries real content (lost half of D78-L)
+- **Linear:** new FE issue (create on start); branch stacks on `ln/fe-852-below-the-line`
+- **Kind:** structural / bounded feature
+- **Status:** active — **demo block 2** of the lower line
+- **Certainty:** earned
+- **Closes:** the D78-L claimed-vs-shipped gap — the decision text says a new session "seeds context (workspace/spec overview as custom continuity entries)" but `contextSeedEntries` ships only `{ specId, snapshotLsn }` (a watermark stamp). Landing this makes D78-L true as written; no SPEC edit needed beyond confirming.
+- **Materializes:** seed payload = **(a) spec graph overview** (composition by kind/band, reusing the existing overview projection/render) **+ (d) elicitation grounding-floor framing** (D75-L, top-ranked open gaps from the driver). Workspace overview and cwd inventory stay agent-pullable via `read_workspace_context` — additive payload later, deliberately out of this slice.
+- **Locks in:** the carrier per I47-L — enriched `brunch.context_seed.data` rendered from the transcript projection; never prompt-only injection, never a fabricated user turn. Watermark/dedupe/compaction semantics (I45–I47) are inherited unchanged from `kick-and-context-seeding` and must not regress.
+- **Objective:** A brand-new session in a seeded workspace boots with auto-injected context (spec overview + grounding-floor framing in the seed entry), is kicked per D78-L, and opens with an assistant-originated question grounded in the top-ranked elicitation gap — provable end-to-end without the agent pulling any tool first.
+- **Why now / unlocks:** This is the demo's opening beat ("it knows where it is and what's missing"); `generalized-capture`'s opening-offer quality builds on it. Mechanism risk is already retired (Tier-2 coverage), so the frontier is pure closure: payload shape + render + one composed proof.
+- **Acceptance:**
+  - `brunch.context_seed.data` carries the spec overview + grounding-floor payload; rendering derives from the transcript entry (D43-L projection reconstructs it).
+  - Seed dedupe/idempotence and watermark semantics unchanged (existing I45–I47 Tier-2 rows stay green without modification).
+  - End-to-end startup proof: Tier-2 real-boot — fresh seeded workspace → boot → seed entry contains content → kick fires → the assistant-originated opening turn's provider payload contains the seeded context and the opening offer references a top-ranked gap.
+  - No new mutation path; seeding reads through existing projections/queries only.
+- **Verification:** Inner — payload assembly/render unit tests over seeded fixtures. Middle — Tier-2 `bootTier2RuntimeThroughRunBrunchTui` startup-completeness assertion (seed content + kick + gap-grounded opening offer in the captured provider context). Outer — manual `BRUNCH_DEV` walkthrough of opening-offer quality (tracked, not gated).
+- **Cross-cutting obligations:** I47-L carrier discipline (custom transcript entries only); D76-L watermark carriers; D39-L sealed profile untouched; payload reads via existing query/projection surfaces (D20-L/D52-L).
+- **Traceability:** D43-L, D75-L, D76-L, D78-L; I45-L, I46-L, I47-L.
+- **Design docs:** `memory/SPEC.md` D78-L; `src/renderers/workspace/workspace-context.ts` (existing pull-side renderer to reuse or mirror).
 
 ### poc-live-ship-gate
 
@@ -555,8 +580,9 @@ nodes:
   gaps-node-kind-reference       [done · proving]    D75-L node-kind gap reference landed; typology name/RelevantGapName retired; same-kind discrimination probe covered
   capability-readiness           [done · proving]    JIT capability->relevant-gaps gate + readiness estimate (UI-only); stored grade / MIN_GRADE / chrome.phase+chatMode retired; residue = manual satisficiency + capability-map refinement
   runtime-vocab-leaf             [parallel · proving] src/session/schema/kinds.ts source-of-truth leaf for op_mode/strategy/lens/goal (D73-L direction); decision-3 follow-on
-  elicitation-driver             [active · proving · demo block 1] rank/select prompt surfacing landed; capture-reflection writeback is now demo-blocking; rides COMPOSE oracle
-  generalized-capture            [active · proving · demo block 2] narrow high-confidence extractive capture + false-commit scenario matrix; split from exchanges-and-generalized-capture; uses mutateGraph grammar
+  elicitation-driver             [active · proving · demo block 1] rank/select prompt surfacing landed; capture-reflection writeback + read_elicitation_gaps tool + read_graph gaps-mode kill; rides COMPOSE oracle
+  context-seed-payload           [active · earned · demo block 2] fill the lost content half of D78-L: seed entry carries spec overview + grounding-floor framing; prove startup completeness (seed + kick + gap-grounded opening offer)
+  generalized-capture            [active · proving · demo block 3] narrow high-confidence extractive capture + false-commit scenario matrix; split from exchanges-and-generalized-capture; uses mutateGraph grammar
   exchange-symmetry-audit        [deferred · earned] delete-oriented exchange three-layer symmetry audit; split from exchanges-and-generalized-capture; below the demo line
   demo-polish                    [active · earned · top line] client presentation: web readout (src/web/**) + TUI chrome (presentation, not wiring); consumes the lower line's behavior/contract; no product-wiring edits
   capture-quality-spike          [done · spike]      A22-L fitness evidence graduated the narrow generalized-capture feature
@@ -571,7 +597,10 @@ nodes:
 edges:
   # --- demo lane (2026-06-11 cut): lower line stacks bottom->top, demo-polish rides above ---
   elicitation-driver        -[hard · demo]->  poc-live-ship-gate   (demo block 1: writeback = self-updating gaps the demo claims)
-  generalized-capture       -[hard · demo]->  poc-live-ship-gate   (demo block 2: high-confidence natural-ish capture the demo claims)
+  elicitation-driver        -[hard]->         context-seed-payload (opening offer is grounded in the driver's ranked agenda)
+  kick-and-context-seeding  -[satisfied]->    context-seed-payload (seed-then-kick mechanism + I45-I47 coverage already proven; this frontier fills the payload)
+  context-seed-payload      -[hard · demo]->  poc-live-ship-gate   (demo block 2: startup completeness — auto-injected context + kick + gap-grounded opening question)
+  generalized-capture       -[hard · demo]->  poc-live-ship-gate   (demo block 3: high-confidence natural-ish capture the demo claims)
   poc-live-ship-gate        -[contract]->     demo-polish          (top line consumes the lower line: web over RPC/WS + compile-time types/metadata; TUI chrome over the presentation/wiring seam)
   graph-tool-resilience     -[hard]->         capture-response-to-graph
   graph-tool-resilience     -[hard]->         project-graph-review-cycle
