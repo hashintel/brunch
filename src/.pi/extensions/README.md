@@ -24,8 +24,9 @@ extensions/
 ├── commands/                /brunch:* commands, shortcut, branch/tree policy
 ├── compaction/              auto-compaction anchor contract and future hook
 ├── context/                 snapshot/context Pi tools
+├── elicitation/             read_elicitation_gaps/update_elicitation_gaps Pi tools over the gap register
 ├── exchanges/               structured-exchange present_* / request_* Pi tools
-├── graph/                   mutate_graph/read_graph Pi tools + selected-spec graph/gap read seam
+├── graph/                   mutate_graph/read_graph Pi tools + selected-spec graph read seam
 ├── introspection/           dev-gated read-only provider-payload tap + /introspect command
 ├── introspect-query/        dev-gated read-only brunch_introspect_query tool over captured payloads
 ├── session-query/           dev-gated read-only brunch_session_query tool over current branch
