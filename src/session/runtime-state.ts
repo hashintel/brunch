@@ -55,7 +55,8 @@ export const DEFAULT_BRUNCH_AGENT_STATE: BrunchAgentState = {
   agentGoal: 'grounding-advance',
 };
 
-const OPERATIONAL_MODE_IDS: readonly OperationalModeId[] = ['elicit'];
+// Runtime axis vocabularies are exported for adapter surfaces that validate user-authored posture switches.
+export const OPERATIONAL_MODE_IDS: readonly OperationalModeId[] = ['elicit'];
 export const AGENT_STRATEGY_IDS: readonly AgentStrategyId[] = [
   'freestyle',
   'step-wise-decision-tree',
@@ -63,7 +64,7 @@ export const AGENT_STRATEGY_IDS: readonly AgentStrategyId[] = [
   'propose-graph',
   'project-graph',
 ];
-const AGENT_LENS_IDS: readonly AgentLensId[] = ['intent', 'design', 'oracle'];
+export const AGENT_LENS_IDS: readonly AgentLensId[] = ['intent', 'design', 'oracle'];
 const AGENT_GOAL_IDS: readonly AgentGoalId[] = [
   'grounding-advance',
   'elicit-expand',
