@@ -4,7 +4,7 @@
  * keeping the graph clock and change log coherent.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -215,6 +215,49 @@ describe('seed fixture CLI', () => {
         .all()
         .map((row) => row.operation),
     ).toEqual(['create_spec', 'mutate_graph']);
+  });
+});
+
+describe('all tracked seeds remain structurally legal', () => {
+  // One-level <set>/<slug>.json discovery: prep scripts (_*.ts), READMEs, and
+  // raw-material subdirectories (e.g. bilal-port/_originals/) are excluded by
+  // construction. No hand-maintained list to drift.
+  const seedsRoot = resolve(HERE, '../../.fixtures/seeds');
+  const seedRefs = readdirSync(seedsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((set) =>
+      readdirSync(join(seedsRoot, set.name))
+        .filter((file) => file.endsWith('.json'))
+        .map((file) => `${set.name}/${file.slice(0, -'.json'.length)}`),
+    );
+
+  it('discovers the tracked seed catalog', () => {
+    expect(seedRefs.length).toBeGreaterThan(0);
+    expect(seedRefs).toContain('workspace-spread/alpha-grounding');
+    expect(seedRefs.some((ref) => ref.includes('_originals'))).toBe(false);
+  });
+
+  it.each(seedRefs.map((ref) => ({ ref })))('seeds $ref through the command layer', ({ ref }) => {
+    const [set, slug] = ref.split('/') as [string, string];
+    const fixture = loadFixture(slug, set);
+    const db = createDb(':memory:');
+
+    const result = seedFixture(new CommandExecutor(db), fixture);
+
+    expect(result.nodeCount).toBe(fixture.nodes.length);
+    expect(result.edgeCount).toBe(fixture.edges.length);
+  });
+
+  it('surfaces command-layer diagnostics when a fixture is illegal', () => {
+    const illegal: SeedFixture = {
+      spec: { slug: 'illegal-currency-proof', name: 'Illegal currency proof' },
+      nodes: [{ local_id: 1, plane: 'intent', kind: 'not-a-kind', title: 'bad kind' }],
+      edges: [],
+    };
+
+    expect(() => seedFixture(new CommandExecutor(createDb(':memory:')), illegal)).toThrow(
+      /mutateGraph failed for "illegal-currency-proof"/u,
+    );
   });
 });
 
