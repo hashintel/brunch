@@ -29,8 +29,7 @@ import {
 } from '../.pi/brunch-pi-extensions.js';
 import { createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
-import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../graph/schema/nodes.js';
+import { groundingFloorGaps } from '../graph/schema/elicitation-gap-fixtures.js';
 import { userMessage } from '../probes/test-helpers.js';
 import { createProductUpdatePublisher } from '../rpc/product-updates.js';
 import {
@@ -1638,26 +1637,11 @@ function inventoryWithWorkspace(workspace: WorkspaceSessionReadyState): Workspac
 }
 
 function stubPromptGraphReads() {
-  const gap = (refersTo: NodeKind): ElicitationGap => ({
-    id: `${refersTo}:gap`,
-    specId: 1,
-    refersTo,
-    question: `${refersTo} question`,
-    rationale: `${refersTo} rationale`,
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage: 1,
-    answered: true,
-    disposition: 'answered',
-    createdAtLsn: 1,
-  });
   return {
     queryGraph: () => ({ lsn: 1, nodes: [], edges: [] }),
     getNodes: () => [],
     resolveNodeCode: () => undefined,
-    getElicitationGaps: () => (['context', 'thesis', 'goal', 'constraint'] as const).map((kind) => gap(kind)),
+    getElicitationGaps: () => groundingFloorGaps(),
   };
 }
 

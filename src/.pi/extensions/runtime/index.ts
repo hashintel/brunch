@@ -17,8 +17,8 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../../graph/schema/nodes.js';
 import {
   isToolBlockedForRuntimeState,
   toolPolicyForRuntimeState,
@@ -110,25 +110,13 @@ function applyBrunchToolPolicy(
  * live selected-spec path.
  */
 export function conservativeUncoveredFloorGaps(): readonly ElicitationGap[] {
-  return (['context', 'thesis', 'goal', 'constraint'] as const).map((kind) => gap(kind));
-}
-
-function gap(refersTo: NodeKind): ElicitationGap {
-  return {
-    id: `${refersTo}:runtime-policy-fallback`,
+  return groundingFloorGaps({
+    defaultCoverage: 0,
     specId: 0,
-    refersTo,
-    question: `${refersTo} question`,
+    idSuffix: 'runtime-policy-fallback',
     rationale: 'Conservative fallback before selected-spec gaps are available.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage: 0,
-    answered: false,
-    disposition: 'open',
     createdAtLsn: 0,
-  };
+  });
 }
 
 interface TextLikeContent {

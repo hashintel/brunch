@@ -2,8 +2,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import type { CommandResult } from '../../../graph/command-executor.js';
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../../graph/schema/nodes.js';
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import {
   isToolBlockedForRuntimeState,
   TOOL_POLICY_DEFINITIONS,
@@ -23,25 +22,7 @@ const REGISTERED_POC_TOOLS = [
   'mutate_graph',
 ] as const;
 
-function gap(refersTo: NodeKind): ElicitationGap {
-  return {
-    id: `${refersTo}:gap`,
-    specId: 1,
-    refersTo,
-    question: `${refersTo} question`,
-    rationale: `${refersTo} rationale`,
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage: 0,
-    answered: false,
-    disposition: 'open',
-    createdAtLsn: 1,
-  };
-}
-
-const uncoveredGaps = ['context', 'thesis', 'goal', 'constraint'].map((kind) => gap(kind as NodeKind));
+const uncoveredGaps = groundingFloorGaps({ defaultCoverage: 0 });
 
 function piWithRegisteredTools(toolNames: readonly string[]): ExtensionAPI {
   return {

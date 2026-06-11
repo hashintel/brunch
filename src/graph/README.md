@@ -168,6 +168,9 @@ graph/
     kinds.ts
       zero-import domain enum taxonomy leaf
     elicitation-gaps.ts
+    elicitation-gap-fixtures.ts
+      synthetic gap builders (presenceGap, groundingFloorGaps); production
+      fail-closed floor + test fixtures ride the same shape
     nodes.ts
     edges.ts
     reconciliation-need.ts

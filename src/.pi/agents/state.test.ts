@@ -3,34 +3,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../graph/schema/nodes.js';
+import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import { projectBrunchAgentState } from '../../projections/session/runtime-state.js';
 import { activeToolNamesForPosture, manifestsForState } from './state.js';
-
-function gap(refersTo: NodeKind, coverage: number): ElicitationGap {
-  return {
-    id: `${refersTo}:gap`,
-    specId: 1,
-    refersTo,
-    question: `${refersTo} question`,
-    rationale: `${refersTo} rationale`,
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage,
-    answered: coverage >= 1,
-    disposition: coverage >= 1 ? 'answered' : 'open',
-    createdAtLsn: 1,
-  };
-}
-
-function groundingGaps(coverage: Partial<Record<NodeKind, number>> = {}): ElicitationGap[] {
-  return ['context', 'thesis', 'goal', 'constraint'].map((kind) =>
-    gap(kind as NodeKind, coverage[kind as NodeKind] ?? 1),
-  );
-}
 
 const registeredToolNames = [
   'read',
@@ -55,8 +30,8 @@ const registeredToolNames = [
 describe('agent posture policy', () => {
   it('derives method manifests and active tool names from gap coverage', () => {
     const state = projectBrunchAgentState([]);
-    const uncoveredGaps = groundingGaps({ context: 0, thesis: 0, goal: 0, constraint: 0 });
-    const coveredGaps = groundingGaps();
+    const uncoveredGaps = groundingFloorGaps({ defaultCoverage: 0 });
+    const coveredGaps = groundingFloorGaps();
 
     const floorMethods = manifestsForState(state, uncoveredGaps).methods.map((entry) => entry.name);
     const floorTools = activeToolNamesForPosture({ registeredToolNames, state, gaps: uncoveredGaps });
@@ -88,8 +63,8 @@ describe('agent posture policy', () => {
 
   it('moves a gated method and its tools from absent to present when coverage rises', () => {
     const state = projectBrunchAgentState([]);
-    const uncovered = groundingGaps({ context: 0 });
-    const covered = groundingGaps({ context: 0.5 });
+    const uncovered = groundingFloorGaps({ coverage: { context: 0 } });
+    const covered = groundingFloorGaps({ coverage: { context: 0.5 } });
 
     expect(manifestsForState(state, uncovered).methods.map((entry) => entry.name)).not.toContain(
       'commit-graph',
@@ -105,7 +80,7 @@ describe('agent posture policy', () => {
 
   it('allows registered dev tool names only through the injected dev allow-list', () => {
     const state = projectBrunchAgentState([]);
-    const gaps = groundingGaps({ context: 0, thesis: 0, goal: 0, constraint: 0 });
+    const gaps = groundingFloorGaps({ defaultCoverage: 0 });
     const productTools = activeToolNamesForPosture({
       registeredToolNames: [...registeredToolNames, 'brunch_session_query'],
       state,
@@ -128,7 +103,7 @@ describe('agent posture policy', () => {
     const tools = activeToolNamesForPosture({
       registeredToolNames,
       state,
-      gaps: groundingGaps({ context: 0, thesis: 0, goal: 0, constraint: 0 }),
+      gaps: groundingFloorGaps({ defaultCoverage: 0 }),
       devAllowedToolNames: ['bash', 'brunch_session_query'],
     });
 
@@ -157,29 +132,28 @@ describe('agent posture policy', () => {
       },
     ]);
 
-    expect(manifestsForState(autoState, groundingGaps()).strategies.map((entry) => entry.name)).toEqual([
+    expect(manifestsForState(autoState, groundingFloorGaps()).strategies.map((entry) => entry.name)).toEqual([
       'step-wise-decision-tree',
       'step-wise-disambiguate',
       'propose-graph',
       'project-graph',
     ]);
     expect(
-      manifestsForState(
-        pinnedFreestyle,
-        groundingGaps({ context: 0, thesis: 0, goal: 0, constraint: 0 }),
-      ).strategies.map((entry) => entry.name),
+      manifestsForState(pinnedFreestyle, groundingFloorGaps({ defaultCoverage: 0 })).strategies.map(
+        (entry) => entry.name,
+      ),
     ).toEqual(['freestyle']);
     expect(
       activeToolNamesForPosture({
         registeredToolNames,
         state: pinnedFreestyle,
-        gaps: groundingGaps(),
+        gaps: groundingFloorGaps(),
       }),
     ).toEqual(
       activeToolNamesForPosture({
         registeredToolNames,
         state: autoState,
-        gaps: groundingGaps(),
+        gaps: groundingFloorGaps(),
       }),
     );
   });
@@ -204,7 +178,7 @@ describe('agent posture policy', () => {
       },
     ]);
 
-    expect(() => manifestsForState(state, groundingGaps({ thesis: 0 }))).toThrow(
+    expect(() => manifestsForState(state, groundingFloorGaps({ coverage: { thesis: 0 } }))).toThrow(
       'Pinned goal "commit-converge" is not legal for elicitor in elicit; capability-readiness returned negotiate for current elicitation gaps.',
     );
   });

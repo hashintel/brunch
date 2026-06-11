@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../graph/schema/nodes.js';
+import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import { projectBrunchAgentState } from '../../projections/session/runtime-state.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
@@ -34,24 +33,6 @@ interface FakeCommandContext {
   sessionManager: {
     getEntries(): readonly RuntimeEntry[];
   };
-}
-
-function coveredGroundingGaps(): ElicitationGap[] {
-  return (['context', 'thesis', 'goal', 'constraint'] as const).map((refersTo: NodeKind) => ({
-    id: `${refersTo}:gap`,
-    specId: 1,
-    refersTo,
-    question: `${refersTo} question`,
-    rationale: `${refersTo} rationale`,
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
-    importance: 1,
-    coverage: 1,
-    answered: true,
-    disposition: 'answered',
-    createdAtLsn: 1,
-  }));
 }
 
 function commandHarness(options: { customResult?: unknown; customAvailable?: boolean } = {}) {
@@ -100,7 +81,7 @@ function commandHarness(options: { customResult?: unknown; customAvailable?: boo
       requestChromeRefresh: () => {
         chromeRefreshes.push(chromeRefreshes.length + 1);
       },
-      getElicitationGaps: () => coveredGroundingGaps(),
+      getElicitationGaps: () => groundingFloorGaps(),
     },
   );
 
