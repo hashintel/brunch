@@ -8,16 +8,19 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  buildSeatbeltProfile,
+  compileSeatbeltProfile,
+  confineTestCommand,
   createConfinedFileOperations,
   createSeatbeltSpawnHook,
+  deriveConfinementPolicy,
   wrapCommandInSeatbelt,
 } from './sandbox-guard.js';
 
@@ -121,42 +124,75 @@ describe('confined write and edit operations', () => {
   });
 });
 
-describe.skipIf(!onMac)('seatbelt-confined bash commands (macOS)', () => {
-  const profileFor = (sandbox: string, denyRead: string[]) =>
-    buildSeatbeltProfile({ writeRoots: [sandbox], denyReadSubpaths: denyRead });
+describe('confinement policy derivation', () => {
+  it('makes the sandbox the world: sandbox is read+write, toolchain is read-only, network stays on', () => {
+    const policy = deriveConfinementPolicy(sandboxDir);
+    const sandboxReal = realpathSync(sandboxDir);
+    expect(policy.sandboxRoot).toBe(sandboxReal);
+    expect(policy.writeRoots).toContain(sandboxReal);
+    expect(policy.readRoots).toContain(sandboxReal);
+    expect(policy.network).toBe(true);
+    // The node that runs this test must be readable, derived from the live env.
+    const nodePrefix = dirname(dirname(realpathSync(process.execPath)));
+    expect(policy.readRoots.some((r) => nodePrefix.startsWith(r) || r === nodePrefix)).toBe(true);
+  });
 
-  it('denies writes outside the sandbox and allows them inside', async () => {
-    const profile = profileFor(sandboxDir, []);
+  it('does not grant the broad home dir, only specific cache subpaths', () => {
+    const policy = deriveConfinementPolicy(sandboxDir);
+    expect(policy.readRoots).not.toContain(homedir());
+    expect(policy.writeRoots).not.toContain(homedir());
+  });
+});
+
+describe.skipIf(!onMac)('seatbelt limit-mode profile (macOS)', () => {
+  // A realistic read allowlist: the OS/toolchain base the derivation produces,
+  // plus the sandbox. Crucially it does NOT include the sandbox's tmp parent,
+  // so sibling temp dirs stay unreadable.
+  const limitProfile = (extraRead: string[] = []) =>
+    compileSeatbeltProfile({
+      ...deriveConfinementPolicy(sandboxDir),
+      readRoots: [...deriveConfinementPolicy(sandboxDir).readRoots, ...extraRead],
+    });
+
+  it('runs the toolchain and reads inside the sandbox', async () => {
+    const ok = await runAsBashTool(
+      wrapCommandInSeatbelt(limitProfile(), `cat ${join(sandboxDir, 'inside.txt')}`),
+    );
+    expect(ok.ok).toBe(true);
+    expect(ok.stdout).toContain('inside');
+  });
+
+  it('denies reading a sibling outside the sandbox even though it shares the tmp parent', async () => {
+    const read = await runAsBashTool(
+      wrapCommandInSeatbelt(limitProfile(), `cat ${join(outsideDir, 'secret.txt')}`),
+    );
+    expect(read.ok).toBe(false);
+    expect(read.stdout).not.toContain('secret');
+  });
+
+  it('denies writes outside the sandbox, allows them inside', async () => {
     const outside = await runAsBashTool(
-      wrapCommandInSeatbelt(profile, `echo evil > ${join(outsideDir, 'evil.txt')}`),
+      wrapCommandInSeatbelt(limitProfile(), `echo evil > ${join(outsideDir, 'evil.txt')}`),
     );
     expect(outside.ok).toBe(false);
     expect(existsSync(join(outsideDir, 'evil.txt'))).toBe(false);
 
     const inside = await runAsBashTool(
-      wrapCommandInSeatbelt(profile, `echo ok > ${join(sandboxDir, 'ok.txt')}`),
+      wrapCommandInSeatbelt(limitProfile(), `echo ok > ${join(sandboxDir, 'ok.txt')}`),
     );
     expect(inside.ok).toBe(true);
     expect(readFileSync(join(sandboxDir, 'ok.txt'), 'utf8').trim()).toBe('ok');
   });
 
-  it('denies reads of protected subpaths', async () => {
-    const profile = profileFor(sandboxDir, [outsideDir]);
-    const read = await runAsBashTool(wrapCommandInSeatbelt(profile, `cat ${join(outsideDir, 'secret.txt')}`));
-    expect(read.ok).toBe(false);
-    expect(read.stdout).not.toContain('secret');
-  });
-
   it('survives single quotes in the wrapped command', async () => {
-    const profile = profileFor(sandboxDir, []);
-    const result = await runAsBashTool(wrapCommandInSeatbelt(profile, `echo 'it'\\''s quoted'`));
+    const result = await runAsBashTool(wrapCommandInSeatbelt(limitProfile(), `echo 'it'\\''s quoted'`));
     expect(result.ok).toBe(true);
     expect(result.stdout.trim()).toBe("it's quoted");
   });
 });
 
 describe('seatbelt spawn hook', () => {
-  it('rewrites only the command, preserving cwd and env', () => {
+  it('rewrites only the command, preserving cwd, and redirects TMPDIR into the sandbox', () => {
     const hook = createSeatbeltSpawnHook(sandboxDir);
     if (!onMac) {
       expect(hook).toBeUndefined();
@@ -168,15 +204,19 @@ describe('seatbelt spawn hook', () => {
     expect(rewritten.command).toMatch(/^sandbox-exec -p /);
     expect(rewritten.command).toContain('echo hi');
     expect(rewritten.cwd).toBe(sandboxDir);
-    expect(rewritten.env).toBe(ctx.env);
+    expect(rewritten.env.TMPDIR).toContain(realpathSync(sandboxDir));
   });
+});
 
-  it('denies reading TCC-protected user folders by default', () => {
-    if (!onMac) return;
-    const hook = createSeatbeltSpawnHook(sandboxDir)!;
-    const { command } = hook({ command: 'ls', cwd: sandboxDir, env: process.env });
-    for (const folder of ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures']) {
-      expect(command).toContain(`/${folder}`);
+describe('test-runner confinement', () => {
+  it('wraps the spawn argv under sandbox-exec on macOS, passthrough elsewhere', () => {
+    const confined = confineTestCommand(sandboxDir, 'bun', ['test', 'a.test.ts']);
+    if (onMac) {
+      expect(confined.command).toBe('sandbox-exec');
+      expect(confined.args.slice(0, 2)).toEqual(['-p', expect.stringContaining('(version 1)')]);
+      expect(confined.args.slice(-3)).toEqual(['bun', 'test', 'a.test.ts']);
+    } else {
+      expect(confined).toEqual({ command: 'bun', args: ['test', 'a.test.ts'] });
     }
   });
 });

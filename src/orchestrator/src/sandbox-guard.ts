@@ -1,4 +1,4 @@
-import { constants, realpathSync } from 'node:fs';
+import { constants, existsSync, mkdirSync, realpathSync } from 'node:fs';
 import {
   access as fsAccess,
   mkdir as fsMkdir,
@@ -6,8 +6,8 @@ import {
   realpath,
   writeFile as fsWriteFile,
 } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { homedir } from 'node:os';
+import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 
 import {
   type BashSpawnHook,
@@ -63,29 +63,110 @@ async function assertInsideSandbox(sandboxRoot: string, absolutePath: string): P
  * against the session cwd, so containment here is a complete choke point.
  */
 // ---------------------------------------------------------------------------
-// Seatbelt confinement for spawned commands (macOS)
+// Confinement policy — the sandbox is the agent's world
 // ---------------------------------------------------------------------------
 
-/** TCC-protected user folders whose mere read triggers macOS permission prompts. */
-function protectedUserSubpaths(home: string): string[] {
-  return ['Desktop', 'Documents', 'Downloads', 'Music', 'Pictures'].map((dir) => join(home, dir));
+/**
+ * One source of truth per run, compiled into every enforcement layer (file-tool
+ * guards, seatbelt/bwrap command wrapping, the test-runner spawn). The model is
+ * *limit, not exclude*: nothing outside `readRoots`/`writeRoots` exists for the
+ * agent, so secrets and TCC-protected folders are covered by not being granted.
+ */
+export interface ConfinementPolicy {
+  /** The realpath'd run sandbox — the only place the agent's work lives. */
+  sandboxRoot: string;
+  /** Subtrees whose file *contents* the agent may read (OS base + toolchain + sandbox). */
+  readRoots: string[];
+  /** Subtrees the agent may write (sandbox + tool caches). */
+  writeRoots: string[];
+  /** Agents need the model API and toolchains need the registry; file I/O is the confined axis. */
+  network: boolean;
 }
 
-/** Toolchain/tmp locations agent commands legitimately write to (caches, scratch). */
-function defaultWriteRoots(sandboxRoot: string, home: string): string[] {
-  return [
-    sandboxRoot,
-    realpathSync(tmpdir()),
-    '/var/folders',
-    '/private/var/folders',
-    '/tmp',
-    '/private/tmp',
-    '/dev',
-    join(home, '.npm'),
-    join(home, '.bun'),
-    join(home, '.cache'),
-  ];
+/** OS subtrees any program must read to launch (dyld, frameworks, shells, certs). macOS. */
+const STATIC_READ_BASE_DARWIN = [
+  '/usr',
+  '/bin',
+  '/sbin',
+  '/System',
+  '/Library',
+  '/etc',
+  '/private/etc',
+  '/dev',
+  '/opt/homebrew',
+  '/opt/local',
+  '/var/db',
+  '/private/var/db',
+  '/var/select',
+];
+
+/** Resolve a binary on PATH and return the realpath of its install prefix (dir + parent). */
+function toolchainPrefixesFor(bin: string, pathEnv: string | undefined): string[] {
+  for (const dir of (pathEnv ?? '').split(delimiter)) {
+    if (!dir) continue;
+    const candidate = join(dir, bin);
+    if (!existsSync(candidate)) continue;
+    try {
+      const real = realpathSync(candidate);
+      return [dirname(real), dirname(dirname(real))];
+    } catch {
+      return [dirname(candidate)];
+    }
+  }
+  return [];
 }
+
+/** Toolchain read roots derived from the live environment — never hardcoded paths to "where node lives". */
+function deriveToolchainReadRoots(home: string, env: NodeJS.ProcessEnv): string[] {
+  const roots: string[] = [];
+  // The interpreter actually running cook (covers nvm/asdf/volta/system).
+  try {
+    const nodeReal = realpathSync(process.execPath);
+    roots.push(dirname(nodeReal), dirname(dirname(nodeReal)));
+  } catch {
+    // execPath should always resolve; tolerate exotic hosts.
+  }
+  for (const bin of ['bun', 'npx', 'npm', 'node', 'git', 'sh', 'env']) {
+    roots.push(...toolchainPrefixesFor(bin, env.PATH));
+  }
+  // Package manager caches the toolchain reads from (not secrets).
+  roots.push(join(home, '.bun'), join(home, '.npm'), join(home, '.cache'), join(home, '.nvm'));
+  if (env.npm_config_cache) roots.push(env.npm_config_cache);
+  return roots;
+}
+
+/**
+ * Derive the run's confinement policy from the live environment. `readRoots`
+ * deliberately omit the broad tmp parent so the sandbox's sibling temp dirs
+ * stay unreadable; per-command scratch is redirected into the sandbox instead.
+ */
+export function deriveConfinementPolicy(
+  sandboxDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+): ConfinementPolicy {
+  const sandboxRoot = realpathSync(resolve(sandboxDir));
+  const home = homedir();
+  const base = process.platform === 'darwin' ? STATIC_READ_BASE_DARWIN : [];
+  const toolchain = deriveToolchainReadRoots(home, env);
+  // Caches the toolchain writes back to on install (not secrets).
+  const writeCaches = [join(home, '.bun'), join(home, '.npm'), join(home, '.cache')];
+  return {
+    sandboxRoot,
+    readRoots: dedupe([...base, ...toolchain, sandboxRoot]),
+    writeRoots: dedupe([sandboxRoot, '/dev', ...writeCaches]),
+    network: true,
+  };
+}
+
+// `/bin/sh` → dirname twice is `/`, which would grant the whole filesystem and
+// defeat limit-mode. Drop root entirely; the static base lists real OS dirs.
+function dedupe(paths: string[]): string[] {
+  return [...new Set(paths.filter((p) => p && p !== '/'))];
+}
+
+// ---------------------------------------------------------------------------
+// Seatbelt backend (macOS) — compiles a ConfinementPolicy to sandbox-exec
+// ---------------------------------------------------------------------------
 
 const escapeProfilePath = (path: string): string => path.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 
@@ -105,43 +186,84 @@ function subpathFilters(paths: string[]): string {
 }
 
 /**
- * Seatbelt (`sandbox-exec`) profile: everything allowed by default, writes
- * denied except under `writeRoots`, reads denied under `denyReadSubpaths`.
- * Seatbelt is last-match-wins, so the write allow-list must follow the deny.
+ * Zones that actually hold user data: home (secrets, ssh/aws/config, TCC
+ * folders), the per-user temp dir, and external volumes. Denying read *here*
+ * — rather than denying `/` — is the meaningful limit boundary: OS dirs
+ * (`/usr`, `/System`, the dyld shared cache) stay readable so the dynamic
+ * loader works, while everything the agent has no business reading is denied
+ * and only the policy roots (sandbox + toolchain caches) are re-granted.
  */
-export function buildSeatbeltProfile(opts: { writeRoots: string[]; denyReadSubpaths: string[] }): string {
-  const allowWrites = subpathFilters(opts.writeRoots);
-  const denyReads = subpathFilters(opts.denyReadSubpaths);
+function denyReadZones(home: string): string[] {
+  return [home, '/Users', '/var/folders', '/private/var/folders', '/tmp', '/private/tmp', '/Volumes'];
+}
+
+/**
+ * Compile a policy to a seatbelt profile. Limit-mode: non-file operations stay
+ * allowed (process exec, network); all writes are default-denied and re-granted
+ * only under `writeRoots`; reads of the user-data zones are denied and re-granted
+ * only under the policy roots. Last-match-wins, so the allow lists follow the
+ * denies. You can read what you can write (own scratch), so the read grant
+ * unions both root sets.
+ */
+export function compileSeatbeltProfile(policy: ConfinementPolicy, home: string = homedir()): string {
+  const allowWrites = subpathFilters(policy.writeRoots);
+  const allowReads = subpathFilters([...policy.readRoots, ...policy.writeRoots]);
+  const denyReads = subpathFilters(denyReadZones(home));
   return [
     '(version 1)',
     '(allow default)',
     '(deny file-write* (subpath "/"))',
     `(allow file-write* ${allowWrites})`,
-    ...(denyReads ? [`(deny file-read* ${denyReads})`] : []),
+    `(deny file-read-data ${denyReads})`,
+    `(allow file-read-data ${allowReads})`,
   ].join('\n');
 }
 
 const shellQuote = (s: string): string => `'${s.replaceAll("'", `'\\''`)}'`;
 
-/** Wrap a bash command so it executes under the given seatbelt profile. */
+/** Wrap a bash command string so it executes under the given seatbelt profile. */
 export function wrapCommandInSeatbelt(profile: string, command: string): string {
   return `sandbox-exec -p ${shellQuote(profile)} /bin/bash -c ${shellQuote(command)}`;
 }
 
+/** Per-run scratch dir inside the sandbox, so confined commands need no tmp grant outside it. */
+function sandboxTmpDir(sandboxRoot: string): string {
+  const dir = join(sandboxRoot, '.brunch-tmp');
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
 /**
- * Spawn hook for the pi bash tool: every agent command runs under seatbelt so
- * it cannot write outside the sandbox or read TCC-protected user folders.
- * Returns undefined off macOS — confinement degrades to a documented no-op.
+ * Spawn hook for the pi bash tool: every agent command runs under a seatbelt
+ * profile compiled from the run's confinement policy, with TMPDIR redirected
+ * into the sandbox. Returns undefined off macOS — command confinement degrades
+ * to a documented no-op (file-tool guards still apply; bwrap is the follow-on).
  */
 export function createSeatbeltSpawnHook(sandboxDir: string): BashSpawnHook | undefined {
   if (process.platform !== 'darwin') return undefined;
-  const sandboxRoot = realpathSync(resolve(sandboxDir));
-  const home = homedir();
-  const profile = buildSeatbeltProfile({
-    writeRoots: defaultWriteRoots(sandboxRoot, home),
-    denyReadSubpaths: protectedUserSubpaths(home),
+  const policy = deriveConfinementPolicy(sandboxDir);
+  const profile = compileSeatbeltProfile(policy);
+  const tmp = sandboxTmpDir(policy.sandboxRoot);
+  return (ctx) => ({
+    ...ctx,
+    command: wrapCommandInSeatbelt(profile, ctx.command),
+    env: { ...ctx.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp },
   });
-  return (ctx) => ({ ...ctx, command: wrapCommandInSeatbelt(profile, ctx.command) });
+}
+
+/**
+ * Confine a test-runner spawn (`bun test`, `npx vitest`) the same way as agent
+ * bash: wrap the argv under `sandbox-exec` on macOS, passthrough elsewhere.
+ * argv form needs no shell quoting.
+ */
+export function confineTestCommand(
+  sandboxDir: string,
+  command: string,
+  args: string[],
+): { command: string; args: string[] } {
+  if (process.platform !== 'darwin') return { command, args };
+  const profile = compileSeatbeltProfile(deriveConfinementPolicy(sandboxDir));
+  return { command: 'sandbox-exec', args: ['-p', profile, command, ...args] };
 }
 
 /**
