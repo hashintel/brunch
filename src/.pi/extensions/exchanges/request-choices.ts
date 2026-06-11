@@ -4,8 +4,14 @@ import { projectRequestChoices } from '../../../projections/exchanges/request-ch
 import { formatRequestChoices } from '../../../renderers/exchanges/request-choices.js';
 import { piSchema } from './pi-schema.js';
 import {
+  STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,
+  STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_VERSION,
+  zRequestChoicesEditorReply,
   zRequestChoicesParams,
   type RequestChoiceParam,
+  type RequestChoicesEditorChoice,
+  type RequestChoicesEditorEnvelopeInput,
+  type RequestChoicesEditorResponse,
   type RequestChoicesParams,
   type SelectedChoice,
 } from './schemas/index.js';
@@ -15,18 +21,7 @@ export const REQUEST_CHOICES_TOOL = 'request_choices' as const;
 
 type StructuredExchangeChoice = RequestChoiceParam;
 
-interface EditorChoice {
-  id: string;
-  label?: string;
-}
-
-interface EditorResponse {
-  status: 'answered' | 'cancelled';
-  choices: EditorChoice[];
-  comment: string;
-}
-
-function buildEditorPrefill(params: {
+export function buildRequestChoicesEditorPrefill(params: {
   prompt: string;
   choices: readonly StructuredExchangeChoice[];
   allowOther?: boolean;
@@ -38,56 +33,37 @@ function buildEditorPrefill(params: {
     ...(params.allowOther ? [{ id: 'other', label: 'Other' }] : []),
     ...(params.allowNone ? [{ id: 'none', label: 'None' }] : []),
   ];
-  return JSON.stringify(
-    {
-      schema: 'brunch.structured_exchange.request_choices.editor',
-      schemaVersion: 1,
-      prompt: params.prompt,
-      mode: 'multi-choice',
-      choices,
-      instructions: [
-        'Edit only response.',
-        'Set response.status to answered or cancelled.',
-        'For each selected choice, include its id in response.choices.',
-        'Set response.comment to a string. Other or None requires a nonblank comment.',
-      ],
-      commentPrompt: params.commentPrompt ?? 'Optional comment',
-      response: { status: 'cancelled', choices: [], comment: '' },
-    },
-    null,
-    2,
-  );
+  const envelope = {
+    schema: STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,
+    schemaVersion: STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_VERSION,
+    prompt: params.prompt,
+    mode: 'multi-choice',
+    choices,
+    instructions: [
+      'Edit only response.',
+      'Set response.status to answered or cancelled.',
+      'For each selected choice, include its id in response.choices.',
+      'Set response.comment to a string. Other or None requires a nonblank comment.',
+    ],
+    commentPrompt: params.commentPrompt ?? 'Optional comment',
+    response: { status: 'cancelled', choices: [], comment: '' },
+  } satisfies RequestChoicesEditorEnvelopeInput;
+  return JSON.stringify(envelope, null, 2);
 }
 
-function parseEditorResponse(value: string): EditorResponse | null {
+export function parseRequestChoicesEditorResponse(value: string): RequestChoicesEditorResponse | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);
   } catch {
     return null;
   }
-  if (!isRecord(parsed)) return null;
-  const response = parsed.response;
-  if (!isRecord(response)) return null;
-
-  if (response.status === 'cancelled') return { status: 'cancelled', choices: [], comment: '' };
-  if (response.status !== 'answered') return null;
-  if (!Array.isArray(response.choices)) return null;
-  if (typeof response.comment !== 'string') return null;
-
-  const choices = response.choices.map((choice): EditorChoice | null => {
-    if (!isRecord(choice) || typeof choice.id !== 'string') return null;
-    return {
-      id: choice.id,
-      ...(typeof choice.label === 'string' ? { label: choice.label } : {}),
-    };
-  });
-  if (choices.some((choice) => choice === null)) return null;
-  return { status: 'answered', choices: choices as EditorChoice[], comment: response.comment };
+  const reply = zRequestChoicesEditorReply.safeParse(parsed);
+  return reply.success ? reply.data.response : null;
 }
 
 function matchSelectedChoices(
-  selected: readonly EditorChoice[],
+  selected: readonly RequestChoicesEditorChoice[],
   params: {
     choices: readonly StructuredExchangeChoice[];
     allowOther?: boolean;
@@ -139,15 +115,18 @@ export const requestChoicesTool = defineTool({
       return terminal('unavailable', 'request_choices requires interactive UI');
     }
 
-    const editorPrefillParams: Parameters<typeof buildEditorPrefill>[0] = { prompt: params.prompt, choices };
+    const editorPrefillParams: Parameters<typeof buildRequestChoicesEditorPrefill>[0] = {
+      prompt: params.prompt,
+      choices,
+    };
     if (params.allowOther !== undefined) editorPrefillParams.allowOther = params.allowOther;
     if (params.allowNone !== undefined) editorPrefillParams.allowNone = params.allowNone;
     if (params.commentPrompt !== undefined) editorPrefillParams.commentPrompt = params.commentPrompt;
 
-    const edited = await ctx.ui.editor(buildEditorPrefill(editorPrefillParams));
+    const edited = await ctx.ui.editor(buildRequestChoicesEditorPrefill(editorPrefillParams));
     if (edited === undefined) return terminal('cancelled');
 
-    const response = parseEditorResponse(edited);
+    const response = parseRequestChoicesEditorResponse(edited);
     if (!response) return terminal('unavailable', 'request_choices editor fallback returned invalid JSON');
     if (response.status === 'cancelled') return terminal('cancelled');
 
@@ -183,7 +162,3 @@ export const requestChoicesTool = defineTool({
     return renderMarkdownResult(result, theme);
   },
 });
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
