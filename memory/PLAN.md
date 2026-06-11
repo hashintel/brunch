@@ -84,7 +84,7 @@ per ledger row:
 
 ### Active
 
-- (none) — the FE-847 turn-boundary closure completed 2026-06-11 (see Turn-boundary choreography below); the review-fix remediation residue is one suspended item in `memory/REFACTOR.md` (migration 0004, handed to the stacked successor branch).
+- (none) — the FE-847 turn-boundary closure completed 2026-06-11 (see Turn-boundary choreography below). One handed-off residue: migration `0004_gaps_node_kind_reference` coherence (the in-place journal-tag rewrite + the derive-with-'context'-fallback that the new read-side `predicate_kind` throw would reject) is being fixed by another agent on the stacked successor branch — on reintegration, verify that fix actually covers the concern before considering it closed; do not touch `drizzle/` on this branch meanwhile.
 
 ### Turn-boundary choreography (Tier-2 layer)
 
