@@ -372,6 +372,16 @@ function rowToElicitationGap(db: BrunchDb, row: typeof schema.elicitationGaps.$i
 
   const storedDisposition = row.disposition as GapDisposition;
   const predicate = JSON.parse(row.predicate) as GapPredicate;
+  if (row.predicate_kind !== predicate.kind) {
+    throw new Error(
+      `elicitation gap ${row.id} predicate_kind ${row.predicate_kind} does not match predicate JSON kind ${predicate.kind}`,
+    );
+  }
+  if ('nodeKind' in predicate && predicate.nodeKind !== undefined && row.refers_to !== predicate.nodeKind) {
+    throw new Error(
+      `elicitation gap ${row.id} refers_to ${row.refers_to} does not match predicate nodeKind ${predicate.nodeKind}`,
+    );
+  }
   const coverage = deriveGapCoverage(db, row.spec_id, predicate, storedDisposition);
   const answered = coverage >= 1;
   const disposition = answered && storedDisposition === 'open' ? 'answered' : storedDisposition;
