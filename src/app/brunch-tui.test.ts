@@ -409,30 +409,18 @@ describe('Brunch TUI boot', () => {
   });
 
   it('scopes Pi startup update suppression and restores update-check env in finally', async () => {
-    const productEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {};
+    const scopedEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {};
     await expect(
       runWithScopedBrunchOfflineDefault({
-        dev: false,
-        env: productEnv,
+        env: scopedEnv,
         run: async () => {
-          expect(productEnv.PI_OFFLINE).toBe('1');
+          expect(scopedEnv.PI_OFFLINE).toBe('1');
+          expect(scopedEnv.PI_SKIP_VERSION_CHECK).toBe('1');
         },
       }),
     ).resolves.toBeUndefined();
-    expect(productEnv.PI_OFFLINE).toBeUndefined();
-    expect(productEnv.PI_SKIP_VERSION_CHECK).toBeUndefined();
-
-    const devEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {};
-    await expect(
-      runWithScopedBrunchOfflineDefault({
-        dev: true,
-        env: devEnv,
-        run: async () => {
-          expect(devEnv.PI_OFFLINE).toBe('1');
-        },
-      }),
-    ).resolves.toBeUndefined();
-    expect(devEnv.PI_OFFLINE).toBeUndefined();
+    expect(scopedEnv.PI_OFFLINE).toBeUndefined();
+    expect(scopedEnv.PI_SKIP_VERSION_CHECK).toBeUndefined();
 
     const overriddenEnv: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = {
       PI_OFFLINE: 'already-offline',
@@ -440,7 +428,6 @@ describe('Brunch TUI boot', () => {
     };
     await expect(
       runWithScopedBrunchOfflineDefault({
-        dev: true,
         env: overriddenEnv,
         run: async () => {
           expect(overriddenEnv.PI_OFFLINE).toBe('already-offline');

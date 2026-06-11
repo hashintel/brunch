@@ -147,8 +147,11 @@ export function brunchResourceLoaderOptions(
   };
 }
 
-export function applyBrunchOfflineDefault(env: { PI_OFFLINE?: string } = process.env): void {
+export function applyBrunchOfflineDefault(
+  env: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string } = process.env,
+): void {
   env.PI_OFFLINE ??= '1';
+  env.PI_SKIP_VERSION_CHECK ??= '1';
 }
 
 export function createBrunchSettingsManager(_cwd: string, _agentDir: string): SettingsManager {

@@ -470,7 +470,6 @@ async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<voi
   });
 
   await runWithScopedBrunchOfflineDefault({
-    dev: context.dev?.introspection.enabled === true,
     env: process.env,
     run: async () => {
       await new InteractiveMode(runtime).run();
@@ -479,7 +478,6 @@ async function launchPiInteractive(context: BrunchTuiLaunchContext): Promise<voi
 }
 
 export async function runWithScopedBrunchOfflineDefault(options: {
-  readonly dev: boolean;
   readonly env?: { PI_OFFLINE?: string; PI_SKIP_VERSION_CHECK?: string };
   readonly run: () => Promise<void>;
 }): Promise<void> {
