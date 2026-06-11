@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+
 import { type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
@@ -11,6 +14,7 @@ import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE } from '../session/runtime-state
 import {
   bootTier2RuntimeFromFixture,
   bootTier2RuntimeThroughRunBrunchTui,
+  rebootTier2Runtime,
   resumeTier2Fixture,
   runTier2RealBootFauxTurn,
 } from './tier-2-harness.js';
@@ -521,7 +525,21 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
 });
 
 describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempotence', () => {
-  it.todo('no redundant worldUpdate is emitted immediately after a seed naming the current snapshot LSN');
+  it('no redundant worldUpdate is emitted immediately after a seed naming the current snapshot LSN', async () => {
+    const boot = await bootTier2RuntimeFromFixture({ fixtureEntries: () => [] });
+    try {
+      const entries = boot.runtime.session.sessionManager.getEntries();
+      const seeds = customEntries(entries, 'brunch.context_seed');
+      expect(seeds).toHaveLength(1);
+      expect(seeds[0]?.data).toMatchObject({ specId: boot.specId, snapshotLsn: expect.any(Number) });
+
+      await boot.runtime.session.extensionRunner.emitBeforeProviderRequest({});
+      expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toHaveLength(0);
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
 
   it('compaction and resume preserve the latest watermark carrier so projection cannot regress', () => {
     const latestAnchorsByKind = new Map(
@@ -543,8 +561,54 @@ describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempo
     expect(projectAssistantVisibleWatermark(compactedEntries, { specId })).toEqual({ specId, lsn: 8 });
   });
 
-  it.todo('boot/resume seeding derives dedupe from transcript projection rather than hidden flags');
-  it.todo('continuity assertions use sets and {specId, lsn} properties rather than payload-order goldens');
+  it('boot/resume seeding derives dedupe from transcript projection rather than hidden flags', async () => {
+    // First real boot seeds and kicks; an actual restart over the same session
+    // file must not duplicate the seed, the kick, or synthesize a worldUpdate —
+    // with no state surviving except the transcript itself.
+    const boot = await bootTier2RuntimeFromFixture({ fixtureEntries: () => [] });
+    let rebooted: Awaited<ReturnType<typeof rebootTier2Runtime>> | undefined;
+    try {
+      const firstEntries = boot.runtime.session.sessionManager.getEntries();
+      expect(customEntries(firstEntries, 'brunch.context_seed')).toHaveLength(1);
+      expect(presentToolResults(firstEntries)).toHaveLength(1);
+
+      const flushManager = boot.runtime.session.sessionManager;
+      await boot.runtime.dispose();
+      rebooted = await rebootTier2Runtime({
+        cwd: boot.cwd,
+        specId: boot.specId,
+        sessionFile: boot.sessionFile,
+        flushManager,
+      });
+
+      const rebootedEntries = rebooted.runtime.session.sessionManager.getEntries();
+      expect(customEntries(rebootedEntries, 'brunch.context_seed')).toHaveLength(1);
+      expect(presentToolResults(rebootedEntries)).toHaveLength(1);
+      await rebooted.runtime.session.extensionRunner.emitBeforeProviderRequest({});
+      expect(customEntries(rebooted.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toHaveLength(
+        0,
+      );
+    } finally {
+      await rebooted?.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
+  it('continuity assertions use sets and {specId, lsn} properties rather than payload-order goldens', async () => {
+    // Suite convention, enforced mechanically: continuity proofs in this file
+    // assert sets and {specId, lsn} properties; no canonical item sort is
+    // specified, so payload-order goldens are banned.
+    const source = await readFile(
+      fileURLToPath(new URL('./tier-2-harness.test.ts', import.meta.url)),
+      'utf8',
+    );
+    const goldenMatchers = ['Snapshot', 'FileSnapshot', 'InlineSnapshot'].map(
+      (suffix) => `toMatch${suffix}(`,
+    );
+    for (const matcher of goldenMatchers) {
+      expect(source.includes(matcher)).toBe(false);
+    }
+  });
 });
 
 async function readSessionContextDetails(session: {

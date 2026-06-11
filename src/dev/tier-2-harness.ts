@@ -204,11 +204,50 @@ export async function bootTier2RuntimeFromFixture(options: {
       restoreEnv();
       throw new Error('runBrunchTui did not reach launchInteractive for the fixture resume boot');
     }
-    return { cwd, specId: workspace.spec.id, runtime, restoreEnv };
+    return { cwd, specId: workspace.spec.id, sessionFile: workspace.session.file, runtime, restoreEnv };
   } catch (error) {
     restoreEnv();
     throw error;
   }
+}
+
+/**
+ * Re-boot the real runtime over an existing session — the actual-restart half
+ * of the I47 idempotence proof. Pi defers JSONL writes until an assistant
+ * message exists, so the prior runtime's entries are flushed to the session
+ * file first; the reboot then reads continuity purely from transcript
+ * projection (no hidden flags survive the restart).
+ */
+export async function rebootTier2Runtime(options: {
+  readonly cwd: string;
+  readonly specId: number;
+  readonly sessionFile: string;
+  readonly flushManager?: unknown;
+}) {
+  if (options.flushManager) flushSessionEntries(options.flushManager, options.sessionFile);
+  const coordinator = createWorkspaceSessionCoordinator({ cwd: options.cwd });
+  const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+  let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
+  await runBrunchTui({
+    cwd: options.cwd,
+    autoOpen: false,
+    coordinator,
+    runWorkspaceDialogPreflight: async () => ({
+      action: 'openSession',
+      specId: options.specId,
+      sessionFile: options.sessionFile,
+    }),
+    webSidecarRunner: async () => null,
+    launchInteractive: async (context) => {
+      runtime = await createAgentSessionRuntime(createBrunchAgentSessionRuntimeFactory(context), {
+        cwd: options.cwd,
+        agentDir,
+        sessionManager: context.workspace.session.manager,
+      });
+    },
+  });
+  if (!runtime) throw new Error('runBrunchTui did not reach launchInteractive for the reboot');
+  return { runtime };
 }
 
 export async function resumeTier2Fixture(options: {
