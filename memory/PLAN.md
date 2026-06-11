@@ -31,7 +31,7 @@ Planning is currently carrying two shapes at once: canonical frontier sequencing
 
 The `graph-observed-shapes` coverage frontier has now landed (the consumer-specific read-shape inventory is ratified in `src/graph/README.md` and guarded by a drift test). With `minimal-authority-shell` also done, the active delivery path is `poc-live-ship-gate` (now unblocked).
 
-The earlier coverage de-fogging pass is now mostly complete. `runtime-affordances-and-legality`, `projection-shape-coverage`, and `prompt-composition-golden-coverage` have landed; `renderer-golden-coverage` is the only open context-pipeline coverage frontier (now deferred below the demo line). The former `exchanges-and-generalized-capture` has been **split** (2026-06-11 demo cut) into `generalized-capture` (a bounded proving feature, demo block 2) and `exchange-symmetry-audit` (deferred earned cleanup); `elicitation-driver` writeback is now demo block 1 (not deferrable residue).
+The earlier coverage de-fogging pass is now mostly complete. `runtime-affordances-and-legality`, `projection-shape-coverage`, and `prompt-composition-golden-coverage` have landed; `renderer-golden-coverage` is the only open context-pipeline coverage frontier (now deferred below the demo line). The former `exchanges-and-generalized-capture` has been **split** (2026-06-11 demo cut) into `generalized-capture` (a bounded proving feature, demo block 3 since the `context-seed-payload` insert) and `exchange-symmetry-audit` (deferred earned cleanup); `elicitation-driver` writeback is now demo block 1 (not deferrable residue).
 
 **Coverage-layer re-classification (2026-06-08 ln-plan, applying the hardened coverage protocol; refreshed 2026-06-11).** Re-asking "where are the *real* coverage frontiers" gives a tight answer: the coverage layer is mostly already closed. `graph-observed-shapes`, `runtime-affordances-and-legality`, `projection-shape-coverage`, and `prompt-composition-golden-coverage` are done. The one genuinely-open coverage frontier is now `renderer-golden-coverage`: it must close the `src/renderers/` ledger and apply the existing preview→golden→invariant pattern to each surviving durable renderer. `exchanges-and-generalized-capture` remains **not coverage** — its load-bearing unknown is capture semantics (a vertical proving slice with false-commit protection), plus a delete-oriented exchange symmetry audit. `elicitation-driver` is active bounded feature residue, not coverage: read/rank/select + prompt surfacing is built; capture-reflection writeback remains.
 
@@ -285,7 +285,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 - **Why now / unlocks:** Buildable once `elicitation-gaps-remodel` lands (substrate + per-spec read-back exist); it closes the last required cross-cut row. It is itself a **bounded feature, not coverage**; as the cross-cut's promoted closing row it sequences ahead of fresh coverage breadth, but it is **not** POC-ship-critical (the POC delivery cut de-scopes elicitation quality), so it is not a ship-gate blocker.
 - **Acceptance:**
   - A driver reads open gaps for the selected spec and produces a deterministic ranked selection of the next question. **Done 2026-06-11.**
-  - Capture-reflection can spawn new gaps and set dispositions through the existing `CommandExecutor` path; no second mutation clock. **Deferred pending micro-decision.**
+  - Capture-reflection can spawn new gaps and set dispositions through the existing `CommandExecutor` path; no second mutation clock. **Split 2026-06-11:** this frontier delivers the *affordance* (dedicated `update_elicitation_gaps` tool, scripted-turn proof); the *behavior* (reflection prompting, live spawn/close judgment, gap-disposition ledger as conduct) transfers to `generalized-capture`, since capture prompting completeness is unvalidated and owned there.
   - Selection is observable enough for a probe/transcript to prove the loop without inventing a planning plane or pointer. **Done 2026-06-11 via composed prompt + `.brunch/debug` cross-check.**
   - The cross-cut Seam 3a row flips from `partial · ●` to done when both read-only selection and writeback land.
 - **Verification:** Inner — ranking/selection tests over seeded gaps. Middle — per-turn driver read-back over a real graph boundary; sibling-spec isolation. Outer — `.brunch/debug/system-prompt.md` from a seeded workbench shows the same recommendation block as the golden path. Future writeback scope owns rank → select → capture-reflection close across turns.
@@ -321,20 +321,20 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 - **Linear:** [FE-811](https://linear.app/hash/issue/FE-811/poc-live-ship-gate-and-runbook-oracle)
 - **Branch:** `ln/fe-811-poc-live-ship-blockers`
 - **Kind:** hardening / release gate
-- **Status:** active — **demo block 3** of the lower line (stacks on `generalized-capture`)
+- **Status:** active — **demo block 4** of the lower line (stacks on `generalized-capture`)
 - **Certainty:** proving
 - **Lights up:** fresh-cwd composed product path across TUI, web observer, runtime posture, structured exchange, and graph write surfaces.
 - **Stabilizes:** harness-as-false-proof guard for I22-L, I35-L, I38-L, I39-L, I40-L.
 - **Objective:** Create and pass the final POC runbook that exercises the real entrypoints together: fresh cwd, multi-spec selection, TUI session, web observer, runtime switch, structured exchange, capture/commit, graph update, and probe artifacts.
 - **Why now / unlocks:** This is the harness-as-false-proof guard. If a test path had to inject modules the product never wires, the POC is not shipped.
-- **Demo cut (2026-06-11):** this is **demo block 3** of the lower line, and is now scoped as a **ship-correctness** gate (does the real product compose) distinct from the `demo-polish` top line (does it look like a product). The runbook acceptance list below is the **closed coverage ledger**: every `●` step must launch a public entrypoint and emit a durable artifact, with **no hand-wired step**. Open with a practical-testing + analysis + `ln-grill` prelude to find the thinnest runbook before `ln-scope`.
+- **Demo cut (2026-06-11):** this is **demo block 4** of the lower line, and is now scoped as a **ship-correctness** gate (does the real product compose) distinct from the `demo-polish` top line (does it look like a product). The runbook acceptance list below is the **closed coverage ledger**: every `●` step must launch a public entrypoint and emit a durable artifact, with **no hand-wired step**. Open with a practical-testing + analysis + `ln-grill` prelude to find the thinnest runbook before `ln-scope`.
 - **Acceptance:**
   - **Public entrypoints only:** the gate launches via `runBrunchCli` / `bin/brunch-cli.js` (subprocess preferred) and **imports no private wiring** (`createRpcHandlers`, `createWorkspaceSessionCoordinator`, `createBrunchAgentSessionRuntimeFactory`). A mechanical **anti-cheat guard** fails the gate if those modules are imported. *(This is the load-bearing new row — no existing probe launches via the product entrypoint today.)*
   - Fresh cwd launches Brunch, creates or resumes an explicit spec/session, and does not implicitly resume stale transcripts.
   - A second spec can exist in the same workspace; the runbook confirms the active session/graph target is the selected spec.
   - Web attaches as read-only observer over WebSocket RPC and shows the selected spec graph (real product render path, not fixture-rendered strings).
   - Runtime strategy/lens/goal state is switchable/inspectable and changes composed prompt/resource posture, surfaced through a **named posture observable** (`session.runtimeState` RPC and/or `.brunch/debug/system-prompt.md`) captured as evidence.
-  - The elicitation-rich demo path composes: the agent asks the next-best question and **gaps update from answers** (elicitation writeback, demo block 1) and **high-confidence generalized capture** (demo block 2) commits directly-stated facts to graph truth through `CommandExecutor`; web updates.
+  - The elicitation-rich demo path composes: the session opens with **seeded context and a gap-grounded question** (demo block 2), the agent asks the next-best question and **gaps update from answers** (writeback affordance from demo block 1, reflection behavior from demo block 3) and **high-confidence generalized capture** (demo block 3) commits directly-stated facts to graph truth through `CommandExecutor`; web updates.
   - Probe/runbook artifacts record transcript, graph summary, report/friction, accepted gaps, and the posture-observable capture.
 - **Verification:** Middle/Outer — executable where practical (subprocess + RPC/projection readback), manual where TUI/browser interaction is unavoidable. Pair every visual assertion with a durable artifact or projection query. The anti-cheat import guard is an inner-loop test.
 - **Topology materialization:** Runbook/probe code lives in `src/probes/` and `.fixtures/runs/`; it must launch product entrypoints rather than import private modules to fake the product path.
@@ -445,9 +445,9 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 > **Split from `exchanges-and-generalized-capture` (2026-06-11 demo cut).** Promoted to its own frontier (objective 1 of the former combined item) because the demo claim needs natural-ish capture; the delete-oriented audit half is now the separate `exchange-symmetry-audit` frontier below.
 
 - **Name:** Generalized capture (narrow high-confidence extractive) + false-commit guard
-- **Linear:** unassigned (new FE issue — create on start; demo block 2, stacks on `elicitation-driver`/FE-852)
+- **Linear:** unassigned (new FE issue — create on start; demo block 3, stacks on `context-seed-payload`)
 - **Kind:** bounded feature
-- **Status:** active — **demo block 2** of the lower line
+- **Status:** active — **demo block 3** of the lower line
 - **Certainty:** proving
 - **Demo cut (2026-06-11):** the locked demo claim needs capture beyond directly-labeled facts, so this is demo-blocking. Open with a practical-testing + analysis + `ln-grill` prelude before `ln-scope`. Completeness obligation = the **false-commit scenario matrix** (every `capture-quality-spike` scenario class — free-prose, file/ref-bearing, implication-heavy — has a regression guard); this is a closed matrix, not a coverage frontier.
 - **Unblocked by:** `capture-quality-spike` (2026-06-08) measured fixed free-prose, file/ref-bearing, and implication-heavy scenarios, reached precision 1.0 / recall 1.0 with zero false commits in the sample extraction report, and recommended graduating a narrow generalized-capture feature with an explicit false-commit guard.
@@ -457,6 +457,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
   - Capture beyond directly labeled facts starts with high-confidence extractive facts and carries an explicit false-commit oracle for implication-heavy text.
   - The false-commit scenario matrix from `capture-quality-spike` is wired as a regression guard.
   - Relation-bearing capture uses the role-named `mutateGraph` grammar from `role-safe-graph-mutations`; do not revive `{category, source, target}` in a capture-local edge dialect.
+  - **Capture-reflection behavior (inherited from `elicitation-driver`, 2026-06-11 split):** reflection prompting drives the live agent to spawn/close elicitation gaps through the `update_elicitation_gaps` tool landed in block 1; the gap-disposition ledger (spawn-on-reflection + close-on-answered) is proven as live conduct here, on whatever capture prompting architecture this frontier designs.
 - **Verification:** Probe-backed transcript and capture read-back oracles; include the capture-quality false-commit scenario family as a regression guard.
 - **Cross-cutting obligations:** Keep implication-heavy material out of graph truth; do not regrow deleted `capture-*` topology or broad LLM commitment behavior.
 - **Traceability:** D27-L, D65-L, D66-L.

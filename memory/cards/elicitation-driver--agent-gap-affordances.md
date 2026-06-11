@@ -133,17 +133,23 @@ src/.pi/index.ts (or extension bundle wiring) ~
 
 ---
 
-## Card 3 — capture-reflection writeback (full card)
+## Card 3 — gap writeback affordance, mechanism only (full card)
 
 Status: next
 
 ### Target Behavior
 
-After a user answer lands, the agent can reconcile the elicitation register —
-spawn newly-revealed gaps and set dispositions on answered/scope-judged ones —
-through a dedicated `update_elicitation_gaps` tool whose ops call the existing
-`CommandExecutor.createElicitationGap` / `setElicitationGapDisposition`
-methods on the one `{specId, lsn}` clock.
+A dedicated `update_elicitation_gaps` tool lets a session spawn gaps and set
+dispositions through the existing `CommandExecutor.createElicitationGap` /
+`setElicitationGapDisposition` methods on the one `{specId, lsn}` clock —
+proven by scripted turns only.
+
+**Deliberately out of scope (2026-06-11 user decision):** capture-reflection
+*prompting* — when and how the live agent decides to reflect an answer into
+gap writes. Capture prompting completeness is unvalidated and owned by the
+`generalized-capture` frontier (demo block 3); designing reflection guidance
+now would guess at that architecture. This card ships the affordance;
+block 3 ships the behavior.
 
 ### Micro-decision (resolved at scope time — confirm before build)
 
@@ -177,7 +183,7 @@ read/write pair: `read_elicitation_gaps` / `update_elicitation_gaps`.
 
 ```
 - RISK: tool grammar invites the agent to spawn duplicate/low-value gaps
-  → MITIGATION: lean on existing executor validation (presence-duplicate rejection observed in createElicitationGap); tool description constrains use to capture-reflection; quality is outer-loop fitness, not a merge gate
+  → MITIGATION: lean on existing executor validation (presence-duplicate rejection observed in createElicitationGap); a minimal factual tool description only — behavioral guidance deferred to generalized-capture; quality is outer-loop fitness, not a merge gate
 - RISK: disposition vocabulary in the tool drifts from schema enum
   → MITIGATION: derive tool schema literals from src/graph/schema/elicitation-gaps.ts exports, not re-declared strings
 - ASSUMPTION: the existing executor methods already cover the demo's spawn/close needs (no new executor surface required)
@@ -188,11 +194,11 @@ read/write pair: `read_elicitation_gaps` / `update_elicitation_gaps`.
 ### Posture check (proving)
 
 Scores on two axes: **proof of life** — first non-test callers for the
-executor gap methods, completing the agent-visible spawn→rank→ask→answer→close
-loop end-to-end; **uncertainty** — retires the writeback micro-decision (the
-last unscoped piece of the cross-cut Seam 3a row). Landing this flips the
-frontier's writeback acceptance row and unblocks the gap-disposition ledger
-obligation.
+executor gap methods, proving the spawn→rank→close mechanics end-to-end under
+scripted drive; **uncertainty** — retires the writeback surface micro-decision
+(dedicated tool vs grammar extension). The frontier's writeback acceptance row
+flips to **affordance-complete**; behavior-complete waits on
+`generalized-capture`'s reflection prompting.
 
 ### Acceptance Criteria
 
@@ -201,8 +207,8 @@ obligation.
 ✓ tool disposition op — answered/scope-judged gap leaves the eligible agenda; change-log row written on the one clock
 ✓ rejection path — structurally illegal input surfaces executor diagnostics verbatim; no partial writes
 ✓ no second clock — gap writes interleave with graph writes under monotonic {specId, lsn} (assert ordering in one test)
-✓ prompt guidance — capture-reflection instruction names the tool; composed-prompt golden updated if the guidance block changes
-✓ loop proof — Tier-2 or Tier-1 scripted sequence: ask (top gap) → user answers → agent sets disposition + spawns follow-up → next selection moves to the new top gap
+✓ loop proof (scripted) — faux-scripted sequence: ask (top gap) → scripted tool calls set disposition + spawn follow-up → next selection moves to the new top gap; no live-model reflection behavior is claimed
+✓ no reflection prompt guidance added — composed-prompt goldens unchanged (behavioral guidance lands with generalized-capture)
 ```
 
 ### Verification Approach
@@ -227,13 +233,14 @@ obligation.
 src/.pi/extensions/elicitation/
 ├── index.ts              ~   (adds update_elicitation_gaps beside the read tool)
 └── index.test.ts         ~
-src/.pi/agents/           ~?  (capture-reflection prompt guidance + golden)
 src/graph/schema/elicitation-gaps.ts ~?  (export disposition literals if not already)
 src/dev/tier-2-harness.test.ts ~?  (loop proof, if Tier-2 chosen over Tier-1)
 ```
 
 ### Traceability
 
-Flips the frontier's deferred writeback acceptance row; no SPEC change
-expected (existing decisions cover the boundary). If the build forces new
-executor surface, stop and reconcile before continuing.
+Flips the frontier's deferred writeback acceptance row to
+**affordance-complete**; the behavior half (reflection prompting + the
+gap-disposition ledger as live conduct) transfers to `generalized-capture`.
+No SPEC change expected (existing decisions cover the boundary). If the build
+forces new executor surface, stop and reconcile before continuing.
