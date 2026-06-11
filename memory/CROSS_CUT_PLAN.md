@@ -158,11 +158,11 @@ built. Ordered by leverage.
     Clean split: **runtime-state = the frame/constraints (user/system-set)**;
     **emitted facets = what the agent did this turn (AUTO choice)**.
   - *User-mutable posture axes (for now):* `op_mode` (user/system), `strategy`, `lens`.
-    **`goal` is NOT user-mutable** — too contingent; kept **internal/grade-derived**
-    (D59-L grade-derived objective) and out of the posture-change command surface for
+    **`goal` is NOT user-mutable** — too contingent; kept **internal/readiness-derived**
+    (D59-L / D74-L gap-driven objective) and out of the posture-change command surface for
     now.
   - *On-parent-switch reducer default → AUTO* for the children it governs (strategy/lens);
-    goal is grade-derived regardless.
+    goal is readiness-derived regardless.
   - *`source: 'agent'` reserved:* the enum keeps it, but no current path emits it; parked
     for a future execute-mode orchestrator that might legitimately steer sub-postures.
     Do not wire an agent switch by default.
@@ -176,17 +176,19 @@ built. Ordered by leverage.
   resolved by pure projection); **no xstate, no persisted machine** for now.
   - *Real underlying need = UI affordances, not a truth machine.* The motivation was a
     **reducer** for (a) default-assignment when a parent state changes (switch op_mode /
-    grade advances → reassign now-illegal goal/strategy/lens to their defaults) and
-    (b) gating which options are available even within a parent state.
-  - *This logic already exists server-side* as lookup tables in
-    `projections/session/runtime-policy.ts` (`OPERATIONAL_MODE_DEFINITIONS`,
-    `AGENT_ROLE_DEFINITIONS`, `default*` fields) and `.pi/agents/state.ts`
-    (`GRADE_RANK`, `GOAL_MIN_GRADE`, `STRATEGY_MIN_GRADE`). Gating = min-grade tables +
-    `allowed*` lists; defaults-on-change = the `default*` fields.
-  - *Future enhancement (when UI pressure is real):* add one Brunch-owned **derived
-    affordance projection** — `affordances(resolvedState) → { availableOptions per axis,
-    defaultOnSwitch }` — over those tables; TUI/web/RPC clients **render** it. It is a
-    pure derivation, so D40-L (projection-as-truth) is untouched.
+    readiness coverage changes → reassign now-illegal goal/strategy/lens to their defaults)
+    and (b) gating which options are available even within a parent state.
+  - *This logic now exists server-side* as the current gap-driven derivation stack:
+    `projections/session/runtime-policy.ts` still owns
+    `OPERATIONAL_MODE_DEFINITIONS`, `AGENT_ROLE_DEFINITIONS`, and `default*` fields,
+    while `projections/session/affordances.ts` plus
+    `projections/session/capability-readiness.ts` derive legal options and
+    default-on-switch behavior from selected-spec gap coverage.
+  - *Future enhancement (when UI pressure is real):* transport more of that existing
+    Brunch-owned affordance projection to client surfaces. The pure derivation already
+    exists; the remaining question is which deferred rows (`active-review-set`,
+    `turn-mode`, richer client affordances) need transport, not whether to invent a
+    new truth machine.
   - *Durable constraint to preserve through the deferral:* the affordance/legality
     semantics are **Brunch-owned and shared** (D52-L thin-transport) — never
     reimplemented per client. The day the web client hand-rolls "which strategies are
@@ -207,14 +209,16 @@ built. Ordered by leverage.
   select freestyle** (user pin only). Remaining scope-level detail: capture quality beyond
   labeled facts, per-turn vs on-demand capture, exact slash/skill-command surface (→ Q6).
 - **Q3 — `unknown` nodes (the MODELLING PROBLEM). RESOLVED → SPEC D65-L / A24-L.**
-  De-conflated into two concepts: `elicitation_backlog` (prospective process-agenda /
-  "prospective memory" — a **flat table**, not a graph node; async + unordered; the
+  De-conflated into two concepts: a **flat per-spec obligation register** (prospective
+  process agenda / "prospective memory," not a graph node; async + unordered; the
   prospective sibling of the retrospective `reconciliation_need`) and a deferred `risk`
-  intent-node-kind (durable domain-epistemic gap). The `elicitation_backlog` table is
-  the missing substrate for the "what to ask next" objective and generalized capture.
-  `basis` generalized to provenance-directness (D63-L). Name locked to `elicitation_backlog`
-  (over `agenda`/`need`) to signal async/unordered. Remaining scope-level detail: seed
-  mechanism, mutation path, goal-layer relationship.
+  intent-node-kind (durable domain-epistemic gap). The FE-823 interim `elicitation_backlog`
+  table was later remodeled into D65-L `elicitation_gaps`, and D75-L then replaced the
+  closed gap-name catalog with `refersTo: NodeKind` plus a free-form `question`. The
+  missing substrate for the "what to ask next" objective and generalized capture is
+  therefore the obligation register, not a new graph node kind. `basis` generalized to
+  provenance-directness (D63-L). Remaining scope-level detail: live ranking, mutation
+  ergonomics, and the goal-layer relationship.
 - **Q1 — Negative/IS_NOT graph queries. RESOLVED → dedicated `gaps` mode.** Add a fourth
   `read_graph` mode `gaps`: a base class filter (`kinds` and/or `readinessBands`) plus a
   required `absentEdgeCategory` and optional `direction` (default `both`), returning
@@ -226,7 +230,7 @@ built. Ordered by leverage.
   `graph_truth` it does not. Bounded — single `absentEdgeCategory`, not a query language.
   **SPEC touch (RATIFIED 2026-06-07):** D60-L + glossary Agent context entry now enumerate the
   fourth observed read shape (gap query). Scoped: `memory/cards/crosscut-read--graph-gaps.md`.
-  Directly serves the D65-L `elicitation_backlog` "what to ask next" driver (theses w/o
+  Directly serves the D65-L gap-driven "what to ask next" driver (theses w/o
   proof, requirements w/o realization, claims w/o support).
 - **Q5 — Agent `mutate_graph` patch/delete.** Deferred after role-safe graph mutations.
   Default lean: the autonomous agent-facing tool stays creation-only; deletion is not
