@@ -40,6 +40,7 @@ function commandHarness(options: { customResult?: unknown; customAvailable?: boo
   const commands = new Map<string, RegisteredCommand>();
   const activeToolNames: string[][] = [];
   const customCalls: Array<{ factory: (...args: unknown[]) => unknown; options: unknown }> = [];
+  const chromeRefreshes: number[] = [];
   const ctx: FakeCommandContext = {
     ui: {
       notify(message, level) {
@@ -74,10 +75,15 @@ function commandHarness(options: { customResult?: unknown; customAvailable?: boo
         activeToolNames.push(names);
       },
     } as never,
-    { coordinator: {} as never },
+    {
+      coordinator: {} as never,
+      requestChromeRefresh: () => {
+        chromeRefreshes.push(chromeRefreshes.length + 1);
+      },
+    },
   );
 
-  return { commands, ctx, entries, notifications, activeToolNames, customCalls };
+  return { commands, ctx, entries, notifications, activeToolNames, customCalls, chromeRefreshes };
 }
 
 describe('Brunch runtime switch commands', () => {
@@ -193,6 +199,19 @@ describe('Brunch runtime switch commands', () => {
       expect.objectContaining({ level: 'error', message: expect.stringContaining('Unknown strategy') }),
       expect.objectContaining({ level: 'error', message: expect.stringContaining('Unknown lens') }),
     ]);
+  });
+
+  it('requests a chrome refresh after a successful runtime switch and not on rejection or cancel', async () => {
+    const harness = commandHarness({ customResult: undefined });
+
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('propose-graph', harness.ctx);
+    expect(harness.chromeRefreshes).toHaveLength(1);
+
+    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('unknown-lens', harness.ctx);
+    expect(harness.chromeRefreshes).toHaveLength(1);
+
+    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
+    expect(harness.chromeRefreshes).toHaveLength(1);
   });
 
   it('reports mode and accepts explicit elicit as a no-op instead of inventing future modes', async () => {

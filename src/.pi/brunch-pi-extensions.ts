@@ -144,6 +144,7 @@ export function createBrunchPiExtensions(
     const continuityStep = options.graph
       ? createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains)
       : undefined;
+    const chromeRefresh: { current: (() => void) | null } = { current: null };
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => {
         registerBrunchSessionBoundary(api, onSessionBoundary, {
@@ -151,7 +152,12 @@ export function createBrunchPiExtensions(
         });
         if (options.graph) registerBrunchContinuityGuard(api, options.graph, options.continuityDrains);
       },
-      (api) => registerBrunchChrome(api, chrome),
+      (api) =>
+        registerBrunchChrome(api, chrome, {
+          bindChromeRefresh: (refresh) => {
+            chromeRefresh.current = refresh;
+          },
+        }),
       registerBrunchBranchPolicyHandlers,
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
@@ -169,7 +175,11 @@ export function createBrunchPiExtensions(
             ? { specId: options.graph.specId, commandExecutor: options.graph.commandExecutor }
             : undefined,
         }),
-      (api) => registerBrunchCommands(api, options),
+      (api) =>
+        registerBrunchCommands(api, {
+          ...options,
+          requestChromeRefresh: () => chromeRefresh.current?.(),
+        }),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
       ...(introspectionOptions?.enabled
         ? [

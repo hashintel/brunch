@@ -243,8 +243,13 @@ export function renderBrunchChrome(
   ui.setTitle(formatChromeTitle(chrome));
 }
 
-export function registerBrunchChrome(pi: ExtensionAPI, chrome: BrunchChromeState): void {
+export function registerBrunchChrome(
+  pi: ExtensionAPI,
+  chrome: BrunchChromeState,
+  hooks?: { readonly bindChromeRefresh?: (refresh: () => void) => void },
+): void {
   let requestFooterRender: (() => void) | null = null;
+  hooks?.bindChromeRefresh?.(() => requestFooterRender?.());
 
   pi.on('session_start', async (_event, ctx) => {
     renderBrunchChrome(ctx.ui, chrome, {
