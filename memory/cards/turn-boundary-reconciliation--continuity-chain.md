@@ -13,6 +13,7 @@ Created:  2026-06-11
 - Main risk: closing I45/I47 may require evolving the Tier-2 harness and compaction anchor contract, not merely unskipping tests; keep the one-writer seam intact and do not reintroduce ad hoc continuity insertion points.
 - Cross-cutting obligations: `prepareNextTurn` stays the single continuity writer, `before_provider_request` stays a guard only, continuity facts remain Brunch custom entries, watermark comparisons stay `{specId, lsn}` only, and the latest watermark carrier must survive compaction/resume.
 - Posture: proving (inherited from `turn-boundary-reconciliation`)
+- 2026-06-11 ln-induct fold (PR #201/#202 review comments, user-routed to this branch): the live pipeline currently diverges from the tested helpers at three points — `registerBrunchContinuityGuard` plain-throws instead of delegating to `guardBeforeProviderRequest` (D77-L append-once-then-retry), and `prepareNextTurnForGraph` passes neither `mentions` nor `drains`, so staleness hints and drain delivery are dead live. Cards 1 and 2 below now name these explicitly; they were already implicitly required by the "prove through the real path" acceptance.
 
 ## Card 1 - Flip the I45 watermark/world-update scaffold live through Tier-2
 
@@ -23,8 +24,7 @@ The real Tier-2 boot/resume harness proves assistant-visible watermark and `worl
 ### Light-card cold-start reads
 
 - `memory/SPEC.md` — D76-L, D77-L, I4-L, I45-L, I47-L
-- `memory/PLAN.md` — frontier: `turn-boundary-reconciliation`
-- `HANDOFF.md` — FE-847 volatile sequencing and the scaffold edge-case list
+- `memory/PLAN.md` — frontier: `turn-boundary-reconciliation` (definition + Context §Turn-boundary choreography carry the scaffold edge-case list)
 - `src/dev/README.md` — Tier-2 harness ownership ledger
 - `src/session/README.md` — turn-boundary choreography seam ownership
 - `src/projections/README.md` — assistant-visible-watermark row and continuity classifier ownership
@@ -36,6 +36,8 @@ The real Tier-2 boot/resume harness proves assistant-visible watermark and `worl
 ✓ The proof uses `{specId, lsn}` and set semantics, not payload-order goldens or bare-LSN comparisons.
 
 ✓ Any helper or lower-fidelity test kept after this slice still proves a local derivation unavailable from Tier-2; duplicate wiring-only proof is retired.
+
+✓ The live `before_provider_request` hook delegates to `guardBeforeProviderRequest` (append-once-then-retry per D77-L); a raised error remains only for drift that survives the single retry, and the Tier-2 proof covers the recoverable-drift path, not just the clean path.
 
 ### Verification Approach
 
@@ -90,6 +92,8 @@ Submitting a user message through the real session path appends stable-id `brunc
 
 ✓ The mid-level proof owns this behavior; any older mock-only assertion kept after the slice still proves a narrower local helper rather than the same submit-path wiring.
 
+✓ The live adapter (`prepareNextTurnForGraph` in `src/.pi/brunch-pi-extensions.ts`) threads transcript-projected `mentions` and side-task/reviewer `drains` into `prepareNextTurn` — the staleness and drain seams run in the production pipeline, not only in direct-call tests (closes the dead-seam finding from PR #202).
+
 ### Verification Approach
 
 - Inner: keep local mention-ledger tests for parsing and staleness derivation.
@@ -110,6 +114,8 @@ None.
 src/dev/
 ├── tier-2-harness.ts ~
 └── tier-2-harness.test.ts ~
+src/.pi/
+└── brunch-pi-extensions.ts ~
 src/rpc/methods/
 └── session.ts ?
 src/session/

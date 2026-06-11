@@ -23,8 +23,7 @@ A real new-session boot seeds context and starts an assistant-originated first t
 ### Light-card cold-start reads
 
 - `memory/SPEC.md` — D76-L, D78-L, I45-L, I46-L, I47-L
-- `memory/PLAN.md` — frontier: `kick-and-context-seeding`
-- `HANDOFF.md` — FE-847 volatile sequencing and edge-case list
+- `memory/PLAN.md` — frontier: `kick-and-context-seeding` (definition + Context §Turn-boundary choreography carry the edge-case list)
 - `src/dev/README.md` — Tier-2 harness ownership ledger
 - `src/session/README.md` — origination ownership under `start-assistant-turn.ts`
 
@@ -83,6 +82,8 @@ Resume boot classifies the pre-reconcile conversational debt correctly across co
 ✓ Resume classification ignores trailing continuity-only entries, including seed, `worldUpdate`, `brunch.mention*`, `brunch.session_lifecycle`, side-task drains, and reviewer drains.
 
 ✓ Crash-after-notice-before-provider still kicks when the underlying debt is unresolved, while `request_*` / system leaves remain idle.
+
+✓ `request_*` tail classification is proven against the real exchange tool-result envelope — the fixture carries a genuine `request_*` result as the exchanges extension actually writes it (`status: 'answered' | 'cancelled' | 'unavailable'` wherever it really lives in `details`/`data`), not a hand-built message shape; this settles the PR #202 question of whether `responseStatus` in `start-assistant-turn.ts` reads the envelope where real results carry it.
 
 ✓ AUTO remains offer-first; only an explicit `freestyle` pin idles the assistant.
 
