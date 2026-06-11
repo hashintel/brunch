@@ -112,14 +112,14 @@ per ledger row:
 
 ### Active
 
-**Demo lane — lower line (substantial; one worktree, one Graphite stack — one branch per frontier).** Thinnest path per block is resolved by a short practical-testing + analysis + `ln-grill` prelude before `ln-scope`; defer every deferrable enhancement. Branch stack, bottom → top:
+**Demo lane — lower line (substantial; one worktree, one shared branch `ln/fe-852-below-the-line` for all lower-line blocks — user decision 2026-06-11 overriding the one-branch-per-frontier default; the above-the-line branch stacks on top when `demo-polish` starts).** Thinnest path per block is resolved by a short practical-testing + analysis + `ln-grill` prelude before `ln-scope`; defer every deferrable enhancement. Branch stack, bottom → top:
 
 | Block | Frontier | Linear | Branch |
 | --- | --- | --- | --- |
 | 1 | `elicitation-driver` | FE-852 (existing) | `ln/fe-852-below-the-line` (also carries the FE-848 seed-DX prep as preamble) |
-| 2 | `context-seed-payload` | new FE issue (create on start) | new, stacks on block 1 |
-| 3 | `generalized-capture` | new FE issue (create on start) | new, stacks on block 2 |
-| 4 | `poc-live-ship-gate` | FE-811 (existing) | new, stacks on block 3 |
+| 2 | `context-seed-payload` | FE-857 | `ln/fe-852-below-the-line` (shared lower-line branch) |
+| 3 | `generalized-capture` | new FE issue (create on start) | `ln/fe-852-below-the-line` (shared lower-line branch) |
+| 4 | `poc-live-ship-gate` | FE-811 (existing) | `ln/fe-852-below-the-line` (shared lower-line branch) |
 
 1. `elicitation-driver` (FE-852) — **demo block 1**: capture-reflection writeback (spawn gaps / set dispositions through the existing `CommandExecutor` boundary, no second mutation clock), plus the agent's elicitation read affordance (`read_elicitation_gaps` pull tool) and retirement of the vestigial `read_graph` `gaps` mode. Read/rank/select + prompt surfacing already landed.
 2. `context-seed-payload` (new FE) — **demo block 2**: fill the lost content half of D78-L — the `brunch.context_seed` continuity entry carries a real spec-graph overview + elicitation grounding-floor framing, so a new session boots with auto-injected context, gets kicked, and opens with a question grounded in the ranked gaps. The mechanism (seed-then-kick, dedupe, compaction survival) is already proven; this frontier fills the payload and proves startup completeness end-to-end.
@@ -297,7 +297,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 ### context-seed-payload
 
 - **Name:** New-session context seed carries real content (lost half of D78-L)
-- **Linear:** new FE issue (create on start); branch stacks on `ln/fe-852-below-the-line`
+- **Linear:** FE-857; rides the shared lower-line branch `ln/fe-852-below-the-line` (two-branch model)
 - **Kind:** structural / bounded feature
 - **Status:** active — **demo block 2** of the lower line
 - **Certainty:** earned
@@ -306,6 +306,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 - **Locks in:** the carrier per I47-L — enriched `brunch.context_seed.data` rendered from the transcript projection; never prompt-only injection, never a fabricated user turn. Watermark/dedupe/compaction semantics (I45–I47) are inherited unchanged from `kick-and-context-seeding` and must not regress.
 - **Objective:** A brand-new session in a seeded workspace boots with auto-injected context (spec overview + grounding-floor framing in the seed entry), is kicked per D78-L, and opens with an assistant-originated question grounded in the top-ranked elicitation gap — provable end-to-end without the agent pulling any tool first.
 - **Why now / unlocks:** This is the demo's opening beat ("it knows where it is and what's missing"); `generalized-capture`'s opening-offer quality builds on it. Mechanism risk is already retired (Tier-2 coverage), so the frontier is pure closure: payload shape + render + one composed proof.
+- **Current execution pointer:** `memory/cards/context-seed-payload--startup-completeness.md`. Scoping finding (2026-06-11): pi's `appendCustomEntry` is ledger-only — custom entries never enter LLM context; provider-visible seed content requires `appendCustomMessageEntry` (still a transcript entry, I47-L-compliant). Adjacent observation, out of scope: `worldUpdate` and other continuity notices are likewise ledger-only today — the model never sees them; their provider visibility needs its own decision when a frontier demands it.
 - **Acceptance:**
   - `brunch.context_seed.data` carries the spec overview + grounding-floor payload; rendering derives from the transcript entry (D43-L projection reconstructs it).
   - Seed dedupe/idempotence and watermark semantics unchanged (existing I45–I47 Tier-2 rows stay green without modification).
@@ -446,7 +447,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 > **Split from `exchanges-and-generalized-capture` (2026-06-11 demo cut).** Promoted to its own frontier (objective 1 of the former combined item) because the demo claim needs natural-ish capture; the delete-oriented audit half is now the separate `exchange-symmetry-audit` frontier below.
 
 - **Name:** Generalized capture (narrow high-confidence extractive) + false-commit guard
-- **Linear:** unassigned (new FE issue — create on start; demo block 3, stacks on `context-seed-payload`)
+- **Linear:** unassigned (new FE issue — create on start; demo block 3, rides the shared lower-line branch)
 - **Kind:** bounded feature
 - **Status:** active — **demo block 3** of the lower line
 - **Certainty:** proving
