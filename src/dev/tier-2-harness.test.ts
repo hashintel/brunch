@@ -135,6 +135,58 @@ describe('FE-847 Tier-2 real boot harness', () => {
   });
 });
 
+describe('FE-844/FE-847 live gap legality through real boot', () => {
+  it('derives prompt/tool legality from the selected spec real gap coverage, not a fallback floor', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const specId = await readSessionContextSpecId(boot.runtime.session);
+
+      // Legality is derived at the turn boundary (before_agent_start); this
+      // harness does not fire session_start, so drive the boundary directly.
+      // Fresh spec: grounding floor gaps are uncovered, so capability-gated
+      // tools stay locked while floor tools remain available (and elicit mode
+      // never advertises bash/edit/write).
+      await boot.runtime.session.extensionRunner.emitBeforeAgentStart(
+        'Derive legality',
+        undefined,
+        '',
+        {} as never,
+      );
+      const lockedTools = boot.runtime.session.getActiveToolNames();
+      expect(lockedTools).toEqual(expect.arrayContaining(['read_graph']));
+      expect(lockedTools).not.toEqual(expect.arrayContaining(['mutate_graph']));
+      expect(lockedTools).not.toEqual(expect.arrayContaining(['bash']));
+
+      // Cover the grounding floor in the real graph (foreign writer).
+      const graph = await openWorkspaceGraphRuntime(boot.cwd);
+      for (const kind of ['context', 'thesis', 'goal', 'constraint'] as const) {
+        const created = graph.commandExecutor.createNode({
+          specId,
+          plane: 'intent',
+          kind,
+          title: `${kind} floor coverage`,
+        });
+        if (created.status !== 'success') throw new Error(`Failed to create ${kind} coverage node`);
+      }
+
+      // The next turn boundary re-derives legality from live selected-spec
+      // gap reads — covered floor gaps unlock the gated posture.
+      await boot.runtime.session.extensionRunner.emitBeforeAgentStart(
+        'Re-derive legality',
+        undefined,
+        '',
+        {} as never,
+      );
+      const unlockedTools = boot.runtime.session.getActiveToolNames();
+      expect(unlockedTools).toEqual(expect.arrayContaining(['mutate_graph']));
+      expect(unlockedTools).not.toEqual(expect.arrayContaining(['bash']));
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+});
+
 describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark', () => {
   it('seed and full-overview snapshots advance the watermark while narrow getNodes/queryNodes reads do not', async () => {
     const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
