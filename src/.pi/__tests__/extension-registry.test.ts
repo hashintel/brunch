@@ -142,6 +142,7 @@ describe('Brunch explicit Pi extension registry', () => {
             }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
         },
       },
     })(recordingApiWithEvents(events));
@@ -204,6 +205,7 @@ describe('Brunch explicit Pi extension registry', () => {
             }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
         },
       },
     })(recordingApiWithEvents(events));

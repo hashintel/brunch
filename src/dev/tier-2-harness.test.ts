@@ -157,7 +157,7 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
           data: expect.objectContaining({
             specId,
             currentLsn: first.lsn,
-            changedSinceLsn: 0,
+            changedSinceLsn: 1,
             items: expect.arrayContaining([
               expect.objectContaining({ lsn: first.lsn, title: 'Narrow-read goal' }),
             ]),
@@ -235,7 +235,7 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
 
       expect(customEntries(boot.runtime.session.sessionManager.getEntries(), 'worldUpdate')[0]).toEqual(
         expect.objectContaining({
-          data: expect.objectContaining({ specId, changedSinceLsn: 0, currentLsn: node.lsn }),
+          data: expect.objectContaining({ specId, changedSinceLsn: 1, currentLsn: node.lsn }),
         }),
       );
     } finally {

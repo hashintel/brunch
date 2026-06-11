@@ -1,7 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../../graph/schema/nodes.js';
 import {
   composeAgentPrompt,
   renderCwdContext,
@@ -88,27 +87,7 @@ export function registerBrunchPrompting(
 }
 
 function gapsForPrompt(context: BrunchPromptContext): readonly ElicitationGap[] {
-  return (
-    context.graphReads?.getElicitationGaps?.(context.spec.id) ?? conservativeUncoveredGaps(context.spec.id)
-  );
-}
-
-function conservativeUncoveredGaps(specId: number): readonly ElicitationGap[] {
-  return (['context', 'thesis', 'goal', 'constraint'] as const).map((kind) => ({
-    id: `${kind}:prompt-fallback`,
-    specId,
-    refersTo: kind as NodeKind,
-    question: `${kind} question`,
-    rationale: 'Conservative fallback when graph gap reads are not wired.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', minimum: 1, nodeKind: kind as NodeKind },
-    importance: 1,
-    coverage: 0,
-    answered: false,
-    disposition: 'open',
-    createdAtLsn: 0,
-  }));
+  return context.graphReads?.getElicitationGaps(context.spec.id) ?? [];
 }
 
 function contextForPrompt(

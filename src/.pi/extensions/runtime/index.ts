@@ -82,7 +82,7 @@ function supportsBrunchAgentStateEntries(
 export function activeToolNamesForBrunchAgentState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
-  gaps: readonly ElicitationGap[],
+  gaps: readonly ElicitationGap[] = [],
   devAllowedToolNames?: readonly string[],
 ): string[] {
   return activeToolNamesForPosture({

@@ -246,7 +246,13 @@ export function methodIdsForState(
   gaps: readonly ElicitationGap[],
 ): readonly MethodId[] {
   const definition = AGENT_PROMPT_DEFINITIONS[state.agentRole];
-  if (!definition || definition.id !== state.agentRole || state.operationalMode !== 'elicit') return [];
+  if (
+    !definition ||
+    definition.id !== state.agentRole ||
+    state.operationalMode !== 'elicit' ||
+    gaps.length === 0
+  )
+    return [];
   return definition.allowedMethods.filter((method) =>
     isCapabilityLegalForGaps(METHOD_CAPABILITY[method], gaps),
   );

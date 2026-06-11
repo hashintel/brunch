@@ -1194,6 +1194,7 @@ describe('Brunch TUI boot', () => {
             }),
             getNodes: () => [],
             resolveNodeCode: () => undefined,
+            getElicitationGaps: () => [],
           },
         },
       },

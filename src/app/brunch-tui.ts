@@ -28,7 +28,6 @@ import {
 } from '../graph/index.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
-import { projectLinearSessionExchangeProjection } from '../session/exchange-projection.js';
 import { startAssistantTurn } from '../session/start-assistant-turn.js';
 import {
   nextDeterministicStructuredExchange,
@@ -331,6 +330,7 @@ export function createBrunchAgentSessionRuntimeFactory(
               };
         },
         resolveNodeCode: (code: string) => graph.forSpec(currentWorkspace.spec.id).resolveNodeCode(code),
+        getElicitationGaps: () => graph.forSpec(currentWorkspace.spec.id).getElicitationGaps(),
       },
       ...(productUpdates && { productUpdates }),
     };
@@ -399,18 +399,21 @@ export function createBrunchAgentSessionRuntimeFactory(
   };
 }
 
+function isStructuredExchangeToolResult(entry: unknown): boolean {
+  if (typeof entry !== 'object' || entry === null) return false;
+  const message = (entry as { message?: unknown }).message;
+  if (typeof message !== 'object' || message === null) return false;
+  const toolName = (message as { toolName?: unknown }).toolName;
+  return typeof toolName === 'string' && (toolName.startsWith('present_') || toolName.startsWith('request_'));
+}
+
 function seedAndKickAssistantTurn(options: {
   readonly specId: number;
   readonly currentLsn: number;
   readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
 }): void {
   const entries = options.sessionManager.getEntries();
-  const exchangeProjection = projectLinearSessionExchangeProjection({
-    binding: { specId: options.specId },
-    entries,
-    header: options.sessionManager.getHeader(),
-  });
-  if (exchangeProjection.openPrompt) return;
+  if (entries.some((entry) => isStructuredExchangeToolResult(entry))) return;
 
   const decision = startAssistantTurn({
     specId: options.specId,
