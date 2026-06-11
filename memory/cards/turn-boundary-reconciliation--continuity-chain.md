@@ -75,6 +75,8 @@ src/.pi/
 
 ## Card 2 - Prove mention resolution and staleness through the real submit path
 
+Status: done (2026-06-11)
+
 ### Objective
 
 Submitting a user message through the real session path appends stable-id `brunch.mention` facts at submit time and surfaces only genuinely stale mentions at the next turn boundary.
