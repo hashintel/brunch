@@ -283,28 +283,6 @@ export function createBrunchAgentSessionRuntimeFactory(
                 toReadOptions(options),
               ),
           ),
-        getGraphGaps: (options: {
-          show?: 'active' | 'all';
-          kinds?: readonly string[];
-          readinessBands?: readonly string[];
-          absentEdgeCategory: EdgeCategory;
-          direction?: 'outgoing' | 'incoming' | 'both';
-        }) =>
-          graphSliceWithCounts(
-            graph.forSpec(currentWorkspace.spec.id).queryGraph(
-              {
-                ...(options.kinds != null ? { kinds: options.kinds as EdgeCompatibleNodeKinds } : {}),
-                ...(options.readinessBands != null
-                  ? { bands: options.readinessBands as EdgeCompatibleReadinessBands }
-                  : {}),
-                lacksEdge: {
-                  categories: [options.absentEdgeCategory],
-                  ...(options.direction !== undefined ? { direction: options.direction } : {}),
-                },
-              },
-              toReadOptions(options),
-            ),
-          ),
         getRelatedNodes: (options: {
           anchorIds: readonly number[];
           edgeCategory: EdgeCategory;

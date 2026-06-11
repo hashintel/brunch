@@ -21,7 +21,10 @@ Overlap check: `renderer-golden-coverage--render-stage-chain.md` touches
 
 ## Card 1 — kill the `read_graph` topology `gaps` mode
 
-Status: next
+Status: done (2026-06-11) — also removed the `gaps` row from the ratified
+observed-shapes ledger (`src/graph/observed-shapes-coverage.test.ts`, 8→7
+shapes), which the card had not named; the ledger is the drift guard that
+pinned the mode, so retiring the shape there is part of the same deletion.
 
 ### Objective
 

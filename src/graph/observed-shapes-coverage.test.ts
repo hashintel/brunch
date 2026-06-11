@@ -34,13 +34,6 @@ const observedShapeLedger = [
     web: 'deferred',
   },
   {
-    shape: 'gaps',
-    owner: 'getGraphGaps',
-    tool: 'required',
-    rpc: 'not_applicable',
-    web: 'not_applicable',
-  },
-  {
     shape: 'related',
     owner: 'getRelatedNodes',
     tool: 'required',
@@ -82,13 +75,12 @@ function webGraphShape(keyFactoryName: string): string {
 
 describe('graph observed-shape coverage ledger', () => {
   it('names exactly one canonical graph query owner for every observed read shape', () => {
-    expect(observedShapeLedger).toHaveLength(8);
+    expect(observedShapeLedger).toHaveLength(7);
     expect(observedShapeLedger.map((row) => row.owner)).toEqual([
       'getGraphOverview',
       'getNodeNeighborhood',
       'getGraphSliceByKinds',
       'getGraphSliceByReadinessBands',
-      'getGraphGaps',
       'getRelatedNodes',
       'getOpenReconciliationNeeds',
       'getElicitationGaps',
