@@ -6,6 +6,7 @@ import { PassThrough } from 'node:stream';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { runSeedFixturesCli } from '../graph/seed-fixtures.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import { createSessionBindingData } from '../session/session-binding.js';
 import {
@@ -61,6 +62,17 @@ function rpcRequest(method: string, id = 1): PassThrough {
   const stdin = new PassThrough();
   stdin.end(`${JSON.stringify({ jsonrpc: '2.0', id, method })}\n`);
   return stdin;
+}
+
+async function runRpcRequest(cwd: string, method: string): Promise<unknown> {
+  const stdout = new PassThrough();
+  const chunks = collectStream(stdout);
+  await runBrunchCli({
+    argv: ['--cwd', cwd, '--mode=rpc'],
+    stdin: rpcRequest(method),
+    stdout,
+  });
+  return JSON.parse(chunks.join('')).result;
 }
 
 function collectStream(stream: PassThrough): string[] {
@@ -282,6 +294,26 @@ describe('Brunch CLI dispatch', () => {
       }
     }
   });
+  it('uses --cwd product RPC to inspect the named workspace rather than the shell cwd', async () => {
+    const shellCwd = await mkdtemp(join(tmpdir(), 'brunch-cli-shell-'));
+    const seededWorkspace = await mkdtemp(join(tmpdir(), 'brunch-cli-seeded-'));
+    const emptySibling = await mkdtemp(join(tmpdir(), 'brunch-cli-empty-'));
+    await runSeedFixturesCli({
+      argv: ['--workspace', seededWorkspace, '--seed', 'workspace-spread/alpha-grounding'],
+      cwd: shellCwd,
+      stdout: () => {},
+    });
+
+    const seededSelection = await runRpcRequest(seededWorkspace, 'workspace.selectionState');
+    const siblingSelection = await runRpcRequest(emptySibling, 'workspace.selectionState');
+
+    expect(seededSelection).toMatchObject({
+      cwd: seededWorkspace,
+      specs: [{ spec: { title: 'Alpha Grounding' } }],
+    });
+    expect(siblingSelection).toMatchObject({ cwd: emptySibling, specs: [] });
+  });
+
   it('exposes matching print and RPC workspace states from a real coordinator store', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-parity-'));
     await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({

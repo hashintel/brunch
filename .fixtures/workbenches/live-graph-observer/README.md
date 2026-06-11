@@ -13,22 +13,26 @@ every contributor agrees on where the manual smoke happens.
 
 ## How to use it
 
-From the repo root, run:
+From the repo root, seed a chosen starting graph explicitly, then launch against
+this workbench cwd:
 
 ```sh
+npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding
+
 # Dev build, against TS source (no build step needed)
-( cd .fixtures/workbenches/live-graph-observer && npx tsx ../../../src/brunch.ts --mode print )
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode print
 
 # Built bin (after `npm run build`)
-( cd .fixtures/workbenches/live-graph-observer && node ../../../bin/brunch-cli.js --mode print )
+node bin/brunch-cli.js --cwd .fixtures/workbenches/live-graph-observer --mode print
 
 # Once installed (e.g. via `npm link` or a published install)
-( cd .fixtures/workbenches/live-graph-observer && brunch-cli --mode print )
+brunch-cli --cwd .fixtures/workbenches/live-graph-observer --mode print
 ```
 
-On first launch Brunch scaffolds a local `.brunch/` directory containing
-`data.db` and Pi session files **inside this workbench directory**, not in the
-repo root. That state is per-cwd by design and must not be committed.
+Brunch scaffolds a local `.brunch/` directory containing `data.db` and Pi session
+files **inside this workbench directory**, not in the repo root. That state is
+per-cwd by design and must not be committed. `npm run dev` only opens the named
+workspace; it never loads seed fixtures implicitly.
 
 ## What is and is not committed
 
@@ -42,11 +46,9 @@ repo root. That state is per-cwd by design and must not be committed.
 
 - `--mode print` — non-interactive workspace projection; smoke for CLI identity
   and DB scaffolding.
-- `--mode tui` — interactive writer session; once the `live-graph-observer`
-  observer host card lands, this is also the launch path that exposes a local
-  web observer URL.
-- `--mode web` — standalone web host; useful for web-only iteration before the
-  TUI-hosted observer path is wired in.
+- `--mode tui` — interactive writer session and the product-supported launch
+  path for the local web observer sidecar. Use `--auto-open=false` when an agent
+  will open the printed sidecar URL manually.
 
 ## Browser feedback loop
 
@@ -56,11 +58,11 @@ gives the agent accessibility-tree snapshots, clicks, form input, and screenshot
 without becoming product runtime behavior. CDP-style tools remain useful for
 console/network detail when needed.
 
-Launch the web host from this workbench:
+Launch the TUI sidecar against this workbench:
 
 ```sh
-# Terminal A: standalone web observer host
-( cd .fixtures/workbenches/live-graph-observer && node ../../../bin/brunch-cli.js --mode web )
+# Terminal A: TUI writer plus web observer sidecar
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode tui --auto-open=false
 ```
 
 The host prints a localhost URL such as:
