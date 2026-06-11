@@ -196,7 +196,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Linear:** FE-847 — built as a slice group under the FE-847 issue; no separate issue.
 - **Branch:** `ln/fe-847-turn-boundary-closure` (stacked successor FE-847 branch, shared with `turn-boundary-reconciliation`).
 - **Kind:** structural / product mechanics
-- **Status:** next (turn-boundary choreography; not POC-ship-critical)
+- **Status:** done 2026-06-11 (turn-boundary choreography; not POC-ship-critical)
 - **Certainty:** proving
 - **Retires:** the R16 origination gap — proof that a structured-strategy session can originate its own offer-first turn honestly (no fabricated user entry) and seed context idempotently across real restart/resume.
 - **Depends on:** `turn-boundary-reconciliation` (S1 watermark projection + S2 reconciler — the seed must advance the watermark and the kick decision interacts with reconciler-inserted notices) and the `dx-tier-2-harness` chassis. Sequenced last in the FE-847 slice chain.
@@ -216,7 +216,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Topology materialization:** The origination primitive (`startAssistantTurn`) lands in the session orchestration layer (`src/session/`) filling the FE-847 stub; `session.triggerExchange` is the public surface (D49-L); context seeding writes custom continuity entries through the same carrier as `worldUpdate`.
 - **Traceability:** D12-L, D37-L, D49-L, D66-L, D75-L, D76-L, D78-L; R16; I13-L, I46-L, I47-L.
 - **Design docs:** `memory/SPEC.md` D78-L, I46-L, I47-L; `src/session/README.md`.
-- **Current execution pointer:** Core S4 helper logic landed on FE-847; the remaining builder entry is `memory/cards/kick-and-context-seeding--honest-origination.md`, which closes I46/I47 through real boot/resume origination proofs rather than more local helper-only tests.
+- **Current execution pointer:** Done 2026-06-11 on FE-847. New-session real boot seeds context and appends the assistant-originated `present_*` exchange before provider preflight, resume-tail classification ignores continuity-only notices, request-result terminal statuses (`answered` / `cancelled` / `unavailable`) idle instead of re-kicking, and explicit `freestyle` remains the only user-wait strategy pin.
 
 ### project-graph-review-cycle
 

@@ -66,11 +66,16 @@ export function latestTailOwesAssistant(entries: readonly TranscriptEntryLike[])
     if (message?.role === 'user') return true;
     if (message?.role === 'toolResult') {
       const toolName = typeof message.toolName === 'string' ? message.toolName : '';
-      return toolName.startsWith('request_') && responseStatus(message) !== 'answered';
+      if (toolName.startsWith('request_')) return !isTerminalRequestStatus(responseStatus(message));
+      if (toolName.startsWith('present_')) return false;
     }
     return false;
   }
   return false;
+}
+
+function isTerminalRequestStatus(status: string | undefined): boolean {
+  return status === 'answered' || status === 'cancelled' || status === 'unavailable';
 }
 
 function responseStatus(message: Record<string, unknown>): string | undefined {
