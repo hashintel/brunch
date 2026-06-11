@@ -84,7 +84,7 @@ per ledger row:
 
 ### Active
 
-- `turn-boundary-reconciliation` (FE-847) — remaining FE-847 closure on the shared branch: flip the skipped Tier-2 I45/I47 scaffold live, prove submit-time mention resolution and staleness through the real session path, and preserve the latest watermark carrier across compaction/resume.
+- `kick-and-context-seeding` (FE-847) — residual closure on the shared branch: the four Tier-2 I46 resume-origination scaffold rows (pre-reconcile-tail kick, `request_*`/system idle against the real exchange result envelope, crash-after-notice re-kick, drains-don't-mask-debt) and the two I47 idempotence rows (boot/resume seed dedupe; dedicated no-redundant-`worldUpdate`-after-seed row) remain `it.todo`; the frontier is not done until they run live. Remediation sequence: `memory/REFACTOR.md`.
 
 ### Turn-boundary choreography (Tier-2 layer)
 
@@ -188,7 +188,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Topology materialization:** The `prepareNextTurn` reconciler and watermark projection land at their final homes (`src/session/` reconciler, `src/projections/session/` watermark) filling the FE-847 topology stubs; submit-time mention resolution at `session.submitMessage`; tool-result watermark stamping at the graph read/mutation adapters.
 - **Traceability:** D14-L, D15-L, D17-L, D37-L, D43-L, D49-L, D76-L, D77-L; A4-L, A9-L; I1-L, I4-L, I9-L, I45-L, I47-L.
 - **Design docs:** `memory/SPEC.md` D76-L–D77-L, I9-L, I45-L, I47-L; `src/session/README.md`; `src/projections/README.md`; `src/projections/session/runtime-state.ts`.
-- **Current execution pointer:** Done 2026-06-11 on FE-847. The Tier-2 I45 scaffold is live, the live provider guard delegates to `guardBeforeProviderRequest`, submit-time mention facts feed the live reconciler staleness path, side-task/reviewer drains are threaded through the adapter, and the compaction anchor contract preserves the latest watermark carrier family (`brunch.context_seed`, `brunch.graph_overview_snapshot`, `brunch.own_mutation`, `worldUpdate`).
+- **Current execution pointer:** Done 2026-06-11 on FE-847. The Tier-2 I45 scaffold is live, the live provider guard delegates to `guardBeforeProviderRequest`, submit-time mention facts feed the live reconciler staleness path, side-task/reviewer drains are threaded through the adapter, and the compaction anchor contract preserves the latest watermark carrier family (`brunch.context_seed`, `brunch.graph_overview_snapshot`, `brunch.own_mutation`, `worldUpdate`). **Residue:** the frontier's S5 share of I47 (the dedicated post-seed `worldUpdate` scaffold row and boot/resume dedupe idempotence) remains `it.todo`, carried to completion with the `kick-and-context-seeding` residual closure (`memory/REFACTOR.md` commit 9); compaction-survival is proven at projection level, not yet through an actual restart.
 
 ### kick-and-context-seeding
 
@@ -196,7 +196,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Linear:** FE-847 — built as a slice group under the FE-847 issue; no separate issue.
 - **Branch:** `ln/fe-847-turn-boundary-closure` (stacked successor FE-847 branch, shared with `turn-boundary-reconciliation`).
 - **Kind:** structural / product mechanics
-- **Status:** done 2026-06-11 (turn-boundary choreography; not POC-ship-critical)
+- **Status:** active — residual closure (resume-origination + idempotence proofs); not POC-ship-critical
 - **Certainty:** proving
 - **Retires:** the R16 origination gap — proof that a structured-strategy session can originate its own offer-first turn honestly (no fabricated user entry) and seed context idempotently across real restart/resume.
 - **Depends on:** `turn-boundary-reconciliation` (S1 watermark projection + S2 reconciler — the seed must advance the watermark and the kick decision interacts with reconciler-inserted notices) and the `dx-tier-2-harness` chassis. Sequenced last in the FE-847 slice chain.
@@ -216,7 +216,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Topology materialization:** The origination primitive (`startAssistantTurn`) lands in the session orchestration layer (`src/session/`) filling the FE-847 stub; `session.triggerExchange` is the public surface (D49-L); context seeding writes custom continuity entries through the same carrier as `worldUpdate`.
 - **Traceability:** D12-L, D37-L, D49-L, D66-L, D75-L, D76-L, D78-L; R16; I13-L, I46-L, I47-L.
 - **Design docs:** `memory/SPEC.md` D78-L, I46-L, I47-L; `src/session/README.md`.
-- **Current execution pointer:** Done 2026-06-11 on FE-847. New-session real boot seeds context and appends the assistant-originated `present_*` exchange before provider preflight, resume-tail classification ignores continuity-only notices, request-result terminal statuses (`answered` / `cancelled` / `unavailable`) idle instead of re-kicking, and explicit `freestyle` remains the only user-wait strategy pin.
+- **Current execution pointer:** Partially landed 2026-06-11 on FE-847. New-session real boot seed-then-kick is proven live through Tier-2 (seed before first provider call, assistant-originated `present_*`, no fabricated user entry, no redundant `worldUpdate` after seed). **Not yet proven** — the resume side exists only as helper-level unit tests; the four Tier-2 I46 scaffold rows (pre-reconcile-tail kick behind continuity notices, `request_*`/system idle against the real exchange result envelope, crash-after-notice re-kick, drains-don't-mask-debt) and two I47 idempotence rows (boot/resume seed dedupe from transcript projection; the dedicated post-seed `worldUpdate` row) remain `it.todo` in `src/dev/tier-2-harness.test.ts`. Remediation commits 8-9 in `memory/REFACTOR.md` close them; the frontier completes when those rows run live.
 
 ### project-graph-review-cycle
 
