@@ -53,7 +53,7 @@ export const Route = createFileRoute('/specification/$id')({
 
     return (
       <PatchListProvider appliers={appliers}>
-        <ChatShellPresenceProvider>
+        <ChatShellPresenceProvider specificationId={specificationId}>
           <SecondaryChatTriggerProvider>
             <WorkspaceFocusProvider>
               <div className="flex h-full min-h-0 flex-1 flex-col">

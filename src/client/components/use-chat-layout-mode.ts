@@ -1,6 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import type { ChatLayoutMode } from './unified-chat-shell.js';
+import {
+  specPersistedEnumStorageKey,
+  useSpecPersistedEnum,
+  type SpecPersistedEnumConfig,
+} from './use-spec-persisted-enum.js';
 
 export const CHAT_LAYOUT_MODE_ORDER: ReadonlyArray<ChatLayoutMode> = [
   'compact',
@@ -10,8 +15,7 @@ export const CHAT_LAYOUT_MODE_ORDER: ReadonlyArray<ChatLayoutMode> = [
 ];
 
 // FE-716 shell brief opens the chat in the split Side-docked layout so the
-// workspace and chat share the viewport on first visit. Compact / Maximize /
-// Full remain reachable via the header toggle and persist per spec.
+// workspace and chat share the viewport on first visit.
 const DEFAULT_MODE: ChatLayoutMode = 'side-docked';
 
 function isChatLayoutMode(value: unknown): value is ChatLayoutMode {
@@ -19,30 +23,14 @@ function isChatLayoutMode(value: unknown): value is ChatLayoutMode {
 }
 
 export function chatLayoutModeStorageKey(specificationId: number | string): string {
-  return `brunch:chat-layout-mode:${specificationId}`;
+  return specPersistedEnumStorageKey('chat-layout-mode', specificationId);
 }
 
-function readPersistedMode(specificationId: number | string): ChatLayoutMode {
-  if (typeof window === 'undefined') return DEFAULT_MODE;
-  try {
-    const stored = window.localStorage.getItem(chatLayoutModeStorageKey(specificationId));
-    if (isChatLayoutMode(stored)) {
-      return stored;
-    }
-  } catch {
-    // ignore
-  }
-  return DEFAULT_MODE;
-}
-
-function writePersistedMode(specificationId: number | string, mode: ChatLayoutMode): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(chatLayoutModeStorageKey(specificationId), mode);
-  } catch {
-    // ignore
-  }
-}
+const LAYOUT_MODE_PERSISTENCE: SpecPersistedEnumConfig<ChatLayoutMode> = {
+  slug: 'chat-layout-mode',
+  fallback: DEFAULT_MODE,
+  decode: (raw) => (isChatLayoutMode(raw) ? raw : null),
+};
 
 /**
  * Decrement the mode one tier (Full → Maximize → Side-docked → Compact).
@@ -60,26 +48,13 @@ export interface UseChatLayoutModeResult {
 }
 
 export function useChatLayoutMode(specificationId: number | string): UseChatLayoutModeResult {
-  const [layoutMode, setLayoutModeState] = useState<ChatLayoutMode>(() => readPersistedMode(specificationId));
+  const [layoutMode, setLayoutMode] = useSpecPersistedEnum(specificationId, LAYOUT_MODE_PERSISTENCE);
 
-  // Ref keeps Esc handler out of setState updaters so localStorage writes fire exactly once.
+  // Ref keeps the Esc handler reading the latest mode without re-binding.
   const layoutModeRef = useRef(layoutMode);
   useEffect(() => {
     layoutModeRef.current = layoutMode;
   }, [layoutMode]);
-
-  // Re-hydrate from the new spec's storage slot on route navigation.
-  useEffect(() => {
-    setLayoutModeState(readPersistedMode(specificationId));
-  }, [specificationId]);
-
-  const setLayoutMode = useCallback(
-    (mode: ChatLayoutMode) => {
-      setLayoutModeState(mode);
-      writePersistedMode(specificationId, mode);
-    },
-    [specificationId],
-  );
 
   // Document-level Esc decrement; focused elements can stopPropagation first.
   useEffect(() => {
@@ -91,12 +66,11 @@ export function useChatLayoutMode(specificationId: number | string): UseChatLayo
       const next = decrementChatLayoutMode(current);
       if (next === current) return;
       layoutModeRef.current = next;
-      writePersistedMode(specificationId, next);
-      setLayoutModeState(next);
+      setLayoutMode(next);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [specificationId]);
+  }, [setLayoutMode]);
 
   return { layoutMode, setLayoutMode };
 }

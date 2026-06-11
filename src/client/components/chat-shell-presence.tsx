@@ -1,9 +1,17 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
+import { useSpecPersistedEnum, type SpecPersistedEnumConfig } from './use-spec-persisted-enum.js';
+
 const HIGHLIGHT_CLASS = 'ring-2 ring-ink/40 ring-offset-2 ring-offset-background';
 const HIGHLIGHT_DURATION_MS = 1500;
 
 export type ChatShellAppearance = 'expanded' | 'minimized' | 'closed';
+
+const APPEARANCE_PERSISTENCE: SpecPersistedEnumConfig<ChatShellAppearance> = {
+  slug: 'chat-shell-appearance',
+  fallback: 'closed',
+  decode: (raw) => (raw === 'expanded' || raw === 'minimized' || raw === 'closed' ? raw : null),
+};
 
 export interface ChatShellPresenceValue {
   readonly appearance: ChatShellAppearance;
@@ -29,19 +37,28 @@ export function useChatShellPresence(): ChatShellPresenceValue | null {
   return useContext(ChatShellPresenceContext);
 }
 
-export function ChatShellPresenceProvider({ children }: { children: ReactNode }) {
-  const [appearance, setAppearance] = useState<ChatShellAppearance>('expanded');
+export function ChatShellPresenceProvider({
+  children,
+  specificationId,
+}: {
+  children: ReactNode;
+  specificationId: number | string;
+}) {
+  const [appearance, setAppearance] = useSpecPersistedEnum(specificationId, APPEARANCE_PERSISTENCE);
   const [focusedChatId, setFocusedChatId] = useState<number | null>(null);
 
-  const expand = useCallback(() => setAppearance('expanded'), []);
-  const minimize = useCallback(() => setAppearance('minimized'), []);
-  const close = useCallback(() => setAppearance('closed'), []);
+  const expand = useCallback(() => setAppearance('expanded'), [setAppearance]);
+  const minimize = useCallback(() => setAppearance('minimized'), [setAppearance]);
+  const close = useCallback(() => setAppearance('closed'), [setAppearance]);
   const collapse = minimize;
 
-  const focusChat = useCallback((chatId: number) => {
-    setAppearance('expanded');
-    setFocusedChatId(chatId);
-  }, []);
+  const focusChat = useCallback(
+    (chatId: number) => {
+      setAppearance('expanded');
+      setFocusedChatId(chatId);
+    },
+    [setAppearance],
+  );
 
   const clearFocus = useCallback(() => setFocusedChatId(null), []);
 

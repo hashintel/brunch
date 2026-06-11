@@ -209,7 +209,7 @@ function makeHarness(secondaryChats: SecondaryChat[]): {
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={<div data-testid="suspense-fallback" />}>
-        <ChatShellPresenceProvider>
+        <ChatShellPresenceProvider specificationId={1}>
           <SecondaryChatTriggerProvider>{children}</SecondaryChatTriggerProvider>
         </ChatShellPresenceProvider>
       </Suspense>
@@ -220,6 +220,7 @@ function makeHarness(secondaryChats: SecondaryChat[]): {
 
 beforeEach(() => {
   fetchMock.mockReset();
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -242,6 +243,81 @@ function TriggerButton({ chatId = 0 }: { chatId?: number }) {
 }
 
 describe('chat shell presence + trigger integration', () => {
+  it('starts collapsed on mount — the shell does not auto-open', () => {
+    const master = makeMasterChat();
+    const { Wrapper } = makeHarness([master]);
+
+    render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+
+    expect(screen.getByTestId('unified-chat-shell-minimized')).not.toBeNull();
+    expect(screen.queryByTestId('unified-chat-shell')).toBeNull();
+  });
+
+  it('expands when the Ask brunch pill is clicked', () => {
+    const master = makeMasterChat();
+    const { Wrapper } = makeHarness([master]);
+
+    render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+
+    fireEvent.click(screen.getByTestId('unified-chat-shell-minimized'));
+
+    expect(screen.queryByTestId('unified-chat-shell-minimized')).toBeNull();
+    expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
+  });
+
+  it('stays open across a remount once opened — refreshing keeps an open chat open', () => {
+    const master = makeMasterChat();
+    const { Wrapper } = makeHarness([master]);
+
+    const first = render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByTestId('unified-chat-shell-minimized'));
+    expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
+    first.unmount();
+
+    render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+    expect(screen.getByTestId('unified-chat-shell')).not.toBeNull();
+    expect(screen.queryByTestId('unified-chat-shell-minimized')).toBeNull();
+  });
+
+  it('stays collapsed across a remount after it is closed — refreshing keeps a closed chat closed', () => {
+    const master = makeMasterChat();
+    const { Wrapper } = makeHarness([master]);
+
+    const first = render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+    fireEvent.click(screen.getByTestId('unified-chat-shell-minimized'));
+    fireEvent.click(screen.getByTestId('unified-chat-shell-close'));
+    expect(screen.getByTestId('unified-chat-shell-minimized')).not.toBeNull();
+    first.unmount();
+
+    render(
+      <Wrapper>
+        <UnifiedChatShell />
+      </Wrapper>,
+    );
+    expect(screen.getByTestId('unified-chat-shell-minimized')).not.toBeNull();
+    expect(screen.queryByTestId('unified-chat-shell')).toBeNull();
+  });
+
   it('expands the shell and focuses the new chat after a successful create', async () => {
     // Seed a master so `UnifiedChatShell`'s auto-create-master effect stays
     // dormant; otherwise its POST would steal the first `fetchMock`
@@ -267,7 +343,6 @@ describe('chat shell presence + trigger integration', () => {
       </Wrapper>,
     );
 
-    fireEvent.click(screen.getByTestId('unified-chat-shell-minimize'));
     expect(screen.getByTestId('unified-chat-shell-minimized')).not.toBeNull();
 
     fireEvent.click(screen.getByTestId('trigger'));
@@ -299,7 +374,9 @@ describe('chat shell presence + trigger integration', () => {
       </Wrapper>,
     );
 
-    const before = screen.getByTestId('secondary-chat-collapsible');
+    fireEvent.click(screen.getByTestId('unified-chat-shell-minimized'));
+
+    const before = await screen.findByTestId('secondary-chat-collapsible');
     expect(before.getAttribute('data-secondary-chat-id')).toBe(String(master.chat.id));
 
     fireEvent.click(screen.getByTestId('trigger'));
