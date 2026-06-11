@@ -31,7 +31,7 @@ Planning is currently carrying two shapes at once: canonical frontier sequencing
 
 The `graph-observed-shapes` coverage frontier has now landed (the consumer-specific read-shape inventory is ratified in `src/graph/README.md` and guarded by a drift test). With `minimal-authority-shell` also done, the active delivery path is `poc-live-ship-gate` (now unblocked).
 
-The earlier coverage de-fogging pass is now mostly complete. `runtime-affordances-and-legality`, `projection-shape-coverage`, and `prompt-composition-golden-coverage` have landed; `renderer-golden-coverage` is the only open context-pipeline coverage frontier. `exchanges-and-generalized-capture` remains a bounded proving feature (capture semantics, not breadth closure), and `elicitation-driver` remains active bounded residue (capture-reflection writeback, not coverage).
+The earlier coverage de-fogging pass is now mostly complete. `runtime-affordances-and-legality`, `projection-shape-coverage`, and `prompt-composition-golden-coverage` have landed; `renderer-golden-coverage` is the only open context-pipeline coverage frontier (now deferred below the demo line). The former `exchanges-and-generalized-capture` has been **split** (2026-06-11 demo cut) into `generalized-capture` (a bounded proving feature, demo block 2) and `exchange-symmetry-audit` (deferred earned cleanup); `elicitation-driver` writeback is now demo block 1 (not deferrable residue).
 
 **Coverage-layer re-classification (2026-06-08 ln-plan, applying the hardened coverage protocol; refreshed 2026-06-11).** Re-asking "where are the *real* coverage frontiers" gives a tight answer: the coverage layer is mostly already closed. `graph-observed-shapes`, `runtime-affordances-and-legality`, `projection-shape-coverage`, and `prompt-composition-golden-coverage` are done. The one genuinely-open coverage frontier is now `renderer-golden-coverage`: it must close the `src/renderers/` ledger and apply the existing preview→golden→invariant pattern to each surviving durable renderer. `exchanges-and-generalized-capture` remains **not coverage** — its load-bearing unknown is capture semantics (a vertical proving slice with false-commit protection), plus a delete-oriented exchange symmetry audit. `elicitation-driver` is active bounded feature residue, not coverage: read/rank/select + prompt surfacing is built; capture-reflection writeback remains.
 
@@ -42,6 +42,32 @@ A new graph-mutation planning result has been promoted into the rolling plan as 
 **Readiness / elicitation-gaps remodel is complete (2026-06-09–11).** `elicitation_backlog` became the D65-L `elicitation_gaps` obligation register; D75-L collapsed the temporary grounding typology/name catalog onto `refersTo: NodeKind` + free-form question/rationale; and `capability-readiness` retired the stored `readiness_grade` / `updateReadinessGrade` / `READINESS_GRADES` / `MIN_GRADE` proxies, added a soft UI-only readiness estimate, and removed `chrome.phase` / `chrome.chatMode`. The remaining readiness/gap work is future proof, not completion debt: `field`/`coverage` predicate derivation, `manual` satisficiency, and finer capability maps beyond the shared grounding floor. `elicitation-driver` rides this remodeled gaps substrate.
 
 **Turn-boundary choreography is complete (2026-06-11).** The runtime "Tier-2" layer — what enters the transcript at a turn boundary and who originates the next turn — is now implemented across FE-847. SPEC locked the durable mechanics (assistant-visible watermark D76-L; one-writer reconciler + aux seams/guard D77-L; honest kick + context seeding D78-L), sharpened I9-L, and added I45-L–I47-L. The coverage-first scaffold has zero skipped/todo rows: real boot/restart tests prove seed/full-overview snapshots advance the watermark while narrow reads do not; no redundant `worldUpdate` follows a seed naming the current snapshot LSN; and resume kick decisions use the pre-reconcile tail so continuity notices neither mask nor manufacture conversational debt.
+
+**POC demo/alpha two-deadline cut (2026-06-11 ln-plan).** A hard two-deadline cut now overrides the coverage-trio sequencing for *design attention*: a **minimal live demo tomorrow** and an **alpha next week**. The demo claim is locked to **elicitation-rich + generalized capture, minus the exchange audit**: fresh cwd → spec/session select → TUI drives → web observes → posture switch (with a named observable) → the agent asks the next-best question and **updates gaps from answers** (elicitation writeback) → **high-confidence generalized capture** of directly-stated facts → graph truth → visible graph update → durable runbook artifact. Exchange-surface symmetry work and renderer golden coverage are explicitly **out** of the demo bet.
+
+Two oracles must stay distinct (PLAN previously fused them into one `poc-live-ship-gate`): **ship-correctness** ("the real product composes through public entrypoints, no harness wiring") vs **demo-credibility** ("it looks and behaves like a product to a live viewer"). Load-bearing finding: **no existing full graph-write / runbook proof exercises the whole product path via the public entrypoint.** A startup smoke (`src/probes/scripts/verify-startup-no-resume.sh`) *does* launch `dist/app/brunch.js --mode tui`, but it proves startup-no-resume only; every *graph-write/capture* proof (`capture-response-to-graph-proof.ts`, `propose-graph-commit-proof.ts`, …) hand-wires `createRpcHandlers` / `createWorkspaceSessionCoordinator` / `createBrunchAgentSessionRuntimeFactory` instead of driving the product through `runBrunchCli`. The ship gate is therefore non-redundant. Its **anti-cheat guard** is scoped to the **ship-gate driver/probe only** (it must launch the public CLI/subprocess and exercise the product over RPC, not import the wiring modules above); it does **not** ban private helpers across all probes, and the gate's *setup* may use the public seed CLI where one exists. Without that scoped guard the gate re-commits the harness-proving failure mode.
+
+**Worktree topology (two simultaneous worktrees / branches).** The line is **product/contract (producer) below, clients/presentation (consumers) above** — and **both the web observer and the TUI are clients**. The producer owns behavior + the public contract; the client tier owns how that behavior is presented.
+
+- **Lower / substantial — the elicitation-rich live product path** (producer + contract + ship gate). Owns `app/` (launch/host wiring), `rpc/` (the contract), `probes/`, `session/`, `graph/`, and the agent/runtime `.pi` **wiring** those blocks need. Frontier-stacked internally; worked as one substantial lower line.
+- **Top / client tier — `demo-polish`** (presentation grab-bag noticed while testing). Two client surfaces: the **web** observer (`src/web/**` + web tests) and **TUI chrome/presentation** (`src/.pi/components`, `src/app/brunch-tui.ts` layout/formatting). Stacks on the lower line, restacked frequently. **Must not** change product wiring, add backend fallbacks, invent client-local truth, read SQLite/JSONL directly, or require write methods on the read-only sidecar; a needed new RPC field or runtime/wiring change is pushed **down** into the lower line and restacked.
+
+Two seams, two strengths:
+
+- **Web client** has a *clean directory seam* (`src/web/**` over RPC/WS). It consumes RPC projections at runtime and at build time imports only protocol types plus **pure shared presentation/type metadata** (e.g. `GraphSlice`, projection DTO types, the drizzle-free `NODE_KIND_METADATA` leaf) — no DB/session logic, no domain orchestration, no text renderers, no direct persistence.
+- **TUI client** shares directories (`src/.pi`, `src/app/brunch-tui.ts`) with lower-line wiring, so its above/below split is **by concern (presentation vs wiring), not by path** — enforced by discipline and frequent restack, not a clean boundary. Presentation/chrome tweaks ride the top; anything touching runtime/wiring goes down.
+
+The one coordination cost is the RPC contract (the web client's seam): **first confirm the existing notification/LSN surface is enough** (`brunch.updated` notification + `graph.overview` LSN + `session.runtimeState`); add a new contract field only if lower-line testing proves it missing. Whatever the contract ends up being, freeze it early in the lower line so the web client builds against a stable wire (the shared types/metadata are compile-time, so contract drift breaks the web build loudly).
+
+**Thin-path discipline (per the user, 2026-06-11).** We are **not** fully analyzing the thin path now. Each lower-line work block opens with a short **practical-testing + analysis + `ln-grill`** prelude before `ln-scope`, to find the thinnest cut and defer every enhancement that can be deferred. This Context maps **intentions and the closed checklists/matrices where completeness is required**; per-block scoping resolves the rest.
+
+**Completeness obligations for this cut (closed checklists/matrices — *not* coverage frontiers; the coverage-frontier protocol does not apply):**
+
+- **poc-live-ship-gate runbook checklist / oracle matrix** — the acceptance list (in its frontier def) is the closed runbook; every step must launch a public entrypoint and emit a durable artifact (no hand-wired step).
+- **generalized-capture false-commit scenario matrix** — the closed scenario family from `capture-quality-spike` (high-confidence directly-stated facts → commit; implication-heavy text → withheld); completeness = every scenario class has a regression guard.
+- **elicitation-writeback gap-disposition checklist** — the `createElicitationGap` / `setElicitationGapDisposition` boundary (exists on `CommandExecutor`, **no non-test callers yet**) must cover spawn-on-reflection + close-on-answered through the existing `{specId, lsn}` / `change_log` clock (no second mutation clock).
+
+Everything else (renderer golden coverage, exchange symmetry audit, runtime-vocab-leaf) is fitness/hardening and stays below the demo line.
 
 ### Context-pipeline coverage (the next design/lock spine)
 
@@ -86,9 +112,23 @@ per ledger row:
 
 ### Active
 
-- `elicitation-driver` (FE-852) — rank/select + prompt surfacing landed 2026-06-11; remaining active residue is the capture-reflection writeback micro-decision (spawn gaps / set dispositions through the existing command boundary, no second mutation clock).
+**Demo lane — lower line (substantial; one worktree, one Graphite stack — one branch per frontier).** Thinnest path per block is resolved by a short practical-testing + analysis + `ln-grill` prelude before `ln-scope`; defer every deferrable enhancement. Branch stack, bottom → top:
 
-Next sequenced frontier after the current FE-852 residue is `renderer-golden-coverage`; the prepared chain lives at `memory/cards/renderer-golden-coverage--render-stage-chain.md`.
+| Block | Frontier | Linear | Branch |
+| --- | --- | --- | --- |
+| 1 | `elicitation-driver` | FE-852 (existing) | `ln/fe-852-prompting-and-elicitation` |
+| 2 | `generalized-capture` | new FE issue (create on start) | new, stacks on block 1 |
+| 3 | `poc-live-ship-gate` | FE-811 (existing) | new, stacks on block 2 |
+
+1. `elicitation-driver` (FE-852) — **demo block 1**: capture-reflection writeback (spawn gaps / set dispositions through the existing `CommandExecutor` boundary, no second mutation clock). Read/rank/select + prompt surfacing already landed.
+2. `generalized-capture` (new FE) — **demo block 2**: narrow high-confidence extractive capture with the false-commit guard. Its own frontier (promoted out of `exchanges-and-generalized-capture`); **not** an FE-811 slice. Relation-bearing capture uses the `mutateGraph` grammar from `role-safe-graph-mutations`.
+3. `poc-live-ship-gate` (FE-811) — **demo block 3**: the fresh-cwd runbook that composes blocks 1–2 through **public entrypoints only**, with the scoped anti-cheat import guard, a named posture observable, and real product renderers / web output as evidence.
+
+**Demo lane — top line (client presentation: web readout + TUI chrome; second simultaneous worktree).**
+
+- `demo-polish` (new FE issue, create on start) — client-tier presentation across two surfaces: **web** (`src/web/**` + web tests: posture panel, "graph updated" signal, spec/session display) and **TUI chrome** (presentation/layout in `src/.pi/components` / `src/app/brunch-tui.ts` that does **not** change wiring). Both are clients consuming the lower line's behavior/contract. Restacked frequently; no backend writes/fallbacks, no client-local truth, no product-wiring edits. New RPC fields or any runtime/wiring change are pushed **down** into the lower line. The web seam is path-clean (`src/web/**`); the TUI seam is concern-based (presentation vs wiring) and enforced by discipline + restack.
+
+Each lower-line block carries its own completeness obligation (see Context §Completeness obligations): the ship-gate runbook checklist, the generalized-capture false-commit scenario matrix, and the elicitation-writeback gap-disposition checklist.
 
 ### Recently Completed
 
@@ -97,21 +137,13 @@ Next sequenced frontier after the current FE-852 residue is `renderer-golden-cov
 - 2026-06-11 **Turn-boundary choreography (Tier-2 layer) complete** — `turn-boundary-reconciliation` and `kick-and-context-seeding` both done on FE-847 (`ln/fe-847-turn-boundary-closure`); every I45/I46/I47 scaffold row runs live through real boot/restart.
 - Older completed frontiers: `docs/archive/PLAN_HISTORY.md`.
 
-### Next
+### Next (alpha-week / deferred below the demo line)
 
-The near-term spine has two tracks. The **context-pipeline coverage trio** remains the elevated product-coverage spine, sequenced in strict dependency order (lock upstream shape before downstream output). `role-safe-graph-mutations` is a graph-mutation grammar frontier that can run before or alongside the trio, and must land before relation-bearing generalized capture or semantic fixture curation rely on the new mutation surface. The `dx-feedback-loops` DX substrate, its `dx-introspection-live` follow-on, and the FE-847 turn-boundary closure are all complete and no longer gate this list.
+Deferred below the demo line until the demo lands. The earlier context-pipeline coverage trio is now **mostly done** (`projection-shape-coverage`, `prompt-composition-golden-coverage` complete; see Recently Completed); only `renderer-golden-coverage` remains and it is **not** a demo blocker.
 
-1. `projection-shape-coverage` — **done 2026-06-11.** PROJECT stage (`#project`); invariant / no-loss kind. Ledger authored in `src/projections/README.md`. The session PULL read surface (`session/workspace-context`, `workspace-session-coordinator`, `runtime-state`) is inventoried in `src/session/README.md`; the false `workspace/workspace-context` wrapper is deleted/inlined; every surviving direct projection row now carries a co-located invariant (`session/transcript-context`, `workspace/workspace-state`, `session/runtime-state`); and the exchange family is explicitly resolved as **keep-transitive** via existing `.pi` / session / probe proofs rather than new symmetry tests. `graph/neighborhood` is demoted to a direct graph PULL read/topology stub rather than a PROJECT survivor. The graph projection stubs (`neighborhood`, `overview`, `commit-result`, `reconciliation-needs`) are `export {}` topology stubs, **not** dark implementations.
-2. `renderer-golden-coverage` — **RENDER stage** (`#render`); golden + invariant kind. **Depends on `projection-shape-coverage`.** Create the renderer ledger (README claims one that does not exist), extend the preview harness past `graph-neighborhood`, and golden-lock every durable renderer (only `graph/neighborhood` + `session/runtime-frame` are locked; the rest are dark or only transitively covered via the `.pi` adapter).
-3. `prompt-composition-golden-coverage` — **done 2026-06-11.** COMPOSE-stage preview harness and approved elicitor matrix goldens now lock fixture-rendered-context prompt output; partial bodies are locked by their git-tracked markdown sources plus the existing ≥700-character readability invariant. The reviewer foreground golden and the full-stack real-rendered-context golden stay tripwired on their explicit gates. `elicitation-driver` is now unblocked by the COMPOSE oracle.
-
-### After renderer coverage / active FE-852 residue
-
-1. `exchanges-and-generalized-capture` — **bounded proving feature** (not coverage): the remaining load-bearing unknown is capture *semantics*, not breadth closure. Narrow high-confidence extractive capture with a false-commit guard; treat any exchange-layer cleanup as delete-oriented audit, not breadth fill. Relation-bearing capture must use the role-named `mutateGraph` grammar from `role-safe-graph-mutations`; do not revive `{category, source, target}` in a capture-local edge dialect.
-
-### Delivery gate (in flight, independent)
-
-- `poc-live-ship-gate` — FE-811 delivery gate; only the final fresh-cwd runbook remains (live-mention-autocomplete + ship-gate residue landed 2026-06-08 on `ln/fe-811-ship-gate-residue-and-mentions`, PR #179). Proceeds on its own branch; not a coverage frontier and does not compete with the trio for design attention.
+- `renderer-golden-coverage` — RENDER-stage golden + invariant coverage; fitness evidence, **never a ship gate**. Prepared chain at `memory/cards/renderer-golden-coverage--render-stage-chain.md`. A *targeted* renderer-quality pass on demo surfaces may ride the `demo-polish` top line; the coverage frontier itself waits for alpha week.
+- `exchange-symmetry-audit` — the delete-oriented exchange three-layer audit split out of `exchanges-and-generalized-capture` (its capture vertical is promoted to demo block 2 as `generalized-capture`). Earned/cleanup, not demo-blocking.
+- `role-safe-graph-mutations` — done; the `mutateGraph` grammar that `generalized-capture` relation-bearing writes must target. Listed here only as the dependency the capture block aims at.
 
 ### Parallel / Low-conflict
 
@@ -238,8 +270,9 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Name:** Live per-turn "what to ask next" driver
 - **Linear:** FE-852 (shared issue/branch with `prompt-composition-golden-coverage`, per user decision 2026-06-11); branch `ln/fe-852-prompting-and-elicitation`
 - **Kind:** structural / bounded feature
-- **Status:** active — rank/select + prompt surfacing landed; capture-reflection writeback remains an unscoped follow-up micro-decision
+- **Status:** active — **demo block 1** of the lower line (2026-06-11 demo cut). Rank/select + prompt surfacing landed; **capture-reflection writeback is now demo-blocking** (the demo claims self-updating gaps), no longer deferrable residue.
 - **Certainty:** proving
+- **Demo cut (2026-06-11):** writeback is promoted from "unscoped micro-decision" to demo block 1 because the locked demo claim is elicitation-rich ("the agent asks the next-best question and updates gaps from answers"). Open with a practical-testing + analysis + `ln-grill` prelude to find the thinnest writeback wiring before `ln-scope`; the coverage obligation is the **elicitation-writeback gap-disposition ledger** (spawn-on-reflection + close-on-answered through the one `{specId, lsn}` clock).
 - **Promoted from:** `memory/CROSS_CUT_PLAN.md` Seam 3a `"what to ask next" driver` row (D65-L), which remained `partial · ●` after the `elicitation-backlog` substrate landed. Per the cross-cut's own DoD a seam stays open while any `●` row is partial, so the row is disposed here as a real frontier rather than residue.
 - **Depends on:** `elicitation-gaps-remodel` (hard — the driver ranks/selects over the remodeled `elicitation_gaps` obligation shape, not the FE-823 question/`status` backlog).
 - **Current execution pointer:** Rank/select + observable surfacing landed 2026-06-11; the consumed scope card was retired. Next scope should resolve capture-reflection writeback via a micro-decision on how gap spawn/disposition ops surface to the agent (`mutateGraph` grammar extension vs dedicated op) — `createElicitationGap`/`setElicitationGapDisposition` exist on `CommandExecutor` but have no non-test callers yet.
@@ -263,25 +296,47 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Linear:** [FE-811](https://linear.app/hash/issue/FE-811/poc-live-ship-gate-and-runbook-oracle)
 - **Branch:** `ln/fe-811-poc-live-ship-blockers`
 - **Kind:** hardening / release gate
-- **Status:** next
+- **Status:** active — **demo block 3** of the lower line (stacks on `generalized-capture`)
 - **Certainty:** proving
 - **Lights up:** fresh-cwd composed product path across TUI, web observer, runtime posture, structured exchange, and graph write surfaces.
 - **Stabilizes:** harness-as-false-proof guard for I22-L, I35-L, I38-L, I39-L, I40-L.
 - **Objective:** Create and pass the final POC runbook that exercises the real entrypoints together: fresh cwd, multi-spec selection, TUI session, web observer, runtime switch, structured exchange, capture/commit, graph update, and probe artifacts.
 - **Why now / unlocks:** This is the harness-as-false-proof guard. If a test path had to inject modules the product never wires, the POC is not shipped.
+- **Demo cut (2026-06-11):** this is **demo block 3** of the lower line, and is now scoped as a **ship-correctness** gate (does the real product compose) distinct from the `demo-polish` top line (does it look like a product). The runbook acceptance list below is the **closed coverage ledger**: every `●` step must launch a public entrypoint and emit a durable artifact, with **no hand-wired step**. Open with a practical-testing + analysis + `ln-grill` prelude to find the thinnest runbook before `ln-scope`.
 - **Acceptance:**
+  - **Public entrypoints only:** the gate launches via `runBrunchCli` / `bin/brunch-cli.js` (subprocess preferred) and **imports no private wiring** (`createRpcHandlers`, `createWorkspaceSessionCoordinator`, `createBrunchAgentSessionRuntimeFactory`). A mechanical **anti-cheat guard** fails the gate if those modules are imported. *(This is the load-bearing new row — no existing probe launches via the product entrypoint today.)*
   - Fresh cwd launches Brunch, creates or resumes an explicit spec/session, and does not implicitly resume stale transcripts.
   - A second spec can exist in the same workspace; the runbook confirms the active session/graph target is the selected spec.
-  - Web attaches as read-only observer over WebSocket RPC and shows the selected spec graph.
-  - Runtime strategy/lens/goal state is switchable/inspectable and changes composed prompt/resource posture.
-  - A structured exchange answer or direct graph tool call commits graph truth through `CommandExecutor`; web updates.
-  - Probe/runbook artifacts record transcript, graph summary, report/friction, and any accepted gaps.
-- **Verification:** Middle/Outer — executable where practical, manual where TUI/browser interaction is unavoidable. Pair every visual assertion with a durable artifact or projection query when possible.
+  - Web attaches as read-only observer over WebSocket RPC and shows the selected spec graph (real product render path, not fixture-rendered strings).
+  - Runtime strategy/lens/goal state is switchable/inspectable and changes composed prompt/resource posture, surfaced through a **named posture observable** (`session.runtimeState` RPC and/or `.brunch/debug/system-prompt.md`) captured as evidence.
+  - The elicitation-rich demo path composes: the agent asks the next-best question and **gaps update from answers** (elicitation writeback, demo block 1) and **high-confidence generalized capture** (demo block 2) commits directly-stated facts to graph truth through `CommandExecutor`; web updates.
+  - Probe/runbook artifacts record transcript, graph summary, report/friction, accepted gaps, and the posture-observable capture.
+- **Verification:** Middle/Outer — executable where practical (subprocess + RPC/projection readback), manual where TUI/browser interaction is unavoidable. Pair every visual assertion with a durable artifact or projection query. The anti-cheat import guard is an inner-loop test.
 - **Topology materialization:** Runbook/probe code lives in `src/probes/` and `.fixtures/runs/`; it must launch product entrypoints rather than import private modules to fake the product path.
 - **Cross-cutting obligations:** Keep the gate small and real. Do not turn it into a generic e2e framework or use it to backfill unrelated polish.
 - **Traceability:** R4, R7, R10, R11, R12, R16, R19, R24, R28 / D5-L, D11-L, D19-L, D21-L, D33-L, D36-L, D52-L, D61-L, D62-L, D63-L, D64-L / I22-L, I32-L, I35-L, I38-L, I39-L, I40-L / A5-L.
 - **Design docs:** `docs/architecture/probes-and-transcripts.md`; `docs/architecture/pi-ui-extension-patterns.md`; `memory/SPEC.md` verification stance.
 - **Current execution pointer:** FE-811 ship-gate hardening landed on `ln/fe-811-ship-gate-residue-and-mentions`: stale graph-snapshot/report residue in the committed fixture-curation and project-graph-review-cycle runs was regenerated to the graph-overview/workspace.state contract, the related-edge formatter now labels non-anchor edges `lateral`, and the live mention autocomplete slice now sources selected-spec graph nodes instead of fixture candidates. The remaining frontier work is the final fresh-cwd runbook gate.
+
+### demo-polish
+
+- **Name:** Demo readout + refinement grab-bag (web observer + TUI polish)
+- **Linear:** unassigned (new — top line of the demo lane)
+- **Kind:** hardening / presentation
+- **Status:** active — top line; second simultaneous worktree, stacks on the lower line and is restacked frequently
+- **Certainty:** earned (presentation over a settled contract; closes legibility gaps, not unknowns)
+- **Demo cut (2026-06-11):** the **demo-credibility** half of the cut, kept distinct from the `poc-live-ship-gate` ship-correctness gate. A deliberately loose catch-all for superficial things noticed while manually testing the lower line — it should stay shallow and never block the lower line.
+- **Objective:** Make the demo legible to a live viewer: `src/web` observer panels (runtime-posture readout, graph-LSN "updated" pulse, selected spec/session display, node counts / overview clarity) plus superficial TUI refinements caught during testing. Optionally a *targeted* renderer-quality pass on only the surfaces the demo shows (distinct from the deferred `renderer-golden-coverage` frontier).
+- **Boundary:** In — `src/web/**` (+ web tests), small presentational TUI tweaks under `src/.pi/components` / `src/app/brunch-tui.ts` that do not change wiring. Out — backend domain logic, new RPC methods/fields (push those **down** into the lower line and restack), SQLite/JSONL direct reads, client-local truth, write paths on the read-only sidecar, and the full renderer golden-coverage frontier.
+- **Why now / unlocks:** Lets the user absorb presentation friction (web + TUI chrome) in a separate branch without disturbing the substantial lower line; the web client's compile-time RPC type/metadata dependency makes any contract drift break the web build loudly, and TUI chrome edits stay on the presentation side of the wiring seam.
+- **Acceptance:**
+  - The web observer legibly shows: selected spec/session, runtime posture, and a visible "graph updated" signal when the lower line writes graph truth.
+  - No new RPC surface is invented here; any contract need is pushed down to the lower line first.
+  - TUI refinements are presentational only (no runtime/wiring change).
+- **Verification:** web component tests + manual walkthrough against a seeded workbench; pair visual claims with the lower line's durable artifacts where possible.
+- **Cross-cutting obligations:** Consume the public RPC/WS contract only (D52-L web boundary; `src/web` stays Drizzle-free per I44-L); do not read persistence directly or add fallbacks.
+- **Traceability:** D52-L, D62-L, I44-L.
+- **Design docs:** `src/web/README.md`; `src/rpc/README.md`.
 
 ### projection-shape-coverage
 
@@ -313,7 +368,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Name:** Complete the uneven renderer text-regression (golden + invariant) coverage (RENDER stage)
 - **Linear:** unassigned
 - **Kind:** coverage (buildable-now) / hardening
-- **Status:** next — trio stage 2 (`#render`); **depends on `projection-shape-coverage`**
+- **Status:** deferred — below the demo line (alpha-week); trio stage 2 (`#render`), **depends on `projection-shape-coverage`** (done). Not a demo blocker. A *targeted* renderer-quality pass on demo surfaces may ride `demo-polish`; the coverage frontier itself waits.
 - **Certainty:** proving
 - **Pipeline position:** RENDER — the first lossy stage, consuming PROJECT outputs. Locks only after projection shapes are stable; upstream of `prompt-composition-golden-coverage` (composed prompts embed rendered context).
 - **Coverage-gate verdict (2026-06-08 ln-plan):** **Passes the admission gate** — an open coverage frontier. Named load-bearing layer (`src/renderers/`), closeable inventory, honest ●/○ marking, owner+oracle per row, explicit ledger authority. Classified **buildable-now**, and framed as **partial-oracle completion, not greenfield adoption**: the preview→lock→formalize loop is adopted unevenly. `toMatchFileSnapshot` goldens are live for `graph/neighborhood` and `session/runtime-frame` (`src/renderers/**/__previews__/`); what remains is closing the gaps — `workspace-state` is still invariant-only, `renderers/exchanges` has no goldens, `renderers/session/transcript.ts` is only locked indirectly through `session/session-transcript.test.ts`, and the planned sketch harness (`src/scripts/render-preview.ts` / `npm run render`) is not yet in tree.
@@ -360,25 +415,46 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Traceability:** D25-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L.
 - **Design docs:** `src/.pi/skills/README.md`; `src/.pi/agents/README.md`; `memory/CROSS_CUT_PLAN.md` §Renderer feedback loops.
 
-### exchanges-and-generalized-capture
+### generalized-capture
 
-- **Name:** Generalized capture (narrow extractive) + exchange-surface symmetry audit
-- **Linear:** unassigned
+> **Split from `exchanges-and-generalized-capture` (2026-06-11 demo cut).** Promoted to its own frontier (objective 1 of the former combined item) because the demo claim needs natural-ish capture; the delete-oriented audit half is now the separate `exchange-symmetry-audit` frontier below.
+
+- **Name:** Generalized capture (narrow high-confidence extractive) + false-commit guard
+- **Linear:** unassigned (new FE issue — create on start; demo block 2, stacks on `elicitation-driver`/FE-852)
 - **Kind:** bounded feature
-- **Status:** next
+- **Status:** active — **demo block 2** of the lower line
 - **Certainty:** proving
-- **Coverage-gate verdict (2026-06-08 ln-plan):** **Not a coverage frontier.** It was sitting in the coverage slot, but the admission gate fails on the load-bearing question: the remaining required work is **vertical capture semantics** (high-confidence extractive capture with false-commit protection), not breadth closure. The exchange surface is largely built across {`.pi/extensions/exchanges`, `projections/exchanges`, `renderers/exchanges`}, with some breadth still explicitly deferred / topology-stubbed (e.g. the `present-candidates` candidate-family stub mirrored across all three layers). So the open unknown is the capture vertical, not an unbuilt inventory; reclassified as a bounded proving feature plus a delete-oriented symmetry audit.
+- **Demo cut (2026-06-11):** the locked demo claim needs capture beyond directly-labeled facts, so this is demo-blocking. Open with a practical-testing + analysis + `ln-grill` prelude before `ln-scope`. Completeness obligation = the **false-commit scenario matrix** (every `capture-quality-spike` scenario class — free-prose, file/ref-bearing, implication-heavy — has a regression guard); this is a closed matrix, not a coverage frontier.
 - **Unblocked by:** `capture-quality-spike` (2026-06-08) measured fixed free-prose, file/ref-bearing, and implication-heavy scenarios, reached precision 1.0 / recall 1.0 with zero false commits in the sample extraction report, and recommended graduating a narrow generalized-capture feature with an explicit false-commit guard.
-- **Objective:** (1) Build narrow generalized capture around high-confidence extractive facts with an explicit false-commit oracle for implication-heavy text — keep implication-heavy material out of graph truth unless a later slice proves a safe commitment path. (2) Run an **earned symmetry audit** of the already-built exchange three-layer split: confirm each `projections/exchanges` and `renderers/exchanges` file earns its place (genuine multi-consumer reuse or shared semantics), and delete symmetry regrowth where a single-owner read was mirrored into a shared layer "for symmetry."
-- **Why now / unlocks:** The capture-quality spike closed the evidence gate for the capture vertical. The audit rides along because the same symmetry the frontier would have "enumerated" is exactly where consumer-bleed-through/symmetry-regrowth hides. Start with the vertical + false-commit protection and treat the audit as deletion-oriented, not as breadth-building; do not regrow deleted `capture-*` topology or broad LLM commitment behavior.
+- **Objective:** Build narrow generalized capture around high-confidence extractive facts with an explicit false-commit oracle for implication-heavy text — keep implication-heavy material out of graph truth unless a later slice proves a safe commitment path.
+- **Why now / unlocks:** The capture-quality spike closed the evidence gate for the capture vertical, and the demo needs natural-ish capture composed with elicitation writeback (block 1) and proven by the ship gate (block 3).
 - **Acceptance:**
   - Capture beyond directly labeled facts starts with high-confidence extractive facts and carries an explicit false-commit oracle for implication-heavy text.
+  - The false-commit scenario matrix from `capture-quality-spike` is wired as a regression guard.
+  - Relation-bearing capture uses the role-named `mutateGraph` grammar from `role-safe-graph-mutations`; do not revive `{category, source, target}` in a capture-local edge dialect.
+- **Verification:** Probe-backed transcript and capture read-back oracles; include the capture-quality false-commit scenario family as a regression guard.
+- **Cross-cutting obligations:** Keep implication-heavy material out of graph truth; do not regrow deleted `capture-*` topology or broad LLM commitment behavior.
+- **Traceability:** D27-L, D65-L, D66-L.
+- **Design docs:** `memory/SPEC.md` D65-L/D66-L; `src/projections/README.md`.
+
+### exchange-symmetry-audit
+
+> **Split from `exchanges-and-generalized-capture` (2026-06-11 demo cut).** The delete-oriented audit half (objective 2 of the former combined item); the capture vertical is now the separate `generalized-capture` frontier above. **Deferred below the demo line** (earned/cleanup, not demo-blocking).
+
+- **Name:** Exchange-surface three-layer symmetry audit (delete-oriented)
+- **Linear:** unassigned
+- **Kind:** refactor / earned cleanup
+- **Status:** deferred — below the demo line (alpha-week or later)
+- **Certainty:** earned
+- **Context:** The exchange surface is largely built across {`.pi/extensions/exchanges`, `projections/exchanges`, `renderers/exchanges`}, with some breadth deferred / topology-stubbed (e.g. the `present-candidates` candidate-family stub mirrored across all three layers). The open work is **not** breadth closure (so this is **not** a coverage frontier) — it is confirming each mirrored file earns its place and deleting symmetry regrowth.
+- **Objective:** Run an **earned symmetry audit** of the already-built exchange three-layer split: confirm each `projections/exchanges` and `renderers/exchanges` file earns its place (genuine multi-consumer reuse or shared semantics), and delete symmetry regrowth where a single-owner read was mirrored into a shared layer "for symmetry."
+- **Acceptance:**
   - Each retained `projections/exchanges` / `renderers/exchanges` file has a named multi-consumer or shared-semantics justification; unjustified symmetric mirrors are deleted (delete-as-progress), not documented as "covered."
   - Single-owner reads or orchestration state stay in their owning domains; `renderers/exchanges` stays durable markdown/text/toon only.
-- **Verification:** Probe-backed transcript and capture read-back oracles; include the capture-quality false-commit scenario family as a regression guard. For the audit, the oracle is the existing topology-boundary test plus a per-file justification check.
+- **Verification:** The existing topology-boundary test plus a per-file justification check.
 - **Cross-cutting obligations:** Keep `renderers/exchanges` for durable markdown/text/toon only, keep TUI presenters local, and do not reintroduce `snapshot` as an architecture noun.
 - **Traceability:** D27-L, D65-L, D66-L.
-- **Design docs:** `memory/SPEC.md` D65-L/D66-L; `src/projections/README.md`; `src/renderers/README.md`.
+- **Design docs:** `src/projections/README.md`; `src/renderers/README.md`.
 
 ### probes-and-transcripts-evolution
 
@@ -472,15 +548,17 @@ nodes:
   runtime-affordances-and-legality [done · proving]  shared affordance derivation + coverage ledger; review-set/turn-mode rows tripwired (superseded by gap-based capability-readiness)
   role-safe-graph-mutations    [done · proving]    canonical mutateGraph/mutate_graph authored grammar; role-named edges; retire exposed commitGraph/commit_graph
   projection-shape-coverage      [done · coverage]   TRIO stage 1 (#project, PROJECT): session PULL ledger + projection ledger closed; direct no-loss/shape invariants live
-  renderer-golden-coverage       [next · coverage]   TRIO stage 2 (#render, RENDER): create renderer ledger + golden-lock every durable renderer; depends on projection-shape-coverage
+  renderer-golden-coverage       [deferred · coverage] TRIO stage 2 (#render, RENDER): below the demo line (alpha); create renderer ledger + golden-lock every durable renderer; depends on projection-shape-coverage
   prompt-composition-golden-coverage [done · coverage] TRIO stage 3 (#compose, COMPOSE): fixture-rendered-context prompt goldens + partial ledger locks; full-stack real-rendered-context golden remains tripwired
   elicitation-gaps-remodel       [done · proving]    remodeled elicitation_gaps obligation register; live presence derivation (grounding typology catalog superseded by gaps-node-kind-reference, D75-L)
   gaps-node-kind-reference       [done · proving]    D75-L node-kind gap reference landed; typology name/RelevantGapName retired; same-kind discrimination probe covered
   capability-readiness           [done · proving]    JIT capability->relevant-gaps gate + readiness estimate (UI-only); stored grade / MIN_GRADE / chrome.phase+chatMode retired; residue = manual satisficiency + capability-map refinement
   runtime-vocab-leaf             [parallel · proving] src/session/schema/kinds.ts source-of-truth leaf for op_mode/strategy/lens/goal (D73-L direction); decision-3 follow-on
-  elicitation-driver             [active · proving] rank/select prompt surfacing landed; capture-reflection writeback micro-decision remains; rides COMPOSE oracle
-  exchanges-and-generalized-capture [after-trio · proving] bounded feature (NOT coverage): narrow extractive capture + false-commit guard + exchange symmetry audit
-  capture-quality-spike          [done · spike]      A22-L fitness evidence graduated the narrow exchanges-and-generalized-capture feature
+  elicitation-driver             [active · proving · demo block 1] rank/select prompt surfacing landed; capture-reflection writeback is now demo-blocking; rides COMPOSE oracle
+  generalized-capture            [active · proving · demo block 2] narrow high-confidence extractive capture + false-commit scenario matrix; split from exchanges-and-generalized-capture; uses mutateGraph grammar
+  exchange-symmetry-audit        [deferred · earned] delete-oriented exchange three-layer symmetry audit; split from exchanges-and-generalized-capture; below the demo line
+  demo-polish                    [active · earned · top line] client presentation: web readout (src/web/**) + TUI chrome (presentation, not wiring); consumes the lower line's behavior/contract; no product-wiring edits
+  capture-quality-spike          [done · spike]      A22-L fitness evidence graduated the narrow generalized-capture feature
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
   dev-seed-fixtures                [parallel · proving] explicit seed selection + target-workspace-scoped workbench launch; catalog captured seeds; prove D79/I48 tracer
@@ -490,6 +568,10 @@ nodes:
   kick-and-context-seeding       [done · proving]   honest kick via triggerExchange + boot/resume context seeding; pre-reconcile-tail policy; boot idempotence
 
 edges:
+  # --- demo lane (2026-06-11 cut): lower line stacks bottom->top, demo-polish rides above ---
+  elicitation-driver        -[hard · demo]->  poc-live-ship-gate   (demo block 1: writeback = self-updating gaps the demo claims)
+  generalized-capture       -[hard · demo]->  poc-live-ship-gate   (demo block 2: high-confidence natural-ish capture the demo claims)
+  poc-live-ship-gate        -[contract]->     demo-polish          (top line consumes the lower line: web over RPC/WS + compile-time types/metadata; TUI chrome over the presentation/wiring seam)
   graph-tool-resilience     -[hard]->         capture-response-to-graph
   graph-tool-resilience     -[hard]->         project-graph-review-cycle
   capture-response-to-graph -[hard]->         poc-live-ship-gate
@@ -504,9 +586,9 @@ edges:
   gaps-node-kind-reference  -[shape]->        projection-shape-coverage      (gaps register surfaces through projections; lock upstream shape first)
   graph-tool-resilience     -[hard]->         role-safe-graph-mutations      (current graph tool + edge model exist)
   project-graph-review-cycle -[hard]->        role-safe-graph-mutations      (current review-set proposal/accept path exists)
-  role-safe-graph-mutations -[hard]->         exchanges-and-generalized-capture (relation-bearing capture uses mutateGraph grammar)
+  role-safe-graph-mutations -[hard]->         generalized-capture            (relation-bearing capture uses mutateGraph grammar)
   role-safe-graph-mutations -[already-satisfied]-> dev-seed-fixtures          (semantic curation now uses the canonical mutateGraph grammar; D79 hardening no longer needs a second graph-write dialect)
-  capture-quality-spike     -[evidence]->     exchanges-and-generalized-capture
+  capture-quality-spike     -[evidence]->     generalized-capture
   projection-shape-coverage -[hard]->         renderer-golden-coverage     (lock DTO shape before renderer golden)
   renderer-golden-coverage  -[tripwire]->     prompt-composition-golden-coverage  (COMPOSE is done except the deferred full-stack real-rendered-context golden)
   prompt-composition-golden-coverage -[oracle]-> elicitation-driver         (built compose oracle underwrites the read/rank/select driver; writeback remains active)
@@ -538,7 +620,7 @@ notes:
   - Completed prerequisites: `agents-composition-layer` supplies runtime prompt/resource posture, and `live-graph-observer` supplies the read-only web observer path expected by `capture-response-to-graph` and `poc-live-ship-gate`.
   - `graph-observed-shapes` is intentionally consumer-specific: do not assume every agent read shape belongs on the web observer.
   - `role-safe-graph-mutations` folds the prior role-named edge-surface card and semantic graph-mutation curation card into one frontier. The canonical authored graph command becomes `mutateGraph` / `mutate_graph`; role-named endpoint fields are normalized through `EDGE_CATEGORY_METADATA`; exposed `commitGraph` / `commit_graph` is retired by break-and-repair rather than kept as a weaker parallel API. Downstream capture and dev curation must not reintroduce `{category, source, target}` at authored boundaries.
-  - `exchanges-and-generalized-capture` is a bounded proving feature, not coverage: the remaining load-bearing unknown is capture semantics, not breadth closure. The exchange surface is largely built across the three layers, with some breadth still deferred / topology-stubbed (`present-candidates`). Scope high-confidence extractive capture with a false-commit guard, do not regrow deleted `capture-*` symmetry, and treat the exchange three-layer audit as delete-oriented (drop unjustified `projections/exchanges` / `renderers/exchanges` mirrors), not breadth-building.
+  - `exchanges-and-generalized-capture` was **split** (2026-06-11 demo cut) into `generalized-capture` (bounded proving feature, demo block 2 — high-confidence extractive capture with a false-commit guard; do not regrow deleted `capture-*` symmetry) and `exchange-symmetry-audit` (deferred earned cleanup — delete-oriented three-layer audit dropping unjustified `projections/exchanges` / `renderers/exchanges` mirrors, not breadth-building). The exchange surface is largely built across the three layers, with some breadth still deferred / topology-stubbed (`present-candidates`).
   - **Context-pipeline coverage trio (the near-term spine, 2026-06-08 deep per-plane pass).** The four LLM-facing context concerns are one pipeline — PULL → PROJECT → RENDER → COMPOSE (D60-L). PULL has **two halves**: the *graph* read surface is the done template (`graph/queries.ts` + `src/graph/README.md`: behavioral oracle for all 8 shapes + drift guard + real ledger), and the *session* read surface (`session/workspace-context`, `workspace-session-coordinator`, `runtime-state`) is now ledgered in `src/session/README.md` for the session/workspace projection locks. The trio closes the other three stages **in dependency order**, each completing its plane's **full ledger** via the human-in-the-loop design→lock rhythm. Oracle kind differs by stage: info-preserving stages want **invariant/no-loss** locks, lossy stages want **golden** locks. The PROJECT ledger (`src/projections/README.md`, authored 2026-06-08) applies an **earns-its-place gate before the oracle gate** — the false `workspace/workspace-context` wrapper has now been deleted/inlined, and the plan's earlier "dark zone = graph/{overview,commit-result,reconciliation-needs}" was wrong: those are `export {}` topology stubs (`○`), not dark implementations. `graph/neighborhood` is now the same class: a direct graph PULL read/topology stub, not a PROJECT survivor.
   - `projection-shape-coverage` (TRIO stage 1, `#project`) is complete on the top-of-stack coverage branch. Ledger authored in `src/projections/README.md`. `session/transcript-context`, `workspace/workspace-state`, and `session/runtime-state` are all locked directly; `workspace/workspace-context` is deleted/inlined; the graph projection stubs (`neighborhood`, `overview`, `commit-result`, `reconciliation-needs`) are `○` topology stubs, not dark; and the exchange family is explicitly resolved keep-transitive via existing `.pi` / session / probe proofs. The session PULL read-shape prerequisite is closed in `src/session/README.md`. This stabilizes the shapes renderer goldens lock against.
   - `renderer-golden-coverage` (TRIO stage 2, `#render`) **depends on stage 1**: only `graph/neighborhood` + `session/runtime-frame` are golden-locked; the rest are dark or only transitively covered via the `.pi` adapter. Create the renderer ledger (README claims one that does not exist), extend the preview harness past `graph-neighborhood`. Bound to durable renderers (exclude `markdown.ts` / `toon.ts` helpers and topology stubs). Never a ship gate.
