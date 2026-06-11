@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "coverage-matrix",
-    "name": "Coverage Matrix",
-    "readiness_grade": "elicitation_ready"
+    "name": "Coverage Matrix"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Anchor the product problem", "basis": "explicit", "source": "fixture" },

@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "yamlbase",
-    "name": "Yamlbase (Dogbase — agent-oriented local DB with Git-backed JSON storage)",
-    "readiness_grade": "planning_ready"
+    "name": "Yamlbase (Dogbase — agent-oriented local DB with Git-backed JSON storage)"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Give agents a fast, queryable local DB whose data stays human-auditable and Git-trackable", "basis": "explicit", "source": "memory/SPEC.md" },

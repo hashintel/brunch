@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "dumpchat",
-    "name": "Dumpchat (chat-export browser extension spec graph)",
-    "readiness_grade": "commitments_ready"
+    "name": "Dumpchat (chat-export browser extension spec graph)"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Export AI chat conversations to a Markdown file from supported platforms", "basis": "explicit", "source": "README.md" },

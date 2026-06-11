@@ -143,13 +143,6 @@ export async function runProposeGraphCommitProof(
   };
   appendBrunchAgentRuntimeSwitch(workspace.session.manager, runtimeState, 'extension');
   const graph = await openWorkspaceGraphRuntime(cwd);
-  const gradeResult = graph.commandExecutor.updateReadinessGrade({
-    specId: workspace.spec.id,
-    readinessGrade: 'elicitation_ready',
-  });
-  if (gradeResult.status !== 'success') {
-    throw new Error('failed to advance probe spec to elicitation_ready');
-  }
   const expectedExistingCode = seedScenarioGraph(graph, workspace.spec.id, scenarioId);
   const specReads = graph.forSpec(workspace.spec.id);
   const agentDir = options.agentDir ?? getAgentDir();

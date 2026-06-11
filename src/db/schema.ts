@@ -27,7 +27,6 @@ import {
   NODE_BASES,
   NODE_PLANES,
   READINESS_BANDS,
-  READINESS_GRADES,
 } from '../graph/schema/kinds.js';
 
 // ---------------------------------------------------------------------------
@@ -38,7 +37,6 @@ export const specs = sqliteTable('specs', {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
   slug: text().notNull(),
-  readiness_grade: text({ enum: READINESS_GRADES }).notNull().default('grounding_onboarding'),
 });
 
 export const nodes = sqliteTable(

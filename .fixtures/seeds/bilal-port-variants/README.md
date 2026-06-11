@@ -15,6 +15,6 @@ Deterministic filter, implemented in [`_variant-script.ts`](./_variant-script.ts
 - keep only nodes whose `source` starts with `stakeholder`, `external-observed`, or `technical-observed`
 - keep only edges whose endpoints both survive the node filter
 - rewrite `local_id` and edge endpoint ids densely from 1 in source order
-- emit spec slug `macro-view-grounded-intent` at `readiness_grade: elicitation_ready`
+- emit spec slug `macro-view-grounded-intent`
 
 The variant is curated starting truth for tracer runs. Product-created curation output is not merged back into this reusable seed; mixed-basis evidence belongs under `.fixtures/runs/fixture-curation/<run-id>/`.

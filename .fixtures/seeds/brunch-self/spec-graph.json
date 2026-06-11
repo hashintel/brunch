@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "brunch-self",
-    "name": "Brunch (self-described spec graph)",
-    "readiness_grade": "planning_ready"
+    "name": "Brunch (self-described spec graph)"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "goal", "title": "Build Brunch as a local spec-elicitation product layered on Pi without forking it", "basis": "explicit", "source": "memory/SPEC.md" },

@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "macro-view",
-    "name": "Macro View",
-    "readiness_grade": "commitments_ready"
+    "name": "Macro View"
   },
   "nodes": [
     {

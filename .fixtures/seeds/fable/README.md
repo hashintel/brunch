@@ -24,7 +24,7 @@ Faithful vs. projected:
   and slices map to the real done/pending roadmap slices (config spike, walking
   skeleton, manifest parity, preview mode, source view, watermark audit).
 
-`readiness_grade` is `planning_ready`: the source carries a committed SPEC plus
+The source carries a committed SPEC plus
 an ordered ROADMAP of done and pending slices.
 
 Coverage (a by-product of being faithful, not the goal):

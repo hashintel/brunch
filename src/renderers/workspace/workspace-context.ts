@@ -70,7 +70,7 @@ function renderWorkspaceOverview(
     lines.push('- session inventory:');
     for (const session of overview.sessions) {
       lines.push(
-        `  - ${session.file} (${session.id}) → ${session.specTitle} (#${session.specId}), ${session.turnCount} turn(s), readiness_grade=${session.readinessGrade}`,
+        `  - ${session.file} (${session.id}) → ${session.specTitle} (#${session.specId}), ${session.turnCount} turn(s)`,
       );
     }
   }

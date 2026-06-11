@@ -82,8 +82,6 @@ function cancelledState(): WorkspaceActivationState {
     chrome: {
       cwd: '/tmp/brunch-project',
       spec: { id: 1, title: 'Alpha spec' },
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
     },
   };
 }
@@ -101,8 +99,6 @@ function readyState(sessionFile: string): WorkspaceSessionReadyState {
     chrome: {
       cwd: '/tmp/brunch-project',
       spec: { id: 1, title: 'Alpha spec' },
-      phase: 'elicitation',
-      chatMode: 'responding-to-elicitation',
     },
   };
 }
@@ -114,8 +110,6 @@ function selectSpecState(): WorkspaceSessionState {
     chrome: {
       cwd: '/tmp/brunch-project',
       spec: null,
-      phase: 'select_spec',
-      chatMode: 'select-spec',
     },
   };
 }

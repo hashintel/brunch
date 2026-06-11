@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, relative, resolve, sep } from 'node:path';
 
-import { openWorkspaceGraphRuntime, type ReadinessGrade } from '../graph/index.js';
+import { openWorkspaceGraphRuntime } from '../graph/index.js';
 import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/boot-session-store.js';
 
 interface WorkspaceSessionFileInventory {
@@ -44,7 +44,6 @@ interface WorkspaceSessionOverview {
   readonly specId: number;
   readonly specTitle: string;
   readonly turnCount: number;
-  readonly readinessGrade: ReadinessGrade;
 }
 
 export interface WorkspaceOverview {
@@ -89,7 +88,6 @@ export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOv
     .map((spec) => ({
       id: spec.id,
       title: spec.name,
-      readinessGrade: spec.readinessGrade,
       nodeCount: graph.forSpec(spec.id).queryGraph().nodes.length,
     }))
     .sort((left, right) => left.title.localeCompare(right.title));
@@ -110,7 +108,6 @@ export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOv
           specId: session.specId,
           specTitle: spec.title,
           turnCount: countTurnEntries(entries),
-          readinessGrade: spec.readinessGrade,
         } satisfies WorkspaceSessionOverview;
       }),
   );

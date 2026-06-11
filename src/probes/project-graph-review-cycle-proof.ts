@@ -181,13 +181,6 @@ export async function runProjectGraphReviewCycleProof(
   const fixture = await readSeedFixture(join(fixtureRoot, 'seeds', seedSet, `${seedSlug}.json`));
   const graph = await openWorkspaceGraphRuntime(cwd);
   const seedResult = seedFixture(graph.commandExecutor, fixture);
-  const gradeResult = graph.commandExecutor.updateReadinessGrade({
-    specId: seedResult.specId,
-    readinessGrade: 'commitments_ready',
-  });
-  if (gradeResult.status !== 'success') {
-    throw new Error('failed to advance probe spec to commitments_ready');
-  }
   const baseOverview = graph.forSpec(seedResult.specId).queryGraph();
   const coordinator = createWorkspaceSessionCoordinator({ cwd });
   await coordinator.openDefaultWorkspace();

@@ -243,6 +243,7 @@ describe('context tools', () => {
     expect(result.content[0]?.text).toContain('[Workspace overview]');
     expect(result.content[0]?.text).toContain('Alpha Grounding');
     expect(result.content[0]?.text).toContain('Beta Commitments');
+    expect(result.content[0]?.text).not.toContain('readiness_grade=');
     expect(result.details.mode).toBe('workspace_overview');
     expect(result.details.data.specs.map((spec) => spec.title)).toEqual([
       'Alpha Grounding',

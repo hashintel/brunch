@@ -39,9 +39,7 @@ describe('CommandExecutor', () => {
   beforeEach(() => {
     db = createTestDb();
     executor = new CommandExecutor(db);
-    db.insert(specs)
-      .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
-      .run();
+    db.insert(specs).values({ name: 'Test Spec', slug: 'test' }).run();
     specId = db.select({ id: specs.id }).from(specs).get()!.id;
     db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });
@@ -377,7 +375,6 @@ describe('CommandExecutor', () => {
       const result = executor.createSpec({
         name: 'Brunch POC',
         slug: 'brunch-poc',
-        readinessGrade: 'grounding_onboarding',
       });
 
       expect(result.status).toBe('success');
@@ -389,7 +386,6 @@ describe('CommandExecutor', () => {
       expect(row.id).toBe(result.specId);
       expect(row.name).toBe('Brunch POC');
       expect(row.slug).toBe('brunch-poc');
-      expect(row.readiness_grade).toBe('grounding_onboarding');
     });
 
     it('creates exactly one graph clock row for a new spec at LSN 1', () => {
@@ -500,23 +496,7 @@ describe('CommandExecutor', () => {
         id: created.specId,
         name: 'Spec A',
         slug: 'spec-a',
-        readinessGrade: 'grounding_onboarding',
       });
-    });
-
-    it('updates readiness grade through the command boundary', () => {
-      const created = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
-      if (created.status !== 'success') throw new Error('unreachable');
-
-      const result = executor.updateReadinessGrade({
-        specId: created.specId,
-        readinessGrade: 'elicitation_ready',
-      });
-
-      expect(result.status).toBe('success');
-      if (result.status !== 'success') throw new Error('unreachable');
-      expect(result.lsn).toBe(2);
-      expect(executor.getSpec(created.specId)?.readinessGrade).toBe('elicitation_ready');
     });
 
     it('fails loud when an existing spec is missing its graph clock row', () => {
@@ -532,20 +512,6 @@ describe('CommandExecutor', () => {
           title: 'This mutation should not repair storage',
         }),
       ).toThrow(/graph_clock invariant failed/);
-    });
-
-    it('rejects an invalid readiness grade without writing', () => {
-      const created = executor.createSpec({ name: 'Spec A', slug: 'spec-a' });
-      if (created.status !== 'success') throw new Error('unreachable');
-
-      const result = executor.updateReadinessGrade({
-        specId: created.specId,
-        readinessGrade: 'pinning' as never,
-      });
-
-      expect(result.status).toBe('structural_illegal');
-      expect(executor.getSpec(created.specId)?.readinessGrade).toBe('grounding_onboarding');
-      expect(db.select().from(changeLog).all()).toHaveLength(1);
     });
   });
 

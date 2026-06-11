@@ -3,7 +3,13 @@ import { join } from 'node:path';
 
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
-import { getNodes, queryGraph, resolveGraphEdgeId, resolveGraphNodeCode } from './queries.js';
+import {
+  getElicitationGaps,
+  getNodes,
+  queryGraph,
+  resolveGraphEdgeId,
+  resolveGraphNodeCode,
+} from './queries.js';
 import type {
   GetNodesOptions,
   GraphReadOptions,
@@ -29,6 +35,7 @@ interface SpecScopedReaders {
   ) => readonly NodeNeighborhood[];
   readonly resolveNodeCode: (code: string) => number | undefined;
   readonly resolveEdgeId: (edgeId: number) => number | undefined;
+  readonly getElicitationGaps: () => ReturnType<typeof getElicitationGaps>;
 }
 
 export interface WorkspaceGraphRuntime {
@@ -47,6 +54,7 @@ export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceG
         getNodes: (selectors, options) => getNodes(db, specId, selectors, options),
         resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
         resolveEdgeId: (edgeId) => resolveGraphEdgeId(db, specId, edgeId),
+        getElicitationGaps: () => getElicitationGaps(db, specId),
       };
     },
   };

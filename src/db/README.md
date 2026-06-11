@@ -1,6 +1,6 @@
 # db/ — Persistence substrate
 
-SPEC decisions: D16-L, D41-L, D52-L, D54-L, D62-L, D75-L
+SPEC decisions: D16-L, D41-L, D45-L, D52-L, D54-L, D62-L, D75-L
 
 ## Owns
 
@@ -97,7 +97,7 @@ their boundary.
 
 ## Current schema posture
 
-The current graph and graph-adjacent tables are spec-scoped: `specs`, `nodes`,
+The current graph and graph-adjacent tables are spec-scoped: `specs` (identity only: `id`, `name`, `slug`), `nodes`,
 `edges`, `node_kind_counters`, `graph_clock`, `change_log`,
 `reconciliation_need`, and `elicitation_gaps`. `graph_clock` is keyed by
 `spec_id`; `change_log` carries `spec_id` and is keyed by `(spec_id, lsn)`, so

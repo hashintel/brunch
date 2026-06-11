@@ -68,7 +68,6 @@ export function exportSeedFixture(db: BrunchDb, input: ExportSeedFixtureInput): 
     spec: {
       slug: spec.slug,
       name: spec.name,
-      readiness_grade: spec.readiness_grade,
     },
     nodes,
     edges,

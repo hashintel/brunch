@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "category-directions",
-    "name": "Category Directions",
-    "readiness_grade": "commitments_ready"
+    "name": "Category Directions"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "thesis", "title": "Unproven thesis exemplar", "basis": "explicit", "source": "fixture" },

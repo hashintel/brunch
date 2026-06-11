@@ -63,8 +63,6 @@ describe('TUI style lab extension registration', () => {
     await createBrunchPiExtensions(
       {
         cwd: '/tmp/brunch',
-        chatMode: 'responding-to-elicitation',
-        phase: 'elicitation',
         spec: { id: 1, title: 'Spec' },
         session: { id: 'session', label: 'Session' },
       },

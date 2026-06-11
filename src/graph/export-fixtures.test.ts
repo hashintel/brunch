@@ -35,7 +35,6 @@ function makeFixture(): SeedFixture {
     spec: {
       slug: 'curation-export',
       name: 'Curation Export',
-      readiness_grade: 'elicitation_ready',
     },
     nodes: [
       {
@@ -92,7 +91,6 @@ describe('exportSeedFixture', () => {
     const created = executor.createSpec({
       slug: 'supersession-capture',
       name: 'Supersession Capture',
-      readinessGrade: 'elicitation_ready',
     });
     expect(created.status).toBe('success');
     if (created.status !== 'success') return;

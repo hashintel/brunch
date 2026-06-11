@@ -6,8 +6,6 @@ export function renderWorkspaceState(state: WorkspaceState): string {
     `status: ${state.status}`,
     `cwd: ${state.cwd}`,
     `spec: ${state.spec ? `${state.spec.title} (${state.spec.id})` : '<none>'}`,
-    `phase: ${state.chrome.phase}`,
-    `chatMode: ${state.chrome.chatMode}`,
   ];
 
   if (state.session) {

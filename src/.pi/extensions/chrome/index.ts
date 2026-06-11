@@ -271,8 +271,6 @@ export default function brunchChrome(pi: ExtensionAPI): void {
     cwd: process.cwd(),
     spec: null,
     session: { id: 'direct-pi' },
-    phase: 'select_spec',
-    chatMode: 'select-spec',
     startupHeader: { decision: 'continue' },
   });
 }

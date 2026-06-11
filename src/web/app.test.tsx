@@ -22,29 +22,20 @@ const readyState: WorkspaceState = {
   cwd: '/tmp/brunch-project',
   spec: { id: 1, title: 'Web spec' },
   session: { id: 'session-1', file: '/tmp/session.jsonl' },
-  chrome: {
-    phase: 'elicitation',
-    chatMode: 'responding-to-elicitation',
-  },
+  chrome: {},
 };
 
 const selectSpecState: WorkspaceState = {
   status: 'select_spec',
   cwd: '/tmp/brunch-project',
   spec: null,
-  chrome: {
-    phase: 'select_spec',
-    chatMode: 'select-spec',
-  },
+  chrome: {},
 };
 const selectedSpecWithoutSessionState: WorkspaceState = {
   status: 'select_spec',
   cwd: '/tmp/brunch-project',
   spec: { id: 2, title: 'Spec without session' },
-  chrome: {
-    phase: 'select_spec',
-    chatMode: 'select-spec',
-  },
+  chrome: {},
 };
 
 const emptySelectionState = {

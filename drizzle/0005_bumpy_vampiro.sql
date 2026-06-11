@@ -1,0 +1,1 @@
+ALTER TABLE `specs` DROP COLUMN `readiness_grade`;

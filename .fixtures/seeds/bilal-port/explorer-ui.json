@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "explorer-ui",
-    "name": "Explorer UI",
-    "readiness_grade": "commitments_ready"
+    "name": "Explorer UI"
   },
   "nodes": [
     {

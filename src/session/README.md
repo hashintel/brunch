@@ -27,9 +27,12 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `.brunch/workspace.json` management. The `WorkspaceSessionCoordinator`
   is the only module that creates/opens Pi sessions for Brunch user flows
   and writes collapsed `brunch.session_binding` entries (`{schemaVersion,
-  specId}`). Its private `workspace-session-coordinator/` subtree owns
-  coordinator-shaped boot/probe helpers such as canonical session-file
-  classification; external callers import only the public root module.
+  specId}`). Its chrome state is a selection snapshot (`cwd`, optional
+  project, selected `spec`) and intentionally carries no readiness phase or
+  chat-mode display fields. Its private `workspace-session-coordinator/`
+  subtree owns coordinator-shaped boot/probe helpers such as canonical
+  session-file classification; external callers import only the public root
+  module.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 
@@ -42,10 +45,10 @@ plus the coordination logic for workspace/spec/session lifecycle.
 ## Runtime affordance coverage ledger
 
 Runtime posture affordances are pure derivations over projected runtime state plus
-spec readiness grade. `projections/session/affordances.ts` owns legal option sets
-and default-on-switch values; `session.runtimeState` currently exposes only the
-selected value per axis. Deferred means eligible or known but not currently
-transported for that consumer.
+capability-readiness over selected-spec gaps. `projections/session/affordances.ts`
+owns legal option sets and default-on-switch values; `session.runtimeState`
+currently exposes only the selected value per axis. Deferred means eligible or
+known but not currently transported for that consumer.
 
 | Row | Canonical owner | Agent | RPC | Web | Reason for deferred |
 | --- | --- | --- | --- | --- | --- |

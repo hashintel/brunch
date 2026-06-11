@@ -6,7 +6,6 @@ interface SeedFixture {
   spec: {
     slug: string;
     name: string;
-    readiness_grade: string;
   };
   nodes: Array<{
     local_id: number;
@@ -67,7 +66,6 @@ async function main(): Promise<void> {
     spec: {
       slug: VARIANT_SLUG,
       name: 'Macro View — grounded intent base',
-      readiness_grade: 'elicitation_ready',
     },
     nodes,
     edges,

@@ -82,14 +82,14 @@ per ledger row:
 
 ### Active
 
-- None.
+- No active frontier. `capability-readiness` completed the stored-grade deletion sweep on 2026-06-11; see §Next for the next sequenced frontier.
 
 ### Readiness & elicitation-gaps remodel (recommended ahead of the trio)
 
 Post-`ln-spec` implications that are **upstream** of the context-pipeline trio's readiness/chrome-touching locks (see Context §Readiness / elicitation-gaps remodel). Land the hard chain before stage 1 freezes `workspace/workspace-state` + `session/runtime-state` shapes, or bracket those fields in the trio.
 
 1. `gaps-node-kind-reference` — **done 2026-06-10.** Reshaped the gaps substrate onto node kinds per D75-L: `refersTo: NodeKind` + a free-form `question` replaced the typology `name` enum; reseeded grounding by node kind (floor `context`/`thesis`/`goal`/`constraint` plus `term`/`assumption`); `capability → NodeKind[]` replaced `RelevantGapName`. Absorbed the retired refactor plan (folded into D75-L).
-2. `capability-readiness` — **depends on `gaps-node-kind-reference` (done).** Replace the stored-grade gate (`readiness_grade`, `updateReadinessGrade`, `READINESS_GRADES`, `MIN_GRADE` proxies) with JIT capability→relevant-gaps judgment over the node-kind map; add the soft derived `readiness estimate` (UI-only); remove `chrome.phase` / `chrome.chatMode`.
+2. `capability-readiness` — **done 2026-06-11 (depends on `gaps-node-kind-reference`, done).** Runtime affordances, method/manifest/tool legality, soft derived readiness estimate projection, agent-prompt display, workspace/chrome display, and the stored-grade deletion sweep now read `ElicitationGap[]` / gap coverage rather than a persisted grade. `specs.readiness_grade`, `updateReadinessGrade`, `READINESS_GRADES`, residual grade prompt carriers, and fixture/probe grade setup are retired.
 
 ### Next
 
@@ -114,7 +114,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - `topology-readmes-and-boundaries` — small doc/test hardening when a frontier moves files or exposes a boundary; should remain attached to the frontier when possible rather than becoming an abstract cleanup project.
 - `dev-seed-fixtures` — rich, real seed data for local dev / manual / observer testing: the consolidated seed contract, the `npm run seed` loader, and growing/enhancing fixture sets (Bilal-port + legacy). Its semantic curation mutation slice is folded into / blocked by `role-safe-graph-mutations`; ongoing seed-data maintenance remains low-conflict.
 - `dx-introspection-live` — DX follow-on to `dx-feedback-loops`: harden the four-role `.fixtures/` topology + `--cwd` launch (D70-L), unify dev gating under `BRUNCH_DEV` and wire the dormant introspection extension into the real TUI (D71-L), and make introspection conversational (A26-L). Three sequenced slices; ready for a scoping thread. Low-conflict with the product trio; touches `.fixtures/`, `src/app/`, `src/dev/`, `src/.pi/extensions/introspection/`.
-- `runtime-vocab-leaf` — establish `src/session/schema/kinds.ts` as the drizzle-free source-of-truth leaf for the session/runtime axis enums (`op_mode`, `strategy`, `lens`, `goal`, `auto` sentinel), mirroring `graph/schema/kinds.ts` (D73-L ownership direction). The decision-3 follow-on; independent of the remodel chain and the trio. Does **not** relocate `READINESS_GRADES` (retired by `capability-readiness`).
+- `runtime-vocab-leaf` — establish `src/session/schema/kinds.ts` as the drizzle-free source-of-truth leaf for the session/runtime axis enums (`op_mode`, `strategy`, `lens`, `goal`, `auto` sentinel), mirroring `graph/schema/kinds.ts` (D73-L ownership direction). The decision-3 follow-on; independent of the remodel chain and the trio. Must not recreate `READINESS_GRADES` (retired by `capability-readiness`).
 
 ### Horizon
 
@@ -231,7 +231,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Name:** JIT capability-readiness over gaps; retire the stored readiness grade
 - **Linear:** unassigned — create in FE / brunch when the frontier starts.
 - **Kind:** structural
-- **Status:** next (recommended ahead of the trio)
+- **Status:** done — completed 2026-06-11 after the grade-deletion sweep
 - **Certainty:** proving
 - **Depends on:** `gaps-node-kind-reference` (hard — the gate reads node-kind-referencing gaps and a `capability → NodeKind[]` map; transitively `elicitation-gaps-remodel`, done).
 - **Retires:** the stored `readiness_grade` scalar and grade-as-authority (D45-L); A27-L (the `capability → relevant gaps` map carries enough signal to drive proceed / negotiate without a standing grade).
@@ -249,7 +249,7 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Cross-cutting obligations:** Readiness never bars graph truth or work (I31-L); `CommandExecutor` must not reject a node for a later-band kind (D64-L). The deferred milestone gate for export/plan/execute op-modes stays deferred (D45-L). Replace grade-gate tests across `compose.test.ts` / `prompting.test.ts` and createSpec/getSpec rather than preserving them.
 - **Traceability:** D25-L, D30-L, D32-L, D45-L, D57-L, D58-L, D59-L, D64-L, D65-L, D73-L, D74-L, D75-L / A27-L / I25-L, I31-L. Supersedes stored-grade gating and the `chrome.phase` / `chrome.chatMode` fields.
 - **Design docs:** `memory/SPEC.md` D45-L / D74-L; `src/projections/session/runtime-policy.ts`; `src/projections/workspace/workspace-state.ts`.
-- **Current execution pointer:** D74-L JIT gate tracer done 2026-06-10: explicit capability→grounding-gap map, proceed / low-epistemic / negotiate outcome, live presence-coverage flip, no grade-symbol import. Deferred follow-ons remain to re-scope because their shape depends on the gate interface: readiness-estimate projection, consumer rewire off `MIN_GRADE`, stored-grade deletion, `chrome.phase`/`chatMode` removal.
+- **Current execution pointer:** Done 2026-06-11. Slices 1–5 moved all legality and display consumers from the old grade/phase-era fields to selected-spec `ElicitationGap[]` / derived readiness estimates. The final grade-deletion sweep removed `specs.readiness_grade`, `updateReadinessGrade`, `READINESS_GRADES`, `ReadinessGrade`, and `AgentPromptSpecContext.readinessGrade`; regenerated migration metadata; stripped readiness grade from seed/export fixture contracts and JSON seed files; and removed probe setup calls that only advanced the legacy grade. `createSpec` / `getSpec` now carry only spec identity (`id`, `name`, `slug`), and readiness remains gap-derived at the consumers.
 
 ### runtime-vocab-leaf
 
@@ -259,14 +259,14 @@ The near-term spine has two tracks. The **context-pipeline coverage trio** remai
 - **Status:** parallel / low-conflict
 - **Certainty:** proving (low blast radius)
 - **Stabilizes:** D73-L's ownership direction extended to the runtime/session axes — a drizzle-free `src/session/schema/kinds.ts` leaf owning the closed enum arrays for the runtime axes (`op_mode`, `strategy`, `lens`, `goal`, and the `auto` selection sentinel), mirroring `src/graph/schema/kinds.ts`.
-- **Objective:** Establish `src/session/schema/kinds.ts` as the single source of truth for the session/runtime axis vocabulary currently scattered (e.g. `MethodId` in `src/.pi/agents/state.ts`, axis ids in `runtime-policy.ts` / `affordances.ts`). Consumers import the closed arrays from the leaf; the leaf imports nothing (no drizzle, no pi). Does **not** relocate `READINESS_GRADES` (retired by `capability-readiness`).
+- **Objective:** Establish `src/session/schema/kinds.ts` as the single source of truth for the session/runtime axis vocabulary currently scattered (e.g. `MethodId` in `src/.pi/agents/state.ts`, axis ids in `runtime-policy.ts` / `affordances.ts`). Consumers import the closed arrays from the leaf; the leaf imports nothing (no drizzle, no pi). Must not recreate `READINESS_GRADES` (retired by `capability-readiness`).
 - **Why now / unlocks:** The user asked (decision 3) for a runtime-state source-of-truth file parallel to `graph/schema/kinds.ts` so `op_mode` / `strategy` / `lens` / `goal` enums have one home. Independent of the remodel chain and the trio; low conflict.
 - **Acceptance:**
   - `src/session/schema/kinds.ts` exists as a pure constants leaf and owns the runtime axis enums; axis-id consumers import from it.
   - No runtime axis enum is re-declared in `.pi/agents/state.ts`, `runtime-policy.ts`, or `affordances.ts`.
   - The leaf imports nothing runtime-heavy (drizzle-free, pi-free), matching the D73-L graph-leaf posture.
 - **Verification:** Inner — import-boundary / architecture test that the leaf imports nothing and that consumers source axis enums from it.
-- **Cross-cutting obligations:** Keep the leaf a pure constants module, not a behavior home; do not relocate the retired `READINESS_GRADES`.
+- **Cross-cutting obligations:** Keep the leaf a pure constants module, not a behavior home; do not recreate the retired `READINESS_GRADES`.
 - **Traceability:** D58-L, D59-L, D73-L / I25-L.
 - **Design docs:** `src/session/README.md`; `src/graph/schema/kinds.ts` (template).
 
@@ -659,14 +659,14 @@ nodes:
   dx-feedback-loops              [done · proving]    consolidated src/dev front door (faux/real/introspection loops) + latest-pi source-alias; sealed-profile-safe read-only introspection capture
   dx-introspection-live          [next · proving]    wire dormant introspection into real TUI; four-role .fixtures topology + --cwd; unify BRUNCH_DEV; conversational self-report
   graph-observed-shapes          [done · proving]    ratified consumer-specific observed-shape ledger + drift guard; no transport shape shipped
-  runtime-affordances-and-legality [done · proving]  shared affordance(resolvedState, grade) derivation + coverage ledger; review-set/turn-mode rows tripwired
+  runtime-affordances-and-legality [done · proving]  shared affordance derivation + coverage ledger; review-set/turn-mode rows tripwired (superseded by gap-based capability-readiness)
   role-safe-graph-mutations    [done · proving]    canonical mutateGraph/mutate_graph authored grammar; role-named edges; retire exposed commitGraph/commit_graph
   projection-shape-coverage      [next · coverage]   TRIO stage 1 (#project, PROJECT): create projections ledger + no-loss/shape invariants over dark graph/transcript DTOs; invariant-kind, NOT golden
   renderer-golden-coverage       [next · coverage]   TRIO stage 2 (#render, RENDER): create renderer ledger + golden-lock every durable renderer; depends on projection-shape-coverage
   prompt-composition-golden-coverage [next · coverage] TRIO stage 3 (#compose, COMPOSE): composed-prompt preview + golden-lock partials/composition matrix; depends on renderer-golden-coverage
   elicitation-gaps-remodel       [done · proving]    remodeled elicitation_gaps obligation register; live presence derivation (grounding typology catalog superseded by gaps-node-kind-reference, D75-L)
   gaps-node-kind-reference       [done · proving]    D75-L node-kind gap reference landed; typology name/RelevantGapName retired; same-kind discrimination probe covered
-  capability-readiness           [next · proving]    JIT capability->relevant-gaps gate + readiness estimate (UI-only); retire readiness_grade / MIN_GRADE / chrome.phase+chatMode
+  capability-readiness           [done · proving]    JIT capability->relevant-gaps gate + readiness estimate (UI-only); stored grade / MIN_GRADE / chrome.phase+chatMode retired
   runtime-vocab-leaf             [parallel · proving] src/session/schema/kinds.ts source-of-truth leaf for op_mode/strategy/lens/goal (D73-L direction); decision-3 follow-on
   elicitation-driver             [after-trio · proving] live per-turn what-to-ask-next driver on remodeled elicitation_gaps; rides COMPOSE oracle; closes cross-cut Seam 3a
   exchanges-and-generalized-capture [after-trio · proving] bounded feature (NOT coverage): narrow extractive capture + false-commit guard + exchange symmetry audit
@@ -687,7 +687,7 @@ edges:
   elicitation-gaps-remodel  -[hard]->         gaps-node-kind-reference       (reshape gaps onto node kinds; refersTo NodeKind replaces the typology name enum, D75-L)
   gaps-node-kind-reference  -[hard]->         capability-readiness           (gate + readiness estimate read node-kind-referencing gaps and a capability->NodeKind[] map)
   gaps-node-kind-reference  -[hard]->         elicitation-driver             (driver ranks/selects over the final gap shape: refersTo NodeKind + question)
-  capability-readiness      -[shape]->        projection-shape-coverage      (mutates workspace-state/runtime-state shapes the trio stage 1 would lock; land first or bracket those fields)
+  capability-readiness      -[shape]->        projection-shape-coverage      (workspace-state/runtime-state readiness shape is now gap-derived; lock after this completed frontier)
   gaps-node-kind-reference  -[shape]->        projection-shape-coverage      (gaps register surfaces through projections; lock upstream shape first)
   graph-tool-resilience     -[hard]->         role-safe-graph-mutations      (current graph tool + edge model exist)
   project-graph-review-cycle -[hard]->        role-safe-graph-mutations      (current review-set proposal/accept path exists)

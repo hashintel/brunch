@@ -38,9 +38,7 @@ describe('CommandExecutor create-only mutateGraph helper', () => {
   beforeEach(() => {
     db = createTestDb();
     executor = new CommandExecutor(db);
-    db.insert(specs)
-      .values({ name: 'Test Spec', slug: 'test', readiness_grade: 'grounding_onboarding' })
-      .run();
+    db.insert(specs).values({ name: 'Test Spec', slug: 'test' }).run();
     specId = db.select({ id: specs.id }).from(specs).get()!.id;
     db.insert(graphClock).values({ spec_id: specId, lsn: 0 }).run();
   });

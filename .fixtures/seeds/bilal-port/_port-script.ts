@@ -701,7 +701,7 @@ function portSpec(sourceName: string, slug: string, displayName: string): SpecPo
 /** Assemble the consolidated seed contract — one file per spec, atomic seed unit. */
 function buildSeed(result: SpecPortResult, displayName: string): SeedFixture {
   return {
-    spec: { slug: result.slug, name: displayName, readiness_grade: 'commitments_ready' },
+    spec: { slug: result.slug, name: displayName },
     nodes: result.brunchNodes,
     edges: result.brunchEdges,
   };
@@ -783,7 +783,7 @@ function writeReadme(results: { slug: string; displayName: string; stats: Record
     '',
     '```',
     '{',
-    '  "spec":  { "slug", "name", "readiness_grade" },',
+    '  "spec":  { "slug", "name" },',
     '  "nodes": [ { "local_id", "plane", "kind", "title", "body?", "basis", "source?", "detail?" } ],',
     '  "edges": [ { "category", "source_local_id", "target_local_id", "stance?", "basis", "rationale?" } ]',
     '}',

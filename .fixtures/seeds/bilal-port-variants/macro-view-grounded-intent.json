@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "macro-view-grounded-intent",
-    "name": "Macro View — grounded intent base",
-    "readiness_grade": "elicitation_ready"
+    "name": "Macro View — grounded intent base"
   },
   "nodes": [
     {

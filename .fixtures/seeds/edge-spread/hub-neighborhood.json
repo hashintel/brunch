@@ -1,8 +1,7 @@
 {
   "spec": {
     "slug": "hub-neighborhood",
-    "name": "Hub Neighborhood",
-    "readiness_grade": "commitments_ready"
+    "name": "Hub Neighborhood"
   },
   "nodes": [
     { "local_id": 1, "plane": "intent", "kind": "requirement", "title": "Stage 2 configuration-space requirement (hub anchor)", "basis": "explicit", "source": "fixture" },
