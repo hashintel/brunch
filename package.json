@@ -35,7 +35,7 @@
   "scripts": {
     "build": "vite build && vite build --mode server-runtime",
     "check": "npm run fmt:check && npm run lint",
-    "dev": "agent-tail run 'vite: vite' 'api: npx tsx --watch src/server/index.ts'",
+    "dev": "npx tsx src/server/preflight.ts && agent-tail run 'vite: vite' 'api: npx tsx --watch src/server/index.ts'",
     "fix": "npm run lint:fix && npm run fmt",
     "fmt": "oxfmt src/ scripts/ config/ .ladle/ vite.config.ts drizzle.config.ts",
     "fmt:check": "oxfmt --check src/ scripts/ config/ .ladle/ vite.config.ts drizzle.config.ts",

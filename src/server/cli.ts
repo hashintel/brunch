@@ -12,7 +12,7 @@ import {
 } from './db/completed-spec-snapshot.js';
 import { launch } from './launcher.js';
 import { resolveBrunchProject } from './project.js';
-import { loadLocalEnvFile } from './runtime-config.js';
+import { exitIfAnthropicApiKeyMissing, loadLocalEnvFile } from './runtime-config.js';
 
 const rawArgs = process.argv.slice(2);
 const args = new Set(rawArgs);
@@ -38,6 +38,13 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log(
     '  plan <specId> [flags]     Emit .brunch/cook/specs/<specId>/plan.yaml from a completed specification.',
   );
+  console.log('');
+  console.log('Environment:');
+  console.log('  ANTHROPIC_API_KEY         Required. Brunch will not start without it; it powers the');
+  console.log('                            interview and planning features. Set it in a .env file in');
+  console.log('                            the project directory or your shell.');
+  console.log('  ANTHROPIC_MODEL           Optional interviewer model override.');
+  console.log('  BRUNCH_PORT               Optional port for the local web server.');
   console.log('');
   console.log('Cook flags:');
   console.log(
@@ -83,6 +90,8 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('  --verbose, -v             Verbose output');
   process.exit(0);
 }
+
+exitIfAnthropicApiKeyMissing();
 
 if (rawArgs[0] === 'cook') {
   const { parseCookArgs, runCook } = await import('../orchestrator/src/cook-cli.js');
