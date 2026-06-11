@@ -858,13 +858,13 @@ describe('Brunch TUI boot', () => {
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
     expect(commands.has(retiredWorkspaceCommand)).toBe(false);
     expect(commands.has('brunch')).toBe(false);
-    for (const stubCommand of [
+    for (const commandName of [
       BRUNCH_CONTINUE_COMMAND,
       BRUNCH_LENS_COMMAND,
       BRUNCH_STRATEGY_COMMAND,
       BRUNCH_MODE_COMMAND,
     ]) {
-      expect(commands.has(stubCommand)).toBe(true);
+      expect(commands.has(commandName)).toBe(true);
     }
     expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.has('ctrl+b')).toBe(false);
@@ -878,22 +878,15 @@ describe('Brunch TUI boot', () => {
     });
     expect(shortcutEvents).toEqual(['notify:warning']);
 
-    const stubEvents: string[] = [];
-    const stubCtx = {
-      ui: fakeUi((method, type) => stubEvents.push(`${method}:${type}`)),
+    const continueEvents: string[] = [];
+    const continueCtx = {
+      ui: fakeUi((method, type) => continueEvents.push(`${method}:${type}`)),
     };
-    for (const stubCommand of [
-      BRUNCH_CONTINUE_COMMAND,
-      BRUNCH_LENS_COMMAND,
-      BRUNCH_STRATEGY_COMMAND,
-      BRUNCH_MODE_COMMAND,
-    ]) {
-      const stub = commands.get(stubCommand);
-      expect(stub).toBeDefined();
-      const stubHandler = stub!.handler as (args: string, ctx: unknown) => Promise<void> | void;
-      await stubHandler('', stubCtx);
-    }
-    expect(stubEvents).toEqual(['notify:info', 'notify:info', 'notify:info', 'notify:info']);
+    const continueCommand = commands.get(BRUNCH_CONTINUE_COMMAND);
+    expect(continueCommand).toBeDefined();
+    const continueHandler = continueCommand!.handler as (args: string, ctx: unknown) => Promise<void> | void;
+    await continueHandler('', continueCtx);
+    expect(continueEvents).toEqual(['notify:info']);
   });
 
   it('opens the spec/session picker from the Brunch command', async () => {

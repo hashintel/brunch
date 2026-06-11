@@ -2,6 +2,8 @@ import { type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
+import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
+import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE } from '../session/runtime-state.js';
 import {
   bootTier2RuntimeThroughRunBrunchTui,
   resumeTier2Fixture,
@@ -50,6 +52,37 @@ describe('FE-847 Tier-2 real boot harness', () => {
     } finally {
       await devBoot.runtime.dispose();
       devBoot.restoreEnv();
+    }
+  });
+
+  it('invokes a registered Brunch runtime switch command through the real runBrunchTui boot', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const command = boot.runtime.session.extensionRunner.getCommand('brunch:lens');
+      expect(command).toBeDefined();
+
+      await command?.handler('intent', boot.runtime.session.extensionRunner.createCommandContext());
+
+      const entries = boot.runtime.session.sessionManager.getEntries();
+      expect(entries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'custom',
+            customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+            data: expect.objectContaining({
+              reason: 'switch',
+              source: 'user',
+              state: expect.objectContaining({ agentLens: 'intent' }),
+              previous: expect.objectContaining({ agentLens: 'auto' }),
+            }),
+          }),
+        ]),
+      );
+      expect(projectBrunchAgentState(entries).agentLens).toBe('intent');
+      expect(boot.runtime.session.getActiveToolNames()).not.toEqual(expect.arrayContaining(['bash']));
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
     }
   });
 

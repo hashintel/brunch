@@ -53,6 +53,39 @@ describe('Brunch chrome projection', () => {
     ]);
   });
 
+  it('prefers projected runtime telemetry over launch-time runtime fallback', () => {
+    const state = {
+      cwd: '/tmp/project',
+      spec: { id: 1, title: 'Spec One' },
+      session: { id: 'session-1', label: 'Interview #1' },
+      phase: 'elicitation' as const,
+      chatMode: 'responding-to-elicitation' as const,
+      runtime: {
+        mode: 'elicit' as const,
+        strategy: 'auto' as const,
+        lens: 'auto' as const,
+      },
+    };
+
+    const footerLine = projectBrunchChromeFooterLines(state, {
+      agentState: {
+        schemaVersion: 1,
+        operationalMode: 'elicit',
+        agentStrategy: 'propose-graph',
+        agentLens: 'intent',
+        agentGoal: 'grounding-advance',
+        agentRole: 'elicitor',
+        operationalModeDefinition: {} as never,
+        agentRoleDefinition: {} as never,
+      },
+    })[2];
+
+    expect(footerLine).toBe(
+      'proj: project | spec: Spec One | mode: elicit | strategy: propose-graph | lens: intent',
+    );
+    expect(footerLine).not.toContain('strategy: auto');
+  });
+
   it('formats rich optional runtime and context metadata without fabricating missing fields', () => {
     const state = {
       cwd: '/tmp/project',
