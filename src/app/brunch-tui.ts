@@ -399,12 +399,8 @@ export function createBrunchAgentSessionRuntimeFactory(
   };
 }
 
-function isStructuredExchangeToolResult(entry: unknown): boolean {
-  if (typeof entry !== 'object' || entry === null) return false;
-  const message = (entry as { message?: unknown }).message;
-  if (typeof message !== 'object' || message === null) return false;
-  const toolName = (message as { toolName?: unknown }).toolName;
-  return typeof toolName === 'string' && (toolName.startsWith('present_') || toolName.startsWith('request_'));
+function isMessageEntry(entry: unknown): boolean {
+  return typeof entry === 'object' && entry !== null && (entry as { type?: unknown }).type === 'message';
 }
 
 function seedAndKickAssistantTurn(options: {
@@ -413,13 +409,15 @@ function seedAndKickAssistantTurn(options: {
   readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
 }): void {
   const entries = options.sessionManager.getEntries();
-  if (entries.some((entry) => isStructuredExchangeToolResult(entry))) return;
-
+  // Origin is derived from projected transcript state, not counts or flags
+  // (I46/I47): a transcript with no conversational message entries is a new
+  // session; anything else takes the resume-debt decision, which itself
+  // dedupes re-kicks (a prior kick's present_* tail owes nothing).
   const decision = startAssistantTurn({
     specId: options.specId,
     currentLsn: options.currentLsn,
     entries,
-    origin: entries.length <= 3 ? 'new_session' : 'resume_debt',
+    origin: entries.some(isMessageEntry) ? 'resume_debt' : 'new_session',
   });
   for (const entry of decision.seedEntries) {
     options.sessionManager.appendCustomEntry(entry.customType, entry.data);

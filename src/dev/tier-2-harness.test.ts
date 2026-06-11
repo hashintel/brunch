@@ -4,10 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { compactionAnchorContract } from '../.pi/extensions/compaction/index.js';
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
+import { projectRequestChoices } from '../projections/exchanges/request-choices.js';
 import { projectAssistantVisibleWatermark } from '../projections/session/assistant-visible-watermark.js';
 import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
 import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE } from '../session/runtime-state.js';
 import {
+  bootTier2RuntimeFromFixture,
   bootTier2RuntimeThroughRunBrunchTui,
   resumeTier2Fixture,
   runTier2RealBootFauxTurn,
@@ -394,12 +396,128 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
     }
   });
 
-  it.todo(
-    'resume kick uses the pre-reconcile tail so a user tail still earns a kick after continuity notices',
-  );
-  it.todo('request_* and system leaves stay idle on resume');
-  it.todo('crash-after-notice-before-provider still kicks when the underlying debt is unanswered');
-  it.todo('trailing side-task or reviewer drains are continuity-only and do not manufacture or mask debt');
+  it('resume kick uses the pre-reconcile tail so a user tail still earns a kick after continuity notices', async () => {
+    const boot = await bootTier2RuntimeFromFixture({
+      fixtureEntries: (specId) => [
+        { type: 'message', message: userMessage('Resume me: what is the next question?') },
+        { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 99, items: [] } },
+        {
+          type: 'custom',
+          customType: 'brunch.mention_staleness_hint',
+          data: { specId, entityId: 1, seenLsn: 1, currentLsn: 99 },
+        },
+      ],
+    });
+    try {
+      const entries = boot.runtime.session.sessionManager.getEntries();
+      expect(presentToolResults(entries)).toHaveLength(1);
+      expect(userMessages(entries)).toHaveLength(1);
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+
+    // A user tail still earns the kick when earlier completed exchanges exist
+    // in the transcript — past exchange results must not blanket-suppress the
+    // resume-debt decision.
+    const postExchange = await bootTier2RuntimeFromFixture({
+      fixtureEntries: (specId) => [
+        { type: 'message', message: userMessage('First question') },
+        { type: 'message', message: requestChoicesResultMessage('answered') },
+        { type: 'message', message: userMessage('Follow-up you never answered') },
+        { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 99, items: [] } },
+      ],
+    });
+    try {
+      // One present_* result came from the fixture-era kick is absent here; the
+      // reboot kick appends exactly one beyond the fixture's zero.
+      expect(presentToolResults(postExchange.runtime.session.sessionManager.getEntries())).toHaveLength(1);
+    } finally {
+      await postExchange.runtime.dispose();
+      postExchange.restoreEnv();
+    }
+  });
+
+  it('request_* and system leaves stay idle on resume', async () => {
+    for (const status of ['answered', 'cancelled', 'unavailable'] as const) {
+      const boot = await bootTier2RuntimeFromFixture({
+        fixtureEntries: () => [
+          { type: 'message', message: userMessage('Earlier question') },
+          { type: 'message', message: requestChoicesResultMessage(status) },
+        ],
+      });
+      try {
+        expect(presentToolResults(boot.runtime.session.sessionManager.getEntries())).toHaveLength(0);
+      } finally {
+        await boot.runtime.dispose();
+        boot.restoreEnv();
+      }
+    }
+
+    const assistantLeaf = await bootTier2RuntimeFromFixture({
+      fixtureEntries: () => [
+        { type: 'message', message: userMessage('Earlier question') },
+        { type: 'message', message: assistantMessage('System-side answer; nothing owed.') },
+      ],
+    });
+    try {
+      expect(presentToolResults(assistantLeaf.runtime.session.sessionManager.getEntries())).toHaveLength(0);
+    } finally {
+      await assistantLeaf.runtime.dispose();
+      assistantLeaf.restoreEnv();
+    }
+  });
+
+  it('crash-after-notice-before-provider still kicks when the underlying debt is unanswered', async () => {
+    // Reconciler-inserted seed/notices landed, then the process died before the
+    // provider call; reboot must still answer the user's unresolved debt and
+    // must not duplicate the already-written seed.
+    const boot = await bootTier2RuntimeFromFixture({
+      fixtureEntries: (specId) => [
+        { type: 'message', message: userMessage('Crashed before you answered this.') },
+        { type: 'custom', customType: 'brunch.context_seed', data: { specId, snapshotLsn: 9999 } },
+        { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 9999, items: [] } },
+      ],
+    });
+    try {
+      const entries = boot.runtime.session.sessionManager.getEntries();
+      expect(presentToolResults(entries)).toHaveLength(1);
+      expect(customEntries(entries, 'brunch.context_seed')).toHaveLength(1);
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
+  it('trailing side-task or reviewer drains are continuity-only and do not manufacture or mask debt', async () => {
+    const noDebt = await bootTier2RuntimeFromFixture({
+      fixtureEntries: (specId) => [
+        { type: 'message', message: userMessage('Earlier question') },
+        { type: 'message', message: requestChoicesResultMessage('answered') },
+        { type: 'custom', customType: 'brunch.side_task_result', data: { specId, taskId: 't1' } },
+        { type: 'custom', customType: 'brunch.reviewer_drain', data: { specId, findings: [] } },
+      ],
+    });
+    try {
+      expect(presentToolResults(noDebt.runtime.session.sessionManager.getEntries())).toHaveLength(0);
+    } finally {
+      await noDebt.runtime.dispose();
+      noDebt.restoreEnv();
+    }
+
+    const maskedDebt = await bootTier2RuntimeFromFixture({
+      fixtureEntries: (specId) => [
+        { type: 'message', message: userMessage('Still waiting on this.') },
+        { type: 'custom', customType: 'brunch.side_task_result', data: { specId, taskId: 't1' } },
+      ],
+    });
+    try {
+      expect(presentToolResults(maskedDebt.runtime.session.sessionManager.getEntries())).toHaveLength(1);
+    } finally {
+      await maskedDebt.runtime.dispose();
+      maskedDebt.restoreEnv();
+    }
+  });
 });
 
 describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempotence', () => {
@@ -461,6 +579,51 @@ async function executeReadGraph(
   return tool.execute('tier-2-read-graph', params, undefined, undefined, {
     sessionManager: session.sessionManager,
   } as never);
+}
+
+function messagesByRole(entries: readonly unknown[], role: string): readonly Record<string, unknown>[] {
+  return entries.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const message = (entry as { message?: unknown }).message;
+    if (typeof message !== 'object' || message === null) return [];
+    return (message as { role?: unknown }).role === role ? [message as Record<string, unknown>] : [];
+  });
+}
+
+function presentToolResults(entries: readonly unknown[]): readonly Record<string, unknown>[] {
+  return messagesByRole(entries, 'toolResult').filter(
+    (message) => typeof message.toolName === 'string' && message.toolName.startsWith('present_'),
+  );
+}
+
+function userMessages(entries: readonly unknown[]): readonly Record<string, unknown>[] {
+  return messagesByRole(entries, 'user');
+}
+
+/**
+ * A request_* tool result exactly as the exchanges extension writes it: the
+ * details envelope comes from the real projection (answered/cancelled/
+ * unavailable key presence), not a hand-built status field — this fixture IS
+ * the test of the resume-debt classifier's envelope reading.
+ */
+function requestChoicesResultMessage(status: 'answered' | 'cancelled' | 'unavailable') {
+  const details = projectRequestChoices({
+    exchangeId: 'ex-resume-1',
+    status,
+    ...(status === 'answered'
+      ? { choices: [{ id: 'choice-1', label: 'Choice 1', kind: 'listed' as const }] }
+      : {}),
+    ...(status === 'unavailable' ? { message: 'request_choices unavailable' } : {}),
+  });
+  return {
+    role: 'toolResult' as const,
+    toolCallId: 'ex-resume-1:request_choices',
+    toolName: 'request_choices',
+    content: [{ type: 'text' as const, text: `request_choices ${status}` }],
+    details,
+    isError: false as const,
+    timestamp: 0 as const,
+  };
 }
 
 function customEntries(entries: readonly unknown[], customType: string): ReadonlyArray<{ data: unknown }> {

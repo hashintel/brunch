@@ -50,9 +50,17 @@ describe('startAssistantTurn', () => {
   });
 
   it('stays idle for request/system leaves and for explicit freestyle while AUTO remains offer-first', () => {
-    for (const status of ['answered', 'cancelled', 'unavailable'] as const) {
-      expect(latestTailOwesAssistant([toolResult('request_clarification', { status })])).toBe(false);
-    }
+    // Real request_* envelopes carry the outcome as key presence
+    // (answered/cancelled/unavailable), never a status string field.
+    expect(
+      latestTailOwesAssistant([toolResult('request_clarification', { answered: { choices: [] } })]),
+    ).toBe(false);
+    expect(latestTailOwesAssistant([toolResult('request_clarification', { cancelled: {} })])).toBe(false);
+    expect(
+      latestTailOwesAssistant([toolResult('request_clarification', { unavailable: { message: 'no UI' } })]),
+    ).toBe(false);
+    // A status string alone is not a real terminal envelope — still pending.
+    expect(latestTailOwesAssistant([toolResult('request_clarification', { status: 'answered' })])).toBe(true);
     expect(latestTailOwesAssistant([toolResult('present_options')])).toBe(false);
 
     expect(
