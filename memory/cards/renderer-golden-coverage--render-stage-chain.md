@@ -57,6 +57,8 @@ Before adding any more goldens, close the authority gap around what counts as a 
 
 ✓ The ledger walk is anchored on the agent-tool catalog: each tool-owned row names the owning tool and **both render targets** (agent-context toolResult and TUI presentation). TUI presentation gets an explicit per-row disposition (lock mechanism or review-only), even where the lock itself is deferred.
 
+✓ Entry-copy surfaces get ledger rows alongside tool renders (2026-06-12 ln-induct): kick message, mention-staleness hints, lifecycle notices, compaction copy, seed framing — provider-visible strings composed outside `renderers/`, each with an owner and a wording-oracle disposition.
+
 ✓ The ledger makes an explicit call on `workspace/workspace-context`: keep-and-cover only if it still owns a real consumer seam; otherwise demote or retire it.
 
 ✓ This card chooses one honest sketch path for the rest of the frontier: either materialize a minimal shared preview harness (`src/scripts/render-preview.ts` + `npm run render`) or explicitly narrow the frontier to test-local preview generation. Later cards should not reopen that choice.
