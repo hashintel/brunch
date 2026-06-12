@@ -1,0 +1,436 @@
+{
+  "spec": {
+    "slug": "resilient-pipeline-spec",
+    "name": "resilient-pipeline (reversed cook fixture)"
+  },
+  "nodes": [
+    {
+      "local_id": 1,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Build a CSV parse → transform → serialize pipeline whose value is failure isolation under a Petri net: one branch is seeded with a contradi…",
+      "body": "Build a CSV parse → transform → serialize pipeline whose value is failure isolation under a Petri net: one branch is seeded with a contradiction and halts, the independent branch completes, and the join becomes provably unreachable — waiting, not failed.",
+      "basis": "explicit",
+      "source": "cook-port [goal]",
+      "detail": null
+    },
+    {
+      "local_id": 2,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Halt token / :halted",
+      "body": "Halt token / :halted — the marking a slice deposits when it exhausts its rework/retry budget without going green; the slice stops, the net keeps running elsewhere.",
+      "basis": "explicit",
+      "source": "cook-port [term-halt]",
+      "detail": {
+        "definition": "the marking a slice deposits when it exhausts its rework/retry budget without going green; the slice stops, the net keeps running elsewhere."
+      }
+    },
+    {
+      "local_id": 3,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Seeded contradiction",
+      "body": "Seeded contradiction — an intentionally unsatisfiable slice spec (transform-b’s two mutually-exclusive criteria) used to cause a halt on purpose. A fixture device, not a bug.",
+      "basis": "explicit",
+      "source": "cook-port [term-seeded]",
+      "detail": {
+        "definition": "an intentionally unsatisfiable slice spec (transform-b’s two mutually-exclusive criteria) used to cause a halt on purpose. A fixture device, not a bug."
+      }
+    },
+    {
+      "local_id": 4,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Unreachable join",
+      "body": "Unreachable join — a join slice (serialize) that can never be enabled because one required upstream token never arrives; waiting, not failed.",
+      "basis": "explicit",
+      "source": "cook-port [term-unreachable]",
+      "detail": {
+        "definition": "a join slice (serialize) that can never be enabled because one required upstream token never arrives; waiting, not failed."
+      }
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Failure isolation",
+      "body": "Failure isolation — a halt blocks only its downstream cone while independent subtrees complete normally.",
+      "basis": "explicit",
+      "source": "cook-port [term-isolation]",
+      "detail": {
+        "definition": "a halt blocks only its downstream cone while independent subtrees complete normally."
+      }
+    },
+    {
+      "local_id": 6,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Greenfield brunch cook fixture run with a low retry budget (--max-retries=2) so transform-b reaches :halted fast and the blocked frontier i…",
+      "body": "Greenfield brunch cook fixture run with a low retry budget (--max-retries=2) so transform-b reaches :halted fast and the blocked frontier is drawn live in Petrinaut.",
+      "basis": "explicit",
+      "source": "cook-port [ctx-roundtrip]",
+      "detail": null
+    },
+    {
+      "local_id": 7,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "transform-b is intentionally unsatisfiable and must NOT be fixed; its contradiction is the demonstration of halt isolation.",
+      "body": "transform-b is intentionally unsatisfiable and must NOT be fixed; its contradiction is the demonstration of halt isolation.",
+      "basis": "explicit",
+      "source": "cook-port [con-dontfix]",
+      "detail": null
+    },
+    {
+      "local_id": 8,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Failure must stay isolated: the seeded halt may not break parse or transform-a; only the cone depending on transform-b (serialize) may be b…",
+      "body": "Failure must stay isolated: the seeded halt may not break parse or transform-a; only the cone depending on transform-b (serialize) may be blocked.",
+      "basis": "explicit",
+      "source": "cook-port [con-isolation]",
+      "detail": null
+    },
+    {
+      "local_id": 9,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "In-memory, zero deps, ESM, bun test; file-disjoint slices; low retry budget for a fast deterministic halt.",
+      "body": "In-memory, zero deps, ESM, bun test; file-disjoint slices; low retry budget for a fast deterministic halt.",
+      "basis": "explicit",
+      "source": "cook-port [con-substrate]",
+      "detail": null
+    },
+    {
+      "local_id": 10,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "transform-b’s verification encodes a genuine contradiction so its TDD loop exhausts the rework budget and deposits a halt token.",
+      "body": "transform-b’s verification encodes a genuine contradiction so its TDD loop exhausts the rework budget and deposits a halt token.\n\nRationale: A deliberate fixture device, not a defect; the contradiction is load-bearing.\n\nImpact: high",
+      "basis": "explicit",
+      "source": "cook-port [d1]",
+      "detail": {
+        "chosen_option": "transform-b’s verification encodes a genuine contradiction so its TDD loop exhausts the rework budget and deposits a halt token.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "A deliberate fixture device, not a defect; the contradiction is load-bearing."
+      }
+    },
+    {
+      "local_id": 11,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Failure is isolated to the halted slice’s downstream cone; parse and transform-a, independent of transform-b, complete normally.",
+      "body": "Failure is isolated to the halted slice’s downstream cone; parse and transform-a, independent of transform-b, complete normally.",
+      "basis": "explicit",
+      "source": "cook-port [d2]",
+      "detail": {
+        "chosen_option": "Failure is isolated to the halted slice’s downstream cone; parse and transform-a, independent of transform-b, complete normally.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "(not recorded in source)"
+      }
+    },
+    {
+      "local_id": 12,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "serialize is the join depending on both transforms; it is provably unreachable, not failed — reachability is not failure.",
+      "body": "serialize is the join depending on both transforms; it is provably unreachable, not failed — reachability is not failure.",
+      "basis": "explicit",
+      "source": "cook-port [d3]",
+      "detail": {
+        "chosen_option": "serialize is the join depending on both transforms; it is provably unreachable, not failed — reachability is not failure.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "(not recorded in source)"
+      }
+    },
+    {
+      "local_id": 13,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "File-disjoint slices, one module + one unit-test oracle per slice; halt speed tuned via --max-retries / maxSemanticReworks.",
+      "body": "File-disjoint slices, one module + one unit-test oracle per slice; halt speed tuned via --max-retries / maxSemanticReworks.",
+      "basis": "explicit",
+      "source": "cook-port [d4]",
+      "detail": {
+        "chosen_option": "File-disjoint slices, one module + one unit-test oracle per slice; halt speed tuned via --max-retries / maxSemanticReworks.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "(not recorded in source)"
+      }
+    },
+    {
+      "local_id": 14,
+      "plane": "intent",
+      "kind": "assumption",
+      "title": "A low retry budget reliably drives transform-b to :halted quickly without flakiness while letting satisfiable slices finish.",
+      "body": "A low retry budget reliably drives transform-b to :halted quickly without flakiness while letting satisfiable slices finish.",
+      "basis": "explicit",
+      "source": "cook-port [a1]",
+      "detail": null
+    },
+    {
+      "local_id": 15,
+      "plane": "intent",
+      "kind": "assumption",
+      "title": "The orchestrator treats a halted upstream as token-never-arrives (serialize stays waiting/unreachable), not as a propagated failure.",
+      "body": "The orchestrator treats a halted upstream as token-never-arrives (serialize stays waiting/unreachable), not as a propagated failure.",
+      "basis": "explicit",
+      "source": "cook-port [a2]",
+      "detail": null
+    },
+    {
+      "local_id": 16,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/parse.ts: parse(input) parsing simple CSV (header + comma-separated rows) into row objects. The root. Satisfiable.",
+      "body": "src/parse.ts: parse(input) parsing simple CSV (header + comma-separated rows) into row objects. The root. Satisfiable.",
+      "basis": "explicit",
+      "source": "cook-port [r-parse]",
+      "detail": null
+    },
+    {
+      "local_id": 17,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/transform-a.ts: selectColumns(rows, cols) returning each row narrowed to the given columns. Satisfiable.",
+      "body": "src/transform-a.ts: selectColumns(rows, cols) returning each row narrowed to the given columns. Satisfiable.",
+      "basis": "explicit",
+      "source": "cook-port [r-transform-a]",
+      "detail": null
+    },
+    {
+      "local_id": 18,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/transform-b.ts: normalize(value) required to BOTH return the value unchanged AND upper-cased — mutually exclusive. Intentionally unsati…",
+      "body": "src/transform-b.ts: normalize(value) required to BOTH return the value unchanged AND upper-cased — mutually exclusive. Intentionally unsatisfiable: the seeded halt.",
+      "basis": "explicit",
+      "source": "cook-port [r-transform-b]",
+      "detail": null
+    },
+    {
+      "local_id": 19,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/serialize.ts: serialize(rows) rendering rows back to CSV, combining transform-a and transform-b outputs. The join — provably unreachabl…",
+      "body": "src/serialize.ts: serialize(rows) rendering rows back to CSV, combining transform-a and transform-b outputs. The join — provably unreachable here.",
+      "basis": "explicit",
+      "source": "cook-port [r-serialize]",
+      "detail": null
+    },
+    {
+      "local_id": 20,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "ln-plan re-derives parse root; transform-a and transform-b parallel on parse; serialize on both — preserving transform-b’s seeded contradic…",
+      "body": "ln-plan re-derives parse root; transform-a and transform-b parallel on parse; serialize on both — preserving transform-b’s seeded contradiction rather than repairing it.",
+      "basis": "explicit",
+      "source": "cook-port [c-plan-shape]",
+      "detail": null
+    },
+    {
+      "local_id": 21,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "A bounded-retry parallel cook run shows parse + transform-a at done, transform-b at :halted after exhausting its budget, and serialize wait…",
+      "body": "A bounded-retry parallel cook run shows parse + transform-a at done, transform-b at :halted after exhausting its budget, and serialize waiting forever — the blocked frontier.",
+      "basis": "explicit",
+      "source": "cook-port [c-halt]",
+      "detail": null
+    },
+    {
+      "local_id": 22,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "parse and transform-a unit tests pass green; serialize would pass if reached but is never enabled; transform-b is unsatisfiable by construc…",
+      "body": "parse and transform-a unit tests pass green; serialize would pass if reached but is never enabled; transform-b is unsatisfiable by construction.",
+      "basis": "explicit",
+      "source": "cook-port [c-green]",
+      "detail": null
+    },
+    {
+      "local_id": 23,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "The halt stays isolated: the independent subtree completes; only serialize is blocked.",
+      "body": "The halt stays isolated: the independent subtree completes; only serialize is blocked.",
+      "basis": "explicit",
+      "source": "cook-port [c-isolated]",
+      "detail": null
+    },
+    {
+      "local_id": 24,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Grounding exchange (ported interview)",
+      "body": "Q: Sketch resilient-pipeline in one breath: what is it, and what does the seeded halt demonstrate?\n\nA: A CSV parse→transform→serialize pipeline where transform-b is intentionally contradictory and halts, isolating failure while the serialize join stays provably unreachable.",
+      "basis": "explicit",
+      "source": "cook-port-interview",
+      "detail": null
+    },
+    {
+      "local_id": 25,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Design answer (ported interview)",
+      "body": "Isolate failure to the halted slice’s downstream cone; keep the serialize join waiting (unreachable), not failed.",
+      "basis": "explicit",
+      "source": "cook-port-interview",
+      "detail": null
+    }
+  ],
+  "edges": [
+    {
+      "category": "support",
+      "source_local_id": 24,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "support",
+      "source_local_id": 25,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 1,
+      "target_local_id": 16,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "support",
+      "source_local_id": 2,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "support",
+      "source_local_id": 4,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 1,
+      "target_local_id": 6,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 3,
+      "target_local_id": 10,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 4,
+      "target_local_id": 12,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 5,
+      "target_local_id": 11,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "boundary",
+      "source_local_id": 7,
+      "target_local_id": 18,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "boundary",
+      "source_local_id": 8,
+      "target_local_id": 1,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "boundary",
+      "source_local_id": 9,
+      "target_local_id": 1,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 10,
+      "target_local_id": 14,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 12,
+      "target_local_id": 15,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 21,
+      "target_local_id": 18,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 23,
+      "target_local_id": 16,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 22,
+      "target_local_id": 19,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 20,
+      "target_local_id": 19,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    }
+  ]
+}
