@@ -124,7 +124,8 @@ describe('Brunch runtime switch commands', () => {
     await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
-    expect(harness.customCalls[0]?.options).toMatchObject({ overlay: true });
+    // No overlay options: the picker replaces the input editor in place.
+    expect(harness.customCalls[0]?.options).toBeUndefined();
     expect(harness.entries).toHaveLength(1);
     expect(harness.entries[0]?.data).toMatchObject({
       reason: 'switch',
@@ -140,7 +141,8 @@ describe('Brunch runtime switch commands', () => {
     await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
-    expect(harness.customCalls[0]?.options).toMatchObject({ overlay: true });
+    // No overlay options: the picker replaces the input editor in place.
+    expect(harness.customCalls[0]?.options).toBeUndefined();
     expect(harness.entries).toHaveLength(1);
     expect(harness.entries[0]?.data).toMatchObject({
       reason: 'switch',

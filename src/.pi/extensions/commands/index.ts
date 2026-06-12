@@ -148,6 +148,9 @@ function registerRuntimeSwitchCommands(
           return;
         }
         const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+        // Non-overlay ui.custom: the picker temporarily replaces the input
+        // editor in place (and is restored on done), so it always renders at
+        // the input area instead of floating at a terminal-absolute anchor.
         const picked = await ctx.ui.custom<AgentLensSelection | undefined>(
           (_tui, theme, _keybindings, done) =>
             createRuntimeLensPickerComponent({
@@ -155,15 +158,6 @@ function registerRuntimeSwitchCommands(
               theme,
               onDone: done,
             }),
-          {
-            overlay: true,
-            overlayOptions: {
-              anchor: 'center',
-              width: 72,
-              maxHeight: '90%',
-              margin: 1,
-            },
-          },
         );
         if (picked === undefined) return;
         if (!isLensSelection(picked)) {
@@ -198,6 +192,8 @@ function registerRuntimeSwitchCommands(
           return;
         }
         const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+        // Non-overlay ui.custom: replaces the input editor in place; see the
+        // lens picker above.
         const picked = await ctx.ui.custom<AgentStrategySelection | undefined>(
           (_tui, theme, _keybindings, done) =>
             createRuntimeStrategyPickerComponent({
@@ -205,15 +201,6 @@ function registerRuntimeSwitchCommands(
               theme,
               onDone: done,
             }),
-          {
-            overlay: true,
-            overlayOptions: {
-              anchor: 'center',
-              width: 96,
-              maxHeight: '90%',
-              margin: 1,
-            },
-          },
         );
         if (picked === undefined) return;
         if (!isStrategySelection(picked)) {
