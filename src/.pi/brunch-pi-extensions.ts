@@ -28,7 +28,9 @@ import {
   registerBrunchIntrospectQuery,
 } from './extensions/introspect-query/index.js';
 import {
+  appendEntryContentToDebugCache,
   registerBrunchIntrospection,
+  type BrunchDebugCacheOptions,
   type BrunchIntrospectionOptions,
 } from './extensions/introspection/index.js';
 import { type GraphMentionSource } from './extensions/mentions/index.js';
@@ -152,8 +154,9 @@ export function createBrunchPiExtensions(
     const devAllowedToolNames = introspectionOptions?.enabled
       ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]
       : undefined;
+    const entryDebugCache = introspectionOptions?.enabled ? introspectionOptions.debugCache : undefined;
     const continuityStep = options.graph
-      ? createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains)
+      ? createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains, entryDebugCache)
       : undefined;
     const chromeRefresh: { current: (() => void) | null } = { current: null };
     const graph = options.graph;
@@ -165,7 +168,9 @@ export function createBrunchPiExtensions(
         registerBrunchSessionBoundary(api, onSessionBoundary, {
           continuitySteps: continuityStep ? [continuityStep] : [],
         });
-        if (options.graph) registerBrunchContinuityGuard(api, options.graph, options.continuityDrains);
+        if (options.graph) {
+          registerBrunchContinuityGuard(api, options.graph, options.continuityDrains, entryDebugCache);
+        }
       },
       (api) =>
         registerBrunchChrome(api, chrome, {
@@ -225,11 +230,13 @@ export function createBrunchPiExtensions(
 function createPrepareNextTurnContinuityStep(
   graph: BrunchGraphDeps,
   getContinuityDrains: (() => readonly ContinuityDrain[]) | undefined,
+  entryDebugCache: BrunchDebugCacheOptions | undefined,
 ): BrunchSessionBoundaryPipelineStep {
   return ({ sessionManager }) => {
     const result = prepareNextTurnForGraph(graph, sessionManager, getContinuityDrains);
     for (const entry of result.entriesToAppend) {
       appendPreparedContinuityEntry(sessionManager, entry);
+      if (entryDebugCache) void appendEntryContentToDebugCache(entryDebugCache, entry).catch(() => {});
     }
   };
 }
@@ -238,6 +245,7 @@ function registerBrunchContinuityGuard(
   pi: ExtensionAPI,
   graph: BrunchGraphDeps,
   getContinuityDrains: (() => readonly ContinuityDrain[]) | undefined,
+  entryDebugCache: BrunchDebugCacheOptions | undefined,
 ): void {
   pi.on('before_provider_request', async (_event, ctx) => {
     const sessionManager = ctx.sessionManager as SessionManager;
@@ -245,6 +253,7 @@ function registerBrunchContinuityGuard(
       prepare: () => prepareNextTurnForGraph(graph, sessionManager, getContinuityDrains),
       append: (entry) => {
         appendPreparedContinuityEntry(sessionManager, entry);
+        if (entryDebugCache) void appendEntryContentToDebugCache(entryDebugCache, entry).catch(() => {});
       },
     });
   });

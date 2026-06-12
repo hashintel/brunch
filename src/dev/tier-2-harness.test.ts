@@ -76,6 +76,35 @@ describe('origination-kick-live — the product originates the opening turn on i
     }
   });
 
+  it('a seeded-but-unkicked session is visible in .brunch/debug/entry-contents.md with zero provider calls', async () => {
+    // The regression named for the 2026-06-11 walkthrough defect: both prior
+    // debug surfaces were provider-activity-driven, so a boot whose kick
+    // never fired left no observable trace. The entry mirror hooks the append
+    // seam instead — dev boots show Brunch entries before any turn runs.
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: true });
+    try {
+      // dev boot has no model → no kick → no provider call; the mirror must exist anyway
+      const mirror = await readFile(`${boot.cwd}/.brunch/debug/entry-contents.md`, 'utf8');
+      expect(mirror).toContain('brunch.context_seed');
+      expect(mirror).toContain('Open elicitation gaps');
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
+  it('without BRUNCH_DEV no entry mirror is written', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      await expect(readFile(`${boot.cwd}/.brunch/debug/entry-contents.md`, 'utf8')).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
   it('a boot with no available model does not kick (content boots stay deterministic)', async () => {
     const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {

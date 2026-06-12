@@ -20,6 +20,7 @@ import {
 } from '../.pi/brunch-pi-extensions.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
+import { appendEntryContentToDebugCache } from '../.pi/extensions/introspection/index.js';
 import {
   openWorkspaceGraphRuntime,
   type EdgeCategory,
@@ -376,6 +377,15 @@ export function createBrunchAgentSessionRuntimeFactory(
       specName: graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name,
       sessionManager,
     });
+    if (context.dev) {
+      // Boot-time mirror is awaited (cheap, local fs) so a dev boot is
+      // observable the moment the runtime exists; turn-time mirrors in the
+      // reconciler/guard stay fire-and-forget.
+      const debugCache = context.dev.introspection.debugCache;
+      for (const entry of origination.decision.seedEntries) {
+        await appendEntryContentToDebugCache(debugCache, entry).catch(() => {});
+      }
+    }
 
     const services = await createAgentSessionServices({
       cwd,

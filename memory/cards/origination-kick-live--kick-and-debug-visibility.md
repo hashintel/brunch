@@ -154,7 +154,18 @@ memory/SPEC.md                         ~   (I46-L coverage cell honesty)
 
 ## Card 2 — `.brunch/debug/entry-contents.md`: Brunch entries visible without a provider call
 
-Status: next
+Status: done (2026-06-11)
+
+Landed shape: `appendEntryContentToDebugCache` in `debug-cache.ts` (both
+carrier kinds, separated blocks). Hook seam decided: **Brunch append sites**,
+not pi events (no entry-append event exists) — boot-time seed mirror in the
+runtime factory (awaited, so a dev boot is observable immediately) and
+turn-time mirrors in the reconciler step + provider guard (fire-and-forget),
+gated by the introspection `debugCache` option (unified `BRUNCH_DEV`).
+Divergence from card: `brunch.kick` is appended pi-side via `sendCustomMessage`
+and is not mirrored — acceptable: the mirror's regression target is the
+continuity set whose invisibility masked the defect; the kick is observable
+through the session transcript and `session-query`.
 
 ### Objective
 
