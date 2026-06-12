@@ -14,8 +14,9 @@ Created:  2026-06-11
   - uncovered likely `●`: `session/transcript`, `workspace/workspace-state`, `exchanges/request-*`, `exchanges/present-question`, `exchanges/present-options`, `exchanges/present-review-set`
   - disposition still needs an honest call: `workspace/workspace-context` is named as a consumer seam in `src/session/README.md`, but current code-path grep finds no live caller
   - explicit `○` / topology stubs that should stay out unless their seam activates: `graph/commit-result.ts`, `graph/reconciliation-needs.ts`, `exchanges/present-candidates.ts`
+- Agent-tool render anchor (2026-06-12 user direction): the ledger walk is anchored on the agent-tool catalog in the frontier definition (`memory/PLAN.md` §renderer-golden-coverage) — graph (`read_graph`/`mutate_graph`), elicitation gaps (`read_elicitation_gaps`/`update_elicitation_gaps`), context (`read_workspace_context`/`read_session_context`), the structured-exchange present/request family (+ `present_candidates` stub), the base file floor, and dev-only introspection. For each tool, name **both render targets**: what it renders into the agent's context (toolResult content) and what it renders in the TUI (presenter side). The TUI aspect is a necessary review focus; its lock mechanism is decided per row, and wiring changes push down to the lower line.
 - Known doc drift to retire first:
-  - `memory/CROSS_CUT_PLAN.md` still describes file-snapshot locks as net-new even though `graph/` and `session/runtime-frame` now use `toMatchFileSnapshot`.
+  - `memory/CROSS_CUT_PLAN.md` was retired 2026-06-12 (history in `docs/archive/PLAN_HISTORY.md`); the renderer-feedback-loop authority this chain needs now lives only in `src/renderers/README.md` + the frontier definition. Card 1 no longer reconciles the cross-cut file — it just must not resurrect it.
   - Re-check whether `src/renderers/workspace/workspace-context.ts` has a live caller before snapshotting it; a renderer module that only exists for symmetry should be deleted or demoted.
 - Main risk: snapshotting dead or single-owner rows for symmetry, or overbuilding a preview framework before the ledger names exactly which renderers still matter.
 - Cross-cutting obligations: preserve D52-L (`renderers/` stays free of adapter/transport imports); keep goldens co-located with renderer tests under `src/renderers/**/__previews__/`; keep `○` stubs untouched; preserve the human eyeball step before lock.
@@ -44,8 +45,7 @@ Before adding any more goldens, close the authority gap around what counts as a 
 
 ### Light-card cold-start reads
 
-- `memory/PLAN.md` — frontier: `renderer-golden-coverage`
-- `memory/CROSS_CUT_PLAN.md` — §Renderer feedback loops
+- `memory/PLAN.md` — frontier: `renderer-golden-coverage` (incl. the agent-tool render anchor)
 - `src/renderers/README.md`
 - existing locked tests: `src/renderers/graph/previews.test.ts`, `src/renderers/session/runtime-frame.test.ts`
 - `src/session/README.md` — current `workspace-context` consumer claims
@@ -55,9 +55,9 @@ Before adding any more goldens, close the authority gap around what counts as a 
 
 ✓ `src/renderers/README.md` carries a closed renderer ledger with one row per current renderer, including required/deferred/stub disposition and current oracle status.
 
-✓ The ledger makes an explicit call on `workspace/workspace-context`: keep-and-cover only if it still owns a real consumer seam; otherwise demote or retire it.
+✓ The ledger walk is anchored on the agent-tool catalog: each tool-owned row names the owning tool and **both render targets** (agent-context toolResult and TUI presentation). TUI presentation gets an explicit per-row disposition (lock mechanism or review-only), even where the lock itself is deferred.
 
-✓ Any touched cross-cut notes stop treating file-snapshot locks as net-new and align with the already-locked graph/session renderer rows.
+✓ The ledger makes an explicit call on `workspace/workspace-context`: keep-and-cover only if it still owns a real consumer seam; otherwise demote or retire it.
 
 ✓ This card chooses one honest sketch path for the rest of the frontier: either materialize a minimal shared preview harness (`src/scripts/render-preview.ts` + `npm run render`) or explicitly narrow the frontier to test-local preview generation. Later cards should not reopen that choice.
 
@@ -71,8 +71,7 @@ Before adding any more goldens, close the authority gap around what counts as a 
 
 ```text
 memory/
-├── PLAN.md ~
-└── CROSS_CUT_PLAN.md ~?
+└── PLAN.md ~
 package.json ~?
 src/renderers/
 └── README.md ~
