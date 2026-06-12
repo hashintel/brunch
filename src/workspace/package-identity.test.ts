@@ -24,16 +24,15 @@ function parseMajorMinorPatch(version: string): [number, number, number] {
 }
 
 describe('package identity', () => {
-  it('publishes as brunch-cli', () => {
+  it('publishes as @hashintel/brunch', () => {
     const pkg = readPackageJson();
-    expect(pkg.name).toBe('brunch-cli');
+    expect(pkg.name).toBe('@hashintel/brunch');
   });
 
-  it('declares a version of at least 0.1.0', () => {
+  it('declares a version on the 1.x release line', () => {
     const pkg = readPackageJson();
-    const [major, minor] = parseMajorMinorPatch(pkg.version);
-    const atLeast010 = major > 0 || (major === 0 && minor >= 1);
-    expect(atLeast010, `version ${pkg.version} must be >= 0.1.0`).toBe(true);
+    const [major] = parseMajorMinorPatch(pkg.version);
+    expect(major, `version ${pkg.version} must be on the 1.x line`).toBeGreaterThanOrEqual(1);
   });
 
   it('exposes exactly one bin command, brunch-cli, with no brunch-next alias', () => {

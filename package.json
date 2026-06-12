@@ -1,8 +1,16 @@
 {
-  "name": "brunch-cli",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@hashintel/brunch",
+  "version": "1.0.0-alpha.0",
   "description": "Brunch — opinionated specification-workspace product over pi-coding-agent.",
+  "homepage": "https://github.com/hashintel/brunch#readme",
+  "bugs": {
+    "url": "https://github.com/hashintel/brunch/issues"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hashintel/brunch.git"
+  },
   "bin": {
     "brunch-cli": "./bin/brunch-cli.js"
   },
@@ -16,6 +24,10 @@
   "type": "module",
   "main": "./dist/app/brunch.js",
   "types": "./dist/app/brunch.d.ts",
+  "publishConfig": {
+    "access": "public",
+    "tag": "alpha"
+  },
   "scripts": {
     "dev": "tsx src/app/brunch.ts",
     "build": "tsc -p tsconfig.build.json && npm run build:pi-assets && npm run build:web",
@@ -44,6 +56,7 @@
     "fmt:check": "oxfmt --check",
     "fix": "npm run lint:fix && npm run fmt",
     "check": "npm run lint && npm run fmt:check",
+    "release": "release-it",
     "verify": "npm run fix && npm run test && npm run build"
   },
   "dependencies": {
@@ -79,6 +92,7 @@
     "oxfmt": "latest",
     "oxlint": "^1.68.0",
     "oxlint-tsgolint": "^0.23.0",
+    "release-it": "^20.2.0",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.22.4",
     "typescript": "^5.7.0",

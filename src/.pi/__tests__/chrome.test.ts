@@ -185,7 +185,7 @@ describe('Brunch chrome projection', () => {
     );
     const collapsedLines = component.render(120);
     expect(collapsedLines.slice(0, 6)).toEqual(['', '', '', '', '', '']);
-    expect(collapsedLines.join('\n')).toContain('brunch v0.1.0');
+    expect(collapsedLines.join('\n')).toContain('brunch v1.0.0-alpha.0');
     expect(collapsedLines.join('\n')).toContain('/brunch switch');
     expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
     expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');

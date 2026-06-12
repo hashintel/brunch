@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import type { Theme, ThemeColor } from '@earendil-works/pi-coding-agent';
@@ -24,7 +24,8 @@ import {
 export const WORKSPACE_DIALOG_WIDTH = 80;
 const CTRL_C = '\x03';
 const ASSET_DIR = new URL('./assets/', import.meta.url);
-const PACKAGE_JSON_URL = new URL('../../../../package.json', import.meta.url);
+const PACKAGE_ROOT_URL = new URL('../../../../', import.meta.url);
+const PACKAGE_JSON_URL = new URL('package.json', PACKAGE_ROOT_URL);
 const LOCAL_BUILD_TIME = formatBuildTime(new Date());
 
 export type WorkspaceDialogTheme = Pick<Theme, 'fg'>;
@@ -206,7 +207,6 @@ function renderFrame(content: string[], width: number, theme: WorkspaceDialogThe
 
 interface PackageJson {
   version?: unknown;
-  private?: unknown;
 }
 
 function formatBuildTime(date: Date): string {
@@ -227,7 +227,7 @@ function readPackage(): PackageJson {
 function getGitSha(): string {
   try {
     return execSync('git rev-parse --short=7 HEAD', {
-      cwd: fileURLToPath(new URL('../../../../../', import.meta.url)),
+      cwd: fileURLToPath(PACKAGE_ROOT_URL),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
@@ -239,11 +239,12 @@ function getGitSha(): string {
 function brunchVersion(): BrunchVersionInfo {
   const pkg = readPackage();
   const version = typeof pkg.version === 'string' ? pkg.version : '0.0.0';
-  const isLocalDev = pkg.private === true || version === '0.0.0';
-  if (!isLocalDev) return { version: `v${version}`, dev: null };
+  // A .git directory at the package root means we are running from a repo
+  // checkout, not a published npm install (tarballs ship without .git).
+  const isLocalDev = existsSync(fileURLToPath(new URL('.git', PACKAGE_ROOT_URL)));
+  if (!isLocalDev && version !== '0.0.0') return { version: `v${version}`, dev: null };
 
-  const gitSha = getGitSha();
-  const devMeta = [gitSha, `@ ${LOCAL_BUILD_TIME}`].filter(Boolean).join(' ');
+  const devMeta = [getGitSha(), `@ ${LOCAL_BUILD_TIME}`].filter(Boolean).join(' ');
   return { version: `v${version}`, dev: devMeta ? `(dev ${devMeta})` : '(dev)' };
 }
 
