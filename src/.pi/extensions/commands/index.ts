@@ -14,11 +14,11 @@
  *                         workspace-dialog.ts).
  *  - `/brunch:lens`     — change the transcript-backed agent lens.
  *  - `/brunch:strategy` — change the transcript-backed agent strategy.
+ *  - `/brunch:mode`     — show the operational-mode picker; planned modes
+ *                         (execute) are visible but disabled, so only the
+ *                         current `elicit` mode is selectable.
  *
- * Disabled until operational (constants kept so tests can assert absence):
- *  - `/brunch:mode`     — would report/switch the operational mode, but only
- *                         `elicit` exists in this build, so the command is
- *                         withheld until `execute` mode is implemented.
+ * Disabled until operational (constant kept so tests can assert absence):
  *  - `/brunch:continue` — recover/restart from an interrupted `request_*` tool
  *                         or other interruption. Needs to: (a) optionally add a
  *                         system-prompt hint that bare "continue" resumes the
@@ -32,12 +32,15 @@ import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import {
   AGENT_LENS_IDS,
   AGENT_STRATEGY_IDS,
+  OPERATIONAL_MODE_IDS,
   appendBrunchAgentRuntimeSwitch,
   type AgentLensSelection,
   type AgentStrategySelection,
+  type OperationalModeChoice,
 } from '../../../session/runtime-state.js';
 import {
   createRuntimeLensPickerComponent,
+  createRuntimeModePickerComponent,
   createRuntimeStrategyPickerComponent,
 } from '../../components/runtime-posture/axis-picker.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
@@ -218,6 +221,47 @@ function registerRuntimeSwitchCommands(
         return;
       }
       applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: selection }, options);
+    },
+  });
+
+  pi.registerCommand(BRUNCH_MODE_COMMAND, {
+    description: 'Show the active Brunch operational mode; only elicit is selectable for now',
+    getArgumentCompletions: (prefix) =>
+      OPERATIONAL_MODE_IDS.filter((value) => value.startsWith(prefix)).map((value) => ({
+        value,
+        label: value,
+      })),
+    handler: async (args, ctx) => {
+      const selection = normalizeAxisArg(args);
+      const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+      if (!selection) {
+        if (typeof ctx.ui.custom !== 'function') {
+          ctx.ui.notify(`Brunch mode is ${current.operationalMode}.`, 'info');
+          return;
+        }
+        // Non-overlay ui.custom: replaces the input editor in place. Planned
+        // modes render disabled, so the only committable pick is the current
+        // mode — committing it is a no-op report until execute mode exists.
+        const picked = await ctx.ui.custom<OperationalModeChoice | undefined>(
+          (_tui, theme, _keybindings, done) =>
+            createRuntimeModePickerComponent({
+              current: current.operationalMode,
+              theme,
+              onDone: done,
+            }),
+        );
+        if (picked === undefined) return;
+        ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
+        return;
+      }
+      if (selection === current.operationalMode) {
+        ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
+        return;
+      }
+      ctx.ui.notify(
+        'Only elicit mode is available in this Brunch build; execute mode is not implemented.',
+        'error',
+      );
     },
   });
 }

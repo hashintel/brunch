@@ -229,9 +229,31 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.chromeRefreshes).toHaveLength(1);
   });
 
-  it('withholds the mode command while elicit is the only operational mode', () => {
+  it('opens the mode picker for no-arg mode commands and never appends a runtime switch', async () => {
+    const harness = commandHarness({ customResult: 'elicit' });
+
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.customCalls).toHaveLength(1);
+    // No overlay options: the picker replaces the input editor in place.
+    expect(harness.customCalls[0]?.options).toBeUndefined();
+    // Elicit is the only enabled mode, so committing it is a no-op report.
+    expect(harness.entries).toEqual([]);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
+    ]);
+  });
+
+  it('reports explicit mode args without inventing future modes', async () => {
     const harness = commandHarness();
 
-    expect(harness.commands.has(BRUNCH_MODE_COMMAND)).toBe(false);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('elicit', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
+
+    expect(harness.entries).toEqual([]);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
+      expect.objectContaining({ level: 'error', message: expect.stringContaining('Only elicit mode') }),
+    ]);
   });
 });

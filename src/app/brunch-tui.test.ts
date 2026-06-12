@@ -725,14 +725,11 @@ describe('Brunch TUI boot', () => {
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
     expect(commands.has(retiredWorkspaceCommand)).toBe(false);
     expect(commands.has('brunch')).toBe(false);
-    for (const commandName of [BRUNCH_LENS_COMMAND, BRUNCH_STRATEGY_COMMAND]) {
+    for (const commandName of [BRUNCH_LENS_COMMAND, BRUNCH_STRATEGY_COMMAND, BRUNCH_MODE_COMMAND]) {
       expect(commands.has(commandName)).toBe(true);
     }
-    // Disabled until operational: continue is unimplemented, mode has only
-    // one selectable value (elicit) in this build.
-    for (const commandName of [BRUNCH_CONTINUE_COMMAND, BRUNCH_MODE_COMMAND]) {
-      expect(commands.has(commandName)).toBe(false);
-    }
+    // Disabled until operational: continue is unimplemented.
+    expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(false);
     expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.has('ctrl+b')).toBe(false);
 

@@ -3,8 +3,12 @@ import { type Component } from '@earendil-works/pi-tui';
 import {
   AGENT_LENS_IDS,
   AGENT_STRATEGY_IDS,
+  OPERATIONAL_MODE_IDS,
+  PLANNED_OPERATIONAL_MODE_IDS,
   type AgentLensSelection,
   type AgentStrategySelection,
+  type OperationalModeChoice,
+  type OperationalModeId,
 } from '../../../session/runtime-state.js';
 import {
   nextSegmentIndex,
@@ -42,8 +46,18 @@ export interface RuntimeLensPickerOptions {
   readonly onDone: (lens?: AgentLensSelection) => void;
 }
 
+export interface RuntimeModePickerOptions {
+  readonly current: OperationalModeId;
+  readonly theme: LabTheme;
+  readonly onDone: (mode?: OperationalModeChoice) => void;
+}
+
 const STRATEGY_CHOICES: readonly AgentStrategySelection[] = ['auto', ...AGENT_STRATEGY_IDS];
 const LENS_CHOICES: readonly AgentLensSelection[] = ['auto', ...AGENT_LENS_IDS];
+const MODE_CHOICES: readonly OperationalModeChoice[] = [
+  ...OPERATIONAL_MODE_IDS,
+  ...PLANNED_OPERATIONAL_MODE_IDS,
+];
 
 export function createRuntimeStrategyPickerComponent(
   options: RuntimeStrategyPickerOptions,
@@ -61,6 +75,18 @@ export function createRuntimeLensPickerComponent(
   return new RuntimeAxisPickerComponent({
     title: 'Choose Brunch lens',
     choices: LENS_CHOICES,
+    ...options,
+  });
+}
+
+export function createRuntimeModePickerComponent(
+  options: RuntimeModePickerOptions,
+): RuntimeAxisPickerComponent<OperationalModeChoice> {
+  return new RuntimeAxisPickerComponent({
+    title: 'Choose Brunch mode',
+    choices: MODE_CHOICES,
+    // Planned modes are visible but unselectable until implemented.
+    disabled: PLANNED_OPERATIONAL_MODE_IDS,
     ...options,
   });
 }

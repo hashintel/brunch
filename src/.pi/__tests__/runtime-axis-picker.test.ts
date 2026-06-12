@@ -8,6 +8,7 @@ import {
 } from '../../session/runtime-state.js';
 import {
   createRuntimeLensPickerComponent,
+  createRuntimeModePickerComponent,
   createRuntimeStrategyPickerComponent,
 } from '../components/runtime-posture/axis-picker.js';
 import { createTestLabTheme } from './support/tui-theme.js';
@@ -90,6 +91,27 @@ describe('runtime posture picker overlays', () => {
     // Cycling back left skips it again and wraps to auto.
     component.handleInput?.('\x1b[D');
     expect(component.render(200).join('\n')).toContain('\x1b[48;5;34m\x1b[30m auto ');
+  });
+
+  it('shows planned operational modes as disabled in the mode picker', () => {
+    const selected: unknown[] = [];
+    const component = createRuntimeModePickerComponent({
+      current: 'elicit',
+      theme,
+      onDone: (value) => selected.push(value),
+    });
+
+    const text = component.render(200).join('\n');
+    expect(text).toContain('Choose Brunch mode');
+    // elicit is current (success badge); execute is planned and grayed out.
+    expect(text).toContain('\x1b[48;5;34m\x1b[30m elicit ');
+    expect(text).toContain('\x1b[38;5;240mexecute\x1b[39m');
+    expect(text).toContain('currently-enabled: elicit');
+
+    // Cycling cannot land on the disabled planned mode.
+    component.handleInput?.('\x1b[C');
+    component.handleInput?.('\r');
+    expect(selected).toEqual(['elicit']);
   });
 
   it('snaps the initial selection to the first enabled choice when current is disabled', () => {
