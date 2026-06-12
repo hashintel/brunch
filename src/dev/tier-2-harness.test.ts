@@ -15,11 +15,11 @@ import {
   bootTier2ProductOriginatedTurn,
   bootTier2RuntimeFromFixture,
   bootTier2RuntimeThroughRunBrunchTui,
-  createTier2FauxAgentServices,
   rebootTier2Runtime,
   resumeTier2Fixture,
   runTier2RealBootFauxTurn,
   waitForCondition,
+  withTier2FauxAgentServices,
 } from './tier-2-harness.js';
 
 /** Wait for the product kick turn (brunch.kick entry) on a fixture boot. */
@@ -601,8 +601,7 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
   });
 
   it('resume kick uses the pre-reconcile tail so a user tail still earns a kick after continuity notices', async () => {
-    const faux = createTier2FauxAgentServices();
-    try {
+    await withTier2FauxAgentServices(async (faux) => {
       const boot = await bootTier2RuntimeFromFixture({
         agentServices: faux.agentServices,
         fixtureEntries: (specId) => [
@@ -646,14 +645,11 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
         await postExchange.runtime.dispose();
         postExchange.restoreEnv();
       }
-    } finally {
-      faux.unregister();
-    }
+    });
   });
 
   it('request_* and system leaves stay idle on resume', async () => {
-    const faux = createTier2FauxAgentServices();
-    try {
+    await withTier2FauxAgentServices(async (faux) => {
       for (const status of ['answered', 'cancelled', 'unavailable'] as const) {
         const boot = await bootTier2RuntimeFromFixture({
           agentServices: faux.agentServices,
@@ -683,17 +679,14 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
         await assistantLeaf.runtime.dispose();
         assistantLeaf.restoreEnv();
       }
-    } finally {
-      faux.unregister();
-    }
+    });
   });
 
   it('crash-after-notice-before-provider still kicks when the underlying debt is unanswered', async () => {
     // Reconciler-inserted seed/notices landed, then the process died before the
     // provider call; reboot must still answer the user's unresolved debt and
     // must not duplicate the already-written seed.
-    const faux = createTier2FauxAgentServices();
-    try {
+    await withTier2FauxAgentServices(async (faux) => {
       const boot = await bootTier2RuntimeFromFixture({
         agentServices: faux.agentServices,
         fixtureEntries: (specId) => [
@@ -711,14 +704,11 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
         await boot.runtime.dispose();
         boot.restoreEnv();
       }
-    } finally {
-      faux.unregister();
-    }
+    });
   });
 
   it('trailing side-task or reviewer drains are continuity-only and do not manufacture or mask debt', async () => {
-    const faux = createTier2FauxAgentServices();
-    try {
+    await withTier2FauxAgentServices(async (faux) => {
       const noDebt = await bootTier2RuntimeFromFixture({
         agentServices: faux.agentServices,
         fixtureEntries: (specId) => [
@@ -751,9 +741,7 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
         await maskedDebt.runtime.dispose();
         maskedDebt.restoreEnv();
       }
-    } finally {
-      faux.unregister();
-    }
+    });
   });
 });
 

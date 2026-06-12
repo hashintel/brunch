@@ -105,21 +105,7 @@ export async function bootTier2RuntimeThroughRunBrunchTui(options: { readonly de
   const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
   await writeFile(join(cwd, 'boot-seam.md'), '# Boot seam\n');
 
-  const previousDev = process.env.BRUNCH_DEV;
-  const hadPreviousDev = Object.hasOwn(process.env, 'BRUNCH_DEV');
-  if (options.dev) {
-    process.env.BRUNCH_DEV = '1';
-  } else {
-    delete process.env.BRUNCH_DEV;
-  }
-
-  const restoreEnv = () => {
-    if (hadPreviousDev && previousDev !== undefined) {
-      process.env.BRUNCH_DEV = previousDev;
-    } else {
-      delete process.env.BRUNCH_DEV;
-    }
-  };
+  const restoreEnv = overrideBrunchDevEnv(options.dev ? '1' : undefined);
 
   let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
   try {
@@ -174,16 +160,7 @@ export async function bootTier2RuntimeFromFixture(options: {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-tier-2-resume-boot-'));
   const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
 
-  const previousDev = process.env.BRUNCH_DEV;
-  const hadPreviousDev = Object.hasOwn(process.env, 'BRUNCH_DEV');
-  delete process.env.BRUNCH_DEV;
-  const restoreEnv = () => {
-    if (hadPreviousDev && previousDev !== undefined) {
-      process.env.BRUNCH_DEV = previousDev;
-    } else {
-      delete process.env.BRUNCH_DEV;
-    }
-  };
+  const restoreEnv = overrideBrunchDevEnv(undefined);
 
   try {
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -254,6 +231,44 @@ export async function bootTier2RuntimeFromFixture(options: {
  * `agentServices` override. Only the provider backend is substituted; the
  * session, extensions, and origination choreography stay product wiring.
  */
+/**
+ * Override BRUNCH_DEV for a harness boot and return the restore function.
+ * Pass a value to set it, `undefined` to clear it; restore reinstates the
+ * exact pre-override state (set vs unset).
+ */
+function overrideBrunchDevEnv(value: string | undefined): () => void {
+  const previous = process.env.BRUNCH_DEV;
+  const hadPrevious = Object.hasOwn(process.env, 'BRUNCH_DEV');
+  if (value === undefined) {
+    delete process.env.BRUNCH_DEV;
+  } else {
+    process.env.BRUNCH_DEV = value;
+  }
+  return () => {
+    if (hadPrevious && previous !== undefined) {
+      process.env.BRUNCH_DEV = previous;
+    } else {
+      delete process.env.BRUNCH_DEV;
+    }
+  };
+}
+
+/**
+ * Run a test body against registered faux agent services, unregistering the
+ * faux provider on the way out — the with-style form of
+ * `createTier2FauxAgentServices` for tests that boot multiple runtimes.
+ */
+export async function withTier2FauxAgentServices<T>(
+  fn: (faux: ReturnType<typeof createTier2FauxAgentServices>) => Promise<T>,
+): Promise<T> {
+  const faux = createTier2FauxAgentServices();
+  try {
+    return await fn(faux);
+  } finally {
+    faux.unregister();
+  }
+}
+
 export function createTier2FauxAgentServices(options: { readonly responseText?: string } = {}): {
   readonly agentServices: BrunchAgentServicesOverride;
   readonly providerContexts: readonly ProviderContextSnapshot[];
@@ -311,16 +326,7 @@ export async function bootTier2ProductOriginatedTurn(
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-kick-live-'));
   const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
 
-  const previousDev = process.env.BRUNCH_DEV;
-  const hadPreviousDev = Object.hasOwn(process.env, 'BRUNCH_DEV');
-  delete process.env.BRUNCH_DEV;
-  const restoreEnv = () => {
-    if (hadPreviousDev && previousDev !== undefined) {
-      process.env.BRUNCH_DEV = previousDev;
-    } else {
-      delete process.env.BRUNCH_DEV;
-    }
-  };
+  const restoreEnv = overrideBrunchDevEnv(undefined);
 
   const faux = createTier2FauxAgentServices(
     options.responseText === undefined ? {} : { responseText: options.responseText },
