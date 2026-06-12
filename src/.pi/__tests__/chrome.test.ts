@@ -47,7 +47,7 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      ' spec / session [opt-b]: Spec One / Interview #1  ui: http://127.0.0.1:49152/spec/1',
+      ' spec / session [ctrl-shift-b]: Spec One / Interview #1  ui: http://127.0.0.1:49152/spec/1',
       ' mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: not reported',
       ' no model  ctx ──────────── ?% ?/0',
       '',
@@ -104,7 +104,7 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      ' spec / session [opt-b]: Spec One / Interview #1',
+      ' spec / session [ctrl-shift-b]: Spec One / Interview #1',
       ' mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: intent',
       ' claude-sonnet • medium  ctx ━━━━━━────── 50% 1.0k/2.0k',
       '',

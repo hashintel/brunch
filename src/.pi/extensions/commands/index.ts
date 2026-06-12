@@ -18,9 +18,10 @@
  *                         (execute) are visible but disabled, so only the
  *                         current `elicit` mode is selectable.
  *
- * Keyboard shortcuts (match the `[opt-x]:` hints in the footer chrome):
- *  - `alt+b` — spec/session picker (borrows a command-capable context from
- *              the composition root for the actual session switch)
+ * Keyboard shortcuts (match the bracketed key hints in the footer chrome):
+ *  - `ctrl+shift+b` — spec/session picker (borrows a command-capable context
+ *                     from the composition root for the actual session switch;
+ *                     alt+b is reserved by Pi's editor for cursorWordLeft)
  *  - `alt+m` — mode picker
  *  - `alt+s` — strategy picker
  *  - `alt+l` — lens picker
@@ -65,9 +66,8 @@ export const BRUNCH_LENS_COMMAND = 'brunch:lens';
 export const BRUNCH_STRATEGY_COMMAND = 'brunch:strategy';
 export const BRUNCH_MODE_COMMAND = 'brunch:mode';
 
-export const BRUNCH_SWITCH_SHORTCUT = 'alt+b';
-/** Long-standing binding for the spec/session picker; kept as an alias of alt+b. */
-export const BRUNCH_SWITCH_SHORTCUT_LEGACY = 'ctrl+shift+b';
+/** alt+b is unavailable: Pi reserves it as a built-in editor binding (cursorWordLeft). */
+export const BRUNCH_SWITCH_SHORTCUT = 'ctrl+shift+b';
 export const BRUNCH_MODE_SHORTCUT = 'alt+m';
 export const BRUNCH_STRATEGY_SHORTCUT = 'alt+s';
 export const BRUNCH_LENS_SHORTCUT = 'alt+l';
@@ -371,10 +371,8 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
     const commandContext = options.getCommandContext?.();
     await runBrunchWorkspaceAction(commandContext ?? ctx, coordinator, workspaceActionOptions(options));
   };
-  for (const shortcut of [BRUNCH_SWITCH_SHORTCUT, BRUNCH_SWITCH_SHORTCUT_LEGACY] as const) {
-    pi.registerShortcut?.(shortcut, {
-      description: 'Open the Brunch spec/session picker',
-      handler: openSwitchPicker,
-    });
-  }
+  pi.registerShortcut?.(BRUNCH_SWITCH_SHORTCUT, {
+    description: 'Open the Brunch spec/session picker',
+    handler: openSwitchPicker,
+  });
 }

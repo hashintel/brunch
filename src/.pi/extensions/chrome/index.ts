@@ -129,7 +129,7 @@ export function projectBrunchChromeFooterLines(
   const specSessionPart = keyedStatusPart(
     theme,
     'spec / session',
-    'opt-b',
+    'ctrl-shift-b',
     `${formatSpec(chrome)} / ${sessionLabel}`,
   );
   const specSessionLine = chrome.webSidecarUrl
