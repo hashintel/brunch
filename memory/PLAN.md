@@ -123,6 +123,7 @@ per ledger row:
 
 1. `elicitation-driver` (FE-852) — **demo block 1**: capture-reflection writeback (spawn gaps / set dispositions through the existing `CommandExecutor` boundary, no second mutation clock), plus the agent's elicitation read affordance (`read_elicitation_gaps` pull tool) and retirement of the vestigial `read_graph` `gaps` mode. Read/rank/select + prompt surfacing already landed.
 2. `context-seed-payload` (new FE) — **demo block 2**: fill the lost content half of D78-L — the `brunch.context_seed` continuity entry carries a real spec-graph overview + elicitation grounding-floor framing, so a new session boots with auto-injected context, gets kicked, and opens with a question grounded in the ranked gaps. The mechanism (seed-then-kick, dedupe, compaction survival) is already proven; this frontier fills the payload and proves startup completeness end-to-end.
+2½. `origination-kick-live` (rides FE-857) — **discovered defect, demo-blocking, sequenced before block 3**: the kick never actually starts a turn in the product — `originateAssistantTurn` appends seed + offer but nothing triggers the LLM (zero non-test `prompt`/`triggerTurn` call sites); every Tier-2 oracle supplied the turn itself (harness-as-false-proof). Fix = post-`session_start` trigger via `pi.sendMessage(..., { triggerTurn: true })` (the FE-857 out-of-band API rule's first real call site), an honest product-originated-turn oracle, `.brunch/debug/entry-contents.md` mirroring at the append seam, and a bounded `setLabel` investigation.
 3. `generalized-capture` (new FE) — **demo block 3**: narrow high-confidence extractive capture with the false-commit guard. Its own frontier (promoted out of `exchanges-and-generalized-capture`); **not** an FE-811 slice. Relation-bearing capture uses the `mutateGraph` grammar from `role-safe-graph-mutations`.
 4. `poc-live-ship-gate` (FE-811) — **demo block 4**: the fresh-cwd runbook that composes blocks 1–3 through **public entrypoints only**, with the scoped anti-cheat import guard, a named posture observable, and real product renderers / web output as evidence.
 
@@ -134,7 +135,7 @@ Each lower-line block carries its own completeness obligation (see Context §Com
 
 ### Recently Completed
 
-- 2026-06-11 `context-seed-payload` (FE-857) — demo block 2 done on `ln/fe-852-below-the-line`: model-intent continuity entries (worldUpdate / drains / staleness hints / context seed) migrated to the provider-visible `CustomMessageEntry` carrier — the model now actually sees continuity notices for the first time — and the seed carries the spec overview + top-ranked gap framing (`composeContextSeedContent`). Startup completeness proven through real `runBrunchTui` boot: seed content + kick + gap-grounded provider-visible context via pi's `buildSessionContext`. All I45–I47 rows stayed green.
+- 2026-06-11 `context-seed-payload` (FE-857) — demo block 2 done on `ln/fe-852-below-the-line`: model-intent continuity entries (worldUpdate / drains / staleness hints / context seed) migrated to the provider-visible `CustomMessageEntry` carrier — the model now actually sees continuity notices for the first time — and the seed carries the spec overview + top-ranked gap framing (`composeContextSeedContent`). All I45–I47 rows stayed green. **Caveat (2026-06-11 manual walkthrough):** the "startup completeness through real boot" claim was harness-assisted — the harness drove the turn the product never triggers; the content half stands, the lifecycle half is reopened as `origination-kick-live`.
 - 2026-06-11 `elicitation-driver` (FE-852) — demo block 1 done on `ln/fe-852-below-the-line`: `read_graph` topology `gaps` mode retired (observed-shapes ledger 8→7; `hasEdge`/`lacksEdge` API kept), dedicated elicitation register tools landed (`read_elicitation_gaps` ranked agenda + `update_elicitation_gaps` spawn/disposition over `CommandExecutor`, posture-legal via read-context), scripted loop proof + one-clock + no-partial-writes oracles. Reflection *behavior* transferred to `generalized-capture`. Also extracted canonical `NODE_KINDS` into `graph/schema/kinds.ts` (dev-graph RPC now derives from it).
 - 2026-06-11 `prompt-composition-golden-coverage` (FE-852) — COMPOSE preview harness + four approved elicitor prompt goldens are locked; partial bodies are locked by source-file + readability invariant; reviewer foreground and full-stack real-rendered-context rows stay wait-gated/tripwired.
 - 2026-06-11 `projection-shape-coverage` — done on the top-of-stack coverage branch; the session PULL ledger and PROJECT invariants are closed, and the prepared renderer chain is the next trio move.
@@ -317,6 +318,22 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 - **Cross-cutting obligations:** I47-L carrier discipline (custom transcript entries only); D76-L watermark carriers; D39-L sealed profile untouched; payload reads via existing query/projection surfaces (D20-L/D52-L).
 - **Traceability:** D43-L, D75-L, D76-L, D78-L; I45-L, I46-L, I47-L.
 - **Design docs:** `memory/SPEC.md` D78-L; `src/renderers/workspace/workspace-context.ts` (existing pull-side renderer to reuse or mirror).
+
+### origination-kick-live
+
+- **Name:** The kick actually starts the opening turn (+ entry observability)
+- **Linear:** rides FE-857 (discovered defect in its claim); shared lower-line branch
+- **Kind:** bugfix / structural (invalidates a verification claim)
+- **Status:** active — sequenced between demo blocks 2 and 3 (demo-blocking: the opening beat does not fire live)
+- **Certainty:** proving (a claimed-covered seam regressed to a real unknown: does the product originate a turn on its own bones?)
+- **Discovery:** 2026-06-11 manual walkthrough — fresh seeded session via the picker, seed landed, no kick, no `.brunch/debug/` (downstream: both debug surfaces are provider-activity-driven). Root cause: `originateAssistantTurn` appends but nothing triggers a turn; Tier-2 oracles called `harness.session.prompt(...)` themselves (harness-as-false-proof).
+- **Lights up:** the first product-triggered LLM turn — the demo's opening beat actually happening live.
+- **Stabilizes:** the origination seam's completion test (a product-driven provider call), and dev observability of Brunch entries independent of provider activity.
+- **Current execution pointer:** `memory/cards/origination-kick-live--kick-and-debug-visibility.md` (chain: kick trigger + honest oracle + sibling audit → debug entry-contents mirror → optional `setLabel` investigation).
+- **Acceptance:** see the scope file — headline rows: product-originated-turn Tier-2 oracle (no harness `prompt()`), picker-path parity, exactly one `present_*` offer, re-boot idempotence green, SPEC I46-L coverage cell honest, bounded audit of harness-driven-turn assertions, `entry-contents.md` mirror works with zero provider calls.
+- **Cross-cutting obligations:** I46-L (no fabricated user entry; AUTO never freestyle); D77-L (reconciler stays the only continuity writer; the trigger writes no continuity); D39-L (debug mirror dev-gated, read-only); FE-857 API rule (out-of-band → `pi.sendMessage`).
+- **Traceability:** D66-L, D78-L; I46-L, I47-L.
+- **Design docs:** `src/session/README.md` §origination seam; pi-mono `docs/extensions.md` + `examples/extensions/file-trigger.ts`.
 
 ### poc-live-ship-gate
 
@@ -585,7 +602,8 @@ nodes:
   capability-readiness           [done · proving]    JIT capability->relevant-gaps gate + readiness estimate (UI-only); stored grade / MIN_GRADE / chrome.phase+chatMode retired; residue = manual satisficiency + capability-map refinement
   runtime-vocab-leaf             [parallel · proving] src/session/schema/kinds.ts source-of-truth leaf for op_mode/strategy/lens/goal (D73-L direction); decision-3 follow-on
   elicitation-driver             [done · proving · demo block 1]   rank/select + register tools (read_elicitation_gaps/update_elicitation_gaps) + gaps-mode kill; reflection behavior transferred to generalized-capture
-  context-seed-payload           [done · earned · demo block 2] D78-L content half filled: model-intent continuity entries on the provider-visible message carrier; seed carries overview + gap framing; startup completeness proven through real boot
+  context-seed-payload           [done · earned · demo block 2] D78-L content half filled: model-intent continuity entries on the provider-visible message carrier; seed carries overview + gap framing; lifecycle half reopened as origination-kick-live
+  origination-kick-live          [active · proving · demo block 2½] kick never triggers a turn in product (harness-as-false-proof); sendMessage+triggerTurn fix + product-originated oracle + debug entry mirror + setLabel look
   generalized-capture            [active · proving · demo block 3] narrow high-confidence extractive capture + false-commit scenario matrix; split from exchanges-and-generalized-capture; uses mutateGraph grammar
   exchange-symmetry-audit        [deferred · earned] delete-oriented exchange three-layer symmetry audit; split from exchanges-and-generalized-capture; below the demo line
   demo-polish                    [active · earned · top line] client presentation: web readout (src/web/**) + TUI chrome (presentation, not wiring); consumes the lower line's behavior/contract; no product-wiring edits
@@ -603,7 +621,8 @@ edges:
   elicitation-driver        -[hard · demo]->  poc-live-ship-gate   (demo block 1: writeback = self-updating gaps the demo claims)
   elicitation-driver        -[hard]->         context-seed-payload (opening offer is grounded in the driver's ranked agenda)
   kick-and-context-seeding  -[satisfied]->    context-seed-payload (seed-then-kick mechanism + I45-I47 coverage already proven; this frontier fills the payload)
-  context-seed-payload      -[hard · demo]->  poc-live-ship-gate   (demo block 2: startup completeness — auto-injected context + kick + gap-grounded opening question)
+  context-seed-payload      -[hard]->         origination-kick-live (the seeded content exists; this frontier makes the product turn that carries it actually fire)
+  origination-kick-live     -[hard · demo]->  poc-live-ship-gate   (demo block 2½: startup completeness — auto-injected context + product-triggered kick + gap-grounded opening question)
   generalized-capture       -[hard · demo]->  poc-live-ship-gate   (demo block 3: high-confidence natural-ish capture the demo claims)
   poc-live-ship-gate        -[contract]->     demo-polish          (top line consumes the lower line: web over RPC/WS + compile-time types/metadata; TUI chrome over the presentation/wiring seam)
   graph-tool-resilience     -[hard]->         capture-response-to-graph
