@@ -35,17 +35,17 @@ describe('package identity', () => {
     expect(major, `version ${pkg.version} must be on the 1.x line`).toBeGreaterThanOrEqual(1);
   });
 
-  it('exposes exactly one bin command, brunch-cli, with no brunch-next alias', () => {
+  it('exposes exactly one bin command, brunch, with no brunch-cli or brunch-next alias', () => {
     const pkg = readPackageJson();
-    expect(Object.keys(pkg.bin)).toEqual(['brunch-cli']);
-    expect(pkg.bin['brunch-cli']).toBe('./bin/brunch-cli.js');
+    expect(Object.keys(pkg.bin)).toEqual(['brunch']);
+    expect(pkg.bin['brunch']).toBe('./bin/brunch.js');
   });
 
   it('ships an executable bin shim at the declared path', () => {
     const pkg = readPackageJson();
-    const declaredPath = pkg.bin['brunch-cli'];
+    const declaredPath = pkg.bin['brunch'];
     if (declaredPath === undefined) {
-      throw new Error('brunch-cli bin entry must be declared');
+      throw new Error('brunch bin entry must be declared');
     }
     const binPath = join(repoRoot, declaredPath);
     const stat = statSync(binPath);

@@ -12,7 +12,7 @@
     "url": "git+https://github.com/hashintel/brunch.git"
   },
   "bin": {
-    "brunch-cli": "./bin/brunch-cli.js"
+    "brunch": "./bin/brunch.js"
   },
   "files": [
     "dist",

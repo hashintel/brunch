@@ -111,7 +111,8 @@ export interface BrunchTuiOptions {
   ) => Promise<SpecSessionActivationDecision>;
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>;
   webSidecarRunner?: (options: BrunchWebSidecarRunnerOptions) => Promise<BrunchWebSidecar | null>;
-  autoOpen?: boolean;
+  /** Opt-in (`--open-web`): launch the web sidecar URL in the default browser. */
+  openWeb?: boolean;
   openBrowser?: (url: string) => Promise<void>;
   advertiseWebSidecar?: (url: string) => void;
 }
@@ -143,7 +144,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
   if (webSidecarUrl) {
     options.advertiseWebSidecar?.(webSidecarUrl);
-    if (shouldAutoOpenWebSidecar(options.autoOpen, dev)) {
+    if (options.openWeb === true) {
       await (options.openBrowser ?? openBrowser)(webSidecarUrl);
     }
   }
@@ -170,13 +171,6 @@ function createBrunchTuiDevOptions(cwd: string): BrunchTuiDevOptions | undefined
       debugCache: { cwd },
     },
   };
-}
-
-function shouldAutoOpenWebSidecar(
-  autoOpen: boolean | undefined,
-  dev: BrunchTuiDevOptions | undefined,
-): boolean {
-  return autoOpen ?? dev === undefined;
 }
 
 export function startupHeaderForActivation(

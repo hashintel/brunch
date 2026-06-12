@@ -57,7 +57,6 @@ export async function runTier2RealBootFauxTurn(
 
   await runBrunchTui({
     cwd,
-    autoOpen: false,
     coordinator,
     selectSpecTitle: async () => specTitle,
     webSidecarRunner: async () => null,
@@ -111,7 +110,6 @@ export async function bootTier2RuntimeThroughRunBrunchTui(options: { readonly de
   try {
     await runBrunchTui({
       cwd,
-      autoOpen: false,
       runWorkspaceDialogPreflight: async () => ({ action: 'newSpec', title: 'Boot seam smoke' }),
       webSidecarRunner: async () => null,
       launchInteractive: async (context) => {
@@ -187,7 +185,6 @@ export async function bootTier2RuntimeFromFixture(options: {
     let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
     await runBrunchTui({
       cwd,
-      autoOpen: false,
       coordinator,
       runWorkspaceDialogPreflight: async () => ({
         action: 'openSession',
@@ -424,7 +421,6 @@ export async function rebootTier2Runtime(options: {
   let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
   await runBrunchTui({
     cwd: options.cwd,
-    autoOpen: false,
     coordinator,
     runWorkspaceDialogPreflight: async () => ({
       action: 'openSession',

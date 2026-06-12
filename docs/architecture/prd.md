@@ -98,9 +98,9 @@ If they can, JSONL remains the transcript authority for the POC. If they cannot,
 
 Brunch is one local product driven by a single `--mode` flag. It currently exposes three presentation modes:
 
-1. `brunch-cli` (default; `--mode tui`) - TUI over the local agent host. While the TUI runs it also starts a read-only browser **sidecar** over the same host; the sidecar is not a separate mode.
-2. `brunch-cli --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
-3. `brunch-cli --mode print` - runs one-shot, headless prompts for scripting and pipelines.
+1. `brunch` (default; `--mode tui`) - TUI over the local agent host. While the TUI runs it also starts a read-only browser **sidecar** over the same host; the sidecar is not a separate mode.
+2. `brunch --mode rpc` - exposes the local host over stdio JSON-RPC for other programs.
+3. `brunch --mode print` - runs one-shot, headless prompts for scripting and pipelines.
 
 A standalone web mode is a **planned future feature**, not a current `--mode` value: the browser UI is useless without the TUI driving the session, so for now it ships only as the TUI sidecar. `--mode web` currently errors with "not available yet."
 

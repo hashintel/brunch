@@ -1,7 +1,7 @@
 # Workbench — live-graph-observer
 
 A reusable cwd for manually exercising the `live-graph-observer` (FE-795) frontier
-end-to-end. Treat this directory as the project cwd when launching `brunch-cli`
+end-to-end. Treat this directory as the project cwd when launching `brunch`
 so that `.brunch/` and `data.db` scaffold here rather than in the repo root.
 
 ## Why it exists
@@ -23,10 +23,10 @@ npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed wor
 npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode print
 
 # Built bin (after `npm run build`)
-node bin/brunch-cli.js --cwd .fixtures/workbenches/live-graph-observer --mode print
+node bin/brunch.js --cwd .fixtures/workbenches/live-graph-observer --mode print
 
 # Once installed (e.g. via `npm link` or a published install)
-brunch-cli --cwd .fixtures/workbenches/live-graph-observer --mode print
+brunch --cwd .fixtures/workbenches/live-graph-observer --mode print
 ```
 
 Brunch scaffolds a local `.brunch/` directory containing `data.db` and Pi session
@@ -47,8 +47,8 @@ workspace; it never loads seed fixtures implicitly.
 - `--mode print` — non-interactive workspace projection; smoke for CLI identity
   and DB scaffolding.
 - `--mode tui` — interactive writer session and the product-supported launch
-  path for the local web observer sidecar. Use `--auto-open=false` when an agent
-  will open the printed sidecar URL manually.
+  path for the local web observer sidecar. The sidecar URL is printed but not
+  opened in a browser unless `--open-web` is passed.
 
 ## Browser feedback loop
 
@@ -62,7 +62,7 @@ Launch the TUI sidecar against this workbench:
 
 ```sh
 # Terminal A: TUI writer plus web observer sidecar
-npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode tui --auto-open=false
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode tui
 ```
 
 The host prints a localhost URL such as:
