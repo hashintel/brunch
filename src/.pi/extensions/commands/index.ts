@@ -14,10 +14,11 @@
  *                         workspace-dialog.ts).
  *  - `/brunch:lens`     — change the transcript-backed agent lens.
  *  - `/brunch:strategy` — change the transcript-backed agent strategy.
- *  - `/brunch:mode`     — report the current operational mode; explicit
- *                         `elicit` is accepted as a no-op.
  *
- * Stubbed for later (notify-only):
+ * Disabled until operational (constants kept so tests can assert absence):
+ *  - `/brunch:mode`     — would report/switch the operational mode, but only
+ *                         `elicit` exists in this build, so the command is
+ *                         withheld until `execute` mode is implemented.
  *  - `/brunch:continue` — recover/restart from an interrupted `request_*` tool
  *                         or other interruption. Needs to: (a) optionally add a
  *                         system-prompt hint that bare "continue" resumes the
@@ -31,7 +32,6 @@ import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import {
   AGENT_LENS_IDS,
   AGENT_STRATEGY_IDS,
-  OPERATIONAL_MODE_IDS,
   appendBrunchAgentRuntimeSwitch,
   type AgentLensSelection,
   type AgentStrategySelection,
@@ -63,20 +63,6 @@ export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
    */
   readonly getElicitationGaps: () => readonly ElicitationGap[];
 };
-
-interface BrunchStubCommand {
-  readonly name: string;
-  readonly description: string;
-  readonly pendingMessage: string;
-}
-
-const BRUNCH_STUB_COMMANDS: readonly BrunchStubCommand[] = [
-  {
-    name: BRUNCH_CONTINUE_COMMAND,
-    description: 'Resume the Brunch flow after an interruption (not yet implemented)',
-    pendingMessage: '/brunch:continue is not wired up yet.',
-  },
-];
 
 interface RuntimeSwitchContext {
   readonly ui: Pick<ExtensionCommandContext['ui'], 'notify' | 'custom'>;
@@ -247,31 +233,6 @@ function registerRuntimeSwitchCommands(
       applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: selection }, options);
     },
   });
-
-  pi.registerCommand(BRUNCH_MODE_COMMAND, {
-    description: 'Report the active Brunch operational mode; explicit elicit is a no-op',
-    getArgumentCompletions: (prefix) =>
-      OPERATIONAL_MODE_IDS.filter((value) => value.startsWith(prefix)).map((value) => ({
-        value,
-        label: value,
-      })),
-    handler: async (args, ctx) => {
-      const selection = normalizeAxisArg(args);
-      const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-      if (!selection) {
-        ctx.ui.notify(`Brunch mode is ${current.operationalMode}.`, 'info');
-        return;
-      }
-      if (selection === current.operationalMode) {
-        ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
-        return;
-      }
-      ctx.ui.notify(
-        'Only elicit mode is available in this Brunch build; execute mode is not implemented.',
-        'error',
-      );
-    },
-  });
 }
 
 export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommandsOptions): void {
@@ -282,15 +243,6 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
       await runBrunchWorkspaceAction(ctx, coordinator);
     },
   });
-
-  for (const command of BRUNCH_STUB_COMMANDS) {
-    pi.registerCommand(command.name, {
-      description: command.description,
-      handler: async (_args, ctx: ExtensionCommandContext) => {
-        ctx.ui.notify(command.pendingMessage, 'info');
-      },
-    });
-  }
 
   registerRuntimeSwitchCommands(pi, options);
 

@@ -725,13 +725,13 @@ describe('Brunch TUI boot', () => {
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
     expect(commands.has(retiredWorkspaceCommand)).toBe(false);
     expect(commands.has('brunch')).toBe(false);
-    for (const commandName of [
-      BRUNCH_CONTINUE_COMMAND,
-      BRUNCH_LENS_COMMAND,
-      BRUNCH_STRATEGY_COMMAND,
-      BRUNCH_MODE_COMMAND,
-    ]) {
+    for (const commandName of [BRUNCH_LENS_COMMAND, BRUNCH_STRATEGY_COMMAND]) {
       expect(commands.has(commandName)).toBe(true);
+    }
+    // Disabled until operational: continue is unimplemented, mode has only
+    // one selectable value (elicit) in this build.
+    for (const commandName of [BRUNCH_CONTINUE_COMMAND, BRUNCH_MODE_COMMAND]) {
+      expect(commands.has(commandName)).toBe(false);
     }
     expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.has('ctrl+b')).toBe(false);
@@ -744,16 +744,6 @@ describe('Brunch TUI boot', () => {
       ui: fakeUi((method, type) => shortcutEvents.push(`${method}:${type}`)),
     });
     expect(shortcutEvents).toEqual(['notify:warning']);
-
-    const continueEvents: string[] = [];
-    const continueCtx = {
-      ui: fakeUi((method, type) => continueEvents.push(`${method}:${type}`)),
-    };
-    const continueCommand = commands.get(BRUNCH_CONTINUE_COMMAND);
-    expect(continueCommand).toBeDefined();
-    const continueHandler = continueCommand!.handler as (args: string, ctx: unknown) => Promise<void> | void;
-    await continueHandler('', continueCtx);
-    expect(continueEvents).toEqual(['notify:info']);
   });
 
   it('opens the spec/session picker from the Brunch command', async () => {

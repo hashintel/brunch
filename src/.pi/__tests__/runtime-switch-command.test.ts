@@ -227,18 +227,9 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.chromeRefreshes).toHaveLength(1);
   });
 
-  it('reports mode and accepts explicit elicit as a no-op instead of inventing future modes', async () => {
+  it('withholds the mode command while elicit is the only operational mode', () => {
     const harness = commandHarness();
 
-    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
-    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('elicit', harness.ctx);
-    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
-
-    expect(harness.entries).toEqual([]);
-    expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: expect.stringContaining('elicit') }),
-      expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
-      expect.objectContaining({ level: 'error', message: expect.stringContaining('Only elicit mode') }),
-    ]);
+    expect(harness.commands.has(BRUNCH_MODE_COMMAND)).toBe(false);
   });
 });
