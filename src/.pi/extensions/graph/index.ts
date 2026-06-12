@@ -15,12 +15,12 @@ import type {
   NodeSelector,
   ReadinessBand,
 } from '../../../graph/index.js';
+import { formatGraphOverview } from '../../../renderers/graph/graph-slice.js';
 import { formatNeighborhood } from '../../../renderers/graph/node-neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
 import { stampOwnMutationWatermark } from '../../../session/prepare-next-turn.js';
 import {
   translateMutateGraph,
-  formatGraphOverview,
   formatMutateGraphResult,
   formatRelatedNodesResult,
   formatStructuralIllegal,

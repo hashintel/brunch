@@ -10,11 +10,8 @@ import {
   type GraphFilter,
   type GraphVisibility,
 } from '../../graph/queries.js';
-import {
-  translateMutateGraph,
-  formatGraphOverview,
-  formatMutateGraphResult,
-} from '../extensions/graph/command-adapter.js';
+import { formatGraphOverview } from '../../renderers/graph/graph-slice.js';
+import { translateMutateGraph, formatMutateGraphResult } from '../extensions/graph/command-adapter.js';
 import { registerBrunchGraph, type GraphReaders } from '../extensions/graph/index.js';
 
 let nextSpecSlug = 0;

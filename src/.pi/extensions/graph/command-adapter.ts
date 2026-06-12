@@ -174,14 +174,6 @@ export function formatStructuralIllegal(result: StructuralIllegal): string {
   return lines.join('\n');
 }
 
-// ---------------------------------------------------------------------------
-// read-graph: overview formatting
-// ---------------------------------------------------------------------------
-
-// Canonicalized into the renderers tree (shared with the context-seed
-// payload); re-exported here for the extension's existing import sites.
-export { formatGraphOverview } from '../../../renderers/graph/graph-slice.js';
-
 export interface RelatedNodesResult {
   readonly status: 'success' | 'not_found';
   readonly anchors?: readonly NodeNeighborhood[];
