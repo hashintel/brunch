@@ -172,16 +172,14 @@ const RuntimeStateResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const TriggerExchangeResultSchema = Type.Object(
-  {
-    status: Type.Literal('pending'),
-    exchange: PendingStructuredExchangeSchema,
-  },
-  { additionalProperties: false },
-);
-
 const PendingExchangeResultSchema = Type.Union([
-  TriggerExchangeResultSchema,
+  Type.Object(
+    {
+      status: Type.Literal('pending'),
+      exchange: PendingStructuredExchangeSchema,
+    },
+    { additionalProperties: false },
+  ),
   Type.Object(
     {
       status: Type.Literal('idle'),
