@@ -6,18 +6,23 @@
  * openings live from the seeded context and ranked elicitation gaps. This
  * script survives solely as the generator for the R24 public-RPC
  * structured-exchange permutation evidence (`public-rpc-parity-proof`) and
- * for fixture-driven exchange tests: probes/tests mint present pairs with
- * `presentExchangeMessages(...)` from `session/structured-exchange-loop.js`
- * and drive responses through the public RPC surface.
+ * for fixture-driven exchange tests: probes/tests mint present pairs here
+ * (the synthetic call+result writers live in this module — the product only
+ * *reads* present pairs) and drive responses through the public RPC surface.
  *
  * Never import this from product code.
  */
 
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 
+import type { PresentDetails } from '../.pi/extensions/exchanges/schemas/index.js';
+import { projectPresentOptions } from '../projections/exchanges/present-options.js';
+import { projectPresentQuestion } from '../projections/exchanges/present-question.js';
+import { formatPresentOptions } from '../renderers/exchanges/present-options.js';
+import { formatPresentQuestion } from '../renderers/exchanges/present-question.js';
 import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
 import {
-  presentExchangeMessages,
+  syntheticExchangeToolCallMessage,
   type PendingStructuredExchange,
 } from '../session/structured-exchange-loop.js';
 
@@ -50,6 +55,60 @@ export function mintDeterministicExchange(
     manager.appendMessage(message as never);
   }
   return exchange;
+}
+
+/**
+ * The provider-legal message pair for a synthetic `present_*` offer:
+ * synthetic assistant tool call first, then its toolResult referencing the
+ * call's id. Append both in order — a bare toolResult is rejected by real
+ * providers. Fixture stand-in for an assistant-authored offer; the product
+ * never mints these (D78-L revised 2026-06-12).
+ */
+export function presentExchangeMessages(exchange: PendingStructuredExchange) {
+  const projection = presentProjection(exchange);
+  const toolCallMessage = syntheticExchangeToolCallMessage(exchange.exchangeId, projection.toolName);
+  const toolResultMessage = {
+    role: 'toolResult' as const,
+    toolCallId: toolCallMessage.content[0].id,
+    toolName: projection.toolName,
+    content: [{ type: 'text' as const, text: projection.markdown }],
+    details: projection.details,
+    isError: false as const,
+    timestamp: 0 as const,
+  };
+  return [toolCallMessage, toolResultMessage] as const;
+}
+
+function presentProjection(exchange: PendingStructuredExchange): {
+  toolName: 'present_question' | 'present_options';
+  markdown: string;
+  details: PresentDetails;
+} {
+  if (exchange.mode === 'text') {
+    const projection = projectPresentQuestion({
+      exchangeId: exchange.exchangeId,
+      heading: exchange.prompt,
+      body: exchange.details,
+    });
+    return {
+      toolName: 'present_question',
+      markdown: formatPresentQuestion(projection),
+      details: projection.details,
+    };
+  }
+
+  const projection = projectPresentOptions({
+    exchangeId: exchange.exchangeId,
+    heading: exchange.prompt,
+    body: exchange.details,
+    options: exchange.options,
+    expectedRequestTool: exchange.mode === 'multi-select' ? 'request_choices' : 'request_choice',
+  });
+  return {
+    toolName: 'present_options',
+    markdown: formatPresentOptions(projection),
+    details: projection.details,
+  };
 }
 
 export function nextDeterministicStructuredExchange(completedCount: number): PendingStructuredExchange {

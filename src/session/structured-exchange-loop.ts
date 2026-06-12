@@ -2,14 +2,10 @@ import * as z from 'zod';
 
 import type { PresentDetails } from '../.pi/extensions/exchanges/schemas/index.js';
 import { isStructuredExchangePresentDetails } from '../.pi/extensions/exchanges/shared/recovery.js';
-import { projectPresentOptions } from '../projections/exchanges/present-options.js';
-import { projectPresentQuestion } from '../projections/exchanges/present-question.js';
 import { projectRequestAnswer } from '../projections/exchanges/request-answer.js';
 import { projectRequestChoice } from '../projections/exchanges/request-choice.js';
 import { projectRequestChoices } from '../projections/exchanges/request-choices.js';
 import { projectRequestReview } from '../projections/exchanges/request-review.js';
-import { formatPresentOptions } from '../renderers/exchanges/present-options.js';
-import { formatPresentQuestion } from '../renderers/exchanges/present-question.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from './exchange-projection.js';
 
@@ -174,68 +170,6 @@ interface PendingChoice {
   label: string;
   content: string;
   rationale?: string;
-}
-
-/**
- * The provider-legal message pair for a synthetic `present_*` offer:
- * synthetic assistant tool call first, then its toolResult. Append both in
- * order — a bare toolResult is rejected by real providers. Since the D78-L
- * 2026-06-12 revision the *product* never mints these; consumers are
- * probe/dev fixture setup (see `probes/deterministic-exchange-script.ts`).
- */
-export function presentExchangeMessages(
-  exchange: PendingStructuredExchange,
-): [SyntheticExchangeToolCallMessage, ReturnType<typeof presentToolResultMessage>] {
-  const projection = presentProjection(exchange);
-  return [
-    syntheticExchangeToolCallMessage(exchange.exchangeId, projection.toolName),
-    presentToolResultMessage(exchange),
-  ];
-}
-
-export function presentToolResultMessage(exchange: PendingStructuredExchange) {
-  const projection = presentProjection(exchange);
-  return {
-    role: 'toolResult' as const,
-    toolCallId: exchangeToolCallId(exchange.exchangeId, projection.toolName),
-    toolName: projection.toolName,
-    content: [{ type: 'text' as const, text: projection.markdown }],
-    details: projection.details,
-    isError: false as const,
-    timestamp: 0 as const,
-  };
-}
-
-function presentProjection(exchange: PendingStructuredExchange): {
-  toolName: 'present_question' | 'present_options';
-  markdown: string;
-  details: PresentDetails;
-} {
-  if (exchange.mode === 'text') {
-    const projection = projectPresentQuestion({
-      exchangeId: exchange.exchangeId,
-      heading: exchange.prompt,
-      body: exchange.details,
-    });
-    return {
-      toolName: 'present_question',
-      markdown: formatPresentQuestion(projection),
-      details: projection.details,
-    };
-  }
-
-  const projection = projectPresentOptions({
-    exchangeId: exchange.exchangeId,
-    heading: exchange.prompt,
-    body: exchange.details,
-    options: exchange.options,
-    expectedRequestTool: exchange.mode === 'multi-select' ? 'request_choices' : 'request_choice',
-  });
-  return {
-    toolName: 'present_options',
-    markdown: formatPresentOptions(projection),
-    details: projection.details,
-  };
 }
 
 export function pendingExchangeFromEnvelope(
