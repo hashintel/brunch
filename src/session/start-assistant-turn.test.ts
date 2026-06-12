@@ -42,19 +42,6 @@ describe('startAssistantTurn', () => {
     expect(JSON.stringify(decision)).not.toContain('"role":"user"');
   });
 
-  it('falls back to the minimal seed statement when no composed content is supplied', () => {
-    const decision = startAssistantTurn({
-      specId,
-      currentLsn: 3,
-      entries: [],
-      origin: 'new_session',
-      strategy: 'auto',
-    });
-    const seed = decision.seedEntries[0];
-    expect(seed?.type).toBe('custom_message');
-    expect(seed?.type === 'custom_message' ? seed.content : '').toContain(`spec ${specId}`);
-  });
-
   it('kicks resumed user-tail debt even after reconciler-inserted continuity notices', () => {
     const entries = [
       message('assistant', 'Question'),
@@ -66,7 +53,14 @@ describe('startAssistantTurn', () => {
 
     expect(latestTailOwesAssistant(entries)).toBe(true);
     expect(
-      startAssistantTurn({ specId, currentLsn: 4, entries, origin: 'resume_debt', strategy: 'auto' }).action,
+      startAssistantTurn({
+        specId,
+        currentLsn: 4,
+        entries,
+        origin: 'resume_debt',
+        strategy: 'auto',
+        seedContent: 'seed',
+      }).action,
     ).toBe('start');
   });
 
@@ -91,6 +85,7 @@ describe('startAssistantTurn', () => {
         entries: [message('assistant', 'Already answered'), custom('worldUpdate', { specId, currentLsn: 4 })],
         origin: 'resume_debt',
         strategy: 'auto',
+        seedContent: 'seed',
       }),
     ).toEqual({ action: 'idle', reason: 'no_unresolved_debt', seedEntries: [] });
 
@@ -100,6 +95,7 @@ describe('startAssistantTurn', () => {
         currentLsn: 4,
         entries: [message('user', 'Ambient')],
         origin: 'resume_debt',
+        seedContent: 'seed',
       }),
     ).toMatchObject({ action: 'start' });
 
@@ -110,6 +106,7 @@ describe('startAssistantTurn', () => {
         entries: [message('user', 'Ambient')],
         origin: 'resume_debt',
         strategy: 'freestyle',
+        seedContent: 'seed',
       }),
     ).toMatchObject({ action: 'idle', reason: 'explicit_freestyle' });
   });
@@ -117,7 +114,13 @@ describe('startAssistantTurn', () => {
   it('is idempotent across reboot and crash-after-notice-before-provider', () => {
     const seeded = [custom('brunch.context_seed', { specId, snapshotLsn: 9 })];
     expect(
-      startAssistantTurn({ specId, currentLsn: 9, entries: seeded, origin: 'new_session' }).seedEntries,
+      startAssistantTurn({
+        specId,
+        currentLsn: 9,
+        entries: seeded,
+        origin: 'new_session',
+        seedContent: 'seed',
+      }).seedEntries,
     ).toEqual([]);
 
     const crashAfterNotice = [
@@ -126,7 +129,13 @@ describe('startAssistantTurn', () => {
       custom('worldUpdate', { specId, currentLsn: 9 }),
     ];
     expect(
-      startAssistantTurn({ specId, currentLsn: 9, entries: crashAfterNotice, origin: 'resume_debt' }),
+      startAssistantTurn({
+        specId,
+        currentLsn: 9,
+        entries: crashAfterNotice,
+        origin: 'resume_debt',
+        seedContent: 'seed',
+      }),
     ).toMatchObject({ action: 'start', seedEntries: [] });
   });
 });

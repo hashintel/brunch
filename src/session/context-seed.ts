@@ -14,20 +14,15 @@
  */
 
 import { sortElicitationGapsForAsking } from '../graph/elicitation-driver.js';
+import type { GraphSlice } from '../graph/index.js';
 import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
 
 const TOP_GAP_COUNT = 5;
 
-export interface ContextSeedSliceLike {
-  readonly nodes: ReadonlyArray<{ readonly kind: string; readonly title: string }>;
-  readonly edges: ReadonlyArray<unknown>;
-  readonly lsn: number;
-}
-
 export interface ComposeContextSeedInput {
   readonly specId: number;
   readonly specName?: string;
-  readonly slice: ContextSeedSliceLike;
+  readonly slice: Pick<GraphSlice, 'nodes' | 'edges' | 'lsn'>;
   readonly gaps: readonly ElicitationGap[];
 }
 

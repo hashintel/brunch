@@ -16,11 +16,10 @@ export interface StartAssistantTurnInput {
   readonly strategy?: 'auto' | 'freestyle';
   /**
    * Composed provider-visible seed body (spec overview + grounding-floor
-   * framing, `composeContextSeedContent`). Callers with graph reads in hand
-   * supply it; without it the seed falls back to a minimal statement so the
-   * carrier and watermark semantics never depend on payload availability.
+   * framing) — always `composeContextSeedContent` output in product paths;
+   * `originateAssistantTurn` owns the composition.
    */
-  readonly seedContent?: string;
+  readonly seedContent: string;
 }
 
 export type StartAssistantTurnDecision =
@@ -54,7 +53,7 @@ export function contextSeedEntries(input: {
   readonly specId: number;
   readonly currentLsn: number;
   readonly entries: readonly TranscriptEntryLike[];
-  readonly seedContent?: string;
+  readonly seedContent: string;
 }): readonly PreparedContinuityEntry[] {
   const watermark = projectAssistantVisibleWatermark(input.entries, { specId: input.specId });
   if (watermark && watermark.lsn >= input.currentLsn) return [];
@@ -62,9 +61,7 @@ export function contextSeedEntries(input: {
     {
       type: 'custom_message',
       customType: 'brunch.context_seed',
-      content:
-        input.seedContent ??
-        `[Brunch] Context seeded for spec ${input.specId} at graph LSN ${input.currentLsn}.`,
+      content: input.seedContent,
       details: { specId: input.specId, snapshotLsn: input.currentLsn },
     },
   ];

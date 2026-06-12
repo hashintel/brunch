@@ -1,3 +1,5 @@
+import type { SessionManager } from '@earendil-works/pi-coding-agent';
+
 import {
   compareWatermarks,
   projectAssistantVisibleWatermark,
@@ -40,11 +42,11 @@ export interface PreparedMessageEntry {
 
 export type PreparedContinuityEntry = PreparedLedgerEntry | PreparedMessageEntry;
 
-/** Structural slice of pi's SessionManager that continuity appends need. */
-export interface ContinuityEntryAppender {
-  appendCustomEntry(customType: string, data?: unknown): unknown;
-  appendCustomMessageEntry(customType: string, content: string, display: boolean, details?: unknown): unknown;
-}
+/**
+ * The slice of pi's SessionManager that continuity appends need — projected
+ * from the owner so signature drift in pi surfaces as a type error here.
+ */
+export type ContinuityEntryAppender = Pick<SessionManager, 'appendCustomEntry' | 'appendCustomMessageEntry'>;
 
 /**
  * Route a prepared continuity entry to the SessionManager API matching its

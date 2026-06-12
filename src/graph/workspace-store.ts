@@ -27,7 +27,7 @@ const DATA_DB_FILE = 'data.db';
  * so callers interact with one spec's graph without threading `specId` through
  * every read.
  */
-interface SpecScopedReaders {
+export interface SpecScopedReaders {
   readonly queryGraph: (filter?: GraphFilter, options?: GraphReadOptions) => GraphSlice;
   readonly getNodes: (
     selectors: readonly NodeSelector[],

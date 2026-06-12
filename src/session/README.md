@@ -45,7 +45,10 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `before_provider_request` is a guard-only check. `start-assistant-turn.ts`
   owns the origination decision and context seed entries; `context-seed.ts`
   composes the seed's provider-visible payload (spec overview + top-ranked
-  open gaps) from spec-scoped reads.
+  open gaps) from spec-scoped reads; `originate-assistant-turn.ts` is the one
+  seed-and-kick choreography every entry point (TUI boot, `session.triggerExchange`)
+  delegates to — origin derives from conversational-message presence in the
+  projected transcript, never entry counts (I46-L).
 
 - **Continuity carriers (FE-857)** — model-intent continuity entries
   (`worldUpdate`, side-task/reviewer drains, mention staleness hints, context

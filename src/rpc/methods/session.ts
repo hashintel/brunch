@@ -14,22 +14,18 @@ import {
   NonLinearTranscriptError,
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
-import { composeContextSeedContent } from '../../session/context-seed.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
 import { mentionEntry, resolveMentionFacts } from '../../session/mention-ledger.js';
-import { appendPreparedContinuityEntry } from '../../session/prepare-next-turn.js';
+import { originateAssistantTurn } from '../../session/originate-assistant-turn.js';
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,
   type SessionProjectionTarget,
 } from '../../session/session-projection-reader.js';
-import { startAssistantTurn } from '../../session/start-assistant-turn.js';
 import {
   acceptedResponseFromParams,
-  nextDeterministicStructuredExchange,
   pendingExchangeFromEnvelope,
   PendingStructuredExchangeSchema,
-  presentToolResultMessage,
   projectPendingStructuredExchange,
 } from '../../session/structured-exchange-loop.js';
 import type {
@@ -522,27 +518,21 @@ async function handleTriggerExchange(
   }
 
   const specReads = (await options.getGraphRuntime()).forSpec(existingTarget.envelope.binding.specId);
-  const seedSlice = specReads.queryGraph();
-  const origination = startAssistantTurn({
-    specId: existingTarget.envelope.binding.specId,
-    currentLsn: seedSlice.lsn,
-    entries: existingTarget.envelope.entries,
-    origin: existingTarget.envelope.entries.length <= 3 ? 'new_session' : 'manual_trigger',
-    seedContent: composeContextSeedContent({
-      specId: existingTarget.envelope.binding.specId,
-      slice: seedSlice,
-      gaps: specReads.getElicitationGaps(),
-    }),
-  });
-  const exchange = nextDeterministicStructuredExchange(
-    projectLinearSessionExchangeProjection(existingTarget.envelope).exchanges.length,
-  );
   const manager = state.session.manager;
-  for (const entry of origination.seedEntries) {
-    appendPreparedContinuityEntry(manager, entry);
-  }
-  manager.appendMessage(presentToolResultMessage(exchange));
+  const { exchange } = originateAssistantTurn({
+    specId: existingTarget.envelope.binding.specId,
+    reads: specReads,
+    entries: existingTarget.envelope.entries,
+    resumeOrigin: 'manual_trigger',
+    exchangeOrdinal: projectLinearSessionExchangeProjection(existingTarget.envelope).exchanges.length,
+    manager,
+  });
   flushSessionEntries(manager, state.session.file);
+  if (!exchange) {
+    // manual_trigger / new_session origins always start; idle here means the
+    // origination contract changed under us — fail loudly rather than fabricate.
+    return createJsonRpcFailure(requestId, -32002, 'Assistant origination unexpectedly idled');
+  }
 
   const reloadedTarget = await selectedSessionFile(state);
   if (!reloadedTarget.ok) {

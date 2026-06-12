@@ -26,16 +26,10 @@ import {
   type ReadinessBand,
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
-import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
+import type { SpecScopedReaders } from '../graph/workspace-store.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
-import { composeContextSeedContent, type ContextSeedSliceLike } from '../session/context-seed.js';
-import { appendPreparedContinuityEntry } from '../session/prepare-next-turn.js';
-import { startAssistantTurn } from '../session/start-assistant-turn.js';
-import {
-  nextDeterministicStructuredExchange,
-  presentToolResultMessage,
-} from '../session/structured-exchange-loop.js';
+import { originateAssistantTurn } from '../session/originate-assistant-turn.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -381,43 +375,21 @@ export function createBrunchAgentSessionRuntimeFactory(
   };
 }
 
-function isMessageEntry(entry: unknown): boolean {
-  return typeof entry === 'object' && entry !== null && (entry as { type?: unknown }).type === 'message';
-}
-
 function seedAndKickAssistantTurn(options: {
   readonly specId: number;
-  readonly reads: {
-    readonly queryGraph: () => ContextSeedSliceLike & { readonly lsn: number };
-    readonly getElicitationGaps: () => readonly ElicitationGap[];
-  };
+  readonly reads: Pick<SpecScopedReaders, 'queryGraph' | 'getElicitationGaps'>;
   readonly specName?: string | undefined;
   readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
 }): void {
-  const entries = options.sessionManager.getEntries();
-  const slice = options.reads.queryGraph();
-  // Origin is derived from projected transcript state, not counts or flags
-  // (I46/I47): a transcript with no conversational message entries is a new
-  // session; anything else takes the resume-debt decision, which itself
-  // dedupes re-kicks (a prior kick's present_* tail owes nothing).
-  const decision = startAssistantTurn({
+  originateAssistantTurn({
     specId: options.specId,
-    currentLsn: slice.lsn,
-    entries,
-    origin: entries.some(isMessageEntry) ? 'resume_debt' : 'new_session',
-    seedContent: composeContextSeedContent({
-      specId: options.specId,
-      ...(options.specName ? { specName: options.specName } : {}),
-      slice,
-      gaps: options.reads.getElicitationGaps(),
-    }),
+    ...(options.specName ? { specName: options.specName } : {}),
+    reads: options.reads,
+    entries: options.sessionManager.getEntries(),
+    resumeOrigin: 'resume_debt',
+    exchangeOrdinal: 0,
+    manager: options.sessionManager,
   });
-  for (const entry of decision.seedEntries) {
-    appendPreparedContinuityEntry(options.sessionManager, entry);
-  }
-  if (decision.action === 'start') {
-    options.sessionManager.appendMessage(presentToolResultMessage(nextDeterministicStructuredExchange(0)));
-  }
 }
 
 async function startDefaultWebSidecar({
