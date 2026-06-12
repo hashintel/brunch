@@ -109,20 +109,13 @@ const CONTEXT_GAUGE_WIDTH = 12;
 const BAR_FILLED = '━';
 const BAR_EMPTY = '─';
 
-/**
- * Lateral padding in columns, matching Pi's standard `Text` component default
- * (`paddingX = 1`) used for transcript content and the built-in header.
- */
-const CHROME_PADDING_X = 1;
-
 export function projectBrunchChromeFooterLines(
   chrome: BrunchChromeState,
   telemetry?: BrunchChromeFooterTelemetry,
   width?: number,
   theme?: BrunchChromeTheme,
 ): string[] {
-  const available =
-    width === undefined ? Number.POSITIVE_INFINITY : Math.max(1, width - CHROME_PADDING_X * 2);
+  const available = width ?? Number.POSITIVE_INFINITY;
   const statuses = sanitizeChromeStatuses(telemetry?.statuses);
 
   const sessionLabel = telemetry?.sessionName ?? chrome.session.label ?? chrome.session.id;
@@ -150,8 +143,7 @@ export function projectBrunchChromeFooterLines(
     lines.push(truncateChromeLine(statuses.join(' '), available, theme));
   }
   lines.push('');
-  const leftMargin = ' '.repeat(CHROME_PADDING_X);
-  return lines.map((line) => (line.length > 0 ? leftMargin + line : line));
+  return lines;
 }
 
 function sanitizeChromeStatuses(statuses: ReadonlyMap<string, string> | undefined): string[] {

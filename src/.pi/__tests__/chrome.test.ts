@@ -47,9 +47,9 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      ' spec / session [ctrl-shift-b]: Spec One / Interview #1  ui: http://127.0.0.1:49152/spec/1',
-      ' mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: not reported',
-      ' no model  ctx ──────────── ?% ?/0',
+      'spec / session [ctrl-shift-b]: Spec One / Interview #1  ui: http://127.0.0.1:49152/spec/1',
+      'mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: not reported',
+      'no model  ctx ──────────── ?% ?/0',
       '',
     ]);
   });
@@ -81,7 +81,7 @@ describe('Brunch chrome projection', () => {
       },
     })[1];
 
-    expect(footerLine).toBe(' mode [opt-m]: elicit | strategy [opt-s]: propose-graph | lens [opt-l]: intent');
+    expect(footerLine).toBe('mode [opt-m]: elicit | strategy [opt-s]: propose-graph | lens [opt-l]: intent');
     expect(footerLine).not.toContain('strategy: auto');
   });
 
@@ -104,9 +104,9 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      ' spec / session [ctrl-shift-b]: Spec One / Interview #1',
-      ' mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: intent',
-      ' claude-sonnet • medium  ctx ━━━━━━────── 50% 1.0k/2.0k',
+      'spec / session [ctrl-shift-b]: Spec One / Interview #1',
+      'mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: intent',
+      'claude-sonnet • medium  ctx ━━━━━━────── 50% 1.0k/2.0k',
       '',
     ]);
   });
