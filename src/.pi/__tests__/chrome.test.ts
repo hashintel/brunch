@@ -32,7 +32,7 @@ describe('Brunch chrome projection', () => {
     const state = chromeStateForWorkspace(workspace);
 
     expect(projectBrunchChromeFooterLines(state)[2]).toBe(
-      'proj: Package App | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
+      ' proj: Package App | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
     );
   });
 
@@ -45,10 +45,10 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      '/tmp/project  no model',
-      'no branch  ctx ──────────── ?% ?/0',
-      'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
-      'web-ui: http://127.0.0.1:49152/spec/1',
+      ' /tmp/project  no model',
+      ' no branch  ctx ──────────── ?% ?/0',
+      ' proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
+      ' web-ui: http://127.0.0.1:49152/spec/1',
       '',
     ]);
   });
@@ -81,7 +81,7 @@ describe('Brunch chrome projection', () => {
     })[2];
 
     expect(footerLine).toBe(
-      'proj: project | spec: Spec One | mode: elicit | strategy: propose-graph | lens: intent',
+      ' proj: project | spec: Spec One | mode: elicit | strategy: propose-graph | lens: intent',
     );
     expect(footerLine).not.toContain('strategy: auto');
   });
@@ -105,9 +105,9 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      '/tmp/project  claude-sonnet • medium',
-      'no branch  ctx ━━━━━━────── 50% 1.0k/2.0k',
-      'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: intent',
+      ' /tmp/project  claude-sonnet • medium',
+      ' no branch  ctx ━━━━━━────── 50% 1.0k/2.0k',
+      ' proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: intent',
       '',
     ]);
   });

@@ -15,6 +15,11 @@ export interface BrunchStartupHeaderFacts {
 }
 
 const HEADER_TOP_PADDING_LINES = 6;
+/**
+ * Lateral padding in columns, matching Pi's standard `Text` component default
+ * (`paddingX = 1`) used for transcript content and Pi's built-in header.
+ */
+const HEADER_PADDING_X = 1;
 const MIN_WIDTH = 20;
 const ASSET_DIR = new URL('./workspace-dialog/assets/', import.meta.url);
 const PACKAGE_JSON_URL = new URL('../../../package.json', import.meta.url);
@@ -30,7 +35,11 @@ export class BrunchStartupHeader implements Component {
 
   render(width: number): string[] {
     const safeWidth = Math.max(MIN_WIDTH, width);
-    return this.collapsedLines().map((line) => truncateToWidth(line, safeWidth, '...'));
+    const contentWidth = safeWidth - HEADER_PADDING_X * 2;
+    const leftMargin = ' '.repeat(HEADER_PADDING_X);
+    return this.collapsedLines().map((line) =>
+      line.length > 0 ? leftMargin + truncateToWidth(line, contentWidth, '...') : line,
+    );
   }
 
   private collapsedLines(): string[] {
