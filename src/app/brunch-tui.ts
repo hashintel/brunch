@@ -344,6 +344,7 @@ export function createBrunchAgentSessionRuntimeFactory(
           {
             coordinator,
             getCommandContext: () => liveAgentSession.current?.createReplacedSessionContext(),
+            ...(productUpdates ? { productUpdates } : {}),
             graph: graphDeps,
             ...(context.dev ? { introspection: context.dev.introspection } : {}),
             promptContext: () => {

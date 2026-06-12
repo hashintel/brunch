@@ -345,12 +345,18 @@ function registerRuntimeSwitchCommands(
   });
 }
 
+function workspaceActionOptions(
+  options: Pick<BrunchCommandsOptions, 'productUpdates'>,
+): Parameters<typeof runBrunchWorkspaceAction>[2] {
+  return options.productUpdates ? { productUpdates: options.productUpdates } : {};
+}
+
 export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommandsOptions): void {
   const { coordinator } = options;
   pi.registerCommand(BRUNCH_SWITCH_COMMAND, {
     description: 'Open the Brunch spec/session picker',
     handler: async (_args, ctx: ExtensionCommandContext) => {
-      await runBrunchWorkspaceAction(ctx, coordinator);
+      await runBrunchWorkspaceAction(ctx, coordinator, workspaceActionOptions(options));
     },
   });
 
@@ -363,7 +369,7 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
   // switchToActivatedWorkspace).
   const openSwitchPicker = async (ctx: BrunchWorkspaceActionContext) => {
     const commandContext = options.getCommandContext?.();
-    await runBrunchWorkspaceAction(commandContext ?? ctx, coordinator);
+    await runBrunchWorkspaceAction(commandContext ?? ctx, coordinator, workspaceActionOptions(options));
   };
   for (const shortcut of [BRUNCH_SWITCH_SHORTCUT, BRUNCH_SWITCH_SHORTCUT_LEGACY] as const) {
     pi.registerShortcut?.(shortcut, {

@@ -686,6 +686,7 @@ describe('Brunch TUI boot', () => {
     const registeredTools: string[] = [];
 
     const shortcutEvents: string[] = [];
+    const publishedUpdates: unknown[] = [];
     const switchTarget = readyWorkspace('/tmp/project', 'session-target');
     const commandContext = fakeCommandContext({
       currentSessionFile: '/sessions/session-old.jsonl',
@@ -714,6 +715,13 @@ describe('Brunch TUI boot', () => {
           },
         },
         getCommandContext: () => commandContext,
+        productUpdates: {
+          publish: (update) => {
+            shortcutEvents.push('publish');
+            publishedUpdates.push(update);
+          },
+          subscribe: () => () => {},
+        },
       },
     )({
       on: (_event: string, _handler: unknown) => {},
@@ -769,8 +777,19 @@ describe('Brunch TUI boot', () => {
       'inspect',
       'custom',
       'activate:openSession',
+      'publish',
       `switch:${switchTarget.session.file}`,
       'notify:info',
+    ]);
+    // The switch publishes the same selected-session updates as workspace.activate.
+    expect(publishedUpdates).toEqual([
+      expect.arrayContaining([
+        {
+          topic: 'workspace.state',
+          specId: switchTarget.spec.id,
+          sessionId: switchTarget.session.id,
+        },
+      ]),
     ]);
   });
 

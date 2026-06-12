@@ -9,6 +9,7 @@ import {
 } from '../queries/workspace.js';
 import type { WebSocketRpcClient } from '../rpc-client.js';
 import { useBrunchUpdateSubscription } from '../subscriptions/brunch-updates.js';
+import { useFollowWorkspaceSpec } from '../subscriptions/follow-workspace-spec.js';
 
 export interface BrunchWebRouterContext {
   queryClient: QueryClient;
@@ -35,6 +36,7 @@ function RootLayout() {
   const { queryClient, rpcClient } = rootRoute.useRouteContext();
   useBrunchUpdateSubscription(queryClient, rpcClient);
   const { data: state } = useSuspenseQuery(workspaceStateQueryOptions(rpcClient));
+  useFollowWorkspaceSpec(state);
   return (
     <div className="flex h-screen flex-col bg-white">
       <AppHeader cwd={state.cwd} />
