@@ -30,6 +30,7 @@ import {
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
 import type { SpecScopedReaders } from '../graph/workspace-store.js';
+import { renderWorkspaceContext } from '../renderers/workspace/workspace-context.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
 import {
@@ -37,6 +38,7 @@ import {
   originateAssistantTurn,
   type OriginateAssistantTurnResult,
 } from '../session/originate-assistant-turn.js';
+import { inspectWorkspaceOverview } from '../session/workspace-context.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -375,6 +377,7 @@ export function createBrunchAgentSessionRuntimeFactory(
       specId: currentWorkspace.spec.id,
       reads: graph.forSpec(currentWorkspace.spec.id),
       specName: graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name,
+      workspaceContext: renderWorkspaceContext(await inspectWorkspaceOverview(cwd)),
       sessionManager,
     });
     if (context.dev) {
@@ -424,6 +427,7 @@ function decideAndSeedAssistantTurn(options: {
   readonly specId: number;
   readonly reads: Pick<SpecScopedReaders, 'queryGraph' | 'getElicitationGaps'>;
   readonly specName?: string | undefined;
+  readonly workspaceContext?: string;
   readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
 }): OriginateAssistantTurnResult {
   return originateAssistantTurn({
@@ -432,6 +436,7 @@ function decideAndSeedAssistantTurn(options: {
     reads: options.reads,
     entries: options.sessionManager.getEntries(),
     resumeOrigin: 'resume_debt',
+    ...(options.workspaceContext ? { workspaceContext: options.workspaceContext } : {}),
     manager: options.sessionManager,
   });
 }

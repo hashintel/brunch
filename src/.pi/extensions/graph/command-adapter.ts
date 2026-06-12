@@ -178,41 +178,9 @@ export function formatStructuralIllegal(result: StructuralIllegal): string {
 // read-graph: overview formatting
 // ---------------------------------------------------------------------------
 
-/**
- * Format a GraphSlice as readable text for the agent.
- */
-export function formatGraphOverview(overview: GraphSlice, heading = 'Graph overview'): string {
-  if (overview.nodes.length === 0) {
-    return `${heading}: empty (no nodes or edges).`;
-  }
-
-  const lines: string[] = [
-    `${heading} (LSN ${overview.lsn}): ${overview.nodes.length} node(s), ${overview.edges.length} edge(s).`,
-    '',
-  ];
-  const nodesById = new Map(overview.nodes.map((node) => [node.id, node]));
-
-  for (const node of overview.nodes) {
-    const detail = node.detail ? ` [has detail]` : '';
-    lines.push(
-      `- [${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: "${node.title}"${detail}`,
-    );
-  }
-
-  if (overview.edges.length > 0) {
-    lines.push('');
-    for (const edge of overview.edges) {
-      const stance = edge.stance ? ` (${edge.stance})` : '';
-      const source = nodesById.get(edge.sourceId);
-      const target = nodesById.get(edge.targetId);
-      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
-      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
-      lines.push(`- Edge #${edge.id}: ${sourceCode} —[${edge.category}${stance}]→ ${targetCode}`);
-    }
-  }
-
-  return lines.join('\n');
-}
+// Canonicalized into the renderers tree (shared with the context-seed
+// payload); re-exported here for the extension's existing import sites.
+export { formatGraphOverview } from '../../../renderers/graph/graph-slice.js';
 
 export interface RelatedNodesResult {
   readonly status: 'success' | 'not_found';

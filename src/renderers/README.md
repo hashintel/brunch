@@ -14,7 +14,9 @@ Renderers may import input types from `projections/`, `graph/`, or `session/`, b
 renderers/
   markdown.ts            shared markdown helpers
   toon.ts                compact structured-data rendering stub
-  graph/                 graph overview/neighborhood/command markdown
+  graph/                 graph overview/neighborhood/command markdown; owns the canonical
+                         full agent-facing overview render (formatGraphOverview) shared by
+                         the read_graph tool and the context-seed payload (D78-L rev. 2026-06-12)
   session/               transcript markdown
   exchanges/             durable exchange markdown
   workspace/             print-mode workspace state text

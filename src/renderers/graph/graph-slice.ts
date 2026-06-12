@@ -22,6 +22,50 @@ const DEFAULT_MAX_NODES_PER_GROUP = 3;
 const DEFAULT_MAX_EDGES = 12;
 const DEFAULT_MAX_TITLE_LENGTH = 96;
 
+/**
+ * The full, uncapped graph overview — node codes/planes/kinds/titles plus the
+ * edge list — the canonical agent-facing render shared by the `read_graph`
+ * tool and the context-seed payload (D78-L revised 2026-06-12: the seed
+ * carries this render so the opening turn needs no read tool call; never
+ * truncated — conciseness for large graphs is a future "ultra compact"
+ * variant of this renderer, not a payload cut).
+ */
+export function formatGraphOverview(
+  overview: Pick<GraphSlice, 'nodes' | 'edges' | 'lsn'>,
+  heading = 'Graph overview',
+): string {
+  if (overview.nodes.length === 0) {
+    return `${heading}: empty (no nodes or edges).`;
+  }
+
+  const lines: string[] = [
+    `${heading} (LSN ${overview.lsn}): ${overview.nodes.length} node(s), ${overview.edges.length} edge(s).`,
+    '',
+  ];
+  const nodesById = new Map(overview.nodes.map((node) => [node.id, node]));
+
+  for (const node of overview.nodes) {
+    const detail = node.detail ? ` [has detail]` : '';
+    lines.push(
+      `- [${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: "${node.title}"${detail}`,
+    );
+  }
+
+  if (overview.edges.length > 0) {
+    lines.push('');
+    for (const edge of overview.edges) {
+      const stance = edge.stance ? ` (${edge.stance})` : '';
+      const source = nodesById.get(edge.sourceId);
+      const target = nodesById.get(edge.targetId);
+      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
+      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
+      lines.push(`- Edge #${edge.id}: ${sourceCode} —[${edge.category}${stance}]→ ${targetCode}`);
+    }
+  }
+
+  return lines.join('\n');
+}
+
 export function formatGraphSlice(slice: GraphSlice, options: RenderGraphSliceOptions = {}): string {
   const variant = options.variant ?? 'compact-summary';
   if (variant === 'grouped-list') return formatGroupedList(slice, options);

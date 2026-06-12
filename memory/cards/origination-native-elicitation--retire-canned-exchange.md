@@ -135,7 +135,18 @@ memory/SPEC.md                       ~   (I46-L coverage cell)
 
 ## Card 2 — content-rich seed: workspace + spec + full graph overview (full card)
 
-Status: next
+Status: done (2026-06-12)
+
+Landed shape: `formatGraphOverview` canonicalized into
+`src/renderers/graph/graph-slice.ts` (command-adapter re-exports for the
+`read_graph` tool — one render, no second dialect); `composeContextSeedContent`
+emits the full overview + optional pre-rendered workspace section (composer
+stays pure — callers pre-render via `inspectWorkspaceOverview` +
+`renderWorkspaceContext`); both origination callers (TUI factory, RPC
+`triggerExchange`) thread it. Tier-2 picker-path oracle gained a `seedGraph`
+hook and asserts node codes, titles, edge lines, and the workspace section in
+the captured kick payload. "Ultra compact" render mode recorded as named
+deferral in SPEC D78-L + PLAN.
 
 ### Target Behavior
 

@@ -42,6 +42,8 @@ export interface OriginateAssistantTurnInput {
    * an explicit user-triggered kick.
    */
   readonly resumeOrigin: 'resume_debt' | 'manual_trigger';
+  /** Pre-rendered workspace overview for the seed payload (renderWorkspaceContext output). */
+  readonly workspaceContext?: string;
   readonly manager: OriginationManager;
 }
 
@@ -96,6 +98,7 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
       ...(input.specName ? { specName: input.specName } : {}),
       slice,
       gaps: input.reads.getElicitationGaps(),
+      ...(input.workspaceContext ? { workspaceContext: input.workspaceContext } : {}),
     }),
   });
 

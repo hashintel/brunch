@@ -5,8 +5,8 @@ import { composeContextSeedContent } from './context-seed.js';
 
 const specId = 7;
 
-function node(kind: string, title: string) {
-  return { kind, title } as never;
+function node(kind: string, title: string, kindOrdinal = 1) {
+  return { id: kindOrdinal * 10 + kind.length, plane: 'intent', kind, kindOrdinal, title } as never;
 }
 
 function gap(question: string, overrides: Partial<ElicitationGap> = {}): ElicitationGap {
@@ -28,17 +28,22 @@ function gap(question: string, overrides: Partial<ElicitationGap> = {}): Elicita
 }
 
 describe('composeContextSeedContent', () => {
-  it('renders the spec overview composition and the top-ranked open gaps', () => {
+  it('renders the full graph overview (codes, titles, edges) and the top-ranked open gaps', () => {
+    const goal = node('goal', 'Ship tracker', 1);
+    const requirement = node('requirement', 'Fast search', 1);
     const content = composeContextSeedContent({
       specId,
       specName: 'Issue tracker',
       slice: {
-        nodes: [
-          node('goal', 'Ship tracker'),
-          node('goal', 'Second goal'),
-          node('requirement', 'Fast search'),
+        nodes: [goal, node('goal', 'Second goal', 2), requirement],
+        edges: [
+          {
+            id: 1,
+            sourceId: (requirement as { id: number }).id,
+            targetId: (goal as { id: number }).id,
+            category: 'dependency',
+          } as never,
         ],
-        edges: [{ id: 1 } as never],
         lsn: 9,
       },
       gaps: [
@@ -49,11 +54,27 @@ describe('composeContextSeedContent', () => {
 
     expect(content).toContain('Issue tracker');
     expect(content).toContain('LSN 9');
-    expect(content).toContain('goal: 2');
-    expect(content).toContain('requirement: 1');
-    expect(content).toContain('1 edge');
+    // Full overview — the same render read_graph emits: node codes + titles + edges,
+    // never a counts-only summary (D78-L revised: first question needs no tool call).
+    expect(content).toContain('[G1]');
+    expect(content).toContain('"Ship tracker"');
+    expect(content).toContain('[REQ1]');
+    expect(content).toContain('—[dependency]→');
     // Ranked order: higher importance first within the same band.
     expect(content.indexOf('What is the primary goal?')).toBeLessThan(content.indexOf('Who are the users?'));
+  });
+
+  it('includes the pre-rendered workspace overview section when provided', () => {
+    const content = composeContextSeedContent({
+      specId,
+      specName: 'Issue tracker',
+      slice: { nodes: [], edges: [], lsn: 1 },
+      gaps: [],
+      workspaceContext: 'Workspace overview\n- specs: 2\n- sessions: 1',
+    });
+    expect(content).toContain('Workspace overview');
+    // Workspace section precedes the graph section.
+    expect(content.indexOf('Workspace overview')).toBeLessThan(content.indexOf('Graph'));
   });
 
   it('caps the gap framing at the top five and excludes ineligible gaps', () => {

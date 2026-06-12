@@ -62,13 +62,37 @@ describe('origination-kick-live — the product originates the opening turn on i
     }
   });
 
-  it('picker path parity: continue an existing spec into a new session also kicks', async () => {
-    const boot = await bootTier2ProductOriginatedTurn({ activation: 'pickerNewSession' });
+  it('picker path parity: continue an existing spec into a new session also kicks, with the full graph overview in the payload', async () => {
+    const boot = await bootTier2ProductOriginatedTurn({
+      activation: 'pickerNewSession',
+      seedGraph: (executor, specId) => {
+        const result = executor.mutateGraph({
+          specId,
+          createBasis: 'explicit',
+          ops: [
+            { op: 'create_node', ref: 'g', plane: 'intent', kind: 'goal', title: 'Orient the user' },
+            { op: 'create_node', ref: 'c', plane: 'intent', kind: 'context', title: 'Multi-spec workspace' },
+            { op: 'create_edge', category: 'support', support: 'c', claim: 'g', stance: 'for' },
+          ],
+        });
+        if (result.status !== 'success') throw new Error('Tier-2 graph seed failed');
+      },
+    });
     try {
       expect(boot.providerContexts.length).toBeGreaterThan(0);
       const entries = boot.runtime.session.sessionManager.getEntries();
       expect(presentToolResults(entries)).toHaveLength(0);
       expect(userMessages(entries)).toHaveLength(0);
+
+      // D78-L revised: the seed carries the FULL graph overview — node codes,
+      // titles, and edges — plus a workspace section, so the opening turn
+      // needs no read tool call.
+      const contextText = JSON.stringify(boot.providerContexts[0]!.messages);
+      expect(contextText).toContain('[G1]');
+      expect(contextText).toContain('Orient the user');
+      expect(contextText).toContain('[CTX1]');
+      expect(contextText).toContain('support (for)');
+      expect(contextText).toContain('Workspace');
     } finally {
       await boot.dispose();
     }

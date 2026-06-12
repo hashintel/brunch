@@ -10,6 +10,7 @@ import {
   runBrunchTui,
   type BrunchAgentServicesOverride,
 } from '../app/brunch-tui.js';
+import { openWorkspaceGraphRuntime, type CommandExecutor } from '../graph/index.js';
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
   brunchFauxProviderConfig,
@@ -302,6 +303,8 @@ export async function bootTier2ProductOriginatedTurn(
     readonly activation?: 'newSpec' | 'pickerNewSession';
     readonly responseText?: string;
     readonly waitForProviderCallMs?: number | false;
+    /** Seed graph truth into the picker-path spec before boot (pickerNewSession only). */
+    readonly seedGraph?: (executor: CommandExecutor, specId: number) => void;
   } = {},
 ) {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-kick-live-'));
@@ -329,6 +332,10 @@ export async function bootTier2ProductOriginatedTurn(
         specTitle: 'Kick live picker spec',
         createNewSpec: true,
       });
+      if (options.seedGraph) {
+        const graphRuntime = await openWorkspaceGraphRuntime(cwd);
+        options.seedGraph(graphRuntime.commandExecutor, setup.spec.id);
+      }
       preflight = { action: 'newSession', specId: setup.spec.id };
     } else {
       preflight = { action: 'newSpec', title: 'Kick live spec' };
