@@ -170,7 +170,13 @@ export class RuntimeAxisPickerComponent<TSelection extends string> implements Co
     const { theme, current, choices } = this.options;
     const line = theme.fg('dim', 'current: ') + theme.fg('success', current);
     if (this.#disabled.size === 0) return line;
-    const enabled = choices.filter((choice) => !this.#disabled.has(choice));
-    return line + theme.fg('dim', `; currently-enabled: ${enabled.join(', ')}`);
+    const disabled = choices.filter((choice) => this.#disabled.has(choice));
+    return line + theme.fg('dim', ` -- NOTE: ${describeNotYetEnabled(disabled)}`);
   }
+}
+
+/** "foo is…", "foo and bar are…", "foo, bar and baz are…" */
+function describeNotYetEnabled(items: readonly string[]): string {
+  const list = items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
+  return `${list} ${items.length === 1 ? 'is' : 'are'} not yet enabled`;
 }

@@ -71,8 +71,8 @@ describe('runtime posture picker overlays', () => {
     expect(component.render(120).join('\n')).toContain('\x1b[48;5;34m\x1b[30m auto ');
   });
 
-  it('grays out disabled choices, lists enabled ones, and skips disabled during cycling', () => {
-    const [first, second, ...rest] = AGENT_STRATEGY_IDS;
+  it('grays out disabled choices, notes them, and skips them during cycling', () => {
+    const [first, second] = AGENT_STRATEGY_IDS;
     const component = createRuntimeStrategyPickerComponent({
       current: 'auto',
       disabled: [first!],
@@ -82,7 +82,7 @@ describe('runtime posture picker overlays', () => {
 
     const text = component.render(200).join('\n');
     expect(text).toContain(`\x1b[38;5;240m${first}\x1b[39m`);
-    expect(text).toContain(`currently-enabled: ${['auto', second, ...rest].join(', ')}`);
+    expect(text).toContain(`-- NOTE: ${first} is not yet enabled`);
 
     // Cycling right from auto skips the disabled first strategy.
     component.handleInput?.('\x1b[C');
@@ -91,6 +91,20 @@ describe('runtime posture picker overlays', () => {
     // Cycling back left skips it again and wraps to auto.
     component.handleInput?.('\x1b[D');
     expect(component.render(200).join('\n')).toContain('\x1b[48;5;34m\x1b[30m auto ');
+  });
+
+  it.each([
+    [2, /-- NOTE: \S+ and \S+ are not yet enabled/u],
+    [3, /-- NOTE: \S+, \S+ and \S+ are not yet enabled/u],
+  ] as const)('lists %i disabled choices with natural grammar', (count, pattern) => {
+    const component = createRuntimeStrategyPickerComponent({
+      current: 'auto',
+      disabled: AGENT_STRATEGY_IDS.slice(0, count),
+      theme,
+      onDone: () => {},
+    });
+
+    expect(component.render(200).join('\n')).toMatch(pattern);
   });
 
   it('shows planned operational modes as disabled in the mode picker', () => {
@@ -106,7 +120,7 @@ describe('runtime posture picker overlays', () => {
     // elicit is current (success badge); execute is planned and grayed out.
     expect(text).toContain('\x1b[48;5;34m\x1b[30m elicit ');
     expect(text).toContain('\x1b[38;5;240mexecute\x1b[39m');
-    expect(text).toContain('currently-enabled: elicit');
+    expect(text).toContain('-- NOTE: execute is not yet enabled');
 
     // Cycling cannot land on the disabled planned mode.
     component.handleInput?.('\x1b[C');
