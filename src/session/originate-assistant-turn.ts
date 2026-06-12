@@ -5,15 +5,17 @@
  *
  * Owns: origin derivation from projected transcript state (conversational
  * message presence — never entry counts, I46-L), seed-content composition
- * (`composeContextSeedContent`), seed append, and the assistant-originated
- * `present_*` exchange append on a start decision.
+ * (`composeContextSeedContent`), and the seed append. The product fabricates
+ * **no** `present_*` exchange (D78-L revised 2026-06-12 — the deterministic
+ * offer was a pre-elicitation-gaps fossil): on a 'start' decision the launch
+ * path fires the kick turn (`kickTurnMessage` + `triggerTurn`) and the
+ * assistant authors the opening live, typically via real `present_*`/
+ * `request_*` tool calls.
  *
  * Not a continuity writer: the pre-turn reconciler (D77-L) remains the only
  * writer of worldUpdate/staleness/drain continuity; this seam writes only the
- * origination artifacts (seed + opening exchange).
+ * seed.
  */
-
-import type { SessionManager } from '@earendil-works/pi-coding-agent';
 
 import type { GraphSlice } from '../graph/index.js';
 import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
@@ -21,18 +23,13 @@ import type { TranscriptEntryLike } from '../projections/session/continuity-entr
 import { composeContextSeedContent } from './context-seed.js';
 import { appendPreparedContinuityEntry, type ContinuityEntryAppender } from './prepare-next-turn.js';
 import { startAssistantTurn, type StartAssistantTurnDecision } from './start-assistant-turn.js';
-import {
-  nextDeterministicStructuredExchange,
-  presentExchangeMessages,
-  type PendingStructuredExchange,
-} from './structured-exchange-loop.js';
 
 export interface OriginationReads {
   readonly queryGraph: () => GraphSlice;
   readonly getElicitationGaps: () => readonly ElicitationGap[];
 }
 
-export type OriginationManager = ContinuityEntryAppender & Pick<SessionManager, 'appendMessage'>;
+export type OriginationManager = ContinuityEntryAppender;
 
 export interface OriginateAssistantTurnInput {
   readonly specId: number;
@@ -45,14 +42,11 @@ export interface OriginateAssistantTurnInput {
    * an explicit user-triggered kick.
    */
   readonly resumeOrigin: 'resume_debt' | 'manual_trigger';
-  /** Count of completed structured exchanges, for deterministic exchange selection. */
-  readonly exchangeOrdinal: number;
   readonly manager: OriginationManager;
 }
 
 export interface OriginateAssistantTurnResult {
   readonly decision: StartAssistantTurnDecision;
-  readonly exchange?: PendingStructuredExchange;
 }
 
 export const BRUNCH_KICK_CUSTOM_TYPE = 'brunch.kick';
@@ -105,20 +99,13 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
     }),
   });
 
+  // Seed only — the product fabricates no present_* offer (D78-L revised
+  // 2026-06-12): on a 'start' decision the launch path fires the kick turn
+  // and the assistant authors the opening live from the seeded context.
   for (const entry of decision.seedEntries) {
     appendPreparedContinuityEntry(input.manager, entry);
   }
-  if (decision.action !== 'start') {
-    return { decision };
-  }
-
-  const exchange = nextDeterministicStructuredExchange(input.exchangeOrdinal);
-  // Call+result pair: real providers reject an orphan tool_result, so the
-  // offer persists in the same shape an LLM-driven present_* exchange leaves.
-  for (const message of presentExchangeMessages(exchange)) {
-    input.manager.appendMessage(message);
-  }
-  return { decision, exchange };
+  return { decision };
 }
 
 function isConversationalMessageEntry(entry: TranscriptEntryLike): boolean {

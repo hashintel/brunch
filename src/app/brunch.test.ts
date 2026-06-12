@@ -241,11 +241,14 @@ describe('Brunch CLI dispatch', () => {
         ],
       },
     });
+    // Kick surface (D49-L revised 2026-06-12): no assistant-created exchange
+    // exists in this transport-only flow, so the trigger reports idle — the
+    // shared-publisher claim above is what this test owns.
     expect(messages).toContainEqual(
       expect.objectContaining({
         jsonrpc: '2.0',
         id: 7,
-        result: expect.objectContaining({ status: 'pending' }),
+        result: expect.objectContaining({ status: 'idle' }),
       }),
     );
   });

@@ -15,10 +15,27 @@ import {
   bootTier2ProductOriginatedTurn,
   bootTier2RuntimeFromFixture,
   bootTier2RuntimeThroughRunBrunchTui,
+  createTier2FauxAgentServices,
   rebootTier2Runtime,
   resumeTier2Fixture,
   runTier2RealBootFauxTurn,
+  waitForCondition,
 } from './tier-2-harness.js';
+
+/** Wait for the product kick turn (brunch.kick entry) on a fixture boot. */
+async function waitForKick(runtime: { session: { sessionManager: { getEntries(): readonly unknown[] } } }) {
+  await waitForCondition(
+    () => customEntries(runtime.session.sessionManager.getEntries(), 'brunch.kick').length > 0,
+    8000,
+    'resume kick turn (brunch.kick entry)',
+  );
+}
+
+/** Settle window in which a wrongly-fired kick would have appended its entry. */
+async function expectNoKick(runtime: { session: { sessionManager: { getEntries(): readonly unknown[] } } }) {
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  expect(customEntries(runtime.session.sessionManager.getEntries(), 'brunch.kick')).toHaveLength(0);
+}
 
 describe('origination-kick-live — the product originates the opening turn on its own bones', () => {
   it('a new spec boot fires a provider call with no harness prompt, carrying the seeded context', async () => {
@@ -30,7 +47,9 @@ describe('origination-kick-live — the product originates the opening turn on i
       expect(contextText).toContain('Open elicitation gaps');
 
       const entries = boot.runtime.session.sessionManager.getEntries();
-      expect(presentToolResults(entries)).toHaveLength(1);
+      // Revised D78-L (2026-06-12): the product fabricates no present_* offer;
+      // the assistant authors the opening live from the seeded context.
+      expect(presentToolResults(entries)).toHaveLength(0);
       expect(userMessages(entries)).toHaveLength(0);
       expect(customEntries(entries, 'brunch.kick')).toHaveLength(1);
 
@@ -48,7 +67,7 @@ describe('origination-kick-live — the product originates the opening turn on i
     try {
       expect(boot.providerContexts.length).toBeGreaterThan(0);
       const entries = boot.runtime.session.sessionManager.getEntries();
-      expect(presentToolResults(entries)).toHaveLength(1);
+      expect(presentToolResults(entries)).toHaveLength(0);
       expect(userMessages(entries)).toHaveLength(0);
     } finally {
       await boot.dispose();
@@ -71,7 +90,9 @@ describe('origination-kick-live — the product originates the opening turn on i
         await new Promise((resolve) => setTimeout(resolve, 200));
         expect(boot.providerContexts).toHaveLength(1);
         const entries = reboot.runtime.session.sessionManager.getEntries();
-        expect(presentToolResults(entries)).toHaveLength(1);
+        // No fabricated offers on either boot; exactly one kick across both
+        // (crash-after-kick reboot rests idle — assistant tail owes nothing).
+        expect(presentToolResults(entries)).toHaveLength(0);
         expect(customEntries(entries, 'brunch.kick')).toHaveLength(1);
       } finally {
         await reboot.runtime.dispose();
@@ -501,14 +522,8 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
       expect(customEntries(entries, 'brunch.context_seed')).toEqual([
         expect.objectContaining({ data: { specId, snapshotLsn: expect.any(Number) } }),
       ]);
-      expect(entries).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            type: 'message',
-            message: expect.objectContaining({ role: 'toolResult', toolName: 'present_options' }),
-          }),
-        ]),
-      );
+      // No fabricated offer (D78-L revised): origination is seed-only.
+      expect(presentToolResults(entries)).toHaveLength(0);
       expect(entries).not.toEqual(
         expect.arrayContaining([
           expect.objectContaining({ message: expect.objectContaining({ role: 'user' }) }),
@@ -546,10 +561,9 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
       expect(seedContent).toContain(`spec ${specId}`);
       expect(seedContent).toContain('Open elicitation gaps');
 
-      // The kick happened (assistant-originated present_*), and pi's own
-      // context builder surfaces the seeded overview + a real top-ranked gap
-      // question in the LLM context the opening turn runs against.
-      expect(presentToolResults(entries).length).toBeGreaterThan(0);
+      // pi's own context builder surfaces the seeded overview + a real
+      // top-ranked gap question in the LLM context the opening turn runs
+      // against (lifecycle is owned by the origination-kick-live oracle).
       const llmContext = buildSessionContext(entries as never);
       const contextText = JSON.stringify(llmContext.messages);
       expect(contextText).toContain('Context seeded for spec');
@@ -563,74 +577,90 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
   });
 
   it('resume kick uses the pre-reconcile tail so a user tail still earns a kick after continuity notices', async () => {
-    const boot = await bootTier2RuntimeFromFixture({
-      fixtureEntries: (specId) => [
-        { type: 'message', message: userMessage('Resume me: what is the next question?') },
-        { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 99, items: [] } },
-        {
-          type: 'custom',
-          customType: 'brunch.mention_staleness_hint',
-          data: { specId, entityId: 1, seenLsn: 1, currentLsn: 99 },
-        },
-      ],
-    });
+    const faux = createTier2FauxAgentServices();
     try {
-      const entries = boot.runtime.session.sessionManager.getEntries();
-      expect(presentToolResults(entries)).toHaveLength(1);
-      expect(userMessages(entries)).toHaveLength(1);
-    } finally {
-      await boot.runtime.dispose();
-      boot.restoreEnv();
-    }
-
-    // A user tail still earns the kick when earlier completed exchanges exist
-    // in the transcript — past exchange results must not blanket-suppress the
-    // resume-debt decision.
-    const postExchange = await bootTier2RuntimeFromFixture({
-      fixtureEntries: (specId) => [
-        { type: 'message', message: userMessage('First question') },
-        { type: 'message', message: requestChoicesResultMessage('answered') },
-        { type: 'message', message: userMessage('Follow-up you never answered') },
-        { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 99, items: [] } },
-      ],
-    });
-    try {
-      // One present_* result came from the fixture-era kick is absent here; the
-      // reboot kick appends exactly one beyond the fixture's zero.
-      expect(presentToolResults(postExchange.runtime.session.sessionManager.getEntries())).toHaveLength(1);
-    } finally {
-      await postExchange.runtime.dispose();
-      postExchange.restoreEnv();
-    }
-  });
-
-  it('request_* and system leaves stay idle on resume', async () => {
-    for (const status of ['answered', 'cancelled', 'unavailable'] as const) {
       const boot = await bootTier2RuntimeFromFixture({
-        fixtureEntries: () => [
-          { type: 'message', message: userMessage('Earlier question') },
-          { type: 'message', message: requestChoicesResultMessage(status) },
+        agentServices: faux.agentServices,
+        fixtureEntries: (specId) => [
+          { type: 'message', message: userMessage('Resume me: what is the next question?') },
+          { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 99, items: [] } },
+          {
+            type: 'custom',
+            customType: 'brunch.mention_staleness_hint',
+            data: { specId, entityId: 1, seenLsn: 1, currentLsn: 99 },
+          },
         ],
       });
       try {
-        expect(presentToolResults(boot.runtime.session.sessionManager.getEntries())).toHaveLength(0);
+        await waitForKick(boot.runtime);
+        const entries = boot.runtime.session.sessionManager.getEntries();
+        expect(customEntries(entries, 'brunch.kick')).toHaveLength(1);
+        expect(userMessages(entries)).toHaveLength(1);
       } finally {
         await boot.runtime.dispose();
         boot.restoreEnv();
       }
-    }
 
-    const assistantLeaf = await bootTier2RuntimeFromFixture({
-      fixtureEntries: () => [
-        { type: 'message', message: userMessage('Earlier question') },
-        { type: 'message', message: assistantMessage('System-side answer; nothing owed.') },
-      ],
-    });
-    try {
-      expect(presentToolResults(assistantLeaf.runtime.session.sessionManager.getEntries())).toHaveLength(0);
+      // A user tail still earns the kick when earlier completed exchanges exist
+      // in the transcript — past exchange results must not blanket-suppress the
+      // resume-debt decision.
+      const postExchange = await bootTier2RuntimeFromFixture({
+        agentServices: faux.agentServices,
+        fixtureEntries: (specId) => [
+          { type: 'message', message: userMessage('First question') },
+          { type: 'message', message: requestChoicesResultMessage('answered') },
+          { type: 'message', message: userMessage('Follow-up you never answered') },
+          { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 99, items: [] } },
+        ],
+      });
+      try {
+        await waitForKick(postExchange.runtime);
+        expect(
+          customEntries(postExchange.runtime.session.sessionManager.getEntries(), 'brunch.kick'),
+        ).toHaveLength(1);
+      } finally {
+        await postExchange.runtime.dispose();
+        postExchange.restoreEnv();
+      }
     } finally {
-      await assistantLeaf.runtime.dispose();
-      assistantLeaf.restoreEnv();
+      faux.unregister();
+    }
+  });
+
+  it('request_* and system leaves stay idle on resume', async () => {
+    const faux = createTier2FauxAgentServices();
+    try {
+      for (const status of ['answered', 'cancelled', 'unavailable'] as const) {
+        const boot = await bootTier2RuntimeFromFixture({
+          agentServices: faux.agentServices,
+          fixtureEntries: () => [
+            { type: 'message', message: userMessage('Earlier question') },
+            { type: 'message', message: requestChoicesResultMessage(status) },
+          ],
+        });
+        try {
+          await expectNoKick(boot.runtime);
+        } finally {
+          await boot.runtime.dispose();
+          boot.restoreEnv();
+        }
+      }
+
+      const assistantLeaf = await bootTier2RuntimeFromFixture({
+        agentServices: faux.agentServices,
+        fixtureEntries: () => [
+          { type: 'message', message: userMessage('Earlier question') },
+          { type: 'message', message: assistantMessage('System-side answer; nothing owed.') },
+        ],
+      });
+      try {
+        await expectNoKick(assistantLeaf.runtime);
+      } finally {
+        await assistantLeaf.runtime.dispose();
+        assistantLeaf.restoreEnv();
+      }
+    } finally {
+      faux.unregister();
     }
   });
 
@@ -638,50 +668,67 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
     // Reconciler-inserted seed/notices landed, then the process died before the
     // provider call; reboot must still answer the user's unresolved debt and
     // must not duplicate the already-written seed.
-    const boot = await bootTier2RuntimeFromFixture({
-      fixtureEntries: (specId) => [
-        { type: 'message', message: userMessage('Crashed before you answered this.') },
-        { type: 'custom', customType: 'brunch.context_seed', data: { specId, snapshotLsn: 9999 } },
-        { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 9999, items: [] } },
-      ],
-    });
+    const faux = createTier2FauxAgentServices();
     try {
-      const entries = boot.runtime.session.sessionManager.getEntries();
-      expect(presentToolResults(entries)).toHaveLength(1);
-      expect(customEntries(entries, 'brunch.context_seed')).toHaveLength(1);
+      const boot = await bootTier2RuntimeFromFixture({
+        agentServices: faux.agentServices,
+        fixtureEntries: (specId) => [
+          { type: 'message', message: userMessage('Crashed before you answered this.') },
+          { type: 'custom', customType: 'brunch.context_seed', data: { specId, snapshotLsn: 9999 } },
+          { type: 'custom', customType: 'worldUpdate', data: { specId, currentLsn: 9999, items: [] } },
+        ],
+      });
+      try {
+        await waitForKick(boot.runtime);
+        const entries = boot.runtime.session.sessionManager.getEntries();
+        expect(customEntries(entries, 'brunch.kick')).toHaveLength(1);
+        expect(customEntries(entries, 'brunch.context_seed')).toHaveLength(1);
+      } finally {
+        await boot.runtime.dispose();
+        boot.restoreEnv();
+      }
     } finally {
-      await boot.runtime.dispose();
-      boot.restoreEnv();
+      faux.unregister();
     }
   });
 
   it('trailing side-task or reviewer drains are continuity-only and do not manufacture or mask debt', async () => {
-    const noDebt = await bootTier2RuntimeFromFixture({
-      fixtureEntries: (specId) => [
-        { type: 'message', message: userMessage('Earlier question') },
-        { type: 'message', message: requestChoicesResultMessage('answered') },
-        { type: 'custom', customType: 'brunch.side_task_result', data: { specId, taskId: 't1' } },
-        { type: 'custom', customType: 'brunch.reviewer_drain', data: { specId, findings: [] } },
-      ],
-    });
+    const faux = createTier2FauxAgentServices();
     try {
-      expect(presentToolResults(noDebt.runtime.session.sessionManager.getEntries())).toHaveLength(0);
-    } finally {
-      await noDebt.runtime.dispose();
-      noDebt.restoreEnv();
-    }
+      const noDebt = await bootTier2RuntimeFromFixture({
+        agentServices: faux.agentServices,
+        fixtureEntries: (specId) => [
+          { type: 'message', message: userMessage('Earlier question') },
+          { type: 'message', message: requestChoicesResultMessage('answered') },
+          { type: 'custom', customType: 'brunch.side_task_result', data: { specId, taskId: 't1' } },
+          { type: 'custom', customType: 'brunch.reviewer_drain', data: { specId, findings: [] } },
+        ],
+      });
+      try {
+        await expectNoKick(noDebt.runtime);
+      } finally {
+        await noDebt.runtime.dispose();
+        noDebt.restoreEnv();
+      }
 
-    const maskedDebt = await bootTier2RuntimeFromFixture({
-      fixtureEntries: (specId) => [
-        { type: 'message', message: userMessage('Still waiting on this.') },
-        { type: 'custom', customType: 'brunch.side_task_result', data: { specId, taskId: 't1' } },
-      ],
-    });
-    try {
-      expect(presentToolResults(maskedDebt.runtime.session.sessionManager.getEntries())).toHaveLength(1);
+      const maskedDebt = await bootTier2RuntimeFromFixture({
+        agentServices: faux.agentServices,
+        fixtureEntries: (specId) => [
+          { type: 'message', message: userMessage('Still waiting on this.') },
+          { type: 'custom', customType: 'brunch.side_task_result', data: { specId, taskId: 't1' } },
+        ],
+      });
+      try {
+        await waitForKick(maskedDebt.runtime);
+        expect(
+          customEntries(maskedDebt.runtime.session.sessionManager.getEntries(), 'brunch.kick'),
+        ).toHaveLength(1);
+      } finally {
+        await maskedDebt.runtime.dispose();
+        maskedDebt.restoreEnv();
+      }
     } finally {
-      await maskedDebt.runtime.dispose();
-      maskedDebt.restoreEnv();
+      faux.unregister();
     }
   });
 });
@@ -732,7 +779,7 @@ describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempo
     try {
       const firstEntries = boot.runtime.session.sessionManager.getEntries();
       expect(customEntries(firstEntries, 'brunch.context_seed')).toHaveLength(1);
-      expect(presentToolResults(firstEntries)).toHaveLength(1);
+      expect(presentToolResults(firstEntries)).toHaveLength(0);
 
       const flushManager = boot.runtime.session.sessionManager;
       await boot.runtime.dispose();
@@ -745,7 +792,7 @@ describe('FE-847 coverage-first scaffold — I47-L carrier discipline and idempo
 
       const rebootedEntries = rebooted.runtime.session.sessionManager.getEntries();
       expect(customEntries(rebootedEntries, 'brunch.context_seed')).toHaveLength(1);
-      expect(presentToolResults(rebootedEntries)).toHaveLength(1);
+      expect(presentToolResults(rebootedEntries)).toHaveLength(0);
       await rebooted.runtime.session.extensionRunner.emitBeforeProviderRequest({});
       expect(customEntries(rebooted.runtime.session.sessionManager.getEntries(), 'worldUpdate')).toHaveLength(
         0,

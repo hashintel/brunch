@@ -166,6 +166,8 @@ export type Tier2FixtureEntry =
 export async function bootTier2RuntimeFromFixture(options: {
   readonly fixtureEntries: (specId: number) => readonly Tier2FixtureEntry[];
   readonly specTitle?: string;
+  /** Faux backend so resume-kick decisions are observable as real turns. */
+  readonly agentServices?: BrunchAgentServicesOverride;
 }) {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-tier-2-resume-boot-'));
   const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
@@ -215,11 +217,16 @@ export async function bootTier2RuntimeFromFixture(options: {
       }),
       webSidecarRunner: async () => null,
       launchInteractive: async (context) => {
-        runtime = await createAgentSessionRuntime(createBrunchAgentSessionRuntimeFactory(context), {
-          cwd,
-          agentDir,
-          sessionManager: context.workspace.session.manager,
-        });
+        runtime = await createAgentSessionRuntime(
+          createBrunchAgentSessionRuntimeFactory(
+            options.agentServices ? { ...context, agentServices: options.agentServices } : context,
+          ),
+          {
+            cwd,
+            agentDir,
+            sessionManager: context.workspace.session.manager,
+          },
+        );
       },
     });
     if (!runtime) {
@@ -350,7 +357,7 @@ export async function bootTier2ProductOriginatedTurn(
     }
 
     if (options.waitForProviderCallMs !== false) {
-      await waitFor(
+      await waitForCondition(
         () => faux.providerContexts.length > 0,
         options.waitForProviderCallMs ?? 8000,
         'product-originated provider call (the kick never fired)',
@@ -378,7 +385,11 @@ export async function bootTier2ProductOriginatedTurn(
   }
 }
 
-async function waitFor(predicate: () => boolean, timeoutMs: number, what: string): Promise<void> {
+export async function waitForCondition(
+  predicate: () => boolean,
+  timeoutMs: number,
+  what: string,
+): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!predicate()) {
     if (Date.now() > deadline) throw new Error(`Timed out after ${timeoutMs}ms waiting for ${what}`);

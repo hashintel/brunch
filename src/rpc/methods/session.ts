@@ -375,9 +375,9 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
     method: 'session.triggerExchange',
     access: 'write',
     description:
-      "Start or resume the selected session's deterministic structured-exchange permutation loop and return the current pending exchange.",
+      'Kick the selected session: seed origination context and report pending-exchange state. Pending exchanges exist only when the assistant has created one (D49-L/D78-L revised 2026-06-12); the product mints no deterministic exchange.',
     paramsSchema: NoParamsSchema,
-    resultSchema: TriggerExchangeResultSchema,
+    resultSchema: PendingExchangeResultSchema,
     examples: [{ jsonrpc: '2.0', id: 8, method: 'session.triggerExchange' }],
     async handle(context, request) {
       const requestId = jsonRpcRequestId(request);
@@ -519,20 +519,18 @@ async function handleTriggerExchange(
 
   const specReads = (await options.getGraphRuntime()).forSpec(existingTarget.envelope.binding.specId);
   const manager = state.session.manager;
-  const { exchange } = originateAssistantTurn({
+  // Kick surface (D49-L revised 2026-06-12): origination seeds context; the
+  // product mints no exchange. A pending exchange exists only when the
+  // assistant has created one — in transports without a live agent session
+  // this legitimately reports idle.
+  originateAssistantTurn({
     specId: existingTarget.envelope.binding.specId,
     reads: specReads,
     entries: existingTarget.envelope.entries,
     resumeOrigin: 'manual_trigger',
-    exchangeOrdinal: projectLinearSessionExchangeProjection(existingTarget.envelope).exchanges.length,
     manager,
   });
   flushSessionEntries(manager, state.session.file);
-  if (!exchange) {
-    // manual_trigger / new_session origins always start; idle here means the
-    // origination contract changed under us — fail loudly rather than fabricate.
-    return createJsonRpcFailure(requestId, -32002, 'Assistant origination unexpectedly idled');
-  }
 
   const reloadedTarget = await selectedSessionFile(state);
   if (!reloadedTarget.ok) {
@@ -540,10 +538,9 @@ async function handleTriggerExchange(
   }
   const reloaded = pendingExchangeFromEnvelope(reloadedTarget.envelope);
 
-  const result = {
-    status: 'pending' as const,
-    exchange: reloaded ?? exchange,
-  };
+  const result = reloaded
+    ? { status: 'pending' as const, exchange: reloaded }
+    : { status: 'idle' as const, exchange: null };
   publishSelectedSessionUpdates(options.productUpdates, state);
   return createJsonRpcSuccess(requestId, result);
 }

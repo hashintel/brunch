@@ -54,7 +54,6 @@ describe('originateAssistantTurn', () => {
       reads: reads(3),
       entries: continuityOnlyEntries,
       resumeOrigin: 'manual_trigger',
-      exchangeOrdinal: 0,
       manager,
     });
 
@@ -69,14 +68,13 @@ describe('originateAssistantTurn', () => {
       reads: reads(3),
       entries: [{ type: 'message', message: { role: 'assistant', content: 'Hi', timestamp: 0 } }],
       resumeOrigin: 'manual_trigger',
-      exchangeOrdinal: 1,
       manager,
     });
 
     expect(result.decision.action === 'start' && result.decision.origin).toBe('manual_trigger');
   });
 
-  it('seeds composed content and appends the present_* exchange on start', () => {
+  it('seeds composed content and fabricates no exchange on start (D78-L revised)', () => {
     const manager = fakeManager();
     const result = originateAssistantTurn({
       specId,
@@ -84,7 +82,6 @@ describe('originateAssistantTurn', () => {
       reads: reads(5),
       entries: [],
       resumeOrigin: 'resume_debt',
-      exchangeOrdinal: 0,
       manager,
     });
 
@@ -92,21 +89,13 @@ describe('originateAssistantTurn', () => {
     expect(seed?.type).toBe('custom_message');
     expect(String(seed?.content)).toContain('Issue tracker');
     expect(String(seed?.content)).toContain('LSN 5');
-    // Provider-legal pair: synthetic assistant toolCall first, then the
-    // present_* toolResult referencing the same ^[a-zA-Z0-9_-]+$ id (a bare
-    // toolResult is a real-provider 400 — 2026-06-12 walkthrough regression).
-    expect(manager.messages).toHaveLength(2);
-    const [call, offer] = manager.messages as [Record<string, unknown>, Record<string, unknown>];
-    expect(call.role).toBe('assistant');
-    const callBlock = (call.content as Array<Record<string, unknown>>)[0]!;
-    expect(callBlock.type).toBe('toolCall');
-    expect(String(callBlock.id)).toMatch(/^[a-zA-Z0-9_-]+$/);
-    expect(offer.role).toBe('toolResult');
-    expect(offer.toolCallId).toBe(callBlock.id);
-    expect(result.exchange).toBeDefined();
+    // The product mints no present_* offer: origination is seed-only, and the
+    // launch path's kick turn lets the assistant author the opening live.
+    expect(result.decision.action).toBe('start');
+    expect(manager.appended.some((entry) => String(entry.customType).startsWith('present_'))).toBe(false);
   });
 
-  it('appends no exchange when the decision is idle', () => {
+  it('appends nothing beyond continuity when the decision is idle', () => {
     const manager = fakeManager();
     const result = originateAssistantTurn({
       specId,
@@ -123,12 +112,9 @@ describe('originateAssistantTurn', () => {
         },
       ],
       resumeOrigin: 'resume_debt',
-      exchangeOrdinal: 2,
       manager,
     });
 
     expect(result.decision.action).toBe('idle');
-    expect(manager.messages).toHaveLength(0);
-    expect(result.exchange).toBeUndefined();
   });
 });

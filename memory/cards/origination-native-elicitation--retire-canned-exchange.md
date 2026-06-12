@@ -28,7 +28,20 @@ Shared design facts (settled, not to re-litigate):
 
 ## Card 1 — retire the canned exchange from origination (full card)
 
-Status: next
+Status: done (2026-06-12)
+
+Landed shape: `originateAssistantTurn` is seed-only (no exchange minting, no
+`exchangeOrdinal`); the deterministic script + a `mintDeterministicExchange*`
+fixture-mint helper live in `probes/deterministic-exchange-script.ts`
+(parity + capture probes mint their own present pairs and drive responses
+through public RPC); `presentExchangeMessages`/synthetic-pair machinery stays
+in `structured-exchange-loop.ts` (response pairs are still product behavior
+for `submitExchangeResponse`); `triggerExchange` uses the pending|idle union
+and the -32002 fail-loud path is gone. Tier-2 resume-kick rows upgraded from
+entry-shape claims to **live product-originated turns** over fixture
+transcripts (faux backend via `bootTier2RuntimeFromFixture` `agentServices`);
+idle rows assert no-kick within a settle window; crash-after-kick reboot
+rests idle by assertion. Docs: rpc/session READMEs + I46-L cell updated.
 
 ### Target Behavior
 

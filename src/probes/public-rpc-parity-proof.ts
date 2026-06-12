@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { mintDeterministicExchangeIntoSessionFile } from './deterministic-exchange-script.js';
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PUBLIC_RPC_PARITY_PERMUTATION_COUNT = 3;
@@ -212,6 +213,11 @@ export async function runPublicRpcParityProof(
 
   const exchangeIds: string[] = [];
   for (let turn = 0; turn < PUBLIC_RPC_PARITY_PERMUTATION_COUNT; turn += 1) {
+    // D78-L/D49-L revised 2026-06-12: the product mints no deterministic
+    // exchange — the probe stands in for the assistant-authored offer by
+    // minting the permutation's present pair directly into the transcript,
+    // then drives readback + response through the public RPC surface only.
+    const minted = mintDeterministicExchangeIntoSessionFile(workspace.session.file, turn);
     const started = success<PendingResult>(
       await handlers.handle({
         jsonrpc: '2.0',
@@ -226,6 +232,9 @@ export async function runPublicRpcParityProof(
         method: 'session.pendingExchange',
       }),
     );
+    if (started.exchange.exchangeId !== minted.exchangeId) {
+      friction.push(`Turn ${turn + 1}: triggerExchange did not surface the minted exchange.`);
+    }
     if (pending.exchange.exchangeId !== started.exchange.exchangeId) {
       friction.push(`Turn ${turn + 1}: pendingExchange differed from triggerExchange.`);
     }

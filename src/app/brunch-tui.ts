@@ -432,7 +432,6 @@ function decideAndSeedAssistantTurn(options: {
     reads: options.reads,
     entries: options.sessionManager.getEntries(),
     resumeOrigin: 'resume_debt',
-    exchangeOrdinal: 0,
     manager: options.sessionManager,
   });
 }
