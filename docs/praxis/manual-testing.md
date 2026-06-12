@@ -15,8 +15,10 @@ Manual testing happens in a **workbench** — a launchable cwd under `.fixtures/
 
 ```bash
 # 1. Seed one named fixture into one named workbench.
-#    --reset wipes the workbench's .brunch/data.db (+ -wal/-shm) first —
-#    file-scoped only; the rest of .brunch/ (e.g. debug/) survives.
+#    --reset wipes the workbench's runtime state first — data.db (+ -wal/-shm),
+#    sessions/, debug/, workspace.json — so the relaunch starts a fresh session
+#    (seed + kick) instead of resuming a stale one. Unknown files in .brunch/
+#    and the directory itself survive.
 npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding --reset
 
 # 2. Launch the TUI (plus web observer sidecar) against that workbench.

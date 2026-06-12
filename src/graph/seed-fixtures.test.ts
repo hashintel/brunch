@@ -120,7 +120,7 @@ describe('seed fixture CLI', () => {
     expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
   });
 
-  it('--reset wipes only the workspace DB files so reseed yields a single fresh spec', async () => {
+  it('--reset wipes workspace runtime state (DB, sessions, selection state, debug cache) so a relaunch starts fresh', async () => {
     const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
 
     const first = await runSeedFixturesCli({
@@ -129,10 +129,19 @@ describe('seed fixture CLI', () => {
     });
     expect(first).toBe(0);
 
-    // Unrelated local state in .brunch/ must survive a reset (e.g. debug cache).
-    const debugDir = join(targetWorkspace, '.brunch', 'debug');
+    // The walkthrough regression: a stale session JSONL makes the TUI resume
+    // (no seed, no kick) instead of starting fresh, and stale workspace.json /
+    // debug caches reference the deleted DB. All four runtime artifacts must
+    // go; unknown files in .brunch/ are not ours to delete.
+    const brunchDir = join(targetWorkspace, '.brunch');
+    const sessionsDir = join(brunchDir, 'sessions');
+    const debugDir = join(brunchDir, 'debug');
+    await mkdir(sessionsDir, { recursive: true });
+    await writeFile(join(sessionsDir, 'stale-session.jsonl'), '{"type":"session"}\n', 'utf8');
+    await writeFile(join(brunchDir, 'workspace.json'), '{"stale":true}', 'utf8');
     await mkdir(debugDir, { recursive: true });
-    await writeFile(join(debugDir, 'system-prompt.md'), 'keep me', 'utf8');
+    await writeFile(join(debugDir, 'entry-contents.md'), 'stale blocks', 'utf8');
+    await writeFile(join(brunchDir, 'notes.md'), 'keep me', 'utf8');
 
     const second = await runSeedFixturesCli({
       argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/beta-commitments', '--reset'],
@@ -142,7 +151,10 @@ describe('seed fixture CLI', () => {
 
     const executor = await openWorkspaceCommandExecutor(targetWorkspace);
     expect(executor.listSpecs().map((spec) => spec.slug)).toEqual(['beta-commitments']);
-    expect(readFileSync(join(debugDir, 'system-prompt.md'), 'utf8')).toBe('keep me');
+    expect(existsSync(sessionsDir)).toBe(false);
+    expect(existsSync(join(brunchDir, 'workspace.json'))).toBe(false);
+    expect(existsSync(debugDir)).toBe(false);
+    expect(readFileSync(join(brunchDir, 'notes.md'), 'utf8')).toBe('keep me');
   });
 
   it('accepts equals-form flags when values are unambiguous and safe', async () => {
