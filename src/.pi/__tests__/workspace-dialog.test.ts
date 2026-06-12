@@ -121,6 +121,23 @@ describe('spec/session picker', () => {
     expect(text).not.toContain('Open workspace');
   });
 
+  it('renders each option on a single line, with detail inline only when informative', () => {
+    const component = createWorkspaceDialogComponent({
+      inventory: inventory(),
+      onDecision: () => {},
+    });
+
+    const lines = component.render(100);
+
+    // Boilerplate help lines are gone.
+    expect(lines.join('\n')).not.toContain('Choose a spec, then create or resume a session');
+    expect(lines.join('\n')).not.toContain('Name a new spec and create its first session');
+    expect(lines.join('\n')).not.toContain('Exit without activating a spec/session');
+    // The continue option keeps its spec · session detail on the same line.
+    const continueLine = lines.find((line) => line.includes('Continue your latest spec and session'));
+    expect(continueLine).toContain('Alpha · session-alpha-current');
+  });
+
   it('omits continue-latest from in-session picker contexts', () => {
     const component = createWorkspaceDialogComponent({
       inventory: inventory(),

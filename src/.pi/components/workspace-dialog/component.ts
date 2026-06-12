@@ -129,8 +129,8 @@ class WorkspaceDialogComponent implements Component {
       const selected = index === this.#selectedIndex;
       const prefix = selected ? style(this.#theme, 'accent', '› ') : '  ';
       const label = selected ? style(this.#theme, 'accent', option.label) : option.label;
-      lines.push(`${prefix}${label}`);
-      lines.push(`    ${style(this.#theme, 'dim', option.description)}`);
+      const detail = option.detail ? `  ${style(this.#theme, 'dim', option.detail)}` : '';
+      lines.push(`${prefix}${label}${detail}`);
     }
     lines.push('', style(this.#theme, 'dim', '↑↓ navigate • enter select • esc cancel'));
     return lines;
