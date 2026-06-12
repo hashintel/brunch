@@ -9,7 +9,6 @@ import type { StructuredResponseCaptureOutcome } from '../../graph/capture/struc
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { reviewSetProposalPayloadFromDetails } from '../../projections/exchanges/review-set-payload.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
-import { renderWorkspaceContext } from '../../renderers/workspace/workspace-context.js';
 import {
   readBrunchSessionEnvelope,
   NonLinearTranscriptError,
@@ -34,7 +33,7 @@ import type {
   PendingStructuredExchange,
   StructuredExchangeResponseInput,
 } from '../../session/structured-exchange-loop.js';
-import { inspectWorkspaceOverview } from '../../session/workspace-context.js';
+import { renderWorkspaceOverviewContext } from '../../session/workspace-context.js';
 import type {
   DefaultWorkspaceCoordinator,
   WorkspaceActivationState,
@@ -529,7 +528,7 @@ async function handleTriggerExchange(
     reads: specReads,
     entries: existingTarget.envelope.entries,
     resumeOrigin: 'manual_trigger',
-    workspaceContext: renderWorkspaceContext(await inspectWorkspaceOverview(options.cwd)),
+    workspaceContext: await renderWorkspaceOverviewContext(options.cwd),
     manager,
   });
   flushSessionManagerToFile(manager, state.session.file);

@@ -29,16 +29,10 @@ import {
   type ReadinessBand,
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
-import type { SpecScopedReaders } from '../graph/workspace-store.js';
-import { renderWorkspaceContext } from '../renderers/workspace/workspace-context.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
-import {
-  kickTurnMessage,
-  originateAssistantTurn,
-  type OriginateAssistantTurnResult,
-} from '../session/originate-assistant-turn.js';
-import { inspectWorkspaceOverview } from '../session/workspace-context.js';
+import { kickTurnMessage, originateAssistantTurn } from '../session/originate-assistant-turn.js';
+import { renderWorkspaceOverviewContext } from '../session/workspace-context.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -373,12 +367,15 @@ export function createBrunchAgentSessionRuntimeFactory(
         ),
       ],
     });
-    const origination = decideAndSeedAssistantTurn({
+    const specName = graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name;
+    const origination = originateAssistantTurn({
       specId: currentWorkspace.spec.id,
+      ...(specName ? { specName } : {}),
       reads: graph.forSpec(currentWorkspace.spec.id),
-      specName: graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name,
-      workspaceContext: renderWorkspaceContext(await inspectWorkspaceOverview(cwd)),
-      sessionManager,
+      entries: sessionManager.getEntries(),
+      resumeOrigin: 'resume_debt',
+      workspaceContext: await renderWorkspaceOverviewContext(cwd),
+      manager: sessionManager,
     });
     if (context.dev) {
       // Boot-time mirror is awaited (cheap, local fs) so a dev boot is
@@ -421,24 +418,6 @@ export function createBrunchAgentSessionRuntimeFactory(
       diagnostics: services.diagnostics,
     };
   };
-}
-
-function decideAndSeedAssistantTurn(options: {
-  readonly specId: number;
-  readonly reads: Pick<SpecScopedReaders, 'queryGraph' | 'getElicitationGaps'>;
-  readonly specName?: string | undefined;
-  readonly workspaceContext?: string;
-  readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
-}): OriginateAssistantTurnResult {
-  return originateAssistantTurn({
-    specId: options.specId,
-    ...(options.specName ? { specName: options.specName } : {}),
-    reads: options.reads,
-    entries: options.sessionManager.getEntries(),
-    resumeOrigin: 'resume_debt',
-    ...(options.workspaceContext ? { workspaceContext: options.workspaceContext } : {}),
-    manager: options.sessionManager,
-  });
 }
 
 async function startDefaultWebSidecar({

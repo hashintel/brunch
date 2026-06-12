@@ -2,7 +2,7 @@
  * Context-seed payload composition (FE-857 card 2, D78-L content half).
  *
  * Owns the provider-visible text of the `brunch.context_seed` continuity
- * entry (D78-L revised 2026-06-12): optional pre-rendered workspace overview,
+ * entry (D78-L revised 2026-06-12): the pre-rendered workspace overview,
  * the **full graph overview** (canonical renderer shared with `read_graph` —
  * codes, titles, edges; never truncated), and the elicitation grounding-floor
  * framing (top-ranked open gaps via the canonical driver ranking) — enough
@@ -11,7 +11,7 @@
  * spec-scoped reads (D20-L/D52-L) and pre-render the workspace section; this
  * module never opens the database or filesystem.
  *
- * Input:  spec identity + GraphSlice + ElicitationGap[] + optional workspace text
+ * Input:  spec identity + GraphSlice + ElicitationGap[] + workspace text
  * Output: seed content string carried by the custom message entry
  * Used by: brunch-tui boot seeding, session.triggerExchange RPC origination
  */
@@ -28,15 +28,19 @@ export interface ComposeContextSeedInput {
   readonly specName?: string;
   readonly slice: Pick<GraphSlice, 'nodes' | 'edges' | 'lsn'>;
   readonly gaps: readonly ElicitationGap[];
-  /** Pre-rendered workspace overview section (renderWorkspaceContext output). */
-  readonly workspaceContext?: string;
+  /**
+   * Pre-rendered workspace overview section (`renderWorkspaceOverviewContext`
+   * output). Required so no caller drifts to a seed without it; a blank
+   * render degrades to omitting the section.
+   */
+  readonly workspaceContext: string;
 }
 
 export function composeContextSeedContent(input: ComposeContextSeedInput): string {
   const specLabel = input.specName ? `spec ${input.specId} “${input.specName}”` : `spec ${input.specId}`;
   const lines: string[] = [`[Brunch] Context seeded for ${specLabel} at graph LSN ${input.slice.lsn}.`];
 
-  if (input.workspaceContext !== undefined && input.workspaceContext.trim().length > 0) {
+  if (input.workspaceContext.trim().length > 0) {
     lines.push('', input.workspaceContext.trim());
   }
 

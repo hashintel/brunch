@@ -54,6 +54,7 @@ describe('originateAssistantTurn', () => {
       reads: reads(3),
       entries: continuityOnlyEntries,
       resumeOrigin: 'manual_trigger',
+      workspaceContext: '',
       manager,
     });
 
@@ -68,6 +69,7 @@ describe('originateAssistantTurn', () => {
       reads: reads(3),
       entries: [{ type: 'message', message: { role: 'assistant', content: 'Hi', timestamp: 0 } }],
       resumeOrigin: 'manual_trigger',
+      workspaceContext: '',
       manager,
     });
 
@@ -82,6 +84,7 @@ describe('originateAssistantTurn', () => {
       reads: reads(5),
       entries: [],
       resumeOrigin: 'resume_debt',
+      workspaceContext: 'Workspace overview (fixture)',
       manager,
     });
 
@@ -89,6 +92,7 @@ describe('originateAssistantTurn', () => {
     expect(seed?.type).toBe('custom_message');
     expect(String(seed?.content)).toContain('Issue tracker');
     expect(String(seed?.content)).toContain('LSN 5');
+    expect(String(seed?.content)).toContain('Workspace overview (fixture)');
     // The product mints no present_* offer: origination is seed-only, and the
     // launch path's kick turn lets the assistant author the opening live.
     expect(result.decision.action).toBe('start');
@@ -112,6 +116,7 @@ describe('originateAssistantTurn', () => {
         },
       ],
       resumeOrigin: 'resume_debt',
+      workspaceContext: '',
       manager,
     });
 

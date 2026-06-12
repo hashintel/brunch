@@ -50,6 +50,7 @@ describe('composeContextSeedContent', () => {
         gap('What is the primary goal?', { importance: 5 }),
         gap('Who are the users?', { importance: 3 }),
       ],
+      workspaceContext: 'Workspace overview\n- specs: 1',
     });
 
     expect(content).toContain('Issue tracker');
@@ -64,7 +65,7 @@ describe('composeContextSeedContent', () => {
     expect(content.indexOf('What is the primary goal?')).toBeLessThan(content.indexOf('Who are the users?'));
   });
 
-  it('includes the pre-rendered workspace overview section when provided', () => {
+  it('places the workspace overview section ahead of the graph section', () => {
     const content = composeContextSeedContent({
       specId,
       specName: 'Issue tracker',
@@ -89,6 +90,7 @@ describe('composeContextSeedContent', () => {
       specId,
       slice: { nodes: [], edges: [], lsn: 1 },
       gaps,
+      workspaceContext: '',
     });
 
     expect(content).not.toContain('Answered question');
@@ -103,6 +105,7 @@ describe('composeContextSeedContent', () => {
       specId,
       slice: { nodes: [], edges: [], lsn: 0 },
       gaps: [],
+      workspaceContext: '',
     });
 
     expect(content).toContain('empty');
