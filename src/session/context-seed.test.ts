@@ -1,0 +1,90 @@
+import { describe, expect, it } from 'vitest';
+
+import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
+import { composeContextSeedContent } from './context-seed.js';
+
+const specId = 7;
+
+function node(kind: string, title: string) {
+  return { kind, title } as never;
+}
+
+function gap(question: string, overrides: Partial<ElicitationGap> = {}): ElicitationGap {
+  return {
+    id: overrides.id ?? `gap-${question.length}-${question.slice(0, 8)}`,
+    specId,
+    refersTo: overrides.refersTo ?? 'goal',
+    question,
+    rationale: 'fixture',
+    basis: 'explicit',
+    band: overrides.band ?? 'grounding',
+    predicate: { kind: 'presence', nodeKind: overrides.refersTo ?? 'goal' },
+    importance: overrides.importance ?? 1,
+    coverage: overrides.coverage ?? 0,
+    answered: overrides.answered ?? false,
+    disposition: overrides.disposition ?? 'open',
+    createdAtLsn: overrides.createdAtLsn ?? 1,
+  } as ElicitationGap;
+}
+
+describe('composeContextSeedContent', () => {
+  it('renders the spec overview composition and the top-ranked open gaps', () => {
+    const content = composeContextSeedContent({
+      specId,
+      specName: 'Issue tracker',
+      slice: {
+        nodes: [
+          node('goal', 'Ship tracker'),
+          node('goal', 'Second goal'),
+          node('requirement', 'Fast search'),
+        ],
+        edges: [{ id: 1 } as never],
+        lsn: 9,
+      },
+      gaps: [
+        gap('What is the primary goal?', { importance: 5 }),
+        gap('Who are the users?', { importance: 3 }),
+      ],
+    });
+
+    expect(content).toContain('Issue tracker');
+    expect(content).toContain('LSN 9');
+    expect(content).toContain('goal: 2');
+    expect(content).toContain('requirement: 1');
+    expect(content).toContain('1 edge');
+    // Ranked order: higher importance first within the same band.
+    expect(content.indexOf('What is the primary goal?')).toBeLessThan(content.indexOf('Who are the users?'));
+  });
+
+  it('caps the gap framing at the top five and excludes ineligible gaps', () => {
+    const gaps = [
+      gap('Answered question', { answered: true }),
+      gap('Dismissed question', { disposition: 'irrelevant' }),
+      ...Array.from({ length: 7 }, (_, index) =>
+        gap(`Open question ${index + 1}?`, { importance: 7 - index }),
+      ),
+    ];
+    const content = composeContextSeedContent({
+      specId,
+      slice: { nodes: [], edges: [], lsn: 1 },
+      gaps,
+    });
+
+    expect(content).not.toContain('Answered question');
+    expect(content).not.toContain('Dismissed question');
+    expect(content).toContain('Open question 1?');
+    expect(content).toContain('Open question 5?');
+    expect(content).not.toContain('Open question 6?');
+  });
+
+  it('renders an honest empty state for a fresh spec with no graph and no gaps', () => {
+    const content = composeContextSeedContent({
+      specId,
+      slice: { nodes: [], edges: [], lsn: 0 },
+      gaps: [],
+    });
+
+    expect(content).toContain('empty');
+    expect(content).not.toContain('undefined');
+  });
+});

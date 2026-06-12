@@ -26,8 +26,10 @@ import {
   type ReadinessBand,
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
+import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
+import { composeContextSeedContent, type ContextSeedSliceLike } from '../session/context-seed.js';
 import { appendPreparedContinuityEntry } from '../session/prepare-next-turn.js';
 import { startAssistantTurn } from '../session/start-assistant-turn.js';
 import {
@@ -356,7 +358,8 @@ export function createBrunchAgentSessionRuntimeFactory(
     });
     seedAndKickAssistantTurn({
       specId: currentWorkspace.spec.id,
-      currentLsn: graph.forSpec(currentWorkspace.spec.id).queryGraph().lsn,
+      reads: graph.forSpec(currentWorkspace.spec.id),
+      specName: graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name,
       sessionManager,
     });
 
@@ -384,19 +387,30 @@ function isMessageEntry(entry: unknown): boolean {
 
 function seedAndKickAssistantTurn(options: {
   readonly specId: number;
-  readonly currentLsn: number;
+  readonly reads: {
+    readonly queryGraph: () => ContextSeedSliceLike & { readonly lsn: number };
+    readonly getElicitationGaps: () => readonly ElicitationGap[];
+  };
+  readonly specName?: string | undefined;
   readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
 }): void {
   const entries = options.sessionManager.getEntries();
+  const slice = options.reads.queryGraph();
   // Origin is derived from projected transcript state, not counts or flags
   // (I46/I47): a transcript with no conversational message entries is a new
   // session; anything else takes the resume-debt decision, which itself
   // dedupes re-kicks (a prior kick's present_* tail owes nothing).
   const decision = startAssistantTurn({
     specId: options.specId,
-    currentLsn: options.currentLsn,
+    currentLsn: slice.lsn,
     entries,
     origin: entries.some(isMessageEntry) ? 'resume_debt' : 'new_session',
+    seedContent: composeContextSeedContent({
+      specId: options.specId,
+      ...(options.specName ? { specName: options.specName } : {}),
+      slice,
+      gaps: options.reads.getElicitationGaps(),
+    }),
   });
   for (const entry of decision.seedEntries) {
     appendPreparedContinuityEntry(options.sessionManager, entry);

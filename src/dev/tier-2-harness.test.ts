@@ -408,6 +408,44 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
     }
   });
 
+  it('startup completeness (FE-857): the seed carries the spec overview and gap framing into provider-visible context before the kick', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const specId = await readSessionContextSpecId(boot.runtime.session);
+      const graph = await openWorkspaceGraphRuntime(boot.cwd);
+      const gaps = graph.forSpec(specId).getElicitationGaps();
+      const topGap = gaps.find((gap) => !gap.answered && gap.disposition === 'open');
+      expect(topGap).toBeDefined();
+
+      const entries = boot.runtime.session.sessionManager.getEntries();
+      const seeds = customEntries(entries, 'brunch.context_seed');
+      expect(seeds).toHaveLength(1);
+
+      // The seed entry is the provider-visible carrier: its content names the
+      // spec graph state and the grounding-floor gaps; details still carry the
+      // watermark payload for the projection.
+      const seed = seeds[0] as { content?: unknown; data: unknown };
+      expect(seed.data).toEqual({ specId, snapshotLsn: expect.any(Number) });
+      const seedContent = typeof seed.content === 'string' ? seed.content : '';
+      expect(seedContent).toContain(`spec ${specId}`);
+      expect(seedContent).toContain('Open elicitation gaps');
+
+      // The kick happened (assistant-originated present_*), and pi's own
+      // context builder surfaces the seeded overview + a real top-ranked gap
+      // question in the LLM context the opening turn runs against.
+      expect(presentToolResults(entries).length).toBeGreaterThan(0);
+      const llmContext = buildSessionContext(entries as never);
+      const contextText = JSON.stringify(llmContext.messages);
+      expect(contextText).toContain('Context seeded for spec');
+      expect(contextText).toContain('Open elicitation gaps');
+      const rankedQuestions = gaps.filter((gap) => !gap.answered && gap.disposition === 'open');
+      expect(rankedQuestions.some((gap) => contextText.includes(gap.question))).toBe(true);
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+
   it('resume kick uses the pre-reconcile tail so a user tail still earns a kick after continuity notices', async () => {
     const boot = await bootTier2RuntimeFromFixture({
       fixtureEntries: (specId) => [

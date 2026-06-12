@@ -24,6 +24,7 @@ describe('startAssistantTurn', () => {
       entries: [],
       origin: 'new_session',
       strategy: 'auto',
+      seedContent: 'Seeded overview with top gap: What is the primary goal?',
     });
 
     expect(decision).toEqual({
@@ -33,12 +34,25 @@ describe('startAssistantTurn', () => {
         {
           type: 'custom_message',
           customType: 'brunch.context_seed',
-          content: expect.any(String),
+          content: 'Seeded overview with top gap: What is the primary goal?',
           details: { specId, snapshotLsn: 3 },
         },
       ],
     });
     expect(JSON.stringify(decision)).not.toContain('"role":"user"');
+  });
+
+  it('falls back to the minimal seed statement when no composed content is supplied', () => {
+    const decision = startAssistantTurn({
+      specId,
+      currentLsn: 3,
+      entries: [],
+      origin: 'new_session',
+      strategy: 'auto',
+    });
+    const seed = decision.seedEntries[0];
+    expect(seed?.type).toBe('custom_message');
+    expect(seed?.type === 'custom_message' ? seed.content : '').toContain(`spec ${specId}`);
   });
 
   it('kicks resumed user-tail debt even after reconciler-inserted continuity notices', () => {

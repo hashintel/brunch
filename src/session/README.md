@@ -43,7 +43,18 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `prepare-next-turn.ts` owns the single pre-turn continuity writer; Pi lifecycle
   hooks adapt it through `.pi/extensions/session/lifecycle.ts`, and
   `before_provider_request` is a guard-only check. `start-assistant-turn.ts`
-  owns the origination decision and context seed entries.
+  owns the origination decision and context seed entries; `context-seed.ts`
+  composes the seed's provider-visible payload (spec overview + top-ranked
+  open gaps) from spec-scoped reads.
+
+- **Continuity carriers (FE-857)** — model-intent continuity entries
+  (`worldUpdate`, side-task/reviewer drains, mention staleness hints, context
+  seed) persist as pi `CustomMessageEntry` (provider-visible `content` +
+  structured `details`); ledger-only entries (`own_mutation`, `mention`,
+  runtime state, binding, lifecycle) stay on `CustomEntry`.
+  `appendPreparedContinuityEntry` in `prepare-next-turn.ts` routes by carrier.
+  Rule: at the reconciler/guard seam use `appendCustomMessageEntry` directly;
+  `pi.sendMessage` is for out-of-band injection with delivery semantics only.
 
 ## Session PULL read-shape ledger
 

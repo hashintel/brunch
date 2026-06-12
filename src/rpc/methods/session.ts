@@ -14,6 +14,7 @@ import {
   NonLinearTranscriptError,
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
+import { composeContextSeedContent } from '../../session/context-seed.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
 import { mentionEntry, resolveMentionFacts } from '../../session/mention-ledger.js';
 import { appendPreparedContinuityEntry } from '../../session/prepare-next-turn.js';
@@ -520,14 +521,18 @@ async function handleTriggerExchange(
     });
   }
 
-  const currentLsn = (await options.getGraphRuntime())
-    .forSpec(existingTarget.envelope.binding.specId)
-    .queryGraph().lsn;
+  const specReads = (await options.getGraphRuntime()).forSpec(existingTarget.envelope.binding.specId);
+  const seedSlice = specReads.queryGraph();
   const origination = startAssistantTurn({
     specId: existingTarget.envelope.binding.specId,
-    currentLsn,
+    currentLsn: seedSlice.lsn,
     entries: existingTarget.envelope.entries,
     origin: existingTarget.envelope.entries.length <= 3 ? 'new_session' : 'manual_trigger',
+    seedContent: composeContextSeedContent({
+      specId: existingTarget.envelope.binding.specId,
+      slice: seedSlice,
+      gaps: specReads.getElicitationGaps(),
+    }),
   });
   const exchange = nextDeterministicStructuredExchange(
     projectLinearSessionExchangeProjection(existingTarget.envelope).exchanges.length,
