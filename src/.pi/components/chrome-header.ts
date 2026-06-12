@@ -43,13 +43,7 @@ export class BrunchStartupHeader implements Component {
   }
 
   private collapsedLines(): string[] {
-    return [
-      ...this.topPaddingLines(),
-      ...this.identityLines(),
-      '',
-      this.shortcutHelpLine(),
-      this.webOrExpandHelpLine(),
-    ];
+    return [...this.topPaddingLines(), ...this.identityLines(), '', this.webOrExpandHelpLine()];
   }
 
   private topPaddingLines(): string[] {
@@ -62,13 +56,6 @@ export class BrunchStartupHeader implements Component {
       version: brunchVersion(),
       theme: this.theme,
     });
-  }
-
-  private shortcutHelpLine(): string {
-    return this.theme.fg(
-      'dim',
-      'escape interrupt · ctrl+c/ctrl+d clear/exit · /brunch switch · # mention · ! bash',
-    );
   }
 
   private webOrExpandHelpLine(): string {

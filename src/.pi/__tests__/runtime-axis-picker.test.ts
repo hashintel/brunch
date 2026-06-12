@@ -107,7 +107,7 @@ describe('runtime posture picker overlays', () => {
     expect(component.render(200).join('\n')).toMatch(pattern);
   });
 
-  it('renders caution choices in the warning color while keeping them selectable', () => {
+  it('renders caution choices muted gray while keeping them selectable', () => {
     const selected: unknown[] = [];
     const [first] = AGENT_STRATEGY_IDS;
     const component = createRuntimeStrategyPickerComponent({
@@ -118,7 +118,7 @@ describe('runtime posture picker overlays', () => {
     });
 
     const text = component.render(200).join('\n');
-    expect(text).toContain(`\x1b[38;5;220m${first}\x1b[39m`);
+    expect(text).toContain(`\x1b[38;5;244m${first}\x1b[39m`);
     expect(text).toContain(`-- NOTE: ${first} needs more grounding`);
 
     // Cycling lands on the caution choice and enter commits it.

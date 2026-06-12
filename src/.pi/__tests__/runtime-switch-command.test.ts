@@ -278,8 +278,8 @@ describe('Brunch runtime switch commands', () => {
 
     const strategyText = renderPicker(harness.customCalls[0]);
     expect(strategyText).toContain('-- NOTE: propose-graph and project-graph need more grounding');
-    // Caution options render in the warning color, not gray.
-    expect(strategyText).toContain('\x1b[38;5;220mpropose-graph\x1b[39m');
+    // Caution options render muted gray while staying selectable.
+    expect(strategyText).toContain('\x1b[38;5;244mpropose-graph\x1b[39m');
 
     expect(renderPicker(harness.customCalls[1])).toContain('-- NOTE: design and oracle need more grounding');
   });

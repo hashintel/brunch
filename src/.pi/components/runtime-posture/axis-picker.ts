@@ -26,7 +26,7 @@ interface RuntimeAxisPickerOptions<TSelection extends string> {
   readonly choices: readonly TSelection[];
   /** Choices rendered gray and skipped by arrow-key cycling ("not yet enabled"). */
   readonly disabled?: readonly TSelection[];
-  /** Choices rendered in the warning color but still selectable ("needs more grounding"). */
+  /** Choices rendered muted gray but still selectable ("needs more grounding"). */
   readonly caution?: readonly TSelection[];
   readonly theme: LabTheme;
   readonly onDone: (selection?: TSelection) => void;
@@ -36,7 +36,7 @@ export interface RuntimeStrategyPickerOptions {
   readonly current: AgentStrategySelection;
   /** Strategies rendered gray and skipped by arrow-key cycling. */
   readonly disabled?: readonly AgentStrategySelection[];
-  /** Strategies rendered in the warning color but still selectable. */
+  /** Strategies rendered muted gray but still selectable. */
   readonly caution?: readonly AgentStrategySelection[];
   readonly theme: LabTheme;
   readonly onDone: (strategy?: AgentStrategySelection) => void;
@@ -46,7 +46,7 @@ export interface RuntimeLensPickerOptions {
   readonly current: AgentLensSelection;
   /** Lenses rendered gray and skipped by arrow-key cycling. */
   readonly disabled?: readonly AgentLensSelection[];
-  /** Lenses rendered in the warning color but still selectable. */
+  /** Lenses rendered muted gray but still selectable. */
   readonly caution?: readonly AgentLensSelection[];
   readonly theme: LabTheme;
   readonly onDone: (lens?: AgentLensSelection) => void;
@@ -57,6 +57,12 @@ export interface RuntimeModePickerOptions {
   readonly theme: LabTheme;
   readonly onDone: (mode?: OperationalModeChoice) => void;
 }
+
+/**
+ * Lateral padding in columns, matching Pi's standard `Text` component default
+ * (`paddingX = 1`) used for transcript content and the brunch chrome.
+ */
+const PICKER_PADDING_X = 1;
 
 const STRATEGY_CHOICES: readonly AgentStrategySelection[] = ['auto', ...AGENT_STRATEGY_IDS];
 const LENS_CHOICES: readonly AgentLensSelection[] = ['auto', ...AGENT_LENS_IDS];
@@ -115,15 +121,20 @@ export class RuntimeAxisPickerComponent<TSelection extends string> implements Co
 
   render(width: number): string[] {
     const safeWidth = Math.max(1, width);
-    return safeLines(
+    const contentWidth = Math.max(1, safeWidth - PICKER_PADDING_X * 2);
+    const leftMargin = ' '.repeat(PICKER_PADDING_X);
+    const lines = safeLines(
       [
         this.options.theme.fg('accent', this.options.title),
         this.#currentLine(),
-        renderSegmentTrack(this.options.theme, this.#segments, this.#activeIndex, safeWidth),
+        renderSegmentTrack(this.options.theme, this.#segments, this.#activeIndex, contentWidth),
         this.options.theme.fg('dim', '←/→ or h/l/j/k cycle · enter commits · esc/q cancels'),
       ],
-      safeWidth,
-    );
+      contentWidth,
+    ).map((line) => leftMargin + line);
+    // Bottom padding: keep the picker visually separated from the footer.
+    lines.push('');
+    return lines;
   }
 
   handleInput(data: string): void {
@@ -171,7 +182,7 @@ export class RuntimeAxisPickerComponent<TSelection extends string> implements Co
   #segmentColor(choice: TSelection): LabThemeColor {
     if (this.#disabled.has(choice)) return 'dim';
     if (choice === this.options.current) return 'success';
-    if (this.#caution.has(choice)) return 'warning';
+    if (this.#caution.has(choice)) return 'muted';
     return choice === 'auto' ? 'muted' : 'accent';
   }
 
