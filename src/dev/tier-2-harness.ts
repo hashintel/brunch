@@ -16,6 +16,7 @@ import {
   brunchFauxProviderConfig,
   defaultBrunchFauxModel,
 } from '../probes/faux-provider.js';
+import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
 import { renderSessionTranscriptFile } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { latestAssistantText } from './agent-messages.js';
@@ -77,7 +78,7 @@ export async function runTier2RealBootFauxTurn(
         for (const message of harness.session.messages) {
           workspace.session.manager.appendMessage(message as never);
         }
-        flushSessionEntries(workspace.session.manager, workspace.session.file);
+        flushSessionManagerToFile(workspace.session.manager, workspace.session.file);
       } finally {
         harness.dispose();
       }
@@ -204,7 +205,7 @@ export async function bootTier2RuntimeFromFixture(options: {
         workspace.session.manager.appendMessage(entry.message as never);
       }
     }
-    flushSessionEntries(workspace.session.manager, workspace.session.file);
+    flushSessionManagerToFile(workspace.session.manager, workspace.session.file);
 
     let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
     await runBrunchTui({
@@ -411,7 +412,7 @@ export async function rebootTier2Runtime(options: {
   readonly flushManager?: unknown;
   readonly agentServices?: BrunchAgentServicesOverride;
 }) {
-  if (options.flushManager) flushSessionEntries(options.flushManager, options.sessionFile);
+  if (options.flushManager) flushSessionManagerToFile(options.flushManager, options.sessionFile);
   const coordinator = createWorkspaceSessionCoordinator({ cwd: options.cwd });
   const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
   let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
@@ -462,7 +463,7 @@ export async function resumeTier2Fixture(options: {
   for (const entry of parseJsonl(options.fixtureJsonl)) {
     workspace.session.manager.appendMessage(entry as never);
   }
-  flushSessionEntries(workspace.session.manager, workspace.session.file);
+  flushSessionManagerToFile(workspace.session.manager, workspace.session.file);
   const resumed = await coordinator.activateWorkspace({
     action: 'openSession',
     specId: workspace.spec.id,
@@ -484,15 +485,4 @@ function parseJsonl(jsonl: string): readonly unknown[] {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => JSON.parse(line) as unknown);
-}
-
-interface FlushableSessionManager {
-  _rewriteFile(): void;
-  setSessionFile(file: string): void;
-}
-
-function flushSessionEntries(manager: unknown, sessionFile: string): void {
-  const flushable = manager as FlushableSessionManager;
-  flushable._rewriteFile();
-  flushable.setSessionFile(sessionFile);
 }

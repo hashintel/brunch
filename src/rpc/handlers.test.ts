@@ -13,6 +13,7 @@ import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
 import { mintDeterministicExchangeIntoSessionFile } from '../probes/deterministic-exchange-script.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import { projectPresentReviewSet } from '../projections/exchanges/present-review-set.js';
+import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
 import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, type BrunchAgentState } from '../session/runtime-state.js';
 import { createSessionBindingData } from '../session/session-binding.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
@@ -1284,7 +1285,7 @@ describe('JSON-RPC handlers', () => {
       isError: false,
       timestamp: 0,
     });
-    (workspace.session.manager as unknown as { _rewriteFile(): void })._rewriteFile();
+    flushSessionManagerToFile(workspace.session.manager);
     const productUpdates = createProductUpdatePublisher();
     const updates: unknown[] = [];
     productUpdates.subscribe((batch) => updates.push(...batch));

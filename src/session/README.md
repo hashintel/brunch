@@ -148,5 +148,6 @@ These files migrated here on 2026-06-02:
 | `exchange-projection.ts`          | exchange extraction                |
 | `runtime-state.ts`                | runtime-state transcript entries   |
 | `structured-exchange.ts`          | structured exchange schemas/types  |
-| `structured-exchange-loop.ts`     | deterministic exchange loop helpers|
+| `structured-exchange-loop.ts`     | pending-exchange read path + response-side synthetic pairs |
+| `flush-session-manager.ts`        | the one named reliance on pi's private session-file rewrite |
 | `project-identity.ts`             | workspace identity (cwd discovery) |

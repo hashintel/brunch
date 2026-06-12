@@ -16,6 +16,7 @@ import {
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
+import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { mentionEntry, resolveMentionFacts } from '../../session/mention-ledger.js';
 import { originateAssistantTurn } from '../../session/originate-assistant-turn.js';
 import {
@@ -531,7 +532,7 @@ async function handleTriggerExchange(
     workspaceContext: renderWorkspaceContext(await inspectWorkspaceOverview(options.cwd)),
     manager,
   });
-  flushSessionEntries(manager, state.session.file);
+  flushSessionManagerToFile(manager, state.session.file);
 
   const reloadedTarget = await selectedSessionFile(state);
   if (!reloadedTarget.ok) {
@@ -595,7 +596,7 @@ async function handleSubmitMessage(
           interruption: true,
         })
       : state.session.manager.appendMessage(ordinaryUserMessage(params.text));
-  flushSessionEntries(state.session.manager, state.session.file);
+  flushSessionManagerToFile(state.session.manager, state.session.file);
 
   const graph = await options.getGraphRuntime();
   const capture =
@@ -619,7 +620,7 @@ async function handleSubmitMessage(
     })) {
       state.session.manager.appendCustomEntry('brunch.mention', mentionEntry(fact).data);
     }
-    flushSessionEntries(state.session.manager, state.session.file);
+    flushSessionManagerToFile(state.session.manager, state.session.file);
   }
 
   const result: SubmitMessageResult = {
@@ -730,7 +731,7 @@ async function handleSubmitExchangeResponse(
   // provider-legal (an orphan tool_result is a real-provider 400).
   state.session.manager.appendMessage(accepted.toolCallMessage);
   state.session.manager.appendMessage(accepted.toolResultMessage);
-  flushSessionEntries(state.session.manager, state.session.file);
+  flushSessionManagerToFile(state.session.manager, state.session.file);
 
   publishSelectedSessionUpdates(options.productUpdates, state, target.envelope.binding.specId);
   const mutationLsn =
@@ -741,17 +742,6 @@ async function handleSubmitExchangeResponse(
     );
   }
   return createJsonRpcSuccess(requestId, result);
-}
-
-interface FlushableSessionManager {
-  _rewriteFile(): void;
-  setSessionFile(file: string): void;
-}
-
-function flushSessionEntries(manager: unknown, sessionFile: string): void {
-  const flushable = manager as FlushableSessionManager;
-  flushable._rewriteFile();
-  flushable.setSessionFile(sessionFile);
 }
 
 function ordinaryUserMessage(text: string) {

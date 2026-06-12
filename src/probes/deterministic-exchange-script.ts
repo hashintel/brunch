@@ -15,6 +15,7 @@
 
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 
+import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
 import {
   presentExchangeMessages,
   type PendingStructuredExchange,
@@ -29,14 +30,9 @@ export function mintDeterministicExchangeIntoSessionFile(
   sessionFile: string,
   completedCount: number,
 ): PendingStructuredExchange {
-  const manager = SessionManager.open(sessionFile) as unknown as {
-    appendMessage(message: never): unknown;
-    _rewriteFile(): void;
-    setSessionFile(file: string): void;
-  };
+  const manager = SessionManager.open(sessionFile);
   const exchange = mintDeterministicExchange(manager, completedCount);
-  manager._rewriteFile();
-  manager.setSessionFile(sessionFile);
+  flushSessionManagerToFile(manager, sessionFile);
   return exchange;
 }
 
