@@ -29,6 +29,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import { pinnableAxisOptionsForRuntimeState } from '../../../projections/session/runtime-policy.js';
 import {
   AGENT_LENS_IDS,
   AGENT_STRATEGY_IDS,
@@ -145,12 +146,14 @@ function registerRuntimeSwitchCommands(
         .map((value) => ({ value, label: value })),
     handler: async (args, ctx) => {
       const selection = normalizeAxisArg(args);
+      const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+      // Capability-readiness (D74-L) gates which lenses are pinnable right now.
+      const pinnable = pinnableAxisOptionsForRuntimeState('lens', current, options.getElicitationGaps());
       if (!selection) {
         if (typeof ctx.ui.custom !== 'function') {
           ctx.ui.notify(lensUsage(), 'info');
           return;
         }
-        const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
         // Non-overlay ui.custom: the picker temporarily replaces the input
         // editor in place (and is restored on done), so it always renders at
         // the input area instead of floating at a terminal-absolute anchor.
@@ -158,6 +161,7 @@ function registerRuntimeSwitchCommands(
           (_tui, theme, _keybindings, done) =>
             createRuntimeLensPickerComponent({
               current: current.agentLens,
+              disabled: AGENT_LENS_IDS.filter((id) => !pinnable.includes(id)),
               theme,
               onDone: done,
             }),
@@ -177,6 +181,13 @@ function registerRuntimeSwitchCommands(
         );
         return;
       }
+      if (selection !== 'auto' && !pinnable.includes(selection)) {
+        ctx.ui.notify(
+          `Lens "${selection}" is not yet enabled for the selected spec (more grounding needed). Selectable now: auto, ${pinnable.join(', ')}.`,
+          'error',
+        );
+        return;
+      }
       applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: selection }, options);
     },
   });
@@ -189,18 +200,22 @@ function registerRuntimeSwitchCommands(
         .map((value) => ({ value, label: value })),
     handler: async (args, ctx) => {
       const selection = normalizeAxisArg(args);
+      const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+      // Capability-readiness (D74-L) gates which strategies are pinnable right
+      // now; freestyle stays pinnable (explicit user pin, D66-L).
+      const pinnable = pinnableAxisOptionsForRuntimeState('strategy', current, options.getElicitationGaps());
       if (!selection) {
         if (typeof ctx.ui.custom !== 'function') {
           ctx.ui.notify(strategyUsage(), 'info');
           return;
         }
-        const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
         // Non-overlay ui.custom: replaces the input editor in place; see the
         // lens picker above.
         const picked = await ctx.ui.custom<AgentStrategySelection | undefined>(
           (_tui, theme, _keybindings, done) =>
             createRuntimeStrategyPickerComponent({
               current: current.agentStrategy,
+              disabled: AGENT_STRATEGY_IDS.filter((id) => !pinnable.includes(id)),
               theme,
               onDone: done,
             }),
@@ -216,6 +231,13 @@ function registerRuntimeSwitchCommands(
       if (!isStrategySelection(selection)) {
         ctx.ui.notify(
           `Unknown strategy "${selection}". Use one of: auto, ${AGENT_STRATEGY_IDS.join(', ')}.`,
+          'error',
+        );
+        return;
+      }
+      if (selection !== 'auto' && !pinnable.includes(selection)) {
+        ctx.ui.notify(
+          `Strategy "${selection}" is not yet enabled for the selected spec (more grounding needed). Selectable now: auto, ${pinnable.join(', ')}.`,
           'error',
         );
         return;

@@ -13,6 +13,7 @@ import {
   BRUNCH_STRATEGY_COMMAND,
   registerBrunchCommands,
 } from '../extensions/commands/index.js';
+import { createTestLabTheme } from './support/tui-theme.js';
 
 interface RegisteredCommand {
   description?: string;
@@ -35,7 +36,13 @@ interface FakeCommandContext {
   };
 }
 
-function commandHarness(options: { customResult?: unknown; customAvailable?: boolean } = {}) {
+function commandHarness(
+  options: {
+    customResult?: unknown;
+    customAvailable?: boolean;
+    gaps?: ReturnType<typeof groundingFloorGaps>;
+  } = {},
+) {
   const entries: RuntimeEntry[] = [];
   const notifications: Array<{ message: string; level?: 'info' | 'warning' | 'error' }> = [];
   const commands = new Map<string, RegisteredCommand>();
@@ -81,7 +88,7 @@ function commandHarness(options: { customResult?: unknown; customAvailable?: boo
       requestChromeRefresh: () => {
         chromeRefreshes.push(chromeRefreshes.length + 1);
       },
-      getElicitationGaps: () => groundingFloorGaps(),
+      getElicitationGaps: () => options.gaps ?? groundingFloorGaps(),
     },
   );
 
@@ -227,6 +234,53 @@ describe('Brunch runtime switch commands', () => {
 
     await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
     expect(harness.chromeRefreshes).toHaveLength(1);
+  });
+
+  it('rejects pinning a readiness-gated strategy while floor gaps are uncovered', async () => {
+    const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
+
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('propose-graph', harness.ctx);
+
+    expect(harness.entries).toEqual([]);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({
+        level: 'error',
+        message: expect.stringContaining('"propose-graph" is not yet enabled'),
+      }),
+    ]);
+  });
+
+  it('keeps freestyle explicitly pinnable at zero floor coverage', async () => {
+    const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
+
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('freestyle', harness.ctx);
+
+    expect(harness.entries).toHaveLength(1);
+    expect(harness.entries[0]?.data).toMatchObject({
+      reason: 'switch',
+      source: 'user',
+      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'freestyle' },
+    });
+  });
+
+  it('shows readiness-gated options as disabled in the pickers', async () => {
+    const theme = createTestLabTheme();
+    const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
+
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
+
+    const renderPicker = (call?: { factory: (...args: unknown[]) => unknown }) => {
+      const component = call?.factory(undefined, theme, undefined, () => {}) as {
+        render(width: number): string[];
+      };
+      return component.render(220).join('\n');
+    };
+
+    expect(renderPicker(harness.customCalls[0])).toContain(
+      '-- NOTE: propose-graph and project-graph are not yet enabled',
+    );
+    expect(renderPicker(harness.customCalls[1])).toContain('-- NOTE: design and oracle are not yet enabled');
   });
 
   it('opens the mode picker for no-arg mode commands and never appends a runtime switch', async () => {

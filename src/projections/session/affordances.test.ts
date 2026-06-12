@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import { DEFAULT_BRUNCH_AGENT_STATE } from '../../session/runtime-state.js';
 import { affordances } from './affordances.js';
-import { axisOptionsForRuntimeState } from './runtime-policy.js';
+import { axisOptionsForRuntimeState, pinnableAxisOptionsForRuntimeState } from './runtime-policy.js';
 import { resolveBrunchAgentState } from './runtime-state.js';
 
 function resolved(overrides: Partial<typeof DEFAULT_BRUNCH_AGENT_STATE> = {}) {
@@ -70,6 +70,33 @@ describe('runtime affordances derivation', () => {
 
     expect(uncovered).not.toContain('propose-graph');
     expect(covered).toContain('propose-graph');
+  });
+
+  it('keeps freestyle on the user-pin surface even while the AUTO manifest excludes it', () => {
+    // Same AUTO state: the manifest view omits freestyle, the pin surface keeps it.
+    expect(axisOptionsForRuntimeState('strategy', resolved(), groundingFloorGaps())).not.toContain(
+      'freestyle',
+    );
+    expect(pinnableAxisOptionsForRuntimeState('strategy', resolved(), groundingFloorGaps())).toContain(
+      'freestyle',
+    );
+  });
+
+  it('gates the pin surface by capability readiness while keeping floor options pinnable', () => {
+    const uncovered = groundingFloorGaps({ defaultCoverage: 0 });
+
+    expect(pinnableAxisOptionsForRuntimeState('strategy', resolved(), uncovered)).toEqual([
+      'freestyle',
+      'step-wise-decision-tree',
+      'step-wise-disambiguate',
+    ]);
+    expect(pinnableAxisOptionsForRuntimeState('lens', resolved(), uncovered)).toEqual(['intent']);
+
+    expect(pinnableAxisOptionsForRuntimeState('lens', resolved(), groundingFloorGaps())).toEqual([
+      'intent',
+      'design',
+      'oracle',
+    ]);
   });
 
   it('excludes freestyle from AUTO strategy affordances but reports a pinned legal strategy', () => {
