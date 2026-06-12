@@ -624,7 +624,8 @@ edges:
   elicitation-driver        -[hard]->         context-seed-payload (opening offer is grounded in the driver's ranked agenda)
   kick-and-context-seeding  -[satisfied]->    context-seed-payload (seed-then-kick mechanism + I45-I47 coverage already proven; this frontier fills the payload)
   context-seed-payload      -[hard]->         origination-kick-live (the seeded content exists; this frontier makes the product turn that carries it actually fire)
-  origination-kick-live     -[hard · demo]->  poc-live-ship-gate   (demo block 2½: startup completeness — auto-injected context + product-triggered kick + gap-grounded opening question)
+  origination-kick-live     -[hard]->         origination-native-elicitation (the live kick is the substrate the assistant-authored opening rides)
+  origination-native-elicitation -[hard · demo]-> poc-live-ship-gate (demo opening beat: content-rich seed → kick → assistant-authored gap-grounded first question, no canned offer)
   generalized-capture       -[hard · demo]->  poc-live-ship-gate   (demo block 3: high-confidence natural-ish capture the demo claims)
   poc-live-ship-gate        -[contract]->     demo-polish          (top line consumes the lower line: web over RPC/WS + compile-time types/metadata; TUI chrome over the presentation/wiring seam)
   graph-tool-resilience     -[hard]->         capture-response-to-graph
