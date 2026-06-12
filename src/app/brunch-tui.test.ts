@@ -685,14 +685,35 @@ describe('Brunch TUI boot', () => {
     const shortcuts = new Map<string, Omit<RegisteredCommand, 'name' | 'sourceInfo'>>();
     const registeredTools: string[] = [];
 
+    const shortcutEvents: string[] = [];
+    const switchTarget = readyWorkspace('/tmp/project', 'session-target');
+    const commandContext = fakeCommandContext({
+      currentSessionFile: '/sessions/session-old.jsonl',
+      decisions: [
+        {
+          action: 'openSession',
+          specId: switchTarget.spec.id,
+          sessionFile: switchTarget.session.file,
+        },
+      ],
+      onEvent: (event) => shortcutEvents.push(event),
+    });
+
     await createBrunchPiExtensions(
       chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-1')),
       undefined,
       {
         coordinator: {
-          inspectWorkspace: async () => emptyInventory('/tmp/project'),
-          activateWorkspace: async () => readyWorkspace('/tmp/project', 'session-1'),
+          inspectWorkspace: async () => {
+            shortcutEvents.push('inspect');
+            return inventoryWithWorkspace(switchTarget);
+          },
+          activateWorkspace: async (decision) => {
+            shortcutEvents.push(`activate:${decision.action}`);
+            return switchTarget;
+          },
         },
+        getCommandContext: () => commandContext,
       },
     )({
       on: (_event: string, _handler: unknown) => {},
@@ -732,15 +753,24 @@ describe('Brunch TUI boot', () => {
     expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(false);
     expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.has('ctrl+b')).toBe(false);
+    expect(shortcuts.has('ctrl+shift+b')).toBe(false);
 
-    const shortcutEvents: string[] = [];
+    // The switch shortcut borrows the command-capable context and completes a
+    // real cross-session switch, exactly like /brunch:switch.
     const shortcut = shortcuts.get(BRUNCH_SWITCH_SHORTCUT);
     expect(shortcut).toBeDefined();
     const shortcutHandler = shortcut!.handler as (ctx: unknown) => Promise<void> | void;
     await shortcutHandler({
-      ui: fakeUi((method, type) => shortcutEvents.push(`${method}:${type}`)),
+      ui: fakeUi(() => {}),
     });
-    expect(shortcutEvents).toEqual(['notify:warning']);
+    expect(shortcutEvents).toEqual([
+      'waitForIdle',
+      'inspect',
+      'custom',
+      'activate:openSession',
+      `switch:${switchTarget.session.file}`,
+      'notify:info',
+    ]);
   });
 
   it('opens the spec/session picker from the Brunch command', async () => {

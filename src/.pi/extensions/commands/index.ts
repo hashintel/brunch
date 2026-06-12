@@ -18,6 +18,13 @@
  *                         (execute) are visible but disabled, so only the
  *                         current `elicit` mode is selectable.
  *
+ * Keyboard shortcuts (match the `[opt-x]:` hints in the footer chrome):
+ *  - `alt+b` — spec/session picker (borrows a command-capable context from
+ *              the composition root for the actual session switch)
+ *  - `alt+m` — mode picker
+ *  - `alt+s` — strategy picker
+ *  - `alt+l` — lens picker
+ *
  * Disabled until operational (constant kept so tests can assert absence):
  *  - `/brunch:continue` — recover/restart from an interrupted `request_*` tool
  *                         or other interruption. Needs to: (a) optionally add a
@@ -54,11 +61,21 @@ export const BRUNCH_LENS_COMMAND = 'brunch:lens';
 export const BRUNCH_STRATEGY_COMMAND = 'brunch:strategy';
 export const BRUNCH_MODE_COMMAND = 'brunch:mode';
 
-export const BRUNCH_SWITCH_SHORTCUT = 'ctrl+shift+b';
+export const BRUNCH_SWITCH_SHORTCUT = 'alt+b';
+export const BRUNCH_MODE_SHORTCUT = 'alt+m';
+export const BRUNCH_STRATEGY_SHORTCUT = 'alt+s';
+export const BRUNCH_LENS_SHORTCUT = 'alt+l';
 
 export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
   /** Called after a runtime posture switch so chrome (footer) re-renders from re-projected state. */
   readonly requestChromeRefresh?: () => void;
+  /**
+   * Live command-capable context for keyboard shortcuts. Pi's shortcut
+   * contexts lack `switchSession`/`waitForIdle`, so the spec/session switch
+   * shortcut borrows a full command context from the composition root when
+   * available and degrades to the shortcut context otherwise.
+   */
+  readonly getCommandContext?: () => ExtensionCommandContext | undefined;
   /**
    * Must-wire: the post-switch tool posture derives from these gaps. Required
    * so a composition root cannot leave runtime switches recomputing legality
@@ -95,6 +112,99 @@ function strategyUsage(): string {
 
 function lensUsage(): string {
   return `Usage: /${BRUNCH_LENS_COMMAND} <auto|${AGENT_LENS_IDS.join('|')}>`;
+}
+
+/**
+ * Open the lens picker (non-overlay ui.custom: temporarily replaces the input
+ * editor in place, so it renders at the input area instead of floating at a
+ * terminal-absolute anchor). Shared by the `/brunch:lens` no-arg command and
+ * the lens shortcut.
+ */
+async function openLensPicker(
+  pi: ExtensionAPI,
+  ctx: RuntimeSwitchContext,
+  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
+): Promise<void> {
+  const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+  // Capability-readiness (D74-L) marks readiness-thin lenses as caution in
+  // the picker, but never bars pinning them — the agent negotiates and
+  // gated methods/tools stay withheld downstream.
+  const readinessLegal = pinnableAxisOptionsForRuntimeState('lens', current, options.getElicitationGaps());
+  if (typeof ctx.ui.custom !== 'function') {
+    ctx.ui.notify(lensUsage(), 'info');
+    return;
+  }
+  const picked = await ctx.ui.custom<AgentLensSelection | undefined>((_tui, theme, _keybindings, done) =>
+    createRuntimeLensPickerComponent({
+      current: current.agentLens,
+      caution: AGENT_LENS_IDS.filter((id) => !readinessLegal.includes(id)),
+      theme,
+      onDone: done,
+    }),
+  );
+  if (picked === undefined) return;
+  if (!isLensSelection(picked)) {
+    ctx.ui.notify(lensUsage(), 'error');
+    return;
+  }
+  applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: picked }, options);
+}
+
+/** Open the strategy picker; see {@link openLensPicker} for rendering notes. */
+async function openStrategyPicker(
+  pi: ExtensionAPI,
+  ctx: RuntimeSwitchContext,
+  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
+): Promise<void> {
+  const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+  // Capability-readiness (D74-L) marks readiness-thin strategies as caution
+  // in the picker, but never bars pinning them; freestyle is always an
+  // explicit user pin (D66-L).
+  const readinessLegal = pinnableAxisOptionsForRuntimeState(
+    'strategy',
+    current,
+    options.getElicitationGaps(),
+  );
+  if (typeof ctx.ui.custom !== 'function') {
+    ctx.ui.notify(strategyUsage(), 'info');
+    return;
+  }
+  const picked = await ctx.ui.custom<AgentStrategySelection | undefined>((_tui, theme, _keybindings, done) =>
+    createRuntimeStrategyPickerComponent({
+      current: current.agentStrategy,
+      caution: AGENT_STRATEGY_IDS.filter((id) => !readinessLegal.includes(id)),
+      theme,
+      onDone: done,
+    }),
+  );
+  if (picked === undefined) return;
+  if (!isStrategySelection(picked)) {
+    ctx.ui.notify(strategyUsage(), 'error');
+    return;
+  }
+  applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: picked }, options);
+}
+
+/**
+ * Open the mode picker. Planned modes render disabled, so the only
+ * committable pick is the current mode — committing it is a no-op report
+ * until execute mode exists.
+ */
+async function openModePicker(ctx: RuntimeSwitchContext): Promise<void> {
+  const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
+  if (typeof ctx.ui.custom !== 'function') {
+    ctx.ui.notify(`Brunch mode is ${current.operationalMode}.`, 'info');
+    return;
+  }
+  const picked = await ctx.ui.custom<OperationalModeChoice | undefined>((_tui, theme, _keybindings, done) =>
+    createRuntimeModePickerComponent({
+      current: current.operationalMode,
+      theme,
+      onDone: done,
+    }),
+  );
+  if (picked === undefined) return;
+  ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
 }
 
 function applyRuntimeSwitch(
@@ -146,38 +256,8 @@ function registerRuntimeSwitchCommands(
         .map((value) => ({ value, label: value })),
     handler: async (args, ctx) => {
       const selection = normalizeAxisArg(args);
-      const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-      // Capability-readiness (D74-L) marks readiness-thin lenses as caution in
-      // the picker, but never bars pinning them — the agent negotiates and
-      // gated methods/tools stay withheld downstream.
-      const readinessLegal = pinnableAxisOptionsForRuntimeState(
-        'lens',
-        current,
-        options.getElicitationGaps(),
-      );
       if (!selection) {
-        if (typeof ctx.ui.custom !== 'function') {
-          ctx.ui.notify(lensUsage(), 'info');
-          return;
-        }
-        // Non-overlay ui.custom: the picker temporarily replaces the input
-        // editor in place (and is restored on done), so it always renders at
-        // the input area instead of floating at a terminal-absolute anchor.
-        const picked = await ctx.ui.custom<AgentLensSelection | undefined>(
-          (_tui, theme, _keybindings, done) =>
-            createRuntimeLensPickerComponent({
-              current: current.agentLens,
-              caution: AGENT_LENS_IDS.filter((id) => !readinessLegal.includes(id)),
-              theme,
-              onDone: done,
-            }),
-        );
-        if (picked === undefined) return;
-        if (!isLensSelection(picked)) {
-          ctx.ui.notify(lensUsage(), 'error');
-          return;
-        }
-        applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: picked }, options);
+        await openLensPicker(pi, ctx, options);
         return;
       }
       if (!isLensSelection(selection)) {
@@ -199,37 +279,8 @@ function registerRuntimeSwitchCommands(
         .map((value) => ({ value, label: value })),
     handler: async (args, ctx) => {
       const selection = normalizeAxisArg(args);
-      const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-      // Capability-readiness (D74-L) marks readiness-thin strategies as caution
-      // in the picker, but never bars pinning them; freestyle is always an
-      // explicit user pin (D66-L).
-      const readinessLegal = pinnableAxisOptionsForRuntimeState(
-        'strategy',
-        current,
-        options.getElicitationGaps(),
-      );
       if (!selection) {
-        if (typeof ctx.ui.custom !== 'function') {
-          ctx.ui.notify(strategyUsage(), 'info');
-          return;
-        }
-        // Non-overlay ui.custom: replaces the input editor in place; see the
-        // lens picker above.
-        const picked = await ctx.ui.custom<AgentStrategySelection | undefined>(
-          (_tui, theme, _keybindings, done) =>
-            createRuntimeStrategyPickerComponent({
-              current: current.agentStrategy,
-              caution: AGENT_STRATEGY_IDS.filter((id) => !readinessLegal.includes(id)),
-              theme,
-              onDone: done,
-            }),
-        );
-        if (picked === undefined) return;
-        if (!isStrategySelection(picked)) {
-          ctx.ui.notify(strategyUsage(), 'error');
-          return;
-        }
-        applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: picked }, options);
+        await openStrategyPicker(pi, ctx, options);
         return;
       }
       if (!isStrategySelection(selection)) {
@@ -254,23 +305,7 @@ function registerRuntimeSwitchCommands(
       const selection = normalizeAxisArg(args);
       const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
       if (!selection) {
-        if (typeof ctx.ui.custom !== 'function') {
-          ctx.ui.notify(`Brunch mode is ${current.operationalMode}.`, 'info');
-          return;
-        }
-        // Non-overlay ui.custom: replaces the input editor in place. Planned
-        // modes render disabled, so the only committable pick is the current
-        // mode — committing it is a no-op report until execute mode exists.
-        const picked = await ctx.ui.custom<OperationalModeChoice | undefined>(
-          (_tui, theme, _keybindings, done) =>
-            createRuntimeModePickerComponent({
-              current: current.operationalMode,
-              theme,
-              onDone: done,
-            }),
-        );
-        if (picked === undefined) return;
-        ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
+        await openModePicker(ctx);
         return;
       }
       if (selection === current.operationalMode) {
@@ -281,6 +316,25 @@ function registerRuntimeSwitchCommands(
         'Only elicit mode is available in this Brunch build; execute mode is not implemented.',
         'error',
       );
+    },
+  });
+
+  pi.registerShortcut?.(BRUNCH_MODE_SHORTCUT, {
+    description: 'Change the Brunch mode',
+    handler: async (ctx) => {
+      await openModePicker(ctx);
+    },
+  });
+  pi.registerShortcut?.(BRUNCH_STRATEGY_SHORTCUT, {
+    description: 'Change the Brunch strategy',
+    handler: async (ctx) => {
+      await openStrategyPicker(pi, ctx, options);
+    },
+  });
+  pi.registerShortcut?.(BRUNCH_LENS_SHORTCUT, {
+    description: 'Change the Brunch lens',
+    handler: async (ctx) => {
+      await openLensPicker(pi, ctx, options);
     },
   });
 }
@@ -299,10 +353,13 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
   pi.registerShortcut?.(BRUNCH_SWITCH_SHORTCUT, {
     description: 'Open the Brunch spec/session picker',
     handler: async (ctx) => {
-      ctx.ui.notify(
-        'Use /brunch:switch to switch specs or sessions; Pi shortcut contexts cannot switch sessions yet.',
-        'warning',
-      );
+      // Pi shortcut contexts lack switchSession/waitForIdle, so borrow a
+      // command-capable context from the composition root when available.
+      // The fallback shortcut context still opens the picker; an actual
+      // cross-session switch then degrades to a warning (see
+      // switchToActivatedWorkspace).
+      const commandContext = options.getCommandContext?.();
+      await runBrunchWorkspaceAction(commandContext ?? ctx, coordinator);
     },
   });
 }

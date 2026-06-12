@@ -67,6 +67,8 @@ interface BrunchChromeStartupHeaderState {
 }
 
 export interface BrunchChromeFooterTelemetry {
+  /** Live session name from the session manager; overrides the launch-time label after `/name`. */
+  sessionName?: string | null;
   statuses?: ReadonlyMap<string, string>;
   contextUsage?: BrunchChromeContextUsage;
   liveContextUsage?: BrunchChromeLiveContextUsage;
@@ -123,11 +125,12 @@ export function projectBrunchChromeFooterLines(
     width === undefined ? Number.POSITIVE_INFINITY : Math.max(1, width - CHROME_PADDING_X * 2);
   const statuses = sanitizeChromeStatuses(telemetry?.statuses);
 
+  const sessionLabel = telemetry?.sessionName ?? chrome.session.label ?? chrome.session.id;
   const specSessionPart = keyedStatusPart(
     theme,
     'spec / session',
     'opt-b',
-    `${formatSpec(chrome)} / ${chrome.session.label ?? chrome.session.id}`,
+    `${formatSpec(chrome)} / ${sessionLabel}`,
   );
   const specSessionLine = chrome.webSidecarUrl
     ? alignChromeColumns(specSessionPart, formatWebUiPart(chrome.webSidecarUrl, theme), available)
@@ -287,6 +290,7 @@ export default function brunchChrome(pi: ExtensionAPI): void {
 function footerTelemetryFromContext(ctx: ExtensionContext, pi: ExtensionAPI): BrunchChromeFooterTelemetry {
   const liveContextUsage = ctx.getContextUsage();
   return {
+    sessionName: ctx.sessionManager.getSessionName() ?? null,
     ...(liveContextUsage ? { liveContextUsage } : {}),
     model: ctx.model
       ? {

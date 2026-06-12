@@ -323,6 +323,13 @@ export function createBrunchAgentSessionRuntimeFactory(
     const bindCurrentWorkspace = async (replacementSessionManager: typeof sessionManager) => {
       currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
     };
+    // Late-bound: the AgentSession exists only after createAgentSessionFromServices
+    // below, but extension factories close over this ref now. Keyboard shortcuts
+    // borrow a command-capable context (switchSession, waitForIdle) from the live
+    // session, which Pi's own shortcut contexts do not carry.
+    const liveAgentSession: {
+      current: Awaited<ReturnType<typeof createAgentSessionFromServices>>['session'] | null;
+    } = { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
     const profile = createBrunchPiSettings({
       cwd,
@@ -336,6 +343,7 @@ export function createBrunchAgentSessionRuntimeFactory(
           bindCurrentWorkspace,
           {
             coordinator,
+            getCommandContext: () => liveAgentSession.current?.createReplacedSessionContext(),
             graph: graphDeps,
             ...(context.dev ? { introspection: context.dev.introspection } : {}),
             promptContext: () => {
@@ -394,6 +402,7 @@ export function createBrunchAgentSessionRuntimeFactory(
       sessionManager,
       ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
     });
+    liveAgentSession.current = created.session;
     // Complete the kick: a 'start' decision owes an actual assistant-originated
     // LLM turn, which only the live AgentSession can run. Guarded on model
     // availability so unauthenticated launches idle instead of erroring at
