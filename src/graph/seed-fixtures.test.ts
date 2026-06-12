@@ -14,8 +14,9 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../db/connection.js';
-import { changeLog, edges, graphClock, nodes, specs } from '../db/schema.js';
+import { changeLog, edges, elicitationGaps, graphClock, nodes, specs } from '../db/schema.js';
 import { CommandExecutor } from './command-executor.js';
+import { GROUNDING_FLOOR_KINDS } from './schema/elicitation-gap-fixtures.js';
 import { EDGE_CATEGORIES } from './schema/kinds.js';
 import { NODE_KIND_METADATA, type ReadinessBand } from './schema/nodes.js';
 import { runSeedFixturesCli, seedFixture, type SeedFixture } from './seed-fixtures.js';
@@ -258,6 +259,18 @@ describe('all tracked seeds remain structurally legal', () => {
 
     expect(result.nodeCount).toBe(fixture.nodes.length);
     expect(result.edgeCount).toBe(fixture.edges.length);
+
+    const gapKinds = new Set(
+      db
+        .select({ refersTo: elicitationGaps.refers_to })
+        .from(elicitationGaps)
+        .where(eq(elicitationGaps.spec_id, result.specId))
+        .all()
+        .map((row) => row.refersTo),
+    );
+    for (const kind of GROUNDING_FLOOR_KINDS) {
+      expect(gapKinds.has(kind)).toBe(true);
+    }
   });
 
   it('surfaces command-layer diagnostics when a fixture is illegal', () => {

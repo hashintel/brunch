@@ -9,10 +9,10 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   graph/spec writes. It hides structural validation, transaction mechanics,
   spec-local LSN allocation, per-kind node ordinal allocation, change-log append,
   and structured command results. It also owns prospective-register writes for
-  `elicitation_gaps` (`createSpec` seeding plus create/disposition commands),
-  because the gap register shares the same spec-local LSN and audit boundary.
-  Gaps name obligations by `refersTo: NodeKind` + free-form `question`, not
-  a parallel typology enum.
+  `elicitation_gaps` (`createSpec` seeding, legacy/local seed-floor repair, and
+  create/disposition commands), because the gap register shares the same
+  spec-local LSN and audit boundary. Gaps name obligations by
+  `refersTo: NodeKind` + free-form `question`, not a parallel typology enum.
 
 - **mutateGraph** — atomic graph mutation for direct writers and future curation:
   one tool call, one transaction, one selected-spec LSN, all-or-nothing. The
@@ -60,8 +60,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   flow). Pure functions; no DB access.
 
 - **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
-  through `db/connection.ts` and returns a `CommandExecutor` plus bound query
-  readers for adapters.
+  through `db/connection.ts`, repairs legacy/local specs missing the current
+  seeded elicitation-gap floor through `CommandExecutor`, and returns the
+  executor plus bound query readers for adapters.
 
 ## Observed read-shape ledger
 
@@ -168,6 +169,7 @@ graph/
 
   workspace-store.ts
     openWorkspaceGraphRuntime(cwd)
+    seeded elicitation-gap floor repair for legacy/local specs
     bound queryGraph/getNodes/getElicitationGaps readers
     openWorkspaceCommandExecutor(cwd)
 
