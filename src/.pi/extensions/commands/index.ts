@@ -52,7 +52,11 @@ import {
   createRuntimeStrategyPickerComponent,
 } from '../../components/runtime-posture/axis-picker.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
-import { type BrunchSpecSessionPickerOptions, runBrunchWorkspaceAction } from '../workspace/index.js';
+import {
+  runBrunchWorkspaceAction,
+  type BrunchSpecSessionPickerOptions,
+  type BrunchWorkspaceActionContext,
+} from '../workspace/index.js';
 
 export const BRUNCH_COMMAND_PREFIX = 'brunch:';
 export const BRUNCH_SWITCH_COMMAND = 'brunch:switch';
@@ -62,6 +66,8 @@ export const BRUNCH_STRATEGY_COMMAND = 'brunch:strategy';
 export const BRUNCH_MODE_COMMAND = 'brunch:mode';
 
 export const BRUNCH_SWITCH_SHORTCUT = 'alt+b';
+/** Long-standing binding for the spec/session picker; kept as an alias of alt+b. */
+export const BRUNCH_SWITCH_SHORTCUT_LEGACY = 'ctrl+shift+b';
 export const BRUNCH_MODE_SHORTCUT = 'alt+m';
 export const BRUNCH_STRATEGY_SHORTCUT = 'alt+s';
 export const BRUNCH_LENS_SHORTCUT = 'alt+l';
@@ -350,16 +356,19 @@ export function registerBrunchCommands(pi: ExtensionAPI, options: BrunchCommands
 
   registerRuntimeSwitchCommands(pi, options);
 
-  pi.registerShortcut?.(BRUNCH_SWITCH_SHORTCUT, {
-    description: 'Open the Brunch spec/session picker',
-    handler: async (ctx) => {
-      // Pi shortcut contexts lack switchSession/waitForIdle, so borrow a
-      // command-capable context from the composition root when available.
-      // The fallback shortcut context still opens the picker; an actual
-      // cross-session switch then degrades to a warning (see
-      // switchToActivatedWorkspace).
-      const commandContext = options.getCommandContext?.();
-      await runBrunchWorkspaceAction(commandContext ?? ctx, coordinator);
-    },
-  });
+  // Pi shortcut contexts lack switchSession/waitForIdle, so borrow a
+  // command-capable context from the composition root when available.
+  // The fallback shortcut context still opens the picker; an actual
+  // cross-session switch then degrades to a warning (see
+  // switchToActivatedWorkspace).
+  const openSwitchPicker = async (ctx: BrunchWorkspaceActionContext) => {
+    const commandContext = options.getCommandContext?.();
+    await runBrunchWorkspaceAction(commandContext ?? ctx, coordinator);
+  };
+  for (const shortcut of [BRUNCH_SWITCH_SHORTCUT, BRUNCH_SWITCH_SHORTCUT_LEGACY] as const) {
+    pi.registerShortcut?.(shortcut, {
+      description: 'Open the Brunch spec/session picker',
+      handler: openSwitchPicker,
+    });
+  }
 }

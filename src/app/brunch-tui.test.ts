@@ -753,7 +753,8 @@ describe('Brunch TUI boot', () => {
     expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(false);
     expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.has('ctrl+b')).toBe(false);
-    expect(shortcuts.has('ctrl+shift+b')).toBe(false);
+    // Legacy alias stays bound to the same picker handler.
+    expect(shortcuts.get('ctrl+shift+b')?.handler).toBe(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.handler);
 
     // The switch shortcut borrows the command-capable context and completes a
     // real cross-session switch, exactly like /brunch:switch.
