@@ -1182,7 +1182,10 @@ describe('JSON-RPC handlers', () => {
         status: 'ready',
         exchanges: [
           {
-            promptEntryIds: [expect.any(String)],
+            // present toolCall + present toolResult + request toolCall — the
+            // synthetic call halves keep the transcript provider-legal (no
+            // orphan tool_result); both assistant-side calls group prompt-side.
+            promptEntryIds: [expect.any(String), expect.any(String), expect.any(String)],
             responseEntryIds: [expect.any(String)],
           },
         ],

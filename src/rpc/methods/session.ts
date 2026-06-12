@@ -728,6 +728,9 @@ async function handleSubmitExchangeResponse(
     ...(params.note === undefined ? {} : { note: params.note }),
   };
 
+  // Call first, then result — the synthetic pair keeps the transcript
+  // provider-legal (an orphan tool_result is a real-provider 400).
+  state.session.manager.appendMessage(accepted.toolCallMessage);
   state.session.manager.appendMessage(accepted.toolResultMessage);
   flushSessionEntries(state.session.manager, state.session.file);
 

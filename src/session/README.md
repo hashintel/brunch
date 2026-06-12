@@ -21,7 +21,15 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, and response
   toolResult materialization. RPC maps these domain results to JSON-RPC status
-  and error codes; transcript mechanics stay here.
+  and error codes; transcript mechanics stay here. **Provider-legality rule
+  (2026-06-12):** every synthetic exchange toolResult (present offers at
+  origination, request responses at submit) persists as a *pair* — a synthetic
+  assistant toolCall (`syntheticExchangeToolCallMessage`, sentinel provenance
+  `brunch-exchange`) immediately followed by the toolResult, sharing one
+  `^[a-zA-Z0-9_-]+$` id (`exchangeId__toolName`, never `:`). Real providers
+  reject orphan `tool_result` blocks and non-conforming ids; the faux provider
+  validates neither, so only the Tier-2 provider-legality assertion and live
+  runs guard this shape.
 
 - **Workspace coordination** — boot flow, spec/session selection,
   `.brunch/workspace.json` management. The `WorkspaceSessionCoordinator`

@@ -92,7 +92,17 @@ describe('originateAssistantTurn', () => {
     expect(seed?.type).toBe('custom_message');
     expect(String(seed?.content)).toContain('Issue tracker');
     expect(String(seed?.content)).toContain('LSN 5');
-    expect(manager.messages).toHaveLength(1);
+    // Provider-legal pair: synthetic assistant toolCall first, then the
+    // present_* toolResult referencing the same ^[a-zA-Z0-9_-]+$ id (a bare
+    // toolResult is a real-provider 400 — 2026-06-12 walkthrough regression).
+    expect(manager.messages).toHaveLength(2);
+    const [call, offer] = manager.messages as [Record<string, unknown>, Record<string, unknown>];
+    expect(call.role).toBe('assistant');
+    const callBlock = (call.content as Array<Record<string, unknown>>)[0]!;
+    expect(callBlock.type).toBe('toolCall');
+    expect(String(callBlock.id)).toMatch(/^[a-zA-Z0-9_-]+$/);
+    expect(offer.role).toBe('toolResult');
+    expect(offer.toolCallId).toBe(callBlock.id);
     expect(result.exchange).toBeDefined();
   });
 

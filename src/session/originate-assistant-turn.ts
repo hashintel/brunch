@@ -23,7 +23,7 @@ import { appendPreparedContinuityEntry, type ContinuityEntryAppender } from './p
 import { startAssistantTurn, type StartAssistantTurnDecision } from './start-assistant-turn.js';
 import {
   nextDeterministicStructuredExchange,
-  presentToolResultMessage,
+  presentExchangeMessages,
   type PendingStructuredExchange,
 } from './structured-exchange-loop.js';
 
@@ -113,7 +113,11 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
   }
 
   const exchange = nextDeterministicStructuredExchange(input.exchangeOrdinal);
-  input.manager.appendMessage(presentToolResultMessage(exchange));
+  // Call+result pair: real providers reject an orphan tool_result, so the
+  // offer persists in the same shape an LLM-driven present_* exchange leaves.
+  for (const message of presentExchangeMessages(exchange)) {
+    input.manager.appendMessage(message);
+  }
   return { decision, exchange };
 }
 

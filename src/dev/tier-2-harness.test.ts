@@ -33,6 +33,11 @@ describe('origination-kick-live — the product originates the opening turn on i
       expect(presentToolResults(entries)).toHaveLength(1);
       expect(userMessages(entries)).toHaveLength(0);
       expect(customEntries(entries, 'brunch.kick')).toHaveLength(1);
+
+      // Provider legality (Anthropic 400 regression, 2026-06-12 walkthrough):
+      // every tool result in the payload must use a ^[a-zA-Z0-9_-]+$ id and be
+      // paired with a preceding assistant toolCall carrying the same id.
+      expectProviderLegalToolPairs(boot.providerContexts[0]!.messages);
     } finally {
       await boot.dispose();
     }
@@ -113,7 +118,11 @@ describe('origination-kick-live — the product originates the opening turn on i
       await new Promise((resolve) => setTimeout(resolve, 100));
       const entries = boot.runtime.session.sessionManager.getEntries();
       expect(customEntries(entries, 'brunch.kick')).toHaveLength(0);
-      expect(messagesByRole(entries, 'assistant')).toHaveLength(0);
+      // The synthetic present_* pair includes a sentinel-provenance assistant
+      // toolCall; "no kick turn ran" means no provider-produced assistant message.
+      expect(
+        messagesByRole(entries, 'assistant').filter((message) => message.provider !== 'brunch'),
+      ).toHaveLength(0);
     } finally {
       await boot.runtime.dispose();
       boot.restoreEnv();
@@ -807,6 +816,25 @@ function messagesByRole(entries: readonly unknown[], role: string): readonly Rec
   });
 }
 
+function expectProviderLegalToolPairs(messages: readonly unknown[]): void {
+  const seenToolCallIds = new Set<string>();
+  for (const message of messages) {
+    if (!isRecord(message)) continue;
+    if (message.role === 'assistant' && Array.isArray(message.content)) {
+      for (const block of message.content) {
+        if (isRecord(block) && block.type === 'toolCall' && typeof block.id === 'string') {
+          expect(block.id).toMatch(/^[a-zA-Z0-9_-]+$/);
+          seenToolCallIds.add(block.id);
+        }
+      }
+    }
+    if (message.role === 'toolResult' && typeof message.toolCallId === 'string') {
+      expect(message.toolCallId).toMatch(/^[a-zA-Z0-9_-]+$/);
+      expect(seenToolCallIds.has(message.toolCallId)).toBe(true);
+    }
+  }
+}
+
 function presentToolResults(entries: readonly unknown[]): readonly Record<string, unknown>[] {
   return messagesByRole(entries, 'toolResult').filter(
     (message) => typeof message.toolName === 'string' && message.toolName.startsWith('present_'),
@@ -834,7 +862,7 @@ function requestChoicesResultMessage(status: 'answered' | 'cancelled' | 'unavail
   });
   return {
     role: 'toolResult' as const,
-    toolCallId: 'ex-resume-1:request_choices',
+    toolCallId: 'ex-resume-1__request_choices',
     toolName: 'request_choices',
     content: [{ type: 'text' as const, text: `request_choices ${status}` }],
     details,

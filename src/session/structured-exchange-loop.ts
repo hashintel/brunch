@@ -96,12 +96,78 @@ export type AcceptedStructuredExchangeResponse =
   | {
       ok: true;
       answer: Record<string, unknown>;
+      /** Synthetic assistant tool_use pairing `toolResultMessage`; append both, call first. */
+      toolCallMessage: SyntheticExchangeToolCallMessage;
       toolResultMessage: AcceptedToolResultMessage;
     }
   | {
       ok: false;
       message: string;
     };
+
+/**
+ * Synthetic assistant tool-call message pairing a synthetic exchange
+ * toolResult. Real providers require every `tool_result` to reference a
+ * `tool_use` from the immediately preceding assistant message — an orphan
+ * toolResult is a 400 — so product-originated exchange tuples persist the
+ * same call+result pair an LLM-driven exchange produces. Provenance fields
+ * are honest sentinels (`brunch-exchange`), never a real provider id.
+ */
+export interface SyntheticExchangeToolCallMessage {
+  role: 'assistant';
+  content: [{ type: 'toolCall'; id: string; name: string; arguments: Record<string, unknown> }];
+  api: string;
+  provider: string;
+  model: string;
+  usage: {
+    input: 0;
+    output: 0;
+    cacheRead: 0;
+    cacheWrite: 0;
+    totalTokens: 0;
+    cost: { input: 0; output: 0; cacheRead: 0; cacheWrite: 0; total: 0 };
+  };
+  stopReason: 'toolUse';
+  timestamp: 0;
+}
+
+/**
+ * Anthropic constrains `tool_use_id` to `^[a-zA-Z0-9_-]+$`, so the synthetic
+ * id joins exchange id and tool name with `__` (never `:`).
+ */
+function exchangeToolCallId(exchangeId: string, toolName: string): string {
+  return `${exchangeId}__${toolName}`;
+}
+
+export function syntheticExchangeToolCallMessage(
+  exchangeId: string,
+  toolName: string,
+): SyntheticExchangeToolCallMessage {
+  return {
+    role: 'assistant',
+    content: [
+      {
+        type: 'toolCall',
+        id: exchangeToolCallId(exchangeId, toolName),
+        name: toolName,
+        arguments: { exchangeId },
+      },
+    ],
+    api: 'brunch-exchange',
+    provider: 'brunch',
+    model: 'brunch-structured-exchange',
+    usage: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+    stopReason: 'toolUse',
+    timestamp: 0,
+  };
+}
 
 interface PendingChoice {
   id: string;
@@ -190,11 +256,26 @@ export function nextDeterministicStructuredExchange(completedCount: number): Pen
   return script[completedCount % script.length]!;
 }
 
+/**
+ * The provider-legal message pair for a product-originated `present_*` offer:
+ * synthetic assistant tool call first, then its toolResult. Append both in
+ * order — a bare toolResult is rejected by real providers.
+ */
+export function presentExchangeMessages(
+  exchange: PendingStructuredExchange,
+): [SyntheticExchangeToolCallMessage, ReturnType<typeof presentToolResultMessage>] {
+  const projection = presentProjection(exchange);
+  return [
+    syntheticExchangeToolCallMessage(exchange.exchangeId, projection.toolName),
+    presentToolResultMessage(exchange),
+  ];
+}
+
 export function presentToolResultMessage(exchange: PendingStructuredExchange) {
   const projection = presentProjection(exchange);
   return {
     role: 'toolResult' as const,
-    toolCallId: `${exchange.exchangeId}:${projection.toolName}`,
+    toolCallId: exchangeToolCallId(exchange.exchangeId, projection.toolName),
     toolName: projection.toolName,
     content: [{ type: 'text' as const, text: projection.markdown }],
     details: projection.details,
@@ -288,6 +369,7 @@ export function acceptedResponseFromParams(
     return {
       ok: true,
       answer: { text: params.answer.text },
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_answer'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_answer'),
         content: [{ type: 'text', text: `### Response\n\n${params.answer.text}` }],
@@ -309,6 +391,7 @@ export function acceptedResponseFromParams(
     return {
       ok: true,
       answer: { optionId: choice.id, label: choice.label },
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_choice'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_choice'),
         content: [{ type: 'text', text: choiceResponseMarkdown([choice], params.note) }],
@@ -338,6 +421,7 @@ export function acceptedResponseFromParams(
           ...(comment !== undefined ? { comment } : {}),
         },
       },
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_review'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_review'),
         content: [{ type: 'text', text: reviewResponseMarkdown(review.decision, comment) }],
@@ -370,6 +454,7 @@ export function acceptedResponseFromParams(
   return {
     ok: true,
     answer: { optionIds: choices.map((choice) => choice.id), choices },
+    toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_choices'),
     toolResultMessage: {
       ...toolResultMessageBase(pending, 'request_choices'),
       content: [{ type: 'text', text: choiceResponseMarkdown(choices, params.note) }],
@@ -406,7 +491,7 @@ function toolResultMessageBase(
 ) {
   return {
     role: 'toolResult' as const,
-    toolCallId: `${pending.exchangeId}:${requestTool}`,
+    toolCallId: exchangeToolCallId(pending.exchangeId, requestTool),
     toolName: requestTool,
     isError: false as const,
     timestamp: 0 as const,
