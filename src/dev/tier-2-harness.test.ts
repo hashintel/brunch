@@ -12,12 +12,85 @@ import { projectAssistantVisibleWatermark } from '../projections/session/assista
 import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
 import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE } from '../session/runtime-state.js';
 import {
+  bootTier2ProductOriginatedTurn,
   bootTier2RuntimeFromFixture,
   bootTier2RuntimeThroughRunBrunchTui,
   rebootTier2Runtime,
   resumeTier2Fixture,
   runTier2RealBootFauxTurn,
 } from './tier-2-harness.js';
+
+describe('origination-kick-live — the product originates the opening turn on its own bones', () => {
+  it('a new spec boot fires a provider call with no harness prompt, carrying the seeded context', async () => {
+    const boot = await bootTier2ProductOriginatedTurn();
+    try {
+      expect(boot.providerContexts.length).toBeGreaterThan(0);
+      const contextText = JSON.stringify(boot.providerContexts[0]!.messages);
+      expect(contextText).toContain('Context seeded for spec');
+      expect(contextText).toContain('Open elicitation gaps');
+
+      const entries = boot.runtime.session.sessionManager.getEntries();
+      expect(presentToolResults(entries)).toHaveLength(1);
+      expect(userMessages(entries)).toHaveLength(0);
+      expect(customEntries(entries, 'brunch.kick')).toHaveLength(1);
+    } finally {
+      await boot.dispose();
+    }
+  });
+
+  it('picker path parity: continue an existing spec into a new session also kicks', async () => {
+    const boot = await bootTier2ProductOriginatedTurn({ activation: 'pickerNewSession' });
+    try {
+      expect(boot.providerContexts.length).toBeGreaterThan(0);
+      const entries = boot.runtime.session.sessionManager.getEntries();
+      expect(presentToolResults(entries)).toHaveLength(1);
+      expect(userMessages(entries)).toHaveLength(0);
+    } finally {
+      await boot.dispose();
+    }
+  });
+
+  it('reboot over the kicked session stays idle — no second kick, offer, or provider call', async () => {
+    const boot = await bootTier2ProductOriginatedTurn();
+    try {
+      expect(boot.providerContexts).toHaveLength(1);
+      const reboot = await rebootTier2Runtime({
+        cwd: boot.cwd,
+        specId: boot.specId,
+        sessionFile: boot.sessionFile,
+        flushManager: boot.runtime.session.sessionManager,
+        agentServices: boot.agentServices,
+      });
+      try {
+        // settle: any wrongly-fired trigger would capture within this window
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        expect(boot.providerContexts).toHaveLength(1);
+        const entries = reboot.runtime.session.sessionManager.getEntries();
+        expect(presentToolResults(entries)).toHaveLength(1);
+        expect(customEntries(entries, 'brunch.kick')).toHaveLength(1);
+      } finally {
+        await reboot.runtime.dispose();
+      }
+    } finally {
+      await boot.dispose();
+    }
+  });
+
+  it('a boot with no available model does not kick (content boots stay deterministic)', async () => {
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      // No auth/provider in this boot — the model-availability guard must keep
+      // the trigger silent rather than firing a turn that errors at startup.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const entries = boot.runtime.session.sessionManager.getEntries();
+      expect(customEntries(entries, 'brunch.kick')).toHaveLength(0);
+      expect(messagesByRole(entries, 'assistant')).toHaveLength(0);
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
+});
 
 describe('FE-847 Tier-2 real boot harness', () => {
   it('owns real runtime boot proof for ready context and BRUNCH_DEV-gated query tools', async () => {
@@ -379,7 +452,10 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
 });
 
 describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
-  it('a new session seeds context and kicks an assistant-originated turn with no fabricated user entry', async () => {
+  it('a new session seeds context and appends the assistant-originated offer with no fabricated user entry', async () => {
+    // Decision + append claim over transcript entries. The *live* kick turn
+    // (provider call with no harness prompt) is owned by the
+    // origination-kick-live oracle at the top of this file.
     const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {
       const specId = await readSessionContextSpecId(boot.runtime.session);
@@ -408,7 +484,9 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
     }
   });
 
-  it('startup completeness (FE-857): the seed carries the spec overview and gap framing into provider-visible context before the kick', async () => {
+  it('seed content composition (FE-857): the seed carries the spec overview and gap framing into provider-visible context', async () => {
+    // Content claim (buildSessionContext over entries). Startup *lifecycle*
+    // completeness is owned by the origination-kick-live oracle.
     const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {
       const specId = await readSessionContextSpecId(boot.runtime.session);

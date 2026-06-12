@@ -55,6 +55,37 @@ export interface OriginateAssistantTurnResult {
   readonly exchange?: PendingStructuredExchange;
 }
 
+export const BRUNCH_KICK_CUSTOM_TYPE = 'brunch.kick';
+
+/**
+ * The turn-trigger payload completing a 'start' origination decision.
+ *
+ * Origination appends the seed + `present_*` offer to the session manager
+ * before the AgentSession exists; nothing about those appends starts an LLM
+ * turn. The launch path fires this message via
+ * `session.sendCustomMessage(kickTurnMessage(origin), { triggerTurn: true })`
+ * after session creation — the FE-857 out-of-band injection surface — so the
+ * assistant actually opens the conversation. It is a transcript entry
+ * (I47-L), never a fabricated user message (I46-L), and writes no continuity
+ * (D77-L: the reconciler remains the only continuity writer).
+ */
+export function kickTurnMessage(origin: 'new_session' | 'resume_debt' | 'manual_trigger'): {
+  customType: typeof BRUNCH_KICK_CUSTOM_TYPE;
+  content: string;
+  display: boolean;
+  details: { origin: string };
+} {
+  return {
+    customType: BRUNCH_KICK_CUSTOM_TYPE,
+    content:
+      'Session start: a structured exchange offer was just presented to the user. ' +
+      'Open the conversation in your own words, grounded in the seeded spec context, ' +
+      'leading to the offered question.',
+    display: false,
+    details: { origin },
+  };
+}
+
 export function originateAssistantTurn(input: OriginateAssistantTurnInput): OriginateAssistantTurnResult {
   const slice = input.reads.queryGraph();
   // Origin is derived from projected transcript state, not counts or flags

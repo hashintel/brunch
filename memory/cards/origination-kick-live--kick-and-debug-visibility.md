@@ -24,7 +24,25 @@ Below-the-line work on `ln/fe-852-below-the-line`.
 
 ## Card 1 — the kick actually starts the opening turn (full card)
 
-Status: next
+Status: done (2026-06-11)
+
+Landed shape: `kickTurnMessage()` in `originate-assistant-turn.ts`; trigger
+fired in the runtime factory after `createAgentSessionFromServices`, guarded
+on `services.modelRegistry.getAvailable().length > 0` (unauthenticated
+launches idle instead of erroring); fire-and-forget because
+`sendCustomMessage` + `triggerTurn` awaits the whole turn. Oracle:
+`bootTier2ProductOriginatedTurn` (faux backend via the new
+`BrunchAgentServicesOverride` seam on `BrunchTuiLaunchContext`) — new-spec +
+picker parity + reboot idempotence + no-model-no-kick. Sibling audit: all
+harness-prompt sites are content/chassis claims; two test titles overstated
+lifecycle and were renamed with ownership comments. **RPC parity decision:**
+`session.triggerExchange` keeps its contract — it returns the pending
+exchange for the client to render and does not own an LLM turn; transport
+clients drive their own turns. Divergence from card: no `session_start`
+extension hook needed — the factory IS the shared post-creation seam for
+both the real TUI and Tier-2 boots; the offer stays on the `present_*`
+toolResult carrier (exchange projection depends on it) with `brunch.kick`
+as a separate trigger message.
 
 ### Target Behavior
 

@@ -7,7 +7,9 @@ import {
   createAgentSessionServices,
   getAgentDir,
   InteractiveMode,
+  type CreateAgentSessionFromServicesOptions,
   type CreateAgentSessionRuntimeFactory,
+  type CreateAgentSessionServicesOptions,
 } from '@earendil-works/pi-coding-agent';
 
 import {
@@ -29,7 +31,11 @@ import {
 import type { SpecScopedReaders } from '../graph/workspace-store.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
-import { originateAssistantTurn } from '../session/originate-assistant-turn.js';
+import {
+  kickTurnMessage,
+  originateAssistantTurn,
+  type OriginateAssistantTurnResult,
+} from '../session/originate-assistant-turn.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -75,6 +81,20 @@ export interface BrunchTuiLaunchContext {
   webSidecarUrl?: string;
   activationDecision?: SpecSessionActivationDecision;
   dev?: BrunchTuiDevOptions;
+  /**
+   * Provider-backend substitution seam (faux provider in Tier-2 oracles).
+   * Swaps only auth/model resolution; session creation, extension
+   * registration, and origination choreography remain product wiring, so a
+   * boot through this seam still proves product lifecycle claims.
+   */
+  agentServices?: BrunchAgentServicesOverride;
+}
+
+export interface BrunchAgentServicesOverride extends Pick<
+  CreateAgentSessionServicesOptions,
+  'authStorage' | 'modelRegistry'
+> {
+  readonly model?: CreateAgentSessionFromServicesOptions['model'];
 }
 
 export interface BrunchTuiDevOptions {
@@ -350,7 +370,7 @@ export function createBrunchAgentSessionRuntimeFactory(
         ),
       ],
     });
-    seedAndKickAssistantTurn({
+    const origination = decideAndSeedAssistantTurn({
       specId: currentWorkspace.spec.id,
       reads: graph.forSpec(currentWorkspace.spec.id),
       specName: graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name,
@@ -362,11 +382,26 @@ export function createBrunchAgentSessionRuntimeFactory(
       agentDir: runtimeAgentDir,
       settingsManager: profile.settingsManager,
       resourceLoaderOptions: profile.resourceLoaderOptions,
+      ...(context.agentServices?.authStorage ? { authStorage: context.agentServices.authStorage } : {}),
+      ...(context.agentServices?.modelRegistry ? { modelRegistry: context.agentServices.modelRegistry } : {}),
     });
     const created = await createAgentSessionFromServices({
       services,
       sessionManager,
+      ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
     });
+    // Complete the kick: a 'start' decision owes an actual assistant-originated
+    // LLM turn, which only the live AgentSession can run. Guarded on model
+    // availability so unauthenticated launches idle instead of erroring at
+    // boot. Fire-and-forget: sendCustomMessage with triggerTurn awaits the
+    // whole turn, and boot must not block on provider latency.
+    if (origination.decision.action === 'start' && services.modelRegistry.getAvailable().length > 0) {
+      void created.session
+        .sendCustomMessage(kickTurnMessage(origination.decision.origin), { triggerTurn: true })
+        .catch((error: unknown) => {
+          console.error('[brunch] assistant-originated opening turn failed:', error);
+        });
+    }
     return {
       ...created,
       services,
@@ -375,13 +410,13 @@ export function createBrunchAgentSessionRuntimeFactory(
   };
 }
 
-function seedAndKickAssistantTurn(options: {
+function decideAndSeedAssistantTurn(options: {
   readonly specId: number;
   readonly reads: Pick<SpecScopedReaders, 'queryGraph' | 'getElicitationGaps'>;
   readonly specName?: string | undefined;
   readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
-}): void {
-  originateAssistantTurn({
+}): OriginateAssistantTurnResult {
+  return originateAssistantTurn({
     specId: options.specId,
     ...(options.specName ? { specName: options.specName } : {}),
     reads: options.reads,

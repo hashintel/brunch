@@ -2,10 +2,19 @@ import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { fauxAssistantMessage, type Context } from '@earendil-works/pi-ai';
-import { createAgentSessionRuntime } from '@earendil-works/pi-coding-agent';
+import { fauxAssistantMessage, registerFauxProvider, type Context } from '@earendil-works/pi-ai';
+import { AuthStorage, createAgentSessionRuntime, ModelRegistry } from '@earendil-works/pi-coding-agent';
 
-import { createBrunchAgentSessionRuntimeFactory, runBrunchTui } from '../app/brunch-tui.js';
+import {
+  createBrunchAgentSessionRuntimeFactory,
+  runBrunchTui,
+  type BrunchAgentServicesOverride,
+} from '../app/brunch-tui.js';
+import {
+  BRUNCH_FAUX_HARNESS_API_KEY,
+  brunchFauxProviderConfig,
+  defaultBrunchFauxModel,
+} from '../probes/faux-provider.js';
 import { renderSessionTranscriptFile } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { latestAssistantText } from './agent-messages.js';
@@ -231,11 +240,158 @@ export async function bootTier2RuntimeFromFixture(options: {
  * file first; the reboot then reads continuity purely from transcript
  * projection (no hidden flags survive the restart).
  */
+/**
+ * Faux provider + in-memory auth/registry packaged as the product factory's
+ * `agentServices` override. Only the provider backend is substituted; the
+ * session, extensions, and origination choreography stay product wiring.
+ */
+export function createTier2FauxAgentServices(options: { readonly responseText?: string } = {}): {
+  readonly agentServices: BrunchAgentServicesOverride;
+  readonly providerContexts: readonly ProviderContextSnapshot[];
+  readonly unregister: () => void;
+} {
+  const model = defaultBrunchFauxModel();
+  const provider = registerFauxProvider({
+    provider: model.provider,
+    api: `${model.api}-faux-source`,
+    models: [{ id: model.modelId, name: model.modelName, input: ['text'] }],
+  });
+  const providerContexts: ProviderContextSnapshot[] = [];
+  provider.setResponses([
+    (context: Context) => {
+      providerContexts.push(snapshotProviderContext(context));
+      return fauxAssistantMessage(options.responseText ?? 'Opening offer from the product-originated turn.');
+    },
+  ]);
+  const authStorage = AuthStorage.inMemory({
+    [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
+  });
+  const modelRegistry = ModelRegistry.inMemory(authStorage);
+  modelRegistry.registerProvider(
+    model.provider,
+    brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_API_KEY),
+  );
+  const registeredModel = modelRegistry.find(model.provider, model.modelId);
+  if (!registeredModel) {
+    provider.unregister();
+    throw new Error(`Tier-2 faux model was not registered: ${model.provider}/${model.modelId}`);
+  }
+  return {
+    agentServices: { authStorage, modelRegistry, model: registeredModel },
+    providerContexts,
+    unregister: () => provider.unregister(),
+  };
+}
+
+/**
+ * The origination-kick-live oracle boot: enter through the real runBrunchTui
+ * path with a faux provider substituted at the agentServices seam, and wait
+ * for the product itself to originate the opening turn. This function never
+ * calls `session.prompt` — a provider capture here proves the product kicked
+ * on its own bones.
+ */
+export async function bootTier2ProductOriginatedTurn(
+  options: {
+    readonly activation?: 'newSpec' | 'pickerNewSession';
+    readonly responseText?: string;
+    readonly waitForProviderCallMs?: number | false;
+  } = {},
+) {
+  const cwd = await mkdtemp(join(tmpdir(), 'brunch-kick-live-'));
+  const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+
+  const previousDev = process.env.BRUNCH_DEV;
+  const hadPreviousDev = Object.hasOwn(process.env, 'BRUNCH_DEV');
+  delete process.env.BRUNCH_DEV;
+  const restoreEnv = () => {
+    if (hadPreviousDev && previousDev !== undefined) {
+      process.env.BRUNCH_DEV = previousDev;
+    } else {
+      delete process.env.BRUNCH_DEV;
+    }
+  };
+
+  const faux = createTier2FauxAgentServices(
+    options.responseText === undefined ? {} : { responseText: options.responseText },
+  );
+  try {
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    let preflight: { action: 'newSpec'; title: string } | { action: 'newSession'; specId: number };
+    if (options.activation === 'pickerNewSession') {
+      const setup = await coordinator.createSetupSession({
+        specTitle: 'Kick live picker spec',
+        createNewSpec: true,
+      });
+      preflight = { action: 'newSession', specId: setup.spec.id };
+    } else {
+      preflight = { action: 'newSpec', title: 'Kick live spec' };
+    }
+
+    let runtime: Awaited<ReturnType<typeof createAgentSessionRuntime>> | undefined;
+    let sessionFile: string | undefined;
+    let specId: number | undefined;
+    await runBrunchTui({
+      cwd,
+      autoOpen: false,
+      coordinator,
+      runWorkspaceDialogPreflight: async () => preflight,
+      webSidecarRunner: async () => null,
+      launchInteractive: async (context) => {
+        sessionFile = context.workspace.session.file;
+        specId = context.workspace.spec.id;
+        runtime = await createAgentSessionRuntime(
+          createBrunchAgentSessionRuntimeFactory({ ...context, agentServices: faux.agentServices }),
+          { cwd, agentDir, sessionManager: context.workspace.session.manager },
+        );
+      },
+    });
+    if (!runtime || !sessionFile || specId === undefined) {
+      throw new Error('runBrunchTui did not reach launchInteractive for the product-originated boot');
+    }
+
+    if (options.waitForProviderCallMs !== false) {
+      await waitFor(
+        () => faux.providerContexts.length > 0,
+        options.waitForProviderCallMs ?? 8000,
+        'product-originated provider call (the kick never fired)',
+      );
+    }
+
+    return {
+      cwd,
+      specId,
+      sessionFile,
+      runtime,
+      providerContexts: faux.providerContexts,
+      agentServices: faux.agentServices,
+      restoreEnv,
+      dispose: async () => {
+        await runtime!.dispose();
+        faux.unregister();
+        restoreEnv();
+      },
+    };
+  } catch (error) {
+    faux.unregister();
+    restoreEnv();
+    throw error;
+  }
+}
+
+async function waitFor(predicate: () => boolean, timeoutMs: number, what: string): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() > deadline) throw new Error(`Timed out after ${timeoutMs}ms waiting for ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+}
+
 export async function rebootTier2Runtime(options: {
   readonly cwd: string;
   readonly specId: number;
   readonly sessionFile: string;
   readonly flushManager?: unknown;
+  readonly agentServices?: BrunchAgentServicesOverride;
 }) {
   if (options.flushManager) flushSessionEntries(options.flushManager, options.sessionFile);
   const coordinator = createWorkspaceSessionCoordinator({ cwd: options.cwd });
@@ -252,11 +408,16 @@ export async function rebootTier2Runtime(options: {
     }),
     webSidecarRunner: async () => null,
     launchInteractive: async (context) => {
-      runtime = await createAgentSessionRuntime(createBrunchAgentSessionRuntimeFactory(context), {
-        cwd: options.cwd,
-        agentDir,
-        sessionManager: context.workspace.session.manager,
-      });
+      runtime = await createAgentSessionRuntime(
+        createBrunchAgentSessionRuntimeFactory(
+          options.agentServices ? { ...context, agentServices: options.agentServices } : context,
+        ),
+        {
+          cwd: options.cwd,
+          agentDir,
+          sessionManager: context.workspace.session.manager,
+        },
+      );
     },
   });
   if (!runtime) throw new Error('runBrunchTui did not reach launchInteractive for the reboot');
