@@ -118,7 +118,7 @@ per ledger row:
 | --- | --- | --- | --- |
 | 1 | `elicitation-driver` | FE-852 (existing) | `ln/fe-852-below-the-line` (also carries the FE-848 seed-DX prep as preamble) |
 | 2 | `context-seed-payload` | FE-857 | `ln/fe-852-below-the-line` (shared lower-line branch) |
-| 3 | `generalized-capture` | new FE issue (create on start) | `ln/fe-852-below-the-line` (shared lower-line branch) |
+| 3 | `generalized-capture` | FE-861 (created 2026-06-12) | `ln/fe-852-below-the-line` (shared lower-line branch) |
 | 4 | `poc-live-ship-gate` | FE-811 (existing) | `ln/fe-852-below-the-line` (shared lower-line branch) |
 
 1. `elicitation-driver` (FE-852) — **demo block 1**: capture-reflection writeback (spawn gaps / set dispositions through the existing `CommandExecutor` boundary, no second mutation clock), plus the agent's elicitation read affordance (`read_elicitation_gaps` pull tool) and retirement of the vestigial `read_graph` `gaps` mode. Read/rank/select + prompt surfacing already landed.
@@ -480,7 +480,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 > **Split from `exchanges-and-generalized-capture` (2026-06-11 demo cut).** Promoted to its own frontier (objective 1 of the former combined item) because the demo claim needs natural-ish capture; the delete-oriented audit half is now the separate `exchange-symmetry-audit` frontier below.
 
 - **Name:** Generalized capture (narrow high-confidence extractive) + false-commit guard
-- **Linear:** unassigned (new FE issue — create on start; demo block 3, rides the shared lower-line branch)
+- **Linear:** FE-861 (created 2026-06-12; demo block 3, rides the shared lower-line branch)
 - **Kind:** bounded feature
 - **Status:** active — **demo block 3** of the lower line
 - **Certainty:** proving
