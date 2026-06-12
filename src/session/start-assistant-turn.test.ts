@@ -29,7 +29,14 @@ describe('startAssistantTurn', () => {
     expect(decision).toEqual({
       action: 'start',
       origin: 'new_session',
-      seedEntries: [{ type: 'custom', customType: 'brunch.context_seed', data: { specId, snapshotLsn: 3 } }],
+      seedEntries: [
+        {
+          type: 'custom_message',
+          customType: 'brunch.context_seed',
+          content: expect.any(String),
+          details: { specId, snapshotLsn: 3 },
+        },
+      ],
     });
     expect(JSON.stringify(decision)).not.toContain('"role":"user"');
   });

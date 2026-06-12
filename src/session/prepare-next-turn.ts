@@ -19,10 +19,49 @@ export interface ContinuityDrain {
   readonly summary: string;
 }
 
-export interface PreparedContinuityEntry {
+/** Ledger-only continuity entry — persisted state, never enters LLM context. */
+export interface PreparedLedgerEntry {
   readonly type: 'custom';
   readonly customType: string;
   readonly data: Record<string, unknown>;
+}
+
+/**
+ * Provider-visible continuity entry — `content` enters LLM context as a user
+ * message via pi's `buildSessionContext`; `details` carries the structured
+ * payload for projections (watermark, classifier) and is not sent to the LLM.
+ */
+export interface PreparedMessageEntry {
+  readonly type: 'custom_message';
+  readonly customType: string;
+  readonly content: string;
+  readonly details: Record<string, unknown>;
+}
+
+export type PreparedContinuityEntry = PreparedLedgerEntry | PreparedMessageEntry;
+
+/** Structural slice of pi's SessionManager that continuity appends need. */
+export interface ContinuityEntryAppender {
+  appendCustomEntry(customType: string, data?: unknown): unknown;
+  appendCustomMessageEntry(customType: string, content: string, display: boolean, details?: unknown): unknown;
+}
+
+/**
+ * Route a prepared continuity entry to the SessionManager API matching its
+ * carrier: ledger entries → `appendCustomEntry` (model never sees them),
+ * message entries → `appendCustomMessageEntry` (content is provider-visible).
+ * `display: false` keeps TUI rendering unchanged; chrome treatment of
+ * continuity notices is a presentation concern (top line), not carrier truth.
+ */
+export function appendPreparedContinuityEntry(
+  manager: ContinuityEntryAppender,
+  entry: PreparedContinuityEntry,
+): void {
+  if (entry.type === 'custom_message') {
+    manager.appendCustomMessageEntry(entry.customType, entry.content, false, entry.details);
+    return;
+  }
+  manager.appendCustomEntry(entry.customType, entry.data);
 }
 
 export interface PrepareNextTurnInput {
@@ -55,9 +94,10 @@ export function prepareNextTurn(input: PrepareNextTurnInput): PrepareNextTurnRes
 
   if (input.currentLsn > watermark.lsn && strictGreater.length > 0) {
     entriesToAppend.push({
-      type: 'custom',
+      type: 'custom_message',
       customType: 'worldUpdate',
-      data: {
+      content: worldUpdateContent(input.specId, input.currentLsn, watermark.lsn, strictGreater),
+      details: {
         specId: input.specId,
         currentLsn: input.currentLsn,
         changedSinceLsn: watermark.lsn,
@@ -75,20 +115,41 @@ export function prepareNextTurn(input: PrepareNextTurnInput): PrepareNextTurnRes
 
   for (const drain of input.drains ?? []) {
     entriesToAppend.push({
-      type: 'custom',
+      type: 'custom_message',
       customType: drain.kind === 'side_task' ? 'brunch.side_task_result' : 'brunch.reviewer_drain',
-      data: { id: drain.id, summary: drain.summary },
+      content:
+        drain.kind === 'side_task'
+          ? `[Brunch] Side task ${drain.id} completed: ${drain.summary}`
+          : `[Brunch] Reviewer ${drain.id} finished: ${drain.summary}`,
+      details: { id: drain.id, summary: drain.summary },
     });
   }
 
   return { watermarkLsn: watermark.lsn, currentLsn: input.currentLsn, entriesToAppend };
 }
 
+function worldUpdateContent(
+  specId: number,
+  currentLsn: number,
+  changedSinceLsn: number,
+  items: readonly GraphChangeItem[],
+): string {
+  const lines = items.map((item) => {
+    const label = [item.kind, item.title ? `“${item.title}”` : undefined].filter(Boolean).join(' ');
+    const entity = item.entityId === undefined ? '' : ` (${String(item.entityId)})`;
+    return `- LSN ${item.lsn}: ${label || 'change'}${entity}`;
+  });
+  return [
+    `[Brunch] Graph updated for spec ${specId}: ${items.length} change(s) since LSN ${changedSinceLsn} (now at LSN ${currentLsn}).`,
+    ...lines,
+  ].join('\n');
+}
+
 export function stampOwnMutationWatermark(options: {
   readonly specId: number;
   readonly lsn: number;
   readonly source: string;
-}): PreparedContinuityEntry {
+}): PreparedLedgerEntry {
   return {
     type: 'custom',
     customType: 'brunch.own_mutation',

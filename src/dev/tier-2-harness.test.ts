@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-import { type ToolDefinition } from '@earendil-works/pi-coding-agent';
+import { buildSessionContext, type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import { compactionAnchorContract } from '../.pi/extensions/compaction/index.js';
@@ -266,6 +266,14 @@ describe('FE-847 coverage-first scaffold — I45-L assistant-visible watermark',
           }),
         }),
       ]);
+
+      // FE-857 card 1 payoff: the worldUpdate notice is provider-visible — pi's
+      // own context builder (the function the provider call path uses) surfaces
+      // its rendered text as an LLM-context message, not just a ledger fact.
+      const llmContext = buildSessionContext(boot.runtime.session.sessionManager.getEntries() as never);
+      const contextText = JSON.stringify(llmContext.messages);
+      expect(contextText).toContain('Graph updated for spec');
+      expect(contextText).toContain('Fresh');
     } finally {
       await boot.runtime.dispose();
       boot.restoreEnv();
@@ -690,13 +698,20 @@ function requestChoicesResultMessage(status: 'answered' | 'cancelled' | 'unavail
   };
 }
 
+/**
+ * Continuity entries by customType, payload-normalized: ledger entries carry
+ * `data`, provider-visible message entries carry `details` (carrier migration,
+ * FE-857 card 1). Assertions read the normalized `data` regardless of carrier.
+ */
 function customEntries(entries: readonly unknown[], customType: string): ReadonlyArray<{ data: unknown }> {
-  return entries.filter(
-    (entry): entry is { customType: string; data: unknown } =>
-      typeof entry === 'object' &&
-      entry !== null &&
-      (entry as { customType?: unknown }).customType === customType,
-  );
+  return entries
+    .filter(
+      (entry): entry is { customType: string; data?: unknown; details?: unknown } =>
+        typeof entry === 'object' &&
+        entry !== null &&
+        (entry as { customType?: unknown }).customType === customType,
+    )
+    .map((entry) => ({ ...entry, data: entry.data ?? entry.details }));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -2,15 +2,21 @@ import { describe, expect, it } from 'vitest';
 
 import { isContinuityOnlyNonDebtEntry } from '../projections/session/continuity-entry-classifier.js';
 import {
+  appendPreparedContinuityEntry,
   guardBeforeProviderRequest,
   prepareNextTurn,
   stampOwnMutationWatermark,
+  type PreparedContinuityEntry,
 } from './prepare-next-turn.js';
 
 const specId = 3;
 
 function seed(lsn: number) {
   return { type: 'custom', customType: 'brunch.context_seed', data: { specId, snapshotLsn: lsn } };
+}
+
+function detailsOf(entry: PreparedContinuityEntry | undefined): Record<string, unknown> | undefined {
+  return entry?.type === 'custom_message' ? entry.details : entry?.data;
 }
 
 describe('prepareNextTurn', () => {
@@ -34,9 +40,10 @@ describe('prepareNextTurn', () => {
 
     expect(prepared.entriesToAppend).toEqual([
       {
-        type: 'custom',
+        type: 'custom_message',
         customType: 'worldUpdate',
-        data: {
+        content: expect.any(String),
+        details: {
           specId,
           currentLsn: 5,
           changedSinceLsn: 2,
@@ -47,6 +54,29 @@ describe('prepareNextTurn', () => {
         },
       },
     ]);
+    const content =
+      prepared.entriesToAppend[0]?.type === 'custom_message' ? prepared.entriesToAppend[0].content : '';
+    expect(content).toContain('new-a');
+    expect(content).toContain('new-b');
+    expect(content).toContain('5');
+  });
+
+  it('dedupes against a message-carrier seed exactly as against a ledger seed', () => {
+    const messageSeed = {
+      type: 'custom_message',
+      customType: 'brunch.context_seed',
+      content: 'Context seed',
+      details: { specId, snapshotLsn: 10 },
+      display: false,
+    };
+    expect(
+      prepareNextTurn({
+        specId,
+        currentLsn: 10,
+        entries: [messageSeed],
+        changes: [{ specId, lsn: 10, entityId: 'snapshot-node' }],
+      }).entriesToAppend,
+    ).toEqual([]);
   });
 
   it('dedupes a seed naming the current snapshot LSN', () => {
@@ -67,7 +97,7 @@ describe('prepareNextTurn', () => {
         currentLsn: 8,
         entries: [seed(5)],
         changes: [{ specId, lsn: 8, entityId: 'captured-from-submit', kind: 'goal' }],
-      }).entriesToAppend[0]?.data.items,
+      }).entriesToAppend.map(detailsOf)[0]?.items,
     ).toEqual([{ specId, lsn: 8, entityId: 'captured-from-submit', kind: 'goal' }]);
   });
 
@@ -97,9 +127,10 @@ describe('prepareNextTurn', () => {
     ).toEqual(
       expect.arrayContaining([
         {
-          type: 'custom',
+          type: 'custom_message',
           customType: 'brunch.mention_staleness_hint',
-          data: { entityId: '101', handle: 'G1', seenLsn: 6, currentLsn: 9 },
+          content: expect.stringContaining('G1'),
+          details: { entityId: '101', handle: 'G1', seenLsn: 6, currentLsn: 9 },
         },
       ]),
     );
@@ -121,7 +152,58 @@ describe('prepareNextTurn', () => {
       'brunch.side_task_result',
       'brunch.reviewer_drain',
     ]);
+    expect(prepared.entriesToAppend.every((entry) => entry.type === 'custom_message')).toBe(true);
+    const contents = prepared.entriesToAppend.map((entry) =>
+      entry.type === 'custom_message' ? entry.content : '',
+    );
+    expect(contents[0]).toContain('Side task done');
+    expect(contents[1]).toContain('Reviewer done');
     expect(prepared.entriesToAppend.every(isContinuityOnlyNonDebtEntry)).toBe(true);
+  });
+
+  it('appendPreparedContinuityEntry routes ledger entries and message entries to the matching SessionManager API', () => {
+    const calls: unknown[] = [];
+    const manager = {
+      appendCustomEntry: (customType: string, data?: unknown) => {
+        calls.push({ api: 'appendCustomEntry', customType, data });
+        return 'id';
+      },
+      appendCustomMessageEntry: (
+        customType: string,
+        content: string,
+        display: boolean,
+        details?: unknown,
+      ) => {
+        calls.push({ api: 'appendCustomMessageEntry', customType, content, display, details });
+        return 'id';
+      },
+    };
+
+    appendPreparedContinuityEntry(
+      manager,
+      stampOwnMutationWatermark({ specId, lsn: 2, source: 'mutate_graph' }),
+    );
+    appendPreparedContinuityEntry(manager, {
+      type: 'custom_message',
+      customType: 'worldUpdate',
+      content: 'Graph updated',
+      details: { specId, currentLsn: 2 },
+    });
+
+    expect(calls).toEqual([
+      {
+        api: 'appendCustomEntry',
+        customType: 'brunch.own_mutation',
+        data: { specId, lsn: 2, source: 'mutate_graph' },
+      },
+      {
+        api: 'appendCustomMessageEntry',
+        customType: 'worldUpdate',
+        content: 'Graph updated',
+        display: false,
+        details: { specId, currentLsn: 2 },
+      },
+    ]);
   });
 
   it('guard re-runs preparation once and never appends continuity directly outside prepare output', async () => {

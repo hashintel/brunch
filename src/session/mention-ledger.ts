@@ -16,10 +16,16 @@ export interface MentionEntry {
 
 export const MENTION_STALENESS_HINT_ENTRY_TYPE = 'brunch.mention_staleness_hint' as const;
 
+/**
+ * Provider-visible staleness hint (custom message entry): the assistant is
+ * told a mentioned entity changed since it last saw it. Distinct from the
+ * `brunch.mention` ledger fact, which stays ledger-only (D14-L read ledger).
+ */
 export interface MentionStalenessEntry {
-  readonly type: 'custom';
+  readonly type: 'custom_message';
   readonly customType: typeof MENTION_STALENESS_HINT_ENTRY_TYPE;
-  readonly data: {
+  readonly content: string;
+  readonly details: {
     readonly entityId: string;
     readonly handle?: string;
     readonly seenLsn: number;
@@ -84,9 +90,12 @@ export function stalenessEntriesForMentions(options: {
     if (currentLsn === undefined || currentLsn <= mention.seenLsn) return [];
     return [
       {
-        type: 'custom' as const,
+        type: 'custom_message' as const,
         customType: MENTION_STALENESS_HINT_ENTRY_TYPE,
-        data: {
+        content:
+          `[Brunch] Mentioned entity #${mention.handle} (${mention.entityId}) changed since you last ` +
+          `saw it (LSN ${mention.seenLsn} → ${currentLsn}). Re-read it before relying on its content.`,
+        details: {
           entityId: mention.entityId,
           handle: mention.handle,
           seenLsn: mention.seenLsn,

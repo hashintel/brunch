@@ -1188,6 +1188,7 @@ describe('Brunch TUI boot', () => {
         },
       },
     )({
+      // Fakes mirror the ContinuityEntryAppender pair: ledger + message carriers.
       on: (event: string, handler: never) => {
         if (event === 'session_start') sessionStart.push(handler);
       },
@@ -1204,6 +1205,12 @@ describe('Brunch TUI boot', () => {
       sessionManager: {
         getEntries: () => [],
         appendCustomEntry: (_customType: string, _data: unknown) => {},
+        appendCustomMessageEntry: (
+          _customType: string,
+          _content: string,
+          _display: boolean,
+          _details?: unknown,
+        ) => {},
       } as unknown as FakeExtensionContext['sessionManager'],
       ui: {
         setHeader: (_factory) => {},
@@ -1267,6 +1274,12 @@ describe('Brunch TUI boot', () => {
       sessionManager: {
         getEntries: () => [],
         appendCustomEntry: (_customType: string, _data: unknown) => {},
+        appendCustomMessageEntry: (
+          _customType: string,
+          _content: string,
+          _display: boolean,
+          _details?: unknown,
+        ) => {},
       } as unknown as FakeExtensionContext['sessionManager'],
       ui: {
         setHeader: (_factory) => {},

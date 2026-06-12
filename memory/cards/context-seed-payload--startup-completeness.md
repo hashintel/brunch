@@ -23,6 +23,7 @@ is settled here; card 1 is mechanical migration.
 | `brunch.context_seed` | model-visible context | **message entry** |
 | `worldUpdate` | model-visible staleness notice (D77-L) | **message entry** |
 | `brunch.side_task_result` / `brunch.reviewer_drain` | model-visible drain results (D15-L) | **message entry** |
+| `brunch.mention_staleness_hint` | model-visible re-read hint (D14-L) — row added during build; it is literally a hint *to the assistant* | **message entry** |
 | `brunch.own_mutation` | watermark stamp (already visible via own toolResult) | ledger — stays |
 | `brunch.mention` | D14-L per-entity read-ledger fact | ledger — stays |
 | `brunch.agent_runtime_state`, session binding, lifecycle | state tracking / continuity-only non-debt | ledger — stays |
@@ -37,7 +38,11 @@ Brunch write site; use it when one appears (e.g. async mid-turn delivery).
 
 ## Card 1 — continuity carrier migration (full card)
 
-Status: next
+Status: done (2026-06-11) — all acceptance rows met; one row added to the
+migration set (`brunch.mention_staleness_hint`, justified above). Payoff
+proof landed via pi's `buildSessionContext` (the provider path's own context
+builder) rather than a full faux turn — same oracle strength, cheaper. No
+tracked fixtures carried old-shape continuity entries; none regenerated.
 
 ### Target Behavior
 

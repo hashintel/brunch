@@ -16,6 +16,7 @@ import {
 } from '../../session/brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
 import { mentionEntry, resolveMentionFacts } from '../../session/mention-ledger.js';
+import { appendPreparedContinuityEntry } from '../../session/prepare-next-turn.js';
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,
@@ -533,7 +534,7 @@ async function handleTriggerExchange(
   );
   const manager = state.session.manager;
   for (const entry of origination.seedEntries) {
-    manager.appendCustomEntry(entry.customType, entry.data);
+    appendPreparedContinuityEntry(manager, entry);
   }
   manager.appendMessage(presentToolResultMessage(exchange));
   flushSessionEntries(manager, state.session.file);

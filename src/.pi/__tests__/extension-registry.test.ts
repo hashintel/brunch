@@ -144,12 +144,15 @@ describe('Brunch explicit Pi extension registry', () => {
 
   it('wires prepareNextTurn into the live session boundary and leaves provider-request as guard-only', async () => {
     let graphLsn = 3;
-    const appended: Array<{ customType: string; data: unknown }> = [];
+    const appended: Array<Record<string, unknown>> = [];
     const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
     const sessionManager = {
-      getEntries: () => appended.map((entry) => ({ type: 'custom', ...entry })),
+      getEntries: () => appended.slice(),
       appendCustomEntry(customType: string, data: unknown) {
-        appended.push({ customType, data });
+        appended.push({ type: 'custom', customType, data });
+      },
+      appendCustomMessageEntry(customType: string, content: string, _display: boolean, details?: unknown) {
+        appended.push({ type: 'custom_message', customType, content, details });
       },
     };
 
@@ -176,8 +179,10 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(appended).toEqual([
       {
+        type: 'custom_message',
         customType: 'worldUpdate',
-        data: expect.objectContaining({ specId: 1, currentLsn: 3, changedSinceLsn: 0 }),
+        content: expect.any(String),
+        details: expect.objectContaining({ specId: 1, currentLsn: 3, changedSinceLsn: 0 }),
       },
     ]);
 
@@ -192,26 +197,33 @@ describe('Brunch explicit Pi extension registry', () => {
     ).resolves.toBeUndefined();
     expect(appended).toEqual([
       {
+        type: 'custom_message',
         customType: 'worldUpdate',
-        data: expect.objectContaining({ specId: 1, currentLsn: 3, changedSinceLsn: 0 }),
+        content: expect.any(String),
+        details: expect.objectContaining({ specId: 1, currentLsn: 3, changedSinceLsn: 0 }),
       },
       {
+        type: 'custom_message',
         customType: 'worldUpdate',
-        data: expect.objectContaining({ specId: 1, currentLsn: 4, changedSinceLsn: 3 }),
+        content: expect.any(String),
+        details: expect.objectContaining({ specId: 1, currentLsn: 4, changedSinceLsn: 3 }),
       },
     ]);
   });
 
   it('threads transcript mentions and continuity drains into the live prepareNextTurn adapter', async () => {
-    const appended: Array<{ customType: string; data: unknown }> = [
-      { customType: 'brunch.context_seed', data: { specId: 1, snapshotLsn: 1 } },
-      { customType: 'brunch.mention', data: { entityId: '10', handle: 'G1', seenLsn: 1 } },
+    const appended: Array<Record<string, unknown>> = [
+      { type: 'custom', customType: 'brunch.context_seed', data: { specId: 1, snapshotLsn: 1 } },
+      { type: 'custom', customType: 'brunch.mention', data: { entityId: '10', handle: 'G1', seenLsn: 1 } },
     ];
     const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
     const sessionManager = {
-      getEntries: () => appended.map((entry) => ({ type: 'custom', ...entry })),
+      getEntries: () => appended.slice(),
       appendCustomEntry(customType: string, data: unknown) {
-        appended.push({ customType, data });
+        appended.push({ type: 'custom', customType, data });
+      },
+      appendCustomMessageEntry(customType: string, content: string, _display: boolean, details?: unknown) {
+        appended.push({ type: 'custom_message', customType, content, details });
       },
     };
 
@@ -240,10 +252,17 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(appended).toEqual(
       expect.arrayContaining([
         {
+          type: 'custom_message',
           customType: 'brunch.mention_staleness_hint',
-          data: { entityId: '10', handle: 'G1', seenLsn: 1, currentLsn: 2 },
+          content: expect.stringContaining('G1'),
+          details: { entityId: '10', handle: 'G1', seenLsn: 1, currentLsn: 2 },
         },
-        { customType: 'brunch.side_task_result', data: { id: 'side-1', summary: 'Side task done' } },
+        {
+          type: 'custom_message',
+          customType: 'brunch.side_task_result',
+          content: expect.stringContaining('Side task done'),
+          details: { id: 'side-1', summary: 'Side task done' },
+        },
       ]),
     );
   });

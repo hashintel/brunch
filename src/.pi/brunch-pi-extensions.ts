@@ -7,6 +7,7 @@ import {
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { mentionFactsFromEntries } from '../session/mention-ledger.js';
 import {
+  appendPreparedContinuityEntry,
   guardBeforeProviderRequest,
   prepareNextTurn,
   type ContinuityDrain,
@@ -228,7 +229,7 @@ function createPrepareNextTurnContinuityStep(
   return ({ sessionManager }) => {
     const result = prepareNextTurnForGraph(graph, sessionManager, getContinuityDrains);
     for (const entry of result.entriesToAppend) {
-      sessionManager.appendCustomEntry(entry.customType, entry.data);
+      appendPreparedContinuityEntry(sessionManager, entry);
     }
   };
 }
@@ -243,7 +244,7 @@ function registerBrunchContinuityGuard(
     await guardBeforeProviderRequest({
       prepare: () => prepareNextTurnForGraph(graph, sessionManager, getContinuityDrains),
       append: (entry) => {
-        sessionManager.appendCustomEntry(entry.customType, entry.data);
+        appendPreparedContinuityEntry(sessionManager, entry);
       },
     });
   });

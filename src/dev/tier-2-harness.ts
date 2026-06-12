@@ -140,7 +140,13 @@ export async function bootTier2RuntimeThroughRunBrunchTui(options: { readonly de
 
 export type Tier2FixtureEntry =
   | { readonly type: 'message'; readonly message: unknown }
-  | { readonly type: 'custom'; readonly customType: string; readonly data: unknown };
+  | { readonly type: 'custom'; readonly customType: string; readonly data: unknown }
+  | {
+      readonly type: 'custom_message';
+      readonly customType: string;
+      readonly content: string;
+      readonly details: unknown;
+    };
 
 /**
  * Boot the real runBrunchTui runtime over a pre-seeded fixture transcript —
@@ -175,6 +181,13 @@ export async function bootTier2RuntimeFromFixture(options: {
     for (const entry of options.fixtureEntries(workspace.spec.id)) {
       if (entry.type === 'custom') {
         workspace.session.manager.appendCustomEntry(entry.customType, entry.data);
+      } else if (entry.type === 'custom_message') {
+        workspace.session.manager.appendCustomMessageEntry(
+          entry.customType,
+          entry.content,
+          false,
+          entry.details,
+        );
       } else {
         workspace.session.manager.appendMessage(entry.message as never);
       }

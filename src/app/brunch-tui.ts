@@ -28,6 +28,7 @@ import {
 } from '../graph/index.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
+import { appendPreparedContinuityEntry } from '../session/prepare-next-turn.js';
 import { startAssistantTurn } from '../session/start-assistant-turn.js';
 import {
   nextDeterministicStructuredExchange,
@@ -398,7 +399,7 @@ function seedAndKickAssistantTurn(options: {
     origin: entries.some(isMessageEntry) ? 'resume_debt' : 'new_session',
   });
   for (const entry of decision.seedEntries) {
-    options.sessionManager.appendCustomEntry(entry.customType, entry.data);
+    appendPreparedContinuityEntry(options.sessionManager, entry);
   }
   if (decision.action === 'start') {
     options.sessionManager.appendMessage(presentToolResultMessage(nextDeterministicStructuredExchange(0)));

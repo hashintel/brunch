@@ -52,9 +52,13 @@ export function contextSeedEntries(input: {
   if (watermark && watermark.lsn >= input.currentLsn) return [];
   return [
     {
-      type: 'custom',
+      type: 'custom_message',
       customType: 'brunch.context_seed',
-      data: { specId: input.specId, snapshotLsn: input.currentLsn },
+      // Card 2 (context-seed-payload) fills this with the spec overview +
+      // elicitation grounding-floor framing; card 1 establishes the
+      // provider-visible carrier with the minimal honest statement.
+      content: `[Brunch] Context seeded for spec ${input.specId} at graph LSN ${input.currentLsn}.`,
+      details: { specId: input.specId, snapshotLsn: input.currentLsn },
     },
   ];
 }

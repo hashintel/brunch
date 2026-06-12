@@ -63,9 +63,10 @@ describe('mention ledger', () => {
       }),
     ).toEqual([
       {
-        type: 'custom',
+        type: 'custom_message',
         customType: 'brunch.mention_staleness_hint',
-        data: { entityId: '101', handle: 'G1', seenLsn: 4, currentLsn: 7 },
+        content: expect.stringContaining('G1'),
+        details: { entityId: '101', handle: 'G1', seenLsn: 4, currentLsn: 7 },
       },
     ]);
   });
