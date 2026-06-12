@@ -346,30 +346,20 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
     }
   });
 
-  it('keeps the agent dir alive until late setup settles after a timeout', async () => {
+  it('removes the agent dir after setup timeout even if session creation never settles', async () => {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
-      let releaseSetup!: () => void;
       let agentDir: string | undefined;
-      let dirExistedWhenSetupSettled = false;
       const createSession = (async (options: { agentDir?: string }) => {
         agentDir = options.agentDir;
-        await new Promise<void>((resolve) => {
-          releaseSetup = resolve;
-        });
-        dirExistedWhenSetupSettled = existsSync(agentDir!);
-        return { session: makeFakeSession({ emit: 'too late' }).session };
+        await new Promise(() => {});
       }) as unknown as SessionFactory;
 
       await expect(runPi(baseOpts(sandboxDir, 'read'), { createSession, timeoutMs: 20 })).rejects.toThrow(
         /timed out/,
       );
 
-      releaseSetup();
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
-      expect(dirExistedWhenSetupSettled).toBe(true);
       expect(agentDir).toBeDefined();
       expect(existsSync(agentDir!)).toBe(false);
     } finally {
@@ -416,6 +406,23 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
 
       expect(fake.calls.aborted).toBe(true);
       expect(appendedAfterOverflow).toBe(false);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('counts the output cap in UTF-8 bytes rather than JavaScript code units', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const fake = makeFakeSession({ emit: 'ééé' });
+      const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+
+      await expect(runPi(baseOpts(sandboxDir, 'read'), { createSession, maxOutput: 4 })).rejects.toThrow(
+        /exceeded/,
+      );
+
+      expect(fake.calls.aborted).toBe(true);
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }

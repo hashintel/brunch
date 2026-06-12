@@ -161,6 +161,7 @@ async function runPi(
   };
   let session: Awaited<ReturnType<SessionFactory>>['session'] | undefined;
   let captured = '';
+  let capturedBytes = 0;
   let overflowed = false;
   let timedOut = false;
   let promptError: unknown;
@@ -197,12 +198,14 @@ async function runPi(
       if (event.type === 'message_update' && event.assistantMessageEvent.type === 'text_delta') {
         if (overflowed) return;
         const delta = event.assistantMessageEvent.delta;
-        if (captured.length + delta.length > maxOutput) {
+        const deltaBytes = Buffer.byteLength(delta, 'utf8');
+        if (capturedBytes + deltaBytes > maxOutput) {
           overflowed = true;
           void session?.abort();
           return;
         }
         captured += delta;
+        capturedBytes += deltaBytes;
       }
     });
 
@@ -215,7 +218,7 @@ async function runPi(
     if (timer) clearTimeout(timer);
     unsubscribe?.();
     session?.dispose();
-    if (session || !timedOut) cleanupAgentDir();
+    cleanupAgentDir();
   }
 
   if (timedOut) throw piTimeoutError(timeoutMs);
