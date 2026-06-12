@@ -105,6 +105,14 @@ function systemPromptFromProviderPayload(payload: unknown): string | undefined {
   if (!isRecord(payload)) return undefined;
 
   if (typeof payload.system === 'string') return payload.system;
+  // anthropic-messages serializes `system` as an array of text blocks (with
+  // optional cache_control) — never a string. Join blocks as sections.
+  if (Array.isArray(payload.system)) {
+    const blocks = payload.system.flatMap((block) =>
+      isRecord(block) && typeof block.text === 'string' ? [block.text] : [],
+    );
+    if (blocks.length > 0) return blocks.join('\n\n');
+  }
   if (typeof payload.systemPrompt === 'string') return payload.systemPrompt;
 
   const messages = payload.messages;

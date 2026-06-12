@@ -6,7 +6,11 @@ import {
   type BrunchDebugCacheOptions,
 } from './debug-cache.js';
 
-export { appendEntryContentToDebugCache, type BrunchDebugCacheOptions } from './debug-cache.js';
+export {
+  appendEntryContentToDebugCache,
+  mirrorSystemPromptToDebugCache,
+  type BrunchDebugCacheOptions,
+} from './debug-cache.js';
 
 export const BRUNCH_INTROSPECTION_COMMAND = 'introspect';
 

@@ -10,6 +10,7 @@ import {
   appendEntryContentToDebugCache,
   BRUNCH_INTROSPECTION_COMMAND,
   createInMemoryBrunchIntrospectionStore,
+  mirrorSystemPromptToDebugCache,
   registerBrunchIntrospection,
 } from '../extensions/introspection/index.js';
 import { BRUNCH_SESSION_QUERY_TOOL } from '../extensions/session-query/index.js';
@@ -18,6 +19,29 @@ interface FakeCommandContext {
   readonly ui: { notify(message: string, type?: 'info' | 'warning' | 'error'): void };
   getSystemPromptOptions(): unknown;
 }
+
+describe('system-prompt mirror handles real provider payload shapes', () => {
+  it('extracts the system prompt from the Anthropic array-of-blocks form', async () => {
+    // Real anthropic-messages payloads carry `system` as an array of text
+    // blocks (with cache_control), never a string — the 2026-06-12 walkthrough
+    // found the mirror silently writing nothing for live turns.
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-system-mirror-'));
+    await mirrorSystemPromptToDebugCache(
+      { cwd },
+      {
+        model: 'claude-opus-4-8',
+        system: [
+          { type: 'text', text: 'You are the Brunch elicitor.', cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: 'Stay grounded in the spec graph.' },
+        ],
+        messages: [],
+      },
+    );
+    const mirrored = await readFile(join(cwd, '.brunch/debug/system-prompt.md'), 'utf8');
+    expect(mirrored).toContain('You are the Brunch elicitor.');
+    expect(mirrored).toContain('Stay grounded in the spec graph.');
+  });
+});
 
 describe('debug cache entry-contents mirror (origination-kick-live card 2)', () => {
   it('mirrors a message-carrier continuity entry with content and details', async () => {
