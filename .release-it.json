@@ -1,6 +1,6 @@
 {
   "preRelease": "alpha",
   "hooks": {
-    "before:npm:release": ["npm run build", "npm pack --dry-run --json"]
+    "before:npm:release": ["npm pack --dry-run --json"]
   }
 }

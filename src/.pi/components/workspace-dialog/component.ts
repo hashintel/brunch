@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import type { Theme, ThemeColor } from '@earendil-works/pi-coding-agent';
@@ -26,7 +26,10 @@ const CTRL_C = '\x03';
 const ASSET_DIR = new URL('./assets/', import.meta.url);
 const PACKAGE_ROOT_URL = new URL('../../../../', import.meta.url);
 const PACKAGE_JSON_URL = new URL('package.json', PACKAGE_ROOT_URL);
-const LOCAL_BUILD_TIME = formatBuildTime(new Date());
+// Written by scripts/write-build-info.mjs during `npm run build`. Resolves to
+// dist/build-info.json when running compiled output; from source (tsx,
+// vitest) it points at src/build-info.json, which never exists.
+const BUILD_INFO_URL = new URL('../../../build-info.json', import.meta.url);
 
 export type WorkspaceDialogTheme = Pick<Theme, 'fg'>;
 
@@ -209,7 +212,14 @@ interface PackageJson {
   version?: unknown;
 }
 
-function formatBuildTime(date: Date): string {
+interface BuildInfo {
+  dev: boolean;
+  gitSha: string;
+  buildTime: string;
+}
+
+function formatUtcBuildTime(date: Date): string {
+  // toISOString is always UTC; keep the explicit suffix so it displays as such.
   return date
     .toISOString()
     .replace('T', ' ')
@@ -221,6 +231,19 @@ function readPackage(): PackageJson {
     return JSON.parse(readFileSync(fileURLToPath(PACKAGE_JSON_URL), 'utf8')) as PackageJson;
   } catch {
     return {};
+  }
+}
+
+function readBuildInfo(): BuildInfo | null {
+  try {
+    const raw = JSON.parse(readFileSync(fileURLToPath(BUILD_INFO_URL), 'utf8')) as Partial<BuildInfo>;
+    return {
+      dev: raw.dev === true,
+      gitSha: typeof raw.gitSha === 'string' ? raw.gitSha : '',
+      buildTime: typeof raw.buildTime === 'string' ? raw.buildTime : '',
+    };
+  } catch {
+    return null;
   }
 }
 
@@ -239,12 +262,20 @@ function getGitSha(): string {
 function brunchVersion(): BrunchVersionInfo {
   const pkg = readPackage();
   const version = typeof pkg.version === 'string' ? pkg.version : '0.0.0';
-  // A .git directory at the package root means we are running from a repo
-  // checkout, not a published npm install (tarballs ship without .git).
-  const isLocalDev = existsSync(fileURLToPath(new URL('.git', PACKAGE_ROOT_URL)));
-  if (!isLocalDev && version !== '0.0.0') return { version: `v${version}`, dev: null };
+  // Compiled output ships build-info.json (dev for local builds, dev: false
+  // for RELEASE=true builds). Running straight from source (tsx, vitest) has
+  // no build-info; sha and "build time" are computed live, which is accurate
+  // since the source is transpiled at launch.
+  const buildInfo = readBuildInfo() ?? {
+    dev: true,
+    gitSha: getGitSha(),
+    buildTime: formatUtcBuildTime(new Date()),
+  };
+  if (!buildInfo.dev) return { version: `v${version}`, dev: null };
 
-  const devMeta = [getGitSha(), `@ ${LOCAL_BUILD_TIME}`].filter(Boolean).join(' ');
+  const devMeta = [buildInfo.gitSha, buildInfo.buildTime ? `@ ${buildInfo.buildTime}` : '']
+    .filter(Boolean)
+    .join(' ');
   return { version: `v${version}`, dev: devMeta ? `(dev ${devMeta})` : '(dev)' };
 }
 
