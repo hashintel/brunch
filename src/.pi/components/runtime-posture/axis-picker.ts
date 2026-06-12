@@ -24,8 +24,10 @@ interface RuntimeAxisPickerOptions<TSelection extends string> {
   readonly title: string;
   readonly current: TSelection;
   readonly choices: readonly TSelection[];
-  /** Choices rendered gray and skipped by arrow-key cycling. */
+  /** Choices rendered gray and skipped by arrow-key cycling ("not yet enabled"). */
   readonly disabled?: readonly TSelection[];
+  /** Choices rendered in the warning color but still selectable ("needs more grounding"). */
+  readonly caution?: readonly TSelection[];
   readonly theme: LabTheme;
   readonly onDone: (selection?: TSelection) => void;
 }
@@ -34,6 +36,8 @@ export interface RuntimeStrategyPickerOptions {
   readonly current: AgentStrategySelection;
   /** Strategies rendered gray and skipped by arrow-key cycling. */
   readonly disabled?: readonly AgentStrategySelection[];
+  /** Strategies rendered in the warning color but still selectable. */
+  readonly caution?: readonly AgentStrategySelection[];
   readonly theme: LabTheme;
   readonly onDone: (strategy?: AgentStrategySelection) => void;
 }
@@ -42,6 +46,8 @@ export interface RuntimeLensPickerOptions {
   readonly current: AgentLensSelection;
   /** Lenses rendered gray and skipped by arrow-key cycling. */
   readonly disabled?: readonly AgentLensSelection[];
+  /** Lenses rendered in the warning color but still selectable. */
+  readonly caution?: readonly AgentLensSelection[];
   readonly theme: LabTheme;
   readonly onDone: (lens?: AgentLensSelection) => void;
 }
@@ -94,10 +100,12 @@ export function createRuntimeModePickerComponent(
 export class RuntimeAxisPickerComponent<TSelection extends string> implements Component {
   #activeIndex: number;
   readonly #disabled: ReadonlySet<TSelection>;
+  readonly #caution: ReadonlySet<TSelection>;
   readonly #segments: readonly TrackSegment[];
 
   constructor(private readonly options: RuntimeAxisPickerOptions<TSelection>) {
     this.#disabled = new Set(options.disabled ?? []);
+    this.#caution = new Set(options.caution ?? []);
     this.#activeIndex = this.#initialIndex();
     this.#segments = options.choices.map((label) => ({
       label,
@@ -163,20 +171,29 @@ export class RuntimeAxisPickerComponent<TSelection extends string> implements Co
   #segmentColor(choice: TSelection): LabThemeColor {
     if (this.#disabled.has(choice)) return 'dim';
     if (choice === this.options.current) return 'success';
+    if (this.#caution.has(choice)) return 'warning';
     return choice === 'auto' ? 'muted' : 'accent';
   }
 
   #currentLine(): string {
     const { theme, current, choices } = this.options;
     const line = theme.fg('dim', 'current: ') + theme.fg('success', current);
-    if (this.#disabled.size === 0) return line;
+    const notes: string[] = [];
     const disabled = choices.filter((choice) => this.#disabled.has(choice));
-    return line + theme.fg('dim', ` -- NOTE: ${describeNotYetEnabled(disabled)}`);
+    if (disabled.length > 0) {
+      notes.push(describeChoices(disabled, { one: 'is not yet enabled', many: 'are not yet enabled' }));
+    }
+    const caution = choices.filter((choice) => this.#caution.has(choice));
+    if (caution.length > 0) {
+      notes.push(describeChoices(caution, { one: 'needs more grounding', many: 'need more grounding' }));
+    }
+    if (notes.length === 0) return line;
+    return line + theme.fg('dim', ` -- NOTE: ${notes.join('; ')}`);
   }
 }
 
 /** "foo is…", "foo and bar are…", "foo, bar and baz are…" */
-function describeNotYetEnabled(items: readonly string[]): string {
+function describeChoices(items: readonly string[], verb: { one: string; many: string }): string {
   const list = items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items.at(-1)}`;
-  return `${list} ${items.length === 1 ? 'is' : 'are'} not yet enabled`;
+  return `${list} ${items.length === 1 ? verb.one : verb.many}`;
 }

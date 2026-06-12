@@ -236,18 +236,17 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.chromeRefreshes).toHaveLength(1);
   });
 
-  it('rejects pinning a readiness-gated strategy while floor gaps are uncovered', async () => {
+  it('allows pinning a readiness-thin strategy; readiness never bars the pin (D74-L)', async () => {
     const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
 
     await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('propose-graph', harness.ctx);
 
-    expect(harness.entries).toEqual([]);
-    expect(harness.notifications).toEqual([
-      expect.objectContaining({
-        level: 'error',
-        message: expect.stringContaining('"propose-graph" is not yet enabled'),
-      }),
-    ]);
+    expect(harness.entries).toHaveLength(1);
+    expect(harness.entries[0]?.data).toMatchObject({
+      reason: 'switch',
+      source: 'user',
+      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'propose-graph' },
+    });
   });
 
   it('keeps freestyle explicitly pinnable at zero floor coverage', async () => {
@@ -263,7 +262,7 @@ describe('Brunch runtime switch commands', () => {
     });
   });
 
-  it('shows readiness-gated options as disabled in the pickers', async () => {
+  it('marks readiness-thin options as caution in the pickers without disabling them', async () => {
     const theme = createTestLabTheme();
     const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
 
@@ -277,10 +276,12 @@ describe('Brunch runtime switch commands', () => {
       return component.render(220).join('\n');
     };
 
-    expect(renderPicker(harness.customCalls[0])).toContain(
-      '-- NOTE: propose-graph and project-graph are not yet enabled',
-    );
-    expect(renderPicker(harness.customCalls[1])).toContain('-- NOTE: design and oracle are not yet enabled');
+    const strategyText = renderPicker(harness.customCalls[0]);
+    expect(strategyText).toContain('-- NOTE: propose-graph and project-graph need more grounding');
+    // Caution options render in the warning color, not gray.
+    expect(strategyText).toContain('\x1b[38;5;220mpropose-graph\x1b[39m');
+
+    expect(renderPicker(harness.customCalls[1])).toContain('-- NOTE: design and oracle need more grounding');
   });
 
   it('opens the mode picker for no-arg mode commands and never appends a runtime switch', async () => {

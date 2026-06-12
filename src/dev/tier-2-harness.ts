@@ -350,7 +350,6 @@ export async function bootTier2ProductOriginatedTurn(
     let specId: number | undefined;
     await runBrunchTui({
       cwd,
-      autoOpen: false,
       coordinator,
       runWorkspaceDialogPreflight: async () => preflight,
       webSidecarRunner: async () => null,

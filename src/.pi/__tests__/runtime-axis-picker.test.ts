@@ -107,6 +107,26 @@ describe('runtime posture picker overlays', () => {
     expect(component.render(200).join('\n')).toMatch(pattern);
   });
 
+  it('renders caution choices in the warning color while keeping them selectable', () => {
+    const selected: unknown[] = [];
+    const [first] = AGENT_STRATEGY_IDS;
+    const component = createRuntimeStrategyPickerComponent({
+      current: 'auto',
+      caution: [first!],
+      theme,
+      onDone: (value) => selected.push(value),
+    });
+
+    const text = component.render(200).join('\n');
+    expect(text).toContain(`\x1b[38;5;220m${first}\x1b[39m`);
+    expect(text).toContain(`-- NOTE: ${first} needs more grounding`);
+
+    // Cycling lands on the caution choice and enter commits it.
+    component.handleInput?.('\x1b[C');
+    component.handleInput?.('\r');
+    expect(selected).toEqual([first]);
+  });
+
   it('shows planned operational modes as disabled in the mode picker', () => {
     const selected: unknown[] = [];
     const component = createRuntimeModePickerComponent({

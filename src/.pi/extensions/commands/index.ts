@@ -147,8 +147,14 @@ function registerRuntimeSwitchCommands(
     handler: async (args, ctx) => {
       const selection = normalizeAxisArg(args);
       const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-      // Capability-readiness (D74-L) gates which lenses are pinnable right now.
-      const pinnable = pinnableAxisOptionsForRuntimeState('lens', current, options.getElicitationGaps());
+      // Capability-readiness (D74-L) marks readiness-thin lenses as caution in
+      // the picker, but never bars pinning them — the agent negotiates and
+      // gated methods/tools stay withheld downstream.
+      const readinessLegal = pinnableAxisOptionsForRuntimeState(
+        'lens',
+        current,
+        options.getElicitationGaps(),
+      );
       if (!selection) {
         if (typeof ctx.ui.custom !== 'function') {
           ctx.ui.notify(lensUsage(), 'info');
@@ -161,7 +167,7 @@ function registerRuntimeSwitchCommands(
           (_tui, theme, _keybindings, done) =>
             createRuntimeLensPickerComponent({
               current: current.agentLens,
-              disabled: AGENT_LENS_IDS.filter((id) => !pinnable.includes(id)),
+              caution: AGENT_LENS_IDS.filter((id) => !readinessLegal.includes(id)),
               theme,
               onDone: done,
             }),
@@ -181,13 +187,6 @@ function registerRuntimeSwitchCommands(
         );
         return;
       }
-      if (selection !== 'auto' && !pinnable.includes(selection)) {
-        ctx.ui.notify(
-          `Lens "${selection}" is not yet enabled for the selected spec (more grounding needed). Selectable now: auto, ${pinnable.join(', ')}.`,
-          'error',
-        );
-        return;
-      }
       applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: selection }, options);
     },
   });
@@ -201,9 +200,14 @@ function registerRuntimeSwitchCommands(
     handler: async (args, ctx) => {
       const selection = normalizeAxisArg(args);
       const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-      // Capability-readiness (D74-L) gates which strategies are pinnable right
-      // now; freestyle stays pinnable (explicit user pin, D66-L).
-      const pinnable = pinnableAxisOptionsForRuntimeState('strategy', current, options.getElicitationGaps());
+      // Capability-readiness (D74-L) marks readiness-thin strategies as caution
+      // in the picker, but never bars pinning them; freestyle is always an
+      // explicit user pin (D66-L).
+      const readinessLegal = pinnableAxisOptionsForRuntimeState(
+        'strategy',
+        current,
+        options.getElicitationGaps(),
+      );
       if (!selection) {
         if (typeof ctx.ui.custom !== 'function') {
           ctx.ui.notify(strategyUsage(), 'info');
@@ -215,7 +219,7 @@ function registerRuntimeSwitchCommands(
           (_tui, theme, _keybindings, done) =>
             createRuntimeStrategyPickerComponent({
               current: current.agentStrategy,
-              disabled: AGENT_STRATEGY_IDS.filter((id) => !pinnable.includes(id)),
+              caution: AGENT_STRATEGY_IDS.filter((id) => !readinessLegal.includes(id)),
               theme,
               onDone: done,
             }),
@@ -231,13 +235,6 @@ function registerRuntimeSwitchCommands(
       if (!isStrategySelection(selection)) {
         ctx.ui.notify(
           `Unknown strategy "${selection}". Use one of: auto, ${AGENT_STRATEGY_IDS.join(', ')}.`,
-          'error',
-        );
-        return;
-      }
-      if (selection !== 'auto' && !pinnable.includes(selection)) {
-        ctx.ui.notify(
-          `Strategy "${selection}" is not yet enabled for the selected spec (more grounding needed). Selectable now: auto, ${pinnable.join(', ')}.`,
           'error',
         );
         return;
