@@ -48,7 +48,13 @@ plus the coordination logic for workspace/spec/session lifecycle.
   open gaps) from spec-scoped reads; `originate-assistant-turn.ts` is the one
   seed-and-kick choreography every entry point (TUI boot, `session.triggerExchange`)
   delegates to — origin derives from conversational-message presence in the
-  projected transcript, never entry counts (I46-L).
+  projected transcript, never entry counts (I46-L). Origination only *decides
+  and appends*; the LLM turn completing a 'start' decision is fired by the
+  launch path after session creation via
+  `session.sendCustomMessage(kickTurnMessage(origin), { triggerTurn: true })`,
+  guarded on model availability (unauthenticated launches idle). The RPC
+  `session.triggerExchange` deliberately does not fire a turn — it returns the
+  pending exchange for the client to render; transport clients own their turns.
 
 - **Continuity carriers (FE-857)** — model-intent continuity entries
   (`worldUpdate`, side-task/reviewer drains, mention staleness hints, context
