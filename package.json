@@ -29,7 +29,7 @@
     "access": "public"
   },
   "overrides": {
-    "esbuild": "^0.25.12",
+    "esbuild": "^0.28.1",
     "react-inspector": "^9.0.0"
   },
   "scripts": {
