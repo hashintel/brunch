@@ -33,7 +33,7 @@
     "build": "tsc -p tsconfig.build.json && npm run build:info && npm run build:pi-assets && npm run build:web",
     "build:info": "node scripts/write-build-info.mjs",
     "prepack": "RELEASE=true npm run build",
-    "build:pi-assets": "mkdir -p dist/.pi/components/workspace-dialog dist/.pi/agents dist/.pi/skills && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp -R src/.pi/agents/definitions dist/.pi/agents/ && cp -R src/.pi/skills/goals src/.pi/skills/strategies src/.pi/skills/lenses src/.pi/skills/methods dist/.pi/skills/",
+    "build:pi-assets": "mkdir -p dist/.pi/components/workspace-dialog dist/.pi/agents dist/.pi/skills && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && find src/.pi/agents -maxdepth 1 -name '*.md' ! -name README.md -exec cp {} dist/.pi/agents/ \\; && cp -R src/.pi/skills/goals src/.pi/skills/strategies src/.pi/skills/lenses src/.pi/skills/methods dist/.pi/skills/",
     "build:web": "vite build",
     "seed": "tsx src/graph/seed-fixtures.ts",
     "db:generate": "drizzle-kit generate",

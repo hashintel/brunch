@@ -5,14 +5,14 @@ SPEC decisions: D25-L, D40-L, D58-L
 ## Owns
 
 The keyed agent role prompt resources only — the markdown bodies an agent role
-contributes as its system-prompt persona.
+contributes as its system-prompt persona. Agent prompt files live directly under
+this directory as `src/.pi/agents/{agent-name}.md`.
 
 ```text
 agents/
 ├── README.md
-└── definitions/      keyed agent role prompts (body = system-prompt resource)
-    ├── elicitor.md
-    └── reviewer.md
+├── elicitor.md       keyed foreground elicit-mode system-prompt resource
+└── reviewer.md       keyed future review-side system-prompt resource
 ```
 
 This directory is **markdown-only**, like `.pi/skills/`. It carries no
