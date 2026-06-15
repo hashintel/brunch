@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 
+import { BRUNCH_DIR, SESSION_DIR, STATE_FILE, STATE_SCHEMA_VERSION } from '../constants.js';
 import { openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
 import { flushSessionManagerToFile } from './flush-session-manager.js';
 import { discoverProjectIdentity, slugify } from './project-identity.js';
@@ -16,11 +17,6 @@ import {
   inspectCanonicalSessionFiles,
   verifyCanonicalSessionStore,
 } from './workspace-session-coordinator/boot-session-store.js';
-
-const BRUNCH_DIR = '.brunch';
-const STATE_FILE = 'workspace.json';
-const SESSION_DIR = 'sessions';
-const STATE_SCHEMA_VERSION = 1;
 
 interface WorkspaceSpecState {
   id: number;

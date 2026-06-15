@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, relative, resolve, sep } from 'node:path';
 
+import { BRUNCH_DIR } from '../constants.js';
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
 import { renderWorkspaceContext } from '../renderers/workspace/workspace-context.js';
 import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/boot-session-store.js';
@@ -61,7 +62,6 @@ interface GitignoreRule {
   readonly regex: RegExp;
 }
 
-const BRUNCH_DIR = '.brunch';
 const DEFAULT_IGNORED_TOP_LEVEL = new Set(['.git']);
 
 export async function inspectWorkspaceCwdInventory(cwd: string): Promise<WorkspaceCwdInventory> {
