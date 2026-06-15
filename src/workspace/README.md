@@ -9,11 +9,12 @@ Cwd/package/workspace identity helpers and their tests.
 Current state:
 
 - `project-identity.ts` discovers the cwd project name/slug from shallow manifest files (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`) with directory basename fallback.
+- `workspace-state-store.ts` reads/writes `.brunch/workspace.json`: project identity, posture fields, and the selected default `{specId, sessionId}`. It does not open graph stores or Pi sessions.
 - `package-identity.test.ts` protects package-level CLI identity (`brunch`, version floor, executable bin shim).
 
 ## Does not own
 
-- Spec/session selection and binding lifecycle — `session/`.
+- Spec/session activation, Pi session creation/opening, and binding lifecycle — `session/`.
 - Product host mode dispatch — `app/`.
 - Graph truth or persistence.
 

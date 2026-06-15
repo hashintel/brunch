@@ -62,7 +62,7 @@ Rules:
 
 ## Migration notes
 
-Product entrypoints now live in `app/`, package and project identity helpers live in `workspace/`, reusable workspace state DTOs live in `projections/workspace/`, and reusable print-mode workspace-state text lives in `renderers/workspace/`. No compatibility root files remain for the old root-level Brunch entrypoint, print helper, or package-identity paths.
+Product entrypoints now live in `app/`; package/project identity helpers and `.brunch/workspace.json` default-state persistence live in `workspace/`; reusable workspace state DTOs live in `projections/workspace/`; and reusable print-mode workspace-state text lives in `renderers/workspace/`. No compatibility root files remain for the old root-level Brunch entrypoint, print helper, or package-identity paths.
 
 The old domain-local `src/{graph,session,structured-exchange}/project/` folders now live under `projections/{graph,session,exchanges}/`.
 

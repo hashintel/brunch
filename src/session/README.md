@@ -31,9 +31,10 @@ plus the coordination logic for workspace/spec/session lifecycle.
   validates neither, so only the Tier-2 provider-legality assertion and live
   runs guard this shape.
 
-- **Workspace coordination** — boot flow, spec/session selection,
-  `.brunch/workspace.json` management. The `WorkspaceSessionCoordinator`
-  is the only module that creates/opens Pi sessions for Brunch user flows
+- **Workspace coordination** — boot flow and spec/session selection over the
+  workspace-owned `.brunch/workspace.json` state store. The
+  `WorkspaceSessionCoordinator` is the only module that creates/opens Pi
+  sessions for Brunch user flows
   and writes collapsed `brunch.session_binding` entries (`{schemaVersion,
   specId}`). Its chrome state is a selection snapshot (`cwd`, optional
   project discovered by `workspace/project-identity.ts`, selected `spec`)
