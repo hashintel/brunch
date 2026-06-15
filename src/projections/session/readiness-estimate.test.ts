@@ -60,7 +60,7 @@ describe('readiness estimate projection', () => {
     );
     expect(estimateSource).not.toMatch(/ReadinessGrade|READINESS_GRADES|GRADE_RANK|MIN_GRADE/);
 
-    for (const relativePath of ['./runtime-policy.ts', './affordances.ts', '../../.pi/agents/state.ts']) {
+    for (const relativePath of ['./runtime-policy.ts', './affordances.ts', '../../.pi/extensions/runtime/state.ts']) {
       const source = readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8');
       expect(source).not.toMatch(/readiness-estimate|readinessEstimate/);
     }

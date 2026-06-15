@@ -11,7 +11,7 @@ import {
 } from '../../projections/session/runtime-state.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
 import { composeAgentPrompt } from './compose.js';
-import { GOAL_RESOURCES, LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from './state.js';
+import { GOAL_RESOURCES, LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../extensions/runtime/state.js';
 
 const projectRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
 

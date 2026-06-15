@@ -4,7 +4,7 @@ import { READINESS_BANDS } from '../../graph/schema/kinds.js';
 import { readinessEstimate } from '../../projections/session/readiness-estimate.js';
 import type { ResolvedBrunchAgentState } from '../../projections/session/runtime-state.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
-import { AGENT_PROMPT_DEFINITIONS, manifestsForState, type PromptManifests } from './state.js';
+import { AGENT_PROMPT_DEFINITIONS, manifestsForState, type PromptManifests } from '../extensions/runtime/state.js';
 
 export interface AgentPromptSpecContext {
   id: number;

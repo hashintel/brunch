@@ -1,15 +1,15 @@
 import { fileURLToPath } from 'node:url';
 
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type { CapabilityId } from '../../projections/session/capability-readiness.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { CapabilityId } from '../../../projections/session/capability-readiness.js';
 import {
   AUTO_EXCLUDED_STRATEGIES,
   axisOptionsForRuntimeState,
   isCapabilityLegalForGaps,
   toolPolicyForRuntimeState,
   type ResolvedBrunchAgentState,
-} from '../../projections/session/runtime-policy.js';
-import type { AgentGoalId, AgentLensId, AgentRoleId, AgentStrategyId } from '../../session/runtime-state.js';
+} from '../../../projections/session/runtime-policy.js';
+import type { AgentGoalId, AgentLensId, AgentRoleId, AgentStrategyId } from '../../../session/runtime-state.js';
 type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods' | 'definitions';
 export type MethodId =
   | 'run-structured-exchange'
@@ -314,7 +314,7 @@ function selectAxisResources<TId extends string>({
 
 function promptResourceLocation(family: PromptResourceFamily, id: string): string {
   const root = family === 'definitions' ? './agents' : './skills';
-  return fileURLToPath(new URL(`../${root}/${family}/${id}.md`, import.meta.url));
+  return fileURLToPath(new URL(`../../${root}/${family}/${id}.md`, import.meta.url));
 }
 
 function resource(
