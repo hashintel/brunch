@@ -4,7 +4,7 @@ import { basename, join, relative, resolve, sep } from 'node:path';
 import { BRUNCH_DIR } from '../constants.js';
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
 import { renderWorkspaceContext } from '../renderers/workspace/workspace-context.js';
-import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/boot-session-store.js';
+import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/canonical-session-files.js';
 
 interface WorkspaceSessionFileInventory {
   readonly file: string;

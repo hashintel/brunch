@@ -16,7 +16,7 @@ import {
 import {
   inspectCanonicalSessionFiles,
   verifyCanonicalSessionStore,
-} from './workspace-session-coordinator/boot-session-store.js';
+} from './workspace-session-coordinator/canonical-session-files.js';
 
 interface WorkspaceSpecState {
   id: number;

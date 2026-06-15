@@ -39,8 +39,8 @@ plus the coordination logic for workspace/spec/session lifecycle.
   project discovered by `workspace/project-identity.ts`, selected `spec`)
   and intentionally carries no readiness phase or chat-mode display fields.
   Its private `workspace-session-coordinator/` subtree owns coordinator-shaped
-  boot/probe helpers such as canonical session-file classification; external
-  callers import only the public root module.
+  session-file/probe helpers such as canonical session-file classification;
+  external callers import only the public root module.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 
