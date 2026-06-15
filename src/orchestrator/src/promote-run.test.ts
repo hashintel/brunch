@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
+import { landCookBranch, promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
 
 const dirs: string[] = [];
 const GIT_TEST_TIMEOUT_MS = 20_000;
@@ -354,4 +354,54 @@ describe('promoteBrownfieldRun', () => {
     expect(files).toContain('keep.ts');
     expect(files).not.toContain('old.ts');
   });
+});
+
+describe('landCookBranch', () => {
+  const id = ['-c', 'user.name=t', '-c', 'user.email=t@e'];
+
+  // A user repo on `main` with one base commit and a promoted cook/r1 branch
+  // (the composed result already committed on top of base via promoteBrownfieldRun).
+  function repoWithPromotedCook(): { dir: string; baseHead: string; cookCommit: string } {
+    const dir = mkdtempSync(join(tmpdir(), 'cook-land-'));
+    dirs.push(dir);
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
+    writeFileSync(join(dir, 'app.ts'), 'export const v = 1;\n');
+    writeFileSync(join(dir, '.gitignore'), 'node_modules/\n');
+    execFileSync('git', ['add', '.'], { cwd: dir });
+    execFileSync('git', [...id, 'commit', '-q', '-m', 'base'], { cwd: dir });
+    execFileSync('git', ['branch', 'cook/r1'], { cwd: dir });
+    const baseHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+
+    const tree = mkdtempSync(join(tmpdir(), 'cook-land-tree-'));
+    dirs.push(tree);
+    writeFileSync(join(tree, 'app.ts'), 'export const v = 2;\n');
+    writeFileSync(join(tree, 'feature.ts'), 'export const f = true;\n');
+    writeFileSync(join(tree, '.gitignore'), 'node_modules/\n');
+    const { commit } = promoteBrownfieldRun({ sourceDir: dir, sourceTreeDir: tree, runId: 'r1' });
+    return { dir, baseHead, cookCommit: commit };
+  }
+
+  function head(dir: string): string {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+  }
+
+  it(
+    'fast-forwards the active branch onto cook/<runId> when HEAD has not moved',
+    () => {
+      const { dir, cookCommit } = repoWithPromotedCook();
+
+      const result = landCookBranch({ sourceDir: dir, runId: 'r1' });
+
+      expect(result).toEqual({ kind: 'landed', mode: 'fast-forward', branch: 'main', commit: cookCommit });
+      // Active branch advanced to the cook commit; the delta is now in the working tree.
+      expect(head(dir)).toBe(cookCommit);
+      expect(readFileSync(join(dir, 'app.ts'), 'utf8')).toContain('v = 2');
+      expect(existsSync(join(dir, 'feature.ts'))).toBe(true);
+      // cook/r1 still exists for re-review.
+      expect(execFileSync('git', ['rev-parse', 'cook/r1'], { cwd: dir, encoding: 'utf8' }).trim()).toBe(
+        cookCommit,
+      );
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
 });
