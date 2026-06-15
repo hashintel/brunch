@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process';
 import { constants, existsSync, mkdirSync, realpathSync } from 'node:fs';
 import {
   access as fsAccess,
@@ -137,10 +138,11 @@ function deriveToolchainReadRoots(home: string, env: NodeJS.ProcessEnv): string[
 export function deriveConfinementPolicy(
   sandboxDir: string,
   env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
 ): ConfinementPolicy {
   const sandboxRoot = realpathSync(resolve(sandboxDir));
   const home = homedir();
-  const base = process.platform === 'darwin' ? STATIC_READ_BASE_DARWIN : [];
+  const base = platform === 'darwin' ? STATIC_READ_BASE_DARWIN : [];
   const toolchain = deriveToolchainReadRoots(home, env);
   // Caches the toolchain writes back to on install (not secrets).
   const writeCaches = [join(home, '.bun'), join(home, '.npm'), join(home, '.cache')];
@@ -241,55 +243,139 @@ function sandboxTmpDir(sandboxRoot: string): string {
   return dir;
 }
 
-/**
- * Spawn hook for the pi bash tool: every agent command runs under a seatbelt
- * profile compiled from the run's confinement policy, with TMPDIR redirected
- * into the sandbox. Returns undefined off macOS — command confinement degrades
- * to a documented no-op (file-tool guards still apply; bwrap is the follow-on).
- */
-export function createSeatbeltSpawnHook(sandboxDir: string): BashSpawnHook | undefined {
-  if (process.platform !== 'darwin') return undefined;
-  const policy = deriveConfinementPolicy(sandboxDir);
-  const profile = compileSeatbeltProfile(policy);
-  const tmp = sandboxTmpDir(policy.sandboxRoot);
-  return (ctx) => ({
-    ...ctx,
-    command: wrapCommandInSeatbelt(profile, ctx.command),
-    env: { ...ctx.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp },
-  });
+// ---------------------------------------------------------------------------
+// Backend strategy — the one platform-varying step
+// ---------------------------------------------------------------------------
+
+type BackendId = 'seatbelt' | 'none';
+
+/** A spawn request normalized to one shape before any backend sees it. `shell`
+ *  distinguishes the bash tool's single shell string from a real argv. */
+export interface NormalizedRequest {
+  shell: boolean;
+  command: string;
+  args: readonly string[];
+}
+
+/** A ready-to-spawn command after confinement (or passthrough). */
+export interface ConfinedSpawn {
+  command: string;
+  args: string[];
 }
 
 /**
- * Confine a test-runner spawn (`bun test`, `npx vitest`) the same way as agent
- * bash: wrap the argv under `sandbox-exec` on macOS, passthrough elsewhere.
- * argv form needs no shell quoting.
+ * The single platform-varying contract. A backend turns a normalized request
+ * into a confined spawn; it owns all profile/arg synthesis. Adding a platform
+ * (e.g. Linux bwrap) is one new factory + one line in `selectBackend` — no
+ * caller change.
  */
-export function confineTestCommand(
+interface ConfinementBackend {
+  readonly id: BackendId;
+  readonly enforces: boolean;
+  wrap(req: NormalizedRequest): ConfinedSpawn;
+}
+
+/** macOS seatbelt backend. Compiles the profile once at construction. */
+function seatbeltBackend(policy: ConfinementPolicy): ConfinementBackend {
+  const profile = compileSeatbeltProfile(policy);
+  return {
+    id: 'seatbelt',
+    enforces: true,
+    wrap: (req) =>
+      req.shell
+        ? { command: wrapCommandInSeatbelt(profile, req.command), args: [] }
+        : { command: 'sandbox-exec', args: ['-p', profile, req.command, ...req.args] },
+  };
+}
+
+/** Passthrough backend for hosts without a confinement mechanism (bwrap is the follow-on). */
+function noneBackend(): ConfinementBackend {
+  return { id: 'none', enforces: false, wrap: (req) => ({ command: req.command, args: [...req.args] }) };
+}
+
+/** The SOLE `process.platform` read in this module — selects the enforcement backend. */
+function selectBackend(policy: ConfinementPolicy, platform: NodeJS.Platform): ConfinementBackend {
+  return platform === 'darwin' ? seatbeltBackend(policy) : noneBackend();
+}
+
+// ---------------------------------------------------------------------------
+// SandboxGuard — one per-run object over policy + backend
+// ---------------------------------------------------------------------------
+
+export interface ProbeResult {
+  ok: boolean;
+  code: number | null;
+  backend: BackendId;
+}
+
+export interface SandboxGuard {
+  readonly backend: BackendId;
+  readonly enforcing: boolean;
+  readonly policy: ConfinementPolicy;
+  /** Pre-bound spawn hook for the pi bash tool; TMPDIR redirected into the sandbox. */
+  readonly bashHook: BashSpawnHook;
+  /** Confine a resolved test-runner argv (`bun test …`) → spawn descriptor. */
+  confineTest(argv: readonly string[]): ConfinedSpawn;
+  /** Run a probe argv under confinement and report pass/fail (fail-closed wiring is the caller's). */
+  preflight(probeArgv?: readonly string[]): Promise<ProbeResult>;
+}
+
+/**
+ * Build the per-run guard: derive the `ConfinementPolicy` once, select the
+ * backend once, and serve every command-confinement caller through it. `backend`
+ * and `platform` are injectable for tests (assert seatbelt argv on any host).
+ */
+export function createSandboxGuard(
   sandboxDir: string,
-  command: string,
-  args: string[],
-): { command: string; args: string[] } {
-  if (process.platform !== 'darwin') return { command, args };
-  const profile = compileSeatbeltProfile(deriveConfinementPolicy(sandboxDir));
-  return { command: 'sandbox-exec', args: ['-p', profile, command, ...args] };
+  opts: { backend?: ConfinementBackend; platform?: NodeJS.Platform } = {},
+): SandboxGuard {
+  // Resolve the host platform once, then thread it to both policy derivation
+  // (read-base) and backend selection — no scattered platform branching.
+  const platform = opts.platform ?? process.platform;
+  const policy = deriveConfinementPolicy(sandboxDir, process.env, platform);
+  const backend = opts.backend ?? selectBackend(policy, platform);
+  const tmp = backend.enforces ? sandboxTmpDir(policy.sandboxRoot) : undefined;
+
+  const bashHook: BashSpawnHook = (ctx) => {
+    const { command } = backend.wrap({ shell: true, command: ctx.command, args: [] });
+    return tmp
+      ? { ...ctx, command, env: { ...ctx.env, TMPDIR: tmp, TMP: tmp, TEMP: tmp } }
+      : { ...ctx, command };
+  };
+
+  const confineTest = (argv: readonly string[]): ConfinedSpawn => {
+    const [command, ...args] = argv;
+    return backend.wrap({ shell: false, command: command ?? '', args });
+  };
+
+  const preflight = (probeArgv: readonly string[] = ['true']): Promise<ProbeResult> => {
+    const { command, args } = confineTest(probeArgv);
+    return new Promise<ProbeResult>((resolve) => {
+      const child = spawn(command, args, { cwd: policy.sandboxRoot, stdio: 'ignore' });
+      child.on('error', () => resolve({ ok: false, code: null, backend: backend.id }));
+      child.on('close', (code) => resolve({ ok: code === 0, code, backend: backend.id }));
+    });
+  };
+
+  return { backend: backend.id, enforcing: backend.enforces, policy, bashHook, confineTest, preflight };
 }
 
 /**
  * Confined tool definitions for the in-process pi session. Same names as the
  * built-ins, so the SDK tool registry overrides them and the per-action
  * allowlist keeps applying. File tools get path-guarded operations on every
- * platform; bash is seatbelt-wrapped where the host supports it (macOS today).
+ * platform; bash is wrapped only where a backend enforces (macOS today).
  */
 export function createConfinedTools(sandboxDir: string): ToolDefinition[] {
+  const guard = createSandboxGuard(sandboxDir);
   const ops = createConfinedFileOperations(sandboxDir);
-  const spawnHook = createSeatbeltSpawnHook(sandboxDir);
   // Erase the per-tool TDetails generics: invariant in ToolDefinition, so the
   // concrete factory types don't assign to ToolDefinition[] without it.
   return [
     createReadToolDefinition(sandboxDir, { operations: ops.read }),
     createWriteToolDefinition(sandboxDir, { operations: ops.write }),
     createEditToolDefinition(sandboxDir, { operations: ops.edit }),
-    ...(spawnHook ? [createBashToolDefinition(sandboxDir, { spawnHook })] : []),
+    ...(guard.enforcing ? [createBashToolDefinition(sandboxDir, { spawnHook: guard.bashHook })] : []),
   ] as ToolDefinition[];
 }
 

@@ -17,9 +17,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   compileSeatbeltProfile,
-  confineTestCommand,
   createConfinedFileOperations,
-  createSeatbeltSpawnHook,
+  createSandboxGuard,
   deriveConfinementPolicy,
   wrapCommandInSeatbelt,
 } from './sandbox-guard.js';
@@ -240,32 +239,57 @@ describe.skipIf(!onMac)('seatbelt limit-mode profile (macOS)', () => {
   });
 });
 
-describe('seatbelt spawn hook', () => {
-  it('rewrites only the command, preserving cwd, and redirects TMPDIR into the sandbox', () => {
-    const hook = createSeatbeltSpawnHook(sandboxDir);
-    if (!onMac) {
-      expect(hook).toBeUndefined();
-      return;
+describe('SandboxGuard — per-run confinement object', () => {
+  it('derives the policy once and reports the backend selected for the host', () => {
+    const guard = createSandboxGuard(sandboxDir);
+    expect(guard.policy.sandboxRoot).toBe(realpathSync(sandboxDir));
+    if (onMac) {
+      expect(guard.backend).toBe('seatbelt');
+      expect(guard.enforcing).toBe(true);
+    } else {
+      expect(guard.backend).toBe('none');
+      expect(guard.enforcing).toBe(false);
     }
-    expect(hook).toBeDefined();
+  });
+
+  it('honors an injected platform — none backend degrades to passthrough', () => {
+    const guard = createSandboxGuard(sandboxDir, { platform: 'linux' });
+    expect(guard.backend).toBe('none');
+    expect(guard.enforcing).toBe(false);
+    // passthrough: argv and bash command come back untouched
+    expect(guard.confineTest(['bun', 'test', 'a.test.ts'])).toEqual({
+      command: 'bun',
+      args: ['test', 'a.test.ts'],
+    });
+    const ctx = { command: 'echo hi', cwd: sandboxDir, env: {} as NodeJS.ProcessEnv };
+    expect(guard.bashHook(ctx).command).toBe('echo hi');
+  });
+
+  it('bashHook rewrites only the command, preserves cwd, and redirects TMPDIR into the sandbox (macOS)', () => {
+    if (!onMac) return;
+    const guard = createSandboxGuard(sandboxDir);
     const ctx = { command: 'echo hi', cwd: sandboxDir, env: { PATH: '/usr/bin' } as NodeJS.ProcessEnv };
-    const rewritten = hook!(ctx);
+    const rewritten = guard.bashHook(ctx);
     expect(rewritten.command).toMatch(/^sandbox-exec -p /);
     expect(rewritten.command).toContain('echo hi');
     expect(rewritten.cwd).toBe(sandboxDir);
     expect(rewritten.env.TMPDIR).toContain(realpathSync(sandboxDir));
   });
-});
 
-describe('test-runner confinement', () => {
-  it('wraps the spawn argv under sandbox-exec on macOS, passthrough elsewhere', () => {
-    const confined = confineTestCommand(sandboxDir, 'bun', ['test', 'a.test.ts']);
-    if (onMac) {
-      expect(confined.command).toBe('sandbox-exec');
-      expect(confined.args.slice(0, 2)).toEqual(['-p', expect.stringContaining('(version 1)')]);
-      expect(confined.args.slice(-3)).toEqual(['bun', 'test', 'a.test.ts']);
-    } else {
-      expect(confined).toEqual({ command: 'bun', args: ['test', 'a.test.ts'] });
-    }
+  it('confineTest wraps the argv under sandbox-exec on macOS', () => {
+    if (!onMac) return;
+    const confined = createSandboxGuard(sandboxDir).confineTest(['bun', 'test', 'a.test.ts']);
+    expect(confined.command).toBe('sandbox-exec');
+    expect(confined.args.slice(0, 2)).toEqual(['-p', expect.stringContaining('(version 1)')]);
+    expect(confined.args.slice(-3)).toEqual(['bun', 'test', 'a.test.ts']);
+  });
+
+  it('preflight runs a probe argv under confinement and reports the outcome', async () => {
+    const guard = createSandboxGuard(sandboxDir);
+    const ok = await guard.preflight(['true']);
+    expect(ok.ok).toBe(true);
+    expect(ok.backend).toBe(guard.backend);
+    const bad = await guard.preflight(['false']);
+    expect(bad.ok).toBe(false);
   });
 });

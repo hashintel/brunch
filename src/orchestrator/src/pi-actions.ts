@@ -26,7 +26,7 @@ import { buildProbeSpec, runProbe } from './app-probe.js';
 import type { CookEvent } from './presenter/events.js';
 import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
-import { confineTestCommand, createConfinedTools } from './sandbox-guard.js';
+import { createConfinedTools, createSandboxGuard } from './sandbox-guard.js';
 import { sliceLabel } from './slice-label.js';
 import { runVerification, ToolchainTestRunner } from './test-runner.js';
 import type {
