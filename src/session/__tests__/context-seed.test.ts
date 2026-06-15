@@ -57,10 +57,9 @@ describe('composeContextSeedContent', () => {
     expect(content).toContain('LSN 9');
     // Full overview — the same render read_graph emits: node codes + titles + edges,
     // never a counts-only summary (D78-L revised: first question needs no tool call).
-    expect(content).toContain('[G1]');
-    expect(content).toContain('"Ship tracker"');
-    expect(content).toContain('[REQ1]');
-    expect(content).toContain('—[dependency]→');
+    expect(content).toContain('| G1 | 14 | Ship tracker |');
+    expect(content).toContain('| REQ1 | 21 | Fast search |');
+    expect(content).toContain('| 1 | REQ1 | required by | G1 |');
     // Ranked order: higher importance first within the same band.
     expect(content.indexOf('What is the primary goal?')).toBeLessThan(content.indexOf('Who are the users?'));
   });

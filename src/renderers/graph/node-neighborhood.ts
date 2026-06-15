@@ -7,30 +7,43 @@
  * never reach context. See src/graph/projection/.
  */
 
-import type { NodeNeighborhood } from '../../graph/index.js';
+import type { GraphEdge, NodeNeighborhood } from '../../graph/index.js';
 import type { EdgeEndpoint } from '../../graph/policy/category-policy.js';
 import { relationFromAnchor, type EdgeRelation } from '../../graph/projection/direction.js';
 import { edgeLabel } from '../../graph/projection/labels.js';
 import { formatGraphNodeCode, type GraphNode } from '../../graph/schema/nodes.js';
-import { markdownBullet } from '../markdown.js';
 
 export interface RenderNodeNeighborhoodOptions {
-  readonly maxEdges?: number;
+  readonly maxExpandedEdges?: number;
 }
 
-const DEFAULT_MAX_EDGES = 12;
+const DEFAULT_MAX_EXPANDED_EDGES = 12;
 
 const SECTION_ORDER: readonly EdgeRelation[] = ['upstream', 'downstream', 'lateral'];
 
 const SECTION_HEADING: Record<EdgeRelation, string> = {
-  upstream: 'upstream (review anchor if these change)',
-  downstream: 'downstream (reconcile if anchor changes)',
-  lateral: 'lateral (related)',
+  upstream: 'upstream nodes',
+  downstream: 'downstream nodes',
+  lateral: 'lateral nodes',
+};
+
+const SECTION_GLOSS: Record<EdgeRelation, string> = {
+  upstream: 'review anchor if these change',
+  downstream: 'reconcile these if anchor changes',
+  lateral: 'cross-check with anchor if either changes',
 };
 
 interface ProjectedEdge {
   readonly relation: EdgeRelation;
-  readonly text: string;
+  readonly label: string;
+  readonly code: string;
+  readonly title: string;
+  readonly hard: boolean;
+}
+
+interface AmbientRelations {
+  readonly count: number;
+  readonly codes: readonly string[];
 }
 
 export function formatNeighborhood(
@@ -38,47 +51,40 @@ export function formatNeighborhood(
   options: RenderNodeNeighborhoodOptions = {},
 ): string {
   if (result.status === 'not_found') {
-    return '[Selected-spec node context]\n- node: not found in selected spec';
+    return 'Node not found in selected spec.';
   }
 
-  const maxEdges = options.maxEdges ?? DEFAULT_MAX_EDGES;
+  const maxExpandedEdges = options.maxExpandedEdges ?? DEFAULT_MAX_EXPANDED_EDGES;
   const nodesById = new Map<number, GraphNode>([
     [result.node.id, result.node],
     ...result.related.map((node) => [node.id, node] as const),
   ]);
 
-  const lines = [
-    '[Selected-spec node context]',
-    markdownBullet(
-      `anchor: [${formatGraphNodeCode(result.node.kind, result.node.kindOrdinal)}] ${result.node.plane}/${result.node.kind}: ${result.node.title}`,
-    ),
-  ];
+  const lines = ['anchor node', `- ${formatNode(result.node)}: ${result.node.title}`];
   if (result.node.body) {
-    lines.push(markdownBullet(`anchor body: ${truncate(result.node.body, 180)}`));
+    lines.push(`body: ${result.node.body}`);
   }
 
   const { projected, ambient } = projectEdges(result, nodesById);
 
   if (projected.length === 0) {
-    lines.push(markdownBullet('relations: none'));
+    lines.push('', 'No relations.');
   } else {
-    const shown = projected.slice(0, maxEdges);
     for (const relation of SECTION_ORDER) {
-      const inSection = shown.filter((edge) => edge.relation === relation);
+      const inSection = projected.filter((edge) => edge.relation === relation);
       if (inSection.length === 0) continue;
-      lines.push(markdownBullet(`${SECTION_HEADING[relation]}:`));
-      for (const edge of inSection) {
-        lines.push(`  ${markdownBullet(edge.text)}`);
+      lines.push('', `${SECTION_HEADING[relation]} (${inSection.length}) — ${SECTION_GLOSS[relation]}`);
+      if (inSection.length > maxExpandedEdges) {
+        lines.push(...formatCompactEdges(inSection));
+      } else {
+        lines.push(...inSection.map(formatFullEdge));
       }
-    }
-    const omitted = projected.length - shown.length;
-    if (omitted > 0) {
-      lines.push(markdownBullet(`…${omitted} more relation(s) omitted`));
     }
   }
 
-  if (ambient > 0) {
-    lines.push(markdownBullet(`(+${ambient} edge(s) among neighbors, not incident on anchor)`));
+  if (ambient.count > 0) {
+    const suffix = ambient.codes.length > 0 ? `: ${ambient.codes.join(', ')}` : '';
+    lines.push('', `+${ambient.count} more relations among neighbors${suffix}`);
   }
 
   return lines.join('\n');
@@ -87,21 +93,25 @@ export function formatNeighborhood(
 function projectEdges(
   result: Extract<NodeNeighborhood, { status: 'found' }>,
   nodesById: ReadonlyMap<number, GraphNode>,
-): { readonly projected: readonly ProjectedEdge[]; readonly ambient: number } {
+): { readonly projected: readonly ProjectedEdge[]; readonly ambient: AmbientRelations } {
   const anchorId = result.node.id;
   const projected: ProjectedEdge[] = [];
   const seen = new Set<string>();
-  let ambient = 0;
+  const directNeighborIds = collectDirectNeighborIds(result.edges, anchorId);
+  const ambientCodes: string[] = [];
+  const seenAmbientCodes = new Set<string>();
+  let ambientCount = 0;
 
   for (const edge of result.edges) {
     if (edge.sourceId !== anchorId && edge.targetId !== anchorId) {
-      ambient++;
+      ambientCount++;
+      collectAmbientCodes(edge, nodesById, directNeighborIds, seenAmbientCodes, ambientCodes);
       continue;
     }
     const anchorRole: EdgeEndpoint = edge.sourceId === anchorId ? 'source' : 'target';
     const otherId = anchorRole === 'source' ? edge.targetId : edge.sourceId;
 
-    const dedupeKey = `${edge.category}|${otherId}`;
+    const dedupeKey = `${edge.category}|${edge.stance ?? 'none'}|${otherId}`;
     if (seen.has(dedupeKey)) continue;
     seen.add(dedupeKey);
 
@@ -117,21 +127,70 @@ function projectEdges(
     });
 
     const other = nodesById.get(otherId);
-    const strengthTag = relation === 'downstream' ? ` {${strength === 'cascade' ? 'hard' : 'soft'}}` : '';
     projected.push({
       relation,
-      text: `${label} ${formatNeighbor(otherId, other)}${strengthTag}`,
+      label,
+      code: formatNodeFallback(otherId, other),
+      title: other?.title ?? 'missing endpoint',
+      hard: relation === 'downstream' && strength === 'cascade',
     });
   }
 
-  return { projected, ambient };
+  return { projected, ambient: { count: ambientCount, codes: ambientCodes } };
 }
 
-function formatNeighbor(id: number, node: GraphNode | undefined): string {
-  if (!node) return `#${id}`;
-  return `[${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: ${truncate(node.title, 90)}`;
+function formatFullEdge(edge: ProjectedEdge): string {
+  return `- ${edge.label} ${edge.code}: ${edge.title}${edge.hard ? ' {hard}' : ''}`;
 }
 
-function truncate(value: string, maxLength: number): string {
-  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
+function formatCompactEdges(edges: readonly ProjectedEdge[]): string[] {
+  const groups = new Map<string, { readonly codes: string[]; hard: boolean }>();
+  for (const edge of edges) {
+    const group = groups.get(edge.label);
+    if (group) {
+      group.codes.push(edge.code);
+      group.hard ||= edge.hard;
+    } else {
+      groups.set(edge.label, { codes: [edge.code], hard: edge.hard });
+    }
+  }
+  return [...groups.entries()].map(
+    ([label, group]) => `- ${label}: ${group.codes.join(', ')}${group.hard ? ' {hard}' : ''}`,
+  );
+}
+
+function collectDirectNeighborIds(edges: readonly GraphEdge[], anchorId: number): ReadonlySet<number> {
+  const directNeighborIds = new Set<number>();
+  for (const edge of edges) {
+    if (edge.sourceId === anchorId) directNeighborIds.add(edge.targetId);
+    if (edge.targetId === anchorId) directNeighborIds.add(edge.sourceId);
+  }
+  return directNeighborIds;
+}
+
+function collectAmbientCodes(
+  edge: GraphEdge,
+  nodesById: ReadonlyMap<number, GraphNode>,
+  directNeighborIds: ReadonlySet<number>,
+  seenCodes: Set<string>,
+  codes: string[],
+): void {
+  for (const nodeId of [edge.sourceId, edge.targetId]) {
+    if (directNeighborIds.has(nodeId)) continue;
+    const node = nodesById.get(nodeId);
+    if (!node) continue;
+    const code = formatNode(node);
+    if (seenCodes.has(code)) continue;
+    seenCodes.add(code);
+    codes.push(code);
+  }
+}
+
+function formatNode(node: GraphNode): string {
+  return formatGraphNodeCode(node.kind, node.kindOrdinal);
+}
+
+function formatNodeFallback(id: number, node: GraphNode | undefined): string {
+  if (node) return formatNode(node);
+  return `#${id}`;
 }

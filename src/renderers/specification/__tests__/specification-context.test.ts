@@ -29,10 +29,17 @@ describe('renderSpecificationContext', () => {
     await expect(rendered).toMatchFileSnapshot('../__previews__/specification-context.md');
     expect(rendered).toContain('<specification>');
     expect(rendered).toContain('Overview:');
-    expect(rendered).toContain('Sessions:');
+    expect(rendered).toContain('Graph (LSN 2): 4 nodes, 2 edges');
     expect(rendered).toContain('Gaps:');
+    expect(rendered).toContain('Sessions:');
+    expect(rendered.indexOf('Overview:')).toBeLessThan(rendered.indexOf('Graph (LSN 2):'));
+    expect(rendered.indexOf('Graph (LSN 2):')).toBeLessThan(rendered.indexOf('Gaps:'));
+    expect(rendered.indexOf('Gaps:')).toBeLessThan(rendered.indexOf('Sessions:'));
+    expect(rendered).toContain('| code | id | title |');
+    expect(rendered).toContain('| id | upstream | relation | downstream |');
     expect(rendered).toContain('| name | file | turns |');
     expect(rendered).toContain('```toon');
+    expect(rendered).not.toContain('- graph:');
     expect(rendered).not.toContain('Graph:');
     expect(rendered).not.toMatch(/^#{1,6}\s/m);
     expect(details.sessions.every((session) => session.specId === seeded.specId)).toBe(true);

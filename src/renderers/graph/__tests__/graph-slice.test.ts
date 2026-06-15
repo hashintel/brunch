@@ -1,76 +1,113 @@
-/**
- * graph-slice render coverage. Each case renders a fixture through
- * `formatGraphSlice` and locks the full output as a markdown preview under the
- * sibling `__previews__/`. The locked file IS the assertion: review the diff
- * when output changes, accept with `--update`.
- *
- * Inline assertions stay limited to cross-cutting contract invariants a
- * careless snapshot update could hide (bounded output; the debug view keeps raw
- * arrows but never endpoint role tokens). Positive "looks like X" checks live in
- * the snapshot.
- */
-
 import { expect, test } from 'vitest';
 
 import { readGraphSliceFixture } from '../../../graph/__tests__/support/fixture-reads.js';
-import { formatGraphSlice } from '../graph-slice.js';
+import type { GraphSlice } from '../../../graph/index.js';
+import { formatGraphOverview } from '../graph-slice.js';
 
-test('graph-slice: compact summary for a small graph', async () => {
-  const rendered = formatGraphSlice(
-    readGraphSliceFixture({ set: 'workspace-spread', fixture: 'alpha-grounding' }),
-    { heading: 'Selected-spec graph: workspace-spread/alpha-grounding' },
+const slice: GraphSlice = {
+  lsn: 12,
+  nodes: [
+    node({ id: 4, kind: 'requirement', kindOrdinal: 1, title: 'Render stable graph-node codes' }),
+    node({ id: 3, kind: 'criterion', kindOrdinal: 1, title: 'Golden diff is reviewable' }),
+    node({ id: 2, kind: 'constraint', kindOrdinal: 1, title: 'No cloud dependency' }),
+    node({ id: 1, kind: 'goal', kindOrdinal: 1, title: 'Ship offline-first sync' }),
+    node({ id: 5, plane: 'oracle', kind: 'evidence', kindOrdinal: 1, title: 'Preview file records output' }),
+  ],
+  edges: [
+    edge({ id: 7, category: 'proof', sourceId: 5, targetId: 3, stance: 'for' }),
+    edge({ id: 5, category: 'boundary', sourceId: 2, targetId: 4 }),
+  ],
+};
+
+test('overview renders G-D dual markdown tables with impact-normalized edges', () => {
+  expect(formatGraphOverview(slice)).toBe(`Graph overview (LSN 12): 5 nodes, 2 edges
+
+legend: G=goal, REQ=requirement, CON=constraint, AC=criterion, E=evidence
+
+nodes — intent · grounding (2)
+| code | id | title |
+| - | - | - |
+| G1 | 1 | Ship offline-first sync |
+| CON1 | 2 | No cloud dependency |
+
+nodes — intent · commitment (2)
+| code | id | title |
+| - | - | - |
+| REQ1 | 4 | Render stable graph-node codes |
+| AC1 | 3 | Golden diff is reviewable |
+
+nodes — oracle · commitment (1)
+| code | id | title |
+| - | - | - |
+| E1 | 5 | Preview file records output |
+
+edges (sorted by upstream)
+| id | upstream | relation | downstream |
+| - | - | - | - |
+| 7 | AC1 | witnessed by | E1 |
+| 5 | CON1 | bounds | REQ1 |`);
+});
+
+test('overview preserves caller heading for read_graph list modes and seed', () => {
+  expect(
+    formatGraphOverview(
+      { ...slice, nodes: slice.nodes.slice(0, 1), edges: [] },
+      'Graph slice by kind',
+    ).startsWith('Graph slice by kind (LSN 12): 1 nodes, 0 edges'),
+  ).toBe(true);
+});
+
+test('overview includes LSN on empty selected-spec graph', () => {
+  expect(formatGraphOverview({ lsn: 3, nodes: [], edges: [] })).toBe(
+    'Graph overview (LSN 3): empty (no nodes or edges).',
   );
-  await expect(rendered).toMatchFileSnapshot(
-    '../__previews__/graph-slice-alpha-grounding-compact-summary.md',
+});
+
+test('overview: kind-band fixture golden stays uncapped and sectioned', async () => {
+  const rendered = formatGraphOverview(
+    readGraphSliceFixture({ set: 'kind-band-spread', fixture: 'coverage-matrix' }),
   );
+  await expect(rendered).toMatchFileSnapshot('../__previews__/graph-overview-kind-band-spread.md');
+  expect(rendered).toContain('Graph overview (LSN 2): 20 nodes, 7 edges');
+  expect(rendered).toContain('| S1 | 20 | Lock one neighborhood preview |');
 });
 
-test('graph-slice: compact summary stays bounded for a large graph', async () => {
-  const rendered = formatGraphSlice(readGraphSliceFixture({ set: 'bilal-port', fixture: 'code-health' }), {
-    heading: 'Selected-spec graph: bilal-port/code-health',
-  });
-  await expect(rendered).toMatchFileSnapshot('../__previews__/graph-slice-code-health-compact-summary.md');
-  expect(rendered.split('\n').length).toBeLessThan(40);
-});
+function node(input: {
+  readonly id: number;
+  readonly plane?: GraphSlice['nodes'][number]['plane'];
+  readonly kind: GraphSlice['nodes'][number]['kind'];
+  readonly kindOrdinal: number;
+  readonly title: string;
+}): GraphSlice['nodes'][number] {
+  return {
+    specId: 1,
+    plane: input.plane ?? 'intent',
+    id: input.id,
+    kind: input.kind,
+    kindOrdinal: input.kindOrdinal,
+    title: input.title,
+    basis: 'explicit',
+    createdAtLsn: 1,
+    updatedAtLsn: 1,
+  };
+}
 
-test('graph-slice: grouped list is capped per kind', async () => {
-  const rendered = formatGraphSlice(readGraphSliceFixture({ set: 'bilal-port', fixture: 'code-health' }), {
-    heading: 'Selected-spec graph: bilal-port/code-health',
-    variant: 'grouped-list',
-  });
-  await expect(rendered).toMatchFileSnapshot('../__previews__/graph-slice-code-health-grouped-list.md');
-  expect(rendered.split('\n').length).toBeLessThan(60);
-});
-
-test('graph-slice: full-debug shows raw arrows by design but no role tokens', async () => {
-  const rendered = formatGraphSlice(
-    readGraphSliceFixture({ set: 'edge-spread', fixture: 'category-directions' }),
-    {
-      heading: 'Selected-spec graph: edge-spread/category-directions',
-      variant: 'full-debug',
-      maxEdges: 20,
-      maxNodes: 40,
-    },
-  );
-  await expect(rendered).toMatchFileSnapshot('../__previews__/graph-slice-category-directions-full-debug.md');
-  // The debug view deliberately keeps the flat arrow form; perspective-relative
-  // projection applies only to anchored neighborhoods. Role tokens stay out
-  // even here (guards the reverted inline-role-token regression).
-  expect(rendered).toContain('-[');
-  expect(rendered).not.toContain('(dependency)');
-  expect(rendered).not.toContain('(dependent)');
-});
-
-// ── Faithful spec graph derived from this repo's own prose ────────────────────
-// `brunch-self/spec-graph` is hand-derived from memory/SPEC.md + memory/PLAN.md.
-// Seeding it here also proves structural legality: readGraphSliceFixture commits
-// through the real CommandExecutor and throws on any illegal node/edge.
-
-test('brunch-self: whole-spec grouped list across all four planes', async () => {
-  const rendered = formatGraphSlice(readGraphSliceFixture({ set: 'brunch-self', fixture: 'spec-graph' }), {
-    heading: 'Selected-spec graph: brunch-self (self-described)',
-    variant: 'grouped-list',
-    maxNodes: 60,
-  });
-  await expect(rendered).toMatchFileSnapshot('../__previews__/graph-slice-brunch-self-grouped-list.md');
-});
+function edge(input: {
+  readonly id: number;
+  readonly category: GraphSlice['edges'][number]['category'];
+  readonly sourceId: number;
+  readonly targetId: number;
+  readonly stance?: GraphSlice['edges'][number]['stance'];
+}): GraphSlice['edges'][number] {
+  return {
+    specId: 1,
+    id: input.id,
+    category: input.category,
+    sourceId: input.sourceId,
+    targetId: input.targetId,
+    ...(input.stance ? { stance: input.stance } : {}),
+    basis: 'explicit',
+    createdAtLsn: 1,
+    updatedAtLsn: 1,
+  };
+}
