@@ -3,13 +3,12 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import {
   composeAgentPrompt,
-  renderCwdContext,
-  renderGraphContext,
-  type AgentPromptSessionContext,
   type AgentPromptContextBundle,
   type AgentPromptSpecContext,
   type AgentPromptWorkspaceContext,
-} from '../../agents/index.js';
+} from '../../agents/compose.js';
+import { renderCwdContext, type AgentPromptSessionContext } from '../../agents/contexts/cwd.js';
+import { renderGraphContext } from '../../agents/contexts/graph.js';
 import type { GraphReaders } from '../graph/index.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 
