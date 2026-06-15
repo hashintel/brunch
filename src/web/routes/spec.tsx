@@ -4,13 +4,14 @@ import { createRoute } from '@tanstack/react-router';
 import { KnowledgeGraphView } from '../features/graph/structured-list-view.js';
 import { graphOverviewQueryOptions } from '../queries/graph.js';
 import { workspaceStateQueryOptions } from '../queries/workspace.js';
+import { parseSpecId } from '../spec-id.js';
 import { rootRoute } from './root.js';
 
 export const specRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/spec/$specId',
   loader: ({ context, params }) => {
-    const specId = parseSpecRouteId(params.specId);
+    const specId = parseSpecId(params.specId);
     if (specId === undefined) {
       return context.queryClient.ensureQueryData(workspaceStateQueryOptions(context.rpcClient));
     }
@@ -24,7 +25,7 @@ export const specRoute = createRoute({
 
 function SpecRoutePage() {
   const { specId } = specRoute.useParams();
-  const parsedSpecId = parseSpecRouteId(specId);
+  const parsedSpecId = parseSpecId(specId);
   if (parsedSpecId === undefined) return <InvalidSpecRoutePage />;
   return <ValidSpecRoutePage specId={parsedSpecId} />;
 }
@@ -48,10 +49,4 @@ function ValidSpecRoutePage({ specId }: { specId: number }) {
   const specTitle = state.spec?.id === specId ? state.spec.title : undefined;
 
   return <KnowledgeGraphView overview={overview} {...(specTitle ? { specTitle } : {})} />;
-}
-
-function parseSpecRouteId(value: string): number | undefined {
-  if (!/^[1-9]\d*$/u.test(value)) return undefined;
-  const specId = Number(value);
-  return Number.isSafeInteger(specId) ? specId : undefined;
 }

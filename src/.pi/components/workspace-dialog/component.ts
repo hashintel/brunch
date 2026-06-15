@@ -1,7 +1,3 @@
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import type { Theme, ThemeColor } from '@earendil-works/pi-coding-agent';
 import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from '@earendil-works/pi-tui';
 
@@ -9,11 +5,8 @@ import type {
   WorkspaceLaunchInventory,
   SpecSessionActivationDecision,
 } from '../../../session/workspace-session-coordinator.js';
-import {
-  formatBrunchProductIdentity,
-  readBrunchAnsiLogo,
-  type BrunchVersionInfo,
-} from '../brunch-identity.js';
+import { formatBrunchProductIdentity, readBrunchAnsiLogo } from '../brunch-identity.js';
+import { resolveBrunchVersion } from '../brunch-version.js';
 import {
   buildWorkspaceSelectionView,
   selectWorkspaceSelectionOption,
@@ -24,12 +17,6 @@ import {
 export const WORKSPACE_DIALOG_WIDTH = 80;
 const CTRL_C = '\x03';
 const ASSET_DIR = new URL('./assets/', import.meta.url);
-const PACKAGE_ROOT_URL = new URL('../../../../', import.meta.url);
-const PACKAGE_JSON_URL = new URL('package.json', PACKAGE_ROOT_URL);
-// Written by scripts/write-build-info.mjs during `npm run build`. Resolves to
-// dist/build-info.json when running compiled output; from source (tsx,
-// vitest) it points at src/build-info.json, which never exists.
-const BUILD_INFO_URL = new URL('../../../build-info.json', import.meta.url);
 
 export type WorkspaceDialogTheme = Pick<Theme, 'fg'>;
 
@@ -110,7 +97,7 @@ class WorkspaceDialogComponent implements Component {
     const lines = [
       ...formatBrunchProductIdentity({
         logoLines: readLogo(),
-        version: brunchVersion(),
+        version: resolveBrunchVersion(),
         ...(this.#theme ? { theme: this.#theme } : {}),
       }),
       '',
@@ -206,77 +193,6 @@ function renderFrame(content: string[], width: number, theme: WorkspaceDialogThe
     emptyLine(width, theme),
     bottomBorderLine(width, theme),
   ];
-}
-
-interface PackageJson {
-  version?: unknown;
-}
-
-interface BuildInfo {
-  dev: boolean;
-  gitSha: string;
-  buildTime: string;
-}
-
-function formatUtcBuildTime(date: Date): string {
-  // toISOString is always UTC; keep the explicit suffix so it displays as such.
-  return date
-    .toISOString()
-    .replace('T', ' ')
-    .replace(/\.\d+Z$/, ' UTC');
-}
-
-function readPackage(): PackageJson {
-  try {
-    return JSON.parse(readFileSync(fileURLToPath(PACKAGE_JSON_URL), 'utf8')) as PackageJson;
-  } catch {
-    return {};
-  }
-}
-
-function readBuildInfo(): BuildInfo | null {
-  try {
-    const raw = JSON.parse(readFileSync(fileURLToPath(BUILD_INFO_URL), 'utf8')) as Partial<BuildInfo>;
-    return {
-      dev: raw.dev === true,
-      gitSha: typeof raw.gitSha === 'string' ? raw.gitSha : '',
-      buildTime: typeof raw.buildTime === 'string' ? raw.buildTime : '',
-    };
-  } catch {
-    return null;
-  }
-}
-
-function getGitSha(): string {
-  try {
-    return execSync('git rev-parse --short=7 HEAD', {
-      cwd: fileURLToPath(PACKAGE_ROOT_URL),
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    return '';
-  }
-}
-
-function brunchVersion(): BrunchVersionInfo {
-  const pkg = readPackage();
-  const version = typeof pkg.version === 'string' ? pkg.version : '0.0.0';
-  // Compiled output ships build-info.json (dev for local builds, dev: false
-  // for RELEASE=true builds). Running straight from source (tsx, vitest) has
-  // no build-info; sha and "build time" are computed live, which is accurate
-  // since the source is transpiled at launch.
-  const buildInfo = readBuildInfo() ?? {
-    dev: true,
-    gitSha: getGitSha(),
-    buildTime: formatUtcBuildTime(new Date()),
-  };
-  if (!buildInfo.dev) return { version: `v${version}`, dev: null };
-
-  const devMeta = [buildInfo.gitSha, buildInfo.buildTime ? `@ ${buildInfo.buildTime}` : '']
-    .filter(Boolean)
-    .join(' ');
-  return { version: `v${version}`, dev: devMeta ? `(dev ${devMeta})` : '(dev)' };
 }
 
 function contentLine(content: string, width: number, theme: WorkspaceDialogTheme | undefined): string {

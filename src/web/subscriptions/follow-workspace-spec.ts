@@ -2,6 +2,7 @@ import { useRouter } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
+import { parseSpecPathname } from '../spec-id.js';
 
 /**
  * Follow explicit workspace-default changes (e.g. a TUI spec switch): when the
@@ -21,14 +22,9 @@ export function useFollowWorkspaceSpec(state: WorkspaceState): void {
     if (specId === undefined || previousSpecId === undefined || previousSpecId === specId) {
       return;
     }
-    if (parseSpecPath(router.state.location.pathname) !== previousSpecId) {
+    if (parseSpecPathname(router.state.location.pathname) !== previousSpecId) {
       return;
     }
     void router.navigate({ to: '/spec/$specId', params: { specId: String(specId) } });
   }, [specId, router]);
-}
-
-function parseSpecPath(pathname: string): number | undefined {
-  const match = /^\/spec\/(\d+)\/?$/u.exec(pathname);
-  return match ? Number(match[1]) : undefined;
 }
