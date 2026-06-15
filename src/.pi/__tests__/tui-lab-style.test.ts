@@ -1,7 +1,7 @@
 import { visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
+import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
 import {
   lineVisibleWidths,
   makeSolidBadge,

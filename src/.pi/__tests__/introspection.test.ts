@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
+import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
 import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
 import {
   appendEntryContentToDebugCache,

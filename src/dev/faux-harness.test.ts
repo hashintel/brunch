@@ -12,8 +12,8 @@ import {
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   createInMemoryBrunchIntrospectionStore,
-} from '../.pi/brunch-pi-extensions.js';
-import { createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
+} from '../app/pi-extensions.js';
+import { createBrunchPiSettings } from '../app/pi-settings.js';
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
   BRUNCH_FAUX_HARNESS_ENV_API_KEY,

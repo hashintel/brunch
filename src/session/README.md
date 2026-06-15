@@ -29,7 +29,11 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `^[a-zA-Z0-9_-]+$` id (`exchangeId__toolName`, never `:`). Real providers
   reject orphan `tool_result` blocks and non-conforming ids; the faux provider
   validates neither, so only the Tier-2 provider-legality assertion and live
-  runs guard this shape.
+  runs guard this shape. `structured-exchange-loop.ts` is the public entry
+  point over a private `structured-exchange-loop/` subtree split by purpose:
+  `pending-exchange.ts` (read-path reconstruction + schema), `accepted-response.ts`
+  (response toolResult materialization), and `synthetic-tool-call.ts` (the
+  provider-legality toolCall pair); external callers import only the root.
 
 - **Workspace coordination** — boot flow and spec/session selection over the
   workspace-owned `.brunch/workspace.json` state store. The

@@ -4,6 +4,44 @@ import {
   type SessionManager,
 } from '@earendil-works/pi-coding-agent';
 
+import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
+import { registerBrunchChrome } from '../.pi/extensions/chrome/index.js';
+import { type BrunchChromeState } from '../.pi/extensions/chrome/index.js';
+import { registerBrunchCommands, type BrunchCommandsOptions } from '../.pi/extensions/commands/index.js';
+import { registerBrunchBranchPolicyHandlers } from '../.pi/extensions/commands/policy.js';
+import { registerBrunchContext } from '../.pi/extensions/context/index.js';
+import { registerBrunchElicitation } from '../.pi/extensions/elicitation/index.js';
+import { registerStructuredExchange } from '../.pi/extensions/exchanges/index.js';
+import { registerBrunchGraph, type BrunchGraphDeps } from '../.pi/extensions/graph/index.js';
+import {
+  BRUNCH_INTROSPECT_QUERY_TOOL,
+  registerBrunchIntrospectQuery,
+} from '../.pi/extensions/introspect-query/index.js';
+import {
+  appendEntryContentToDebugCache,
+  registerBrunchIntrospection,
+  type BrunchDebugCacheOptions,
+  type BrunchIntrospectionOptions,
+} from '../.pi/extensions/introspection/index.js';
+import { type GraphMentionSource } from '../.pi/extensions/mentions/index.js';
+import { registerBrunchMentionAutocomplete } from '../.pi/extensions/mentions/index.js';
+import {
+  conservativeUncoveredFloorGaps,
+  registerBrunchOperationalModePolicy,
+} from '../.pi/extensions/runtime/index.js';
+import {
+  BRUNCH_SESSION_QUERY_TOOL,
+  registerBrunchSessionQuery,
+} from '../.pi/extensions/session-query/index.js';
+import { registerBrunchSessionBoundary } from '../.pi/extensions/session/lifecycle.js';
+import {
+  type BrunchSessionBoundaryHandler,
+  type BrunchSessionBoundaryPipelineStep,
+} from '../.pi/extensions/session/lifecycle.js';
+import {
+  registerBrunchPrompting,
+  type BrunchPromptContextProvider,
+} from '../.pi/extensions/system-prompts/index.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { mentionFactsFromEntries } from '../session/mention-ledger.js';
 import {
@@ -14,45 +52,10 @@ import {
   type GraphChangeItem,
   type PrepareNextTurnResult,
 } from '../session/prepare-next-turn.js';
-import { registerBrunchAlternatives } from './components/alternatives.js';
-import { registerBrunchChrome } from './extensions/chrome/index.js';
-import { type BrunchChromeState } from './extensions/chrome/index.js';
-import { registerBrunchCommands, type BrunchCommandsOptions } from './extensions/commands/index.js';
-import { registerBrunchBranchPolicyHandlers } from './extensions/commands/policy.js';
-import { registerBrunchContext } from './extensions/context/index.js';
-import { registerBrunchElicitation } from './extensions/elicitation/index.js';
-import { registerStructuredExchange } from './extensions/exchanges/index.js';
-import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
-import {
-  BRUNCH_INTROSPECT_QUERY_TOOL,
-  registerBrunchIntrospectQuery,
-} from './extensions/introspect-query/index.js';
-import {
-  appendEntryContentToDebugCache,
-  registerBrunchIntrospection,
-  type BrunchDebugCacheOptions,
-  type BrunchIntrospectionOptions,
-} from './extensions/introspection/index.js';
-import { type GraphMentionSource } from './extensions/mentions/index.js';
-import { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
-import {
-  conservativeUncoveredFloorGaps,
-  registerBrunchOperationalModePolicy,
-} from './extensions/runtime/index.js';
-import { BRUNCH_SESSION_QUERY_TOOL, registerBrunchSessionQuery } from './extensions/session-query/index.js';
-import { registerBrunchSessionBoundary } from './extensions/session/lifecycle.js';
-import {
-  type BrunchSessionBoundaryHandler,
-  type BrunchSessionBoundaryPipelineStep,
-} from './extensions/session/lifecycle.js';
-import {
-  registerBrunchPrompting,
-  type BrunchPromptContextProvider,
-} from './extensions/system-prompts/index.js';
 
-export { registerBrunchAlternatives } from './components/alternatives.js';
-export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from './extensions/commands/policy.js';
-export { registerBrunchMentionAutocomplete } from './extensions/mentions/index.js';
+export { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
+export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from '../.pi/extensions/commands/policy.js';
+export { registerBrunchMentionAutocomplete } from '../.pi/extensions/mentions/index.js';
 export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -61,22 +64,22 @@ export {
   appendBrunchAgentRuntimeSwitch,
   projectBrunchAgentState,
   registerBrunchOperationalModePolicy,
-} from './extensions/runtime/index.js';
-export { registerBrunchPrompting } from './extensions/system-prompts/index.js';
-export { registerBrunchContext } from './extensions/context/index.js';
+} from '../.pi/extensions/runtime/index.js';
+export { registerBrunchPrompting } from '../.pi/extensions/system-prompts/index.js';
+export { registerBrunchContext } from '../.pi/extensions/context/index.js';
 export {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
   registerBrunchChrome,
   renderBrunchChrome,
   type BrunchChromeState,
-} from './extensions/chrome/index.js';
+} from '../.pi/extensions/chrome/index.js';
 export {
   bindBrunchSessionBoundary,
   registerBrunchSessionBoundary,
   registerBrunchSessionBoundaryRefreshHandlers,
   type BrunchSessionBoundaryHandler,
-} from './extensions/session/lifecycle.js';
+} from '../.pi/extensions/session/lifecycle.js';
 export {
   BRUNCH_COMMAND_PREFIX,
   BRUNCH_CONTINUE_COMMAND,
@@ -86,10 +89,10 @@ export {
   BRUNCH_SWITCH_COMMAND,
   BRUNCH_SWITCH_SHORTCUT,
   registerBrunchCommands,
-} from './extensions/commands/index.js';
-export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from './extensions/workspace/index.js';
+} from '../.pi/extensions/commands/index.js';
+export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from '../.pi/extensions/workspace/index.js';
 
-export { registerBrunchGraph } from './extensions/graph/index.js';
+export { registerBrunchGraph } from '../.pi/extensions/graph/index.js';
 export {
   BRUNCH_INTROSPECTION_COMMAND,
   createInMemoryBrunchIntrospectionStore,
@@ -97,17 +100,17 @@ export {
   type BrunchIntrospectionBaseReport,
   type BrunchIntrospectionStore,
   type BrunchIntrospectionTurnCapture,
-} from './extensions/introspection/index.js';
+} from '../.pi/extensions/introspection/index.js';
 export {
   BRUNCH_SESSION_QUERY_TOOL,
   createBrunchSessionQueryTool,
   registerBrunchSessionQuery,
-} from './extensions/session-query/index.js';
+} from '../.pi/extensions/session-query/index.js';
 export {
   BRUNCH_INTROSPECT_QUERY_TOOL,
   createBrunchIntrospectQueryTool,
   registerBrunchIntrospectQuery,
-} from './extensions/introspect-query/index.js';
+} from '../.pi/extensions/introspect-query/index.js';
 
 export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, 'getElicitationGaps'> {
   /**

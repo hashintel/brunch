@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fauxAssistantMessage } from '@earendil-works/pi-ai';
 import { describe, expect, it } from 'vitest';
 
-import { createInMemoryBrunchIntrospectionStore } from '../.pi/brunch-pi-extensions.js';
+import { createInMemoryBrunchIntrospectionStore } from '../app/pi-extensions.js';
 import {
   introspectionArtifactDir,
   runBrunchIntrospectionTurn,

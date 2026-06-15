@@ -11,23 +11,6 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import {
-  BRUNCH_CONTINUE_COMMAND,
-  BRUNCH_INTROSPECTION_COMMAND,
-  BRUNCH_LENS_COMMAND,
-  BRUNCH_MODE_COMMAND,
-  BRUNCH_STRATEGY_COMMAND,
-  BRUNCH_SWITCH_COMMAND,
-  BRUNCH_SWITCH_SHORTCUT,
-  chromeStateForWorkspace,
-  createBrunchPiExtensions,
-  createInMemoryBrunchIntrospectionStore,
-  registerBrunchAlternatives,
-  registerBrunchOperationalModePolicy,
-  runBrunchWorkspaceCommand,
-  runBrunchWorkspaceAction,
-} from '../.pi/brunch-pi-extensions.js';
-import { createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
 import { groundingFloorGaps } from '../graph/schema/elicitation-gap-fixtures.js';
 import { userMessage } from '../probes/test-helpers.js';
@@ -49,6 +32,23 @@ import {
   runWithScopedBrunchOfflineDefault,
   startupHeaderForActivation,
 } from './brunch-tui.js';
+import {
+  BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_INTROSPECTION_COMMAND,
+  BRUNCH_LENS_COMMAND,
+  BRUNCH_MODE_COMMAND,
+  BRUNCH_STRATEGY_COMMAND,
+  BRUNCH_SWITCH_COMMAND,
+  BRUNCH_SWITCH_SHORTCUT,
+  chromeStateForWorkspace,
+  createBrunchPiExtensions,
+  createInMemoryBrunchIntrospectionStore,
+  registerBrunchAlternatives,
+  registerBrunchOperationalModePolicy,
+  runBrunchWorkspaceCommand,
+  runBrunchWorkspaceAction,
+} from './pi-extensions.js';
+import { createBrunchPiSettings } from './pi-settings.js';
 
 describe('Brunch TUI boot', () => {
   it('gates spec selection through the coordinator before launching interactive mode', async () => {
@@ -1401,10 +1401,7 @@ describe('Brunch TUI boot', () => {
 
   it('keeps Pi settings/resource policy out of the TUI launcher', async () => {
     const launcherSource = await readFile(join(import.meta.dirname, 'brunch-tui.ts'), 'utf8');
-    const settingsSource = await readFile(
-      join(import.meta.dirname, '..', '.pi', 'brunch-pi-settings.ts'),
-      'utf8',
-    );
+    const settingsSource = await readFile(join(import.meta.dirname, 'pi-settings.ts'), 'utf8');
 
     expect(launcherSource).toContain('createBrunchPiSettings');
     expect(launcherSource).not.toContain('SettingsManager.create');
@@ -1415,10 +1412,7 @@ describe('Brunch TUI boot', () => {
 
   it('keeps the Brunch settings override and audit list in the settings boundary', async () => {
     const launcherSource = await readFile(join(import.meta.dirname, 'brunch-tui.ts'), 'utf8');
-    const settingsSource = await readFile(
-      join(import.meta.dirname, '..', '.pi', 'brunch-pi-settings.ts'),
-      'utf8',
-    );
+    const settingsSource = await readFile(join(import.meta.dirname, 'pi-settings.ts'), 'utf8');
     const settingsManagerTypes = await readFile(
       join(
         import.meta.dirname,

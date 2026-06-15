@@ -12,13 +12,6 @@ import {
   type CreateAgentSessionServicesOptions,
 } from '@earendil-works/pi-coding-agent';
 
-import {
-  chromeStateForWorkspace,
-  createBrunchPiExtensions,
-  createInMemoryBrunchIntrospectionStore,
-  type BrunchIntrospectionStore,
-} from '../.pi/brunch-pi-extensions.js';
-import { applyBrunchOfflineDefault, createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
 import {
   appendEntryContentToDebugCache,
@@ -51,6 +44,13 @@ import {
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
+import {
+  chromeStateForWorkspace,
+  createBrunchPiExtensions,
+  createInMemoryBrunchIntrospectionStore,
+  type BrunchIntrospectionStore,
+} from './pi-extensions.js';
+import { applyBrunchOfflineDefault, createBrunchPiSettings } from './pi-settings.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -58,14 +58,14 @@ export {
   brunchResourceLoaderOptions,
   createBrunchPiSettings,
   createBrunchSettingsManager,
-} from '../.pi/brunch-pi-settings.js';
+} from './pi-settings.js';
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
-} from '../.pi/brunch-pi-extensions.js';
+} from './pi-extensions.js';
 export { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
 
 type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
+import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../components/alternatives.js';
 import chrome from '../extensions/chrome/index.js';
 import {
@@ -269,7 +269,7 @@ describe('Brunch explicit Pi extension registry', () => {
   });
 
   it('does not retain the filesystem-discovery product-extension protocol', async () => {
-    const shell = await readFile(join(projectRoot(), 'src/.pi/brunch-pi-extensions.ts'), 'utf8');
+    const shell = await readFile(join(projectRoot(), 'src/app/pi-extensions.ts'), 'utf8');
     const discoveryExport = ['discover', 'BrunchProductExtensionEntries'].join('');
     expect(shell).not.toContain(`export async function ${discoveryExport}`);
     expect(shell).not.toContain('node:fs/promises');
