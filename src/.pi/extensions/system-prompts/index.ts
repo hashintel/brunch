@@ -1,16 +1,15 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import type { GraphReaders } from '../graph/index.js';
-import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 import {
-  composeAgentPrompt,
-  type AgentPromptContextBundle,
+  composeAgentContextSeed,
+  type AgentPromptSessionContext,
   type AgentPromptSpecContext,
   type AgentPromptWorkspaceContext,
-} from './compose.js';
-import { renderGraphSeed } from './seed/graph.js';
-import { renderWorkspaceSeed, type AgentPromptSessionContext } from './seed/workspace.js';
+} from '../../../session/agent-context-seed.js';
+import type { GraphReaders } from '../graph/index.js';
+import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
+import { composeAgentPrompt, type AgentPromptContextBundle } from './compose.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
 
@@ -102,15 +101,14 @@ function contextForPrompt(
   state: ReturnType<typeof projectState>,
   gaps: readonly ElicitationGap[],
 ): AgentPromptContextBundle {
-  const renderedContexts = [
-    renderWorkspaceSeed({
-      spec: context.spec,
-      workspace: context.workspace,
-      ...(context.session ? { session: context.session } : {}),
-      gaps,
-    }),
-  ];
-  renderedContexts.push(renderGraphSeed(context.graphReads.queryGraph(), { lens: state.agentLens }));
+  const renderedContexts = composeAgentContextSeed({
+    spec: context.spec,
+    workspace: context.workspace,
+    ...(context.session ? { session: context.session } : {}),
+    gaps,
+    graph: context.graphReads.queryGraph(),
+    lens: state.agentLens,
+  });
 
   return {
     ...(context.context?.contextHandles ? { contextHandles: context.context.contextHandles } : {}),
