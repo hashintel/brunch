@@ -4,11 +4,12 @@ Frontier: origination-follow-ups (FE-852 residue)
 Status:   active
 Mode:     chain
 Created:  2026-06-12
+Refreshed: 2026-06-15 (alpha-week hardening)
 
 ## Orientation
 
 - Seam: assistant-turn origination — `src/session/originate-assistant-turn.ts` + `start-assistant-turn.ts` own the decision; the kick-completion choreography (guard + `sendCustomMessage(kickTurnMessage, { triggerTurn })` + error handling) is currently embedded in `src/app/brunch-tui.ts`.
-- Source: 2026-06-12 `ln-induct` silent-skip findings 1–4, reconciled into `memory/PLAN.md` §origination-follow-ups (c). Build is **deferred until this stack merges to `next`** (user decision 2026-06-12); cards authored on `ln/fe-858-above-the-line`.
+- Source: 2026-06-12 `ln-induct` silent-skip findings 1–4, reconciled into `memory/PLAN.md` §origination-follow-ups (c). Build is now in scope for alpha-week hardening; cards were authored on `ln/fe-858-above-the-line`.
 - Verified during scoping: the RPC `session.triggerExchange` site (`src/rpc/methods/session.ts`) intentionally seeds without kicking — no live AgentSession exists in that transport (documented inline). There is exactly **one** kick-completion site. Induct finding 4 ("two sites, drift unchecked") is resolved benign; the repair is extraction, not unification.
 - Verified during scoping: `StartAssistantTurnDecision` already carries idle reasons (`explicit_freestyle` | `no_unresolved_debt`) — computed, then discarded. Card 2 threads existing data. Note `explicit_freestyle` is a third silent-skip path beyond the induct's two.
 - Main risk: the resume-kick intermittency root cause is suspected (model-availability guard), not proven. Card 2 **is** the diagnostic; no fix card is pre-scoped on top of its findings (chain anti-speculation gate).
@@ -25,6 +26,8 @@ Card 3  kickTurnMessage wording + lock           [earned: independent of 1–2]
 ```
 
 ## Card 1 — Extract the kick-completion seam with an outcome sink
+
+Status: done 2026-06-15 — `completeAssistantKick` now owns fired/skipped/failed classification; TUI launch no longer catches kick failures with `console.error`.
 
 ### Target Behavior
 
@@ -104,6 +107,8 @@ src/rpc/methods/session.ts             ~  (comment only)
 ```
 
 ## Card 2 — Origination decision and kick outcome become observable
+
+Status: partial 2026-06-15 — TUI boot records decision/outcome to `.brunch/debug/origination.md` under `BRUNCH_DEV`, and no-model/failure outcomes enter launch diagnostics. Remaining if this card is continued: tier-2 boot matrix assertions and any deliberate RPC/manual-trigger observability beyond the already documented seed-only path.
 
 ### Target Behavior
 
@@ -188,7 +193,7 @@ src/.pi/extensions/introspection/      ~?  (debug-cache append helper reuse)
 
 ### Objective
 
-Rewrite the kick content to match revised D78-L — the assistant opens live from the seeded context and ranked gaps; no "structured exchange offer was just presented" claim — and lock the wording under an oracle per the graduated provider-visible-text lens.
+Lock the kick content against revised D78-L — the assistant opens live from the seeded context and ranked gaps; no canned-offer-era claim — under an oracle per the graduated provider-visible-text lens. Current code already removed the "structured exchange offer was just presented" claim; this card is now a wording-lock/walkthrough card, not a known-copy-removal card.
 
 ### Light-card cold-start reads
 
@@ -203,7 +208,7 @@ Rewrite the kick content to match revised D78-L — the assistant opens live fro
 ### Acceptance Criteria
 
 ```
-✓ content rewrite — kick message instructs: open in your own words from the seeded
+✓ content lock — kick message instructs: open in your own words from the seeded
   workspace/spec/graph context, grounded in the ranked gaps; zero reference to a
   presented offer or "the offered question"
 ✓ wording lock — a co-located assertion (inline golden) locks the content string;

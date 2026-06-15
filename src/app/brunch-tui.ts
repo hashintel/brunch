@@ -20,7 +20,10 @@ import {
 } from '../.pi/brunch-pi-extensions.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
-import { appendEntryContentToDebugCache } from '../.pi/extensions/introspection/index.js';
+import {
+  appendEntryContentToDebugCache,
+  appendOriginationRecordToDebugCache,
+} from '../.pi/extensions/introspection/index.js';
 import {
   openWorkspaceGraphRuntime,
   type EdgeCategory,
@@ -31,7 +34,11 @@ import {
 } from '../graph/index.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
-import { kickTurnMessage, originateAssistantTurn } from '../session/originate-assistant-turn.js';
+import {
+  completeAssistantKick,
+  originateAssistantTurn,
+  type KickCompletionOutcome,
+} from '../session/originate-assistant-turn.js';
 import { renderWorkspaceOverviewContext } from '../session/workspace-context.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -204,6 +211,18 @@ function toReadOptions(options: LegacyGraphOptions): { readonly visibility?: 'ac
 
 function graphSliceWithCounts(slice: GraphSlice) {
   return { ...slice, nodeCount: slice.nodes.length, edgeCount: slice.edges.length };
+}
+
+function formatKickDiagnostic(outcome: KickCompletionOutcome): string | undefined {
+  if (outcome.status === 'fired') return undefined;
+  if (outcome.status === 'failed') {
+    const message = outcome.error instanceof Error ? outcome.error.message : String(outcome.error);
+    return `Assistant-originated opening turn failed (${outcome.origin}): ${message}`;
+  }
+  if (outcome.reason === 'no_model_available') {
+    return 'Assistant-originated opening turn skipped: no model available.';
+  }
+  return undefined;
 }
 
 function isPresent<T>(value: T | undefined): value is T {
@@ -404,22 +423,32 @@ export function createBrunchAgentSessionRuntimeFactory(
       ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
     });
     liveAgentSession.current = created.session;
+    const kickDiagnostics: Array<{ type: 'warning'; message: string }> = [];
     // Complete the kick: a 'start' decision owes an actual assistant-originated
-    // LLM turn, which only the live AgentSession can run. Guarded on model
-    // availability so unauthenticated launches idle instead of erroring at
-    // boot. Fire-and-forget: sendCustomMessage with triggerTurn awaits the
-    // whole turn, and boot must not block on provider latency.
-    if (origination.decision.action === 'start' && services.modelRegistry.getAvailable().length > 0) {
-      void created.session
-        .sendCustomMessage(kickTurnMessage(origination.decision.origin), { triggerTurn: true })
-        .catch((error: unknown) => {
-          console.error('[brunch] assistant-originated opening turn failed:', error);
-        });
-    }
+    // LLM turn, which only the live AgentSession can run. Fire-and-forget:
+    // sendCustomMessage with triggerTurn awaits the whole turn, and boot must
+    // not block on provider latency. The completion seam classifies every
+    // exit, so launch paths no longer silently skip or bury failures in console
+    // IO.
+    void completeAssistantKick({
+      decision: origination.decision,
+      modelAvailable: services.modelRegistry.getAvailable().length > 0,
+      sendCustomMessage: (message, options) => created.session.sendCustomMessage(message, options),
+      onOutcome: (outcome) => {
+        if (context.dev) {
+          void appendOriginationRecordToDebugCache(context.dev.introspection.debugCache, {
+            decision: origination.decision,
+            outcome,
+          }).catch(() => {});
+        }
+        const message = formatKickDiagnostic(outcome);
+        if (message) kickDiagnostics.push({ type: 'warning', message });
+      },
+    });
     return {
       ...created,
       services,
-      diagnostics: services.diagnostics,
+      diagnostics: [...services.diagnostics, ...kickDiagnostics],
     };
   };
 }

@@ -8,6 +8,7 @@ import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
 import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
 import {
   appendEntryContentToDebugCache,
+  appendOriginationRecordToDebugCache,
   BRUNCH_INTROSPECTION_COMMAND,
   createInMemoryBrunchIntrospectionStore,
   mirrorSystemPromptToDebugCache,
@@ -83,6 +84,24 @@ describe('debug cache entry-contents mirror (origination-kick-live card 2)', () 
     expect(mirror).toContain('World update: 2 items.');
     expect(mirror.indexOf('brunch.own_mutation')).toBeLessThan(mirror.indexOf('worldUpdate'));
     expect(mirror).toContain('\n\n---\n\n');
+  });
+});
+
+describe('debug cache origination record mirror', () => {
+  it('records the decision and completion outcome for a boot', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-origination-mirror-'));
+    await appendOriginationRecordToDebugCache(
+      { cwd },
+      {
+        decision: { action: 'idle', reason: 'no_unresolved_debt' },
+        outcome: { status: 'skipped', reason: 'idle_no_unresolved_debt' },
+      },
+    );
+
+    const mirror = await readFile(join(cwd, '.brunch/debug/origination.md'), 'utf8');
+    expect(mirror).toContain('brunch.origination');
+    expect(mirror).toContain('"action": "idle"');
+    expect(mirror).toContain('"reason": "idle_no_unresolved_debt"');
   });
 });
 

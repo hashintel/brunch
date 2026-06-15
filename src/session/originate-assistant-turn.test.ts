@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
-import { originateAssistantTurn } from './originate-assistant-turn.js';
+import { completeAssistantKick, originateAssistantTurn } from './originate-assistant-turn.js';
 
 const specId = 4;
 
@@ -121,5 +121,75 @@ describe('originateAssistantTurn', () => {
     });
 
     expect(result.decision.action).toBe('idle');
+  });
+});
+
+describe('completeAssistantKick', () => {
+  it('fires a start decision and reports exactly one fired outcome', async () => {
+    const sent: unknown[] = [];
+    const outcomes: unknown[] = [];
+
+    await completeAssistantKick({
+      decision: { action: 'start', origin: 'new_session', seedEntries: [] },
+      modelAvailable: true,
+      sendCustomMessage: async (message, options) => {
+        sent.push({ message, options });
+      },
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({
+      message: { customType: 'brunch.kick', details: { origin: 'new_session' } },
+      options: { triggerTurn: true },
+    });
+    expect(outcomes).toEqual([{ status: 'fired', origin: 'new_session' }]);
+  });
+
+  it('classifies no-model and idle skips without sending a kick', async () => {
+    const sent: unknown[] = [];
+    const outcomes: unknown[] = [];
+
+    await completeAssistantKick({
+      decision: { action: 'start', origin: 'resume_debt', seedEntries: [] },
+      modelAvailable: false,
+      sendCustomMessage: async (message) => sent.push(message),
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+    await completeAssistantKick({
+      decision: { action: 'idle', reason: 'no_unresolved_debt', seedEntries: [] },
+      modelAvailable: true,
+      sendCustomMessage: async (message) => sent.push(message),
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+    await completeAssistantKick({
+      decision: { action: 'idle', reason: 'explicit_freestyle', seedEntries: [] },
+      modelAvailable: true,
+      sendCustomMessage: async (message) => sent.push(message),
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+
+    expect(sent).toEqual([]);
+    expect(outcomes).toEqual([
+      { status: 'skipped', reason: 'no_model_available' },
+      { status: 'skipped', reason: 'idle_no_unresolved_debt' },
+      { status: 'skipped', reason: 'idle_explicit_freestyle' },
+    ]);
+  });
+
+  it('routes kick failures through the outcome sink', async () => {
+    const error = new Error('provider rejected');
+    const outcomes: unknown[] = [];
+
+    await completeAssistantKick({
+      decision: { action: 'start', origin: 'manual_trigger', seedEntries: [] },
+      modelAvailable: true,
+      sendCustomMessage: async () => {
+        throw error;
+      },
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+
+    expect(outcomes).toEqual([{ status: 'failed', origin: 'manual_trigger', error }]);
   });
 });
