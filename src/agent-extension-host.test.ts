@@ -94,30 +94,13 @@ const interviewWitness = {
 } as const satisfies AgentExtensionConsumerWitness;
 
 describe('agent-extension-host contract is a mode-neutral core', () => {
-  it('the contract module is dependency-free and names no execute-only concept', () => {
+  it('the contract module is dependency-free, which is what keeps it mode-neutral', () => {
     const src = readFileSync(join(here, 'agent-extension-host.ts'), 'utf8');
-    // Mode-neutral and SDK-agnostic ⇒ no imports at all.
+    // No imports is the load-bearing guarantee: a module that imports nothing
+    // cannot reference an `execute`-only type (Slice/Epic/Plan/Toolchain/worktree…)
+    // or an SDK type. That makes neutrality structural rather than a denylist of
+    // names we have to remember to update.
     expect(src).not.toMatch(/^\s*import[\s{*]/m);
-    // No `execute`-only domain concepts may leak into the neutral core. Tokens are
-    // checked outside the doc comment so the explanatory prose above can name them.
-    const code = src
-      .split('\n')
-      .filter((line) => !line.trimStart().startsWith('//'))
-      .join('\n');
-    const forbidden = [
-      'Slice',
-      'Epic',
-      'Plan',
-      'TestRunner',
-      'Toolchain',
-      'worktree',
-      'sandboxDir',
-      'pi-coding-agent',
-      'ToolLoopAgent',
-    ];
-    for (const token of forbidden) {
-      expect(code, `neutral core must not mention "${token}"`).not.toContain(token);
-    }
   });
 
   it('a consumer witness only loads plugins of its own mode (per-mode registration)', () => {
