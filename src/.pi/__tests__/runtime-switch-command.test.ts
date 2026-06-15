@@ -13,6 +13,7 @@ import {
   BRUNCH_STRATEGY_COMMAND,
   registerBrunchCommands,
 } from '../extensions/commands/index.js';
+import { createTestLabTheme } from './support/tui-theme.js';
 
 interface RegisteredCommand {
   description?: string;
@@ -35,7 +36,13 @@ interface FakeCommandContext {
   };
 }
 
-function commandHarness(options: { customResult?: unknown; customAvailable?: boolean } = {}) {
+function commandHarness(
+  options: {
+    customResult?: unknown;
+    customAvailable?: boolean;
+    gaps?: ReturnType<typeof groundingFloorGaps>;
+  } = {},
+) {
   const entries: RuntimeEntry[] = [];
   const notifications: Array<{ message: string; level?: 'info' | 'warning' | 'error' }> = [];
   const commands = new Map<string, RegisteredCommand>();
@@ -81,7 +88,7 @@ function commandHarness(options: { customResult?: unknown; customAvailable?: boo
       requestChromeRefresh: () => {
         chromeRefreshes.push(chromeRefreshes.length + 1);
       },
-      getElicitationGaps: () => groundingFloorGaps(),
+      getElicitationGaps: () => options.gaps ?? groundingFloorGaps(),
     },
   );
 
@@ -124,7 +131,8 @@ describe('Brunch runtime switch commands', () => {
     await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
-    expect(harness.customCalls[0]?.options).toMatchObject({ overlay: true });
+    // No overlay options: the picker replaces the input editor in place.
+    expect(harness.customCalls[0]?.options).toBeUndefined();
     expect(harness.entries).toHaveLength(1);
     expect(harness.entries[0]?.data).toMatchObject({
       reason: 'switch',
@@ -140,7 +148,8 @@ describe('Brunch runtime switch commands', () => {
     await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
-    expect(harness.customCalls[0]?.options).toMatchObject({ overlay: true });
+    // No overlay options: the picker replaces the input editor in place.
+    expect(harness.customCalls[0]?.options).toBeUndefined();
     expect(harness.entries).toHaveLength(1);
     expect(harness.entries[0]?.data).toMatchObject({
       reason: 'switch',
@@ -227,16 +236,77 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.chromeRefreshes).toHaveLength(1);
   });
 
-  it('reports mode and accepts explicit elicit as a no-op instead of inventing future modes', async () => {
-    const harness = commandHarness();
+  it('allows pinning a readiness-thin strategy; readiness never bars the pin (D74-L)', async () => {
+    const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
+
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('propose-graph', harness.ctx);
+
+    expect(harness.entries).toHaveLength(1);
+    expect(harness.entries[0]?.data).toMatchObject({
+      reason: 'switch',
+      source: 'user',
+      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'propose-graph' },
+    });
+  });
+
+  it('keeps freestyle explicitly pinnable at zero floor coverage', async () => {
+    const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
+
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('freestyle', harness.ctx);
+
+    expect(harness.entries).toHaveLength(1);
+    expect(harness.entries[0]?.data).toMatchObject({
+      reason: 'switch',
+      source: 'user',
+      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'freestyle' },
+    });
+  });
+
+  it('marks readiness-thin options as caution in the pickers without disabling them', async () => {
+    const theme = createTestLabTheme();
+    const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
+
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
+
+    const renderPicker = (call?: { factory: (...args: unknown[]) => unknown }) => {
+      const component = call?.factory(undefined, theme, undefined, () => {}) as {
+        render(width: number): string[];
+      };
+      return component.render(220).join('\n');
+    };
+
+    const strategyText = renderPicker(harness.customCalls[0]);
+    expect(strategyText).toContain('-- NOTE: propose-graph and project-graph need more grounding');
+    // Caution options render muted gray while staying selectable.
+    expect(strategyText).toContain('\x1b[38;5;244mpropose-graph\x1b[39m');
+
+    expect(renderPicker(harness.customCalls[1])).toContain('-- NOTE: design and oracle need more grounding');
+  });
+
+  it('opens the mode picker for no-arg mode commands and never appends a runtime switch', async () => {
+    const harness = commandHarness({ customResult: 'elicit' });
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.customCalls).toHaveLength(1);
+    // No overlay options: the picker replaces the input editor in place.
+    expect(harness.customCalls[0]?.options).toBeUndefined();
+    // Elicit is the only enabled mode, so committing it is a no-op report.
+    expect(harness.entries).toEqual([]);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
+    ]);
+  });
+
+  it('reports explicit mode args without inventing future modes', async () => {
+    const harness = commandHarness();
+
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('elicit', harness.ctx);
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
     expect(harness.entries).toEqual([]);
     expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: expect.stringContaining('elicit') }),
       expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
       expect.objectContaining({ level: 'error', message: expect.stringContaining('Only elicit mode') }),
     ]);

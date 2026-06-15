@@ -1,7 +1,3 @@
-import { execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import type { Theme, ThemeColor } from '@earendil-works/pi-coding-agent';
 import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from '@earendil-works/pi-tui';
 
@@ -9,11 +5,8 @@ import type {
   WorkspaceLaunchInventory,
   SpecSessionActivationDecision,
 } from '../../../session/workspace-session-coordinator.js';
-import {
-  formatBrunchProductIdentity,
-  readBrunchAnsiLogo,
-  type BrunchVersionInfo,
-} from '../brunch-identity.js';
+import { formatBrunchProductIdentity, readBrunchAnsiLogo } from '../brunch-identity.js';
+import { resolveBrunchVersion } from '../brunch-version.js';
 import {
   buildWorkspaceSelectionView,
   selectWorkspaceSelectionOption,
@@ -24,8 +17,6 @@ import {
 export const WORKSPACE_DIALOG_WIDTH = 80;
 const CTRL_C = '\x03';
 const ASSET_DIR = new URL('./assets/', import.meta.url);
-const PACKAGE_JSON_URL = new URL('../../../../package.json', import.meta.url);
-const LOCAL_BUILD_TIME = formatBuildTime(new Date());
 
 export type WorkspaceDialogTheme = Pick<Theme, 'fg'>;
 
@@ -106,7 +97,7 @@ class WorkspaceDialogComponent implements Component {
     const lines = [
       ...formatBrunchProductIdentity({
         logoLines: readLogo(),
-        version: brunchVersion(),
+        version: resolveBrunchVersion(),
         ...(this.#theme ? { theme: this.#theme } : {}),
       }),
       '',
@@ -125,8 +116,8 @@ class WorkspaceDialogComponent implements Component {
       const selected = index === this.#selectedIndex;
       const prefix = selected ? style(this.#theme, 'accent', '› ') : '  ';
       const label = selected ? style(this.#theme, 'accent', option.label) : option.label;
-      lines.push(`${prefix}${label}`);
-      lines.push(`    ${style(this.#theme, 'dim', option.description)}`);
+      const detail = option.detail ? `  ${style(this.#theme, 'dim', option.detail)}` : '';
+      lines.push(`${prefix}${label}${detail}`);
     }
     lines.push('', style(this.#theme, 'dim', '↑↓ navigate • enter select • esc cancel'));
     return lines;
@@ -202,49 +193,6 @@ function renderFrame(content: string[], width: number, theme: WorkspaceDialogThe
     emptyLine(width, theme),
     bottomBorderLine(width, theme),
   ];
-}
-
-interface PackageJson {
-  version?: unknown;
-  private?: unknown;
-}
-
-function formatBuildTime(date: Date): string {
-  return date
-    .toISOString()
-    .replace('T', ' ')
-    .replace(/\.\d+Z$/, ' UTC');
-}
-
-function readPackage(): PackageJson {
-  try {
-    return JSON.parse(readFileSync(fileURLToPath(PACKAGE_JSON_URL), 'utf8')) as PackageJson;
-  } catch {
-    return {};
-  }
-}
-
-function getGitSha(): string {
-  try {
-    return execSync('git rev-parse --short=7 HEAD', {
-      cwd: fileURLToPath(new URL('../../../../../', import.meta.url)),
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    return '';
-  }
-}
-
-function brunchVersion(): BrunchVersionInfo {
-  const pkg = readPackage();
-  const version = typeof pkg.version === 'string' ? pkg.version : '0.0.0';
-  const isLocalDev = pkg.private === true || version === '0.0.0';
-  if (!isLocalDev) return { version: `v${version}`, dev: null };
-
-  const gitSha = getGitSha();
-  const devMeta = [gitSha, `@ ${LOCAL_BUILD_TIME}`].filter(Boolean).join(' ');
-  return { version: `v${version}`, dev: devMeta ? `(dev ${devMeta})` : '(dev)' };
 }
 
 function contentLine(content: string, width: number, theme: WorkspaceDialogTheme | undefined): string {

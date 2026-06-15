@@ -31,9 +31,11 @@ describe('Brunch chrome projection', () => {
     workspace.chrome.project = { name: 'Package App', slug: 'package-app' };
     const state = chromeStateForWorkspace(workspace);
 
-    expect(projectBrunchChromeFooterLines(state)[2]).toBe(
-      'proj: Package App | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
-    );
+    const calls: FakeUiCall[] = [];
+    renderBrunchChrome(fakeChromeUi(calls), state);
+    expect(calls.find((call) => call.method === 'setTitle')?.args).toEqual([
+      'brunch — Package App · Spec One',
+    ]);
   });
 
   it('formats honest Brunch chrome from one product-state snapshot', async () => {
@@ -45,10 +47,9 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      '/tmp/project  no model',
-      'no branch  ctx ──────────── ?% ?/0',
-      'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
-      'web-ui: http://127.0.0.1:49152/spec/1',
+      'spec / session [ctrl-shift-b]: Spec One / Interview #1  ui: http://127.0.0.1:49152/spec/1',
+      'mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: not reported',
+      'no model  ctx ──────────── ?% ?/0',
       '',
     ]);
   });
@@ -78,11 +79,9 @@ describe('Brunch chrome projection', () => {
         operationalModeDefinition: {} as never,
         agentRoleDefinition: {} as never,
       },
-    })[2];
+    })[1];
 
-    expect(footerLine).toBe(
-      'proj: project | spec: Spec One | mode: elicit | strategy: propose-graph | lens: intent',
-    );
+    expect(footerLine).toBe('mode [opt-m]: elicit | strategy [opt-s]: propose-graph | lens [opt-l]: intent');
     expect(footerLine).not.toContain('strategy: auto');
   });
 
@@ -105,9 +104,9 @@ describe('Brunch chrome projection', () => {
     };
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
-      '/tmp/project  claude-sonnet • medium',
-      'no branch  ctx ━━━━━━────── 50% 1.0k/2.0k',
-      'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: intent',
+      'spec / session [ctrl-shift-b]: Spec One / Interview #1',
+      'mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: intent',
+      'claude-sonnet • medium  ctx ━━━━━━────── 50% 1.0k/2.0k',
       '',
     ]);
   });
@@ -127,7 +126,6 @@ describe('Brunch chrome projection', () => {
         contextUsage: { usedTokens: 1024, maxTokens: 2048 },
       },
       {
-        gitBranch: 'main',
         statuses: new Map([
           ['brunch.reviewer', 'reviewer queued'],
           ['brunch.chrome', 'should not echo'],
@@ -137,12 +135,11 @@ describe('Brunch chrome projection', () => {
     ).join('\n');
 
     expect(footer).toContain('Spec One');
-    expect(footer).toContain('main');
     expect(footer).toContain('claude-sonnet');
     expect(footer).toContain('medium');
     expect(footer).toContain('ctx ━━━━━━────── 50% 1.0k/2.0k');
     expect(footer).toContain(
-      'proj: project | spec: Spec One | mode: not reported | strategy: not reported | lens: not reported',
+      'mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: not reported',
     );
     expect(footer).toContain('reviewer queued');
     expect(footer).not.toContain('should not echo');
@@ -185,8 +182,9 @@ describe('Brunch chrome projection', () => {
     );
     const collapsedLines = component.render(120);
     expect(collapsedLines.slice(0, 6)).toEqual(['', '', '', '', '', '']);
-    expect(collapsedLines.join('\n')).toContain('brunch v0.1.0');
-    expect(collapsedLines.join('\n')).toContain('/brunch switch');
+    expect(collapsedLines.join('\n')).toContain('brunch v1.0.0-alpha.0');
+    expect(collapsedLines.join('\n')).toContain('built on Pi v');
+    expect(collapsedLines.join('\n')).not.toContain('escape interrupt');
     expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
     expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');
     expect(collapsedLines.join('\n')).not.toContain('Spec One — session 1');

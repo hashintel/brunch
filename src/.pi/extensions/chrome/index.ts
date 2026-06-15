@@ -67,7 +67,8 @@ interface BrunchChromeStartupHeaderState {
 }
 
 export interface BrunchChromeFooterTelemetry {
-  gitBranch?: string | null;
+  /** Live session name from the session manager; overrides the launch-time label after `/name`. */
+  sessionName?: string | null;
   statuses?: ReadonlyMap<string, string>;
   contextUsage?: BrunchChromeContextUsage;
   liveContextUsage?: BrunchChromeLiveContextUsage;
@@ -116,27 +117,28 @@ export function projectBrunchChromeFooterLines(
 ): string[] {
   const available = width ?? Number.POSITIVE_INFINITY;
   const statuses = sanitizeChromeStatuses(telemetry?.statuses);
-  const branch = telemetry?.gitBranch ?? 'no branch';
 
-  const rootLine = alignChromeColumns(
-    style(theme, 'dim', shortenPath(resolve(chrome.cwd))),
-    style(theme, 'dim', formatModel(chrome, telemetry)),
-    available,
+  const sessionLabel = telemetry?.sessionName ?? chrome.session.label ?? chrome.session.id;
+  const specSessionPart = keyedStatusPart(
+    theme,
+    'spec / session',
+    'ctrl-shift-b',
+    `${formatSpec(chrome)} / ${sessionLabel}`,
   );
-  const branchLine = alignChromeColumns(
-    style(theme, 'dim', branch),
+  const specSessionLine = chrome.webSidecarUrl
+    ? alignChromeColumns(specSessionPart, formatWebUiPart(chrome.webSidecarUrl, theme), available)
+    : truncateChromeLine(specSessionPart, available, theme);
+  const modelLine = alignChromeColumns(
+    style(theme, 'dim', formatModel(chrome, telemetry)),
     renderContextGauge(chrome, telemetry, theme),
     available,
   );
 
   const lines = [
-    rootLine,
-    branchLine,
+    specSessionLine,
     truncateChromeLine(renderBrunchStatusLine(chrome, telemetry, theme), available, theme),
+    modelLine,
   ];
-  if (chrome.webSidecarUrl) {
-    lines.push(truncateChromeLine(formatWebUiLine(chrome.webSidecarUrl, theme), available, theme));
-  }
   if (statuses.length > 0) {
     lines.push(truncateChromeLine(statuses.join(' '), available, theme));
   }
@@ -157,8 +159,8 @@ function sanitizeStatusText(text: string): string {
     .trim();
 }
 
-function formatWebUiLine(url: string, theme: BrunchChromeTheme | undefined): string {
-  return style(theme, 'dim', `web-ui: ${sanitizeStatusText(url)}`);
+function formatWebUiPart(url: string, theme: BrunchChromeTheme | undefined): string {
+  return style(theme, 'dim', `ui: ${sanitizeStatusText(url)}`);
 }
 
 function alignChromeColumns(left: string, right: string, width: number): string {
@@ -205,14 +207,12 @@ export function renderBrunchChrome(
 ): void {
   ui.setFooter((tui, theme, footerData) => {
     options?.bindFooterRenderRequest?.(() => tui.requestRender());
-    const unsubscribe = footerData.onBranchChange(() => tui.requestRender());
     return {
       render: (width: number) =>
         projectBrunchChromeFooterLines(
           chrome,
           {
             ...options?.telemetry?.(),
-            gitBranch: footerData.getGitBranch(),
             statuses: footerData.getExtensionStatuses(),
             availableProviderCount: footerData.getAvailableProviderCount(),
           },
@@ -221,7 +221,6 @@ export function renderBrunchChrome(
         ),
       invalidate: () => {},
       dispose: () => {
-        unsubscribe();
         options?.bindFooterRenderRequest?.(null);
       },
     };
@@ -283,6 +282,7 @@ export default function brunchChrome(pi: ExtensionAPI): void {
 function footerTelemetryFromContext(ctx: ExtensionContext, pi: ExtensionAPI): BrunchChromeFooterTelemetry {
   const liveContextUsage = ctx.getContextUsage();
   return {
+    sessionName: ctx.sessionManager.getSessionName() ?? null,
     ...(liveContextUsage ? { liveContextUsage } : {}),
     model: ctx.model
       ? {
@@ -317,17 +317,30 @@ function renderBrunchStatusLine(
 ): string {
   const runtime = telemetry?.agentState;
   const parts = [
-    statusPart(theme, 'proj', formatProject(chrome)),
-    statusPart(theme, 'spec', formatSpec(chrome)),
-    statusPart(theme, 'mode', runtime?.operationalMode ?? chrome.runtime?.mode ?? 'not reported'),
-    statusPart(theme, 'strategy', runtime?.agentStrategy ?? chrome.runtime?.strategy ?? 'not reported'),
-    statusPart(theme, 'lens', runtime?.agentLens ?? chrome.runtime?.lens ?? 'not reported'),
+    keyedStatusPart(
+      theme,
+      'mode',
+      'opt-m',
+      runtime?.operationalMode ?? chrome.runtime?.mode ?? 'not reported',
+    ),
+    keyedStatusPart(
+      theme,
+      'strategy',
+      'opt-s',
+      runtime?.agentStrategy ?? chrome.runtime?.strategy ?? 'not reported',
+    ),
+    keyedStatusPart(theme, 'lens', 'opt-l', runtime?.agentLens ?? chrome.runtime?.lens ?? 'not reported'),
   ];
   return parts.join(style(theme, 'dim', ' | '));
 }
 
-function statusPart(theme: BrunchChromeTheme | undefined, label: string, value: string): string {
-  return `${style(theme, 'accent', `${label}:`)} ${style(theme, 'success', value)}`;
+function keyedStatusPart(
+  theme: BrunchChromeTheme | undefined,
+  label: string,
+  key: string,
+  value: string,
+): string {
+  return `${style(theme, 'accent', label)} ${style(theme, 'dim', `[${key}]:`)} ${style(theme, 'success', value)}`;
 }
 
 function formatModel(chrome: BrunchChromeState, telemetry: BrunchChromeFooterTelemetry | undefined): string {
@@ -385,12 +398,6 @@ function formatTokens(count: number | null | undefined): string {
   if (safeCount < 1000000) return `${Math.round(safeCount / 1000)}k`;
   if (safeCount < 10000000) return `${(safeCount / 1000000).toFixed(1)}M`;
   return `${Math.round(safeCount / 1000000)}M`;
-}
-
-function shortenPath(path: string): string {
-  const home = process.env.HOME ?? process.env.USERPROFILE;
-  if (home && path.startsWith(home)) return `~${path.slice(home.length)}`;
-  return path;
 }
 
 function style(theme: BrunchChromeTheme | undefined, color: ThemeColor, text: string): string {

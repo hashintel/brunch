@@ -1,0 +1,476 @@
+{
+  "spec": {
+    "slug": "layered-todo-spec",
+    "name": "layered-todo (reversed cook fixture)"
+  },
+  "nodes": [
+    {
+      "local_id": 1,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Build an in-memory Todo service with a CLI whose value is its dependency shape: a real fan-out→join (types → {store, validation} → service)…",
+      "body": "Build an in-memory Todo service with a CLI whose value is its dependency shape: a real fan-out→join (types → {store, validation} → service) plus a cross-epic gate (cli waits on all of core) — the shape a flat plan cannot represent.",
+      "basis": "explicit",
+      "source": "cook-port [goal]",
+      "detail": null
+    },
+    {
+      "local_id": 2,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Join",
+      "body": "Join — a slice depending on more than one upstream (service ← store + validation); unreachable until all upstream tokens land.",
+      "basis": "explicit",
+      "source": "cook-port [term-join]",
+      "detail": {
+        "definition": "a slice depending on more than one upstream (service ← store + validation); unreachable until all upstream tokens land."
+      }
+    },
+    {
+      "local_id": 3,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Cross-epic gate",
+      "body": "Cross-epic gate — an epic-level dependency (cli ← core) that holds every downstream slice until the upstream epic fully clears.",
+      "basis": "explicit",
+      "source": "cook-port [term-gate]",
+      "detail": {
+        "definition": "an epic-level dependency (cli ← core) that holds every downstream slice until the upstream epic fully clears."
+      }
+    },
+    {
+      "local_id": 4,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Fan-out",
+      "body": "Fan-out — sibling slices sharing one upstream with no edge between them (store and validation from types), so they run concurrently.",
+      "basis": "explicit",
+      "source": "cook-port [term-fanout]",
+      "detail": {
+        "definition": "sibling slices sharing one upstream with no edge between them (store and validation from types), so they run concurrently."
+      }
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Command surface",
+      "body": "Command surface — the thin cli epic: add/list/done functions over TodoService, not a standalone binary.",
+      "basis": "explicit",
+      "source": "cook-port [term-command]",
+      "detail": {
+        "definition": "the thin cli epic: add/list/done functions over TodoService, not a standalone binary."
+      }
+    },
+    {
+      "local_id": 6,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Greenfield brunch cook fixture: a core epic (types, store, validation, service) and a cli epic gated on core, run with --policy=parallel to…",
+      "body": "Greenfield brunch cook fixture: a core epic (types, store, validation, service) and a cli epic gated on core, run with --policy=parallel to show the join and gate live in Petrinaut.",
+      "basis": "explicit",
+      "source": "cook-port [ctx-roundtrip]",
+      "detail": null
+    },
+    {
+      "local_id": 7,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "In-memory only — no persistence, no I/O. Zero deps, ESM, bun test substrate.",
+      "body": "In-memory only — no persistence, no I/O. Zero deps, ESM, bun test substrate.",
+      "basis": "explicit",
+      "source": "cook-port [con-inmem]",
+      "detail": null
+    },
+    {
+      "local_id": 8,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Dependency edges encode genuine build-order only: no spurious edges (they serialise) and no missing edges (the join/gate is the point).",
+      "body": "Dependency edges encode genuine build-order only: no spurious edges (they serialise) and no missing edges (the join/gate is the point).",
+      "basis": "explicit",
+      "source": "cook-port [con-edges]",
+      "detail": null
+    },
+    {
+      "local_id": 9,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "File-disjoint slices; service.ts may import store and validation but each is its own file so the merge stays clean.",
+      "body": "File-disjoint slices; service.ts may import store and validation but each is its own file so the merge stays clean.",
+      "basis": "explicit",
+      "source": "cook-port [con-disjoint]",
+      "detail": null
+    },
+    {
+      "local_id": 10,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Edges encode genuine build-order only, producing the diamond: types root; store and validation on types; service on both; commands on servi…",
+      "body": "Edges encode genuine build-order only, producing the diamond: types root; store and validation on types; service on both; commands on service.\n\nRationale: This shape is what justifies a Petri net over a flat plan.\n\nImpact: high",
+      "basis": "explicit",
+      "source": "cook-port [d1]",
+      "detail": {
+        "chosen_option": "Edges encode genuine build-order only, producing the diamond: types root; store and validation on types; service on both; commands on service.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "This shape is what justifies a Petri net over a flat plan."
+      }
+    },
+    {
+      "local_id": 11,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "service is the JOIN node — it depends on both store and validation and cannot begin until both modules exist.",
+      "body": "service is the JOIN node — it depends on both store and validation and cannot begin until both modules exist.",
+      "basis": "explicit",
+      "source": "cook-port [d2]",
+      "detail": {
+        "chosen_option": "service is the JOIN node — it depends on both store and validation and cannot begin until both modules exist.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "(not recorded in source)"
+      }
+    },
+    {
+      "local_id": 12,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "The cli epic depends on the whole core epic — a cross-epic gate distinct from intra-epic slice dependencies.",
+      "body": "The cli epic depends on the whole core epic — a cross-epic gate distinct from intra-epic slice dependencies.",
+      "basis": "explicit",
+      "source": "cook-port [d3]",
+      "detail": {
+        "chosen_option": "The cli epic depends on the whole core epic — a cross-epic gate distinct from intra-epic slice dependencies.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "(not recorded in source)"
+      }
+    },
+    {
+      "local_id": 13,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "File-disjoint slices, one module + one unit-test oracle per slice; epic owns one e2e integration oracle.",
+      "body": "File-disjoint slices, one module + one unit-test oracle per slice; epic owns one e2e integration oracle.",
+      "basis": "explicit",
+      "source": "cook-port [d4]",
+      "detail": {
+        "chosen_option": "File-disjoint slices, one module + one unit-test oracle per slice; epic owns one e2e integration oracle.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "(not recorded in source)"
+      }
+    },
+    {
+      "local_id": 14,
+      "plane": "intent",
+      "kind": "assumption",
+      "title": "A simple string id() generator (monotonic or random) suffices for the in-memory store; no collision-resistance required.",
+      "body": "A simple string id() generator (monotonic or random) suffices for the in-memory store; no collision-resistance required.",
+      "basis": "explicit",
+      "source": "cook-port [a1]",
+      "detail": null
+    },
+    {
+      "local_id": 15,
+      "plane": "intent",
+      "kind": "assumption",
+      "title": "validateTitle bounds (non-empty, <= 200 chars) are the intended contract with no trimming/normalisation expected.",
+      "body": "validateTitle bounds (non-empty, <= 200 chars) are the intended contract with no trimming/normalisation expected.",
+      "basis": "explicit",
+      "source": "cook-port [a2]",
+      "detail": null
+    },
+    {
+      "local_id": 16,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/types.ts: Todo (id, title, done) and an id() generator. The root of the domain.",
+      "body": "src/types.ts: Todo (id, title, done) and an id() generator. The root of the domain.",
+      "basis": "explicit",
+      "source": "cook-port [r-types]",
+      "detail": null
+    },
+    {
+      "local_id": 17,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/store.ts: in-memory TodoStore with add/get/list/update/remove over Todo.",
+      "body": "src/store.ts: in-memory TodoStore with add/get/list/update/remove over Todo.",
+      "basis": "explicit",
+      "source": "cook-port [r-store]",
+      "detail": null
+    },
+    {
+      "local_id": 18,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/validation.ts: validateTitle (non-empty, <= 200) and validateTodo, throwing on invalid input.",
+      "body": "src/validation.ts: validateTitle (non-empty, <= 200) and validateTodo, throwing on invalid input.",
+      "basis": "explicit",
+      "source": "cook-port [r-validation]",
+      "detail": null
+    },
+    {
+      "local_id": 19,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/service.ts: TodoService composing store + validation — addTodo validates then stores; listTodos/completeTodo delegate. The join.",
+      "body": "src/service.ts: TodoService composing store + validation — addTodo validates then stores; listTodos/completeTodo delegate. The join.",
+      "basis": "explicit",
+      "source": "cook-port [r-service]",
+      "detail": null
+    },
+    {
+      "local_id": 20,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/commands/add.ts: add(service, title) creating a todo via the service and returning its id.",
+      "body": "src/commands/add.ts: add(service, title) creating a todo via the service and returning its id.",
+      "basis": "explicit",
+      "source": "cook-port [r-cmd-add]",
+      "detail": null
+    },
+    {
+      "local_id": 21,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/commands/list.ts: list(service) returning formatted lines per todo ([ ]/[x] + title).",
+      "body": "src/commands/list.ts: list(service) returning formatted lines per todo ([ ]/[x] + title).",
+      "basis": "explicit",
+      "source": "cook-port [r-cmd-list]",
+      "detail": null
+    },
+    {
+      "local_id": 22,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "src/commands/done.ts: done(service, id) marking a todo complete; throws if the id is unknown.",
+      "body": "src/commands/done.ts: done(service, id) marking a todo complete; throws if the id is unknown.",
+      "basis": "explicit",
+      "source": "cook-port [r-cmd-done]",
+      "detail": null
+    },
+    {
+      "local_id": 23,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "End-to-end add → list → done flows through the assembled service + commands, proving the cli epic composes over core.",
+      "body": "End-to-end add → list → done flows through the assembled service + commands, proving the cli epic composes over core.",
+      "basis": "explicit",
+      "source": "cook-port [r-e2e]",
+      "detail": null
+    },
+    {
+      "local_id": 24,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "ln-plan re-derives the diamond + cross-epic gate: types root; store/validation parallel on types; service on both; cli gated on core; comma…",
+      "body": "ln-plan re-derives the diamond + cross-epic gate: types root; store/validation parallel on types; service on both; cli gated on core; commands parallel.",
+      "basis": "explicit",
+      "source": "cook-port [c-plan-shape]",
+      "detail": null
+    },
+    {
+      "local_id": 25,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "A parallel cook run shows store + validation concurrent, service unreachable until both tokens land, and cli commands held until core clear…",
+      "body": "A parallel cook run shows store + validation concurrent, service unreachable until both tokens land, and cli commands held until core clears.",
+      "basis": "explicit",
+      "source": "cook-port [c-join-gate]",
+      "detail": null
+    },
+    {
+      "local_id": 26,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "All per-slice unit tests and the todo-e2e integration test pass green in the merged tree.",
+      "body": "All per-slice unit tests and the todo-e2e integration test pass green in the merged tree.",
+      "basis": "explicit",
+      "source": "cook-port [c-green]",
+      "detail": null
+    },
+    {
+      "local_id": 27,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "Slices are file-disjoint; service.ts is the only module importing both store and validation.",
+      "body": "Slices are file-disjoint; service.ts is the only module importing both store and validation.",
+      "basis": "explicit",
+      "source": "cook-port [c-disjoint]",
+      "detail": null
+    },
+    {
+      "local_id": 28,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Grounding exchange (ported interview)",
+      "body": "Q: Sketch layered-todo in one breath: what is it, and what dependency shape gives it value?\n\nA: An in-memory Todo service + CLI whose value is its diamond join (service needs store and validation) plus a cross-epic gate (cli waits on core).",
+      "basis": "explicit",
+      "source": "cook-port-interview",
+      "detail": null
+    },
+    {
+      "local_id": 29,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Design answer (ported interview)",
+      "body": "Encode genuine build-order only — the diamond join on service plus a cross-epic gate holding cli behind core.",
+      "basis": "explicit",
+      "source": "cook-port-interview",
+      "detail": null
+    }
+  ],
+  "edges": [
+    {
+      "category": "support",
+      "source_local_id": 28,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "support",
+      "source_local_id": 29,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 1,
+      "target_local_id": 16,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "support",
+      "source_local_id": 2,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "support",
+      "source_local_id": 3,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 1,
+      "target_local_id": 6,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 2,
+      "target_local_id": 11,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 3,
+      "target_local_id": 12,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 6,
+      "target_local_id": 10,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "boundary",
+      "source_local_id": 7,
+      "target_local_id": 1,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "boundary",
+      "source_local_id": 8,
+      "target_local_id": 19,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "boundary",
+      "source_local_id": 9,
+      "target_local_id": 1,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 10,
+      "target_local_id": 14,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 13,
+      "target_local_id": 15,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 25,
+      "target_local_id": 19,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 26,
+      "target_local_id": 23,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 27,
+      "target_local_id": 19,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 24,
+      "target_local_id": 19,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    }
+  ]
+}

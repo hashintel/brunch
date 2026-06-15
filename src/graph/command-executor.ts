@@ -127,6 +127,17 @@ interface ElicitationGapDispositionSuccess {
   readonly lsn: number;
 }
 
+export interface RepairSeededElicitationGapsSpecResult {
+  readonly specId: number;
+  readonly insertedCount: number;
+  readonly lsn: number;
+}
+
+interface RepairSeededElicitationGapsSuccess {
+  readonly status: 'success';
+  readonly repairedSpecs: readonly RepairSeededElicitationGapsSpecResult[];
+}
+
 /** Spec row returned by CommandExecutor reads. */
 export interface SpecRecord {
   readonly id: number;
@@ -144,6 +155,7 @@ export type CommandResult =
   | CreateSpecSuccess
   | ElicitationGapSuccess
   | ElicitationGapDispositionSuccess
+  | RepairSeededElicitationGapsSuccess
   | StructuralIllegal
   | NeedsHuman
   | PolicyBlocked
@@ -166,6 +178,9 @@ export type CreateElicitationGapResult = ElicitationGapSuccess | StructuralIlleg
 
 /** Result of a setElicitationGapDisposition command. */
 export type SetElicitationGapDispositionResult = ElicitationGapDispositionSuccess | StructuralIllegal;
+
+/** Result of repairing legacy specs missing the current seeded gap floor. */
+export type RepairSeededElicitationGapsResult = RepairSeededElicitationGapsSuccess;
 
 /** Successful accepted review-set graph batch execution. */
 interface AcceptReviewSetSuccess extends MutateGraphSuccess {}
@@ -759,24 +774,30 @@ export class CommandExecutor {
     return existing.nextOrdinal;
   }
 
+  private seededElicitationGapRows(
+    entries: readonly (typeof SEEDED_ELICITATION_GAPS)[number][],
+    specId: number,
+    lsn: number,
+  ) {
+    return entries.map((entry) => ({
+      spec_id: specId,
+      refers_to: entry.refersTo,
+      question: entry.question,
+      rationale: entry.rationale,
+      basis: entry.basis,
+      readiness_band: entry.band,
+      predicate_kind: entry.predicate.kind,
+      predicate: JSON.stringify(entry.predicate),
+      importance: entry.importance,
+      plane_affinity: entry.planeAffinity,
+      lens_affinity: entry.lensAffinity,
+      created_at_lsn: lsn,
+    }));
+  }
+
   private seedElicitationGaps(tx: Pick<BrunchDb, 'insert'>, specId: number, lsn: number): void {
     tx.insert(schema.elicitationGaps)
-      .values(
-        SEEDED_ELICITATION_GAPS.map((entry) => ({
-          spec_id: specId,
-          refers_to: entry.refersTo,
-          question: entry.question,
-          rationale: entry.rationale,
-          basis: entry.basis,
-          readiness_band: entry.band,
-          predicate_kind: entry.predicate.kind,
-          predicate: JSON.stringify(entry.predicate),
-          importance: entry.importance,
-          plane_affinity: entry.planeAffinity,
-          lens_affinity: entry.lensAffinity,
-          created_at_lsn: lsn,
-        })),
-      )
+      .values(this.seededElicitationGapRows(SEEDED_ELICITATION_GAPS, specId, lsn))
       .run();
   }
 
@@ -807,6 +828,49 @@ export class CommandExecutor {
         .run();
 
       return { status: 'success' as const, specId: row!.id, lsn };
+    });
+  }
+
+  /** Repair legacy/local specs that predate the current seeded elicitation-gap floor. */
+  repairSeededElicitationGaps(): RepairSeededElicitationGapsResult {
+    return this.db.transaction((tx) => {
+      const repairedSpecs: RepairSeededElicitationGapsSpecResult[] = [];
+      const specRows = tx.select({ id: schema.specs.id }).from(schema.specs).all();
+
+      for (const spec of specRows) {
+        const existingKinds = new Set(
+          tx
+            .select({ refersTo: schema.elicitationGaps.refers_to })
+            .from(schema.elicitationGaps)
+            .where(eq(schema.elicitationGaps.spec_id, spec.id))
+            .all()
+            .map((row) => row.refersTo),
+        );
+        const missing = SEEDED_ELICITATION_GAPS.filter((entry) => !existingKinds.has(entry.refersTo));
+        if (missing.length === 0) continue;
+
+        const lsn = this.bumpExistingSpecLsn(tx, spec.id);
+        tx.insert(schema.elicitationGaps)
+          .values(this.seededElicitationGapRows(missing, spec.id, lsn))
+          .run();
+        tx.insert(schema.changeLog)
+          .values({
+            spec_id: spec.id,
+            lsn,
+            operation: 'repair_seeded_elicitation_gaps',
+            payload: JSON.stringify({
+              specId: spec.id,
+              insertedGaps: missing.map((entry) => ({
+                refersTo: entry.refersTo,
+                predicateKind: entry.predicate.kind,
+              })),
+            }),
+          })
+          .run();
+        repairedSpecs.push({ specId: spec.id, insertedCount: missing.length, lsn });
+      }
+
+      return { status: 'success' as const, repairedSpecs };
     });
   }
 

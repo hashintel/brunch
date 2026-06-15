@@ -46,8 +46,10 @@ export interface WorkspaceGraphRuntime {
 
 export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceGraphRuntime> {
   const db = await openWorkspaceDb(cwd);
+  const commandExecutor = new CommandExecutor(db);
+  commandExecutor.repairSeededElicitationGaps();
   return {
-    commandExecutor: new CommandExecutor(db),
+    commandExecutor,
     forSpec(specId: number): SpecScopedReaders {
       return {
         queryGraph: (filter, options) => queryGraph(db, specId, filter, options),

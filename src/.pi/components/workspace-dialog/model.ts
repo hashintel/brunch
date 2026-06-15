@@ -23,7 +23,8 @@ export type WorkspaceSelectionStage =
 interface WorkspaceSelectionOption {
   id: string;
   label: string;
-  description: string;
+  /** Optional inline annotation (rendered dim after the label); only for information the label lacks. */
+  detail?: string;
   kind:
     | 'continue'
     | 'newSpec'
@@ -76,7 +77,6 @@ export function buildWorkspaceSelectionView(
       options: inventory.specs.map(({ spec }) => ({
         id: `spec:${spec.id}`,
         label: spec.title,
-        description: 'Choose how to continue this specification',
         kind: 'spec',
         nextStage: { stage: 'specAction', specId: spec.id },
       })),
@@ -89,7 +89,6 @@ export function buildWorkspaceSelectionView(
       {
         id: `new-session:${stage.specId}`,
         label: 'Create new session',
-        description: 'Start a binding-only session for this specification',
         kind: 'newSession',
         decision: { action: 'newSession', specId: stage.specId },
       },
@@ -98,7 +97,6 @@ export function buildWorkspaceSelectionView(
       options.push({
         id: `resume-session:${stage.specId}`,
         label: 'Resume existing session',
-        description: 'Choose a prior session transcript explicitly',
         kind: 'resumeSession',
         nextStage: { stage: 'sessionList', specId: stage.specId },
       });
@@ -120,7 +118,7 @@ export function buildWorkspaceSelectionView(
       options: (spec?.sessions ?? []).map((session) => ({
         id: `session:${session.file}`,
         label: session.name ?? session.id,
-        description: sessionDescription(session, 'Open existing session'),
+        ...(session.name ? { detail: session.id } : {}),
         kind: 'session',
         decision: {
           action: 'openSession',
@@ -171,7 +169,7 @@ function buildHomeSelectionView(
     selectionOptions.push({
       id: `continue:${currentSession.file}`,
       label: 'Continue your latest spec and session',
-      description: `${inventory.currentSpec.title} · ${currentSession.id}`,
+      detail: `${inventory.currentSpec.title} · ${currentSession.id}`,
       kind: 'continue',
       decision: {
         action: 'continue',
@@ -184,7 +182,6 @@ function buildHomeSelectionView(
   const newSpecOption: WorkspaceSelectionOption = {
     id: 'new-spec',
     label: 'Start a new specification',
-    description: 'Name a new spec and create its first session',
     kind: 'newSpec',
     nextStage: { stage: 'newSpecTitle', title: '' },
   };
@@ -196,7 +193,6 @@ function buildHomeSelectionView(
             viewOptions.includeContinue === false
               ? 'Switch to another specification'
               : 'Continue another existing specification',
-          description: 'Choose a spec, then create or resume a session',
           kind: 'resumeSpec',
           nextStage: { stage: 'specList' },
         }
@@ -204,7 +200,6 @@ function buildHomeSelectionView(
   const cancelOption: WorkspaceSelectionOption = {
     id: 'cancel',
     label: 'Cancel',
-    description: 'Exit without activating a spec/session',
     kind: 'cancel',
     decision: { action: 'cancel' },
   };
@@ -242,8 +237,4 @@ function findSpec(
   specId: number,
 ): WorkspaceLaunchInventory['specs'][number] | undefined {
   return inventory.specs.find((candidate) => candidate.spec.id === specId);
-}
-
-function sessionDescription(session: WorkspaceLaunchSession, prefix: string): string {
-  return `${prefix} · ${session.id}`;
 }

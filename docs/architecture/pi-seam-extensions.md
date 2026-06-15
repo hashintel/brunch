@@ -540,7 +540,7 @@ Flue's two real contributions — sandbox abstraction and remote deployment — 
 
 1. **`BrunchSandbox` interface, modeled on Flue's `SessionEnv` / `SandboxApi`.** When Brunch reaches the milestone where agent tool execution needs sandboxing (well after M0–M3 and likely after M5), introduce a Brunch-owned `BrunchSandbox` with the same shape: `exec(cmd, { cwd, env, timeout, signal })` plus the file primitives (`readFile`, `writeFile`, `stat`, `readdir`, `exists`, `mkdir`, `rm`). Provide an in-process default (the existing pi tools running against the host) and leave room for connector-style adapters per provider. The connector catalog format (`connectors/sandbox--<provider>.md` as installation instructions, not npm packages) is also worth copying: it keeps the Brunch core free of provider SDK dependencies.
 
-2. **`brunch-cli --mode serve` (or equivalent) remote deployment target, modeled on `flue build --target ...`.** When Brunch needs to run hosted/remote, the deployable artifact should be a build of the same Brunch host with the interactive adapters (TUI, slash commands, overlays) replaced by a transport adapter (HTTP+SSE or JSON-RPC over WebSocket). Flue's `flue-app.ts` Hono-based shape, its `RunSubscriberRegistry` for live-tail, and its Durable Object persistence pattern are all reasonable references. The point is that "headless remote Brunch" should be a *mode* of the same host, not a parallel codebase — which is the same posture the PRD already takes for the local modes.
+2. **`brunch --mode serve` (or equivalent) remote deployment target, modeled on `flue build --target ...`.** When Brunch needs to run hosted/remote, the deployable artifact should be a build of the same Brunch host with the interactive adapters (TUI, slash commands, overlays) replaced by a transport adapter (HTTP+SSE or JSON-RPC over WebSocket). Flue's `flue-app.ts` Hono-based shape, its `RunSubscriberRegistry` for live-tail, and its Durable Object persistence pattern are all reasonable references. The point is that "headless remote Brunch" should be a *mode* of the same host, not a parallel codebase — which is the same posture the PRD already takes for the local modes.
 
 3. **MCP tool adapter shape, modeled on `connectMcpServer`.** Even if Brunch's POC does not expose MCP to end users, the function-level shape (`connectMcpServer(name, { url, headers, transport? }) → { tools, close }`) is worth replicating when Brunch needs remote tool wiring. Keep it adapter-level; do not bake MCP into the Brunch system prompt or curated toolset.
 
@@ -560,7 +560,7 @@ These adoptions do not change the POC milestone ladder. They are deferred and ad
 
 - **M0–M9** proceed against pi-coding-agent as planned.
 - A post-M9 sandbox milestone introduces `BrunchSandbox` as the abstraction layer between pi tool execution and the host or a remote provider.
-- A separate post-M9 remote-deployment milestone introduces `brunch-cli --mode serve` against the same Brunch host, with the interactive adapters replaced by a headless transport adapter.
+- A separate post-M9 remote-deployment milestone introduces `brunch --mode serve` against the same Brunch host, with the interactive adapters replaced by a headless transport adapter.
 
 Both items should be tracked in `memory/PLAN.md` as deferred frontier items rather than POC scope.
 

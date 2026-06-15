@@ -8,7 +8,6 @@ import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../components/alternatives.js';
 import chrome from '../extensions/chrome/index.js';
 import {
-  BRUNCH_CONTINUE_COMMAND,
   BRUNCH_LENS_COMMAND,
   BRUNCH_MODE_COMMAND,
   BRUNCH_STRATEGY_COMMAND,
@@ -86,13 +85,12 @@ describe('Brunch explicit Pi extension registry', () => {
     ]);
     expect(recording.commandNames).toEqual([
       BRUNCH_SWITCH_COMMAND,
-      BRUNCH_CONTINUE_COMMAND,
       BRUNCH_LENS_COMMAND,
       BRUNCH_STRATEGY_COMMAND,
       BRUNCH_MODE_COMMAND,
     ]);
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
-    expect(recording.shortcuts).toEqual(['ctrl+shift+b']);
+    expect(recording.shortcuts).toEqual(['alt+m', 'alt+s', 'alt+l', 'ctrl+shift+b']);
     expect(recording.eventNames).toEqual([
       'session_start',
       'before_agent_start',

@@ -132,6 +132,19 @@ describe('Brunch CLI dispatch', () => {
     ]);
   });
 
+  it('keeps the web sidecar browser launch opt-in via --open-web', async () => {
+    const launches: boolean[] = [];
+    const launchTui = async (options?: { openWeb?: boolean }) => {
+      launches.push(options?.openWeb === true);
+    };
+
+    await runBrunchCli({ argv: [], coordinator: coordinator(), launchTui });
+    await runBrunchCli({ argv: ['--open-web'], coordinator: coordinator(), launchTui });
+    await runBrunchCli({ argv: ['--open-web=false'], coordinator: coordinator(), launchTui });
+
+    expect(launches).toEqual([false, true, false]);
+  });
+
   it('routes --mode print through the coordinator state and exits', async () => {
     let output = '';
 
@@ -150,7 +163,7 @@ describe('Brunch CLI dispatch', () => {
   });
 
   it('routes --mode rpc session projection through the coordinator-selected session', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cli-rpc-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-'));
     const manager = SessionManager.create(cwd, join(cwd, '.brunch/sessions'));
     manager.appendCustomEntry(
       'brunch.session_binding',
@@ -183,7 +196,7 @@ describe('Brunch CLI dispatch', () => {
   });
 
   it('shares one product update publisher between RPC handlers and the stdio line server', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cli-rpc-updates-'));
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-updates-'));
     const workspace = await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
       specTitle: 'RPC updates',
     });
@@ -298,9 +311,9 @@ describe('Brunch CLI dispatch', () => {
     }
   });
   it('uses --cwd product RPC to inspect the named workspace rather than the shell cwd', async () => {
-    const shellCwd = await mkdtemp(join(tmpdir(), 'brunch-cli-shell-'));
-    const seededWorkspace = await mkdtemp(join(tmpdir(), 'brunch-cli-seeded-'));
-    const emptySibling = await mkdtemp(join(tmpdir(), 'brunch-cli-empty-'));
+    const shellCwd = await mkdtemp(join(tmpdir(), 'brunch-shell-'));
+    const seededWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seeded-'));
+    const emptySibling = await mkdtemp(join(tmpdir(), 'brunch-empty-'));
     await runSeedFixturesCli({
       argv: ['--workspace', seededWorkspace, '--seed', 'workspace-spread/alpha-grounding'],
       cwd: shellCwd,

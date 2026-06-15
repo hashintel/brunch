@@ -111,7 +111,8 @@ export interface BrunchTuiOptions {
   ) => Promise<SpecSessionActivationDecision>;
   launchInteractive?: (context: BrunchTuiLaunchContext) => Promise<void>;
   webSidecarRunner?: (options: BrunchWebSidecarRunnerOptions) => Promise<BrunchWebSidecar | null>;
-  autoOpen?: boolean;
+  /** Opt-in (`--open-web`): launch the web sidecar URL in the default browser. */
+  openWeb?: boolean;
   openBrowser?: (url: string) => Promise<void>;
   advertiseWebSidecar?: (url: string) => void;
 }
@@ -143,7 +144,7 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
   if (webSidecarUrl) {
     options.advertiseWebSidecar?.(webSidecarUrl);
-    if (shouldAutoOpenWebSidecar(options.autoOpen, dev)) {
+    if (options.openWeb === true) {
       await (options.openBrowser ?? openBrowser)(webSidecarUrl);
     }
   }
@@ -170,13 +171,6 @@ function createBrunchTuiDevOptions(cwd: string): BrunchTuiDevOptions | undefined
       debugCache: { cwd },
     },
   };
-}
-
-function shouldAutoOpenWebSidecar(
-  autoOpen: boolean | undefined,
-  dev: BrunchTuiDevOptions | undefined,
-): boolean {
-  return autoOpen ?? dev === undefined;
 }
 
 export function startupHeaderForActivation(
@@ -329,6 +323,13 @@ export function createBrunchAgentSessionRuntimeFactory(
     const bindCurrentWorkspace = async (replacementSessionManager: typeof sessionManager) => {
       currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
     };
+    // Late-bound: the AgentSession exists only after createAgentSessionFromServices
+    // below, but extension factories close over this ref now. Keyboard shortcuts
+    // borrow a command-capable context (switchSession, waitForIdle) from the live
+    // session, which Pi's own shortcut contexts do not carry.
+    const liveAgentSession: {
+      current: Awaited<ReturnType<typeof createAgentSessionFromServices>>['session'] | null;
+    } = { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
     const profile = createBrunchPiSettings({
       cwd,
@@ -342,6 +343,8 @@ export function createBrunchAgentSessionRuntimeFactory(
           bindCurrentWorkspace,
           {
             coordinator,
+            getCommandContext: () => liveAgentSession.current?.createReplacedSessionContext(),
+            ...(productUpdates ? { productUpdates } : {}),
             graph: graphDeps,
             ...(context.dev ? { introspection: context.dev.introspection } : {}),
             promptContext: () => {
@@ -400,6 +403,7 @@ export function createBrunchAgentSessionRuntimeFactory(
       sessionManager,
       ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
     });
+    liveAgentSession.current = created.session;
     // Complete the kick: a 'start' decision owes an actual assistant-originated
     // LLM turn, which only the live AgentSession can run. Guarded on model
     // availability so unauthenticated launches idle instead of erroring at

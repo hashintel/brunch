@@ -12,7 +12,7 @@ Current entrypoints:
   reserved but deferred: the browser client is served only as the TUI sidecar
   (a standalone headless web host is a future feature).
 - `brunch-tui.ts` — TUI launch path, embedded Pi session runtime wiring, and the
-  web sidecar (`startWebHost` + browser auto-open).
+  web sidecar (`startWebHost`; browser launch is opt-in via `--open-web`).
 
 ## Does not own
 

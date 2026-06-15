@@ -1,5 +1,6 @@
-import type { ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
+import type { ExtensionCommandContext, ExtensionContext } from '@earendil-works/pi-coding-agent';
 
+import { selectedSessionProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
 import {
   type WorkspaceSessionReadyState,
   type SpecSessionActivationCoordinator,
@@ -13,7 +14,23 @@ import { chromeStateForWorkspace, renderBrunchChrome } from '../chrome/index.js'
 
 export interface BrunchSpecSessionPickerOptions {
   coordinator: SpecSessionActivationCoordinator;
+  /**
+   * Shared product-update publisher. TUI-driven spec/session switches publish
+   * the same `selectedSessionProductUpdates` payload as the RPC
+   * `workspace.activate` handler, so attached web sidecars learn that
+   * workspace defaults changed (SPEC assumption 12 corollary).
+   */
+  productUpdates?: ProductUpdatePublisher;
 }
+
+/**
+ * Context accepted by the workspace picker action. Command contexts carry
+ * `waitForIdle`/`switchSession`; Pi shortcut contexts do not, so both are
+ * optional and the action degrades gracefully (no idle wait; cross-session
+ * switches warn instead of switching).
+ */
+export type BrunchWorkspaceActionContext = ExtensionContext &
+  Partial<Pick<ExtensionCommandContext, 'waitForIdle' | 'switchSession'>>;
 
 export async function runBrunchWorkspaceCommand(
   ctx: ExtensionCommandContext,
@@ -23,9 +40,9 @@ export async function runBrunchWorkspaceCommand(
 }
 
 export async function runBrunchWorkspaceAction(
-  ctx: ExtensionCommandContext,
+  ctx: BrunchWorkspaceActionContext,
   coordinator: SpecSessionActivationCoordinator,
-  options: { waitForIdle?: boolean } = {},
+  options: { waitForIdle?: boolean; productUpdates?: ProductUpdatePublisher } = {},
 ): Promise<void> {
   if (options.waitForIdle !== false && canWaitForIdle(ctx)) {
     await ctx.waitForIdle();
@@ -60,17 +77,23 @@ export async function runBrunchWorkspaceAction(
     return;
   }
 
+  // Workspace defaults changed (activateWorkspace wrote them); notify attached
+  // sidecars regardless of whether the Pi-level session switch below succeeds.
+  options.productUpdates?.publish(
+    selectedSessionProductUpdates({ specId: activated.spec.id, sessionId: activated.session.id }),
+  );
+
   await switchToActivatedWorkspace(ctx, activated);
 }
 
 function canWaitForIdle(
-  ctx: ExtensionCommandContext,
-): ctx is ExtensionCommandContext & { waitForIdle: () => Promise<void> } {
+  ctx: BrunchWorkspaceActionContext,
+): ctx is BrunchWorkspaceActionContext & { waitForIdle: () => Promise<void> } {
   return typeof ctx.waitForIdle === 'function';
 }
 
 async function switchToActivatedWorkspace(
-  ctx: ExtensionCommandContext,
+  ctx: BrunchWorkspaceActionContext,
   activated: WorkspaceSessionReadyState,
 ): Promise<void> {
   if (typeof ctx.switchSession !== 'function') {

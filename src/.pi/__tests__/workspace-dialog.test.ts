@@ -121,6 +121,23 @@ describe('spec/session picker', () => {
     expect(text).not.toContain('Open workspace');
   });
 
+  it('renders each option on a single line, with detail inline only when informative', () => {
+    const component = createWorkspaceDialogComponent({
+      inventory: inventory(),
+      onDecision: () => {},
+    });
+
+    const lines = component.render(100);
+
+    // Boilerplate help lines are gone.
+    expect(lines.join('\n')).not.toContain('Choose a spec, then create or resume a session');
+    expect(lines.join('\n')).not.toContain('Name a new spec and create its first session');
+    expect(lines.join('\n')).not.toContain('Exit without activating a spec/session');
+    // The continue option keeps its spec · session detail on the same line.
+    const continueLine = lines.find((line) => line.includes('Continue your latest spec and session'));
+    expect(continueLine).toContain('Alpha · session-alpha-current');
+  });
+
   it('omits continue-latest from in-session picker contexts', () => {
     const component = createWorkspaceDialogComponent({
       inventory: inventory(),
@@ -276,7 +293,7 @@ describe('spec/session picker', () => {
     expect(lines[0]).toContain('╭');
     expect(lines[1]).toMatch(/^\[borderMuted\]│\[\/borderMuted\]\s+\[borderMuted\]│\[\/borderMuted\]$/);
     expect(lines.some((line) => line.includes('Choose a specification'))).toBe(true);
-    expect(lines.some((line) => line.includes('brunch v0.1.0'))).toBe(true);
+    expect(lines.some((line) => line.includes('brunch v1.0.0-alpha.0'))).toBe(true);
     expect(lines.some((line) => line.includes('brunch v0.0.0'))).toBe(false);
     expect(lines.some((line) => line.includes('[success](dev'))).toBe(true);
     expect(lines.some((line) => line.includes('built on Pi v'))).toBe(true);

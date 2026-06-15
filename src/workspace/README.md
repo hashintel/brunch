@@ -8,7 +8,7 @@ Cwd/package/workspace identity helpers and their tests.
 
 Current state:
 
-- `package-identity.test.ts` protects package-level CLI identity (`brunch-cli`, version floor, executable bin shim).
+- `package-identity.test.ts` protects package-level CLI identity (`brunch`, version floor, executable bin shim).
 - No reusable workspace identity source module has been extracted yet; add one here only when current code needs it.
 
 ## Does not own

@@ -22,7 +22,7 @@ Manual testing happens in a **workbench** — a launchable cwd under `.fixtures/
 npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding --reset
 
 # 2. Launch the TUI (plus web observer sidecar) against that workbench.
-npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode tui --auto-open=false
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode tui
 ```
 
 Then:

@@ -145,10 +145,38 @@ export function axisOptionsForRuntimeState(
     );
   }
   if (axis === 'strategy') {
-    const legal = state.agentRoleDefinition.allowedStrategies.filter((id) =>
+    const legal = pinnableAxisOptionsForRuntimeState('strategy', state, gaps);
+    return state.agentStrategy === 'auto' ? legal.filter((id) => !AUTO_EXCLUDED_STRATEGIES.has(id)) : legal;
+  }
+  return pinnableAxisOptionsForRuntimeState('lens', state, gaps);
+}
+
+/**
+ * Options a user may explicitly pin on a user-mutable axis: role-allowed and
+ * capability-readiness-legal over the selected spec's gaps (D74-L). Unlike the
+ * AUTO-manifest view (`axisOptionsForRuntimeState`), the pin surface never
+ * applies the AUTO exclusion — `freestyle` is an explicit user pin (D66-L).
+ * `goal` is not user-mutable (D59-L) and has no pin surface.
+ */
+export function pinnableAxisOptionsForRuntimeState(
+  axis: 'strategy',
+  state: ResolvedBrunchAgentState,
+  gaps: readonly ElicitationGap[],
+): readonly AgentStrategyId[];
+export function pinnableAxisOptionsForRuntimeState(
+  axis: 'lens',
+  state: ResolvedBrunchAgentState,
+  gaps: readonly ElicitationGap[],
+): readonly AgentLensId[];
+export function pinnableAxisOptionsForRuntimeState(
+  axis: 'strategy' | 'lens',
+  state: ResolvedBrunchAgentState,
+  gaps: readonly ElicitationGap[],
+): readonly (AgentStrategyId | AgentLensId)[] {
+  if (axis === 'strategy') {
+    return state.agentRoleDefinition.allowedStrategies.filter((id) =>
       isCapabilityLegalForGaps(STRATEGY_CAPABILITY[id], gaps),
     );
-    return state.agentStrategy === 'auto' ? legal.filter((id) => !AUTO_EXCLUDED_STRATEGIES.has(id)) : legal;
   }
   return state.agentRoleDefinition.allowedLenses.filter((id) =>
     isCapabilityLegalForGaps(LENS_CAPABILITY[id], gaps),

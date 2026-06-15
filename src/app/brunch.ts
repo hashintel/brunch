@@ -65,7 +65,7 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
     await (options.launchTui ?? runBrunchTui)({
       cwd,
       coordinator,
-      autoOpen: parseAutoOpen(argv),
+      openWeb: parseOpenWeb(argv),
     });
     return 0;
   }
@@ -131,12 +131,11 @@ function parseMode(argv: string[]): string {
   return 'tui';
 }
 
-function parseAutoOpen(argv: string[]): boolean {
-  const autoOpenEquals = argv.find((arg) => arg.startsWith('--auto-open='));
-  if (!autoOpenEquals) {
-    return true;
-  }
-  return autoOpenEquals.slice('--auto-open='.length) !== 'false';
+function parseOpenWeb(argv: string[]): boolean {
+  if (argv.includes('--open-web')) return true;
+  const openWebEquals = argv.find((arg) => arg.startsWith('--open-web='));
+  if (!openWebEquals) return false;
+  return openWebEquals.slice('--open-web='.length) !== 'false';
 }
 
 async function main(): Promise<void> {

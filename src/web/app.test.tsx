@@ -114,6 +114,8 @@ const foundNeighborhood = {
 
 function rpcClient(options?: {
   state?: WorkspaceState;
+  /** Live state read on every workspace.state request; takes precedence over `state`. */
+  getState?: () => WorkspaceState;
   selectionState?: unknown;
   graphOverview?: GraphSlice;
   nodeNeighborhood?: NodeNeighborhood;
@@ -128,7 +130,7 @@ function rpcClient(options?: {
     async request<T>(method: string, params?: unknown): Promise<T> {
       calls?.push(params === undefined ? { method } : { method, params });
       if (method === 'workspace.state') {
-        return state as T;
+        return (options?.getState ? options.getState() : state) as T;
       }
       if (method === 'workspace.selectionState') {
         return (options?.selectionState ?? emptySelectionState) as T;
@@ -332,6 +334,66 @@ describe('Brunch React web app', () => {
     expect(
       client.getQueryCache().find({ queryKey: otherNeighborhoodKey, exact: true })?.state.isInvalidated,
     ).toBe(false);
+  });
+
+  it('follows a workspace spec switch when viewing the previously selected spec', async () => {
+    window.history.pushState(null, '', '/spec/1');
+    const listeners = new Set<WebSocketRpcNotificationListener>();
+    let current: WorkspaceState = readyState; // selected spec 1
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ listeners, getState: () => current, graphOverview: populatedGraphOverview }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+    expect(await screen.findByText('Spec A requirement')).toBeTruthy();
+
+    current = {
+      ...readyState,
+      spec: { id: 2, title: 'Second spec' },
+      session: { id: 'session-2', file: '/tmp/session-2.jsonl' },
+    };
+    for (const listener of listeners) {
+      listener({
+        jsonrpc: '2.0',
+        method: 'brunch.updated',
+        params: { updates: [{ topic: 'workspace.state', specId: 2, sessionId: 'session-2' }] },
+      });
+    }
+
+    await waitFor(() => expect(runtime.router.state.location.pathname).toBe('/spec/2'));
+  });
+
+  it('stays put on a workspace spec switch when viewing a different spec', async () => {
+    window.history.pushState(null, '', '/spec/3');
+    const listeners = new Set<WebSocketRpcNotificationListener>();
+    let current: WorkspaceState = readyState; // selected spec 1, client browsed elsewhere
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({ listeners, getState: () => current }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+    await waitFor(() => expect(runtime.router.state.location.pathname).toBe('/spec/3'));
+
+    current = {
+      ...readyState,
+      spec: { id: 2, title: 'Second spec' },
+      session: { id: 'session-2', file: '/tmp/session-2.jsonl' },
+    };
+    for (const listener of listeners) {
+      listener({
+        jsonrpc: '2.0',
+        method: 'brunch.updated',
+        params: { updates: [{ topic: 'workspace.state', specId: 2, sessionId: 'session-2' }] },
+      });
+    }
+
+    // Web view selection stays client-local: no navigation away from spec 3.
+    await waitFor(() =>
+      expect(runtime.queryClient.getQueryData(queryKeys.workspace.state())).toMatchObject({
+        spec: { id: 2 },
+      }),
+    );
+    expect(runtime.router.state.location.pathname).toBe('/spec/3');
   });
 
   it('invalidates the exact selected-spec graph overview query on graph notifications', async () => {

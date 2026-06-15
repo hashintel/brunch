@@ -57,6 +57,14 @@ export const DEFAULT_BRUNCH_AGENT_STATE: BrunchAgentState = {
 
 // Runtime axis vocabularies are exported for adapter surfaces that validate user-authored posture switches.
 export const OPERATIONAL_MODE_IDS: readonly OperationalModeId[] = ['elicit'];
+/**
+ * Planned operational modes shown (disabled) on display surfaces such as the
+ * mode picker. Not valid runtime state: deliberately outside OperationalModeId
+ * until implemented.
+ */
+export const PLANNED_OPERATIONAL_MODE_IDS = ['execute'] as const;
+export type PlannedOperationalModeId = (typeof PLANNED_OPERATIONAL_MODE_IDS)[number];
+export type OperationalModeChoice = OperationalModeId | PlannedOperationalModeId;
 export const AGENT_STRATEGY_IDS: readonly AgentStrategyId[] = [
   'freestyle',
   'step-wise-decision-tree',

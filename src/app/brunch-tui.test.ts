@@ -57,7 +57,6 @@ describe('Brunch TUI boot', () => {
 
     await runBrunchTui({
       cwd,
-      autoOpen: false,
       selectSpecTitle: async () => {
         events.push('select-spec');
         return 'Gated spec';
@@ -183,7 +182,6 @@ describe('Brunch TUI boot', () => {
 
     await runBrunchTui({
       cwd: '/tmp/project',
-      autoOpen: false,
       coordinator: {
         inspectWorkspace: async () => {
           events.push('inspect');
@@ -251,7 +249,6 @@ describe('Brunch TUI boot', () => {
 
     await runBrunchTui({
       cwd: '/tmp/project',
-      autoOpen: false,
       coordinator: {
         inspectWorkspace: async () => {
           events.push('inspect');
@@ -319,7 +316,6 @@ describe('Brunch TUI boot', () => {
       process.env.BRUNCH_DEV = '1';
       await runBrunchTui({
         cwd: '/tmp/project',
-        autoOpen: false,
         coordinator: {
           inspectWorkspace: async () => ({
             cwd: '/tmp/project',
@@ -348,7 +344,6 @@ describe('Brunch TUI boot', () => {
       delete process.env.BRUNCH_DEV;
       await runBrunchTui({
         cwd: '/tmp/project',
-        autoOpen: false,
         coordinator: {
           inspectWorkspace: async () => ({
             cwd: '/tmp/project',
@@ -451,12 +446,13 @@ describe('Brunch TUI boot', () => {
     expect(buildConfig.exclude).toContain('src/dev');
   });
 
-  it('opens the advertised sidecar route only through the injected opener', async () => {
+  it('opens the advertised sidecar route only through the injected opener when openWeb is enabled', async () => {
     const events: string[] = [];
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
 
     await runBrunchTui({
       cwd: '/tmp/project',
+      openWeb: true,
       coordinator: {
         inspectWorkspace: async () => ({
           cwd: '/tmp/project',
@@ -498,129 +494,12 @@ describe('Brunch TUI boot', () => {
       'sidecar-close',
     ]);
   });
-  it('defaults browser auto-open off under BRUNCH_DEV while still advertising the sidecar route', async () => {
-    const previous = process.env.BRUNCH_DEV;
-    const events: string[] = [];
-    const workspace = readyWorkspace('/tmp/project', 'session-ready');
-
-    try {
-      process.env.BRUNCH_DEV = '1';
-      await runBrunchTui({
-        cwd: '/tmp/project',
-        coordinator: {
-          inspectWorkspace: async () => ({
-            cwd: '/tmp/project',
-            currentSpec: workspace.spec,
-            currentSessionFile: workspace.session.file,
-            needsNewSpec: false,
-            specs: [],
-            unavailableSessions: [],
-          }),
-          activateWorkspace: async () => workspace,
-          bindCurrentSpecToReplacementSession: async () => workspace,
-        },
-        runWorkspaceDialogPreflight: async () => ({
-          action: 'continue',
-          specId: workspace.spec.id,
-          sessionFile: workspace.session.file,
-        }),
-        webSidecarRunner: async () => ({
-          url: 'http://127.0.0.1:49152',
-          async close() {
-            events.push('sidecar-close');
-          },
-        }),
-        advertiseWebSidecar: (url) => {
-          events.push(`advertise:${url}`);
-        },
-        openBrowser: async (url) => {
-          events.push(`open:${url}`);
-        },
-        launchInteractive: async ({ webSidecarUrl }) => {
-          events.push(`launch:${webSidecarUrl}`);
-        },
-      });
-    } finally {
-      if (previous === undefined) {
-        delete process.env.BRUNCH_DEV;
-      } else {
-        process.env.BRUNCH_DEV = previous;
-      }
-    }
-
-    expect(events).toEqual([
-      'advertise:http://127.0.0.1:49152/spec/1',
-      'launch:http://127.0.0.1:49152/spec/1',
-      'sidecar-close',
-    ]);
-  });
-
-  it('honors explicit browser auto-open under BRUNCH_DEV', async () => {
-    const previous = process.env.BRUNCH_DEV;
-    const events: string[] = [];
-    const workspace = readyWorkspace('/tmp/project', 'session-ready');
-
-    try {
-      process.env.BRUNCH_DEV = '1';
-      await runBrunchTui({
-        cwd: '/tmp/project',
-        autoOpen: true,
-        coordinator: {
-          inspectWorkspace: async () => ({
-            cwd: '/tmp/project',
-            currentSpec: workspace.spec,
-            currentSessionFile: workspace.session.file,
-            needsNewSpec: false,
-            specs: [],
-            unavailableSessions: [],
-          }),
-          activateWorkspace: async () => workspace,
-          bindCurrentSpecToReplacementSession: async () => workspace,
-        },
-        runWorkspaceDialogPreflight: async () => ({
-          action: 'continue',
-          specId: workspace.spec.id,
-          sessionFile: workspace.session.file,
-        }),
-        webSidecarRunner: async () => ({
-          url: 'http://127.0.0.1:49152',
-          async close() {
-            events.push('sidecar-close');
-          },
-        }),
-        advertiseWebSidecar: (url) => {
-          events.push(`advertise:${url}`);
-        },
-        openBrowser: async (url) => {
-          events.push(`open:${url}`);
-        },
-        launchInteractive: async () => {
-          events.push('launch');
-        },
-      });
-    } finally {
-      if (previous === undefined) {
-        delete process.env.BRUNCH_DEV;
-      } else {
-        process.env.BRUNCH_DEV = previous;
-      }
-    }
-
-    expect(events).toEqual([
-      'advertise:http://127.0.0.1:49152/spec/1',
-      'open:http://127.0.0.1:49152/spec/1',
-      'launch',
-      'sidecar-close',
-    ]);
-  });
-
-  it('can disable browser auto-open while still advertising the active spec sidecar route', async () => {
+  it('does not open the browser by default while still advertising the active spec sidecar route', async () => {
     const events: string[] = [];
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
 
     await runBrunchTui({
       cwd: '/tmp/project',
-      autoOpen: false,
       coordinator: {
         inspectWorkspace: async () => ({
           cwd: '/tmp/project',
@@ -718,7 +597,6 @@ describe('Brunch TUI boot', () => {
 
     await runBrunchTui({
       cwd,
-      autoOpen: false,
       coordinator,
       runWorkspaceDialogPreflight: async () => ({
         action: 'newSession',
@@ -807,13 +685,42 @@ describe('Brunch TUI boot', () => {
     const shortcuts = new Map<string, Omit<RegisteredCommand, 'name' | 'sourceInfo'>>();
     const registeredTools: string[] = [];
 
+    const shortcutEvents: string[] = [];
+    const publishedUpdates: unknown[] = [];
+    const switchTarget = readyWorkspace('/tmp/project', 'session-target');
+    const commandContext = fakeCommandContext({
+      currentSessionFile: '/sessions/session-old.jsonl',
+      decisions: [
+        {
+          action: 'openSession',
+          specId: switchTarget.spec.id,
+          sessionFile: switchTarget.session.file,
+        },
+      ],
+      onEvent: (event) => shortcutEvents.push(event),
+    });
+
     await createBrunchPiExtensions(
       chromeStateForWorkspace(readyWorkspace('/tmp/project', 'session-1')),
       undefined,
       {
         coordinator: {
-          inspectWorkspace: async () => emptyInventory('/tmp/project'),
-          activateWorkspace: async () => readyWorkspace('/tmp/project', 'session-1'),
+          inspectWorkspace: async () => {
+            shortcutEvents.push('inspect');
+            return inventoryWithWorkspace(switchTarget);
+          },
+          activateWorkspace: async (decision) => {
+            shortcutEvents.push(`activate:${decision.action}`);
+            return switchTarget;
+          },
+        },
+        getCommandContext: () => commandContext,
+        productUpdates: {
+          publish: (update) => {
+            shortcutEvents.push('publish');
+            publishedUpdates.push(update);
+          },
+          subscribe: () => () => {},
         },
       },
     )({
@@ -847,35 +754,43 @@ describe('Brunch TUI boot', () => {
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
     expect(commands.has(retiredWorkspaceCommand)).toBe(false);
     expect(commands.has('brunch')).toBe(false);
-    for (const commandName of [
-      BRUNCH_CONTINUE_COMMAND,
-      BRUNCH_LENS_COMMAND,
-      BRUNCH_STRATEGY_COMMAND,
-      BRUNCH_MODE_COMMAND,
-    ]) {
+    for (const commandName of [BRUNCH_LENS_COMMAND, BRUNCH_STRATEGY_COMMAND, BRUNCH_MODE_COMMAND]) {
       expect(commands.has(commandName)).toBe(true);
     }
+    // Disabled until operational: continue is unimplemented.
+    expect(commands.has(BRUNCH_CONTINUE_COMMAND)).toBe(false);
     expect(shortcuts.get(BRUNCH_SWITCH_SHORTCUT)?.description).toBe('Open the Brunch spec/session picker');
     expect(shortcuts.has('ctrl+b')).toBe(false);
+    // alt+b must stay unregistered: Pi reserves it for cursorWordLeft.
+    expect(shortcuts.has('alt+b')).toBe(false);
 
-    const shortcutEvents: string[] = [];
+    // The switch shortcut borrows the command-capable context and completes a
+    // real cross-session switch, exactly like /brunch:switch.
     const shortcut = shortcuts.get(BRUNCH_SWITCH_SHORTCUT);
     expect(shortcut).toBeDefined();
     const shortcutHandler = shortcut!.handler as (ctx: unknown) => Promise<void> | void;
     await shortcutHandler({
-      ui: fakeUi((method, type) => shortcutEvents.push(`${method}:${type}`)),
+      ui: fakeUi(() => {}),
     });
-    expect(shortcutEvents).toEqual(['notify:warning']);
-
-    const continueEvents: string[] = [];
-    const continueCtx = {
-      ui: fakeUi((method, type) => continueEvents.push(`${method}:${type}`)),
-    };
-    const continueCommand = commands.get(BRUNCH_CONTINUE_COMMAND);
-    expect(continueCommand).toBeDefined();
-    const continueHandler = continueCommand!.handler as (args: string, ctx: unknown) => Promise<void> | void;
-    await continueHandler('', continueCtx);
-    expect(continueEvents).toEqual(['notify:info']);
+    expect(shortcutEvents).toEqual([
+      'waitForIdle',
+      'inspect',
+      'custom',
+      'activate:openSession',
+      'publish',
+      `switch:${switchTarget.session.file}`,
+      'notify:info',
+    ]);
+    // The switch publishes the same selected-session updates as workspace.activate.
+    expect(publishedUpdates).toEqual([
+      expect.arrayContaining([
+        {
+          topic: 'workspace.state',
+          specId: switchTarget.spec.id,
+          sessionId: switchTarget.session.id,
+        },
+      ]),
+    ]);
   });
 
   it('opens the spec/session picker from the Brunch command', async () => {

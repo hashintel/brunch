@@ -1,0 +1,490 @@
+{
+  "spec": {
+    "slug": "parallel-utils-spec",
+    "name": "parallel-utils (reversed cook fixture)"
+  },
+  "nodes": [
+    {
+      "local_id": 1,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Ship a zero-dependency TypeScript utility library whose value is its shape: one shared scaffold prerequisite, then N genuinely independent…",
+      "body": "Ship a zero-dependency TypeScript utility library whose value is its shape: one shared scaffold prerequisite, then N genuinely independent leaves that fan out and execute concurrently under brunch cook.",
+      "basis": "explicit",
+      "source": "cook-port [goal]",
+      "detail": null
+    },
+    {
+      "local_id": 2,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Barrel",
+      "body": "Barrel — src/index.ts re-exporting every utility; the library’s single public entry and only composition point.",
+      "basis": "explicit",
+      "source": "cook-port [term-barrel]",
+      "detail": {
+        "definition": "src/index.ts re-exporting every utility; the library’s single public entry and only composition point."
+      }
+    },
+    {
+      "local_id": 3,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Leaf / utility slice",
+      "body": "Leaf / utility slice — one independent utility: its module, its single unit test, and its one barrel re-export.",
+      "basis": "explicit",
+      "source": "cook-port [term-leaf]",
+      "detail": {
+        "definition": "one independent utility: its module, its single unit test, and its one barrel re-export."
+      }
+    },
+    {
+      "local_id": 4,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Scaffold",
+      "body": "Scaffold — the shared prerequisite slice (package.json, tsconfig, initially-empty barrel); the only thing every leaf depends on.",
+      "basis": "explicit",
+      "source": "cook-port [term-scaffold]",
+      "detail": {
+        "definition": "the shared prerequisite slice (package.json, tsconfig, initially-empty barrel); the only thing every leaf depends on."
+      }
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Fan-out",
+      "body": "Fan-out — the property that all leaves depend solely on scaffold and never on each other, making them concurrently executable.",
+      "basis": "explicit",
+      "source": "cook-port [term-fanout]",
+      "detail": {
+        "definition": "the property that all leaves depend solely on scaffold and never on each other, making them concurrently executable."
+      }
+    },
+    {
+      "local_id": 6,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Greenfield brunch cook fixture: a plan.yaml of one scaffold slice plus 8 independent leaf slices, run with --policy=parallel to demonstrate…",
+      "body": "Greenfield brunch cook fixture: a plan.yaml of one scaffold slice plus 8 independent leaf slices, run with --policy=parallel to demonstrate pool-bounded concurrent firing.",
+      "basis": "explicit",
+      "source": "cook-port [ctx-roundtrip]",
+      "detail": null
+    },
+    {
+      "local_id": 7,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Zero runtime dependencies, ESM only, bun test as the sole runner.",
+      "body": "Zero runtime dependencies, ESM only, bun test as the sole runner.",
+      "basis": "explicit",
+      "source": "cook-port [con-zerodep]",
+      "detail": null
+    },
+    {
+      "local_id": 8,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "No utility module imports another; the only shared touch-point is the barrel re-exporting them. No util→util build dependency.",
+      "body": "No utility module imports another; the only shared touch-point is the barrel re-exporting them. No util→util build dependency.",
+      "basis": "explicit",
+      "source": "cook-port [con-noimport]",
+      "detail": null
+    },
+    {
+      "local_id": 9,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Fixed surface of exactly 8 utilities; not a general lodash replacement; no bundling/publish pipeline.",
+      "body": "Fixed surface of exactly 8 utilities; not a general lodash replacement; no bundling/publish pipeline.",
+      "basis": "explicit",
+      "source": "cook-port [con-fixed]",
+      "detail": null
+    },
+    {
+      "local_id": 10,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "One module per utility, file-disjoint, single named export; the barrel re-exports each.",
+      "body": "One module per utility, file-disjoint, single named export; the barrel re-exports each.\n\nRationale: Independence enables unbounded fan-out and side-steps the last-wins epic merge.\n\nImpact: high",
+      "basis": "explicit",
+      "source": "cook-port [d1]",
+      "detail": {
+        "chosen_option": "One module per utility, file-disjoint, single named export; the barrel re-exports each.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "Independence enables unbounded fan-out and side-steps the last-wins epic merge."
+      }
+    },
+    {
+      "local_id": 11,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Scaffold is the only shared prerequisite; every utility depends on scaffold and nothing else.",
+      "body": "Scaffold is the only shared prerequisite; every utility depends on scaffold and nothing else.\n\nRationale: Preserves pure fan-out; any util→util edge would serialise the demo.\n\nImpact: high",
+      "basis": "explicit",
+      "source": "cook-port [d2]",
+      "detail": {
+        "chosen_option": "Scaffold is the only shared prerequisite; every utility depends on scaffold and nothing else.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "Preserves pure fan-out; any util→util edge would serialise the demo."
+      }
+    },
+    {
+      "local_id": 12,
+      "plane": "intent",
+      "kind": "decision",
+      "title": "Each utility owns exactly one unit-test oracle; the epic owns one barrel integration oracle.",
+      "body": "Each utility owns exactly one unit-test oracle; the epic owns one barrel integration oracle.\n\nRationale: One red→green target per slice keeps the mechanical TDD lane honest.",
+      "basis": "explicit",
+      "source": "cook-port [d4]",
+      "detail": {
+        "chosen_option": "Each utility owns exactly one unit-test oracle; the epic owns one barrel integration oracle.",
+        "rejected": [
+          "(not recorded in source)"
+        ],
+        "rationale": "One red→green target per slice keeps the mechanical TDD lane honest."
+      }
+    },
+    {
+      "local_id": 13,
+      "plane": "intent",
+      "kind": "assumption",
+      "title": "SameValueZero is the intended equality for unique (NaN dedupes, +0/-0 collapse).",
+      "body": "SameValueZero is the intended equality for unique (NaN dedupes, +0/-0 collapse).",
+      "basis": "explicit",
+      "source": "cook-port [a1]",
+      "detail": null
+    },
+    {
+      "local_id": 14,
+      "plane": "intent",
+      "kind": "assumption",
+      "title": "debounce needs only trailing-edge semantics (no leading-edge option).",
+      "body": "debounce needs only trailing-edge semantics (no leading-edge option).",
+      "basis": "explicit",
+      "source": "cook-port [a2]",
+      "detail": null
+    },
+    {
+      "local_id": 15,
+      "plane": "intent",
+      "kind": "assumption",
+      "title": "The last-wins epic merge is safe here because leaves are file-disjoint, so no two parallel slices write the same file.",
+      "body": "The last-wins epic merge is safe here because leaves are file-disjoint, so no two parallel slices write the same file.",
+      "basis": "explicit",
+      "source": "cook-port [a3]",
+      "detail": null
+    },
+    {
+      "local_id": 16,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Provide package.json (type: module, bun test), tsconfig.json, and src/index.ts as a barrel re-exporting every utility; the barrel starts em…",
+      "body": "Provide package.json (type: module, bun test), tsconfig.json, and src/index.ts as a barrel re-exporting every utility; the barrel starts empty.",
+      "basis": "explicit",
+      "source": "cook-port [r-scaffold]",
+      "detail": null
+    },
+    {
+      "local_id": 17,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "chunk<T>(arr, size): split into size-N groups (last may be shorter); size <= 0 throws.",
+      "body": "chunk<T>(arr, size): split into size-N groups (last may be shorter); size <= 0 throws.",
+      "basis": "explicit",
+      "source": "cook-port [r-chunk]",
+      "detail": null
+    },
+    {
+      "local_id": 18,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "unique<T>(arr): elements in first-seen order, duplicates removed under SameValueZero equality.",
+      "body": "unique<T>(arr): elements in first-seen order, duplicates removed under SameValueZero equality.",
+      "basis": "explicit",
+      "source": "cook-port [r-unique]",
+      "detail": null
+    },
+    {
+      "local_id": 19,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "groupBy<T>(arr, key): Record<string, T[]>.",
+      "body": "groupBy<T>(arr, key): Record<string, T[]>.",
+      "basis": "explicit",
+      "source": "cook-port [r-groupby]",
+      "detail": null
+    },
+    {
+      "local_id": 20,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "debounce(fn, ms): delay invocation until ms after the last call (trailing edge).",
+      "body": "debounce(fn, ms): delay invocation until ms after the last call (trailing edge).",
+      "basis": "explicit",
+      "source": "cook-port [r-debounce]",
+      "detail": null
+    },
+    {
+      "local_id": 21,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "retry<T>(fn, times): retry a rejecting promise up to times before rejecting with the last error.",
+      "body": "retry<T>(fn, times): retry a rejecting promise up to times before rejecting with the last error.",
+      "basis": "explicit",
+      "source": "cook-port [r-retry]",
+      "detail": null
+    },
+    {
+      "local_id": 22,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "clamp(n, min, max): throws if min > max.",
+      "body": "clamp(n, min, max): throws if min > max.",
+      "basis": "explicit",
+      "source": "cook-port [r-clamp]",
+      "detail": null
+    },
+    {
+      "local_id": 23,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "slugify(s): lowercase, non-alphanumerics to single dash, collapse repeats, trim leading/trailing dashes.",
+      "body": "slugify(s): lowercase, non-alphanumerics to single dash, collapse repeats, trim leading/trailing dashes.",
+      "basis": "explicit",
+      "source": "cook-port [r-slugify]",
+      "detail": null
+    },
+    {
+      "local_id": 24,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "deepEqual(a, b): structural equality for plain objects, arrays, and primitives.",
+      "body": "deepEqual(a, b): structural equality for plain objects, arrays, and primitives.",
+      "basis": "explicit",
+      "source": "cook-port [r-deepequal]",
+      "detail": null
+    },
+    {
+      "local_id": 25,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Importing the barrel exposes all 8 utilities; an integration test exercises the merged surface.",
+      "body": "Importing the barrel exposes all 8 utilities; an integration test exercises the merged surface.",
+      "basis": "explicit",
+      "source": "cook-port [r-compose]",
+      "detail": null
+    },
+    {
+      "local_id": 26,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "ln-plan re-derives one scaffold prerequisite plus 8 leaves each depending only on scaffold and none on another — a fan-out, not a serial ch…",
+      "body": "ln-plan re-derives one scaffold prerequisite plus 8 leaves each depending only on scaffold and none on another — a fan-out, not a serial chain.",
+      "basis": "explicit",
+      "source": "cook-port [c-plan-shape]",
+      "detail": null
+    },
+    {
+      "local_id": 27,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "A parallel cook run fires leaves concurrently (pool:code-agent drains to 0 and refills); wall-clock ≈ ceil(8/3) x slice vs 8 x slice serial.",
+      "body": "A parallel cook run fires leaves concurrently (pool:code-agent drains to 0 and refills); wall-clock ≈ ceil(8/3) x slice vs 8 x slice serial.",
+      "basis": "explicit",
+      "source": "cook-port [c-parallel]",
+      "detail": null
+    },
+    {
+      "local_id": 28,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "All 8 unit tests and the barrel integration test pass green in the merged tree.",
+      "body": "All 8 unit tests and the barrel integration test pass green in the merged tree.",
+      "basis": "explicit",
+      "source": "cook-port [c-green]",
+      "detail": null
+    },
+    {
+      "local_id": 29,
+      "plane": "intent",
+      "kind": "criterion",
+      "title": "No utility module imports another and dependencies is empty.",
+      "body": "No utility module imports another and dependencies is empty.",
+      "basis": "explicit",
+      "source": "cook-port [c-disjoint]",
+      "detail": null
+    },
+    {
+      "local_id": 30,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Grounding exchange (ported interview)",
+      "body": "Q: Sketch parallel-utils in one breath: what is it, what shape gives it value, and how is it built?\n\nA: A zero-dependency TS utility library of 8 independent leaves fanning out from one scaffold prerequisite, built so a parallel cook run fires them concurrently.",
+      "basis": "explicit",
+      "source": "cook-port-interview",
+      "detail": null
+    },
+    {
+      "local_id": 31,
+      "plane": "intent",
+      "kind": "context",
+      "title": "Design answer (ported interview)",
+      "body": "Keep every utility file-disjoint with a single export so the leaves stay independent and fan out from one scaffold.",
+      "basis": "explicit",
+      "source": "cook-port-interview",
+      "detail": null
+    }
+  ],
+  "edges": [
+    {
+      "category": "support",
+      "source_local_id": 30,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "support",
+      "source_local_id": 31,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 1,
+      "target_local_id": 16,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "support",
+      "source_local_id": 5,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "support",
+      "source_local_id": 2,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 1,
+      "target_local_id": 6,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 3,
+      "target_local_id": 10,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 6,
+      "target_local_id": 11,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "boundary",
+      "source_local_id": 7,
+      "target_local_id": 1,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "boundary",
+      "source_local_id": 8,
+      "target_local_id": 25,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "boundary",
+      "source_local_id": 9,
+      "target_local_id": 1,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 10,
+      "target_local_id": 15,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 12,
+      "target_local_id": 13,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 12,
+      "target_local_id": 14,
+      "stance": null,
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 28,
+      "target_local_id": 25,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 27,
+      "target_local_id": 16,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 29,
+      "target_local_id": 25,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    },
+    {
+      "category": "proof",
+      "source_local_id": 26,
+      "target_local_id": 16,
+      "stance": "for",
+      "basis": "explicit",
+      "rationale": null
+    }
+  ]
+}
