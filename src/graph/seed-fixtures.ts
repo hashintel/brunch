@@ -367,7 +367,8 @@ function safeSeedPart(value: string | undefined): value is string {
 function seedUsage(): string {
   return (
     'Usage: npm run seed -- --workspace <dir> --seed <set>/<slug> [--reset]\n' +
-    '  --reset  delete the target workspace .brunch/data.db (+ -wal/-shm) before seeding\n'
+    '  --reset  delete the target workspace runtime state before seeding:\n' +
+    '           .brunch/data.db (+ -wal/-shm), sessions/, debug/, and workspace.json\n'
   );
 }
 
