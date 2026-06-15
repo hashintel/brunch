@@ -19,6 +19,8 @@ The next product arc is the **Conversational Workspace Runtime** umbrella (`docs
 
 The **orchestrator / Petri-net execution substrate** is committed (2026-05-21) to Petri as the forward execution model, justified by parallelism, simulation, and resume value claims. Phases 0–2 are done: the dual-engine PoC (Phase 0, FE-730) validated the substrate and extracted the compiler/interpreter; Phase 1 (FE-738) added two-lane mechanical+semantic subnets, the compiler topology/wiring split, and §7 event vocabulary; Phase 2 (FE-743) added parallel firing policy with greedy token claiming, shared resource pool tokens bounding global concurrency, and worktree-per-slice isolation — the decision gate passed (parallel measurably beats serial on wall clock). Phase-3-prep `petri-declarative-routing` (FE-747) is done: typed Guard predicates on `HandlerDescriptor` plus `enumerateCandidateOutputs` make topology-only enumeration of reachable output places possible (I125-K). Phase 3 (graph compilation) remains blocked on `intent-graph-semantics` (FE-700) for relation-policy gates; Phase 4 (simulation oracle) now has its routing-side structural prerequisite satisfied but still needs Phase 3 for graph-derived gates. The north-star design is `docs/next/architecture/plan-graph-petri-orchestration.md`.
 
+The orchestrator's forward direction is framed as two arcs toward a **full (autonomous) cook orchestrator** — "completed spec → feature built and glued into a real brownfield repo, no manual steps." **Arc 1 (feature delivery)** stacks on FE-843 and ships standalone without the semantic stack: `brunch-detect` (read toolchain from the repo) → `harness-dep-install` (add/install new deps in the worktree) → `app-runtime-probe` (build + boot + exercise the host app — the concrete reachability mechanism) → `integration-oracle` (wire into host + product reachability, via the probe) → `brownfield-promotion` (glue back into the checkout) → `brunch-ship` (one-shot wrapper). A `dogfood-spike` (ln-spike) — run the full chain on one real brunch feature — should precede committing `integration-oracle`, to surface the reachability mechanism, dep-install, orientation depth, and brownfield plan-shape risks cheaply. CLI command surface (kitchen brigade; frontier ids stay descriptive): detect → `brunch prep`, plan → `brunch recipe`, orchestrate → `brunch cook`, verify → `brunch taste`, promote → `brunch plate`, ship → `brunch serve`. The settled grounding decision is **cook-time** (planning stays host-blind per D160-K; the cook agent resolves real paths/wiring by reading the worktree), which softens FE-829's `writes` ownership to *advisory in brownfield only* — greenfield keeps it authoritative. Protecting invariant: **brownfield generalization must not change greenfield-mode behavior; shared contracts fork on `plan.mode`** (the 3 reference fixtures + a greenfield smoke must score identically before/after each frontier). **Arc 2 (full orchestrator)** is an autonomy ladder gated behind the parked semantic/Petri-Phase-3/4 substrate: `interactive-recovery` (halt → coherent question answered in a secondary chat, resumes the run) → `intent-conformance-oracle` (independent behavioral-kernel verification, requisite variety) → `adaptive-replan` (architect amends the plan from execution feedback, recompile + resume). Each rung raises the autonomy ceiling and is independently shippable. Non-additive work (refactors/migrations/debugging) is explicitly a separate `transformation-orchestrator` product line, not folded into either arc. The cook-time grounding decision, the D160-K `writes`-advisory amendment, and the greenfield-protecting invariant need recording in SPEC via ln-sync when the first Arc-1 frontier is scoped.
+
 The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agent-mutation design notes are reconciled into one direction. `docs/design/MULTI_CHAT.md` is the substrate document. `docs/design/SIDE_CHAT.md` describes side-chat V1 / V2 / V3.0 / V3.1 / V4 phasing on top of that substrate. `docs/design/PATCH_LEDGER.md` remains historical deeper design pressure for semantic mutation history, but canonical future-facing vocabulary is `changeset` / `change`. The product-layer ontology trajectory is split out as `docs/design/INTENT_GRAPH_SEMANTICS.md` and `docs/design/BEHAVIORAL_KERNELS.md`; broader synthesis lives in `docs/archive/design/INTENT_SPEC_EVOLUTION.md`. FE-705's branch-local strategy/proposal notes add scenario options, graph-review oracle, chat-local strategies, and concern/dependency mapping; those notes should become a canonical design doc when the branch is integrated. Coordination uses a substrate-strangler posture: keep existing frontend REST/SSE contracts stable while route adapters and capability adapters converge on shared server-owned handlers, then cut over UI flows only after parity and changeset-backed authority exist. The dev-layer self-tooling trajectory lives in `docs/design/ln-skills/EVOLUTION.md`.
 
 ## Sequencing
@@ -49,6 +51,18 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### Next
 
+**Full cook orchestrator — Arc 1 (feature delivery; stacks on FE-843, ships without the semantic stack):**
+
+1. `brunch-detect` — read the project toolchain from the repo; brownfield-only front of the FE-843 resolution chain. First branch off FE-843.
+2. `harness-dep-install` — let the cook agent add and install new dependencies in the worktree (the install verb deferred from FE-843); required for real features and non-TS stacks.
+3. `dogfood-spike` (ln-spike) — run the full chain on one real brunch feature before committing `integration-oracle`; surfaces the reachability mechanism, dep-install, orientation depth, and brownfield plan-shape cheaply.
+4. `app-runtime-probe` — build + boot + exercise the host app; the concrete reachability mechanism `integration-oracle` depends on (without it, "reachable" collapses back to "a test that imports the module").
+5. `integration-oracle` — architect emits generic wiring intent, cook agent resolves real wiring (cook-time grounding), oracle asserts product reachability via `app-runtime-probe` in the FE-738 semantic lane. Promotes FE-800's integration-blind follow-on to a frontier.
+6. `brownfield-promotion` — commit/merge the cook result into the user's checkout; extends FE-827's greenfield promotion to brownfield.
+7. `brunch-ship` — one-shot `brunch serve <specId>` wrapper (prep → recipe → cook → taste → plate), no manual steps. Arc 1 capstone.
+
+**Runtime umbrella + semantic substrate:**
+
 1. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
 4. `changeset-ledger` — Track 4 of the runtime umbrella; parallel with Track 2; semantic history spine needed before canonical proposal acceptance, direct-edit atomicity, and productized scenario options.
 5. `chat-context-provision` — Track 5 of the runtime umbrella recast as transcript-first context; can proceed against chat/turn once secondary-chat entry/anchor shape is settled.
@@ -63,6 +77,13 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - `productized-web-research` — waits on prompt/context scenario substrate for probe quality, but can remain separate from semantic schema work.
 
 ### Horizon
+
+**Full cook orchestrator — Arc 2 (full orchestrator; autonomy ladder, gated behind the semantic/Petri-Phase-3/4 substrate):**
+
+- `interactive-recovery` — keystone safety rung: on rework-budget exhaustion or irreducible oracle ambiguity, synthesize a question into a `qa`/`strategy` secondary chat; the answer resumes the run. Depends on chat runtime (FE-716, done) + run resume (Petri Phase 4) + `changeset-ledger` (FE-701). Do first — makes the orchestrator safe to run unattended before re-plan/intent-verification are perfect.
+- `intent-conformance-oracle` — independent behavioral-kernel verification (requisite variety) separate from self-authored tests. Depends on `intent-graph-semantics` (FE-700) + `BEHAVIORAL_KERNELS.md`; reuses the `graph-review` rubric.
+- `adaptive-replan` — architect amends the plan from execution feedback; recompile the affected sub-net + resume. Depends on Petri Phase 3 (`petri-graph-compilation`) + Phase 4 (`petri-simulation-oracle`) + FE-738's deferred stale-graph criterion. The latent `architect-generator-loop`; highest cost, last rung.
+- `transformation-orchestrator` — separate product line for non-additive work (refactors, migrations, cross-cutting renames, debugging): transformation-shaped intent (transform existing→existing, behavior-preserving, test-guarded), not `requirement → additive slice`. Do not fold into Arc 1/2.
 
 - `petri-graph-compilation` — compile Petri nets from workspace plan-graph + relation policy; depends on `intent-graph-semantics` (FE-700). Extends the existing FE-700 relation-policy registry.
 - `petri-simulation-oracle` — reachability analysis, deadlock detection, resume from durable markings. Planning oracle for plan-shape defects. Depends on `petri-graph-compilation`.
@@ -363,6 +384,133 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Verification:** inner — `project-profile.test.ts` (registry invariants + command shapes), `plan-runner.test.ts` (flag), `plan-emitter.test.ts` (stamping + chain precedence + fallback), `cook-cli.test.ts` (strict/lenient); middle — contract/eval suites unchanged; outer (follow-on, non-gating) — greenfield cook smoke `--profile=node-vitest` as the conventions-prose oracle.
 - **Traceability:** Requirements 46–50; A98, D160-K, D164-K (pattern), D167-K; refines I130-K (resolved profile persisted; strict-on-unknown). New assumption on build: agent-side install suffices for node profiles. Refinement on `plan-build-architect` (FE-829).
 - **Design docs:** `docs/design/orchestrator.md`; SPEC §Future Direction Cook plan generation.
+
+### brunch-detect
+
+- **Name:** Brunch toolchain detection — read the project toolchain from the repo
+- **Linear:** unassigned (create on start)
+- **Kind:** bounded feature
+- **Status:** not-started (drafted 2026-06-15) — Arc 1, first branch off FE-843.
+- **Objective:** Detect the project's toolchain by introspecting the actual repo (manifests/lockfiles: `package.json` + lockfile, `pyproject.toml`, `go.mod`, …) and resolve it to a `ProjectProfile`/`Toolchain` id from the FE-843 registry. Brownfield-only front of the existing resolution chain; greenfield keeps FE-843's spec ≫ architect-classified ≫ bun default (an empty worktree has nothing to detect).
+- **Why now / unlocks:** The "no manual steps" goal requires reading the real toolchain rather than inferring from spec prose or a `--profile` flag. FE-843 built the data-driven profile registry but **defers `brunch detect`**; this closes that gap.
+- **Acceptance:** (1) detection maps a real repo to a registry profile id from manifest/lockfile evidence; (2) brownfield cook/plan resolves toolchain via detection at the front of the FE-843 chain (`--profile` still overrides); (3) greenfield resolution is unchanged (no detection input); (4) ambiguous/unknown repo fails with an actionable message, not a silent default; (5) the 3 reference fixtures + greenfield smoke score identically before/after.
+- **Verification:** detector unit tests (fixtures per stack: bun, node-vitest, deno, pytest/go stubs); resolution-chain precedence tests (detect vs flag vs spec); greenfield no-op test.
+- **Depends on:** `toolchain-profile-expansion` (FE-843).
+- **Traceability:** Requirements 46–50; refines I130-K; greenfield-protecting invariant (new — record in SPEC via ln-sync).
+- **Design docs:** `docs/design/orchestrator.md`.
+
+### harness-dep-install
+
+- **Name:** Harness dependency install — add and install new deps in the cook worktree
+- **Linear:** unassigned (create on start)
+- **Kind:** bounded feature
+- **Status:** not-started (drafted 2026-06-15) — Arc 1; the install verb deferred from FE-843.
+- **Objective:** Give the cook agent a toolchain-derived way to add and install new dependencies inside the slice/epic worktree (the install verb FE-843 deferred). Resolved from the `ProjectProfile` (npm/bun/pnpm/pip/`go get`…). Brownfield worktrees carry existing deps via CoW copy, but real features add new ones, and non-TS profiles can't run their toolchain at all without install.
+- **Why now / unlocks:** Without an install path, any feature that introduces a dependency stalls, and non-TS profiles never run. Required upstream of `app-runtime-probe` (boot needs deps present) and of realistic brownfield features.
+- **Acceptance:** (1) the agent adds a dependency and installs it via the toolchain's install command derived from the `ProjectProfile`; (2) install is scoped to the worktree, never the user's checkout; (3) lockfile updates are captured for promotion; (4) install failures surface as actionable and distinct from test failures; (5) greenfield scaffolds + installs from scratch per A98.
+- **Verification:** install-verb unit tests per profile (bun/npm/pnpm/pip/go stubs); worktree-scoped install integration test; lockfile-capture test; failure-surfacing test.
+- **Depends on:** `brunch-detect` (profile), `cook-codebase-mode` (worktree). Upstream of `app-runtime-probe`, `integration-oracle`.
+- **Traceability:** Requirements 46–50; A98 (cook agent scaffolds + installs); install verb deferred from FE-843.
+- **Design docs:** `docs/design/orchestrator.md`.
+
+### app-runtime-probe
+
+- **Name:** App runtime probe — build, boot, and exercise the host app
+- **Linear:** unassigned (create on start)
+- **Kind:** structural
+- **Status:** not-started (drafted 2026-06-15) — Arc 1; the concrete mechanism behind `integration-oracle`'s reachability claim. **Scope/feasibility via `dogfood-spike` first.**
+- **Objective:** Provide a harness that builds the host application, boots it, and exercises the cooked feature to confirm it is actually reachable in the running app — not merely unit-test-green. Mechanism beyond the test runner: app-boot + a runtime probe (dev-server boot + HTTP/CDP/Playwright-style check), toolchain-derived from the `ProjectProfile`. Mode-aware: brownfield boots the real host; greenfield boots the self-composed epic.
+- **Why now / unlocks:** `integration-oracle` asserts "feature reachable in the running app," but verification today only runs the test runner in the worktree. Without an app-boot probe, "reachable" degrades to "a test imports the module" and the orphan problem (FE-800) survives. This is the load-bearing reachability mechanism; `integration-oracle` depends on it. The hidden heavy lift inside Arc 1 — validate the mechanism with `dogfood-spike` before committing.
+- **Acceptance:** (1) the probe builds + boots the host app from the worktree using the resolved toolchain; (2) it exercises the cooked feature and returns a structured reachable / not-reachable result; (3) the probe result is the evidence `integration-oracle` gates on; (4) brownfield boots the real host, greenfield boots the self-composed epic; (5) infra failure (build/boot broke) is distinguishable from feature-absent (not reachable).
+- **Verification:** probe-harness integration test (seeded app + cooked feature → reachable); orphan-replay test (feature module present but unwired → not-reachable, replaying the `spatial_graph_layout` regression); toolchain-derived boot tests; infra-failure-vs-not-reachable split test.
+- **Depends on:** `cook-codebase-mode` (done), `brunch-detect`, `harness-dep-install` (boot needs deps). Upstream of `integration-oracle`. Scoped after `dogfood-spike`.
+- **Traceability:** Requirements 46–50; FE-800 integration-blind follow-on; complements FE-813 (real *test* execution) by adding real *app* execution.
+- **Design docs:** `docs/design/orchestrator.md`; `docs/praxis/dev-server-logs.md`; `docs/praxis/manual-testing.md`.
+
+### integration-oracle
+
+- **Name:** Integration oracle — host wiring + product reachability
+- **Linear:** unassigned (create on start)
+- **Kind:** structural
+- **Status:** not-started (drafted 2026-06-15) — Arc 1; promotes the FE-800 integration-blind follow-on to a frontier.
+- **Objective:** Make a cooked feature real and reachable in the host, not orphaned. Three parts: (a) the architect emits a **generic integration/wiring slice** ("wire feature into host") rather than only FE-829's per-epic integration-*test* seam; (b) **cook-time grounding** — the cook agent resolves the real wiring by reading the worktree (no host introspection at plan time, D160-K intact); (c) an **integration oracle** in the FE-738 semantic lane asserts product reachability **via `app-runtime-probe`** (build + boot + exercise the host app — not merely test-runner-green) — brownfield: feature exists/reachable in the running app; greenfield: the epic self-composes (the `__epic__` merge + integration test). Reachability definition forks on `plan.mode`.
+- **Why now / unlocks:** The first brownfield cook produced orphan modules that passed criteria without existing in the running app (FE-800 follow-on, 2026-06-04). Reachability is the external reality check that turns "executes a plan" into "ships a feature." Builds on harness fidelity (FE-813 — the harness actually runs the targets) and FE-829 integration seams.
+- **Cook-time grounding decision (settled 2026-06-15):** planning stays host-blind; the cook agent grounds against the real repo. This **softens FE-829 slice-4A `writes` single-writer ownership to *advisory in brownfield only*** (agent reconciles paths against the real layout); greenfield keeps `writes` authoritative (parallel race-safety + eval gate depend on it). Needs a **D160-K amendment + a new grounding decision** recorded in SPEC via ln-sync.
+- **Acceptance:** (1) architect emits a generic wiring slice for feature epics; (2) cook agent resolves real wiring by reading the worktree; (3) integration oracle gates completion on product reachability, mode-forked (brownfield reachable-in-app / greenfield self-compose); (4) the brownfield orphan-module regression (`spatial_graph_layout`) is caught; (5) greenfield behavior unchanged — 3 reference fixtures + greenfield smoke score identically; (6) `writes` advisory in brownfield, authoritative in greenfield (contract forks on `plan.mode`).
+- **Verification:** brownfield smoke asserting reachability (feature present in running app), replaying the orphan regression; greenfield self-compose oracle tests; mode-fork contract tests on `writes`/`checkPlan`; semantic-lane oracle adapter tests.
+- **Depends on:** `cook-harness-fidelity` (FE-813, done), `plan-build-architect` (FE-829), `brunch-detect`, `harness-dep-install`, `app-runtime-probe` (the reachability mechanism). Upstream of `brownfield-promotion`.
+- **Traceability:** Requirements 46–50; D160-K (amendment pending), D161-K, D167-K, A98; FE-800 integration-blind follow-on; greenfield-protecting invariant (new).
+- **Design docs:** `docs/design/orchestrator.md`; `docs/next/architecture/plan-graph-petri-orchestration.md` (semantic lane).
+
+### brownfield-promotion
+
+- **Name:** Brownfield output promotion — glue the cook result into the checkout
+- **Linear:** unassigned (create on start)
+- **Kind:** structural
+- **Status:** not-started (drafted 2026-06-15) — Arc 1; promotes the cook-codebase-mode promotion follow-on to a frontier.
+- **Objective:** Commit/merge a completed brownfield cook run into the user's checkout. Today slice branches (`cook-slice/<runId>/<sliceId>`) commit but never merge: `cook/<runId>` HEAD === source HEAD with modifications in untracked subdirs, so there is no promotion path. Close it: commit slice work → merge slice→epic→`cook/<runId>` → merge `cook/<runId>` into the working branch (completed-gated, never silent), mirroring FE-827's greenfield `promote-run.ts`. Pairs with worktree/branch GC.
+- **Why now / unlocks:** "Glue back to the original code" in the literal git sense. Greenfield promotion landed (FE-827, D166-K); brownfield is the open follow-on. Without it a brownfield cook runs but can't deliver.
+- **Acceptance:** (1) completed brownfield run promotes into the working branch via `git merge` (never silent, completed-gated, `--out`/`--force` parity with greenfield); (2) source branch byte-identical until explicit promotion (cook-codebase-mode invariant preserved); (3) collisions reported, not silently overwritten; (4) greenfield promotion path unchanged.
+- **Verification:** brownfield promotion integration test (seeded git repo → cook run → promote → assert merge into working branch); source-unchanged-until-promote test; collision-report test.
+- **Depends on:** `cook-codebase-mode` (done), `cook-greenfield-single-tree` (FE-827, done), `integration-oracle`.
+- **Traceability:** Requirement 49; D166-K (extend to brownfield), A49; cook-codebase-mode promotion follow-on.
+- **Design docs:** `docs/design/orchestrator.md`; SPEC §A49.
+
+### brunch-ship
+
+- **Name:** Brunch ship — one-shot autonomous spec→feature wrapper
+- **Linear:** unassigned (create on start)
+- **Kind:** bounded feature
+- **Status:** not-started (drafted 2026-06-15) — Arc 1 capstone.
+- **Objective:** A single `brunch serve <specId>` command running prep → recipe → cook → taste → plate end-to-end with no manual steps, reading `plan.mode` (FE-826) to pick greenfield vs brownfield resolution. The plan stays a reviewable artifact but requires no manual authoring/approval in ship mode.
+- **Why now / unlocks:** Closes the "no manual steps" goal by composing the Arc 1 frontiers into one autonomous flow.
+- **Acceptance:** (1) `brunch serve <specId>` runs the full chain unattended; (2) mode-correct resolution via `plan.mode`; (3) failure surfaces a coherent halt (graceful — full recovery is Arc 2 `interactive-recovery`); (4) greenfield and brownfield both supported.
+- **Verification:** end-to-end integration (greenfield fixture + brownfield seeded repo) asserting a promoted artifact; mode-routing tests; halt-surfacing test.
+- **Depends on:** `brunch-detect`, `integration-oracle`, `brownfield-promotion`; `cook-mode-from-spec` (FE-826, done).
+- **Traceability:** Requirements 46–50.
+- **Design docs:** `docs/design/orchestrator.md`.
+
+### interactive-recovery
+
+- **Name:** Interactive recovery — halt into an answerable question that resumes the run
+- **Linear:** unassigned
+- **Kind:** structural
+- **Status:** horizon (Arc 2 keystone) — gated on run resume.
+- **Objective:** When a slice exhausts its rework budget or an oracle rejects on irreducible ambiguity, synthesize a coherent question (what's blocking, options) and land it as a turn in a `qa`/`strategy` secondary chat; the user's answer resumes the run from durable markings. Makes unattended failure graceful (ask, don't orphan or ship-wrong) and fuses the interview and execution substrates into one loop.
+- **Why now / unlocks:** The graceful-degradation layer that makes the orchestrator safe to run unattended even before re-plan and intent-verification are perfect. Highest value-per-cost Arc 2 rung; do first.
+- **Acceptance:** (1) budget-exhaustion / irreducible-ambiguity halt emits a structured question, not just a halt reason; (2) the question renders in a secondary chat the user can answer; (3) the answer resumes the run from durable markings; (4) a durable record links question→answer→resumed run.
+- **Verification:** halt-to-question synthesis tests; secondary-chat rendering/answer tests; resume-from-marking integration test; durable linkage test.
+- **Depends on:** `chat-runtime-secondary-chats` (FE-716, done), Petri Phase 4 run resume (`petri-simulation-oracle`), `changeset-ledger` (FE-701) for durable answers.
+- **Traceability:** Requirement 45 (chat surface), Requirements 46–50 (execution); FE-819 halt visibility; D161-K.
+- **Design docs:** `docs/design/orchestrator.md`; `docs/design/CONVERSATIONAL_WORKSPACE_RUNTIME.md`.
+
+### intent-conformance-oracle
+
+- **Name:** Intent-conformance oracle — independent behavioral-kernel verification
+- **Linear:** unassigned
+- **Kind:** structural
+- **Status:** horizon (Arc 2) — gated on FE-700.
+- **Objective:** Verify a built feature against intent with requisite variety — independent of the agent's self-authored tests. The spec carries **behavioral kernels** (contrastive input→expected-behavior pairs produced by the interview, never seen by the build agent); a semantic-lane oracle runs them against the built feature. Reachability (integration oracle) + intent (kernel oracle) + real execution (FE-813) together give requisite variety.
+- **Why now / unlocks:** "Done" currently means self-authored tests pass — no variety against intent, so an underspecified spec ships wrong work with green checks. Closes the spec-level verification gap.
+- **Acceptance:** (1) behavioral kernels are first-class spec material (from FE-700); (2) a kernel oracle runs them against the built feature in the semantic lane, separate from self-authored tests; (3) completion requires kernel conformance + reachability + real test execution; (4) kernel failures surface as actionable findings.
+- **Verification:** kernel-oracle adapter tests; end-to-end where self-authored tests pass but a kernel fails (proves independence); reuse of graph-review rubric dimensions.
+- **Depends on:** `intent-graph-semantics` (FE-700), `BEHAVIORAL_KERNELS.md`; reuses `graph-review-scenario-options` (FE-702) rubric; complements `integration-oracle`.
+- **Traceability:** Requirements 38, 46–50; A77, A78 (semantics); ln-oracles requisite variety.
+- **Design docs:** `docs/design/BEHAVIORAL_KERNELS.md`; `docs/design/INTENT_GRAPH_SEMANTICS.md`; `docs/design/orchestrator.md`.
+
+### adaptive-replan
+
+- **Name:** Adaptive re-plan — amend the plan from execution feedback
+- **Linear:** unassigned
+- **Kind:** structural
+- **Status:** horizon (Arc 2, highest cost) — gated on Petri Phase 3 + Phase 4.
+- **Objective:** When execution reveals the plan is wrong (missing dep, absent integration point, wrong scope), re-invoke the architect with execution feedback + world state to amend the plan, recompile the affected sub-net, and resume — instead of retrying the same frozen slice. Requires the plan to be a mutable graph (Phase 3) with durable, resumable markings (Phase 4) and stale-graph detection (FE-738 deferred criterion 5).
+- **Why now / unlocks:** Removes the last "plan was right" assumption from autonomy — the orchestrator becomes self-correcting. The latent `architect-generator-loop`. Most structurally expensive (touches the core substrate commitment); last rung.
+- **Acceptance:** (1) a re-plan trigger fires on defined execution-feedback conditions; (2) the architect amends the plan (graph-level), not just retries a slice; (3) the affected sub-net recompiles and the run resumes from durable markings; (4) `graph_revision_stale` / `GraphRevisionCurrent` semantics gate stale work; (5) re-plans are recorded as changesets.
+- **Verification:** re-plan trigger tests; sub-net recompile + resume integration test; stale-graph gate tests; changeset linkage of plan amendments.
+- **Depends on:** `petri-graph-compilation` (Phase 3), `petri-simulation-oracle` (Phase 4, resume), FE-738 deferred criterion 5, `intent-graph-semantics` (FE-700), `changeset-ledger` (FE-701).
+- **Traceability:** Requirements 46–50; FE-738 acceptance criterion 5 (deferred); spec §graph-revision.
+- **Design docs:** `docs/next/architecture/plan-graph-petri-orchestration.md`; `docs/design/orchestrator.md`.
 
 ### petrinaut-colour-fold
 
