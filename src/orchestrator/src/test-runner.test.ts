@@ -110,6 +110,25 @@ describe('ToolchainTestRunner honors the toolchain test command', () => {
     const failed = await new ToolchainTestRunner(fail).run('x', process.cwd());
     expect(failed.passed).toBe(false);
   });
+
+  it('uses the configured confinement wrapper before spawning the test command', async () => {
+    const seen: { argv?: readonly string[]; sandboxDir?: string } = {};
+    const toolchain = fakeToolchain((target) => ['unconfined-runner', target]);
+
+    const result = await new ToolchainTestRunner(toolchain, (argv, sandboxDir) => {
+      seen.argv = argv;
+      seen.sandboxDir = sandboxDir;
+      return {
+        command: 'node',
+        args: ['-e', 'process.stdout.write("confined-runner")'],
+      };
+    }).run('the-target', process.cwd());
+
+    expect(seen.argv).toEqual(['unconfined-runner', 'the-target']);
+    expect(seen.sandboxDir).toBe(process.cwd());
+    expect(result.passed).toBe(true);
+    expect(result.output).toContain('confined-runner');
+  });
 });
 
 describe('classifyTestFailure (infra vs test)', () => {

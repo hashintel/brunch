@@ -548,10 +548,10 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
 
   const reports = new FileReportSink(reportsPath);
   const toolchain = resolveToolchain(plan.profile);
-  const testRunner = new ToolchainTestRunner(toolchain);
 
   // Fail-closed agent confinement: refuse to start the fleet if the toolchain
   // works unconfined but not under the sandbox profile (escape hatch: --confine=off).
+  const confinementEnabled = opts.confine !== 'off';
   const guard = createSandboxGuard(sandboxDir);
   const preflight = await runConfinementPreflight(guard, toolchain.probeCommand(), opts.confine);
   if (preflight.action === 'refuse') {
@@ -564,6 +564,12 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
   console.error(`  confine    ${opts.confine === 'off' ? 'off' : guard.backend}`);
   console.error('');
 
+  const testRunner = new ToolchainTestRunner(
+    toolchain,
+    confinementEnabled
+      ? (argv, sliceSandboxDir) => createSandboxGuard(sliceSandboxDir).confineTest(argv)
+      : undefined,
+  );
   const engine = createOrchestrator(opts.policy);
 
   const runStart = Date.now();
@@ -582,6 +588,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
     emit: (event) => bus.emit(event),
     toolchain,
     testRunner,
+    confine: confinementEnabled,
   });
 
   // Stand up the live-stream setup handle when streaming is enabled.

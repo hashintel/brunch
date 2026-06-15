@@ -16,6 +16,7 @@ import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  compileBwrapArgs,
   compileSeatbeltProfile,
   createConfinedFileOperations,
   createSandboxGuard,
@@ -253,8 +254,8 @@ describe('SandboxGuard — per-run confinement object', () => {
     }
   });
 
-  it('honors an injected platform — none backend degrades to passthrough', () => {
-    const guard = createSandboxGuard(sandboxDir, { platform: 'linux' });
+  it('degrades to a passthrough none backend on a host with no confinement mechanism', () => {
+    const guard = createSandboxGuard(sandboxDir, { platform: 'win32' });
     expect(guard.backend).toBe('none');
     expect(guard.enforcing).toBe(false);
     // passthrough: argv and bash command come back untouched
@@ -264,6 +265,47 @@ describe('SandboxGuard — per-run confinement object', () => {
     });
     const ctx = { command: 'echo hi', cwd: sandboxDir, env: {} as NodeJS.ProcessEnv };
     expect(guard.bashHook(ctx).command).toBe('echo hi');
+  });
+
+  it('selects the bwrap backend on Linux and wraps argv + bash through it', () => {
+    const guard = createSandboxGuard(sandboxDir, { platform: 'linux' });
+    expect(guard.backend).toBe('bwrap');
+    expect(guard.enforcing).toBe(true);
+    const confined = guard.confineTest(['bun', 'test', 'a.test.ts']);
+    expect(confined.command).toBe('bwrap');
+    expect(confined.args.slice(-4)).toEqual(['--', 'bun', 'test', 'a.test.ts']);
+    const ctx = { command: 'echo hi', cwd: sandboxDir, env: {} as NodeJS.ProcessEnv };
+    expect(guard.bashHook(ctx).command).toMatch(/^bwrap .* -- \/bin\/bash -c /);
+  });
+});
+
+describe('bwrap arg synthesis (limit-mode binds)', () => {
+  it('mounts the fs read-only, hides home, re-grants caches, and binds the sandbox writable — in that order', () => {
+    const policy = {
+      sandboxRoot: '/home/dev/.brunch/run/wt',
+      readRoots: ['/usr', '/home/dev/.bun', '/home/dev/.brunch/run/wt'],
+      writeRoots: ['/home/dev/.brunch/run/wt', '/home/dev/.cache'],
+      network: true,
+    };
+    const args = compileBwrapArgs(policy, '/home/dev');
+    const joined = args.join(' ');
+    // base: whole fs read-only + a real /dev + private /tmp
+    expect(joined).toContain('--ro-bind / /');
+    expect(joined).toContain('--dev /dev');
+    // home is hidden behind a tmpfs (secrets/TCC gone) BEFORE the cache re-grant
+    const hideHome = joined.indexOf('--tmpfs /home/dev');
+    const regrantCache = joined.indexOf('--ro-bind-try /home/dev/.bun');
+    const bindSandbox = joined.indexOf('--bind-try /home/dev/.brunch/run/wt');
+    expect(hideHome).toBeGreaterThanOrEqual(0);
+    expect(hideHome).toBeLessThan(regrantCache); // hide before re-grant
+    expect(regrantCache).toBeLessThan(bindSandbox); // reads before writable bind (later wins)
+    expect(joined).toContain('--chdir /home/dev/.brunch/run/wt');
+  });
+
+  it('unshares the network only when the policy forbids it', () => {
+    const base = { sandboxRoot: '/s', readRoots: ['/s'], writeRoots: ['/s'] };
+    expect(compileBwrapArgs({ ...base, network: true }, '/home/dev')).not.toContain('--unshare-net');
+    expect(compileBwrapArgs({ ...base, network: false }, '/home/dev')).toContain('--unshare-net');
   });
 
   it('bashHook rewrites only the command, preserves cwd, and redirects TMPDIR into the sandbox (macOS)', () => {

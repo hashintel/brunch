@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 
 import { defaultToolchain, type Toolchain } from './project-profile.js';
+import type { ConfinedSpawn } from './sandbox-guard.js';
 import type {
   TestFailureKind,
   TestResult,
@@ -74,12 +75,20 @@ export function stripAgentTailLines(output: string): string {
     .join('\n');
 }
 
+export type TestCommandConfiner = (argv: readonly string[], sandboxDir: string) => ConfinedSpawn;
+
 export class ToolchainTestRunner implements TestRunner {
-  constructor(private readonly toolchain: Toolchain = defaultToolchain) {}
+  constructor(
+    private readonly toolchain: Toolchain = defaultToolchain,
+    private readonly confine?: TestCommandConfiner,
+  ) {}
 
   async run(target: string, sandboxDir: string): Promise<TestResult> {
-    const [command, ...args] = this.toolchain.testCommand(target);
-    const result = spawnSync(command!, args, {
+    const argv = this.toolchain.testCommand(target);
+    const spawn = this.confine
+      ? this.confine(argv, sandboxDir)
+      : { command: argv[0] ?? '', args: argv.slice(1) };
+    const result = spawnSync(spawn.command, spawn.args, {
       cwd: sandboxDir,
       encoding: 'utf8',
       timeout: VERIFY_TIMEOUT_MS,

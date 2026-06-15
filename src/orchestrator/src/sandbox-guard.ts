@@ -247,7 +247,7 @@ function sandboxTmpDir(sandboxRoot: string): string {
 // Backend strategy — the one platform-varying step
 // ---------------------------------------------------------------------------
 
-type BackendId = 'seatbelt' | 'none';
+type BackendId = 'seatbelt' | 'bwrap' | 'none';
 
 /** A spawn request normalized to one shape before any backend sees it. `shell`
  *  distinguishes the bash tool's single shell string from a real argv. */
@@ -288,14 +288,50 @@ function seatbeltBackend(policy: ConfinementPolicy): ConfinementBackend {
   };
 }
 
-/** Passthrough backend for hosts without a confinement mechanism (bwrap is the follow-on). */
+/**
+ * Compile a policy to bubblewrap binds (limit-mode). Order matters — bwrap
+ * applies mounts left-to-right, last-wins: mount the whole fs read-only, drop a
+ * minimal `/dev` and a private `/tmp`, hide the user-data zones behind empty
+ * tmpfs (secrets/TCC gone), then re-grant the toolchain read roots, then bind
+ * the writable roots last so the sandbox is read-write. Network stays shared
+ * unless the policy forbids it.
+ */
+export function compileBwrapArgs(policy: ConfinementPolicy, home: string = homedir()): string[] {
+  const args = ['--ro-bind', '/', '/', '--dev', '/dev', '--proc', '/proc', '--tmpfs', '/tmp'];
+  for (const zone of [home, '/home', '/root', '/mnt', '/media']) args.push('--tmpfs', zone);
+  for (const r of policy.readRoots) args.push('--ro-bind-try', r, r);
+  for (const w of policy.writeRoots) args.push('--bind-try', w, w);
+  if (!policy.network) args.push('--unshare-net');
+  args.push('--chdir', policy.sandboxRoot);
+  return args;
+}
+
+/** Linux bubblewrap backend. Synthesizes the bind args once at construction. */
+function bwrapBackend(policy: ConfinementPolicy): ConfinementBackend {
+  const binds = compileBwrapArgs(policy);
+  return {
+    id: 'bwrap',
+    enforces: true,
+    wrap: (req) =>
+      req.shell
+        ? {
+            command: `bwrap ${binds.map(shellQuote).join(' ')} -- /bin/bash -c ${shellQuote(req.command)}`,
+            args: [],
+          }
+        : { command: 'bwrap', args: [...binds, '--', req.command, ...req.args] },
+  };
+}
+
+/** Passthrough backend for hosts without a confinement mechanism. */
 function noneBackend(): ConfinementBackend {
   return { id: 'none', enforces: false, wrap: (req) => ({ command: req.command, args: [...req.args] }) };
 }
 
 /** The SOLE `process.platform` read in this module — selects the enforcement backend. */
 function selectBackend(policy: ConfinementPolicy, platform: NodeJS.Platform): ConfinementBackend {
-  return platform === 'darwin' ? seatbeltBackend(policy) : noneBackend();
+  if (platform === 'darwin') return seatbeltBackend(policy);
+  if (platform === 'linux') return bwrapBackend(policy);
+  return noneBackend();
 }
 
 // ---------------------------------------------------------------------------
