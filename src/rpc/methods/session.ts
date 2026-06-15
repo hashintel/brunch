@@ -33,7 +33,7 @@ import type {
   PendingStructuredExchange,
   StructuredExchangeResponseInput,
 } from '../../session/structured-exchange-loop.js';
-import { renderWorkspaceOverviewContext } from '../../session/workspace-context.js';
+import { renderWorkspaceOverviewContext } from '../../session/workspace-overview-context.js';
 import type {
   DefaultWorkspaceCoordinator,
   WorkspaceActivationState,

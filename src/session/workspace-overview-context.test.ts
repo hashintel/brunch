@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { openWorkspaceCommandExecutor } from '../graph/index.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
 import { createSessionBindingData } from './session-binding.js';
-import { inspectWorkspaceOverview } from './workspace-context.js';
+import { inspectWorkspaceOverview } from './workspace-overview-context.js';
 
 describe('inspectWorkspaceOverview', () => {
   it('returns a workspace overview with spec node counts and session turn counts', async () => {

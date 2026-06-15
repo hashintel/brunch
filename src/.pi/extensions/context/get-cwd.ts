@@ -3,7 +3,10 @@ import { resolve } from 'node:path';
 import type { SessionHeader } from '@earendil-works/pi-coding-agent';
 
 import { renderWorkspaceContext } from '../../../renderers/workspace/workspace-context.js';
-import { inspectWorkspaceOverview, type WorkspaceOverview } from '../../../session/workspace-context.js';
+import {
+  inspectWorkspaceOverview,
+  type WorkspaceOverview,
+} from '../../../session/workspace-overview-context.js';
 import {
   inspectWorkspaceCwdInventory,
   type WorkspaceCwdInventory,
