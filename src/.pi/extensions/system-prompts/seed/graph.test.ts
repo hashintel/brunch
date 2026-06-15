@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GraphSlice } from '../../../graph/queries.js';
-import { renderGraphContext } from './graph.js';
+import type { GraphSlice } from '../../../../graph/queries.js';
+import { renderGraphSeed } from './graph.js';
 
 const overview: GraphSlice = {
   lsn: 7,
@@ -36,11 +36,11 @@ const overview: GraphSlice = {
   ],
 };
 
-describe('renderGraphContext', () => {
+describe('renderGraphSeed', () => {
   it('renders the same selected-spec overview with lens-specific emphasis', () => {
-    const intent = renderGraphContext(overview, { lens: 'intent' });
-    const design = renderGraphContext(overview, { lens: 'design' });
-    const oracle = renderGraphContext(overview, { lens: 'oracle' });
+    const intent = renderGraphSeed(overview, { lens: 'intent' });
+    const design = renderGraphSeed(overview, { lens: 'design' });
+    const oracle = renderGraphSeed(overview, { lens: 'oracle' });
 
     expect(intent).toContain('[Selected-spec graph context · intent lens]');
     expect(design).toContain('[Selected-spec graph context · design lens]');
@@ -56,7 +56,7 @@ describe('renderGraphContext', () => {
   });
 
   it('bounds rendered node and edge output', () => {
-    const rendered = renderGraphContext(overview, { lens: 'intent', maxNodes: 2, maxEdges: 1 });
+    const rendered = renderGraphSeed(overview, { lens: 'intent', maxNodes: 2, maxEdges: 1 });
 
     expect(rendered).toContain('…2 more node(s) omitted');
     expect(rendered).toContain('…1 more edge(s) omitted');

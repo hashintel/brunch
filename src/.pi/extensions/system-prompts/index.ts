@@ -6,9 +6,9 @@ import {
   type AgentPromptContextBundle,
   type AgentPromptSpecContext,
   type AgentPromptWorkspaceContext,
-} from '../../agents/compose.js';
-import { renderCwdContext, type AgentPromptSessionContext } from '../../agents/contexts/cwd.js';
-import { renderGraphContext } from '../../agents/contexts/graph.js';
+} from './compose.js';
+import { renderWorkspaceSeed, type AgentPromptSessionContext } from './seed/workspace.js';
+import { renderGraphSeed } from './seed/graph.js';
 import type { GraphReaders } from '../graph/index.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 
@@ -103,14 +103,14 @@ function contextForPrompt(
   gaps: readonly ElicitationGap[],
 ): AgentPromptContextBundle {
   const renderedContexts = [
-    renderCwdContext({
+    renderWorkspaceSeed({
       spec: context.spec,
       workspace: context.workspace,
       ...(context.session ? { session: context.session } : {}),
       gaps,
     }),
   ];
-  renderedContexts.push(renderGraphContext(context.graphReads.queryGraph(), { lens: state.agentLens }));
+  renderedContexts.push(renderGraphSeed(context.graphReads.queryGraph(), { lens: state.agentLens }));
 
   return {
     ...(context.context?.contextHandles ? { contextHandles: context.context.contextHandles } : {}),

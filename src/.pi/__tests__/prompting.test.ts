@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
-import { composeAgentPrompt } from '../agents/compose.js';
+import { composeAgentPrompt } from '../extensions/system-prompts/compose.js';
 import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
 import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
 import { createInMemoryBrunchIntrospectionStore } from '../extensions/introspection/index.js';

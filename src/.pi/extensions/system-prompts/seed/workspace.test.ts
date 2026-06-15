@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { presenceGap } from '../../../graph/schema/elicitation-gap-fixtures.js';
-import { renderCwdContext } from './cwd.js';
+import { presenceGap } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import { renderWorkspaceSeed } from './workspace.js';
 
-describe('renderCwdContext', () => {
+describe('renderWorkspaceSeed', () => {
   it('renders selected-spec/session/posture facts without ambient resource discovery', () => {
-    const rendered = renderCwdContext({
+    const rendered = renderWorkspaceSeed({
       spec: { id: 42, name: 'Payments Spec' },
       workspace: {
         cwd: '/repo/product',

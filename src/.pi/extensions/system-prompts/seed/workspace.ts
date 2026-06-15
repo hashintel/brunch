@@ -1,4 +1,4 @@
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
 import {
   renderSoftReadinessEstimate,
   type AgentPromptSpecContext,
@@ -17,7 +17,7 @@ export interface RenderCwdContextInput {
   readonly gaps: readonly ElicitationGap[];
 }
 
-export function renderCwdContext(input: RenderCwdContextInput): string {
+export function renderWorkspaceSeed(input: RenderCwdContextInput): string {
   return [
     '[Selected workspace context]',
     `- cwd: ${input.workspace.cwd}`,
