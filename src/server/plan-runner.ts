@@ -73,6 +73,11 @@ export type RunPlanArgs = {
   verbose: boolean;
   /** Toolchain profile override (`--profile`); wins over the spec's profile. */
   profile?: ProfileId;
+  /**
+   * Project directory the toolchain is detected from for brownfield plans
+   * (`brunch-detect`). The CLI passes the launch cwd; greenfield ignores it.
+   */
+  repoDir?: string;
   /** Injectable LLM seam. Defaults to the production anthropic adapter via the emitter. */
   runModel?: RunModel;
   /** Injectable stderr writer. Defaults to `console.error`. */
@@ -92,6 +97,7 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   const result = await emitPlanFromSnapshot(args.snapshot, {
     ...(args.runModel ? { runModel: args.runModel } : {}),
     ...(args.profile ? { profile: args.profile } : {}),
+    ...(args.repoDir ? { repoDir: args.repoDir } : {}),
   });
 
   // Spec-scoped output path. Each spec gets its own subdir so multiple
