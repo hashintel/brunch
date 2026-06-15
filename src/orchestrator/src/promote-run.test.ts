@@ -45,6 +45,23 @@ describe('promoteGreenfieldRun', () => {
     expect(result.branch.length).toBeGreaterThan(0);
   });
 
+  it('captures the dependency manifest + lockfile in the promoted commit (reproducible tree)', () => {
+    // FE-872 acceptance 2 (greenfield): the cook agent installs deps via bash;
+    // promotion must capture the manifest + lockfile it produced so the promoted
+    // tree is reproducible — pinned as an invariant, not left incidental to the
+    // blanket copy. Asserted via `git ls-files` (tracked, not merely present).
+    const sandbox = makeSandbox();
+    writeFileSync(join(sandbox, 'package.json'), '{"name":"cooked","devDependencies":{"vitest":"^3"}}\n');
+    writeFileSync(join(sandbox, 'bun.lock'), '{ "lockfileVersion": 1 }\n');
+
+    const target = tmpTarget();
+    promoteGreenfieldRun({ sandboxDir: sandbox, target, runId: 'r1', force: false });
+
+    const tracked = execFileSync('git', ['ls-files'], { cwd: target, encoding: 'utf8' });
+    expect(tracked).toContain('package.json');
+    expect(tracked).toContain('bun.lock');
+  });
+
   it('refuses a non-empty target without --force', () => {
     const sandbox = makeSandbox();
     const target = tmpTarget();
