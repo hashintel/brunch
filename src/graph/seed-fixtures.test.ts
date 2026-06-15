@@ -4,8 +4,8 @@
  * keeping the graph clock and change log coherent.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
-import { mkdtemp } from 'node:fs/promises';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,6 +87,76 @@ describe('seed fixture CLI', () => {
     expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
   });
 
+  it('rejects --reset without the required flags and documents it in usage', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-seed-cwd-'));
+    let stderr = '';
+
+    const code = await runSeedFixturesCli({
+      argv: ['--reset'],
+      cwd,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('--reset');
+    expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+  });
+
+  it('--reset on a fresh workspace with no DB is a no-op and seeds cleanly', async () => {
+    const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
+    let stdout = '';
+
+    const code = await runSeedFixturesCli({
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/alpha-grounding', '--reset'],
+      stdout: (chunk) => {
+        stdout += chunk;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('seeded workspace-spread/alpha-grounding → spec');
+    expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
+  });
+
+  it('--reset wipes workspace runtime state (DB, sessions, selection state, debug cache) so a relaunch starts fresh', async () => {
+    const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
+
+    const first = await runSeedFixturesCli({
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/alpha-grounding'],
+      stdout: () => {},
+    });
+    expect(first).toBe(0);
+
+    // The walkthrough regression: a stale session JSONL makes the TUI resume
+    // (no seed, no kick) instead of starting fresh, and stale workspace.json /
+    // debug caches reference the deleted DB. All four runtime artifacts must
+    // go; unknown files in .brunch/ are not ours to delete.
+    const brunchDir = join(targetWorkspace, '.brunch');
+    const sessionsDir = join(brunchDir, 'sessions');
+    const debugDir = join(brunchDir, 'debug');
+    await mkdir(sessionsDir, { recursive: true });
+    await writeFile(join(sessionsDir, 'stale-session.jsonl'), '{"type":"session"}\n', 'utf8');
+    await writeFile(join(brunchDir, 'workspace.json'), '{"stale":true}', 'utf8');
+    await mkdir(debugDir, { recursive: true });
+    await writeFile(join(debugDir, 'entry-contents.md'), 'stale blocks', 'utf8');
+    await writeFile(join(brunchDir, 'notes.md'), 'keep me', 'utf8');
+
+    const second = await runSeedFixturesCli({
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/beta-commitments', '--reset'],
+      stdout: () => {},
+    });
+    expect(second).toBe(0);
+
+    const executor = await openWorkspaceCommandExecutor(targetWorkspace);
+    expect(executor.listSpecs().map((spec) => spec.slug)).toEqual(['beta-commitments']);
+    expect(existsSync(sessionsDir)).toBe(false);
+    expect(existsSync(join(brunchDir, 'workspace.json'))).toBe(false);
+    expect(existsSync(debugDir)).toBe(false);
+    expect(readFileSync(join(brunchDir, 'notes.md'), 'utf8')).toBe('keep me');
+  });
+
   it('accepts equals-form flags when values are unambiguous and safe', async () => {
     const shellCwd = await mkdtemp(join(tmpdir(), 'brunch-seed-shell-'));
     const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
@@ -157,6 +227,49 @@ describe('seed fixture CLI', () => {
         .all()
         .map((row) => row.operation),
     ).toEqual(['create_spec', 'mutate_graph']);
+  });
+});
+
+describe('all tracked seeds remain structurally legal', () => {
+  // One-level <set>/<slug>.json discovery: prep scripts (_*.ts), READMEs, and
+  // raw-material subdirectories (e.g. bilal-port/_originals/) are excluded by
+  // construction. No hand-maintained list to drift.
+  const seedsRoot = resolve(HERE, '../../.fixtures/seeds');
+  const seedRefs = readdirSync(seedsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((set) =>
+      readdirSync(join(seedsRoot, set.name))
+        .filter((file) => file.endsWith('.json'))
+        .map((file) => `${set.name}/${file.slice(0, -'.json'.length)}`),
+    );
+
+  it('discovers the tracked seed catalog', () => {
+    expect(seedRefs.length).toBeGreaterThan(0);
+    expect(seedRefs).toContain('workspace-spread/alpha-grounding');
+    expect(seedRefs.some((ref) => ref.includes('_originals'))).toBe(false);
+  });
+
+  it.each(seedRefs.map((ref) => ({ ref })))('seeds $ref through the command layer', ({ ref }) => {
+    const [set, slug] = ref.split('/') as [string, string];
+    const fixture = loadFixture(slug, set);
+    const db = createDb(':memory:');
+
+    const result = seedFixture(new CommandExecutor(db), fixture);
+
+    expect(result.nodeCount).toBe(fixture.nodes.length);
+    expect(result.edgeCount).toBe(fixture.edges.length);
+  });
+
+  it('surfaces command-layer diagnostics when a fixture is illegal', () => {
+    const illegal: SeedFixture = {
+      spec: { slug: 'illegal-currency-proof', name: 'Illegal currency proof' },
+      nodes: [{ local_id: 1, plane: 'intent', kind: 'not-a-kind', title: 'bad kind' }],
+      edges: [],
+    };
+
+    expect(() => seedFixture(new CommandExecutor(createDb(':memory:')), illegal)).toThrow(
+      /mutateGraph failed for "illegal-currency-proof"/u,
+    );
   });
 });
 

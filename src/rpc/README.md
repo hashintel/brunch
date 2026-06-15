@@ -164,8 +164,8 @@ session.runtimeState
 session.triggerExchange
   access: write
   params: none
-  result: pending exchange
-  effects: starts/resumes/advances the assistant-first exchange loop and publishes selected-session invalidations
+  result: pending exchange (assistant-created) or idle
+  effects: kick surface (D49-L/D78-L revised 2026-06-12) — seeds origination context for the selected session and reports pending-exchange state; the product mints no deterministic exchange, so transports without a live agent session legitimately receive idle; publishes selected-session invalidations
 
 session.submitExchangeResponse
   access: write

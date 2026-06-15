@@ -14,20 +14,15 @@ import type {
 } from '../../graph/command-executor/graph-mutation-types.js';
 import {
   authoredEdgeEndpointFields,
-  DESIGN_KINDS,
   EDGE_CATEGORIES,
   EDGE_STANCES,
-  INTENT_KINDS,
-  ORACLE_KINDS,
-  PLAN_KINDS,
+  NODE_KINDS,
   parseGraphNodeCode,
 } from '../../graph/index.js';
 import { graphMutationProductUpdates } from '../product-updates.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { PositiveIntegerSchema } from './schemas.js';
-
-const ALL_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
 
 const BasisSchema = Type.Union([Type.Literal('explicit'), Type.Literal('implicit')]);
 const NodePlaneSchema = Type.Union([
@@ -36,7 +31,7 @@ const NodePlaneSchema = Type.Union([
   Type.Literal('design'),
   Type.Literal('plan'),
 ]);
-const NodeKindSchema = Type.Union(ALL_KINDS.map((kind) => Type.Literal(kind)));
+const NodeKindSchema = Type.Union(NODE_KINDS.map((kind) => Type.Literal(kind)));
 const EdgeStanceSchema = Type.Union(EDGE_STANCES.map((stance) => Type.Literal(stance)));
 
 const DevExistingCodeRefSchema = Type.Object(
@@ -150,7 +145,7 @@ const DevMutateGraphParamsSchema = Type.Object(
 );
 
 type DevNodePlane = 'intent' | 'oracle' | 'design' | 'plan';
-type DevNodeKind = (typeof ALL_KINDS)[number];
+type DevNodeKind = (typeof NODE_KINDS)[number];
 type DevBasis = 'explicit' | 'implicit';
 type DevCreateEdgeEndpoint = string | DevExistingCodeRef;
 type DevEdgeCategory = (typeof EDGE_CATEGORIES)[number];

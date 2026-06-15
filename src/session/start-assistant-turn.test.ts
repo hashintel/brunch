@@ -24,12 +24,20 @@ describe('startAssistantTurn', () => {
       entries: [],
       origin: 'new_session',
       strategy: 'auto',
+      seedContent: 'Seeded overview with top gap: What is the primary goal?',
     });
 
     expect(decision).toEqual({
       action: 'start',
       origin: 'new_session',
-      seedEntries: [{ type: 'custom', customType: 'brunch.context_seed', data: { specId, snapshotLsn: 3 } }],
+      seedEntries: [
+        {
+          type: 'custom_message',
+          customType: 'brunch.context_seed',
+          content: 'Seeded overview with top gap: What is the primary goal?',
+          details: { specId, snapshotLsn: 3 },
+        },
+      ],
     });
     expect(JSON.stringify(decision)).not.toContain('"role":"user"');
   });
@@ -45,7 +53,14 @@ describe('startAssistantTurn', () => {
 
     expect(latestTailOwesAssistant(entries)).toBe(true);
     expect(
-      startAssistantTurn({ specId, currentLsn: 4, entries, origin: 'resume_debt', strategy: 'auto' }).action,
+      startAssistantTurn({
+        specId,
+        currentLsn: 4,
+        entries,
+        origin: 'resume_debt',
+        strategy: 'auto',
+        seedContent: 'seed',
+      }).action,
     ).toBe('start');
   });
 
@@ -70,6 +85,7 @@ describe('startAssistantTurn', () => {
         entries: [message('assistant', 'Already answered'), custom('worldUpdate', { specId, currentLsn: 4 })],
         origin: 'resume_debt',
         strategy: 'auto',
+        seedContent: 'seed',
       }),
     ).toEqual({ action: 'idle', reason: 'no_unresolved_debt', seedEntries: [] });
 
@@ -79,6 +95,7 @@ describe('startAssistantTurn', () => {
         currentLsn: 4,
         entries: [message('user', 'Ambient')],
         origin: 'resume_debt',
+        seedContent: 'seed',
       }),
     ).toMatchObject({ action: 'start' });
 
@@ -89,6 +106,7 @@ describe('startAssistantTurn', () => {
         entries: [message('user', 'Ambient')],
         origin: 'resume_debt',
         strategy: 'freestyle',
+        seedContent: 'seed',
       }),
     ).toMatchObject({ action: 'idle', reason: 'explicit_freestyle' });
   });
@@ -96,7 +114,13 @@ describe('startAssistantTurn', () => {
   it('is idempotent across reboot and crash-after-notice-before-provider', () => {
     const seeded = [custom('brunch.context_seed', { specId, snapshotLsn: 9 })];
     expect(
-      startAssistantTurn({ specId, currentLsn: 9, entries: seeded, origin: 'new_session' }).seedEntries,
+      startAssistantTurn({
+        specId,
+        currentLsn: 9,
+        entries: seeded,
+        origin: 'new_session',
+        seedContent: 'seed',
+      }).seedEntries,
     ).toEqual([]);
 
     const crashAfterNotice = [
@@ -105,7 +129,13 @@ describe('startAssistantTurn', () => {
       custom('worldUpdate', { specId, currentLsn: 9 }),
     ];
     expect(
-      startAssistantTurn({ specId, currentLsn: 9, entries: crashAfterNotice, origin: 'resume_debt' }),
+      startAssistantTurn({
+        specId,
+        currentLsn: 9,
+        entries: crashAfterNotice,
+        origin: 'resume_debt',
+        seedContent: 'seed',
+      }),
     ).toMatchObject({ action: 'start', seedEntries: [] });
   });
 });

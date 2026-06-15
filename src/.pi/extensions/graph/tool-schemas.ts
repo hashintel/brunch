@@ -189,7 +189,7 @@ export const ReadGraphParams = {
   additionalProperties: false,
   required: ['mode'],
   properties: {
-    mode: { enum: ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related', 'gaps'] },
+    mode: { enum: ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related'] },
     show: {
       enum: ['active', 'all'] satisfies readonly GraphVisibility[],
       description: 'Graph visibility to read (default: active)',
@@ -221,15 +221,11 @@ export const ReadGraphParams = {
     },
     direction: {
       enum: ['outgoing', 'incoming', 'both'] satisfies readonly EdgeDirection[],
-      description: 'Traversal direction for related or gaps mode (default: both)',
-    },
-    absentEdgeCategory: {
-      enum: [...EDGE_CATEGORIES],
-      description: 'Edge category whose absence defines a gaps query',
+      description: 'Traversal direction for related mode (default: both)',
     },
   },
   description:
-    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, related nodes, or graph gaps. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters. Gaps mode requires a base filter (kinds and/or readinessBands) plus absentEdgeCategory.',
+    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters.',
 } as const;
 
 export type ToolMutateGraphParamsSchema = Static<typeof MutateGraphParams>;

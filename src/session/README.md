@@ -21,7 +21,15 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, and response
   toolResult materialization. RPC maps these domain results to JSON-RPC status
-  and error codes; transcript mechanics stay here.
+  and error codes; transcript mechanics stay here. **Provider-legality rule
+  (2026-06-12):** every synthetic exchange toolResult (present offers at
+  origination, request responses at submit) persists as a *pair* — a synthetic
+  assistant toolCall (`syntheticExchangeToolCallMessage`, sentinel provenance
+  `brunch-exchange`) immediately followed by the toolResult, sharing one
+  `^[a-zA-Z0-9_-]+$` id (`exchangeId__toolName`, never `:`). Real providers
+  reject orphan `tool_result` blocks and non-conforming ids; the faux provider
+  validates neither, so only the Tier-2 provider-legality assertion and live
+  runs guard this shape.
 
 - **Workspace coordination** — boot flow, spec/session selection,
   `.brunch/workspace.json` management. The `WorkspaceSessionCoordinator`
@@ -43,7 +51,30 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `prepare-next-turn.ts` owns the single pre-turn continuity writer; Pi lifecycle
   hooks adapt it through `.pi/extensions/session/lifecycle.ts`, and
   `before_provider_request` is a guard-only check. `start-assistant-turn.ts`
-  owns the origination decision and context seed entries.
+  owns the origination decision and context seed entries; `context-seed.ts`
+  composes the seed's provider-visible payload (spec overview + top-ranked
+  open gaps) from spec-scoped reads; `originate-assistant-turn.ts` is the one
+  seed choreography every entry point (TUI boot, `session.triggerExchange`)
+  delegates to — origin derives from conversational-message presence in the
+  projected transcript, never entry counts (I46-L). Origination only *decides
+  and seeds* — it fabricates **no** `present_*` exchange (D78-L revised
+  2026-06-12; the deterministic offer was a pre-elicitation-gaps fossil, now
+  probe-land machinery in `probes/deterministic-exchange-script.ts`). The LLM
+  turn completing a 'start' decision is fired by the launch path after session
+  creation via `session.sendCustomMessage(kickTurnMessage(origin), { triggerTurn: true })`,
+  guarded on model availability (unauthenticated launches idle); the assistant
+  authors the opening live, typically via real `present_*`/`request_*` tool
+  calls. The RPC `session.triggerExchange` is a kick surface — it seeds and
+  reports pending state only for assistant-created exchanges.
+
+- **Continuity carriers (FE-857)** — model-intent continuity entries
+  (`worldUpdate`, side-task/reviewer drains, mention staleness hints, context
+  seed) persist as pi `CustomMessageEntry` (provider-visible `content` +
+  structured `details`); ledger-only entries (`own_mutation`, `mention`,
+  runtime state, binding, lifecycle) stay on `CustomEntry`.
+  `appendPreparedContinuityEntry` in `prepare-next-turn.ts` routes by carrier.
+  Rule: at the reconciler/guard seam use `appendCustomMessageEntry` directly;
+  `pi.sendMessage` is for out-of-band injection with delivery semantics only.
 
 ## Session PULL read-shape ledger
 
@@ -117,5 +148,6 @@ These files migrated here on 2026-06-02:
 | `exchange-projection.ts`          | exchange extraction                |
 | `runtime-state.ts`                | runtime-state transcript entries   |
 | `structured-exchange.ts`          | structured exchange schemas/types  |
-| `structured-exchange-loop.ts`     | deterministic exchange loop helpers|
+| `structured-exchange-loop.ts`     | pending-exchange read path + response-side synthetic pairs |
+| `flush-session-manager.ts`        | the one named reliance on pi's private session-file rewrite |
 | `project-identity.ts`             | workspace identity (cwd discovery) |

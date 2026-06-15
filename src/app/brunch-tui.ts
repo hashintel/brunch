@@ -7,7 +7,9 @@ import {
   createAgentSessionServices,
   getAgentDir,
   InteractiveMode,
+  type CreateAgentSessionFromServicesOptions,
   type CreateAgentSessionRuntimeFactory,
+  type CreateAgentSessionServicesOptions,
 } from '@earendil-works/pi-coding-agent';
 
 import {
@@ -18,6 +20,7 @@ import {
 } from '../.pi/brunch-pi-extensions.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
+import { appendEntryContentToDebugCache } from '../.pi/extensions/introspection/index.js';
 import {
   openWorkspaceGraphRuntime,
   type EdgeCategory,
@@ -28,11 +31,8 @@ import {
 } from '../graph/index.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
-import { startAssistantTurn } from '../session/start-assistant-turn.js';
-import {
-  nextDeterministicStructuredExchange,
-  presentToolResultMessage,
-} from '../session/structured-exchange-loop.js';
+import { kickTurnMessage, originateAssistantTurn } from '../session/originate-assistant-turn.js';
+import { renderWorkspaceOverviewContext } from '../session/workspace-context.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,
@@ -78,6 +78,20 @@ export interface BrunchTuiLaunchContext {
   webSidecarUrl?: string;
   activationDecision?: SpecSessionActivationDecision;
   dev?: BrunchTuiDevOptions;
+  /**
+   * Provider-backend substitution seam (faux provider in Tier-2 oracles).
+   * Swaps only auth/model resolution; session creation, extension
+   * registration, and origination choreography remain product wiring, so a
+   * boot through this seam still proves product lifecycle claims.
+   */
+  agentServices?: BrunchAgentServicesOverride;
+}
+
+export interface BrunchAgentServicesOverride extends Pick<
+  CreateAgentSessionServicesOptions,
+  'authStorage' | 'modelRegistry'
+> {
+  readonly model?: CreateAgentSessionFromServicesOptions['model'];
 }
 
 export interface BrunchTuiDevOptions {
@@ -283,28 +297,6 @@ export function createBrunchAgentSessionRuntimeFactory(
                 toReadOptions(options),
               ),
           ),
-        getGraphGaps: (options: {
-          show?: 'active' | 'all';
-          kinds?: readonly string[];
-          readinessBands?: readonly string[];
-          absentEdgeCategory: EdgeCategory;
-          direction?: 'outgoing' | 'incoming' | 'both';
-        }) =>
-          graphSliceWithCounts(
-            graph.forSpec(currentWorkspace.spec.id).queryGraph(
-              {
-                ...(options.kinds != null ? { kinds: options.kinds as EdgeCompatibleNodeKinds } : {}),
-                ...(options.readinessBands != null
-                  ? { bands: options.readinessBands as EdgeCompatibleReadinessBands }
-                  : {}),
-                lacksEdge: {
-                  categories: [options.absentEdgeCategory],
-                  ...(options.direction !== undefined ? { direction: options.direction } : {}),
-                },
-              },
-              toReadOptions(options),
-            ),
-          ),
         getRelatedNodes: (options: {
           anchorIds: readonly number[];
           edgeCategory: EdgeCategory;
@@ -375,56 +367,57 @@ export function createBrunchAgentSessionRuntimeFactory(
         ),
       ],
     });
-    seedAndKickAssistantTurn({
+    const specName = graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name;
+    const origination = originateAssistantTurn({
       specId: currentWorkspace.spec.id,
-      currentLsn: graph.forSpec(currentWorkspace.spec.id).queryGraph().lsn,
-      sessionManager,
+      ...(specName ? { specName } : {}),
+      reads: graph.forSpec(currentWorkspace.spec.id),
+      entries: sessionManager.getEntries(),
+      resumeOrigin: 'resume_debt',
+      workspaceContext: await renderWorkspaceOverviewContext(cwd),
+      manager: sessionManager,
     });
+    if (context.dev) {
+      // Boot-time mirror is awaited (cheap, local fs) so a dev boot is
+      // observable the moment the runtime exists; turn-time mirrors in the
+      // reconciler/guard stay fire-and-forget.
+      const debugCache = context.dev.introspection.debugCache;
+      for (const entry of origination.decision.seedEntries) {
+        await appendEntryContentToDebugCache(debugCache, entry).catch(() => {});
+      }
+    }
 
     const services = await createAgentSessionServices({
       cwd,
       agentDir: runtimeAgentDir,
       settingsManager: profile.settingsManager,
       resourceLoaderOptions: profile.resourceLoaderOptions,
+      ...(context.agentServices?.authStorage ? { authStorage: context.agentServices.authStorage } : {}),
+      ...(context.agentServices?.modelRegistry ? { modelRegistry: context.agentServices.modelRegistry } : {}),
     });
     const created = await createAgentSessionFromServices({
       services,
       sessionManager,
+      ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
     });
+    // Complete the kick: a 'start' decision owes an actual assistant-originated
+    // LLM turn, which only the live AgentSession can run. Guarded on model
+    // availability so unauthenticated launches idle instead of erroring at
+    // boot. Fire-and-forget: sendCustomMessage with triggerTurn awaits the
+    // whole turn, and boot must not block on provider latency.
+    if (origination.decision.action === 'start' && services.modelRegistry.getAvailable().length > 0) {
+      void created.session
+        .sendCustomMessage(kickTurnMessage(origination.decision.origin), { triggerTurn: true })
+        .catch((error: unknown) => {
+          console.error('[brunch] assistant-originated opening turn failed:', error);
+        });
+    }
     return {
       ...created,
       services,
       diagnostics: services.diagnostics,
     };
   };
-}
-
-function isMessageEntry(entry: unknown): boolean {
-  return typeof entry === 'object' && entry !== null && (entry as { type?: unknown }).type === 'message';
-}
-
-function seedAndKickAssistantTurn(options: {
-  readonly specId: number;
-  readonly currentLsn: number;
-  readonly sessionManager: Parameters<CreateAgentSessionRuntimeFactory>[0]['sessionManager'];
-}): void {
-  const entries = options.sessionManager.getEntries();
-  // Origin is derived from projected transcript state, not counts or flags
-  // (I46/I47): a transcript with no conversational message entries is a new
-  // session; anything else takes the resume-debt decision, which itself
-  // dedupes re-kicks (a prior kick's present_* tail owes nothing).
-  const decision = startAssistantTurn({
-    specId: options.specId,
-    currentLsn: options.currentLsn,
-    entries,
-    origin: entries.some(isMessageEntry) ? 'resume_debt' : 'new_session',
-  });
-  for (const entry of decision.seedEntries) {
-    options.sessionManager.appendCustomEntry(entry.customType, entry.data);
-  }
-  if (decision.action === 'start') {
-    options.sessionManager.appendMessage(presentToolResultMessage(nextDeterministicStructuredExchange(0)));
-  }
 }
 
 async function startDefaultWebSidecar({

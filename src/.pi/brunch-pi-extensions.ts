@@ -7,6 +7,7 @@ import {
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import { mentionFactsFromEntries } from '../session/mention-ledger.js';
 import {
+  appendPreparedContinuityEntry,
   guardBeforeProviderRequest,
   prepareNextTurn,
   type ContinuityDrain,
@@ -19,6 +20,7 @@ import { type BrunchChromeState } from './extensions/chrome/index.js';
 import { registerBrunchCommands, type BrunchCommandsOptions } from './extensions/commands/index.js';
 import { registerBrunchBranchPolicyHandlers } from './extensions/commands/policy.js';
 import { registerBrunchContext } from './extensions/context/index.js';
+import { registerBrunchElicitation } from './extensions/elicitation/index.js';
 import { registerStructuredExchange } from './extensions/exchanges/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from './extensions/graph/index.js';
 import {
@@ -26,7 +28,9 @@ import {
   registerBrunchIntrospectQuery,
 } from './extensions/introspect-query/index.js';
 import {
+  appendEntryContentToDebugCache,
   registerBrunchIntrospection,
+  type BrunchDebugCacheOptions,
   type BrunchIntrospectionOptions,
 } from './extensions/introspection/index.js';
 import { type GraphMentionSource } from './extensions/mentions/index.js';
@@ -150,8 +154,9 @@ export function createBrunchPiExtensions(
     const devAllowedToolNames = introspectionOptions?.enabled
       ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]
       : undefined;
+    const entryDebugCache = introspectionOptions?.enabled ? introspectionOptions.debugCache : undefined;
     const continuityStep = options.graph
-      ? createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains)
+      ? createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains, entryDebugCache)
       : undefined;
     const chromeRefresh: { current: (() => void) | null } = { current: null };
     const graph = options.graph;
@@ -163,7 +168,9 @@ export function createBrunchPiExtensions(
         registerBrunchSessionBoundary(api, onSessionBoundary, {
           continuitySteps: continuityStep ? [continuityStep] : [],
         });
-        if (options.graph) registerBrunchContinuityGuard(api, options.graph, options.continuityDrains);
+        if (options.graph) {
+          registerBrunchContinuityGuard(api, options.graph, options.continuityDrains, entryDebugCache);
+        }
       },
       (api) =>
         registerBrunchChrome(api, chrome, {
@@ -195,6 +202,9 @@ export function createBrunchPiExtensions(
           getElicitationGaps: commandGapReads,
         }),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
+      // Elicitation register is a distinct tool surface from the graph register,
+      // but it reads through the same workspace graph runtime deps.
+      ...(options.graph ? [(api: ExtensionAPI) => registerBrunchElicitation(api, options.graph!)] : []),
       ...(introspectionOptions?.enabled
         ? [
             (api: ExtensionAPI) => {
@@ -220,11 +230,13 @@ export function createBrunchPiExtensions(
 function createPrepareNextTurnContinuityStep(
   graph: BrunchGraphDeps,
   getContinuityDrains: (() => readonly ContinuityDrain[]) | undefined,
+  entryDebugCache: BrunchDebugCacheOptions | undefined,
 ): BrunchSessionBoundaryPipelineStep {
   return ({ sessionManager }) => {
     const result = prepareNextTurnForGraph(graph, sessionManager, getContinuityDrains);
     for (const entry of result.entriesToAppend) {
-      sessionManager.appendCustomEntry(entry.customType, entry.data);
+      appendPreparedContinuityEntry(sessionManager, entry);
+      if (entryDebugCache) void appendEntryContentToDebugCache(entryDebugCache, entry).catch(() => {});
     }
   };
 }
@@ -233,13 +245,15 @@ function registerBrunchContinuityGuard(
   pi: ExtensionAPI,
   graph: BrunchGraphDeps,
   getContinuityDrains: (() => readonly ContinuityDrain[]) | undefined,
+  entryDebugCache: BrunchDebugCacheOptions | undefined,
 ): void {
   pi.on('before_provider_request', async (_event, ctx) => {
     const sessionManager = ctx.sessionManager as SessionManager;
     await guardBeforeProviderRequest({
       prepare: () => prepareNextTurnForGraph(graph, sessionManager, getContinuityDrains),
       append: (entry) => {
-        sessionManager.appendCustomEntry(entry.customType, entry.data);
+        appendPreparedContinuityEntry(sessionManager, entry);
+        if (entryDebugCache) void appendEntryContentToDebugCache(entryDebugCache, entry).catch(() => {});
       },
     });
   });

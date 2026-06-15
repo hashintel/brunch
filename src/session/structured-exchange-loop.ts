@@ -2,14 +2,10 @@ import * as z from 'zod';
 
 import type { PresentDetails } from '../.pi/extensions/exchanges/schemas/index.js';
 import { isStructuredExchangePresentDetails } from '../.pi/extensions/exchanges/shared/recovery.js';
-import { projectPresentOptions } from '../projections/exchanges/present-options.js';
-import { projectPresentQuestion } from '../projections/exchanges/present-question.js';
 import { projectRequestAnswer } from '../projections/exchanges/request-answer.js';
 import { projectRequestChoice } from '../projections/exchanges/request-choice.js';
 import { projectRequestChoices } from '../projections/exchanges/request-choices.js';
 import { projectRequestReview } from '../projections/exchanges/request-review.js';
-import { formatPresentOptions } from '../renderers/exchanges/present-options.js';
-import { formatPresentQuestion } from '../renderers/exchanges/present-question.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from './exchange-projection.js';
 
@@ -96,6 +92,8 @@ export type AcceptedStructuredExchangeResponse =
   | {
       ok: true;
       answer: Record<string, unknown>;
+      /** Synthetic assistant tool_use pairing `toolResultMessage`; append both, call first. */
+      toolCallMessage: SyntheticExchangeToolCallMessage;
       toolResultMessage: AcceptedToolResultMessage;
     }
   | {
@@ -103,136 +101,75 @@ export type AcceptedStructuredExchangeResponse =
       message: string;
     };
 
+/**
+ * Synthetic assistant tool-call message pairing a synthetic exchange
+ * toolResult. Real providers require every `tool_result` to reference a
+ * `tool_use` from the immediately preceding assistant message — an orphan
+ * toolResult is a 400 — so product-originated exchange tuples persist the
+ * same call+result pair an LLM-driven exchange produces. Provenance fields
+ * are honest sentinels (`brunch-exchange`), never a real provider id.
+ */
+export interface SyntheticExchangeToolCallMessage {
+  role: 'assistant';
+  content: [{ type: 'toolCall'; id: string; name: string; arguments: Record<string, unknown> }];
+  api: string;
+  provider: string;
+  model: string;
+  usage: {
+    input: 0;
+    output: 0;
+    cacheRead: 0;
+    cacheWrite: 0;
+    totalTokens: 0;
+    cost: { input: 0; output: 0; cacheRead: 0; cacheWrite: 0; total: 0 };
+  };
+  stopReason: 'toolUse';
+  timestamp: 0;
+}
+
+/**
+ * Anthropic constrains `tool_use_id` to `^[a-zA-Z0-9_-]+$`, so the synthetic
+ * id joins exchange id and tool name with `__` (never `:`).
+ */
+function exchangeToolCallId(exchangeId: string, toolName: string): string {
+  return `${exchangeId}__${toolName}`;
+}
+
+export function syntheticExchangeToolCallMessage(
+  exchangeId: string,
+  toolName: string,
+): SyntheticExchangeToolCallMessage {
+  return {
+    role: 'assistant',
+    content: [
+      {
+        type: 'toolCall',
+        id: exchangeToolCallId(exchangeId, toolName),
+        name: toolName,
+        arguments: { exchangeId },
+      },
+    ],
+    api: 'brunch-exchange',
+    provider: 'brunch',
+    model: 'brunch-structured-exchange',
+    usage: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+    stopReason: 'toolUse',
+    timestamp: 0,
+  };
+}
+
 interface PendingChoice {
   id: string;
   label: string;
   content: string;
   rationale?: string;
-}
-
-export function nextDeterministicStructuredExchange(completedCount: number): PendingStructuredExchange {
-  const turnNumber = completedCount + 1;
-  const script: PendingStructuredExchange[] = [
-    {
-      exchangeId: `deterministic-grounding-choice-${turnNumber}`,
-      lens: 'intent',
-      mode: 'single-select',
-      prompt: 'Is this a new product or feature from scratch?',
-      details: 'Choose the best starting context so later elicitation can ask useful follow-ups.',
-      options: [
-        {
-          id: 'new-from-scratch',
-          label: 'Yes — this is new from scratch',
-          content: 'Start a new spec workspace from a blank slate.',
-          rationale: 'This keeps the parity run focused on initial grounding.',
-        },
-        {
-          id: 'existing-codebase',
-          label: 'No — this builds on existing code',
-          content: 'Ground the spec in existing implementation constraints.',
-          rationale: 'Existing code changes what the elicitor should inspect next.',
-        },
-        {
-          id: 'relates-to-existing-spec',
-          label: 'It relates to an existing spec',
-          content: 'Connect this work to a prior specification thread.',
-          rationale: 'Continuity matters when prior graph intent exists.',
-        },
-      ],
-      note: { allowed: true },
-    },
-    {
-      exchangeId: `deterministic-grounding-text-${turnNumber}`,
-      lens: 'intent',
-      mode: 'text',
-      prompt: 'What are we specifying?',
-      details:
-        "This covers the text-answer permutation in Brunch's deterministic public-RPC structured-exchange parity proof.",
-      options: [],
-      note: { allowed: true },
-    },
-    {
-      exchangeId: `deterministic-grounding-multi-${turnNumber}`,
-      lens: 'intent',
-      mode: 'multi-select',
-      prompt: 'Which proof qualities matter for this parity run?',
-      details:
-        'Select all qualities the deterministic structured-exchange permutation proof should preserve.',
-      options: [
-        {
-          id: 'transcript',
-          label: 'Transcript fidelity',
-          content: 'Pi JSONL keeps every present/request tuple recoverable.',
-          rationale: 'The transcript is the durable source of truth.',
-        },
-        {
-          id: 'projection',
-          label: 'Projection fidelity',
-          content: 'Brunch projections preserve semantic option artifacts.',
-          rationale: 'Public clients depend on projected structured exchange data.',
-        },
-        {
-          id: 'other',
-          label: 'Other',
-          content: 'Another proof quality should be captured in the note.',
-          rationale: 'Other requires a comment so the transcript stays explicit.',
-        },
-        {
-          id: 'none',
-          label: 'None',
-          content: 'No additional proof qualities matter for this run.',
-          rationale: 'None requires a comment to avoid silent dismissal.',
-        },
-      ],
-      note: { allowed: true },
-    },
-  ];
-  return script[completedCount % script.length]!;
-}
-
-export function presentToolResultMessage(exchange: PendingStructuredExchange) {
-  const projection = presentProjection(exchange);
-  return {
-    role: 'toolResult' as const,
-    toolCallId: `${exchange.exchangeId}:${projection.toolName}`,
-    toolName: projection.toolName,
-    content: [{ type: 'text' as const, text: projection.markdown }],
-    details: projection.details,
-    isError: false as const,
-    timestamp: 0 as const,
-  };
-}
-
-function presentProjection(exchange: PendingStructuredExchange): {
-  toolName: 'present_question' | 'present_options';
-  markdown: string;
-  details: PresentDetails;
-} {
-  if (exchange.mode === 'text') {
-    const projection = projectPresentQuestion({
-      exchangeId: exchange.exchangeId,
-      heading: exchange.prompt,
-      body: exchange.details,
-    });
-    return {
-      toolName: 'present_question',
-      markdown: formatPresentQuestion(projection),
-      details: projection.details,
-    };
-  }
-
-  const projection = projectPresentOptions({
-    exchangeId: exchange.exchangeId,
-    heading: exchange.prompt,
-    body: exchange.details,
-    options: exchange.options,
-    expectedRequestTool: exchange.mode === 'multi-select' ? 'request_choices' : 'request_choice',
-  });
-  return {
-    toolName: 'present_options',
-    markdown: formatPresentOptions(projection),
-    details: projection.details,
-  };
 }
 
 export function pendingExchangeFromEnvelope(
@@ -288,6 +225,7 @@ export function acceptedResponseFromParams(
     return {
       ok: true,
       answer: { text: params.answer.text },
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_answer'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_answer'),
         content: [{ type: 'text', text: `### Response\n\n${params.answer.text}` }],
@@ -309,6 +247,7 @@ export function acceptedResponseFromParams(
     return {
       ok: true,
       answer: { optionId: choice.id, label: choice.label },
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_choice'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_choice'),
         content: [{ type: 'text', text: choiceResponseMarkdown([choice], params.note) }],
@@ -338,6 +277,7 @@ export function acceptedResponseFromParams(
           ...(comment !== undefined ? { comment } : {}),
         },
       },
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_review'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_review'),
         content: [{ type: 'text', text: reviewResponseMarkdown(review.decision, comment) }],
@@ -370,6 +310,7 @@ export function acceptedResponseFromParams(
   return {
     ok: true,
     answer: { optionIds: choices.map((choice) => choice.id), choices },
+    toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_choices'),
     toolResultMessage: {
       ...toolResultMessageBase(pending, 'request_choices'),
       content: [{ type: 'text', text: choiceResponseMarkdown(choices, params.note) }],
@@ -406,7 +347,7 @@ function toolResultMessageBase(
 ) {
   return {
     role: 'toolResult' as const,
-    toolCallId: `${pending.exchangeId}:${requestTool}`,
+    toolCallId: exchangeToolCallId(pending.exchangeId, requestTool),
     toolName: requestTool,
     isError: false as const,
     timestamp: 0 as const,

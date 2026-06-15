@@ -15,25 +15,25 @@ import {
   type BrunchSessionEnvelope,
 } from '../../session/brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../../session/exchange-projection.js';
+import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { mentionEntry, resolveMentionFacts } from '../../session/mention-ledger.js';
+import { originateAssistantTurn } from '../../session/originate-assistant-turn.js';
 import {
   resolveExplicitSessionProjectionTarget,
   type ExplicitSessionProjectionParams,
   type SessionProjectionTarget,
 } from '../../session/session-projection-reader.js';
-import { startAssistantTurn } from '../../session/start-assistant-turn.js';
 import {
   acceptedResponseFromParams,
-  nextDeterministicStructuredExchange,
   pendingExchangeFromEnvelope,
   PendingStructuredExchangeSchema,
-  presentToolResultMessage,
   projectPendingStructuredExchange,
 } from '../../session/structured-exchange-loop.js';
 import type {
   PendingStructuredExchange,
   StructuredExchangeResponseInput,
 } from '../../session/structured-exchange-loop.js';
+import { renderWorkspaceOverviewContext } from '../../session/workspace-context.js';
 import type {
   DefaultWorkspaceCoordinator,
   WorkspaceActivationState,
@@ -172,16 +172,14 @@ const RuntimeStateResultSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const TriggerExchangeResultSchema = Type.Object(
-  {
-    status: Type.Literal('pending'),
-    exchange: PendingStructuredExchangeSchema,
-  },
-  { additionalProperties: false },
-);
-
 const PendingExchangeResultSchema = Type.Union([
-  TriggerExchangeResultSchema,
+  Type.Object(
+    {
+      status: Type.Literal('pending'),
+      exchange: PendingStructuredExchangeSchema,
+    },
+    { additionalProperties: false },
+  ),
   Type.Object(
     {
       status: Type.Literal('idle'),
@@ -377,9 +375,9 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
     method: 'session.triggerExchange',
     access: 'write',
     description:
-      "Start or resume the selected session's deterministic structured-exchange permutation loop and return the current pending exchange.",
+      'Kick the selected session: seed origination context and report pending-exchange state. Pending exchanges exist only when the assistant has created one (D49-L/D78-L revised 2026-06-12); the product mints no deterministic exchange.',
     paramsSchema: NoParamsSchema,
-    resultSchema: TriggerExchangeResultSchema,
+    resultSchema: PendingExchangeResultSchema,
     examples: [{ jsonrpc: '2.0', id: 8, method: 'session.triggerExchange' }],
     async handle(context, request) {
       const requestId = jsonRpcRequestId(request);
@@ -519,24 +517,21 @@ async function handleTriggerExchange(
     });
   }
 
-  const currentLsn = (await options.getGraphRuntime())
-    .forSpec(existingTarget.envelope.binding.specId)
-    .queryGraph().lsn;
-  const origination = startAssistantTurn({
-    specId: existingTarget.envelope.binding.specId,
-    currentLsn,
-    entries: existingTarget.envelope.entries,
-    origin: existingTarget.envelope.entries.length <= 3 ? 'new_session' : 'manual_trigger',
-  });
-  const exchange = nextDeterministicStructuredExchange(
-    projectLinearSessionExchangeProjection(existingTarget.envelope).exchanges.length,
-  );
+  const specReads = (await options.getGraphRuntime()).forSpec(existingTarget.envelope.binding.specId);
   const manager = state.session.manager;
-  for (const entry of origination.seedEntries) {
-    manager.appendCustomEntry(entry.customType, entry.data);
-  }
-  manager.appendMessage(presentToolResultMessage(exchange));
-  flushSessionEntries(manager, state.session.file);
+  // Kick surface (D49-L revised 2026-06-12): origination seeds context; the
+  // product mints no exchange. A pending exchange exists only when the
+  // assistant has created one — in transports without a live agent session
+  // this legitimately reports idle.
+  originateAssistantTurn({
+    specId: existingTarget.envelope.binding.specId,
+    reads: specReads,
+    entries: existingTarget.envelope.entries,
+    resumeOrigin: 'manual_trigger',
+    workspaceContext: await renderWorkspaceOverviewContext(options.cwd),
+    manager,
+  });
+  flushSessionManagerToFile(manager, state.session.file);
 
   const reloadedTarget = await selectedSessionFile(state);
   if (!reloadedTarget.ok) {
@@ -544,10 +539,9 @@ async function handleTriggerExchange(
   }
   const reloaded = pendingExchangeFromEnvelope(reloadedTarget.envelope);
 
-  const result = {
-    status: 'pending' as const,
-    exchange: reloaded ?? exchange,
-  };
+  const result = reloaded
+    ? { status: 'pending' as const, exchange: reloaded }
+    : { status: 'idle' as const, exchange: null };
   publishSelectedSessionUpdates(options.productUpdates, state);
   return createJsonRpcSuccess(requestId, result);
 }
@@ -601,7 +595,7 @@ async function handleSubmitMessage(
           interruption: true,
         })
       : state.session.manager.appendMessage(ordinaryUserMessage(params.text));
-  flushSessionEntries(state.session.manager, state.session.file);
+  flushSessionManagerToFile(state.session.manager, state.session.file);
 
   const graph = await options.getGraphRuntime();
   const capture =
@@ -625,7 +619,7 @@ async function handleSubmitMessage(
     })) {
       state.session.manager.appendCustomEntry('brunch.mention', mentionEntry(fact).data);
     }
-    flushSessionEntries(state.session.manager, state.session.file);
+    flushSessionManagerToFile(state.session.manager, state.session.file);
   }
 
   const result: SubmitMessageResult = {
@@ -732,8 +726,11 @@ async function handleSubmitExchangeResponse(
     ...(params.note === undefined ? {} : { note: params.note }),
   };
 
+  // Call first, then result — the synthetic pair keeps the transcript
+  // provider-legal (an orphan tool_result is a real-provider 400).
+  state.session.manager.appendMessage(accepted.toolCallMessage);
   state.session.manager.appendMessage(accepted.toolResultMessage);
-  flushSessionEntries(state.session.manager, state.session.file);
+  flushSessionManagerToFile(state.session.manager, state.session.file);
 
   publishSelectedSessionUpdates(options.productUpdates, state, target.envelope.binding.specId);
   const mutationLsn =
@@ -744,17 +741,6 @@ async function handleSubmitExchangeResponse(
     );
   }
   return createJsonRpcSuccess(requestId, result);
-}
-
-interface FlushableSessionManager {
-  _rewriteFile(): void;
-  setSessionFile(file: string): void;
-}
-
-function flushSessionEntries(manager: unknown, sessionFile: string): void {
-  const flushable = manager as FlushableSessionManager;
-  flushable._rewriteFile();
-  flushable.setSessionFile(sessionFile);
 }
 
 function ordinaryUserMessage(text: string) {

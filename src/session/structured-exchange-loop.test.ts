@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
+import { nextDeterministicStructuredExchange } from '../probes/deterministic-exchange-script.js';
 import type { BrunchSessionEnvelope } from './brunch-session-envelope.js';
 import { createSessionBindingData } from './session-binding.js';
 import {
   acceptedResponseFromParams,
-  nextDeterministicStructuredExchange,
   pendingExchangeFromEnvelope,
   type PendingStructuredExchange,
 } from './structured-exchange-loop.js';

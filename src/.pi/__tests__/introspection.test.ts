@@ -7,8 +7,10 @@ import { describe, expect, it } from 'vitest';
 import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
 import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
 import {
+  appendEntryContentToDebugCache,
   BRUNCH_INTROSPECTION_COMMAND,
   createInMemoryBrunchIntrospectionStore,
+  mirrorSystemPromptToDebugCache,
   registerBrunchIntrospection,
 } from '../extensions/introspection/index.js';
 import { BRUNCH_SESSION_QUERY_TOOL } from '../extensions/session-query/index.js';
@@ -17,6 +19,72 @@ interface FakeCommandContext {
   readonly ui: { notify(message: string, type?: 'info' | 'warning' | 'error'): void };
   getSystemPromptOptions(): unknown;
 }
+
+describe('system-prompt mirror handles real provider payload shapes', () => {
+  it('extracts the system prompt from the Anthropic array-of-blocks form', async () => {
+    // Real anthropic-messages payloads carry `system` as an array of text
+    // blocks (with cache_control), never a string — the 2026-06-12 walkthrough
+    // found the mirror silently writing nothing for live turns.
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-system-mirror-'));
+    await mirrorSystemPromptToDebugCache(
+      { cwd },
+      {
+        model: 'claude-opus-4-8',
+        system: [
+          { type: 'text', text: 'You are the Brunch elicitor.', cache_control: { type: 'ephemeral' } },
+          { type: 'text', text: 'Stay grounded in the spec graph.' },
+        ],
+        messages: [],
+      },
+    );
+    const mirrored = await readFile(join(cwd, '.brunch/debug/system-prompt.md'), 'utf8');
+    expect(mirrored).toContain('You are the Brunch elicitor.');
+    expect(mirrored).toContain('Stay grounded in the spec graph.');
+  });
+});
+
+describe('debug cache entry-contents mirror (origination-kick-live card 2)', () => {
+  it('mirrors a message-carrier continuity entry with content and details', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-entry-mirror-'));
+    await appendEntryContentToDebugCache(
+      { cwd },
+      {
+        type: 'custom_message',
+        customType: 'brunch.context_seed',
+        content: 'Context seeded for spec 1.\nOpen elicitation gaps: …',
+        details: { specId: 1, snapshotLsn: 4 },
+      },
+    );
+    const mirror = await readFile(join(cwd, '.brunch/debug/entry-contents.md'), 'utf8');
+    expect(mirror).toContain('brunch.context_seed');
+    expect(mirror).toContain('custom_message');
+    expect(mirror).toContain('Context seeded for spec 1.');
+    expect(mirror).toContain('"snapshotLsn": 4');
+  });
+
+  it('mirrors a ledger entry with its data payload and appends as separated blocks', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-entry-mirror-'));
+    await appendEntryContentToDebugCache(
+      { cwd },
+      { type: 'custom', customType: 'brunch.own_mutation', data: { specId: 1, lsn: 9 } },
+    );
+    await appendEntryContentToDebugCache(
+      { cwd },
+      {
+        type: 'custom_message',
+        customType: 'worldUpdate',
+        content: 'World update: 2 items.',
+        details: { specId: 1, currentLsn: 11 },
+      },
+    );
+    const mirror = await readFile(join(cwd, '.brunch/debug/entry-contents.md'), 'utf8');
+    expect(mirror).toContain('brunch.own_mutation');
+    expect(mirror).toContain('"lsn": 9');
+    expect(mirror).toContain('World update: 2 items.');
+    expect(mirror.indexOf('brunch.own_mutation')).toBeLessThan(mirror.indexOf('worldUpdate'));
+    expect(mirror).toContain('\n\n---\n\n');
+  });
+});
 
 describe('Brunch introspection extension', () => {
   it('records provider payloads without replacing them', async () => {

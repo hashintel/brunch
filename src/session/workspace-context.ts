@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, relative, resolve, sep } from 'node:path';
 
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
+import { renderWorkspaceContext } from '../renderers/workspace/workspace-context.js';
 import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/boot-session-store.js';
 
 interface WorkspaceSessionFileInventory {
@@ -78,6 +79,15 @@ export async function inspectWorkspaceCwdInventory(cwd: string): Promise<Workspa
     topLevelEntries,
     markdownFiles,
   };
+}
+
+/**
+ * The pre-rendered workspace overview section every origination entry point
+ * seeds (D78-L revised 2026-06-12). One composition over inspect + render so
+ * no call site can drift to a thinner seed.
+ */
+export async function renderWorkspaceOverviewContext(cwd: string): Promise<string> {
+  return renderWorkspaceContext(await inspectWorkspaceOverview(cwd));
 }
 
 export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOverview> {

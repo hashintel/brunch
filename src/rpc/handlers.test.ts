@@ -10,8 +10,10 @@ import { describe, expect, it } from 'vitest';
 
 import { runCreateOnlyMutation } from '../graph/test-support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../graph/workspace-store.js';
+import { mintDeterministicExchangeIntoSessionFile } from '../probes/deterministic-exchange-script.js';
 import { assistantMessage, userMessage } from '../probes/test-helpers.js';
 import { projectPresentReviewSet } from '../projections/exchanges/present-review-set.js';
+import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
 import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, type BrunchAgentState } from '../session/runtime-state.js';
 import { createSessionBindingData } from '../session/session-binding.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
@@ -26,6 +28,16 @@ import type {
 } from '../session/workspace-session-coordinator.js';
 import { createReadOnlyRpcHandlers, createRpcHandlers, runJsonRpcLineServer } from './handlers.js';
 import { createProductUpdatePublisher } from './product-updates.js';
+
+/**
+ * Fixture-mint a deterministic exchange into a setup-session workspace and
+ * flush it to the session file — the probe/test stand-in for an
+ * assistant-authored offer now that the product mints nothing (D78-L revised
+ * 2026-06-12).
+ */
+function mintExchangeIntoWorkspace(workspace: { session: { file: string } }, completedCount = 0) {
+  return mintDeterministicExchangeIntoSessionFile(workspace.session.file, completedCount);
+}
 
 function coordinator(
   state: WorkspaceSessionState = readyState('/tmp/brunch-project/.brunch/sessions/session-1.jsonl'),
@@ -720,7 +732,10 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('starts a deterministic assistant-first elicitation prompt for the selected session', async () => {
+  it('triggerExchange is a kick surface: seeds origination context and reports idle when no assistant-created exchange exists', async () => {
+    // D49-L/D78-L revised 2026-06-12: the product mints no deterministic
+    // exchange. On a fresh session triggerExchange seeds and reports idle;
+    // pending state exists only once the assistant has created an exchange.
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-start-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     const workspace = await coordinatorInstance.createSetupSession({
@@ -736,56 +751,35 @@ describe('JSON-RPC handlers', () => {
       id: 40,
       method: 'session.triggerExchange',
     });
-
     expect(start).toMatchObject({
       jsonrpc: '2.0',
       id: 40,
-      result: {
-        status: 'pending',
-        exchange: {
-          exchangeId: expect.any(String),
-          lens: 'intent',
-          mode: 'single-select',
-          prompt: expect.stringContaining('new product or feature'),
-          options: expect.arrayContaining([
-            expect.objectContaining({
-              id: 'new-from-scratch',
-              label: 'Start a new spec workspace from a blank slate.',
-              content: 'Start a new spec workspace from a blank slate.',
-              rationale: 'This keeps the parity run focused on initial grounding.',
-            }),
-          ]),
-          note: { allowed: true },
-        },
-      },
-    });
-    const exchangeId = (
-      start as {
-        result: { exchange: { exchangeId: string } };
-      }
-    ).result.exchange.exchangeId;
-
-    const exchanges = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 41,
-      method: 'session.exchanges',
-    });
-    expect(exchanges).toMatchObject({
-      jsonrpc: '2.0',
-      id: 41,
-      result: { status: 'open_prompt', openPrompt: expect.any(Object) },
+      result: { status: 'idle', exchange: null },
     });
 
     const sessionText = await readFile(workspace.session.file, 'utf8');
-    expect(sessionText).toContain('brunch.structured_exchange.present');
-    expect(sessionText).toContain('present_options');
-    expect(sessionText).toContain(exchangeId);
+    expect(sessionText).toContain('brunch.context_seed');
+    expect(sessionText).not.toContain('present_options');
+
+    // Once an assistant-created exchange exists (fixture stand-in), the same
+    // kick surface reports it as pending.
+    const minted = mintExchangeIntoWorkspace(workspace);
+    const pending = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 41,
+      method: 'session.triggerExchange',
+    });
+    expect(pending).toMatchObject({
+      jsonrpc: '2.0',
+      id: 41,
+      result: { status: 'pending', exchange: { exchangeId: minted.exchangeId } },
+    });
   });
 
   it('reads the selected pending structured exchange from transcript truth', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-pending-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
-    await coordinatorInstance.createSetupSession({
+    const workspace = await coordinatorInstance.createSetupSession({
       specTitle: 'Pending spec',
     });
     const handlers = createRpcHandlers({
@@ -793,11 +787,7 @@ describe('JSON-RPC handlers', () => {
       cwd,
     });
 
-    const start = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 46,
-      method: 'session.triggerExchange',
-    });
+    const minted = mintExchangeIntoWorkspace(workspace);
     const pending = await handlers.handle({
       jsonrpc: '2.0',
       id: 47,
@@ -810,11 +800,7 @@ describe('JSON-RPC handlers', () => {
       result: {
         status: 'pending',
         exchange: {
-          exchangeId: (
-            start as {
-              result: { exchange: { exchangeId: string } };
-            }
-          ).result.exchange.exchangeId,
+          exchangeId: minted.exchangeId,
           prompt: expect.stringContaining('new product or feature'),
           lens: 'intent',
           options: expect.arrayContaining([
@@ -836,15 +822,7 @@ describe('JSON-RPC handlers', () => {
     const workspace = await coordinatorInstance.createSetupSession({
       specTitle: 'Explicit pending spec',
     });
-    const startHandlers = createRpcHandlers({
-      coordinator: coordinatorInstance,
-      cwd,
-    });
-    await startHandlers.handle({
-      jsonrpc: '2.0',
-      id: 48,
-      method: 'session.triggerExchange',
-    });
+    mintExchangeIntoWorkspace(workspace);
 
     const handlers = createRpcHandlers({
       coordinator: {
@@ -1121,16 +1099,7 @@ describe('JSON-RPC handlers', () => {
       cwd,
     });
 
-    const start = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 53,
-      method: 'session.triggerExchange',
-    });
-    const exchangeId = (
-      start as {
-        result: { exchange: { exchangeId: string } };
-      }
-    ).result.exchange.exchangeId;
+    const exchangeId = mintExchangeIntoWorkspace(workspace).exchangeId;
 
     const response = await handlers.handle({
       jsonrpc: '2.0',
@@ -1182,7 +1151,10 @@ describe('JSON-RPC handlers', () => {
         status: 'ready',
         exchanges: [
           {
-            promptEntryIds: [expect.any(String)],
+            // present toolCall + present toolResult + request toolCall — the
+            // synthetic call halves keep the transcript provider-legal (no
+            // orphan tool_result); both assistant-side calls group prompt-side.
+            promptEntryIds: [expect.any(String), expect.any(String), expect.any(String)],
             responseEntryIds: [expect.any(String)],
           },
         ],
@@ -1206,16 +1178,7 @@ describe('JSON-RPC handlers', () => {
       cwd,
     });
 
-    const first = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 250,
-      method: 'session.triggerExchange',
-    });
-    const firstExchangeId = (
-      first as {
-        result: { exchange: { exchangeId: string } };
-      }
-    ).result.exchange.exchangeId;
+    const firstExchangeId = mintExchangeIntoWorkspace(workspace, 0).exchangeId;
     await handlers.handle({
       jsonrpc: '2.0',
       id: 251,
@@ -1226,24 +1189,9 @@ describe('JSON-RPC handlers', () => {
       },
     });
 
-    const textStart = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 252,
-      method: 'session.triggerExchange',
-    });
-    expect(textStart).toMatchObject({
-      result: {
-        exchange: {
-          mode: 'text',
-          exchangeId: 'deterministic-grounding-text-2',
-        },
-      },
-    });
-    const textExchangeId = (
-      textStart as {
-        result: { exchange: { exchangeId: string } };
-      }
-    ).result.exchange.exchangeId;
+    const textExchange = mintExchangeIntoWorkspace(workspace, 1);
+    expect(textExchange).toMatchObject({ mode: 'text', exchangeId: 'deterministic-grounding-text-2' });
+    const textExchangeId = textExchange.exchangeId;
     await expect(
       handlers.handle({
         jsonrpc: '2.0',
@@ -1261,18 +1209,10 @@ describe('JSON-RPC handlers', () => {
       },
     });
 
-    const multiStart = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 254,
-      method: 'session.triggerExchange',
-    });
-    expect(multiStart).toMatchObject({
-      result: {
-        exchange: {
-          mode: 'multi-select',
-          exchangeId: 'deterministic-grounding-multi-3',
-        },
-      },
+    const multiExchange = mintExchangeIntoWorkspace(workspace, 2);
+    expect(multiExchange).toMatchObject({
+      mode: 'multi-select',
+      exchangeId: 'deterministic-grounding-multi-3',
     });
     await expect(
       handlers.handle({
@@ -1345,7 +1285,7 @@ describe('JSON-RPC handlers', () => {
       isError: false,
       timestamp: 0,
     });
-    (workspace.session.manager as unknown as { _rewriteFile(): void })._rewriteFile();
+    flushSessionManagerToFile(workspace.session.manager);
     const productUpdates = createProductUpdatePublisher();
     const updates: unknown[] = [];
     productUpdates.subscribe((batch) => updates.push(...batch));
@@ -1422,27 +1362,14 @@ describe('JSON-RPC handlers', () => {
       productUpdates,
     });
 
-    const first = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 270,
-      method: 'session.triggerExchange',
-    });
-    const firstExchangeId = (
-      first as {
-        result: { exchange: { exchangeId: string } };
-      }
-    ).result.exchange.exchangeId;
+    const firstExchangeId = mintExchangeIntoWorkspace(workspace, 0).exchangeId;
     await handlers.handle({
       jsonrpc: '2.0',
       id: 271,
       method: 'session.submitExchangeResponse',
       params: { exchangeId: firstExchangeId, answer: { optionId: 'new-from-scratch' } },
     });
-    await handlers.handle({
-      jsonrpc: '2.0',
-      id: 272,
-      method: 'session.triggerExchange',
-    });
+    mintExchangeIntoWorkspace(workspace, 1);
 
     const response = await handlers.handle({
       jsonrpc: '2.0',
@@ -1657,11 +1584,7 @@ describe('JSON-RPC handlers', () => {
       coordinator: coordinatorInstance,
       cwd,
     });
-    await handlers.handle({
-      jsonrpc: '2.0',
-      id: 283,
-      method: 'session.triggerExchange',
-    });
+    mintExchangeIntoWorkspace(workspace);
     const before = await readFile(workspace.session.file, 'utf8');
 
     await expect(
@@ -1691,16 +1614,7 @@ describe('JSON-RPC handlers', () => {
       coordinator: coordinatorInstance,
       cwd,
     });
-    const pending = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 285,
-      method: 'session.triggerExchange',
-    });
-    const exchangeId = (
-      pending as {
-        result: { exchange: { exchangeId: string } };
-      }
-    ).result.exchange.exchangeId;
+    const exchangeId = mintExchangeIntoWorkspace(workspace).exchangeId;
 
     const response = await handlers.handle({
       jsonrpc: '2.0',
@@ -1751,11 +1665,7 @@ describe('JSON-RPC handlers', () => {
       coordinator: coordinatorInstance,
       cwd,
     });
-    await handlers.handle({
-      jsonrpc: '2.0',
-      id: 58,
-      method: 'session.triggerExchange',
-    });
+    mintExchangeIntoWorkspace(workspace);
     const before = await readFile(workspace.session.file, 'utf8');
 
     await expect(
@@ -1789,16 +1699,7 @@ describe('JSON-RPC handlers', () => {
       coordinator: coordinatorInstance,
       cwd,
     });
-    const start = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 60,
-      method: 'session.triggerExchange',
-    });
-    const exchangeId = (
-      start as {
-        result: { exchange: { exchangeId: string } };
-      }
-    ).result.exchange.exchangeId;
+    const exchangeId = mintExchangeIntoWorkspace(workspace).exchangeId;
     const before = await readFile(workspace.session.file, 'utf8');
 
     await expect(
@@ -1826,16 +1727,7 @@ describe('JSON-RPC handlers', () => {
       coordinator: coordinatorInstance,
       cwd,
     });
-    const start = await handlers.handle({
-      jsonrpc: '2.0',
-      id: 62,
-      method: 'session.triggerExchange',
-    });
-    const exchangeId = (
-      start as {
-        result: { exchange: { exchangeId: string } };
-      }
-    ).result.exchange.exchangeId;
+    const exchangeId = mintExchangeIntoWorkspace(workspace).exchangeId;
     await handlers.handle({
       jsonrpc: '2.0',
       id: 63,
@@ -1870,10 +1762,19 @@ describe('JSON-RPC handlers', () => {
       cwd,
     });
 
+    const minted = mintExchangeIntoWorkspace(workspace);
+    // Establish the kick-surface baseline (seed already written), then prove
+    // a second trigger neither duplicates entries nor disturbs the pending
+    // assistant-created exchange.
     const first = await handlers.handle({
       jsonrpc: '2.0',
       id: 43,
       method: 'session.triggerExchange',
+    });
+    expect(first).toMatchObject({
+      jsonrpc: '2.0',
+      id: 43,
+      result: { status: 'pending', exchange: { exchangeId: minted.exchangeId } },
     });
     const before = await readFile(workspace.session.file, 'utf8');
 
@@ -1887,16 +1788,7 @@ describe('JSON-RPC handlers', () => {
     expect(second).toMatchObject({
       jsonrpc: '2.0',
       id: 44,
-      result: {
-        status: 'pending',
-        exchange: {
-          exchangeId: (
-            first as {
-              result: { exchange: { exchangeId: string } };
-            }
-          ).result.exchange.exchangeId,
-        },
-      },
+      result: { status: 'pending', exchange: { exchangeId: minted.exchangeId } },
     });
     expect(after).toBe(before);
   });

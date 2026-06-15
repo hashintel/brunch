@@ -4,6 +4,7 @@ import { join, resolve } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 
 import { openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
+import { flushSessionManagerToFile } from './flush-session-manager.js';
 import { discoverProjectIdentity, slugify } from './project-identity.js';
 import {
   createSessionBindingData,
@@ -442,7 +443,7 @@ function bindSessionToSpec(
     throw new Error('Session already has an incompatible Brunch session binding');
   }
 
-  flushSessionWithoutAssistant(manager);
+  flushSessionManagerToFile(manager);
   const sessionName = manager.getSessionName();
   return {
     id: manager.getSessionId(),
@@ -454,18 +455,6 @@ function bindSessionToSpec(
 
 export function sessionDisplayName(specTitle: string, ordinal: number): string {
   return `${specTitle} — session ${ordinal}`;
-}
-
-interface FlushableSessionManager {
-  _rewriteFile(): void;
-}
-
-function flushSessionWithoutAssistant(manager: SessionManager): void {
-  const sessionFile = manager.getSessionFile();
-  (manager as unknown as FlushableSessionManager)._rewriteFile();
-  if (sessionFile) {
-    manager.setSessionFile(sessionFile);
-  }
 }
 
 async function ensureWorkspaceDirs(cwd: string): Promise<void> {

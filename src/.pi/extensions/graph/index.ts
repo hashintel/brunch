@@ -15,12 +15,12 @@ import type {
   NodeSelector,
   ReadinessBand,
 } from '../../../graph/index.js';
+import { formatGraphOverview } from '../../../renderers/graph/graph-slice.js';
 import { formatNeighborhood } from '../../../renderers/graph/node-neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../rpc/product-updates.js';
 import { stampOwnMutationWatermark } from '../../../session/prepare-next-turn.js';
 import {
   translateMutateGraph,
-  formatGraphOverview,
   formatMutateGraphResult,
   formatRelatedNodesResult,
   formatStructuralIllegal,
@@ -93,7 +93,6 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       "Use read_graph with mode 'neighborhood' and a projected nodeCode such as G1 or CON2 to inspect a specific node and its connections.",
       "Use read_graph with mode 'list_by_kind' and one or more kinds to inspect a bounded graph slice.",
       "Use read_graph with mode 'list_by_band' and readiness bands (grounding, elicitation, commitment) to inspect spec evidence by band.",
-      "Use read_graph with mode 'gaps' to find nodes in a bounded base class that lack one edge category in the chosen direction.",
       "Set show to 'all' when you need superseded nodes; otherwise the default 'active' hides superseded nodes and dangling edges.",
     ],
     parameters: ReadGraphParams,
@@ -125,42 +124,6 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         const slice = reads.queryGraph({ bands: params.readinessBands as readonly ReadinessBand[] }, options);
         text = formatGraphOverview(slice, 'Graph slice by readiness band');
         details = slice;
-      } else if (params.mode === 'gaps') {
-        const hasBaseFilter = (params.kinds?.length ?? 0) > 0 || (params.readinessBands?.length ?? 0) > 0;
-        if (!hasBaseFilter) {
-          details = {
-            status: 'structural_illegal',
-            diagnostics: [
-              {
-                field: 'kinds|readinessBands',
-                message: 'gaps mode requires kinds and/or readinessBands as a base filter',
-              },
-            ],
-          };
-          text = formatStructuralIllegal(details);
-        } else if (params.absentEdgeCategory == null) {
-          details = {
-            status: 'structural_illegal',
-            diagnostics: [
-              { field: 'absentEdgeCategory', message: 'absentEdgeCategory is required for gaps mode' },
-            ],
-          };
-          text = formatStructuralIllegal(details);
-        } else {
-          const filter: GraphFilter = {
-            ...(params.kinds != null ? { kinds: params.kinds as readonly NodeKind[] } : {}),
-            ...(params.readinessBands != null
-              ? { bands: params.readinessBands as readonly ReadinessBand[] }
-              : {}),
-            lacksEdge: {
-              categories: [params.absentEdgeCategory],
-              ...(params.direction !== undefined ? { direction: params.direction } : {}),
-            },
-          };
-          const slice = reads.queryGraph(filter, options);
-          text = formatGraphOverview(slice, 'Graph gaps');
-          details = slice;
-        }
       } else if (params.mode === 'related') {
         if ((params.anchorCodes?.length ?? 0) === 0) {
           details = {

@@ -14,6 +14,12 @@ export interface StartAssistantTurnInput {
   readonly entries: readonly TranscriptEntryLike[];
   readonly origin: AssistantTurnOrigin;
   readonly strategy?: 'auto' | 'freestyle';
+  /**
+   * Composed provider-visible seed body (spec overview + grounding-floor
+   * framing) — always `composeContextSeedContent` output in product paths;
+   * `originateAssistantTurn` owns the composition.
+   */
+  readonly seedContent: string;
 }
 
 export type StartAssistantTurnDecision =
@@ -47,14 +53,16 @@ export function contextSeedEntries(input: {
   readonly specId: number;
   readonly currentLsn: number;
   readonly entries: readonly TranscriptEntryLike[];
+  readonly seedContent: string;
 }): readonly PreparedContinuityEntry[] {
   const watermark = projectAssistantVisibleWatermark(input.entries, { specId: input.specId });
   if (watermark && watermark.lsn >= input.currentLsn) return [];
   return [
     {
-      type: 'custom',
+      type: 'custom_message',
       customType: 'brunch.context_seed',
-      data: { specId: input.specId, snapshotLsn: input.currentLsn },
+      content: input.seedContent,
+      details: { specId: input.specId, snapshotLsn: input.currentLsn },
     },
   ];
 }

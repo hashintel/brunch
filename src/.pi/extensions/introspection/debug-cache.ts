@@ -34,6 +34,36 @@ export async function mirrorSystemPromptToDebugCache(
   await writeFile(join(debugDir, 'system-prompt.md'), systemPrompt, 'utf8');
 }
 
+/**
+ * Mirror a Brunch-originated transcript entry to `.brunch/debug/entry-contents.md`.
+ *
+ * Hooked at the append seam (not provider events) so seeded context and
+ * continuity notices are observable even when no provider turn ever runs —
+ * the gap that masked the origination-kick defect. Observability only:
+ * never a carrier, never read back by product code.
+ */
+export async function appendEntryContentToDebugCache(
+  options: BrunchDebugCacheOptions,
+  entry: {
+    readonly type: 'custom' | 'custom_message';
+    readonly customType: string;
+    readonly content?: string;
+    readonly data?: unknown;
+    readonly details?: unknown;
+  },
+): Promise<void> {
+  const payload = entry.type === 'custom_message' ? entry.details : entry.data;
+  const block = [
+    `## ${entry.customType} (${entry.type}) · ${new Date().toISOString()}`,
+    ...(entry.content ? ['', entry.content] : []),
+    ...(payload === undefined ? [] : ['', '```json', JSON.stringify(payload, null, 2), '```']),
+  ].join('\n');
+
+  const debugDir = join(options.cwd, '.brunch', 'debug');
+  await mkdir(debugDir, { recursive: true });
+  await appendSeparatedBlock(join(debugDir, 'entry-contents.md'), block);
+}
+
 export async function appendToolContentToDebugCache(
   options: BrunchDebugCacheOptions,
   event: unknown,
@@ -75,6 +105,14 @@ function systemPromptFromProviderPayload(payload: unknown): string | undefined {
   if (!isRecord(payload)) return undefined;
 
   if (typeof payload.system === 'string') return payload.system;
+  // anthropic-messages serializes `system` as an array of text blocks (with
+  // optional cache_control) — never a string. Join blocks as sections.
+  if (Array.isArray(payload.system)) {
+    const blocks = payload.system.flatMap((block) =>
+      isRecord(block) && typeof block.text === 'string' ? [block.text] : [],
+    );
+    if (blocks.length > 0) return blocks.join('\n\n');
+  }
   if (typeof payload.systemPrompt === 'string') return payload.systemPrompt;
 
   const messages = payload.messages;

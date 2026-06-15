@@ -149,7 +149,7 @@ function projectWorld(entries: readonly FileEntry[]): RuntimeStateProjection['wo
   let gitHead: string | null = null;
 
   for (const entry of entries) {
-    if (!isRecord(entry) || entry.type !== 'custom') continue;
+    if (!isRecord(entry) || (entry.type !== 'custom' && entry.type !== 'custom_message')) continue;
     if (entry.customType !== 'worldUpdate') continue;
     const details = isRecord(entry.details) ? entry.details : isRecord(entry.data) ? entry.data : undefined;
     if (!details) continue;

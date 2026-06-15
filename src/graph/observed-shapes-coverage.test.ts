@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import {
+  READ_ELICITATION_GAPS_SHAPE,
+  READ_ELICITATION_GAPS_TOOL,
+} from '../.pi/extensions/elicitation/index.js';
 import { ReadGraphParams } from '../.pi/extensions/graph/tool-schemas.js';
 import { graphRpcMethods } from '../rpc/methods/graph.js';
 import { queryKeys } from '../web/query-keys.js';
@@ -34,13 +38,6 @@ const observedShapeLedger = [
     web: 'deferred',
   },
   {
-    shape: 'gaps',
-    owner: 'getGraphGaps',
-    tool: 'required',
-    rpc: 'not_applicable',
-    web: 'not_applicable',
-  },
-  {
     shape: 'related',
     owner: 'getRelatedNodes',
     tool: 'required',
@@ -57,7 +54,7 @@ const observedShapeLedger = [
   {
     shape: 'elicitation_gaps',
     owner: 'getElicitationGaps',
-    tool: 'deferred',
+    tool: 'required',
     rpc: 'deferred',
     web: 'deferred',
   },
@@ -82,21 +79,24 @@ function webGraphShape(keyFactoryName: string): string {
 
 describe('graph observed-shape coverage ledger', () => {
   it('names exactly one canonical graph query owner for every observed read shape', () => {
-    expect(observedShapeLedger).toHaveLength(8);
+    expect(observedShapeLedger).toHaveLength(7);
     expect(observedShapeLedger.map((row) => row.owner)).toEqual([
       'getGraphOverview',
       'getNodeNeighborhood',
       'getGraphSliceByKinds',
       'getGraphSliceByReadinessBands',
-      'getGraphGaps',
       'getRelatedNodes',
       'getOpenReconciliationNeeds',
       'getElicitationGaps',
     ]);
   });
 
-  it('keeps the read_graph tool surface aligned to the ledger-required shapes', () => {
-    expect([...ReadGraphParams.properties.mode.enum].sort()).toEqual(requiredShapesFor('tool'));
+  it('keeps the agent tool surface aligned to the ledger-required shapes', () => {
+    // The agent tool surface is read_graph's modes plus dedicated register
+    // tools (the elicitation register is deliberately not a read_graph mode).
+    expect(READ_ELICITATION_GAPS_TOOL).toBe('read_elicitation_gaps');
+    const toolShapes = [...ReadGraphParams.properties.mode.enum, READ_ELICITATION_GAPS_SHAPE];
+    expect(toolShapes.sort()).toEqual(requiredShapesFor('tool'));
   });
 
   it('keeps the public RPC graph surface aligned to the ledger-required shapes', () => {

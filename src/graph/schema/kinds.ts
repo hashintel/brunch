@@ -18,6 +18,9 @@ export const DESIGN_KINDS = ['module', 'interface'] as const;
 
 export const PLAN_KINDS = ['milestone', 'frontier', 'slice'] as const;
 
+/** Every node kind across the four planes, in plane order — the canonical all-kinds array. */
+export const NODE_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
+
 export const NODE_PLANES = ['intent', 'oracle', 'design', 'plan'] as const;
 
 export const NODE_BASES = ['explicit', 'implicit'] as const;

@@ -8,20 +8,13 @@ import { createRpcHandlers } from '../rpc/handlers.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../rpc/product-updates.js';
 import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
+import { mintDeterministicExchangeIntoSessionFile } from './deterministic-exchange-script.js';
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 interface JsonRpcSuccess<T> {
   readonly jsonrpc: '2.0';
   readonly id: number;
   readonly result: T;
-}
-
-interface PendingExchangeResult {
-  readonly status: 'pending';
-  readonly exchange: {
-    readonly exchangeId: string;
-    readonly mode: 'text' | 'single-select' | 'multi-select';
-  };
 }
 
 interface SubmitResponseResult {
@@ -109,21 +102,20 @@ export async function runCaptureResponseToGraphProof(
   if (workspace.status !== 'ready')
     throw new Error('workspace.activate(newSpec) did not create a ready workspace');
 
-  const first = success<PendingExchangeResult>(
-    await handlers.handle({ jsonrpc: '2.0', id: 2, method: 'session.triggerExchange' }),
-  );
+  // D78-L/D49-L revised 2026-06-12: the probe mints the deterministic present
+  // pairs as fixture setup (the product no longer fabricates exchanges) and
+  // drives responses + readback through the public RPC surface.
+  const first = mintDeterministicExchangeIntoSessionFile(workspace.session.file, 0);
   await handlers.handle({
     jsonrpc: '2.0',
     id: 3,
     method: 'session.submitExchangeResponse',
-    params: { exchangeId: first.exchange.exchangeId, answer: { optionId: 'new-from-scratch' } },
+    params: { exchangeId: first.exchangeId, answer: { optionId: 'new-from-scratch' } },
   });
 
-  const textExchange = success<PendingExchangeResult>(
-    await handlers.handle({ jsonrpc: '2.0', id: 4, method: 'session.triggerExchange' }),
-  );
-  if (textExchange.exchange.mode !== 'text') {
-    throw new Error(`Expected deterministic text exchange, got ${textExchange.exchange.mode}`);
+  const textExchange = mintDeterministicExchangeIntoSessionFile(workspace.session.file, 1);
+  if (textExchange.mode !== 'text') {
+    throw new Error(`Expected deterministic text exchange, got ${textExchange.mode}`);
   }
 
   const submitted = success<SubmitResponseResult>(
@@ -132,7 +124,7 @@ export async function runCaptureResponseToGraphProof(
       id: 5,
       method: 'session.submitExchangeResponse',
       params: {
-        exchangeId: textExchange.exchange.exchangeId,
+        exchangeId: textExchange.exchangeId,
         answer: { text: CAPTURE_TEXT },
       },
     }),
@@ -182,7 +174,7 @@ export async function runCaptureResponseToGraphProof(
     cwd,
     specId: workspace.spec.id,
     sessionId: workspace.session.id,
-    exchangeId: textExchange.exchange.exchangeId,
+    exchangeId: textExchange.exchangeId,
     capture: submitted.capture,
     graph,
     updates,
