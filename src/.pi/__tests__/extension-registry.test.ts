@@ -129,6 +129,7 @@ describe('Brunch explicit Pi extension registry', () => {
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getElicitationGaps: () => [],
+          latestLsn: () => 1,
         },
       },
     })(recording.api);
@@ -169,6 +170,7 @@ describe('Brunch explicit Pi extension registry', () => {
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getElicitationGaps: () => [],
+          latestLsn: () => graphLsn,
         },
       },
     })(recordingApiWithEvents(events));
@@ -241,6 +243,7 @@ describe('Brunch explicit Pi extension registry', () => {
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getElicitationGaps: () => [],
+          latestLsn: () => 2,
         },
       },
     })(recordingApiWithEvents(events));

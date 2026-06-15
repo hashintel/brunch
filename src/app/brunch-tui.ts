@@ -337,6 +337,7 @@ export function createBrunchAgentSessionRuntimeFactory(
         },
         resolveNodeCode: (code: string) => graph.forSpec(currentWorkspace.spec.id).resolveNodeCode(code),
         getElicitationGaps: () => graph.forSpec(currentWorkspace.spec.id).getElicitationGaps(),
+        latestLsn: () => graph.forSpec(currentWorkspace.spec.id).latestLsn(),
       },
       ...(productUpdates && { productUpdates }),
     };

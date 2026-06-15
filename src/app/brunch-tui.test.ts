@@ -1099,6 +1099,7 @@ describe('Brunch TUI boot', () => {
             getNodes: () => [],
             resolveNodeCode: () => undefined,
             getElicitationGaps: () => [],
+            latestLsn: () => 1,
           },
         },
       },
@@ -1578,6 +1579,7 @@ function stubPromptGraphReads() {
     getNodes: () => [],
     resolveNodeCode: () => undefined,
     getElicitationGaps: () => groundingFloorGaps(),
+    latestLsn: () => 1,
   };
 }
 

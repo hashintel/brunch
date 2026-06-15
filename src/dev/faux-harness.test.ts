@@ -127,6 +127,7 @@ describe('createBrunchFauxHarness', () => {
                     disposition: 'answered' as const,
                     createdAtLsn: 1,
                   })),
+                latestLsn: () => 1,
               },
             }),
             introspection: { enabled: true, store },

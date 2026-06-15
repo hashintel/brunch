@@ -35,6 +35,8 @@ export interface GraphReaders {
   ) => readonly NodeNeighborhood[];
   readonly resolveNodeCode: (code: string) => number | undefined;
   readonly getElicitationGaps: (specId: number) => readonly ElicitationGap[];
+  /** Cheap current-LSN read; detect graph change without a full queryGraph. */
+  readonly latestLsn: (specId: number) => number;
 }
 
 export interface BrunchGraphDeps {
