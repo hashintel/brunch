@@ -40,8 +40,9 @@ src/
 ```pseudo
 rules:
   graph/          -> db/                         [allowed]
+  workspace/       -> constants/ or workspace-local files only
   projections/*   -> graph/, session/, workspace/ [read/domain imports allowed]
-  renderers/*     -> projections/, graph/, session/ as needed for input types
+  renderers/*     -> projections/, graph/, session/, workspace/ as needed for input types
   .pi/            -> graph/, session/, projections/, renderers/ [Pi runtime adapters/resources]
   rpc/           -> graph/, session/, projections/, renderers/
   app/           -> graph/, session/, projections/, renderers/
@@ -53,6 +54,7 @@ rules:
 
 Rules:
 
+- `workspace/` owns cwd-scoped identity, inventory, and workspace default-state persistence. It must not import Pi, session, graph, DB, projection, renderer, adapter, transport, app, or web modules.
 - `graph/` imports from `db/`. No other layer imports `db/` directly.
 - `.pi/` owns Pi-harness agents/resources/extensions/components. It is not just an adapter folder; it is the product's sealed Pi runtime surface.
 - `.pi/extensions/` registers Pi tools/hooks/UI affordances and delegates product semantics outward.

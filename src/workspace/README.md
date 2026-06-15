@@ -21,4 +21,6 @@ Current state:
 
 ## Dependency direction
 
-`workspace/` provides cwd/package identity facts to `session/`, `app/`, `projections/`, `rpc/`, and `.pi` as needed. It must not depend on adapters, web code, product entrypoints, Pi, graph mutation surfaces, or session transcript mechanics.
+`workspace/` provides cwd/package identity facts to `session/`, `app/`, `projections/`, `rpc/`, and `.pi` as needed. It must not depend on adapters, web code, product entrypoints, Pi, graph/DB modules, reusable projections/renderers, or session transcript mechanics.
+
+`src/projections/topology-boundaries.test.ts` guards this direction: workspace files may import only workspace-local modules and source constants.
