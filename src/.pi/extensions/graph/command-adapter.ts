@@ -20,7 +20,7 @@ import type {
   StructuralIllegal,
 } from '../../../graph/command-executor.js';
 import { authoredEdgeEndpointFields } from '../../../graph/index.js';
-import type { GraphSlice, NodeNeighborhood } from '../../../graph/queries.js';
+import type { NodeNeighborhood } from '../../../graph/queries.js';
 import { formatGraphNodeCode, parseGraphNodeCode } from '../../../graph/schema/nodes.js';
 import type { ToolMutateGraphParams } from './tool-schemas.js';
 

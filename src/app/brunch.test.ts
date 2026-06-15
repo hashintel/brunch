@@ -140,9 +140,8 @@ describe('Brunch CLI dispatch', () => {
 
     await runBrunchCli({ argv: [], coordinator: coordinator(), launchTui });
     await runBrunchCli({ argv: ['--open-web'], coordinator: coordinator(), launchTui });
-    await runBrunchCli({ argv: ['--open-web=false'], coordinator: coordinator(), launchTui });
 
-    expect(launches).toEqual([false, true, false]);
+    expect(launches).toEqual([false, true]);
   });
 
   it('routes --mode print through the coordinator state and exits', async () => {

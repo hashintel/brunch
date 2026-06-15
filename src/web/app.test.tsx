@@ -2,7 +2,7 @@
 
 import { QueryClient } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { GraphSlice, NodeNeighborhood } from '../graph/queries.js';
 import type { WorkspaceState } from '../projections/workspace/workspace-state.js';
@@ -153,6 +153,10 @@ function rpcClient(options?: {
     close: options?.close ?? vi.fn(),
   } as unknown as WebSocketRpcClient;
 }
+
+beforeAll(() => {
+  Object.defineProperty(window, 'scrollTo', { value: vi.fn(), writable: true });
+});
 
 afterEach(() => {
   cleanup();

@@ -24,6 +24,7 @@ import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
 } from '../.pi/extensions/introspection/index.js';
+import { isBrunchDevEnabled } from '../dev/brunch-dev.js';
 import {
   openWorkspaceGraphRuntime,
   type EdgeCategory,
@@ -50,7 +51,6 @@ import {
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
-import { isBrunchDevEnabled } from './brunch-dev.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
