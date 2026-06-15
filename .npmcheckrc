@@ -1,5 +1,16 @@
 {
   "depcheck": {
+    "ignoreDirs": [
+      "sandbox",
+      "dist",
+      "generated",
+      ".generated",
+      "build",
+      "fixtures",
+      "jspm_packages",
+      ".agents",
+      ".claude"
+    ],
     "ignoreMatches": [
       "@fontsource-variable/geist-mono",
       "@fontsource-variable/inter",
