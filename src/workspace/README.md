@@ -8,8 +8,8 @@ Cwd/package/workspace identity helpers and their tests.
 
 Current state:
 
+- `project-identity.ts` discovers the cwd project name/slug from shallow manifest files (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`) with directory basename fallback.
 - `package-identity.test.ts` protects package-level CLI identity (`brunch`, version floor, executable bin shim).
-- No reusable workspace identity source module has been extracted yet; add one here only when current code needs it.
 
 ## Does not own
 
@@ -19,4 +19,4 @@ Current state:
 
 ## Dependency direction
 
-`workspace/` may provide cwd/package identity facts to `app/`, `projections/`, `rpc/`, and `.pi` once source helpers exist. It must not depend on adapters, web code, or product entrypoints.
+`workspace/` provides cwd/package identity facts to `session/`, `app/`, `projections/`, `rpc/`, and `.pi` as needed. It must not depend on adapters, web code, product entrypoints, Pi, graph mutation surfaces, or session transcript mechanics.

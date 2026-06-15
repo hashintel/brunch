@@ -5,8 +5,8 @@ import { SessionManager } from '@earendil-works/pi-coding-agent';
 
 import { BRUNCH_DIR, SESSION_DIR, STATE_FILE, STATE_SCHEMA_VERSION } from '../constants.js';
 import { openWorkspaceCommandExecutor, type SpecRecord } from '../graph/index.js';
+import { discoverProjectIdentity, slugify } from '../workspace/project-identity.js';
 import { flushSessionManagerToFile } from './flush-session-manager.js';
-import { discoverProjectIdentity, slugify } from './project-identity.js';
 import {
   createSessionBindingData,
   isSessionBindingEntry,

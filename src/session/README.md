@@ -36,11 +36,11 @@ plus the coordination logic for workspace/spec/session lifecycle.
   is the only module that creates/opens Pi sessions for Brunch user flows
   and writes collapsed `brunch.session_binding` entries (`{schemaVersion,
   specId}`). Its chrome state is a selection snapshot (`cwd`, optional
-  project, selected `spec`) and intentionally carries no readiness phase or
-  chat-mode display fields. Its private `workspace-session-coordinator/`
-  subtree owns coordinator-shaped boot/probe helpers such as canonical
-  session-file classification; external callers import only the public root
-  module.
+  project discovered by `workspace/project-identity.ts`, selected `spec`)
+  and intentionally carries no readiness phase or chat-mode display fields.
+  Its private `workspace-session-coordinator/` subtree owns coordinator-shaped
+  boot/probe helpers such as canonical session-file classification; external
+  callers import only the public root module.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 
@@ -150,4 +150,4 @@ These files migrated here on 2026-06-02:
 | `structured-exchange.ts`          | structured exchange schemas/types  |
 | `structured-exchange-loop.ts`     | pending-exchange read path + response-side synthetic pairs |
 | `flush-session-manager.ts`        | the one named reliance on pi's private session-file rewrite |
-| `project-identity.ts`             | workspace identity (cwd discovery) |
+
