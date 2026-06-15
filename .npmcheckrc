@@ -1,0 +1,11 @@
+{
+  "depcheck": {
+    "ignoreMatches": [
+      "@fontsource-variable/geist-mono",
+      "@fontsource-variable/inter",
+      "release-it",
+      "tailwindcss",
+      "typescript-language-server"
+    ]
+  }
+}

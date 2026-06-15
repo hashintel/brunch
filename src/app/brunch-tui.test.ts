@@ -1350,6 +1350,9 @@ describe('Brunch TUI boot', () => {
     expect(settingsManager.getLastChangelogVersion()).toBeUndefined();
     expect(settingsManager.getCollapseChangelog()).toBe(false);
     expect(settingsManager.getEnableInstallTelemetry()).toBe(false);
+    expect(settingsManager.getEnableAnalytics()).toBe(false);
+    expect(settingsManager.getTrackingId()).toBeUndefined();
+    expect(settingsManager.getDefaultProjectTrust()).toBe('never');
     expect(settingsManager.getShowHardwareCursor()).toBe(false);
     expect(settingsManager.getEditorPaddingX()).toBe(0);
     expect(settingsManager.getAutocompleteMaxVisible()).toBe(5);
@@ -1443,6 +1446,8 @@ describe('Brunch TUI boot', () => {
       themes: [],
       enableSkillCommands: false,
       doubleEscapeAction: 'none',
+      defaultProjectTrust: 'never',
+      enableAnalytics: false,
     });
     expect(getterNames.sort()).toEqual([...BRUNCH_SETTINGS_AUDITED_GETTERS].sort());
     expect(launcherSource).not.toContain('SettingsManager.inMemory');
@@ -1483,6 +1488,9 @@ async function writeHostilePiSettings(cwd: string, agentDir: string): Promise<vo
     npmCommand: ['hostile-npm'],
     collapseChangelog: true,
     enableInstallTelemetry: true,
+    defaultProjectTrust: 'always',
+    enableAnalytics: true,
+    trackingId: 'hostile-tracking-id',
     packages: ['hostile-package'],
     extensions: ['hostile-extension'],
     skills: ['hostile-skill'],
