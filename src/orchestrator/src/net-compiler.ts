@@ -720,12 +720,20 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             }
             const passed = results.length > 0 && results.every((result) => result.passed);
             const output = results.map((result) => result.output).join('\n');
+            // Surface an aggregate failure kind so consumers don't rescan
+            // `results`: infra (toolchain broke) dominates a plain test failure —
+            // if anything failed to even run, that's the actionable signal.
+            const failureKind = passed
+              ? undefined
+              : results.some((result) => result.failureKind === 'infra')
+                ? 'infra'
+                : 'test';
             const reportId = createReport(reports, {
               epicId,
               sliceId,
               actor: 'test-runner',
               event: 'tests-run',
-              payload: { passed, output, results },
+              payload: { passed, output, failureKind, results },
             });
             ctx.reportIds.push(reportId);
 

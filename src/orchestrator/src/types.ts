@@ -95,9 +95,20 @@ export type ActionHandlers = Record<string, ActionHandler>;
 // Test runner — deterministic, orchestrator-owned
 // ---------------------------------------------------------------------------
 
+/**
+ * Why a failed test run failed. `infra` = the toolchain itself broke (the test
+ * runner binary is missing / deps never installed) — a different fix than `test`
+ * = the code under test failed its assertions. Distinguishing them stops the
+ * cook loop from sending the code-writer to "fix the code" when nothing was ever
+ * installed (`TestResult.passed` alone collapsed both into one failure).
+ */
+export type TestFailureKind = 'infra' | 'test';
+
 export type TestResult = {
   passed: boolean;
   output: string;
+  /** Set only when `passed` is false; classifies the failure. */
+  failureKind?: TestFailureKind;
 };
 
 export interface TestRunner {
