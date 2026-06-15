@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { bunProfile, type Toolchain } from './project-profile.js';
-import { ToolchainTestRunner } from './test-runner.js';
+import { classifyTestFailure, ToolchainTestRunner } from './test-runner.js';
 
 const bun = bunProfile.toolchain;
 
@@ -81,5 +81,60 @@ describe('ToolchainTestRunner honors the toolchain test command', () => {
 
     const failed = await new ToolchainTestRunner(fail).run('x', process.cwd());
     expect(failed.passed).toBe(false);
+  });
+});
+
+describe('classifyTestFailure (infra vs test)', () => {
+  it('a spawn failure (missing runner binary) is infra', () => {
+    expect(classifyTestFailure('', true)).toBe('infra');
+  });
+
+  it('a shell "command not found" is infra even with a normal exit', () => {
+    expect(classifyTestFailure('sh: 1: vitest: command not found', false)).toBe('infra');
+    expect(classifyTestFailure("'jest' is not recognized as an internal or external command", false)).toBe(
+      'infra',
+    );
+  });
+
+  it('an assertion failure with no toolchain signal is a test failure', () => {
+    expect(classifyTestFailure('expect(received).toBe(expected)\n\n1 fail', false)).toBe('test');
+  });
+
+  it('a missing *module* stays a test failure (ambiguous with TDD red), not infra', () => {
+    // A red test importing source that does not exist yet must not be mislabeled
+    // infra and skipped.
+    expect(classifyTestFailure("Cannot find module './widget' from 'widget.test.ts'", false)).toBe('test');
+  });
+});
+
+describe('ToolchainTestRunner stamps failureKind', () => {
+  function fakeToolchain(testCommand: (target: string) => string[]): Toolchain {
+    return {
+      sliceTarget: (id) => id,
+      epicTarget: (id) => id,
+      testCommand,
+      testConventions: 'fake',
+    };
+  }
+
+  it('a missing runner binary surfaces as failureKind "infra"', async () => {
+    const missing = fakeToolchain(() => ['definitely-not-a-real-binary-xyz', 'arg']);
+    const result = await new ToolchainTestRunner(missing).run('x', process.cwd());
+    expect(result.passed).toBe(false);
+    expect(result.failureKind).toBe('infra');
+  });
+
+  it('an assertion failure surfaces as failureKind "test"', async () => {
+    const fail = fakeToolchain(() => ['node', '-e', 'process.exit(1)']);
+    const result = await new ToolchainTestRunner(fail).run('x', process.cwd());
+    expect(result.passed).toBe(false);
+    expect(result.failureKind).toBe('test');
+  });
+
+  it('a passing run carries no failureKind', async () => {
+    const pass = fakeToolchain(() => ['node', '-e', 'process.exit(0)']);
+    const result = await new ToolchainTestRunner(pass).run('x', process.cwd());
+    expect(result.passed).toBe(true);
+    expect(result.failureKind).toBeUndefined();
   });
 });
