@@ -12,6 +12,7 @@ import { emitPlanFromSnapshot, emitterWarningCategory, formatEmitterWarning } fr
 import { evaluatePlanShape } from './plan-eval.js';
 import { loadPlan } from './plan-loader.js';
 import type { CompletedSpecSnapshot } from './plan-projection.js';
+import type { ProfileDetection } from './project-detect.js';
 
 const snapshot: CompletedSpecSnapshot = {
   requirements: [
@@ -303,6 +304,57 @@ describe('emitPlanFromSnapshot', () => {
 
     expect(result.architectResult.status).toBe('failed');
     expect(result.plan.profile).toBe('node-vitest');
+  });
+
+  it('brownfield detection resolves the profile and beats the spec profile', async () => {
+    const detect = (): ProfileDetection => ({ detected: true, profile: 'node-vitest', evidence: 'stub' });
+    const result = await emitPlanFromSnapshot(
+      { ...snapshot, mode: 'brownfield', profile: 'brunch' },
+      { runModel: draftModel(coveringDraft()), repoDir: '/repo', detect },
+    );
+    expect(result.plan.profile).toBe('node-vitest');
+  });
+
+  it('the --profile flag beats detection and skips reading the repo', async () => {
+    const detect = (): ProfileDetection => {
+      throw new Error('detect should not run when --profile is set');
+    };
+    const result = await emitPlanFromSnapshot(
+      { ...snapshot, mode: 'brownfield' },
+      { runModel: draftModel(coveringDraft()), profile: 'deno', repoDir: '/repo', detect },
+    );
+    expect(result.plan.profile).toBe('deno');
+  });
+
+  it('a failed detection falls through to an explicit spec profile, not bun', async () => {
+    const detect = (): ProfileDetection => ({ detected: false, reason: 'no recognizable manifest' });
+    const result = await emitPlanFromSnapshot(
+      { ...snapshot, mode: 'brownfield', profile: 'brunch' },
+      { runModel: draftModel(coveringDraft()), repoDir: '/repo', detect },
+    );
+    expect(result.plan.profile).toBe('brunch');
+  });
+
+  it('a failed detection with no spec/architect signal fails loudly instead of defaulting to bun', async () => {
+    const detect = (): ProfileDetection => ({ detected: false, reason: 'no recognizable manifest' });
+    await expect(
+      emitPlanFromSnapshot(
+        { ...snapshot, mode: 'brownfield' },
+        { runModel: draftModel(coveringDraft()), repoDir: '/repo', detect },
+      ),
+    ).rejects.toThrow(/brunch detect/);
+  });
+
+  it('greenfield never detects even when a repoDir is supplied (protecting invariant)', async () => {
+    const detect = (): ProfileDetection => {
+      throw new Error('greenfield must not detect');
+    };
+    const result = await emitPlanFromSnapshot(snapshot, {
+      runModel: draftModel(coveringDraft()),
+      repoDir: '/repo',
+      detect,
+    });
+    expect(result.plan.profile).toBe('bun');
   });
 
   it('round-trips the emitted plan (incl. writes) through loadPlan after YAML serialization', async () => {

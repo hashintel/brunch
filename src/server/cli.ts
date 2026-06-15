@@ -121,6 +121,8 @@ if (rawArgs[0] === 'cook') {
       outDir: opts.outDir,
       verbose: opts.verbose,
       profile: opts.profile,
+      // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
+      repoDir: project.cwd,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
