@@ -46,6 +46,16 @@ describe('parseCookArgs', () => {
     expect(opts.maxRetries).toBe(5);
   });
 
+  it('confines by default and accepts --confine=off as the escape hatch', () => {
+    expect(parseCookArgs(['./f']).confine).toBe('on');
+    expect(parseCookArgs(['./f', '--confine=off']).confine).toBe('off');
+    expect(parseCookArgs(['./f', '--confine=on']).confine).toBe('on');
+  });
+
+  it('rejects an unknown --confine value', () => {
+    expect(() => parseCookArgs(['./f', '--confine=loose'])).toThrow(/--confine/);
+  });
+
   it('defaults dir to the launch cwd when no positional dir is given', () => {
     const expected = resolve(process.env.BRUNCH_LAUNCH_CWD || process.cwd());
     expect(parseCookArgs([]).dir).toBe(expected);

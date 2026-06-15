@@ -19,6 +19,7 @@ import {
   compileSeatbeltProfile,
   createConfinedFileOperations,
   createSandboxGuard,
+  decidePreflight,
   deriveConfinementPolicy,
   wrapCommandInSeatbelt,
 } from './sandbox-guard.js';
@@ -291,5 +292,52 @@ describe('SandboxGuard — per-run confinement object', () => {
     expect(ok.backend).toBe(guard.backend);
     const bad = await guard.preflight(['false']);
     expect(bad.ok).toBe(false);
+  });
+});
+
+describe('decidePreflight — fail-closed bootstrap decision', () => {
+  const base = { backend: 'seatbelt' as const, enforcing: true, probe: ['bun', '--version'] };
+
+  it('proceeds without probing when confinement is turned off', () => {
+    expect(decidePreflight({ ...base, mode: 'off', confinedOk: null, unconfinedOk: true })).toEqual({
+      action: 'proceed',
+    });
+  });
+
+  it('proceeds degraded (with a warning) when no backend enforces on this host', () => {
+    const d = decidePreflight({
+      ...base,
+      backend: 'none',
+      enforcing: false,
+      mode: 'on',
+      confinedOk: null,
+      unconfinedOk: true,
+    });
+    expect(d.action).toBe('proceed-degraded');
+    if (d.action === 'proceed-degraded') expect(d.warning).toMatch(/unconfined/i);
+  });
+
+  it('proceeds when the toolchain runs fine under confinement', () => {
+    expect(decidePreflight({ ...base, mode: 'on', confinedOk: true, unconfinedOk: true })).toEqual({
+      action: 'proceed',
+    });
+  });
+
+  it('refuses (fail-closed) when the toolchain runs unconfined but fails confined', () => {
+    const d = decidePreflight({ ...base, mode: 'on', confinedOk: false, unconfinedOk: true });
+    expect(d.action).toBe('refuse');
+    if (d.action === 'refuse') {
+      expect(d.reason).toMatch(/confinement/i);
+      expect(d.reason).toMatch(/--confine=off/);
+    }
+  });
+
+  it('refuses with a toolchain-broken reason when the probe fails even unconfined', () => {
+    const d = decidePreflight({ ...base, mode: 'on', confinedOk: false, unconfinedOk: false });
+    expect(d.action).toBe('refuse');
+    if (d.action === 'refuse') {
+      expect(d.reason).toMatch(/toolchain/i);
+      expect(d.reason).not.toMatch(/--confine=off/);
+    }
   });
 });

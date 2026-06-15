@@ -12,6 +12,12 @@ export interface Toolchain {
   /** Argv that runs a single test target in the cook sandbox. */
   testCommand(target: string): string[];
   /**
+   * A cheap argv that exercises the test runner without running tests, used by
+   * the confinement preflight to verify the toolchain works under the sandbox
+   * profile (e.g. `bun --version`).
+   */
+  probeCommand(): string[];
+  /**
    * Agent-facing description of the test framework + scaffold/install
    * conventions, injected into the cook test-writer task so prompts carry no
    * hardcoded stack (greenfield worktrees have no surrounding code to infer
@@ -27,12 +33,14 @@ export interface ProjectProfile {
 
 /**
  * Declarative profile shape: `{id}` in target templates is the slice/epic id;
- * exactly one `testCommand` element is the literal `'{target}'`.
+ * exactly one `testCommand` element is the literal `'{target}'`. `probeCommand`
+ * is a tests-free toolchain liveness check for the confinement preflight.
  */
 interface ProfileData {
   sliceTarget: string;
   epicTarget: string;
   testCommand: readonly string[];
+  probeCommand: readonly string[];
   testConventions: string;
 }
 
@@ -41,6 +49,7 @@ const PROFILE_DATA: Record<ProfileId, ProfileData> = {
     sliceTarget: 'tests/{id}.test.ts',
     epicTarget: 'tests/{id}.integration.test.ts',
     testCommand: ['bun', 'test', '{target}'],
+    probeCommand: ['bun', '--version'],
     testConventions:
       'Use bun\'s test runner: `import { describe, expect, it } from "bun:test"`. The harness runs each target with `bun test <target>`.',
   },
@@ -49,6 +58,7 @@ const PROFILE_DATA: Record<ProfileId, ProfileData> = {
     sliceTarget: '{id}.test.ts',
     epicTarget: '{id}.integration.test.ts',
     testCommand: ['npx', 'vitest', 'run', '{target}'],
+    probeCommand: ['npx', 'vitest', '--version'],
     testConventions:
       'Use vitest: `import { describe, expect, it } from "vitest"`. The harness runs each target with `vitest run <target>`.',
   },
@@ -56,6 +66,7 @@ const PROFILE_DATA: Record<ProfileId, ProfileData> = {
     sliceTarget: 'tests/{id}.test.ts',
     epicTarget: 'tests/{id}.integration.test.ts',
     testCommand: ['npx', 'vitest', 'run', '{target}'],
+    probeCommand: ['npx', 'vitest', '--version'],
     testConventions:
       'Use vitest on Node: `import { describe, expect, it } from "vitest"`. Scaffold a package.json with `vitest` and `typescript` as devDependencies and run `npm install` before testing. The harness runs each target with `npx vitest run <target>`.',
   },
@@ -63,6 +74,7 @@ const PROFILE_DATA: Record<ProfileId, ProfileData> = {
     sliceTarget: 'tests/{id}.test.ts',
     epicTarget: 'tests/{id}.integration.test.ts',
     testCommand: ['node', '--test', '{target}'],
+    probeCommand: ['node', '--version'],
     testConventions:
       "Use the built-in node:test runner: `import { test } from 'node:test'` and `import assert from 'node:assert/strict'`. Write TypeScript with erasable syntax only (no enums or namespaces) — Node strips types natively, so no install or build step is needed to run tests. The harness runs each target with `node --test <target>`.",
   },
@@ -70,6 +82,7 @@ const PROFILE_DATA: Record<ProfileId, ProfileData> = {
     sliceTarget: 'tests/{id}.test.ts',
     epicTarget: 'tests/{id}.integration.test.ts',
     testCommand: ['npx', 'jest', '--runTestsByPath', '{target}'],
+    probeCommand: ['npx', 'jest', '--version'],
     testConventions:
       'Use jest with ts-jest: `import { describe, expect, it } from "@jest/globals"`. Scaffold a package.json with `jest`, `ts-jest`, and `typescript` as devDependencies plus a jest.config.js using the ts-jest preset, then run `npm install` before testing. The harness runs each target with `npx jest --runTestsByPath <target>`.',
   },
@@ -77,6 +90,7 @@ const PROFILE_DATA: Record<ProfileId, ProfileData> = {
     sliceTarget: 'tests/{id}.test.ts',
     epicTarget: 'tests/{id}.integration.test.ts',
     testCommand: ['deno', 'test', '--allow-all', '{target}'],
+    probeCommand: ['deno', '--version'],
     testConventions:
       "Use Deno's built-in test runner: `Deno.test(...)` with assertions from `jsr:@std/assert`. No package.json or install step — imports resolve via jsr/npm specifiers. The harness runs each target with `deno test --allow-all <target>`.",
   },
@@ -89,6 +103,7 @@ function compileProfile(id: ProfileId, data: ProfileData): ProjectProfile {
       sliceTarget: (sliceId) => data.sliceTarget.replaceAll('{id}', sliceId),
       epicTarget: (epicId) => data.epicTarget.replaceAll('{id}', epicId),
       testCommand: (target) => data.testCommand.map((arg) => (arg === '{target}' ? target : arg)),
+      probeCommand: () => [...data.probeCommand],
       testConventions: data.testConventions,
     },
   };

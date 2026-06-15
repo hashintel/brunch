@@ -90,6 +90,7 @@ describe('ToolchainTestRunner honors the toolchain test command', () => {
       sliceTarget: (id) => id,
       epicTarget: (id) => id,
       testCommand,
+      probeCommand: () => ['node', '--version'],
       testConventions: 'fake',
     };
   }

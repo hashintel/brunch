@@ -23,6 +23,7 @@ import { resolveToolchain } from './project-profile.js';
 import { landCookBranch, promoteGreenfieldRun } from './promote-run.js';
 import { harvestCookRun } from './run-artifact.js';
 import { brunchRef, gcCookRun } from './run-refs.js';
+import { type ConfineMode, createSandboxGuard, runConfinementPreflight } from './sandbox-guard.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
@@ -56,6 +57,8 @@ export type CookOptions = {
   outDir?: string;
   /** Allow promoting into a non-empty target (otherwise refused). */
   force: boolean;
+  /** OS-level agent confinement: `on` (default, fail-closed) or `off` (escape hatch). */
+  confine: ConfineMode;
   /**
    * Brownfield only: after promotion, merge `brunch/run/<runId>` into the repo's active
    * branch as the final step. Set by `serve --land`; plain `cook` never sets it,
@@ -84,6 +87,7 @@ export function parseCookArgs(args: string[]): CookOptions {
   let specId: number | undefined;
   let outDir: string | undefined;
   let force = false;
+  let confine: ConfineMode = 'on';
   let sawNoOpen = false;
   let sawUrl = false;
 
@@ -129,6 +133,12 @@ export function parseCookArgs(args: string[]): CookOptions {
       outDir = arg.slice('--out='.length);
     } else if (arg === '--force') {
       force = true;
+    } else if (arg.startsWith('--confine=')) {
+      const val = arg.split('=')[1]!;
+      if (val !== 'on' && val !== 'off') {
+        throw new Error(`Unknown --confine value: ${val}. Use on or off.`);
+      }
+      confine = val;
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
     } else if (!arg.startsWith('-')) {
@@ -169,6 +179,7 @@ export function parseCookArgs(args: string[]): CookOptions {
     petrinautUrl,
     petrinautOpen,
     force,
+    confine,
     ...(outDir !== undefined ? { outDir: resolve(launchCwd, outDir) } : {}),
     ...(specId !== undefined ? { specId } : {}),
   };
@@ -538,6 +549,20 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
   const reports = new FileReportSink(reportsPath);
   const toolchain = resolveToolchain(plan.profile);
   const testRunner = new ToolchainTestRunner(toolchain);
+
+  // Fail-closed agent confinement: refuse to start the fleet if the toolchain
+  // works unconfined but not under the sandbox profile (escape hatch: --confine=off).
+  const guard = createSandboxGuard(sandboxDir);
+  const preflight = await runConfinementPreflight(guard, toolchain.probeCommand(), opts.confine);
+  if (preflight.action === 'refuse') {
+    console.error(preflight.reason);
+    process.exit(1);
+  }
+  if (preflight.action === 'proceed-degraded') {
+    console.error(`  ⚠ ${preflight.warning}`);
+  }
+  console.error(`  confine    ${opts.confine === 'off' ? 'off' : guard.backend}`);
+  console.error('');
 
   const engine = createOrchestrator(opts.policy);
 

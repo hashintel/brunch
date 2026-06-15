@@ -348,16 +348,108 @@ export function createSandboxGuard(
     return backend.wrap({ shell: false, command: command ?? '', args });
   };
 
-  const preflight = (probeArgv: readonly string[] = ['true']): Promise<ProbeResult> => {
+  const preflight = async (probeArgv: readonly string[] = ['true']): Promise<ProbeResult> => {
     const { command, args } = confineTest(probeArgv);
-    return new Promise<ProbeResult>((resolve) => {
-      const child = spawn(command, args, { cwd: policy.sandboxRoot, stdio: 'ignore' });
-      child.on('error', () => resolve({ ok: false, code: null, backend: backend.id }));
-      child.on('close', (code) => resolve({ ok: code === 0, code, backend: backend.id }));
-    });
+    const { ok, code } = await spawnOk(command, args, policy.sandboxRoot);
+    return { ok, code, backend: backend.id };
   };
 
   return { backend: backend.id, enforcing: backend.enforces, policy, bashHook, confineTest, preflight };
+}
+
+/** Spawn an argv and resolve whether it exited 0. Errors (e.g. ENOENT) → ok:false. */
+function spawnOk(
+  command: string,
+  args: readonly string[],
+  cwd: string,
+): Promise<{ ok: boolean; code: number | null }> {
+  return new Promise((resolve) => {
+    const child = spawn(command, [...args], { cwd, stdio: 'ignore' });
+    child.on('error', () => resolve({ ok: false, code: null }));
+    child.on('close', (code) => resolve({ ok: code === 0, code }));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Fail-closed preflight — refuse to start the fleet if confinement is broken
+// ---------------------------------------------------------------------------
+
+/** `on` (default) confines and fails closed; `off` is the documented escape hatch. */
+export type ConfineMode = 'on' | 'off';
+
+export type PreflightDecision =
+  | { action: 'proceed' }
+  | { action: 'proceed-degraded'; warning: string }
+  | { action: 'refuse'; reason: string };
+
+/**
+ * Pure decision over the two probe outcomes. Fail-closed: if the toolchain runs
+ * unconfined but not under confinement, the profile is misconfigured for this
+ * host — refuse rather than silently run unconfined. A probe that fails even
+ * unconfined is a toolchain problem, reported as such.
+ */
+export function decidePreflight(input: {
+  mode: ConfineMode;
+  backend: BackendId;
+  enforcing: boolean;
+  confinedOk: boolean | null;
+  unconfinedOk: boolean;
+  probe: readonly string[];
+}): PreflightDecision {
+  const probe = input.probe.join(' ');
+  if (input.mode === 'off') return { action: 'proceed' };
+  if (!input.enforcing) {
+    return {
+      action: 'proceed-degraded',
+      warning: `no confinement backend on this host (backend: ${input.backend}) — agent commands run unconfined`,
+    };
+  }
+  if (input.confinedOk) return { action: 'proceed' };
+  if (input.unconfinedOk) {
+    return {
+      action: 'refuse',
+      reason: `sandbox confinement preflight failed: \`${probe}\` runs unconfined but fails under confinement (backend: ${input.backend}). Re-run with --confine=off to bypass confinement, or report this probe command.`,
+    };
+  }
+  return {
+    action: 'refuse',
+    reason: `toolchain preflight failed: \`${probe}\` did not succeed even unconfined. Fix the toolchain before cooking.`,
+  };
+}
+
+/**
+ * Run the fail-closed preflight for a run: skip probing when off or unenforced,
+ * otherwise run the probe both confined and unconfined and decide. The caller
+ * acts on the decision (exit on `refuse`, warn on `proceed-degraded`).
+ */
+export async function runConfinementPreflight(
+  guard: SandboxGuard,
+  probeArgv: readonly string[],
+  mode: ConfineMode,
+): Promise<PreflightDecision> {
+  if (mode === 'off' || !guard.enforcing) {
+    return decidePreflight({
+      mode,
+      backend: guard.backend,
+      enforcing: guard.enforcing,
+      confinedOk: null,
+      unconfinedOk: true,
+      probe: probeArgv,
+    });
+  }
+  const [command, ...args] = probeArgv;
+  const [confined, unconfined] = await Promise.all([
+    guard.preflight(probeArgv),
+    spawnOk(command ?? '', args, guard.policy.sandboxRoot),
+  ]);
+  return decidePreflight({
+    mode,
+    backend: guard.backend,
+    enforcing: guard.enforcing,
+    confinedOk: confined.ok,
+    unconfinedOk: unconfined.ok,
+    probe: probeArgv,
+  });
 }
 
 /**
