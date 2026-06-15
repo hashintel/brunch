@@ -14,13 +14,16 @@ import { projectBrunchAgentState } from '../projections/session/runtime-state.js
 import { BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE } from '../session/runtime-state.js';
 import {
   bootTier2ProductOriginatedTurn,
+  bootTier2RuntimeFromFixture,
   bootTier2RuntimeThroughRunBrunchTui,
   rebootTier2Runtime,
   resumeTier2Fixture,
   runTier2RealBootFauxTurn,
+  withTier2FauxAgentServices,
 } from './tier-2-harness.js';
 import {
   customEntries,
+  expectNoKick,
   expectProviderLegalToolPairs,
   messagesByRole,
   presentToolResults,
@@ -28,7 +31,25 @@ import {
   readSessionContextSpecId,
   readWorkspaceContextMarkdownFiles,
   userMessages,
+  waitForKick,
 } from './tier-2-test-support.js';
+
+async function readOriginationDebug(cwd: string, expected: string): Promise<string> {
+  const deadline = Date.now() + 2000;
+  let text = '';
+  while (Date.now() <= deadline) {
+    try {
+      text = await readFile(`${cwd}/.brunch/debug/origination.md`, 'utf8');
+      if (text.includes(expected)) return text;
+    } catch {
+      // File may not exist until the fire-and-forget debug append finishes.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(
+    `Timed out waiting for origination debug record containing ${expected}. Last text: ${text}`,
+  );
+}
 
 describe('origination-kick-live — the product originates the opening turn on its own bones', () => {
   it('a new spec boot fires a provider call with no harness prompt, carrying the seeded context', async () => {
@@ -165,6 +186,96 @@ describe('origination-kick-live — the product originates the opening turn on i
       await boot.runtime.dispose();
       boot.restoreEnv();
     }
+  });
+
+  it('records the origination decision and outcome for new-session, resume, idle, and no-model boots', async () => {
+    const newSession = await bootTier2ProductOriginatedTurn({ dev: true });
+    try {
+      const debug = await readOriginationDebug(newSession.cwd, '"status": "fired"');
+      expect(debug).toContain('"action": "start"');
+      expect(debug).toContain('"origin": "new_session"');
+    } finally {
+      await newSession.dispose();
+    }
+
+    await withTier2FauxAgentServices(async (faux) => {
+      const resumeDebt = await bootTier2RuntimeFromFixture({
+        dev: true,
+        agentServices: faux.agentServices,
+        fixtureEntries: () => [{ type: 'message', message: userMessage('Resume with an answer.') }],
+      });
+      try {
+        await waitForKick(resumeDebt.runtime);
+        const debug = await readOriginationDebug(resumeDebt.cwd, '"status": "fired"');
+        expect(debug).toContain('"origin": "resume_debt"');
+      } finally {
+        await resumeDebt.runtime.dispose();
+        resumeDebt.restoreEnv();
+      }
+
+      const noDebt = await bootTier2RuntimeFromFixture({
+        dev: true,
+        agentServices: faux.agentServices,
+        fixtureEntries: () => [
+          { type: 'message', message: userMessage('Earlier question') },
+          { type: 'message', message: assistantMessage('Already answered.') },
+        ],
+      });
+      try {
+        await expectNoKick(noDebt.runtime);
+        const debug = await readOriginationDebug(noDebt.cwd, '"reason": "idle_no_unresolved_debt"');
+        expect(debug).toContain('"reason": "no_unresolved_debt"');
+      } finally {
+        await noDebt.runtime.dispose();
+        noDebt.restoreEnv();
+      }
+    });
+
+    const noModel = await bootTier2RuntimeThroughRunBrunchTui({ dev: true });
+    try {
+      const debug = await readOriginationDebug(noModel.cwd, '"reason": "no_model_available"');
+      expect(debug).toContain('"action": "start"');
+      expect(debug).toContain('"origin": "new_session"');
+    } finally {
+      await noModel.runtime.dispose();
+      noModel.restoreEnv();
+    }
+  });
+
+  it('records explicit freestyle as an idle origination reason', async () => {
+    await withTier2FauxAgentServices(async (faux) => {
+      const boot = await bootTier2RuntimeFromFixture({
+        dev: true,
+        agentServices: faux.agentServices,
+        fixtureEntries: () => [
+          {
+            type: 'custom',
+            customType: 'brunch.agent_runtime_state',
+            data: {
+              schemaVersion: 1,
+              reason: 'switch',
+              source: 'user',
+              state: {
+                schemaVersion: 1,
+                operationalMode: 'elicit',
+                agentStrategy: 'freestyle',
+                agentLens: 'auto',
+                agentGoal: 'grounding-advance',
+              },
+            },
+          },
+          { type: 'message', message: userMessage('Let me type freely first.') },
+        ],
+      });
+      try {
+        await expectNoKick(boot.runtime);
+        const debug = await readOriginationDebug(boot.cwd, '"reason": "idle_explicit_freestyle"');
+        expect(debug).toContain('"reason": "explicit_freestyle"');
+      } finally {
+        await boot.runtime.dispose();
+        boot.restoreEnv();
+      }
+    });
   });
 });
 

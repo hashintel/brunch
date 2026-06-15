@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
-import { completeAssistantKick, originateAssistantTurn } from './originate-assistant-turn.js';
+import {
+  completeAssistantKick,
+  kickTurnMessage,
+  originateAssistantTurn,
+} from './originate-assistant-turn.js';
 
 const specId = 4;
 
@@ -121,6 +125,24 @@ describe('originateAssistantTurn', () => {
     });
 
     expect(result.decision.action).toBe('idle');
+  });
+});
+
+describe('kickTurnMessage', () => {
+  it('locks the D78-L assistant-authored opening copy', () => {
+    // D78-L: the product seeds context, then asks the assistant to author the
+    // opening live; it must not imply a product-fabricated offer already exists.
+    expect(kickTurnMessage('new_session')).toEqual({
+      customType: 'brunch.kick',
+      content:
+        'Session start: the spec context has been seeded into the transcript for you. ' +
+        'Open the conversation in your own words, grounded in that seeded context, ' +
+        'and lead the user toward the first structured question.',
+      display: false,
+      details: { origin: 'new_session' },
+    });
+    expect(kickTurnMessage('new_session').content).not.toContain('presented offer');
+    expect(kickTurnMessage('new_session').content).not.toContain('offered question');
   });
 });
 

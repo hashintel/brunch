@@ -48,6 +48,7 @@ export interface OriginateAssistantTurnInput {
    * seed carries the workspace section (D78-L revised 2026-06-12).
    */
   readonly workspaceContext: string;
+  readonly strategy?: 'auto' | 'freestyle';
   readonly manager: OriginationManager;
 }
 
@@ -151,6 +152,7 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
     currentLsn: slice.lsn,
     entries: input.entries,
     origin: input.entries.some(isConversationalMessageEntry) ? input.resumeOrigin : 'new_session',
+    ...(input.strategy ? { strategy: input.strategy } : {}),
     seedContent: composeContextSeedContent({
       specId: input.specId,
       ...(input.specName ? { specName: input.specName } : {}),

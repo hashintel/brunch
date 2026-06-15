@@ -32,6 +32,7 @@ import {
   type ReadinessBand,
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
+import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
 import {
@@ -397,6 +398,10 @@ export function createBrunchAgentSessionRuntimeFactory(
       entries: sessionManager.getEntries(),
       resumeOrigin: 'resume_debt',
       workspaceContext: await renderWorkspaceOverviewContext(cwd),
+      strategy:
+        projectBrunchAgentState(sessionManager.getEntries()).agentStrategy === 'freestyle'
+          ? 'freestyle'
+          : 'auto',
       manager: sessionManager,
     });
     if (context.dev) {
