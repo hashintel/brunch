@@ -10,8 +10,8 @@ import {
   projectBrunchAgentState,
 } from '../../../projections/session/runtime-state.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
-import { composeAgentPrompt } from './compose.js';
 import { GOAL_RESOURCES, LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../runtime/state.js';
+import { composeAgentPrompt } from './compose.js';
 
 const projectRoot = dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 

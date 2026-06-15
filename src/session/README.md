@@ -122,12 +122,12 @@ schema, and the product-state-gated rows must stay explicit deferred tripwires.
 
 - Cwd project identity, pure cwd inventory, and `.brunch/workspace.json` persistence — those live in `workspace/`.
 - Graph state, CommandExecutor, graph queries — those live in `graph/`.
-- Prompt composition, context building — those live in `.pi/agents/`.
+- Prompt composition, pushed seed context building — those live in `.pi/extensions/system-prompts/` (manifest/legality policy in `.pi/extensions/runtime/`).
 - Pi extension registration — those live in `.pi/extensions/`.
 
 ## Imported by
 
-- `.pi/agents/contexts/` — for session/transcript context reads.
+- `.pi/extensions/system-prompts/seed/` — for workspace/graph pushed-context reads.
 - `.pi/extensions/context/` — for direct workspace overview reads; pure cwd inventory comes from `workspace/`.
 - `projections/session/` — for reusable transcript-context DTO projection.
 - `projections/workspace/` — for reusable workspace-state DTO projection.

@@ -9,7 +9,12 @@ import {
   toolPolicyForRuntimeState,
   type ResolvedBrunchAgentState,
 } from '../../../projections/session/runtime-policy.js';
-import type { AgentGoalId, AgentLensId, AgentRoleId, AgentStrategyId } from '../../../session/runtime-state.js';
+import type {
+  AgentGoalId,
+  AgentLensId,
+  AgentRoleId,
+  AgentStrategyId,
+} from '../../../session/runtime-state.js';
 type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods' | 'definitions';
 export type MethodId =
   | 'run-structured-exchange'

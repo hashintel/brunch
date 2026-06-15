@@ -1,16 +1,16 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { GraphReaders } from '../graph/index.js';
+import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 import {
   composeAgentPrompt,
   type AgentPromptContextBundle,
   type AgentPromptSpecContext,
   type AgentPromptWorkspaceContext,
 } from './compose.js';
-import { renderWorkspaceSeed, type AgentPromptSessionContext } from './seed/workspace.js';
 import { renderGraphSeed } from './seed/graph.js';
-import type { GraphReaders } from '../graph/index.js';
-import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
+import { renderWorkspaceSeed, type AgentPromptSessionContext } from './seed/workspace.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
 

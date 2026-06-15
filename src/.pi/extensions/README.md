@@ -8,7 +8,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 
 ## Does NOT own
 
-- Agent prompt-resource semantics or manifest composition — `.pi/agents/` and `.pi/skills/`.
+- Agent role prompt definitions and skill resource bodies (markdown) — `.pi/agents/` and `.pi/skills/`. (Prompt composition and the prompt-resource manifest/legality policy are owned here, by `system-prompts/` and `runtime/`.)
 - Graph truth, graph mutation policy, or graph readers — `graph/`.
 - Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — `session/` until the runtime-state follow-up split lands.
 - Reusable DTO projection or reusable markdown/text rendering — top-level `projections/` and `renderers/`.
@@ -32,9 +32,9 @@ extensions/
 ├── session-query/           dev-gated read-only brunch_session_query tool over current branch
 ├── shared/                  projection/truncation helpers + Zod→Pi schema adapter for dev query tools
 ├── mentions/                #graph mention prompt hint + autocomplete provider
-├── runtime/                 active-tool policy and tool/user_bash guards
+├── runtime/                 active-tool policy + tool/user_bash guards; prompt-resource manifest & method/tool legality (state.ts)
 ├── session/                 session lifecycle hooks
-├── system-prompts/          before_agent_start dynamic prompt append + gap-driven active-tool selection
+├── system-prompts/          before_agent_start prompt append + gap-driven active-tool selection; prompt composition (compose.ts) + pushed seed contexts (seed/)
 ├── workspace/               spec/session picker command adapter
 └── subagents/               future subagent config/tool surface
 ```
