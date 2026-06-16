@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -17,7 +16,8 @@ import {
 import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
 import { sliceLabel } from './slice-label.js';
-import type { ActionContext, ActionHandlers, Epic, Slice } from './types.js';
+import { runVerification, ToolchainTestRunner } from './test-runner.js';
+import type { ActionContext, ActionHandlers, Epic, Slice, TestRunner } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const promptsDir = __dirname.includes('dist')
@@ -261,63 +261,6 @@ async function runPi(
 
 export { runPi };
 
-/**
- * Decide whether a slice is done by executing its verification targets. `done`
- * requires at least one target and every target passing — a slice with no
- * runnable verification cannot be proven done (no requisite variety). This is
- * the real oracle: it replaces the prior LLM verdict over criterion prose,
- * which a standalone component or Ladle story could satisfy without the
- * feature working.
- */
-export async function evaluateVerificationTargets(
-  targets: readonly { target: string }[],
-  runTarget: (target: string) => Promise<boolean>,
-): Promise<{ done: boolean; results: Array<{ target: string; passed: boolean }> }> {
-  const results: Array<{ target: string; passed: boolean }> = [];
-  for (const t of targets) {
-    let passed = false;
-    try {
-      passed = await runTarget(t.target);
-    } catch {
-      passed = false;
-    }
-    results.push({ target: t.target, passed });
-  }
-  return { done: results.length > 0 && results.every((r) => r.passed), results };
-}
-
-async function runTest(toolchain: Toolchain, target: string, sandboxDir: string): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
-    const [command, ...args] = toolchain.testCommand(target);
-    const child = spawn(command!, args, {
-      cwd: sandboxDir,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
-    let settled = false;
-
-    const finish = (passed: boolean): void => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      const output = Buffer.concat([...stdoutChunks, ...stderrChunks]).toString('utf8');
-      logVerbose(output);
-      resolve(passed);
-    };
-
-    const timer = setTimeout(() => {
-      child.kill('SIGTERM');
-      finish(false);
-    }, 60_000);
-
-    child.stdout?.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
-    child.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
-    child.on('error', () => finish(false));
-    child.on('close', (code) => finish(code === 0));
-  });
-}
-
 function report(ctx: ActionContext, actor: string, event: string, payload: Record<string, unknown>): string {
   return createReport(ctx.reports, { epicId: ctx.epic.id, sliceId: ctx.slice.id, actor, event, payload });
 }
@@ -346,23 +289,31 @@ export function createPiActions(opts?: {
   verbose?: boolean;
   runStart?: number;
   toolchain?: Toolchain;
+  testRunner?: TestRunner;
+  /** Inject the agent-session factory (tests stub it so no real session runs). */
+  createSession?: SessionFactory;
 }): ActionHandlers {
   _verbose = opts?.verbose ?? false;
   t0 = opts?.runStart ?? Date.now();
   const toolchain = opts?.toolchain ?? defaultToolchain;
+  const testRunner = opts?.testRunner ?? new ToolchainTestRunner(toolchain);
+  const piDeps = opts?.createSession ? { createSession: opts.createSession } : {};
 
   return {
     'evaluate-done': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
       log('?', `evaluate  ${label}`);
-      const { done, results } = await evaluateVerificationTargets(ctx.slice.verification, (target) =>
-        runTest(toolchain, target, ctx.sandboxDir),
+      const { done, failureKind, results } = await runVerification(
+        ctx.slice.verification,
+        testRunner,
+        ctx.sandboxDir,
       );
       for (const r of results) {
+        logVerbose(r.output);
         log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
       }
       log(done ? '●' : '○', `verdict   ${label} → ${done ? 'DONE' : 'NEEDS WORK'}`);
-      return report(ctx, 'evaluator', 'eval-done', { done, results });
+      return report(ctx, 'evaluator', 'eval-done', { done, failureKind, results });
     },
 
     'write-tests': async (ctx: ActionContext) => {
@@ -370,14 +321,17 @@ export function createPiActions(opts?: {
       log('▸', `tests     ${label}`);
       const task = sliceTestTask(ctx.slice, toolchain);
 
-      await runPi({
-        label: `tests     ${label}`,
-        model: 'claude-sonnet-4-6',
-        promptFile: join(promptsDir, 'test-writer.md'),
-        task,
-        sandboxDir: ctx.sandboxDir,
-        tools: toolsForAction('write-tests'),
-      });
+      await runPi(
+        {
+          label: `tests     ${label}`,
+          model: 'claude-sonnet-4-6',
+          promptFile: join(promptsDir, 'test-writer.md'),
+          task,
+          sandboxDir: ctx.sandboxDir,
+          tools: toolsForAction('write-tests'),
+        },
+        piDeps,
+      );
 
       return report(ctx, 'test-writer', 'tests-written', {
         sliceId: ctx.slice.id,
@@ -390,14 +344,17 @@ export function createPiActions(opts?: {
       log('▸', `code      ${label}`);
       const task = `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`;
 
-      await runPi({
-        label: `code      ${label}`,
-        model: 'claude-sonnet-4-6',
-        promptFile: join(promptsDir, 'code-writer.md'),
-        task,
-        sandboxDir: ctx.sandboxDir,
-        tools: toolsForAction('write-code'),
-      });
+      await runPi(
+        {
+          label: `code      ${label}`,
+          model: 'claude-sonnet-4-6',
+          promptFile: join(promptsDir, 'code-writer.md'),
+          task,
+          sandboxDir: ctx.sandboxDir,
+          tools: toolsForAction('write-code'),
+        },
+        piDeps,
+      );
 
       return report(ctx, 'code-writer', 'code-written', {
         sliceId: ctx.slice.id,
@@ -415,26 +372,30 @@ export function createPiActions(opts?: {
       log('▸', `verify    ${ctx.epic.id}`);
       const writeTask = epicVerifyTask(ctx.epic, toolchain);
 
-      await runPi({
-        label: `verify    ${ctx.epic.id} (write)`,
-        model: 'claude-sonnet-4-6',
-        promptFile: join(promptsDir, 'test-writer.md'),
-        task: writeTask,
-        sandboxDir: ctx.sandboxDir,
-        tools: toolsForAction('verify-epic'),
-      });
+      await runPi(
+        {
+          label: `verify    ${ctx.epic.id} (write)`,
+          model: 'claude-sonnet-4-6',
+          promptFile: join(promptsDir, 'test-writer.md'),
+          task: writeTask,
+          sandboxDir: ctx.sandboxDir,
+          tools: toolsForAction('verify-epic'),
+        },
+        piDeps,
+      );
 
-      let allPassed = true;
-      for (const v of ctx.epic.verification) {
-        const passed = await runTest(toolchain, v.target, ctx.sandboxDir);
-        log(passed ? '✓' : '✗', `verify    ${v.target}`);
-        allPassed &&= passed;
+      const {
+        done: passed,
+        failureKind,
+        results,
+      } = await runVerification(ctx.epic.verification, testRunner, ctx.sandboxDir);
+      for (const r of results) {
+        logVerbose(r.output);
+        log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
       }
 
-      log(allPassed ? '●' : '✗', `epic      ${ctx.epic.id} → ${allPassed ? 'PASS' : 'FAIL'}`);
-      return report(ctx, 'orchestrator', 'epic-verified', {
-        passed: allPassed,
-      });
+      log(passed ? '●' : '✗', `epic      ${ctx.epic.id} → ${passed ? 'PASS' : 'FAIL'}`);
+      return report(ctx, 'orchestrator', 'epic-verified', { passed, failureKind });
     },
   };
 }

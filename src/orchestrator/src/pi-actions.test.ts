@@ -8,7 +8,6 @@ import { describe, expect, it } from 'vitest';
 import {
   createPiActions,
   epicVerifyTask,
-  evaluateVerificationTargets,
   runPi,
   type SessionFactory,
   sliceTestTask,
@@ -16,7 +15,7 @@ import {
 } from './pi-actions.js';
 import { brunchProfile, bunProfile } from './project-profile.js';
 import { InMemoryReportSink } from './report-sink.js';
-import type { ActionContext, Epic, Slice } from './types.js';
+import type { ActionContext, Epic, Plan, Slice, TestResult, TestRunner } from './types.js';
 
 const promptsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'prompts');
 
@@ -58,34 +57,69 @@ describe('cook task builders carry the toolchain conventions, not a hardcoded st
   });
 });
 
-describe('evaluateVerificationTargets — done reflects real test execution', () => {
-  it('done only when at least one target exists and every target passes', async () => {
-    const { done } = await evaluateVerificationTargets([{ target: 'a' }, { target: 'b' }], async () => true);
-    expect(done).toBe(true);
-  });
+describe('evaluate-done / verify-epic share the runner seam — failureKind is visible at both', () => {
+  const slice: Slice = {
+    id: 'chunk',
+    epic_id: 'utils',
+    definition: 'Add chunk()',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+  };
+  const epic: Epic = {
+    id: 'utils',
+    summary: 'Utilities',
+    depends_on: [],
+    verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+  };
+  const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
 
-  it('not done if any target fails, and reports per-target results', async () => {
-    const { done, results } = await evaluateVerificationTargets(
-      [{ target: 'a' }, { target: 'b' }],
-      async (t) => t === 'a',
-    );
-    expect(done).toBe(false);
-    expect(results).toEqual([
-      { target: 'a', passed: true },
-      { target: 'b', passed: false },
-    ]);
-  });
+  function fakeRunner(result: TestResult): TestRunner {
+    return {
+      async run() {
+        return result;
+      },
+    };
+  }
 
-  it('not done when there are no verification targets (nothing proves it)', async () => {
-    const { done } = await evaluateVerificationTargets([], async () => true);
-    expect(done).toBe(false);
-  });
+  function ctx(reports: InMemoryReportSink): ActionContext {
+    return { slice, epic, plan, sandboxDir: '/tmp/unused', reports };
+  }
 
-  it('a throwing runner counts as a failed target', async () => {
-    const { done } = await evaluateVerificationTargets([{ target: 'x' }], async () => {
-      throw new Error('runner blew up');
+  it('evaluate-done surfaces an infra failureKind in the eval-done report', async () => {
+    const reports = new InMemoryReportSink();
+    const actions = createPiActions({
+      testRunner: fakeRunner({ passed: false, output: 'no runner', failureKind: 'infra' }),
     });
-    expect(done).toBe(false);
+    const id = await actions['evaluate-done']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { done: boolean; failureKind?: string };
+    expect(payload.done).toBe(false);
+    expect(payload.failureKind).toBe('infra');
+  });
+
+  it('evaluate-done reports a passing verdict with no failureKind', async () => {
+    const reports = new InMemoryReportSink();
+    const actions = createPiActions({ testRunner: fakeRunner({ passed: true, output: 'ok' }) });
+    const id = await actions['evaluate-done']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { done: boolean; failureKind?: string };
+    expect(payload.done).toBe(true);
+    expect(payload.failureKind).toBeUndefined();
+  });
+
+  it('verify-epic surfaces an infra failureKind in the epic-verified report', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const reports = new InMemoryReportSink();
+    // verify-epic first runs a pi session to author the integration test; stub
+    // it so no real agent runs, then the injected runner reports the infra fail.
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const actions = createPiActions({
+      testRunner: fakeRunner({ passed: false, output: 'no runner', failureKind: 'infra' }),
+      createSession,
+    });
+    const id = await actions['verify-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { passed: boolean; failureKind?: string };
+    expect(payload.passed).toBe(false);
+    expect(payload.failureKind).toBe('infra');
   });
 });
 

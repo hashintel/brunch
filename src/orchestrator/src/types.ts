@@ -115,6 +115,22 @@ export interface TestRunner {
   run(target: string, sandboxDir: string): Promise<TestResult>;
 }
 
+/** One verification target's outcome: its id plus the runner's `TestResult`. */
+export type VerificationResult = { target: string } & TestResult;
+
+/**
+ * The verdict over a set of verification targets. `done` is the single oracle
+ * rule — at least one target and every target passing (no requisite variety
+ * otherwise). `failureKind` is the aggregate over the failed targets: `infra`
+ * (the toolchain broke) dominates a plain `test` failure, because a run that
+ * never executed is the actionable signal. Undefined when `done`.
+ */
+export type VerificationOutcome = {
+  done: boolean;
+  failureKind?: TestFailureKind;
+  results: VerificationResult[];
+};
+
 // ---------------------------------------------------------------------------
 // Orchestrator seam
 // ---------------------------------------------------------------------------

@@ -468,7 +468,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
   const engine = createOrchestrator(opts.policy);
 
   const runStart = Date.now();
-  const actions = createPiActions({ verbose: opts.verbose, runStart, toolchain });
+  const actions = createPiActions({ verbose: opts.verbose, runStart, toolchain, testRunner });
 
   // Stand up the live-stream setup handle when streaming is enabled.
   // Auto-open is suppressed by `--no-petrinaut-open` or CI.
