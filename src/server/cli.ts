@@ -120,7 +120,9 @@ if (rawArgs[0] === 'cook') {
     }
     const snapshot = buildCompletedSpecSnapshot(db, opts.specificationId);
     assertCompletedSpecReadyForPlanning(db, opts.specificationId, snapshot);
-    await runServe(opts, {
+    // Cook runs against the same dir the plan was written to (launchCwd); see
+    // serveCookOptions — runCook reads opts.dir raw, so serve must thread it.
+    await runServe(opts, launchCwd, {
       plan: () =>
         runPlan({
           specificationId: opts.specificationId,

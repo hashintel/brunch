@@ -113,10 +113,16 @@ export function parseServeArgs(args: string[]): ServeOptions {
  * Map serve options to the cook stage. `specId` is set so cook reads the plan
  * just emitted (not an auto-picked older one); serve's `--out` becomes cook's
  * greenfield promote target (brownfield promotes automatically regardless).
+ *
+ * `cookDir` is the resolved launch cwd the plan was written under. `runCook`
+ * reads `opts.dir` raw — the launch-cwd default lives only in `parseCookArgs`,
+ * which serve bypasses — so cook would otherwise resolve the plan path against
+ * `process.cwd()` and clone `''` for brownfield. Threading the same dir the plan
+ * used keeps the two stages pointed at one directory (SPEC R46).
  */
-export function serveCookOptions(opts: ServeOptions): CookOptions {
+export function serveCookOptions(opts: ServeOptions, cookDir: string): CookOptions {
   return {
-    dir: '',
+    dir: cookDir,
     policy: opts.policy,
     maxRetries: opts.maxRetries,
     verbose: opts.verbose,
@@ -135,12 +141,14 @@ export function serveCookOptions(opts: ServeOptions): CookOptions {
  * Sequence the two stages: emit the plan, then cook it. Cook only runs if
  * planning succeeded — a failed plan short-circuits with nothing cooked. Both
  * stages are injected so the db/snapshot/agent side effects stay in `cli.ts`
- * and this orchestration is unit-testable.
+ * and this orchestration is unit-testable. `cookDir` is the resolved launch cwd
+ * the plan was written under, threaded into the cook options.
  */
 export async function runServe(
   opts: ServeOptions,
+  cookDir: string,
   deps: { plan: () => Promise<void>; cook: (cookOpts: CookOptions) => Promise<void> },
 ): Promise<void> {
   await deps.plan();
-  await deps.cook(serveCookOptions(opts));
+  await deps.cook(serveCookOptions(opts, cookDir));
 }
