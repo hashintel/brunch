@@ -6,20 +6,7 @@ import { describe, expect, it } from 'vitest';
 const ROOT = process.cwd();
 const SOURCE_ROOT = 'src';
 const PROJECTIONS_ROOT = 'src/projections';
-const RENDERERS_ROOT = 'src/renderers';
-const WORKSPACE_ROOT = 'src/workspace';
 const ADAPTER_IMPORT_SEGMENTS = ['/.pi/', '/rpc/', '/app/', '/web/'];
-const WORKSPACE_FORBIDDEN_IMPORT_SEGMENTS = [
-  '/.pi/',
-  '/app/',
-  '/db/',
-  '/graph/',
-  '/projections/',
-  '/renderers/',
-  '/rpc/',
-  '/session/',
-  '/web/',
-];
 const PROJECTION_ADAPTER_EXCEPTIONS: Record<string, true> = {
   'src/projections/exchanges/present-options.ts': true,
   'src/projections/exchanges/present-question.ts': true,
@@ -62,34 +49,17 @@ function sourceImportersOf(target: string): string[] {
   return sourceFilesUnder(SOURCE_ROOT).filter((file) => importedSourcePaths(file).includes(target));
 }
 
-describe('projection and renderer topology boundaries', () => {
+// Layer-wide import boundaries (renderers/, workspace/) are enforced statically
+// in `.oxlintrc.json` via no-restricted-imports. The tests below cover the
+// projection-specific invariants that lint cannot express: the `.pi` schema
+// carve-out for exchanges, and the two seam guards (neighborhood has no
+// importers; session runtime-state does not pull reusable runtime projections).
+describe('projection topology boundaries', () => {
   it('keeps reusable projections out of adapter and transport layers', () => {
     const offenders = sourceFilesUnder(PROJECTIONS_ROOT).flatMap((file) => {
       if (PROJECTION_ADAPTER_EXCEPTIONS[file]) return [];
       const imports = importedSourcePaths(file).filter((path) =>
         ADAPTER_IMPORT_SEGMENTS.some((segment) => `/${path}`.includes(segment)),
-      );
-      return imports.map((path) => `${file} -> ${path}`);
-    });
-
-    expect(offenders).toEqual([]);
-  });
-
-  it('keeps reusable renderers out of adapter and transport layers', () => {
-    const offenders = sourceFilesUnder(RENDERERS_ROOT).flatMap((file) => {
-      const imports = importedSourcePaths(file).filter((path) =>
-        ADAPTER_IMPORT_SEGMENTS.some((segment) => `/${path}`.includes(segment)),
-      );
-      return imports.map((path) => `${file} -> ${path}`);
-    });
-
-    expect(offenders).toEqual([]);
-  });
-
-  it('keeps workspace helpers as cwd-owned leaves without domain or adapter imports', () => {
-    const offenders = sourceFilesUnder(WORKSPACE_ROOT).flatMap((file) => {
-      const imports = importedSourcePaths(file).filter((path) =>
-        WORKSPACE_FORBIDDEN_IMPORT_SEGMENTS.some((segment) => `/${path}`.includes(segment)),
       );
       return imports.map((path) => `${file} -> ${path}`);
     });

@@ -8,6 +8,74 @@
     "typescript/no-deprecated": "error",
     "unicorn/no-empty-file": "off"
   },
+  "overrides": [
+    {
+      "files": ["src/**/*.ts", "src/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/db/*", "**/db/**"],
+                "message": "D52-L: only graph/ may import db/ directly."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/renderers/**/*.ts", "src/renderers/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/.pi/**", "**/app/**", "**/rpc/**", "**/web/**", "**/db/**"],
+                "message": "D52-L: renderers/ must not import adapter, transport, or db layers."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/workspace/**/*.ts", "src/workspace/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/.pi/**",
+                  "**/app/**",
+                  "**/db/**",
+                  "**/graph/**",
+                  "**/projections/**",
+                  "**/renderers/**",
+                  "**/rpc/**",
+                  "**/session/**",
+                  "**/web/**"
+                ],
+                "message": "D52-L: workspace/ is a cwd-owned leaf; it must not import domain or adapter layers."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/graph/**", "src/db/**"],
+      "rules": { "no-restricted-imports": "off" }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.test-support.ts", "**/__tests__/**"],
+      "rules": { "no-restricted-imports": "off" }
+    }
+  ],
   "ignorePatterns": [
     ".agents/**",
     ".github/**",

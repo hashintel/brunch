@@ -1,20 +1,21 @@
 /**
  * I26-L architectural boundary test.
  *
- * Enforces: only `graph/` imports from `db/` directly.
- * No other `src/` layer may import `db/` modules.
+ * Covers the D52-L/I26-L invariants that are not expressible as static lint
+ * rules: graph/schema/kinds.ts leaf purity, the db→graph kinds-only edge, the
+ * absence of enum const arrays in db/schema.ts, and spec writes confined to
+ * CommandExecutor. The blanket "only graph/ imports db/" boundary now lives in
+ * `.oxlintrc.json` (no-restricted-imports), so it is not retested here.
  *
  * SPEC: D52-L, I26-L
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
 describe('I26-L architectural boundary', () => {
   it('graph schema kinds is a zero-import taxonomy leaf', () => {
-    expect(existsSync('src/graph/schema/kinds.ts')).toBe(true);
     const result = execSync(`rg "^import\\s" src/graph/schema/kinds.ts || true`, {
       cwd: process.cwd(),
       encoding: 'utf-8',
@@ -54,23 +55,6 @@ describe('I26-L architectural boundary', () => {
     );
 
     expect(result.trim()).toBe('');
-  });
-
-  it('no src/ module outside graph/ imports from db/', () => {
-    // Find all .ts files importing from db/ (excluding graph/, db/ itself,
-    // and test files within graph/)
-    const result = execSync(
-      `rg --files-with-matches "from ['\\"]\\.\\./db/|from ['\\"]\\.\\./\\.\\./db/|from ['\\"]\\./db/" src/ --glob '*.ts' --glob '!*.test.*' || true`,
-      { cwd: process.cwd(), encoding: 'utf-8' },
-    );
-
-    const importingFiles = result
-      .trim()
-      .split('\n')
-      .filter(Boolean)
-      .filter((f) => !f.startsWith('src/graph/') && !f.startsWith('src/db/'));
-
-    expect(importingFiles).toEqual([]);
   });
 
   it('spec writes live only in CommandExecutor', () => {
