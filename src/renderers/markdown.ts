@@ -20,10 +20,6 @@ export function markdownBullet(text: string): string {
   return `- ${text}`;
 }
 
-export function markdownQuote(text: string): string {
-  return markdownBlockquote(text);
-}
-
 export function markdownBlockquote(text: string): string {
   return blockquote(text.trim());
 }

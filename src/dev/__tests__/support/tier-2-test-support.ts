@@ -165,6 +165,17 @@ export async function readWorkspaceContextMarkdownFiles(session: {
     undefined,
     undefined,
     { sessionManager: session.sessionManager } as never,
-  )) as { details: { markdownFiles: Array<{ path: string }> } };
-  return result.details.markdownFiles.map((file) => file.path);
+  )) as { details: { topology: { name: string; children?: Array<{ name: string; children?: unknown[] }> } } };
+  return topologyNames(result.details.topology);
+}
+
+function topologyNames(entry: { name: string; children?: unknown[] }): string[] {
+  return [
+    entry.name,
+    ...(entry.children ?? []).flatMap((child) =>
+      isRecord(child) && typeof child.name === 'string'
+        ? topologyNames(child as { name: string; children?: unknown[] })
+        : [],
+    ),
+  ];
 }

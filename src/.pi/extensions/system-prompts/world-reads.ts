@@ -36,7 +36,7 @@ export function createWorldReadCache(): WorldReadCache {
         graph: graphReads.queryGraph(),
         gaps: graphReads.getElicitationGaps(specId),
       };
-      cached = { specId, lsn, reads };
+      cached = { specId, lsn: reads.graph.lsn, reads };
       return reads;
     },
   };

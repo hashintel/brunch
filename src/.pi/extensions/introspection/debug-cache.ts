@@ -56,7 +56,7 @@ export async function appendEntryContentToDebugCache(
   const block = [
     `## ${entry.customType} (${entry.type}) · ${new Date().toISOString()}`,
     ...(entry.content ? ['', entry.content] : []),
-    ...(payload === undefined ? [] : ['', '```json', JSON.stringify(payload, null, 2), '```']),
+    ...(payload === undefined ? [] : ['', '```json', debugCacheJson(payload), '```']),
   ].join('\n');
 
   const debugDir = join(options.cwd, '.brunch', 'debug');
@@ -72,7 +72,7 @@ export async function appendOriginationRecordToDebugCache(
     `## brunch.origination (${new Date().toISOString()})`,
     '',
     '```json',
-    JSON.stringify(record, null, 2),
+    debugCacheJson(record),
     '```',
   ].join('\n');
 
@@ -91,6 +91,21 @@ export async function appendToolContentToDebugCache(
   const debugDir = join(options.cwd, '.brunch', 'debug');
   await mkdir(debugDir, { recursive: true });
   await appendSeparatedBlock(join(debugDir, 'tool-contents.md'), text);
+}
+
+export function debugCacheJson(value: unknown): string {
+  return JSON.stringify(value, (_key, nested) => serializeDebugCacheValue(nested), 2);
+}
+
+function serializeDebugCacheValue(value: unknown): unknown {
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      ...(value.stack ? { stack: value.stack } : {}),
+    };
+  }
+  return value;
 }
 
 function toolContentFromEvent(event: unknown): string | undefined {

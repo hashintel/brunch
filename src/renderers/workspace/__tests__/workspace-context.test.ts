@@ -29,9 +29,6 @@ describe('renderWorkspaceContext', () => {
       cwd: '/tmp/brunch-project',
       project: { name: 'Brunch Project', slug: 'brunch-project', source: 'directory' },
       hasBrunchDir: true,
-      sessionFiles: [{ file: 'session-1.jsonl', lineCount: 2, byteCount: 100 }],
-      topLevelEntries: [],
-      markdownFiles: [],
       topology,
     } satisfies WorkspaceCwdInventory);
 

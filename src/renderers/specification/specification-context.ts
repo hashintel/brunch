@@ -1,8 +1,8 @@
 import type { ElicitationGap, GraphSlice } from '../../graph/index.js';
-import { renderSoftReadinessEstimate } from '../../session/agent-context-seed.js';
-import type { WorkspaceOverview } from '../../session/workspace-overview-context.js';
+import type { WorkspaceSessionOverview } from '../../session/workspace-overview-context.js';
 import { joinMarkdownBlocks, markdownTable, markdownUl } from '../markdown.js';
 import { section } from '../section.js';
+import { renderSoftReadinessEstimate } from '../session/readiness-estimate.js';
 import { renderToonBlock, type ToonRecord } from '../toon.js';
 
 export interface SpecificationContextRenderInput {
@@ -11,8 +11,9 @@ export interface SpecificationContextRenderInput {
     readonly title: string;
   };
   readonly graph: GraphSlice;
-  readonly sessions: readonly WorkspaceOverview['sessions'][number][];
+  readonly sessions: readonly WorkspaceSessionOverview[];
   readonly gaps: readonly ElicitationGap[];
+  readonly readinessGaps: readonly ElicitationGap[];
 }
 
 export function renderSpecificationContext(input: SpecificationContextRenderInput): string {
@@ -27,11 +28,11 @@ function renderOverview(input: SpecificationContextRenderInput): string {
     `id: ${input.spec.id}`,
     `title: ${input.spec.title}`,
     `graph: ${input.graph.nodes.length} nodes, ${input.graph.edges.length} edges (LSN ${input.graph.lsn})`,
-    renderSoftReadinessEstimate(input.gaps),
+    renderSoftReadinessEstimate(input.readinessGaps),
   ])}`;
 }
 
-function renderSessions(sessions: readonly WorkspaceOverview['sessions'][number][]): string {
+function renderSessions(sessions: readonly WorkspaceSessionOverview[]): string {
   const rows: Array<Array<string | number>> = [['name', 'file', 'turns']];
   rows.push(...sessions.map((session) => ['—', session.file, session.turnCount]));
   return `Sessions:\n${markdownTable(rows)}`;

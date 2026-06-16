@@ -12,6 +12,7 @@ import { createRequire } from 'node:module';
 import { markdownCodeBlock } from './markdown.js';
 
 const require = createRequire(import.meta.url);
+// `stringify-tree` publishes CommonJS only; keep the require here at the wrapper seam.
 const { stringifyTree } = require('stringify-tree') as {
   stringifyTree: <T>(tn: T, nameFn: (t: T) => string, childrenFn: (t: T) => T[] | null) => string;
 };

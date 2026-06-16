@@ -3,7 +3,7 @@ Overview:
 - id: 1
 - title: Alpha Grounding
 - graph: 4 nodes, 2 edges (LSN 2)
-- readiness estimate (soft; gates nothing): grounding=0.00, elicitation=0.00, commitment=0.00
+- readiness estimate (soft; gates nothing): grounding=0.71, elicitation=0.00, commitment=0.00
 
 Sessions:
 | name | file | turns |

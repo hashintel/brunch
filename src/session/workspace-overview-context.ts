@@ -1,4 +1,3 @@
-import { readFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
@@ -14,7 +13,7 @@ interface WorkspaceSpecOverview {
   readonly sessionCount: number;
 }
 
-interface WorkspaceSessionOverview {
+export interface WorkspaceSessionOverview {
   readonly id: string;
   readonly file: string;
   readonly specId: number;
@@ -62,13 +61,12 @@ export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOv
         if (!spec) {
           return null;
         }
-        const entries = await readJsonl(session.file);
         return {
           id: session.id,
           file: basename(session.file),
           specId: session.specId,
           specTitle: spec.title,
-          turnCount: countTurnEntries(entries),
+          turnCount: session.turnCount,
         } satisfies WorkspaceSessionOverview;
       }),
   );
@@ -94,24 +92,4 @@ export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOv
     sessions: visibleSessions,
     topology: cwdInventory.topology,
   };
-}
-
-async function readJsonl(file: string): Promise<unknown[]> {
-  const content = await readFile(file, 'utf8');
-  return content
-    .split('\n')
-    .filter((line) => line.trim().length > 0)
-    .map((line) => JSON.parse(line) as unknown);
-}
-
-function countTurnEntries(entries: readonly unknown[]): number {
-  return entries.filter((entry) => {
-    if (!isRecord(entry) || entry.type !== 'message' || !isRecord(entry.message)) return false;
-    const role = entry.message.role;
-    return role === 'user' || role === 'assistant';
-  }).length;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

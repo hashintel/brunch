@@ -14,6 +14,7 @@ import type {
 interface BoundSessionFile extends Omit<WorkspaceLaunchSession, 'specTitle'> {
   binding: SessionBindingData;
   bindingCount: 1;
+  turnCount: number;
 }
 
 interface UnavailableSessionFile extends WorkspaceUnavailableSession {
@@ -105,6 +106,7 @@ async function inspectCanonicalSessionFile(file: string): Promise<CanonicalSessi
     specId: binding.data.specId,
     binding: binding.data,
     bindingCount: 1,
+    turnCount: countTurnEntries(entries),
     ...(name != null ? { name } : {}),
     available: true,
   };
@@ -131,6 +133,14 @@ async function readJsonl(file: string): Promise<unknown[]> {
     .split('\n')
     .filter((line) => line.trim().length > 0)
     .map((line) => JSON.parse(line) as unknown);
+}
+
+function countTurnEntries(entries: readonly unknown[]): number {
+  return entries.filter((entry) => {
+    if (!isRecord(entry) || entry.type !== 'message' || !isRecord(entry.message)) return false;
+    const role = entry.message.role;
+    return role === 'user' || role === 'assistant';
+  }).length;
 }
 
 function latestSessionName(entries: unknown[]): string | undefined {
@@ -161,14 +171,13 @@ function isJsonParseError(error: unknown): error is SyntaxError {
 }
 
 function isSessionHeader(value: unknown): value is SessionHeader {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { type?: unknown }).type === 'session' &&
-    typeof (value as { id?: unknown }).id === 'string'
-  );
+  return isRecord(value) && value.type === 'session' && typeof value.id === 'string';
 }
 
 function isSessionInfoEntry(value: unknown): value is { type: 'session_info'; name?: unknown } {
-  return typeof value === 'object' && value !== null && (value as { type?: unknown }).type === 'session_info';
+  return isRecord(value) && value.type === 'session_info';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

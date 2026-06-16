@@ -60,7 +60,7 @@ describe('context tools', () => {
         },
       })) as {
       content: Array<{ type: 'text'; text: string }>;
-      details: { markdownFiles: Array<{ path: string }> };
+      details: { topology: { children?: Array<{ name: string; children?: Array<{ name: string }> }> } };
     };
 
     expect(result.content[0]?.text).toContain('<workspace>');
@@ -69,7 +69,10 @@ describe('context tools', () => {
     expect(result.content[0]?.text).not.toContain('session-1.jsonl');
     expect(result.details).not.toHaveProperty('mode');
     expect(result.details).not.toHaveProperty('data');
-    expect(result.details.markdownFiles.map((file) => file.path)).toEqual(['README.md', 'visible/guide.md']);
+    expect(result.details.topology.children?.map((entry) => entry.name)).toContain('README.md');
+    expect(result.details.topology.children?.find((entry) => entry.name === 'visible')?.children).toEqual([
+      { name: 'guide.md', kind: 'file', fileCount: 1 },
+    ]);
   });
 
   it('read_session_context returns runtime-frame markdown plus typed details', async () => {
@@ -333,10 +336,12 @@ describe('context tools', () => {
       const workspaceResult = (await tools
         .get('read_workspace_context')!
         .execute('faux-workspace', { mode: 'cwd_inventory' }, undefined, undefined, ctx)) as {
-        details: { markdownFiles: Array<{ path: string }> };
+        details: { topology: { children?: Array<{ name: string }> } };
       };
       // cwd came from the header (the temp workbench), not process.cwd().
-      expect(workspaceResult.details.markdownFiles.map((file) => file.path)).toContain('faux-guard-doc.md');
+      expect(workspaceResult.details.topology.children?.map((entry) => entry.name)).toContain(
+        'faux-guard-doc.md',
+      );
     } finally {
       harness.dispose();
     }

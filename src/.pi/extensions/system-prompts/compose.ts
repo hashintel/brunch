@@ -1,10 +1,10 @@
 import { selectElicitationGap } from '../../../graph/elicitation-driver.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { ResolvedBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import {
-  renderSoftReadinessEstimate,
-  type AgentPromptSpecContext,
-  type AgentPromptWorkspaceContext,
+import { renderSoftReadinessEstimate } from '../../../renderers/session/readiness-estimate.js';
+import type {
+  AgentPromptSpecContext,
+  AgentPromptWorkspaceContext,
 } from '../../../session/agent-context-seed.js';
 import { AGENT_PROMPT_DEFINITIONS, manifestsForState, type PromptManifests } from '../runtime/state.js';
 

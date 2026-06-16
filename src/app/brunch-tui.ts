@@ -86,6 +86,7 @@ export interface BrunchTuiLaunchContext {
   webSidecarUrl?: string;
   activationDecision?: SpecSessionActivationDecision;
   dev?: BrunchTuiDevOptions;
+  reportAsyncDiagnostic?: (diagnostic: { readonly type: 'warning'; readonly message: string }) => void;
   /**
    * Provider-backend substitution seam (faux provider in Tier-2 oracles).
    * Swaps only auth/model resolution; session creation, extension
@@ -164,6 +165,9 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       ...(webSidecarUrl ? { webSidecarUrl } : {}),
       activationDecision: decision,
       ...(dev ? { dev } : {}),
+      reportAsyncDiagnostic: (diagnostic) => {
+        process.stderr.write(`[brunch] ${diagnostic.message}\n`);
+      },
     });
   } finally {
     await webSidecar?.close();
@@ -429,7 +433,6 @@ export function createBrunchAgentSessionRuntimeFactory(
       ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
     });
     liveAgentSession.current = created.session;
-    const kickDiagnostics: Array<{ type: 'warning'; message: string }> = [];
     // Complete the kick: a 'start' decision owes an actual assistant-originated
     // LLM turn, which only the live AgentSession can run. Fire-and-forget:
     // sendCustomMessage with triggerTurn awaits the whole turn, and boot must
@@ -448,13 +451,13 @@ export function createBrunchAgentSessionRuntimeFactory(
           }).catch(() => {});
         }
         const message = formatKickDiagnostic(outcome);
-        if (message) kickDiagnostics.push({ type: 'warning', message });
+        if (message) context.reportAsyncDiagnostic?.({ type: 'warning', message });
       },
     });
     return {
       ...created,
       services,
-      diagnostics: [...services.diagnostics, ...kickDiagnostics],
+      diagnostics: services.diagnostics,
     };
   };
 }

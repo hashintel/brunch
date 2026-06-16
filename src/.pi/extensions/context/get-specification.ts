@@ -1,14 +1,7 @@
-import type { SessionEntry, SessionHeader } from '@earendil-works/pi-coding-agent';
-
 import { renderSpecificationContext } from '../../../renderers/specification/specification-context.js';
-import { isSessionBindingEntry } from '../../../session/session-binding.js';
 import { inspectSpecificationOverview } from '../../../session/specification-overview-context.js';
 import { resolveWorkspaceCwd } from './get-cwd.js';
-
-interface SessionManagerLike {
-  getHeader(): SessionHeader | null;
-  getEntries(): readonly SessionEntry[];
-}
+import { resolveSelectedSpecBinding, type SessionManagerLike } from './session-binding.js';
 
 interface SpecificationContextNotReady {
   readonly status: 'not_ready';
@@ -31,19 +24,14 @@ export type SpecificationContextResult =
 export async function readSpecificationContext(
   sessionManager?: SessionManagerLike,
 ): Promise<SpecificationContextResult> {
-  const header = sessionManager?.getHeader() ?? undefined;
-  if (!header) {
-    return notReady({ status: 'not_ready', reason: 'missing_session_header', sessionId: null });
-  }
-
-  const binding = sessionManager?.getEntries().find(isSessionBindingEntry);
-  if (!binding) {
-    return notReady({ status: 'not_ready', reason: 'missing_binding', sessionId: header.id });
+  const selected = resolveSelectedSpecBinding(sessionManager);
+  if (selected.status === 'not_ready') {
+    return notReady(selected);
   }
 
   const details = await inspectSpecificationOverview(
     resolveWorkspaceCwd(sessionManager),
-    binding.data.specId,
+    selected.binding.specId,
   );
   return { status: 'ready', text: renderSpecificationContext(details), details };
 }

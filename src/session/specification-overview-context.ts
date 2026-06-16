@@ -1,19 +1,12 @@
 import { resolve } from 'node:path';
 
 import { sortElicitationGapsForAsking } from '../graph/elicitation-driver.js';
-import { openWorkspaceGraphRuntime, type ElicitationGap, type GraphSlice } from '../graph/index.js';
-import {
-  renderSpecificationContext,
-  type SpecificationContextRenderInput,
-} from '../renderers/specification/specification-context.js';
-import { inspectWorkspaceOverview, type WorkspaceOverview } from './workspace-overview-context.js';
+import { openWorkspaceGraphRuntime } from '../graph/index.js';
+import { type SpecificationContextRenderInput } from '../renderers/specification/specification-context.js';
+import { inspectWorkspaceOverview } from './workspace-overview-context.js';
 
 export interface SpecificationOverviewContext extends SpecificationContextRenderInput {
   readonly status: 'ready';
-}
-
-export async function renderSpecificationOverviewContext(cwd: string, specId: number): Promise<string> {
-  return renderSpecificationContext(await inspectSpecificationOverview(cwd, specId));
 }
 
 export async function inspectSpecificationOverview(
@@ -30,7 +23,8 @@ export async function inspectSpecificationOverview(
   const graphRuntime = await openWorkspaceGraphRuntime(resolvedCwd);
   const specReaders = graphRuntime.forSpec(specId);
   const graph = specReaders.queryGraph();
-  const gaps = sortElicitationGapsForAsking(specReaders.getElicitationGaps());
+  const readinessGaps = specReaders.getElicitationGaps();
+  const gaps = sortElicitationGapsForAsking(readinessGaps);
 
   return {
     status: 'ready',
@@ -38,9 +32,6 @@ export async function inspectSpecificationOverview(
     graph,
     sessions: workspace.sessions.filter((session) => session.specId === specId),
     gaps,
+    readinessGaps,
   };
 }
-
-export type SpecificationContextSession = WorkspaceOverview['sessions'][number];
-export type SpecificationContextGraph = GraphSlice;
-export type SpecificationContextGap = ElicitationGap;

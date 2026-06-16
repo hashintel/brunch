@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { openWorkspaceCommandExecutor } from '../../../graph/index.js';
+import { presenceGap } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { seedFixture, type SeedFixture } from '../../../graph/seed-fixtures.js';
 import { createSessionBindingData } from '../../../session/session-binding.js';
 import { inspectSpecificationOverview } from '../../../session/specification-overview-context.js';
@@ -35,6 +36,22 @@ describe('renderSpecificationContext', () => {
     expect(rendered).not.toContain('Graph:');
     expect(rendered).not.toMatch(/^#{1,6}\s/m);
     expect(details.sessions.every((session) => session.specId === seeded.specId)).toBe(true);
+  });
+
+  it('computes readiness over the full register while Gaps renders the ask-filtered set', () => {
+    const openGrounding = presenceGap({ id: 'open-context', refersTo: 'context', coverage: 0 });
+    const answeredGrounding = presenceGap({ id: 'answered-goal', refersTo: 'goal', coverage: 1 });
+    const rendered = renderSpecificationContext({
+      spec: { id: 1, title: 'Readiness parity' },
+      graph: { lsn: 4, nodes: [], edges: [] },
+      sessions: [],
+      gaps: [openGrounding],
+      readinessGaps: [openGrounding, answeredGrounding],
+    });
+
+    expect(rendered).toContain('readiness estimate (soft; gates nothing): grounding=0.50');
+    expect(rendered).toContain('open-context');
+    expect(rendered).not.toContain('answered-goal');
   });
 });
 

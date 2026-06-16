@@ -2,7 +2,7 @@
 
 import { QueryClient } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { GraphSlice, NodeNeighborhood } from '../../graph/queries.js';
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
@@ -154,8 +154,18 @@ function rpcClient(options?: {
   } as unknown as WebSocketRpcClient;
 }
 
+const originalScrollToDescriptor = Object.getOwnPropertyDescriptor(window, 'scrollTo');
+
 beforeAll(() => {
-  Object.defineProperty(window, 'scrollTo', { value: vi.fn(), writable: true });
+  Object.defineProperty(window, 'scrollTo', { configurable: true, value: vi.fn(), writable: true });
+});
+
+afterAll(() => {
+  if (originalScrollToDescriptor) {
+    Object.defineProperty(window, 'scrollTo', originalScrollToDescriptor);
+  } else {
+    Reflect.deleteProperty(window, 'scrollTo');
+  }
 });
 
 afterEach(() => {

@@ -19,9 +19,8 @@
 
 import type { GraphSlice } from '../graph/queries.js';
 import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
-import { READINESS_BANDS } from '../graph/schema/kinds.js';
 import { formatGraphNodeCode, type GraphNode } from '../graph/schema/nodes.js';
-import { readinessEstimate } from '../projections/session/readiness-estimate.js';
+import { renderSoftReadinessEstimate } from '../renderers/session/readiness-estimate.js';
 import type { AgentLensSelection } from './runtime-state.js';
 import type { WorkspacePostureState } from './workspace-session-coordinator.js';
 
@@ -66,12 +65,6 @@ export function composeAgentContextSeed(input: ComposeAgentContextSeedInput): re
     }),
     renderGraphSeed(input.graph, { lens: input.lens }),
   ];
-}
-
-export function renderSoftReadinessEstimate(gaps: readonly ElicitationGap[]): string {
-  const estimate = readinessEstimate(gaps);
-  const coverage = READINESS_BANDS.map((band) => `${band}=${estimate.coverage[band].toFixed(2)}`).join(', ');
-  return `readiness estimate (soft; gates nothing): ${coverage}`;
 }
 
 // ----- selected-workspace seed -----
