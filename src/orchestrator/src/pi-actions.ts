@@ -69,7 +69,7 @@ async function withActivity<T>(id: string, label: string, fn: () => Promise<T>):
 // Pi dispatch
 // ---------------------------------------------------------------------------
 
-const PI_TIMEOUT_MS = 300_000;
+const PI_TIMEOUT_MS = 600_000;
 // Output cap — the timeout alone won't stop a fast, chatty agent.
 const PI_MAX_OUTPUT = 10 * 1024 * 1024;
 
