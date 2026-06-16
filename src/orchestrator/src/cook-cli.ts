@@ -13,7 +13,7 @@ import { createPetrinautStreamServer, type PetrinautStreamServer } from './petri
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
 import { resolveToolchain } from './project-profile.js';
-import { promoteGreenfieldRun } from './promote-run.js';
+import { promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
@@ -530,13 +530,49 @@ export async function runCook(opts: CookOptions): Promise<void> {
     console.error(`  ${result.reports.length} events → ${reportsPath}`);
     console.error('');
 
-    // Promotion-back is opt-in via --out and greenfield-only; a run that did
-    // not complete promotes nothing (the artifact stays inspectable).
-    if (opts.outDir) {
-      if (sandbox.kind === 'codebase') {
-        console.error(`  !  --out promotion is greenfield-only; brownfield output stays at ${sandboxDir}`);
+    // Brownfield promotion is automatic (the result already lives on the repo's
+    // own `cook/<runId>` branch); greenfield promotion is opt-in via --out. A run
+    // that did not complete promotes nothing — the artifact stays inspectable.
+    if (sandbox.kind === 'codebase') {
+      if (opts.outDir) {
+        console.error(`  !  --out is ignored for brownfield; the result lands on cook/${runId} in the repo`);
         console.error('');
-      } else if (!ok) {
+      }
+      if (!ok) {
+        console.error(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
+        console.error('');
+      } else {
+        try {
+          const source = promotionSourceDir({
+            sliceLayout,
+            sandboxDir,
+            runDir,
+            plan,
+            completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
+          });
+          for (const c of source.conflicts) {
+            console.error(
+              `  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`,
+            );
+          }
+          const promoted = promoteBrownfieldRun({
+            sourceDir: sandbox.sourceDir,
+            sourceTreeDir: source.dir,
+            runId,
+          });
+          console.error(
+            `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (merge it into your branch when ready)`,
+          );
+          console.error('');
+        } catch (err) {
+          console.error(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          console.error('');
+          recordCookExitStatus(false);
+          return;
+        }
+      }
+    } else if (opts.outDir) {
+      if (!ok) {
         console.error(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
         console.error('');
       } else {
