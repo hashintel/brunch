@@ -140,8 +140,10 @@ exitIfAnthropicApiKeyMissing();
 
 if (rawArgs[0] === 'cook') {
   const { parseCookArgs, runCook } = await import('../orchestrator/src/cook-cli.js');
+  const { withCookBus } = await import('../orchestrator/src/presenter.js');
   const opts = parseCookArgs(rawArgs.slice(1));
-  runCook(opts).catch((error) => {
+  // withCookBus disposes the bus (unmounts the Ink app) in finally so the TTY run exits.
+  await withCookBus('cook', (bus) => runCook(opts, bus)).catch((error) => {
     console.error('Failed to run brunch cook:', error);
     process.exit(1);
   });
@@ -149,49 +151,51 @@ if (rawArgs[0] === 'cook') {
   const { runPlan } = await import('./plan-runner.js');
   const { runCook } = await import('../orchestrator/src/cook-cli.js');
   const { parseServeArgs, runServe } = await import('./serve-runner.js');
-  const { createCookBus } = await import('../orchestrator/src/presenter.js');
-  const bus = createCookBus('serve');
-  await withCompletedSpec(
-    'serve',
-    () => parseServeArgs(rawArgs.slice(1)),
-    async (opts, { project, snapshot }) => {
-      // Cook runs against the same dir the plan was written to (launchCwd); see
-      // serveCookOptions — runCook reads opts.dir raw, so serve must thread it.
-      await runServe(opts, launchCwd, {
-        plan: () =>
-          runPlan({
-            specificationId: opts.specificationId,
-            snapshot,
-            outDir: launchCwd,
-            verbose: opts.verbose,
-            profile: opts.profile,
-            // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
-            repoDir: project.cwd,
-            bus,
-          }),
-        cook: (cookOpts) => runCook(cookOpts, bus),
-      });
-    },
+  const { withCookBus } = await import('../orchestrator/src/presenter.js');
+  await withCookBus('serve', (bus) =>
+    withCompletedSpec(
+      'serve',
+      () => parseServeArgs(rawArgs.slice(1)),
+      async (opts, { project, snapshot }) => {
+        // Cook runs against the same dir the plan was written to (launchCwd); see
+        // serveCookOptions — runCook reads opts.dir raw, so serve must thread it.
+        await runServe(opts, launchCwd, {
+          plan: () =>
+            runPlan({
+              specificationId: opts.specificationId,
+              snapshot,
+              outDir: launchCwd,
+              verbose: opts.verbose,
+              profile: opts.profile,
+              // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
+              repoDir: project.cwd,
+              bus,
+            }),
+          cook: (cookOpts) => runCook(cookOpts, bus),
+        });
+      },
+    ),
   );
 } else if (rawArgs[0] === 'plan') {
   const { parsePlanArgs, runPlan } = await import('./plan-runner.js');
-  const { createCookBus } = await import('../orchestrator/src/presenter.js');
-  const bus = createCookBus('plan');
-  await withCompletedSpec(
-    'plan',
-    () => parsePlanArgs(rawArgs.slice(1), launchCwd),
-    async (opts, { project, snapshot }) => {
-      await runPlan({
-        specificationId: opts.specificationId,
-        snapshot,
-        outDir: opts.outDir,
-        verbose: opts.verbose,
-        profile: opts.profile,
-        // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
-        repoDir: project.cwd,
-        bus,
-      });
-    },
+  const { withCookBus } = await import('../orchestrator/src/presenter.js');
+  await withCookBus('plan', (bus) =>
+    withCompletedSpec(
+      'plan',
+      () => parsePlanArgs(rawArgs.slice(1), launchCwd),
+      async (opts, { project, snapshot }) => {
+        await runPlan({
+          specificationId: opts.specificationId,
+          snapshot,
+          outDir: opts.outDir,
+          verbose: opts.verbose,
+          profile: opts.profile,
+          // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
+          repoDir: project.cwd,
+          bus,
+        });
+      },
+    ),
   );
 } else if (rawArgs[0] === 'agent') {
   const project = resolveBrunchProject(launchCwd);

@@ -29,6 +29,24 @@ export function makePresenter(kind: PresenterKind, command: PresenterCommand): P
   return new PlainPresenter();
 }
 
+/**
+ * Own the bus lifecycle for one command run: build it, run the work, and
+ * always dispose it (which unmounts the Ink app) — even on throw. Entry points
+ * use this instead of scattering create/dispose, so the TUI can never be left
+ * mounted and hang the process.
+ */
+export async function withCookBus(
+  command: PresenterCommand,
+  fn: (bus: CookBus) => Promise<void>,
+): Promise<void> {
+  const bus = createCookBus(command);
+  try {
+    await fn(bus);
+  } finally {
+    await bus.dispose();
+  }
+}
+
 /** Build a bus with the environment-selected presenter subscribed. */
 export function createCookBus(
   command: PresenterCommand,
