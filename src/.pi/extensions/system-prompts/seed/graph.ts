@@ -1,6 +1,6 @@
-import type { GraphSlice } from '../../../graph/queries.js';
-import { formatGraphNodeCode, type GraphNode } from '../../../graph/schema/nodes.js';
-import type { AgentLensSelection } from '../../../session/runtime-state.js';
+import type { GraphSlice } from '../../../../graph/queries.js';
+import { formatGraphNodeCode, type GraphNode } from '../../../../graph/schema/nodes.js';
+import type { AgentLensSelection } from '../../../../session/runtime-state.js';
 
 export interface RenderGraphContextOptions {
   readonly lens: AgentLensSelection;
@@ -11,7 +11,7 @@ export interface RenderGraphContextOptions {
 const DEFAULT_MAX_NODES = 8;
 const DEFAULT_MAX_EDGES = 8;
 
-export function renderGraphContext(overview: GraphSlice, options: RenderGraphContextOptions): string {
+export function renderGraphSeed(overview: GraphSlice, options: RenderGraphContextOptions): string {
   const maxNodes = options.maxNodes ?? DEFAULT_MAX_NODES;
   const maxEdges = options.maxEdges ?? DEFAULT_MAX_EDGES;
   const emphasizedNodes = [...overview.nodes].sort((a, b) => {

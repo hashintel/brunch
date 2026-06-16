@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { BRUNCH_DIR } from '../constants.js';
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
 import {
@@ -18,9 +19,6 @@ import type {
   NodeNeighborhood,
   NodeSelector,
 } from './queries.js';
-
-const BRUNCH_DIR = '.brunch';
-const DATA_DB_FILE = 'data.db';
 
 /**
  * Spec-scoped graph reads. Returned by `WorkspaceGraphRuntime.forSpec`
@@ -69,5 +67,5 @@ export async function openWorkspaceCommandExecutor(cwd: string): Promise<Command
 async function openWorkspaceDb(cwd: string) {
   const brunchDir = join(cwd, BRUNCH_DIR);
   await mkdir(brunchDir, { recursive: true });
-  return createDb(join(brunchDir, DATA_DB_FILE));
+  return createDb(join(brunchDir, 'data.db'));
 }

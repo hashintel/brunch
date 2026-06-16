@@ -18,13 +18,13 @@ import { fileURLToPath } from 'node:url';
 
 import { expect, test } from 'vitest';
 
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../graph/schema/nodes.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { NodeKind } from '../../../graph/schema/nodes.js';
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
-} from '../../projections/session/runtime-state.js';
-import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
+} from '../../../projections/session/runtime-state.js';
+import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 import { composeAgentPrompt, type ComposeAgentPromptInput } from './compose.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -52,9 +52,9 @@ async function lockPreview(fileName: string, rendered: string): Promise<void> {
 }
 
 function normalizePreview(rendered: string): string {
-  const repoRoot = resolve(HERE, '../../..');
-  const relativeAgentsDir = relative(repoRoot, HERE);
-  if (relativeAgentsDir !== 'src/.pi/agents') {
+  const repoRoot = resolve(HERE, '../../../..');
+  const relativePreviewsDir = relative(repoRoot, HERE);
+  if (relativePreviewsDir !== 'src/.pi/extensions/system-prompts') {
     throw new Error(`Unexpected prompt preview test location: ${HERE}`);
   }
   return rendered.replaceAll(`${repoRoot}/`, '<repo>/');

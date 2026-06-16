@@ -1,4 +1,5 @@
-import type { WorkspaceCwdInventory, WorkspaceOverview } from '../../session/workspace-context.js';
+import type { WorkspaceOverview } from '../../session/workspace-overview-context.js';
+import type { WorkspaceCwdInventory } from '../../workspace/cwd-inventory.js';
 
 export function renderWorkspaceContext(context: WorkspaceCwdInventory | WorkspaceOverview): string {
   if ('specs' in context) {

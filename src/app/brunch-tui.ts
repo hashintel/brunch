@@ -40,7 +40,7 @@ import {
   originateAssistantTurn,
   type KickCompletionOutcome,
 } from '../session/originate-assistant-turn.js';
-import { renderWorkspaceOverviewContext } from '../session/workspace-context.js';
+import { renderWorkspaceOverviewContext } from '../session/workspace-overview-context.js';
 import {
   createWorkspaceSessionCoordinator,
   type WorkspaceLaunchInventory,

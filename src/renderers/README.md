@@ -6,7 +6,7 @@ SPEC decisions: D52-L, D60-L, D62-L
 
 Reusable lossy renderers that turn domain or projection inputs into markdown, compact text, TOON-like summaries, or toolResult content text.
 
-Renderers may import input types from `projections/`, `graph/`, or `session/`, but they do not construct canonical DTOs, register Pi tools, handle RPC, or import web/app adapters.
+Renderers may import input types from `projections/`, `graph/`, `session/`, or `workspace/`, but they do not construct canonical DTOs, register Pi tools, handle RPC, or import web/app adapters.
 
 ## Directory layout
 
@@ -23,7 +23,7 @@ renderers/
 ## Dependency direction
 
 ```pseudo
-renderers/* -> projections/, graph/, session/ [input types/data]
+renderers/* -> projections/, graph/, session/, workspace/ [input types/data]
 renderers/  x> .pi/, rpc/, app/, web/
 ```
 

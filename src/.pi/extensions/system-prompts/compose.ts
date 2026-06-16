@@ -1,10 +1,10 @@
-import { selectElicitationGap } from '../../graph/elicitation-driver.js';
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import { READINESS_BANDS } from '../../graph/schema/kinds.js';
-import { readinessEstimate } from '../../projections/session/readiness-estimate.js';
-import type { ResolvedBrunchAgentState } from '../../projections/session/runtime-state.js';
-import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
-import { AGENT_PROMPT_DEFINITIONS, manifestsForState, type PromptManifests } from './state.js';
+import { selectElicitationGap } from '../../../graph/elicitation-driver.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import { READINESS_BANDS } from '../../../graph/schema/kinds.js';
+import { readinessEstimate } from '../../../projections/session/readiness-estimate.js';
+import type { ResolvedBrunchAgentState } from '../../../projections/session/runtime-state.js';
+import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
+import { AGENT_PROMPT_DEFINITIONS, manifestsForState, type PromptManifests } from '../runtime/state.js';
 
 export interface AgentPromptSpecContext {
   id: number;

@@ -109,7 +109,7 @@ not compare bare LSN values across sibling specs.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
 - `projections/graph/` — topology stubs for deferred graph PROJECT seams; node-neighborhood consumers read `NodeNeighborhood` directly from `queries.ts`.
 - `renderers/graph/` — reusable lossy markdown/text rendering over projected graph DTOs.
-- `.pi/agents/` — prompt composition consumes the read-only elicitation driver and context renderers consume graph reads.
+- `.pi/extensions/system-prompts/` — prompt composition consumes the read-only elicitation driver and the seed renderers consume graph reads.
 - `probes/` — graph proof drivers.
 
 ## Current topology
@@ -218,8 +218,8 @@ CommandExecutor
       │     public product projections
       │     session.submitExchangeResponse capture wiring
       │
-      └─► .pi/agents
-            elicitation recommendation selection and prompt context render inputs
+      └─► .pi/extensions/system-prompts
+            elicitation recommendation selection and pushed seed context render inputs
 ```
 
 ## Fractal split points

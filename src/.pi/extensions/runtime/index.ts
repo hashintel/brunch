@@ -23,7 +23,7 @@ import {
   isToolBlockedForRuntimeState,
   toolPolicyForRuntimeState,
 } from '../../../projections/session/runtime-policy.js';
-import { activeToolNamesForPosture } from '../../agents/state.js';
+import { activeToolNamesForPosture } from './state.js';
 
 export {
   DEFAULT_BRUNCH_AGENT_STATE,

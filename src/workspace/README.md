@@ -8,15 +8,19 @@ Cwd/package/workspace identity helpers and their tests.
 
 Current state:
 
+- `project-identity.ts` discovers the cwd project name/slug from shallow manifest files (`package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`) with directory basename fallback.
+- `workspace-state-store.ts` reads/writes `.brunch/workspace.json`: project identity, posture fields, and the selected default `{specId, sessionId}`. It does not open graph stores or Pi sessions.
+- `cwd-inventory.ts` inspects pure cwd facts for context tools: top-level entries, markdown files, and `.brunch/sessions/*.jsonl` file sizes without classifying Brunch session bindings.
 - `package-identity.test.ts` protects package-level CLI identity (`brunch`, version floor, executable bin shim).
-- No reusable workspace identity source module has been extracted yet; add one here only when current code needs it.
 
 ## Does not own
 
-- Spec/session selection and binding lifecycle — `session/`.
+- Spec/session activation, Pi session creation/opening, and binding lifecycle — `session/`.
 - Product host mode dispatch — `app/`.
 - Graph truth or persistence.
 
 ## Dependency direction
 
-`workspace/` may provide cwd/package identity facts to `app/`, `projections/`, `rpc/`, and `.pi` once source helpers exist. It must not depend on adapters, web code, or product entrypoints.
+`workspace/` provides cwd/package identity facts to `session/`, `app/`, `projections/`, `rpc/`, and `.pi` as needed. It must not depend on adapters, web code, product entrypoints, Pi, graph/DB modules, reusable projections/renderers, or session transcript mechanics.
+
+`src/projections/topology-boundaries.test.ts` guards this direction: workspace files may import only workspace-local modules and source constants.

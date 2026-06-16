@@ -3,8 +3,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
-import { projectBrunchAgentState } from '../../projections/session/runtime-state.js';
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
+import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import { activeToolNamesForPosture, manifestsForState } from './state.js';
 
 const registeredToolNames = [

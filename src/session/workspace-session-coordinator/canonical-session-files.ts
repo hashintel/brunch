@@ -3,15 +3,13 @@ import { join } from 'node:path';
 
 import type { SessionHeader } from '@earendil-works/pi-coding-agent';
 
+import { BRUNCH_DIR, SESSION_DIR } from '../../constants.js';
 import { isSessionBindingEntry, SESSION_BINDING_TYPE, type SessionBindingData } from '../session-binding.js';
 import type {
   WorkspaceLaunchSession,
   WorkspaceStoreOracleResult,
   WorkspaceUnavailableSession,
 } from '../workspace-session-coordinator.js';
-
-const BRUNCH_DIR = '.brunch';
-const SESSION_DIR = 'sessions';
 
 interface BoundSessionFile extends Omit<WorkspaceLaunchSession, 'specTitle'> {
   binding: SessionBindingData;

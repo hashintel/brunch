@@ -4,16 +4,16 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
-} from '../../projections/session/runtime-state.js';
-import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
+} from '../../../projections/session/runtime-state.js';
+import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
+import { GOAL_RESOURCES, LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../runtime/state.js';
 import { composeAgentPrompt } from './compose.js';
-import { GOAL_RESOURCES, LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from './state.js';
 
-const projectRoot = dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
+const projectRoot = dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 
 const groundingSpec = {
   id: 1,

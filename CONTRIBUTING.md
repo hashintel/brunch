@@ -1,220 +1,152 @@
-# Contributing To Brunch
+# Contributing to Brunch
 
-The root [`README.md`](./README.md) is for people using Brunch as a product or npm package. This guide is for contributors working on the repo itself.
+The root [`README.md`](./README.md) is for people running Brunch. This file is for people changing this repository.
 
-## Canonical Docs
+## Current sources of truth
 
-If you are orienting to the current system shape, start here:
+Start with these, in this order:
 
-- `memory/SPEC.md` — canonical product and architecture truth: requirements, decisions, invariants, and verification stance
-- `memory/PLAN.md` — the live frontier, including the active code-alignment map and the next action seams
-- `docs/design/state-machines/README.md` — the current runtime/state-machine design authority for hydration, workflow legality, projected controls, and runtime ownership
+- [`memory/SPEC.md`](./memory/SPEC.md) — product contract, architecture decisions, invariants, vocabulary, verification stance.
+- [`memory/PLAN.md`](./memory/PLAN.md) — live frontier work and current sequencing.
+- `src/**/README.md` — canonical topology notes for the code they sit beside.
+- [`AGENTS.md`](./AGENTS.md) — agent workflow, planning, branch, and verification rules.
 
-Older `docs/design/*` files are design explorations unless they explicitly say otherwise; use the three docs above as the source of truth when they disagree.
+Useful supporting docs:
 
-## Local Development
+- [`docs/architecture/prd.md`](./docs/architecture/prd.md)
+- [`docs/architecture/pi-seam-extensions.md`](./docs/architecture/pi-seam-extensions.md)
+- [`docs/architecture/probes-and-transcripts.md`](./docs/architecture/probes-and-transcripts.md)
+- [`docs/design/GRAPH_MODEL.md`](./docs/design/GRAPH_MODEL.md)
+- [`.fixtures/README.md`](./.fixtures/README.md)
+
+Older `docs/design/*` files are design references unless `SPEC.md`, `PLAN.md`, or a nearby `src/**/README.md` names them as current authority.
+
+## Local setup
+
+Use a Node version compatible with [`package.json`](./package.json), then:
 
 ```bash
 npm install
 
-# Create .env with your Anthropic API key
-echo "ANTHROPIC_API_KEY=sk-ant-..." > .env
+# real-provider runs need an Anthropic key
+printf 'ANTHROPIC_API_KEY=sk-ant-...\n' > .env
 
-# Start dev server (frontend on :5173, API on :3000)
+# launch Brunch from this repo as the target workspace
 npm run dev
 ```
 
-Open http://localhost:5173.
+`npm run dev` launches the Brunch CLI in TUI mode. The TUI is the writer/driver; the browser UI is currently a sidecar served by that TUI process, not a standalone `--mode web` product mode.
 
-## Environment Variables
+Useful launch variants:
 
-| Variable | Required | Description |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | Yes | Anthropic API key |
-| `ANTHROPIC_MODEL` | No | Interviewer model (default: `claude-sonnet-4-20250514`) |
-| `OBSERVER_MODEL` | No | Observer model (default: `claude-haiku-4-5-20251001`) |
-| `BRUNCH_DB` | No | Override the default project-local SQLite path for dev workflows |
-| `BRUNCH_PORT` | No | Backend port override |
-| `PORT` | No | Fallback backend port when `BRUNCH_PORT` is unset |
+```bash
+# launch against another workspace directory
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
 
-## Scripts
+# ask the TUI launch path to open the sidecar browser
+npm run dev -- --open-web
 
-| Command | Description |
-|---|---|
-| `npm run dev` | Start frontend (Vite :5173) + API (:3000) with hot reload |
-| `npm run server` | Start API server only |
-| `npm run build` | Build the production client and packaged CLI runtime |
-| `npm run release -- <level>` | Run `release-it` for the packaged npm artifact |
-| `npm run test` | Run test suite (vitest) |
-| `npm run verify` | Full gate: lint + format + test + build |
-| `npm run fix` | Auto-fix lint + format issues |
-| `npm run seed <scenario>` | Seed a database with a named fixture scenario |
-| `npm run studio` | Open Drizzle Studio against the configured database |
-| `npm run ladle` | Start the component workbench |
-| `npm run ladle:build` | Build the component workbench |
+# run the JSON-RPC line server
+npm run dev -- --mode rpc
+
+# render current workspace state and exit
+npm run dev -- --mode print
+```
+
+Brunch stores local runtime state under the target workspace's `.brunch/` directory.
+
+## Common commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Run the Brunch CLI from source. Defaults to `--mode tui`. |
+| `npm run test` | Run Vitest once. |
+| `npm run fix` | Apply lint fixes, then format. |
+| `npm run check` | Read-only lint + format check. |
+| `npm run verify` | Full local gate: fix → test → build. |
+| `npm run build` | Build TypeScript, packaged Pi assets, and the web bundle. |
+| `npm run seed -- --workspace <dir> --seed <set>/<slug>` | Seed a workspace from `.fixtures/seeds`. |
+| `npm run db:generate` | Generate Drizzle migrations. |
+| `npm run db:studio` | Open Drizzle Studio. |
+| `npm run release -- --dry-run patch` | Preview release packaging/publish flow. |
+
+`package.json` is the complete script list.
+
+## Architecture snapshot
+
+Current source topology follows `SPEC.md` decision D52-L:
+
+```text
+src/
+├── app/          # CLI entrypoints and product host wiring
+├── workspace/    # cwd identity and .brunch/workspace.json helpers
+├── scripts/      # local executable utilities
+├── .pi/          # sealed Pi profile, agents, skills, components, extensions
+├── db/           # Drizzle schema, migrations, SQLite connection lifecycle
+├── graph/        # graph domain, CommandExecutor, graph readers/policy/schema
+├── session/      # Pi JSONL transcript projection, exchanges, runtime state, coordination
+├── projections/  # information-preserving DTOs reused across boundaries
+├── renderers/    # lossy text/markdown rendering
+├── rpc/          # Brunch JSON-RPC handlers, protocol, web host
+├── web/          # React sidecar client over Brunch RPC
+├── probes/       # product/proof drivers and reportable oracles
+└── dev/          # dev-only harnesses; excluded from packaged product behavior
+```
+
+High-level flow:
+
+1. `src/app/brunch.ts` dispatches TUI, RPC, or print mode.
+2. `WorkspaceSessionCoordinator` selects/creates a workspace spec and a Pi JSONL-backed Brunch session.
+3. The TUI/Pi runtime drives the elicitor agent, structured exchanges, runtime posture, and graph tools.
+4. All durable graph/spec mutations go through `graph/CommandExecutor` and SQLite-backed graph tables.
+5. `rpc/` exposes named Brunch JSON-RPC methods over stdio/WebSocket/in-process handlers.
+6. `web/` is a read-only sidecar client over the Brunch RPC surface; it must not read SQLite, JSONL, Pi RPC, or `.brunch/workspace.json` directly.
+
+Important boundaries:
+
+- `graph/` is the only application layer that imports `db/` directly.
+- Mutations go through owning seams (`CommandExecutor`, session transcript helpers, or workspace coordinator), not raw tables.
+- `projections/` preserves structure; `renderers/` may lose structure for human-readable output.
+- `rpc/` is named product methods, not a generic records/REST API.
+- `web/` consumes RPC projections only.
+
+## Fixtures, probes, and local state
+
+Fixture conventions live in [`.fixtures/README.md`](./.fixtures/README.md). Short version:
+
+- `.fixtures/seeds/` — tracked reusable seed inputs.
+- `.fixtures/workbenches/` — launchable local workspaces; their `.brunch/` state is local runtime state.
+- `.fixtures/runs/` — curated probe evidence with reports/transcripts.
+- `.fixtures/scratch/` — ignored dev-loop output.
+
+Seed explicitly; `npm run dev` never seeds for you:
+
+```bash
+npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding
+npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
+```
+
+Add `--reset` to the seed command when you want to wipe that workbench's Brunch runtime state before loading the seed.
+
+## Working posture
+
+Brunch is pre-release. Prefer direct, scoped repairs over compatibility scaffolding unless `SPEC.md`, `PLAN.md`, or the user explicitly requires data/API preservation. Keep the lexicon tight: retire stale concepts and update tests/docs with the code slice that makes them obsolete.
+
+For agent-assisted work, follow [`AGENTS.md`](./AGENTS.md): frontier items map to Linear/Graphite workflow, topology READMEs are canonical, and the standard verification gate is `npm run verify` before committing.
 
 ## Releasing
 
-Preview the version bump and publish flow without mutating git or npm:
+Preview without mutating git/npm:
 
 ```bash
 npm run release -- --dry-run patch
-```
-
-For headless CI-style proving, add `--ci`:
-
-```bash
 npm run release -- --dry-run --ci patch
 ```
 
-Run the real release from a clean checkout when you are ready to tag and publish:
+Release from a clean checkout when ready:
 
 ```bash
 npm run release -- patch
 ```
 
-The release flow rebuilds the packaged CLI/runtime artifact and runs `npm pack --dry-run --json` before `npm publish`, so the published package stays aligned with the tarball boundary already proven by the distribution tests.
-
-Local releases still require npm authentication (`npm login` or equivalent registry credentials). Trusted-publishing CI wiring is not configured in this repo yet.
-
-## Fixture Scenarios
-
-Seed the dev database with pre-built specification states for testing and development:
-
-```bash
-# List available scenarios
-npm run seed
-
-# Seed into the default project-local database (.brunch/brunch.db)
-npm run seed issue-tracker-all-phases-closed
-
-# Wipe and re-seed the default project-local database
-mkdir -p .brunch
-rm -f .brunch/brunch.db .brunch/brunch.db-shm .brunch/brunch.db-wal
-npm run seed issue-tracker-all-phases-closed
-
-# Seed into a specific alternate file instead
-npm run seed issue-tracker-grounding-closed ./tmp/test.db
-```
-
-`npm run dev` uses the same project-local default database unless you override it with `BRUNCH_DB`. For the full repeatable manual-testing workflow, use [docs/praxis/manual-testing.md](docs/praxis/manual-testing.md).
-
-**Synthetic scenarios** — lightweight fixtures kept mainly for narrow server tests and export-caveat inspection:
-
-| Scenario | State |
-|---|---|
-| `grounding-closed` | Grounding phase closed, design not started |
-| `design-active` | Scope closed, one design turn |
-| `requirements-ready` | Scope + design closed, requirements reviewed |
-| `criteria-ready` | + requirements closed, criteria reviewed |
-| `all-phases-closed` | All four phases closed |
-| `forced-close-all-phases-closed` | All four phases closed, with design closed via user-forced closure |
-| `low-readiness-all-phases-closed` | All four phases closed, with a synthetic low-readiness grounding closure for export-caveat testing |
-
-**Walkthrough scenarios** — rich manifest-backed fixtures with realistic interview content, structured parts, knowledge items, and cross-kind edges (domain: tiny issue tracker):
-
-| Scenario | State | Items | Edges |
-|---|---|---|---|
-| `issue-tracker-kickoff-ready` | Empty workspace with projected grounding entry control | 0 | 0 |
-| `issue-tracker-grounding-closed` | Scope closed (5 turns + proposal/confirm) | 12 (goals, terms, contexts, constraints) | 3 |
-| `issue-tracker-design-active` | + 2 design turns | 18 (+ decisions, assumptions) | 7 |
-| `issue-tracker-requirements-ready` | Requirements closed; criteria handoff is next | 23 (+ 5 requirements, mixed review) | 10 |
-| `issue-tracker-criteria-ready` | Criteria review in progress; export still gated | 27 (+ 4 criteria, mixed review) | 14 |
-| `issue-tracker-all-phases-closed` | All phases closed | 27 | 14 |
-
-For manual walkthroughs, prefer the `issue-tracker-*` scenarios above. The unprefixed synthetic fixtures remain available when you need caveat-focused export states or very small server-side seeds.
-
-### Source Tracing
-
-- **Programmatic**: `src/server/fixtures/scenarios.ts` — inline seed functions
-- **Manifest**: `src/server/fixtures/manifests/issue-tracker.json` — static JSON content; `src/server/fixtures/manifest.ts` — seeder that wires manifests through DB functions
-- Naming convention: `issue-tracker-*` scenarios come from the trusted manifest seam; unprefixed ones are synthetic helpers
-
-## Architecture
-
-```text
-src/
-├── client/
-│   ├── routes/                     # TanStack file routes + routed workspace shells
-│   ├── components/
-│   │   ├── ai-elements/            # Chat UI primitives
-│   │   ├── question-cards.tsx      # Active turn-card family
-│   │   ├── review-set-card.tsx     # Review-specific cards + completion states
-│   │   └── EntitySidebar.tsx       # Knowledge sidebar projection
-│   ├── router.tsx                  # TanStack Router
-│   └── main.tsx                    # React + QueryClient + Router bootstrap
-│
-├── server/
-│   ├── app.ts          # Express routes + AI SDK stream composition
-│   ├── core.ts         # Frontier preparation, specification state loading, active-path helpers
-│   ├── interview.ts    # ToolLoopAgent interviewer + prompting/tool config
-│   ├── observer.ts     # generateObject observer + knowledge persistence
-│   ├── context.ts      # Typed context builders
-│   ├── db.ts           # SQLite via Drizzle + workflow/knowledge projections
-│   ├── schema.ts       # Drizzle schema
-│   ├── fixtures/       # Manifest/scenario seeds and corpus capture
-│   ├── parts.ts        # Zod-validated parts serialization/deserialization
-│   └── tools/          # Read-only/workspace tools and mutation helpers
-│
-└── shared/
-    ├── chat.ts         # BrunchUIMessage types, data-part schemas, tool contracts
-    ├── api-types.ts    # API response types
-    ├── phase-close.ts  # Workflow phase + closure logic
-    └── specification-state.ts # Helpers over persisted turn state and replay artifacts
-```
-
-### Data Flow
-
-1. User input → `useChat` (AI SDK React) → `DefaultChatTransport` → POST `/api/specifications/:id/chat`
-2. Express validates incoming `BrunchUIMessage[]` via `validateUIMessages`
-3. `prepareTurn()` creates a turn in the turn tree, builds interviewer context
-4. `ToolLoopAgent` streams response → `toUIMessageStream()` → `pipeUIMessageStreamToResponse()`
-5. On stream finish: observer runs (`generateObject`), entities persisted, `data-observer-result` part emitted in-band
-6. Client `useChat` accumulates parts; `onData` invalidates entity query; `onFinish` refreshes specification state
-
-### Key Patterns
-
-- **Turn tree**: Conversations are branching trees, not flat logs. Each turn points to a parent. `active_turn_id` is HEAD. Active path resolved via recursive CTE.
-- **Two-agent pattern**: Interviewer asks structured questions. Observer extracts typed knowledge items after each turn. Different models, different prompts, independent testability.
-- **Typed message contract**: `BrunchUIMessage` (AI SDK `UIMessage` with custom generics) spans server validation, persistence, streaming, and client hydration.
-- **Parts-based persistence**: `assistant_parts` and `user_parts` JSON columns store the full UI state per turn. Scalar fields (`question`, `why`, `impact`) retained for queryability.
-- **Merged workspace stream**: the rendered center column is broader than the turn tree. Durable turns remain the lineage spine; phase outcomes, projected controls, phase markers, and activity states are assembled around them.
-- **Zod everywhere**: Tool input/output schemas, data part schemas, parts deserialization, API payload validation.
-
-## Current State
-
-**Working**: Full four-phase interview (grounding → design → requirements → criteria), phase-aware observer extraction across the canonical knowledge ontology, explicit phase outcomes with closure provenance, accepted-set review authority for requirements/criteria, knowledge workspace/sidebar, markdown export, project dashboard with workflow state, fixture scenarios with rich seeded content, local-first `.brunch/` storage, and greenfield/brownfield grounding flows.
-
-**Active architectural cleanup**: the codebase is still in the middle of replacing kickoff/recovery-as-turn assumptions with projected control cards and a merged stream projector. See `memory/PLAN.md` for the active code-alignment map and current next action.
-
-**Not yet built**: Knowledge-graph revisit / edit-mode cascade flow. See `memory/PLAN.md` for the live frontier.
-
-## Tests
-
-563 tests across 56 test files covering DB operations, app routes, launcher/distribution seams, release wiring, core logic, interview flow, observer extraction, parts serialization, context builders, workspace hydration/controller/data, client components, phase-close logic, and build boundaries. Provider calls are mocked for CI; prompt quality depends on manual evaluation.
-
-```bash
-npm test
-```
-
-## Project Planning
-
-- `memory/SPEC.md` — What and why (requirements, assumptions, decisions, invariants, verification)
-- `memory/PLAN.md` — What's next (phases, slices, spikes, dependencies)
-- `docs/design/state-machines/README.md` — runtime/state-machine design authority for the current workflow seam
-- `AGENTS.md` — Agent/AI coding instructions (symlinked as `CLAUDE.md`)
-
-## Technical Note
-
-If the app loads as a blank page in development and the browser console shows `504 Outdated Optimize Dep`, Vite's optimized dependency cache has usually drifted out of sync with the running dev server.
-
-Brunch now keeps a separate Vite cache per dev-server port and refuses to silently move the default frontend off `:5173`, which makes accidental duplicate dev sessions much less likely to corrupt the active cache.
-
-If you still need to recover a wedged local dev session, stop the listeners on Brunch's dev ports, clear the Vite cache, and restart:
-
-```bash
-lsof -tiTCP:5173 -sTCP:LISTEN | xargs kill
-lsof -tiTCP:3000 -sTCP:LISTEN | xargs kill
-rm -rf node_modules/.vite-*
-npm run dev
-```
+The release flow rebuilds the packaged CLI/runtime artifact and runs `npm pack --dry-run --json` before publishing. Local releases require npm authentication; trusted-publishing CI is not configured here yet.

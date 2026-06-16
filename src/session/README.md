@@ -31,16 +31,17 @@ plus the coordination logic for workspace/spec/session lifecycle.
   validates neither, so only the Tier-2 provider-legality assertion and live
   runs guard this shape.
 
-- **Workspace coordination** — boot flow, spec/session selection,
-  `.brunch/workspace.json` management. The `WorkspaceSessionCoordinator`
-  is the only module that creates/opens Pi sessions for Brunch user flows
+- **Workspace coordination** — boot flow and spec/session selection over the
+  workspace-owned `.brunch/workspace.json` state store. The
+  `WorkspaceSessionCoordinator` is the only module that creates/opens Pi
+  sessions for Brunch user flows
   and writes collapsed `brunch.session_binding` entries (`{schemaVersion,
   specId}`). Its chrome state is a selection snapshot (`cwd`, optional
-  project, selected `spec`) and intentionally carries no readiness phase or
-  chat-mode display fields. Its private `workspace-session-coordinator/`
-  subtree owns coordinator-shaped boot/probe helpers such as canonical
-  session-file classification; external callers import only the public root
-  module.
+  project discovered by `workspace/project-identity.ts`, selected `spec`)
+  and intentionally carries no readiness phase or chat-mode display fields.
+  Its private `workspace-session-coordinator/` subtree owns coordinator-shaped
+  session-file/probe helpers such as canonical session-file classification;
+  external callers import only the public root module.
 
 - **Session binding** — session↔spec binding entries in JSONL.
 
@@ -86,8 +87,8 @@ directly instead of growing a wrapper.
 
 | Shape | Canonical owner | Current consumers | Disposition / reason |
 | --- | --- | --- | --- |
-| `cwd_inventory` | `inspectWorkspaceCwdInventory` | `read_workspace_context`, `renderers/workspace/workspace-context.ts` | Direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
-| `workspace_overview` | `inspectWorkspaceOverview` | `read_workspace_context`, `renderers/workspace/workspace-context.ts` | Direct PULL read. Same rationale as `cwd_inventory`: the source shape is already the consumer shape. |
+| `cwd_inventory` | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`) | `read_workspace_context`, `renderers/workspace/workspace-context.ts` | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
+| `workspace_overview` | `workspace-overview-context.ts` (`inspectWorkspaceOverview`) | `read_workspace_context`, origination seed context, `renderers/workspace/workspace-context.ts` | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape. |
 | `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`) | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set. |
 | `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `projections/session/affordances.ts`, `.pi/extensions/runtime/` | Transcript-backed source read. Projection/policy layers derive from these facts rather than storing parallel hidden runtime memory. |
 
@@ -119,14 +120,15 @@ schema, and the product-state-gated rows must stay explicit deferred tripwires.
 
 ## Does NOT own
 
+- Cwd project identity, pure cwd inventory, and `.brunch/workspace.json` persistence — those live in `workspace/`.
 - Graph state, CommandExecutor, graph queries — those live in `graph/`.
-- Prompt composition, context building — those live in `.pi/agents/`.
+- Prompt composition, pushed seed context building — those live in `.pi/extensions/system-prompts/` (manifest/legality policy in `.pi/extensions/runtime/`).
 - Pi extension registration — those live in `.pi/extensions/`.
 
 ## Imported by
 
-- `.pi/agents/contexts/` — for session/transcript context reads.
-- `.pi/extensions/context/` — for direct workspace kickoff inventory / overview reads.
+- `.pi/extensions/system-prompts/seed/` — for workspace/graph pushed-context reads.
+- `.pi/extensions/context/` — for direct workspace overview reads; pure cwd inventory comes from `workspace/`.
 - `projections/session/` — for reusable transcript-context DTO projection.
 - `projections/workspace/` — for reusable workspace-state DTO projection.
 - `renderers/session/` — for reusable transcript markdown rendering.
@@ -150,4 +152,4 @@ These files migrated here on 2026-06-02:
 | `structured-exchange.ts`          | structured exchange schemas/types  |
 | `structured-exchange-loop.ts`     | pending-exchange read path + response-side synthetic pairs |
 | `flush-session-manager.ts`        | the one named reliance on pi's private session-file rewrite |
-| `project-identity.ts`             | workspace identity (cwd discovery) |
+

@@ -4,11 +4,13 @@ import type { SessionHeader } from '@earendil-works/pi-coding-agent';
 
 import { renderWorkspaceContext } from '../../../renderers/workspace/workspace-context.js';
 import {
-  inspectWorkspaceCwdInventory,
   inspectWorkspaceOverview,
-  type WorkspaceCwdInventory,
   type WorkspaceOverview,
-} from '../../../session/workspace-context.js';
+} from '../../../session/workspace-overview-context.js';
+import {
+  inspectWorkspaceCwdInventory,
+  type WorkspaceCwdInventory,
+} from '../../../workspace/cwd-inventory.js';
 
 // The session cwd lives on the Pi header, which is reachable only via
 // getHeader() — not getEntries() (SessionEntry[], header excluded). Searching
