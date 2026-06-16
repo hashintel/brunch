@@ -22,6 +22,7 @@ import {
   type EmitterWarning,
 } from '../orchestrator/src/plan-emitter.js';
 import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.js';
+import type { CookBus } from '../orchestrator/src/presenter/bus.js';
 import { parseProfileId, type ProfileId } from '../orchestrator/src/project-profile.js';
 import { parseSpecId, specPlanPath } from '../orchestrator/src/spec-plan-paths.js';
 
@@ -80,19 +81,14 @@ export type RunPlanArgs = {
   repoDir?: string;
   /** Injectable LLM seam. Defaults to the production anthropic adapter via the emitter. */
   runModel?: RunModel;
-  /** Injectable stderr writer. Defaults to `console.error`. */
-  log?: (line: string) => void;
+  /** Presentation boundary. The orchestrator emits CookEvents; a presenter renders them. */
+  bus: CookBus;
 };
 
 export async function runPlan(args: RunPlanArgs): Promise<void> {
-  const log = args.log ?? ((line: string) => console.error(line));
+  const { bus } = args;
 
-  log('');
-  log('  brunch plan');
-  log('  ──────────────────────────────────────');
-  log(`  spec       ${args.specificationId}`);
-  log(`  out        ${args.outDir}`);
-  log('');
+  bus.emit({ kind: 'plan-start', specId: args.specificationId, outDir: args.outDir });
 
   const result = await emitPlanFromSnapshot(args.snapshot, {
     ...(args.runModel ? { runModel: args.runModel } : {}),
@@ -110,21 +106,18 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   mkdirSync(dirname(planPath), { recursive: true });
   writeFileSync(planPath, stringifyYaml(result.plan));
 
-  log(`  ✓  plan      ${planPath}`);
-  log(`     ${result.plan.epics.length} epics, ${result.plan.slices.length} slices`);
-  log('');
+  bus.emit({
+    kind: 'plan-written',
+    path: planPath,
+    epics: result.plan.epics.length,
+    slices: result.plan.slices.length,
+  });
 
   // Audit-weight display: failure + transformation always; synthesis
   // only when --verbose. The header counts only what we print so the
   // number on screen matches the lines below it.
   const printed = result.warnings.filter((warning) => shouldPrint(warning, args.verbose));
-  if (printed.length > 0) {
-    log(`  ${printed.length} warnings:`);
-    for (const warning of printed) {
-      log(`  !  ${formatEmitterWarning(warning)}`);
-    }
-    log('');
-  }
+  bus.emit({ kind: 'plan-warnings', messages: printed.map((warning) => formatEmitterWarning(warning)) });
 }
 
 function shouldPrint(warning: EmitterWarning, verbose: boolean): boolean {
