@@ -14,6 +14,16 @@ export type Epic = {
   summary: string;
   depends_on: string[];
   verification: Verification[];
+  /**
+   * Integration-oracle (FE-876) reachability target. When present, epic
+   * verification boots the merged `__epic__/<epicId>/` tree and exercises a
+   * feature endpoint over the wire — the epic is `done` only when tests pass
+   * *and* the feature is reachable (`not-reachable` is the FE-800 orphan: code
+   * merged but never wired into the running app). Optional until cook-time
+   * grounding (Half B, dispatch seam) supplies the boot argv + paths; absent →
+   * unit-test verdict only (unchanged behavior).
+   */
+  probe?: ProbeTarget;
 };
 
 export type Slice = {
