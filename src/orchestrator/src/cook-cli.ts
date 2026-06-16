@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { cookBannerLines, cookSummaryLines } from './cook-report.js';
 import { createOrchestrator } from './engine.js';
 import { type MergeConflict, mergeCompletedSlicesIntoTree } from './epic-sandbox-merge.js';
 import { FileReportSink } from './file-report-sink.js';
@@ -461,15 +462,16 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
   const epicCount = plan.epics.length;
   const sliceCount = plan.slices.length;
 
-  line('');
-  line(`  brunch cook`);
-  line(`  ──────────────────────────────────────`);
-  line(`  policy     ${opts.policy}`);
-  line(`  plan       ${epicCount} epics, ${sliceCount} slices`);
-  line(`  retries    ${opts.maxRetries}`);
-  line(`  sandbox    ${sandboxDir}`);
-  line(`  reports    ${reportsPath}`);
-  line('');
+  for (const l of cookBannerLines({
+    policy: opts.policy,
+    epicCount,
+    sliceCount,
+    maxRetries: opts.maxRetries,
+    sandboxDir,
+    reportsPath,
+  })) {
+    line(l);
+  }
 
   const reports = new FileReportSink(reportsPath);
   const toolchain = resolveToolchain(plan.profile);
@@ -523,29 +525,19 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
     const duration = fmtDuration(Date.now() - runStart);
     const ok = result.status === 'completed';
 
-    line('');
-    line(`  ──────────────────────────────────────`);
-    line(`  ${ok ? '✓' : '✗'}  ${result.status}${result.reason ? ` — ${result.reason}` : ''}  (${duration})`);
-    for (const warning of result.warnings) {
-      line(`  !  ${warning}`);
+    for (const l of cookSummaryLines({
+      status: result.status,
+      ...(result.reason ? { reason: result.reason } : {}),
+      duration,
+      warnings: result.warnings,
+      epics: result.epics,
+      slices: result.slices,
+      planSlices: plan.slices,
+      reportCount: result.reports.length,
+      reportsPath,
+    })) {
+      line(l);
     }
-    line('');
-
-    for (const e of result.epics) {
-      const icon = e.status === 'completed' ? '✓' : '✗';
-      const slices = result.slices.filter(
-        (s) => plan.slices.find((ps) => ps.id === s.sliceId)?.epic_id === e.epicId,
-      );
-      const sliceSummary = slices
-        .map((s) => `${s.status === 'completed' ? '✓' : '✗'} ${s.sliceId}`)
-        .join('  ');
-      line(`  ${icon}  ${e.epicId}`);
-      line(`     ${sliceSummary}`);
-    }
-
-    line('');
-    line(`  ${result.reports.length} events → ${reportsPath}`);
-    line('');
 
     // Brownfield promotion is automatic (the result already lives on the repo's
     // own `cook/<runId>` branch); greenfield promotion is opt-in via --out. A run
