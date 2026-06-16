@@ -20,6 +20,45 @@ const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
 
 loadLocalEnvFile(launchCwd);
 
+/**
+ * Shared completed-spec gate for the spec-driven commands (`plan`, `serve`):
+ * parse → open the project DB → assert the spec exists and is planning-ready →
+ * run the command body → always close the DB. Parsing is passed as a thunk so a
+ * parse error is reported through the same `Failed to run brunch <command>`
+ * channel and exit code as the spec/DB errors. Keeps the two commands from
+ * drifting on the gate while leaving each command's parsing and body its own.
+ */
+async function withCompletedSpec<O extends { specificationId: number }>(
+  command: string,
+  parse: () => O,
+  run: (
+    opts: O,
+    ctx: {
+      project: ReturnType<typeof resolveBrunchProject>;
+      snapshot: ReturnType<typeof buildCompletedSpecSnapshot>;
+    },
+  ) => Promise<void>,
+): Promise<void> {
+  let db: ReturnType<typeof createDb> | undefined;
+  try {
+    const opts = parse();
+    const project = resolveBrunchProject(launchCwd);
+    db = createDb(project.dbPath);
+    if (!getSpecification(db, opts.specificationId)) {
+      throw new Error(`specification ${opts.specificationId} not found`);
+    }
+    const snapshot = buildCompletedSpecSnapshot(db, opts.specificationId);
+    assertCompletedSpecReadyForPlanning(db, opts.specificationId, snapshot);
+    await run(opts, { project, snapshot });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to run brunch ${command}: ${message}`);
+    process.exit(1);
+  } finally {
+    db?.$client.close();
+  }
+}
+
 if (rawArgs[0] === '--version' || rawArgs[0] === '-V') {
   const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '../../package.json');
   const { version } = JSON.parse(readFileSync(pkgPath, 'utf8')) as { version: string };
@@ -110,66 +149,44 @@ if (rawArgs[0] === 'cook') {
   const { runPlan } = await import('./plan-runner.js');
   const { runCook } = await import('../orchestrator/src/cook-cli.js');
   const { parseServeArgs, runServe } = await import('./serve-runner.js');
-  let db: ReturnType<typeof createDb> | undefined;
-  try {
-    const opts = parseServeArgs(rawArgs.slice(1));
-    const project = resolveBrunchProject(launchCwd);
-    db = createDb(project.dbPath);
-    if (!getSpecification(db, opts.specificationId)) {
-      throw new Error(`specification ${opts.specificationId} not found`);
-    }
-    const snapshot = buildCompletedSpecSnapshot(db, opts.specificationId);
-    assertCompletedSpecReadyForPlanning(db, opts.specificationId, snapshot);
-    // Cook runs against the same dir the plan was written to (launchCwd); see
-    // serveCookOptions — runCook reads opts.dir raw, so serve must thread it.
-    await runServe(opts, launchCwd, {
-      plan: () =>
-        runPlan({
-          specificationId: opts.specificationId,
-          snapshot,
-          outDir: launchCwd,
-          verbose: opts.verbose,
-          profile: opts.profile,
-          // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
-          repoDir: project.cwd,
-        }),
-      cook: (cookOpts) => runCook(cookOpts),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Failed to run brunch serve: ${message}`);
-    process.exit(1);
-  } finally {
-    db?.$client.close();
-  }
+  await withCompletedSpec(
+    'serve',
+    () => parseServeArgs(rawArgs.slice(1)),
+    async (opts, { project, snapshot }) => {
+      // Cook runs against the same dir the plan was written to (launchCwd); see
+      // serveCookOptions — runCook reads opts.dir raw, so serve must thread it.
+      await runServe(opts, launchCwd, {
+        plan: () =>
+          runPlan({
+            specificationId: opts.specificationId,
+            snapshot,
+            outDir: launchCwd,
+            verbose: opts.verbose,
+            profile: opts.profile,
+            // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
+            repoDir: project.cwd,
+          }),
+        cook: (cookOpts) => runCook(cookOpts),
+      });
+    },
+  );
 } else if (rawArgs[0] === 'plan') {
   const { parsePlanArgs, runPlan } = await import('./plan-runner.js');
-  let db: ReturnType<typeof createDb> | undefined;
-  try {
-    const opts = parsePlanArgs(rawArgs.slice(1), launchCwd);
-    const project = resolveBrunchProject(launchCwd);
-    db = createDb(project.dbPath);
-    if (!getSpecification(db, opts.specificationId)) {
-      throw new Error(`specification ${opts.specificationId} not found`);
-    }
-    const snapshot = buildCompletedSpecSnapshot(db, opts.specificationId);
-    assertCompletedSpecReadyForPlanning(db, opts.specificationId, snapshot);
-    await runPlan({
-      specificationId: opts.specificationId,
-      snapshot,
-      outDir: opts.outDir,
-      verbose: opts.verbose,
-      profile: opts.profile,
-      // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
-      repoDir: project.cwd,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`Failed to run brunch plan: ${message}`);
-    process.exit(1);
-  } finally {
-    db?.$client.close();
-  }
+  await withCompletedSpec(
+    'plan',
+    () => parsePlanArgs(rawArgs.slice(1), launchCwd),
+    async (opts, { project, snapshot }) => {
+      await runPlan({
+        specificationId: opts.specificationId,
+        snapshot,
+        outDir: opts.outDir,
+        verbose: opts.verbose,
+        profile: opts.profile,
+        // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
+        repoDir: project.cwd,
+      });
+    },
+  );
 } else if (rawArgs[0] === 'agent') {
   const project = resolveBrunchProject(launchCwd);
   const db = createDb(project.dbPath);
