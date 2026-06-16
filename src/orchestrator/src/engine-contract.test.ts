@@ -928,9 +928,9 @@ describe('Adapter: §7 event vocabulary', () => {
   });
 
   it('infra failure names the toolchain cause in the halt reason', async () => {
-    // FE-872: an exhausted run whose tests never executed (toolchain/install
-    // broke) must not read as "retry exhaustion" — that misdirects the reader to
-    // the code instead of the missing toolchain.
+    // FE-872: an exhausted run whose verification hit infra/toolchain failure
+    // must not read as "retry exhaustion" — that misdirects the reader to the
+    // code instead of the runner/toolchain.
     const fakes = createFakes({ testRunResults: [false], testFailureKind: 'infra' });
     const ctx: RunCtx = {
       reportIds: [],
@@ -953,6 +953,7 @@ describe('Adapter: §7 event vocabulary', () => {
     const halted = events.filter((e) => e.kind === 'net_halted');
     expect(halted.length).toBe(1);
     expect(halted[0]!.reason).toMatch(/toolchain\/install failure/);
+    expect(halted[0]!.reason).not.toMatch(/never ran/);
     expect(halted[0]!.reason).not.toMatch(/retry exhaustion/);
   });
 });

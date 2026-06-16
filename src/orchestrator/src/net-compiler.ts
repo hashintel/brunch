@@ -737,13 +737,13 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             }
             if (retryCount >= maxRetries) {
               // FE-761 Slice 2b: structural halt — emit a halt token
-              // carrying its own reason. FE-872: when the runs never executed
-              // because the toolchain was missing/uninstalled, name that cause
-              // — "retry exhaustion" would misdirect the reader to the code.
+              // carrying its own reason. FE-872: when verification reports an
+              // infra failure, name that cause — "retry exhaustion" would
+              // misdirect the reader to the code.
               ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
               const haltReason =
                 failureKind === 'infra'
-                  ? `Slice ${sliceId} toolchain/install failure (tests never ran in ${maxRetries + 1} attempts)`
+                  ? `Slice ${sliceId} toolchain/install failure during verification`
                   : `Slice ${sliceId} retry exhaustion`;
               return [
                 {
