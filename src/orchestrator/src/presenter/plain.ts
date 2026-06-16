@@ -1,77 +1,32 @@
 // Line-oriented presenter: CookEvent → stderr lines.
 //
-// This is the default backend (CI / non-TTY / piped) and the behavior-
-// preserving reference: it must reproduce the pre-refactor output of
-// `plan` / `cook` / `serve` byte-for-byte. The line sink is injectable so
-// tests can capture output (and so the golden differential stays pure);
-// it defaults to `console.error` (stderr — stdout is reserved).
+// The default backend (CI / non-TTY / piped) and the behavior-preserving
+// reference: it reproduces the pre-refactor output of `plan` / `cook` /
+// `serve` byte-for-byte. Formatting lives in `format.ts` (shared with the
+// Ink backend); this class only owns the clock and the line sink, which
+// defaults to `console.error` (stderr — stdout is reserved).
 
+import { createElapsedClock, type ElapsedClock } from './clock.js';
 import type { CookEvent, Presenter } from './events.js';
-
-const RULE = '  ──────────────────────────────────────';
+import { formatCookEvent } from './format.js';
 
 export type PlainPresenterOptions = {
   log?: (line: string) => void;
-  /** Clock for the elapsed-since-cook-start prefix; injectable for deterministic goldens (I136-K). */
+  /** Clock for the elapsed prefix; injectable for deterministic goldens (I136-K). */
   now?: () => number;
 };
 
 export class PlainPresenter implements Presenter {
   private readonly log: (line: string) => void;
-  private readonly now: () => number;
-  private runStart: number | undefined;
+  private readonly clock: ElapsedClock;
 
   constructor(options: PlainPresenterOptions = {}) {
     this.log = options.log ?? ((line) => console.error(line));
-    this.now = options.now ?? (() => Date.now());
-  }
-
-  /** Elapsed since cook start, formatted exactly like the pre-refactor `elapsed()`. */
-  private elapsed(): string {
-    if (this.runStart === undefined) this.runStart = this.now();
-    const seconds = ((this.now() - this.runStart) / 1000).toFixed(1);
-    return `${seconds}s`.padStart(7);
+    this.clock = createElapsedClock(options.now);
   }
 
   onEvent(event: CookEvent): void {
-    switch (event.kind) {
-      case 'plan-start':
-        this.log('');
-        this.log('  brunch plan');
-        this.log(RULE);
-        this.log(`  spec       ${event.specId}`);
-        this.log(`  out        ${event.outDir}`);
-        this.log('');
-        return;
-      case 'plan-written':
-        this.log(`  ✓  plan      ${event.path}`);
-        this.log(`     ${event.epics} epics, ${event.slices} slices`);
-        this.log('');
-        return;
-      case 'plan-warnings':
-        if (event.messages.length === 0) return;
-        this.log(`  ${event.messages.length} warnings:`);
-        for (const message of event.messages) this.log(`  !  ${message}`);
-        this.log('');
-        return;
-      case 'cook-start':
-        this.runStart = event.runStart;
-        return;
-      case 'action':
-        this.log(`  ${this.elapsed()}  ${event.icon}  ${event.message}`);
-        return;
-      case 'verbose': {
-        const trimmed = event.text.trim();
-        if (!trimmed) return;
-        this.log('');
-        for (const line of trimmed.split('\n')) this.log(`             │ ${line}`);
-        this.log('');
-        return;
-      }
-      case 'line':
-        this.log(event.text);
-        return;
-    }
+    for (const line of formatCookEvent(event, this.clock)) this.log(line);
   }
 
   dispose(): void {}
