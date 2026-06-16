@@ -1,9 +1,20 @@
 # Renderer Golden Coverage Chain
 
 Frontier: renderer-golden-coverage
-Status:   prepared / next
+Status:   SUPERSEDED 2026-06-16 by D83-L
 Mode:     chain
 Created:  2026-06-11
+
+> **Superseded by D83-L (2026-06-16).** This chain was written to *lock the existing*
+> flat-bullet renderers. D83-L reshapes the frontier to *rewrite* the LLM-facing
+> context renders into the house style (md-pen + TOON + stringify-tree, `<section>`
+> wrappers, `<workspace>`/`<specification>`/`<session>` scope clustering). Cards 2–5
+> below lock the old shape and no longer apply. **Card 1 is done** (2026-06-15: the
+> `src/renderers/README.md` ledger), and the preview apparatus was de-scaffolded to
+> stock Vitest (commit `70f0da81`). Re-author the house-style chain via `ln-scope`:
+> substrate → `<workspace>` → `<specification>` → `<session>` → tool-render migration
+> + ledger close. Kept in place per the stale-chain rule until the replacement lands.
+> See `memory/PLAN.md` §renderer-golden-coverage (reshaped) and `memory/SPEC.md` §D83-L.
 
 ## Orientation
 
