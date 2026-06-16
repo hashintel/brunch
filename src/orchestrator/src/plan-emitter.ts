@@ -33,8 +33,8 @@ import {
   type PlanningEnrichment,
   type ReconciliationWarning,
 } from './plan-reconciliation.js';
-import { detectProfile, type ProfileDetection } from './project-detect.js';
-import { resolveToolchain, type ProfileId, type Toolchain } from './project-profile.js';
+import { detectProfile, detectTestDir, type ProfileDetection } from './project-detect.js';
+import { resolveToolchain, withTestDir, type ProfileId, type Toolchain } from './project-profile.js';
 import type { Plan, PlanMode } from './types.js';
 
 const EMPTY_ENRICHMENT: PlanningEnrichment = {
@@ -90,6 +90,13 @@ export type EmitPlanOptions = {
   repoDir?: string;
   /** Injectable detector seam (tests). Defaults to `detectProfile`. */
   detect?: (repoDir: string) => ProfileDetection;
+  /**
+   * Injectable test-directory detector seam (tests). Defaults to
+   * `detectTestDir`. Brownfield-only; co-locates generated tests where the host
+   * repo already keeps its tests so a narrowed runner include glob still
+   * discovers them.
+   */
+  detectTestDir?: (repoDir: string) => string | null;
 };
 
 /**
@@ -151,7 +158,18 @@ export async function emitPlanFromSnapshot(
     classified,
     detect: options.detect ?? detectProfile,
   });
-  const toolchain = options.toolchain ?? resolveToolchain(profile);
+  // Co-locate generated tests where the brownfield repo already keeps its own.
+  // Detection picks the runner (profile); this picks the *path*, because a
+  // profile's default test directory can fall outside the host runner's
+  // (narrowed) include glob and so be unrunnable — the FE-871 "No test files
+  // found" failure. Skipped when a toolchain is injected directly, for
+  // greenfield, or when no repo dir is available; null = no existing tests to
+  // learn from, so the profile default stands.
+  let toolchain = options.toolchain ?? resolveToolchain(profile);
+  if (options.toolchain === undefined && projected.mode === 'brownfield' && options.repoDir !== undefined) {
+    const testDir = (options.detectTestDir ?? detectTestDir)(options.repoDir);
+    if (testDir !== null) toolchain = withTestDir(toolchain, testDir);
+  }
 
   if (architectResult.status === 'failed') {
     return fallback(projected, profile, toolchain, architectResult, architectResult.reason);

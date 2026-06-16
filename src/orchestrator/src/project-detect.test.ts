@@ -1,15 +1,17 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { detectProfile } from './project-detect.js';
+import { detectProfile, detectTestDir } from './project-detect.js';
 
 function repo(files: Record<string, string>): string {
   const dir = mkdtempSync(join(tmpdir(), 'detect-'));
   for (const [name, contents] of Object.entries(files)) {
-    writeFileSync(join(dir, name), contents);
+    const path = join(dir, name);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, contents);
   }
   return dir;
 }
@@ -82,5 +84,48 @@ describe('detectProfile fails loudly rather than defaulting silently', () => {
   it('a malformed package.json is still treated as a Node project (node-test)', () => {
     const result = detectProfile(repo({ 'package.json': '{ not json' }));
     expect(result).toMatchObject({ detected: true, profile: 'node-test' });
+  });
+});
+
+describe('detectTestDir learns the test directory from existing test files', () => {
+  it('returns the top-level directory tests cluster in (src/**)', () => {
+    const dir = repo({
+      'src/foo.test.ts': '',
+      'src/lib/bar.test.ts': '',
+      'src/lib/baz.ts': '',
+    });
+    expect(detectTestDir(dir)).toBe('src');
+  });
+
+  it('picks the dominant directory when tests are split across several', () => {
+    const dir = repo({
+      'src/a.test.ts': '',
+      'src/b.test.ts': '',
+      'src/c.test.ts': '',
+      'tests/d.test.ts': '',
+    });
+    expect(detectTestDir(dir)).toBe('src');
+  });
+
+  it('recognizes .spec. and jsx/tsx/mjs/cjs test files', () => {
+    expect(detectTestDir(repo({ 'app/x.spec.tsx': '' }))).toBe('app');
+    expect(detectTestDir(repo({ 'app/x.test.mjs': '' }))).toBe('app');
+  });
+
+  it('ignores node_modules and other build/vendor directories', () => {
+    const dir = repo({
+      'node_modules/pkg/dep.test.ts': '',
+      'dist/out.test.ts': '',
+      'src/real.test.ts': '',
+    });
+    expect(detectTestDir(dir)).toBe('src');
+  });
+
+  it('returns null when the repo has no test files to learn from', () => {
+    expect(detectTestDir(repo({ 'src/index.ts': '', 'package.json': '{}' }))).toBeNull();
+  });
+
+  it('ignores test files sitting directly at the repo root (no directory to teach)', () => {
+    expect(detectTestDir(repo({ 'root.test.ts': '' }))).toBeNull();
   });
 });

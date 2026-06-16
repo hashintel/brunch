@@ -11,7 +11,7 @@
 // rather than silently defaulting to bun — a wrong-but-silent toolchain produces
 // unrunnable tests, the exact failure mode this closes.
 
-import { existsSync, readFileSync } from 'node:fs';
+import { type Dirent, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PROFILE_IDS, type ProfileId } from './project-profile.js';
@@ -94,4 +94,60 @@ export function detectProfile(repoDir: string): ProfileDetection {
     detected: false,
     reason: `could not detect a supported toolchain in ${repoDir} (no package.json, deno config, or bun lockfile). Pass --profile to select one of: ${PROFILE_IDS.join(', ')}.`,
   };
+}
+
+/** A test file the host runner already discovers; `.test.`/`.spec.` in js/ts/jsx/tsx. */
+const TEST_FILE_RE = /\.(test|spec)\.[cm]?[jt]sx?$/;
+
+/** Directories never worth walking for test-layout evidence. */
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.brunch', '.next', 'coverage']);
+
+/** Bound the walk so a pathological tree can't stall plan emission. */
+const MAX_WALK_DEPTH = 8;
+
+/**
+ * Discover the top-level directory a brownfield repo already keeps its tests in,
+ * by sampling existing test files rather than parsing the host runner's config.
+ *
+ * A test runner's config (e.g. vitest's `test.include`) is executable TS/JS —
+ * there is no cheap, reliable way to read its globs statically. But the repo's
+ * *existing* test files are ground truth: whatever config the host uses already
+ * discovers and runs them, so co-locating cook's generated slice tests in the
+ * same top-level directory guarantees the same discovery covers them. This
+ * closes the brownfield failure where a profile's default `tests/{id}.test.ts`
+ * path falls outside a repo whose vitest `include` is narrowed to `src/**`
+ * (vitest then reports "No test files found" for an explicitly-named file).
+ *
+ * Returns the dominant top-level segment (e.g. `'src'`), or `null` when the repo
+ * has no test files to learn from — cook then keeps the profile's default path.
+ */
+export function detectTestDir(repoDir: string): string | null {
+  // Tally test files by their top-level directory segment relative to the repo
+  // root, because runner include globs are conventionally rooted there
+  // (`src/**`, `tests/**`). Files directly at the root (segment '') don't teach
+  // us a directory, so they're ignored.
+  const counts = new Map<string, number>();
+
+  const walk = (dir: string, depth: number, topSegment: string | null): void => {
+    if (depth > MAX_WALK_DEPTH) return;
+    let entries: Dirent[];
+    try {
+      entries = readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
+        walk(join(dir, entry.name), depth + 1, topSegment ?? entry.name);
+      } else if (topSegment !== null && entry.isFile() && TEST_FILE_RE.test(entry.name)) {
+        counts.set(topSegment, (counts.get(topSegment) ?? 0) + 1);
+      }
+    }
+  };
+  walk(repoDir, 0, null);
+
+  if (counts.size === 0) return null;
+  // Dominant directory wins; ties broken by name for determinism.
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
 }
