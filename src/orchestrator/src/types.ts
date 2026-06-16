@@ -132,6 +132,47 @@ export type VerificationOutcome = {
 };
 
 // ---------------------------------------------------------------------------
+// App runtime probe — real *app* execution, the analogue of test execution
+// ---------------------------------------------------------------------------
+
+/**
+ * The verdict of booting the host app and exercising one feature endpoint:
+ * - `reachable`     — the app answered the feature probe (wired into the running app)
+ * - `not-reachable` — the app booted but the feature endpoint is absent (the
+ *                     FE-800 orphan: a module that exists but isn't wired in)
+ * - `infra`         — the app never booted / never became ready (a different
+ *                     fix than "feature absent", mirroring `TestFailureKind`)
+ */
+export type ProbeOutcomeKind = 'reachable' | 'not-reachable' | 'infra';
+
+/**
+ * What the probe needs to boot + exercise an app. The boot argv and URLs are
+ * **inputs** (later supplied by cook-time grounding), not a per-stack boot
+ * engine — the harness owns the deterministic check, the boot mechanics may
+ * lean on the agent's `bash`.
+ */
+export type ProbeSpec = {
+  /** Argv that boots the app in the sandbox (e.g. `['node','server.js']`). */
+  boot: readonly string[];
+  /** URL polled until the app accepts connections (any HTTP response = ready). */
+  readyUrl: string;
+  /** URL whose response decides feature reachability. */
+  featureUrl: string;
+  /** Extra env for the boot process (e.g. a chosen `PORT`). */
+  env?: Record<string, string>;
+};
+
+export type ProbeResult = {
+  kind: ProbeOutcomeKind;
+  /** Convenience: `kind === 'reachable'`. */
+  reachable: boolean;
+  /** HTTP status of the feature probe, when the app answered. */
+  status?: number;
+  /** Boot output + diagnostics, for the run report. */
+  output: string;
+};
+
+// ---------------------------------------------------------------------------
 // Orchestrator seam
 // ---------------------------------------------------------------------------
 
