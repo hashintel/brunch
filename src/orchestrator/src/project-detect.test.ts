@@ -88,13 +88,24 @@ describe('detectProfile fails loudly rather than defaulting silently', () => {
 });
 
 describe('detectTestDir learns the test directory from existing test files', () => {
-  it('returns the top-level directory tests cluster in (src/**)', () => {
+  it('returns the full directory tests cluster in, not just the top segment', () => {
     const dir = repo({
-      'src/foo.test.ts': '',
       'src/lib/bar.test.ts': '',
+      'src/lib/qux.test.ts': '',
+      'src/foo.test.ts': '',
       'src/lib/baz.ts': '',
     });
-    expect(detectTestDir(dir)).toBe('src');
+    // src/lib has 2 test files, src has 1 → the deeper, dominant dir wins.
+    expect(detectTestDir(dir)).toBe('src/lib');
+  });
+
+  it('returns a deep monorepo test root so a package-rooted include still covers it', () => {
+    const dir = repo({
+      'packages/app/src/a.test.ts': '',
+      'packages/app/src/b.test.ts': '',
+      'packages/lib/src/c.test.ts': '',
+    });
+    expect(detectTestDir(dir)).toBe('packages/app/src');
   });
 
   it('picks the dominant directory when tests are split across several', () => {
@@ -127,5 +138,52 @@ describe('detectTestDir learns the test directory from existing test files', () 
 
   it('ignores test files sitting directly at the repo root (no directory to teach)', () => {
     expect(detectTestDir(repo({ 'root.test.ts': '' }))).toBeNull();
+  });
+});
+
+describe('detectProfile resolves the runner from workspace packages in a monorepo', () => {
+  it('finds vitest in a workspace package when the root declares no runner', () => {
+    const dir = repo({
+      'package.json': JSON.stringify({ workspaces: ['packages/*'] }),
+      'packages/app/package.json': pkg({ vitest: '^2.0.0' }),
+      'packages/lib/package.json': pkg({ typescript: '^5.0.0' }),
+    });
+    expect(detectProfile(dir)).toMatchObject({ detected: true, profile: 'node-vitest' });
+  });
+
+  it('finds the runner via a pnpm-workspace.yaml package list', () => {
+    const dir = repo({
+      'package.json': JSON.stringify({ name: 'root' }),
+      'pnpm-workspace.yaml': "packages:\n  - 'packages/*'\n",
+      'packages/web/package.json': pkg({ jest: '^29.0.0' }),
+    });
+    expect(detectProfile(dir)).toMatchObject({ detected: true, profile: 'node-jest' });
+  });
+
+  it('a root runner wins without scanning (and a workspace cannot make it ambiguous)', () => {
+    const dir = repo({
+      'package.json': JSON.stringify({ workspaces: ['packages/*'], devDependencies: { vitest: '^2.0.0' } }),
+      'packages/legacy/package.json': pkg({ jest: '^29.0.0' }),
+    });
+    expect(detectProfile(dir)).toMatchObject({ detected: true, profile: 'node-vitest' });
+  });
+
+  it('workspaces collectively declaring both runners is ambiguous, not silently picked', () => {
+    const dir = repo({
+      'package.json': JSON.stringify({ workspaces: ['packages/*'] }),
+      'packages/a/package.json': pkg({ vitest: '^2.0.0' }),
+      'packages/b/package.json': pkg({ jest: '^29.0.0' }),
+    });
+    const result = detectProfile(dir);
+    expect(result.detected).toBe(false);
+    expect(!result.detected && result.reason).toMatch(/ambiguous/i);
+  });
+
+  it('a literal (non-wildcard) workspace directory is resolved', () => {
+    const dir = repo({
+      'package.json': JSON.stringify({ workspaces: ['apps/web'] }),
+      'apps/web/package.json': pkg({ vitest: '^2.0.0' }),
+    });
+    expect(detectProfile(dir)).toMatchObject({ detected: true, profile: 'node-vitest' });
   });
 });
