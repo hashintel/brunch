@@ -13,7 +13,16 @@ export type CookEvent =
   // --- plan surface ---
   | { kind: 'plan-start'; specId: number; outDir: string }
   | { kind: 'plan-written'; path: string; epics: number; slices: number }
-  | { kind: 'plan-warnings'; messages: string[] };
+  | { kind: 'plan-warnings'; messages: string[] }
+  // --- cook surface ---
+  // Seeds the presenter's elapsed clock; renders nothing itself.
+  | { kind: 'cook-start'; runStart: number }
+  // A per-action progress line; the presenter prepends elapsed-since-cook-start.
+  | { kind: 'action'; icon: string; message: string }
+  // Raw agent output, shown only when the emit site is in verbose mode.
+  | { kind: 'verbose'; text: string }
+  // A pre-formatted line rendered verbatim (banner / summary / promotion blocks).
+  | { kind: 'line'; text: string };
 
 export interface Presenter {
   onEvent(event: CookEvent): void;
