@@ -145,7 +145,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 
 ### Horizon
 
-- `web-driver-streaming` — Web-as-driver streaming chat transport (**topology A confirmed**, 2026-06-15). Post-alpha, **spike-first**, not a demo/alpha blocker. Consolidates R12 first-class subscriptions, reconnect/resume, the read-only→driver web staging, the deferred `--mode web`, and the agent-as-user substrate split. Full definition in Frontier Definitions.
+- `web-driver-streaming` ([FE-873](https://linear.app/hash/issue/FE-873/web-as-driver-streaming-chat-transport-topology-a)) — Web-as-driver streaming chat transport (**topology A confirmed**, 2026-06-15). Post-alpha, **spike-first**, not a demo/alpha blocker. Consolidates R12 first-class subscriptions, reconnect/resume, the read-only→driver web staging, the deferred `--mode web`, and the agent-as-user substrate split. Full definition in Frontier Definitions.
 - `coherence-first-class` — M8; bounded coherence verdicts backed by reconciliation needs.
 - `compaction-and-conflict-widening` — M9; long-horizon continuity through compaction.
 - `subagents-for-proposal-diversity` — optional proposal-quality enhancement; never a POC blocker.
@@ -365,7 +365,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 > **Consolidates (2026-06-15) the scattered "web-as-driver / streaming / subscriptions" intentions into one frontier:** the read-only-observer staging (delivery-cut black triangle 1, landed), R12 first-class subscriptions (today served only by `brunch.updated` poll-on-hint), the SPEC "subscriptions scoped for the POC" + reconnect/resume deferrals, the deferred standalone `--mode web`, and the agent-as-user driver substrate (D5-L/A5-L/R24). **Topology A is confirmed** (below); A′ rejected; B documented alternative.
 
 - **Name:** Web-as-driver streaming chat transport (topology A: in-process AgentSession relay)
-- **Linear:** unassigned — create an FE/brunch issue when the branch opens (do **not** parent under FE-531).
+- **Linear:** [FE-873](https://linear.app/hash/issue/FE-873/web-as-driver-streaming-chat-transport-topology-a) — created 2026-06-15 (FE / brunch, Backlog; no parent).
 - **Branch:** unassigned — new branch for spikes/builds.
 - **Kind:** capability / transport + verification design
 - **Status:** Horizon — **confirmed direction, spike-first**; post-alpha, **not** a demo/alpha blocker.
@@ -414,7 +414,7 @@ nodes:
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
   dev-seed-fixtures                [parallel · proving] explicit seed selection + target-workspace-scoped workbench launch; remaining: disposition catalog + all-seeds opt-in
-  web-driver-streaming             [horizon · proving · spike-first] topology A: in-process AgentSession event relay + Brunch-domain multiplex + web command-intake; consolidates R12 subscriptions / reconnect-resume / web-as-driver staging / agent-as-user substrate split
+  web-driver-streaming             [horizon · proving · spike-first · FE-873] topology A: in-process AgentSession event relay + Brunch-domain multiplex + web command-intake; consolidates R12 subscriptions / reconnect-resume / web-as-driver staging / agent-as-user substrate split
   # done anchors still carrying live edges (full definitions: docs/archive/PLAN_HISTORY.md):
   elicitation-driver             [done · demo block 1]
   context-seed-payload           [done · demo block 2]
