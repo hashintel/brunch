@@ -569,6 +569,104 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
     expect(payload.passed).toBe(true);
     expect(payload.reachability).toBeUndefined();
   });
+
+  // ---- Half B: cook-time grounding seam -----------------------------------
+
+  function intentEpic(extra?: Partial<Epic>): Epic {
+    return {
+      id: 'utils',
+      summary: 'Utilities',
+      depends_on: [],
+      verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+      reachability: { feature: 'the /feature route responds' },
+      ...extra,
+    };
+  }
+
+  function groundedVerifyEpic(opts: {
+    sandboxDir: string;
+    epic: Epic;
+    groundProbe?: ProbeGrounder;
+  }): Promise<{ passed: boolean; reachability?: string }> {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const reports = new InMemoryReportSink();
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [opts.epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      createSession,
+      groundProbe: opts.groundProbe,
+    });
+    return actions['verify-epic']!({
+      slice,
+      epic: opts.epic,
+      plan,
+      sandboxDir: opts.sandboxDir,
+      reports,
+    }).then((id) => reports.getById(id)!.payload as { passed: boolean; reachability?: string });
+  }
+
+  it('grounds a reachability intent into a concrete target, then probes it', async () => {
+    let seenFeature = '';
+    const payload = await groundedVerifyEpic({
+      sandboxDir: appSandbox({ '/health': 200, '/feature': 200 }),
+      epic: intentEpic(),
+      groundProbe: async (intent) => {
+        seenFeature = intent.feature;
+        return { boot: ['node', 'server.js'], readyPath: '/health', featurePath: '/feature' };
+      },
+    });
+    expect(seenFeature).toContain('/feature');
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBe('reachable');
+  });
+
+  it('a reachability intent with no injected grounder is a no-op (unit verdict only)', async () => {
+    // sandbox has no app; if grounding ran and probed, it would error/fail.
+    const payload = await groundedVerifyEpic({ sandboxDir: tmpdir(), epic: intentEpic() });
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBeUndefined();
+  });
+
+  it('a grounder that throws is an infra fault — the epic fails, not silently passes', async () => {
+    const payload = await groundedVerifyEpic({
+      sandboxDir: tmpdir(),
+      epic: intentEpic(),
+      groundProbe: async () => {
+        throw new Error('agent could not resolve wiring');
+      },
+    });
+    expect(payload.passed).toBe(false);
+    expect(payload.reachability).toBe('infra');
+  });
+
+  it('a concrete probe target wins over a reachability intent (Half A precedence)', async () => {
+    let grounderCalled = false;
+    const payload = await groundedVerifyEpic({
+      sandboxDir: appSandbox({ '/health': 200, '/feature': 200 }),
+      epic: intentEpic({
+        probe: { boot: ['node', 'server.js'], readyPath: '/health', featurePath: '/feature' },
+      }),
+      groundProbe: async () => {
+        grounderCalled = true;
+        throw new Error('should not be called');
+      },
+    });
+    expect(grounderCalled).toBe(false);
+    expect(payload.reachability).toBe('reachable');
+  });
 });
 
 describe('pi-actions tool scoping', () => {
