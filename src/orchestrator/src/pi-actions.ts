@@ -14,6 +14,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { buildProbeSpec, runProbe } from './app-probe.js';
+import type { CookEvent } from './presenter/events.js';
 import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
 import { sliceLabel } from './slice-label.js';
@@ -38,27 +39,20 @@ const promptsDir = __dirname.includes('dist')
 // Logging
 // ---------------------------------------------------------------------------
 
-let t0 = 0;
 let _verbose = false;
-
-function elapsed(): string {
-  const s = ((Date.now() - t0) / 1000).toFixed(1);
-  return `${s}s`.padStart(7);
-}
+// Presentation boundary. Per-action progress flows to the CookBus as
+// CookEvents; the presenter owns formatting (and the elapsed clock —
+// I136-K). Defaults to a no-op so unit tests that ignore output run clean.
+let _emit: (event: CookEvent) => void = () => {};
 
 function log(icon: string, msg: string): void {
-  console.error(`  ${elapsed()}  ${icon}  ${msg}`);
+  _emit({ kind: 'action', icon, message: msg });
 }
 
 function logVerbose(output: string): void {
   if (!_verbose) return;
-  const trimmed = output.trim();
-  if (!trimmed) return;
-  console.error('');
-  for (const line of trimmed.split('\n')) {
-    console.error(`             │ ${line}`);
-  }
-  console.error('');
+  // The presenter trims and skips blank output.
+  _emit({ kind: 'verbose', text: output });
 }
 
 // ---------------------------------------------------------------------------
@@ -314,7 +308,8 @@ export function epicVerifyTask(epic: Epic, toolchain: Toolchain): string {
 
 export function createPiActions(opts?: {
   verbose?: boolean;
-  runStart?: number;
+  /** Presentation sink. Per-action progress is emitted as CookEvents; defaults to no-op. */
+  emit?: (event: CookEvent) => void;
   toolchain?: Toolchain;
   testRunner?: TestRunner;
   /** Inject the agent-session factory (tests stub it so no real session runs). */
@@ -328,7 +323,7 @@ export function createPiActions(opts?: {
   groundProbe?: ProbeGrounder;
 }): ActionHandlers {
   _verbose = opts?.verbose ?? false;
-  t0 = opts?.runStart ?? Date.now();
+  _emit = opts?.emit ?? (() => {});
   const toolchain = opts?.toolchain ?? defaultToolchain;
   const testRunner = opts?.testRunner ?? new ToolchainTestRunner(toolchain);
   const groundProbe = opts?.groundProbe;
