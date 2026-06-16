@@ -50,8 +50,10 @@ export class ToolchainTestRunner implements TestRunner {
       .join('');
     const passed = result.status === 0;
     if (passed) return { passed, output };
-    // `result.error` is set when the binary can't be spawned at all (ENOENT).
-    return { passed, output, failureKind: classifyTestFailure(output, result.error != null) };
+    // `spawnSync.error` also covers timeout / ENOBUFS after the runner started;
+    // only ENOENT proves the runner binary itself is missing.
+    const runnerMissing = result.error != null && (result.error as NodeJS.ErrnoException).code === 'ENOENT';
+    return { passed, output, failureKind: classifyTestFailure(output, runnerMissing) };
   }
 }
 
