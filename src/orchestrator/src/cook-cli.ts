@@ -12,7 +12,7 @@ import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-s
 import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
-import { type CookBus, createCookBus } from './presenter.js';
+import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
 import { promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
@@ -402,7 +402,7 @@ function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
   return { kind: 'dirty', status };
 }
 
-export async function runCook(opts: CookOptions, bus: CookBus = createCookBus('cook')): Promise<void> {
+export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
   const line = (text: string) => bus.emit({ kind: 'line', text });
   const promoting = <T>(label: string, fn: () => T): T => {
     bus.emit({ kind: 'activity-start', id: 'promote', label });
