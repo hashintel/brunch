@@ -129,12 +129,12 @@ src/renderers/
 
 ## Card 2 — `<workspace>` context render (house style)
 
-Status: blocked — design pass pending
-Design: PENDING — the exact markdown / TOON / tree layout is decided in a design pass and **appended to this card** before build.
+Status: next — design APPROVED 2026-06-16 (sketch in §Design below)
+Design: APPROVED 2026-06-16 — bare `Label:` sections (Pi no-ATX-heading policy); Project as md bullets, Specifications as md table, Topology as an annotated file tree; no sessions.
 
 ### Target Behavior
 
-The `read_workspace_context` cwd surface renders a `<workspace>` section — project identity (md), documents `.md` tree (stringify-tree, fenced), and spec roster (TOON) — carrying **no sessions** — golden-locked after design approval.
+The `read_workspace_context` cwd surface renders a `<workspace>` section with bare `Label:` sub-blocks — Project (md bullets), Specifications (md table), and Topology (annotated file tree) — carrying **no sessions** — golden-locked to the approved sketch below.
 
 ### Full-card cold-start reads
 
@@ -153,11 +153,11 @@ The `read_workspace_context` cwd surface renders a `<workspace>` section — pro
 ### Data sources (structural scope — stable regardless of the design pass)
 
 ```
-- Project : project-identity {name, slug} + cwd path                       → md
-- Documents: cwd-inventory.markdownFiles → assembled into a .md tree        → stringify-tree (fenced)
-             (flat-path → tree assembly lives in this card or tree.ts; the
-              design pass decides annotation, e.g. per-dir file counts)
-- Spec roster: workspace-overview specs[] {id, title, nodeCount, sessionCount} → TOON
+- Project : project-identity {name, slug} + cwd path                          → md bullets (markdownUl; path via inlineCode)
+- Specifications: workspace-overview specs[] {id, title, nodeCount, sessionCount} → md TABLE (always; bounded set)
+- Topology : cwd-inventory gitignore-aware walk → all dirs to depth 2 (even dirs
+             with no .md), each labeled `name (N)` (total files, recursive), with
+             .md files as leaves at expanded levels                            → renderTreeBlock (fenced tree)
 - Sessions : NONE (D83-L scope clustering)
 ```
 
@@ -165,23 +165,74 @@ The `read_workspace_context` cwd surface renders a `<workspace>` section — pro
 
 ```
 - the <workspace> render contains no session rows
-- spec roster renders as TOON; documents as a fenced tree; project as md
-- wrapped in <workspace>…</workspace>
+- Specifications renders as a markdown table; Topology as a fenced tree; Project as md bullets
+- wrapped in <workspace>…</workspace> via section(); no ATX (##) headings
 - renderers/ imports stay clean (D52-L)
 ```
 
-### Acceptance Criteria (skeleton — finalized by the design pass)
+### Acceptance Criteria
 
 ```
-✓ workspace-section — render wrapped in <workspace>, contains project + documents tree + spec roster, no sessions.
-✓ golden           — co-located golden locked under workspace/__previews__/ AFTER the user approves the design sketch.
-✓ invariant        — no session content; spec roster is TOON; documents is a fenced tree.
+✓ workspace-section — render wrapped in <workspace> with Project (bullets) + Specifications (md table) + Topology (fenced tree); no sessions; no ATX headings.
+✓ topology         — every directory to depth 2 appears with a `(N)` recursive file count, even dirs with no .md; .md files appear as leaves; root is `. (N)`.
+✓ golden           — co-located golden under workspace/__previews__/ matches the approved sketch.
+✓ invariant        — no session content; Specifications is a markdown table; Topology is a fenced tree.
 ✓ retire-old       — the flat-bullet cwd-inventory render is removed; consumers updated.
 ```
 
-### Design pass (REQUIRED before build)
+### Design — APPROVED 2026-06-16
 
-Produce a draft render from a representative fixture, surface it for the user's approval (the human-in-the-loop design checkpoint), append the approved sketch here, THEN build + lock.
+Approved `<workspace>` output (bare `Label:` sections per Pi's no-ATX-heading policy; the XML tag delimits the data block; the inner ` ```tree ` is a literal fenced block):
+
+    <workspace>
+
+    Project:
+    - name: Brunch
+    - slug: brunch
+    - path: /Users/lunelson/Code/hashintel/brunch-next-omega
+
+    Specifications:
+    | id | title                      | nodes | sessions |
+    | -- | -------------------------- | ----- | -------- |
+    | 1  | Context-render house style | 42    | 3        |
+    | 2  | Web-as-driver streaming    | 8     | 1        |
+
+    Topology:
+    ```tree
+    ┬ . (162)
+    ├── AGENTS.md
+    ├── README.md
+    ├─┬ docs (23)
+    │ ├── README.md
+    │ ├── architecture (7)
+    │ ├── design (6)
+    │ └── praxis (5)
+    ├─┬ memory (4)
+    │ ├── PLAN.md
+    │ ├── SPEC.md
+    │ └── cards (2)
+    └─┬ src (148)
+      ├── README.md
+      ├── graph (31)
+      ├── renderers (24)
+      └── session (29)
+    ```
+
+    </workspace>
+
+Build rules:
+- Project → `markdownUl` bullets (name, slug, path; path via `inlineCode`). Not a table.
+- Specifications → `markdownTable`, columns id / title / nodes / sessions. ALWAYS a table (bounded set), even with many specs.
+- Topology → `renderTreeBlock(root)` over a `RenderTreeNode` ({label, children}) tree built from cwd-inventory's gitignore-aware walk:
+    - include EVERY directory to depth 2 (even dirs with no `.md`), labeled `name (N)` where N = total files contained recursively;
+    - show `.md` files as leaves at expanded levels (depth ≤ 2); directories at depth 2 carry their `(N)` count but are not expanded; root is `. (N)`;
+    - this is a bounded topology+counts map, not a complete document list — deeper docs are summarized by the count (discoverable via `ls` / `read_workspace_context`).
+- Assemble with `joinMarkdownBlocks(project, specs, topology)` then `section('workspace', body)`.
+- NO sessions (D83-L).
+
+Substrate API (Card 1, commit `63eb4c28`): `section` (`section.ts`); `markdownUl`, `markdownTable`, `inlineCode`, `joinMarkdownBlocks` (`markdown.ts`); `renderTreeBlock` + `RenderTreeNode` (`tree.ts`).
+
+Builder note: cwd-inventory currently exposes flat `topLevelEntries` + `markdownFiles`, not a depth-2 directory tree with recursive counts. Producing the Topology likely needs cwd-inventory to expose (a) directories to depth 2 and (b) recursive file counts per dir; that inventory extension is IN this card's scope (keep the gitignore-aware walk; do not shell out to `tree`).
 
 ### Expected touched paths (tentative)
 
@@ -191,7 +242,7 @@ src/renderers/workspace/
 └── __tests__/
     ├── workspace-context.test.ts  +
     └── __previews__/              +   (after design approval)
-src/workspace/cwd-inventory.ts     ?   (only if tree assembly needs richer inventory)
+src/workspace/cwd-inventory.ts     ~   (extend: dirs to depth 2 + recursive file counts for Topology)
 src/renderers/README.md            ~   (ledger row)
 ```
 
