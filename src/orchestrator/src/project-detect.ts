@@ -4,11 +4,12 @@
 // chain (`flag ≫ detected ≫ spec ≫ architect ≫ bun`); greenfield never detects
 // (an empty worktree has nothing to read).
 //
-// Detection is evidence-first and deliberately conservative: it reports what it
-// saw, and when it sees a stack with no matching profile (Python, Go) or nothing
-// recognizable it returns an actionable reason rather than silently defaulting to
-// bun — a wrong-but-silent toolchain produces unrunnable tests, the exact failure
-// mode this closes.
+// Detection is evidence-first and deliberately conservative — the cheap
+// "which lockfile/manifest is present" check, not a language-detection engine.
+// One clear supported signal resolves; ambiguous evidence (two test runners) or
+// no recognizable JS/TS toolchain returns an actionable `{detected:false}` reason
+// rather than silently defaulting to bun — a wrong-but-silent toolchain produces
+// unrunnable tests, the exact failure mode this closes.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -41,17 +42,11 @@ function readPackageJsonDeps(dir: string): Set<string> | null {
   }
 }
 
-const unsupported = (stack: string, evidence: string): ProfileDetection => ({
-  detected: false,
-  reason: `detected a ${stack} project (${evidence}) but no matching toolchain profile exists. Supported profiles: ${PROFILE_IDS.join(', ')}. Pass --profile to override.`,
-});
-
 /**
  * Detect the toolchain `ProfileId` for a repo by introspecting its manifests and
  * lockfiles. Precedence is lockfile/config evidence first (most authoritative),
- * then package.json dependencies, then known-but-unsupported stacks, then a
- * catch-all failure. `--profile` (handled upstream in the selection chain) always
- * overrides this.
+ * then package.json dependencies, then a catch-all failure. `--profile` (handled
+ * upstream in the selection chain) always overrides this.
  */
 export function detectProfile(repoDir: string): ProfileDetection {
   // Bun: its lockfile is unambiguous evidence of the bun test runner.
@@ -67,10 +62,20 @@ export function detectProfile(repoDir: string): ProfileDetection {
   // Node/TypeScript: pick the runner from declared dependencies.
   const deps = readPackageJsonDeps(repoDir);
   if (deps !== null) {
-    if (deps.has('vitest')) {
+    const hasVitest = deps.has('vitest');
+    const hasJest = deps.has('jest');
+    // Two declared runners is genuinely ambiguous — picking one by check-order
+    // would silently run the wrong command. Fail loud and let `--profile` decide.
+    if (hasVitest && hasJest) {
+      return {
+        detected: false,
+        reason: `package.json declares both vitest and jest — ambiguous test runner. Pass --profile to pick node-vitest or node-jest.`,
+      };
+    }
+    if (hasVitest) {
       return { detected: true, profile: 'node-vitest', evidence: 'package.json devDependency vitest' };
     }
-    if (deps.has('jest')) {
+    if (hasJest) {
       return { detected: true, profile: 'node-jest', evidence: 'package.json devDependency jest' };
     }
     // No third-party runner declared → the built-in node:test runner needs none.
@@ -81,13 +86,12 @@ export function detectProfile(repoDir: string): ProfileDetection {
     };
   }
 
-  // Known stacks with no profile in the registry — fail with a clear reason.
-  if (fileExists(repoDir, 'pyproject.toml')) return unsupported('Python', 'pyproject.toml');
-  if (fileExists(repoDir, 'setup.py')) return unsupported('Python', 'setup.py');
-  if (fileExists(repoDir, 'go.mod')) return unsupported('Go', 'go.mod');
-
+  // No JS/TS evidence (could be a Python/Go/unknown repo — brunch only supports
+  // the registry's JS toolchains). Fail with an actionable reason rather than a
+  // silent default; the agent's bash can't substitute since the test runner reads
+  // the stamped profile with no agent in the loop.
   return {
     detected: false,
-    reason: `could not detect a toolchain in ${repoDir} (no package.json, deno config, or bun lockfile). Pass --profile to select one of: ${PROFILE_IDS.join(', ')}.`,
+    reason: `could not detect a supported toolchain in ${repoDir} (no package.json, deno config, or bun lockfile). Pass --profile to select one of: ${PROFILE_IDS.join(', ')}.`,
   };
 }
