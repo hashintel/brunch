@@ -14,7 +14,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { bunProfile, type Toolchain } from './project-profile.js';
-import { classifyTestFailure, ToolchainTestRunner } from './test-runner.js';
+import { classifyTestFailure, runVerification, ToolchainTestRunner } from './test-runner.js';
+import type { TestResult, TestRunner } from './types.js';
 
 const bun = bunProfile.toolchain;
 
@@ -136,5 +137,68 @@ describe('ToolchainTestRunner stamps failureKind', () => {
     const result = await new ToolchainTestRunner(pass).run('x', process.cwd());
     expect(result.passed).toBe(true);
     expect(result.failureKind).toBeUndefined();
+  });
+});
+
+describe('runVerification — the single verdict + aggregate seam', () => {
+  // Replays a fixed sequence of results across targets so the verdict and the
+  // infra-dominates aggregate can be pinned without spawning real runners.
+  function seqRunner(results: readonly TestResult[]): TestRunner {
+    let i = 0;
+    return {
+      async run() {
+        return results[i++ % results.length]!;
+      },
+    };
+  }
+
+  it('done only when ≥1 target exists and every target passes', async () => {
+    const { done, failureKind } = await runVerification(
+      [{ target: 'a' }, { target: 'b' }],
+      seqRunner([{ passed: true, output: 'ok' }]),
+      '/tmp',
+    );
+    expect(done).toBe(true);
+    expect(failureKind).toBeUndefined();
+  });
+
+  it('not done with zero targets (nothing proves it)', async () => {
+    const { done, results } = await runVerification([], seqRunner([{ passed: true, output: 'ok' }]), '/tmp');
+    expect(done).toBe(false);
+    expect(results).toEqual([]);
+  });
+
+  it('a plain assertion failure aggregates to "test"', async () => {
+    const { done, failureKind } = await runVerification(
+      [{ target: 'a' }],
+      seqRunner([{ passed: false, output: 'FAIL', failureKind: 'test' }]),
+      '/tmp',
+    );
+    expect(done).toBe(false);
+    expect(failureKind).toBe('test');
+  });
+
+  it('infra dominates: one infra failure makes the whole verdict infra', async () => {
+    const { done, failureKind } = await runVerification(
+      [{ target: 'a' }, { target: 'b' }],
+      seqRunner([
+        { passed: false, output: 'assert', failureKind: 'test' },
+        { passed: false, output: 'no runner', failureKind: 'infra' },
+      ]),
+      '/tmp',
+    );
+    expect(done).toBe(false);
+    expect(failureKind).toBe('infra');
+  });
+
+  it('a runner that throws is treated as an infra failure, not a swallowed pass', async () => {
+    const throwing: TestRunner = {
+      async run() {
+        throw new Error('runner blew up');
+      },
+    };
+    const { done, failureKind } = await runVerification([{ target: 'x' }], throwing, '/tmp');
+    expect(done).toBe(false);
+    expect(failureKind).toBe('infra');
   });
 });

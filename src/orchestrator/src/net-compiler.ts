@@ -19,6 +19,7 @@ import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprin
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
 import { createReport } from './report-helpers.js';
+import { runVerification } from './test-runner.js';
 import type { ActionContext, OrchestratorInput, Plan, RunCtx, RunPolicy, Slice } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -714,20 +715,18 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           const deferred = (async () => {
             const slice = plan.slices.find((s) => s.id === sliceId)!;
             const sandboxDir = resolveSliceCwd(slice);
-            const results = [];
-            for (const target of targets) {
-              results.push({ target, ...(await testRunner.run(target, sandboxDir)) });
-            }
-            const passed = results.length > 0 && results.every((result) => result.passed);
+            // Shared verification seam: same verdict rule + infra-dominates
+            // aggregate as evaluate-done / verify-epic (FE-872 unification).
+            const {
+              done: passed,
+              failureKind,
+              results,
+            } = await runVerification(
+              targets.map((target) => ({ target })),
+              testRunner,
+              sandboxDir,
+            );
             const output = results.map((result) => result.output).join('\n');
-            // Surface an aggregate failure kind so consumers don't rescan
-            // `results`: infra (toolchain broke) dominates a plain test failure —
-            // if anything failed to even run, that's the actionable signal.
-            const failureKind = passed
-              ? undefined
-              : results.some((result) => result.failureKind === 'infra')
-                ? 'infra'
-                : 'test';
             const reportId = createReport(reports, {
               epicId,
               sliceId,
