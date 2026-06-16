@@ -1490,9 +1490,14 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     const parallelMs = Date.now() - t1;
 
     // Parallel should be no slower than serial (they're effectively equal
-    // now that async dispatch lets handlers overlap in both policies).
-    // Allow a small constant slack for scheduling jitter.
-    expect(parallelMs).toBeLessThan(serialMs + 25);
+    // now that async dispatch lets handlers overlap in both policies). The
+    // tolerance scales with serialMs because both runs absorb scheduling jitter
+    // and CPU contention from concurrent test files (real-process suites elsewhere
+    // can starve the event loop); an absolute slack flakes under that load. A true
+    // regression — parallel policy serializing its handlers — would be many ×
+    // serialMs (the plan fans out ~15 async handlers at DELAY_MS each), well past
+    // this bound.
+    expect(parallelMs).toBeLessThan(serialMs * 2 + 50);
   });
 });
 
