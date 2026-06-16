@@ -315,6 +315,56 @@ describe('emitPlanFromSnapshot', () => {
     expect(result.plan.profile).toBe('node-vitest');
   });
 
+  it('brownfield co-locates generated tests in the repo\u2019s own test directory', async () => {
+    // node-vitest defaults to tests/{id}.test.ts, but a repo whose vitest
+    // include is narrowed to src/** can\u2019t run that path. detectTestDir reports
+    // where the repo already keeps tests; the emitted targets follow it.
+    const detect = (): ProfileDetection => ({ detected: true, profile: 'node-vitest', evidence: 'stub' });
+    const result = await emitPlanFromSnapshot(
+      { ...snapshot, mode: 'brownfield' },
+      {
+        runModel: draftModel(coveringDraft()),
+        repoDir: '/repo',
+        detect,
+        detectTestDir: () => 'src',
+      },
+    );
+    expect(result.plan.profile).toBe('node-vitest');
+    for (const slice of result.plan.slices) {
+      expect(slice.verification).toEqual([{ kind: 'unit-test', target: `src/${slice.id}.test.ts` }]);
+    }
+  });
+
+  it('brownfield keeps the profile default when the repo has no tests to learn from', async () => {
+    const detect = (): ProfileDetection => ({ detected: true, profile: 'node-vitest', evidence: 'stub' });
+    const result = await emitPlanFromSnapshot(
+      { ...snapshot, mode: 'brownfield' },
+      {
+        runModel: draftModel(coveringDraft()),
+        repoDir: '/repo',
+        detect,
+        detectTestDir: () => null,
+      },
+    );
+    for (const slice of result.plan.slices) {
+      expect(slice.verification).toEqual([{ kind: 'unit-test', target: `tests/${slice.id}.test.ts` }]);
+    }
+  });
+
+  it('greenfield never relocates tests even with a repoDir (probes invariant)', async () => {
+    const result = await emitPlanFromSnapshot(snapshot, {
+      runModel: draftModel(coveringDraft()),
+      profile: 'node-vitest',
+      repoDir: '/repo',
+      detectTestDir: () => {
+        throw new Error('greenfield must not detect a test dir');
+      },
+    });
+    for (const slice of result.plan.slices) {
+      expect(slice.verification).toEqual([{ kind: 'unit-test', target: `tests/${slice.id}.test.ts` }]);
+    }
+  });
+
   it('the --profile flag beats detection and skips reading the repo', async () => {
     const detect = (): ProfileDetection => {
       throw new Error('detect should not run when --profile is set');
