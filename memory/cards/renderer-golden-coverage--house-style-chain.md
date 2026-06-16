@@ -27,7 +27,12 @@ Card 3  <specification> context render    [Design: PENDING -> then buildable]
 
 Later (NOT in this chain; scope after the first two land + their design passes):
   - <session> context render (migrate runtime-frame + mentions + transcript)
-  - tool-result render migration (graph/*, exchanges/*) onto the md-pen substrate
+  - graph-render migration (graph/*, exchanges/*) onto the md-pen substrate —
+      design-it-twice DONE 2026-06-16: overview => G-D (TOON node roster + pseudo
+      edge lines, each sub-shape in its strongest notation); node-neighborhood =>
+      G-C (per-node adjacency, the `<-`/`->` grouped form — poor for the overview
+      but right for neighborhoods); uniform sets (gaps etc.) stay TOON. Card 3
+      defers the <specification> graph block to HERE (shared read_graph/seed render).
   - brunch-print fork decision; renderer ledger close
 ```
 
@@ -256,12 +261,12 @@ src/renderers/README.md            ~   (ledger row)
 
 ## Card 3 — `<specification>` context render (house style) + countTurnEntries audit
 
-Status: blocked — design pass pending
-Design: PENDING — finalize after Card 2's design pass fixes the dialect, then append the approved sketch here.
+Status: next — design APPROVED 2026-06-16 (sketch in §Design below)
+Design: APPROVED 2026-06-16 — Overview (id/title/graph-size/readiness, md bullets) · Sessions (md table; D83-L size-aware rule) · Gaps (TOON, sorted band-then-priority). Graph block DEFERRED to the graph-render-migration card (`formatGraphOverview` is a render shared by `read_graph` + the per-turn seed; redesigning it exceeds this slice). Bare `Label:` sections, no ATX headings.
 
 ### Target Behavior
 
-A `<specification>` section renders spec header/readiness (md), graph overview (existing `graph-slice`, embedded), ranked elicitation gaps (TOON), and the spec's sessions (TOON) with an **audited** turn count — golden-locked after design approval.
+A `<specification>` section renders an **Overview** block (spec id/title, graph size, soft readiness; md bullets), the spec's **Sessions** (md table), and ranked elicitation **Gaps** (TOON, sorted band-then-priority) with an **audited** turn count — golden-locked to the approved sketch in §Design. The graph overview is **deferred** out of this card (see §Design): `formatGraphOverview` is the canonical render shared by `read_graph` and the per-turn seed, so its house-style redesign belongs to the later graph-render-migration card; the Overview block carries the graph size and the existing `graphSeed` still delivers full topology, so the omission is not a context regression.
 
 ### Full-card cold-start reads
 
@@ -279,11 +284,14 @@ A `<specification>` section renders spec header/readiness (md), graph overview (
 ### Data sources (structural scope)
 
 ```
-- Spec header : spec {id, title} + soft readiness estimate                  → md
-- Graph overview: existing graph-slice render, embedded                     → (its own format; migrated later)
-- Elicitation gaps: ranked read_elicitation_gaps {refersTo, question, …}    → TOON
-- Sessions  : workspace-overview sessions[] filtered to THIS spec,
-              {name, file, turnCount}                                       → TOON
+- Overview  : spec {id, title} + graph size {nodes, edges, lsn} + soft        → md bullets
+              readiness (renderSoftReadinessEstimate, verbatim phrasing)
+- Sessions  : workspace-overview sessions[] filtered to THIS spec,            → md TABLE (small bounded
+              columns {name, file, turns}                                        roster; D83-L size-aware)
+- Gaps      : ranked read_elicitation_gaps, projected to                      → TOON (large/unbounded;
+              {id, band, refersTo, importance, coverage, question}, open only      sorted band-then-priority)
+- Graph     : DEFERRED — not rendered here; the graph-render-migration card    → (later card; G-D hybrid
+              owns the house-style graph representation                           is the chosen shape)
 ```
 
 ### Sub-task: countTurnEntries audit (can be done independently / first)
@@ -292,28 +300,72 @@ A `<specification>` section renders spec header/readiness (md), graph overview (
 - Verify src/session/workspace-overview-context.ts countTurnEntries against the CURRENT
   pi JSONL entry model before the session turn count is surfaced; fix if it rests on stale
   assumptions (D83-L open audit). Add/repair a unit test pinning the count for a fixture transcript.
+- Resolve the SEMANTIC question too: countTurnEntries counts every entry with type
+  'user' || 'assistant' (a MESSAGE count), but the column is labeled `turns`. Decide whether the
+  surfaced number is messages or user->assistant exchanges, then align the impl + the column label.
 ```
 
 ### Invariants
 
 ```
 - sessions are spec-scoped (a session binds to exactly one spec, D19-L)
-- gaps and sessions render as TOON
-- wrapped in <specification>…</specification>
+- gaps render as TOON (sorted band-then-priority); spec sessions render as a md TABLE
+  (small bounded roster — D83-L size-aware rule SUPERSEDES the earlier "sessions are TOON" note)
+- no graph block in this card (deferred); Overview carries the graph size only
+- wrapped in <specification>…</specification>; bare `Label:` sections, no ATX headings
 ```
 
 ### Acceptance Criteria (skeleton — finalized by the design pass)
 
 ```
-✓ specification-section — render wrapped in <specification>: spec header + graph overview + ranked gaps + spec sessions.
-✓ turn-count-audit      — countTurnEntries verified/fixed against the current JSONL model, with a pinning test.
-✓ golden                — co-located golden locked AFTER the user approves the design sketch.
-✓ invariant             — sessions spec-scoped; gaps + sessions are TOON.
+✓ specification-section — render wrapped in <specification>: Overview (md bullets) + Sessions (md table) + Gaps (TOON); no graph block; no ATX headings.
+✓ turn-count-audit      — countTurnEntries verified/fixed against the current JSONL model AND its messages-vs-turns semantics resolved (column label matches), with a pinning test.
+✓ sessions-table        — Sessions render as a md table, columns name / file / turns; `name` is `—` until session auto-naming lands (see §Session-name obligation in §Design).
+✓ gaps-toon             — Gaps render as a TOON block projected to {id, band, refersTo, importance, coverage, question}, open/unanswered only, sorted band-then-priority.
+✓ golden                — co-located golden matches the approved §Design sketch (locked after the user eyeball).
+✓ invariant             — sessions spec-scoped; gaps are TOON; no graph block.
 ```
 
-### Design pass (REQUIRED before build)
+### Design — APPROVED 2026-06-16
 
-Same checkpoint as Card 2; keep the dialect consistent with Card 2's approved shape.
+Approved `<specification>` output (bare `Label:` sections; XML tag delimits the block; the inner ` ```toon ` is a literal fenced block). Block order: Overview · Sessions · Gaps.
+
+    <specification>
+
+    Overview:
+    - id: 7
+    - title: Context-render house style
+    - graph: 12 nodes, 8 edges (LSN 42)
+    - readiness estimate (soft; gates nothing): grounding=0.42, elicitation=0.10, commitment=0.00
+
+    Sessions:
+    | name | file                          | turns |
+    | ---- | ----------------------------- | ----- |
+    | —    | 2026-06-15-house-style.jsonl  | 14    |
+    | —    | 2026-06-16-card3-design.jsonl | 6     |
+
+    Gaps:
+    ```toon
+    gaps[3]{id,band,refersTo,importance,coverage,question}:
+    g08,elicitation,constraint,0.70,0.00,Which reader audiences must the house style serve?
+    g12,grounding,decision,0.90,0.10,What constrains the renderer dependency budget?
+    g05,commitment,decision,0.50,0.00,Should brunch print fork to house-style human views?
+    ```
+
+    </specification>
+
+Build rules:
+- Overview → `markdownUl` bullets: id, title, `graph: N nodes, M edges (LSN L)` from the already-read slice, then the existing `renderSoftReadinessEstimate(gaps)` line VERBATIM (reuse the helper; do not re-phrase). Not a table.
+- Sessions → `markdownTable`, columns name / file / turns, over `workspace-overview` sessions filtered to THIS specId. Always a table (small bounded roster, D83-L size-aware rule). `name` renders `—` until session auto-naming exists (see §Session-name obligation).
+- Gaps → `renderToonBlock` over the ranked `read_elicitation_gaps`, projected to {id, band, refersTo, importance, coverage, question}, open/unanswered only, sorted band-then-priority (captures G-B's band-grouping insight inside one uniform TOON table). Drop rationale / basis / predicate / disposition (available via read tools).
+- NO graph block (deferred to the graph-render-migration card; Overview's `graph:` line carries the size).
+- Assemble with `joinMarkdownBlocks(overview, sessions, gaps)` then `section('specification', body)`.
+
+Graph design-it-twice (2026-06-16, for the later graph-render-migration card, NOT this card): candidates G-A (TOON dual-table) · G-B (pseudo native edges) · G-C (pseudo per-node adjacency) · G-D (TOON node roster + pseudo edge lines). Chosen: **overview => G-D** (each sub-shape in its strongest notation, per the D83-L legibility rule); **node-neighborhood => G-C** (poor for the overview, right for neighborhoods). Gaps design-it-twice: G-A TOON wins (size-aware rule + retires owned format); G-B's band-grouping insight folded in as the band-then-priority sort.
+
+### Session-name obligation (capture — must revise THIS render when naming lands)
+
+The Sessions `name` column has NO data source today: `WorkspaceSessionOverview` is `{id, file, specId, specTitle, turnCount}` and session auto-naming is unbuilt. Decision (2026-06-16): keep the `name` column in the table shape and render `—` as a placeholder; **session auto-naming is a named adjacent capability, NOT built in this card.** When auto-naming lands, this render MUST be revised to populate `name` and its golden re-locked. Mirrored in PLAN §renderer-golden-coverage acceptance so the obligation is not lost if this card is retired.
 
 ### Expected touched paths (tentative)
 
