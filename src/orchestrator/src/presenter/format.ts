@@ -36,5 +36,8 @@ export function formatCookEvent(event: CookEvent, clock: ElapsedClock): string[]
     case 'activity-end':
       // Live-only: the Ink panel reflects these; the existing completion log marks the end.
       return [];
+    case 'cook-done':
+      // Phase signal only (lights `serve`); the run summary already printed.
+      return [];
   }
 }

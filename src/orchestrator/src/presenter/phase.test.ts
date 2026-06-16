@@ -13,30 +13,41 @@ describe('nextPhase', () => {
     expect(nextPhase('prep', { kind: 'cook-start', runStart: 0 })).toBe('cook');
   });
 
-  it('does NOT advance to taste on verify/epic actions (they fire mid-cook)', () => {
+  it('lights taste on the epic verdict but NOT on per-slice verify (mid-cook)', () => {
+    // Per-slice verify runs during cooking — must not light taste.
     expect(nextPhase('cook', { kind: 'action', icon: '▸', message: 'verify    api-auth' })).toBe('cook');
-    expect(nextPhase('cook', { kind: 'action', icon: '●', message: 'epic      api-auth → PASS' })).toBe(
+    expect(nextPhase('cook', { kind: 'action', icon: '✓', message: 'verify    tests/x.test.ts' })).toBe(
       'cook',
+    );
+    // The epic-verification verdict is the real verify→taste signal.
+    expect(nextPhase('cook', { kind: 'action', icon: '●', message: 'epic      api-auth → PASS' })).toBe(
+      'taste',
     );
   });
 
-  it('advances to plate on a promotion line', () => {
+  it('advances to plate on a promotion line and to serve on a completed run', () => {
     expect(nextPhase('cook', { kind: 'line', text: '  ✓  promoted → cook/abc @ 1234abcd' })).toBe('plate');
+    expect(nextPhase('plate', { kind: 'cook-done', ok: true })).toBe('serve');
+  });
+
+  it('does not light serve when the run halted', () => {
+    expect(nextPhase('cook', { kind: 'cook-done', ok: false })).toBe('cook');
   });
 
   it('never regresses to an earlier phase', () => {
-    expect(nextPhase('plate', { kind: 'cook-start', runStart: 0 })).toBe('plate');
-    expect(nextPhase('cook', { kind: 'action', icon: '▸', message: 'tests     slice-2' })).toBe('cook');
+    expect(nextPhase('serve', { kind: 'cook-start', runStart: 0 })).toBe('serve');
+    expect(nextPhase('taste', { kind: 'action', icon: '▸', message: 'tests     slice-2' })).toBe('taste');
   });
 
-  it('walks a full cook run prep → cook → plate (taste stays unlit)', () => {
+  it('walks a full cook run prep → cook → taste → plate → serve', () => {
     expect(
       walk([
         { kind: 'cook-start', runStart: 0 },
         { kind: 'action', icon: '▸', message: 'tests     slice-1' },
-        { kind: 'action', icon: '▸', message: 'verify    api-auth' },
+        { kind: 'action', icon: '●', message: 'epic      api-auth → PASS' },
         { kind: 'line', text: '  ✓  promoted → cook/abc @ 1234abcd' },
+        { kind: 'cook-done', ok: true },
       ]),
-    ).toBe('plate');
+    ).toBe('serve');
   });
 });

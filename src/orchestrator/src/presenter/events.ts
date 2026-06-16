@@ -29,7 +29,9 @@ export type CookEvent =
   // Updates the in-flight detail of an open activity (e.g. a pi token heartbeat).
   | { kind: 'activity-progress'; id: string; detail: string }
   // Closes the activity; the wait is over.
-  | { kind: 'activity-end'; id: string };
+  | { kind: 'activity-end'; id: string }
+  // The run finished (emitted after promotion); `ok` = completed vs halted.
+  | { kind: 'cook-done'; ok: boolean };
 
 export interface Presenter {
   onEvent(event: CookEvent): void;
