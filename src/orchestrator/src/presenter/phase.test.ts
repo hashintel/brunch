@@ -13,21 +13,23 @@ describe('nextPhase', () => {
     expect(nextPhase('prep', { kind: 'cook-start', runStart: 0 })).toBe('cook');
   });
 
-  it('advances to taste on an epic/verify action and to plate on a promotion line', () => {
-    expect(nextPhase('cook', { kind: 'action', icon: '▸', message: 'verify    api-auth' })).toBe('taste');
+  it('does NOT advance to taste on verify/epic actions (they fire mid-cook)', () => {
+    expect(nextPhase('cook', { kind: 'action', icon: '▸', message: 'verify    api-auth' })).toBe('cook');
     expect(nextPhase('cook', { kind: 'action', icon: '●', message: 'epic      api-auth → PASS' })).toBe(
-      'taste',
+      'cook',
     );
-    expect(nextPhase('taste', { kind: 'line', text: '  ✓  promoted → cook/abc @ 1234abcd' })).toBe('plate');
+  });
+
+  it('advances to plate on a promotion line', () => {
+    expect(nextPhase('cook', { kind: 'line', text: '  ✓  promoted → cook/abc @ 1234abcd' })).toBe('plate');
   });
 
   it('never regresses to an earlier phase', () => {
-    // A per-slice action after taste must not pull the tracker back to cook.
-    expect(nextPhase('taste', { kind: 'action', icon: '▸', message: 'tests     slice-2' })).toBe('taste');
     expect(nextPhase('plate', { kind: 'cook-start', runStart: 0 })).toBe('plate');
+    expect(nextPhase('cook', { kind: 'action', icon: '▸', message: 'tests     slice-2' })).toBe('cook');
   });
 
-  it('walks a full cook run prep → cook → taste → plate', () => {
+  it('walks a full cook run prep → cook → plate (taste stays unlit)', () => {
     expect(
       walk([
         { kind: 'cook-start', runStart: 0 },

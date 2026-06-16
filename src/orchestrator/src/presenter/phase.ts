@@ -25,8 +25,10 @@ function phaseFor(event: CookEvent): BrigadePhase | undefined {
       return 'recipe';
     case 'cook-start':
       return 'cook';
-    case 'action':
-      return /^(verify|epic)/.test(event.message) ? 'taste' : undefined;
+    // `taste` is intentionally NOT auto-advanced: per-slice verify actions fire
+    // during cooking, so keying taste off them lit it while still cooking. It
+    // needs a real end-of-cook signal (a later slice); for now it stays unlit
+    // until the run passes it on the way to `plate`.
     case 'line':
       return event.text.includes('promoted') ? 'plate' : undefined;
     default:

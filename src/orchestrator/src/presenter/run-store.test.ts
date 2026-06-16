@@ -45,20 +45,22 @@ describe('RunStore', () => {
   });
 
   it('tracks pending activities: start adds, progress updates detail, end removes', () => {
-    let clock = 1000;
-    const store = new RunStore('cook', () => clock);
+    const store = new RunStore('cook', () => 1000);
     store.push({ kind: 'activity-start', id: 'tests:slice-1', label: 'agent writing tests' });
 
-    let pending = store.getSnapshot().pending;
+    const pending = store.getSnapshot().pending;
     expect(pending).toHaveLength(1);
-    expect(pending[0]).toMatchObject({ id: 'tests:slice-1', label: 'agent writing tests', startedAt: 1000 });
+    expect(pending[0]).toMatchObject({ id: 'tests:slice-1', label: 'agent writing tests' });
 
     store.push({ kind: 'activity-progress', id: 'tests:slice-1', detail: '8 KB' });
     expect(store.getSnapshot().pending[0]).toMatchObject({ detail: '8 KB' });
 
-    clock = 5000;
     store.push({ kind: 'activity-end', id: 'tests:slice-1' });
     expect(store.getSnapshot().pending).toHaveLength(0);
+  });
+
+  it('stamps a run-start for the global timer at construction', () => {
+    expect(new RunStore('cook', () => 4242).getSnapshot().runStart).toBe(4242);
   });
 
   it('does not put activity events into the scrolling line log', () => {

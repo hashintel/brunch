@@ -18,8 +18,8 @@ describe('Ink App', () => {
     await tick();
 
     const frame = lastFrame() ?? '';
-    // Wordmark header + command.
-    expect(frame).toContain('brunch');
+    // Big lowercase ASCII wordmark rendered + the command label.
+    expect(frame).toContain('/_.___/');
     expect(frame).toContain('cook');
     // Brigade tracker shows every phase, with cook active (◐) once cooking.
     expect(frame).toContain('prep');

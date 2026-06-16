@@ -10,13 +10,10 @@ import type { CookEvent } from './events.js';
 import { formatCookEvent } from './format.js';
 import { type BrigadePhase, nextPhase } from './phase.js';
 
-const MAX_LINES = 500;
-
 export interface PendingActivity {
   id: string;
   label: string;
   detail?: string;
-  startedAt: number;
 }
 
 export interface RunState {
@@ -24,6 +21,8 @@ export interface RunState {
   phase: BrigadePhase;
   lines: string[];
   pending: PendingActivity[];
+  /** When the run started, for the single global header timer. */
+  runStart: number;
 }
 
 export class RunStore {
@@ -36,14 +35,12 @@ export class RunStore {
     private readonly now: () => number = () => Date.now(),
   ) {
     this.clock = createElapsedClock(now);
-    this.state = { command, phase: 'prep', lines: [], pending: [] };
+    this.state = { command, phase: 'prep', lines: [], pending: [], runStart: now() };
   }
 
   push(event: CookEvent): void {
     if (event.kind === 'activity-start') {
-      this.commit({
-        pending: [...this.state.pending, { id: event.id, label: event.label, startedAt: this.now() }],
-      });
+      this.commit({ pending: [...this.state.pending, { id: event.id, label: event.label }] });
       return;
     }
     if (event.kind === 'activity-progress') {
@@ -60,7 +57,9 @@ export class RunStore {
     const added = formatCookEvent(event, this.clock);
     const phase = nextPhase(this.state.phase, event);
     if (added.length === 0 && phase === this.state.phase) return;
-    this.commit({ phase, lines: [...this.state.lines, ...added].slice(-MAX_LINES) });
+    // Append-only — the Ink backend streams these through <Static>, which
+    // assumes items only grow; the lines live in terminal scrollback.
+    this.commit({ phase, lines: [...this.state.lines, ...added] });
   }
 
   private commit(patch: Partial<RunState>): void {

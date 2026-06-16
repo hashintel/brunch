@@ -120,6 +120,10 @@ export function parseCookArgs(args: string[]): CookOptions {
       verbose = true;
     } else if (!arg.startsWith('-')) {
       dir = arg;
+    } else {
+      // Reject unknown flags instead of silently ignoring them (e.g. --spec-id
+      // is not a flag; the spec selector is --spec=<id>).
+      throw new Error(`Unknown flag "${arg}". Run "brunch --help" for cook usage.`);
     }
   }
 
@@ -426,28 +430,21 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
       cliFlag: opts.petrinautUrl,
       env: { PETRINAUT_URL: process.env.PETRINAUT_URL },
     });
-    if ('error' in resolvedUrl) {
-      line(resolvedUrl.error);
-      process.exit(1);
-    }
+    // Throw, never process.exit — the caller (withCookBus) must dispose the
+    // presenter (unmount Ink) before the error is printed, or the TUI hangs.
+    if ('error' in resolvedUrl) throw new Error(resolvedUrl.error);
     petrinautUrl = resolvedUrl.url;
     streamPort = resolvePetrinautStreamPort({ PORT: process.env.PORT });
   }
 
   const resolved = resolveCookPlan(opts.dir, opts.specId);
-  if (resolved.kind === 'error') {
-    line(resolved.message);
-    process.exit(1);
-  }
+  if (resolved.kind === 'error') throw new Error(resolved.message);
 
   const plan = loadPlan(resolved.planPath);
 
   // Worktree strategy follows the plan's spec-derived mode, not its location.
   const sandbox = resolveSandboxPlan(plan.mode, resolved.sourceDir);
-  if (sandbox.kind === 'error') {
-    line(sandbox.message);
-    process.exit(1);
-  }
+  if (sandbox.kind === 'error') throw new Error(sandbox.message);
 
   // Single shared tree only for serial greenfield (parallel would race on it);
   // every other case isolates slices per-slice.
