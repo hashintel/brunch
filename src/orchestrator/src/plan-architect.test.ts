@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { architectDraftSchema, architectPlan } from './plan-architect.js';
+import { architectDraftSchema, architectPlan, DEFAULT_ARCHITECT_MODEL_ID } from './plan-architect.js';
 import type { Plan } from './types.js';
 
 const projected: Plan = {
@@ -49,6 +49,10 @@ const wellFormed = {
 };
 
 describe('architectPlan', () => {
+  it('defaults the production architect to the current Sonnet model', () => {
+    expect(DEFAULT_ARCHITECT_MODEL_ID).toBe('claude-sonnet-4-6');
+  });
+
   it('parses a well-formed authored draft', async () => {
     const result = await architectPlan(projected, async () => wellFormed);
     expect(result.status).toBe('succeeded');

@@ -94,6 +94,8 @@ export type ArchitectResult =
 
 export type RunModel = (prompt: string) => Promise<unknown>;
 
+export const DEFAULT_ARCHITECT_MODEL_ID = 'claude-sonnet-4-6';
+
 const EMPTY_DRAFT: ArchitectDraft = { epics: [], slices: [], nonBuildableRequirementIds: [] };
 
 /**
@@ -211,7 +213,7 @@ function errorMessage(error: unknown): string {
  */
 export const defaultArchitectRunModel: RunModel = async (prompt) => {
   const result = await generateText({
-    model: anthropic(process.env.SPEC_TO_COOK_PLAN_MODEL || 'claude-sonnet-4-20250514'),
+    model: anthropic(process.env.SPEC_TO_COOK_PLAN_MODEL || DEFAULT_ARCHITECT_MODEL_ID),
     maxOutputTokens: 4096,
     prompt,
     output: Output.object({ schema: architectDraftSchema }),
