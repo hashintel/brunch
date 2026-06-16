@@ -133,5 +133,6 @@ describe('parseProfileId', () => {
       expect(parseProfileId(id)).toBe(id);
     }
     expect(() => parseProfileId('rust')).toThrow(UnknownProfileError);
+    expect(() => parseProfileId('toString')).toThrow(UnknownProfileError);
   });
 });

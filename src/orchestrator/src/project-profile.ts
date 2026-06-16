@@ -115,7 +115,7 @@ export class UnknownProfileError extends Error {
 
 /** Validate an externally-supplied profile id (CLI flag, hand-edited YAML). */
 export function parseProfileId(value: string): ProfileId {
-  if (!(value in PROFILE_DATA)) throw new UnknownProfileError(value);
+  if (!Object.hasOwn(PROFILE_DATA, value)) throw new UnknownProfileError(value);
   return value as ProfileId;
 }
 
