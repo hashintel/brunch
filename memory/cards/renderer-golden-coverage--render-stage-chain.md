@@ -49,7 +49,7 @@ Before adding any more goldens, close the authority gap around what counts as a 
 
 - `memory/PLAN.md` — frontier: `renderer-golden-coverage` (incl. the agent-tool render anchor)
 - `src/renderers/README.md`
-- existing locked tests: `src/renderers/graph/previews.test.ts`, `src/renderers/session/runtime-frame.test.ts`
+- existing locked tests: `src/renderers/graph/__tests__/{graph-slice,node-neighborhood}.test.ts`, `src/renderers/session/__tests__/runtime-frame.test.ts` (stock `toMatchFileSnapshot`, no custom helper)
 - `src/session/README.md` — current `workspace-context` consumer claims
 - `package.json`
 

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GraphSlice } from '../../../graph/queries.js';
-import type { GraphReaders } from '../graph/index.js';
-import { createWorldReadCache } from './world-reads.js';
+import type { GraphSlice } from '../../../../graph/queries.js';
+import type { GraphReaders } from '../../graph/index.js';
+import { createWorldReadCache } from '../world-reads.js';
 
 interface ReadCounts {
   queryGraph: number;

@@ -1,15 +1,7 @@
-import { mkdirSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import type { RuntimeStateProjection } from '../../../projections/session/runtime-state.js';
 import { renderRuntimeFrame } from '../runtime-frame.js';
-
-const HERE = dirname(fileURLToPath(import.meta.url));
-const PREVIEWS_DIR = resolve(HERE, '../__previews__');
-const GOLDEN_PATH = resolve(PREVIEWS_DIR, 'runtime-frame-ready.md');
 
 function readyProjection(): RuntimeStateProjection {
   return {
@@ -44,10 +36,8 @@ function readyProjection(): RuntimeStateProjection {
 describe('renderRuntimeFrame', () => {
   it('locks the ready runtime-frame preview and renders projected graph handles', async () => {
     const rendered = renderRuntimeFrame(readyProjection());
-    const locked = rendered.endsWith('\n') ? rendered : `${rendered}\n`;
 
-    mkdirSync(PREVIEWS_DIR, { recursive: true });
-    await expect(locked).toMatchFileSnapshot(GOLDEN_PATH);
+    await expect(rendered).toMatchFileSnapshot('../__previews__/runtime-frame-ready.md');
     expect(rendered).toContain('#D12');
     expect(rendered).not.toContain('node-1');
     expect(rendered).toContain(

@@ -29,7 +29,7 @@ renderers/  x> .pi/, rpc/, app/, web/
 
 ## Preview / golden authority
 
-Renderer goldens stay test-local: co-located renderer tests call the renderer directly and write markdown snapshots under `src/renderers/**/__previews__/` via Vitest `toMatchFileSnapshot`. Use `npm run test:renderers:update` to review/accept renderer preview diffs. Do not introduce a shared `npm run render` harness until a second non-test preview consumer appears.
+Renderer goldens stay test-local: each renderer's co-located test lives under `src/renderers/<domain>/__tests__/` and calls the renderer directly, writing markdown snapshots to the sibling `src/renderers/<domain>/__previews__/` via stock Vitest `toMatchFileSnapshot('../__previews__/<name>.md')` — no custom snapshot helper. Use `npm run test:renderers:update` to review/accept renderer preview diffs. Do not introduce a shared `npm run render` harness until a second non-test preview consumer appears.
 
 Ledger statuses:
 
@@ -42,13 +42,13 @@ Ledger statuses:
 
 | Row | Owner | Status | Agent-context toolResult target | TUI / presenter target | Oracle / next |
 | --- | --- | --- | --- | --- | --- |
-| `graph/graph-slice.ts` (`formatGraphSlice`) | `read_graph` overview/list modes; context seed full graph overview | ✓ locked | `read_graph` text; `brunch.context_seed` graph section | Tool result markdown | `graph/previews.test.ts` + `graph/__previews__/*`; invariants for bounded output / structural leakage. |
-| `graph/node-neighborhood.ts` (`formatNeighborhood`) | `read_graph` neighborhood mode | ✓ locked | `read_graph` text | Tool result markdown | `graph/previews.test.ts` + `graph/__previews__/*`; invariants for stable codes and no raw ids/role tokens. |
+| `graph/graph-slice.ts` (`formatGraphSlice`) | `read_graph` overview/list modes; context seed full graph overview | ✓ locked | `read_graph` text; `brunch.context_seed` graph section | Tool result markdown | `graph/__tests__/graph-slice.test.ts` + `graph/__previews__/*`; invariants for bounded output / structural leakage. |
+| `graph/node-neighborhood.ts` (`formatNeighborhood`) | `read_graph` neighborhood mode | ✓ locked | `read_graph` text | Tool result markdown | `graph/__tests__/node-neighborhood.test.ts` + `graph/__previews__/*`; invariants for stable codes and no raw ids/role tokens. |
 | `graph/commit-result.ts` | Future command-result text, if needed | ○ deferred | none current | none current | Leave outside until a live consumer appears. |
 | `graph/reconciliation-needs.ts` | Future reconciliation rendering | ○ topology stub | none current | none current | Leave untouched until coherence/reconciliation surfaces activate. |
 | `workspace/workspace-state.ts` | print-mode `workspace.state` | ◐ partial | n/a | Print-mode state text | Card 2: add preview/golden; keep existing invariants for retired chrome/readiness fields. |
 | `workspace/workspace-context.ts` | `read_workspace_context`; origination context seed workspace section | ◐ partial | `read_workspace_context` text; `brunch.context_seed` workspace section | Tool result markdown | Card 2: keep and lock both `cwd_inventory` and `workspace_overview`; live caller confirmed via `session/workspace-context.ts`. |
-| `session/runtime-frame.ts` | `read_session_context` | ✓ locked | `read_session_context` text | Tool result markdown | `session/runtime-frame.test.ts` + `session/__previews__/runtime-frame-ready.md`; invariant for projected handles. |
+| `session/runtime-frame.ts` | `read_session_context` | ✓ locked | `read_session_context` text | Tool result markdown | `session/__tests__/runtime-frame.test.ts` + `session/__previews__/runtime-frame-ready.md`; invariant for projected handles. |
 | `session/transcript.ts` | Brunch-semantic transcript rendering | ◐ partial | Probe/report transcript markdown | Transcript/report text, not Pi live display | Card 3: move text-shape lock into renderer home; keep parsing/wrapper tests in `session/`. |
 | `exchanges/request-answer.ts` | `request_answer` | ◐ partial | Request result text | Tool result `renderResult` via exchange markdown adapter | Card 4: answered + non-answered goldens; invariants for cancel/unavailable copy and comments. |
 | `exchanges/request-choice.ts` | `request_choice` | ◐ partial | Request result text | Tool result `renderResult` via exchange markdown adapter | Card 4: answered + non-answered goldens; invariants for label escaping and comments. |

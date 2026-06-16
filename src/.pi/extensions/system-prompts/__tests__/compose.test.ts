@@ -4,16 +4,18 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
+import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
+import type { NodeKind } from '../../../../graph/schema/nodes.js';
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
-} from '../../../projections/session/runtime-state.js';
-import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
-import { GOAL_RESOURCES, LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../runtime/state.js';
-import { composeAgentPrompt } from './compose.js';
+} from '../../../../projections/session/runtime-state.js';
+import type { WorkspacePostureState } from '../../../../session/workspace-session-coordinator.js';
+import { GOAL_RESOURCES, LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../runtime/state.js';
+import { composeAgentPrompt, type ComposeAgentPromptInput } from '../compose.js';
 
-const projectRoot = dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
+const projectRoot = dirname(dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))));
 
 const groundingSpec = {
   id: 1,
@@ -331,4 +333,149 @@ describe('composeAgentPrompt', () => {
       ).toBeGreaterThanOrEqual(700);
     }
   });
+});
+
+// ── COMPOSE-stage prompt golden previews ──────────────────────────────────────
+// Each case composes a fixture runtime state, selected-spec gaps, workspace
+// posture, and optional rendered context strings, then locks the full
+// provider-facing prompt under the sibling `__previews__/`. The locked file IS
+// the wording assertion: review the diff when output changes, accept with
+// `--update` only after human approval. Inline asserts stay limited to
+// cross-cutting contract invariants a careless snapshot update could hide:
+// fixture rendered contexts stay visibly bracketed, retired readiness-grade
+// vocabulary never returns. Absolute repo paths are normalized to `<repo>/` so
+// the goldens stay machine-stable.
+
+const FLOOR_KINDS: readonly NodeKind[] = ['context', 'thesis', 'goal', 'constraint'];
+
+const previewWorkspace: ComposeAgentPromptInput['workspace'] = {
+  cwd: '/work/brunch-preview',
+  posture: workspacePosture({
+    certainty: 'proving',
+    stakes: 'high',
+    audience: 'internal',
+    horizon: 'current-milestone',
+    migration: 'free-rewrite',
+    sourcing: 'strip-or-build',
+  }),
+};
+
+function normalizeRepoPaths(rendered: string): string {
+  return rendered.replaceAll(`${projectRoot}/`, '<repo>/');
+}
+
+function previewGap(refersTo: NodeKind, coverage: number): ElicitationGap {
+  return {
+    id: `${refersTo}:preview-gap`,
+    specId: 101,
+    refersTo,
+    question: `What should Brunch know about the ${refersTo} before proceeding?`,
+    rationale: previewGapRationale(refersTo),
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: { kind: 'presence', minimum: 1, nodeKind: refersTo },
+    importance: 1,
+    coverage,
+    answered: coverage >= 1,
+    disposition: coverage >= 1 ? 'answered' : 'open',
+    createdAtLsn: 1,
+  };
+}
+
+function previewGapRationale(refersTo: NodeKind): string {
+  if (refersTo === 'constraint') {
+    return 'Constraints bound the solution space; an unestablished constraint undermines proposal legality.';
+  }
+  return `The ${refersTo} gap records what coverage is still needed before proceeding.`;
+}
+
+function previewFloorGaps(coverage: number): readonly ElicitationGap[] {
+  return FLOOR_KINDS.map((kind) => previewGap(kind, coverage));
+}
+
+function composePreviewPrompt(input: Partial<ComposeAgentPromptInput> = {}): string {
+  return composeAgentPrompt({
+    agentId: 'elicitor',
+    sessionState: projectBrunchAgentState([]),
+    spec: { id: 101, name: 'COMPOSE Preview Spec' },
+    workspace: previewWorkspace,
+    activeTools: ['read', 'grep', 'find', 'ls', 'present_question', 'request_answer'],
+    gaps: previewFloorGaps(0),
+    ...input,
+  }).prompt;
+}
+
+function expectPromptContracts(rendered: string): void {
+  expect(rendered).toContain('[Brunch agent control]');
+  expect(rendered).toContain('[Brunch runtime state]');
+  expect(rendered).toContain('[Brunch pushed context]');
+  expect(rendered).toContain('[Brunch prompt-resource routing]');
+  expect(rendered).not.toContain('readiness_grade');
+  expect(rendered).not.toContain('READINESS_GRADES');
+}
+
+describe('composeAgentPrompt previews', () => {
+  it('elicitor--auto-floor-gaps-open: all axes AUTO, floor gaps open', async () => {
+    const rendered = normalizeRepoPaths(composePreviewPrompt());
+    await expect(rendered).toMatchFileSnapshot('../__previews__/elicitor--auto-floor-gaps-open.md');
+    expectPromptContracts(rendered);
+  });
+
+  it('elicitor--auto-high-coverage: all axes AUTO, gaps largely answered', async () => {
+    const rendered = normalizeRepoPaths(composePreviewPrompt({ gaps: previewFloorGaps(1) }));
+    await expect(rendered).toMatchFileSnapshot('../__previews__/elicitor--auto-high-coverage.md');
+    expectPromptContracts(rendered);
+  });
+
+  it('elicitor--pinned-strategy-lens: legal pinned strategy and lens, others AUTO', async () => {
+    const rendered = normalizeRepoPaths(
+      composePreviewPrompt({
+        sessionState: projectBrunchAgentState([
+          {
+            type: 'custom',
+            customType: 'brunch.agent_runtime_state',
+            data: {
+              schemaVersion: 1,
+              reason: 'switch',
+              source: 'user',
+              state: {
+                ...DEFAULT_BRUNCH_AGENT_STATE,
+                agentStrategy: 'step-wise-disambiguate',
+                agentLens: 'design',
+              },
+            },
+          },
+        ]),
+        gaps: previewFloorGaps(1),
+      }),
+    );
+
+    await expect(rendered).toMatchFileSnapshot('../__previews__/elicitor--pinned-strategy-lens.md');
+    expectPromptContracts(rendered);
+    expect(rendered).toContain('name="step-wise-disambiguate"');
+    expect(rendered).toContain('name="design"');
+  });
+
+  it('elicitor--pushed-context: fixture handles and rendered contexts present', async () => {
+    const rendered = normalizeRepoPaths(
+      composePreviewPrompt({
+        context: {
+          contextHandles: ['graph-overview: fixture selected-spec summary available through read_graph'],
+          renderedContexts: [
+            '[fixture rendered context: selected-spec graph overview]\n- snapshot lsn: 9\n- nodes: 4; edges: 3',
+            '[fixture rendered context: recent transcript]\n- user answered a grounding question about constraints',
+          ],
+        },
+      }),
+    );
+
+    await expect(rendered).toMatchFileSnapshot('../__previews__/elicitor--pushed-context.md');
+    expectPromptContracts(rendered);
+    expect(rendered).toContain('[fixture rendered context: selected-spec graph overview]');
+    expect(rendered).toContain('[fixture rendered context: recent transcript]');
+  });
+
+  it.todo(
+    'reviewer--auto-default: reviewer composition is gated until reviewer has a buildable compose entrypoint',
+  );
 });
