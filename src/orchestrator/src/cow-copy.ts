@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, readdirSync } from 'node:fs';
+import { cpSync, existsSync, readdirSync, symlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 /**
@@ -23,16 +23,24 @@ export function cowCopy(src: string, dest: string): void {
 /** Top-level names skipped when CoW-copying into cook sandboxes. */
 export const COW_COPY_DEFAULT_EXCLUDE = new Set(['.git', '.brunch']);
 
+const NO_SYMLINKS: ReadonlySet<string> = new Set();
+
 /**
- * CoW-copy top-level entries from `sourceDir` that are absent in `destDir`
+ * Provision top-level entries from `sourceDir` that are absent in `destDir`
  * (untracked/gitignored dirs like `node_modules/`, `dist/`). Skips names in
  * `exclude` and entries already present in the destination (typically tracked
  * files materialized by `git worktree add`).
+ *
+ * Names in `symlink` are linked to the source entry instead of copied — used to
+ * share a single read-only `node_modules/` across slice sandboxes rather than
+ * paying a CoW copy per slice. Everything else is CoW-copied (lazy on APFS /
+ * reflink filesystems, deep copy otherwise).
  */
 export function copyMissingTopLevelEntries(
   sourceDir: string,
   destDir: string,
   exclude: ReadonlySet<string> = COW_COPY_DEFAULT_EXCLUDE,
+  symlink: ReadonlySet<string> = NO_SYMLINKS,
 ): void {
   const source = resolve(sourceDir);
   const dest = resolve(destDir);
@@ -40,6 +48,11 @@ export function copyMissingTopLevelEntries(
     if (exclude.has(entry)) continue;
     const destPath = join(dest, entry);
     if (existsSync(destPath)) continue;
-    cowCopy(join(source, entry), destPath);
+    const sourcePath = join(source, entry);
+    if (symlink.has(entry)) {
+      symlinkSync(sourcePath, destPath);
+    } else {
+      cowCopy(sourcePath, destPath);
+    }
   }
 }

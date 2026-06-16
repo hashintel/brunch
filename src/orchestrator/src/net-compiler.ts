@@ -5,12 +5,9 @@
 //   3. compilePlan(input, ctx) → PetriNet            (convenience wrapper)
 // ---------------------------------------------------------------------------
 
-import { mkdirSync } from 'node:fs';
-
 import {
+  ensureSliceWorktree,
   mergeSlicesIntoEpicSandbox,
-  resolveSliceWorktreeDir,
-  seedSliceFromParentWorktree,
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
@@ -556,35 +553,30 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
     net.addPlace(place);
   }
 
-  // Runtime filesystem preparation lives in wireHandlers so every action/test
-  // cwd exists before any transition can fire. This is the one intentional side
-  // effect in the wiring pass; a future prepareRunFilesystem step can split it
-  // out if more provisioning responsibilities accumulate.
-  // Per-slice dirs are parallel-safe; dependency seeding happens at fire time.
-  // In codebase mode, seed each slice dir with the parent worktree's contents
-  // (the source repo's HEAD via `git worktree add`) so pi-actions can modify
-  // existing code instead of writing into an empty dir.
+  // Per-slice sandboxes are provisioned lazily at fire time (in resolveSliceCwd),
+  // not eagerly here: a run that touches 2 of 8 slices pays for 2 worktrees, not
+  // 8. Each slice dir is an independent root, so concurrent fires of distinct
+  // slices never contend; repeat fires of the same slice (rework) are idempotent.
   // 'shared' (serial greenfield): all slices accrete into the run sandbox.
   // 'per-slice': each slice gets its own git worktree (codebase) or plain dir
   // (greenfield parallel), merged into __epic__ for verification.
+  // Fail fast on the missing-runId precondition rather than at first fire.
   const sliceLayout = input.sliceLayout ?? 'per-slice';
-  if (input.sandboxMode === 'codebase') {
-    if (!input.runId) {
-      throw new Error('codebase mode requires input.runId (used to name slice-level git branches)');
-    }
-    for (const slice of plan.slices) {
-      seedSliceFromParentWorktree(input.sandboxDir, slice.id, plan, input.runId);
-    }
-  } else if (sliceLayout === 'per-slice') {
-    for (const slice of plan.slices) {
-      mkdirSync(resolveSliceWorktreeDir(input.sandboxDir, slice.id), { recursive: true });
-    }
+  const { runId } = input;
+  if (input.sandboxMode === 'codebase' && !runId) {
+    throw new Error('codebase mode requires input.runId (used to name slice-level git branches)');
   }
 
-  const resolveSliceCwd = (slice: Slice): string =>
-    sliceLayout === 'shared'
-      ? input.sandboxDir
-      : seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, { preserveExisting: true });
+  const resolveSliceCwd = (slice: Slice): string => {
+    if (sliceLayout === 'shared') return input.sandboxDir;
+    // Codebase mode: materialize the slice's git worktree (HEAD checkout +
+    // symlinked node_modules) on first touch so pi-actions modify existing code
+    // rather than an empty dir; greenfield per-slice gets a plain dir below.
+    if (input.sandboxMode === 'codebase') {
+      ensureSliceWorktree(input.sandboxDir, slice.id, plan, runId!);
+    }
+    return seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, { preserveExisting: true });
+  };
 
   // Register transitions with wired fire handlers
   for (const skel of blueprint.transitions) {
