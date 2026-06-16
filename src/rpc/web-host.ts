@@ -4,8 +4,11 @@ import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { createReadOnlyRpcHandlers } from './handlers.js';
+import { createWebSidecarRpcHandlers } from './handlers.js';
+import type { SessionTurnDriver } from './methods/session-driver.js';
+import type { SessionExchangeAnswerHandle } from './methods/session-exchange-answer.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
+import type { SessionEventRelay } from './session-event-relay.js';
 import { attachWebRpcTransport, type WebRpcTransport } from './websocket.js';
 
 export interface WebHostOptions {
@@ -15,6 +18,9 @@ export interface WebHostOptions {
   coordinator?: WorkspaceSessionCoordinator;
   webAssetRoot?: string;
   productUpdates?: ProductUpdatePublisher;
+  sessionEvents?: SessionEventRelay;
+  sessionTurnDriver?: SessionTurnDriver;
+  sessionExchangeAnswer?: SessionExchangeAnswerHandle;
 }
 
 export interface RunningWebHost {
@@ -71,12 +77,15 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
     rpcTransport = attachWebRpcTransport({
       server,
       path: '/rpc',
-      handlers: createReadOnlyRpcHandlers({
+      handlers: createWebSidecarRpcHandlers({
         coordinator: options.coordinator,
         cwd: options.cwd,
         productUpdates,
+        ...(options.sessionTurnDriver ? { sessionTurnDriver: options.sessionTurnDriver } : {}),
+        ...(options.sessionExchangeAnswer ? { sessionExchangeAnswer: options.sessionExchangeAnswer } : {}),
       }),
       productUpdates,
+      ...(options.sessionEvents ? { sessionEvents: options.sessionEvents } : {}),
     });
   }
 

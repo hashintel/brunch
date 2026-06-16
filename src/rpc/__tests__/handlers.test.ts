@@ -29,7 +29,13 @@ import type {
   SpecSessionActivationCoordinator,
   SpecSessionActivationDecision,
 } from '../../session/workspace-session-coordinator.js';
-import { createReadOnlyRpcHandlers, createRpcHandlers, runJsonRpcLineServer } from '../handlers.js';
+import {
+  createReadOnlyRpcHandlers,
+  createRpcHandlers,
+  createWebSidecarRpcHandlers,
+  runJsonRpcLineServer,
+} from '../handlers.js';
+import { NO_LIVE_AGENT_SESSION_DRIVER_MESSAGE } from '../methods/session-driver.js';
 import { createProductUpdatePublisher } from '../product-updates.js';
 
 /**
@@ -2417,6 +2423,31 @@ describe('JSON-RPC handlers', () => {
     expect(JSON.stringify(devDiscovery.result)).toContain('existingCode');
     expect(JSON.stringify(devDiscovery.result)).toContain('explicit');
     expect(JSON.stringify(devDiscovery.result)).toContain('implicit');
+  });
+
+  it('maps an attached-but-not-live sidecar driver to the public no-live-driver error', async () => {
+    const handlers = createWebSidecarRpcHandlers({
+      coordinator: coordinator(),
+      cwd: '/tmp/brunch-project',
+      sessionTurnDriver: {
+        async prompt() {
+          return { driven: false };
+        },
+      },
+    });
+
+    await expect(
+      handlers.handle({
+        jsonrpc: '2.0',
+        id: 60,
+        method: 'session.driveTurn',
+        params: { prompt: 'try to drive before the live session exists' },
+      }),
+    ).resolves.toEqual({
+      jsonrpc: '2.0',
+      id: 60,
+      error: { code: -32010, message: NO_LIVE_AGENT_SESSION_DRIVER_MESSAGE },
+    });
   });
 
   it('applies create mutateGraph ops through dev RPC and reads them back through public graph RPC', async () => {
