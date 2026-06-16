@@ -294,6 +294,42 @@ A `<specification>` section renders an **Overview** block (spec id/title, graph 
               owns the house-style graph representation                           is the chosen shape)
 ```
 
+### Boundary Crossings
+
+```
+→ read_specification_context tool (NEW, .pi/extensions/context) — the live caller
+→ spec-scoped inspection (filter workspace-overview sessions to specId; ranked
+  read_elicitation_gaps; graph slice for size) — PULL, outside renderers/ (D52-L)
+→ renderers/specification/specification-context.ts — RENDER (md bullets + table + TOON + section)
+→ toolResult text — the LLM-facing <specification> block
+```
+
+### Risks and Assumptions
+
+```
+- RISK: a golden-only render that nothing calls is harness-as-false-proof (it never runs in product).
+    → MITIGATION: wire a real entry point in THIS card — a read_specification_context tool (mirrors
+      read_workspace_context / get-cwd.ts) that PULLs + renders. The golden pins the render; the tool
+      proves it walks on its own bones. (Open: tool vs folding into the per-turn seed re-cluster —
+      recommend the tool now; the seed re-cluster is named, deferred adjacent work.)
+- RISK: the <specification> block re-clusters content today scattered across the per-turn seed (spec
+    header in renderWorkspaceSeed, graph in graphSeed, gaps in the elicitation agenda).
+    → MITIGATION: Card 3 ADDS the clustered render behind its own tool; it does NOT yet rip the
+      scattered blocks out of the seed (that seed re-cluster is a later integration step). No
+      double-surfacing invariant is asserted here beyond the tool's own output.
+- ASSUMPTION: the ranked read_elicitation_gaps agenda is callable as a function the inspector can
+    reuse (the elicitation extension renders it today at .pi/extensions/elicitation/index.ts).
+    → IMPACT IF FALSE: the inspector must derive ranking itself before projecting to TOON.
+    → VALIDATE: locate the ranked-agenda producer during build; reuse it, do not re-rank.
+- ASSUMPTION: countTurnEntries' filter (type user|assistant) still matches the current pi JSONL model.
+    → IMPACT IF FALSE: the surfaced turn/message count is wrong → the golden pins a lie.
+    → VALIDATE: the audit sub-task (build it first), with a pinning test over a fixture transcript.
+```
+
+### Posture check (proving — inherited from renderer-golden-coverage)
+
+Scores on **proof of life** (first live `<specification>` scope block, callable via a real tool) and **invariants** (locks scope-clustering — sessions spec-scoped, gaps TOON, no graph block — and the size-aware table-vs-TOON rule for our data), and retires the open **countTurnEntries** audit assumption. A tracer bullet: if the dialect reads poorly or the audit reveals a wrong count, this card breaks loudly at the golden + the pinning test rather than silently.
+
 ### Sub-task: countTurnEntries audit (can be done independently / first)
 
 ```
@@ -325,6 +361,26 @@ A `<specification>` section renders an **Overview** block (spec id/title, graph 
 ✓ golden                — co-located golden matches the approved §Design sketch (locked after the user eyeball).
 ✓ invariant             — sessions spec-scoped; gaps are TOON; no graph block.
 ```
+
+### Verification Approach
+
+```
+- Inner: vitest toMatchFileSnapshot golden on the render + semantic invariants (no graph block;
+  Sessions is a md table; Gaps parse as a TOON [N]{fields} block; no ATX headings; every session
+  shares the card's specId) + the countTurnEntries pinning test over a fixture transcript.
+- Middle: exercise read_specification_context through its real registration (not a hand-built
+  harness) so the render runs on the product entry point, per the walking-skeleton rule.
+```
+
+### Build sequencing
+
+1. countTurnEntries audit FIRST (independent): verify the filter against the current JSONL model,
+   resolve messages-vs-turns, fix + pin with a test. This settles the `turns` value/label the
+   render's golden depends on — so it precedes the render, not the reverse.
+2. spec-scoped inspection + the specification-context render + golden.
+3. read_specification_context tool registration (the live entry point).
+The audit and render stay ONE card (the render's golden inherits the audit's outcome); the audit is
+an internal first step, not a separate chain card.
 
 ### Design — APPROVED 2026-06-16
 
@@ -370,8 +426,16 @@ The Sessions `name` column has NO data source today: `WorkspaceSessionOverview` 
 ### Expected touched paths (tentative)
 
 ```
-src/renderers/specification/        +?   (new <specification> render home, or compose within session/workspace-overview)
-└── __tests__/__previews__/         +
-src/session/workspace-overview-context.ts  ~   (countTurnEntries audit; spec-scoped session list)
-src/renderers/README.md             ~   (ledger row)
+src/renderers/specification/
+├── specification-context.ts          +    (the <specification> house-style render)
+└── __tests__/
+    ├── specification-context.test.ts +    (golden + semantic invariants)
+    └── __previews__/                 +    (golden)
+src/session/
+├── workspace-overview-context.ts     ~    (countTurnEntries audit + messages-vs-turns fix; pinning test)
+└── specification-overview-context.ts +?   (inspect -> render composition, mirrors renderWorkspaceOverviewContext)
+src/.pi/extensions/context/
+├── get-specification.ts              +?   (read_specification_context tool entry — the live caller)
+└── index.ts                          ~    (register read_specification_context)
+src/renderers/README.md               ~    (ledger row)
 ```
