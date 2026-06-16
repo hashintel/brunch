@@ -74,6 +74,7 @@ describe('runProbe classifies real app reachability', () => {
 
   it('a missing boot binary → infra, not a crash', async () => {
     const dir = sandbox(appServing({ '/health': 200 }));
+    const started = Date.now();
     const result = await runProbe(
       {
         boot: ['definitely-not-a-real-binary-xyz'],
@@ -83,6 +84,7 @@ describe('runProbe classifies real app reachability', () => {
       dir,
     );
     expect(result.kind).toBe('infra');
+    expect(Date.now() - started).toBeLessThan(1_000);
   });
 });
 
@@ -105,8 +107,10 @@ describe('runProbe bounds its HTTP calls so a hung app cannot hang the probe', (
       featurePath: '/feature',
     });
     const dir = sandbox(neverResponds());
-    const result = await runProbe(spec, dir, { readyTimeoutMs: 600, readyAttemptMs: 150 });
+    const started = Date.now();
+    const result = await runProbe(spec, dir, { readyTimeoutMs: 600, readyAttemptMs: 2_000 });
     expect(result.kind).toBe('infra');
+    expect(Date.now() - started).toBeLessThan(1_200);
   });
 
   it('a booted app whose feature endpoint never responds → infra, not a hang', async () => {
