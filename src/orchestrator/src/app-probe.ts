@@ -11,14 +11,57 @@
 // read-only (`pi-actions.ts`).
 
 import { type ChildProcess, spawn } from 'node:child_process';
+import { createServer } from 'node:net';
 
-import type { ProbeResult, ProbeSpec } from './types.js';
+import type { ProbeResult, ProbeSpec, ProbeTarget } from './types.js';
 
 const READY_TIMEOUT_MS = 10_000;
 const READY_POLL_MS = 150;
 const TEARDOWN_GRACE_MS = 2_000;
+const DEFAULT_HOST = '127.0.0.1';
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Resolve a `ProbeTarget` (boot argv + paths) into a runnable `ProbeSpec` by
+ * picking a port and assembling the ready/feature URLs. URL/env assembly is the
+ * harness-owned piece: the boot argv + paths come from cook-time grounding, but
+ * the port must not be hardcoded — under parallel cook each slice boots its own
+ * app and a fixed port would collide. The allocated `PORT` is exposed to the
+ * boot process via env (the near-universal convention); caller env is layered
+ * first so `PORT` always wins. Always loopback — non-loopback bind-host
+ * semantics aren't owned here and aren't needed for the reachability check.
+ */
+export async function buildProbeSpec(target: ProbeTarget): Promise<ProbeSpec> {
+  const port = await allocatePort();
+  const base = `http://${DEFAULT_HOST}:${port}`;
+  return {
+    boot: target.boot,
+    readyUrl: `${base}${target.readyPath}`,
+    featureUrl: `${base}${target.featurePath}`,
+    env: { ...target.env, PORT: String(port) },
+  };
+}
+
+/**
+ * Best-effort free ephemeral port. Bind :0, read the assigned port, release it.
+ * There is an inherent release-then-claim window (TOCTOU): another process could
+ * grab the port before the boot child binds it. On loopback with OS-assigned
+ * ephemeral ports this is rare and acceptable for this harness — if it ever
+ * causes real flake, the booted app's actual bound port becomes the source of
+ * truth (a later frontier), not a retry loop here.
+ */
+function allocatePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.once('error', reject);
+    srv.listen(0, DEFAULT_HOST, () => {
+      const addr = srv.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      srv.close(() => resolve(port));
+    });
+  });
+}
 
 /**
  * Boot the app, wait until it accepts connections, probe the feature endpoint,

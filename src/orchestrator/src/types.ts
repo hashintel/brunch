@@ -162,6 +162,24 @@ export type ProbeSpec = {
   env?: Record<string, string>;
 };
 
+/**
+ * The harness-resolvable shape of a probe: boot argv + the *paths* to poll and
+ * exercise, before a concrete port is bound. `buildProbeSpec` turns this into a
+ * `ProbeSpec` by allocating a free port — the deterministic, harness-owned piece
+ * (a hardcoded port collides under parallel cook). Cook-time grounding later
+ * supplies the argv + paths; the harness never guesses them.
+ */
+export type ProbeTarget = {
+  /** Argv that boots the app in the sandbox (e.g. `['node','server.js']`). */
+  boot: readonly string[];
+  /** Path polled until the app accepts connections (e.g. `/health`). */
+  readyPath: string;
+  /** Path whose response decides feature reachability (e.g. `/feature`). */
+  featurePath: string;
+  /** Extra env for the boot process; the allocated `PORT` is added on top. */
+  env?: Record<string, string>;
+};
+
 export type ProbeResult = {
   kind: ProbeOutcomeKind;
   /** Convenience: `kind === 'reachable'`. */
