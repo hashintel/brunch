@@ -1,10 +1,12 @@
 # renderers/ — reusable lossy text rendering
 
-SPEC decisions: D52-L, D60-L, D62-L
+SPEC decisions: D52-L, D60-L, D62-L, D83-L
 
 ## Owns
 
 Reusable lossy renderers that turn domain or projection inputs into markdown, compact text, TOON-like summaries, or toolResult content text.
+
+**Context-render house style (D83-L).** LLM-facing agent context renders use one dialect: a markdown frame via **md-pen** (`markdown.ts` wrapper seam), uniform record sets as **TOON** via `@toon-format/toon` (`toon.ts` wrapper seam), file hierarchy as a fenced ` ```tree ` block from a pure-JS tree renderer (stringify-tree) fed by `workspace/cwd-inventory.ts` (never the system `tree` binary), and each top-level block wrapped in an XML-style `<section>` tag. Format follows reader legibility, not internal shape — prose where structure would mislead (e.g. the neighborhood no-structural-leak rule). Agent context clusters into `<workspace>` / `<specification>` / `<session>` scopes (D19-L); these are distinct from the `workspace.state` product-state projection (D60-L). Rollout is incremental (workspace + specification first); this frontier's ledger re-scopes around the dialect as renderers migrate.
 
 Renderers may import input types from `projections/`, `graph/`, `session/`, or `workspace/`, but they do not construct canonical DTOs, register Pi tools, handle RPC, or import web/app adapters.
 
