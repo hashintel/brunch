@@ -3,13 +3,12 @@
 // behavior the orphan check depends on. Apps are zero-dep `node:http` scripts.
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { runProbe } from './app-probe.js';
+import { buildProbeSpec, runProbe } from './app-probe.js';
 import type { ProbeSpec } from './types.js';
 
 const dirs: string[] = [];
@@ -25,19 +24,6 @@ function sandbox(serverSource: string): string {
   return dir;
 }
 
-/** A free ephemeral port, released before the boot process claims it. */
-function freePort(): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const srv = createServer();
-    srv.once('error', reject);
-    srv.listen(0, '127.0.0.1', () => {
-      const addr = srv.address();
-      const port = typeof addr === 'object' && addr ? addr.port : 0;
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
 /** An app that answers `routes` (path → status); everything else is 404. */
 const appServing = (routes: Record<string, number>): string =>
   `const http = require('node:http');\n` +
@@ -47,18 +33,15 @@ const appServing = (routes: Record<string, number>): string =>
   `  res.writeHead(status); res.end(String(status));\n` +
   `}).listen(Number(process.env.PORT), '127.0.0.1');\n`;
 
+// Dogfoods the harness-owned spec builder: the test supplies only argv + paths,
+// `buildProbeSpec` allocates the port and assembles the URLs the app boots on.
 async function specFor(routes: Record<string, number>): Promise<{ spec: ProbeSpec; dir: string }> {
-  const port = await freePort();
-  const base = `http://127.0.0.1:${port}`;
-  return {
-    dir: sandbox(appServing(routes)),
-    spec: {
-      boot: ['node', 'server.js'],
-      readyUrl: `${base}/health`,
-      featureUrl: `${base}/feature`,
-      env: { PORT: String(port) },
-    },
-  };
+  const spec = await buildProbeSpec({
+    boot: ['node', 'server.js'],
+    readyPath: '/health',
+    featurePath: '/feature',
+  });
+  return { dir: sandbox(appServing(routes)), spec };
 }
 
 describe('runProbe classifies real app reachability', () => {
@@ -109,5 +92,39 @@ describe('runProbe tears the boot process down', () => {
     await runProbe(spec, dir);
     // The port the app bound should be free again — nothing left listening.
     await expect(fetch(spec.featureUrl)).rejects.toThrow();
+  });
+});
+
+describe('buildProbeSpec resolves a target into a runnable spec', () => {
+  it('allocates a port and assembles ready/feature URLs from the paths', async () => {
+    const spec = await buildProbeSpec({
+      boot: ['node', 'server.js'],
+      readyPath: '/health',
+      featurePath: '/feature',
+    });
+    const port = Number(spec.env?.PORT);
+    expect(port).toBeGreaterThan(0);
+    expect(spec.readyUrl).toBe(`http://127.0.0.1:${port}/health`);
+    expect(spec.featureUrl).toBe(`http://127.0.0.1:${port}/feature`);
+    expect(spec.boot).toEqual(['node', 'server.js']);
+  });
+
+  it('layers caller env under the allocated PORT so PORT always wins', async () => {
+    const spec = await buildProbeSpec({
+      boot: ['node', 'server.js'],
+      readyPath: '/',
+      featurePath: '/',
+      env: { NODE_ENV: 'test', PORT: '1' },
+    });
+    expect(spec.env?.NODE_ENV).toBe('test');
+    expect(Number(spec.env?.PORT)).toBeGreaterThan(1);
+  });
+
+  it('hands out distinct ports across concurrent allocations', async () => {
+    const specs = await Promise.all(
+      Array.from({ length: 8 }, () => buildProbeSpec({ boot: ['x'], readyPath: '/', featurePath: '/' })),
+    );
+    const ports = specs.map((s) => Number(s.env?.PORT));
+    expect(new Set(ports).size).toBe(ports.length);
   });
 });
