@@ -49,17 +49,28 @@ describe('detectProfile maps real manifest/lockfile evidence to a registry profi
 });
 
 describe('detectProfile fails loudly rather than defaulting silently', () => {
-  it('a Python project → not detected, reason names Python and lists valid profiles', () => {
-    const result = detectProfile(repo({ 'pyproject.toml': '[project]\nname = "x"\n' }));
+  it('package.json declaring BOTH vitest and jest → ambiguous, not detected', () => {
+    // The cheap check resolves a single clear signal; two runners is genuinely
+    // ambiguous and must not be silently resolved by check-order.
+    const result = detectProfile(repo({ 'package.json': pkg({ vitest: '^2.0.0', jest: '^29.0.0' }) }));
     expect(result.detected).toBe(false);
-    expect(!result.detected && result.reason).toMatch(/Python/);
-    expect(!result.detected && result.reason).toMatch(/node-vitest/);
+    expect(!result.detected && result.reason).toMatch(/ambiguous/i);
+    expect(!result.detected && result.reason).toMatch(/--profile/);
   });
 
-  it('a Go project → not detected, reason names Go', () => {
-    const result = detectProfile(repo({ 'go.mod': 'module x\n' }));
-    expect(result.detected).toBe(false);
-    expect(!result.detected && result.reason).toMatch(/Go/);
+  it('a non-JS project (Python/Go) → not detected, actionable reason listing valid profiles', () => {
+    // No language-detection engine: any repo without JS/TS evidence falls to the
+    // same actionable catch-all (brunch only supports the registry's JS profiles).
+    const nonJsRepos: Record<string, string>[] = [
+      { 'pyproject.toml': '[project]\nname = "x"\n' },
+      { 'go.mod': 'module x\n' },
+    ];
+    for (const files of nonJsRepos) {
+      const result = detectProfile(repo(files));
+      expect(result.detected).toBe(false);
+      expect(!result.detected && result.reason).toMatch(/could not detect/);
+      expect(!result.detected && result.reason).toMatch(/node-vitest/);
+    }
   });
 
   it('an unrecognized directory → not detected, actionable reason', () => {
