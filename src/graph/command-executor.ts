@@ -21,36 +21,43 @@ import { and, eq, sql } from 'drizzle-orm';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
+import type {
+  AcceptReviewSetDryRunResult,
+  AcceptReviewSetInput,
+  AcceptReviewSetResult,
+  CreateElicitationGapInput,
+  CreateElicitationGapResult,
+  CreateNodeInput,
+  CreateNodeResult,
+  CreateReconNeedInput,
+  CreateReconNeedResult,
+  CreateSpecInput,
+  CreateSpecResult,
+  RepairSeededElicitationGapsResult,
+  RepairSeededElicitationGapsSpecResult,
+  ResolveReconNeedInput,
+  ResolveReconNeedResult,
+  SetElicitationGapDispositionInput,
+  SetElicitationGapDispositionResult,
+  SpecRecord,
+} from './command-executor/command-types.js';
+import {
+  isGapDisposition,
+  validateCreateElicitationGap,
+  validateCreateNode,
+  validateEdgePatch,
+  validateNodePatchAgainstExisting,
+} from './command-executor/command-validation.js';
 import { planGraphMutation } from './command-executor/graph-mutation-planner.js';
 import type {
-  EdgePatch,
   Diagnostic,
   MutateGraphDryRunResult,
   MutateGraphInput,
   MutateGraphResult,
-  MutateGraphSuccess,
-  NodePatch,
-  StructuralIllegal,
 } from './command-executor/graph-mutation-types.js';
 import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
 import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
-import {
-  gapPredicateSupport,
-  type ElicitationGapLensAffinity,
-  type GapDisposition,
-  type GapPredicate,
-} from './schema/elicitation-gaps.js';
-import {
-  DESIGN_KINDS,
-  INTENT_KINDS,
-  GAP_DISPOSITIONS,
-  GAP_PREDICATE_KINDS,
-  LENS_AFFINITIES,
-  NODE_BASES,
-  ORACLE_KINDS,
-  PLAN_KINDS,
-  READINESS_BANDS,
-} from './schema/kinds.js';
+import type { ElicitationGapLensAffinity, GapPredicate } from './schema/elicitation-gaps.js';
 import { type NodeBasis, type NodeKind, type NodePlane, type ReadinessBand } from './schema/nodes.js';
 
 export type {
@@ -67,244 +74,31 @@ export type {
 } from './command-executor/graph-mutation-types.js';
 export { normalizeRoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
 export type { RoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
+export type {
+  AcceptReviewSetDryRunResult,
+  AcceptReviewSetInput,
+  AcceptReviewSetResult,
+  CommandResult,
+  CreateElicitationGapInput,
+  CreateElicitationGapResult,
+  CreateNodeInput,
+  CreateNodeResult,
+  CreateReconNeedInput,
+  CreateReconNeedResult,
+  CreateSpecInput,
+  CreateSpecResult,
+  RepairSeededElicitationGapsResult,
+  RepairSeededElicitationGapsSpecResult,
+  ResolveReconNeedInput,
+  ResolveReconNeedResult,
+  SetElicitationGapDispositionInput,
+  SetElicitationGapDispositionResult,
+  SpecRecord,
+} from './command-executor/command-types.js';
 
 // ---------------------------------------------------------------------------
-// Result types
+// Seeded elicitation gaps
 // ---------------------------------------------------------------------------
-
-/** Successful command execution. */
-interface CommandSuccess {
-  readonly status: 'success';
-  readonly nodeId: number;
-  readonly lsn: number;
-}
-
-/** Action requires human confirmation (M6 placeholder). */
-interface NeedsHuman {
-  readonly status: 'needs_human';
-}
-
-/** Action blocked by authority policy (M6 placeholder). */
-interface PolicyBlocked {
-  readonly status: 'policy_blocked';
-}
-
-/** Optimistic concurrency conflict (M6 placeholder). */
-interface VersionConflict {
-  readonly status: 'version_conflict';
-}
-
-/** Successful reconciliation-need creation. */
-interface ReconNeedSuccess {
-  readonly status: 'success';
-  readonly id: number;
-  readonly lsn: number;
-}
-
-/** Successful reconciliation-need resolution. */
-interface ReconNeedResolveSuccess {
-  readonly status: 'success';
-  readonly lsn: number;
-}
-
-/** Successful spec creation. */
-interface CreateSpecSuccess {
-  readonly status: 'success';
-  readonly specId: number;
-  readonly lsn: number;
-}
-
-/** Successful elicitation-gap creation. */
-interface ElicitationGapSuccess {
-  readonly status: 'success';
-  readonly id: number;
-  readonly lsn: number;
-}
-
-/** Successful elicitation-gap disposition update. */
-interface ElicitationGapDispositionSuccess {
-  readonly status: 'success';
-  readonly lsn: number;
-}
-
-export interface RepairSeededElicitationGapsSpecResult {
-  readonly specId: number;
-  readonly insertedCount: number;
-  readonly lsn: number;
-}
-
-interface RepairSeededElicitationGapsSuccess {
-  readonly status: 'success';
-  readonly repairedSpecs: readonly RepairSeededElicitationGapsSpecResult[];
-}
-
-/** Spec row returned by CommandExecutor reads. */
-export interface SpecRecord {
-  readonly id: number;
-  readonly name: string;
-  readonly slug: string;
-}
-
-/** Union of all possible command results. */
-export type CommandResult =
-  | CommandSuccess
-  | MutateGraphSuccess
-  | AcceptReviewSetSuccess
-  | ReconNeedSuccess
-  | ReconNeedResolveSuccess
-  | CreateSpecSuccess
-  | ElicitationGapSuccess
-  | ElicitationGapDispositionSuccess
-  | RepairSeededElicitationGapsSuccess
-  | StructuralIllegal
-  | NeedsHuman
-  | PolicyBlocked
-  | VersionConflict;
-
-/** Result of a createNode command. */
-export type CreateNodeResult = CommandSuccess | StructuralIllegal;
-
-/** Result of a createReconciliationNeed command. */
-export type CreateReconNeedResult = ReconNeedSuccess | StructuralIllegal;
-
-/** Result of a resolveReconciliationNeed command. */
-export type ResolveReconNeedResult = ReconNeedResolveSuccess | StructuralIllegal;
-
-/** Result of a createSpec command. */
-export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
-
-/** Result of a createElicitationGap command. */
-export type CreateElicitationGapResult = ElicitationGapSuccess | StructuralIllegal;
-
-/** Result of a setElicitationGapDisposition command. */
-export type SetElicitationGapDispositionResult = ElicitationGapDispositionSuccess | StructuralIllegal;
-
-/** Result of repairing legacy specs missing the current seeded gap floor. */
-export type RepairSeededElicitationGapsResult = RepairSeededElicitationGapsSuccess;
-
-/** Successful accepted review-set graph batch execution. */
-interface AcceptReviewSetSuccess extends MutateGraphSuccess {}
-
-/** Result of an acceptReviewSet command. */
-export type AcceptReviewSetResult = AcceptReviewSetSuccess | StructuralIllegal;
-
-/** Result of validating a review-set payload before user presentation. */
-export type AcceptReviewSetDryRunResult = { readonly status: 'success' } | StructuralIllegal;
-
-type ExistingNodeRow = typeof schema.nodes.$inferSelect;
-
-// ---------------------------------------------------------------------------
-// Input types
-// ---------------------------------------------------------------------------
-
-/** Input for creating a spec row. */
-export interface CreateSpecInput {
-  readonly name: string;
-  readonly slug: string;
-}
-
-/** Input for accepting an exact user-reviewed graph batch. */
-export interface AcceptReviewSetInput {
-  readonly specId: number;
-  readonly proposalEntryId?: string | undefined;
-  readonly payload: unknown;
-}
-
-/** Input for creating an elicitation gap. */
-export interface CreateElicitationGapInput {
-  readonly specId: number;
-  readonly refersTo: NodeKind;
-  readonly question: string;
-  readonly rationale: string;
-  readonly basis?: NodeBasis | undefined;
-  readonly band: ReadinessBand;
-  readonly predicate: GapPredicate;
-  readonly importance?: number | undefined;
-  readonly planeAffinity?: NodePlane | undefined;
-  readonly lensAffinity?: ElicitationGapLensAffinity | undefined;
-  readonly aroseFromGapId?: number | undefined;
-}
-
-/** Input for updating an elicitation gap's non-derivable disposition. */
-export interface SetElicitationGapDispositionInput {
-  readonly specId: number;
-  readonly id: number;
-  readonly disposition: Extract<
-    GapDisposition,
-    'open' | 'answered' | 'not_applicable' | 'irrelevant' | 'reopened'
-  >;
-  readonly resolvedByNodeId?: number | undefined;
-}
-
-/** Input for creating a single graph node. */
-export interface CreateNodeInput {
-  readonly specId: number;
-  readonly plane: NodePlane;
-  readonly kind: string;
-  readonly title: string;
-  readonly body?: string | undefined;
-  readonly basis?: NodeBasis | undefined;
-  readonly source?: string | undefined;
-  readonly detail?: unknown;
-}
-
-// ---------------------------------------------------------------------------
-// Reconciliation-need input types
-// ---------------------------------------------------------------------------
-
-/** Target for a reconciliation need — edge or node pair. */
-type ReconNeedTargetEdge = {
-  readonly kind: 'edge';
-  readonly edgeId: number;
-};
-
-/** Target for a reconciliation need — node pair. */
-type ReconNeedTargetNodePair = {
-  readonly kind: 'node_pair';
-  readonly aId: number;
-  readonly bId: number;
-};
-
-/** Target for a reconciliation need. */
-type ReconNeedTarget = ReconNeedTargetEdge | ReconNeedTargetNodePair;
-
-/** Input for creating a reconciliation need. */
-export interface CreateReconNeedInput {
-  readonly specId: number;
-  readonly target: ReconNeedTarget;
-  readonly needKind: string;
-  readonly reason?: string | undefined;
-}
-
-/** Input for resolving a reconciliation need. */
-export interface ResolveReconNeedInput {
-  readonly specId: number;
-  readonly id: number;
-}
-
-// ---------------------------------------------------------------------------
-// Validation
-// ---------------------------------------------------------------------------
-
-const VALID_KINDS_BY_PLANE: Record<string, readonly string[]> = {
-  intent: INTENT_KINDS as unknown as string[],
-  oracle: ORACLE_KINDS as unknown as string[],
-  design: DESIGN_KINDS as unknown as string[],
-  plan: PLAN_KINDS as unknown as string[],
-};
-
-const KINDS_REQUIRING_DETAIL = new Set<string>(['decision', 'term']);
-const VALID_NODE_BASES = NODE_BASES as unknown as string[];
-const VALID_READINESS_BANDS = READINESS_BANDS as unknown as string[];
-const VALID_NODE_KINDS = [
-  ...INTENT_KINDS,
-  ...ORACLE_KINDS,
-  ...DESIGN_KINDS,
-  ...PLAN_KINDS,
-] as readonly string[];
-const VALID_GAP_DISPOSITIONS = GAP_DISPOSITIONS as unknown as string[];
-const VALID_GAP_PREDICATE_KINDS = GAP_PREDICATE_KINDS as unknown as string[];
-const VALID_LENS_AFFINITIES = LENS_AFFINITIES as unknown as string[];
 
 const SEEDED_ELICITATION_GAPS: readonly {
   readonly refersTo: NodeKind;
@@ -384,323 +178,6 @@ const SEEDED_ELICITATION_GAPS: readonly {
     lensAffinity: 'intent',
   },
 ] as const;
-
-function isNodeBasis(value: string): value is NodeBasis {
-  return VALID_NODE_BASES.includes(value);
-}
-
-function isNodePlane(value: string): value is NodePlane {
-  return value === 'intent' || value === 'oracle' || value === 'design' || value === 'plan';
-}
-
-function isReadinessBand(value: string): value is ReadinessBand {
-  return VALID_READINESS_BANDS.includes(value);
-}
-
-function isElicitationGapLensAffinity(value: string): value is ElicitationGapLensAffinity {
-  return VALID_LENS_AFFINITIES.includes(value);
-}
-
-function isGapDisposition(value: string): value is GapDisposition {
-  return VALID_GAP_DISPOSITIONS.includes(value);
-}
-
-function validateGapPredicate(predicate: GapPredicate, diagnostics: Diagnostic[]): void {
-  if (typeof predicate !== 'object' || predicate === null) {
-    diagnostics.push({ field: 'predicate', message: 'predicate must be an object' });
-    return;
-  }
-
-  if (!VALID_GAP_PREDICATE_KINDS.includes(predicate.kind)) {
-    diagnostics.push({ field: 'predicate.kind', message: 'predicate kind is not valid' });
-    return;
-  }
-
-  if (gapPredicateSupport(predicate.kind) === 'unsupported') {
-    diagnostics.push({ field: 'predicate.kind', message: 'predicate kind not yet supported' });
-    return;
-  }
-
-  if (predicate.kind === 'presence') {
-    if (!Number.isInteger(predicate.minimum) || predicate.minimum < 1) {
-      diagnostics.push({ field: 'predicate.minimum', message: 'minimum must be a positive integer' });
-    }
-    if (predicate.plane !== undefined && !isNodePlane(predicate.plane)) {
-      diagnostics.push({ field: 'predicate.plane', message: 'plane is not valid' });
-    }
-    if (predicate.band !== undefined && !isReadinessBand(predicate.band)) {
-      diagnostics.push({ field: 'predicate.band', message: 'band is not valid' });
-    }
-    if (predicate.nodeKind !== undefined && !VALID_NODE_KINDS.includes(predicate.nodeKind)) {
-      diagnostics.push({ field: 'predicate.nodeKind', message: 'node kind is not valid' });
-    }
-    if (predicate.nodeKind === undefined && predicate.band === undefined) {
-      diagnostics.push({ field: 'predicate', message: 'presence predicate needs nodeKind or band' });
-    }
-  }
-}
-
-function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
-  const diagnostics: Diagnostic[] = [];
-
-  // Title must be non-empty
-  if (!input.title.trim()) {
-    diagnostics.push({ field: 'title', message: 'title must be non-empty' });
-  }
-
-  if (input.basis !== undefined && !isNodeBasis(input.basis)) {
-    diagnostics.push({
-      field: 'basis',
-      message: 'basis must be explicit or implicit',
-    });
-  }
-
-  // Kind must be valid for the given plane
-  const validKinds = VALID_KINDS_BY_PLANE[input.plane];
-  if (!validKinds?.includes(input.kind)) {
-    diagnostics.push({
-      field: 'kind',
-      message: `"${input.kind}" is not a valid kind for plane "${input.plane}"`,
-    });
-    return diagnostics; // can't validate detail if kind is wrong
-  }
-
-  // Detail requirement: decision and term REQUIRE detail
-  if (KINDS_REQUIRING_DETAIL.has(input.kind) && input.detail == null) {
-    diagnostics.push({
-      field: 'detail',
-      message: `"${input.kind}" nodes require a detail object`,
-    });
-    return diagnostics;
-  }
-
-  // Detail prohibition: all other kinds must NOT have detail
-  if (!KINDS_REQUIRING_DETAIL.has(input.kind) && input.detail != null) {
-    diagnostics.push({
-      field: 'detail',
-      message: `"${input.kind}" nodes must not have a detail object`,
-    });
-    return diagnostics;
-  }
-
-  // Validate detail shape per kind
-  if (input.kind === 'decision' && input.detail != null) {
-    validateDecisionDetail(input.detail, diagnostics);
-  }
-  if (input.kind === 'term' && input.detail != null) {
-    validateTermDetail(input.detail, diagnostics);
-  }
-
-  return diagnostics;
-}
-
-function hasOwn(object: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(object, key);
-}
-
-function parseNodeDetail(row: ExistingNodeRow): unknown {
-  return row.detail == null ? undefined : JSON.parse(row.detail);
-}
-
-function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: NodePatch): Diagnostic[] {
-  const diagnostics: Diagnostic[] = [];
-  const patchRecord = patch as Record<string, unknown>;
-  const patchFields = Object.keys(patchRecord);
-  const allowedFields = new Set(['title', 'body', 'source', 'detail']);
-
-  if (patchFields.length === 0) {
-    diagnostics.push({ field: 'patch', message: 'patch_node requires at least one patch field' });
-    return diagnostics;
-  }
-
-  for (const field of patchFields) {
-    if (!allowedFields.has(field)) {
-      diagnostics.push({ field: `patch.${field}`, message: 'field is not patchable' });
-    }
-  }
-
-  if (hasOwn(patchRecord, 'title') && typeof patch.title !== 'string') {
-    diagnostics.push({ field: 'patch.title', message: 'title must be a string when present' });
-  }
-  if (hasOwn(patchRecord, 'body') && patch.body !== null && typeof patch.body !== 'string') {
-    diagnostics.push({ field: 'patch.body', message: 'body must be a string or null when present' });
-  }
-  if (hasOwn(patchRecord, 'source') && patch.source !== null && typeof patch.source !== 'string') {
-    diagnostics.push({ field: 'patch.source', message: 'source must be a string or null when present' });
-  }
-
-  const merged: CreateNodeInput = {
-    specId: row.spec_id,
-    plane: row.plane,
-    kind: row.kind,
-    title: hasOwn(patchRecord, 'title') ? (patch.title as string) : row.title,
-    body: hasOwn(patchRecord, 'body') ? (patch.body ?? undefined) : (row.body ?? undefined),
-    basis: row.basis,
-    source: hasOwn(patchRecord, 'source') ? (patch.source ?? undefined) : (row.source ?? undefined),
-    detail: hasOwn(patchRecord, 'detail') ? patch.detail : parseNodeDetail(row),
-  };
-
-  diagnostics.push(
-    ...validateCreateNode(merged).map((diagnostic) => ({
-      field: `patch.${diagnostic.field}`,
-      message: diagnostic.message,
-    })),
-  );
-
-  return diagnostics;
-}
-
-function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
-  const diagnostics: Diagnostic[] = [];
-  const patchRecord = patch as Record<string, unknown>;
-  const patchFields = Object.keys(patchRecord);
-
-  if (patchFields.length === 0) {
-    diagnostics.push({ field: 'patch', message: 'patch_edge requires at least one patch field' });
-    return diagnostics;
-  }
-
-  for (const field of patchFields) {
-    if (field !== 'rationale') {
-      diagnostics.push({ field: `patch.${field}`, message: 'field is not patchable' });
-    }
-  }
-
-  if (hasOwn(patchRecord, 'rationale') && patch.rationale !== null && typeof patch.rationale !== 'string') {
-    diagnostics.push({
-      field: 'patch.rationale',
-      message: 'rationale must be a string or null when present',
-    });
-  }
-
-  return diagnostics;
-}
-
-function validateCreateElicitationGap(input: CreateElicitationGapInput): Diagnostic[] {
-  const diagnostics: Diagnostic[] = [];
-
-  if (!VALID_NODE_KINDS.includes(input.refersTo)) {
-    diagnostics.push({ field: 'refersTo', message: `"${String(input.refersTo)}" is not a valid node kind` });
-  }
-
-  if (!input.question.trim()) {
-    diagnostics.push({ field: 'question', message: 'question must be non-empty' });
-  }
-
-  if (!input.rationale.trim()) {
-    diagnostics.push({ field: 'rationale', message: 'rationale must be non-empty' });
-  }
-
-  if (input.basis !== undefined && !isNodeBasis(input.basis)) {
-    diagnostics.push({ field: 'basis', message: 'basis must be explicit or implicit' });
-  }
-
-  if (!isReadinessBand(input.band)) {
-    diagnostics.push({
-      field: 'band',
-      message: `"${String(input.band)}" is not a valid readiness band`,
-    });
-  }
-
-  if (input.importance !== undefined && (!Number.isInteger(input.importance) || input.importance < 1)) {
-    diagnostics.push({ field: 'importance', message: 'importance must be a positive integer' });
-  }
-
-  validateGapPredicate(input.predicate, diagnostics);
-
-  if (input.predicate.kind === 'manual' && !input.predicate.rubric.trim()) {
-    diagnostics.push({ field: 'predicate.rubric', message: 'manual predicate rubric must be non-empty' });
-  }
-
-  if (input.planeAffinity !== undefined && !isNodePlane(input.planeAffinity)) {
-    diagnostics.push({
-      field: 'planeAffinity',
-      message: `"${String(input.planeAffinity)}" is not a valid plane affinity`,
-    });
-  }
-
-  if (input.lensAffinity !== undefined && !isElicitationGapLensAffinity(input.lensAffinity)) {
-    diagnostics.push({
-      field: 'lensAffinity',
-      message: `"${String(input.lensAffinity)}" is not a valid lens affinity`,
-    });
-  }
-
-  return diagnostics;
-}
-
-function validateDecisionDetail(detail: unknown, diagnostics: Diagnostic[]): void {
-  if (typeof detail !== 'object' || detail === null) {
-    diagnostics.push({ field: 'detail', message: 'must be an object' });
-    return;
-  }
-
-  const d = detail as Record<string, unknown>;
-  const knownFields = new Set(['chosen_option', 'rejected', 'rationale']);
-
-  if (typeof d['chosen_option'] !== 'string') {
-    diagnostics.push({
-      field: 'detail.chosen_option',
-      message: 'required string',
-    });
-  }
-
-  if (
-    !Array.isArray(d['rejected']) ||
-    d['rejected'].length < 1 ||
-    !d['rejected'].every((r) => typeof r === 'string')
-  ) {
-    diagnostics.push({
-      field: 'detail.rejected',
-      message: 'required non-empty string array',
-    });
-  }
-
-  if (typeof d['rationale'] !== 'string') {
-    diagnostics.push({ field: 'detail.rationale', message: 'required string' });
-  }
-
-  // Closed validation: reject unknown fields
-  for (const key of Object.keys(d)) {
-    if (!knownFields.has(key)) {
-      diagnostics.push({ field: `detail.${key}`, message: 'unknown field' });
-    }
-  }
-}
-
-function validateTermDetail(detail: unknown, diagnostics: Diagnostic[]): void {
-  if (typeof detail !== 'object' || detail === null) {
-    diagnostics.push({ field: 'detail', message: 'must be an object' });
-    return;
-  }
-
-  const d = detail as Record<string, unknown>;
-  const knownFields = new Set(['definition', 'aliases']);
-
-  if (typeof d['definition'] !== 'string') {
-    diagnostics.push({
-      field: 'detail.definition',
-      message: 'required string',
-    });
-  }
-
-  if (
-    d['aliases'] != null &&
-    (!Array.isArray(d['aliases']) || !d['aliases'].every((a) => typeof a === 'string'))
-  ) {
-    diagnostics.push({
-      field: 'detail.aliases',
-      message: 'must be a string array if present',
-    });
-  }
-
-  // Closed validation: reject unknown fields
-  for (const key of Object.keys(d)) {
-    if (!knownFields.has(key)) {
-      diagnostics.push({ field: `detail.${key}`, message: 'unknown field' });
-    }
-  }
-}
 
 function specRecordFromRow(row: typeof schema.specs.$inferSelect): SpecRecord {
   return {
