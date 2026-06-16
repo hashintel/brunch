@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   createPiActions,
@@ -120,6 +120,153 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
     const payload = reports.getById(id)!.payload as { passed: boolean; failureKind?: string };
     expect(payload.passed).toBe(false);
     expect(payload.failureKind).toBe('infra');
+  });
+});
+
+describe('verify-epic integration oracle (FE-876) — reachability folds into the epic verdict', () => {
+  const probeDirs: string[] = [];
+  afterEach(() => {
+    for (const dir of probeDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+
+  // A real zero-dep app that answers `routes` (path → status); 404 otherwise.
+  function appSandbox(routes: Record<string, number>): string {
+    const dir = mkdtempSync(join(tmpdir(), 'verify-epic-probe-'));
+    probeDirs.push(dir);
+    writeFileSync(
+      join(dir, 'server.js'),
+      `const http = require('node:http');\n` +
+        `const routes = ${JSON.stringify(routes)};\n` +
+        `http.createServer((req, res) => {\n` +
+        `  const status = routes[req.url] ?? 404;\n` +
+        `  res.writeHead(status); res.end(String(status));\n` +
+        `}).listen(Number(process.env.PORT), '127.0.0.1');\n`,
+    );
+    return dir;
+  }
+
+  function epicWithProbe(): Epic {
+    return {
+      id: 'utils',
+      summary: 'Utilities',
+      depends_on: [],
+      verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+      probe: { boot: ['node', 'server.js'], readyPath: '/health', featurePath: '/feature' },
+    };
+  }
+
+  function passingActions(sandboxDir: string): {
+    actions: ReturnType<typeof createPiActions>;
+    ctx: (reports: InMemoryReportSink) => ActionContext;
+  } {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const epic = epicWithProbe();
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      createSession,
+    });
+    return { actions, ctx: (reports) => ({ slice, epic, plan, sandboxDir, reports }) };
+  }
+
+  it('tests pass + feature reachable → epic passes (reachable)', async () => {
+    const reports = new InMemoryReportSink();
+    const { actions, ctx } = passingActions(appSandbox({ '/health': 200, '/feature': 200 }));
+    const id = await actions['verify-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { passed: boolean; reachability?: string };
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBe('reachable');
+  });
+
+  it('tests pass but feature endpoint is absent → epic fails (the FE-800 orphan)', async () => {
+    const reports = new InMemoryReportSink();
+    // App boots and answers /health, but /feature is 404 — merged but not wired in.
+    const { actions, ctx } = passingActions(appSandbox({ '/health': 200 }));
+    const id = await actions['verify-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { passed: boolean; reachability?: string };
+    expect(payload.passed).toBe(false);
+    expect(payload.reachability).toBe('not-reachable');
+  });
+
+  it('failing tests short-circuit the probe — no boot, unchanged unit verdict', async () => {
+    const reports = new InMemoryReportSink();
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const epic = epicWithProbe();
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'no runner', failureKind: 'infra' };
+        },
+      },
+      createSession,
+    });
+    // Point at a dir with no server.js: if the probe booted, it would error — it
+    // must not run because tests failed first.
+    const id = await actions['verify-epic']!({ slice, epic, plan, sandboxDir: tmpdir(), reports });
+    const payload = reports.getById(id)!.payload as {
+      passed: boolean;
+      failureKind?: string;
+      reachability?: string;
+    };
+    expect(payload.passed).toBe(false);
+    expect(payload.failureKind).toBe('infra');
+    expect(payload.reachability).toBeUndefined();
+  });
+
+  it('no probe target → unit-test verdict only (unchanged behavior)', async () => {
+    const reports = new InMemoryReportSink();
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const epic: Epic = {
+      id: 'utils',
+      summary: 'Utilities',
+      depends_on: [],
+      verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+    };
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      createSession,
+    });
+    const id = await actions['verify-epic']!({ slice, epic, plan, sandboxDir: tmpdir(), reports });
+    const payload = reports.getById(id)!.payload as { passed: boolean; reachability?: string };
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBeUndefined();
   });
 });
 

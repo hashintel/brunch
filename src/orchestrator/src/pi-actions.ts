@@ -13,11 +13,12 @@ import {
   SettingsManager,
 } from '@earendil-works/pi-coding-agent';
 
+import { buildProbeSpec, runProbe } from './app-probe.js';
 import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
 import { sliceLabel } from './slice-label.js';
 import { runVerification, ToolchainTestRunner } from './test-runner.js';
-import type { ActionContext, ActionHandlers, Epic, Slice, TestRunner } from './types.js';
+import type { ActionContext, ActionHandlers, Epic, ProbeResult, Slice, TestRunner } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const promptsDir = __dirname.includes('dist')
@@ -385,7 +386,7 @@ export function createPiActions(opts?: {
       );
 
       const {
-        done: passed,
+        done: testsPassed,
         failureKind,
         results,
       } = await runVerification(ctx.epic.verification, testRunner, ctx.sandboxDir);
@@ -394,8 +395,29 @@ export function createPiActions(opts?: {
         log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
       }
 
+      // Integration oracle (FE-876 Half A): when the plan carries a probe target,
+      // the epic is reachable only when the booted merged tree answers the feature
+      // endpoint. `not-reachable` is the FE-800 orphan (code merged but never wired
+      // into the running app); `infra` is a harness fault, not a wiring verdict.
+      // Gate the boot on tests passing — never boot a known-broken build.
+      let probe: ProbeResult | undefined;
+      if (ctx.epic.probe && testsPassed) {
+        const spec = await buildProbeSpec(ctx.epic.probe);
+        probe = await runProbe(spec, ctx.sandboxDir);
+        logVerbose(probe.output);
+        log(
+          probe.reachable ? '✓' : '✗',
+          `probe     ${ctx.epic.id} → ${probe.kind}${probe.status === undefined ? '' : ` (${probe.status})`}`,
+        );
+      }
+      const passed = testsPassed && (probe === undefined || probe.reachable);
+
       log(passed ? '●' : '✗', `epic      ${ctx.epic.id} → ${passed ? 'PASS' : 'FAIL'}`);
-      return report(ctx, 'orchestrator', 'epic-verified', { passed, failureKind });
+      return report(ctx, 'orchestrator', 'epic-verified', {
+        passed,
+        failureKind,
+        ...(probe ? { reachability: probe.kind } : {}),
+      });
     },
   };
 }
