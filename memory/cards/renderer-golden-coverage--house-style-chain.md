@@ -129,7 +129,7 @@ src/renderers/
 
 ## Card 2 — `<workspace>` context render (house style)
 
-Status: next — design APPROVED 2026-06-16 (sketch in §Design below)
+Status: done — 2026-06-16
 Design: APPROVED 2026-06-16 — bare `Label:` sections (Pi no-ATX-heading policy); Project as md bullets, Specifications as md table, Topology as an annotated file tree; no sessions.
 
 ### Target Behavior
@@ -234,6 +234,10 @@ Substrate API (Card 1, commit `63eb4c28`): `section` (`section.ts`); `markdownUl
 
 Builder note: cwd-inventory currently exposes flat `topLevelEntries` + `markdownFiles`, not a depth-2 directory tree with recursive counts. Producing the Topology likely needs cwd-inventory to expose (a) directories to depth 2 and (b) recursive file counts per dir; that inventory extension is IN this card's scope (keep the gitignore-aware walk; do not shell out to `tree`).
 
+### Completion note
+
+Implemented the approved `<workspace>` dialect for both `cwd_inventory` and `workspace_overview`: Project bullets from discovered identity, Specifications as the bounded markdown table, and Topology as a fenced tree. `cwd-inventory` now exposes the gitignore-aware depth-2 topology with recursive file counts; session files remain in typed details but no longer render in `<workspace>`. Co-located previews lock the cwd + overview outputs. Divergence from expected paths: context-tool tests were updated because their old assertions named the retired flat headers/session rows.
+
 ### Expected touched paths (tentative)
 
 ```
@@ -243,6 +247,8 @@ src/renderers/workspace/
     ├── workspace-context.test.ts  +
     └── __previews__/              +   (after design approval)
 src/workspace/cwd-inventory.ts     ~   (extend: dirs to depth 2 + recursive file counts for Topology)
+src/session/workspace-overview-context.ts ~ (thread project identity + topology into overview)
+src/.pi/__tests__/context-tools.test.ts ~ (retired flat-header assertions)
 src/renderers/README.md            ~   (ledger row)
 ```
 

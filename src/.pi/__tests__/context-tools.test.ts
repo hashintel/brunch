@@ -63,9 +63,10 @@ describe('context tools', () => {
       details: { markdownFiles: Array<{ path: string }> };
     };
 
-    expect(result.content[0]?.text).toContain('[Workspace cwd inventory]');
-    expect(result.content[0]?.text).toContain('existing .brunch state detected');
-    expect(result.content[0]?.text).toContain('session-1.jsonl');
+    expect(result.content[0]?.text).toContain('<workspace>');
+    expect(result.content[0]?.text).toContain('Project:');
+    expect(result.content[0]?.text).toContain('Topology:');
+    expect(result.content[0]?.text).not.toContain('session-1.jsonl');
     expect(result.details).not.toHaveProperty('mode');
     expect(result.details).not.toHaveProperty('data');
     expect(result.details.markdownFiles.map((file) => file.path)).toEqual(['README.md', 'visible/guide.md']);
@@ -235,7 +236,8 @@ describe('context tools', () => {
       details: { specs: Array<{ title: string }>; sessions: Array<{ turnCount: number }> };
     };
 
-    expect(result.content[0]?.text).toContain('[Workspace overview]');
+    expect(result.content[0]?.text).toContain('<workspace>');
+    expect(result.content[0]?.text).toContain('Specifications:');
     expect(result.content[0]?.text).toContain('Alpha Grounding');
     expect(result.content[0]?.text).toContain('Beta Commitments');
     expect(result.content[0]?.text).not.toContain('readiness_grade=');

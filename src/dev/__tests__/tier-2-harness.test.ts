@@ -106,7 +106,7 @@ describe('origination-kick-live — the product originates the opening turn on i
       expect(contextText).toContain('Orient the user');
       expect(contextText).toContain('[CTX1]');
       expect(contextText).toContain('support (for)');
-      expect(contextText).toContain('Workspace');
+      expect(contextText).toContain('<workspace>');
     } finally {
       await boot.dispose();
     }

@@ -1,76 +1,45 @@
 import type { WorkspaceOverview } from '../../session/workspace-overview-context.js';
-import type { WorkspaceCwdInventory } from '../../workspace/cwd-inventory.js';
+import type { WorkspaceCwdInventory, WorkspaceTopologyEntry } from '../../workspace/cwd-inventory.js';
+import { inlineCode, joinMarkdownBlocks, markdownTable, markdownUl } from '../markdown.js';
+import { section } from '../section.js';
+import type { RenderTreeNode } from '../tree.js';
+import { renderTreeBlock } from '../tree.js';
 
 export function renderWorkspaceContext(context: WorkspaceCwdInventory | WorkspaceOverview): string {
+  return section(
+    'workspace',
+    joinMarkdownBlocks(
+      renderProject(context),
+      renderSpecifications(context),
+      renderTopology(context.topology),
+    ),
+  );
+}
+
+function renderProject(context: WorkspaceCwdInventory | WorkspaceOverview): string {
+  return `Project:\n${markdownUl([
+    `name: ${context.project.name}`,
+    `slug: ${context.project.slug}`,
+    `path: ${inlineCode(context.cwd)}`,
+  ])}`;
+}
+
+function renderSpecifications(context: WorkspaceCwdInventory | WorkspaceOverview): string {
+  const rows: Array<Array<string | number>> = [['id', 'title', 'nodes', 'sessions']];
   if ('specs' in context) {
-    return renderWorkspaceOverview(context);
+    rows.push(...context.specs.map((spec) => [spec.id, spec.title, spec.nodeCount, spec.sessionCount]));
   }
-
-  return renderWorkspaceCwd(context);
+  return `Specifications:\n${markdownTable(rows)}`;
 }
 
-function renderWorkspaceCwd(context: WorkspaceCwdInventory): string {
-  const inventory = context;
-  const lines = [
-    '[Workspace cwd inventory]',
-    `- cwd: ${inventory.cwd}`,
-    `- workspace: ${inventory.hasBrunchDir ? 'existing .brunch state detected' : 'fresh workspace (no .brunch directory)'}`,
-    `- session files: ${inventory.sessionFiles.length}`,
-  ];
-
-  if (inventory.sessionFiles.length > 0) {
-    lines.push('- session lengths:');
-    for (const session of inventory.sessionFiles) {
-      lines.push(`  - ${session.file}: ${session.lineCount} lines, ${session.byteCount} bytes`);
-    }
-  }
-
-  lines.push('- top-level tree:');
-  for (const entry of inventory.topLevelEntries) {
-    const suffix = entry.kind === 'directory' ? '/' : '';
-    lines.push(`  - ${entry.name}${suffix}: ${entry.fileCount} file(s)`);
-  }
-
-  if (inventory.markdownFiles.length === 0) {
-    lines.push('- markdown files: none');
-  } else {
-    lines.push('- markdown files:');
-    for (const file of inventory.markdownFiles) {
-      lines.push(`  - ${file.path}: ${file.lineCount} lines, ${file.byteCount} bytes`);
-    }
-  }
-
-  return `${lines.join('\n')}\n`;
+function renderTopology(topology: WorkspaceTopologyEntry): string {
+  return `Topology:\n${renderTreeBlock(toRenderTreeNode(topology))}`;
 }
 
-function renderWorkspaceOverview(context: WorkspaceOverview): string {
-  const overview = context;
-  const lines = [
-    '[Workspace overview]',
-    `- cwd: ${overview.cwd}`,
-    `- specs: ${overview.specs.length}`,
-    `- sessions: ${overview.sessions.length}`,
-  ];
-
-  if (overview.specs.length > 0) {
-    lines.push('- spec inventory:');
-    for (const spec of overview.specs) {
-      lines.push(
-        `  - ${spec.title} (#${spec.id}): ${spec.nodeCount} node(s), ${spec.sessionCount} session(s)`,
-      );
-    }
-  }
-
-  if (overview.sessions.length === 0) {
-    lines.push('- session inventory: none');
-  } else {
-    lines.push('- session inventory:');
-    for (const session of overview.sessions) {
-      lines.push(
-        `  - ${session.file} (${session.id}) → ${session.specTitle} (#${session.specId}), ${session.turnCount} turn(s)`,
-      );
-    }
-  }
-
-  return `${lines.join('\n')}\n`;
+function toRenderTreeNode(entry: WorkspaceTopologyEntry): RenderTreeNode {
+  const children = entry.children?.map(toRenderTreeNode);
+  return {
+    label: entry.kind === 'directory' ? `${entry.name} (${entry.fileCount})` : entry.name,
+    ...(children ? { children } : {}),
+  };
 }

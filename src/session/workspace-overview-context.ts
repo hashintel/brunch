@@ -3,6 +3,8 @@ import { basename, resolve } from 'node:path';
 
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
 import { renderWorkspaceContext } from '../renderers/workspace/workspace-context.js';
+import { inspectWorkspaceCwdInventory, type WorkspaceTopologyEntry } from '../workspace/cwd-inventory.js';
+import type { ProjectIdentity } from '../workspace/project-identity.js';
 import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/canonical-session-files.js';
 
 interface WorkspaceSpecOverview {
@@ -23,8 +25,10 @@ interface WorkspaceSessionOverview {
 export interface WorkspaceOverview {
   readonly status: 'ready';
   readonly cwd: string;
+  readonly project: ProjectIdentity;
   readonly specs: readonly WorkspaceSpecOverview[];
   readonly sessions: readonly WorkspaceSessionOverview[];
+  readonly topology: WorkspaceTopologyEntry;
 }
 
 /**
@@ -38,6 +42,7 @@ export async function renderWorkspaceOverviewContext(cwd: string): Promise<strin
 
 export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOverview> {
   const resolvedCwd = resolve(cwd);
+  const cwdInventory = await inspectWorkspaceCwdInventory(resolvedCwd);
   const graph = await openWorkspaceGraphRuntime(resolvedCwd);
   const specs = graph.commandExecutor
     .listSpecs()
@@ -79,6 +84,7 @@ export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOv
   return {
     status: 'ready',
     cwd: resolvedCwd,
+    project: cwdInventory.project,
     specs: specs.map((spec) => ({
       id: spec.id,
       title: spec.title,
@@ -86,6 +92,7 @@ export async function inspectWorkspaceOverview(cwd: string): Promise<WorkspaceOv
       sessionCount: sessionsBySpecId.get(spec.id) ?? 0,
     })),
     sessions: visibleSessions,
+    topology: cwdInventory.topology,
   };
 }
 

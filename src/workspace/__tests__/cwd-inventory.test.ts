@@ -34,12 +34,33 @@ describe('inspectWorkspaceCwdInventory', () => {
     expect(inventory.sessionFiles).toEqual([
       { file: 'session-1.jsonl', lineCount: 3, byteCount: expect.any(Number) },
     ]);
+    expect(inventory.project).toMatchObject({ name: expect.stringContaining('brunch-workspace-context-') });
     expect(inventory.topLevelEntries).toEqual([
       { name: '.brunch', kind: 'directory', fileCount: 1 },
       { name: '.gitignore', kind: 'file', fileCount: 1 },
       { name: 'README.md', kind: 'file', fileCount: 1 },
       { name: 'src', kind: 'directory', fileCount: 2 },
     ]);
+    expect(inventory.topology).toEqual({
+      name: '.',
+      kind: 'directory',
+      fileCount: 5,
+      children: [
+        {
+          name: '.brunch',
+          kind: 'directory',
+          fileCount: 1,
+          children: [{ name: 'sessions', kind: 'directory', fileCount: 1 }],
+        },
+        { name: 'README.md', kind: 'file', fileCount: 1 },
+        {
+          name: 'src',
+          kind: 'directory',
+          fileCount: 2,
+          children: [{ name: 'nested', kind: 'directory', fileCount: 1 }],
+        },
+      ],
+    });
     expect(inventory.markdownFiles).toEqual([
       { path: 'README.md', lineCount: 3, byteCount: expect.any(Number) },
       { path: 'src/nested/guide.md', lineCount: 2, byteCount: expect.any(Number) },

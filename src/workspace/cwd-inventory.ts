@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, relative, resolve, sep } from 'node:path';
 
 import { BRUNCH_DIR, SESSION_DIR } from '../constants.js';
+import { discoverProjectIdentity, type ProjectIdentity } from './project-identity.js';
 
 interface WorkspaceSessionFileInventory {
   readonly file: string;
@@ -15,6 +16,13 @@ interface WorkspaceTreeEntryInventory {
   readonly fileCount: number;
 }
 
+export interface WorkspaceTopologyEntry {
+  readonly name: string;
+  readonly kind: 'file' | 'directory';
+  readonly fileCount: number;
+  readonly children?: readonly WorkspaceTopologyEntry[];
+}
+
 interface WorkspaceMarkdownFileInventory {
   readonly path: string;
   readonly lineCount: number;
@@ -24,10 +32,12 @@ interface WorkspaceMarkdownFileInventory {
 export interface WorkspaceCwdInventory {
   readonly status: 'ready';
   readonly cwd: string;
+  readonly project: ProjectIdentity;
   readonly hasBrunchDir: boolean;
   readonly sessionFiles: readonly WorkspaceSessionFileInventory[];
   readonly topLevelEntries: readonly WorkspaceTreeEntryInventory[];
   readonly markdownFiles: readonly WorkspaceMarkdownFileInventory[];
+  readonly topology: WorkspaceTopologyEntry;
 }
 
 interface GitignoreRule {
@@ -42,17 +52,21 @@ const DEFAULT_IGNORED_TOP_LEVEL = new Set(['.git']);
 export async function inspectWorkspaceCwdInventory(cwd: string): Promise<WorkspaceCwdInventory> {
   const resolvedCwd = resolve(cwd);
   const shouldIgnore = await createGitignoreMatcher(resolvedCwd);
+  const project = await discoverProjectIdentity(resolvedCwd);
   const topLevelEntries = await collectTopLevelEntries(resolvedCwd, shouldIgnore);
   const markdownFiles = await collectMarkdownFiles(resolvedCwd, shouldIgnore);
   const sessionFiles = await collectSessionFiles(resolvedCwd);
+  const topology = await collectTopology(resolvedCwd, shouldIgnore);
 
   return {
     status: 'ready',
     cwd: resolvedCwd,
+    project,
     hasBrunchDir: topLevelEntries.some((entry) => entry.name === BRUNCH_DIR),
     sessionFiles,
     topLevelEntries,
     markdownFiles,
+    topology,
   };
 }
 
@@ -105,6 +119,62 @@ async function countVisibleFiles(
   }
 
   return fileCount;
+}
+
+async function collectTopology(
+  cwd: string,
+  shouldIgnore: (relativePath: string, isDirectory: boolean) => boolean,
+): Promise<WorkspaceTopologyEntry> {
+  return {
+    name: '.',
+    kind: 'directory',
+    fileCount: await countVisibleFiles(cwd, cwd, shouldIgnore),
+    children: await collectTopologyChildren(cwd, cwd, shouldIgnore, 0),
+  };
+}
+
+async function collectTopologyChildren(
+  directory: string,
+  cwd: string,
+  shouldIgnore: (relativePath: string, isDirectory: boolean) => boolean,
+  depth: number,
+): Promise<WorkspaceTopologyEntry[]> {
+  if (depth >= 2) {
+    return [];
+  }
+
+  const entries = await readdir(directory, { withFileTypes: true });
+  const topologyEntries: WorkspaceTopologyEntry[] = [];
+
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const path = join(directory, entry.name);
+    const relativePath = toRelativePath(cwd, path);
+    if (DEFAULT_IGNORED_TOP_LEVEL.has(entry.name) && directory === cwd) {
+      continue;
+    }
+    if (shouldIgnore(relativePath, entry.isDirectory())) {
+      continue;
+    }
+
+    if (entry.isDirectory()) {
+      const fileCount = await countVisibleFiles(path, cwd, shouldIgnore);
+      const children =
+        depth < 1 ? await collectTopologyChildren(path, cwd, shouldIgnore, depth + 1) : undefined;
+      topologyEntries.push({
+        name: entry.name,
+        kind: 'directory',
+        fileCount,
+        ...(children ? { children } : {}),
+      });
+      continue;
+    }
+
+    if (isMarkdownLike(path)) {
+      topologyEntries.push({ name: entry.name, kind: 'file', fileCount: 1 });
+    }
+  }
+
+  return topologyEntries;
 }
 
 async function collectMarkdownFiles(
