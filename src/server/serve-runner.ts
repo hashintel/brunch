@@ -5,6 +5,8 @@
 // the *promote* target → cook; `--profile` stamps the plan), so those are the
 // testable units; the db/snapshot wiring stays in `cli.ts`.
 
+import { resolve } from 'node:path';
+
 import type { CookOptions } from '../orchestrator/src/cook-cli.js';
 import { parseProfileId, type ProfileId } from '../orchestrator/src/project-profile.js';
 
@@ -42,6 +44,8 @@ export function parseServeArgs(args: string[]): ServeOptions {
   let petrinautOpen = true;
   let policy: 'serial' | 'parallel' = 'serial';
   let maxRetries = 3;
+  let sawPetrinautUrl = false;
+  let sawNoPetrinautOpen = false;
 
   for (const arg of args) {
     if (arg.startsWith('--out=')) {
@@ -64,6 +68,7 @@ export function parseServeArgs(args: string[]): ServeOptions {
       petrinautStream = true;
     } else if (arg.startsWith('--petrinaut-url=')) {
       petrinautUrl = arg.slice('--petrinaut-url='.length);
+      sawPetrinautUrl = true;
     } else if (arg.startsWith('--petrinaut-lanes=')) {
       const val = arg.slice('--petrinaut-lanes='.length);
       if (val !== 'both' && val !== 'mechanical')
@@ -76,6 +81,7 @@ export function parseServeArgs(args: string[]): ServeOptions {
       petrinautFold = val;
     } else if (arg === '--no-petrinaut-open') {
       petrinautOpen = false;
+      sawNoPetrinautOpen = true;
     } else if (arg === '--verbose' || arg === '-v') {
       verbose = true;
     } else if (arg.startsWith('-')) {
@@ -91,6 +97,12 @@ export function parseServeArgs(args: string[]): ServeOptions {
   const specificationId = Number.parseInt(specIdRaw, 10);
   if (!Number.isInteger(specificationId) || specificationId <= 0) {
     throw new Error(`Invalid <specId> "${specIdRaw}": expected a positive integer. ${USAGE}`);
+  }
+  if (sawPetrinautUrl && !petrinautStream) {
+    throw new Error('--petrinaut-url requires --petrinaut-stream');
+  }
+  if (sawNoPetrinautOpen && !petrinautStream) {
+    throw new Error('--no-petrinaut-open requires --petrinaut-stream');
   }
 
   return {
@@ -131,7 +143,7 @@ export function serveCookOptions(opts: ServeOptions, cookDir: string): CookOptio
     petrinautStream: opts.petrinautStream,
     ...(opts.petrinautUrl ? { petrinautUrl: opts.petrinautUrl } : {}),
     petrinautOpen: opts.petrinautOpen,
-    ...(opts.outDir ? { outDir: opts.outDir } : {}),
+    ...(opts.outDir ? { outDir: resolve(cookDir, opts.outDir) } : {}),
     force: opts.force,
     specId: opts.specificationId,
   };
