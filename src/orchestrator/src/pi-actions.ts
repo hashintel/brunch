@@ -5,12 +5,20 @@ import { fileURLToPath } from 'node:url';
 
 import {
   AuthStorage,
-  type CreateAgentSessionOptions,
   createAgentSession,
+  createBashToolDefinition,
+  createEditToolDefinition,
+  createFindToolDefinition,
+  createGrepToolDefinition,
+  createLsToolDefinition,
+  createReadToolDefinition,
+  createWriteToolDefinition,
+  type CreateAgentSessionOptions,
   DefaultResourceLoader,
   ModelRegistry,
   SessionManager,
   SettingsManager,
+  type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 
 import { buildProbeSpec, runProbe } from './app-probe.js';
@@ -65,6 +73,67 @@ function latestLine(text: string): string {
     if (line) return line.length > HEARTBEAT_MAX ? `…${line.slice(-HEARTBEAT_MAX)}` : line;
   }
   return '';
+}
+
+// ---------------------------------------------------------------------------
+// Tool-call observability — show what the agent is *doing* (editing X, running
+// bash, reading Y), not just what it's saying. We can't observe tool calls via
+// session.subscribe (that stream is text/lifecycle only), so we supply the
+// built-in tools ourselves and wrap their execute to emit a heartbeat. The
+// createXToolDefinition builders bake in the real config (mutation queue,
+// truncation defaults), so wrapping + delegating preserves behavior exactly.
+// ---------------------------------------------------------------------------
+
+// Inferred so each builder keeps its own tool-schema generic; the heterogeneous
+// list is erased to the base ToolDefinition at the single wrap point below.
+const TOOL_DEF_BUILDERS = {
+  read: createReadToolDefinition,
+  write: createWriteToolDefinition,
+  edit: createEditToolDefinition,
+  bash: createBashToolDefinition,
+  grep: createGrepToolDefinition,
+  find: createFindToolDefinition,
+  ls: createLsToolDefinition,
+} as const;
+
+/** A one-line "what the agent is doing" label from a tool name + its params. */
+export function toolLabel(name: string, params: unknown): string {
+  const p = (params && typeof params === 'object' ? params : {}) as Record<string, unknown>;
+  const target = [p.path, p.command, p.pattern].find(
+    (v): v is string => typeof v === 'string' && v.length > 0,
+  );
+  const label = target ? `${name} ${target}` : name;
+  return label.length > HEARTBEAT_MAX ? `${label.slice(0, HEARTBEAT_MAX - 1)}…` : label;
+}
+
+/** Wrap a tool definition's execute to emit a heartbeat, then delegate unchanged. */
+export function instrumentToolDefinition(
+  def: ToolDefinition,
+  onUse: (label: string) => void,
+): ToolDefinition {
+  const original = def.execute.bind(def);
+  def.execute = ((...args: Parameters<typeof def.execute>) => {
+    // Observation must never break a tool call.
+    try {
+      onUse(toolLabel(def.name, args[1]));
+    } catch {
+      /* ignore */
+    }
+    return original(...args);
+  }) as typeof def.execute;
+  return def;
+}
+
+function buildInstrumentedTools(
+  names: string[],
+  cwd: string,
+  onUse: (label: string) => void,
+): ToolDefinition[] {
+  return names.flatMap((name) => {
+    const build = TOOL_DEF_BUILDERS[name as keyof typeof TOOL_DEF_BUILDERS];
+    if (!build) return [];
+    return [instrumentToolDefinition(build(cwd) as ToolDefinition, onUse)];
+  });
 }
 
 /** Bracket a wait so it shows as a live pending activity; always closes. */
@@ -151,6 +220,18 @@ async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promis
   });
   await resourceLoader.reload();
 
+  // Supply the built-in tools ourselves (instrumented), instead of the `tools`
+  // name allowlist, so each tool call emits a "what the agent is doing"
+  // heartbeat into the current wait. `noTools:'builtin'` drops the default
+  // read/bash/edit/write so they aren't double-registered.
+  const toolNames = opts.tools
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const customTools = buildInstrumentedTools(toolNames, opts.sandboxDir, (label) => {
+    _emit({ kind: 'activity-progress', id: opts.label, detail: label });
+  });
+
   return {
     cwd: opts.sandboxDir,
     agentDir: isolatedDir,
@@ -158,7 +239,9 @@ async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promis
     authStorage,
     modelRegistry,
     resourceLoader,
-    tools: opts.tools.split(','),
+    noTools: 'builtin',
+    tools: toolNames,
+    customTools,
     sessionManager: SessionManager.inMemory(opts.sandboxDir),
     settingsManager: SettingsManager.inMemory({ compaction: { enabled: false } }),
   };

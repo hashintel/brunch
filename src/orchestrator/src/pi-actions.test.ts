@@ -8,9 +8,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   createPiActions,
   epicVerifyTask,
+  instrumentToolDefinition,
   runPi,
   type SessionFactory,
   sliceTestTask,
+  toolLabel,
   toolsForAction,
 } from './pi-actions.js';
 import type { CookEvent } from './presenter/events.js';
@@ -773,4 +775,54 @@ describe('runPi — real LLM self-containment smoke', () => {
     },
     120_000,
   );
+});
+
+describe('toolLabel — what the agent is doing', () => {
+  it('labels file tools by path, bash by command, grep/find by pattern', () => {
+    expect(toolLabel('edit', { path: 'src/auth/token.ts' })).toBe('edit src/auth/token.ts');
+    expect(toolLabel('write', { path: 'tests/x.test.ts' })).toBe('write tests/x.test.ts');
+    expect(toolLabel('bash', { command: 'bun test' })).toBe('bash bun test');
+    expect(toolLabel('grep', { pattern: 'RefreshToken' })).toBe('grep RefreshToken');
+  });
+
+  it('falls back to the bare tool name when no recognized target is present', () => {
+    expect(toolLabel('read', {})).toBe('read');
+    expect(toolLabel('bash', undefined)).toBe('bash');
+  });
+
+  it('truncates long labels with an ellipsis', () => {
+    const long = toolLabel('edit', { path: 'a/'.repeat(60) });
+    expect(long.endsWith('…')).toBe(true);
+    expect(long.length).toBeLessThanOrEqual(56);
+  });
+});
+
+describe('instrumentToolDefinition — observe then delegate', () => {
+  function fakeTool(name: string, run: (...args: unknown[]) => unknown) {
+    return { name, execute: run } as unknown as Parameters<typeof instrumentToolDefinition>[0];
+  }
+
+  it('emits a label from the params, then delegates with the same args and result', () => {
+    const seen: unknown[] = [];
+    const labels: string[] = [];
+    const def = fakeTool('edit', (...args) => {
+      seen.push(...args);
+      return 'tool-result';
+    });
+
+    instrumentToolDefinition(def, (label) => labels.push(label));
+    const out = def.execute('call-1', { path: 'src/a.ts' }, undefined, undefined, {} as never);
+
+    expect(labels).toEqual(['edit src/a.ts']);
+    expect(out).toBe('tool-result'); // delegation result preserved
+    expect(seen).toEqual(['call-1', { path: 'src/a.ts' }, undefined, undefined, {}]); // same args
+  });
+
+  it('never lets an observation error break the tool call', () => {
+    const def = fakeTool('bash', () => 'ok');
+    instrumentToolDefinition(def, () => {
+      throw new Error('observer boom');
+    });
+    expect(def.execute('id', { command: 'echo hi' }, undefined, undefined, {} as never)).toBe('ok');
+  });
 });
