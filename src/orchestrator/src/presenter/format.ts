@@ -29,5 +29,12 @@ export function formatCookEvent(event: CookEvent, clock: ElapsedClock): string[]
     }
     case 'line':
       return [event.text];
+    case 'activity-start':
+      // Plain/CI can't animate; a single line breaks the silence at wait start.
+      return [`  ${clock.elapsed()}  ⋯  ${event.label}`];
+    case 'activity-progress':
+    case 'activity-end':
+      // Live-only: the Ink panel reflects these; the existing completion log marks the end.
+      return [];
   }
 }

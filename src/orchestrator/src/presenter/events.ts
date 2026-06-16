@@ -22,7 +22,14 @@ export type CookEvent =
   // Raw agent output, shown only when the emit site is in verbose mode.
   | { kind: 'verbose'; text: string }
   // A pre-formatted line rendered verbatim (banner / summary / promotion blocks).
-  | { kind: 'line'; text: string };
+  | { kind: 'line'; text: string }
+  // --- live waits (slice 2b) ---
+  // Opens a pending activity: a long wait the user should see in progress.
+  | { kind: 'activity-start'; id: string; label: string }
+  // Updates the in-flight detail of an open activity (e.g. a pi token heartbeat).
+  | { kind: 'activity-progress'; id: string; detail: string }
+  // Closes the activity; the wait is over.
+  | { kind: 'activity-end'; id: string };
 
 export interface Presenter {
   onEvent(event: CookEvent): void;
