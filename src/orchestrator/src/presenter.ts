@@ -7,6 +7,7 @@
 
 import { CookBus } from './presenter/bus.js';
 import type { Presenter } from './presenter/events.js';
+import { InkPresenter } from './presenter/ink/ink-presenter.js';
 import { PlainPresenter } from './presenter/plain.js';
 import { type PresenterCommand, type PresenterKind, selectPresenter } from './presenter/select.js';
 import { SilentPresenter } from './presenter/silent.js';
@@ -22,10 +23,9 @@ export {
   selectPresenter,
 } from './presenter/select.js';
 
-export function makePresenter(kind: PresenterKind): Presenter {
-  // `ink` is the slice-2 full-screen TUI; until it lands it falls back to
-  // the plain renderer, so interactive runs keep today's behavior.
+export function makePresenter(kind: PresenterKind, command: PresenterCommand): Presenter {
   if (kind === 'silent') return new SilentPresenter();
+  if (kind === 'ink') return new InkPresenter(command);
   return new PlainPresenter();
 }
 
@@ -41,6 +41,6 @@ export function createCookBus(
     ...(env.reporterFlag ? { reporterFlag: env.reporterFlag } : {}),
   });
   const bus = new CookBus();
-  bus.subscribe(makePresenter(kind));
+  bus.subscribe(makePresenter(kind, command));
   return bus;
 }
