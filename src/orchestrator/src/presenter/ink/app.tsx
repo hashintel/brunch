@@ -1,4 +1,4 @@
-// The full-screen Ink view: egg-logo header, brigade phase tracker, and a
+// The full-screen Ink view: brunch wordmark header, brigade phase tracker, and a
 // bounded live activity log. A thin projection of RunStore — all folding
 // lives in the store + the pure phase tracker, so this stays declarative.
 
@@ -7,24 +7,20 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 
 import { BRIGADE, type BrigadePhase } from '../phase.js';
 import type { PendingActivity, RunStore } from '../run-store.js';
-import { EGG_LOGO } from './egg-logo.js';
+import { BRUNCH_WORDMARK } from './wordmark.js';
 
 const LOG_TAIL = 15;
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 function Header({ command }: { command: string }) {
   return (
-    <Box flexDirection="row">
-      <Box flexDirection="column" marginRight={1}>
-        {EGG_LOGO.map((line, i) => (
-          <Text key={i} color="yellow">
-            {line}
-          </Text>
-        ))}
-      </Box>
-      <Box>
-        <Text bold>brunch {command}</Text>
-      </Box>
+    <Box>
+      {BRUNCH_WORDMARK.map(({ ch, color }) => (
+        <Text key={ch} bold color={color}>
+          {ch}
+        </Text>
+      ))}
+      <Text dimColor> {command}</Text>
     </Box>
   );
 }
