@@ -38,6 +38,9 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log(
     '  plan <specId> [flags]     Emit .brunch/cook/specs/<specId>/plan.yaml from a completed specification.',
   );
+  console.log(
+    '  serve <specId> [flags]    One shot: plan then cook a completed specification (no manual steps).',
+  );
   console.log('');
   console.log('Environment:');
   console.log('  ANTHROPIC_API_KEY         Required. Brunch will not start without it; it powers the');
@@ -103,6 +106,40 @@ if (rawArgs[0] === 'cook') {
     console.error('Failed to run brunch cook:', error);
     process.exit(1);
   });
+} else if (rawArgs[0] === 'serve') {
+  const { runPlan } = await import('./plan-runner.js');
+  const { runCook } = await import('../orchestrator/src/cook-cli.js');
+  const { parseServeArgs, runServe } = await import('./serve-runner.js');
+  let db: ReturnType<typeof createDb> | undefined;
+  try {
+    const opts = parseServeArgs(rawArgs.slice(1));
+    const project = resolveBrunchProject(launchCwd);
+    db = createDb(project.dbPath);
+    if (!getSpecification(db, opts.specificationId)) {
+      throw new Error(`specification ${opts.specificationId} not found`);
+    }
+    const snapshot = buildCompletedSpecSnapshot(db, opts.specificationId);
+    assertCompletedSpecReadyForPlanning(db, opts.specificationId, snapshot);
+    await runServe(opts, {
+      plan: () =>
+        runPlan({
+          specificationId: opts.specificationId,
+          snapshot,
+          outDir: launchCwd,
+          verbose: opts.verbose,
+          profile: opts.profile,
+          // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
+          repoDir: project.cwd,
+        }),
+      cook: (cookOpts) => runCook(cookOpts),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to run brunch serve: ${message}`);
+    process.exit(1);
+  } finally {
+    db?.$client.close();
+  }
 } else if (rawArgs[0] === 'plan') {
   const { parsePlanArgs, runPlan } = await import('./plan-runner.js');
   let db: ReturnType<typeof createDb> | undefined;
