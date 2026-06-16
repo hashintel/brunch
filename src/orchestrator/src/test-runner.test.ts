@@ -132,6 +132,17 @@ describe('ToolchainTestRunner stamps failureKind', () => {
     expect(result.failureKind).toBe('test');
   });
 
+  it('a runner output cap error is still a test failure, not missing-toolchain infra', async () => {
+    const noisy = fakeToolchain(() => [
+      process.execPath,
+      '-e',
+      'process.stdout.write("x".repeat(2 * 1024 * 1024)); process.exit(1);',
+    ]);
+    const result = await new ToolchainTestRunner(noisy).run('x', process.cwd());
+    expect(result.passed).toBe(false);
+    expect(result.failureKind).toBe('test');
+  });
+
   it('a passing run carries no failureKind', async () => {
     const pass = fakeToolchain(() => ['node', '-e', 'process.exit(0)']);
     const result = await new ToolchainTestRunner(pass).run('x', process.cwd());
