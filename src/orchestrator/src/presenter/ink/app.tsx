@@ -3,13 +3,14 @@
 // lives in the store + the pure phase tracker, so this stays declarative.
 
 import { Box, Text } from 'ink';
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 
 import { BRIGADE, type BrigadePhase } from '../phase.js';
-import type { RunStore } from '../run-store.js';
+import type { PendingActivity, RunStore } from '../run-store.js';
 import { EGG_LOGO } from './egg-logo.js';
 
 const LOG_TAIL = 15;
+const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 function Header({ command }: { command: string }) {
   return (
@@ -58,8 +59,43 @@ function ActivityLog({ lines }: { lines: string[] }) {
   );
 }
 
-export function App({ store }: { store: RunStore }) {
+function PendingPanel({
+  pending,
+  now,
+  frame,
+}: {
+  pending: PendingActivity[];
+  now: () => number;
+  frame: string;
+}) {
+  if (pending.length === 0) return null;
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      {pending.map((a) => {
+        const secs = ((now() - a.startedAt) / 1000).toFixed(1);
+        return (
+          <Text key={a.id} color="cyan">
+            {frame} {a.label} · {secs}s{a.detail ? ` · ${a.detail}` : ''}
+          </Text>
+        );
+      })}
+    </Box>
+  );
+}
+
+export function App({ store, now = () => Date.now() }: { store: RunStore; now?: () => number }) {
   const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+
+  // Tick only while something is pending, so the spinner/elapsed advance even
+  // between events; the interval is torn down as soon as the waits clear.
+  const [tick, setTick] = useState(0);
+  const hasPending = state.pending.length > 0;
+  useEffect(() => {
+    if (!hasPending) return;
+    const id = setInterval(() => setTick((t) => t + 1), 120);
+    return () => clearInterval(id);
+  }, [hasPending]);
+
   return (
     <Box flexDirection="column">
       <Header command={state.command} />
@@ -67,6 +103,7 @@ export function App({ store }: { store: RunStore }) {
         <Brigade phase={state.phase} />
       </Box>
       <ActivityLog lines={state.lines} />
+      <PendingPanel pending={state.pending} now={now} frame={SPINNER[tick % SPINNER.length]!} />
     </Box>
   );
 }

@@ -12,10 +12,10 @@ export class InkPresenter implements Presenter {
   private readonly store: RunStore;
   private readonly instance: ReturnType<typeof render>;
 
-  constructor(command: string, now?: () => number) {
+  constructor(command: string, now: () => number = () => Date.now()) {
     this.store = new RunStore(command, now);
     // Render to stderr so stdout stays clean for piping / agent JSONL.
-    this.instance = render(<App store={this.store} />, { stdout: process.stderr });
+    this.instance = render(<App store={this.store} now={now} />, { stdout: process.stderr });
   }
 
   onEvent(event: CookEvent): void {

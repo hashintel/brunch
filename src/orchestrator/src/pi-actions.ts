@@ -55,6 +55,16 @@ function logVerbose(output: string): void {
   _emit({ kind: 'verbose', text: output });
 }
 
+/** Bracket a wait so it shows as a live pending activity; always closes. */
+async function withActivity<T>(id: string, label: string, fn: () => Promise<T>): Promise<T> {
+  _emit({ kind: 'activity-start', id, label });
+  try {
+    return await fn();
+  } finally {
+    _emit({ kind: 'activity-end', id });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Pi dispatch
 // ---------------------------------------------------------------------------
@@ -155,6 +165,9 @@ async function runPi(
   const timeoutMs = deps.timeoutMs ?? PI_TIMEOUT_MS;
   const maxOutput = deps.maxOutput ?? PI_MAX_OUTPUT;
   const start = Date.now();
+  // Open a live wait so the (up to 5-minute) agent session isn't dead air.
+  _emit({ kind: 'activity-start', id: opts.label, label: opts.label });
+  let heartbeatKb = 0;
 
   const isolatedDir = createAgentDir();
   let cleanedAgentDir = false;
@@ -210,6 +223,12 @@ async function runPi(
         }
         captured += delta;
         capturedBytes += deltaBytes;
+        // Throttled heartbeat — every 2 KB — so the spinner shows progress, not churn.
+        const kb = Math.floor(capturedBytes / 1024);
+        if (kb >= heartbeatKb + 2) {
+          heartbeatKb = kb;
+          _emit({ kind: 'activity-progress', id: opts.label, detail: `${kb} KB` });
+        }
       }
     });
 
@@ -223,6 +242,9 @@ async function runPi(
     unsubscribe?.();
     session?.dispose();
     cleanupAgentDir();
+    // Always close the wait — even on timeout / overflow / prompt error — so
+    // the spinner can never hang.
+    _emit({ kind: 'activity-end', id: opts.label });
   }
 
   if (timedOut) throw piTimeoutError(timeoutMs);
@@ -308,10 +330,10 @@ export function createPiActions(opts?: {
     'evaluate-done': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
       log('?', `evaluate  ${label}`);
-      const { done, failureKind, results } = await runVerification(
-        ctx.slice.verification,
-        testRunner,
-        ctx.sandboxDir,
+      const { done, failureKind, results } = await withActivity(
+        `verify ${label}`,
+        `running tests · ${label}`,
+        () => runVerification(ctx.slice.verification, testRunner, ctx.sandboxDir),
       );
       for (const r of results) {
         logVerbose(r.output);
@@ -393,7 +415,9 @@ export function createPiActions(opts?: {
         done: testsPassed,
         failureKind,
         results,
-      } = await runVerification(ctx.epic.verification, testRunner, ctx.sandboxDir);
+      } = await withActivity(`verify-epic ${ctx.epic.id}`, `running tests · ${ctx.epic.id}`, () =>
+        runVerification(ctx.epic.verification, testRunner, ctx.sandboxDir),
+      );
       for (const r of results) {
         logVerbose(r.output);
         log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
@@ -410,7 +434,13 @@ export function createPiActions(opts?: {
       if (testsPassed) {
         try {
           const target = await resolveProbeTarget(ctx.epic, ctx.sandboxDir, groundProbe);
-          if (target) probe = await runProbe(await buildProbeSpec(target), ctx.sandboxDir);
+          if (target) {
+            probe = await withActivity(
+              `probe ${ctx.epic.id}`,
+              `probing reachability · ${ctx.epic.id}`,
+              async () => runProbe(await buildProbeSpec(target), ctx.sandboxDir),
+            );
+          }
         } catch (err) {
           probe = { kind: 'infra', reachable: false, output: `probe grounding failed: ${String(err)}` };
         }

@@ -12,10 +12,18 @@ import { type BrigadePhase, nextPhase } from './phase.js';
 
 const MAX_LINES = 500;
 
+export interface PendingActivity {
+  id: string;
+  label: string;
+  detail?: string;
+  startedAt: number;
+}
+
 export interface RunState {
   command: string;
   phase: BrigadePhase;
   lines: string[];
+  pending: PendingActivity[];
 }
 
 export class RunStore {
@@ -23,20 +31,40 @@ export class RunStore {
   private readonly clock: ElapsedClock;
   private readonly listeners = new Set<() => void>();
 
-  constructor(command: string, now?: () => number) {
+  constructor(
+    command: string,
+    private readonly now: () => number = () => Date.now(),
+  ) {
     this.clock = createElapsedClock(now);
-    this.state = { command, phase: 'prep', lines: [] };
+    this.state = { command, phase: 'prep', lines: [], pending: [] };
   }
 
   push(event: CookEvent): void {
+    if (event.kind === 'activity-start') {
+      this.commit({
+        pending: [...this.state.pending, { id: event.id, label: event.label, startedAt: this.now() }],
+      });
+      return;
+    }
+    if (event.kind === 'activity-progress') {
+      this.commit({
+        pending: this.state.pending.map((a) => (a.id === event.id ? { ...a, detail: event.detail } : a)),
+      });
+      return;
+    }
+    if (event.kind === 'activity-end') {
+      this.commit({ pending: this.state.pending.filter((a) => a.id !== event.id) });
+      return;
+    }
+
     const added = formatCookEvent(event, this.clock);
     const phase = nextPhase(this.state.phase, event);
     if (added.length === 0 && phase === this.state.phase) return;
-    this.state = {
-      ...this.state,
-      phase,
-      lines: [...this.state.lines, ...added].slice(-MAX_LINES),
-    };
+    this.commit({ phase, lines: [...this.state.lines, ...added].slice(-MAX_LINES) });
+  }
+
+  private commit(patch: Partial<RunState>): void {
+    this.state = { ...this.state, ...patch };
     for (const listener of this.listeners) listener();
   }
 

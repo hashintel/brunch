@@ -404,6 +404,14 @@ function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
 
 export async function runCook(opts: CookOptions, bus: CookBus = createCookBus('cook')): Promise<void> {
   const line = (text: string) => bus.emit({ kind: 'line', text });
+  const promoting = <T>(label: string, fn: () => T): T => {
+    bus.emit({ kind: 'activity-start', id: 'promote', label });
+    try {
+      return fn();
+    } finally {
+      bus.emit({ kind: 'activity-end', id: 'promote' });
+    }
+  };
   const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
 
   // Streaming pre-flight happens before any cook side effect (banner, plan
@@ -562,11 +570,13 @@ export async function runCook(opts: CookOptions, bus: CookBus = createCookBus('c
           for (const c of source.conflicts) {
             line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
           }
-          const promoted = promoteBrownfieldRun({
-            sourceDir: sandbox.sourceDir,
-            sourceTreeDir: source.dir,
-            runId,
-          });
+          const promoted = promoting(`promoting → cook/${runId}`, () =>
+            promoteBrownfieldRun({
+              sourceDir: sandbox.sourceDir,
+              sourceTreeDir: source.dir,
+              runId,
+            }),
+          );
           line(
             `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (merge it into your branch when ready)`,
           );
@@ -594,12 +604,14 @@ export async function runCook(opts: CookOptions, bus: CookBus = createCookBus('c
           for (const c of source.conflicts) {
             line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
           }
-          const promoted = promoteGreenfieldRun({
-            sandboxDir: source.dir,
-            target: opts.outDir,
-            runId,
-            force: opts.force,
-          });
+          const promoted = promoting(`promoting → ${opts.outDir}`, () =>
+            promoteGreenfieldRun({
+              sandboxDir: source.dir,
+              target: opts.outDir!,
+              runId,
+              force: opts.force,
+            }),
+          );
           line(`  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`);
           line('');
         } catch (err) {
