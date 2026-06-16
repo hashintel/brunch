@@ -149,6 +149,8 @@ if (rawArgs[0] === 'cook') {
   const { runPlan } = await import('./plan-runner.js');
   const { runCook } = await import('../orchestrator/src/cook-cli.js');
   const { parseServeArgs, runServe } = await import('./serve-runner.js');
+  const { createCookBus } = await import('../orchestrator/src/presenter.js');
+  const bus = createCookBus('serve');
   await withCompletedSpec(
     'serve',
     () => parseServeArgs(rawArgs.slice(1)),
@@ -165,6 +167,7 @@ if (rawArgs[0] === 'cook') {
             profile: opts.profile,
             // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
             repoDir: project.cwd,
+            bus,
           }),
         cook: (cookOpts) => runCook(cookOpts),
       });
@@ -172,6 +175,8 @@ if (rawArgs[0] === 'cook') {
   );
 } else if (rawArgs[0] === 'plan') {
   const { parsePlanArgs, runPlan } = await import('./plan-runner.js');
+  const { createCookBus } = await import('../orchestrator/src/presenter.js');
+  const bus = createCookBus('plan');
   await withCompletedSpec(
     'plan',
     () => parsePlanArgs(rawArgs.slice(1), launchCwd),
@@ -184,6 +189,7 @@ if (rawArgs[0] === 'cook') {
         profile: opts.profile,
         // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
         repoDir: project.cwd,
+        bus,
       });
     },
   );
