@@ -5,12 +5,14 @@
 import { Box, Text } from 'ink';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 
+import { formatElapsed } from '../clock.js';
 import { BRIGADE, type BrigadePhase } from '../phase.js';
 import type { PendingActivity, RunStore } from '../run-store.js';
 import { BRUNCH_WORDMARK } from './wordmark.js';
 
 const LOG_TAIL = 15;
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+const TICK_MS = 250;
 
 function Header({ command }: { command: string }) {
   return (
@@ -67,14 +69,12 @@ function PendingPanel({
   if (pending.length === 0) return null;
   return (
     <Box flexDirection="column" marginTop={1}>
-      {pending.map((a) => {
-        const secs = ((now() - a.startedAt) / 1000).toFixed(1);
-        return (
-          <Text key={a.id} color="cyan">
-            {frame} {a.label} · {secs}s{a.detail ? ` · ${a.detail}` : ''}
-          </Text>
-        );
-      })}
+      {pending.map((a) => (
+        <Text key={a.id} color="cyan">
+          {frame} {a.label} · {formatElapsed(now() - a.startedAt)}
+          {a.detail ? ` · ${a.detail}` : ''}
+        </Text>
+      ))}
     </Box>
   );
 }
@@ -88,7 +88,7 @@ export function App({ store, now = () => Date.now() }: { store: RunStore; now?: 
   const hasPending = state.pending.length > 0;
   useEffect(() => {
     if (!hasPending) return;
-    const id = setInterval(() => setTick((t) => t + 1), 120);
+    const id = setInterval(() => setTick((t) => t + 1), TICK_MS);
     return () => clearInterval(id);
   }, [hasPending]);
 

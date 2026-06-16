@@ -54,7 +54,8 @@ describe('Ink App', () => {
 
     let frame = lastFrame() ?? '';
     expect(frame).toContain('agent writing tests');
-    expect(frame).toContain('2.5s');
+    expect(frame).toContain('2s'); // whole seconds — no jittery decimal
+    expect(frame).not.toContain('2.5s');
     expect(frame).toContain('8 KB');
 
     store.push({ kind: 'activity-end', id: 'tests:slice-1' });
