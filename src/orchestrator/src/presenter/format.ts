@@ -11,9 +11,16 @@ const RULE = '  ─────────────────────�
 export function formatCookEvent(event: CookEvent, clock: ElapsedClock): string[] {
   switch (event.kind) {
     case 'plan-start':
-      return ['', '  brunch plan', RULE, `  spec       ${event.specId}`, `  out        ${event.outDir}`, ''];
+      return [
+        '',
+        '  brunch recipe',
+        RULE,
+        `  spec       ${event.specId}`,
+        `  out        ${event.outDir}`,
+        '',
+      ];
     case 'plan-written':
-      return [`  ✓  plan      ${event.path}`, `     ${event.epics} epics, ${event.slices} slices`, ''];
+      return [`  ✓  recipe    ${event.path}`, `     ${event.epics} epics, ${event.slices} slices`, ''];
     case 'plan-warnings':
       if (event.messages.length === 0) return [];
       return [`  ${event.messages.length} warnings:`, ...event.messages.map((m) => `  !  ${m}`), ''];
@@ -35,6 +42,13 @@ export function formatCookEvent(event: CookEvent, clock: ElapsedClock): string[]
     case 'activity-progress':
     case 'activity-end':
       // Live-only: the Ink panel reflects these; the existing completion log marks the end.
+      return [];
+    case 'cook-done':
+      // Phase signal only (lights `serve`); the run summary already printed.
+      return [];
+    case 'run-shape':
+    case 'slice':
+      // Grid signals only — the per-action log lines already narrate plain output.
       return [];
   }
 }

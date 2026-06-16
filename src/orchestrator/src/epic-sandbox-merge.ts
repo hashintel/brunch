@@ -21,7 +21,8 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
-import { copyMissingTopLevelEntries } from './cow-copy.js';
+import { copyMissingTopLevelEntries, linkSharedTopLevelEntries } from './cow-copy.js';
+import { brunchRef, pruneWorktrees } from './run-refs.js';
 import type { Plan, Slice } from './types.js';
 
 export type MergeConflict = {
@@ -95,7 +96,7 @@ function assertSafePathSegment(id: string, label: string): void {
   }
 }
 
-function resolveEpicSandboxDir(parentSandboxDir: string, epicId: string): string {
+export function resolveEpicSandboxDir(parentSandboxDir: string, epicId: string): string {
   assertSafePathSegment(epicId, 'epic id');
   const parent = resolve(parentSandboxDir);
   const epicRoot = resolve(parent, EPIC_MERGE_SEGMENT);
@@ -200,15 +201,17 @@ function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: str
 
 /**
  * Codebase-mode seed: prepare the per-slice worktree as a real `git worktree`
- * checked out on a slice-level branch (`cook-slice/<runId>/<sliceId>`) off
- * the run-level cook branch, then CoW-copy any untracked/gitignored content
- * from the parent worktree (e.g. `node_modules/`, `dist/`) so pi-actions can
- * run `npm test` / `bun test` / build steps that depend on runtime deps.
+ * checked out on a slice-level branch (`brunch/slice/<runId>/<sliceId>`, via
+ * `brunchRef.slice`) off the run-level run branch, then CoW-copy any
+ * untracked/gitignored content from the parent worktree (e.g. `node_modules/`,
+ * `dist/`) so pi-actions can run `npm test` / `bun test` / build steps that
+ * depend on runtime deps.
  *
- * The slice branches live in a sibling namespace `cook-slice/` rather than
- * nested under `cook/<runId>/` because git refs are leaf-or-directory: with
- * `cook/<runId>` already a leaf branch, `cook/<runId>/<sliceId>` would fail
- * with "cannot lock ref ... 'refs/heads/cook/<runId>' exists."
+ * Slice branches live under `brunch/slice/<runId>/…`, a sibling of the run
+ * branch `brunch/run/<runId>`, because git refs are leaf-or-directory: nesting
+ * slices under the run-branch leaf (`brunch/run/<runId>/<sliceId>`) would fail
+ * with "cannot lock ref ... 'refs/heads/brunch/run/<runId>' exists." The sibling
+ * `run/` vs `slice/` split is exactly what `brunchRef` centralizes.
  *
  * Excluded from the untracked CoW step:
  *   - sibling slice subdirs (other entries in `plan.slices`)
@@ -220,13 +223,13 @@ function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: str
  * slice worktree — `git worktree add` would fail with "already exists." The
  * caller must remove the prior worktree first if re-seeding.
  *
- * TODO(cook-artifact-lifecycle follow-on, separate frontier): the slice branch
- * exists but is never committed to. After this lands, a future frontier should
- * add slice-completion commits, replace `mergeSlicesIntoEpicSandbox`'s file-copy
- * with a git merge of slice branches into an epic branch, and surface real
- * merge conflicts (today's file-copy is silent last-slice-wins). That work
- * earns the "discoverable cook artifact" criterion via `git merge cook/<runId>`
- * promotion semantics.
+ * Brownfield slice branches are now committed and folded by `run-artifact.ts`
+ * (`commitSliceWorktree` + the `merge-tree` fold), wired into both verify-epic
+ * and promotion (FE-883) — real conflicts surface fail-closed instead of the old
+ * silent last-slice-wins. `mergeSlicesIntoEpicSandbox` below is the **greenfield**
+ * composer only: greenfield slices share no common ancestor, so a 3-way merge has
+ * no base to merge against and the file-copy union (declaration-order-wins,
+ * collisions reported) is the right tool there.
  */
 export function seedSliceFromParentWorktree(
   parentSandboxDir: string,
@@ -238,12 +241,13 @@ export function seedSliceFromParentWorktree(
   const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
 
   // 1. Real git worktree: tracked content arrives via git checkout, slice
-  //    branch is `cook/<runId>/<sliceId>` off the parent worktree's HEAD
-  //    (which is the run-level `cook/<runId>` branch). Shares the source
+  //    branch is `brunch/slice/<runId>/<sliceId>` off the parent worktree's HEAD
+  //    (which is the run-level `brunch/run/<runId>` branch). Shares the source
   //    repo's `.git/` object database via hardlinks — no full git copy.
+  pruneWorktrees(parentSandboxDir);
   execFileSync(
     'git',
-    ['worktree', 'add', '--quiet', '-b', `cook-slice/${runId}/${sliceId}`, sliceDir, 'HEAD'],
+    ['worktree', 'add', '--quiet', '-b', brunchRef.slice(runId, sliceId), sliceDir, 'HEAD'],
     {
       cwd: parentSandboxDir,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -254,8 +258,10 @@ export function seedSliceFromParentWorktree(
   //    worktree yet — i.e. untracked / gitignored content (`dist/`, etc.) that
   //    pi-actions might need at runtime. `node_modules/` is symlinked to the
   //    parent's single copy instead of duplicated per slice (see
-  //    SHAREABLE_TOP_LEVEL_ENTRIES); `walkFiles` skips symlinks, so the shared
-  //    tree is never re-walked during dependency seeding, merge, or promotion.
+  //    SHAREABLE_TOP_LEVEL_ENTRIES); `walkFiles` skips those entries by NAME, so
+  //    the shared tree is never re-walked during dependency seeding, merge, or
+  //    promotion — even if an in-slice `npm install` clobbers the symlink into a
+  //    real dir.
   const excludedNames = new Set<string>(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
   for (const s of plan.slices) excludedNames.add(s.id);
   copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames, SHAREABLE_TOP_LEVEL_ENTRIES);
@@ -271,7 +277,7 @@ export function seedSliceFromParentWorktree(
  * Build caches under it (`.cache`, `.vite`) become shared too — acceptable for
  * cook's transient runs; revisit if a tool needs per-slice write isolation.
  */
-const SHAREABLE_TOP_LEVEL_ENTRIES: ReadonlySet<string> = new Set(['node_modules']);
+export const SHAREABLE_TOP_LEVEL_ENTRIES: ReadonlySet<string> = new Set(['node_modules']);
 
 /**
  * Idempotent codebase-mode slice worktree provisioning: create the git worktree
@@ -371,9 +377,50 @@ function mergeSliceDirsInto(parentSandboxDir: string, sliceIds: string[], destDi
   return conflicts;
 }
 
+/**
+ * Pick where the merged tree's shared entry (`node_modules`) is linked from. A
+ * completed slice that materialized a REAL install — its shared symlink was
+ * clobbered by an in-slice `npm install`, so it holds the manifest-reconciled
+ * tree including any slice-added deps — supersedes the parent's install, which
+ * predates the run and lacks those deps. Last installer in plan order wins;
+ * divergent installs across slices are reported like path collisions (full union
+ * is the deferred lockfile-reinstall remodel). With no slice installer, the
+ * parent install is the source (the steady-state case).
+ */
+function selectSharedEntrySource(
+  parentSandboxDir: string,
+  sliceIds: string[],
+  name: string,
+): { sourceDir: string; conflict?: MergeConflict } {
+  const installers = sliceIds.filter((id) => {
+    const entry = join(resolveSliceWorktreeDir(parentSandboxDir, id), name);
+    if (!existsSync(entry)) return false;
+    const st = lstatSync(entry);
+    return st.isDirectory() && !st.isSymbolicLink();
+  });
+  if (installers.length === 0) return { sourceDir: resolve(parentSandboxDir) };
+  const winner = installers[installers.length - 1]!;
+  return {
+    sourceDir: resolveSliceWorktreeDir(parentSandboxDir, winner),
+    conflict: installers.length > 1 ? { path: name, slices: installers, winner } : undefined,
+  };
+}
+
 export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
   const epicSandboxDir = resolveEpicSandboxDir(opts.parentSandboxDir, opts.epicId);
   const conflicts = mergeSliceDirsInto(opts.parentSandboxDir, opts.sliceIds, epicSandboxDir);
+  // `walkFiles` skips `node_modules`, so the merged tree has no resolvable deps
+  // until re-linked. verify-epic and probes run in this cwd, so link each shared
+  // entry from the slice that installed it (if any) over the parent's install.
+  for (const name of SHAREABLE_TOP_LEVEL_ENTRIES) {
+    const { sourceDir, conflict } = selectSharedEntrySource(opts.parentSandboxDir, opts.sliceIds, name);
+    const existing = join(epicSandboxDir, name);
+    if (existsSync(existing) && resolve(sourceDir) !== resolve(opts.parentSandboxDir)) {
+      rmSync(existing, { recursive: true, force: true });
+    }
+    linkSharedTopLevelEntries(sourceDir, epicSandboxDir, new Set([name]));
+    if (conflict) conflicts.push(conflict);
+  }
   return { epicSandboxDir, conflicts };
 }
 
@@ -436,6 +483,11 @@ export function mergeSourceDirsIntoTree(opts: {
 function* walkFiles(rootDir: string, dir: string = rootDir): Iterable<string> {
   for (const entry of readdirSync(dir)) {
     if (WALK_SKIP_ENTRIES.has(entry)) continue;
+    // Shareable entries (node_modules) are skipped by NAME, not just when they
+    // are symlinks: an in-slice `npm install` clobbers the shared symlink into a
+    // real tree, and deep-copying that during merge/seed exhausts the disk
+    // (ENOSPC). They are re-linked into merged trees via linkSharedTopLevelEntries.
+    if (SHAREABLE_TOP_LEVEL_ENTRIES.has(entry)) continue;
     const abs = join(dir, entry);
     const st = lstatSync(abs);
     if (st.isSymbolicLink()) continue;

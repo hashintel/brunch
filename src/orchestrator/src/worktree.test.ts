@@ -71,7 +71,7 @@ describe('createSandbox — codebase mode', () => {
     execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: dir });
   }
 
-  it('creates a git worktree of sourceDir on a cook/<runId> branch', () => {
+  it('creates a git worktree of sourceDir on a brunch/run/<runId> branch', () => {
     const baseDir = makeTmpDir('cook-base-');
     const sourceDir = makeTmpDir('cook-src-');
     initSeededGitRepo(sourceDir);
@@ -85,7 +85,7 @@ describe('createSandbox — codebase mode', () => {
     expect(readFileSync(join(info.sandboxDir, 'src.txt'), 'utf8')).toBe('hello\n');
   });
 
-  it('worktree is checked out on branch cook/<runId>', () => {
+  it('worktree is checked out on branch brunch/run/<runId>', () => {
     const baseDir = makeTmpDir('cook-base-');
     const sourceDir = makeTmpDir('cook-src-');
     initSeededGitRepo(sourceDir);
@@ -96,7 +96,7 @@ describe('createSandbox — codebase mode', () => {
       cwd: info.sandboxDir,
       encoding: 'utf8',
     }).trim();
-    expect(branch).toBe('cook/branch-test');
+    expect(branch).toBe('brunch/run/branch-test');
   });
 
   it('CoW-copies untracked top-level dirs from sourceDir into the parent worktree', () => {

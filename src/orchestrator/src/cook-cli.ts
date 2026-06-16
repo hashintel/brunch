@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { cookBannerLines, cookSummaryLines } from './cook-report.js';
+import { type CookFinishLand, cookBannerLines, cookFinishLines, cookSummaryLines } from './cook-report.js';
 import { createOrchestrator } from './engine.js';
 import {
   epicIdsForEpicVerifyMerge,
@@ -20,7 +20,9 @@ import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
 import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
-import { promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
+import { landCookBranch, promoteGreenfieldRun } from './promote-run.js';
+import { harvestCookRun } from './run-artifact.js';
+import { brunchRef, gcCookRun } from './run-refs.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
@@ -54,6 +56,12 @@ export type CookOptions = {
   outDir?: string;
   /** Allow promoting into a non-empty target (otherwise refused). */
   force: boolean;
+  /**
+   * Brownfield only: after promotion, merge `brunch/run/<runId>` into the repo's active
+   * branch as the final step. Set by `serve --land`; plain `cook` never sets it,
+   * keeping promotion's hands-off default intact unless the user opts in.
+   */
+  landBranch?: boolean;
   /**
    * Explicit specification id whose emitted plan (under
    * `<dir>/.brunch/cook/specs/<id>/plan.yaml`) should be cooked.
@@ -125,6 +133,10 @@ export function parseCookArgs(args: string[]): CookOptions {
       verbose = true;
     } else if (!arg.startsWith('-')) {
       dir = arg;
+    } else {
+      // Reject unknown flags instead of silently ignoring them (e.g. --spec-id
+      // is not a flag; the spec selector is --spec=<id>).
+      throw new Error(`Unknown flag "${arg}". Run "brunch --help" for cook usage.`);
     }
   }
 
@@ -483,28 +495,21 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
       cliFlag: opts.petrinautUrl,
       env: { PETRINAUT_URL: process.env.PETRINAUT_URL },
     });
-    if ('error' in resolvedUrl) {
-      line(resolvedUrl.error);
-      process.exit(1);
-    }
+    // Throw, never process.exit — the caller (withCookBus) must dispose the
+    // presenter (unmount Ink) before the error is printed, or the TUI hangs.
+    if ('error' in resolvedUrl) throw new Error(resolvedUrl.error);
     petrinautUrl = resolvedUrl.url;
     streamPort = resolvePetrinautStreamPort({ PORT: process.env.PORT });
   }
 
   const resolved = resolveCookPlan(opts.dir, opts.specId);
-  if (resolved.kind === 'error') {
-    line(resolved.message);
-    process.exit(1);
-  }
+  if (resolved.kind === 'error') throw new Error(resolved.message);
 
   const plan = loadPlan(resolved.planPath);
 
   // Worktree strategy follows the plan's spec-derived mode, not its location.
   const sandbox = resolveSandboxPlan(plan.mode, resolved.sourceDir);
-  if (sandbox.kind === 'error') {
-    line(sandbox.message);
-    process.exit(1);
-  }
+  if (sandbox.kind === 'error') throw new Error(sandbox.message);
 
   // Single shared tree only for serial greenfield (parallel would race on it);
   // every other case isolates slices per-slice.
@@ -540,6 +545,13 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
   // Seed the presenter's elapsed clock; per-action progress carries no
   // pre-formatted timing — the presenter owns it (I136-K).
   bus.emit({ kind: 'cook-start', runStart });
+  // Seed the slice grid up front so queued work is visible before it starts.
+  bus.emit({
+    kind: 'run-shape',
+    epics: plan.epics.map((e) => ({ id: e.id })),
+    slices: plan.slices.map((s) => ({ id: s.id, epicId: s.epic_id })),
+    maxRetries: opts.maxRetries,
+  });
   const actions = createPiActions({
     verbose: opts.verbose,
     emit: (event) => bus.emit(event),
@@ -568,6 +580,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
       reports,
       testRunner,
       policy: { maxRetries: opts.maxRetries },
+      emit: (event) => bus.emit(event),
       sandboxMode: sandbox.kind === 'codebase' ? 'codebase' : 'fixture',
       sliceLayout,
       runId,
@@ -597,11 +610,11 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
     }
 
     // Brownfield promotion is automatic (the result already lives on the repo's
-    // own `cook/<runId>` branch); greenfield promotion is opt-in via --out. A run
-    // that did not complete promotes nothing — the artifact stays inspectable.
+    // own `brunch/run/<runId>` branch); greenfield promotion is opt-in via --out.
+    // A run that did not complete promotes nothing — the artifact stays inspectable.
     if (sandbox.kind === 'codebase') {
       if (opts.outDir) {
-        line(`  !  --out is ignored for brownfield; the result lands on cook/${runId} in the repo`);
+        line(`  !  --out is ignored for brownfield; the result lands on ${brunchRef.run(runId)} in the repo`);
         line('');
       }
       if (!ok) {
@@ -609,31 +622,67 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
         line('');
       } else {
         try {
-          const source = promotionSourceDir({
-            sliceLayout,
-            sandboxDir,
-            runDir,
-            plan,
-            completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
-            verifiedEpicSandboxes: verifiedEpicSandboxesFromReports(reports),
-          });
-          for (const c of source.conflicts) {
-            line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
-          }
-          const promoted = promoting(`promoting → cook/${runId}`, () =>
-            promoteBrownfieldRun({
+          const completedSliceIds = result.slices
+            .filter((s) => s.status === 'completed')
+            .map((s) => s.sliceId);
+          // Compose by git merge-tree fold (FE-883): per-slice history, fail-closed
+          // on real conflicts, all plumbing (the user's checkout is never touched).
+          const artifact = promoting(`promoting → ${brunchRef.run(runId)}`, () =>
+            harvestCookRun({
               sourceDir: sandbox.sourceDir,
-              sourceTreeDir: source.dir,
+              parentSandboxDir: sandboxDir,
               runId,
+              plan,
+              completedSliceIds,
             }),
           );
-          line(
-            `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (merge it into your branch when ready)`,
-          );
-          line('');
+          if (artifact.conflicts.length > 0) {
+            for (const c of artifact.conflicts) {
+              line(`  ✗  merge conflict in slice ${c.sliceId} on ${c.paths.join(', ')}`);
+            }
+            line(
+              `  ✗  promotion halted at ${artifact.branch} @ ${artifact.head.slice(0, 8)} — resolve the conflict and re-run`,
+            );
+            line('');
+            recordCookExitStatus(false);
+            return;
+          }
+          let land: CookFinishLand | undefined;
+          if (opts.landBranch) {
+            const landed = promoting(`landing → ${artifact.branch} into the active branch`, () =>
+              landCookBranch({ sourceDir: sandbox.sourceDir, runId }),
+            );
+            if (landed.kind === 'landed') {
+              land = { kind: 'landed', branch: landed.branch, mode: landed.mode };
+            } else if (landed.kind === 'refused') {
+              land = { kind: 'refused', reason: landed.reason };
+            } else {
+              land = { kind: 'conflict', branch: landed.branch };
+            }
+          }
+          for (const l of cookFinishLines({
+            shape: 'brownfield',
+            dir: sandbox.sourceDir,
+            branch: artifact.branch,
+            commit: artifact.head,
+            ...(land ? { land } : {}),
+          })) {
+            line(l);
+          }
+          // Completed + promoted: reclaim the run's worktrees + intermediate slice
+          // branches (the brunch/run/<runId> artifact branch is kept). Best-effort —
+          // cleanup must never fail a good run. Halted/conflicted runs returned
+          // earlier, so they keep their worktrees for inspection (keep-on-failure).
+          try {
+            gcCookRun({ sourceDir: sandbox.sourceDir, runId, runDir });
+          } catch {
+            /* leave the run dir if cleanup hiccups; not worth failing a promoted run */
+          }
         } catch (err) {
-          line(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          const reason = `promotion failed: ${err instanceof Error ? err.message : String(err)}`;
+          line(`  ✗  ${reason}`);
           line('');
+          bus.emit({ kind: 'cook-done', ok: false, reason });
           recordCookExitStatus(false);
           return;
         }
@@ -663,17 +712,35 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
               force: opts.force,
             }),
           );
-          line(`  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`);
-          line('');
+          for (const l of cookFinishLines({
+            shape: 'greenfield',
+            dir: promoted.target,
+            branch: promoted.branch,
+            commit: promoted.commit,
+          })) {
+            line(l);
+          }
         } catch (err) {
-          line(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          const reason = `promotion failed: ${err instanceof Error ? err.message : String(err)}`;
+          line(`  ✗  ${reason}`);
           line('');
+          bus.emit({ kind: 'cook-done', ok: false, reason });
           recordCookExitStatus(false);
           return;
         }
       }
+    } else if (opts.landBranch) {
+      // --land merges the cook branch into a repo's active branch; greenfield has
+      // no such branch (it promotes to --out instead), so the flag is a no-op here.
+      line(
+        '  !  --land is ignored for greenfield runs (no repo branch to land onto; pass --out to promote the result)',
+      );
+      line('');
     }
 
+    // Run complete (after promotion) — lights the brigade's `serve` phase, or
+    // pins a halt summary with the reason when it did not complete.
+    bus.emit({ kind: 'cook-done', ok, ...(result.reason ? { reason: result.reason } : {}) });
     recordCookExitStatus(ok);
     return;
   } finally {

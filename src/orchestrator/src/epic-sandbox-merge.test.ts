@@ -198,6 +198,23 @@ describe('seedSliceSandboxFromDeps', () => {
     expect(readFileSync(join(parent, 'target', 'shared.txt'), 'utf8')).toBe('A\n');
   });
 
+  it('does not copy a dependency slice node_modules into the dependent slice', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'cook-seed-'));
+    dirs.push(parent);
+    mkdirSync(join(parent, 'version-flag', 'src'), { recursive: true });
+    writeFileSync(join(parent, 'version-flag', 'src/cli.ts'), 'version\n');
+    // The dependency slice ran an in-slice install, clobbering its node_modules
+    // symlink into a real tree; seeding must not deep-copy it.
+    mkdirSync(join(parent, 'version-flag', 'node_modules', 'dep'), { recursive: true });
+    writeFileSync(join(parent, 'version-flag', 'node_modules/dep/index.js'), '1\n');
+
+    const slice = txtLikePlan.slices.find((s) => s.id === 'help-flag')!;
+    const sliceDir = seedSliceSandboxFromDeps(parent, txtLikePlan, slice);
+
+    expect(readFileSync(join(sliceDir, 'src/cli.ts'), 'utf8')).toBe('version\n');
+    expect(existsSync(join(sliceDir, 'node_modules'))).toBe(false);
+  });
+
   it('reset re-seed removes orphaned slice files from a prior rework attempt', () => {
     const parent = mkdtempSync(join(tmpdir(), 'cook-seed-'));
     dirs.push(parent);
@@ -233,7 +250,7 @@ describe('seedSliceFromParentWorktree', () => {
    * Create a tmp dir initialised as a git worktree of a fresh repo at HEAD,
    * mimicking the structure cook produces via createSandbox in codebase mode:
    * the "parent" is itself a `git worktree add` of a separate "source" repo,
-   * checked out on a `cook/<runId>` branch.
+   * checked out on a `brunch/run/<runId>` branch.
    */
   function makeGitParentWorktree(runId: string): {
     parent: string;
@@ -254,7 +271,9 @@ describe('seedSliceFromParentWorktree', () => {
     const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
     dirs.push(runDir);
     const parent = join(runDir, 'worktree');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', `cook/${runId}`, parent, 'HEAD'], { cwd: source });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', `brunch/run/${runId}`, parent, 'HEAD'], {
+      cwd: source,
+    });
 
     return {
       parent,
@@ -311,7 +330,7 @@ describe('seedSliceFromParentWorktree', () => {
       cwd: sliceDir,
       encoding: 'utf8',
     }).trim();
-    expect(branch).toBe('cook-slice/r3/only');
+    expect(branch).toBe('brunch/slice/r3/only');
   });
 
   it('excludes sibling slice subdirs from the untracked copy', () => {
@@ -384,7 +403,9 @@ describe('ensureSliceWorktree', () => {
     const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
     dirs.push(runDir);
     const parent = join(runDir, 'worktree');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', `cook/${runId}`, parent, 'HEAD'], { cwd: source });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', `brunch/run/${runId}`, parent, 'HEAD'], {
+      cwd: source,
+    });
     return parent;
   }
 
@@ -423,7 +444,7 @@ describe('ensureSliceWorktree', () => {
       const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
       dirs.push(runDir);
       const parent = join(runDir, 'worktree');
-      execFileSync('git', ['worktree', 'add', '-q', '-b', 'cook/r2', parent, 'HEAD'], { cwd: source });
+      execFileSync('git', ['worktree', 'add', '-q', '-b', 'brunch/run/r2', parent, 'HEAD'], { cwd: source });
 
       const collidingPlan: Plan = {
         mode: 'brownfield',
@@ -628,12 +649,15 @@ describe('mergeSlicesIntoEpicSandbox', () => {
     expect(existsSync(join(result.epicSandboxDir, 'escape.link'))).toBe(false);
   });
 
-  it('keeps the parent node_modules link available in the merged verify sandbox', () => {
+  it('links rather than deep-copies a slice node_modules clobbered into a real dir', () => {
     const parent = makeParent();
-    seedSlice(parent, 'slice-a', { 'src/a.ts': 'A\n' });
-    mkdirSync(join(parent, 'node_modules', 'dep'), { recursive: true });
-    writeFileSync(join(parent, 'node_modules', 'dep/index.js'), 'module.exports = 1;\n');
-    symlinkSync(join(parent, 'node_modules'), join(parent, 'slice-a', 'node_modules'), 'dir');
+    // An in-slice `npm install` replaces the shared node_modules symlink with a
+    // real tree; it must reach the epic tree via a symlink, never a deep copy
+    // (the ENOSPC bug was the per-slice/per-epic copy of that ~900M tree).
+    seedSlice(parent, 'slice-a', {
+      'src/a.ts': 'A\n',
+      'node_modules/dep/index.js': 'module.exports = 1;\n',
+    });
 
     const result = mergeSlicesIntoEpicSandbox({
       parentSandboxDir: parent,
@@ -641,9 +665,77 @@ describe('mergeSlicesIntoEpicSandbox', () => {
       sliceIds: ['slice-a'],
     });
 
-    const linkPath = join(result.epicSandboxDir, 'node_modules');
-    expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
-    expect(readFileSync(join(linkPath, 'dep/index.js'), 'utf8')).toBe('module.exports = 1;\n');
+    expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
+    // node_modules resolves, but as a symlink to the slice install — not copied.
+    expect(lstatSync(join(result.epicSandboxDir, 'node_modules')).isSymbolicLink()).toBe(true);
+    expect(readFileSync(join(result.epicSandboxDir, 'node_modules/dep/index.js'), 'utf8')).toBe(
+      'module.exports = 1;\n',
+    );
+  });
+
+  it('links node_modules to a completed slice install so its added deps resolve', () => {
+    const parent = makeParent();
+    // Parent install lacks the dep a slice added in-place via `npm install`.
+    seedSlice(parent, 'node_modules', { 'base/index.js': 'base\n' });
+    seedSlice(parent, 'slice-a', {
+      'src/a.ts': 'A\n',
+      'node_modules/base/index.js': 'base\n',
+      'node_modules/added/index.js': 'added\n',
+    });
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-a',
+      sliceIds: ['slice-a'],
+    });
+
+    const link = join(result.epicSandboxDir, 'node_modules');
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(link)).toBe(join(parent, 'slice-a', 'node_modules'));
+    // The slice-added dep resolves through the link.
+    expect(readFileSync(join(link, 'added/index.js'), 'utf8')).toBe('added\n');
+  });
+
+  it('falls back to the parent install when no slice installed deps', () => {
+    const parent = makeParent();
+    seedSlice(parent, 'node_modules', { 'base/index.js': 'base\n' });
+    seedSlice(parent, 'slice-a', { 'src/a.ts': 'A\n' });
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-a',
+      sliceIds: ['slice-a'],
+    });
+
+    const link = join(result.epicSandboxDir, 'node_modules');
+    expect(readlinkSync(link)).toBe(join(parent, 'node_modules'));
+  });
+
+  it('reports node_modules divergence and links the last installing slice (plan order)', () => {
+    const parent = makeParent();
+    seedSlice(parent, 'slice-a', {
+      'src/a.ts': 'A\n',
+      'node_modules/from-a/index.js': 'a\n',
+    });
+    seedSlice(parent, 'slice-b', {
+      'src/b.ts': 'B\n',
+      'node_modules/from-b/index.js': 'b\n',
+    });
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-b',
+      sliceIds: ['slice-a', 'slice-b'],
+    });
+
+    expect(readlinkSync(join(result.epicSandboxDir, 'node_modules'))).toBe(
+      join(parent, 'slice-b', 'node_modules'),
+    );
+    expect(result.conflicts).toContainEqual({
+      path: 'node_modules',
+      slices: ['slice-a', 'slice-b'],
+      winner: 'slice-b',
+    });
   });
 
   it('replaces a file with a directory when later slices need nested paths', () => {

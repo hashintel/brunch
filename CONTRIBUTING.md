@@ -31,7 +31,7 @@ Open http://localhost:5173.
 | Variable | Required | Description |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Yes | Anthropic API key |
-| `ANTHROPIC_MODEL` | No | Interviewer model (default: `claude-sonnet-4-20250514`) |
+| `ANTHROPIC_MODEL` | No | Interviewer model (default: `claude-opus-4-6`) |
 | `OBSERVER_MODEL` | No | Observer model (default: `claude-haiku-4-5-20251001`) |
 | `BRUNCH_DB` | No | Override the default project-local SQLite path for dev workflows |
 | `BRUNCH_PORT` | No | Backend port override |

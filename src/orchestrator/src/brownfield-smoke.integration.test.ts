@@ -212,20 +212,20 @@ describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
       const modified = readFileSync(join(sliceDir, 'src.txt'), 'utf8');
       expect(modified).toBe('hello\nmodified\n');
 
-      // The parent worktree (the git worktree of source HEAD) was on cook/<runId>.
+      // The parent worktree (the git worktree of source HEAD) was on brunch/run/<runId>.
       const parentBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
         cwd: sandbox.sandboxDir,
         encoding: 'utf8',
       }).trim();
-      expect(parentBranch).toBe(`cook/${sandbox.runId}`);
+      expect(parentBranch).toBe(`brunch/run/${sandbox.runId}`);
 
       // The slice worktree is a real git worktree on its slice-level branch
-      // (sibling namespace cook-slice/ to avoid ref-hierarchy collision with cook/<runId>).
+      // (sibling namespace brunch/slice/ to avoid ref-hierarchy collision with brunch/run/<runId>).
       const sliceBranch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
         cwd: sliceDir,
         encoding: 'utf8',
       }).trim();
-      expect(sliceBranch).toBe(`cook-slice/${sandbox.runId}/modify-src`);
+      expect(sliceBranch).toBe(`brunch/slice/${sandbox.runId}/modify-src`);
     },
     GIT_TEST_TIMEOUT_MS,
   );
@@ -253,7 +253,7 @@ describe('brownfield smoke — 1-slice 1-epic codebase mode', () => {
     expect(existsSync(sandbox.sandboxDir)).toBe(true);
     expect(existsSync(join(sandbox.sandboxDir, 'src.txt'))).toBe(false);
 
-    // No `cook/<runId>` branch was created — greenfield never ran `git worktree add`.
+    // No `brunch/run/<runId>` branch was created — greenfield never ran `git worktree add`.
     const branchesAfter = execFileSync('git', ['branch', '--list'], { cwd: source, encoding: 'utf8' });
     expect(branchesAfter).toBe(branchesBefore);
   });

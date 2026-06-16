@@ -320,16 +320,20 @@ export function createInterviewerAgent(
   const instructions = getInterviewerInstructions(phase, options);
 
   return new ToolLoopAgent({
-    model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
+    model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-opus-4-8'),
     instructions,
     tools,
     providerOptions: {
       anthropic: {
         sendReasoning: true,
-        thinking: {
-          type: 'enabled',
-          budgetTokens: 10000,
-        },
+        // Opus 4.8 controls thinking via adaptive type + effort, not the
+        // enabled/budgetTokens shape (which the API rejects for this model).
+        thinking: { type: 'adaptive' },
+        effort: 'medium',
+        // Opus 4.8 otherwise fragments a single `ask_question` into several
+        // parallel partial calls (one option each / leaked tool-call XML),
+        // which land as failed `output-error` parts. Force one call per step.
+        disableParallelToolUse: true,
       },
     },
     maxOutputTokens: 16000,

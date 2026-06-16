@@ -1,16 +1,25 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
   AuthStorage,
-  type CreateAgentSessionOptions,
   createAgentSession,
+  createBashToolDefinition,
+  createEditToolDefinition,
+  createFindToolDefinition,
+  createGrepToolDefinition,
+  createLsToolDefinition,
+  createReadToolDefinition,
+  createWriteToolDefinition,
+  type CreateAgentSessionOptions,
   DefaultResourceLoader,
   ModelRegistry,
   SessionManager,
   SettingsManager,
+  type Skill,
+  type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 
 import { buildProbeSpec, runProbe } from './app-probe.js';
@@ -55,6 +64,106 @@ function logVerbose(output: string): void {
   _emit({ kind: 'verbose', text: output });
 }
 
+const HEARTBEAT_MAX = 56;
+
+/** The agent's most recent non-empty line, tail-truncated for a one-line wait heartbeat. */
+function latestLine(text: string): string {
+  const lines = text.split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i]!.trim();
+    if (line) return line.length > HEARTBEAT_MAX ? `…${line.slice(-(HEARTBEAT_MAX - 1))}` : line;
+  }
+  return '';
+}
+
+// ---------------------------------------------------------------------------
+// Tool-call observability — show what the agent is *doing* (editing X, running
+// bash, reading Y), not just what it's saying. We can't observe tool calls via
+// session.subscribe (that stream is text/lifecycle only), so we supply the
+// built-in tools ourselves and wrap their execute to emit a heartbeat. The
+// createXToolDefinition builders bake in the real config (mutation queue,
+// truncation defaults), so wrapping + delegating preserves behavior exactly.
+// ---------------------------------------------------------------------------
+
+// Inferred so each builder keeps its own tool-schema generic; the heterogeneous
+// list is erased to the base ToolDefinition at the single wrap point below.
+const TOOL_DEF_BUILDERS = {
+  read: createReadToolDefinition,
+  write: createWriteToolDefinition,
+  edit: createEditToolDefinition,
+  bash: createBashToolDefinition,
+  grep: createGrepToolDefinition,
+  find: createFindToolDefinition,
+  ls: createLsToolDefinition,
+} as const;
+
+/** A one-line "what the agent is doing" label from a tool name + its params. */
+export function toolLabel(name: string, params: unknown): string {
+  const p = (params && typeof params === 'object' ? params : {}) as Record<string, unknown>;
+  const target = [p.path, p.command, p.pattern].find(
+    (v): v is string => typeof v === 'string' && v.length > 0,
+  );
+  const label = target ? `${name} ${target}` : name;
+  return label.length > HEARTBEAT_MAX ? `${label.slice(0, HEARTBEAT_MAX - 1)}…` : label;
+}
+
+/**
+ * Wrap a tool definition's execute to bracket the call: `onStart` fires a
+ * heartbeat before it runs, `onSettle` fires once it resolves or rejects. The
+ * bracket lets the idle deadline treat an in-flight tool (e.g. a long `bash`
+ * test run that emits no session traffic) as active work rather than dead air.
+ */
+export function instrumentToolDefinition(
+  def: ToolDefinition,
+  onStart: (label: string) => void,
+  onSettle: () => void = () => {},
+): ToolDefinition {
+  const original = def.execute.bind(def);
+  const settle = (): void => {
+    try {
+      onSettle();
+    } catch {
+      /* ignore */
+    }
+  };
+  def.execute = ((...args: Parameters<typeof def.execute>) => {
+    // Observation must never break a tool call.
+    try {
+      onStart(toolLabel(def.name, args[1]));
+    } catch {
+      /* ignore */
+    }
+    let result: ReturnType<typeof def.execute>;
+    try {
+      result = original(...args);
+    } catch (err) {
+      settle();
+      throw err;
+    }
+    // Real tools are async: settle when the promise resolves/rejects, but return
+    // the original promise so the result and shape are preserved unchanged.
+    if (result && typeof (result as { then?: unknown }).then === 'function') {
+      return (result as Promise<unknown>).finally(settle) as ReturnType<typeof def.execute>;
+    }
+    settle();
+    return result;
+  }) as typeof def.execute;
+  return def;
+}
+
+function buildInstrumentedTools(
+  names: string[],
+  cwd: string,
+  onStart: (label: string) => void,
+  onSettle: () => void,
+): ToolDefinition[] {
+  return names.flatMap((name) => {
+    const build = TOOL_DEF_BUILDERS[name as keyof typeof TOOL_DEF_BUILDERS];
+    if (!build) return [];
+    return [instrumentToolDefinition(build(cwd) as ToolDefinition, onStart, onSettle)];
+  });
+}
+
 /** Bracket a wait so it shows as a live pending activity; always closes. */
 async function withActivity<T>(id: string, label: string, fn: () => Promise<T>): Promise<T> {
   _emit({ kind: 'activity-start', id, label });
@@ -69,7 +178,11 @@ async function withActivity<T>(id: string, label: string, fn: () => Promise<T>):
 // Pi dispatch
 // ---------------------------------------------------------------------------
 
-const PI_TIMEOUT_MS = 300_000;
+// Idle deadline, not a wall-clock cap: the agent may legitimately work far
+// longer than this on a heavy slice — what we guard against is dead air. Each
+// session event re-arms the timer (see runPi), so this bounds silence, not
+// total runtime. FE-864.
+const PI_TIMEOUT_MS = 600_000;
 // Output cap — the timeout alone won't stop a fast, chatty agent.
 const PI_MAX_OUTPUT = 10 * 1024 * 1024;
 
@@ -91,6 +204,9 @@ interface RunPiOpts {
   task: string;
   sandboxDir: string;
   tools: string;
+  /** Activity id for the live wait/heartbeat. Defaults to `label`; set to the
+   *  slice id so the heartbeat lands on that slice's grid row. */
+  activityId?: string;
 }
 
 /** The pi SDK session factory — injectable so the drive loop is testable without a model or network. */
@@ -128,10 +244,68 @@ function finalAgentFailure(session: {
   return undefined;
 }
 
-// Map one action's inputs to SDK session config — tools/model/system-prompt, no
-// context/skills, in-memory session. Auth from brunch's own ANTHROPIC_API_KEY, not
-// the user's ~/.pi credentials, which is what keeps a fresh checkout self-contained.
-async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promise<CreateAgentSessionOptions> {
+/**
+ * Keep only skills rooted under `sandboxDir` (the cook worktree). Drops the
+ * developer's machine-global pi skills and any sibling-slice / look-alike paths,
+ * so a brownfield cook builds on the target repo's own skills without leaking the
+ * host's pi config — the "self-contained checkout" guarantee, narrowed from
+ * "no skills" to "no skills from outside the repo" (FE-881).
+ */
+export function sandboxScopedSkills(skills: Skill[], sandboxDir: string): Skill[] {
+  const root = resolve(sandboxDir);
+  const prefix = root + sep;
+  return skills.filter((s) => {
+    const p = resolve(s.filePath);
+    return p === root || p.startsWith(prefix);
+  });
+}
+
+/**
+ * Resource loader for a cook agent session. The agent still runs on the task
+ * prompt (system-prompt override) with prompts and AGENTS files suppressed, but
+ * it now sees the target repo's own skills: pi's default discovery scans
+ * `<cwd>/<config>/skills` + `<agentDir>/skills` rather than the Agent-Skills
+ * convention dirs, so we point it at the repo's `.agents/skills` / `.claude/skills`
+ * (deduped by realpath since brunch-style repos symlink the two) and filter the
+ * result to paths under the sandbox. Greenfield worktrees have no such dir, so
+ * this resolves empty and leaves greenfield behavior unchanged.
+ */
+export function cookResourceLoader(
+  sandboxDir: string,
+  agentDir: string,
+  systemPrompt: string,
+): DefaultResourceLoader {
+  const skillDirs = [
+    ...new Set(
+      [join(sandboxDir, '.agents', 'skills'), join(sandboxDir, '.claude', 'skills')]
+        .filter((d) => existsSync(d))
+        .map((d) => realpathSync(d)),
+    ),
+  ];
+  return new DefaultResourceLoader({
+    cwd: sandboxDir,
+    agentDir,
+    systemPromptOverride: () => systemPrompt,
+    appendSystemPromptOverride: () => [],
+    additionalSkillPaths: skillDirs,
+    agentsFilesOverride: () => ({ agentsFiles: [] }),
+    skillsOverride: (base) => ({
+      skills: sandboxScopedSkills(base.skills, sandboxDir),
+      diagnostics: base.diagnostics,
+    }),
+    promptsOverride: () => ({ prompts: [], diagnostics: [] }),
+  });
+}
+
+// Map one action's inputs to SDK session config — tools/model/system-prompt +
+// the target repo's sandbox-scoped skills (see cookResourceLoader), in-memory
+// session. Auth from brunch's own ANTHROPIC_API_KEY, not the user's ~/.pi
+// credentials, which keeps a fresh checkout self-contained.
+async function buildSessionOptions(
+  opts: RunPiOpts,
+  isolatedDir: string,
+  toolHooks: { onStart: () => void; onSettle: () => void },
+): Promise<CreateAgentSessionOptions> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error(
@@ -148,16 +322,26 @@ async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promis
   }
 
   const systemPrompt = readFileSync(opts.promptFile, 'utf8');
-  const resourceLoader = new DefaultResourceLoader({
-    cwd: opts.sandboxDir,
-    agentDir: isolatedDir,
-    systemPromptOverride: () => systemPrompt,
-    appendSystemPromptOverride: () => [],
-    agentsFilesOverride: () => ({ agentsFiles: [] }),
-    skillsOverride: () => ({ skills: [], diagnostics: [] }),
-    promptsOverride: () => ({ prompts: [], diagnostics: [] }),
-  });
+  const resourceLoader = cookResourceLoader(opts.sandboxDir, isolatedDir, systemPrompt);
   await resourceLoader.reload();
+
+  // Supply the built-in tools ourselves (instrumented), instead of the `tools`
+  // name allowlist, so each tool call emits a "what the agent is doing"
+  // heartbeat into the current wait. `noTools:'builtin'` drops the default
+  // read/bash/edit/write so they aren't double-registered.
+  const toolNames = opts.tools
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const customTools = buildInstrumentedTools(
+    toolNames,
+    opts.sandboxDir,
+    (label) => {
+      _emit({ kind: 'activity-progress', id: opts.activityId ?? opts.label, detail: label });
+      toolHooks.onStart();
+    },
+    toolHooks.onSettle,
+  );
 
   return {
     cwd: opts.sandboxDir,
@@ -166,7 +350,9 @@ async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promis
     authStorage,
     modelRegistry,
     resourceLoader,
-    tools: opts.tools.split(','),
+    noTools: 'builtin',
+    tools: toolNames,
+    customTools,
     sessionManager: SessionManager.inMemory(opts.sandboxDir),
     settingsManager: SettingsManager.inMemory({ compaction: { enabled: false } }),
   };
@@ -175,8 +361,10 @@ async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promis
 // In-process (not a spawned CLI) so brunch is self-contained. Each run gets a
 // throwaway agent/auth dir to keep concurrent slices isolated; the dir is removed
 // after the session ends. Output is buffered from text_delta events, never written
-// to brunch's stdout (keeps the cook SSE stream clean); the timeout covers both
-// session setup and the prompt turn, aborting cooperatively once a session exists.
+// to brunch's stdout (keeps the cook SSE stream clean); the timeout is an idle
+// deadline covering both session setup and the prompt turn — any session event
+// re-arms it and an in-flight tool call (e.g. a long `bash`) pauses it, so only
+// true dead air trips it, aborting cooperatively once a session exists.
 async function runPi(
   opts: RunPiOpts,
   deps: { createSession?: SessionFactory; timeoutMs?: number; maxOutput?: number } = {},
@@ -185,13 +373,15 @@ async function runPi(
   const timeoutMs = deps.timeoutMs ?? PI_TIMEOUT_MS;
   const maxOutput = deps.maxOutput ?? PI_MAX_OUTPUT;
   const start = Date.now();
-  // Open a live wait so the (up to 5-minute) agent session isn't dead air.
-  _emit({ kind: 'activity-start', id: opts.label, label: opts.label });
+  const activityId = opts.activityId ?? opts.label;
+  // Open a live wait so the agent session isn't dead air in the UI.
+  _emit({ kind: 'activity-start', id: activityId, label: opts.label });
   let heartbeatKb = 0;
 
-  const isolatedDir = createAgentDir();
+  let isolatedDir: string | undefined;
   let cleanedAgentDir = false;
   const cleanupAgentDir = (): void => {
+    if (!isolatedDir) return;
     if (cleanedAgentDir) return;
     cleanedAgentDir = true;
     removeAgentDir(isolatedDir);
@@ -205,17 +395,52 @@ async function runPi(
   let agentFailure: string | undefined;
   let unsubscribe: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
+  let rejectTimeout: ((err: Error) => void) | undefined;
+  // Tool calls currently executing. A tool in flight (e.g. a multi-minute
+  // `bash` test run) is active work that emits no session traffic, so the idle
+  // deadline must not count its duration — pause while any tool runs.
+  let inFlightTools = 0;
+  // Re-armable idle deadline: cleared and reset on every session event so the
+  // budget bounds silence, not total work. A heavy slice whose agent spends
+  // minutes in a single test command between edits stays alive as long as the
+  // session keeps emitting; only genuine dead air for `timeoutMs` aborts it.
+  const armIdleTimer = (): void => {
+    if (timedOut) return;
+    if (timer) clearTimeout(timer);
+    // Don't count idle time while a tool is mid-execution; its settle hook
+    // re-arms once it finishes.
+    if (inFlightTools > 0) return;
     timer = setTimeout(() => {
       timedOut = true;
       void session?.abort();
-      reject(piTimeoutError(timeoutMs));
+      rejectTimeout?.(piTimeoutError(timeoutMs));
     }, timeoutMs);
+  };
+  // Bracket every tool call: pause the idle deadline while it runs (a long
+  // silent `bash` must not trip the timeout mid-command), resume on settle.
+  const onToolStart = (): void => {
+    inFlightTools += 1;
+    if (timer) {
+      clearTimeout(timer);
+      timer = undefined;
+    }
+  };
+  const onToolSettle = (): void => {
+    inFlightTools = Math.max(0, inFlightTools - 1);
+    if (inFlightTools === 0) armIdleTimer();
+  };
+  const timeout = new Promise<never>((_, reject) => {
+    rejectTimeout = reject;
+    armIdleTimer();
   });
 
   try {
+    isolatedDir = createAgentDir();
+    const agentDir = isolatedDir;
     const setup = (async () => {
-      const created = await createSession(await buildSessionOptions(opts, isolatedDir));
+      const created = await createSession(
+        await buildSessionOptions(opts, agentDir, { onStart: onToolStart, onSettle: onToolSettle }),
+      );
       if (timedOut) {
         created.session.dispose();
       }
@@ -233,6 +458,9 @@ async function runPi(
     session = await Promise.race([setup, timeout]);
 
     unsubscribe = session.subscribe((event) => {
+      // Any activity — text, tool call, tool-execution progress, thinking —
+      // is liveness: push the idle deadline forward.
+      armIdleTimer();
       if (event.type === 'message_update' && event.assistantMessageEvent.type === 'text_delta') {
         if (overflowed) return;
         const delta = event.assistantMessageEvent.delta;
@@ -244,11 +472,14 @@ async function runPi(
         }
         captured += delta;
         capturedBytes += deltaBytes;
-        // Throttled heartbeat — every 2 KB — so the spinner shows progress, not churn.
+        // Throttled heartbeat — every 2 KB — surface what the agent is currently
+        // saying (its latest line) instead of a raw byte count, so the wait reads
+        // as live work, not just "still going".
         const kb = Math.floor(capturedBytes / 1024);
         if (kb >= heartbeatKb + 2) {
           heartbeatKb = kb;
-          _emit({ kind: 'activity-progress', id: opts.label, detail: `${kb} KB` });
+          const snippet = latestLine(captured);
+          if (snippet) _emit({ kind: 'activity-progress', id: activityId, detail: snippet });
         }
       }
     });
@@ -266,7 +497,7 @@ async function runPi(
     cleanupAgentDir();
     // Always close the wait — even on timeout / overflow / prompt error — so
     // the spinner can never hang.
-    _emit({ kind: 'activity-end', id: opts.label });
+    _emit({ kind: 'activity-end', id: activityId });
   }
 
   if (timedOut) throw piTimeoutError(timeoutMs);
@@ -354,36 +585,68 @@ export function createPiActions(opts?: {
   return {
     'evaluate-done': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
+      _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'running', step: 'verify' });
       log('?', `evaluate  ${label}`);
       const { done, failureKind, results } = await withActivity(
-        `verify ${label}`,
+        ctx.slice.id,
         `running tests · ${label}`,
         () => runVerification(ctx.slice.verification, testRunner, ctx.sandboxDir),
       );
+      // `absent` = the gate ran before any test file exists (greenfield). That
+      // is "not started", not a red — it must not consume an attempt or paint a
+      // ✗ NEEDS WORK. The slice stays running and flows on to write-tests.
+      const notStarted = !done && failureKind === 'absent';
       for (const r of results) {
         logVerbose(r.output);
-        log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
+        log(r.passed ? '✓' : r.failureKind === 'absent' ? '·' : '✗', `verify    ${r.target}`);
       }
-      log(done ? '●' : '○', `verdict   ${label} → ${done ? 'DONE' : 'NEEDS WORK'}`);
+      log(
+        done ? '●' : notStarted ? '·' : '○',
+        `verdict   ${label} → ${done ? 'DONE' : notStarted ? 'NOT STARTED' : 'NEEDS WORK'}`,
+      );
+      if (done) {
+        _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'passed' });
+      } else if (!notStarted) {
+        _emit({
+          kind: 'slice',
+          id: ctx.slice.id,
+          epicId: ctx.epic.id,
+          status: 'failed',
+          reason: failureKind === 'infra' ? 'infra error' : 'tests failed',
+        });
+      }
       return report(ctx, 'evaluator', 'eval-done', { done, failureKind, results });
     },
 
     'write-tests': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
+      _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'running', step: 'tests' });
       log('▸', `tests     ${label}`);
       const task = sliceTestTask(ctx.slice, toolchain);
 
-      await runPi(
-        {
-          label: `tests     ${label}`,
-          model: 'claude-sonnet-4-6',
-          promptFile: join(promptsDir, 'test-writer.md'),
-          task,
-          sandboxDir: ctx.sandboxDir,
-          tools: toolsForAction('write-tests'),
-        },
-        piDeps,
-      );
+      try {
+        await runPi(
+          {
+            label: `tests     ${label}`,
+            model: 'claude-opus-4-8',
+            promptFile: join(promptsDir, 'test-writer.md'),
+            task,
+            sandboxDir: ctx.sandboxDir,
+            tools: toolsForAction('write-tests'),
+            activityId: ctx.slice.id,
+          },
+          piDeps,
+        );
+      } catch (err) {
+        _emit({
+          kind: 'slice',
+          id: ctx.slice.id,
+          epicId: ctx.epic.id,
+          status: 'failed',
+          reason: 'test authoring failed',
+        });
+        throw err;
+      }
 
       return report(ctx, 'test-writer', 'tests-written', {
         sliceId: ctx.slice.id,
@@ -393,20 +656,33 @@ export function createPiActions(opts?: {
 
     'write-code': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
+      _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'running', step: 'code' });
       log('▸', `code      ${label}`);
       const task = `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`;
 
-      await runPi(
-        {
-          label: `code      ${label}`,
-          model: 'claude-sonnet-4-6',
-          promptFile: join(promptsDir, 'code-writer.md'),
-          task,
-          sandboxDir: ctx.sandboxDir,
-          tools: toolsForAction('write-code'),
-        },
-        piDeps,
-      );
+      try {
+        await runPi(
+          {
+            label: `code      ${label}`,
+            model: 'claude-opus-4-8',
+            promptFile: join(promptsDir, 'code-writer.md'),
+            task,
+            sandboxDir: ctx.sandboxDir,
+            tools: toolsForAction('write-code'),
+            activityId: ctx.slice.id,
+          },
+          piDeps,
+        );
+      } catch (err) {
+        _emit({
+          kind: 'slice',
+          id: ctx.slice.id,
+          epicId: ctx.epic.id,
+          status: 'failed',
+          reason: 'code authoring failed',
+        });
+        throw err;
+      }
 
       return report(ctx, 'code-writer', 'code-written', {
         sliceId: ctx.slice.id,
@@ -424,17 +700,30 @@ export function createPiActions(opts?: {
       log('▸', `verify    ${ctx.epic.id}`);
       const writeTask = epicVerifyTask(ctx.epic, toolchain);
 
-      await runPi(
-        {
-          label: `verify    ${ctx.epic.id} (write)`,
-          model: 'claude-sonnet-4-6',
-          promptFile: join(promptsDir, 'test-writer.md'),
-          task: writeTask,
-          sandboxDir: ctx.sandboxDir,
-          tools: toolsForAction('verify-epic'),
-        },
-        piDeps,
-      );
+      try {
+        await runPi(
+          {
+            label: `verify    ${ctx.epic.id} (write)`,
+            model: 'claude-opus-4-8',
+            promptFile: join(promptsDir, 'test-writer.md'),
+            task: writeTask,
+            sandboxDir: ctx.sandboxDir,
+            tools: toolsForAction('verify-epic'),
+          },
+          piDeps,
+        );
+      } catch (err) {
+        // Mirror write-tests/write-code: a thrown runPi must paint a failed row
+        // (on the epic's representative slice) with a reason, not vanish silently.
+        _emit({
+          kind: 'slice',
+          id: ctx.slice.id,
+          epicId: ctx.epic.id,
+          status: 'failed',
+          reason: 'epic verification failed',
+        });
+        throw err;
+      }
 
       const {
         done: testsPassed,
