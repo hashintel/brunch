@@ -12,6 +12,7 @@ import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-s
 import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
+import { type CookBus, createCookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
 import { promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
@@ -401,7 +402,8 @@ function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
   return { kind: 'dirty', status };
 }
 
-export async function runCook(opts: CookOptions): Promise<void> {
+export async function runCook(opts: CookOptions, bus: CookBus = createCookBus('cook')): Promise<void> {
+  const line = (text: string) => bus.emit({ kind: 'line', text });
   const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
 
   // Streaming pre-flight happens before any cook side effect (banner, plan
@@ -416,7 +418,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
       env: { PETRINAUT_URL: process.env.PETRINAUT_URL },
     });
     if ('error' in resolvedUrl) {
-      console.error(resolvedUrl.error);
+      line(resolvedUrl.error);
       process.exit(1);
     }
     petrinautUrl = resolvedUrl.url;
@@ -425,7 +427,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   const resolved = resolveCookPlan(opts.dir, opts.specId);
   if (resolved.kind === 'error') {
-    console.error(resolved.message);
+    line(resolved.message);
     process.exit(1);
   }
 
@@ -434,7 +436,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
   // Worktree strategy follows the plan's spec-derived mode, not its location.
   const sandbox = resolveSandboxPlan(plan.mode, resolved.sourceDir);
   if (sandbox.kind === 'error') {
-    console.error(sandbox.message);
+    line(sandbox.message);
     process.exit(1);
   }
 
@@ -451,15 +453,15 @@ export async function runCook(opts: CookOptions): Promise<void> {
   const epicCount = plan.epics.length;
   const sliceCount = plan.slices.length;
 
-  console.error('');
-  console.error(`  brunch cook`);
-  console.error(`  ──────────────────────────────────────`);
-  console.error(`  policy     ${opts.policy}`);
-  console.error(`  plan       ${epicCount} epics, ${sliceCount} slices`);
-  console.error(`  retries    ${opts.maxRetries}`);
-  console.error(`  sandbox    ${sandboxDir}`);
-  console.error(`  reports    ${reportsPath}`);
-  console.error('');
+  line('');
+  line(`  brunch cook`);
+  line(`  ──────────────────────────────────────`);
+  line(`  policy     ${opts.policy}`);
+  line(`  plan       ${epicCount} epics, ${sliceCount} slices`);
+  line(`  retries    ${opts.maxRetries}`);
+  line(`  sandbox    ${sandboxDir}`);
+  line(`  reports    ${reportsPath}`);
+  line('');
 
   const reports = new FileReportSink(reportsPath);
   const toolchain = resolveToolchain(plan.profile);
@@ -468,7 +470,15 @@ export async function runCook(opts: CookOptions): Promise<void> {
   const engine = createOrchestrator(opts.policy);
 
   const runStart = Date.now();
-  const actions = createPiActions({ verbose: opts.verbose, runStart, toolchain, testRunner });
+  // Seed the presenter's elapsed clock; per-action progress carries no
+  // pre-formatted timing — the presenter owns it (I136-K).
+  bus.emit({ kind: 'cook-start', runStart });
+  const actions = createPiActions({
+    verbose: opts.verbose,
+    emit: (event) => bus.emit(event),
+    toolchain,
+    testRunner,
+  });
 
   // Stand up the live-stream setup handle when streaming is enabled.
   // Auto-open is suppressed by `--no-petrinaut-open` or CI.
@@ -478,6 +488,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
           petrinautUrl,
           shouldOpen: opts.petrinautOpen && !process.env.CI,
           openUrl: defaultOpenUrl,
+          log: (text) => line(text),
           ...(streamPort !== undefined ? { port: streamPort } : {}),
         })
       : undefined;
@@ -504,15 +515,13 @@ export async function runCook(opts: CookOptions): Promise<void> {
     const duration = fmtDuration(Date.now() - runStart);
     const ok = result.status === 'completed';
 
-    console.error('');
-    console.error(`  ──────────────────────────────────────`);
-    console.error(
-      `  ${ok ? '✓' : '✗'}  ${result.status}${result.reason ? ` — ${result.reason}` : ''}  (${duration})`,
-    );
+    line('');
+    line(`  ──────────────────────────────────────`);
+    line(`  ${ok ? '✓' : '✗'}  ${result.status}${result.reason ? ` — ${result.reason}` : ''}  (${duration})`);
     for (const warning of result.warnings) {
-      console.error(`  !  ${warning}`);
+      line(`  !  ${warning}`);
     }
-    console.error('');
+    line('');
 
     for (const e of result.epics) {
       const icon = e.status === 'completed' ? '✓' : '✗';
@@ -522,25 +531,25 @@ export async function runCook(opts: CookOptions): Promise<void> {
       const sliceSummary = slices
         .map((s) => `${s.status === 'completed' ? '✓' : '✗'} ${s.sliceId}`)
         .join('  ');
-      console.error(`  ${icon}  ${e.epicId}`);
-      console.error(`     ${sliceSummary}`);
+      line(`  ${icon}  ${e.epicId}`);
+      line(`     ${sliceSummary}`);
     }
 
-    console.error('');
-    console.error(`  ${result.reports.length} events → ${reportsPath}`);
-    console.error('');
+    line('');
+    line(`  ${result.reports.length} events → ${reportsPath}`);
+    line('');
 
     // Brownfield promotion is automatic (the result already lives on the repo's
     // own `cook/<runId>` branch); greenfield promotion is opt-in via --out. A run
     // that did not complete promotes nothing — the artifact stays inspectable.
     if (sandbox.kind === 'codebase') {
       if (opts.outDir) {
-        console.error(`  !  --out is ignored for brownfield; the result lands on cook/${runId} in the repo`);
-        console.error('');
+        line(`  !  --out is ignored for brownfield; the result lands on cook/${runId} in the repo`);
+        line('');
       }
       if (!ok) {
-        console.error(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
-        console.error('');
+        line(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
+        line('');
       } else {
         try {
           const source = promotionSourceDir({
@@ -551,30 +560,28 @@ export async function runCook(opts: CookOptions): Promise<void> {
             completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
           });
           for (const c of source.conflicts) {
-            console.error(
-              `  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`,
-            );
+            line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
           }
           const promoted = promoteBrownfieldRun({
             sourceDir: sandbox.sourceDir,
             sourceTreeDir: source.dir,
             runId,
           });
-          console.error(
+          line(
             `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (merge it into your branch when ready)`,
           );
-          console.error('');
+          line('');
         } catch (err) {
-          console.error(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
-          console.error('');
+          line(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          line('');
           recordCookExitStatus(false);
           return;
         }
       }
     } else if (opts.outDir) {
       if (!ok) {
-        console.error(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
-        console.error('');
+        line(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
+        line('');
       } else {
         try {
           const source = promotionSourceDir({
@@ -585,9 +592,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
             completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
           });
           for (const c of source.conflicts) {
-            console.error(
-              `  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`,
-            );
+            line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
           }
           const promoted = promoteGreenfieldRun({
             sandboxDir: source.dir,
@@ -595,13 +600,11 @@ export async function runCook(opts: CookOptions): Promise<void> {
             runId,
             force: opts.force,
           });
-          console.error(
-            `  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`,
-          );
-          console.error('');
+          line(`  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`);
+          line('');
         } catch (err) {
-          console.error(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
-          console.error('');
+          line(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          line('');
           recordCookExitStatus(false);
           return;
         }

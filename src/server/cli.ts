@@ -169,7 +169,7 @@ if (rawArgs[0] === 'cook') {
             repoDir: project.cwd,
             bus,
           }),
-        cook: (cookOpts) => runCook(cookOpts),
+        cook: (cookOpts) => runCook(cookOpts, bus),
       });
     },
   );
