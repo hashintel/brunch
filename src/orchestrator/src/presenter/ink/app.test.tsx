@@ -9,7 +9,7 @@ async function tick() {
 }
 
 describe('Ink App', () => {
-  it('renders the egg header, brigade tracker, and recent activity', async () => {
+  it('renders the wordmark header, brigade tracker, and recent activity', async () => {
     const store = new RunStore('cook', () => 0);
     const { lastFrame } = render(<App store={store} />);
 
@@ -18,9 +18,9 @@ describe('Ink App', () => {
     await tick();
 
     const frame = lastFrame() ?? '';
-    // Egg header + command title.
-    expect(frame).toContain("'-'");
-    expect(frame).toContain('brunch cook');
+    // Wordmark header + command.
+    expect(frame).toContain('brunch');
+    expect(frame).toContain('cook');
     // Brigade tracker shows every phase, with cook active (◐) once cooking.
     expect(frame).toContain('prep');
     expect(frame).toContain('cook ◐');
