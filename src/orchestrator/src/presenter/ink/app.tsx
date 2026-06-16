@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 
 import { formatElapsed } from '../clock.js';
 import { BRIGADE, type BrigadePhase } from '../phase.js';
-import type { PendingActivity, RunStore } from '../run-store.js';
+import type { PendingActivity, RunState, RunStore, SliceRow } from '../run-store.js';
 import { BRUNCH_ASCII, BRUNCH_ORANGE } from './wordmark.js';
 
 const SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -31,6 +31,41 @@ function Brigade({ phase }: { phase: BrigadePhase }) {
             {p} {STATUS_ICON[status]}
             {i < BRIGADE.length - 1 ? '  ' : ''}
           </Text>
+        );
+      })}
+    </Box>
+  );
+}
+
+const SLICE_ICON = { queued: '○', running: '', passed: '✓', failed: '✗' } as const;
+const SLICE_COLOR = { queued: 'gray', running: 'cyan', passed: 'green', failed: 'red' } as const;
+
+function sliceTail(row: SliceRow): string {
+  return [row.step, row.detail].filter(Boolean).join(' · ');
+}
+
+function SliceGrid({ epics, slices, frame }: Pick<RunState, 'epics' | 'slices'> & { frame: string }) {
+  if (slices.length === 0) return null;
+  return (
+    <Box flexDirection="column" marginTop={1}>
+      {epics.map((epicId) => {
+        const rows = slices.filter((s) => s.epicId === epicId);
+        if (rows.length === 0) return null;
+        return (
+          <Box key={epicId} flexDirection="column">
+            <Text bold>{epicId}</Text>
+            {rows.map((row) => {
+              const icon = row.status === 'running' ? frame : SLICE_ICON[row.status];
+              const tail = sliceTail(row);
+              return (
+                <Text key={row.id} color={SLICE_COLOR[row.status]}>
+                  {'  '}
+                  {icon} {row.id}
+                  {tail ? ` · ${tail}` : ''}
+                </Text>
+              );
+            })}
+          </Box>
         );
       })}
     </Box>
@@ -97,6 +132,7 @@ export function App({ store, now = () => Date.now() }: { store: RunStore; now?: 
             {state.command} · {formatElapsed(now() - state.runStart)}
           </Text>
         </Box>
+        <SliceGrid epics={state.epics} slices={state.slices} frame={SPINNER[tick % SPINNER.length]!} />
         <PendingPanel pending={state.pending} frame={SPINNER[tick % SPINNER.length]!} />
       </Box>
     </>

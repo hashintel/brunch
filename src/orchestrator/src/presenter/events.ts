@@ -31,7 +31,12 @@ export type CookEvent =
   // Closes the activity; the wait is over.
   | { kind: 'activity-end'; id: string }
   // The run finished (emitted after promotion); `ok` = completed vs halted.
-  | { kind: 'cook-done'; ok: boolean };
+  | { kind: 'cook-done'; ok: boolean }
+  // --- slice grid ---
+  // Seeds the epic→slice progress grid up front (all slices start queued).
+  | { kind: 'run-shape'; epics: { id: string }[]; slices: { id: string; epicId: string }[] }
+  // A slice changed state. `step` is the current sub-action while running.
+  | { kind: 'slice'; id: string; epicId: string; status: 'running' | 'passed' | 'failed'; step?: string };
 
 export interface Presenter {
   onEvent(event: CookEvent): void;

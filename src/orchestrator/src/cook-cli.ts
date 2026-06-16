@@ -480,6 +480,12 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
   // Seed the presenter's elapsed clock; per-action progress carries no
   // pre-formatted timing — the presenter owns it (I136-K).
   bus.emit({ kind: 'cook-start', runStart });
+  // Seed the slice grid up front so queued work is visible before it starts.
+  bus.emit({
+    kind: 'run-shape',
+    epics: plan.epics.map((e) => ({ id: e.id })),
+    slices: plan.slices.map((s) => ({ id: s.id, epicId: s.epic_id })),
+  });
   const actions = createPiActions({
     verbose: opts.verbose,
     emit: (event) => bus.emit(event),

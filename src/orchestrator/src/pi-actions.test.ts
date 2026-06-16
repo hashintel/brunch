@@ -826,3 +826,70 @@ describe('instrumentToolDefinition — observe then delegate', () => {
     expect(def.execute('id', { command: 'echo hi' }, undefined, undefined, {} as never)).toBe('ok');
   });
 });
+
+describe('action handlers emit slice grid events', () => {
+  const slice: Slice = {
+    id: 'login',
+    epic_id: 'api',
+    definition: 'Login',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/login.test.ts' }],
+  };
+  const epic: Epic = { id: 'api', summary: 'API', depends_on: [], verification: [] };
+  const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+  const ctx = (): ActionContext => ({
+    slice,
+    epic,
+    plan,
+    sandboxDir: '/tmp/unused',
+    reports: new InMemoryReportSink(),
+  });
+  type SliceEvent = Extract<CookEvent, { kind: 'slice' }>;
+  const sliceEvents = (events: CookEvent[]) => events.filter((e): e is SliceEvent => e.kind === 'slice');
+
+  it('evaluate-done emits running(verify) then passed for a DONE verdict', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx());
+    expect(sliceEvents(events).map((s) => [s.id, s.status, s.step])).toEqual([
+      ['login', 'running', 'verify'],
+      ['login', 'passed', undefined],
+    ]);
+  });
+
+  it('evaluate-done emits failed for a NEEDS-WORK verdict', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'nope' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx());
+    expect(sliceEvents(events).at(-1)).toMatchObject({ status: 'failed' });
+  });
+
+  it('write-tests emits running(tests) keyed by the slice id', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const events: CookEvent[] = [];
+    const fake = makeFakeSession({ emit: 'wrote tests' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+    await actions['write-tests']!(ctx());
+    expect(sliceEvents(events)[0]).toMatchObject({
+      id: 'login',
+      epicId: 'api',
+      status: 'running',
+      step: 'tests',
+    });
+  });
+});

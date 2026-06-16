@@ -65,3 +65,28 @@ describe('Ink App', () => {
     expect(frame).not.toContain('agent writing tests');
   });
 });
+
+describe('Ink App — slice grid', () => {
+  it("renders epics with per-slice status, the running slice's step/detail, and queued slices", async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+
+    store.push({
+      kind: 'run-shape',
+      epics: [{ id: 'api-auth' }],
+      slices: [
+        { id: 'login', epicId: 'api-auth' },
+        { id: 'refresh', epicId: 'api-auth' },
+      ],
+    });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api-auth', status: 'passed' });
+    store.push({ kind: 'slice', id: 'refresh', epicId: 'api-auth', status: 'running', step: 'code' });
+    store.push({ kind: 'activity-progress', id: 'refresh', detail: 'edit src/token.ts' });
+    await tick();
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('api-auth'); // epic group header
+    expect(frame).toContain('✓ login'); // passed
+    expect(frame).toContain('refresh · code · edit src/token.ts'); // running w/ step + detail
+  });
+});

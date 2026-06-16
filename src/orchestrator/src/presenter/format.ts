@@ -39,5 +39,9 @@ export function formatCookEvent(event: CookEvent, clock: ElapsedClock): string[]
     case 'cook-done':
       // Phase signal only (lights `serve`); the run summary already printed.
       return [];
+    case 'run-shape':
+    case 'slice':
+      // Grid signals only — the per-action log lines already narrate plain output.
+      return [];
   }
 }

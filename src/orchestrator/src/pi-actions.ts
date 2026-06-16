@@ -172,6 +172,9 @@ interface RunPiOpts {
   task: string;
   sandboxDir: string;
   tools: string;
+  /** Activity id for the live wait/heartbeat. Defaults to `label`; set to the
+   *  slice id so the heartbeat lands on that slice's grid row. */
+  activityId?: string;
 }
 
 /** The pi SDK session factory — injectable so the drive loop is testable without a model or network. */
@@ -229,7 +232,7 @@ async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promis
     .map((t) => t.trim())
     .filter(Boolean);
   const customTools = buildInstrumentedTools(toolNames, opts.sandboxDir, (label) => {
-    _emit({ kind: 'activity-progress', id: opts.label, detail: label });
+    _emit({ kind: 'activity-progress', id: opts.activityId ?? opts.label, detail: label });
   });
 
   return {
@@ -260,8 +263,9 @@ async function runPi(
   const timeoutMs = deps.timeoutMs ?? PI_TIMEOUT_MS;
   const maxOutput = deps.maxOutput ?? PI_MAX_OUTPUT;
   const start = Date.now();
+  const activityId = opts.activityId ?? opts.label;
   // Open a live wait so the (up to 5-minute) agent session isn't dead air.
-  _emit({ kind: 'activity-start', id: opts.label, label: opts.label });
+  _emit({ kind: 'activity-start', id: activityId, label: opts.label });
   let heartbeatKb = 0;
 
   const isolatedDir = createAgentDir();
@@ -325,7 +329,7 @@ async function runPi(
         if (kb >= heartbeatKb + 2) {
           heartbeatKb = kb;
           const snippet = latestLine(captured);
-          if (snippet) _emit({ kind: 'activity-progress', id: opts.label, detail: snippet });
+          if (snippet) _emit({ kind: 'activity-progress', id: activityId, detail: snippet });
         }
       }
     });
@@ -342,7 +346,7 @@ async function runPi(
     cleanupAgentDir();
     // Always close the wait — even on timeout / overflow / prompt error — so
     // the spinner can never hang.
-    _emit({ kind: 'activity-end', id: opts.label });
+    _emit({ kind: 'activity-end', id: activityId });
   }
 
   if (timedOut) throw piTimeoutError(timeoutMs);
@@ -427,9 +431,10 @@ export function createPiActions(opts?: {
   return {
     'evaluate-done': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
+      _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'running', step: 'verify' });
       log('?', `evaluate  ${label}`);
       const { done, failureKind, results } = await withActivity(
-        `verify ${label}`,
+        ctx.slice.id,
         `running tests · ${label}`,
         () => runVerification(ctx.slice.verification, testRunner, ctx.sandboxDir),
       );
@@ -438,11 +443,13 @@ export function createPiActions(opts?: {
         log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
       }
       log(done ? '●' : '○', `verdict   ${label} → ${done ? 'DONE' : 'NEEDS WORK'}`);
+      _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: done ? 'passed' : 'failed' });
       return report(ctx, 'evaluator', 'eval-done', { done, failureKind, results });
     },
 
     'write-tests': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
+      _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'running', step: 'tests' });
       log('▸', `tests     ${label}`);
       const task = sliceTestTask(ctx.slice, toolchain);
 
@@ -454,6 +461,7 @@ export function createPiActions(opts?: {
           task,
           sandboxDir: ctx.sandboxDir,
           tools: toolsForAction('write-tests'),
+          activityId: ctx.slice.id,
         },
         piDeps,
       );
@@ -466,6 +474,7 @@ export function createPiActions(opts?: {
 
     'write-code': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
+      _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'running', step: 'code' });
       log('▸', `code      ${label}`);
       const task = `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`;
 
@@ -477,6 +486,7 @@ export function createPiActions(opts?: {
           task,
           sandboxDir: ctx.sandboxDir,
           tools: toolsForAction('write-code'),
+          activityId: ctx.slice.id,
         },
         piDeps,
       );

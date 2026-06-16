@@ -70,3 +70,55 @@ describe('RunStore', () => {
     expect(store.getSnapshot().lines).toEqual([]);
   });
 });
+
+describe('RunStore — slice grid', () => {
+  function seeded(): RunStore {
+    const store = new RunStore('cook', () => 0);
+    store.push({
+      kind: 'run-shape',
+      epics: [{ id: 'api' }, { id: 'pay' }],
+      slices: [
+        { id: 'login', epicId: 'api' },
+        { id: 'refresh', epicId: 'api' },
+        { id: 'charge', epicId: 'pay' },
+      ],
+    });
+    return store;
+  }
+
+  it('seeds every slice as queued, grouped by epic order', () => {
+    const { epics, slices } = seeded().getSnapshot();
+    expect(epics).toEqual(['api', 'pay']);
+    expect(slices.map((s) => [s.id, s.status])).toEqual([
+      ['login', 'queued'],
+      ['refresh', 'queued'],
+      ['charge', 'queued'],
+    ]);
+  });
+
+  it('flips a slice to running with a step, then passed (latest wins, detail cleared)', () => {
+    const store = seeded();
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'tests' });
+    store.push({ kind: 'activity-progress', id: 'login', detail: 'edit src/login.ts' });
+    let row = store.getSnapshot().slices.find((s) => s.id === 'login')!;
+    expect(row).toMatchObject({ status: 'running', step: 'tests', detail: 'edit src/login.ts' });
+
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'passed' });
+    row = store.getSnapshot().slices.find((s) => s.id === 'login')!;
+    expect(row.status).toBe('passed');
+    expect(row.detail).toBeUndefined(); // heartbeat cleared once it stops running
+  });
+
+  it('routes slice-keyed activity to the grid, non-slice activity to pending', () => {
+    const store = seeded();
+    // A slice-keyed activity must NOT create a pending entry.
+    store.push({ kind: 'activity-start', id: 'login', label: 'login' });
+    expect(store.getSnapshot().pending).toHaveLength(0);
+
+    // A non-slice wait (promotion) does.
+    store.push({ kind: 'activity-start', id: 'promote', label: 'promoting → cook/abc' });
+    expect(store.getSnapshot().pending.map((p) => p.id)).toEqual(['promote']);
+    store.push({ kind: 'activity-end', id: 'promote' });
+    expect(store.getSnapshot().pending).toHaveLength(0);
+  });
+});

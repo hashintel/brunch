@@ -16,11 +16,28 @@ export interface PendingActivity {
   detail?: string;
 }
 
+export type SliceStatus = 'queued' | 'running' | 'passed' | 'failed';
+
+export interface SliceRow {
+  id: string;
+  epicId: string;
+  status: SliceStatus;
+  /** Current sub-action while running (tests / code / verify). */
+  step?: string;
+  /** Live heartbeat for the running slice (latest line / tool). */
+  detail?: string;
+}
+
 export interface RunState {
   command: string;
   phase: BrigadePhase;
   lines: string[];
+  /** Non-slice waits (worktree, promotion). Slice waits live on the grid. */
   pending: PendingActivity[];
+  /** Epic ids in plan order, for grouping the grid. */
+  epics: string[];
+  /** The slice grid — every slice, seeded queued by run-shape. */
+  slices: SliceRow[];
   /** When the run started, for the single global header timer. */
   runStart: number;
 }
@@ -35,21 +52,59 @@ export class RunStore {
     private readonly now: () => number = () => Date.now(),
   ) {
     this.clock = createElapsedClock(now);
-    this.state = { command, phase: 'prep', lines: [], pending: [], runStart: now() };
+    this.state = { command, phase: 'prep', lines: [], pending: [], epics: [], slices: [], runStart: now() };
+  }
+
+  private isSlice(id: string): boolean {
+    return this.state.slices.some((s) => s.id === id);
+  }
+
+  private updateSlice(id: string, patch: Partial<SliceRow>): SliceRow[] {
+    return this.state.slices.map((s) => (s.id === id ? { ...s, ...patch } : s));
   }
 
   push(event: CookEvent): void {
+    if (event.kind === 'run-shape') {
+      this.commit({
+        epics: event.epics.map((e) => e.id),
+        slices: event.slices.map((s) => ({ id: s.id, epicId: s.epicId, status: 'queued' as const })),
+      });
+      return;
+    }
+    if (event.kind === 'slice') {
+      const running = event.status === 'running';
+      this.commit({
+        slices: this.updateSlice(event.id, {
+          status: event.status,
+          ...(event.step !== undefined ? { step: event.step } : {}),
+          // clear the live heartbeat once the slice stops running
+          ...(running ? {} : { detail: undefined }),
+        }),
+      });
+      return;
+    }
+    // Slice-keyed activity detail lands on the grid row; everything else is a
+    // non-slice wait (worktree, promotion) and shows in the pending footer.
     if (event.kind === 'activity-start') {
+      if (this.isSlice(event.id)) return;
       this.commit({ pending: [...this.state.pending, { id: event.id, label: event.label }] });
       return;
     }
     if (event.kind === 'activity-progress') {
+      if (this.isSlice(event.id)) {
+        this.commit({ slices: this.updateSlice(event.id, { detail: event.detail }) });
+        return;
+      }
       this.commit({
         pending: this.state.pending.map((a) => (a.id === event.id ? { ...a, detail: event.detail } : a)),
       });
       return;
     }
     if (event.kind === 'activity-end') {
+      if (this.isSlice(event.id)) {
+        this.commit({ slices: this.updateSlice(event.id, { detail: undefined }) });
+        return;
+      }
       this.commit({ pending: this.state.pending.filter((a) => a.id !== event.id) });
       return;
     }
