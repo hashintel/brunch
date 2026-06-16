@@ -510,7 +510,7 @@ function makeFakeSession(behavior: { emit?: string | readonly unknown[]; hang?: 
 describe('runPi drives an in-process pi session (no subprocess)', () => {
   const baseOpts = (sandboxDir: string, tools: string) => ({
     label: 'tests slice-1',
-    model: 'claude-sonnet-4-6',
+    model: 'claude-opus-4-6',
     promptFile: join(promptsDir, 'test-writer.md'),
     task: 'do the thing',
     sandboxDir,
@@ -762,7 +762,7 @@ describe('runPi — real LLM self-containment smoke', () => {
       try {
         await runPi({
           label: 'smoke',
-          model: 'claude-sonnet-4-6',
+          model: 'claude-opus-4-6',
           promptFile,
           task: 'Use the write tool to create a file named hello.txt in the current directory containing exactly: BRUNCH_SELF_CONTAINED',
           sandboxDir,

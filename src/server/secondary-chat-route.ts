@@ -428,7 +428,7 @@ export async function handleSecondaryChatMessageRequest(db: DB, req: Request, re
   const stream = createUIMessageStream<BrunchUIMessage>({
     async execute({ writer }) {
       const result = streamText({
-        model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'),
+        model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-opus-4-6'),
         system,
         messages: messages.map((message) => ({ role: message.role, content: message.content })),
         tools,

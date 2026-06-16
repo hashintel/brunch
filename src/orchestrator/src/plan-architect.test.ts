@@ -49,8 +49,8 @@ const wellFormed = {
 };
 
 describe('architectPlan', () => {
-  it('defaults the production architect to the current Sonnet model', () => {
-    expect(DEFAULT_ARCHITECT_MODEL_ID).toBe('claude-sonnet-4-6');
+  it('defaults the production architect to the current Opus model', () => {
+    expect(DEFAULT_ARCHITECT_MODEL_ID).toBe('claude-opus-4-6');
   });
 
   it('parses a well-formed authored draft', async () => {
