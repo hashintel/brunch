@@ -261,7 +261,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 - **Cross-cutting obligations:** Goldens co-locate with renderer tests (not `.fixtures/`); keep `renderers/` free of adapter/transport imports (D52-L); preserve the human eyeball before lock; leave intentional topology stubs (`present-candidates`) alone until they own a real renderer; do not regrow deleted renderers for symmetry.
 - **Traceability:** D19-L, D52-L, D60-L, D62-L, D83-L.
 - **Design docs:** `src/renderers/README.md`; `memory/SPEC.md` §D83-L.
-- **Current execution pointer:** The prepared chain `memory/cards/renderer-golden-coverage--render-stage-chain.md` is **superseded by D83-L** (its Cards 2–5 lock the old flat shape) — re-author the house-style chain via `ln-scope`: substrate → `<workspace>` → `<specification>` → `<session>` → tool-render migration + ledger close.
+- **Current execution pointer:** Active chain `memory/cards/renderer-golden-coverage--house-style-chain.md` (authored 2026-06-16, replacing the superseded `--render-stage-chain.md`). Card 1 (substrate adoption: md-pen + TOON + stringify-tree + `<section>`) is buildable now; Cards 2 (`<workspace>`) and 3 (`<specification>`) are **design-gated** — their exact output shape needs a collaborative design pass (approved sketch appended to the card) before build. `<session>` + tool-render migration are scoped in a later pass.
 
 ### generalized-capture
 
