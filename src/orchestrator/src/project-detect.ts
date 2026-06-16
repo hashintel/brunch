@@ -43,6 +43,76 @@ function readPackageJsonDeps(dir: string): Set<string> | null {
 }
 
 /**
+ * Workspace globs declared by a monorepo root — npm/yarn `workspaces` (array or
+ * `{ packages }`) or pnpm `pnpm-workspace.yaml`. Empty when the repo is not a
+ * declared monorepo. Scoping to *declared* workspaces (not every package.json on
+ * disk) keeps a stray nested project — a docs prototype, an example app — from
+ * poisoning runner detection.
+ */
+function readWorkspaceGlobs(repoDir: string): string[] {
+  const pkgPath = join(repoDir, 'package.json');
+  if (existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
+        workspaces?: string[] | { packages?: string[] };
+      };
+      const ws = pkg.workspaces;
+      if (Array.isArray(ws)) return ws;
+      if (ws && Array.isArray(ws.packages)) return ws.packages;
+    } catch {
+      // Malformed root package.json: fall through to the pnpm manifest.
+    }
+  }
+  const pnpmPath = join(repoDir, 'pnpm-workspace.yaml');
+  if (existsSync(pnpmPath)) {
+    try {
+      const globs: string[] = [];
+      for (const line of readFileSync(pnpmPath, 'utf8').split('\n')) {
+        const match = /^\s*-\s*['"]?([^'"#]+?)['"]?\s*$/.exec(line);
+        if (match) globs.push(match[1].trim());
+      }
+      return globs;
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+/**
+ * Resolve a workspace glob to concrete package directories. Handles the two
+ * forms that cover virtually all real monorepos — a literal directory (`apps/web`)
+ * and a single-level wildcard (`packages/*`). Deeper/exotic globs are skipped:
+ * this is the cheap evidence check, not a glob engine.
+ */
+function resolveWorkspaceDirs(repoDir: string, glob: string): string[] {
+  const trimmed = glob.replace(/\/+$/, '');
+  if (trimmed.endsWith('/*')) {
+    const base = trimmed.slice(0, -2);
+    try {
+      return readdirSync(join(repoDir, base), { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => join(base, entry.name));
+    } catch {
+      return [];
+    }
+  }
+  return trimmed.includes('*') ? [] : [trimmed];
+}
+
+/** Union of dependency names declared across a monorepo root's workspace packages. */
+function collectWorkspaceDeps(repoDir: string): Set<string> {
+  const deps = new Set<string>();
+  for (const glob of readWorkspaceGlobs(repoDir)) {
+    for (const wsDir of resolveWorkspaceDirs(repoDir, glob)) {
+      const wsDeps = readPackageJsonDeps(join(repoDir, wsDir));
+      if (wsDeps) for (const dep of wsDeps) deps.add(dep);
+    }
+  }
+  return deps;
+}
+
+/**
  * Detect the toolchain `ProfileId` for a repo by introspecting its manifests and
  * lockfiles. Precedence is lockfile/config evidence first (most authoritative),
  * then package.json dependencies, then a catch-all failure. `--profile` (handled
@@ -60,8 +130,23 @@ export function detectProfile(repoDir: string): ProfileDetection {
   }
 
   // Node/TypeScript: pick the runner from declared dependencies.
-  const deps = readPackageJsonDeps(repoDir);
-  if (deps !== null) {
+  const rootDeps = readPackageJsonDeps(repoDir);
+  if (rootDeps !== null) {
+    // Root deps are most authoritative. Only when the root declares no runner do
+    // we widen to the monorepo's workspace packages — a monorepo root often holds
+    // just tooling while the runner lives in each package. A repo that already
+    // resolves at the root never pays the workspace scan and can't be made
+    // ambiguous by a workspace.
+    let deps = rootDeps;
+    let source = 'package.json';
+    if (!rootDeps.has('vitest') && !rootDeps.has('jest')) {
+      const wsDeps = collectWorkspaceDeps(repoDir);
+      if (wsDeps.has('vitest') || wsDeps.has('jest')) {
+        deps = wsDeps;
+        source = 'workspace package.json';
+      }
+    }
+
     const hasVitest = deps.has('vitest');
     const hasJest = deps.has('jest');
     // Two declared runners is genuinely ambiguous — picking one by check-order
@@ -69,14 +154,14 @@ export function detectProfile(repoDir: string): ProfileDetection {
     if (hasVitest && hasJest) {
       return {
         detected: false,
-        reason: `package.json declares both vitest and jest — ambiguous test runner. Pass --profile to pick node-vitest or node-jest.`,
+        reason: `${source} declares both vitest and jest — ambiguous test runner. Pass --profile to pick node-vitest or node-jest.`,
       };
     }
     if (hasVitest) {
-      return { detected: true, profile: 'node-vitest', evidence: 'package.json devDependency vitest' };
+      return { detected: true, profile: 'node-vitest', evidence: `${source} devDependency vitest` };
     }
     if (hasJest) {
-      return { detected: true, profile: 'node-jest', evidence: 'package.json devDependency jest' };
+      return { detected: true, profile: 'node-jest', evidence: `${source} devDependency jest` };
     }
     // No third-party runner declared → the built-in node:test runner needs none.
     return {
@@ -118,17 +203,21 @@ const MAX_WALK_DEPTH = 8;
  * path falls outside a repo whose vitest `include` is narrowed to `src/**`
  * (vitest then reports "No test files found" for an explicitly-named file).
  *
- * Returns the dominant top-level segment (e.g. `'src'`), or `null` when the repo
- * has no test files to learn from — cook then keeps the profile's default path.
+ * Returns the POSIX-relative directory tests cluster in (e.g. `'src'`, or
+ * `'packages/app/src'` in a monorepo), or `null` when the repo has no test files
+ * to learn from — cook then keeps the profile's default path. The *full*
+ * directory (not just the top segment) is returned so a monorepo whose runner
+ * include is rooted deep (e.g. a per-package `src` glob) still gets a covered
+ * path.
  */
 export function detectTestDir(repoDir: string): string | null {
-  // Tally test files by their top-level directory segment relative to the repo
-  // root, because runner include globs are conventionally rooted there
-  // (`src/**`, `tests/**`). Files directly at the root (segment '') don't teach
-  // us a directory, so they're ignored.
+  // Tally test files by their full directory relative to the repo root. Files
+  // directly at the root (relDir '') don't teach us a directory, so they're
+  // ignored. Keys are POSIX paths so the emitted target matches profile
+  // conventions regardless of host separator.
   const counts = new Map<string, number>();
 
-  const walk = (dir: string, depth: number, topSegment: string | null): void => {
+  const walk = (dir: string, depth: number, relDir: string): void => {
     if (depth > MAX_WALK_DEPTH) return;
     let entries: Dirent[];
     try {
@@ -139,15 +228,16 @@ export function detectTestDir(repoDir: string): string | null {
     for (const entry of entries) {
       if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
-        walk(join(dir, entry.name), depth + 1, topSegment ?? entry.name);
-      } else if (topSegment !== null && entry.isFile() && TEST_FILE_RE.test(entry.name)) {
-        counts.set(topSegment, (counts.get(topSegment) ?? 0) + 1);
+        walk(join(dir, entry.name), depth + 1, relDir === '' ? entry.name : `${relDir}/${entry.name}`);
+      } else if (relDir !== '' && entry.isFile() && TEST_FILE_RE.test(entry.name)) {
+        counts.set(relDir, (counts.get(relDir) ?? 0) + 1);
       }
     }
   };
-  walk(repoDir, 0, null);
+  walk(repoDir, 0, '');
 
   if (counts.size === 0) return null;
-  // Dominant directory wins; ties broken by name for determinism.
+  // Dominant directory wins; ties broken by name (shallower/earlier first) for
+  // determinism.
   return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0];
 }
