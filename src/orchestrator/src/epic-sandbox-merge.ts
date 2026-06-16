@@ -251,13 +251,45 @@ export function seedSliceFromParentWorktree(
   );
 
   // 2. CoW-copy whatever's in the parent worktree but NOT in the slice
-  //    worktree yet — i.e. untracked / gitignored content (`node_modules/`,
-  //    `dist/`, etc.) that pi-actions might need at runtime.
+  //    worktree yet — i.e. untracked / gitignored content (`dist/`, etc.) that
+  //    pi-actions might need at runtime. `node_modules/` is symlinked to the
+  //    parent's single copy instead of duplicated per slice (see
+  //    SHAREABLE_TOP_LEVEL_ENTRIES); `walkFiles` skips symlinks, so the shared
+  //    tree is never re-walked during dependency seeding, merge, or promotion.
   const excludedNames = new Set<string>(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
   for (const s of plan.slices) excludedNames.add(s.id);
-  copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames);
+  copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames, SHAREABLE_TOP_LEVEL_ENTRIES);
 
   return sliceDir;
+}
+
+/**
+ * Top-level gitignored entries shared across slice sandboxes via symlink rather
+ * than CoW-copied per slice. `node_modules/` is install output that pi-actions
+ * read (resolve deps, run tests/build) but do not author, so a single
+ * parent-owned copy linked into each slice removes N-1 redundant tree copies.
+ * Build caches under it (`.cache`, `.vite`) become shared too — acceptable for
+ * cook's transient runs; revisit if a tool needs per-slice write isolation.
+ */
+const SHAREABLE_TOP_LEVEL_ENTRIES: ReadonlySet<string> = new Set(['node_modules']);
+
+/**
+ * Idempotent codebase-mode slice worktree provisioning: create the git worktree
+ * on first call, no-op if it already exists. Called from `resolveSliceCwd` on
+ * every fire (action, run-tests, assess) and across reworks, so it must tolerate
+ * repeats. Provisioning is synchronous (`execFileSync`), so concurrent fires of
+ * distinct slices under the parallel policy serialize on the JS thread — no two
+ * `git worktree add` invocations against the shared object store overlap.
+ */
+export function ensureSliceWorktree(
+  parentSandboxDir: string,
+  sliceId: string,
+  plan: Plan,
+  runId: string,
+): string {
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
+  if (existsSync(sliceDir)) return sliceDir;
+  return seedSliceFromParentWorktree(parentSandboxDir, sliceId, plan, runId);
 }
 
 /** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
