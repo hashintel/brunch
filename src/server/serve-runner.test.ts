@@ -46,6 +46,12 @@ describe('parseServeArgs', () => {
     expect(() => parseServeArgs(['1', '2'])).toThrow(/Unexpected positional/);
   });
 
+  it('parses --land and rejects combining it with the greenfield --out target', () => {
+    expect(parseServeArgs(['12', '--land']).land).toBe(true);
+    expect(parseServeArgs(['12']).land).toBe(false);
+    expect(() => parseServeArgs(['12', '--land', '--out=dist'])).toThrow(/--land/);
+  });
+
   it('rejects petrinaut companion flags unless streaming is enabled', () => {
     expect(() => parseServeArgs(['1', '--petrinaut-url=https://x/brunch'])).toThrow(
       /--petrinaut-url requires --petrinaut-stream/,
@@ -93,6 +99,11 @@ describe('serveCookOptions', () => {
   it('omits outDir when serve had none (brownfield promotes automatically)', () => {
     const cook = serveCookOptions(parseServeArgs(['9']), '/proj');
     expect(cook.outDir).toBeUndefined();
+  });
+
+  it('forwards --land as cook landBranch (off by default)', () => {
+    expect(serveCookOptions(parseServeArgs(['9', '--land']), '/proj').landBranch).toBe(true);
+    expect(serveCookOptions(parseServeArgs(['9']), '/proj').landBranch).toBe(false);
   });
 });
 

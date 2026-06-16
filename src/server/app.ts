@@ -123,6 +123,34 @@ function parseEntityProjectionMode(rawMode: unknown): EntityProjectionMode | nul
   return rawMode === 'active-path' || rawMode === 'project-wide' ? rawMode : null;
 }
 
+/**
+ * Drop failed tool-call attempts (state `output-error`) the client may echo
+ * back in chat history. These arise when the model emitted a malformed tool
+ * call and retried — they carry `rawInput` but no `input`, which the AI SDK's
+ * `output-error` schema rejects, bricking the whole turn during
+ * `validateUIMessages`. The retried call is what matters; the failed attempt
+ * carries no history value, so strip it before validation.
+ */
+function stripFailedToolParts(rawMessages: unknown): unknown {
+  if (!Array.isArray(rawMessages)) {
+    return rawMessages;
+  }
+  return rawMessages.map((message) => {
+    if (!message || typeof message !== 'object' || !Array.isArray((message as { parts?: unknown }).parts)) {
+      return message;
+    }
+    const parts = (message as { parts: unknown[] }).parts.filter((part) => {
+      if (!part || typeof part !== 'object') {
+        return true;
+      }
+      const { type, state } = part as { type?: unknown; state?: unknown };
+      const isToolPart = typeof type === 'string' && (type.startsWith('tool-') || type === 'dynamic-tool');
+      return !(isToolPart && state === 'output-error');
+    });
+    return { ...message, parts };
+  });
+}
+
 function getChatRouteTransitionErrorStatus(kind: ChatRouteTransitionErrorKind): 400 | 404 | 409 {
   switch (kind) {
     case 'phase-intent-not-available':
@@ -477,7 +505,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     let messages: BrunchUIMessage[];
     try {
       messages = await validateUIMessages<BrunchUIMessage>({
-        messages: req.body.messages ?? [],
+        messages: stripFailedToolParts(req.body.messages ?? []),
         dataSchemas: brunchDataPartSchemas,
         // The client may echo earlier assistant history that still contains dynamic
         // workspace-tool parts from a live stream (for example `list_directory`).

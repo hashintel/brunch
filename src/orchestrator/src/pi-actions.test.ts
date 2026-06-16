@@ -3,14 +3,19 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { type Skill } from '@earendil-works/pi-coding-agent';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  cookResourceLoader,
   createPiActions,
   epicVerifyTask,
+  instrumentToolDefinition,
   runPi,
+  sandboxScopedSkills,
   type SessionFactory,
   sliceTestTask,
+  toolLabel,
   toolsForAction,
 } from './pi-actions.js';
 import type { CookEvent } from './presenter/events.js';
@@ -149,6 +154,282 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
     await expect(actions['write-tests']!(ctx(new InMemoryReportSink()))).rejects.toThrow();
     expect(events.filter((e) => e.kind === 'activity-start')).toHaveLength(1);
     expect(events.filter((e) => e.kind === 'activity-end')).toHaveLength(1);
+  });
+
+  it('marks writer slices failed when pi throws before reporting', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const createSession = (async () => {
+      throw new Error('session boom');
+    }) as unknown as SessionFactory;
+
+    for (const action of ['write-tests', 'write-code'] as const) {
+      const events: CookEvent[] = [];
+      const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+
+      await expect(actions[action]!(ctx(new InMemoryReportSink()))).rejects.toThrow(/session boom/);
+
+      expect(events.filter((e) => e.kind === 'slice')).toEqual([
+        {
+          kind: 'slice',
+          id: 'chunk',
+          epicId: 'utils',
+          status: 'running',
+          step: action === 'write-tests' ? 'tests' : 'code',
+        },
+        {
+          kind: 'slice',
+          id: 'chunk',
+          epicId: 'utils',
+          status: 'failed',
+          reason: action === 'write-tests' ? 'test authoring failed' : 'code authoring failed',
+        },
+      ]);
+    }
+  });
+});
+
+describe('verify-epic reachability grounding (FE-876) — intent resolves before the epic verdict', () => {
+  const probeDirs: string[] = [];
+  afterEach(() => {
+    for (const dir of probeDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+
+  // A real zero-dep app that answers `routes` (path → status); 404 otherwise.
+  function appSandbox(routes: Record<string, number>): string {
+    const dir = mkdtempSync(join(tmpdir(), 'verify-epic-probe-'));
+    probeDirs.push(dir);
+    writeFileSync(
+      join(dir, 'server.js'),
+      `const http = require('node:http');\n` +
+        `const routes = ${JSON.stringify(routes)};\n` +
+        `http.createServer((req, res) => {\n` +
+        `  const status = routes[req.url] ?? 404;\n` +
+        `  res.writeHead(status); res.end(String(status));\n` +
+        `}).listen(Number(process.env.PORT), '127.0.0.1');\n`,
+    );
+    return dir;
+  }
+
+  function epicWithProbe(): Epic {
+    return {
+      id: 'utils',
+      summary: 'Utilities',
+      depends_on: [],
+      verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+      probe: { boot: ['node', 'server.js'], readyPath: '/health', featurePath: '/feature' },
+    };
+  }
+
+  function passingActions(sandboxDir: string): {
+    actions: ReturnType<typeof createPiActions>;
+    ctx: (reports: InMemoryReportSink) => ActionContext;
+  } {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const epic = epicWithProbe();
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      createSession,
+    });
+    return { actions, ctx: (reports) => ({ slice, epic, plan, sandboxDir, reports }) };
+  }
+
+  it('tests pass + feature reachable → epic passes (reachable)', async () => {
+    const reports = new InMemoryReportSink();
+    const { actions, ctx } = passingActions(appSandbox({ '/health': 200, '/feature': 200 }));
+    const id = await actions['verify-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { passed: boolean; reachability?: string };
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBe('reachable');
+  });
+
+  it('tests pass but feature endpoint is absent → epic fails (the FE-800 orphan)', async () => {
+    const reports = new InMemoryReportSink();
+    // App boots and answers /health, but /feature is 404 — merged but not wired in.
+    const { actions, ctx } = passingActions(appSandbox({ '/health': 200 }));
+    const id = await actions['verify-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { passed: boolean; reachability?: string };
+    expect(payload.passed).toBe(false);
+    expect(payload.reachability).toBe('not-reachable');
+  });
+
+  it('failing tests short-circuit the probe — no boot, unchanged unit verdict', async () => {
+    const reports = new InMemoryReportSink();
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const epic = epicWithProbe();
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'no runner', failureKind: 'infra' };
+        },
+      },
+      createSession,
+    });
+    // Point at a dir with no server.js: if the probe booted, it would error — it
+    // must not run because tests failed first.
+    const id = await actions['verify-epic']!({ slice, epic, plan, sandboxDir: tmpdir(), reports });
+    const payload = reports.getById(id)!.payload as {
+      passed: boolean;
+      failureKind?: string;
+      reachability?: string;
+    };
+    expect(payload.passed).toBe(false);
+    expect(payload.failureKind).toBe('infra');
+    expect(payload.reachability).toBeUndefined();
+  });
+
+  it('no probe target → unit-test verdict only (unchanged behavior)', async () => {
+    const reports = new InMemoryReportSink();
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const epic: Epic = {
+      id: 'utils',
+      summary: 'Utilities',
+      depends_on: [],
+      verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+    };
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      createSession,
+    });
+    const id = await actions['verify-epic']!({ slice, epic, plan, sandboxDir: tmpdir(), reports });
+    const payload = reports.getById(id)!.payload as { passed: boolean; reachability?: string };
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBeUndefined();
+  });
+
+  // ---- Half B: cook-time grounding seam -----------------------------------
+
+  function intentEpic(extra?: Partial<Epic>): Epic {
+    return {
+      id: 'utils',
+      summary: 'Utilities',
+      depends_on: [],
+      verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+      reachability: { feature: 'the /feature route responds' },
+      ...extra,
+    };
+  }
+
+  function groundedVerifyEpic(opts: {
+    sandboxDir: string;
+    epic: Epic;
+    groundProbe?: ProbeGrounder;
+  }): Promise<{ passed: boolean; reachability?: string }> {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const reports = new InMemoryReportSink();
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [opts.epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      createSession,
+      groundProbe: opts.groundProbe,
+    });
+    return actions['verify-epic']!({
+      slice,
+      epic: opts.epic,
+      plan,
+      sandboxDir: opts.sandboxDir,
+      reports,
+    }).then((id) => reports.getById(id)!.payload as { passed: boolean; reachability?: string });
+  }
+
+  it('grounds a reachability intent into a concrete target, then probes it', async () => {
+    let seenFeature = '';
+    const payload = await groundedVerifyEpic({
+      sandboxDir: appSandbox({ '/health': 200, '/feature': 200 }),
+      epic: intentEpic(),
+      groundProbe: async (intent) => {
+        seenFeature = intent.feature;
+        return { boot: ['node', 'server.js'], readyPath: '/health', featurePath: '/feature' };
+      },
+    });
+    expect(seenFeature).toContain('/feature');
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBe('reachable');
+  });
+
+  it('a reachability intent with no injected grounder is a no-op (unit verdict only)', async () => {
+    // sandbox has no app; if grounding ran and probed, it would error/fail.
+    const payload = await groundedVerifyEpic({ sandboxDir: tmpdir(), epic: intentEpic() });
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBeUndefined();
+  });
+
+  it('a grounder that throws is an infra fault — the epic fails, not silently passes', async () => {
+    const payload = await groundedVerifyEpic({
+      sandboxDir: tmpdir(),
+      epic: intentEpic(),
+      groundProbe: async () => {
+        throw new Error('agent could not resolve wiring');
+      },
+    });
+    expect(payload.passed).toBe(false);
+    expect(payload.reachability).toBe('infra');
+  });
+
+  it('a concrete probe target wins over a reachability intent (Half A precedence)', async () => {
+    let grounderCalled = false;
+    const payload = await groundedVerifyEpic({
+      sandboxDir: appSandbox({ '/health': 200, '/feature': 200 }),
+      epic: intentEpic({
+        probe: { boot: ['node', 'server.js'], readyPath: '/health', featurePath: '/feature' },
+      }),
+      groundProbe: async () => {
+        grounderCalled = true;
+        throw new Error('should not be called');
+      },
+    });
+    expect(grounderCalled).toBe(false);
+    expect(payload.reachability).toBe('reachable');
   });
 });
 
@@ -508,7 +789,7 @@ function makeFakeSession(behavior: { emit?: string | readonly unknown[]; hang?: 
 describe('runPi drives an in-process pi session (no subprocess)', () => {
   const baseOpts = (sandboxDir: string, tools: string) => ({
     label: 'tests slice-1',
-    model: 'claude-sonnet-4-6',
+    model: 'claude-opus-4-6',
     promptFile: join(promptsDir, 'test-writer.md'),
     task: 'do the thing',
     sandboxDir,
@@ -579,6 +860,25 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
     expect(writes.join('')).not.toContain('SECRET_AGENT_OUTPUT');
   });
 
+  it('caps activity heartbeat snippets including the ellipsis', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    const events: CookEvent[] = [];
+    createPiActions({ emit: (e) => events.push(e) });
+    try {
+      const fake = makeFakeSession({ emit: 'x'.repeat(2_048) });
+      const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+      await runPi(baseOpts(sandboxDir, 'read'), { createSession });
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+    const progress = events.find(
+      (e): e is Extract<CookEvent, { kind: 'activity-progress' }> => e.kind === 'activity-progress',
+    );
+    expect(progress?.detail).toHaveLength(56);
+    expect(progress?.detail.startsWith('…')).toBe(true);
+  });
+
   it('aborts the session and rejects when the prompt exceeds the timeout', async () => {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
@@ -589,6 +889,45 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
         /timed out/,
       );
       expect(fake.calls.aborted).toBe(true);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('treats the timeout as an idle deadline — periodic activity keeps a long session alive (FE-864)', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      // Emit a non-text activity event every 15ms for ~90ms total — well past
+      // the 40ms budget, but never idle longer than it. A wall-clock cap would
+      // abort; an idle deadline (re-armed on any event, not just text) must not.
+      let listener: ((event: unknown) => void) | undefined;
+      let aborted = false;
+      const session = {
+        subscribe(fn: (event: unknown) => void) {
+          listener = fn;
+          return () => {};
+        },
+        async prompt() {
+          for (let i = 0; i < 6; i++) {
+            await new Promise<void>((res) => setTimeout(res, 15));
+            listener?.({ type: 'tool_execution_update' });
+          }
+        },
+        async abort() {
+          aborted = true;
+        },
+        dispose() {},
+        get state() {
+          return { messages: [] as unknown[] };
+        },
+      };
+      const createSession = (async () => ({ session })) as unknown as SessionFactory;
+
+      await expect(
+        runPi(baseOpts(sandboxDir, 'read'), { createSession, timeoutMs: 40 }),
+      ).resolves.toBeDefined();
+      expect(aborted).toBe(false);
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }
@@ -760,7 +1099,7 @@ describe('runPi — real LLM self-containment smoke', () => {
       try {
         await runPi({
           label: 'smoke',
-          model: 'claude-sonnet-4-6',
+          model: 'claude-opus-4-6',
           promptFile,
           task: 'Use the write tool to create a file named hello.txt in the current directory containing exactly: BRUNCH_SELF_CONTAINED',
           sandboxDir,
@@ -773,4 +1112,295 @@ describe('runPi — real LLM self-containment smoke', () => {
     },
     120_000,
   );
+});
+
+describe('toolLabel — what the agent is doing', () => {
+  it('labels file tools by path, bash by command, grep/find by pattern', () => {
+    expect(toolLabel('edit', { path: 'src/auth/token.ts' })).toBe('edit src/auth/token.ts');
+    expect(toolLabel('write', { path: 'tests/x.test.ts' })).toBe('write tests/x.test.ts');
+    expect(toolLabel('bash', { command: 'bun test' })).toBe('bash bun test');
+    expect(toolLabel('grep', { pattern: 'RefreshToken' })).toBe('grep RefreshToken');
+  });
+
+  it('falls back to the bare tool name when no recognized target is present', () => {
+    expect(toolLabel('read', {})).toBe('read');
+    expect(toolLabel('bash', undefined)).toBe('bash');
+  });
+
+  it('truncates long labels with an ellipsis', () => {
+    const long = toolLabel('edit', { path: 'a/'.repeat(60) });
+    expect(long.endsWith('…')).toBe(true);
+    expect(long.length).toBeLessThanOrEqual(56);
+  });
+});
+
+describe('instrumentToolDefinition — observe then delegate', () => {
+  function fakeTool(name: string, run: (...args: unknown[]) => unknown) {
+    return { name, execute: run } as unknown as Parameters<typeof instrumentToolDefinition>[0];
+  }
+
+  it('emits a label from the params, then delegates with the same args and result', () => {
+    const seen: unknown[] = [];
+    const labels: string[] = [];
+    const def = fakeTool('edit', (...args) => {
+      seen.push(...args);
+      return 'tool-result';
+    });
+
+    instrumentToolDefinition(def, (label) => labels.push(label));
+    const out = def.execute('call-1', { path: 'src/a.ts' }, undefined, undefined, {} as never);
+
+    expect(labels).toEqual(['edit src/a.ts']);
+    expect(out).toBe('tool-result'); // delegation result preserved
+    expect(seen).toEqual(['call-1', { path: 'src/a.ts' }, undefined, undefined, {}]); // same args
+  });
+
+  it('never lets an observation error break the tool call', () => {
+    const def = fakeTool('bash', () => 'ok');
+    instrumentToolDefinition(def, () => {
+      throw new Error('observer boom');
+    });
+    expect(def.execute('id', { command: 'echo hi' }, undefined, undefined, {} as never)).toBe('ok');
+  });
+
+  it('brackets an async tool: onStart before, onSettle only after it resolves', async () => {
+    const order: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const def = fakeTool('bash', async () => {
+      await gate;
+      return 'done';
+    });
+    instrumentToolDefinition(
+      def,
+      () => order.push('start'),
+      () => order.push('settle'),
+    );
+
+    const pending = def.execute('id', { command: 'bun test' }, undefined, undefined, {} as never);
+    // Start fired synchronously; settle must NOT fire while the tool is in flight.
+    expect(order).toEqual(['start']);
+    release();
+    await expect(pending).resolves.toBe('done');
+    expect(order).toEqual(['start', 'settle']);
+  });
+
+  it('settles on a rejected tool call too', async () => {
+    const order: string[] = [];
+    const def = fakeTool('bash', async () => {
+      throw new Error('tool failed');
+    });
+    instrumentToolDefinition(
+      def,
+      () => order.push('start'),
+      () => order.push('settle'),
+    );
+    await expect(
+      def.execute('id', { command: 'bun test' }, undefined, undefined, {} as never),
+    ).rejects.toThrow('tool failed');
+    expect(order).toEqual(['start', 'settle']);
+  });
+});
+
+describe('action handlers emit slice grid events', () => {
+  const slice: Slice = {
+    id: 'login',
+    epic_id: 'api',
+    definition: 'Login',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/login.test.ts' }],
+  };
+  const epic: Epic = { id: 'api', summary: 'API', depends_on: [], verification: [] };
+  const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+  const ctx = (): ActionContext => ({
+    slice,
+    epic,
+    plan,
+    sandboxDir: '/tmp/unused',
+    reports: new InMemoryReportSink(),
+  });
+  type SliceEvent = Extract<CookEvent, { kind: 'slice' }>;
+  const sliceEvents = (events: CookEvent[]) => events.filter((e): e is SliceEvent => e.kind === 'slice');
+
+  it('evaluate-done emits running(verify) then passed for a DONE verdict', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx());
+    expect(sliceEvents(events).map((s) => [s.id, s.status, s.step])).toEqual([
+      ['login', 'running', 'verify'],
+      ['login', 'passed', undefined],
+    ]);
+  });
+
+  it('evaluate-done emits failed for a NEEDS-WORK verdict', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'nope' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx());
+    expect(sliceEvents(events).at(-1)).toMatchObject({ status: 'failed' });
+  });
+
+  it('evaluate-done does NOT emit a failure for an unbuilt slice (absent gate)', async () => {
+    // The greenfield gate runs before any test file exists → failureKind 'absent'.
+    // That is "not started", not a red: emitting `failed` here makes the presenter
+    // count a phantom attempt and paint a ✗ NEEDS WORK on every clean slice.
+    const events: CookEvent[] = [];
+    const reports = new InMemoryReportSink();
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'No test files found, exiting with code 1', failureKind: 'absent' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    const id = await actions['evaluate-done']!({ ...ctx(), reports });
+    // Stays running(verify) → routes to write-tests as the same attempt; never 'failed'.
+    expect(sliceEvents(events).map((s) => [s.status, s.step])).toEqual([['running', 'verify']]);
+    expect(sliceEvents(events).some((s) => s.status === 'failed')).toBe(false);
+    // The verdict still reports not-done so the net routes to needs-more (write-tests).
+    const payload = reports.getById(id)!.payload as { done: boolean; failureKind?: string };
+    expect(payload.done).toBe(false);
+    expect(payload.failureKind).toBe('absent');
+  });
+
+  it('write-tests emits running(tests) keyed by the slice id', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const events: CookEvent[] = [];
+    const fake = makeFakeSession({ emit: 'wrote tests' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+    await actions['write-tests']!(ctx());
+    expect(sliceEvents(events)[0]).toMatchObject({
+      id: 'login',
+      epicId: 'api',
+      status: 'running',
+      step: 'tests',
+    });
+  });
+});
+
+describe('evaluate-done failure carries a reason', () => {
+  const slice: Slice = {
+    id: 'login',
+    epic_id: 'api',
+    definition: 'L',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/l.test.ts' }],
+  };
+  const epic: Epic = { id: 'api', summary: 'API', depends_on: [], verification: [] };
+  const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+  const ctx = (): ActionContext => ({
+    slice,
+    epic,
+    plan,
+    sandboxDir: '/tmp/x',
+    reports: new InMemoryReportSink(),
+  });
+  type SliceEvent = Extract<CookEvent, { kind: 'slice' }>;
+  const lastSlice = (events: CookEvent[]) => events.filter((e): e is SliceEvent => e.kind === 'slice').at(-1);
+
+  it('maps a test failure to "tests failed"', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'fail', failureKind: 'test' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx());
+    expect(lastSlice(events)).toMatchObject({ status: 'failed', reason: 'tests failed' });
+  });
+
+  it('maps an infra failure to "infra error"', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'no runner', failureKind: 'infra' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx());
+    expect(lastSlice(events)).toMatchObject({ status: 'failed', reason: 'infra error' });
+  });
+});
+
+describe('sandboxScopedSkills (FE-881) keeps only skills rooted under the sandbox', () => {
+  const skill = (filePath: string): Skill => ({
+    name: filePath,
+    description: '',
+    filePath,
+    baseDir: dirname(filePath),
+    sourceInfo: {} as Skill['sourceInfo'],
+    disableModelInvocation: false,
+  });
+
+  it('keeps repo skills, drops sibling-slice / prefix-lookalike / global skills', () => {
+    const sandbox = '/tmp/run/worktree/slice-a';
+    const kept = sandboxScopedSkills(
+      [
+        skill('/tmp/run/worktree/slice-a/.agents/skills/foo/SKILL.md'),
+        skill('/tmp/run/worktree/slice-a/.claude/skills/bar/SKILL.md'),
+        skill('/tmp/run/worktree/slice-b/.agents/skills/sibling/SKILL.md'),
+        skill('/tmp/run/worktree/slice-a-other/.agents/skills/lookalike/SKILL.md'),
+        skill('/home/dev/.pi/skills/global/SKILL.md'),
+      ],
+      sandbox,
+    );
+    expect(kept.map((s) => s.name)).toEqual([
+      '/tmp/run/worktree/slice-a/.agents/skills/foo/SKILL.md',
+      '/tmp/run/worktree/slice-a/.claude/skills/bar/SKILL.md',
+    ]);
+  });
+});
+
+describe('cookResourceLoader (FE-881) loads sandbox skills, excludes global', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  const writeSkill = (root: string, name: string) => {
+    mkdirSync(join(root, name), { recursive: true });
+    writeFileSync(
+      join(root, name, 'SKILL.md'),
+      `---\nname: ${name}\ndescription: ${name} skill\n---\nbody\n`,
+    );
+  };
+
+  it('discovers the repo .agents/skills and drops agentDir (global) skills', async () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'cook-sandbox-'));
+    dirs.push(sandbox);
+    const agentDir = mkdtempSync(join(tmpdir(), 'cook-agent-'));
+    dirs.push(agentDir);
+    writeSkill(join(sandbox, '.agents', 'skills'), 'repo-skill');
+    writeSkill(join(agentDir, 'skills'), 'global-skill');
+
+    const loader = cookResourceLoader(sandbox, agentDir, 'system prompt');
+    await loader.reload();
+    const names = loader.getSkills().skills.map((s) => s.name);
+
+    expect(names).toContain('repo-skill');
+    expect(names).not.toContain('global-skill');
+  });
 });

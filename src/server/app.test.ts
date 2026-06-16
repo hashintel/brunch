@@ -619,6 +619,65 @@ describe('POST /api/specifications/:id/chat', () => {
     );
   });
 
+  it('accepts follow-up chat history containing failed (output-error) tool parts', async () => {
+    const projectId = await createTestSpecification();
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    // Mirrors the real Opus 4.8 failure: a malformed `ask_question` lands as an
+    // `output-error` part carrying `rawInput` (no `input`) before the model
+    // retries successfully. The dead attempt must not brick the next turn.
+    await request(app)
+      .post(`/api/specifications/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+          {
+            id: 'a1',
+            role: 'assistant',
+            parts: [
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'toolu_failed',
+                state: 'output-error',
+                rawInput: { content: 'A single option', is_recommended: 'false' },
+                errorText: 'Invalid input for tool ask_question: Type validation failed',
+              },
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'toolu_retry',
+                state: 'output-available',
+                input: {
+                  question: 'What should we focus on first?',
+                  why: 'This narrows the initial slice.',
+                  impact: 'high',
+                  options: [],
+                },
+                output: { ok: true, turnId: 2, optionCount: 0 },
+              },
+            ],
+          },
+          { id: 'u2', role: 'user', parts: [{ type: 'text', text: 'Focus on export flow' }] },
+        ],
+      })
+      .expect('Content-Type', /text\/event-stream/)
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.any(Array),
+      'Focus on export flow',
+      'grounding',
+      undefined,
+    );
+  });
+
   it('returns an AI SDK UI message stream and persists the turn', async () => {
     const projectId = await createTestSpecification();
 

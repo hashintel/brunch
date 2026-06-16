@@ -1,9 +1,21 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { basename, isAbsolute, join, relative, resolve } from 'node:path';
+import { cpSync, existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
+import { basename, isAbsolute, relative, resolve } from 'node:path';
+
+import { brunchRef } from './run-refs.js';
 
 export type PromoteResult = { target: string; branch: string; commit: string };
+
+export type LandResult =
+  | { kind: 'landed'; mode: 'fast-forward' | 'merge'; branch: string; commit: string }
+  | { kind: 'refused'; reason: 'dirty' | 'detached' }
+  | { kind: 'conflict'; branch: string };
+
+export type LandOptions = {
+  /** The user's repo root whose active branch should receive the cook commit. */
+  sourceDir: string;
+  runId: string;
+};
 
 export type PromoteOptions = {
   sandboxDir: string;
@@ -12,16 +24,17 @@ export type PromoteOptions = {
   force: boolean;
 };
 
-export type BrownfieldPromoteOptions = {
-  /** The user's repo root the brownfield cook ran against (a worktree of it). */
-  sourceDir: string;
-  /** The composed final tree to land (from `promotionSourceDir`). */
-  sourceTreeDir: string;
-  runId: string;
-};
-
 function git(args: string[], cwd: string, env?: NodeJS.ProcessEnv): string {
   return execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+}
+
+function gitOk(args: string[], cwd: string): boolean {
+  try {
+    git(args, cwd);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Deterministic committer so promotion never depends on (or mutates) global git config.
@@ -68,11 +81,11 @@ function assertDistinctPromotionPaths(target: string, sandboxDir: string): void 
   }
   // An ancestor target (e.g. project root with --out=.) is allowed: the run
   // worktree normally lives under <cwd>/.brunch/cook/... and D166-K lands on
-  // cook/<runId> there. cpSync skips .brunch/.git from the source tree.
+  // brunch/run/<runId> there. cpSync skips .brunch/.git from the source tree.
 }
 
 function checkoutCookBranch(target: string, runId: string): void {
-  const branch = `cook/${runId}`;
+  const branch = brunchRef.run(runId);
   try {
     git(['rev-parse', '--verify', `refs/heads/${branch}`], target);
     git(['checkout', '-q', branch], target);
@@ -84,7 +97,7 @@ function checkoutCookBranch(target: string, runId: string): void {
 /**
  * Land a completed greenfield run's single tree into `target` as a reviewable
  * git commit (commit-on-branch). Never a silent overwrite: an empty target is
- * git-init'd and committed on `main`; an existing repo lands on a `cook/<runId>`
+ * git-init'd and committed on `main`; an existing repo lands on a `brunch/run/<runId>`
  * branch (the user's branch is untouched); a non-empty target is refused unless
  * `force`.
  */
@@ -96,13 +109,13 @@ export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
 
   if (!isPromotionAllowedWithoutForce(target) && !opts.force) {
     throw new Error(
-      `Refusing to promote into a non-empty target: ${target}. Pass --force to land on a cook/${opts.runId} branch.`,
+      `Refusing to promote into a non-empty target: ${target}. Pass --force to land on a ${brunchRef.run(opts.runId)} branch.`,
     );
   }
 
   let branch: string;
   if (isGitRepoRoot(target)) {
-    branch = `cook/${opts.runId}`;
+    branch = brunchRef.run(opts.runId);
     checkoutCookBranch(target, opts.runId);
   } else {
     branch = 'main';
@@ -121,63 +134,42 @@ export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
 }
 
 /**
- * Land a completed *brownfield* run's composed tree onto the `cook/<runId>`
- * branch of the user's repo as one reviewable commit — the brownfield analogue
- * of `promoteGreenfieldRun`. The brownfield sandbox was created with
- * `git worktree add -b cook/<runId> … HEAD`, so the branch already exists at the
- * base the run started from; this commits the result on top of it via plumbing
- * (`commit-tree` + compare-and-swap `update-ref`) using a throwaway index and an
- * external work-tree, so the user's real working tree, index, and active branch
- * are never touched. Merging `cook/<runId>` into the working branch stays the
- * user's call — promotion never freelances into it.
+ * Merge a promoted `brunch/run/<runId>` branch into the repo's checked-out branch — the
+ * opt-in counterpart to brownfield promotion's hands-off default. Promotion
+ * deliberately never touches the working branch; this is the only path that does,
+ * and only when the caller (`serve --land`) explicitly asks. It refuses rather
+ * than freelance: a dirty tree or detached HEAD is left untouched, and a real
+ * merge that conflicts is aborted back to a clean state. On every non-landed
+ * outcome the `brunch/run/<runId>` branch stays intact for manual merge/review.
  */
-export function promoteBrownfieldRun(opts: BrownfieldPromoteOptions): PromoteResult {
+export function landCookBranch(opts: LandOptions): LandResult {
   const sourceDir = resolve(opts.sourceDir);
-  const sourceTreeDir = resolve(opts.sourceTreeDir);
-  const branch = `cook/${opts.runId}`;
-  const ref = `refs/heads/${branch}`;
+  const ref = brunchRef.run(opts.runId);
+  const cookCommit = git(['rev-parse', '--verify', ref], sourceDir);
 
-  // The branch must already exist (the sandbox branched it from HEAD); its tip is
-  // the parent we commit on top of and the CAS expected-value for update-ref.
-  let parent: string;
+  // Refuse on a detached HEAD (no branch to advance) or a dirty tree (don't bury
+  // uncommitted work under a merge) — leave the repo exactly as found.
+  let branch: string;
   try {
-    parent = git(['rev-parse', '--verify', ref], sourceDir);
+    branch = git(['symbolic-ref', '--quiet', '--short', 'HEAD'], sourceDir);
   } catch {
-    throw new Error(
-      `Brownfield promotion expects an existing ${branch} branch in ${sourceDir} (created by the cook worktree).`,
-    );
+    return { kind: 'refused', reason: 'detached' };
+  }
+  if (git(['status', '--porcelain'], sourceDir) !== '') {
+    return { kind: 'refused', reason: 'dirty' };
   }
 
-  // Absolute git dir so a throwaway index + external work-tree can target the
-  // user's object store without depending on cwd.
-  const gitDir = resolve(sourceDir, git(['rev-parse', '--git-dir'], sourceDir));
-  const tmp = mkdtempSync(join(tmpdir(), 'brunch-promote-'));
-  const env: NodeJS.ProcessEnv = { ...process.env, GIT_INDEX_FILE: join(tmp, 'index') };
-  const plumb = ['--git-dir', gitDir, '--work-tree', sourceTreeDir];
-  try {
-    // Seed the index from the base, then stage the composed tree as the delta —
-    // adds, modifications, and deletions, all relative to the base commit.
-    git([...plumb, 'read-tree', parent], sourceDir, env);
-    git([...plumb, 'add', '-A'], sourceDir, env);
-    const tree = git(['--git-dir', gitDir, 'write-tree'], sourceDir, env);
-    const commit = git(
-      [
-        ...COMMIT_IDENTITY,
-        '--git-dir',
-        gitDir,
-        'commit-tree',
-        tree,
-        '-p',
-        parent,
-        '-m',
-        `cook: ${opts.runId}`,
-      ],
-      sourceDir,
-      env,
-    );
-    git(['--git-dir', gitDir, 'update-ref', ref, commit, parent], sourceDir, env);
-    return { target: sourceDir, branch, commit };
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
+  // HEAD unmoved since the run branched → brunch/run/<runId> is strictly ahead, so a
+  // fast-forward lands the commit verbatim. Otherwise a real merge is required.
+  if (gitOk(['merge-base', '--is-ancestor', 'HEAD', ref], sourceDir)) {
+    git(['merge', '--ff-only', ref], sourceDir);
+    return { kind: 'landed', mode: 'fast-forward', branch, commit: cookCommit };
   }
+  try {
+    git([...COMMIT_IDENTITY, 'merge', '--no-edit', ref], sourceDir);
+  } catch {
+    git(['merge', '--abort'], sourceDir);
+    return { kind: 'conflict', branch };
+  }
+  return { kind: 'landed', mode: 'merge', branch, commit: git(['rev-parse', 'HEAD'], sourceDir) };
 }

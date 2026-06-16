@@ -14,6 +14,8 @@ export type ServeOptions = {
   specificationId: number;
   /** Greenfield promote target (→ cook `--out`); brownfield promotes automatically. */
   outDir?: string;
+  /** Merge the promoted brownfield `cook/<runId>` branch into the active branch as the final step. */
+  land: boolean;
   force: boolean;
   /** Toolchain profile override; stamped into the emitted plan. */
   profile?: ProfileId;
@@ -29,11 +31,12 @@ export type ServeOptions = {
 };
 
 const USAGE =
-  'Usage: brunch serve <specId> [--out=<dir>] [--force] [--profile=<id>] [--policy=serial|parallel] [--max-retries=<n>] [--petrinaut-stream] [--petrinaut-url=<url>] [--petrinaut-lanes=both|mechanical] [--petrinaut-fold=color|identity] [--no-petrinaut-open] [--verbose]';
+  'Usage: brunch serve <specId> [--out=<dir>] [--land] [--force] [--profile=<id>] [--policy=serial|parallel] [--max-retries=<n>] [--petrinaut-stream] [--petrinaut-url=<url>] [--petrinaut-lanes=both|mechanical] [--petrinaut-fold=color|identity] [--no-petrinaut-open] [--verbose]';
 
 export function parseServeArgs(args: string[]): ServeOptions {
   let specIdRaw: string | undefined;
   let outDir: string | undefined;
+  let land = false;
   let force = false;
   let profile: ProfileId | undefined;
   let verbose = false;
@@ -50,6 +53,8 @@ export function parseServeArgs(args: string[]): ServeOptions {
   for (const arg of args) {
     if (arg.startsWith('--out=')) {
       outDir = arg.slice('--out='.length);
+    } else if (arg === '--land') {
+      land = true;
     } else if (arg === '--force') {
       force = true;
     } else if (arg.startsWith('--profile=')) {
@@ -98,6 +103,11 @@ export function parseServeArgs(args: string[]): ServeOptions {
   if (!Number.isInteger(specificationId) || specificationId <= 0) {
     throw new Error(`Invalid <specId> "${specIdRaw}": expected a positive integer. ${USAGE}`);
   }
+  if (land && outDir !== undefined) {
+    // --out is the greenfield promote target (a separate dir); --land merges the
+    // brownfield result into this repo's active branch. They name different modes.
+    throw new Error('--land cannot be combined with --out (--out is the greenfield promote target).');
+  }
   if (sawPetrinautUrl && !petrinautStream) {
     throw new Error('--petrinaut-url requires --petrinaut-stream');
   }
@@ -108,6 +118,7 @@ export function parseServeArgs(args: string[]): ServeOptions {
   return {
     specificationId,
     outDir,
+    land,
     force,
     profile,
     verbose,
@@ -144,6 +155,7 @@ export function serveCookOptions(opts: ServeOptions, cookDir: string): CookOptio
     ...(opts.petrinautUrl ? { petrinautUrl: opts.petrinautUrl } : {}),
     petrinautOpen: opts.petrinautOpen,
     ...(opts.outDir ? { outDir: resolve(cookDir, opts.outDir) } : {}),
+    landBranch: opts.land,
     force: opts.force,
     specId: opts.specificationId,
   };

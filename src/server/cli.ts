@@ -141,25 +141,31 @@ exitIfAnthropicApiKeyMissing();
 if (rawArgs[0] === 'cook') {
   const { parseCookArgs, runCook } = await import('../orchestrator/src/cook-cli.js');
   const { withCookBus } = await import('../orchestrator/src/presenter.js');
-  const opts = parseCookArgs(rawArgs.slice(1));
-  // withCookBus disposes the bus (unmounts the Ink app) in finally so the TTY run exits.
-  await withCookBus('cook', (bus) => runCook(opts, bus)).catch((error) => {
-    console.error('Failed to run brunch cook:', error);
+  try {
+    // Parse before mounting the TUI; withCookBus disposes (unmounts Ink) in
+    // finally so a run error tears the TUI down before we print it.
+    const opts = parseCookArgs(rawArgs.slice(1));
+    await withCookBus('cook', (bus) => runCook(opts, bus));
+  } catch (error) {
+    console.error(`Failed to run brunch cook: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
-  });
+  }
 } else if (rawArgs[0] === 'serve') {
   const { runPlan } = await import('./plan-runner.js');
   const { runCook } = await import('../orchestrator/src/cook-cli.js');
   const { parseServeArgs, runServe } = await import('./serve-runner.js');
   const { withCookBus } = await import('../orchestrator/src/presenter.js');
-  await withCookBus('serve', (bus) =>
-    withCompletedSpec(
-      'serve',
-      () => parseServeArgs(rawArgs.slice(1)),
-      async (opts, { project, snapshot }) => {
+  // Validate args + spec BEFORE mounting the TUI, so a bad specId errors plainly
+  // (no chrome flash). withCookBus then owns the TUI only for the actual run, and
+  // disposes it in finally even if the run throws.
+  await withCompletedSpec(
+    'serve',
+    () => parseServeArgs(rawArgs.slice(1)),
+    async (opts, { project, snapshot }) => {
+      await withCookBus('serve', (bus) =>
         // Cook runs against the same dir the plan was written to (launchCwd); see
         // serveCookOptions — runCook reads opts.dir raw, so serve must thread it.
-        await runServe(opts, launchCwd, {
+        runServe(opts, launchCwd, {
           plan: () =>
             runPlan({
               specificationId: opts.specificationId,
@@ -172,19 +178,19 @@ if (rawArgs[0] === 'cook') {
               bus,
             }),
           cook: (cookOpts) => runCook(cookOpts, bus),
-        });
-      },
-    ),
+        }),
+      );
+    },
   );
 } else if (rawArgs[0] === 'plan') {
   const { parsePlanArgs, runPlan } = await import('./plan-runner.js');
   const { withCookBus } = await import('../orchestrator/src/presenter.js');
-  await withCookBus('plan', (bus) =>
-    withCompletedSpec(
-      'plan',
-      () => parsePlanArgs(rawArgs.slice(1), launchCwd),
-      async (opts, { project, snapshot }) => {
-        await runPlan({
+  await withCompletedSpec(
+    'plan',
+    () => parsePlanArgs(rawArgs.slice(1), launchCwd),
+    async (opts, { project, snapshot }) => {
+      await withCookBus('plan', (bus) =>
+        runPlan({
           specificationId: opts.specificationId,
           snapshot,
           outDir: opts.outDir,
@@ -193,9 +199,9 @@ if (rawArgs[0] === 'cook') {
           // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
           repoDir: project.cwd,
           bus,
-        });
-      },
-    ),
+        }),
+      );
+    },
   );
 } else if (rawArgs[0] === 'agent') {
   const project = resolveBrunchProject(launchCwd);
