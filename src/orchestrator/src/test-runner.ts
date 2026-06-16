@@ -1,7 +1,13 @@
 import { spawnSync } from 'node:child_process';
 
 import { defaultToolchain, type Toolchain } from './project-profile.js';
-import type { TestFailureKind, TestResult, TestRunner } from './types.js';
+import type {
+  TestFailureKind,
+  TestResult,
+  TestRunner,
+  VerificationOutcome,
+  VerificationResult,
+} from './types.js';
 
 // Shell-reported "the runner binary doesn't exist" — the cross-platform spawn
 // `error` (ENOENT) is the primary signal; these catch the case where a shell
@@ -47,4 +53,36 @@ export class ToolchainTestRunner implements TestRunner {
     // `result.error` is set when the binary can't be spawned at all (ENOENT).
     return { passed, output, failureKind: classifyTestFailure(output, result.error != null) };
   }
+}
+
+/**
+ * The single verification seam: run every target through one `TestRunner` and
+ * fold the per-target results into one verdict. This is the one place the
+ * "≥1 target and all pass" oracle rule and the infra-dominates aggregate live,
+ * so `evaluate-done`, `verify-epic`, and the net `run-tests` handler can't drift
+ * apart (they each used to re-implement this). A runner that throws is treated
+ * as an `infra` failure — a harness fault, not a code assertion.
+ */
+export async function runVerification(
+  targets: readonly { target: string }[],
+  runner: TestRunner,
+  sandboxDir: string,
+): Promise<VerificationOutcome> {
+  const results: VerificationResult[] = [];
+  for (const t of targets) {
+    try {
+      results.push({ target: t.target, ...(await runner.run(t.target, sandboxDir)) });
+    } catch (err) {
+      results.push({ target: t.target, passed: false, output: String(err), failureKind: 'infra' });
+    }
+  }
+  const done = results.length > 0 && results.every((r) => r.passed);
+  // infra (toolchain broke) dominates a plain test failure — if anything failed
+  // to even run, that's the actionable signal. Undefined when the verdict passed.
+  const failureKind: TestFailureKind | undefined = done
+    ? undefined
+    : results.some((r) => r.failureKind === 'infra')
+      ? 'infra'
+      : 'test';
+  return { done, failureKind, results };
 }
