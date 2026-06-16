@@ -1,20 +1,12 @@
 import { selectElicitationGap } from '../../../graph/elicitation-driver.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import { READINESS_BANDS } from '../../../graph/schema/kinds.js';
-import { readinessEstimate } from '../../../projections/session/readiness-estimate.js';
 import type { ResolvedBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
+import { renderSoftReadinessEstimate } from '../../../renderers/session/readiness-estimate.js';
+import type {
+  AgentPromptSpecContext,
+  AgentPromptWorkspaceContext,
+} from '../../../session/agent-context-seed.js';
 import { AGENT_PROMPT_DEFINITIONS, manifestsForState, type PromptManifests } from '../runtime/state.js';
-
-export interface AgentPromptSpecContext {
-  id: number;
-  name: string;
-}
-
-export interface AgentPromptWorkspaceContext {
-  cwd: string;
-  posture?: Partial<WorkspacePostureState>;
-}
 
 export interface AgentPromptContextBundle {
   contextHandles?: readonly string[];
@@ -86,12 +78,6 @@ function renderRuntimeState(input: ComposeAgentPromptInput): string {
     `- workspace: ${input.workspace.cwd}`,
     `- workspace posture: ${renderPosture(input.workspace.posture)}`,
   ].join('\n');
-}
-
-export function renderSoftReadinessEstimate(gaps: readonly ElicitationGap[]): string {
-  const estimate = readinessEstimate(gaps);
-  const coverage = READINESS_BANDS.map((band) => `${band}=${estimate.coverage[band].toFixed(2)}`).join(', ');
-  return `readiness estimate (soft; gates nothing): ${coverage}`;
 }
 
 function renderPosture(posture: AgentPromptWorkspaceContext['posture']): string {

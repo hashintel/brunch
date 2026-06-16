@@ -125,7 +125,8 @@ graph/
 
   command-executor.ts
     CommandExecutor
-    command input/result types
+    seeded elicitation-gap floor + spec-record mapping
+    re-exports command input/result types (command-types.ts)
     createSpec (spec identity only; no stored readiness grade)
     create/set elicitation-gap disposition
     createNode
@@ -135,6 +136,10 @@ graph/
     create/resolve reconciliation need
 
   command-executor/
+    command-types.ts
+      command input/result contract types re-exported by command-executor.ts
+    command-validation.ts
+      structural input/patch validators + kind tables for command-executor.ts
     graph-mutation-types.ts
       mutateGraph input/result/diagnostic types re-exported by command-executor.ts
     create-graph-batch.ts
@@ -229,13 +234,21 @@ real split is now `command-executor/graph-mutation-planner.ts` and
 `command-executor/graph-mutation-writer.ts`: private planning/apply code for the
 `mutateGraph` seam, imported only by the public `command-executor.ts`
 entrypoint. `create-graph-batch.ts` remains the narrower shared planner for the
-create-only subset used by review-set translation and test/dev helpers. Future
-splits should follow the same pattern: split by semantic responsibility, keep
-external imports pointed at the root entrypoint, and avoid folder scaffolding
-until pressure is real.
+create-only subset used by review-set translation and test/dev helpers.
+`command-types.ts` (command input/result contract) and `command-validation.ts`
+(structural input/patch validators + kind tables) follow the same rule: the
+root `command-executor.ts` keeps only the `CommandExecutor` class, its seeded
+elicitation-gap floor, and the public re-export barrel. Future splits should
+follow the same pattern: split by semantic responsibility, keep external imports
+pointed at the root entrypoint, and avoid folder scaffolding until pressure is
+real.
 
 ```pseudo
 graph/command-executor/
+  command-types.ts
+    command input/result contract types re-exported by command-executor.ts
+  command-validation.ts
+    structural input/patch validators + kind tables
   graph-mutation-types.ts
     mutateGraph input/result/diagnostic types re-exported by command-executor.ts
   create-graph-batch.ts

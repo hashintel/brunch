@@ -15,7 +15,7 @@ import type {
   AgentRoleId,
   AgentStrategyId,
 } from '../../../session/runtime-state.js';
-type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods' | 'definitions';
+type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods';
 export type MethodId =
   | 'run-structured-exchange'
   | 'infer-and-capture'
@@ -318,8 +318,7 @@ function selectAxisResources<TId extends string>({
 }
 
 function promptResourceLocation(family: PromptResourceFamily, id: string): string {
-  const root = family === 'definitions' ? './agents' : './skills';
-  return fileURLToPath(new URL(`../../${root}/${family}/${id}.md`, import.meta.url));
+  return fileURLToPath(new URL(`../../skills/${family}/${id}.md`, import.meta.url));
 }
 
 function resource(

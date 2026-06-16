@@ -5,27 +5,43 @@
  * - thin wrapper helpers around md-pen
  * - shared fenced-block and escaping conventions
  * - no graph/session/exchange domain semantics
- *
- * Future callers:
- * - renderers/graph/*
- * - renderers/session/*
- * - renderers/exchanges/*
  */
 
+import { blockquote, code, codeBlock, escape, heading, table, ul } from 'md-pen';
+
 export function markdownHeading(level: number, text: string): string {
-  return `${'#'.repeat(level)} ${text.trim()}`;
+  if (!Number.isInteger(level) || level < 1 || level > 6) {
+    throw new RangeError(`Markdown heading level must be 1-6; received ${String(level)}`);
+  }
+  return heading(text.trim(), level as 1 | 2 | 3 | 4 | 5 | 6);
 }
 
 export function markdownBullet(text: string): string {
   return `- ${text}`;
 }
 
-export function markdownQuote(text: string): string {
-  return text
-    .trim()
-    .split('\n')
-    .map((line) => `> ${line}`)
-    .join('\n');
+export function markdownBlockquote(text: string): string {
+  return blockquote(text.trim());
+}
+
+export function markdownCodeBlock(contents: string, language?: string): string {
+  return codeBlock(contents, language);
+}
+
+export function markdownTable(rows: Array<Array<string | number | boolean>>): string {
+  return table(rows);
+}
+
+export function markdownUl(items: string[]): string {
+  return ul(items);
+}
+
+export function inlineCode(text: string): string {
+  return code(text);
+}
+
+export function markdownEscape(text: string): string {
+  return escape(text);
 }
 
 export function joinMarkdownBlocks(...blocks: Array<string | null | undefined | false>): string {

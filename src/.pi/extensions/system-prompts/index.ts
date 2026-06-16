@@ -1,16 +1,15 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import type { GraphReaders } from '../graph/index.js';
-import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 import {
-  composeAgentPrompt,
-  type AgentPromptContextBundle,
+  composeAgentContextSeed,
+  type AgentPromptSessionContext,
   type AgentPromptSpecContext,
   type AgentPromptWorkspaceContext,
-} from './compose.js';
-import { renderGraphSeed } from './seed/graph.js';
-import { renderWorkspaceSeed, type AgentPromptSessionContext } from './seed/workspace.js';
+} from '../../../session/agent-context-seed.js';
+import type { GraphReaders } from '../graph/index.js';
+import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
+import { composeAgentPrompt, type AgentPromptContextBundle } from './compose.js';
+import { createWorldReadCache, type WorldReads } from './world-reads.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
 
@@ -61,19 +60,21 @@ export function registerBrunchPrompting(
 ): void {
   if (!supportsPrompting(pi)) return;
 
+  const worldReadCache = createWorldReadCache();
+
   pi.on('before_agent_start', async (event, ctx) => {
     const resolvedPromptContext = await resolvePromptContext(promptContext);
 
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
-    const gaps = gapsForPrompt(resolvedPromptContext);
+    const world = worldReadCache.read(resolvedPromptContext.graphReads, resolvedPromptContext.spec.id);
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
-        ? activeToolNamesForBrunchAgentState(pi, state, gaps, options.devAllowedToolNames)
+        ? activeToolNamesForBrunchAgentState(pi, state, world.gaps, options.devAllowedToolNames)
         : [];
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);
     }
-    const context = contextForPrompt(resolvedPromptContext, state, gaps);
+    const context = contextForPrompt(resolvedPromptContext, state, world);
     const { prompt } = composeAgentPrompt({
       agentId: state.agentRole,
       sessionState: state,
@@ -81,7 +82,7 @@ export function registerBrunchPrompting(
       workspace: resolvedPromptContext.workspace,
       context,
       activeTools,
-      gaps,
+      gaps: world.gaps,
     });
 
     if (prompt.trim().length === 0) return undefined;
@@ -93,24 +94,19 @@ export function registerBrunchPrompting(
   });
 }
 
-function gapsForPrompt(context: BrunchPromptContext): readonly ElicitationGap[] {
-  return context.graphReads.getElicitationGaps(context.spec.id);
-}
-
 function contextForPrompt(
   context: BrunchPromptContext,
   state: ReturnType<typeof projectState>,
-  gaps: readonly ElicitationGap[],
+  world: WorldReads,
 ): AgentPromptContextBundle {
-  const renderedContexts = [
-    renderWorkspaceSeed({
-      spec: context.spec,
-      workspace: context.workspace,
-      ...(context.session ? { session: context.session } : {}),
-      gaps,
-    }),
-  ];
-  renderedContexts.push(renderGraphSeed(context.graphReads.queryGraph(), { lens: state.agentLens }));
+  const renderedContexts = composeAgentContextSeed({
+    spec: context.spec,
+    workspace: context.workspace,
+    ...(context.session ? { session: context.session } : {}),
+    gaps: world.gaps,
+    graph: world.graph,
+    lens: state.agentLens,
+  });
 
   return {
     ...(context.context?.contextHandles ? { contextHandles: context.context.contextHandles } : {}),

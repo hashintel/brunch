@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
+import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
 import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
 import {
   appendEntryContentToDebugCache,
@@ -88,6 +88,21 @@ describe('debug cache entry-contents mirror (origination-kick-live card 2)', () 
 });
 
 describe('debug cache origination record mirror', () => {
+  it('serializes Error records with useful diagnostic fields', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-origination-error-mirror-'));
+    await appendOriginationRecordToDebugCache(
+      { cwd },
+      {
+        outcome: { status: 'failed', error: new TypeError('provider rejected') },
+      },
+    );
+
+    const mirror = await readFile(join(cwd, '.brunch/debug/origination.md'), 'utf8');
+    expect(mirror).toContain('"name": "TypeError"');
+    expect(mirror).toContain('"message": "provider rejected"');
+    expect(mirror).toContain('"stack":');
+  });
+
   it('records the decision and completion outcome for a boot', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-origination-mirror-'));
     await appendOriginationRecordToDebugCache(

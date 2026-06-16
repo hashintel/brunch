@@ -12,18 +12,12 @@ import {
   type CreateAgentSessionServicesOptions,
 } from '@earendil-works/pi-coding-agent';
 
-import {
-  chromeStateForWorkspace,
-  createBrunchPiExtensions,
-  createInMemoryBrunchIntrospectionStore,
-  type BrunchIntrospectionStore,
-} from '../.pi/brunch-pi-extensions.js';
-import { applyBrunchOfflineDefault, createBrunchPiSettings } from '../.pi/brunch-pi-settings.js';
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
 import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
 } from '../.pi/extensions/introspection/index.js';
+import { isBrunchDevEnabled } from '../dev/brunch-dev.js';
 import {
   openWorkspaceGraphRuntime,
   type EdgeCategory,
@@ -50,7 +44,13 @@ import {
   type SpecSessionActivationCoordinator,
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
-import { isBrunchDevEnabled } from './brunch-dev.js';
+import {
+  chromeStateForWorkspace,
+  createBrunchPiExtensions,
+  createInMemoryBrunchIntrospectionStore,
+  type BrunchIntrospectionStore,
+} from './pi-extensions.js';
+import { applyBrunchOfflineDefault, createBrunchPiSettings } from './pi-settings.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -58,14 +58,14 @@ export {
   brunchResourceLoaderOptions,
   createBrunchPiSettings,
   createBrunchSettingsManager,
-} from '../.pi/brunch-pi-settings.js';
+} from './pi-settings.js';
 export {
   BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
-} from '../.pi/brunch-pi-extensions.js';
+} from './pi-extensions.js';
 export { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
 
 type BrunchTuiCoordinator = SpecSessionActivationCoordinator & WorkspaceSessionBoundaryCoordinator;
@@ -86,6 +86,7 @@ export interface BrunchTuiLaunchContext {
   webSidecarUrl?: string;
   activationDecision?: SpecSessionActivationDecision;
   dev?: BrunchTuiDevOptions;
+  reportAsyncDiagnostic?: (diagnostic: { readonly type: 'warning'; readonly message: string }) => void;
   /**
    * Provider-backend substitution seam (faux provider in Tier-2 oracles).
    * Swaps only auth/model resolution; session creation, extension
@@ -164,6 +165,9 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       ...(webSidecarUrl ? { webSidecarUrl } : {}),
       activationDecision: decision,
       ...(dev ? { dev } : {}),
+      reportAsyncDiagnostic: (diagnostic) => {
+        process.stderr.write(`[brunch] ${diagnostic.message}\n`);
+      },
     });
   } finally {
     await webSidecar?.close();
@@ -337,6 +341,7 @@ export function createBrunchAgentSessionRuntimeFactory(
         },
         resolveNodeCode: (code: string) => graph.forSpec(currentWorkspace.spec.id).resolveNodeCode(code),
         getElicitationGaps: () => graph.forSpec(currentWorkspace.spec.id).getElicitationGaps(),
+        latestLsn: () => graph.forSpec(currentWorkspace.spec.id).latestLsn(),
       },
       ...(productUpdates && { productUpdates }),
     };
@@ -428,7 +433,6 @@ export function createBrunchAgentSessionRuntimeFactory(
       ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
     });
     liveAgentSession.current = created.session;
-    const kickDiagnostics: Array<{ type: 'warning'; message: string }> = [];
     // Complete the kick: a 'start' decision owes an actual assistant-originated
     // LLM turn, which only the live AgentSession can run. Fire-and-forget:
     // sendCustomMessage with triggerTurn awaits the whole turn, and boot must
@@ -447,13 +451,13 @@ export function createBrunchAgentSessionRuntimeFactory(
           }).catch(() => {});
         }
         const message = formatKickDiagnostic(outcome);
-        if (message) kickDiagnostics.push({ type: 'warning', message });
+        if (message) context.reportAsyncDiagnostic?.({ type: 'warning', message });
       },
     });
     return {
       ...created,
       services,
-      diagnostics: [...services.diagnostics, ...kickDiagnostics],
+      diagnostics: services.diagnostics,
     };
   };
 }

@@ -1,4 +1,4 @@
-import type { ExtensionAPI, SessionEntry, SessionHeader } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import {
   projectSessionRuntimeState,
@@ -9,18 +9,9 @@ import {
   type SessionRuntimeFrameRenderInput,
 } from '../../../renderers/session/runtime-frame.js';
 import { NonLinearTranscriptError } from '../../../session/brunch-session-envelope.js';
-import { isSessionBindingEntry } from '../../../session/session-binding.js';
 import { readWorkspaceContext } from './get-cwd.js';
-
-// Mirror the real ReadonlySessionManager surface this projection uses. The Pi
-// session header is NOT part of getEntries() (which returns SessionEntry[]); it
-// is only reachable via getHeader(). Typing getEntries() as FileEntry[] here
-// previously hid that: the header lookup searched getEntries() for a 'session'
-// entry that can never appear, so the frame was always missing_session_header.
-interface SessionManagerLike {
-  getHeader(): SessionHeader | null;
-  getEntries(): readonly SessionEntry[];
-}
+import { readSpecificationContext } from './get-specification.js';
+import { resolveSelectedSpecBinding, type SessionManagerLike } from './session-binding.js';
 
 export function registerBrunchContext(pi: ExtensionAPI): void {
   pi.registerTool({
@@ -70,6 +61,31 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
   });
 
   pi.registerTool({
+    name: 'read_specification_context',
+    label: 'Read Specification Context',
+    description:
+      'Read the selected specification context: overview, spec-scoped sessions, and ranked elicitation gaps.',
+    promptSnippet: 'Read the selected specification overview, sessions, and elicitation gaps',
+    promptGuidelines: [
+      'Use read_specification_context when you need selected-spec context rather than cwd or session runtime context.',
+      'This render is scope-clustered: overview, spec-scoped sessions, and ranked elicitation gaps only.',
+      'Use read_graph for the full graph topology; this context carries graph size only.',
+    ],
+    parameters: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    },
+    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+      const result = await readSpecificationContext(ctx?.sessionManager);
+      return {
+        content: [{ type: 'text' as const, text: result.text }],
+        details: result.details,
+      };
+    },
+  });
+
+  pi.registerTool({
     name: 'read_session_context',
     label: 'Read Session Context',
     description:
@@ -99,26 +115,20 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
 function projectSessionContext(
   sessionManager: SessionManagerLike | undefined,
 ): RuntimeStateProjection | SessionRuntimeFrameRenderInput {
-  const header = sessionManager?.getHeader() ?? undefined;
-  if (!header) {
-    return { status: 'not_ready', reason: 'missing_session_header', sessionId: null };
-  }
-
-  const entries = sessionManager?.getEntries() ?? [];
-  const binding = entries.find(isSessionBindingEntry);
-  if (!binding) {
-    return { status: 'not_ready', reason: 'missing_binding', sessionId: header.id };
+  const selected = resolveSelectedSpecBinding(sessionManager);
+  if (selected.status === 'not_ready') {
+    return selected;
   }
 
   try {
     return projectSessionRuntimeState({
-      header,
-      binding: binding.data,
-      entries: [...entries],
+      header: selected.header,
+      binding: selected.binding,
+      entries: [...selected.entries],
     });
   } catch (error) {
     if (error instanceof NonLinearTranscriptError) {
-      return { status: 'not_ready', reason: 'non_linear', sessionId: header.id };
+      return { status: 'not_ready', reason: 'non_linear', sessionId: selected.header.id };
     }
     throw error;
   }

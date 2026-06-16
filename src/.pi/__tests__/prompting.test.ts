@@ -4,10 +4,10 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
 import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
-import { createBrunchPiExtensions } from '../brunch-pi-extensions.js';
 import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
 import { createInMemoryBrunchIntrospectionStore } from '../extensions/introspection/index.js';
 import {
@@ -110,6 +110,7 @@ const promptContext = {
     getNodes: () => [],
     resolveNodeCode: () => undefined,
     getElicitationGaps: () => groundingFloorGaps(),
+    latestLsn: () => 4,
   },
 };
 
@@ -254,6 +255,7 @@ describe('Brunch prompt-pack topology', () => {
             getNodes: () => [],
             resolveNodeCode: () => undefined,
             getElicitationGaps: () => groundingFloorGaps(),
+            latestLsn: () => 1,
           },
         }),
       },
@@ -696,7 +698,7 @@ describe('Brunch prompt-pack topology', () => {
   it('does not expose prompt manifests through Pi resource discovery or legacy context imports', async () => {
     const [promptingSource, shellSource] = await Promise.all([
       readFile(join(projectRoot(), 'src/.pi/extensions/system-prompts/index.ts'), 'utf8'),
-      readFile(join(projectRoot(), 'src/.pi/brunch-pi-extensions.ts'), 'utf8'),
+      readFile(join(projectRoot(), 'src/app/pi-extensions.ts'), 'utf8'),
     ]);
 
     expect(promptingSource).not.toContain('resources_discover');

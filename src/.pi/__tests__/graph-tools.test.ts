@@ -5,6 +5,7 @@ import { CommandExecutor } from '../../graph/command-executor.js';
 import {
   getElicitationGaps,
   getNodes,
+  latestGraphLsn,
   queryGraph,
   resolveGraphNodeCode,
   type GraphFilter,
@@ -33,6 +34,7 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
     getNodes: (selectors, options) => getNodes(db, specId, selectors, options),
     resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
     getElicitationGaps: () => getElicitationGaps(db, specId),
+    latestLsn: () => latestGraphLsn(db, specId),
   };
 }
 

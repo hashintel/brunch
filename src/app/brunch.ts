@@ -2,7 +2,9 @@ import { isAbsolute, resolve } from 'node:path';
 import process from 'node:process';
 import type { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
 
+import { isBrunchDevEnabled } from '../dev/brunch-dev.js';
 import { projectWorkspaceState } from '../projections/workspace/workspace-state.js';
 import { renderWorkspaceState } from '../renderers/workspace/workspace-state.js';
 import { createRpcHandlers, runJsonRpcLineServer } from '../rpc/handlers.js';
@@ -11,7 +13,6 @@ import {
   createWorkspaceSessionCoordinator,
   type WorkspaceSessionCoordinator,
 } from '../session/workspace-session-coordinator.js';
-import { isBrunchDevEnabled } from './brunch-dev.js';
 import { runBrunchTui } from './brunch-tui.js';
 
 export interface BrunchCliOptions {
@@ -25,8 +26,8 @@ export interface BrunchCliOptions {
 
 export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<number> {
   const argv = options.argv ?? process.argv.slice(2);
-  const cwd = parseCwd(argv) ?? options.cwd ?? process.cwd();
-  const mode = parseMode(argv);
+  const { cwd: cwdFlag, mode, openWeb } = parseCliArgs(argv);
+  const cwd = cwdFlag ?? options.cwd ?? process.cwd();
   const coordinator = options.coordinator ?? createWorkspaceSessionCoordinator({ cwd });
 
   if (mode === 'print') {
@@ -65,7 +66,7 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
     await (options.launchTui ?? runBrunchTui)({
       cwd,
       coordinator,
-      openWeb: parseOpenWeb(argv),
+      openWeb,
     });
     return 0;
   }
@@ -98,44 +99,29 @@ function stdoutStream(stdout: Writable | ((chunk: string) => void) | undefined):
   } as Writable;
 }
 
-function parseCwd(argv: string[]): string | undefined {
-  const flagIndex = argv.indexOf('--cwd');
-  if (flagIndex >= 0) {
-    const value = argv[flagIndex + 1];
-    if (!value) throw new Error('--cwd requires a value');
-    return resolveCliCwd(value);
-  }
-
-  const cwdEquals = argv.find((arg) => arg.startsWith('--cwd='));
-  if (!cwdEquals) return undefined;
-  const value = cwdEquals.slice('--cwd='.length);
-  if (!value) throw new Error('--cwd requires a value');
-  return resolveCliCwd(value);
+function parseCliArgs(argv: string[]): { cwd: string | undefined; mode: string; openWeb: boolean } {
+  // node:util parseArgs accepts both `--flag value` and `--flag=value` forms and
+  // fails loud on unknown or malformed flags. --open-web is a plain boolean whose
+  // default is false, so there is no `=false` form to model: omit it to opt out.
+  const { values } = parseArgs({
+    args: argv,
+    options: {
+      cwd: { type: 'string' },
+      mode: { type: 'string', default: 'tui' },
+      'open-web': { type: 'boolean', default: false },
+    },
+  });
+  return {
+    cwd: resolveCwdFlag(values.cwd),
+    mode: values.mode,
+    openWeb: values['open-web'],
+  };
 }
 
-function resolveCliCwd(value: string): string {
+function resolveCwdFlag(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  if (value === '') throw new Error('--cwd requires a value');
   return isAbsolute(value) ? value : resolve(process.cwd(), value);
-}
-
-function parseMode(argv: string[]): string {
-  const modeFlagIndex = argv.indexOf('--mode');
-  if (modeFlagIndex >= 0) {
-    return argv[modeFlagIndex + 1] ?? 'tui';
-  }
-
-  const modeEquals = argv.find((arg) => arg.startsWith('--mode='));
-  if (modeEquals) {
-    return modeEquals.slice('--mode='.length);
-  }
-
-  return 'tui';
-}
-
-function parseOpenWeb(argv: string[]): boolean {
-  if (argv.includes('--open-web')) return true;
-  const openWebEquals = argv.find((arg) => arg.startsWith('--open-web='));
-  if (!openWebEquals) return false;
-  return openWebEquals.slice('--open-web='.length) !== 'false';
 }
 
 async function main(): Promise<void> {

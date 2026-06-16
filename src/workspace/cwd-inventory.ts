@@ -1,33 +1,22 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { basename, join, relative, resolve, sep } from 'node:path';
 
-import { BRUNCH_DIR, SESSION_DIR } from '../constants.js';
+import { BRUNCH_DIR } from '../constants.js';
+import { discoverProjectIdentity, type ProjectIdentity } from './project-identity.js';
 
-interface WorkspaceSessionFileInventory {
-  readonly file: string;
-  readonly lineCount: number;
-  readonly byteCount: number;
-}
-
-interface WorkspaceTreeEntryInventory {
+export interface WorkspaceTopologyEntry {
   readonly name: string;
   readonly kind: 'file' | 'directory';
   readonly fileCount: number;
-}
-
-interface WorkspaceMarkdownFileInventory {
-  readonly path: string;
-  readonly lineCount: number;
-  readonly byteCount: number;
+  readonly children?: readonly WorkspaceTopologyEntry[];
 }
 
 export interface WorkspaceCwdInventory {
   readonly status: 'ready';
   readonly cwd: string;
+  readonly project: ProjectIdentity;
   readonly hasBrunchDir: boolean;
-  readonly sessionFiles: readonly WorkspaceSessionFileInventory[];
-  readonly topLevelEntries: readonly WorkspaceTreeEntryInventory[];
-  readonly markdownFiles: readonly WorkspaceMarkdownFileInventory[];
+  readonly topology: WorkspaceTopologyEntry;
 }
 
 interface GitignoreRule {
@@ -42,49 +31,16 @@ const DEFAULT_IGNORED_TOP_LEVEL = new Set(['.git']);
 export async function inspectWorkspaceCwdInventory(cwd: string): Promise<WorkspaceCwdInventory> {
   const resolvedCwd = resolve(cwd);
   const shouldIgnore = await createGitignoreMatcher(resolvedCwd);
-  const topLevelEntries = await collectTopLevelEntries(resolvedCwd, shouldIgnore);
-  const markdownFiles = await collectMarkdownFiles(resolvedCwd, shouldIgnore);
-  const sessionFiles = await collectSessionFiles(resolvedCwd);
+  const project = await discoverProjectIdentity(resolvedCwd);
+  const topology = await collectTopology(resolvedCwd, shouldIgnore);
 
   return {
     status: 'ready',
     cwd: resolvedCwd,
-    hasBrunchDir: topLevelEntries.some((entry) => entry.name === BRUNCH_DIR),
-    sessionFiles,
-    topLevelEntries,
-    markdownFiles,
+    project,
+    hasBrunchDir: topology.children?.some((entry) => entry.name === BRUNCH_DIR) ?? false,
+    topology,
   };
-}
-
-async function collectTopLevelEntries(
-  cwd: string,
-  shouldIgnore: (relativePath: string, isDirectory: boolean) => boolean,
-): Promise<WorkspaceTreeEntryInventory[]> {
-  const entries = await readdir(cwd, { withFileTypes: true });
-  const inventories: WorkspaceTreeEntryInventory[] = [];
-
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-    if (DEFAULT_IGNORED_TOP_LEVEL.has(entry.name)) {
-      continue;
-    }
-
-    const relativePath = entry.name;
-    if (shouldIgnore(relativePath, entry.isDirectory())) {
-      continue;
-    }
-
-    const fileCount = entry.isDirectory()
-      ? await countVisibleFiles(join(cwd, entry.name), cwd, shouldIgnore)
-      : 1;
-
-    inventories.push({
-      name: entry.name,
-      kind: entry.isDirectory() ? 'directory' : 'file',
-      fileCount,
-    });
-  }
-
-  return inventories;
 }
 
 async function countVisibleFiles(
@@ -107,32 +63,31 @@ async function countVisibleFiles(
   return fileCount;
 }
 
-async function collectMarkdownFiles(
+async function collectTopology(
   cwd: string,
   shouldIgnore: (relativePath: string, isDirectory: boolean) => boolean,
-): Promise<WorkspaceMarkdownFileInventory[]> {
-  const inventories: WorkspaceMarkdownFileInventory[] = [];
-  await walkVisibleFiles(cwd, cwd, shouldIgnore, async (filePath) => {
-    if (!isMarkdownLike(filePath)) {
-      return;
-    }
-    const content = await readFile(filePath, 'utf8');
-    inventories.push({
-      path: toRelativePath(cwd, filePath),
-      lineCount: countLines(content),
-      byteCount: Buffer.byteLength(content),
-    });
-  });
-  return inventories.sort((left, right) => left.path.localeCompare(right.path));
+): Promise<WorkspaceTopologyEntry> {
+  return {
+    name: '.',
+    kind: 'directory',
+    fileCount: await countVisibleFiles(cwd, cwd, shouldIgnore),
+    children: await collectTopologyChildren(cwd, cwd, shouldIgnore, 0),
+  };
 }
 
-async function walkVisibleFiles(
+async function collectTopologyChildren(
   directory: string,
   cwd: string,
   shouldIgnore: (relativePath: string, isDirectory: boolean) => boolean,
-  onFile: (filePath: string) => Promise<void>,
-): Promise<void> {
+  depth: number,
+): Promise<WorkspaceTopologyEntry[]> {
+  if (depth >= 2) {
+    return [];
+  }
+
   const entries = await readdir(directory, { withFileTypes: true });
+  const topologyEntries: WorkspaceTopologyEntry[] = [];
+
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     const path = join(directory, entry.name);
     const relativePath = toRelativePath(cwd, path);
@@ -142,39 +97,26 @@ async function walkVisibleFiles(
     if (shouldIgnore(relativePath, entry.isDirectory())) {
       continue;
     }
+
     if (entry.isDirectory()) {
-      await walkVisibleFiles(path, cwd, shouldIgnore, onFile);
+      const fileCount = await countVisibleFiles(path, cwd, shouldIgnore);
+      const children =
+        depth < 1 ? await collectTopologyChildren(path, cwd, shouldIgnore, depth + 1) : undefined;
+      topologyEntries.push({
+        name: entry.name,
+        kind: 'directory',
+        fileCount,
+        ...(children ? { children } : {}),
+      });
       continue;
     }
-    await onFile(path);
-  }
-}
 
-async function collectSessionFiles(cwd: string): Promise<WorkspaceSessionFileInventory[]> {
-  const sessionDir = join(cwd, BRUNCH_DIR, SESSION_DIR);
-  let entries;
-  try {
-    entries = await readdir(sessionDir, { withFileTypes: true });
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return [];
+    if (isMarkdownLike(path)) {
+      topologyEntries.push({ name: entry.name, kind: 'file', fileCount: 1 });
     }
-    throw error;
   }
 
-  const inventories: WorkspaceSessionFileInventory[] = [];
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
-    if (!entry.isFile() || !entry.name.endsWith('.jsonl')) {
-      continue;
-    }
-    const content = await readFile(join(sessionDir, entry.name), 'utf8');
-    inventories.push({
-      file: entry.name,
-      lineCount: countLines(content),
-      byteCount: Buffer.byteLength(content),
-    });
-  }
-  return inventories;
+  return topologyEntries;
 }
 
 async function createGitignoreMatcher(
@@ -249,11 +191,4 @@ function normalizeRelativePath(path: string): string {
 function isMarkdownLike(path: string): boolean {
   const name = basename(path).toLowerCase();
   return name.endsWith('.md') || name === 'readme' || name.startsWith('readme.');
-}
-
-function countLines(content: string): number {
-  if (content.length === 0) {
-    return 0;
-  }
-  return content.split(/\r?\n/).length;
 }

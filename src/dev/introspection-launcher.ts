@@ -8,7 +8,7 @@ import type {
   BrunchIntrospectionBaseReport,
   BrunchIntrospectionStore,
   BrunchIntrospectionTurnCapture,
-} from '../.pi/brunch-pi-extensions.js';
+} from '../app/pi-extensions.js';
 import { assertPortableRunId } from '../probes/portable-report.js';
 import { latestAssistantText } from './agent-messages.js';
 

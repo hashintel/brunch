@@ -144,9 +144,18 @@ function visibleGraphState(db: BrunchDb, specId: number, visibility: GraphVisibi
   return { allNodeRows, visibleNodeRows, visibleNodeIds, allEdgeRows, visibleEdgeRows };
 }
 
-function withClock(db: BrunchDb, specId: number, slice: Omit<GraphSlice, 'lsn'>): GraphSlice {
+/**
+ * Cheap current-LSN read for a spec — a single `graph_clock` row lookup, no
+ * node/edge materialization. Lets callers detect whether graph state changed
+ * before paying for a full `queryGraph`.
+ */
+export function latestGraphLsn(db: BrunchDb, specId: number): number {
   const clockRow = db.select().from(schema.graphClock).where(eq(schema.graphClock.spec_id, specId)).get();
-  return { ...slice, lsn: clockRow?.lsn ?? 0 };
+  return clockRow?.lsn ?? 0;
+}
+
+function withClock(db: BrunchDb, specId: number, slice: Omit<GraphSlice, 'lsn'>): GraphSlice {
+  return { ...slice, lsn: latestGraphLsn(db, specId) };
 }
 
 export function queryGraph(

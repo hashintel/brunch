@@ -7,6 +7,7 @@ import { CommandExecutor } from './command-executor.js';
 import {
   getElicitationGaps,
   getNodes,
+  latestGraphLsn,
   queryGraph,
   resolveGraphEdgeId,
   resolveGraphNodeCode,
@@ -34,6 +35,8 @@ export interface SpecScopedReaders {
   readonly resolveNodeCode: (code: string) => number | undefined;
   readonly resolveEdgeId: (edgeId: number) => number | undefined;
   readonly getElicitationGaps: () => ReturnType<typeof getElicitationGaps>;
+  /** Cheap current-LSN read; detect graph change without a full queryGraph. */
+  readonly latestLsn: () => number;
 }
 
 export interface WorkspaceGraphRuntime {
@@ -55,6 +58,7 @@ export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceG
         resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
         resolveEdgeId: (edgeId) => resolveGraphEdgeId(db, specId, edgeId),
         getElicitationGaps: () => getElicitationGaps(db, specId),
+        latestLsn: () => latestGraphLsn(db, specId),
       };
     },
   };

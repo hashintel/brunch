@@ -99,7 +99,10 @@ export async function runTier2RealBootFauxTurn(
   };
 }
 
-export async function bootTier2RuntimeThroughRunBrunchTui(options: { readonly dev: boolean }) {
+export async function bootTier2RuntimeThroughRunBrunchTui(options: {
+  readonly dev: boolean;
+  readonly agentServices?: BrunchAgentServicesOverride;
+}) {
   const cwd = await mkdtemp(join(tmpdir(), `brunch-boot-seam-${options.dev ? 'dev' : 'prod'}-`));
   const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
   await writeFile(join(cwd, 'boot-seam.md'), '# Boot seam\n');
@@ -113,11 +116,17 @@ export async function bootTier2RuntimeThroughRunBrunchTui(options: { readonly de
       runWorkspaceDialogPreflight: async () => ({ action: 'newSpec', title: 'Boot seam smoke' }),
       webSidecarRunner: async () => null,
       launchInteractive: async (context) => {
-        runtime = await createAgentSessionRuntime(createBrunchAgentSessionRuntimeFactory(context), {
-          cwd,
-          agentDir,
-          sessionManager: context.workspace.session.manager,
-        });
+        runtime = await createAgentSessionRuntime(
+          createBrunchAgentSessionRuntimeFactory({
+            ...context,
+            agentServices: options.agentServices ?? createNoModelAgentServices(),
+          }),
+          {
+            cwd,
+            agentDir,
+            sessionManager: context.workspace.session.manager,
+          },
+        );
       },
     });
   } catch (error) {
@@ -265,6 +274,13 @@ export async function withTier2FauxAgentServices<T>(
   } finally {
     faux.unregister();
   }
+}
+
+function createNoModelAgentServices(): BrunchAgentServicesOverride {
+  const authStorage = AuthStorage.inMemory({});
+  const modelRegistry = ModelRegistry.inMemory(authStorage);
+  modelRegistry.getAvailable = () => [];
+  return { authStorage, modelRegistry };
 }
 
 export function createTier2FauxAgentServices(options: { readonly responseText?: string } = {}): {
