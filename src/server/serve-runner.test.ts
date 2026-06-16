@@ -61,16 +61,21 @@ describe('parseServeArgs', () => {
 
 describe('serveCookOptions', () => {
   it('sets specId so cook reads the just-emitted plan, and forwards --out as the promote target', () => {
-    const cook = serveCookOptions(parseServeArgs(['9', '--out=out', '--force', '--policy=parallel']));
+    const cook = serveCookOptions(
+      parseServeArgs(['9', '--out=out', '--force', '--policy=parallel']),
+      '/proj',
+    );
     expect(cook.specId).toBe(9);
     expect(cook.outDir).toBe('out');
     expect(cook.force).toBe(true);
     expect(cook.policy).toBe('parallel');
-    expect(cook.dir).toBe(''); // cook resolves the dir from launch cwd
+    // cook reads opts.dir raw (no launch-cwd default — that's parseCookArgs only),
+    // so serve must thread the resolved dir the plan was written to, not ''.
+    expect(cook.dir).toBe('/proj');
   });
 
   it('omits outDir when serve had none (brownfield promotes automatically)', () => {
-    const cook = serveCookOptions(parseServeArgs(['9']));
+    const cook = serveCookOptions(parseServeArgs(['9']), '/proj');
     expect(cook.outDir).toBeUndefined();
   });
 });
@@ -79,7 +84,7 @@ describe('runServe', () => {
   it('plans then cooks, passing the mapped cook options', async () => {
     const calls: string[] = [];
     let cookSaw: CookOptions | undefined;
-    await runServe(parseServeArgs(['4', '--out=dist']), {
+    await runServe(parseServeArgs(['4', '--out=dist']), '/proj', {
       plan: async () => {
         calls.push('plan');
       },
@@ -91,12 +96,14 @@ describe('runServe', () => {
     expect(calls).toEqual(['plan', 'cook']);
     expect(cookSaw?.specId).toBe(4);
     expect(cookSaw?.outDir).toBe('dist');
+    // cook runs against the same dir the plan was written to.
+    expect(cookSaw?.dir).toBe('/proj');
   });
 
   it('does not cook if planning fails', async () => {
     let cooked = false;
     await expect(
-      runServe(parseServeArgs(['4']), {
+      runServe(parseServeArgs(['4']), '/proj', {
         plan: async () => {
           throw new Error('plan boom');
         },
