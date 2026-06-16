@@ -37,7 +37,7 @@ Anti-speculation note: Cards 2–3 depend on Card 1 as a built dependency (they 
 
 ## Card 1 — Adopt the render substrate (md-pen + TOON + stringify-tree + section)
 
-Status: next
+Status: done — 2026-06-16
 
 ### Target Behavior
 
@@ -91,8 +91,10 @@ Scores on **invariants** (stabilizes the substrate seam the render cards build o
 ✓ toon-wrapper     — renderers/toon.ts encodes a uniform record array to TOON ([N]{fields} header) via @toon-format/toon behind a thin Brunch helper + fenced-block convention; unit test locks the encoded shape.
 ✓ tree-wrapper     — renderers/tree.ts renders a hierarchical node input to an ASCII tree via stringify-tree; unit test locks output for a fixture tree.
 ✓ section-wrapper  — a section(tag, body) helper wraps body in <tag>…</tag> with the house newline convention; unit test.
-✓ no-format-growth — hand-rolled markdown concatenation is removed or backed by md-pen; net owned format code does not grow.
+✓ no-format-growth — hand-rolled markdown concatenation is backed by md-pen; tree/TOON/section wrappers centralize later context-format code instead of per-renderer concatenation.
 ```
+
+Completion note: `stringify-tree` ships a TS source file that `tsc` tries to compile under Brunch's module settings when imported statically, so `tree.ts` loads the package through `createRequire` while keeping the dependency behind the wrapper seam. `npm run verify` passed; graph renderer preview files were not modified.
 
 ### Verification Approach
 

@@ -5,10 +5,18 @@
  * - thin wrapper helpers around @toon-format/toon
  * - shared encode options and fenced `toon` block conventions
  * - no graph/session/exchange domain semantics
- *
- * Future callers:
- * - renderers/graph/*
- * - any later context formatter that needs compact structured data
  */
 
-export {};
+import { encode, type JsonObject } from '@toon-format/toon';
+
+import { markdownCodeBlock } from './markdown.js';
+
+export type ToonRecord = JsonObject;
+
+export function renderToonRecords(records: ToonRecord[]): string {
+  return encode(records);
+}
+
+export function renderToonBlock(records: ToonRecord[]): string {
+  return markdownCodeBlock(renderToonRecords(records), 'toon');
+}

@@ -63,8 +63,11 @@
     "@fontsource-variable/inter": "^5.2.8",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-router": "^1.170.15",
+    "@toon-format/toon": "^2.3.0",
+    "md-pen": "^1.2.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "stringify-tree": "^1.1.1",
     "typebox": "^1.2.11",
     "ws": "^8.21.0",
     "zod": "^4.4.3"

@@ -14,8 +14,10 @@ Renderers may import input types from `projections/`, `graph/`, `session/`, or `
 
 ```pseudo
 renderers/
-  markdown.ts            shared markdown helpers (○ primitive)
-  toon.ts                compact structured-data rendering stub (○ primitive/stub)
+  markdown.ts            shared md-pen-backed markdown helpers (○ primitive)
+  toon.ts                @toon-format/toon record-set helpers (○ primitive)
+  tree.ts                stringify-tree ASCII hierarchy helpers (○ primitive)
+  section.ts             XML-style context section wrapper (○ primitive)
   graph/                 graph overview/neighborhood/command markdown
   session/               transcript + runtime-frame markdown
   exchanges/             durable exchange markdown
@@ -60,8 +62,10 @@ Ledger statuses:
 | `exchanges/present-options.ts` | `present_options` | ◐ partial | Present result text | Tool result `renderResult` via exchange markdown adapter | Card 5: hidden option-id comment + escaping invariant. |
 | `exchanges/present-review-set.ts` | `present_review_set` | ◐ partial | Present result text / structural-illegal text | Tool result `renderResult` via exchange markdown adapter | Card 5: review-set narration + no raw internal refs invariant. |
 | `exchanges/present-candidates.ts` | `present_candidates` named stub | ○ topology stub | none current | none current | Leave explicit stub until the candidate seam has a live consumer. |
-| `markdown.ts` | shared markdown escaping/helpers | ○ primitive | indirect | indirect | Covered through owning renderers; no standalone golden. |
-| `toon.ts` | compact structured-data rendering placeholder | ○ primitive/stub | none current | none current | Leave outside until a real row consumes it. |
+| `markdown.ts` | shared md-pen-backed markdown escaping/helpers | ○ primitive | indirect | indirect | Unit-covered substrate; existing graph goldens guard byte-stable helper behavior. |
+| `toon.ts` | @toon-format/toon record-set + fenced-block helpers | ○ primitive | future context rows | future context rows | Unit-covered substrate; first real context render consumes it in Card 2/3. |
+| `tree.ts` | stringify-tree hierarchy + fenced-block helpers | ○ primitive | future documents tree | future documents tree | Unit-covered substrate; workspace documents tree consumes it in Card 2. |
+| `section.ts` | XML-style context section wrapper | ○ primitive | future context rows | future context rows | Unit-covered substrate; context scope renders consume it in Card 2/3. |
 
 ## Agent-tool render anchor
 
