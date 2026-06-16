@@ -41,4 +41,26 @@ describe('Ink App', () => {
     expect(frame).toContain('cook ✓');
     expect(frame).toContain('promoted');
   });
+
+  it('shows a pending activity with label + elapsed + detail, and clears it on end', async () => {
+    let clock = 1000;
+    const store = new RunStore('cook', () => clock);
+    const { lastFrame } = render(<App store={store} now={() => clock} />);
+
+    store.push({ kind: 'activity-start', id: 'tests:slice-1', label: 'agent writing tests' });
+    store.push({ kind: 'activity-progress', id: 'tests:slice-1', detail: '8 KB' });
+    clock = 3500; // 2.5s elapsed
+    await tick();
+
+    let frame = lastFrame() ?? '';
+    expect(frame).toContain('agent writing tests');
+    expect(frame).toContain('2.5s');
+    expect(frame).toContain('8 KB');
+
+    store.push({ kind: 'activity-end', id: 'tests:slice-1' });
+    await tick();
+
+    frame = lastFrame() ?? '';
+    expect(frame).not.toContain('agent writing tests');
+  });
 });

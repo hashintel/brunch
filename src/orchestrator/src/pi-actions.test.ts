@@ -13,6 +13,7 @@ import {
   sliceTestTask,
   toolsForAction,
 } from './pi-actions.js';
+import type { CookEvent } from './presenter/events.js';
 import { brunchProfile, bunProfile } from './project-profile.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, Epic, Plan, ProbeGrounder, Slice, TestResult, TestRunner } from './types.js';
@@ -120,6 +121,34 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
     const payload = reports.getById(id)!.payload as { passed: boolean; failureKind?: string };
     expect(payload.passed).toBe(false);
     expect(payload.failureKind).toBe('infra');
+  });
+
+  it('brackets the test-run wait with a balanced activity-start/end', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: fakeRunner({ passed: true, output: 'ok' }),
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx(new InMemoryReportSink()));
+
+    const starts = events.filter((e) => e.kind === 'activity-start');
+    const ends = events.filter((e) => e.kind === 'activity-end');
+    expect(starts).toHaveLength(1);
+    expect(ends).toHaveLength(1);
+    expect((ends[0] as { id: string }).id).toBe((starts[0] as { id: string }).id);
+  });
+
+  it('closes the pi-session activity even when the session fails (finally)', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const events: CookEvent[] = [];
+    const createSession = (async () => {
+      throw new Error('session boom');
+    }) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+
+    await expect(actions['write-tests']!(ctx(new InMemoryReportSink()))).rejects.toThrow();
+    expect(events.filter((e) => e.kind === 'activity-start')).toHaveLength(1);
+    expect(events.filter((e) => e.kind === 'activity-end')).toHaveLength(1);
   });
 });
 
