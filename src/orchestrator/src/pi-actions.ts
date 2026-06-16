@@ -18,7 +18,16 @@ import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
 import { sliceLabel } from './slice-label.js';
 import { runVerification, ToolchainTestRunner } from './test-runner.js';
-import type { ActionContext, ActionHandlers, Epic, ProbeResult, Slice, TestRunner } from './types.js';
+import type {
+  ActionContext,
+  ActionHandlers,
+  Epic,
+  ProbeGrounder,
+  ProbeResult,
+  ProbeTarget,
+  Slice,
+  TestRunner,
+} from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const promptsDir = __dirname.includes('dist')
@@ -241,6 +250,23 @@ function report(ctx: ActionContext, actor: string, event: string, payload: Recor
   return createReport(ctx.reports, { epicId: ctx.epic.id, sliceId: ctx.slice.id, actor, event, payload });
 }
 
+/**
+ * Resolve the epic's reachability probe target (FE-876): a concrete `epic.probe`
+ * wins (Half A — fixtures / explicit); otherwise a host-blind `epic.reachability`
+ * intent is ground into a `ProbeTarget` by the injected cook-time grounder
+ * (Half B). With no concrete target, no intent, or no grounder, there is nothing
+ * to probe — the epic falls back to the unit-test verdict alone.
+ */
+async function resolveProbeTarget(
+  epic: Epic,
+  sandboxDir: string,
+  ground: ProbeGrounder | undefined,
+): Promise<ProbeTarget | undefined> {
+  if (epic.probe) return epic.probe;
+  if (epic.reachability && ground) return ground(epic.reachability, sandboxDir);
+  return undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
@@ -268,11 +294,19 @@ export function createPiActions(opts?: {
   testRunner?: TestRunner;
   /** Inject the agent-session factory (tests stub it so no real session runs). */
   createSession?: SessionFactory;
+  /**
+   * Cook-time probe grounding (FE-876 Half B): resolve an epic's host-blind
+   * `reachability` intent into a concrete `ProbeTarget`. Absent → reachability
+   * intents are not enforced (the agent grounder lands with the pi-harness
+   * contract); concrete `epic.probe` targets work regardless.
+   */
+  groundProbe?: ProbeGrounder;
 }): ActionHandlers {
   _verbose = opts?.verbose ?? false;
   t0 = opts?.runStart ?? Date.now();
   const toolchain = opts?.toolchain ?? defaultToolchain;
   const testRunner = opts?.testRunner ?? new ToolchainTestRunner(toolchain);
+  const groundProbe = opts?.groundProbe;
   const piDeps = opts?.createSession ? { createSession: opts.createSession } : {};
 
   return {
@@ -370,20 +404,28 @@ export function createPiActions(opts?: {
         log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
       }
 
-      // Integration oracle (FE-876 Half A): when the plan carries a probe target,
-      // the epic is reachable only when the booted merged tree answers the feature
-      // endpoint. `not-reachable` is the FE-800 orphan (code merged but never wired
-      // into the running app); `infra` is a harness fault, not a wiring verdict.
-      // Gate the boot on tests passing — never boot a known-broken build.
+      // Integration oracle (FE-876): the epic is reachable only when the booted
+      // merged tree answers the feature endpoint. `not-reachable` is the FE-800
+      // orphan (code merged but never wired into the running app); `infra` is a
+      // harness fault, not a wiring verdict. Gate the boot on tests passing —
+      // never boot a known-broken build. The probe target is either concrete
+      // (`epic.probe`, Half A) or cook-time-grounded from `epic.reachability`
+      // (Half B); a grounder that throws is itself an `infra` fault.
       let probe: ProbeResult | undefined;
-      if (ctx.epic.probe && testsPassed) {
-        const spec = await buildProbeSpec(ctx.epic.probe);
-        probe = await runProbe(spec, ctx.sandboxDir);
-        logVerbose(probe.output);
-        log(
-          probe.reachable ? '✓' : '✗',
-          `probe     ${ctx.epic.id} → ${probe.kind}${probe.status === undefined ? '' : ` (${probe.status})`}`,
-        );
+      if (testsPassed) {
+        try {
+          const target = await resolveProbeTarget(ctx.epic, ctx.sandboxDir, groundProbe);
+          if (target) probe = await runProbe(await buildProbeSpec(target), ctx.sandboxDir);
+        } catch (err) {
+          probe = { kind: 'infra', reachable: false, output: `probe grounding failed: ${String(err)}` };
+        }
+        if (probe) {
+          logVerbose(probe.output);
+          log(
+            probe.reachable ? '✓' : '✗',
+            `probe     ${ctx.epic.id} → ${probe.kind}${probe.status === undefined ? '' : ` (${probe.status})`}`,
+          );
+        }
       }
       const passed = testsPassed && (probe === undefined || probe.reachable);
 
