@@ -15,16 +15,42 @@ export type Epic = {
   depends_on: string[];
   verification: Verification[];
   /**
-   * Integration-oracle (FE-876) reachability target. When present, epic
-   * verification boots the merged `__epic__/<epicId>/` tree and exercises a
-   * feature endpoint over the wire — the epic is `done` only when tests pass
-   * *and* the feature is reachable (`not-reachable` is the FE-800 orphan: code
-   * merged but never wired into the running app). Optional until cook-time
-   * grounding (Half B, dispatch seam) supplies the boot argv + paths; absent →
-   * unit-test verdict only (unchanged behavior).
+   * Integration-oracle (FE-876) reachability target — a *concrete* probe
+   * (boot argv + paths). When present it is used directly; this is the Half-A
+   * path (fixtures / explicit targets). `not-reachable` is the FE-800 orphan
+   * (code merged but never wired into the running app). Absent + no
+   * `reachability` → unit-test verdict only (unchanged behavior).
    */
   probe?: ProbeTarget;
+  /**
+   * Integration-oracle (FE-876) Half B — host-blind reachability *intent* the
+   * architect emits (D160-K: planning stays host-blind). Cook-time grounding
+   * resolves it into a concrete `ProbeTarget` by reading the worktree, via the
+   * injected `ProbeGrounder` (the dispatch-seam piece). `probe` takes precedence
+   * when both are set; intent without an injected grounder is a no-op (the
+   * grounder lands with the pi-harness contract).
+   */
+  reachability?: ReachabilityIntent;
 };
+
+/**
+ * A host-blind description of what must be reachable once the feature is wired,
+ * e.g. "the GET /health endpoint returns 200 and the new feature route
+ * responds". The architect emits this without knowing the boot command or port;
+ * cook-time grounding turns it into a concrete `ProbeTarget`.
+ */
+export type ReachabilityIntent = {
+  feature: string;
+};
+
+/**
+ * Cook-time grounding seam (FE-876 Half B, dispatch seam): resolve a host-blind
+ * `ReachabilityIntent` into a concrete `ProbeTarget` by reading the merged
+ * worktree. Injected into `createPiActions` so the agent dispatch is swappable
+ * and tests can stub it; the production implementation (an `execute`-mode agent
+ * that reads the worktree) lands with the pi-harness contract.
+ */
+export type ProbeGrounder = (intent: ReachabilityIntent, sandboxDir: string) => Promise<ProbeTarget>;
 
 export type Slice = {
   id: string;
