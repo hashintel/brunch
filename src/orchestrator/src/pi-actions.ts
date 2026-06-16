@@ -55,6 +55,18 @@ function logVerbose(output: string): void {
   _emit({ kind: 'verbose', text: output });
 }
 
+const HEARTBEAT_MAX = 56;
+
+/** The agent's most recent non-empty line, tail-truncated for a one-line wait heartbeat. */
+function latestLine(text: string): string {
+  const lines = text.split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i]!.trim();
+    if (line) return line.length > HEARTBEAT_MAX ? `…${line.slice(-HEARTBEAT_MAX)}` : line;
+  }
+  return '';
+}
+
 /** Bracket a wait so it shows as a live pending activity; always closes. */
 async function withActivity<T>(id: string, label: string, fn: () => Promise<T>): Promise<T> {
   _emit({ kind: 'activity-start', id, label });
@@ -223,11 +235,14 @@ async function runPi(
         }
         captured += delta;
         capturedBytes += deltaBytes;
-        // Throttled heartbeat — every 2 KB — so the spinner shows progress, not churn.
+        // Throttled heartbeat — every 2 KB — surface what the agent is currently
+        // saying (its latest line) instead of a raw byte count, so the wait reads
+        // as live work, not just "still going".
         const kb = Math.floor(capturedBytes / 1024);
         if (kb >= heartbeatKb + 2) {
           heartbeatKb = kb;
-          _emit({ kind: 'activity-progress', id: opts.label, detail: `${kb} KB` });
+          const snippet = latestLine(captured);
+          if (snippet) _emit({ kind: 'activity-progress', id: opts.label, detail: snippet });
         }
       }
     });
