@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import type { CookOptions } from '../orchestrator/src/cook-cli.js';
@@ -44,6 +46,15 @@ describe('parseServeArgs', () => {
     expect(() => parseServeArgs(['1', '2'])).toThrow(/Unexpected positional/);
   });
 
+  it('rejects petrinaut companion flags unless streaming is enabled', () => {
+    expect(() => parseServeArgs(['1', '--petrinaut-url=https://x/brunch'])).toThrow(
+      /--petrinaut-url requires --petrinaut-stream/,
+    );
+    expect(() => parseServeArgs(['1', '--no-petrinaut-open'])).toThrow(
+      /--no-petrinaut-open requires --petrinaut-stream/,
+    );
+  });
+
   it('defaults the optional flags', () => {
     const opts = parseServeArgs(['3']);
     expect(opts).toMatchObject({
@@ -66,12 +77,17 @@ describe('serveCookOptions', () => {
       '/proj',
     );
     expect(cook.specId).toBe(9);
-    expect(cook.outDir).toBe('out');
+    expect(cook.outDir).toBe(resolve('/proj', 'out'));
     expect(cook.force).toBe(true);
     expect(cook.policy).toBe('parallel');
     // cook reads opts.dir raw (no launch-cwd default — that's parseCookArgs only),
     // so serve must thread the resolved dir the plan was written to, not ''.
     expect(cook.dir).toBe('/proj');
+  });
+
+  it('leaves absolute --out paths absolute', () => {
+    const cook = serveCookOptions(parseServeArgs(['9', '--out=/tmp/out']), '/proj');
+    expect(cook.outDir).toBe('/tmp/out');
   });
 
   it('omits outDir when serve had none (brownfield promotes automatically)', () => {
@@ -95,7 +111,7 @@ describe('runServe', () => {
     });
     expect(calls).toEqual(['plan', 'cook']);
     expect(cookSaw?.specId).toBe(4);
-    expect(cookSaw?.outDir).toBe('dist');
+    expect(cookSaw?.outDir).toBe(resolve('/proj', 'dist'));
     // cook runs against the same dir the plan was written to.
     expect(cookSaw?.dir).toBe('/proj');
   });
