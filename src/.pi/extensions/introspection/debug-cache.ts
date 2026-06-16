@@ -64,6 +64,23 @@ export async function appendEntryContentToDebugCache(
   await appendSeparatedBlock(join(debugDir, 'entry-contents.md'), block);
 }
 
+export async function appendOriginationRecordToDebugCache(
+  options: BrunchDebugCacheOptions,
+  record: unknown,
+): Promise<void> {
+  const block = [
+    `## brunch.origination (${new Date().toISOString()})`,
+    '',
+    '```json',
+    JSON.stringify(record, null, 2),
+    '```',
+  ].join('\n');
+
+  const debugDir = join(options.cwd, '.brunch', 'debug');
+  await mkdir(debugDir, { recursive: true });
+  await appendSeparatedBlock(join(debugDir, 'origination.md'), block);
+}
+
 export async function appendToolContentToDebugCache(
   options: BrunchDebugCacheOptions,
   event: unknown,

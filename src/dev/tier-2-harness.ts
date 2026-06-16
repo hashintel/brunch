@@ -152,13 +152,14 @@ export type Tier2FixtureEntry =
 export async function bootTier2RuntimeFromFixture(options: {
   readonly fixtureEntries: (specId: number) => readonly Tier2FixtureEntry[];
   readonly specTitle?: string;
+  readonly dev?: boolean;
   /** Faux backend so resume-kick decisions are observable as real turns. */
   readonly agentServices?: BrunchAgentServicesOverride;
 }) {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-tier-2-resume-boot-'));
   const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
 
-  const restoreEnv = overrideBrunchDevEnv(undefined);
+  const restoreEnv = overrideBrunchDevEnv(options.dev ? '1' : undefined);
 
   try {
     const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -316,6 +317,7 @@ export async function bootTier2ProductOriginatedTurn(
     readonly activation?: 'newSpec' | 'pickerNewSession';
     readonly responseText?: string;
     readonly waitForProviderCallMs?: number | false;
+    readonly dev?: boolean;
     /** Seed graph truth into the picker-path spec before boot (pickerNewSession only). */
     readonly seedGraph?: (executor: CommandExecutor, specId: number) => void;
   } = {},
@@ -323,7 +325,7 @@ export async function bootTier2ProductOriginatedTurn(
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-kick-live-'));
   const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
 
-  const restoreEnv = overrideBrunchDevEnv(undefined);
+  const restoreEnv = overrideBrunchDevEnv(options.dev ? '1' : undefined);
 
   const faux = createTier2FauxAgentServices(
     options.responseText === undefined ? {} : { responseText: options.responseText },

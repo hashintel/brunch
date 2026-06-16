@@ -8,6 +8,7 @@ import {
 
 export {
   appendEntryContentToDebugCache,
+  appendOriginationRecordToDebugCache,
   mirrorSystemPromptToDebugCache,
   type BrunchDebugCacheOptions,
 } from './debug-cache.js';

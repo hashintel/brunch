@@ -39,6 +39,8 @@ Cards 2-5 are independent after Card 1
 
 ## Card 1 - Close the renderer ledger and preview-loop authority
 
+Status: done 2026-06-15 — `src/renderers/README.md` now owns the renderer/tool/entry-copy ledger; `workspace-context` is kept because `session/workspace-context.ts` is a live caller; preview authority is explicitly test-local (`npm run test:renderers:update`), with no shared render CLI added.
+
 ### Objective
 
 Before adding any more goldens, close the authority gap around what counts as a required renderer row and what the actual sketch path is. This card should make later cards mechanical rather than rediscovery-heavy.
@@ -50,6 +52,11 @@ Before adding any more goldens, close the authority gap around what counts as a 
 - existing locked tests: `src/renderers/graph/previews.test.ts`, `src/renderers/session/runtime-frame.test.ts`
 - `src/session/README.md` — current `workspace-context` consumer claims
 - `package.json`
+
+### Completion notes
+
+- No `src/scripts/render-preview.ts` was added; the honest sketch path is the existing co-located Vitest preview pattern plus `npm run test:renderers:update`.
+- `workspace/workspace-context.ts` remains a real row because `src/session/workspace-context.ts` imports it for `read_workspace_context` and origination seed workspace-overview rendering.
 
 ### Acceptance Criteria
 

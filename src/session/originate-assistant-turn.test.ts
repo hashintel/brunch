@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
-import { originateAssistantTurn } from './originate-assistant-turn.js';
+import {
+  completeAssistantKick,
+  kickTurnMessage,
+  originateAssistantTurn,
+} from './originate-assistant-turn.js';
 
 const specId = 4;
 
@@ -121,5 +125,93 @@ describe('originateAssistantTurn', () => {
     });
 
     expect(result.decision.action).toBe('idle');
+  });
+});
+
+describe('kickTurnMessage', () => {
+  it('locks the D78-L assistant-authored opening copy', () => {
+    // D78-L: the product seeds context, then asks the assistant to author the
+    // opening live; it must not imply a product-fabricated offer already exists.
+    expect(kickTurnMessage('new_session')).toEqual({
+      customType: 'brunch.kick',
+      content:
+        'Session start: the spec context has been seeded into the transcript for you. ' +
+        'Open the conversation in your own words, grounded in that seeded context, ' +
+        'and lead the user toward the first structured question.',
+      display: false,
+      details: { origin: 'new_session' },
+    });
+    expect(kickTurnMessage('new_session').content).not.toContain('presented offer');
+    expect(kickTurnMessage('new_session').content).not.toContain('offered question');
+  });
+});
+
+describe('completeAssistantKick', () => {
+  it('fires a start decision and reports exactly one fired outcome', async () => {
+    const sent: unknown[] = [];
+    const outcomes: unknown[] = [];
+
+    await completeAssistantKick({
+      decision: { action: 'start', origin: 'new_session', seedEntries: [] },
+      modelAvailable: true,
+      sendCustomMessage: async (message, options) => {
+        sent.push({ message, options });
+      },
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({
+      message: { customType: 'brunch.kick', details: { origin: 'new_session' } },
+      options: { triggerTurn: true },
+    });
+    expect(outcomes).toEqual([{ status: 'fired', origin: 'new_session' }]);
+  });
+
+  it('classifies no-model and idle skips without sending a kick', async () => {
+    const sent: unknown[] = [];
+    const outcomes: unknown[] = [];
+
+    await completeAssistantKick({
+      decision: { action: 'start', origin: 'resume_debt', seedEntries: [] },
+      modelAvailable: false,
+      sendCustomMessage: async (message) => sent.push(message),
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+    await completeAssistantKick({
+      decision: { action: 'idle', reason: 'no_unresolved_debt', seedEntries: [] },
+      modelAvailable: true,
+      sendCustomMessage: async (message) => sent.push(message),
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+    await completeAssistantKick({
+      decision: { action: 'idle', reason: 'explicit_freestyle', seedEntries: [] },
+      modelAvailable: true,
+      sendCustomMessage: async (message) => sent.push(message),
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+
+    expect(sent).toEqual([]);
+    expect(outcomes).toEqual([
+      { status: 'skipped', reason: 'no_model_available' },
+      { status: 'skipped', reason: 'idle_no_unresolved_debt' },
+      { status: 'skipped', reason: 'idle_explicit_freestyle' },
+    ]);
+  });
+
+  it('routes kick failures through the outcome sink', async () => {
+    const error = new Error('provider rejected');
+    const outcomes: unknown[] = [];
+
+    await completeAssistantKick({
+      decision: { action: 'start', origin: 'manual_trigger', seedEntries: [] },
+      modelAvailable: true,
+      sendCustomMessage: async () => {
+        throw error;
+      },
+      onOutcome: (outcome) => outcomes.push(outcome),
+    });
+
+    expect(outcomes).toEqual([{ status: 'failed', origin: 'manual_trigger', error }]);
   });
 });

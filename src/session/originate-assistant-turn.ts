@@ -48,6 +48,7 @@ export interface OriginateAssistantTurnInput {
    * seed carries the workspace section (D78-L revised 2026-06-12).
    */
   readonly workspaceContext: string;
+  readonly strategy?: 'auto' | 'freestyle';
   readonly manager: OriginationManager;
 }
 
@@ -56,6 +57,58 @@ export interface OriginateAssistantTurnResult {
 }
 
 export const BRUNCH_KICK_CUSTOM_TYPE = 'brunch.kick';
+
+export type KickCompletionOutcome =
+  | {
+      readonly status: 'fired';
+      readonly origin: 'new_session' | 'resume_debt' | 'manual_trigger';
+    }
+  | {
+      readonly status: 'skipped';
+      readonly reason: 'no_model_available' | 'idle_explicit_freestyle' | 'idle_no_unresolved_debt';
+    }
+  | {
+      readonly status: 'failed';
+      readonly origin: 'new_session' | 'resume_debt' | 'manual_trigger';
+      readonly error: unknown;
+    };
+
+export interface CompleteAssistantKickInput {
+  readonly decision: StartAssistantTurnDecision;
+  readonly modelAvailable: boolean;
+  readonly sendCustomMessage: (
+    message: ReturnType<typeof kickTurnMessage>,
+    options: { readonly triggerTurn: true },
+  ) => Promise<unknown>;
+  readonly onOutcome: (outcome: KickCompletionOutcome) => void;
+}
+
+/**
+ * Completes an origination decision once a live AgentSession exists.
+ *
+ * The decision seam can append seed entries before the AgentSession is created,
+ * but only the live session can trigger the assistant-authored opening turn.
+ * This function owns the guard and guarantees one classified outcome for each
+ * decision, so launch paths do not silently skip or bury failures in console IO.
+ */
+export async function completeAssistantKick(input: CompleteAssistantKickInput): Promise<void> {
+  if (input.decision.action === 'idle') {
+    input.onOutcome({ status: 'skipped', reason: idleKickSkipReason(input.decision.reason) });
+    return;
+  }
+
+  if (!input.modelAvailable) {
+    input.onOutcome({ status: 'skipped', reason: 'no_model_available' });
+    return;
+  }
+
+  try {
+    await input.sendCustomMessage(kickTurnMessage(input.decision.origin), { triggerTurn: true });
+    input.onOutcome({ status: 'fired', origin: input.decision.origin });
+  } catch (error: unknown) {
+    input.onOutcome({ status: 'failed', origin: input.decision.origin, error });
+  }
+}
 
 /**
  * The turn-trigger payload completing a 'start' origination decision.
@@ -99,6 +152,7 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
     currentLsn: slice.lsn,
     entries: input.entries,
     origin: input.entries.some(isConversationalMessageEntry) ? input.resumeOrigin : 'new_session',
+    ...(input.strategy ? { strategy: input.strategy } : {}),
     seedContent: composeContextSeedContent({
       specId: input.specId,
       ...(input.specName ? { specName: input.specName } : {}),
@@ -115,6 +169,12 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
     appendPreparedContinuityEntry(input.manager, entry);
   }
   return { decision };
+}
+
+function idleKickSkipReason(
+  reason: Extract<StartAssistantTurnDecision, { action: 'idle' }>['reason'],
+): Extract<KickCompletionOutcome, { status: 'skipped' }>['reason'] {
+  return reason === 'explicit_freestyle' ? 'idle_explicit_freestyle' : 'idle_no_unresolved_debt';
 }
 
 function isConversationalMessageEntry(entry: TranscriptEntryLike): boolean {
