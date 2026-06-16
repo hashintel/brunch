@@ -487,6 +487,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Depends on:** `brunch-detect`, `integration-oracle`, `brownfield-promotion`; `cook-mode-from-spec` (FE-826, done).
 - **Traceability:** Requirements 46–50.
 - **Design docs:** `docs/design/orchestrator.md`.
+- **Presentation seam (sub-slices, ride under FE-878 — no separate issue/branch):** the `serve`/`cook`/`plan` CLI grows a full-screen Ink TUI (egg-logo header, kitchen-brigade phase tracker, live activity panel). Design (ln-design 2026-06-16): a thin `emit(CookEvent)` boundary → pure `reduce(events)→RunState` → PendingActivity-centric Ink presenter; `selectPresenter` picks `ink`/`plain`/`silent` by env; `reports.jsonl` stays the durable medium (CookEvent is ephemeral). The brigade names stay phase labels, not commands. Oracle per **SPEC I136-K**. **Slice 1a (done)** — seam foundation (`presenter.ts` + `presenter/`) + CLI wiring + the `plan` surface migrated, golden-proven byte-identical. **Slice 1b (next, `memory/CARDS.md`)** — migrate the `cook` surface (`cook-cli` banner/summary/promotion/petrinaut + `pi-actions` per-action logs) with the elapsed timer moved to a presenter-owned **injected clock**. **Slice 2** — Ink presenter + egg logo + `activity-start/end` brackets on the four real waits (pi session ≤5min, app probe, test run, promotion) + PendingActivity panel; outer-loop manual walkthrough for waiting-state legibility.
 
 ### interactive-recovery
 
