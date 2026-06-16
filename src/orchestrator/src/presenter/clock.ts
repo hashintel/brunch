@@ -9,6 +9,19 @@ export interface ElapsedClock {
   elapsed(): string;
 }
 
+/**
+ * Human elapsed for a live, ticking indicator: whole seconds under a minute,
+ * `m:ss` above. Deliberately coarse — no decimals — so a fast re-render loop
+ * doesn't make the number flicker.
+ */
+export function formatElapsed(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  if (total < 60) return `${total}s`;
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${minutes}m${String(seconds).padStart(2, '0')}s`;
+}
+
 export function createElapsedClock(now: () => number = () => Date.now()): ElapsedClock {
   let runStart: number | undefined;
   return {
