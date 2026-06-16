@@ -152,6 +152,31 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
     expect(events.filter((e) => e.kind === 'activity-start')).toHaveLength(1);
     expect(events.filter((e) => e.kind === 'activity-end')).toHaveLength(1);
   });
+
+  it('marks writer slices failed when pi throws before reporting', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const createSession = (async () => {
+      throw new Error('session boom');
+    }) as unknown as SessionFactory;
+
+    for (const action of ['write-tests', 'write-code'] as const) {
+      const events: CookEvent[] = [];
+      const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+
+      await expect(actions[action]!(ctx(new InMemoryReportSink()))).rejects.toThrow(/session boom/);
+
+      expect(events.filter((e) => e.kind === 'slice')).toEqual([
+        {
+          kind: 'slice',
+          id: 'chunk',
+          epicId: 'utils',
+          status: 'running',
+          step: action === 'write-tests' ? 'tests' : 'code',
+        },
+        { kind: 'slice', id: 'chunk', epicId: 'utils', status: 'failed' },
+      ]);
+    }
+  });
 });
 
 describe('verify-epic integration oracle (FE-876) — reachability folds into the epic verdict', () => {

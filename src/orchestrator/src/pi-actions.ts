@@ -453,18 +453,23 @@ export function createPiActions(opts?: {
       log('▸', `tests     ${label}`);
       const task = sliceTestTask(ctx.slice, toolchain);
 
-      await runPi(
-        {
-          label: `tests     ${label}`,
-          model: 'claude-opus-4-6',
-          promptFile: join(promptsDir, 'test-writer.md'),
-          task,
-          sandboxDir: ctx.sandboxDir,
-          tools: toolsForAction('write-tests'),
-          activityId: ctx.slice.id,
-        },
-        piDeps,
-      );
+      try {
+        await runPi(
+          {
+            label: `tests     ${label}`,
+            model: 'claude-opus-4-6',
+            promptFile: join(promptsDir, 'test-writer.md'),
+            task,
+            sandboxDir: ctx.sandboxDir,
+            tools: toolsForAction('write-tests'),
+            activityId: ctx.slice.id,
+          },
+          piDeps,
+        );
+      } catch (err) {
+        _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'failed' });
+        throw err;
+      }
 
       return report(ctx, 'test-writer', 'tests-written', {
         sliceId: ctx.slice.id,
@@ -478,18 +483,23 @@ export function createPiActions(opts?: {
       log('▸', `code      ${label}`);
       const task = `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`;
 
-      await runPi(
-        {
-          label: `code      ${label}`,
-          model: 'claude-opus-4-6',
-          promptFile: join(promptsDir, 'code-writer.md'),
-          task,
-          sandboxDir: ctx.sandboxDir,
-          tools: toolsForAction('write-code'),
-          activityId: ctx.slice.id,
-        },
-        piDeps,
-      );
+      try {
+        await runPi(
+          {
+            label: `code      ${label}`,
+            model: 'claude-opus-4-6',
+            promptFile: join(promptsDir, 'code-writer.md'),
+            task,
+            sandboxDir: ctx.sandboxDir,
+            tools: toolsForAction('write-code'),
+            activityId: ctx.slice.id,
+          },
+          piDeps,
+        );
+      } catch (err) {
+        _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'failed' });
+        throw err;
+      }
 
       return report(ctx, 'code-writer', 'code-written', {
         sliceId: ctx.slice.id,
