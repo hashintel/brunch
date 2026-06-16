@@ -145,6 +145,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 
 ### Horizon
 
+- `web-driver-streaming` — Web-as-driver streaming chat transport (**topology A confirmed**, 2026-06-15). Post-alpha, **spike-first**, not a demo/alpha blocker. Consolidates R12 first-class subscriptions, reconnect/resume, the read-only→driver web staging, the deferred `--mode web`, and the agent-as-user substrate split. Full definition in Frontier Definitions.
 - `coherence-first-class` — M8; bounded coherence verdicts backed by reconciliation needs.
 - `compaction-and-conflict-widening` — M9; long-horizon continuity through compaction.
 - `subagents-for-proposal-diversity` — optional proposal-quality enhancement; never a POC blocker.
@@ -359,6 +360,47 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 - **Traceability:** D16-L, D20-L, D52-L, D61-L, D63-L, D70-L, D71-L, D79-L; I1-L, I11-L, I48-L.
 - **Design docs:** `.fixtures/README.md`; `.fixtures/workbenches/live-graph-observer/README.md`; `docs/design/GRAPH_MODEL.md`.
 
+### web-driver-streaming
+
+> **Consolidates (2026-06-15) the scattered "web-as-driver / streaming / subscriptions" intentions into one frontier:** the read-only-observer staging (delivery-cut black triangle 1, landed), R12 first-class subscriptions (today served only by `brunch.updated` poll-on-hint), the SPEC "subscriptions scoped for the POC" + reconnect/resume deferrals, the deferred standalone `--mode web`, and the agent-as-user driver substrate (D5-L/A5-L/R24). **Topology A is confirmed** (below); A′ rejected; B documented alternative.
+
+- **Name:** Web-as-driver streaming chat transport (topology A: in-process AgentSession relay)
+- **Linear:** unassigned — create an FE/brunch issue when the branch opens (do **not** parent under FE-531).
+- **Branch:** unassigned — new branch for spikes/builds.
+- **Kind:** capability / transport + verification design
+- **Status:** Horizon — **confirmed direction, spike-first**; post-alpha, **not** a demo/alpha blocker.
+- **Certainty:** proving (topology A is reasoned, not yet walked; the spike validates the walking skeleton).
+- **Lights up:** a browser chat that streams the assistant's tokens / thinking / live tool-cards / structured `request_*` prompts from the **same selected session the TUI hosts**, and can **drive** turns (prompt / steer / abort / answer) — one active driver at a time, many observers — over Brunch's existing WebSocket RPC.
+- **Stabilizes:** R12 first-class subscriptions; the D5-L public-protocol boundary (no raw Pi RPC as a second public API); the D19-L "no parallel canonical chat/turn store" invariant under streaming; the Chain-3 live↔durable convergence (`session.pendingExchange` projection == the live forwarded dialog).
+- **Objective:** Adopt **topology A** — relay the in-process `AgentSession`'s `AgentSessionEvent` stream (Pi's native event vocabulary) over the existing Brunch WS, **multiplexed with Brunch domain notifications** (graph LSN / gap agenda / runtime posture), plus a **command-intake** path so the web drives the same session. Keep the bridge a thin transport adapter: reuse Pi's turns / tools / compaction / persistence and `AgentSession.subscribe()` verbatim; invent no chat/turn infrastructure (wrap-and-extend Pi minimally).
+- **Why now / unlocks:** Web-as-driver is the product direction and must be *enabled in the lower-level transport design*, even though web ships read-only first. Streaming UX (tokens / tools / dialogs) cannot ride the poll-on-hint canonical-store model; it needs Pi's live event stream. Topology A is the maximally Pi-native realization — Pi's own `docs/rpc.md` recommends `AgentSession` over spawning `--mode rpc` for Node apps — and the smallest delta (the TUI host already runs an in-process `AgentSession`).
+- **Topology decision (confirmed 2026-06-15):**
+  - **A — in-process `AgentSession` → WS relay + Brunch-domain multiplex — CONFIRMED.** One session shared by the TUI head + web; live co-observation is free; generalizes to a future headless `--mode web` by dropping the terminal head.
+  - **A′ — TUI as a thin RPC client of a headless host — REJECTED.** Pi ships no "TUI-over-RPC" / remote-attach mode; `AgentSession.subscribe()` is bound to an in-process session, so A′ would mean reinventing the terminal head (violates the minimal-wrap principle).
+  - **B — spawn `pi --mode rpc`, bridge stdio↔WS — DOCUMENTED ALTERNATIVE.** Adopt only on a concrete process-isolation need or a web-drives-a-different-session-than-TUI need; otherwise it fragments the session, loses live co-observation, and still needs the Brunch domain layer.
+- **Diagnosis (O/R/C):** Observability **high (transport) / low (render feel)** — relay frames are JSONL-native; token-render feel is dynamic-visual and stays manual. Reproducibility **high** — drive the relay from a faux event tape on the tier-2 substrate, LLM nondeterminism out of the loop. Controllability **high (transport)** — synthetic WS client + scripted tape are agent-autonomous; end-to-end browser render stays partial/manual.
+- **Acceptance (the oracle battery; relaxation 2026-06-15: no concurrent multi-driver — one driver, many observers):**
+  - **Topology-A walking skeleton** exercised through the real host entry point (not a hand-wired harness session — I22-L): in-process `AgentSession` → `subscribe()` → WS relay → synthetic WS client.
+  - **Stream↔transcript differential (linchpin):** the assistant message assembled from streamed `message_update` deltas is byte-equal to the message projected from the flushed JSONL — proves the stream reduces to canonical truth (enforces D19-L).
+  - **Ordered incremental delivery:** forwarded `AgentSessionEvent` sequence matches source order, no gaps/dupes, over a faux tape.
+  - **Domain-projection multiplexing (minimal-wrap floor):** one WS connection carries Pi turn events **and** Brunch domain notifications without a second socket.
+  - **Mid-stream structured exchange converges:** a live `request_*` surfaces over the relay, is answered over the same channel, lands as the provider-legal pair in transcript, and `session.pendingExchange` projects the same exchange — live dialog and durable projection are one truth (the Chain-3 resolution).
+  - **Reconnect/resume idempotence:** drop the WS mid- and post-turn, reattach, reconstruct identical visible state from transcript projection; no lost/dup content.
+  - **One-driver / many-observer fan-out:** N observers receive the same sequence; only the active driver's command frames mutate the session; observer command frames are rejected. No concurrent-driver serialization (out of scope by the relaxation).
+  - **Agent-as-user substrate split:** the generative mission / fixture-building engine runs on the **tier-2** substrate (real product boot + provider + in-process synthetic-user responder); the public-RPC **contract/parity** probe stays the RPC agent-as-user driver. Neither requires topology B.
+  - **Render feel:** manual walkthrough only (no automated perceptual gate); optional first-token-latency note as fitness.
+- **Verification:** Middle — the battery on the **tier-2 faux substrate** (differential, ordering, multiplex, exchange-convergence, reconnect, fan-out). Outer — manual render-feel walkthrough. Route through `ln-oracles` → `ln-spike` (the A walking skeleton) before any build slice. SPEC §Verification Design carries the oracle-strategy row and the updated subscription blind spot.
+- **Topology materialization:** transport relay + command-intake extend `src/rpc/` (`websocket.ts`, `web-host.ts`, `methods/session.ts`); the in-process `AgentSession` event source is the existing host in `src/app/`; the streaming chat consumer lives in `src/web/`. **No new canonical store**, no DB-backed chat/turn projection (D19-L); the live event stream is ephemeral/process-local, the same category as `brunch.updated`.
+- **Cross-cutting obligations:** keep the bridge thin (reuse Pi `AgentSession`; no reinvented turns/tools/compaction/persistence); the live stream is never a second canonical truth (D19-L); **domain-projection multiplexing is the irreducible Brunch responsibility** — do not expose raw Pi RPC to the browser and lose the Brunch domain layer; do not adopt B without a concrete isolation need; do not regrow a concurrent multi-driver arbiter; the public client speaks Brunch method names, not raw Pi RPC (D5-L).
+- **Decisions / docs to revisit when built (held `ln-spec` work; `src/**` README edits deferred to the build branch — out of this `memory/`-only edit):**
+  - **D49-L** — "polling is sufficient for the first proof" → first-class streaming subscription (R12). *(SPEC forward note added 2026-06-15.)*
+  - **D72-L** — web read-only scope → web as driver. *(SPEC forward note added 2026-06-15.)*
+  - **D5-L** — split the agent-as-user driver: public-RPC contract probe vs tier-2 mission engine. *(SPEC refinement added 2026-06-15.)*
+  - **`src/web/README.md`** — `--mode web` deferred → standalone headless web = `AgentSession` + WS with no terminal head (a topology-A specialization).
+  - SPEC Design Note "Subscriptions are scoped for the POC" + the "Subscription reconnect/resume" blind spot — now have a depending frontier. *(SPEC updated 2026-06-15.)*
+- **Traceability:** R12, R24 / D5-L, D19-L, D37-L, D49-L, D72-L / A5-L / I22-L.
+- **Design docs:** `src/rpc/README.md`; `src/web/README.md`; `src/session/README.md`; Pi `docs/rpc.md` + `docs/sdk.md` (the `AgentSessionEvent` vocabulary); `memory/SPEC.md` §Verification Design.
+
 ## Dependencies
 
 ```text
@@ -372,6 +414,7 @@ nodes:
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
   dev-seed-fixtures                [parallel · proving] explicit seed selection + target-workspace-scoped workbench launch; remaining: disposition catalog + all-seeds opt-in
+  web-driver-streaming             [horizon · proving · spike-first] topology A: in-process AgentSession event relay + Brunch-domain multiplex + web command-intake; consolidates R12 subscriptions / reconnect-resume / web-as-driver staging / agent-as-user substrate split
   # done anchors still carrying live edges (full definitions: docs/archive/PLAN_HISTORY.md):
   elicitation-driver             [done · demo block 1]
   context-seed-payload           [done · demo block 2]
@@ -399,6 +442,7 @@ parallel obligations:
   dev-seed-fixtures                -[data]->     generalized-capture, poc-live-ship-gate (explicit seeded workbenches provide reproducible real graphs for capture/ship-gate evidence)
 
 horizon:
+  web-driver-streaming               (topology A confirmed; spike-first; consolidates R12 subscriptions / reconnect-resume / web-as-driver / agent-as-user substrate split)
   coherence-first-class
   compaction-and-conflict-widening
   subagents-for-proposal-diversity   (now also subagent acquisition for capture — SPEC Future Direction §Subagent acquisition)
@@ -415,4 +459,5 @@ notes:
   - `topology-readmes-and-boundaries` is not a license for abstract cleanup; it rides with concrete delivery seams.
   - Tripwire (origination, from the retired `origination-kick-live` definition): a foreign/user `label` entry at the transcript tail is not in the continuity-only set and reads as a non-debt leaf in `latestTailOwesAssistant` — harden only if `/tree` labeling becomes a real Brunch flow.
   - Multi-spec workspace discipline applies throughout: target the selected/current spec explicitly; no workspace-global graph truth in the POC.
+  - `web-driver-streaming` (2026-06-15) consolidates the web-as-driver / streaming / subscriptions intentions into one Horizon frontier with **topology A confirmed** (in-process `AgentSession` event relay + Brunch-domain multiplex + web command-intake). A′ rejected (Pi has no TUI-over-RPC), B documented alternative. Its oracle battery (stream↔transcript differential + multiplex + exchange-convergence + reconnect + fan-out) runs on the tier-2 faux substrate; render feel stays outer-loop manual. The generative agent-as-user mission/fixture engine moves to the tier-2 substrate; the public-RPC contract/parity probe stays the RPC agent-as-user driver. Relaxation: no concurrent multi-driver (one driver, many observers).
 ```
