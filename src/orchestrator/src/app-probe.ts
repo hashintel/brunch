@@ -17,8 +17,24 @@ import type { ProbeResult, ProbeSpec, ProbeTarget } from './types.js';
 
 const READY_TIMEOUT_MS = 10_000;
 const READY_POLL_MS = 150;
+const READY_ATTEMPT_MS = 2_000;
+const REQUEST_TIMEOUT_MS = 5_000;
 const TEARDOWN_GRACE_MS = 2_000;
 const DEFAULT_HOST = '127.0.0.1';
+
+/**
+ * Per-call timeouts so the probe can never hang on a server that accepts a
+ * connection but never responds. Overridable (tests use small values); each
+ * defaults to the module constant.
+ */
+export type ProbeTimeouts = {
+  /** Overall deadline for the app to become ready (default READY_TIMEOUT_MS). */
+  readyTimeoutMs?: number;
+  /** Timeout for a single readiness poll (default READY_ATTEMPT_MS). */
+  readyAttemptMs?: number;
+  /** Timeout for the feature-probe request (default REQUEST_TIMEOUT_MS). */
+  requestTimeoutMs?: number;
+};
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -70,7 +86,14 @@ function allocatePort(): Promise<number> {
  * when the app is up but the endpoint is absent/erroring (the orphan), and
  * `infra` when the app never came up or the probe request itself failed.
  */
-export async function runProbe(spec: ProbeSpec, sandboxDir: string): Promise<ProbeResult> {
+export async function runProbe(
+  spec: ProbeSpec,
+  sandboxDir: string,
+  timeouts: ProbeTimeouts = {},
+): Promise<ProbeResult> {
+  const readyTimeoutMs = timeouts.readyTimeoutMs ?? READY_TIMEOUT_MS;
+  const readyAttemptMs = timeouts.readyAttemptMs ?? READY_ATTEMPT_MS;
+  const requestTimeoutMs = timeouts.requestTimeoutMs ?? REQUEST_TIMEOUT_MS;
   const [command, ...args] = spec.boot;
   const child = spawn(command!, args, {
     cwd: sandboxDir,
@@ -88,7 +111,12 @@ export async function runProbe(spec: ProbeSpec, sandboxDir: string): Promise<Pro
   const output = (): string => [bootError, chunks.join('')].filter(Boolean).join('\n');
 
   try {
-    const ready = await waitForReady(spec.readyUrl, () => hasExited(child) || bootError !== '');
+    const ready = await waitForReady(
+      spec.readyUrl,
+      () => hasExited(child) || bootError !== '',
+      readyTimeoutMs,
+      readyAttemptMs,
+    );
     if (!ready) {
       const why =
         bootError !== ''
@@ -101,7 +129,7 @@ export async function runProbe(spec: ProbeSpec, sandboxDir: string): Promise<Pro
 
     let status: number;
     try {
-      status = (await fetch(spec.featureUrl)).status;
+      status = (await fetch(spec.featureUrl, { signal: AbortSignal.timeout(requestTimeoutMs) })).status;
     } catch (err) {
       return {
         kind: 'infra',
@@ -123,14 +151,25 @@ function hasExited(child: ChildProcess): boolean {
   return child.exitCode !== null || child.signalCode !== null;
 }
 
-/** Poll until the app answers any HTTP response, boot gives up, or we time out. */
-async function waitForReady(url: string, bootGaveUp: () => boolean): Promise<boolean> {
-  const deadline = Date.now() + READY_TIMEOUT_MS;
+/**
+ * Poll until the app answers any HTTP response, boot gives up, or we time out.
+ * Each poll carries its own `attemptMs` timeout (`AbortSignal.timeout`) so a
+ * connection that is accepted but never answered aborts the attempt instead of
+ * blocking forever — otherwise the wall-clock `deadline` (only checked between
+ * attempts) would never be reached.
+ */
+async function waitForReady(
+  url: string,
+  bootGaveUp: () => boolean,
+  timeoutMs: number,
+  attemptMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (bootGaveUp()) return false;
     try {
       // Any HTTP response (even 404) means the server is accepting connections.
-      await fetch(url);
+      await fetch(url, { signal: AbortSignal.timeout(attemptMs) });
       return true;
     } catch {
       await delay(READY_POLL_MS);
