@@ -107,7 +107,11 @@ export async function runProbe(
   // A spawn error (ENOENT) means the binary never started — bail immediately
   // rather than polling for the full readiness timeout.
   let bootError = '';
-  child.on('error', (err) => (bootError = String(err)));
+  let spawnFailed = false;
+  child.on('error', (err) => {
+    spawnFailed = true;
+    bootError = String(err);
+  });
   const output = (): string => [bootError, chunks.join('')].filter(Boolean).join('\n');
 
   try {
@@ -143,7 +147,7 @@ export async function runProbe(
     // wired into the running app. `status` is carried so callers see the detail.
     return { kind: 'not-reachable', reachable: false, status, output: output() };
   } finally {
-    await teardown(child);
+    await teardown(child, () => spawnFailed);
   }
 }
 
@@ -167,20 +171,21 @@ async function waitForReady(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (bootGaveUp()) return false;
+    const remainingMs = deadline - Date.now();
     try {
       // Any HTTP response (even 404) means the server is accepting connections.
-      await fetch(url, { signal: AbortSignal.timeout(attemptMs) });
+      await fetch(url, { signal: AbortSignal.timeout(Math.min(attemptMs, remainingMs)) });
       return true;
     } catch {
-      await delay(READY_POLL_MS);
+      await delay(Math.min(READY_POLL_MS, Math.max(0, deadline - Date.now())));
     }
   }
   return false;
 }
 
 /** SIGTERM, then SIGKILL if it doesn't exit — never leave an orphaned boot. */
-async function teardown(child: ChildProcess): Promise<void> {
-  if (hasExited(child)) return;
+async function teardown(child: ChildProcess, spawnFailed: () => boolean): Promise<void> {
+  if (spawnFailed() || hasExited(child)) return;
   const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
   child.kill('SIGTERM');
   const died = await Promise.race([exited.then(() => true), delay(TEARDOWN_GRACE_MS).then(() => false)]);
