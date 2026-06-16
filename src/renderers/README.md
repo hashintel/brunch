@@ -20,6 +20,7 @@ renderers/
   section.ts             XML-style context section wrapper (○ primitive)
   graph/                 graph overview/neighborhood/command markdown
   session/               transcript + runtime-frame markdown
+  specification/         selected-specification context markdown
   exchanges/             durable exchange markdown
   workspace/             print/workspace-context markdown
 ```
@@ -52,6 +53,7 @@ Ledger statuses:
 | `graph/reconciliation-needs.ts` | Future reconciliation rendering | ○ topology stub | none current | none current | Leave untouched until coherence/reconciliation surfaces activate. |
 | `workspace/workspace-state.ts` | print-mode `workspace.state` | ◐ partial | n/a | Print-mode state text | Card 2: add preview/golden; keep existing invariants for retired chrome/readiness fields. |
 | `workspace/workspace-context.ts` | `read_workspace_context`; origination context seed workspace section | ✓ locked | `read_workspace_context` text; `brunch.context_seed` workspace section | Tool result markdown | `workspace/__tests__/workspace-context.test.ts` + `workspace/__previews__/*`; invariants for `<workspace>` wrapper, no sessions, table specs, fenced topology, and no ATX headings. |
+| `specification/specification-context.ts` | `read_specification_context` | ✓ locked | `read_specification_context` text | Tool result markdown | `specification/__tests__/specification-context.test.ts` + `specification/__previews__/specification-context.md`; invariants for `<specification>` wrapper, no graph block, spec-scoped sessions, TOON gaps, and no ATX headings. |
 | `session/runtime-frame.ts` | `read_session_context` | ✓ locked | `read_session_context` text | Tool result markdown | `session/__tests__/runtime-frame.test.ts` + `session/__previews__/runtime-frame-ready.md`; invariant for projected handles. |
 | `session/transcript.ts` | Brunch-semantic transcript rendering | ◐ partial | Probe/report transcript markdown | Transcript/report text, not Pi live display | Card 3: move text-shape lock into renderer home; keep parsing/wrapper tests in `session/`. |
 | `exchanges/request-answer.ts` | `request_answer` | ◐ partial | Request result text | Tool result `renderResult` via exchange markdown adapter | Card 4: answered + non-answered goldens; invariants for cancel/unavailable copy and comments. |
@@ -73,7 +75,7 @@ Tool-owned render targets are ledgered by their durable renderer row when they u
 
 - Graph tools: `read_graph` is covered by `graph/graph-slice` and `graph/node-neighborhood`; `mutate_graph` currently formats command outcomes in the graph extension adapter, not a reusable renderer row.
 - Elicitation-gap tools: `read_elicitation_gaps` and `update_elicitation_gaps` format in `src/.pi/extensions/elicitation`; no renderer row is admitted until a second consumer or drift-prone reusable surface appears.
-- Context tools: `read_workspace_context` is covered by `workspace/workspace-context`; `read_session_context` is covered by `session/runtime-frame`.
+- Context tools: `read_workspace_context` is covered by `workspace/workspace-context`; `read_specification_context` is covered by `specification/specification-context`; `read_session_context` is covered by `session/runtime-frame`.
 - Structured-exchange tools: `present_*` and `request_*` rows are the exchange renderer family above; TUI presentation currently delegates to each tool's `renderResult` adapter over the same markdown text, so lock mechanism follows the renderer row unless a component-specific display diverges.
 - Base file floor (`read`, `grep`, `find`, `ls`) and dev-only tools (`brunch_session_query`, `brunch_introspect_query`) are Pi/dev tool surfaces, not renderer-frontier rows.
 

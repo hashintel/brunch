@@ -16,13 +16,13 @@ import {
 // getHeader() — not getEntries() (SessionEntry[], header excluded). Searching
 // getEntries() for it previously always missed, silently falling back to
 // process.cwd() and inventorying the wrong directory.
-interface SessionManagerLike {
+export interface WorkspaceCwdSessionManagerLike {
   getHeader(): SessionHeader | null;
 }
 
 export async function readWorkspaceContext(
   mode: 'cwd_inventory' | 'workspace_overview',
-  sessionManager?: SessionManagerLike,
+  sessionManager?: WorkspaceCwdSessionManagerLike,
 ): Promise<{ readonly text: string; readonly details: WorkspaceCwdInventory | WorkspaceOverview }> {
   const cwd = resolveWorkspaceCwd(sessionManager);
   const details =
@@ -35,7 +35,7 @@ export async function readWorkspaceContext(
   };
 }
 
-function resolveWorkspaceCwd(sessionManager?: SessionManagerLike): string {
+export function resolveWorkspaceCwd(sessionManager?: WorkspaceCwdSessionManagerLike): string {
   const header = sessionManager?.getHeader();
   return typeof header?.cwd === 'string' ? resolve(header.cwd) : process.cwd();
 }

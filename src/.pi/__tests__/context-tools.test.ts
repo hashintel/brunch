@@ -212,10 +212,10 @@ describe('context tools', () => {
     const beta = seedFixture(executor, await loadFixture('beta-commitments', 'workspace-spread'));
 
     await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
-    await writeBoundSession(cwd, 'alpha-session', alpha.specId, [{ type: 'user', id: 'u1' }]);
+    await writeBoundSession(cwd, 'alpha-session', alpha.specId, [messageEntry('u1', 'user')]);
     await writeBoundSession(cwd, 'beta-session', beta.specId, [
-      { type: 'user', id: 'u1' },
-      { type: 'assistant', id: 'a1' },
+      messageEntry('u1', 'user'),
+      messageEntry('a1', 'assistant'),
     ]);
 
     const tools = new Map<string, { execute: (...args: any[]) => Promise<unknown> }>();
@@ -245,6 +245,54 @@ describe('context tools', () => {
     expect(result.details).not.toHaveProperty('data');
     expect(result.details.specs.map((spec) => spec.title)).toEqual(['Alpha Grounding', 'Beta Commitments']);
     expect(result.details.sessions.map((session) => session.turnCount)).toEqual([1, 2]);
+  });
+
+  it('read_specification_context returns the selected spec render through the registered tool', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-specification-tool-'));
+    const executor = await openWorkspaceCommandExecutor(cwd);
+    const alpha = seedFixture(executor, await loadFixture('alpha-grounding', 'workspace-spread'));
+    const beta = seedFixture(executor, await loadFixture('beta-commitments', 'workspace-spread'));
+
+    await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
+    await writeBoundSession(cwd, 'alpha-session', alpha.specId, [messageEntry('u1', 'user')]);
+    await writeBoundSession(cwd, 'beta-session', beta.specId, [
+      messageEntry('u1', 'user'),
+      messageEntry('a1', 'assistant'),
+    ]);
+
+    const tools = collectContextTools();
+    const result = (await tools
+      .get('read_specification_context')!
+      .execute('context-spec', {}, undefined, undefined, {
+        sessionManager: {
+          getHeader: () => ({ type: 'session', id: 'beta-session', cwd }),
+          getEntries: () => [
+            {
+              id: 'binding-1',
+              type: 'custom',
+              parentId: null,
+              timestamp: '2026-06-16T00:00:00.000Z',
+              customType: 'brunch.session_binding',
+              data: createSessionBindingData({ specId: beta.specId }),
+            },
+          ],
+        },
+      })) as {
+      content: Array<{ type: 'text'; text: string }>;
+      details: {
+        spec: { id: number; title: string };
+        sessions: Array<{ specId: number; turnCount: number }>;
+      };
+    };
+
+    expect(result.content[0]?.text).toContain('<specification>');
+    expect(result.content[0]?.text).toContain('Overview:');
+    expect(result.content[0]?.text).toContain('Sessions:');
+    expect(result.content[0]?.text).toContain('Gaps:');
+    expect(result.content[0]?.text).toContain('Beta Commitments');
+    expect(result.content[0]?.text).not.toContain('Alpha Grounding');
+    expect(result.details.spec).toEqual({ id: beta.specId, title: 'Beta Commitments' });
+    expect(result.details.sessions).toMatchObject([{ specId: beta.specId, turnCount: 2 }]);
   });
 
   // Authentic oracle: drive the context tools against the faux harness's REAL
@@ -304,7 +352,7 @@ async function writeBoundSession(
   cwd: string,
   sessionId: string,
   specId: number,
-  entries: Array<{ type: 'user' | 'assistant'; id: string }>,
+  entries: unknown[],
 ): Promise<void> {
   await writeFile(
     join(cwd, '.brunch', 'sessions', `${sessionId}.jsonl`),
@@ -320,4 +368,14 @@ async function writeBoundSession(
       ...entries.map((entry) => JSON.stringify(entry)),
     ].join('\n') + '\n',
   );
+}
+
+function messageEntry(id: string, role: 'user' | 'assistant') {
+  return {
+    type: 'message',
+    id,
+    parentId: null,
+    timestamp: '2026-06-16T00:00:00.000Z',
+    message: { role, content: `${role} content` },
+  };
 }

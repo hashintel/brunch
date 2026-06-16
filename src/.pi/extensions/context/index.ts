@@ -11,6 +11,7 @@ import {
 import { NonLinearTranscriptError } from '../../../session/brunch-session-envelope.js';
 import { isSessionBindingEntry } from '../../../session/session-binding.js';
 import { readWorkspaceContext } from './get-cwd.js';
+import { readSpecificationContext } from './get-specification.js';
 
 // Mirror the real ReadonlySessionManager surface this projection uses. The Pi
 // session header is NOT part of getEntries() (which returns SessionEntry[]); it
@@ -62,6 +63,31 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
       }
 
       const result = await readWorkspaceContext(params.mode, ctx?.sessionManager);
+      return {
+        content: [{ type: 'text' as const, text: result.text }],
+        details: result.details,
+      };
+    },
+  });
+
+  pi.registerTool({
+    name: 'read_specification_context',
+    label: 'Read Specification Context',
+    description:
+      'Read the selected specification context: overview, spec-scoped sessions, and ranked elicitation gaps.',
+    promptSnippet: 'Read the selected specification overview, sessions, and elicitation gaps',
+    promptGuidelines: [
+      'Use read_specification_context when you need selected-spec context rather than cwd or session runtime context.',
+      'This render is scope-clustered: overview, spec-scoped sessions, and ranked elicitation gaps only.',
+      'Use read_graph for the full graph topology; this context carries graph size only.',
+    ],
+    parameters: {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+    },
+    async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
+      const result = await readSpecificationContext(ctx?.sessionManager);
       return {
         content: [{ type: 'text' as const, text: result.text }],
         details: result.details,

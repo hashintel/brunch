@@ -106,7 +106,12 @@ async function readJsonl(file: string): Promise<unknown[]> {
 
 function countTurnEntries(entries: readonly unknown[]): number {
   return entries.filter((entry) => {
-    const type = (entry as { type?: unknown }).type;
-    return type === 'user' || type === 'assistant';
+    if (!isRecord(entry) || entry.type !== 'message' || !isRecord(entry.message)) return false;
+    const role = entry.message.role;
+    return role === 'user' || role === 'assistant';
   }).length;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }

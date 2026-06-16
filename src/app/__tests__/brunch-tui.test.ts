@@ -740,6 +740,7 @@ describe('Brunch TUI boot', () => {
       'find',
       'ls',
       'read_workspace_context',
+      'read_specification_context',
       'read_session_context',
       'present_alternatives',
       'present_question',

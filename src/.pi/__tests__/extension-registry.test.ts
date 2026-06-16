@@ -73,6 +73,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'find',
       'ls',
       'read_workspace_context',
+      'read_specification_context',
       'read_session_context',
       'present_alternatives',
       PRESENT_QUESTION_TOOL,

@@ -18,10 +18,18 @@ describe('inspectWorkspaceOverview', () => {
     const beta = seedFixture(executor, await loadFixture('beta-commitments', 'workspace-spread'));
 
     await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
-    await writeBoundSession(cwd, 'alpha-session', alpha.specId, [{ type: 'user', id: 'u1' }]);
+    await writeBoundSession(cwd, 'alpha-session', alpha.specId, [messageEntry('u1', 'user')]);
     await writeBoundSession(cwd, 'beta-session', beta.specId, [
-      { type: 'user', id: 'u1' },
-      { type: 'assistant', id: 'a1' },
+      messageEntry('u1', 'user'),
+      messageEntry('tool-1', 'toolResult'),
+      {
+        type: 'custom',
+        id: 'state-1',
+        parentId: null,
+        timestamp: '2026-06-16T00:00:00.000Z',
+        customType: 'brunch.agent_runtime_state',
+      },
+      messageEntry('a1', 'assistant'),
     ]);
 
     const overview = await inspectWorkspaceOverview(cwd);
@@ -58,7 +66,7 @@ async function writeBoundSession(
   cwd: string,
   sessionId: string,
   specId: number,
-  entries: Array<{ type: 'user' | 'assistant'; id: string }>,
+  entries: unknown[],
 ): Promise<void> {
   await writeFile(
     join(cwd, '.brunch', 'sessions', `${sessionId}.jsonl`),
@@ -74,4 +82,14 @@ async function writeBoundSession(
       ...entries.map((entry) => JSON.stringify(entry)),
     ].join('\n') + '\n',
   );
+}
+
+function messageEntry(id: string, role: 'user' | 'assistant' | 'toolResult') {
+  return {
+    type: 'message',
+    id,
+    parentId: null,
+    timestamp: '2026-06-16T00:00:00.000Z',
+    message: { role, content: `${role} content` },
+  };
 }
