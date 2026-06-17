@@ -27,6 +27,7 @@ import {
   brunchFauxProviderConfig,
   defaultBrunchFauxModel,
 } from '../../probes/faux-provider.js';
+import type { JsonRpcResponse } from '../../rpc/protocol.js';
 import { BRUNCH_SESSION_EVENT_METHOD, type SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
@@ -34,14 +35,6 @@ import { createWorkspaceSessionCoordinator } from '../../session/workspace-sessi
 const WEB_DRIVEN_TEXT = 'Web command-intake reply: the browser sidecar re-enters the live AgentSession. '
   .repeat(5)
   .trim();
-
-type JsonRpcResponse =
-  | { readonly jsonrpc: '2.0'; readonly id: string | number | null; readonly result: unknown }
-  | {
-      readonly jsonrpc: '2.0';
-      readonly id: string | number | null;
-      readonly error: { readonly code: number; readonly message: string };
-    };
 
 describe('web-driver-streaming command intake', () => {
   const cleanups: Array<() => Promise<void> | void> = [];

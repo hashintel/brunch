@@ -27,6 +27,7 @@ import {
   brunchFauxProviderConfig,
   defaultBrunchFauxModel,
 } from '../../probes/faux-provider.js';
+import type { JsonRpcResponse } from '../../rpc/protocol.js';
 import { BRUNCH_SESSION_EVENT_METHOD, type SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
@@ -37,14 +38,6 @@ const TURN_1_TEXT = 'Reconnect turn one: canonical JSONL survives a mid-stream o
 const TURN_2_TEXT = 'Reconnect turn two: resumed frames still reduce to flushed transcript truth. '
   .repeat(6)
   .trim();
-
-type JsonRpcResponse =
-  | { readonly jsonrpc: '2.0'; readonly id: string | number | null; readonly result: unknown }
-  | {
-      readonly jsonrpc: '2.0';
-      readonly id: string | number | null;
-      readonly error: { readonly message: string };
-    };
 
 type ProjectionSnapshot = {
   readonly runtimeState: unknown;

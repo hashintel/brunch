@@ -28,6 +28,7 @@ import {
   defaultBrunchFauxModel,
 } from '../../probes/faux-provider.js';
 import { BRUNCH_UPDATED_METHOD } from '../../rpc/product-updates.js';
+import type { JsonRpcResponse } from '../../rpc/protocol.js';
 import { BRUNCH_SESSION_EVENT_METHOD, type SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
@@ -35,14 +36,6 @@ import { createWorkspaceSessionCoordinator } from '../../session/workspace-sessi
 const FAN_OUT_TEXT = 'Fan-out streamed reply: every observer sees the same relay frame sequence. '
   .repeat(6)
   .trim();
-
-type JsonRpcResponse =
-  | { readonly jsonrpc: '2.0'; readonly id: string | number | null; readonly result: unknown }
-  | {
-      readonly jsonrpc: '2.0';
-      readonly id: string | number | null;
-      readonly error: { readonly code: number; readonly message: string };
-    };
 
 type BrunchUpdatedFrame = {
   readonly jsonrpc: '2.0';

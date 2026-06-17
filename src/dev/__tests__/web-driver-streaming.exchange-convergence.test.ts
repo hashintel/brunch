@@ -29,6 +29,7 @@ import {
 } from '../../probes/faux-provider.js';
 import { createWebSidecarRpcHandlers } from '../../rpc/handlers.js';
 import { NO_PENDING_LIVE_EXCHANGE_MESSAGE } from '../../rpc/methods/session-exchange-answer.js';
+import type { JsonRpcResponse } from '../../rpc/protocol.js';
 import { BRUNCH_SESSION_EVENT_METHOD, type SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
@@ -37,14 +38,6 @@ const EXCHANGE_ID = 'live-answer-proof';
 const QUESTION = 'What should the web answer leg prove?';
 const ANSWER = 'The browser resolves the in-turn request_answer promise.';
 const FINAL_TEXT = 'Answered exchange complete; the transcript now carries the live answer.';
-
-type JsonRpcResponse =
-  | { readonly jsonrpc: '2.0'; readonly id: string | number | null; readonly result: unknown }
-  | {
-      readonly jsonrpc: '2.0';
-      readonly id: string | number | null;
-      readonly error: { readonly code: number; readonly message: string };
-    };
 
 describe('web-driver-streaming live exchange answer broker', () => {
   const cleanups: Array<() => Promise<void> | void> = [];
