@@ -17,6 +17,11 @@ import {
   type RpcMethodRegistry,
 } from './methods/registry.js';
 import { NoParamsSchema } from './methods/schemas.js';
+import { sessionDriverRpcMethods, type SessionTurnDriver } from './methods/session-driver.js';
+import {
+  sessionExchangeAnswerRpcMethods,
+  type SessionExchangeAnswerHandle,
+} from './methods/session-exchange-answer.js';
 import { sessionRpcMethods } from './methods/session.js';
 import { workspaceRpcMethods } from './methods/workspace.js';
 import { createProductUpdateNotification, type ProductUpdatePublisher } from './product-updates.js';
@@ -41,6 +46,21 @@ export function createReadOnlyRpcHandlers(options: {
   return createRpcHandlersForRegistry(options, READ_ONLY_RPC_METHOD_REGISTRY);
 }
 
+export function createWebSidecarRpcHandlers(options: {
+  coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
+  cwd: string;
+  productUpdates?: ProductUpdatePublisher;
+  sessionTurnDriver?: SessionTurnDriver;
+  sessionExchangeAnswer?: SessionExchangeAnswerHandle;
+}): RpcHandlers {
+  const registry = [
+    ...READ_ONLY_RPC_METHOD_REGISTRY,
+    ...(options.sessionTurnDriver ? sessionDriverRpcMethods : []),
+    ...(options.sessionExchangeAnswer ? sessionExchangeAnswerRpcMethods : []),
+  ];
+  return createRpcHandlersForRegistry(options, registry);
+}
+
 export function createRpcHandlers(options: {
   coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
   cwd: string;
@@ -58,6 +78,8 @@ function createRpcHandlersForRegistry(
     coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
     cwd: string;
     productUpdates?: ProductUpdatePublisher;
+    sessionTurnDriver?: SessionTurnDriver;
+    sessionExchangeAnswer?: SessionExchangeAnswerHandle;
   },
   registryDefinitions: RpcMethodRegistry<RpcMethodContext>,
 ): RpcHandlers {

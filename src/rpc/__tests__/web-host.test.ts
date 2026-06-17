@@ -310,6 +310,7 @@ describe('web host', () => {
       expect(discoveredMethods).not.toContain('workspace.activate');
       expect(discoveredMethods).not.toContain('session.triggerExchange');
       expect(discoveredMethods).not.toContain('session.submitExchangeResponse');
+      expect(discoveredMethods).not.toContain('session.driveTurn');
 
       await expect(
         websocketRpc(host.url, {
@@ -346,17 +347,29 @@ describe('web host', () => {
         id: 19,
         error: { code: -32601, message: 'Method not found' },
       });
-
       await expect(
         websocketRpc(host.url, {
           jsonrpc: '2.0',
           id: 20,
+          method: 'session.driveTurn',
+          params: { prompt: 'no driver attached' },
+        }),
+      ).resolves.toEqual({
+        jsonrpc: '2.0',
+        id: 20,
+        error: { code: -32601, message: 'Method not found' },
+      });
+
+      await expect(
+        websocketRpc(host.url, {
+          jsonrpc: '2.0',
+          id: 21,
           method: 'graph.overview',
           params: { specId: workspace.spec.id },
         }),
       ).resolves.toMatchObject({
         jsonrpc: '2.0',
-        id: 20,
+        id: 21,
         result: { nodes: [expect.objectContaining({ title: 'Visible goal' })] },
       });
       const sessionText = await readFile(workspace.session.file, 'utf8');

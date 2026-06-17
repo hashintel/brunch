@@ -5,6 +5,7 @@ import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import type { RpcHandlers } from './handlers.js';
 import { createProductUpdateNotification, type ProductUpdatePublisher } from './product-updates.js';
 import { dispatchJsonRpcMessage } from './protocol.js';
+import type { SessionEventRelay } from './session-event-relay.js';
 
 export interface WebRpcTransport {
   close(): Promise<void>;
@@ -15,24 +16,28 @@ export function attachWebRpcTransport(options: {
   path: string;
   handlers: RpcHandlers;
   productUpdates?: ProductUpdatePublisher;
+  sessionEvents?: SessionEventRelay;
 }): WebRpcTransport {
   const webSocketServer = new WebSocketServer({ noServer: true });
   let activeRequests = 0;
   const deferredNotifications: string[] = [];
   const flushDeferredNotifications = () => {
     for (const notification of deferredNotifications.splice(0)) {
-      broadcastProductUpdate(notification);
+      broadcastNotification(notification);
     }
   };
-  const publishNotification = (notification: string) => {
+  const publishDeferredNotification = (notification: string) => {
     if (activeRequests > 0) {
       deferredNotifications.push(notification);
       return;
     }
-    broadcastProductUpdate(notification);
+    broadcastNotification(notification);
   };
-  const unsubscribe = options.productUpdates?.subscribe((updates) => {
-    publishNotification(JSON.stringify(createProductUpdateNotification(updates)));
+  const unsubscribeProductUpdates = options.productUpdates?.subscribe((updates) => {
+    publishDeferredNotification(JSON.stringify(createProductUpdateNotification(updates)));
+  });
+  const unsubscribeSessionEvents = options.sessionEvents?.subscribe((frame) => {
+    broadcastNotification(JSON.stringify(frame));
   });
 
   options.server.on('upgrade', (request, socket, head) => {
@@ -64,7 +69,8 @@ export function attachWebRpcTransport(options: {
 
   return {
     async close() {
-      unsubscribe?.();
+      unsubscribeProductUpdates?.();
+      unsubscribeSessionEvents?.();
       for (const client of webSocketServer.clients) {
         client.close();
       }
@@ -94,7 +100,7 @@ export function attachWebRpcTransport(options: {
     sendIfOpen(client, JSON.stringify(response));
   }
 
-  function broadcastProductUpdate(notification: string): void {
+  function broadcastNotification(notification: string): void {
     for (const client of webSocketServer.clients) {
       sendIfOpen(client, notification);
     }

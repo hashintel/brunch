@@ -27,8 +27,12 @@ import {
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
 import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
+import type { SessionTurnDriver } from '../rpc/methods/session-driver.js';
+import type { SessionExchangeAnswerHandle } from '../rpc/methods/session-exchange-answer.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
+import { createSessionEventRelay, type SessionEventRelay } from '../rpc/session-event-relay.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
+import { createLiveExchangeBroker, type LiveExchangeBroker } from '../session/live-exchange-broker.js';
 import {
   completeAssistantKick,
   originateAssistantTurn,
@@ -74,6 +78,9 @@ interface BrunchWebSidecarRunnerOptions {
   cwd: string;
   coordinator: BrunchTuiCoordinator;
   productUpdates: ProductUpdatePublisher;
+  sessionEvents: SessionEventRelay;
+  sessionTurnDriver?: SessionTurnDriver;
+  sessionExchangeAnswer?: SessionExchangeAnswerHandle;
   routePath: string;
 }
 
@@ -83,6 +90,12 @@ export interface BrunchTuiLaunchContext {
   workspace: WorkspaceSessionReadyState;
   coordinator: BrunchTuiCoordinator;
   productUpdates?: ProductUpdatePublisher;
+  sessionEvents?: SessionEventRelay;
+  sessionTurnDriver?: SessionTurnDriver;
+  liveExchange?: LiveExchangeBroker;
+  liveAgentSession?: {
+    current: Awaited<ReturnType<typeof createAgentSessionFromServices>>['session'] | null;
+  };
   webSidecarUrl?: string;
   activationDecision?: SpecSessionActivationDecision;
   dev?: BrunchTuiDevOptions;
@@ -131,6 +144,19 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const coordinator = options.coordinator ?? createWorkspaceSessionCoordinator({ cwd });
 
   const productUpdates = createProductUpdatePublisher();
+  const sessionEvents = createSessionEventRelay();
+  const liveAgentSession: {
+    current: Awaited<ReturnType<typeof createAgentSessionFromServices>>['session'] | null;
+  } = { current: null };
+  const sessionTurnDriver: SessionTurnDriver = {
+    async prompt(input) {
+      const session = liveAgentSession.current;
+      if (!session) return { driven: false };
+      await session.prompt(input.text, { expandPromptTemplates: false, source: 'rpc' });
+      return { driven: true };
+    },
+  };
+  const liveExchange = createLiveExchangeBroker();
   const inventory = await coordinator.inspectWorkspace();
   const decision = await chooseSpecSessionActivationDecision(inventory, options);
   const workspaceState = await coordinator.activateWorkspace(decision);
@@ -148,6 +174,9 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
     cwd,
     coordinator,
     productUpdates,
+    sessionEvents,
+    sessionTurnDriver,
+    sessionExchangeAnswer: { answerer: liveExchange.answerer },
     routePath,
   });
   const webSidecarUrl = webSidecar ? `${webSidecar.url}${routePath}` : null;
@@ -162,12 +191,16 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       workspace: workspaceState,
       coordinator,
       productUpdates,
+      sessionEvents,
+      sessionTurnDriver,
+      liveExchange,
       ...(webSidecarUrl ? { webSidecarUrl } : {}),
       activationDecision: decision,
       ...(dev ? { dev } : {}),
       reportAsyncDiagnostic: (diagnostic) => {
         process.stderr.write(`[brunch] ${diagnostic.message}\n`);
       },
+      liveAgentSession,
     });
   } finally {
     await webSidecar?.close();
@@ -349,12 +382,11 @@ export function createBrunchAgentSessionRuntimeFactory(
       currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(replacementSessionManager);
     };
     // Late-bound: the AgentSession exists only after createAgentSessionFromServices
-    // below, but extension factories close over this ref now. Keyboard shortcuts
-    // borrow a command-capable context (switchSession, waitForIdle) from the live
-    // session, which Pi's own shortcut contexts do not carry.
-    const liveAgentSession: {
-      current: Awaited<ReturnType<typeof createAgentSessionFromServices>>['session'] | null;
-    } = { current: null };
+    // below, but extension factories and the web sidecar driver close over this
+    // ref now. Keyboard shortcuts borrow a command-capable context
+    // (switchSession, waitForIdle) from the live session, which Pi's own
+    // shortcut contexts do not carry.
+    const liveAgentSession = context.liveAgentSession ?? { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
     const profile = createBrunchPiSettings({
       cwd,
@@ -371,6 +403,7 @@ export function createBrunchAgentSessionRuntimeFactory(
             getCommandContext: () => liveAgentSession.current?.createReplacedSessionContext(),
             ...(productUpdates ? { productUpdates } : {}),
             graph: graphDeps,
+            ...(context.liveExchange ? { liveExchange: context.liveExchange.awaiter } : {}),
             ...(context.dev ? { introspection: context.dev.introspection } : {}),
             promptContext: () => {
               const specId = currentWorkspace.spec.id;
@@ -433,6 +466,7 @@ export function createBrunchAgentSessionRuntimeFactory(
       ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
     });
     liveAgentSession.current = created.session;
+    context.sessionEvents?.attachSession(created.session);
     // Complete the kick: a 'start' decision owes an actual assistant-originated
     // LLM turn, which only the live AgentSession can run. Fire-and-forget:
     // sendCustomMessage with triggerTurn awaits the whole turn, and boot must
@@ -466,11 +500,17 @@ async function startDefaultWebSidecar({
   cwd,
   coordinator,
   productUpdates,
+  sessionEvents,
+  sessionTurnDriver,
+  sessionExchangeAnswer,
 }: BrunchWebSidecarRunnerOptions): Promise<BrunchWebSidecar> {
   const host = await startWebHost({
     cwd,
     coordinator: coordinator as WorkspaceSessionCoordinator,
     productUpdates,
+    sessionEvents,
+    ...(sessionTurnDriver ? { sessionTurnDriver } : {}),
+    ...(sessionExchangeAnswer ? { sessionExchangeAnswer } : {}),
   });
   return host;
 }

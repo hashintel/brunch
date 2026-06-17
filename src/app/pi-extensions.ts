@@ -43,6 +43,7 @@ import {
   type BrunchPromptContextProvider,
 } from '../.pi/extensions/system-prompts/index.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
+import type { LiveExchangeAwaiter } from '../session/live-exchange-broker.js';
 import { mentionFactsFromEntries } from '../session/mention-ledger.js';
 import {
   appendPreparedContinuityEntry,
@@ -121,6 +122,7 @@ export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, '
   getElicitationGaps?: BrunchCommandsOptions['getElicitationGaps'];
   graphMentionSource?: GraphMentionSource;
   graph?: BrunchGraphDeps;
+  liveExchange?: LiveExchangeAwaiter;
   promptContext?: BrunchPromptContextProvider;
   introspection?: BrunchPiIntrospectionOptions;
   continuityDrains?: () => readonly ContinuityDrain[];
@@ -197,6 +199,7 @@ export function createBrunchPiExtensions(
           review: options.graph
             ? { specId: options.graph.specId, commandExecutor: options.graph.commandExecutor }
             : undefined,
+          liveExchange: options.liveExchange,
         }),
       (api) =>
         registerBrunchCommands(api, {

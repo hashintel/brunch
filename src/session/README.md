@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L / A29-L
 
 ## Owns
 
@@ -19,9 +19,12 @@ plus the coordination logic for workspace/spec/session lifecycle.
   own hidden runtime memory.
 
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
-  pending prompt reconstruction from structured transcript tuples, and response
-  toolResult materialization. RPC maps these domain results to JSON-RPC status
-  and error codes; transcript mechanics stay here. **Provider-legality rule
+  pending prompt reconstruction from structured transcript tuples, response
+  toolResult materialization, and the process-local live answer rendezvous used
+  by the TUI sidecar (`live-exchange-broker.ts`). RPC maps these domain results
+  to JSON-RPC status and error codes; transcript mechanics stay here. The broker
+  holds only an in-flight `request_answer` promise keyed by exchange id; the
+  answered result still reduces to Pi JSONL truth. **Provider-legality rule
   (2026-06-12):** every synthetic exchange toolResult (present offers at
   origination, request responses at submit) persists as a *pair* — a synthetic
   assistant toolCall (`syntheticExchangeToolCallMessage`, sentinel provenance

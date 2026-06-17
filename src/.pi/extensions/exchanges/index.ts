@@ -1,5 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
+import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
 import { PRESENT_CANDIDATES_TOOL } from './present-candidates.js';
 import { PRESENT_OPTIONS_TOOL, presentOptionsTool } from './present-options.js';
 import { PRESENT_QUESTION_TOOL, presentQuestionTool } from './present-question.js';
@@ -8,7 +9,7 @@ import {
   createPresentReviewSetTool,
   type ReviewSetStructuredExchangeDeps,
 } from './present-review-set.js';
-import { REQUEST_ANSWER_TOOL, requestAnswerTool } from './request-answer.js';
+import { REQUEST_ANSWER_TOOL, createRequestAnswerTool, requestAnswerTool } from './request-answer.js';
 import { REQUEST_CHOICE_TOOL, requestChoiceTool } from './request-choice.js';
 import { REQUEST_CHOICES_TOOL, requestChoicesTool } from './request-choices.js';
 import { REQUEST_REVIEW_TOOL, requestReviewTool } from './request-review.js';
@@ -50,6 +51,7 @@ export const STRUCTURED_EXCHANGE_STUB_TOOL_NAMES = [PRESENT_CANDIDATES_TOOL] as 
 
 export interface StructuredExchangeDeps {
   readonly review?: ReviewSetStructuredExchangeDeps | undefined;
+  readonly liveExchange?: LiveExchangeAwaiter | undefined;
 }
 
 export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExchangeDeps = {}) {
@@ -57,7 +59,7 @@ export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExc
     presentQuestionTool,
     presentOptionsTool,
     createPresentReviewSetTool(deps.review),
-    requestAnswerTool,
+    deps.liveExchange ? createRequestAnswerTool(deps.liveExchange) : requestAnswerTool,
     requestChoiceTool,
     requestChoicesTool,
     requestReviewTool,

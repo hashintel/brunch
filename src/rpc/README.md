@@ -4,18 +4,21 @@ This directory owns Brunch's public JSON-RPC boundary. This README is the findab
 
 ## Boundary
 
-Brunch exposes two handler surfaces over stdio, WebSocket, and in-process handlers:
+Brunch exposes three handler surfaces over stdio, WebSocket, and in-process handlers:
 
 ```pseudo
 rpc handler surfaces:
 ├── full RPC host
 │   ├── read methods
-│   └── write methods
+│   └── workspace/session transcript writes
+├── read-only RPC registry
+│   └── read methods only
 └── TUI-started web sidecar
-    └── read methods only
+    ├── read methods
+    └── one live-session driver method
 ```
 
-The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is a read attachment: it exposes projection/read methods plus `rpc.discover`, and rejects write methods as `Method not found`. Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
+The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-hosted process: it exposes projection/read methods plus `rpc.discover`, rejects normal workspace/session write methods as `Method not found`, and adds live driver methods only when their process-local handles are attached (`session.driveTurn` for a live `AgentSession`, `session.answerExchange` for a live exchange broker). Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
 
 RPC handlers project from canonical stores:
 
@@ -53,14 +56,17 @@ Method discovery and dispatch come from the same registry. A method not present 
 ```pseudo
 rpc/
 ├── handlers.ts
-│   ├── createRpcHandlers(...)         -> default full registry
-│   ├── createRpcHandlers({devRpc})    -> full registry plus gated dev.* harnesses
-│   ├── createReadOnlyRpcHandlers(...) -> read-only registry, never dev.*
-│   └── rpc.discover                   -> discovery over active registry
+│   ├── createRpcHandlers(...)            -> default full registry
+│   ├── createRpcHandlers({devRpc})       -> full registry plus gated dev.* harnesses
+│   ├── createReadOnlyRpcHandlers(...)    -> read-only registry, never dev.*
+│   ├── createWebSidecarRpcHandlers(...)  -> read registry; session.driveTurn only with driver handle
+│   └── rpc.discover                      -> discovery over active registry
 └── methods/
     ├── registry.ts                    -> method definition + discovery shape
     ├── workspace.ts                   -> workspace.* handlers
     ├── session.ts                     -> session.* handlers
+    ├── session-driver.ts              -> live AgentSession driver method
+    ├── session-exchange-answer.ts     -> live exchange answer method
     ├── graph.ts                       -> graph.* handlers
     ├── dev-graph.ts                   -> gated dev.graph.* fixture-curation harness
     └── schemas.ts                     -> shared protocol schemas
@@ -94,7 +100,7 @@ dev-enabled full RPC host only:
     default full RPC discovery
     TUI-started web sidecar
 
-TUI-started web sidecar:
+TUI-started web sidecar without live driver handle:
   reads:
     rpc.discover
     workspace.state
@@ -104,6 +110,26 @@ TUI-started web sidecar:
     session.runtimeState
     graph.overview
     graph.nodeNeighborhood
+  rejected as method-not-found:
+    workspace.activate
+    session.triggerExchange
+    session.submitExchangeResponse
+    session.submitMessage
+    session.driveTurn
+
+TUI-started web sidecar with live driver handles:
+  reads:
+    rpc.discover
+    workspace.state
+    workspace.selectionState
+    session.pendingExchange
+    session.exchanges
+    session.runtimeState
+    graph.overview
+    graph.nodeNeighborhood
+  live-session drivers:
+    session.driveTurn
+    session.answerExchange
   rejected as method-not-found:
     workspace.activate
     session.triggerExchange
@@ -197,6 +223,22 @@ session.submitMessage
       | structural_illegal(diagnostics)
   effects: appends a user message to the selected session transcript, rejects ordinary text while a structured exchange is pending unless interruption=true, and when captured publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
 
+session.driveTurn
+  access: write (TUI-started web sidecar only, discovered only when a driver handle is attached)
+  params: {prompt}
+  result: {status: completed}
+  errors: -32601 when no driver handle is attached; -32010 when an attached handle reports no current live session
+  effects: re-enters the live in-process AgentSession with one plain prompt; resulting AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
+  boundary: not a generic transcript write API; no workspace activation, no submitMessage, no concurrency arbiter
+
+session.answerExchange
+  access: write (TUI-started web sidecar only, discovered only when a live-exchange answer broker handle is attached)
+  params: {exchangeId, answer}
+  result: {status: completed}
+  errors: -32601 when no broker handle is attached; -32008 when no matching live exchange is pending
+  effects: resolves the in-process request_answer promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
+  boundary: not a transcript append API and not a second exchange store; request_choice/request_choices/request_review and terminal-vs-web answer racing are separate follow-ons
+
 graph.overview
   access: read
   params: {specId}
@@ -254,9 +296,40 @@ brunch.updated:
 
 WebSocket and stdio transports both carry these notifications independently from request responses. The notification payload is owned by `rpc/`; graph and session mutation adapters receive only a narrow product-update publisher.
 
+The TUI-started web sidecar also multiplexes live session-stream frames on the same `/rpc` WebSocket when a live in-process `AgentSession` exists:
+
+```pseudo
+brunch.sessionEvent:
+  params:
+    seq: monotonic process-local sequence number
+    event: Pi AgentSessionEvent payload carried verbatim
+```
+
+`brunch.sessionEvent` is a process-local observer notification, not a request method and not a persisted transcript projection. `src/rpc/session-event-relay.ts` owns the ephemeral relay seam: `runBrunchTui` creates one relay, the sidecar transport subscribes to it, and `createBrunchAgentSessionRuntimeFactory` attaches the live `AgentSession` after Pi creates it. Browser clients may render incremental session state from these frames, but canonical transcript truth remains the Pi JSONL session file and named `session.*` projections.
+
+## Streaming transport coverage
+
+Code-anchored coverage ledger for the topology-A streaming relay layer (`session-event-relay.ts` plus the `websocket.ts` multiplex). It maps each oracle-battery claim to the relay capability it exercises and the closure oracle that proves it. **Sequencing and status authority is `memory/PLAN.md` §web-driver-streaming**; this ledger is the code-side "what proves this" view, reconciled by `/ln-sync`.
+
+Boundary — in layer: the streaming transport relay and its battery. Out of layer: the web render consumer (`src/web/`), the canonical `session.*` projections, and `brunch.updated` invalidation semantics. DoD: every `●` row `built`.
+
+| # | Capability | Status | Req | Closure oracle | Notes |
+| --- | --- | --- | --- | --- | --- |
+| 1 | Topology-A walking skeleton through the real host entry | `built` | ● | `src/dev/__tests__/web-driver-streaming.relay.test.ts` | I22-L: attaches via product factory, not the test |
+| 2 | Stream↔transcript differential (assembled `message_update` deltas == flushed JSONL) | `built` | ● | same test | D19-L linchpin |
+| 3 | Ordered incremental delivery (monotonic `seq`, no gaps/dupes) | `built` | ● | same test | |
+| 4 | Domain-projection multiplex (one WS carries `brunch.sessionEvent` + `brunch.updated`) | `built` | ● | same test | deferred-in-order while a request is in flight |
+| 6 | Reconnect/resume idempotence | `built` | ● | `src/dev/__tests__/web-driver-streaming.reconnect.test.ts` | observer-side, replay-less: reconnect refetches `session.*` projections and resumes later live frames |
+| 7 | One-driver / many-observer fan-out | `built` | ● | `src/dev/__tests__/web-driver-streaming.fan-out.test.ts` | observer-side, autonomous; three concurrent observers receive byte-identical streams and read-only sidecar writes reject |
+| 5 | Mid-stream exchange convergence (live `request_answer` answered leg) | `built` | ● | `src/dev/__tests__/web-driver-streaming.exchange-convergence.test.ts` | answer broker resolves the live request_answer promise through `session.answerExchange`; discovery may use the relayed `request_answer` frame when same-turn tool batching has not flushed a transcript-backed pending projection yet; post-answer `session.pendingExchange` is idle and JSONL carries the provider-legal answer |
+| — | command-intake slice 1 (web drives a plain turn) | `built` | ● | `src/dev/__tests__/web-driver-streaming.command-intake.test.ts` | narrow `session.driveTurn` sidecar method re-enters the live AgentSession |
+| — | render feel (token / tool / dialog) | `n/a` | ○ | manual walkthrough | outer-loop only; no automated perceptual gate |
+
+Classification: the required topology-A streaming rows are built for the current `request_answer` tracer. The UI-host finding (`ctx.hasUI` is run-mode-bound; not injectable on a bare in-process `AgentSession`) is recorded in `memory/SPEC.md` A28-L/D84-L; the landed answer broker reframes the answer source as Brunch-owned for Brunch-authored `request_*` tools rather than a Pi UI-host injection.
+
 ## RPC methods to web Query hooks
 
-Current web code only uses the read sidecar. Write hooks are named here as the expected TanStack Query mutation shape for a future write-capable web/client surface; they are not accepted by the TUI-started sidecar today.
+Current web code only uses read queries. Write hooks are named here as the expected TanStack Query mutation shape for future write-capable web/client surfaces; today the TUI-started sidecar accepts only `session.driveTurn` and rejects the other write methods.
 
 ```pseudo
 query key families:
@@ -280,6 +353,8 @@ query key families:
 | `session.runtimeState` | `sessionRuntimeStateQueryOptions(rpc, target)` | implemented query option; not yet route-rendered | `session.runtimeState` |
 | `session.triggerExchange` | `triggerExchangeMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state |
 | `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; captured text answers additionally invalidate `graph.overview(specId)` / `graph.nodeNeighborhood(specId)` |
+| `session.driveTurn` | `driveTurnMutationOptions(rpc)` | target; driver-attached sidecar accepted, web UI not wired | live `brunch.sessionEvent` stream; transcript projection refetch via existing session queries if needed |
+| `session.answerExchange` | `answerExchangeMutationOptions(rpc)` | target; broker-attached sidecar accepted for `request_answer`, web UI not wired | live `brunch.sessionEvent` stream; transcript projection refetch via existing session queries if needed |
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
 
