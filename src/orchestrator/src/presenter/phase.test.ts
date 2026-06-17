@@ -57,6 +57,12 @@ describe('nextPhase', () => {
     expect(nextPhase('cook', { kind: 'cook-done', ok: false })).toBe('cook');
   });
 
+  it('does not light plate for a no-promotion failure message', () => {
+    expect(nextPhase('cook', { kind: 'line', text: '  !  run did not complete — nothing promoted.' })).toBe(
+      'cook',
+    );
+  });
+
   it('never regresses to an earlier phase', () => {
     expect(nextPhase('serve', { kind: 'cook-start', runStart: 0 })).toBe('serve');
     expect(nextPhase('taste', { kind: 'action', icon: '▸', message: 'tests     slice-2' })).toBe('taste');

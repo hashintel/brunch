@@ -603,8 +603,10 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           }
           line('');
         } catch (err) {
-          line(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          const reason = `promotion failed: ${err instanceof Error ? err.message : String(err)}`;
+          line(`  ✗  ${reason}`);
           line('');
+          bus.emit({ kind: 'cook-done', ok: false, reason });
           recordCookExitStatus(false);
           return;
         }
@@ -636,8 +638,10 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           line(`  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`);
           line('');
         } catch (err) {
-          line(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          const reason = `promotion failed: ${err instanceof Error ? err.message : String(err)}`;
+          line(`  ✗  ${reason}`);
           line('');
+          bus.emit({ kind: 'cook-done', ok: false, reason });
           recordCookExitStatus(false);
           return;
         }

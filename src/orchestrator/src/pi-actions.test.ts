@@ -188,7 +188,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
   });
 });
 
-describe('verify-epic integration oracle (FE-876) — reachability folds into the epic verdict', () => {
+describe('verify-epic reachability grounding (FE-876) — intent resolves before the epic verdict', () => {
   const probeDirs: string[] = [];
   afterEach(() => {
     for (const dir of probeDirs.splice(0)) rmSync(dir, { recursive: true, force: true });

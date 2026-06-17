@@ -358,9 +358,10 @@ async function runPi(
   _emit({ kind: 'activity-start', id: activityId, label: opts.label });
   let heartbeatKb = 0;
 
-  const isolatedDir = createAgentDir();
+  let isolatedDir: string | undefined;
   let cleanedAgentDir = false;
   const cleanupAgentDir = (): void => {
+    if (!isolatedDir) return;
     if (cleanedAgentDir) return;
     cleanedAgentDir = true;
     removeAgentDir(isolatedDir);
@@ -413,9 +414,11 @@ async function runPi(
   });
 
   try {
+    isolatedDir = createAgentDir();
+    const agentDir = isolatedDir;
     const setup = (async () => {
       const created = await createSession(
-        await buildSessionOptions(opts, isolatedDir, { onStart: onToolStart, onSettle: onToolSettle }),
+        await buildSessionOptions(opts, agentDir, { onStart: onToolStart, onSettle: onToolSettle }),
       );
       if (timedOut) {
         created.session.dispose();

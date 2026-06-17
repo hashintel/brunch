@@ -43,7 +43,7 @@ function phaseFor(event: CookEvent, ctx?: PhaseContext): BrigadePhase | undefine
       return ctx.epics.every((e) => ctx.verdictedEpics?.has(e)) ? 'taste' : undefined;
     }
     case 'line':
-      return event.text.includes('promoted') ? 'plate' : undefined;
+      return /^\s*✓\s+promoted\b/.test(event.text) ? 'plate' : undefined;
     case 'cook-done':
       // ship→serve: the run completed (emitted after promotion). A halted run
       // does not ship, so it never lights serve.

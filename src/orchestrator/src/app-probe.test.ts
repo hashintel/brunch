@@ -126,42 +126,6 @@ describe('runProbe bounds its HTTP calls so a hung app cannot hang the probe', (
   });
 });
 
-describe('runProbe bounds its HTTP calls so a hung app cannot hang the probe', () => {
-  // A server that accepts connections (and the HTTP request) but never sends a
-  // response — the case the wall-clock deadline alone can't catch, because a
-  // bare `await fetch` would block forever between deadline checks.
-  const neverResponds = (readyRoutes: Record<string, number> = {}): string =>
-    `const http = require('node:http');\n` +
-    `const ready = ${JSON.stringify(readyRoutes)};\n` +
-    `http.createServer((req, res) => {\n` +
-    `  if (ready[req.url] !== undefined) { res.writeHead(ready[req.url]); res.end('ok'); return; }\n` +
-    `  /* otherwise: never respond */\n` +
-    `}).listen(Number(process.env.PORT), '127.0.0.1');\n`;
-
-  it('a ready path that accepts connections but never responds → infra within the deadline', async () => {
-    const spec = await buildProbeSpec({
-      boot: ['node', 'server.js'],
-      readyPath: '/health',
-      featurePath: '/feature',
-    });
-    const dir = sandbox(neverResponds());
-    const result = await runProbe(spec, dir, { readyTimeoutMs: 600, readyAttemptMs: 150 });
-    expect(result.kind).toBe('infra');
-  });
-
-  it('a booted app whose feature endpoint never responds → infra, not a hang', async () => {
-    const spec = await buildProbeSpec({
-      boot: ['node', 'server.js'],
-      readyPath: '/health',
-      featurePath: '/feature',
-    });
-    const dir = sandbox(neverResponds({ '/health': 200 }));
-    const result = await runProbe(spec, dir, { requestTimeoutMs: 300 });
-    expect(result.kind).toBe('infra');
-    expect(result.output).toMatch(/feature probe request failed/);
-  });
-});
-
 describe('runProbe tears the boot process down', () => {
   it('the booted app is no longer listening after the probe returns', async () => {
     const { spec, dir } = await specFor({ '/health': 200, '/feature': 200 });
