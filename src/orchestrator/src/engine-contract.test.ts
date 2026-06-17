@@ -17,6 +17,7 @@ import { createNetFolding } from './petrinaut-fold.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
 import { type BrunchExecutionExportFrame, createPetrinautStreamBus } from './petrinaut-stream-bus.js';
 import { reduceBrunchExecutionExport } from './petrinaut-stream-export.js';
+import type { CookEvent } from './presenter/events.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
 
@@ -259,6 +260,24 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
           'run-tests:pass',
           'slice-1:evaluate-done:YES',
           'slice-1:assess-semantic:PASS',
+        ]);
+      });
+
+      it('emits slice grid events around net-level test runs', async () => {
+        const fakes = createFakes();
+        const events: CookEvent[] = [];
+        await create().run({
+          plan: simplePlan,
+          sandboxDir: '/tmp/fake',
+          actions: fakes.actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
+          policy: { maxRetries: 3 },
+          emit: (event) => events.push(event),
+        });
+        expect(events.filter((e) => e.kind === 'slice')).toEqual([
+          { kind: 'slice', id: 'slice-1', epicId: 'epic-1', status: 'running', step: 'verify' },
+          { kind: 'slice', id: 'slice-1', epicId: 'epic-1', status: 'passed' },
         ]);
       });
 

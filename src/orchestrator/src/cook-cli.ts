@@ -514,6 +514,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
       reports,
       testRunner,
       policy: { maxRetries: opts.maxRetries },
+      emit: (event) => bus.emit(event),
       sandboxMode: sandbox.kind === 'codebase' ? 'codebase' : 'fixture',
       sliceLayout,
       runId,

@@ -106,6 +106,7 @@ describe('RunStore — slice grid', () => {
     store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'passed' });
     row = store.getSnapshot().slices.find((s) => s.id === 'login')!;
     expect(row.status).toBe('passed');
+    expect(row.step).toBeUndefined(); // in-flight label cleared once it stops running
     expect(row.detail).toBeUndefined(); // heartbeat cleared once it stops running
   });
 

@@ -246,6 +246,8 @@ export type OrchestratorInput = {
   reports: ReportSink;
   testRunner: TestRunner;
   policy: RunPolicy;
+  /** Ephemeral presentation events for live CLI surfaces (non-durable). */
+  emit?: (event: import('./presenter/events.js').CookEvent) => void;
   /**
    * 'fixture' (default): per-slice worktrees are created empty. Greenfield.
    * 'codebase': per-slice worktrees are real `git worktree`s on slice-level

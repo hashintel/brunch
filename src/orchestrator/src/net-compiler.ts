@@ -707,6 +707,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           const deferred = (async () => {
             const slice = plan.slices.find((s) => s.id === sliceId)!;
             const sandboxDir = resolveSliceCwd(slice);
+            input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'running', step: 'verify' });
             // Shared verification seam: same verdict rule + infra-dominates
             // aggregate as evaluate-done / verify-epic (FE-872 unification).
             const {
@@ -730,6 +731,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
 
             const tok: Token = { ...inputToken, reportId };
             if (passed) {
+              input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'passed' });
               return [
                 { place: intermediatePlace, token: tok },
                 { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },
@@ -741,6 +743,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               // infra failure, name that cause — "retry exhaustion" would
               // misdirect the reader to the code.
               ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
+              input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'failed' });
               const haltReason =
                 failureKind === 'infra'
                   ? `Slice ${sliceId} toolchain/install failure during verification`
@@ -752,6 +755,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
                 },
               ];
             }
+            input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'failed' });
             return [
               { place: intermediatePlace, token: tok },
               { place: budgetPlace, token: { ...baseToken, retryCount: retryCount + 1 } },

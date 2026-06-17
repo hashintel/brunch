@@ -77,8 +77,8 @@ export class RunStore {
         slices: this.updateSlice(event.id, {
           status: event.status,
           ...(event.step !== undefined ? { step: event.step } : {}),
-          // clear the live heartbeat once the slice stops running
-          ...(running ? {} : { detail: undefined }),
+          // clear the in-flight label + heartbeat once the slice stops running
+          ...(running ? {} : { step: undefined, detail: undefined }),
         }),
       });
       return;
