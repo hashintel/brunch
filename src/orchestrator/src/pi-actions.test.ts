@@ -3,13 +3,16 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { type Skill } from '@earendil-works/pi-coding-agent';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  cookResourceLoader,
   createPiActions,
   epicVerifyTask,
   instrumentToolDefinition,
   runPi,
+  sandboxScopedSkills,
   type SessionFactory,
   sliceTestTask,
   toolLabel,
@@ -1319,5 +1322,66 @@ describe('evaluate-done failure carries a reason', () => {
     });
     await actions['evaluate-done']!(ctx());
     expect(lastSlice(events)).toMatchObject({ status: 'failed', reason: 'infra error' });
+  });
+});
+
+describe('sandboxScopedSkills (FE-881) keeps only skills rooted under the sandbox', () => {
+  const skill = (filePath: string): Skill => ({
+    name: filePath,
+    description: '',
+    filePath,
+    baseDir: dirname(filePath),
+    sourceInfo: {} as Skill['sourceInfo'],
+    disableModelInvocation: false,
+  });
+
+  it('keeps repo skills, drops sibling-slice / prefix-lookalike / global skills', () => {
+    const sandbox = '/tmp/run/worktree/slice-a';
+    const kept = sandboxScopedSkills(
+      [
+        skill('/tmp/run/worktree/slice-a/.agents/skills/foo/SKILL.md'),
+        skill('/tmp/run/worktree/slice-a/.claude/skills/bar/SKILL.md'),
+        skill('/tmp/run/worktree/slice-b/.agents/skills/sibling/SKILL.md'),
+        skill('/tmp/run/worktree/slice-a-other/.agents/skills/lookalike/SKILL.md'),
+        skill('/home/dev/.pi/skills/global/SKILL.md'),
+      ],
+      sandbox,
+    );
+    expect(kept.map((s) => s.name)).toEqual([
+      '/tmp/run/worktree/slice-a/.agents/skills/foo/SKILL.md',
+      '/tmp/run/worktree/slice-a/.claude/skills/bar/SKILL.md',
+    ]);
+  });
+});
+
+describe('cookResourceLoader (FE-881) loads sandbox skills, excludes global', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  const writeSkill = (root: string, name: string) => {
+    mkdirSync(join(root, name), { recursive: true });
+    writeFileSync(
+      join(root, name, 'SKILL.md'),
+      `---\nname: ${name}\ndescription: ${name} skill\n---\nbody\n`,
+    );
+  };
+
+  it('discovers the repo .agents/skills and drops agentDir (global) skills', async () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'cook-sandbox-'));
+    dirs.push(sandbox);
+    const agentDir = mkdtempSync(join(tmpdir(), 'cook-agent-'));
+    dirs.push(agentDir);
+    writeSkill(join(sandbox, '.agents', 'skills'), 'repo-skill');
+    writeSkill(join(agentDir, 'skills'), 'global-skill');
+
+    const loader = cookResourceLoader(sandbox, agentDir, 'system prompt');
+    await loader.reload();
+    const names = loader.getSkills().skills.map((s) => s.name);
+
+    expect(names).toContain('repo-skill');
+    expect(names).not.toContain('global-skill');
   });
 });

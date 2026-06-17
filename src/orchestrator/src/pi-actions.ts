@@ -1,6 +1,6 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -18,6 +18,7 @@ import {
   ModelRegistry,
   SessionManager,
   SettingsManager,
+  type Skill,
   type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 
@@ -223,9 +224,63 @@ function piTimeoutError(timeoutMs: number): Error {
   return new Error(`pi timed out after ${timeoutMs / 1000}s`);
 }
 
-// Map one action's inputs to SDK session config — tools/model/system-prompt, no
-// context/skills, in-memory session. Auth from brunch's own ANTHROPIC_API_KEY, not
-// the user's ~/.pi credentials, which is what keeps a fresh checkout self-contained.
+/**
+ * Keep only skills rooted under `sandboxDir` (the cook worktree). Drops the
+ * developer's machine-global pi skills and any sibling-slice / look-alike paths,
+ * so a brownfield cook builds on the target repo's own skills without leaking the
+ * host's pi config — the "self-contained checkout" guarantee, narrowed from
+ * "no skills" to "no skills from outside the repo" (FE-881).
+ */
+export function sandboxScopedSkills(skills: Skill[], sandboxDir: string): Skill[] {
+  const root = resolve(sandboxDir);
+  const prefix = root + sep;
+  return skills.filter((s) => {
+    const p = resolve(s.filePath);
+    return p === root || p.startsWith(prefix);
+  });
+}
+
+/**
+ * Resource loader for a cook agent session. The agent still runs on the task
+ * prompt (system-prompt override) with prompts and AGENTS files suppressed, but
+ * it now sees the target repo's own skills: pi's default discovery scans
+ * `<cwd>/<config>/skills` + `<agentDir>/skills` rather than the Agent-Skills
+ * convention dirs, so we point it at the repo's `.agents/skills` / `.claude/skills`
+ * (deduped by realpath since brunch-style repos symlink the two) and filter the
+ * result to paths under the sandbox. Greenfield worktrees have no such dir, so
+ * this resolves empty and leaves greenfield behavior unchanged.
+ */
+export function cookResourceLoader(
+  sandboxDir: string,
+  agentDir: string,
+  systemPrompt: string,
+): DefaultResourceLoader {
+  const skillDirs = [
+    ...new Set(
+      [join(sandboxDir, '.agents', 'skills'), join(sandboxDir, '.claude', 'skills')]
+        .filter((d) => existsSync(d))
+        .map((d) => realpathSync(d)),
+    ),
+  ];
+  return new DefaultResourceLoader({
+    cwd: sandboxDir,
+    agentDir,
+    systemPromptOverride: () => systemPrompt,
+    appendSystemPromptOverride: () => [],
+    additionalSkillPaths: skillDirs,
+    agentsFilesOverride: () => ({ agentsFiles: [] }),
+    skillsOverride: (base) => ({
+      skills: sandboxScopedSkills(base.skills, sandboxDir),
+      diagnostics: base.diagnostics,
+    }),
+    promptsOverride: () => ({ prompts: [], diagnostics: [] }),
+  });
+}
+
+// Map one action's inputs to SDK session config — tools/model/system-prompt +
+// the target repo's sandbox-scoped skills (see cookResourceLoader), in-memory
+// session. Auth from brunch's own ANTHROPIC_API_KEY, not the user's ~/.pi
+// credentials, which keeps a fresh checkout self-contained.
 async function buildSessionOptions(
   opts: RunPiOpts,
   isolatedDir: string,
@@ -247,15 +302,7 @@ async function buildSessionOptions(
   }
 
   const systemPrompt = readFileSync(opts.promptFile, 'utf8');
-  const resourceLoader = new DefaultResourceLoader({
-    cwd: opts.sandboxDir,
-    agentDir: isolatedDir,
-    systemPromptOverride: () => systemPrompt,
-    appendSystemPromptOverride: () => [],
-    agentsFilesOverride: () => ({ agentsFiles: [] }),
-    skillsOverride: () => ({ skills: [], diagnostics: [] }),
-    promptsOverride: () => ({ prompts: [], diagnostics: [] }),
-  });
+  const resourceLoader = cookResourceLoader(opts.sandboxDir, isolatedDir, systemPrompt);
   await resourceLoader.reload();
 
   // Supply the built-in tools ourselves (instrumented), instead of the `tools`
