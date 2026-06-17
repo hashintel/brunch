@@ -104,6 +104,7 @@ describe('graph tools end-to-end', () => {
       ops: [
         { op: 'create_node', ref: 'n1', plane: 'intent', kind: 'goal', title: 'Build graph API' },
         { op: 'create_node', ref: 'n2', plane: 'intent', kind: 'requirement', title: 'Expose queryGraph' },
+        { op: 'create_node', ref: 'n3', plane: 'intent', kind: 'constraint', title: 'Keep local-only' },
         { op: 'create_edge', category: 'dependency', dependency: 'n2', dependent: 'n1' },
       ],
     } as never)) as {
@@ -125,7 +126,7 @@ describe('graph tools end-to-end', () => {
       details: { nodes: readonly unknown[]; edges: readonly unknown[]; lsn: number };
     };
 
-    expect(readResult.details.nodes).toHaveLength(2);
+    expect(readResult.details.nodes).toHaveLength(3);
     expect(readResult.details.edges).toHaveLength(1);
     expect(readResult.content[0]!.text).toContain('Build graph API');
     expect(carriers.at(-1)).toEqual({
@@ -133,7 +134,14 @@ describe('graph tools end-to-end', () => {
       data: { specId, snapshotLsn: readResult.details.lsn },
     });
 
-    await read.execute('tool-3', { mode: 'neighborhood', nodeCode: 'G1' } as never);
+    const bandResult = (await read.execute('tool-3', {
+      mode: 'list_by_band',
+      readinessBands: ['elicitation'],
+    } as never)) as { content: readonly { text: string }[] };
+    expect(bandResult.content[0]!.text).toContain('nodes — intent · elicitation (1)');
+    expect(bandResult.content[0]!.text).not.toContain('nodes — intent · grounding (1)');
+
+    await read.execute('tool-4', { mode: 'neighborhood', nodeCode: 'G1' } as never);
     expect(carriers).toHaveLength(2);
   });
 });

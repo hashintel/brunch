@@ -123,8 +123,9 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         text = formatGraphOverview(slice, 'Graph slice by kind');
         details = slice;
       } else if (params.mode === 'list_by_band') {
-        const slice = reads.queryGraph({ bands: params.readinessBands as readonly ReadinessBand[] }, options);
-        text = formatGraphOverview(slice, 'Graph slice by readiness band');
+        const requestedReadinessBands = params.readinessBands as readonly ReadinessBand[];
+        const slice = reads.queryGraph({ bands: requestedReadinessBands }, options);
+        text = formatGraphOverview(slice, 'Graph slice by readiness band', { requestedReadinessBands });
         details = slice;
       } else if (params.mode === 'related') {
         if ((params.anchorCodes?.length ?? 0) === 0) {
