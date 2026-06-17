@@ -457,7 +457,7 @@ export function createPiActions(opts?: {
         await runPi(
           {
             label: `tests     ${label}`,
-            model: 'claude-opus-4-6',
+            model: 'claude-opus-4-8',
             promptFile: join(promptsDir, 'test-writer.md'),
             task,
             sandboxDir: ctx.sandboxDir,
@@ -487,7 +487,7 @@ export function createPiActions(opts?: {
         await runPi(
           {
             label: `code      ${label}`,
-            model: 'claude-opus-4-6',
+            model: 'claude-opus-4-8',
             promptFile: join(promptsDir, 'code-writer.md'),
             task,
             sandboxDir: ctx.sandboxDir,
@@ -520,7 +520,7 @@ export function createPiActions(opts?: {
       await runPi(
         {
           label: `verify    ${ctx.epic.id} (write)`,
-          model: 'claude-opus-4-6',
+          model: 'claude-opus-4-8',
           promptFile: join(promptsDir, 'test-writer.md'),
           task: writeTask,
           sandboxDir: ctx.sandboxDir,

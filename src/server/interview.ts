@@ -320,7 +320,7 @@ export function createInterviewerAgent(
   const instructions = getInterviewerInstructions(phase, options);
 
   return new ToolLoopAgent({
-    model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-opus-4-6'),
+    model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-opus-4-8'),
     instructions,
     tools,
     providerOptions: {
