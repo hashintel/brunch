@@ -34,7 +34,7 @@ The deliverable is itself an instrument, so oracle design is mostly about the ha
 
 # Card 1 — VirtualTerminal shared test harness + preflight viewport proof
 
-**Weight:** full scope card · **Status:** next · **Posture:** proving
+**Weight:** full scope card · **Status:** done · **Posture:** proving
 
 ### Target Behavior
 
@@ -122,7 +122,7 @@ vite.config.ts                                            ?   (only if env pinni
 
 # Card 2 — Interactive focusable component proof through the harness
 
-**Weight:** light scope card · **Status:** next · **Posture:** earned
+**Weight:** light scope card · **Status:** done · **Posture:** earned
 
 ### Objective
 
