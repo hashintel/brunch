@@ -28,6 +28,8 @@ export interface SliceRow {
   detail?: string;
   /** Why the slice failed (e.g. 'tests failed', 'infra error'). */
   reason?: string;
+  /** Attempt count — incremented each time the slice (re)enters running. */
+  attempts?: number;
 }
 
 export interface RunState {
@@ -77,6 +79,14 @@ export class RunStore {
     }
     if (event.kind === 'slice') {
       const running = event.status === 'running';
+      const prev = this.state.slices.find((s) => s.id === event.id);
+      // A fresh run (queued→running) is attempt 1; a retry (failed→running) bumps
+      // it; a step change mid-run (running→running) keeps the count.
+      const attempts = running
+        ? prev?.status === 'running'
+          ? prev.attempts
+          : (prev?.attempts ?? 0) + 1
+        : prev?.attempts;
       this.commit({
         slices: this.updateSlice(event.id, {
           status: event.status,
@@ -85,6 +95,7 @@ export class RunStore {
           ...(running ? {} : { step: undefined, detail: undefined }),
           // set/clear the failure reason from the event (undefined for passed/running)
           reason: event.reason,
+          attempts,
         }),
       });
       return;

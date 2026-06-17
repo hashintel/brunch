@@ -145,3 +145,31 @@ describe('RunStore — failure legibility', () => {
     expect(done.getSnapshot().haltReason).toBeUndefined();
   });
 });
+
+describe('RunStore — attempt counting', () => {
+  function seed(): RunStore {
+    const store = new RunStore('cook', () => 0);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    return store;
+  }
+  const attemptsOf = (store: RunStore) => store.getSnapshot().slices.find((s) => s.id === 'login')!.attempts;
+
+  it('counts attempt 1 on first run; step changes mid-run do not bump it', () => {
+    const store = seed();
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'tests' });
+    expect(attemptsOf(store)).toBe(1);
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'verify' });
+    expect(attemptsOf(store)).toBe(1); // running→running keeps the count
+  });
+
+  it('bumps the attempt on a retry (failed → running) and keeps it on terminal failure', () => {
+    const store = seed();
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'verify' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'tests failed' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    expect(attemptsOf(store)).toBe(2); // failed→running is attempt 2
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'tests failed' });
+    expect(attemptsOf(store)).toBe(2); // terminal failure keeps the count
+  });
+});

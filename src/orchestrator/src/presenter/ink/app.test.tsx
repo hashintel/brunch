@@ -116,3 +116,19 @@ describe('Ink App — failure legibility', () => {
     expect(lastFrame() ?? '').not.toContain('✗ halted');
   });
 });
+
+describe('Ink App — attempt count', () => {
+  it('shows the attempt only once a slice has retried', async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    await tick();
+    expect(lastFrame() ?? '').not.toContain('attempt'); // first run: no clutter
+
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'tests failed' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    await tick();
+    expect(lastFrame() ?? '').toContain('attempt 2');
+  });
+});

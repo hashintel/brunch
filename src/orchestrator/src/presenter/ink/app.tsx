@@ -42,7 +42,9 @@ const SLICE_COLOR = { queued: 'gray', running: 'cyan', passed: 'green', failed: 
 
 function sliceTail(row: SliceRow): string {
   // For a failed slice the store cleared step/detail, so the tail is the reason.
-  return [row.step, row.reason, row.detail].filter(Boolean).join(' · ');
+  // Show the attempt only once a slice has retried (≥2) to avoid clutter.
+  const attempt = row.attempts && row.attempts >= 2 ? `attempt ${row.attempts}` : undefined;
+  return [row.step, attempt, row.reason, row.detail].filter(Boolean).join(' · ');
 }
 
 const HALT_MAX = 56;
