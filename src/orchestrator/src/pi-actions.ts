@@ -546,17 +546,30 @@ export function createPiActions(opts?: {
       log('▸', `verify    ${ctx.epic.id}`);
       const writeTask = epicVerifyTask(ctx.epic, toolchain);
 
-      await runPi(
-        {
-          label: `verify    ${ctx.epic.id} (write)`,
-          model: 'claude-opus-4-8',
-          promptFile: join(promptsDir, 'test-writer.md'),
-          task: writeTask,
-          sandboxDir: ctx.sandboxDir,
-          tools: toolsForAction('verify-epic'),
-        },
-        piDeps,
-      );
+      try {
+        await runPi(
+          {
+            label: `verify    ${ctx.epic.id} (write)`,
+            model: 'claude-opus-4-8',
+            promptFile: join(promptsDir, 'test-writer.md'),
+            task: writeTask,
+            sandboxDir: ctx.sandboxDir,
+            tools: toolsForAction('verify-epic'),
+          },
+          piDeps,
+        );
+      } catch (err) {
+        // Mirror write-tests/write-code: a thrown runPi must paint a failed row
+        // (on the epic's representative slice) with a reason, not vanish silently.
+        _emit({
+          kind: 'slice',
+          id: ctx.slice.id,
+          epicId: ctx.epic.id,
+          status: 'failed',
+          reason: 'epic verification failed',
+        });
+        throw err;
+      }
 
       const {
         done: testsPassed,
