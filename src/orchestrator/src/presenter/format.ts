@@ -11,9 +11,16 @@ const RULE = '  ─────────────────────�
 export function formatCookEvent(event: CookEvent, clock: ElapsedClock): string[] {
   switch (event.kind) {
     case 'plan-start':
-      return ['', '  brunch plan', RULE, `  spec       ${event.specId}`, `  out        ${event.outDir}`, ''];
+      return [
+        '',
+        '  brunch recipe',
+        RULE,
+        `  spec       ${event.specId}`,
+        `  out        ${event.outDir}`,
+        '',
+      ];
     case 'plan-written':
-      return [`  ✓  plan      ${event.path}`, `     ${event.epics} epics, ${event.slices} slices`, ''];
+      return [`  ✓  recipe    ${event.path}`, `     ${event.epics} epics, ${event.slices} slices`, ''];
     case 'plan-warnings':
       if (event.messages.length === 0) return [];
       return [`  ${event.messages.length} warnings:`, ...event.messages.map((m) => `  !  ${m}`), ''];

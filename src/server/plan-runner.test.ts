@@ -157,6 +157,8 @@ describe('runPlan', () => {
 
     // Transformation warning (cycle break) is always printed.
     expect(stderrLines.some((line) => line.includes('cycle-break-dropped-edge'))).toBe(true);
+    // …as the terse code line only — no plain-English account at default verbosity.
+    expect(stderrLines.some((line) => line.includes('to break a dependency cycle'))).toBe(false);
     // Synthesis warning is suppressed at default verbosity.
     expect(stderrLines.some((line) => line.includes('synthesized-verification-target'))).toBe(false);
     // Header echoes the spec id.
@@ -197,6 +199,9 @@ describe('runPlan', () => {
     expect(stderrLines.some((line) => line.includes('cycle-break-dropped-edge'))).toBe(true);
     const synth = stderrLines.filter((line) => line.includes('synthesized-verification-target'));
     expect(synth.length).toBe(2);
+    // Verbose mode appends a plain-English account after the terse code line.
+    expect(synth.every((line) => line.includes('a default test target was synthesized'))).toBe(true);
+    expect(stderrLines.some((line) => line.includes('to break a dependency cycle'))).toBe(true);
   });
 
   it('surfaces the architect fallback as a stderr warning line when the LLM throws', async () => {

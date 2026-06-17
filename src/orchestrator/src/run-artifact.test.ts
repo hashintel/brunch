@@ -155,7 +155,7 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     seedSliceWorktree('b', (d) => writeFileSync(join(d, 'b.txt'), 'B\n'));
 
     const plan: Plan = {
-      mode: 'codebase',
+      mode: 'greenfield',
       epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
       slices: [slice('a'), slice('b', ['a'])],
     };
