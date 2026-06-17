@@ -15,7 +15,7 @@ import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
 import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
-import { promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
+import { landCookBranch, promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
@@ -49,6 +49,12 @@ export type CookOptions = {
   outDir?: string;
   /** Allow promoting into a non-empty target (otherwise refused). */
   force: boolean;
+  /**
+   * Brownfield only: after promotion, merge `cook/<runId>` into the repo's active
+   * branch as the final step. Set by `serve --land`; plain `cook` never sets it,
+   * keeping promotion's hands-off default intact unless the user opts in.
+   */
+  landBranch?: boolean;
   /**
    * Explicit specification id whose emitted plan (under
    * `<dir>/.brunch/cook/specs/<id>/plan.yaml`) should be cooked.
@@ -573,9 +579,26 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
               runId,
             }),
           );
-          line(
-            `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (merge it into your branch when ready)`,
-          );
+          if (opts.landBranch) {
+            const landed = promoting(`landing → ${promoted.branch} into the active branch`, () =>
+              landCookBranch({ sourceDir: sandbox.sourceDir, runId }),
+            );
+            if (landed.kind === 'landed') {
+              line(`  ✓  promoted + landed ${promoted.branch} onto ${landed.branch} (${landed.mode})`);
+            } else if (landed.kind === 'refused') {
+              line(
+                `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (not landed: working tree ${landed.reason}; merge it when ready)`,
+              );
+            } else {
+              line(
+                `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (not landed: merge conflict on ${landed.branch}; resolve with \`git merge ${promoted.branch}\`)`,
+              );
+            }
+          } else {
+            line(
+              `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (merge it into your branch when ready)`,
+            );
+          }
           line('');
         } catch (err) {
           line(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);

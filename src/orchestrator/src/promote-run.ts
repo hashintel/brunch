@@ -201,3 +201,44 @@ export function promoteBrownfieldRun(opts: BrownfieldPromoteOptions): PromoteRes
     rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+/**
+ * Merge a promoted `cook/<runId>` branch into the repo's checked-out branch — the
+ * opt-in counterpart to brownfield promotion's hands-off default. Promotion
+ * deliberately never touches the working branch; this is the only path that does,
+ * and only when the caller (`serve --land`) explicitly asks. It refuses rather
+ * than freelance: a dirty tree or detached HEAD is left untouched, and a real
+ * merge that conflicts is aborted back to a clean state. On every non-landed
+ * outcome the `cook/<runId>` branch stays intact for manual merge/review.
+ */
+export function landCookBranch(opts: LandOptions): LandResult {
+  const sourceDir = resolve(opts.sourceDir);
+  const ref = `cook/${opts.runId}`;
+  const cookCommit = git(['rev-parse', '--verify', ref], sourceDir);
+
+  // Refuse on a detached HEAD (no branch to advance) or a dirty tree (don't bury
+  // uncommitted work under a merge) — leave the repo exactly as found.
+  let branch: string;
+  try {
+    branch = git(['symbolic-ref', '--quiet', '--short', 'HEAD'], sourceDir);
+  } catch {
+    return { kind: 'refused', reason: 'detached' };
+  }
+  if (git(['status', '--porcelain'], sourceDir) !== '') {
+    return { kind: 'refused', reason: 'dirty' };
+  }
+
+  // HEAD unmoved since the run branched → cook/<runId> is strictly ahead, so a
+  // fast-forward lands the commit verbatim. Otherwise a real merge is required.
+  if (gitOk(['merge-base', '--is-ancestor', 'HEAD', ref], sourceDir)) {
+    git(['merge', '--ff-only', ref], sourceDir);
+    return { kind: 'landed', mode: 'fast-forward', branch, commit: cookCommit };
+  }
+  try {
+    git([...COMMIT_IDENTITY, 'merge', '--no-edit', ref], sourceDir);
+  } catch {
+    git(['merge', '--abort'], sourceDir);
+    return { kind: 'conflict', branch };
+  }
+  return { kind: 'landed', mode: 'merge', branch, commit: git(['rev-parse', 'HEAD'], sourceDir) };
+}
