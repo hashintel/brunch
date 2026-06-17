@@ -21,7 +21,7 @@ import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
-import { copyMissingTopLevelEntries } from './cow-copy.js';
+import { copyMissingTopLevelEntries, linkSharedTopLevelEntries } from './cow-copy.js';
 import { brunchRef, pruneWorktrees } from './run-refs.js';
 import type { Plan, Slice } from './types.js';
 
@@ -365,6 +365,11 @@ function mergeSliceDirsInto(parentSandboxDir: string, sliceIds: string[], destDi
 export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
   const epicSandboxDir = resolveEpicSandboxDir(opts.parentSandboxDir, opts.epicId);
   const conflicts = mergeSliceDirsInto(opts.parentSandboxDir, opts.sliceIds, epicSandboxDir);
+  // `walkFiles` skips the parent's symlinked `node_modules`, so the merged tree
+  // would have no resolvable deps. verify-epic and probes run in this cwd — and
+  // per-slice verification already passed against the same shared copy — so
+  // re-link the shareable entries here too.
+  linkSharedTopLevelEntries(opts.parentSandboxDir, epicSandboxDir, SHAREABLE_TOP_LEVEL_ENTRIES);
   return { epicSandboxDir, conflicts };
 }
 
