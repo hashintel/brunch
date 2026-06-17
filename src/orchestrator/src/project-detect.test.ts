@@ -136,8 +136,8 @@ describe('detectTestDir learns the test directory from existing test files', () 
     expect(detectTestDir(repo({ 'src/index.ts': '', 'package.json': '{}' }))).toBeNull();
   });
 
-  it('ignores test files sitting directly at the repo root (no directory to teach)', () => {
-    expect(detectTestDir(repo({ 'root.test.ts': '' }))).toBeNull();
+  it('returns an empty directory for test files sitting directly at the repo root', () => {
+    expect(detectTestDir(repo({ 'root.test.ts': '' }))).toBe('');
   });
 });
 
