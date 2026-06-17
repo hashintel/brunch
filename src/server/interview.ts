@@ -330,6 +330,10 @@ export function createInterviewerAgent(
         // enabled/budgetTokens shape (which the API rejects for this model).
         thinking: { type: 'adaptive' },
         effort: 'medium',
+        // Opus 4.8 otherwise fragments a single `ask_question` into several
+        // parallel partial calls (one option each / leaked tool-call XML),
+        // which land as failed `output-error` parts. Force one call per step.
+        disableParallelToolUse: true,
       },
     },
     maxOutputTokens: 16000,
