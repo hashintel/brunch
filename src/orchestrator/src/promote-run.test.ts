@@ -248,7 +248,10 @@ describe('promoteBrownfieldRun', () => {
       // brunch/run/r1 advanced by one commit on top of the base.
       expect(result.branch).toBe('brunch/run/r1');
       expect(result.commit).not.toBe(baseHead);
-      const parent = execFileSync('git', ['rev-parse', 'brunch/run/r1^'], { cwd: dir, encoding: 'utf8' }).trim();
+      const parent = execFileSync('git', ['rev-parse', 'brunch/run/r1^'], {
+        cwd: dir,
+        encoding: 'utf8',
+      }).trim();
       expect(parent).toBe(baseHead);
 
       // The commit's tree carries the delta — and not the gitignored deps.
@@ -304,9 +307,9 @@ describe('promoteBrownfieldRun', () => {
       const result = promoteBrownfieldRun({ sourceDir: dir, sourceTreeDir: composedTree(), runId: 'r1' });
 
       // Only brunch/run/r1 moved (one commit on the base).
-      expect(execFileSync('git', ['rev-parse', 'brunch/run/r1^'], { cwd: dir, encoding: 'utf8' }).trim()).toBe(
-        baseHead,
-      );
+      expect(
+        execFileSync('git', ['rev-parse', 'brunch/run/r1^'], { cwd: dir, encoding: 'utf8' }).trim(),
+      ).toBe(baseHead);
       expect(execFileSync('git', ['show', 'brunch/run/r1:app.ts'], { cwd: dir, encoding: 'utf8' })).toContain(
         'v = 2',
       );

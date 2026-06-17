@@ -254,7 +254,9 @@ describe('seedSliceFromParentWorktree', () => {
     const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
     dirs.push(runDir);
     const parent = join(runDir, 'worktree');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', `brunch/run/${runId}`, parent, 'HEAD'], { cwd: source });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', `brunch/run/${runId}`, parent, 'HEAD'], {
+      cwd: source,
+    });
 
     return {
       parent,
@@ -384,7 +386,9 @@ describe('ensureSliceWorktree', () => {
     const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
     dirs.push(runDir);
     const parent = join(runDir, 'worktree');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', `brunch/run/${runId}`, parent, 'HEAD'], { cwd: source });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', `brunch/run/${runId}`, parent, 'HEAD'], {
+      cwd: source,
+    });
     return parent;
   }
 

@@ -14,7 +14,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { bunProfile, type Toolchain } from './project-profile.js';
-import { classifyTestFailure, runVerification, stripAgentTailLines, ToolchainTestRunner } from './test-runner.js';
+import {
+  classifyTestFailure,
+  runVerification,
+  stripAgentTailLines,
+  ToolchainTestRunner,
+} from './test-runner.js';
 import type { TestResult, TestRunner } from './types.js';
 
 const bun = bunProfile.toolchain;
