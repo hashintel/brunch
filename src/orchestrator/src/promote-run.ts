@@ -5,6 +5,17 @@ import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 
 export type PromoteResult = { target: string; branch: string; commit: string };
 
+export type LandResult =
+  | { kind: 'landed'; mode: 'fast-forward' | 'merge'; branch: string; commit: string }
+  | { kind: 'refused'; reason: 'dirty' | 'detached' }
+  | { kind: 'conflict'; branch: string };
+
+export type LandOptions = {
+  /** The user's repo root whose active branch should receive the cook commit. */
+  sourceDir: string;
+  runId: string;
+};
+
 export type PromoteOptions = {
   sandboxDir: string;
   target: string;
@@ -22,6 +33,15 @@ export type BrownfieldPromoteOptions = {
 
 function git(args: string[], cwd: string, env?: NodeJS.ProcessEnv): string {
   return execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+}
+
+function gitOk(args: string[], cwd: string): boolean {
+  try {
+    git(args, cwd);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // Deterministic committer so promotion never depends on (or mutates) global git config.
