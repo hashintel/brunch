@@ -50,7 +50,7 @@ const wellFormed = {
 
 describe('architectPlan', () => {
   it('defaults the production architect to the current Opus model', () => {
-    expect(DEFAULT_ARCHITECT_MODEL_ID).toBe('claude-opus-4-6');
+    expect(DEFAULT_ARCHITECT_MODEL_ID).toBe('claude-opus-4-8');
   });
 
   it('parses a well-formed authored draft', async () => {

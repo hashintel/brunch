@@ -94,7 +94,7 @@ export type ArchitectResult =
 
 export type RunModel = (prompt: string) => Promise<unknown>;
 
-export const DEFAULT_ARCHITECT_MODEL_ID = 'claude-opus-4-6';
+export const DEFAULT_ARCHITECT_MODEL_ID = 'claude-opus-4-8';
 
 const EMPTY_DRAFT: ArchitectDraft = { epics: [], slices: [], nonBuildableRequirementIds: [] };
 
