@@ -403,6 +403,38 @@ describe('ensureSliceWorktree', () => {
     },
     GIT_TEST_TIMEOUT_MS,
   );
+
+  it(
+    'fails loudly when a slice id collides with a tracked parent entry, not a worktree',
+    () => {
+      // A slice id matching a tracked top-level dir (here `src`) resolves to an
+      // existing path that is NOT a provisioned worktree. Early-returning it
+      // would hand the project source to the slice as its sandbox.
+      const source = mkdtempSync(join(tmpdir(), 'cook-source-'));
+      dirs.push(source);
+      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: source });
+      execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: source });
+      execFileSync('git', ['config', 'user.name', 'Test'], { cwd: source });
+      mkdirSync(join(source, 'src'));
+      writeFileSync(join(source, 'src', 'index.ts'), 'export {};\n');
+      execFileSync('git', ['add', '.'], { cwd: source });
+      execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: source });
+
+      const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
+      dirs.push(runDir);
+      const parent = join(runDir, 'worktree');
+      execFileSync('git', ['worktree', 'add', '-q', '-b', 'cook/r2', parent, 'HEAD'], { cwd: source });
+
+      const collidingPlan: Plan = {
+        mode: 'brownfield',
+        epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+        slices: [{ id: 'src', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
+      };
+
+      expect(() => ensureSliceWorktree(parent, 'src', collidingPlan, 'r2')).toThrow(/collides/i);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
 });
 
 describe('mergeSlicesIntoEpicSandbox', () => {
