@@ -443,7 +443,13 @@ export function createPiActions(opts?: {
         log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
       }
       log(done ? '●' : '○', `verdict   ${label} → ${done ? 'DONE' : 'NEEDS WORK'}`);
-      _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: done ? 'passed' : 'failed' });
+      _emit({
+        kind: 'slice',
+        id: ctx.slice.id,
+        epicId: ctx.epic.id,
+        status: done ? 'passed' : 'failed',
+        ...(done ? {} : { reason: failureKind === 'infra' ? 'infra error' : 'tests failed' }),
+      });
       return report(ctx, 'evaluator', 'eval-done', { done, failureKind, results });
     },
 
@@ -467,7 +473,13 @@ export function createPiActions(opts?: {
           piDeps,
         );
       } catch (err) {
-        _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'failed' });
+        _emit({
+          kind: 'slice',
+          id: ctx.slice.id,
+          epicId: ctx.epic.id,
+          status: 'failed',
+          reason: 'test authoring failed',
+        });
         throw err;
       }
 
@@ -497,7 +509,13 @@ export function createPiActions(opts?: {
           piDeps,
         );
       } catch (err) {
-        _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'failed' });
+        _emit({
+          kind: 'slice',
+          id: ctx.slice.id,
+          epicId: ctx.epic.id,
+          status: 'failed',
+          reason: 'code authoring failed',
+        });
         throw err;
       }
 

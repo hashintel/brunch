@@ -26,6 +26,8 @@ export interface SliceRow {
   step?: string;
   /** Live heartbeat for the running slice (latest line / tool). */
   detail?: string;
+  /** Why the slice failed (e.g. 'tests failed', 'infra error'). */
+  reason?: string;
 }
 
 export interface RunState {
@@ -40,6 +42,8 @@ export interface RunState {
   slices: SliceRow[];
   /** When the run started, for the single global header timer. */
   runStart: number;
+  /** Set when the run halted — the reason, pinned in a halt summary. */
+  haltReason?: string;
 }
 
 export class RunStore {
@@ -79,6 +83,8 @@ export class RunStore {
           ...(event.step !== undefined ? { step: event.step } : {}),
           // clear the in-flight label + heartbeat once the slice stops running
           ...(running ? {} : { step: undefined, detail: undefined }),
+          // set/clear the failure reason from the event (undefined for passed/running)
+          reason: event.reason,
         }),
       });
       return;
@@ -106,6 +112,15 @@ export class RunStore {
         return;
       }
       this.commit({ pending: this.state.pending.filter((a) => a.id !== event.id) });
+      return;
+    }
+
+    if (event.kind === 'cook-done') {
+      // Advances the brigade to `serve` on success; pins a halt summary otherwise.
+      this.commit({
+        phase: nextPhase(this.state.phase, event),
+        ...(event.ok ? {} : { haltReason: event.reason ?? 'halted' }),
+      });
       return;
     }
 

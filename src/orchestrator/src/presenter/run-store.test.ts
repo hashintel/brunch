@@ -123,3 +123,25 @@ describe('RunStore — slice grid', () => {
     expect(store.getSnapshot().pending).toHaveLength(0);
   });
 });
+
+describe('RunStore — failure legibility', () => {
+  it('stores a slice failure reason', () => {
+    const store = new RunStore('cook', () => 0);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'tests failed' });
+    expect(store.getSnapshot().slices.find((s) => s.id === 'login')).toMatchObject({
+      status: 'failed',
+      reason: 'tests failed',
+    });
+  });
+
+  it('sets haltReason from cook-done(ok:false) and leaves it unset on completion', () => {
+    const halted = new RunStore('cook', () => 0);
+    halted.push({ kind: 'cook-done', ok: false, reason: 'budget exhausted' });
+    expect(halted.getSnapshot().haltReason).toBe('budget exhausted');
+
+    const done = new RunStore('cook', () => 0);
+    done.push({ kind: 'cook-done', ok: true });
+    expect(done.getSnapshot().haltReason).toBeUndefined();
+  });
+});

@@ -642,8 +642,9 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
       }
     }
 
-    // Run complete (after promotion) — lights the brigade's `serve` phase.
-    bus.emit({ kind: 'cook-done', ok });
+    // Run complete (after promotion) — lights the brigade's `serve` phase, or
+    // pins a halt summary with the reason when it did not complete.
+    bus.emit({ kind: 'cook-done', ok, ...(result.reason ? { reason: result.reason } : {}) });
     recordCookExitStatus(ok);
     return;
   } finally {

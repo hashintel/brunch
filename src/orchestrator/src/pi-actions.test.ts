@@ -173,7 +173,13 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
           status: 'running',
           step: action === 'write-tests' ? 'tests' : 'code',
         },
-        { kind: 'slice', id: 'chunk', epicId: 'utils', status: 'failed' },
+        {
+          kind: 'slice',
+          id: 'chunk',
+          epicId: 'utils',
+          status: 'failed',
+          reason: action === 'write-tests' ? 'test authoring failed' : 'code authoring failed',
+        },
       ]);
     }
   });
@@ -1161,5 +1167,54 @@ describe('action handlers emit slice grid events', () => {
       status: 'running',
       step: 'tests',
     });
+  });
+});
+
+describe('evaluate-done failure carries a reason', () => {
+  const slice: Slice = {
+    id: 'login',
+    epic_id: 'api',
+    definition: 'L',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/l.test.ts' }],
+  };
+  const epic: Epic = { id: 'api', summary: 'API', depends_on: [], verification: [] };
+  const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+  const ctx = (): ActionContext => ({
+    slice,
+    epic,
+    plan,
+    sandboxDir: '/tmp/x',
+    reports: new InMemoryReportSink(),
+  });
+  type SliceEvent = Extract<CookEvent, { kind: 'slice' }>;
+  const lastSlice = (events: CookEvent[]) => events.filter((e): e is SliceEvent => e.kind === 'slice').at(-1);
+
+  it('maps a test failure to "tests failed"', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'fail', failureKind: 'test' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx());
+    expect(lastSlice(events)).toMatchObject({ status: 'failed', reason: 'tests failed' });
+  });
+
+  it('maps an infra failure to "infra error"', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'no runner', failureKind: 'infra' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx());
+    expect(lastSlice(events)).toMatchObject({ status: 'failed', reason: 'infra error' });
   });
 });

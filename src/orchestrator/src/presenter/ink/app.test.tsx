@@ -90,3 +90,29 @@ describe('Ink App — slice grid', () => {
     expect(frame).toContain('refresh · code · edit src/token.ts'); // running w/ step + detail
   });
 });
+
+describe('Ink App — failure legibility', () => {
+  it('shows a failed slice reason and pins a halt summary', async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'tests failed' });
+    store.push({ kind: 'cook-done', ok: false, reason: 'login exhausted retries' });
+    await tick();
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('login · tests failed');
+    expect(frame).toContain('✗ halted · login exhausted retries');
+  });
+
+  it('shows no halt summary for a completed run', async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'passed' });
+    store.push({ kind: 'cook-done', ok: true });
+    await tick();
+
+    expect(lastFrame() ?? '').not.toContain('✗ halted');
+  });
+});

@@ -41,7 +41,21 @@ const SLICE_ICON = { queued: '○', running: '', passed: '✓', failed: '✗' } 
 const SLICE_COLOR = { queued: 'gray', running: 'cyan', passed: 'green', failed: 'red' } as const;
 
 function sliceTail(row: SliceRow): string {
-  return [row.step, row.detail].filter(Boolean).join(' · ');
+  // For a failed slice the store cleared step/detail, so the tail is the reason.
+  return [row.step, row.reason, row.detail].filter(Boolean).join(' · ');
+}
+
+const HALT_MAX = 56;
+
+function HaltSummary({ reason }: { reason: string }) {
+  const text = reason.length > HALT_MAX ? `${reason.slice(0, HALT_MAX - 1)}…` : reason;
+  return (
+    <Box marginTop={1}>
+      <Text color="red" bold>
+        ✗ halted · {text}
+      </Text>
+    </Box>
+  );
 }
 
 function SliceGrid({ epics, slices, frame }: Pick<RunState, 'epics' | 'slices'> & { frame: string }) {
@@ -134,6 +148,7 @@ export function App({ store, now = () => Date.now() }: { store: RunStore; now?: 
         </Box>
         <SliceGrid epics={state.epics} slices={state.slices} frame={SPINNER[tick % SPINNER.length]!} />
         <PendingPanel pending={state.pending} frame={SPINNER[tick % SPINNER.length]!} />
+        {state.haltReason ? <HaltSummary reason={state.haltReason} /> : null}
       </Box>
     </>
   );
