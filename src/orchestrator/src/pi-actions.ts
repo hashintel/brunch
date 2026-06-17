@@ -150,6 +150,10 @@ async function withActivity<T>(id: string, label: string, fn: () => Promise<T>):
 // Pi dispatch
 // ---------------------------------------------------------------------------
 
+// Idle deadline, not a wall-clock cap: the agent may legitimately work far
+// longer than this on a heavy slice — what we guard against is dead air. Each
+// session event re-arms the timer (see runPi), so this bounds silence, not
+// total runtime. FE-864.
 const PI_TIMEOUT_MS = 600_000;
 // Output cap — the timeout alone won't stop a fast, chatty agent.
 const PI_MAX_OUTPUT = 10 * 1024 * 1024;
@@ -253,8 +257,10 @@ async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promis
 // In-process (not a spawned CLI) so brunch is self-contained. Each run gets a
 // throwaway agent/auth dir to keep concurrent slices isolated; the dir is removed
 // after the session ends. Output is buffered from text_delta events, never written
-// to brunch's stdout (keeps the cook SSE stream clean); the timeout covers both
-// session setup and the prompt turn, aborting cooperatively once a session exists.
+// to brunch's stdout (keeps the cook SSE stream clean); the timeout is an idle
+// deadline covering both session setup and the prompt turn — any session event
+// (text, tool call, tool-execution progress) re-arms it, so only true dead air
+// trips it, aborting cooperatively once a session exists.
 async function runPi(
   opts: RunPiOpts,
   deps: { createSession?: SessionFactory; timeoutMs?: number; maxOutput?: number } = {},
@@ -264,7 +270,7 @@ async function runPi(
   const maxOutput = deps.maxOutput ?? PI_MAX_OUTPUT;
   const start = Date.now();
   const activityId = opts.activityId ?? opts.label;
-  // Open a live wait so the (up to 5-minute) agent session isn't dead air.
+  // Open a live wait so the agent session isn't dead air in the UI.
   _emit({ kind: 'activity-start', id: activityId, label: opts.label });
   let heartbeatKb = 0;
 
@@ -283,12 +289,23 @@ async function runPi(
   let promptError: unknown;
   let unsubscribe: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
+  let rejectTimeout: ((err: Error) => void) | undefined;
+  // Re-armable idle deadline: cleared and reset on every session event so the
+  // budget bounds silence, not total work. A heavy slice whose agent spends
+  // minutes in a single test command between edits stays alive as long as the
+  // session keeps emitting; only genuine dead air for `timeoutMs` aborts it.
+  const armIdleTimer = (): void => {
+    if (timedOut) return;
+    if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timedOut = true;
       void session?.abort();
-      reject(piTimeoutError(timeoutMs));
+      rejectTimeout?.(piTimeoutError(timeoutMs));
     }, timeoutMs);
+  };
+  const timeout = new Promise<never>((_, reject) => {
+    rejectTimeout = reject;
+    armIdleTimer();
   });
 
   try {
@@ -311,6 +328,9 @@ async function runPi(
     session = await Promise.race([setup, timeout]);
 
     unsubscribe = session.subscribe((event) => {
+      // Any activity — text, tool call, tool-execution progress, thinking —
+      // is liveness: push the idle deadline forward.
+      armIdleTimer();
       if (event.type === 'message_update' && event.assistantMessageEvent.type === 'text_delta') {
         if (overflowed) return;
         const delta = event.assistantMessageEvent.delta;

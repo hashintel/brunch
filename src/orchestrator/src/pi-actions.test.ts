@@ -872,6 +872,45 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
     }
   });
 
+  it('treats the timeout as an idle deadline — periodic activity keeps a long session alive (FE-864)', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      // Emit a non-text activity event every 15ms for ~90ms total — well past
+      // the 40ms budget, but never idle longer than it. A wall-clock cap would
+      // abort; an idle deadline (re-armed on any event, not just text) must not.
+      let listener: ((event: unknown) => void) | undefined;
+      let aborted = false;
+      const session = {
+        subscribe(fn: (event: unknown) => void) {
+          listener = fn;
+          return () => {};
+        },
+        async prompt() {
+          for (let i = 0; i < 6; i++) {
+            await new Promise<void>((res) => setTimeout(res, 15));
+            listener?.({ type: 'tool_execution_update' });
+          }
+        },
+        async abort() {
+          aborted = true;
+        },
+        dispose() {},
+        get state() {
+          return { messages: [] as unknown[] };
+        },
+      };
+      const createSession = (async () => ({ session })) as unknown as SessionFactory;
+
+      await expect(
+        runPi(baseOpts(sandboxDir, 'read'), { createSession, timeoutMs: 40 }),
+      ).resolves.toBeDefined();
+      expect(aborted).toBe(false);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
   it('throws a clear error when ANTHROPIC_API_KEY is absent (no pi login / auth.json fallback)', async () => {
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     const saved = process.env.ANTHROPIC_API_KEY;
