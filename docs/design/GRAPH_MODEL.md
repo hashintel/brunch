@@ -239,6 +239,8 @@ never has to guess direction from the arrow.
 
 ## Worked examples — same shape across planes
 
+> **Superseded node-code mnemonics.** These examples still illustrate edge shape and direction, but some node-code prefixes in this section are stale. Canonical prefix labels and readiness-band metadata now live in `src/graph/schema/{kinds,nodes,edges}.ts` plus `src/graph/policy/category-policy.ts`; the duplicated taxonomy tables and mnemonic examples here are slated for retirement.
+
 ```text
 # Intent (M4)
 A_local_only  : assumption   -[dependency]->        D_no_auth      : decision
@@ -797,6 +799,8 @@ for what kind of material the node captures.
 
 ## Node kind metadata: codes and readiness bands
 
+> **Superseded taxonomy copy.** Canonical node-kind labels and readiness bands now live in `src/graph/schema/{kinds,nodes,edges}.ts` plus `src/graph/policy/category-policy.ts`. The duplicated prefix/readiness table below and the worked-example mnemonics above are stale snapshots and are slated for retirement once SPEC references are repointed.
+
 Metadata is a pure function of `(plane, kind)`. It is not stored as a
 nested object on each node. Readiness-band membership is consumed by
 context / prompt filters; reference-code labels are consumed by
@@ -833,6 +837,8 @@ readiness threshold.
 | plan | `slice` | `SL` | commitment |
 
 Notes:
+
+> **Superseded code note.** Prefix notes in this document are stale; use `NODE_KIND_METADATA` in `src/graph/schema/nodes.ts` for the canonical labels.
 
 - `criterion` uses `CR`, not the previous app's legacy `AC`, because
   Brunch-next treats it as an intent/oracle claim rather than a

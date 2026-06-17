@@ -1,5 +1,6 @@
 import type { ElicitationGap, GraphSlice } from '../../graph/index.js';
 import type { WorkspaceSessionOverview } from '../../session/workspace-overview-context.js';
+import { formatGraphOverview } from '../graph/graph-slice.js';
 import { joinMarkdownBlocks, markdownTable, markdownUl } from '../markdown.js';
 import { section } from '../section.js';
 import { renderSoftReadinessEstimate } from '../session/readiness-estimate.js';
@@ -19,7 +20,12 @@ export interface SpecificationContextRenderInput {
 export function renderSpecificationContext(input: SpecificationContextRenderInput): string {
   return section(
     'specification',
-    joinMarkdownBlocks(renderOverview(input), renderSessions(input.sessions), renderGaps(input.gaps)),
+    joinMarkdownBlocks(
+      renderOverview(input),
+      renderGraph(input.graph),
+      renderGaps(input.gaps),
+      renderSessions(input.sessions),
+    ),
   );
 }
 
@@ -27,9 +33,12 @@ function renderOverview(input: SpecificationContextRenderInput): string {
   return `Overview:\n${markdownUl([
     `id: ${input.spec.id}`,
     `title: ${input.spec.title}`,
-    `graph: ${input.graph.nodes.length} nodes, ${input.graph.edges.length} edges (LSN ${input.graph.lsn})`,
     renderSoftReadinessEstimate(input.readinessGaps),
   ])}`;
+}
+
+function renderGraph(graph: GraphSlice): string {
+  return formatGraphOverview(graph, 'Graph');
 }
 
 function renderSessions(sessions: readonly WorkspaceSessionOverview[]): string {

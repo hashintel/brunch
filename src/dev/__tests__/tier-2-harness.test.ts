@@ -102,10 +102,9 @@ describe('origination-kick-live — the product originates the opening turn on i
       // titles, and edges — plus a workspace section, so the opening turn
       // needs no read tool call.
       const contextText = JSON.stringify(boot.providerContexts[0]!.messages);
-      expect(contextText).toContain('[G1]');
-      expect(contextText).toContain('Orient the user');
-      expect(contextText).toContain('[CTX1]');
-      expect(contextText).toContain('support (for)');
+      expect(contextText).toContain('| G1 | 1 | Orient the user |');
+      expect(contextText).toContain('| CTX1 | 2 | Multi-spec workspace |');
+      expect(contextText).toContain('| 1 | G1 | motivated by | CTX1 |');
       expect(contextText).toContain('<workspace>');
     } finally {
       await boot.dispose();

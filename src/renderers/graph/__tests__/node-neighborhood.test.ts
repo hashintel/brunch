@@ -21,6 +21,8 @@ function expectNoStructuralLeak(rendered: string): void {
   expect(rendered).not.toContain('(dependency)'); // endpoint role tokens
   expect(rendered).not.toContain('(dependent)');
   expect(rendered).not.toContain('#'); // internal numeric ids
+  expect(rendered).not.toContain('{soft}'); // advisory is the default and stays unmarked
+  expect(rendered).not.toContain('[Selected-spec node context]'); // old bracket header dialect
 }
 
 const HUB = { set: 'edge-spread', fixture: 'hub-neighborhood', anchorCode: 'REQ1' } as const;
@@ -40,28 +42,29 @@ test('neighborhood: every edge category projected from one anchor (hub REQ1)', a
   // refinements, hard vs soft impact, and a lateral association. The snapshot
   // is the full label + directional-grouping matrix; the per-cell mapping is
   // proven by the projection unit tests.
-  const rendered = formatNeighborhood(readNodeNeighborhoodFixture(HUB), { maxEdges: 20 });
+  const rendered = formatNeighborhood(readNodeNeighborhoodFixture(HUB), { maxExpandedEdges: 20 });
   await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-hub-REQ1.md');
   expectNoStructuralLeak(rendered);
 });
 
 test('neighborhood: hops=2 collapses ambient edges to a count (hub REQ1)', async () => {
   const rendered = formatNeighborhood(readNodeNeighborhoodFixture({ ...HUB, hops: 2 }), {
-    maxEdges: 30,
+    maxExpandedEdges: 30,
   });
   await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-hub-REQ1-hops2.md');
   expectNoStructuralLeak(rendered);
 });
 
-test('neighborhood: maxEdges bounds output and notes omissions (hub REQ1)', async () => {
-  const rendered = formatNeighborhood(readNodeNeighborhoodFixture(HUB), { maxEdges: 1 });
-  await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-hub-REQ1-bounded.md');
+test('neighborhood: maxExpandedEdges compacts oversized sections without omissions (hub REQ1)', async () => {
+  const rendered = formatNeighborhood(readNodeNeighborhoodFixture(HUB), { maxExpandedEdges: 3 });
+  await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-hub-REQ1-compact.md');
+  expect(rendered).not.toContain('omitted');
   expectNoStructuralLeak(rendered);
 });
 
 test('brunch-self: requirement anchor neighborhood (REQ1 one-authority)', async () => {
   const rendered = formatNeighborhood(readNodeNeighborhoodFixture({ ...SELF, anchorCode: 'REQ1' }), {
-    maxEdges: 20,
+    maxExpandedEdges: 20,
   });
   await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-brunch-self-REQ1.md');
   expectNoStructuralLeak(rendered);
@@ -69,7 +72,7 @@ test('brunch-self: requirement anchor neighborhood (REQ1 one-authority)', async 
 
 test('brunch-self: module anchor neighborhood (MOD1 CommandExecutor)', async () => {
   const rendered = formatNeighborhood(readNodeNeighborhoodFixture({ ...SELF, anchorCode: 'MOD1', hops: 2 }), {
-    maxEdges: 20,
+    maxExpandedEdges: 20,
   });
   await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-brunch-self-MOD1-hops2.md');
   expectNoStructuralLeak(rendered);
@@ -77,6 +80,6 @@ test('brunch-self: module anchor neighborhood (MOD1 CommandExecutor)', async () 
 
 test('neighborhood: missing anchor renders a clear miss', () => {
   expect(formatNeighborhood({ selector: { id: 404 }, status: 'not_found', related: [], edges: [] })).toBe(
-    '[Selected-spec node context]\n- node: not found in selected spec',
+    'Node not found in selected spec.',
   );
 });

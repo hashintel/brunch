@@ -25,6 +25,31 @@ describe('graph node code metadata', () => {
     expect(parseGraphNodeCode('REQ3')).toEqual({ kind: 'requirement', kindOrdinal: 3 });
     expect(parseGraphNodeCode('AC4')).toEqual({ kind: 'criterion', kindOrdinal: 4 });
   });
+
+  it('pins the merged code-label and readiness-band source of truth', () => {
+    expect(NODE_KIND_METADATA).toEqual({
+      goal: { label: 'G', readinessBands: ['grounding'] },
+      thesis: { label: 'TH', readinessBands: ['grounding'] },
+      term: { label: 'T', readinessBands: ['grounding'] },
+      context: { label: 'CTX', readinessBands: ['grounding'] },
+      requirement: { label: 'REQ', readinessBands: ['commitment'] },
+      assumption: { label: 'A', readinessBands: ['elicitation'] },
+      constraint: { label: 'CON', readinessBands: ['grounding', 'elicitation'] },
+      invariant: { label: 'INV', readinessBands: ['elicitation'] },
+      decision: { label: 'D', readinessBands: ['elicitation'] },
+      criterion: { label: 'AC', readinessBands: ['commitment'] },
+      example: { label: 'EX', readinessBands: ['elicitation'] },
+      check: { label: 'CH', readinessBands: ['commitment'] },
+      validation_method: { label: 'VV', readinessBands: ['elicitation'] },
+      evidence: { label: 'E', readinessBands: ['commitment'] },
+      obligation: { label: 'O', readinessBands: ['elicitation'] },
+      module: { label: 'MOD', readinessBands: ['elicitation'] },
+      interface: { label: 'API', readinessBands: ['elicitation'] },
+      milestone: { label: 'M', readinessBands: ['commitment'] },
+      frontier: { label: 'F', readinessBands: ['commitment'] },
+      slice: { label: 'S', readinessBands: ['commitment'] },
+    });
+  });
 });
 
 describe('getOpenReconciliationNeeds', () => {
