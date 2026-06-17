@@ -860,6 +860,25 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
     expect(writes.join('')).not.toContain('SECRET_AGENT_OUTPUT');
   });
 
+  it('caps activity heartbeat snippets including the ellipsis', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    const events: CookEvent[] = [];
+    createPiActions({ emit: (e) => events.push(e) });
+    try {
+      const fake = makeFakeSession({ emit: 'x'.repeat(2_048) });
+      const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+      await runPi(baseOpts(sandboxDir, 'read'), { createSession });
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+    const progress = events.find(
+      (e): e is Extract<CookEvent, { kind: 'activity-progress' }> => e.kind === 'activity-progress',
+    );
+    expect(progress?.detail).toHaveLength(56);
+    expect(progress?.detail.startsWith('…')).toBe(true);
+  });
+
   it('aborts the session and rejects when the prompt exceeds the timeout', async () => {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));

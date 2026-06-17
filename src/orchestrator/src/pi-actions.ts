@@ -71,7 +71,7 @@ function latestLine(text: string): string {
   const lines = text.split('\n');
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i]!.trim();
-    if (line) return line.length > HEARTBEAT_MAX ? `…${line.slice(-HEARTBEAT_MAX)}` : line;
+    if (line) return line.length > HEARTBEAT_MAX ? `…${line.slice(-(HEARTBEAT_MAX - 1))}` : line;
   }
   return '';
 }
