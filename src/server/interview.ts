@@ -326,10 +326,10 @@ export function createInterviewerAgent(
     providerOptions: {
       anthropic: {
         sendReasoning: true,
-        thinking: {
-          type: 'enabled',
-          budgetTokens: 10000,
-        },
+        // Opus 4.8 controls thinking via adaptive type + effort, not the
+        // enabled/budgetTokens shape (which the API rejects for this model).
+        thinking: { type: 'adaptive' },
+        effort: 'medium',
       },
     },
     maxOutputTokens: 16000,
