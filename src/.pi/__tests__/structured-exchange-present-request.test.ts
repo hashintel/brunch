@@ -275,6 +275,31 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
+  it('prefers the live broker over the UI editor when both request_answer sources exist', async () => {
+    const request = registeredTools({
+      liveExchange: { awaitAnswer: async () => 'Use the broker answer.' },
+    }).get(REQUEST_ANSWER_TOOL);
+    if (!request) throw new Error('request_answer was not registered');
+
+    const result = await request.execute(
+      'request-answer-mixed-call',
+      {
+        exchangeId: 'answer-source-mixed',
+        respondsToPresentTool: 'present_question',
+        prompt: 'Which answer source wins?',
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { editor: async () => 'Use the UI editor answer.' } } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      exchange_id: 'answer-source-mixed',
+      tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
+      answered: { text: 'Use the broker answer.' },
+    });
+  });
+
   it('persists a request_choice response without repeating the presented content', async () => {
     const request = registeredTools().get(REQUEST_CHOICE_TOOL);
     if (!request) throw new Error('request_choice was not registered');
