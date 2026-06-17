@@ -47,7 +47,7 @@ Ledger statuses:
 
 | Row | Owner | Status | Agent-context toolResult target | TUI / presenter target | Oracle / next |
 | --- | --- | --- | --- | --- | --- |
-| `graph/graph-slice.ts` (`formatGraphOverview`) | `read_graph` overview/list modes; origination context seed full graph overview | ✓ locked | `read_graph` text; `brunch.context_seed` graph section | Tool result markdown | G-D dual markdown tables: legend, plane·band node sections, impact-normalized edge table, and uncapped golden/invariants. |
+| `graph/graph-slice.ts` (`formatGraphOverview`) | `read_graph` overview/list modes; origination context seed full graph overview | ✓ locked | `read_graph` text; `brunch.context_seed` graph section | Tool result markdown | G-D dual markdown tables: legend, plane·band node sections, impact-normalized edge table, uncapped golden/invariants, and a band-filtered invariant that dual-band nodes group under the requested band and nonmatching filtered nodes fail loud. |
 | `graph/node-neighborhood.ts` (`formatNeighborhood`) | `read_graph` neighborhood mode | ✓ locked | `read_graph` text | Tool result markdown | G-C prose: anchor node, upstream/downstream/lateral sections, per-section compact density via `maxExpandedEdges`, deeper-hop relation line, and invariants for stable codes, `{hard}`-only strength, and no raw ids/role tokens. |
 | `graph/commit-result.ts` | Future command-result text, if needed | ○ deferred | none current | none current | Leave outside until a live consumer appears. |
 | `graph/reconciliation-needs.ts` | Future reconciliation rendering | ○ topology stub | none current | none current | Leave untouched until coherence/reconciliation surfaces activate. |

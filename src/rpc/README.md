@@ -242,18 +242,18 @@ session.submitMessage
   effects: appends a user message to the selected session transcript, rejects ordinary text while a structured exchange is pending unless interruption=true, and when captured publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
 
 session.driveTurn
-  access: write (TUI-started web sidecar only, discovered only when a driver handle is attached)
+  access: write (`/rpc/driver` on the TUI-started web sidecar only, discovered only when a driver handle is attached; ordinary `/rpc` observers never discover it)
   params: {prompt}
   result: {status: completed}
-  errors: -32601 when no driver handle is attached; -32010 when an attached handle reports no current live session
+  errors: -32601 on ordinary observers or when no driver handle is attached; -32010 when an attached handle reports no current live session
   effects: re-enters the live in-process AgentSession with one plain prompt; resulting AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
   boundary: not a generic transcript write API; no workspace activation, no submitMessage, no concurrency arbiter
 
 session.answerExchange
-  access: write (TUI-started web sidecar only, discovered only when a live-exchange answer broker handle is attached)
+  access: write (`/rpc/driver` on the TUI-started web sidecar only, discovered only when a live-exchange answer broker handle is attached; ordinary `/rpc` observers never discover it)
   params: {exchangeId, answer}
   result: {status: completed}
-  errors: -32601 when no broker handle is attached; -32008 when no matching live exchange is pending
+  errors: -32601 on ordinary observers or when no broker handle is attached; -32008 when no matching live exchange is pending
   effects: resolves the in-process request_answer promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
   boundary: not a transcript append API and not a second exchange store; request_choice/request_choices/request_review and terminal-vs-web answer racing are separate follow-ons
 
