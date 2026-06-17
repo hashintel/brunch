@@ -46,6 +46,8 @@ export interface RunState {
   runStart: number;
   /** Set when the run halted — the reason, pinned in a halt summary. */
   haltReason?: string;
+  /** Total attempts allowed per slice (retry budget + 1), for the n/max display. */
+  maxAttempts?: number;
 }
 
 export class RunStore {
@@ -74,6 +76,8 @@ export class RunStore {
       this.commit({
         epics: event.epics.map((e) => e.id),
         slices: event.slices.map((s) => ({ id: s.id, epicId: s.epicId, status: 'queued' as const })),
+        // total attempts = retry budget + 1 (attempt 1 is the first run)
+        ...(event.maxRetries !== undefined ? { maxAttempts: event.maxRetries + 1 } : {}),
       });
       return;
     }

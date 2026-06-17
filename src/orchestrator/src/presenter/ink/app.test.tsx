@@ -118,10 +118,16 @@ describe('Ink App — failure legibility', () => {
 });
 
 describe('Ink App — attempt count', () => {
-  it('shows the attempt only once a slice has retried', async () => {
+  it('shows the attempt as n/max only once a slice has retried', async () => {
     const store = new RunStore('cook', () => 0);
     const { lastFrame } = render(<App store={store} now={() => 0} />);
-    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    // maxRetries 3 → total attempts 4 (the n/max denominator).
+    store.push({
+      kind: 'run-shape',
+      epics: [{ id: 'api' }],
+      slices: [{ id: 'login', epicId: 'api' }],
+      maxRetries: 3,
+    });
     store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
     await tick();
     expect(lastFrame() ?? '').not.toContain('attempt'); // first run: no clutter
@@ -129,6 +135,19 @@ describe('Ink App — attempt count', () => {
     store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'tests failed' });
     store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
     await tick();
-    expect(lastFrame() ?? '').toContain('attempt 2');
+    expect(lastFrame() ?? '').toContain('attempt 2/4');
+  });
+
+  it('falls back to a bare attempt count when the retry budget is unknown', async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'x' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    await tick();
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('attempt 2');
+    expect(frame).not.toContain('attempt 2/');
   });
 });

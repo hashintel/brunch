@@ -173,3 +173,22 @@ describe('RunStore — attempt counting', () => {
     expect(attemptsOf(store)).toBe(2); // terminal failure keeps the count
   });
 });
+
+describe('RunStore — retry budget', () => {
+  it('derives maxAttempts as retry budget + 1 from run-shape', () => {
+    const store = new RunStore('cook', () => 0);
+    store.push({
+      kind: 'run-shape',
+      epics: [{ id: 'api' }],
+      slices: [{ id: 'a', epicId: 'api' }],
+      maxRetries: 3,
+    });
+    expect(store.getSnapshot().maxAttempts).toBe(4);
+  });
+
+  it('leaves maxAttempts unset when run-shape omits the budget', () => {
+    const store = new RunStore('cook', () => 0);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'a', epicId: 'api' }] });
+    expect(store.getSnapshot().maxAttempts).toBeUndefined();
+  });
+});

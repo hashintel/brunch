@@ -35,7 +35,13 @@ export type CookEvent =
   | { kind: 'cook-done'; ok: boolean; reason?: string }
   // --- slice grid ---
   // Seeds the epic→slice progress grid up front (all slices start queued).
-  | { kind: 'run-shape'; epics: { id: string }[]; slices: { id: string; epicId: string }[] }
+  // `maxRetries` is the per-slice retry budget — total attempts is that + 1.
+  | {
+      kind: 'run-shape';
+      epics: { id: string }[];
+      slices: { id: string; epicId: string }[];
+      maxRetries?: number;
+    }
   // A slice changed state. `step` is the current sub-action while running;
   // `reason` is why it failed (e.g. 'tests failed', 'infra error').
   | {

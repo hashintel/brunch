@@ -491,6 +491,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
     kind: 'run-shape',
     epics: plan.epics.map((e) => ({ id: e.id })),
     slices: plan.slices.map((s) => ({ id: s.id, epicId: s.epic_id })),
+    maxRetries: opts.maxRetries,
   });
   const actions = createPiActions({
     verbose: opts.verbose,

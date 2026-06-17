@@ -40,11 +40,17 @@ function Brigade({ phase }: { phase: BrigadePhase }) {
 const SLICE_ICON = { queued: '○', running: '', passed: '✓', failed: '✗' } as const;
 const SLICE_COLOR = { queued: 'gray', running: 'cyan', passed: 'green', failed: 'red' } as const;
 
-function sliceTail(row: SliceRow): string {
+function attemptLabel(attempts: number | undefined, maxAttempts: number | undefined): string | undefined {
+  // Only once a slice has retried (≥2), formatted n/max when the budget is known.
+  if (!attempts || attempts < 2) return undefined;
+  return maxAttempts ? `attempt ${attempts}/${maxAttempts}` : `attempt ${attempts}`;
+}
+
+function sliceTail(row: SliceRow, maxAttempts: number | undefined): string {
   // For a failed slice the store cleared step/detail, so the tail is the reason.
-  // Show the attempt only once a slice has retried (≥2) to avoid clutter.
-  const attempt = row.attempts && row.attempts >= 2 ? `attempt ${row.attempts}` : undefined;
-  return [row.step, attempt, row.reason, row.detail].filter(Boolean).join(' · ');
+  return [row.step, attemptLabel(row.attempts, maxAttempts), row.reason, row.detail]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 const HALT_MAX = 56;
@@ -60,7 +66,12 @@ function HaltSummary({ reason }: { reason: string }) {
   );
 }
 
-function SliceGrid({ epics, slices, frame }: Pick<RunState, 'epics' | 'slices'> & { frame: string }) {
+function SliceGrid({
+  epics,
+  slices,
+  maxAttempts,
+  frame,
+}: Pick<RunState, 'epics' | 'slices' | 'maxAttempts'> & { frame: string }) {
   if (slices.length === 0) return null;
   return (
     <Box flexDirection="column" marginTop={1}>
@@ -72,7 +83,7 @@ function SliceGrid({ epics, slices, frame }: Pick<RunState, 'epics' | 'slices'> 
             <Text bold>{epicId}</Text>
             {rows.map((row) => {
               const icon = row.status === 'running' ? frame : SLICE_ICON[row.status];
-              const tail = sliceTail(row);
+              const tail = sliceTail(row, maxAttempts);
               return (
                 <Text key={row.id} color={SLICE_COLOR[row.status]}>
                   {'  '}
@@ -148,7 +159,12 @@ export function App({ store, now = () => Date.now() }: { store: RunStore; now?: 
             {state.command} · {formatElapsed(now() - state.runStart)}
           </Text>
         </Box>
-        <SliceGrid epics={state.epics} slices={state.slices} frame={SPINNER[tick % SPINNER.length]!} />
+        <SliceGrid
+          epics={state.epics}
+          slices={state.slices}
+          maxAttempts={state.maxAttempts}
+          frame={SPINNER[tick % SPINNER.length]!}
+        />
         <PendingPanel pending={state.pending} frame={SPINNER[tick % SPINNER.length]!} />
         {state.haltReason ? <HaltSummary reason={state.haltReason} /> : null}
       </Box>
