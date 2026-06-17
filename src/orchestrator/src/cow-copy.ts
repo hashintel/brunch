@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, readdirSync, symlinkSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, readdirSync, symlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 /**
@@ -50,7 +50,11 @@ export function copyMissingTopLevelEntries(
     if (existsSync(destPath)) continue;
     const sourcePath = join(source, entry);
     if (symlink.has(entry)) {
-      symlinkSync(sourcePath, destPath);
+      symlinkSync(
+        sourcePath,
+        destPath,
+        process.platform === 'win32' && lstatSync(sourcePath).isDirectory() ? 'junction' : undefined,
+      );
     } else {
       cowCopy(sourcePath, destPath);
     }
