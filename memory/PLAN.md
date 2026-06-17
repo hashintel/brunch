@@ -401,7 +401,7 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
   - **[PENDING — agent-as-user slice]** **D5-L** — split the agent-as-user driver: public-RPC contract probe vs tier-2 mission engine. *(SPEC refinement added 2026-06-15.)*
   - **[PENDING — `--mode web` slice]** **`src/web/README.md`** — `--mode web` deferred → standalone headless web = `AgentSession` + WS with no terminal head (a topology-A specialization). Web README is still accurate today (read-only, `--mode web` deferred); revise only when the driver/headless slices land.
   - **[LANDED slice 2]** SPEC Design Note "Subscriptions are scoped for the POC" + the "Subscription reconnect/resume" blind spot — claim 6 now proves replay-less reconnect/resume: recovery is projection refetch plus live continuation, not frame replay. *(SPEC updated 2026-06-16.)*
-- **Traceability:** R12, R24 / D5-L, D19-L, D37-L, D49-L, D72-L, D84-L / A5-L, A28-L / I22-L.
+- **Traceability:** R12, R24 / D5-L, D19-L, D37-L, D49-L, D72-L, D84-L / A5-L, A28-L, A29-L / I22-L.
 - **Design docs:** `src/rpc/README.md`; `src/web/README.md`; `src/session/README.md`; Pi `docs/rpc.md` + `docs/sdk.md` (the `AgentSessionEvent` vocabulary); `memory/SPEC.md` §Verification Design.
 
 ## Dependencies
@@ -418,7 +418,7 @@ nodes:
   probes-and-transcripts-evolution [parallel]        continuous evidence substrate
   topology-readmes-and-boundaries  [parallel]        attach-to-frontier topology hardening
   dev-seed-fixtures                [parallel · proving] explicit seed selection + target-workspace-scoped workbench launch; remaining: disposition catalog + all-seeds opt-in
-  web-driver-streaming             [horizon · proving · observer-relay built · FE-873] topology A: in-process AgentSession event relay + Brunch-domain multiplex + web command-intake; consolidates R12 subscriptions / reconnect-resume / web-as-driver staging / agent-as-user substrate split
+  web-driver-streaming             [horizon · proving · observer+command relay built · FE-873] topology A: in-process AgentSession event relay + Brunch-domain multiplex + web command-intake/live answer broker; consolidates R12 subscriptions / reconnect-resume / web-as-driver staging / agent-as-user substrate split
   # done anchors still carrying live edges (full definitions: docs/archive/PLAN_HISTORY.md):
   elicitation-driver             [done · demo block 1]
   context-seed-payload           [done · demo block 2]
@@ -446,7 +446,7 @@ parallel obligations:
   dev-seed-fixtures                -[data]->     generalized-capture, poc-live-ship-gate (explicit seeded workbenches provide reproducible real graphs for capture/ship-gate evidence)
 
 horizon:
-  web-driver-streaming               (topology A observer relay built; next observer-side reconnect-resume / fan-out; then command-intake + WS-backed ctx.ui host, which unlocks mid-stream exchange-convergence — UI-host-bound)
+  web-driver-streaming               (topology A observer relay, replay-less reconnect, fan-out, plain command-intake, and live `request_answer` answer broker built; next: non-freeform `request_*` variants, terminal-vs-web answer racing, React web consumer, `--mode web`)
   coherence-first-class
   compaction-and-conflict-widening
   subagents-for-proposal-diversity   (now also subagent acquisition for capture — SPEC Future Direction §Subagent acquisition)
