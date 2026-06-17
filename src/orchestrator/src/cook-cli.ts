@@ -642,6 +642,11 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           return;
         }
       }
+    } else if (opts.landBranch) {
+      // --land merges the cook branch into a repo's active branch; greenfield has
+      // no such branch (it promotes to --out instead), so the flag is a no-op here.
+      line('  !  --land is ignored for greenfield runs (no repo branch to land onto; pass --out to promote the result)');
+      line('');
     }
 
     // Run complete (after promotion) — lights the brigade's `serve` phase, or
