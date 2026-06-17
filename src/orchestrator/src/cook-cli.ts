@@ -16,6 +16,7 @@ import { loadPlan } from './plan-loader.js';
 import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
 import { landCookBranch, promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
+import { brunchRef } from './run-refs.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
@@ -50,7 +51,7 @@ export type CookOptions = {
   /** Allow promoting into a non-empty target (otherwise refused). */
   force: boolean;
   /**
-   * Brownfield only: after promotion, merge `cook/<runId>` into the repo's active
+   * Brownfield only: after promotion, merge `brunch/run/<runId>` into the repo's active
    * branch as the final step. Set by `serve --land`; plain `cook` never sets it,
    * keeping promotion's hands-off default intact unless the user opts in.
    */
@@ -551,11 +552,11 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
     }
 
     // Brownfield promotion is automatic (the result already lives on the repo's
-    // own `cook/<runId>` branch); greenfield promotion is opt-in via --out. A run
-    // that did not complete promotes nothing — the artifact stays inspectable.
+    // own `brunch/run/<runId>` branch); greenfield promotion is opt-in via --out.
+    // A run that did not complete promotes nothing — the artifact stays inspectable.
     if (sandbox.kind === 'codebase') {
       if (opts.outDir) {
-        line(`  !  --out is ignored for brownfield; the result lands on cook/${runId} in the repo`);
+        line(`  !  --out is ignored for brownfield; the result lands on ${brunchRef.run(runId)} in the repo`);
         line('');
       }
       if (!ok) {
@@ -573,7 +574,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           for (const c of source.conflicts) {
             line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
           }
-          const promoted = promoting(`promoting → cook/${runId}`, () =>
+          const promoted = promoting(`promoting → ${brunchRef.run(runId)}`, () =>
             promoteBrownfieldRun({
               sourceDir: sandbox.sourceDir,
               sourceTreeDir: source.dir,

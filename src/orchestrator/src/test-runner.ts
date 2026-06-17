@@ -17,18 +17,38 @@ const RUNNER_MISSING_PATTERNS: readonly RegExp[] = [
   /is not recognized as an internal or external command/i,
 ];
 
+// The runner matched zero test files. Vitest prints exactly this on an empty
+// filter; it means "nothing built yet", not a red. Kept narrow on purpose — a
+// missing *module* ("Cannot find module") is a genuine TDD red and must stay
+// `test`, never `absent`.
+const NO_TESTS_PATTERNS: readonly RegExp[] = [/No test files found/i];
+
 /**
- * Classify a **failed** test run as `infra` (the toolchain broke) vs `test` (the
- * code failed its assertions). Deliberately conservative: only an unambiguous
- * "the runner itself isn't there" signal counts as infra — a spawn failure
- * (missing binary) or a shell "command not found". Everything else is `test`,
- * because a missing *module* is ambiguous with a legitimate TDD red (a test
- * importing source that doesn't exist yet), and misrouting a real failure as
- * "infra noise" would silently skip it.
+ * Classify a non-passing test run. Deliberately conservative ordering:
+ *   1. `infra` — a spawn failure (missing binary) or shell "command not found";
+ *      an unambiguous "the runner itself isn't there".
+ *   2. `absent` — zero test files matched ("No test files found"); not started.
+ *   3. `test` — everything else, because a missing *module* is ambiguous with a
+ *      legitimate TDD red and misrouting a real failure would silently skip it.
  */
 export function classifyTestFailure(output: string, spawnFailed: boolean): TestFailureKind {
   if (spawnFailed) return 'infra';
-  return RUNNER_MISSING_PATTERNS.some((re) => re.test(output)) ? 'infra' : 'test';
+  if (RUNNER_MISSING_PATTERNS.some((re) => re.test(output))) return 'infra';
+  if (NO_TESTS_PATTERNS.some((re) => re.test(output))) return 'absent';
+  return 'test';
+}
+
+/**
+ * Drop pi harness `[agent-tail]` session-bookkeeping lines (e.g. "Pruned old
+ * session", "Writing to …/browser.log") from captured runner output. They are
+ * not test diagnostics — they pollute the verbose log and the LLM evaluator's
+ * signal, and accumulate O(slices) per run.
+ */
+export function stripAgentTailLines(output: string): string {
+  return output
+    .split('\n')
+    .filter((line) => !/^\s*\[agent-tail\]/.test(line))
+    .join('\n');
 }
 
 export class ToolchainTestRunner implements TestRunner {
@@ -45,9 +65,9 @@ export class ToolchainTestRunner implements TestRunner {
     // Test runners vary in which stream carries diagnostics (e.g. `bun test`
     // writes its results to stderr and only the version banner to stdout) —
     // concatenate both so tests-run reports carry real detail.
-    const output = [result.stdout, result.stderr, result.error ? String(result.error) : '']
-      .filter(Boolean)
-      .join('');
+    const output = stripAgentTailLines(
+      [result.stdout, result.stderr, result.error ? String(result.error) : ''].filter(Boolean).join(''),
+    );
     const passed = result.status === 0;
     if (passed) return { passed, output };
     // `spawnSync.error` also covers timeout / ENOBUFS after the runner started;
@@ -79,12 +99,17 @@ export async function runVerification(
     }
   }
   const done = results.length > 0 && results.every((r) => r.passed);
-  // infra (toolchain broke) dominates a plain test failure — if anything failed
-  // to even run, that's the actionable signal. Undefined when the verdict passed.
+  // Aggregate precedence: infra > test > absent. infra (toolchain broke)
+  // dominates — a run that never executed is the actionable signal. `absent`
+  // only wins when *every* non-passing target merely matched no files (the
+  // greenfield gate); any genuine/unclassified failure makes the verdict `test`
+  // so a real red is never downgraded to "not started". Undefined when passed.
   const failureKind: TestFailureKind | undefined = done
     ? undefined
     : results.some((r) => r.failureKind === 'infra')
       ? 'infra'
-      : 'test';
+      : results.every((r) => r.passed || r.failureKind === 'absent')
+        ? 'absent'
+        : 'test';
   return { done, failureKind, results };
 }

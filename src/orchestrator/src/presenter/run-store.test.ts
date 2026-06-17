@@ -163,6 +163,19 @@ describe('RunStore — attempt counting', () => {
     expect(attemptsOf(store)).toBe(1); // running→running keeps the count
   });
 
+  it('a clean greenfield slice ends at attempts 1 (the evaluate gate no longer emits a phantom failure)', () => {
+    // Regression oracle for the phantom n/4 + ✗ NEEDS WORK: the unbuilt-slice
+    // evaluate gate stays running instead of emitting `failed`, so the whole
+    // verify → tests → code → verify → passed flow is one attempt.
+    const store = seed();
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'verify' }); // gate (absent)
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'tests' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'verify' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'passed' });
+    expect(attemptsOf(store)).toBe(1);
+  });
+
   it('bumps the attempt on a retry (failed → running) and keeps it on terminal failure', () => {
     const store = seed();
     store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'verify' });

@@ -438,18 +438,29 @@ export function createPiActions(opts?: {
         `running tests · ${label}`,
         () => runVerification(ctx.slice.verification, testRunner, ctx.sandboxDir),
       );
+      // `absent` = the gate ran before any test file exists (greenfield). That
+      // is "not started", not a red — it must not consume an attempt or paint a
+      // ✗ NEEDS WORK. The slice stays running and flows on to write-tests.
+      const notStarted = !done && failureKind === 'absent';
       for (const r of results) {
         logVerbose(r.output);
-        log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
+        log(r.passed ? '✓' : r.failureKind === 'absent' ? '·' : '✗', `verify    ${r.target}`);
       }
-      log(done ? '●' : '○', `verdict   ${label} → ${done ? 'DONE' : 'NEEDS WORK'}`);
-      _emit({
-        kind: 'slice',
-        id: ctx.slice.id,
-        epicId: ctx.epic.id,
-        status: done ? 'passed' : 'failed',
-        ...(done ? {} : { reason: failureKind === 'infra' ? 'infra error' : 'tests failed' }),
-      });
+      log(
+        done ? '●' : notStarted ? '·' : '○',
+        `verdict   ${label} → ${done ? 'DONE' : notStarted ? 'NOT STARTED' : 'NEEDS WORK'}`,
+      );
+      if (done) {
+        _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'passed' });
+      } else if (!notStarted) {
+        _emit({
+          kind: 'slice',
+          id: ctx.slice.id,
+          epicId: ctx.epic.id,
+          status: 'failed',
+          reason: failureKind === 'infra' ? 'infra error' : 'tests failed',
+        });
+      }
       return report(ctx, 'evaluator', 'eval-done', { done, failureKind, results });
     },
 

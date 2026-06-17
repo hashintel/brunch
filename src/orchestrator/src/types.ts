@@ -132,13 +132,21 @@ export type ActionHandlers = Record<string, ActionHandler>;
 // ---------------------------------------------------------------------------
 
 /**
- * Why a failed test run failed. `infra` = the toolchain itself broke (the test
- * runner binary is missing / deps never installed) — a different fix than `test`
- * = the code under test failed its assertions. Distinguishing them stops the
- * cook loop from sending the code-writer to "fix the code" when nothing was ever
- * installed (`TestResult.passed` alone collapsed both into one failure).
+ * Why a non-passing test run did not pass.
+ * - `infra`  = the toolchain itself broke (runner binary missing / deps never
+ *   installed) — a different fix than `test`.
+ * - `test`   = the code under test failed its assertions (a genuine red,
+ *   including a TDD red importing source that does not exist yet).
+ * - `absent` = the runner matched **zero test files** ("No test files found").
+ *   This is "not built yet", not a failure: the greenfield evaluate gate fires
+ *   before the target test exists. Distinguishing it from `test` stops every
+ *   clean slice from logging a phantom ✗ NEEDS WORK + a consumed attempt.
+ *
+ * Distinguishing these stops the cook loop from sending the code-writer to "fix
+ * the code" when nothing was ever installed or nothing has been built yet
+ * (`TestResult.passed` alone collapsed all three into one failure).
  */
-export type TestFailureKind = 'infra' | 'test';
+export type TestFailureKind = 'infra' | 'test' | 'absent';
 
 export type TestResult = {
   passed: boolean;
@@ -251,8 +259,9 @@ export type OrchestratorInput = {
   /**
    * 'fixture' (default): per-slice worktrees are created empty. Greenfield.
    * 'codebase': per-slice worktrees are real `git worktree`s on slice-level
-   *   branches (`cook/<runId>/<sliceId>`) off the run-level cook branch,
-   *   with untracked/gitignored content CoW-copied from the parent. Brownfield.
+   *   branches (`brunch/slice/<runId>/<sliceId>`, via `brunchRef.slice`) off the
+   *   run-level `brunch/run/<runId>` branch, with untracked/gitignored content
+   *   CoW-copied from the parent. Brownfield.
    */
   sandboxMode?: 'fixture' | 'codebase';
   /**

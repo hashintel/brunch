@@ -1154,6 +1154,30 @@ describe('action handlers emit slice grid events', () => {
     expect(sliceEvents(events).at(-1)).toMatchObject({ status: 'failed' });
   });
 
+  it('evaluate-done does NOT emit a failure for an unbuilt slice (absent gate)', async () => {
+    // The greenfield gate runs before any test file exists → failureKind 'absent'.
+    // That is "not started", not a red: emitting `failed` here makes the presenter
+    // count a phantom attempt and paint a ✗ NEEDS WORK on every clean slice.
+    const events: CookEvent[] = [];
+    const reports = new InMemoryReportSink();
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'No test files found, exiting with code 1', failureKind: 'absent' };
+        },
+      },
+      emit: (e) => events.push(e),
+    });
+    const id = await actions['evaluate-done']!({ ...ctx(), reports });
+    // Stays running(verify) → routes to write-tests as the same attempt; never 'failed'.
+    expect(sliceEvents(events).map((s) => [s.status, s.step])).toEqual([['running', 'verify']]);
+    expect(sliceEvents(events).some((s) => s.status === 'failed')).toBe(false);
+    // The verdict still reports not-done so the net routes to needs-more (write-tests).
+    const payload = reports.getById(id)!.payload as { done: boolean; failureKind?: string };
+    expect(payload.done).toBe(false);
+    expect(payload.failureKind).toBe('absent');
+  });
+
   it('write-tests emits running(tests) keyed by the slice id', async () => {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const events: CookEvent[] = [];

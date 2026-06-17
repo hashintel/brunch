@@ -22,6 +22,7 @@ import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'n
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { copyMissingTopLevelEntries } from './cow-copy.js';
+import { brunchRef, pruneWorktrees } from './run-refs.js';
 import type { Plan, Slice } from './types.js';
 
 export type MergeConflict = {
@@ -200,15 +201,17 @@ function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: str
 
 /**
  * Codebase-mode seed: prepare the per-slice worktree as a real `git worktree`
- * checked out on a slice-level branch (`cook-slice/<runId>/<sliceId>`) off
- * the run-level cook branch, then CoW-copy any untracked/gitignored content
- * from the parent worktree (e.g. `node_modules/`, `dist/`) so pi-actions can
- * run `npm test` / `bun test` / build steps that depend on runtime deps.
+ * checked out on a slice-level branch (`brunch/slice/<runId>/<sliceId>`, via
+ * `brunchRef.slice`) off the run-level run branch, then CoW-copy any
+ * untracked/gitignored content from the parent worktree (e.g. `node_modules/`,
+ * `dist/`) so pi-actions can run `npm test` / `bun test` / build steps that
+ * depend on runtime deps.
  *
- * The slice branches live in a sibling namespace `cook-slice/` rather than
- * nested under `cook/<runId>/` because git refs are leaf-or-directory: with
- * `cook/<runId>` already a leaf branch, `cook/<runId>/<sliceId>` would fail
- * with "cannot lock ref ... 'refs/heads/cook/<runId>' exists."
+ * Slice branches live under `brunch/slice/<runId>/…`, a sibling of the run
+ * branch `brunch/run/<runId>`, because git refs are leaf-or-directory: nesting
+ * slices under the run-branch leaf (`brunch/run/<runId>/<sliceId>`) would fail
+ * with "cannot lock ref ... 'refs/heads/brunch/run/<runId>' exists." The sibling
+ * `run/` vs `slice/` split is exactly what `brunchRef` centralizes.
  *
  * Excluded from the untracked CoW step:
  *   - sibling slice subdirs (other entries in `plan.slices`)
@@ -225,7 +228,7 @@ function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: str
  * add slice-completion commits, replace `mergeSlicesIntoEpicSandbox`'s file-copy
  * with a git merge of slice branches into an epic branch, and surface real
  * merge conflicts (today's file-copy is silent last-slice-wins). That work
- * earns the "discoverable cook artifact" criterion via `git merge cook/<runId>`
+ * earns the "discoverable cook artifact" criterion via `git merge brunch/run/<runId>`
  * promotion semantics.
  */
 export function seedSliceFromParentWorktree(
@@ -238,12 +241,13 @@ export function seedSliceFromParentWorktree(
   const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
 
   // 1. Real git worktree: tracked content arrives via git checkout, slice
-  //    branch is `cook/<runId>/<sliceId>` off the parent worktree's HEAD
-  //    (which is the run-level `cook/<runId>` branch). Shares the source
+  //    branch is `brunch/slice/<runId>/<sliceId>` off the parent worktree's HEAD
+  //    (which is the run-level `brunch/run/<runId>` branch). Shares the source
   //    repo's `.git/` object database via hardlinks — no full git copy.
+  pruneWorktrees(parentSandboxDir);
   execFileSync(
     'git',
-    ['worktree', 'add', '--quiet', '-b', `cook-slice/${runId}/${sliceId}`, sliceDir, 'HEAD'],
+    ['worktree', 'add', '--quiet', '-b', brunchRef.slice(runId, sliceId), sliceDir, 'HEAD'],
     {
       cwd: parentSandboxDir,
       stdio: ['ignore', 'pipe', 'pipe'],

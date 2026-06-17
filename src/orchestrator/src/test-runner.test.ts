@@ -14,7 +14,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { bunProfile, type Toolchain } from './project-profile.js';
-import { classifyTestFailure, runVerification, ToolchainTestRunner } from './test-runner.js';
+import { classifyTestFailure, runVerification, stripAgentTailLines, ToolchainTestRunner } from './test-runner.js';
 import type { TestResult, TestRunner } from './types.js';
 
 const bun = bunProfile.toolchain;
@@ -106,6 +106,33 @@ describe('classifyTestFailure (infra vs test)', () => {
     // infra and skipped.
     expect(classifyTestFailure("Cannot find module './widget' from 'widget.test.ts'", false)).toBe('test');
   });
+
+  it('"No test files found" is absent (nothing built yet), not a test red', () => {
+    // The greenfield evaluate gate runs before the target test file exists, so
+    // the runner matches zero files. That is "not started", not a failure — it
+    // must not be conflated with a genuine assertion red (which keeps a slice's
+    // attempt counter clean and avoids a phantom ✗ NEEDS WORK on the grid).
+    expect(classifyTestFailure('No test files found, exiting with code 1', false)).toBe('absent');
+  });
+});
+
+describe('stripAgentTailLines', () => {
+  it('removes [agent-tail] harness lines while preserving real runner output verbatim', () => {
+    const raw = [
+      '[agent-tail] Pruned old session: 2026-06-17T12-21-20-772Z',
+      ' RUN  v4.1.5 /sandbox',
+      '[agent-tail] Writing to /sandbox/tmp/logs/browser.log',
+      ' ✓ src/x.test.ts (3 tests)',
+    ].join('\n');
+    const cleaned = stripAgentTailLines(raw);
+    expect(cleaned).not.toContain('[agent-tail]');
+    expect(cleaned).toContain('RUN  v4.1.5');
+    expect(cleaned).toContain('✓ src/x.test.ts');
+  });
+
+  it('is a no-op when there is no agent-tail noise', () => {
+    expect(stripAgentTailLines('ok\nall good')).toBe('ok\nall good');
+  });
 });
 
 describe('ToolchainTestRunner stamps failureKind', () => {
@@ -148,6 +175,28 @@ describe('ToolchainTestRunner stamps failureKind', () => {
     const result = await new ToolchainTestRunner(pass).run('x', process.cwd());
     expect(result.passed).toBe(true);
     expect(result.failureKind).toBeUndefined();
+  });
+
+  it('a "No test files found" exit surfaces as failureKind "absent"', async () => {
+    const noFiles = fakeToolchain(() => [
+      process.execPath,
+      '-e',
+      'process.stderr.write("No test files found, exiting with code 1"); process.exit(1);',
+    ]);
+    const result = await new ToolchainTestRunner(noFiles).run('x', process.cwd());
+    expect(result.passed).toBe(false);
+    expect(result.failureKind).toBe('absent');
+  });
+
+  it('captured output omits [agent-tail] harness noise', async () => {
+    const noisy = fakeToolchain(() => [
+      process.execPath,
+      '-e',
+      'process.stdout.write("[agent-tail] Pruned old session\\nreal runner output\\n"); process.exit(0);',
+    ]);
+    const result = await new ToolchainTestRunner(noisy).run('x', process.cwd());
+    expect(result.output).not.toContain('[agent-tail]');
+    expect(result.output).toContain('real runner output');
   });
 });
 
@@ -200,6 +249,28 @@ describe('runVerification — the single verdict + aggregate seam', () => {
     );
     expect(done).toBe(false);
     expect(failureKind).toBe('infra');
+  });
+
+  it('all-unmatched targets aggregate to "absent" (the greenfield gate, not a red)', async () => {
+    const { done, failureKind } = await runVerification(
+      [{ target: 'a' }, { target: 'b' }],
+      seqRunner([{ passed: false, output: 'No test files found', failureKind: 'absent' }]),
+      '/tmp',
+    );
+    expect(done).toBe(false);
+    expect(failureKind).toBe('absent');
+  });
+
+  it('a genuine test red dominates an absent target', async () => {
+    const { failureKind } = await runVerification(
+      [{ target: 'a' }, { target: 'b' }],
+      seqRunner([
+        { passed: false, output: 'no files', failureKind: 'absent' },
+        { passed: false, output: 'assert', failureKind: 'test' },
+      ]),
+      '/tmp',
+    );
+    expect(failureKind).toBe('test');
   });
 
   it('a runner that throws is treated as an infra failure, not a swallowed pass', async () => {

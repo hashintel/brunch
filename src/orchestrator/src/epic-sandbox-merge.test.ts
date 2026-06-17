@@ -233,7 +233,7 @@ describe('seedSliceFromParentWorktree', () => {
    * Create a tmp dir initialised as a git worktree of a fresh repo at HEAD,
    * mimicking the structure cook produces via createSandbox in codebase mode:
    * the "parent" is itself a `git worktree add` of a separate "source" repo,
-   * checked out on a `cook/<runId>` branch.
+   * checked out on a `brunch/run/<runId>` branch.
    */
   function makeGitParentWorktree(runId: string): {
     parent: string;
@@ -254,7 +254,7 @@ describe('seedSliceFromParentWorktree', () => {
     const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
     dirs.push(runDir);
     const parent = join(runDir, 'worktree');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', `cook/${runId}`, parent, 'HEAD'], { cwd: source });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', `brunch/run/${runId}`, parent, 'HEAD'], { cwd: source });
 
     return {
       parent,
@@ -311,7 +311,7 @@ describe('seedSliceFromParentWorktree', () => {
       cwd: sliceDir,
       encoding: 'utf8',
     }).trim();
-    expect(branch).toBe('cook-slice/r3/only');
+    expect(branch).toBe('brunch/slice/r3/only');
   });
 
   it('excludes sibling slice subdirs from the untracked copy', () => {
@@ -384,7 +384,7 @@ describe('ensureSliceWorktree', () => {
     const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
     dirs.push(runDir);
     const parent = join(runDir, 'worktree');
-    execFileSync('git', ['worktree', 'add', '-q', '-b', `cook/${runId}`, parent, 'HEAD'], { cwd: source });
+    execFileSync('git', ['worktree', 'add', '-q', '-b', `brunch/run/${runId}`, parent, 'HEAD'], { cwd: source });
     return parent;
   }
 

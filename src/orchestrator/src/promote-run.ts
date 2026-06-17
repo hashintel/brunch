@@ -3,6 +3,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, 
 import { tmpdir } from 'node:os';
 import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 
+import { brunchRef } from './run-refs.js';
+
 export type PromoteResult = { target: string; branch: string; commit: string };
 
 export type LandResult =
@@ -88,11 +90,11 @@ function assertDistinctPromotionPaths(target: string, sandboxDir: string): void 
   }
   // An ancestor target (e.g. project root with --out=.) is allowed: the run
   // worktree normally lives under <cwd>/.brunch/cook/... and D166-K lands on
-  // cook/<runId> there. cpSync skips .brunch/.git from the source tree.
+  // brunch/run/<runId> there. cpSync skips .brunch/.git from the source tree.
 }
 
 function checkoutCookBranch(target: string, runId: string): void {
-  const branch = `cook/${runId}`;
+  const branch = brunchRef.run(runId);
   try {
     git(['rev-parse', '--verify', `refs/heads/${branch}`], target);
     git(['checkout', '-q', branch], target);
@@ -104,7 +106,7 @@ function checkoutCookBranch(target: string, runId: string): void {
 /**
  * Land a completed greenfield run's single tree into `target` as a reviewable
  * git commit (commit-on-branch). Never a silent overwrite: an empty target is
- * git-init'd and committed on `main`; an existing repo lands on a `cook/<runId>`
+ * git-init'd and committed on `main`; an existing repo lands on a `brunch/run/<runId>`
  * branch (the user's branch is untouched); a non-empty target is refused unless
  * `force`.
  */
@@ -116,13 +118,13 @@ export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
 
   if (!isPromotionAllowedWithoutForce(target) && !opts.force) {
     throw new Error(
-      `Refusing to promote into a non-empty target: ${target}. Pass --force to land on a cook/${opts.runId} branch.`,
+      `Refusing to promote into a non-empty target: ${target}. Pass --force to land on a ${brunchRef.run(opts.runId)} branch.`,
     );
   }
 
   let branch: string;
   if (isGitRepoRoot(target)) {
-    branch = `cook/${opts.runId}`;
+    branch = brunchRef.run(opts.runId);
     checkoutCookBranch(target, opts.runId);
   } else {
     branch = 'main';
@@ -141,20 +143,20 @@ export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
 }
 
 /**
- * Land a completed *brownfield* run's composed tree onto the `cook/<runId>`
+ * Land a completed *brownfield* run's composed tree onto the `brunch/run/<runId>`
  * branch of the user's repo as one reviewable commit — the brownfield analogue
  * of `promoteGreenfieldRun`. The brownfield sandbox was created with
- * `git worktree add -b cook/<runId> … HEAD`, so the branch already exists at the
+ * `git worktree add -b brunch/run/<runId> … HEAD`, so the branch already exists at the
  * base the run started from; this commits the result on top of it via plumbing
  * (`commit-tree` + compare-and-swap `update-ref`) using a throwaway index and an
  * external work-tree, so the user's real working tree, index, and active branch
- * are never touched. Merging `cook/<runId>` into the working branch stays the
+ * are never touched. Merging `brunch/run/<runId>` into the working branch stays the
  * user's call — promotion never freelances into it.
  */
 export function promoteBrownfieldRun(opts: BrownfieldPromoteOptions): PromoteResult {
   const sourceDir = resolve(opts.sourceDir);
   const sourceTreeDir = resolve(opts.sourceTreeDir);
-  const branch = `cook/${opts.runId}`;
+  const branch = brunchRef.run(opts.runId);
   const ref = `refs/heads/${branch}`;
 
   // The branch must already exist (the sandbox branched it from HEAD); its tip is
@@ -203,17 +205,17 @@ export function promoteBrownfieldRun(opts: BrownfieldPromoteOptions): PromoteRes
 }
 
 /**
- * Merge a promoted `cook/<runId>` branch into the repo's checked-out branch — the
+ * Merge a promoted `brunch/run/<runId>` branch into the repo's checked-out branch — the
  * opt-in counterpart to brownfield promotion's hands-off default. Promotion
  * deliberately never touches the working branch; this is the only path that does,
  * and only when the caller (`serve --land`) explicitly asks. It refuses rather
  * than freelance: a dirty tree or detached HEAD is left untouched, and a real
  * merge that conflicts is aborted back to a clean state. On every non-landed
- * outcome the `cook/<runId>` branch stays intact for manual merge/review.
+ * outcome the `brunch/run/<runId>` branch stays intact for manual merge/review.
  */
 export function landCookBranch(opts: LandOptions): LandResult {
   const sourceDir = resolve(opts.sourceDir);
-  const ref = `cook/${opts.runId}`;
+  const ref = brunchRef.run(opts.runId);
   const cookCommit = git(['rev-parse', '--verify', ref], sourceDir);
 
   // Refuse on a detached HEAD (no branch to advance) or a dirty tree (don't bury
@@ -228,7 +230,7 @@ export function landCookBranch(opts: LandOptions): LandResult {
     return { kind: 'refused', reason: 'dirty' };
   }
 
-  // HEAD unmoved since the run branched → cook/<runId> is strictly ahead, so a
+  // HEAD unmoved since the run branched → brunch/run/<runId> is strictly ahead, so a
   // fast-forward lands the commit verbatim. Otherwise a real merge is required.
   if (gitOk(['merge-base', '--is-ancestor', 'HEAD', ref], sourceDir)) {
     git(['merge', '--ff-only', ref], sourceDir);
