@@ -288,7 +288,19 @@ export function ensureSliceWorktree(
   runId: string,
 ): string {
   const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
-  if (existsSync(sliceDir)) return sliceDir;
+  if (existsSync(sliceDir)) {
+    // An existing path is only a no-op when it is a real git worktree we
+    // provisioned (own `.git` gitfile). A bare existing entry means the slice
+    // id collided with a tracked parent path (e.g. slice `src` vs the repo's
+    // `src/`); adopting it as the sandbox would silently break per-slice
+    // isolation, so fail loudly — matching seedSliceFromParentWorktree's guard.
+    if (!existsSync(join(sliceDir, '.git'))) {
+      throw new Error(
+        `Slice id "${sliceId}" collides with an existing entry in the parent worktree (not a provisioned cook worktree)`,
+      );
+    }
+    return sliceDir;
+  }
   return seedSliceFromParentWorktree(parentSandboxDir, sliceId, plan, runId);
 }
 
