@@ -211,10 +211,10 @@ const MAX_WALK_DEPTH = 8;
  * path.
  */
 export function detectTestDir(repoDir: string): string | null {
-  // Tally test files by their full directory relative to the repo root. Files
-  // directly at the root (relDir '') don't teach us a directory, so they're
-  // ignored. Keys are POSIX paths so the emitted target matches profile
-  // conventions regardless of host separator.
+  // Tally test files by their full directory relative to the repo root. Root
+  // tests use relDir '' so generated targets strip the profile's default tests/
+  // prefix and stay at the repo root. Keys are POSIX paths so the emitted target
+  // matches profile conventions regardless of host separator.
   const counts = new Map<string, number>();
 
   const walk = (dir: string, depth: number, relDir: string): void => {
@@ -229,7 +229,7 @@ export function detectTestDir(repoDir: string): string | null {
       if (entry.isDirectory()) {
         if (SKIP_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
         walk(join(dir, entry.name), depth + 1, relDir === '' ? entry.name : `${relDir}/${entry.name}`);
-      } else if (relDir !== '' && entry.isFile() && TEST_FILE_RE.test(entry.name)) {
+      } else if (entry.isFile() && TEST_FILE_RE.test(entry.name)) {
         counts.set(relDir, (counts.get(relDir) ?? 0) + 1);
       }
     }
