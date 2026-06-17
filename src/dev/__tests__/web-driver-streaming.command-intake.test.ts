@@ -78,9 +78,12 @@ describe('web-driver-streaming command intake', () => {
         if (!context.webSidecarUrl) {
           throw new Error('runBrunchTui did not provide a sidecar URL');
         }
-        const rpcUrl = `${context.webSidecarUrl.replace(/^http/u, 'ws').replace(/\/spec\/\d+$/u, '')}/rpc`;
-        const driver = await RpcSocket.open(rpcUrl);
-        const observers = await Promise.all([RpcSocket.open(rpcUrl), RpcSocket.open(rpcUrl)]);
+        const sidecarBaseUrl = context.webSidecarUrl.replace(/^http/u, 'ws').replace(/\/spec\/\d+$/u, '');
+        const driver = await RpcSocket.open(`${sidecarBaseUrl}/rpc/driver`);
+        const observers = await Promise.all([
+          RpcSocket.open(`${sidecarBaseUrl}/rpc`),
+          RpcSocket.open(`${sidecarBaseUrl}/rpc`),
+        ]);
         cleanups.push(() => driver.close());
         for (const observer of observers) cleanups.push(() => observer.close());
         await settle(50);

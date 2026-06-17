@@ -379,6 +379,78 @@ describe('web host', () => {
     }
   });
 
+  it('keeps live sidecar driver methods off observer connections when driver handles exist', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-rpc-driver-authority-'));
+    await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
+      specTitle: 'Driver authority web spec',
+    });
+    const drivenPrompts: string[] = [];
+    const host = await startWebHost({
+      cwd,
+      port: 0,
+      coordinator: createWorkspaceSessionCoordinator({ cwd }),
+      sessionTurnDriver: {
+        async prompt(input) {
+          drivenPrompts.push(input.text);
+          return { driven: true };
+        },
+      },
+      sessionExchangeAnswer: {
+        answerer: {
+          submitAnswer() {
+            return { submitted: false, reason: 'no_pending_exchange' };
+          },
+        },
+      },
+    });
+    try {
+      const observerDiscovery = await websocketRpc(host.url, {
+        jsonrpc: '2.0',
+        id: 21,
+        method: 'rpc.discover',
+      });
+      const observerMethods = (
+        observerDiscovery as { result: { methods: Array<{ method: string }> } }
+      ).result.methods.map((method) => method.method);
+      expect(observerMethods).not.toContain('session.driveTurn');
+      expect(observerMethods).not.toContain('session.answerExchange');
+
+      await expect(
+        websocketRpc(host.url, {
+          jsonrpc: '2.0',
+          id: 22,
+          method: 'session.driveTurn',
+          params: { prompt: 'observer must not drive' },
+        }),
+      ).resolves.toEqual({
+        jsonrpc: '2.0',
+        id: 22,
+        error: { code: -32601, message: 'Method not found' },
+      });
+      await expect(
+        websocketRpc(`${host.url}/rpc/driver`, {
+          jsonrpc: '2.0',
+          id: 23,
+          method: 'session.driveTurn',
+          params: { prompt: 'driver may drive' },
+        }),
+      ).resolves.toEqual({ jsonrpc: '2.0', id: 23, result: { status: 'completed' } });
+      expect(drivenPrompts).toEqual(['driver may drive']);
+
+      const driverDiscovery = await websocketRpc(`${host.url}/rpc/driver`, {
+        jsonrpc: '2.0',
+        id: 24,
+        method: 'rpc.discover',
+      });
+      const driverMethods = (
+        driverDiscovery as { result: { methods: Array<{ method: string }> } }
+      ).result.methods.map((method) => method.method);
+      expect(driverMethods).toEqual(expect.arrayContaining(['session.driveTurn', 'session.answerExchange']));
+    } finally {
+      await host.close();
+    }
+  });
+
   it('rejects sidecar structured-exchange mutations without publishing product updates', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-web-rpc-live-'));
     await createWorkspaceSessionCoordinator({ cwd }).createSetupSession({
@@ -635,7 +707,11 @@ async function websocketRpc(url: string, request: unknown): Promise<unknown> {
 }
 
 async function websocketRpcBatch(url: string, requests: readonly unknown[]): Promise<unknown[]> {
-  const socket = await openWebSocket(`${url.replace(/^http/u, 'ws')}/rpc`);
+  const parsed = new URL(url);
+  const rpcPath = parsed.pathname === '/' ? '/rpc' : parsed.pathname;
+  const socket = await openWebSocket(
+    `${parsed.protocol === 'https:' ? 'wss' : 'ws'}://${parsed.host}${rpcPath}`,
+  );
   const responses: unknown[] = [];
   try {
     const done = new Promise<unknown[]>((resolve, reject) => {
