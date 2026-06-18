@@ -12,6 +12,7 @@ import {
   dependencyOrder,
   foldSliceBranches,
   harvestCookRun,
+  materializeEpicVerifyTree,
   materializeFoldedWorktree,
   type SliceCommit,
 } from './run-artifact.js';
@@ -246,5 +247,29 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     seedSliceWorktree('noop', () => {}); // wrote nothing
 
     expect(commitSliceWorktree({ parentSandboxDir: parent, slice: slice('noop') })).toBeNull();
+  });
+
+  it('reuses slices already committed by a prior verify pass (verify → promote)', () => {
+    // verify-epic commits the slice worktrees (materializeEpicVerifyTree); the
+    // later promotion harvest must reuse those commits, not see a clean worktree
+    // and drop the slice as empty.
+    seedSliceWorktree('a', (d) => writeFileSync(join(d, 'a.txt'), 'A\n'));
+    const plan: Plan = {
+      mode: 'brownfield',
+      epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+      slices: [slice('a')],
+    };
+
+    materializeEpicVerifyTree({ parentSandboxDir: parent, runId: 'r1', plan, sliceIds: ['a'], epicId: 'e' });
+    const artifact = harvestCookRun({
+      sourceDir: source,
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['a'],
+    });
+
+    expect(artifact.commits.map((c) => c.sliceId)).toEqual(['a']);
+    expect(gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n')).toContain('a.txt');
   });
 });

@@ -15,7 +15,8 @@ import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
 import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
-import { landCookBranch, promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
+import { landCookBranch, promoteGreenfieldRun } from './promote-run.js';
+import { harvestCookRun } from './run-artifact.js';
 import { brunchRef } from './run-refs.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
@@ -564,41 +565,49 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
         line('');
       } else {
         try {
-          const source = promotionSourceDir({
-            sliceLayout,
-            sandboxDir,
-            runDir,
-            plan,
-            completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
-          });
-          for (const c of source.conflicts) {
-            line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
-          }
-          const promoted = promoting(`promoting → ${brunchRef.run(runId)}`, () =>
-            promoteBrownfieldRun({
+          const completedSliceIds = result.slices
+            .filter((s) => s.status === 'completed')
+            .map((s) => s.sliceId);
+          // Compose by git merge-tree fold (FE-883): per-slice history, fail-closed
+          // on real conflicts, all plumbing (the user's checkout is never touched).
+          const artifact = promoting(`promoting → ${brunchRef.run(runId)}`, () =>
+            harvestCookRun({
               sourceDir: sandbox.sourceDir,
-              sourceTreeDir: source.dir,
+              parentSandboxDir: sandboxDir,
               runId,
+              plan,
+              completedSliceIds,
             }),
           );
+          if (artifact.conflicts.length > 0) {
+            for (const c of artifact.conflicts) {
+              line(`  ✗  merge conflict in slice ${c.sliceId} on ${c.paths.join(', ')}`);
+            }
+            line(
+              `  ✗  promotion halted at ${artifact.branch} @ ${artifact.head.slice(0, 8)} — resolve the conflict and re-run`,
+            );
+            line('');
+            recordCookExitStatus(false);
+            return;
+          }
           if (opts.landBranch) {
-            const landed = promoting(`landing → ${promoted.branch} into the active branch`, () =>
+            const landed = promoting(`landing → ${artifact.branch} into the active branch`, () =>
               landCookBranch({ sourceDir: sandbox.sourceDir, runId }),
             );
             if (landed.kind === 'landed') {
-              line(`  ✓  promoted + landed ${promoted.branch} onto ${landed.branch} (${landed.mode})`);
+              line(`  ✓  promoted + landed ${artifact.branch} onto ${landed.branch} (${landed.mode})`);
             } else if (landed.kind === 'refused') {
               line(
-                `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (not landed: working tree ${landed.reason}; merge it when ready)`,
+                `  ✓  promoted → ${artifact.branch} @ ${artifact.head.slice(0, 8)}  (not landed: working tree ${landed.reason}; merge it when ready)`,
               );
             } else {
               line(
-                `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (not landed: merge conflict on ${landed.branch}; resolve with \`git merge ${promoted.branch}\`)`,
+                `  ✓  promoted → ${artifact.branch} @ ${artifact.head.slice(0, 8)}  (not landed: merge conflict on ${landed.branch}; resolve with \`git merge ${artifact.branch}\`)`,
               );
             }
           } else {
             line(
-              `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (merge it into your branch when ready)`,
+              `  ✓  promoted → ${artifact.branch} @ ${artifact.head.slice(0, 8)}  (merge it into your branch when ready)`,
             );
           }
           line('');

@@ -96,7 +96,7 @@ function assertSafePathSegment(id: string, label: string): void {
   }
 }
 
-function resolveEpicSandboxDir(parentSandboxDir: string, epicId: string): string {
+export function resolveEpicSandboxDir(parentSandboxDir: string, epicId: string): string {
   assertSafePathSegment(epicId, 'epic id');
   const parent = resolve(parentSandboxDir);
   const epicRoot = resolve(parent, EPIC_MERGE_SEGMENT);
@@ -277,7 +277,7 @@ export function seedSliceFromParentWorktree(
  * Build caches under it (`.cache`, `.vite`) become shared too — acceptable for
  * cook's transient runs; revisit if a tool needs per-slice write isolation.
  */
-const SHAREABLE_TOP_LEVEL_ENTRIES: ReadonlySet<string> = new Set(['node_modules']);
+export const SHAREABLE_TOP_LEVEL_ENTRIES: ReadonlySet<string> = new Set(['node_modules']);
 
 /**
  * Idempotent codebase-mode slice worktree provisioning: create the git worktree
