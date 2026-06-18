@@ -50,6 +50,9 @@ describe('nextPhase', () => {
 
   it('advances to plate on a promotion line and to serve on a completed run', () => {
     expect(nextPhase('cook', { kind: 'line', text: '  ✓  promoted → cook/abc @ 1234abcd' })).toBe('plate');
+    // The finish block's phrasing puts `promoted` after the phase word; it must still light plate.
+    expect(nextPhase('cook', { kind: 'line', text: '  ✓  cook → promoted' })).toBe('plate');
+    expect(nextPhase('cook', { kind: 'line', text: '  ✓  cook → promoted + landed' })).toBe('plate');
     expect(nextPhase('plate', { kind: 'cook-done', ok: true })).toBe('serve');
   });
 

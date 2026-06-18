@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { cookBannerLines, cookSummaryLines } from './cook-report.js';
+import { type CookFinishLand, cookBannerLines, cookFinishLines, cookSummaryLines } from './cook-report.js';
 import { createOrchestrator } from './engine.js';
 import { type MergeConflict, mergeCompletedSlicesIntoTree } from './epic-sandbox-merge.js';
 import { FileReportSink } from './file-report-sink.js';
@@ -590,27 +590,28 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
             recordCookExitStatus(false);
             return;
           }
+          let land: CookFinishLand | undefined;
           if (opts.landBranch) {
             const landed = promoting(`landing → ${artifact.branch} into the active branch`, () =>
               landCookBranch({ sourceDir: sandbox.sourceDir, runId }),
             );
             if (landed.kind === 'landed') {
-              line(`  ✓  promoted + landed ${artifact.branch} onto ${landed.branch} (${landed.mode})`);
+              land = { kind: 'landed', branch: landed.branch, mode: landed.mode };
             } else if (landed.kind === 'refused') {
-              line(
-                `  ✓  promoted → ${artifact.branch} @ ${artifact.head.slice(0, 8)}  (not landed: working tree ${landed.reason}; merge it when ready)`,
-              );
+              land = { kind: 'refused', reason: landed.reason };
             } else {
-              line(
-                `  ✓  promoted → ${artifact.branch} @ ${artifact.head.slice(0, 8)}  (not landed: merge conflict on ${landed.branch}; resolve with \`git merge ${artifact.branch}\`)`,
-              );
+              land = { kind: 'conflict', branch: landed.branch };
             }
-          } else {
-            line(
-              `  ✓  promoted → ${artifact.branch} @ ${artifact.head.slice(0, 8)}  (merge it into your branch when ready)`,
-            );
           }
-          line('');
+          for (const l of cookFinishLines({
+            shape: 'brownfield',
+            dir: sandbox.sourceDir,
+            branch: artifact.branch,
+            commit: artifact.head,
+            ...(land ? { land } : {}),
+          })) {
+            line(l);
+          }
         } catch (err) {
           const reason = `promotion failed: ${err instanceof Error ? err.message : String(err)}`;
           line(`  ✗  ${reason}`);
@@ -644,8 +645,14 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
               force: opts.force,
             }),
           );
-          line(`  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`);
-          line('');
+          for (const l of cookFinishLines({
+            shape: 'greenfield',
+            dir: promoted.target,
+            branch: promoted.branch,
+            commit: promoted.commit,
+          })) {
+            line(l);
+          }
         } catch (err) {
           const reason = `promotion failed: ${err instanceof Error ? err.message : String(err)}`;
           line(`  ✗  ${reason}`);

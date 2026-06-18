@@ -43,7 +43,10 @@ function phaseFor(event: CookEvent, ctx?: PhaseContext): BrigadePhase | undefine
       return ctx.epics.every((e) => ctx.verdictedEpics?.has(e)) ? 'taste' : undefined;
     }
     case 'line':
-      return /^\s*✓\s+promoted\b/.test(event.text) ? 'plate' : undefined;
+      // The promotion line lights plate. Key on the `promoted` token after the
+      // ✓ rather than its position, so the finish block's `✓ cook → promoted`
+      // phrasing reads the same as the older `✓ promoted → …` line did.
+      return /^\s*✓.*\bpromoted\b/.test(event.text) ? 'plate' : undefined;
     case 'cook-done':
       // ship→serve: the run completed (emitted after promotion). A halted run
       // does not ship, so it never lights serve.

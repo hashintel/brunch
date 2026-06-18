@@ -61,3 +61,62 @@ export function cookSummaryLines(input: CookSummaryInput): string[] {
   lines.push('', `  ${input.reportCount} events → ${input.reportsPath}`, '');
   return lines;
 }
+
+/** How a brownfield `--land` resolved, when `--land` was passed. */
+export type CookFinishLand =
+  | { kind: 'landed'; branch: string; mode: string }
+  | { kind: 'refused'; reason: string }
+  | { kind: 'conflict'; branch: string };
+
+export type CookFinishInput = {
+  /** Brownfield results live in the repo (merge when ready); greenfield is a fresh tree. */
+  shape: 'brownfield' | 'greenfield';
+  /** Navigable directory the result landed in (repo root, or the --out target). */
+  dir: string;
+  branch: string;
+  /** Full commit hash; rendered as its 8-char short form. */
+  commit: string;
+  land?: CookFinishLand;
+};
+
+/**
+ * Final block printed when a run promotes: where it landed, the commit, and
+ * copy-paste commands to drive the next action. Pure + golden-tested for the
+ * same reason as the other builders here — the strings are the contract.
+ * Halt/conflict/error paths keep their own inline lines; this is the success seam.
+ */
+export function cookFinishLines(input: CookFinishInput): string[] {
+  const landed = input.land?.kind === 'landed' ? input.land : undefined;
+  const lines: string[] = [
+    '  ──────────────────────────────────────',
+    `  ✓  cook → ${landed ? 'promoted + landed' : 'promoted'}`,
+    '',
+    `  ${'dir'.padEnd(6)}  ${input.dir}`,
+    `  ${'branch'.padEnd(6)}  ${input.branch}`,
+    `  ${'commit'.padEnd(6)}  ${input.commit.slice(0, 8)}`,
+  ];
+  if (landed) lines.push(`  ${'landed'.padEnd(6)}  ${landed.branch} (${landed.mode})`);
+
+  const next: string[] = [];
+  let hint = '';
+  if (input.shape === 'greenfield') {
+    next.push(`cd ${input.dir}`, 'git log -1');
+  } else if (landed) {
+    hint = `landed on ${landed.branch}`;
+    next.push('git log --oneline -10');
+  } else if (input.land?.kind === 'refused') {
+    hint = `not landed (working tree ${input.land.reason}); merge when ready`;
+    next.push(`git merge ${input.branch}`);
+  } else if (input.land?.kind === 'conflict') {
+    hint = 'not landed (merge conflict); resolve manually';
+    next.push(`git merge ${input.branch}`);
+  } else {
+    hint = 'merge into your branch when ready';
+    next.push(`git log --oneline ${input.branch} -10`, `git merge ${input.branch}`);
+  }
+
+  lines.push('', `  next${hint ? `  — ${hint}` : ''}`);
+  for (const cmd of next) lines.push(`    ${cmd}`);
+  lines.push('');
+  return lines;
+}
