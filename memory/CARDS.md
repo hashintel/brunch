@@ -31,22 +31,31 @@ Status: **in progress.**
   merge-base is the dependency. Regression test added; unfaithful happy-path test
   corrected. (epic-sandbox-merge.ts file-copy untouched.)
 
-○ 1b — wire harvestCookRun into the brownfield promotion path: replace
-  promoteBrownfieldRun's cpSync of the file-copy-composed sandbox with the
-  merge-tree fold; thread CompletedRun (sourceDir, parentSandboxDir, runId, plan,
-  completedSliceIds) from cook-cli. I135-K must still hold (no working tree / index
-  / active branch touched). Surface fold conflicts as a first-class run outcome.
+✓ mechanism (commits fadb1b52, 5e1d8d32) — proved + factored the fold so both
+  1b and 1c can use it: foldToCommit (fold N slice commits onto a base, fail-closed,
+  no ref write) + materializeFoldedWorktree (fold + `git worktree add --detach`,
+  rework-safe). Tests pin: 3-way merge of different-hunk edits to one file keeps
+  both; the fold materializes on disk in a verify worktree.
 
-○ 1c — verify-epic consistency (DESIGN FORK): today verify-epic runs against the
-  file-copy __epic__/<epicId>/ union (mergeSlicesIntoEpicSandbox, net-compiler.ts
-  ~870), whose last-slice-wins tree can differ from what the fold promotes. Decide:
-  (i) verify against a merge-tree-folded epic tree (consistent, brownfield), or
-  (ii) keep file-copy for verify but elevate its collisions. Greenfield stays
-  file-copy regardless.
+✓ 1c DECISION (2026-06-18): verify against the folded tree (option i). One
+  composition path → the tree verified == the tree shipped; no verify≠ship gap on
+  same-file edits. The worktree-checkout unknown is de-risked by materializeFoldedWorktree.
 
-○ 1d — delete the superseded file-copy composition + the stale
-  epic-sandbox-merge.ts:226 TODO once 1b/1c land. Amends I124-K to fork on
-  plan.mode (brownfield → fold; greenfield → file-copy union).
+○ 1b/1c INTEGRATION (remaining — engine wiring):
+  - net-compiler.ts verify-epic (~870): for brownfield, replace mergeSlicesIntoEpicSandbox
+    (file-copy) with commit-epic-slices (commitSliceWorktree, dep order + dep parents)
+    + materializeFoldedWorktree into __epic__/<epicId>/ + relink node_modules
+    (linkSharedTopLevelEntries). Greenfield keeps the file-copy union. Fold conflict →
+    fail the epic (first-class).
+  - cook-cli.ts promotion (~567): brownfield branch calls harvestCookRun instead of
+    promotionSourceDir + promoteBrownfieldRun; fold conflicts → fatal run outcome
+    (recordCookExitStatus(false)). I135-K preserved (all plumbing).
+  - Needs an end-to-end runCook/engine integration test (none exists today for
+    multi-slice brownfield promotion) — note this gap.
+
+○ 1d — delete the superseded file-copy composition (mergeSlicesIntoEpicSandbox /
+  promoteBrownfieldRun once unused) + the stale epic-sandbox-merge.ts:226 TODO.
+  Amends I124-K to fork on plan.mode (brownfield → fold; greenfield → file-copy union).
 ```
 
 ### Acceptance Criteria (slice-level)
