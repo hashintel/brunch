@@ -729,6 +729,9 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             });
             ctx.reportIds.push(reportId);
 
+            // Failed rows carry the same reason vocabulary as evaluate-done so
+            // the slice grid shows why it failed (the presenter renders `reason`).
+            const failedReason = failureKind === 'infra' ? 'infra error' : 'tests failed';
             const tok: Token = { ...inputToken, reportId };
             if (passed) {
               input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'passed' });
@@ -743,7 +746,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               // infra failure, name that cause — "retry exhaustion" would
               // misdirect the reader to the code.
               ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
-              input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'failed' });
+              input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'failed', reason: failedReason });
               const haltReason =
                 failureKind === 'infra'
                   ? `Slice ${sliceId} toolchain/install failure during verification`
@@ -755,7 +758,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
                 },
               ];
             }
-            input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'failed' });
+            input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'failed', reason: failedReason });
             return [
               { place: intermediatePlace, token: tok },
               { place: budgetPlace, token: { ...baseToken, retryCount: retryCount + 1 } },

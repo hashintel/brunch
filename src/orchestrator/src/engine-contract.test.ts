@@ -975,6 +975,36 @@ describe('Adapter: §7 event vocabulary', () => {
     expect(halted[0]!.reason).not.toMatch(/never ran/);
     expect(halted[0]!.reason).not.toMatch(/retry exhaustion/);
   });
+
+  it('net failed slice emits carry a grid reason (test vs infra)', async () => {
+    // The slice grid renders `reason`; the net-level verify transition must name
+    // the cause like evaluate-done does, not emit a reasonless `failed` row.
+    for (const [failureKind, reason] of [
+      ['test', 'tests failed'],
+      ['infra', 'infra error'],
+    ] as const) {
+      const fakes = createFakes({ testRunResults: [false], testFailureKind: failureKind });
+      const ctx: RunCtx = { reportIds: [], sliceOutcomes: new Map(), epicOutcomes: new Map() };
+      const cookEvents: CookEvent[] = [];
+      const input: OrchestratorInput = {
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 1 },
+        emit: (e) => cookEvents.push(e),
+      };
+      const net = compilePlan(input, ctx);
+      await net.run('serial', () => net.hasHaltToken(), { emit: () => {} });
+
+      const failed = cookEvents.filter(
+        (e): e is Extract<CookEvent, { kind: 'slice' }> => e.kind === 'slice' && e.status === 'failed',
+      );
+      expect(failed.length).toBeGreaterThan(0);
+      for (const f of failed) expect(f.reason).toBe(reason);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
