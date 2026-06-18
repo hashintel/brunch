@@ -8,7 +8,7 @@ This directory owns reusable components rendered inside the embedded Pi coding-a
 
 - Pi TUI components consumed by `.pi/extensions/` (e.g. workspace dialogs, runtime axis pickers, chrome header).
 - Shared visual primitives for those components: the `LabTheme`/`makeSolidBadge`/`renderSegmentTrack` substrate under `tui-lab/`.
-- A test harness for driving components through a real pi-tui `TUI` end-to-end: `../__tests__/support/virtual-terminal.ts`.
+- Render-only component contracts whose props may use domain/session input types or DTOs needed to present Pi UI.
 
 ## Does NOT own
 
@@ -37,6 +37,7 @@ components/
 │   └── style-palette.ts
 ├── workspace-dialog.ts          public entry re-exporting the folder below
 └── workspace-dialog/            fractal sub-tree for the workspace/session picker
+    ├── assets/                  logo assets colocated with the dialog
     ├── component.ts
     ├── index.ts
     ├── model.ts
@@ -50,9 +51,11 @@ components/
 ```pseudo
 rules:
   .pi/components/  ->  .pi/components/*          [shared primitives within the seam]
+  .pi/components/  ->  graph/, session/, projections/ [render input types/DTOs only]
   .pi/extensions/  ->  .pi/components/*          [extensions consume components]
   .pi/components/  x>  .pi/extensions/           [components stay presentation-only]
-  .pi/components/  x>  graph/, session/, rpc/     [no domain wiring]
+  .pi/components/  x>  db/, rpc/, app/            [no persistence/RPC/product host wiring]
+  .pi/components/  x>  product mutations          [components return decisions; owners execute]
 ```
 
 ## Build/test convention
