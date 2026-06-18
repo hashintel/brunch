@@ -1140,6 +1140,46 @@ describe('instrumentToolDefinition — observe then delegate', () => {
     });
     expect(def.execute('id', { command: 'echo hi' }, undefined, undefined, {} as never)).toBe('ok');
   });
+
+  it('brackets an async tool: onStart before, onSettle only after it resolves', async () => {
+    const order: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const def = fakeTool('bash', async () => {
+      await gate;
+      return 'done';
+    });
+    instrumentToolDefinition(
+      def,
+      () => order.push('start'),
+      () => order.push('settle'),
+    );
+
+    const pending = def.execute('id', { command: 'bun test' }, undefined, undefined, {} as never);
+    // Start fired synchronously; settle must NOT fire while the tool is in flight.
+    expect(order).toEqual(['start']);
+    release();
+    await expect(pending).resolves.toBe('done');
+    expect(order).toEqual(['start', 'settle']);
+  });
+
+  it('settles on a rejected tool call too', async () => {
+    const order: string[] = [];
+    const def = fakeTool('bash', async () => {
+      throw new Error('tool failed');
+    });
+    instrumentToolDefinition(
+      def,
+      () => order.push('start'),
+      () => order.push('settle'),
+    );
+    await expect(
+      def.execute('id', { command: 'bun test' }, undefined, undefined, {} as never),
+    ).rejects.toThrow('tool failed');
+    expect(order).toEqual(['start', 'settle']);
+  });
 });
 
 describe('action handlers emit slice grid events', () => {

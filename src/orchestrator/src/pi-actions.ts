@@ -106,20 +106,46 @@ export function toolLabel(name: string, params: unknown): string {
   return label.length > HEARTBEAT_MAX ? `${label.slice(0, HEARTBEAT_MAX - 1)}…` : label;
 }
 
-/** Wrap a tool definition's execute to emit a heartbeat, then delegate unchanged. */
+/**
+ * Wrap a tool definition's execute to bracket the call: `onStart` fires a
+ * heartbeat before it runs, `onSettle` fires once it resolves or rejects. The
+ * bracket lets the idle deadline treat an in-flight tool (e.g. a long `bash`
+ * test run that emits no session traffic) as active work rather than dead air.
+ */
 export function instrumentToolDefinition(
   def: ToolDefinition,
-  onUse: (label: string) => void,
+  onStart: (label: string) => void,
+  onSettle: () => void = () => {},
 ): ToolDefinition {
   const original = def.execute.bind(def);
-  def.execute = ((...args: Parameters<typeof def.execute>) => {
-    // Observation must never break a tool call.
+  const settle = (): void => {
     try {
-      onUse(toolLabel(def.name, args[1]));
+      onSettle();
     } catch {
       /* ignore */
     }
-    return original(...args);
+  };
+  def.execute = ((...args: Parameters<typeof def.execute>) => {
+    // Observation must never break a tool call.
+    try {
+      onStart(toolLabel(def.name, args[1]));
+    } catch {
+      /* ignore */
+    }
+    let result: ReturnType<typeof def.execute>;
+    try {
+      result = original(...args);
+    } catch (err) {
+      settle();
+      throw err;
+    }
+    // Real tools are async: settle when the promise resolves/rejects, but return
+    // the original promise so the result and shape are preserved unchanged.
+    if (result && typeof (result as { then?: unknown }).then === 'function') {
+      return (result as Promise<unknown>).finally(settle) as ReturnType<typeof def.execute>;
+    }
+    settle();
+    return result;
   }) as typeof def.execute;
   return def;
 }
@@ -127,12 +153,13 @@ export function instrumentToolDefinition(
 function buildInstrumentedTools(
   names: string[],
   cwd: string,
-  onUse: (label: string) => void,
+  onStart: (label: string) => void,
+  onSettle: () => void,
 ): ToolDefinition[] {
   return names.flatMap((name) => {
     const build = TOOL_DEF_BUILDERS[name as keyof typeof TOOL_DEF_BUILDERS];
     if (!build) return [];
-    return [instrumentToolDefinition(build(cwd) as ToolDefinition, onUse)];
+    return [instrumentToolDefinition(build(cwd) as ToolDefinition, onStart, onSettle)];
   });
 }
 
@@ -199,7 +226,11 @@ function piTimeoutError(timeoutMs: number): Error {
 // Map one action's inputs to SDK session config — tools/model/system-prompt, no
 // context/skills, in-memory session. Auth from brunch's own ANTHROPIC_API_KEY, not
 // the user's ~/.pi credentials, which is what keeps a fresh checkout self-contained.
-async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promise<CreateAgentSessionOptions> {
+async function buildSessionOptions(
+  opts: RunPiOpts,
+  isolatedDir: string,
+  toolHooks: { onStart: () => void; onSettle: () => void },
+): Promise<CreateAgentSessionOptions> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error(
@@ -235,9 +266,15 @@ async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promis
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean);
-  const customTools = buildInstrumentedTools(toolNames, opts.sandboxDir, (label) => {
-    _emit({ kind: 'activity-progress', id: opts.activityId ?? opts.label, detail: label });
-  });
+  const customTools = buildInstrumentedTools(
+    toolNames,
+    opts.sandboxDir,
+    (label) => {
+      _emit({ kind: 'activity-progress', id: opts.activityId ?? opts.label, detail: label });
+      toolHooks.onStart();
+    },
+    toolHooks.onSettle,
+  );
 
   return {
     cwd: opts.sandboxDir,
@@ -259,8 +296,8 @@ async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promis
 // after the session ends. Output is buffered from text_delta events, never written
 // to brunch's stdout (keeps the cook SSE stream clean); the timeout is an idle
 // deadline covering both session setup and the prompt turn — any session event
-// (text, tool call, tool-execution progress) re-arms it, so only true dead air
-// trips it, aborting cooperatively once a session exists.
+// re-arms it and an in-flight tool call (e.g. a long `bash`) pauses it, so only
+// true dead air trips it, aborting cooperatively once a session exists.
 async function runPi(
   opts: RunPiOpts,
   deps: { createSession?: SessionFactory; timeoutMs?: number; maxOutput?: number } = {},
@@ -290,6 +327,10 @@ async function runPi(
   let unsubscribe: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let rejectTimeout: ((err: Error) => void) | undefined;
+  // Tool calls currently executing. A tool in flight (e.g. a multi-minute
+  // `bash` test run) is active work that emits no session traffic, so the idle
+  // deadline must not count its duration — pause while any tool runs.
+  let inFlightTools = 0;
   // Re-armable idle deadline: cleared and reset on every session event so the
   // budget bounds silence, not total work. A heavy slice whose agent spends
   // minutes in a single test command between edits stays alive as long as the
@@ -297,11 +338,27 @@ async function runPi(
   const armIdleTimer = (): void => {
     if (timedOut) return;
     if (timer) clearTimeout(timer);
+    // Don't count idle time while a tool is mid-execution; its settle hook
+    // re-arms once it finishes.
+    if (inFlightTools > 0) return;
     timer = setTimeout(() => {
       timedOut = true;
       void session?.abort();
       rejectTimeout?.(piTimeoutError(timeoutMs));
     }, timeoutMs);
+  };
+  // Bracket every tool call: pause the idle deadline while it runs (a long
+  // silent `bash` must not trip the timeout mid-command), resume on settle.
+  const onToolStart = (): void => {
+    inFlightTools += 1;
+    if (timer) {
+      clearTimeout(timer);
+      timer = undefined;
+    }
+  };
+  const onToolSettle = (): void => {
+    inFlightTools = Math.max(0, inFlightTools - 1);
+    if (inFlightTools === 0) armIdleTimer();
   };
   const timeout = new Promise<never>((_, reject) => {
     rejectTimeout = reject;
@@ -310,7 +367,9 @@ async function runPi(
 
   try {
     const setup = (async () => {
-      const created = await createSession(await buildSessionOptions(opts, isolatedDir));
+      const created = await createSession(
+        await buildSessionOptions(opts, isolatedDir, { onStart: onToolStart, onSettle: onToolSettle }),
+      );
       if (timedOut) {
         created.session.dispose();
       }
