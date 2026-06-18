@@ -198,6 +198,23 @@ describe('seedSliceSandboxFromDeps', () => {
     expect(readFileSync(join(parent, 'target', 'shared.txt'), 'utf8')).toBe('A\n');
   });
 
+  it('does not copy a dependency slice node_modules into the dependent slice', () => {
+    const parent = mkdtempSync(join(tmpdir(), 'cook-seed-'));
+    dirs.push(parent);
+    mkdirSync(join(parent, 'version-flag', 'src'), { recursive: true });
+    writeFileSync(join(parent, 'version-flag', 'src/cli.ts'), 'version\n');
+    // The dependency slice ran an in-slice install, clobbering its node_modules
+    // symlink into a real tree; seeding must not deep-copy it.
+    mkdirSync(join(parent, 'version-flag', 'node_modules', 'dep'), { recursive: true });
+    writeFileSync(join(parent, 'version-flag', 'node_modules/dep/index.js'), '1\n');
+
+    const slice = txtLikePlan.slices.find((s) => s.id === 'help-flag')!;
+    const sliceDir = seedSliceSandboxFromDeps(parent, txtLikePlan, slice);
+
+    expect(readFileSync(join(sliceDir, 'src/cli.ts'), 'utf8')).toBe('version\n');
+    expect(existsSync(join(sliceDir, 'node_modules'))).toBe(false);
+  });
+
   it('reset re-seed removes orphaned slice files from a prior rework attempt', () => {
     const parent = mkdtempSync(join(tmpdir(), 'cook-seed-'));
     dirs.push(parent);
@@ -598,6 +615,26 @@ describe('mergeSlicesIntoEpicSandbox', () => {
 
     expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
     expect(existsSync(join(result.epicSandboxDir, 'escape.link'))).toBe(false);
+  });
+
+  it('skips a slice node_modules clobbered from a symlink into a real dir', () => {
+    const parent = makeParent();
+    // An in-slice `npm install` replaces the shared node_modules symlink with a
+    // real tree; it must not be deep-copied into the epic merge (the ENOSPC bug).
+    seedSlice(parent, 'slice-a', {
+      'src/a.ts': 'A\n',
+      'node_modules/dep/index.js': 'module.exports = 1;\n',
+    });
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-a',
+      sliceIds: ['slice-a'],
+    });
+
+    expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
+    expect(existsSync(join(result.epicSandboxDir, 'node_modules/dep/index.js'))).toBe(false);
+    expect(existsSync(join(result.epicSandboxDir, 'node_modules'))).toBe(false);
   });
 
   it('replaces a file with a directory when later slices need nested paths', () => {

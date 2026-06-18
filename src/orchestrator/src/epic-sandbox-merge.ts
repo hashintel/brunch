@@ -389,6 +389,11 @@ export function mergeCompletedSlicesIntoTree(opts: {
 function* walkFiles(rootDir: string, dir: string = rootDir): Iterable<string> {
   for (const entry of readdirSync(dir)) {
     if (WALK_SKIP_ENTRIES.has(entry)) continue;
+    // Shareable entries (node_modules) are skipped by NAME, not just when they
+    // are symlinks: an in-slice `npm install` clobbers the shared symlink into a
+    // real tree, and deep-copying that during merge/seed exhausts the disk
+    // (ENOSPC). They are re-linked into merged trees via linkSharedTopLevelEntries.
+    if (SHAREABLE_TOP_LEVEL_ENTRIES.has(entry)) continue;
     const abs = join(dir, entry);
     const st = lstatSync(abs);
     if (st.isSymbolicLink()) continue;
