@@ -14,7 +14,7 @@ export class VirtualTerminal implements PiTerminal {
   #onInput?: (data: string) => void;
   #stopped = false;
   #pendingWrites = 0;
-  #writeResolvers: (() => void)[] = [];
+  #writeActivityVersion = 0;
 
   constructor(cols = 100, rows = 32) {
     this.#term = new XtermTerminal({ cols, rows, allowProposedApi: true });
@@ -50,12 +50,10 @@ export class VirtualTerminal implements PiTerminal {
   write(data: string): void {
     if (this.#stopped) return;
     this.#pendingWrites += 1;
+    this.#writeActivityVersion += 1;
     this.#term.write(data, () => {
       this.#pendingWrites -= 1;
-      if (this.#pendingWrites === 0) {
-        for (const resolve of this.#writeResolvers) resolve();
-        this.#writeResolvers = [];
-      }
+      this.#writeActivityVersion += 1;
     });
   }
 
@@ -101,20 +99,37 @@ export class VirtualTerminal implements PiTerminal {
   }
 
   /**
-   * Wait for scheduled TUI renders to enqueue writes and for those writes to
-   * settle, then a short tick for xterm to update its buffer.
+   * Wait for scheduled TUI renders to enqueue writes, then resolve only after
+   * xterm has reported no write activity for a full idle window.
    */
   async waitForRender(timeoutMs = 1000): Promise<void> {
+    const idleWindowMs = 50;
     const deadline = Date.now() + timeoutMs;
-    while (this.#pendingWrites > 0 && Date.now() < deadline) {
-      await new Promise<void>((resolve) => this.#writeResolvers.push(resolve));
+    let idleSince = Date.now();
+
+    while (Date.now() < deadline) {
+      if (this.#pendingWrites > 0) {
+        await this.#sleepUntil(deadline, 5);
+        idleSince = Date.now();
+        continue;
+      }
+
+      const idleForMs = Date.now() - idleSince;
+      if (idleForMs >= idleWindowMs) return;
+
+      const versionBeforeIdleWait = this.#writeActivityVersion;
+      await this.#sleepUntil(deadline, idleWindowMs - idleForMs);
+      if (this.#writeActivityVersion !== versionBeforeIdleWait) {
+        idleSince = Date.now();
+      }
     }
-    if (this.#pendingWrites > 0) {
-      throw new Error(`waitForRender timed out after ${timeoutMs}ms`);
-    }
-    // Yield so a just-started TUI render loop can enqueue its first writes, then
-    // let xterm settle before the test reads the buffer.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    throw new Error(`waitForRender timed out after ${timeoutMs}ms`);
+  }
+
+  #sleepUntil(deadline: number, requestedMs: number): Promise<void> {
+    const remainingMs = deadline - Date.now();
+    return new Promise((resolve) => setTimeout(resolve, Math.min(requestedMs, Math.max(0, remainingMs))));
   }
 
   /** Return the visible viewport lines, stripped of trailing whitespace. */
