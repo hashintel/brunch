@@ -74,6 +74,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 
 ### Parallel / Low-conflict
 
+- `cook-artifact-lifecycle` — **FE-883**, branch `ka/fe-883-orchestrator-improvements` (on FE-864). Wire the already-built `run-artifact.ts` git-merge composer (871ef087) into the live promotion/verify path, replacing the file-copy union; then worktree/branch GC. Slice 1a (composer correct under dep-seeding) landed; wiring + GC remain. Execution queue in `memory/CARDS.md`.
 - `first-run-provider-setup` — provider/key UX and runtime seam can progress independently of semantic-stack work.
 - `workspace-gitignore-assist` — small workspace hygiene surface with low overlap.
 - `productized-web-research` — waits on prompt/context scenario substrate for probe quality, but can remain separate from semantic schema work.
@@ -473,6 +474,21 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Verification:** brownfield promotion integration test (seeded git repo → cook run → promote → assert merge into working branch); source-unchanged-until-promote test; collision-report test.
 - **Depends on:** `cook-codebase-mode` (done), `cook-greenfield-single-tree` (FE-827, done), `integration-oracle`.
 - **Traceability:** Requirement 49; D166-K (extend to brownfield), A49; cook-codebase-mode promotion follow-on.
+- **Design docs:** `docs/design/orchestrator.md`; SPEC §A49.
+
+### cook-artifact-lifecycle
+
+- **Name:** Cook artifact lifecycle — wire the git-merge composer + worktree/branch GC
+- **Linear:** FE-883
+- **Kind:** structural (Slice 1 amends I124-K on wiring); hardening
+- **Status:** in progress (2026-06-18) — branch `ka/fe-883-orchestrator-improvements` on FE-864; queue in `memory/CARDS.md`. Slice 1a landed (`2357f941`).
+- **Objective:** Wire the already-built `run-artifact.ts` composer (`commitSliceWorktree` + `foldSliceBranches`, 871ef087) into cook's live promotion/verify path, replacing the file-copy union (`mergeSlicesIntoEpicSandbox` / `promoteBrownfieldRun` cpSync) whose declaration-order last-slice-wins silently drops same-file/different-hunk edits. Brownfield only (common ancestor → real 3-way); greenfield keeps the file-copy union (no common ancestor). Then GC of run worktrees + `brunch/{run,slice}/*` refs.
+- **Slice 1a (done, `2357f941`):** resolved the dependency-seed interaction the composer was left unwired for — slice commits now record their dependency commits as parents so the fold's merge-base is the dependency (a dep-seeded file reads as an edit, not an add/add false conflict). Regression test + unfaithful happy-path test corrected. Composer correctness only; still unwired.
+- **Remaining:** 1b wire into promotion + cook-cli (preserve I135-K), 1c verify-epic consistency (design fork: verify against the folded tree vs keep file-copy + elevate collisions), 1d delete the superseded file-copy path + the stale `epic-sandbox-merge.ts:226` TODO. Then Slice 2 (GC).
+- **Main risk (1a) — RESOLVED:** see Slice 1a. Open: 1c is a design fork on verify-epic consistency.
+- **Acceptance / verification:** see `memory/CARDS.md`.
+- **Depends on:** `brownfield-promotion` FE-877 (done), the FE-864 composer 871ef087 (done), FE-879 lazy/shared-`node_modules` (done).
+- **Traceability:** Requirement 49; I124-K (file-copy → fork on `plan.mode` on wiring), I135-K (promotion checkout-untouched, preserved); A49. Precursor to Horizon `parallel-merge-conflict-reconciliation`.
 - **Design docs:** `docs/design/orchestrator.md`; SPEC §A49.
 
 ### brunch-ship
