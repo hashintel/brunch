@@ -106,6 +106,20 @@ describe('foldSliceBranches (git merge-tree plumbing)', () => {
     expect(folded).not.toContain('B1');
   });
 
+  it('3-way merges different-hunk edits to the same file (the file-copy union would drop one)', () => {
+    // The headline correctness win over the file-copy union: two independent
+    // slices edit different lines of the same pre-existing file. A whole-file
+    // last-slice-wins copy keeps only one; the merge-tree fold keeps both.
+    const a = sliceBranch('a', (d) => writeFileSync(join(d, 'base.txt'), 'A1\nl2\nl3\n'));
+    const b = sliceBranch('b', (d) => writeFileSync(join(d, 'base.txt'), 'l1\nl2\nB3\n'));
+
+    const artifact = foldSliceBranches({ sourceDir: repo, runId: 'r1', slices: [a, b] });
+
+    expect(artifact.conflicts).toEqual([]);
+    const folded = gitC(repo, 'show', `${brunchRef.run('r1')}:base.txt`); // gitC trims trailing newline
+    expect(folded).toBe('A1\nl2\nB3'); // both edits survive
+  });
+
   it('squash collapses the fold into a single commit off the base', () => {
     const a = sliceBranch('a', (d) => writeFileSync(join(d, 'a.txt'), 'A\n'));
     const b = sliceBranch('b', (d) => writeFileSync(join(d, 'b.txt'), 'B\n'));
