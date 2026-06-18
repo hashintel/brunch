@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { landCookBranch, promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
+import { landCookBranch, promoteGreenfieldRun } from './promote-run.js';
 
 const dirs: string[] = [];
 const GIT_TEST_TIMEOUT_MS = 20_000;
@@ -206,164 +206,12 @@ describe('promoteGreenfieldRun', () => {
   );
 });
 
-describe('promoteBrownfieldRun', () => {
-  const id = ['-c', 'user.name=t', '-c', 'user.email=t@e'];
-
-  // A user repo on `main` with a base commit, plus a brunch/run/<runId> branch at the
-  // same base (as `git worktree add -b brunch/run/<runId> … HEAD` would create).
-  function userRepo(): { dir: string; baseHead: string } {
-    const dir = mkdtempSync(join(tmpdir(), 'cook-userrepo-'));
-    dirs.push(dir);
-    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
-    writeFileSync(join(dir, 'app.ts'), 'export const v = 1;\n');
-    writeFileSync(join(dir, '.gitignore'), 'node_modules/\n');
-    execFileSync('git', ['add', '.'], { cwd: dir });
-    execFileSync('git', [...id, 'commit', '-q', '-m', 'base'], { cwd: dir });
-    execFileSync('git', ['branch', 'brunch/run/r1'], { cwd: dir });
-    const baseHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
-    return { dir, baseHead };
-  }
-
-  // The composed cook result: a full tree (base + the cook delta).
-  function composedTree(): string {
-    const d = mkdtempSync(join(tmpdir(), 'cook-composed-'));
-    dirs.push(d);
-    writeFileSync(join(d, 'app.ts'), 'export const v = 2;\n'); // modified
-    writeFileSync(join(d, 'feature.ts'), 'export const f = true;\n'); // added
-    writeFileSync(join(d, '.gitignore'), 'node_modules/\n');
-    mkdirSync(join(d, 'node_modules'));
-    writeFileSync(join(d, 'node_modules', 'dep.js'), 'junk\n'); // gitignored — must not land
-    return d;
-  }
-
-  it(
-    'commits the composed tree onto brunch/run/<runId>, leaving the active branch and working tree untouched',
-    () => {
-      const { dir, baseHead } = userRepo();
-      const tree = composedTree();
-      const branchesBefore = execFileSync('git', ['branch', '--list'], { cwd: dir, encoding: 'utf8' });
-
-      const result = promoteBrownfieldRun({ sourceDir: dir, sourceTreeDir: tree, runId: 'r1' });
-
-      // brunch/run/r1 advanced by one commit on top of the base.
-      expect(result.branch).toBe('brunch/run/r1');
-      expect(result.commit).not.toBe(baseHead);
-      const parent = execFileSync('git', ['rev-parse', 'brunch/run/r1^'], {
-        cwd: dir,
-        encoding: 'utf8',
-      }).trim();
-      expect(parent).toBe(baseHead);
-
-      // The commit's tree carries the delta — and not the gitignored deps.
-      const files = execFileSync('git', ['ls-tree', '-r', '--name-only', 'brunch/run/r1'], {
-        cwd: dir,
-        encoding: 'utf8',
-      });
-      expect(files).toContain('feature.ts');
-      expect(files).toContain('app.ts');
-      expect(files).not.toContain('node_modules');
-      const appAtCook = execFileSync('git', ['show', 'brunch/run/r1:app.ts'], { cwd: dir, encoding: 'utf8' });
-      expect(appAtCook).toContain('v = 2');
-
-      // The user's active branch (main), HEAD, working tree, and index are untouched.
-      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim()).toBe(
-        baseHead,
-      );
-      expect(
-        execFileSync('git', ['symbolic-ref', '--short', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim(),
-      ).toBe('main');
-      expect(readFileSync(join(dir, 'app.ts'), 'utf8')).toContain('v = 1');
-      expect(existsSync(join(dir, 'feature.ts'))).toBe(false);
-      expect(execFileSync('git', ['status', '--porcelain'], { cwd: dir, encoding: 'utf8' })).toBe('');
-      // Only brunch/run/r1 moved — no stray branches.
-      expect(execFileSync('git', ['branch', '--list'], { cwd: dir, encoding: 'utf8' })).toBe(branchesBefore);
-    },
-    GIT_TEST_TIMEOUT_MS,
-  );
-
-  it('throws when the brunch/run/<runId> branch is absent (must be created by the worktree)', () => {
-    const { dir } = userRepo();
-    const tree = composedTree();
-    expect(() => promoteBrownfieldRun({ sourceDir: dir, sourceTreeDir: tree, runId: 'missing' })).toThrow(
-      /brunch\/run\/missing/,
-    );
-  });
-
-  it(
-    'works in the real linked-worktree topology — the live sandbox worktree is left to be discarded, the main checkout untouched',
-    () => {
-      // Mirror production: brunch/run/r1 exists *because* a linked worktree checked it out.
-      const dir = mkdtempSync(join(tmpdir(), 'cook-userrepo-'));
-      dirs.push(dir);
-      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
-      writeFileSync(join(dir, 'app.ts'), 'export const v = 1;\n');
-      writeFileSync(join(dir, '.gitignore'), 'node_modules/\n');
-      execFileSync('git', ['add', '.'], { cwd: dir });
-      execFileSync('git', [...id, 'commit', '-q', '-m', 'base'], { cwd: dir });
-      const wt = join(dir, 'wt');
-      execFileSync('git', ['worktree', 'add', '-q', '-b', 'brunch/run/r1', wt, 'HEAD'], { cwd: dir });
-      const baseHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
-
-      const result = promoteBrownfieldRun({ sourceDir: dir, sourceTreeDir: composedTree(), runId: 'r1' });
-
-      // Only brunch/run/r1 moved (one commit on the base).
-      expect(
-        execFileSync('git', ['rev-parse', 'brunch/run/r1^'], { cwd: dir, encoding: 'utf8' }).trim(),
-      ).toBe(baseHead);
-      expect(execFileSync('git', ['show', 'brunch/run/r1:app.ts'], { cwd: dir, encoding: 'utf8' })).toContain(
-        'v = 2',
-      );
-      // The main checkout is wholly untouched.
-      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim()).toBe(
-        baseHead,
-      );
-      expect(
-        execFileSync('git', ['symbolic-ref', '--short', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim(),
-      ).toBe('main');
-      expect(readFileSync(join(dir, 'app.ts'), 'utf8')).toContain('v = 1');
-      // tracked files untouched (the linked `wt/` dir is an expected untracked entry).
-      expect(
-        execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
-          cwd: dir,
-          encoding: 'utf8',
-        }),
-      ).toBe('');
-      expect(result.commit).not.toBe(baseHead);
-    },
-    GIT_TEST_TIMEOUT_MS,
-  );
-
-  it('stages tracked deletions — a file removed in the composed tree is removed in the cook commit', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'cook-userrepo-'));
-    dirs.push(dir);
-    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
-    writeFileSync(join(dir, 'keep.ts'), 'keep\n');
-    writeFileSync(join(dir, 'old.ts'), 'remove me\n');
-    execFileSync('git', ['add', '.'], { cwd: dir });
-    execFileSync('git', [...id, 'commit', '-q', '-m', 'base'], { cwd: dir });
-    execFileSync('git', ['branch', 'brunch/run/r1'], { cwd: dir });
-
-    // Composed tree drops old.ts.
-    const tree = mkdtempSync(join(tmpdir(), 'cook-composed-'));
-    dirs.push(tree);
-    writeFileSync(join(tree, 'keep.ts'), 'keep\n');
-
-    promoteBrownfieldRun({ sourceDir: dir, sourceTreeDir: tree, runId: 'r1' });
-
-    const files = execFileSync('git', ['ls-tree', '-r', '--name-only', 'brunch/run/r1'], {
-      cwd: dir,
-      encoding: 'utf8',
-    });
-    expect(files).toContain('keep.ts');
-    expect(files).not.toContain('old.ts');
-  });
-});
-
 describe('landCookBranch', () => {
   const id = ['-c', 'user.name=t', '-c', 'user.email=t@e'];
 
   // A user repo on `main` with one base commit and a promoted brunch/run/r1 branch
-  // (the composed result already committed on top of base via promoteBrownfieldRun).
+  // carrying the composed result one commit ahead of base (what a cook run leaves —
+  // built here via a throwaway worktree on the run branch, the shape landCookBranch merges).
   function repoWithPromotedCook(): { dir: string; baseHead: string; cookCommit: string } {
     const dir = mkdtempSync(join(tmpdir(), 'cook-land-'));
     dirs.push(dir);
@@ -375,12 +223,15 @@ describe('landCookBranch', () => {
     execFileSync('git', ['branch', 'brunch/run/r1'], { cwd: dir });
     const baseHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
 
-    const tree = mkdtempSync(join(tmpdir(), 'cook-land-tree-'));
-    dirs.push(tree);
-    writeFileSync(join(tree, 'app.ts'), 'export const v = 2;\n');
-    writeFileSync(join(tree, 'feature.ts'), 'export const f = true;\n');
-    writeFileSync(join(tree, '.gitignore'), 'node_modules/\n');
-    const { commit } = promoteBrownfieldRun({ sourceDir: dir, sourceTreeDir: tree, runId: 'r1' });
+    const wt = mkdtempSync(join(tmpdir(), 'cook-land-wt-'));
+    dirs.push(wt);
+    execFileSync('git', ['worktree', 'add', '-q', wt, 'brunch/run/r1'], { cwd: dir });
+    writeFileSync(join(wt, 'app.ts'), 'export const v = 2;\n');
+    writeFileSync(join(wt, 'feature.ts'), 'export const f = true;\n');
+    execFileSync('git', ['add', '-A'], { cwd: wt });
+    execFileSync('git', [...id, 'commit', '-q', '-m', 'cook: r1'], { cwd: wt });
+    const commit = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: wt, encoding: 'utf8' }).trim();
+    execFileSync('git', ['worktree', 'remove', '--force', wt], { cwd: dir });
     return { dir, baseHead, cookCommit: commit };
   }
 
