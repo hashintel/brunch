@@ -362,14 +362,46 @@ function mergeSliceDirsInto(parentSandboxDir: string, sliceIds: string[], destDi
   return conflicts;
 }
 
+/**
+ * Pick where the merged tree's shared entry (`node_modules`) is linked from. A
+ * completed slice that materialized a REAL install — its shared symlink was
+ * clobbered by an in-slice `npm install`, so it holds the manifest-reconciled
+ * tree including any slice-added deps — supersedes the parent's install, which
+ * predates the run and lacks those deps. Last installer in plan order wins;
+ * divergent installs across slices are reported like path collisions (full union
+ * is the deferred lockfile-reinstall remodel). With no slice installer, the
+ * parent install is the source (the steady-state case).
+ */
+function selectSharedEntrySource(
+  parentSandboxDir: string,
+  sliceIds: string[],
+  name: string,
+): { sourceDir: string; conflict?: MergeConflict } {
+  const installers = sliceIds.filter((id) => {
+    const entry = join(resolveSliceWorktreeDir(parentSandboxDir, id), name);
+    if (!existsSync(entry)) return false;
+    const st = lstatSync(entry);
+    return st.isDirectory() && !st.isSymbolicLink();
+  });
+  if (installers.length === 0) return { sourceDir: resolve(parentSandboxDir) };
+  const winner = installers[installers.length - 1]!;
+  return {
+    sourceDir: resolveSliceWorktreeDir(parentSandboxDir, winner),
+    conflict: installers.length > 1 ? { path: name, slices: installers, winner } : undefined,
+  };
+}
+
 export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
   const epicSandboxDir = resolveEpicSandboxDir(opts.parentSandboxDir, opts.epicId);
   const conflicts = mergeSliceDirsInto(opts.parentSandboxDir, opts.sliceIds, epicSandboxDir);
-  // `walkFiles` skips the parent's symlinked `node_modules`, so the merged tree
-  // would have no resolvable deps. verify-epic and probes run in this cwd — and
-  // per-slice verification already passed against the same shared copy — so
-  // re-link the shareable entries here too.
-  linkSharedTopLevelEntries(opts.parentSandboxDir, epicSandboxDir, SHAREABLE_TOP_LEVEL_ENTRIES);
+  // `walkFiles` skips `node_modules`, so the merged tree has no resolvable deps
+  // until re-linked. verify-epic and probes run in this cwd, so link each shared
+  // entry from the slice that installed it (if any) over the parent's install.
+  for (const name of SHAREABLE_TOP_LEVEL_ENTRIES) {
+    const { sourceDir, conflict } = selectSharedEntrySource(opts.parentSandboxDir, opts.sliceIds, name);
+    linkSharedTopLevelEntries(sourceDir, epicSandboxDir, new Set([name]));
+    if (conflict) conflicts.push(conflict);
+  }
   return { epicSandboxDir, conflicts };
 }
 
