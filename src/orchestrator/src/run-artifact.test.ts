@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,6 +12,7 @@ import {
   dependencyOrder,
   foldSliceBranches,
   harvestCookRun,
+  materializeFoldedWorktree,
   type SliceCommit,
 } from './run-artifact.js';
 import type { Plan, Slice } from './types.js';
@@ -118,6 +119,24 @@ describe('foldSliceBranches (git merge-tree plumbing)', () => {
     expect(artifact.conflicts).toEqual([]);
     const folded = gitC(repo, 'show', `${brunchRef.run('r1')}:base.txt`); // gitC trims trailing newline
     expect(folded).toBe('A1\nl2\nB3'); // both edits survive
+  });
+
+  it('materializes the fold as a worktree on disk (verify against the shipped tree)', () => {
+    // 1c: verify-epic runs tests against the same merged tree promotion ships.
+    // Different-hunk edits to the same file must both be present on disk in the
+    // checked-out verify worktree (the file-copy union would drop one).
+    const a = sliceBranch('a', (d) => writeFileSync(join(d, 'base.txt'), 'A1\nl2\nl3\n'));
+    const b = sliceBranch('b', (d) => writeFileSync(join(d, 'base.txt'), 'l1\nl2\nB3\n'));
+    const dest = join(repo, '__verify__');
+
+    const { conflicts } = materializeFoldedWorktree({ sourceDir: repo, base, slices: [a, b], destDir: dest });
+
+    expect(conflicts).toEqual([]);
+    expect(readFileSync(join(dest, 'base.txt'), 'utf8')).toBe('A1\nl2\nB3\n');
+    // Re-runnable (rework): a second materialize over the same dest must not throw.
+    expect(() =>
+      materializeFoldedWorktree({ sourceDir: repo, base, slices: [a, b], destDir: dest }),
+    ).not.toThrow();
   });
 
   it('squash collapses the fold into a single commit off the base', () => {

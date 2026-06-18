@@ -10,6 +10,7 @@
 // are nested under the run worktree, so an in-worktree merge would be a footgun.
 
 import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { resolveSliceWorktreeDir } from './epic-sandbox-merge.js';
@@ -170,6 +171,37 @@ export function foldSliceBranches(opts: {
   const ref = `refs/heads/${branch}`;
   const base = git(['rev-parse', '--verify', ref], sourceDir);
 
+  const folded = foldToCommit({ sourceDir, base, slices: opts.slices });
+  let head = folded.head;
+
+  // per-slice-then-merge: publish the folded chain of merge nodes.
+  // squash: collapse the final tree into a single commit off the base instead.
+  if (granularity === 'squash' && folded.commits.length > 0) {
+    const tree = git(['rev-parse', `${head}^{tree}`], sourceDir);
+    head = git([...COMMIT_IDENTITY, 'commit-tree', tree, '-p', base, '-m', `cook: ${opts.runId}`], sourceDir);
+  }
+  if (head !== base) git(['update-ref', ref, head, base], sourceDir);
+
+  return {
+    branch,
+    head,
+    commits: granularity === 'squash' ? [] : folded.commits,
+    conflicts: folded.conflicts,
+  };
+}
+
+/**
+ * Core fold: `merge-tree`-fold the slice commits onto `base` in dependency order,
+ * one merge node per slice, fail-closed at the first real conflict (leaving the
+ * last clean tip). Writes no refs — callers decide whether to publish the result
+ * (promotion → run branch) or check it out (verify-epic → a worktree).
+ */
+function foldToCommit(opts: { sourceDir: string; base: string; slices: readonly SliceCommit[] }): {
+  head: string;
+  commits: SliceCommit[];
+  conflicts: SliceConflict[];
+} {
+  const { sourceDir, base } = opts;
   let head = base;
   const commits: SliceCommit[] = [];
   const conflicts: SliceConflict[] = [];
@@ -178,9 +210,9 @@ export function foldSliceBranches(opts: {
     const merged = mergeTree(sourceDir, head, slice.commit);
     if (!merged.ok) {
       conflicts.push({ sliceId: slice.sliceId, paths: merged.paths });
-      break; // fail-closed: stop, leave the run branch at the last clean tip
+      break; // fail-closed: stop at the last clean tip
     }
-    const node = git(
+    head = git(
       [
         ...COMMIT_IDENTITY,
         'commit-tree',
@@ -194,19 +226,39 @@ export function foldSliceBranches(opts: {
       ],
       sourceDir,
     );
-    head = node;
     commits.push(slice);
   }
 
-  // per-slice-then-merge: publish the folded chain of merge nodes.
-  // squash: collapse the final tree into a single commit off the base instead.
-  if (granularity === 'squash' && commits.length > 0) {
-    const tree = git(['rev-parse', `${head}^{tree}`], sourceDir);
-    head = git([...COMMIT_IDENTITY, 'commit-tree', tree, '-p', base, '-m', `cook: ${opts.runId}`], sourceDir);
-  }
-  if (head !== base) git(['update-ref', ref, head, base], sourceDir);
+  return { head, commits, conflicts };
+}
 
-  return { branch, head, commits: granularity === 'squash' ? [] : commits, conflicts };
+/**
+ * Materialize the fold of `slices` onto `base` as a detached git worktree at
+ * `destDir`, so verify-epic runs tests against the *same* merged tree promotion
+ * will ship — not a file-copy union that can diverge on same-file edits. The fold
+ * is fail-closed: on a real conflict the worktree is the last clean tip and the
+ * conflicts are returned. Re-creatable across reworks (a prior worktree at destDir
+ * is removed first). Caller relinks shareable gitignored entries (node_modules)
+ * since the fold tree carries only tracked content.
+ */
+export function materializeFoldedWorktree(opts: {
+  sourceDir: string;
+  base: string;
+  slices: readonly SliceCommit[];
+  destDir: string;
+}): { conflicts: SliceConflict[] } {
+  const sourceDir = resolve(opts.sourceDir);
+  const folded = foldToCommit({ sourceDir, base: opts.base, slices: opts.slices });
+  if (existsSync(opts.destDir)) {
+    try {
+      git(['worktree', 'remove', '--force', opts.destDir], sourceDir);
+    } catch {
+      rmSync(opts.destDir, { recursive: true, force: true });
+    }
+  }
+  git(['worktree', 'prune'], sourceDir);
+  git(['worktree', 'add', '--quiet', '--detach', opts.destDir, folded.head], sourceDir);
+  return { conflicts: folded.conflicts };
 }
 
 /**
