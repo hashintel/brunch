@@ -19,7 +19,15 @@ import type { Token } from './petri-net.js';
 import { createReport } from './report-helpers.js';
 import { materializeEpicVerifyTree, transferFoldedFixToSlice } from './run-artifact.js';
 import { runVerification } from './test-runner.js';
-import type { ActionContext, OrchestratorInput, Plan, RunCtx, RunPolicy, Slice } from './types.js';
+import type {
+  ActionContext,
+  OrchestratorInput,
+  Plan,
+  RunCtx,
+  RunPolicy,
+  Slice,
+  TestFailureKind,
+} from './types.js';
 
 // ---------------------------------------------------------------------------
 // Place-id helpers
@@ -526,6 +534,10 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
           intermediatePlace: verifyReportedPlace,
           budgetPlace: epicRetryBudgetPlace,
           maxRetries: policy.maxRetries,
+          // FE-884 Slice B: an infra/timeout verdict re-runs verify (bounded)
+          // without remediation, counted separately from remediation attempts.
+          reverifyPlace: verifyPlace,
+          maxInfraRetries: policy.maxInfraRetries ?? policy.maxRetries,
         },
       });
 
@@ -914,7 +926,16 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
       }
 
       case 'verify-epic': {
-        const { actionKey, epicId, representativeSliceId, intermediatePlace, budgetPlace, maxRetries } = h;
+        const {
+          actionKey,
+          epicId,
+          representativeSliceId,
+          intermediatePlace,
+          budgetPlace,
+          maxRetries,
+          reverifyPlace,
+          maxInfraRetries,
+        } = h;
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const slice = plan.slices.find((s) => s.id === representativeSliceId)!;
         const epicBaseToken: Token = { sliceId: '', epicId };
@@ -928,6 +949,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           inputToken: Token,
           reportId: string,
           passed: boolean,
+          failureKind?: TestFailureKind,
         ): { place: string; token: Token }[] => {
           const tok: Token = { ...inputToken, reportId };
           if (passed) {
@@ -943,6 +965,28 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
                 place: ep(epicId, 'halted'),
                 token: { ...tok, haltReason: `Epic ${epicId} verification failed` },
               },
+            ];
+          }
+          // FE-884 Slice B: an infra/timeout failure is a toolchain blip, not a
+          // logic red — re-run verify (bounded by a separate infra counter),
+          // never the remediation agent. Exhaustion halts with an honest cause.
+          if (failureKind === 'infra') {
+            const infraCount = inputToken.infraRetryCount ?? 0;
+            if (infraCount >= maxInfraRetries) {
+              ctx.epicOutcomes.set(epicId, { epicId, status: 'halted' });
+              return [
+                {
+                  place: ep(epicId, 'halted'),
+                  token: {
+                    ...tok,
+                    haltReason: `Epic ${epicId} verification could not run after ${maxInfraRetries} infra retries (toolchain/timeout)`,
+                  },
+                },
+              ];
+            }
+            return [
+              { place: reverifyPlace, token: { ...inputToken, infraRetryCount: infraCount + 1 } },
+              { place: budgetPlace, token: { ...epicBaseToken, retryCount: inputToken.retryCount ?? 0 } },
             ];
           }
           const retryCount = inputToken.retryCount ?? 0;
@@ -1088,10 +1132,13 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
                 }
               }
             }
-            // Route through the epic remediation budget. Pass → done (+ budget
-            // reset); fail with budget → re-loop via the intermediate place to the
-            // fail sibling → remediation; fail exhausted → halt.
-            return routeVerdict(inputToken, verdictReportId, passed);
+            // Route through the epic budgets. Pass → done (+ budget reset); infra
+            // fail → re-verify (bounded, no remediation); test fail with budget →
+            // re-loop to the fail sibling → remediation; exhausted → halt.
+            const verdictFailureKind = (
+              reports.getById(verdictReportId)?.payload as { failureKind?: TestFailureKind } | undefined
+            )?.failureKind;
+            return routeVerdict(inputToken, verdictReportId, passed, verdictFailureKind);
           })();
           net.scheduleDeferred(skel.id, skel.contract, { places: skel.inputs, tokens: consumed }, deferred);
           return [];

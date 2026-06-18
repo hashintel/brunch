@@ -11,6 +11,11 @@ export type Token = {
   /** Semantic rework counter — carried on semantic-budget tokens.
    *  Prevents infinite rework loops when assess-semantic always rejects. */
   reworkCount?: number;
+  /** FE-884 Slice B: epic infra/timeout re-verify counter — carried on the
+   *  verify-ready work token. A toolchain/timeout failure re-runs verify
+   *  (bounded) without invoking remediation, so it is counted separately from
+   *  `retryCount` (remediation attempts). */
+  infraRetryCount?: number;
   /**
    * FE-761 Slice 2b: halt reason carried on tokens emitted to `:halted`
    * places. Engine derives `result.reason` from this field. Replaces the

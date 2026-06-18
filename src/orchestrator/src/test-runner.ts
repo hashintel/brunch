@@ -24,6 +24,29 @@ const RUNNER_MISSING_PATTERNS: readonly RegExp[] = [
 const NO_TESTS_PATTERNS: readonly RegExp[] = [/No test files found/i];
 
 /**
+ * FE-884 Slice B: the verify subprocess timeout. Sized well above a real test
+ * run because the wait includes `npx`/runner resolution + framework warmup +
+ * code-split lazy loading (a single code-split route test was observed at ~25s),
+ * so the prior 60s ceiling spuriously `ETIMEDOUT`-ed and the timeout was then
+ * misread as a logic red. A timeout is now classified `infra` (see
+ * `isInfraSpawnError`) and re-run, but the ceiling is also raised so a healthy
+ * run does not trip it. Distinct from FE-864's pi *session* idle deadline.
+ */
+export const VERIFY_TIMEOUT_MS = 180_000;
+
+/**
+ * FE-884 Slice B: a spawn error that means "the runner never delivered a
+ * verdict" — the binary is missing (`ENOENT`) or the run was killed by the
+ * timeout (`ETIMEDOUT`). Both are toolchain/infra faults, not a code assertion,
+ * so they must not be routed to the (logic-fix) remediation agent. ENOBUFS and
+ * other post-start errors stay `test` — output exists to classify.
+ */
+export function isInfraSpawnError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === 'ENOENT' || code === 'ETIMEDOUT';
+}
+
+/**
  * Classify a non-passing test run. Deliberately conservative ordering:
  *   1. `infra` — a spawn failure (missing binary) or shell "command not found";
  *      an unambiguous "the runner itself isn't there".
@@ -59,7 +82,7 @@ export class ToolchainTestRunner implements TestRunner {
     const result = spawnSync(command!, args, {
       cwd: sandboxDir,
       encoding: 'utf8',
-      timeout: 60_000,
+      timeout: VERIFY_TIMEOUT_MS,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     // Test runners vary in which stream carries diagnostics (e.g. `bun test`
@@ -70,10 +93,11 @@ export class ToolchainTestRunner implements TestRunner {
     );
     const passed = result.status === 0;
     if (passed) return { passed, output };
-    // `spawnSync.error` also covers timeout / ENOBUFS after the runner started;
-    // only ENOENT proves the runner binary itself is missing.
-    const runnerMissing = result.error != null && (result.error as NodeJS.ErrnoException).code === 'ENOENT';
-    return { passed, output, failureKind: classifyTestFailure(output, runnerMissing) };
+    // A missing runner binary (`ENOENT`) or a timeout-kill (`ETIMEDOUT`) means
+    // the runner never delivered a verdict — an infra fault, not a code red
+    // (FE-884 Slice B). Other post-start errors stay `test`.
+    const runnerFailed = isInfraSpawnError(result.error);
+    return { passed, output, failureKind: classifyTestFailure(output, runnerFailed) };
   }
 }
 

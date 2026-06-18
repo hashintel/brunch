@@ -366,12 +366,28 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     expect(producer, 'expect verify-epic producer').toBeDefined();
     expect(producer!.handler.kind).toBe('verify-epic');
 
-    // FE-884: the verify producer now carries the epic retry budget — it emits to
-    // the intermediate place, the budget place, and (on exhaustion) the halt place,
-    // mirroring the slice run-tests producer.
+    // FE-884: the verify producer carries the epic retry budget — it emits to the
+    // intermediate place, the budget place, and (on exhaustion) the halt place,
+    // mirroring the slice run-tests producer. Slice B adds the verify-ready place:
+    // an infra/timeout verdict re-runs verify (bounded) without remediation.
     expect(enumerateCandidateOutputs(producer!)).toEqual(
-      new Set(['epic:epic-1:verify:reported', 'epic:epic-1:retry-budget', 'epic:epic-1:halted']),
+      new Set([
+        'epic:epic-1:verify:reported',
+        'epic:epic-1:retry-budget',
+        'epic:epic-1:halted',
+        'epic:epic-1:verify-ready',
+      ]),
     );
+
+    // FE-884 Slice B: the verify producer descriptor carries the infra-retry
+    // budget + reverify target distinct from the remediation retry budget.
+    const verifyHandler = producer!.handler as {
+      kind: string;
+      maxInfraRetries: number;
+      reverifyPlace: string;
+    };
+    expect(verifyHandler.maxInfraRetries).toBe(3);
+    expect(verifyHandler.reverifyPlace).toBe('epic:epic-1:verify-ready');
 
     const passSibling = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:pass');
     const failSibling = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:fail');

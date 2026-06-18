@@ -210,6 +210,11 @@ type VerifyEpicDescriptor = {
   /** Place to emit the (decremented or reset) epic retry-budget token to. */
   budgetPlace: string;
   maxRetries: number;
+  /** FE-884 Slice B: the verify-ready place to re-route to on an infra/timeout
+   *  failure (re-run verify without remediation). */
+  reverifyPlace: string;
+  /** FE-884 Slice B: max infra/timeout re-verifies before halting. */
+  maxInfraRetries: number;
 };
 
 /**
@@ -325,6 +330,9 @@ export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<s
       out.add(h.intermediatePlace);
       out.add(h.budgetPlace);
       out.add(`epic:${h.epicId}:halted`);
+      // FE-884 Slice B: an infra/timeout verdict re-routes to verify-ready
+      // (re-run verify without remediation).
+      out.add(h.reverifyPlace);
       return out;
     case 'remediate-epic':
       for (const p of h.outputs) out.add(p);
