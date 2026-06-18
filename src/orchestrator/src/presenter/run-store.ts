@@ -95,10 +95,14 @@ export class RunStore {
     if (event.kind === 'slice') {
       const running = event.status === 'running';
       const prev = this.state.slices.find((s) => s.id === event.id);
-      // A fresh run (queued→running) is attempt 1; a retry (failed→running) bumps
-      // it; a step change mid-run (running→running) keeps the count.
+      // A fresh run (queued→running) is attempt 1; only a retry (failed→running)
+      // bumps it. A step change mid-run (running→running) keeps the count, and
+      // so does the post-pass re-evaluation (passed→running): the net verifies
+      // in two phases — run-tests emits `passed`, then routes back through the
+      // evaluate gate for a confirming `running` — which is a structural
+      // confirm, not a new attempt.
       const attempts = running
-        ? prev?.status === 'running'
+        ? prev?.status === 'running' || prev?.status === 'passed'
           ? prev.attempts
           : (prev?.attempts ?? 0) + 1
         : prev?.attempts;

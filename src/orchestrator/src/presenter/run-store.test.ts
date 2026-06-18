@@ -194,16 +194,22 @@ describe('RunStore — attempt counting', () => {
     expect(attemptsOf(store)).toBe(1); // running→running keeps the count
   });
 
-  it('a clean greenfield slice ends at attempts 1 (the evaluate gate no longer emits a phantom failure)', () => {
-    // Regression oracle for the phantom n/4 + ✗ NEEDS WORK: the unbuilt-slice
-    // evaluate gate stays running instead of emitting `failed`, so the whole
-    // verify → tests → code → verify → passed flow is one attempt.
+  it('a clean greenfield slice ends at attempts 1 across the two-phase verify topology', () => {
+    // Regression oracle for the phantom n/4 display. The real net verifies in
+    // two phases: run-tests:complete emits `passed`, which routes back through
+    // the evaluate gate (spec-ready → evaluate) that emits another `running`
+    // verify before confirming DONE. That `passed → running` re-evaluation is a
+    // structural confirm, not a retry, so the whole
+    //   verify → tests → code → verify → passed → verify → passed
+    // flow must stay one attempt.
     const store = seed();
     store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'verify' }); // gate (absent)
     store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'tests' });
     store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
-    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'verify' });
-    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'passed' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'verify' }); // run-tests
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'passed' }); // run-tests passes
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'verify' }); // re-evaluate
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'passed' }); // gate confirms DONE
     expect(attemptsOf(store)).toBe(1);
   });
 
