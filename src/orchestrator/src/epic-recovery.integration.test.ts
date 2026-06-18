@@ -83,9 +83,16 @@ describe('FE-884 — recoverable epic verification (codebase mode)', () => {
   // test green to isolate dual re-verify.
   function makeFakeActions(
     reports: InMemoryReportSink,
-    opts: { remediation: 'fix' | 'touch-test' | 'noop'; epicPasses?: boolean },
+    opts: {
+      remediation: 'fix' | 'touch-test' | 'noop';
+      epicPasses?: boolean;
+      // FE-884 Slice B: force the verify-epic verdict to report an infra/timeout
+      // failure — 'always' (never recovers) or 'once' (infra then pass).
+      epicInfra?: 'always' | 'once';
+    },
   ): ActionHandlers {
     const evalCalls = new Map<string, number>();
+    let verifyCalls = 0;
     return {
       'evaluate-done': async (ctx: ActionContext) => {
         const n = (evalCalls.get(ctx.slice.id) ?? 0) + 1;
@@ -115,10 +122,19 @@ describe('FE-884 — recoverable epic verification (codebase mode)', () => {
       // The epic integration test: passes iff the folded src.txt carries the fix
       // token (or the scenario forces it green to isolate dual re-verify).
       'verify-epic': async (ctx: ActionContext) => {
+        verifyCalls += 1;
+        const id = `ve-${ctx.epic.id}-${reports.getAll().length}`;
+        // FE-884 Slice B: infra/timeout verdicts re-run verify without remediation.
+        if (opts.epicInfra === 'always' || (opts.epicInfra === 'once' && verifyCalls === 1)) {
+          reports.append(
+            line(id, ctx, 'orchestrator', 'epic-verified', { passed: false, failureKind: 'infra' }),
+          );
+          return id;
+        }
         const srcPath = join(ctx.sandboxDir, 'src.txt');
         const txt = existsSync(srcPath) ? readFileSync(srcPath, 'utf8') : '';
-        const passed = opts.epicPasses ?? txt.includes('FIXED');
-        const id = `ve-${ctx.epic.id}-${reports.getAll().length}`;
+        // 'once': the infra blip cleared on the re-run, so the epic now passes.
+        const passed = opts.epicInfra === 'once' ? true : (opts.epicPasses ?? txt.includes('FIXED'));
         reports.append(line(id, ctx, 'orchestrator', 'epic-verified', { passed }));
         return id;
       },
@@ -299,6 +315,51 @@ describe('FE-884 — recoverable epic verification (codebase mode)', () => {
       const reverify = reports.getAll().filter((r) => r.event === 'epic-slice-reverify');
       expect(reverify.length).toBeGreaterThan(0);
       expect(reverify.every((r) => (r.payload as { passed: boolean }).passed === false)).toBe(true);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'infra retry (Slice B): an infra/timeout verdict re-runs verify — not the remediation agent — then completes',
+    async () => {
+      const source = makeSeededRepo();
+      const reports = new InMemoryReportSink();
+      // verify reports infra once, then passes on the re-run.
+      const actions = withReports(
+        reports,
+        makeFakeActions(reports, { remediation: 'noop', epicInfra: 'once' }),
+      );
+
+      const { result } = await runCook(source, actions, passingRunner(), 3);
+
+      expect(result.status).toBe('completed');
+      // Verify ran twice (infra → re-verify → pass); the remediation agent was
+      // never invoked — an infra blip is a toolchain re-run, not a logic fix.
+      const verifies = reports.getAll().filter((r) => r.event === 'epic-verified');
+      expect(verifies.length).toBe(2);
+      expect(reports.getAll().filter((r) => r.event === 'epic-remediated')).toHaveLength(0);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'infra exhaustion (Slice B): a persistent infra/timeout failure halts with an honest infra reason, never remediated',
+    async () => {
+      const source = makeSeededRepo();
+      const reports = new InMemoryReportSink();
+      const actions = withReports(
+        reports,
+        makeFakeActions(reports, { remediation: 'noop', epicInfra: 'always' }),
+      );
+
+      const { result } = await runCook(source, actions, passingRunner(), 2);
+
+      expect(result.status).toBe('halted');
+      // Honest cause — a toolchain/timeout failure, not "tests failed" / "remediation attempts".
+      expect(result.reason ?? '').toMatch(/infra retries \(toolchain\/timeout\)/);
+      expect(reports.getAll().filter((r) => r.event === 'epic-remediated')).toHaveLength(0);
+      // Verify was attempted maxInfraRetries+1 times (initial + one per budget unit).
+      expect(reports.getAll().filter((r) => r.event === 'epic-verified')).toHaveLength(3);
     },
     GIT_TEST_TIMEOUT_MS,
   );

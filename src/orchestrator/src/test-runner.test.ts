@@ -16,13 +16,34 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { bunProfile, type Toolchain } from './project-profile.js';
 import {
   classifyTestFailure,
+  isInfraSpawnError,
   runVerification,
   stripAgentTailLines,
   ToolchainTestRunner,
+  VERIFY_TIMEOUT_MS,
 } from './test-runner.js';
 import type { TestResult, TestRunner } from './types.js';
 
 const bun = bunProfile.toolchain;
+
+describe('FE-884 Slice B: infra/timeout classification', () => {
+  it('classifies a timeout-kill (ETIMEDOUT) and a missing runner (ENOENT) as infra', () => {
+    expect(isInfraSpawnError({ code: 'ETIMEDOUT' })).toBe(true);
+    expect(isInfraSpawnError({ code: 'ENOENT' })).toBe(true);
+  });
+
+  it('does not over-classify: post-start errors and no error stay non-infra', () => {
+    expect(isInfraSpawnError({ code: 'ENOBUFS' })).toBe(false);
+    expect(isInfraSpawnError(null)).toBe(false);
+    expect(isInfraSpawnError(undefined)).toBe(false);
+  });
+
+  it('sizes the verify subprocess timeout above a real warmup+run (was 60s)', () => {
+    // The wait includes npx/runner resolution + framework warmup + code-split
+    // lazy loading (~25s observed for a single code-split route test).
+    expect(VERIFY_TIMEOUT_MS).toBeGreaterThan(60_000);
+  });
+});
 
 describe('ToolchainTestRunner output fidelity (bun)', () => {
   const dirs: string[] = [];

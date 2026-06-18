@@ -124,13 +124,52 @@ remediation budget is exhausted.
 
 ---
 
-## Slice B — infra/timeout classification at the epic verdict — `next` after A (independent)
+## Slice B — infra/timeout classification at the epic verdict — `done` (2026-06-18)
 
-Extend FE-872's `failureKind: 'infra' | 'test'` from the slice `tests-run` report
-to the `verify-epic` report; an infra/timeout failure (e.g. `spawnSync npx
-ETIMEDOUT`) gets a bounded infra-retry, not an immediate halt; size the verify
-subprocess timeout to the target's real cost (the `graph-route-wiring` test alone
-ran 25s on code-split + React-Flow warmup). Independent of A — could land first.
+All 4 acceptance criteria met; gate green (check 0 errors, build ✓, full suite
+2110 pass / 2 skip; the lone `build-boundary` failure is the pre-existing
+dev-worktree symlink artifact). **Correctness finding:** the prior verify
+subprocess timeout was `60_000`, and `spawnSync` timeout surfaces as
+`error.code === 'ETIMEDOUT'` — but only `ENOENT` was classified infra, so a
+**timeout was misclassified as `test`** and (with Slice A) would have wrongly
+fed the remediation code agent a non-bug. Fixed: `ETIMEDOUT → infra`
+(`isInfraSpawnError`) + raise `VERIFY_TIMEOUT_MS` to `180_000` (npx + code-split
+warmup, ~25s observed). Distinct from FE-864's pi *session* deadline. Infra
+re-verify is counted by a separate `Token.infraRetryCount` /
+`RunPolicy.maxInfraRetries` (defaults to `maxRetries`), so blips don't consume
+remediation attempts.
+
+Light-ish card (adds a small topology arm inside A's now-settled verify-epic seam).
+
+**Objective:** at the epic verdict, route on `failureKind` (already computed by
+`runVerification`, FE-872) so an infra/timeout failure is retried as a toolchain
+blip, not fed to the remediation code agent or silently halted.
+
+**Design decisions:**
+- Split the verify-epic fail-sibling by `failureKind`: `infra` → a bounded
+  **infra-retry** chain (re-dispatch verify; **no** code agent — nothing for an
+  agent to fix) → `verifyPlace`; exhaustion → `epicHaltedPlace` with an honest
+  *infra* reason. `test`/logic → the Slice-A remediation loop (unchanged).
+- A **separate `epic-infra-budget`** distinct from A's `epic-retry-budget`, so a
+  toolchain blip doesn't consume remediation attempts (and vice versa).
+- **Timeout sizing:** size the verify subprocess (`spawnSync`) timeout to the
+  target's real cost so `npx` resolution + code-split warmup doesn't spuriously
+  `ETIMEDOUT` (the `graph-route-wiring` test alone ran 25s). Coordinate with
+  FE-864's pi-timeout work; do not regress it.
+
+**Acceptance:**
+```
+✓ infra-retries — an infra/timeout verdict re-runs verify (bounded), not the code agent
+✓ infra-exhaustion-halts-honestly — exhausted infra retries halt with an infra reason (not "tests failed"/"remediation attempts")
+✓ logic-still-remediates — a test/logic failure still routes to the Slice-A remediation loop
+✓ timeout-sized — the verify subprocess timeout accommodates code-split warmup (ETIMEDOUT-class regression)
+```
+
+**Verification:** topology goldens (fail-sibling splits on failureKind; infra-retry
+chain + budget; exhaustion→halt reason); engine-contract green; e2e scenario where
+verify returns `failureKind:'infra'` once then passes (retries, not remediated).
+
+Independent of A's logic path; lands on the same branch.
 
 ## Slice C — partial promotion / salvage — deferred (not pre-carded)
 
