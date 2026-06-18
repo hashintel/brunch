@@ -132,6 +132,29 @@ describe('RunStore — slice grid', () => {
   });
 });
 
+describe('RunStore — taste gate', () => {
+  it('advances cook→taste only once every known epic has emitted a verdict', () => {
+    const store = new RunStore('cook', () => 0);
+    store.push({
+      kind: 'run-shape',
+      epics: [{ id: 'api' }, { id: 'pay' }],
+      slices: [
+        { id: 'login', epicId: 'api' },
+        { id: 'charge', epicId: 'pay' },
+      ],
+    });
+    store.push({ kind: 'cook-start', runStart: 0 });
+
+    // First epic verdict: another epic is still mid-cook → stay on cook.
+    store.push({ kind: 'action', icon: '●', message: 'epic      api → PASS' });
+    expect(store.getSnapshot().phase).toBe('cook');
+
+    // Last epic verdict: the whole brigade has tasted → advance.
+    store.push({ kind: 'action', icon: '●', message: 'epic      pay → PASS' });
+    expect(store.getSnapshot().phase).toBe('taste');
+  });
+});
+
 describe('RunStore — failure legibility', () => {
   it('stores a slice failure reason', () => {
     const store = new RunStore('cook', () => 0);

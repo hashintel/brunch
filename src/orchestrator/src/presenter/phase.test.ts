@@ -19,10 +19,33 @@ describe('nextPhase', () => {
     expect(nextPhase('cook', { kind: 'action', icon: '✓', message: 'verify    tests/x.test.ts' })).toBe(
       'cook',
     );
-    // The epic-verification verdict is the real verify→taste signal.
+    // The epic-verification verdict is the real verify→taste signal (no ctx → fallback).
     expect(nextPhase('cook', { kind: 'action', icon: '●', message: 'epic      api-auth → PASS' })).toBe(
       'taste',
     );
+  });
+
+  it('gates taste behind ALL known epics having a verdict', () => {
+    const verdict = (id: string): CookEvent => ({ kind: 'action', icon: '●', message: `epic ${id} → PASS` });
+    // One of two epics verdicted → still cooking.
+    expect(nextPhase('cook', verdict('a'), { epics: ['a', 'b'], verdictedEpics: new Set(['a']) })).toBe(
+      'cook',
+    );
+    // Every known epic verdicted → taste.
+    expect(nextPhase('cook', verdict('b'), { epics: ['a', 'b'], verdictedEpics: new Set(['a', 'b']) })).toBe(
+      'taste',
+    );
+    // A FAIL verdict still counts as a verdict — the gate is "all verdicted", not "all passed".
+    expect(
+      nextPhase(
+        'cook',
+        { kind: 'action', icon: '●', message: 'epic b → FAIL' },
+        {
+          epics: ['a', 'b'],
+          verdictedEpics: new Set(['a', 'b']),
+        },
+      ),
+    ).toBe('taste');
   });
 
   it('advances to plate on a promotion line and to serve on a completed run', () => {

@@ -13,23 +13,35 @@ export type BrigadePhase = 'prep' | 'recipe' | 'cook' | 'taste' | 'plate' | 'ser
 
 export const BRIGADE: readonly BrigadePhase[] = ['prep', 'recipe', 'cook', 'taste', 'plate', 'serve'];
 
-export function nextPhase(current: BrigadePhase, event: CookEvent): BrigadePhase {
-  const target = phaseFor(event);
+// Cross-event facts the otherwise-pure tracker needs to gate cook→taste: the
+// known epic set and which of them have a verdict so far (incl. this event).
+export interface PhaseContext {
+  epics?: readonly string[];
+  verdictedEpics?: ReadonlySet<string>;
+}
+
+export function nextPhase(current: BrigadePhase, event: CookEvent, ctx?: PhaseContext): BrigadePhase {
+  const target = phaseFor(event, ctx);
   if (!target) return current;
   return BRIGADE.indexOf(target) > BRIGADE.indexOf(current) ? target : current;
 }
 
-function phaseFor(event: CookEvent): BrigadePhase | undefined {
+function phaseFor(event: CookEvent, ctx?: PhaseContext): BrigadePhase | undefined {
   switch (event.kind) {
     case 'plan-start':
       return 'recipe';
     case 'cook-start':
       return 'cook';
-    case 'action':
-      // verify→taste fires on the epic-verification verdict (`epic <id> → …`),
-      // NOT on per-slice `verify <target>` lines — those run mid-cook and would
-      // light taste while still cooking.
-      return /^epic\b/.test(event.message) ? 'taste' : undefined;
+    case 'action': {
+      // verify→taste fires on epic-verification verdicts (`epic <id> → …`), NOT
+      // on per-slice `verify <target>` lines — those run mid-cook.
+      const id = /^epic\s+(\S+)/.exec(event.message)?.[1];
+      if (id === undefined) return undefined;
+      // Gate: every known epic must have tasted. With no known set (no
+      // run-shape), fall back to the pre-gate behavior of lighting on any verdict.
+      if (!ctx?.epics?.length) return 'taste';
+      return ctx.epics.every((e) => ctx.verdictedEpics?.has(e)) ? 'taste' : undefined;
+    }
     case 'line':
       return event.text.includes('promoted') ? 'plate' : undefined;
     case 'cook-done':

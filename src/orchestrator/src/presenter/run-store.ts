@@ -40,6 +40,8 @@ export interface RunState {
   pending: PendingActivity[];
   /** Epic ids in plan order, for grouping the grid. */
   epics: string[];
+  /** Epics that have emitted a verdict — gates cook→taste until all have. */
+  epicsVerdicted: string[];
   /** The slice grid — every slice, seeded queued by run-shape. */
   slices: SliceRow[];
   /** When the run started, for the single global header timer. */
@@ -60,7 +62,16 @@ export class RunStore {
     private readonly now: () => number = () => Date.now(),
   ) {
     this.clock = createElapsedClock(now);
-    this.state = { command, phase: 'prep', lines: [], pending: [], epics: [], slices: [], runStart: now() };
+    this.state = {
+      command,
+      phase: 'prep',
+      lines: [],
+      pending: [],
+      epics: [],
+      epicsVerdicted: [],
+      slices: [],
+      runStart: now(),
+    };
   }
 
   private isSlice(id: string): boolean {
@@ -152,12 +163,24 @@ export class RunStore {
       return;
     }
 
+    // Accumulate epic verdicts BEFORE computing the phase so the current event
+    // counts toward the cook→taste gate (all known epics must have a verdict).
+    const verdictId = event.kind === 'action' ? /^epic\s+(\S+)/.exec(event.message)?.[1] : undefined;
+    const epicsVerdicted =
+      verdictId !== undefined && !this.state.epicsVerdicted.includes(verdictId)
+        ? [...this.state.epicsVerdicted, verdictId]
+        : this.state.epicsVerdicted;
+
     const added = formatCookEvent(event, this.clock);
-    const phase = nextPhase(this.state.phase, event);
-    if (added.length === 0 && phase === this.state.phase) return;
+    const phase = nextPhase(this.state.phase, event, {
+      epics: this.state.epics,
+      verdictedEpics: new Set(epicsVerdicted),
+    });
+    if (added.length === 0 && phase === this.state.phase && epicsVerdicted === this.state.epicsVerdicted)
+      return;
     // Append-only — the Ink backend streams these through <Static>, which
     // assumes items only grow; the lines live in terminal scrollback.
-    this.commit({ phase, lines: [...this.state.lines, ...added] });
+    this.commit({ phase, lines: [...this.state.lines, ...added], epicsVerdicted });
   }
 
   private commit(patch: Partial<RunState>): void {
