@@ -212,6 +212,38 @@ interface RunPiOpts {
 /** The pi SDK session factory — injectable so the drive loop is testable without a model or network. */
 export type SessionFactory = typeof createAgentSession;
 
+/** Per-action token usage read from the pi session after its single prompt turn (FE-894 P0). */
+export type PiUsage = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  total: number;
+};
+
+/** Per-action wall-clock split: session setup (cold start) vs the prompt turn. */
+export type PiTimingMs = { coldStartMs: number; promptMs: number };
+
+/** runPi's result: buffered agent output plus the telemetry that makes prompt-cache hits and per-action latency observable. */
+export type PiResult = { output: string; usage: PiUsage; timingMs: PiTimingMs };
+
+/**
+ * Normalize a pi `SessionStats` into a `PiUsage`, defaulting any absent token
+ * field to 0. Each cook action drives a *fresh* session with a single prompt,
+ * so the session's cumulative stats are exactly that action's usage. Pure and
+ * defensive — telemetry must never throw a live session.
+ */
+export function sessionStatsToUsage(stats: { tokens?: Partial<PiUsage> } | undefined): PiUsage {
+  const t = stats?.tokens ?? {};
+  return {
+    input: t.input ?? 0,
+    output: t.output ?? 0,
+    cacheRead: t.cacheRead ?? 0,
+    cacheWrite: t.cacheWrite ?? 0,
+    total: t.total ?? 0,
+  };
+}
+
 function createAgentDir(): string {
   return mkdtempSync(join(tmpdir(), 'brunch-pi-'));
 }
@@ -348,7 +380,7 @@ async function buildSessionOptions(
 async function runPi(
   opts: RunPiOpts,
   deps: { createSession?: SessionFactory; timeoutMs?: number; maxOutput?: number } = {},
-): Promise<string> {
+): Promise<PiResult> {
   const createSession = deps.createSession ?? createAgentSession;
   const timeoutMs = deps.timeoutMs ?? PI_TIMEOUT_MS;
   const maxOutput = deps.maxOutput ?? PI_MAX_OUTPUT;
@@ -372,6 +404,12 @@ async function runPi(
   let overflowed = false;
   let timedOut = false;
   let promptError: unknown;
+  // Per-action telemetry (FE-894 P0): session-setup vs prompt-turn wall-clock,
+  // and the prompt's token usage (incl. prompt-cache reads/writes). Read from
+  // getSessionStats after the single prompt resolves; best-effort, never fatal.
+  let coldStartMs = 0;
+  let promptMs = 0;
+  let usage = sessionStatsToUsage(undefined);
   let unsubscribe: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let rejectTimeout: ((err: Error) => void) | undefined;
@@ -414,6 +452,7 @@ async function runPi(
   });
 
   try {
+    const setupStart = Date.now();
     isolatedDir = createAgentDir();
     const agentDir = isolatedDir;
     const setup = (async () => {
@@ -435,6 +474,7 @@ async function runPi(
     );
 
     session = await Promise.race([setup, timeout]);
+    coldStartMs = Date.now() - setupStart;
 
     unsubscribe = session.subscribe((event) => {
       // Any activity — text, tool call, tool-execution progress, thinking —
@@ -464,7 +504,15 @@ async function runPi(
     });
 
     try {
+      const promptStart = Date.now();
       await Promise.race([session.prompt(opts.task), timeout]);
+      promptMs = Date.now() - promptStart;
+      // Fresh-session-per-action ⇒ cumulative stats == this action's usage.
+      try {
+        usage = sessionStatsToUsage(session.getSessionStats());
+      } catch {
+        // Telemetry is best-effort; a stats read must never fail the action.
+      }
     } catch (err) {
       promptError = err;
     }
@@ -488,7 +536,7 @@ async function runPi(
   const dur = ((Date.now() - start) / 1000).toFixed(1);
   log('✓', `${opts.label} (${dur}s)`);
   logVerbose(captured);
-  return captured;
+  return { output: captured, usage, timingMs: { coldStartMs, promptMs } };
 }
 
 export { runPi };
@@ -604,8 +652,9 @@ export function createPiActions(opts?: {
       log('▸', `tests     ${label}`);
       const task = sliceTestTask(ctx.slice, toolchain);
 
+      let piResult: PiResult;
       try {
-        await runPi(
+        piResult = await runPi(
           {
             label: `tests     ${label}`,
             model: 'claude-opus-4-8',
@@ -631,6 +680,8 @@ export function createPiActions(opts?: {
       return report(ctx, 'test-writer', 'tests-written', {
         sliceId: ctx.slice.id,
         targets: ctx.slice.verification.map((v) => v.target),
+        usage: piResult.usage,
+        timingMs: piResult.timingMs,
       });
     },
 
@@ -640,8 +691,9 @@ export function createPiActions(opts?: {
       log('▸', `code      ${label}`);
       const task = `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`;
 
+      let piResult: PiResult;
       try {
-        await runPi(
+        piResult = await runPi(
           {
             label: `code      ${label}`,
             model: 'claude-opus-4-8',
@@ -666,6 +718,8 @@ export function createPiActions(opts?: {
 
       return report(ctx, 'code-writer', 'code-written', {
         sliceId: ctx.slice.id,
+        usage: piResult.usage,
+        timingMs: piResult.timingMs,
       });
     },
 
@@ -680,8 +734,9 @@ export function createPiActions(opts?: {
       log('▸', `verify    ${ctx.epic.id}`);
       const writeTask = epicVerifyTask(ctx.epic, toolchain);
 
+      let piResult: PiResult;
       try {
-        await runPi(
+        piResult = await runPi(
           {
             label: `verify    ${ctx.epic.id} (write)`,
             model: 'claude-opus-4-8',
@@ -753,6 +808,8 @@ export function createPiActions(opts?: {
         passed,
         failureKind,
         ...(probe ? { reachability: probe.kind } : {}),
+        usage: piResult.usage,
+        timingMs: piResult.timingMs,
       });
     },
 
