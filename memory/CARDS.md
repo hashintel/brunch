@@ -1,107 +1,140 @@
-# Scope cards — cook-artifact-lifecycle (FE-883)
+# Scope cards — epic-verify-recovery (FE-884)
 
-Execution queue for `cook-artifact-lifecycle` (FE-883, branch
-`ka/fe-883-orchestrator-improvements`, on FE-864).
+Execution queue for `epic-verify-recovery` (FE-884, branch
+`ka/fe-884-epic-verify-recovery`, stacked on FE-883's `ka/fe-883-worktree-gc`).
 
-**Reality check (corrected after basing on FE-864, the current seam):** the
-brownfield git-merge composer already exists — `run-artifact.ts` (commit
-871ef087): `commitSliceWorktree` + `foldSliceBranches` do a real `git merge-tree`
-3-way fold of per-slice branches in dependency order, fail-closed on conflicts,
-pure plumbing (I135-K preserved). It was deliberately left **unwired** pending "a
-live-run check of the dependency-seed interaction". So FE-883 is *wire the
-existing composer*, not *build it*.
+**Core problem:** the orchestrator's two verification tiers are asymmetric. The
+slice tier is recoverable (`failing-tests → code-agent → run-tests`, in-net
+retry budget). The epic tier is terminal: `epic-verify:<epic>:fail` routes
+straight to `epicHaltedPlace` via `attach-halt-reason` (`net-compiler.ts`
+~458–535). So the one place cross-slice defects surface — epic integration — is
+the one place the harness cannot act on what it found. A failed epic halts the
+whole run and promotes nothing, discarding the diagnosis, the folded worktree,
+and every passing epic.
 
-This matches the Slice-1 spike decision (2026-06-18): git-merge for brownfield
-(common ancestor → real 3-way), file-copy union for greenfield (no common
-ancestor), elevate collisions to a first-class outcome.
+**Worked example:** run `59100820-...` (spec 49, 3 epics / 11 slices, 60m26s).
+11/11 slices + 2/3 epics passed; `route-integration` failed on a real bug (view
+toggle wrote `?view=graph` but the sibling `useViewParam()` never resynced —
+`pushState` doesn't emit `popstate`). The verify agent named the exact fix; the
+run halted anyway. The fix (`brunch:viewparamchange` event, ~10 lines) was
+applied by hand afterward — on a worktree the harness already had, from a
+diagnosis it already produced.
 
----
+**Builds on FE-883:** the epic verify already composes the folded
+`__epic__/<epicId>/` tree (`materializeEpicVerifyTree`), and promotion folds
+slice commits (`harvestCookRun`, idempotent `commitSliceWorktree`). FE-884 makes
+a failed epic *recoverable* rather than *terminal* — substrate-free, distinct
+from Arc-2 `interactive-recovery`/`adaptive-replan` (which need the parked
+semantic substrate).
 
-## Slice 1 — wire the run-artifact composer into the live path
-
-Status: **in progress.**
-
-### Sub-steps
-
-```
-✓ 1a (done, commit 2357f941) — composer correct under dependency-seeding. The
-  deferred "live-run check" failed: a dependent slice extending a dep-seeded file
-  false-conflicted because slice branches share no inter-slice ancestry. Fix:
-  commit each slice recording its dependency commits as parents, so the fold's
-  merge-base is the dependency. Regression test added; unfaithful happy-path test
-  corrected. (epic-sandbox-merge.ts file-copy untouched.)
-
-✓ mechanism (commits fadb1b52, 5e1d8d32) — proved + factored the fold so both
-  1b and 1c can use it: foldToCommit (fold N slice commits onto a base, fail-closed,
-  no ref write) + materializeFoldedWorktree (fold + `git worktree add --detach`,
-  rework-safe). Tests pin: 3-way merge of different-hunk edits to one file keeps
-  both; the fold materializes on disk in a verify worktree.
-
-✓ 1c DECISION (2026-06-18): verify against the folded tree (option i). One
-  composition path → the tree verified == the tree shipped; no verify≠ship gap on
-  same-file edits. The worktree-checkout unknown is de-risked by materializeFoldedWorktree.
-
-✓ 1b/1c INTEGRATION (done, commit d92ce38b) — engine wired end-to-end:
-  - net-compiler verify-epic: brownfield uses materializeEpicVerifyTree (commit
-    slices dep-order → fold → detached worktree at __epic__/<epicId>/ → relink
-    node_modules); fold conflict → fail the epic (passed:false report → fail sibling).
-    Greenfield keeps the file-copy union.
-  - cook-cli promotion: brownfield calls harvestCookRun; fold conflicts → fatal run
-    outcome. I135-K preserved (all plumbing).
-  - commitSliceWorktree made idempotent so promotion reuses the commits verify made.
-  - Stale epic-sandbox-merge.ts TODO updated; SPEC I124-K amended (plan.mode fork).
-  - Full orchestrator suite green (672). Single-slice brownfield-smoke exercises the
-    engine plumbing; a *multi-slice* end-to-end engine test is still a gap to add.
-
-○ 1d (remaining) — retire the now-dead promoteBrownfieldRun + BrownfieldPromoteOptions.
-  Blocked on rewriting the landCookBranch test fixture (repoWithPromotedCook uses
-  promoteBrownfieldRun to build a promoted branch — rebuild it via harvestCookRun or
-  a plain commit). mergeSlicesIntoEpicSandbox STAYS (it is the greenfield composer).
-```
-
-### Acceptance Criteria (slice-level)
-
-```
-✓ dep-seed — a dependent slice extending a dep-seeded file folds clean (done, 1a)
-○ brownfield-3way — two brownfield slices editing different hunks of the same
-  pre-existing file both survive promotion (the file-copy union drops one)
-○ brownfield-conflict — a true overlapping-hunk conflict surfaces as a fatal run
-  outcome, not a buried event field
-○ checkout-untouched — promotion still never touches the user's branch / tree /
-  index (I135-K)
-○ greenfield-unchanged — serial-greenfield shared-tree + parallel-greenfield
-  file-copy paths preserved
-```
-
-### Verification Approach
-
-```
-- Inner: run-artifact.test.ts (done), promote-run.test.ts, epic-sandbox-merge.test.ts
-- Middle: brownfield-smoke.integration.test.ts — seeded repo, overlapping slices
-- Outer: dogfood a multi-slice brownfield cook with an intentional file overlap
-```
+**Owed reconciliation:** FE-884 is not yet a frontier in `memory/PLAN.md`, and
+the oracle strategy below is not yet folded into SPEC §Verification Design.
+Reconcile via ln-plan + ln-sync when FE-884 registers / lands.
 
 ---
 
-## Slice 2 — worktree + branch GC / lifecycle (light) — `done`
+## Slice A — recoverable epic verification (the missing green step)
 
-Branch `ka/fe-883-worktree-gc` (stacked on FE-883). `gcCookRun` (run-refs.ts,
-commit bf43477f) reclaims the run's worktrees (run + nested slice/__epic__,
-deepest-first) + the intermediate `brunch/slice/<runId>/*` branches, keeping the
-`brunch/run/<runId>` artifact branch and every other run untouched; realpath-safe
-(macOS /var→/private/var). Wired into cook-cli: auto-GC on a **completed +
-promoted** brownfield run, best-effort (never fails a good run); halted/conflicted
-runs return earlier and keep their worktrees for inspection (keep-on-failure).
-Decision: auto-GC (no flag) — "no leaks by default". Tests: run-refs.test.ts
-(reclaim + unrelated-run-untouched). Gap: no end-to-end runCook test exercises the
-auto-GC call (same gap as the promotion wiring).
+Status: **done** (2026-06-18). All 7 acceptance criteria proven (run-59100820
+by analog; real-agent dogfood is outer-loop, not run). Gate green: check 0
+errors, build pass, orchestrator + epic-recovery e2e 104 tests pass (full suite
+2101 pass / 2 skip; the single `build-boundary` failure is the pre-existing
+dev-worktree `node_modules` symlink artifact documented on FE-883's PR).
 
-## Slice 3 — per-slice build-cache write isolation (candidate)
+**Design finding (round-trip assumption — VALIDATED with caveat):** the naive
+assumption was false — `harvestCookRun` folds only *slice* worktrees; the
+`__epic__/<id>/` tree is detached and discarded. A remediation fix made in the
+folded tree must be **diff-transferred and committed to the representative slice
+branch** (`transferFoldedFixToSlice` in `run-artifact.ts`) to be folded into the
+promoted artifact. → record as a SPEC decision + invariant on canonical
+reconciliation (owed).
 
-May instead be an FE-879 follow-on (FE-879 owns `SHAREABLE_TOP_LEVEL_ENTRIES`).
-Decide ownership before scoping.
+Full scope card — structural (changes the epic-verify topology; establishes the
+invariant *a failed epic is recoverable, not terminal*).
 
-## Out of scope (noted)
+### Target Behavior
 
-- Sync `git worktree add` serialization (`epic-sandbox-merge.ts:288`) — perf, not
-  correctness; FE-879 laziness already bounds worktree count.
+A failed epic verification dispatches a remediation code agent against the folded
+epic tree and re-verifies, reaching the halt sink only after the epic's
+remediation budget is exhausted.
+
+### Boundary Crossings
+
+```
+→ epic-verify:<epic>:fail        (report.passed falsy — today's dead-end sibling)
+→ epic-remediate:<epic>:dispatch → epic-remediate:running   (new; mirrors the slice dispatch/running split)
+→ code agent in __epic__/<epic>/ folded worktree (FE-883), fed the verify diagnosis
+→ detect-and-reject guard: post-attempt git diff touches the epic integration test path → discard, count against budget
+→ commit fix into the owning slice branch via idempotent commitSliceWorktree (FE-883)
+→ epic-remediate:<epic>:complete → back to verifyPlace   (re-run verify-epic + slice suites on the folded tree)
+→ epic-retry-budget place: decrement; on exhaustion → epicHaltedPlace (attach-halt-reason, honest cause)
+```
+
+### Risks and Assumptions
+
+```
+- RISK: a remediation agent greens the epic by editing the integration test, not product code
+    → MITIGATION: detect-and-reject (git diff touches the epic test path → discard + budget); dual re-verify (slice suites must also pass)
+- RISK: a fix in the detached folded tree never reaches promotion
+    → MITIGATION: round-trip through commitSliceWorktree onto the owning slice branch so harvestCookRun folds it
+- ASSUMPTION: an epic-level fix can be attributed to one slice's branch (vs a synthetic "integration slice" commit)
+    → VALIDATE: trace harvestCookRun's fold over an added commit on a representative slice → [→ memory/SPEC.md §Assumptions]
+- ASSUMPTION: the slice-loop retry-budget machinery generalizes to the epic lane unchanged
+    → VALIDATE: epic-retry-budget place + dispatch/complete siblings reuse the existing in-net retry pattern
+```
+
+### Acceptance Criteria
+
+```
+✓ epic-remediation-fires — a falsy verify report routes to epic-remediate, not directly to halt
+✓ re-verify-loop — remediate:complete returns to verifyPlace and re-runs verify-epic
+✓ dual-re-verify — remediation is accepted only if the epic integration test AND the slice suites pass on the folded tree
+✓ budget-exhaustion-halts — after N failed attempts the epic reaches epicHaltedPlace with an honest reason
+✓ oracle-integrity — an attempt that modifies the epic integration test file is rejected and counts against budget
+✓ fix-promotes — a remediation commit is folded by harvestCookRun (the fix survives into the promoted artifact)
+✓ run-59100820-closes — replaying the example run, the route-integration epic self-heals within budget (outer)
+```
+
+### Verification Approach (oracle strategy)
+
+```
+- Inner:
+  · topology golden/adapter — :fail routes → epic-remediate → verifyPlace; budget decrement; exhaustion → halt
+  · negative-space test-path guard — post-attempt git diff touching the epic test path → reject + budget
+  · engine contract suite stays green (runtime equivalence on the unchanged paths)
+- Middle:
+  · scripted-agent integration (model-based) over the SYNTHETIC broken-then-fixable epic fixture:
+      (fail → edit product code → pass) reaches `done`; (fail → edit test) is rejected
+  · dual re-verify (invariant) — epic integration test + slice suites both green on the folded tree
+  · promotion round-trip (differential) — the remediation commit appears in the harvested tree
+- Outer:
+  · real-agent dogfood replay of run 59100820 — epic self-heals unattended (one-shot confidence, human-observed)
+```
+
+### Acknowledged blind spots
+
+```
+- LLM remediation COMPETENCE is not oracle-able — only loop mechanics are. Mitigation: budget + honest halt.
+    Revisit: dogfood shows low fix-rate.
+- detect-and-reject guards only the EPIC test path; an agent could weaken a SLICE test instead.
+    Mitigation: dual re-verify (slice suites must pass). Revisit: a remediation greens by editing a slice test → freeze all *.test.* under the epic.
+- a flaky epic test (the original ETIMEDOUT) misread as a logic fail → deferred to Slice B.
+- wall-clock cost of extra agent round-trips — no time budget gate. Accept for now.
+```
+
+---
+
+## Slice B — infra/timeout classification at the epic verdict — `next` after A (independent)
+
+Extend FE-872's `failureKind: 'infra' | 'test'` from the slice `tests-run` report
+to the `verify-epic` report; an infra/timeout failure (e.g. `spawnSync npx
+ETIMEDOUT`) gets a bounded infra-retry, not an immediate halt; size the verify
+subprocess timeout to the target's real cost (the `graph-route-wiring` test alone
+ran 25s on code-split + React-Flow warmup). Independent of A — could land first.
+
+## Slice C — partial promotion / salvage — deferred (not pre-carded)
+
+Extend `harvestCookRun` to promote passing epics and hand back the folded
+worktree + the failing epic's diagnosis instead of `nothing promoted`. Shape
+depends on A's commit-round-trip topology and FE-883's GC ref-set, so do **not**
+pre-card it until A lands.

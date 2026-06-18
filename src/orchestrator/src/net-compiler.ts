@@ -8,6 +8,7 @@
 import {
   ensureSliceWorktree,
   mergeSlicesIntoEpicSandbox,
+  resolveEpicSandboxDir,
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
@@ -16,7 +17,7 @@ import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprin
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
 import { createReport } from './report-helpers.js';
-import { materializeEpicVerifyTree } from './run-artifact.js';
+import { materializeEpicVerifyTree, transferFoldedFixToSlice } from './run-artifact.js';
 import { runVerification } from './test-runner.js';
 import type { ActionContext, OrchestratorInput, Plan, RunCtx, RunPolicy, Slice } from './types.js';
 
@@ -463,7 +464,28 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       const verifyRunningPlace = ep(epic.id, 'verify:running');
       // FE-761 Slice 2a: halt sink for epic verification failure.
       const epicHaltedPlace = ep(epic.id, 'halted');
-      places.push(verifyPlace, verifyReportedPlace, verifyRunningPlace, epicHaltedPlace);
+      // FE-884: epic remediation loop. A failed verify (budget remaining) routes
+      // to a code agent against the folded epic tree, then re-verifies — mirroring
+      // the slice run-tests retry loop. Budget lives in the producer; the fail
+      // sibling is a router to remediation, halt happens on exhaustion.
+      const epicRetryBudgetPlace = ep(epic.id, 'retry-budget');
+      const remediateReadyPlace = ep(epic.id, 'remediate:ready');
+      const remediateRunningPlace = ep(epic.id, 'remediate:running');
+      places.push(
+        verifyPlace,
+        verifyReportedPlace,
+        verifyRunningPlace,
+        epicHaltedPlace,
+        epicRetryBudgetPlace,
+        remediateReadyPlace,
+        remediateRunningPlace,
+      );
+
+      // FE-884: seed the epic retry budget (mirrors the slice retry-budget seed).
+      initialTokens.push({
+        place: epicRetryBudgetPlace,
+        token: { sliceId: '', epicId: epic.id, retryCount: 0 },
+      });
 
       transitions.push({
         id: `epic-slices-done:${epic.id}`,
@@ -473,10 +495,13 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
       });
 
       // Verify-epic — FE-761 Slice 4 explicit dispatch/running/complete split.
+      // FE-884: dispatch also consumes the epic retry-budget so the budget stays
+      // "checked out" for the duration of the verify (mirrors run-tests:dispatch);
+      // the dispatch handler stashes retryCount on the running token.
       transitions.push({
         id: `epic-verify:${epic.id}:dispatch`,
-        inputs: [verifyPlace],
-        contract: { kind: 'structural', lane: 'epic', guard: 'verify-ready' },
+        inputs: [verifyPlace, epicRetryBudgetPlace],
+        contract: { kind: 'structural', lane: 'epic', guard: 'verify-ready + retry-budget available' },
         handler: {
           kind: 'dispatch',
           sliceId: '',
@@ -499,6 +524,8 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
           epicId: epic.id,
           representativeSliceId: epicSlices[0]!.id,
           intermediatePlace: verifyReportedPlace,
+          budgetPlace: epicRetryBudgetPlace,
+          maxRetries: policy.maxRetries,
         },
       });
 
@@ -518,9 +545,10 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
         },
       });
 
-      // Verify-epic — fail halt-sibling: emits to the epic halted place
-      // with a haltReason stamped on the forwarded token (FE-761 Slice 2b:
-      // halted-as-place, halt reason carried by the token rather than ctx).
+      // Verify-epic — fail sibling (FE-884): a failed verify with budget remaining
+      // routes to remediation instead of halting. Halt is now the producer's job
+      // on budget exhaustion (mirroring the slice run-tests loop), so this sibling
+      // is a pure router — no attach-halt-reason.
       transitions.push({
         id: `epic-verify:${epic.id}:fail`,
         inputs: [verifyReportedPlace],
@@ -530,9 +558,42 @@ export function compileTopology(plan: Plan, policy: RunPolicy): NetBlueprint {
           sliceId: '',
           epicId: epic.id,
           input: verifyReportedPlace,
-          outputs: [epicHaltedPlace],
+          outputs: [remediateReadyPlace],
           enablingGuard: { kind: 'tokenReportFieldFalsy', field: 'passed' },
-          onFire: { kind: 'attach-halt-reason', reason: `Epic ${epic.id} verification failed` },
+        },
+      });
+
+      // Remediate-epic — FE-884 dispatch/complete split. Dispatch grabs a code
+      // agent; complete runs the remediation agent against the folded epic tree,
+      // applies detect-and-reject + round-trip, then loops back to re-verify.
+      transitions.push({
+        id: `epic-remediate:${epic.id}:dispatch`,
+        inputs: [remediateReadyPlace, poolCodeAgent],
+        contract: { kind: 'structural', lane: 'epic', guard: 'remediate-ready + code-agent' },
+        handler: {
+          kind: 'dispatch',
+          sliceId: '',
+          epicId: epic.id,
+          runningPlace: remediateRunningPlace,
+        },
+      });
+      transitions.push({
+        id: `epic-remediate:${epic.id}:complete`,
+        inputs: [remediateRunningPlace],
+        contract: {
+          kind: 'mechanical',
+          lane: 'epic',
+          actor: 'coding-agent',
+          guard: 'remediate handler complete',
+        },
+        handler: {
+          kind: 'remediate-epic',
+          actionKey: 'remediate-epic',
+          epicId: epic.id,
+          representativeSliceId: epicSlices[0]!.id,
+          outputs: [verifyPlace],
+          agentReturnPlace: poolCodeAgent,
+          epicTestTargets: epic.verification.map((v) => v.target),
         },
       });
     }
@@ -853,9 +914,55 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
       }
 
       case 'verify-epic': {
-        const { actionKey, epicId, representativeSliceId, intermediatePlace } = h;
+        const { actionKey, epicId, representativeSliceId, intermediatePlace, budgetPlace, maxRetries } = h;
         const epic = plan.epics.find((e) => e.id === epicId)!;
         const slice = plan.slices.find((s) => s.id === representativeSliceId)!;
+        const epicBaseToken: Token = { sliceId: '', epicId };
+        // FE-884: route a verify report through the epic remediation budget.
+        // Brownfield (codebase) is recoverable: a failing verify with budget
+        // remaining loops to remediation via the intermediate place; exhaustion
+        // halts with an honest reason. Greenfield is unchanged — a failing verify
+        // halts immediately (the remediation round-trip is git-based, so it is a
+        // brownfield-only capability; the greenfield-protecting invariant holds).
+        const routeVerdict = (
+          inputToken: Token,
+          reportId: string,
+          passed: boolean,
+        ): { place: string; token: Token }[] => {
+          const tok: Token = { ...inputToken, reportId };
+          if (passed) {
+            return [
+              { place: intermediatePlace, token: tok },
+              { place: budgetPlace, token: { ...epicBaseToken, retryCount: 0 } },
+            ];
+          }
+          if (input.sandboxMode !== 'codebase') {
+            ctx.epicOutcomes.set(epicId, { epicId, status: 'halted' });
+            return [
+              {
+                place: ep(epicId, 'halted'),
+                token: { ...tok, haltReason: `Epic ${epicId} verification failed` },
+              },
+            ];
+          }
+          const retryCount = inputToken.retryCount ?? 0;
+          if (retryCount >= maxRetries) {
+            ctx.epicOutcomes.set(epicId, { epicId, status: 'halted' });
+            return [
+              {
+                place: ep(epicId, 'halted'),
+                token: {
+                  ...tok,
+                  haltReason: `Epic ${epicId} verification failed after ${maxRetries} remediation attempts`,
+                },
+              },
+            ];
+          }
+          return [
+            { place: intermediatePlace, token: tok },
+            { place: budgetPlace, token: { ...epicBaseToken, retryCount: retryCount + 1 } },
+          ];
+        };
         // Epic verification runs against a freshly-merged `__epic__/<epicId>/`
         // dir built from completed slice worktrees (cross-epic slice deps included).
         const sliceIdsInMergeOrder = sliceIdsForEpicVerifyMerge(plan, epicId);
@@ -907,7 +1014,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
                     payload: { passed: false, reason: 'merge-conflict', conflicts: folded.conflicts },
                   });
                   ctx.reportIds.push(failId);
-                  return [{ place: intermediatePlace, token: { ...inputToken, reportId: failId } }];
+                  return routeVerdict(inputToken, failId, false);
                 }
                 epicSandboxDir = folded.epicSandboxDir;
               } else {
@@ -944,9 +1051,97 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             };
             const reportId = await actions[actionKey]!(actCtx);
             ctx.reportIds.push(reportId);
-            // Producer emits to the intermediate place; pass/fail routing
-            // happens in sibling-passthrough transitions downstream.
-            return [{ place: intermediatePlace, token: { ...inputToken, reportId } }];
+            const epicPassed = !!(reports.getById(reportId)?.payload as { passed?: boolean } | undefined)
+              ?.passed;
+            // FE-884 dual re-verify (codebase-only): a remediation must not green
+            // the epic integration test while breaking a slice. Re-run the slice
+            // suites on the SAME folded tree and AND them with the epic verdict —
+            // a fix that greens the seam but regresses a unit is rejected and burns
+            // a budget unit, never promoted. Greenfield is untouched (its verify
+            // halts immediately; re-running slice suites there would change behavior
+            // and violate the greenfield-protecting invariant).
+            let passed = epicPassed;
+            // The pass/fail siblings route on the token's report `passed` field, so
+            // the combined verdict must be carried by the report the token points at
+            // — not the raw integration-test report (which a slice veto contradicts).
+            let verdictReportId = reportId;
+            if (epicPassed && input.sandboxMode === 'codebase') {
+              const sliceTargets = plan.slices
+                .filter((s) => s.epic_id === epicId)
+                .flatMap((s) => s.verification.map((v) => ({ target: v.target })));
+              if (sliceTargets.length > 0) {
+                const sliceVerify = await runVerification(sliceTargets, testRunner, epicSandboxDir);
+                if (!sliceVerify.done) {
+                  passed = false;
+                  verdictReportId = createReport(reports, {
+                    epicId,
+                    sliceId: '',
+                    actor: 'orchestrator',
+                    event: 'epic-slice-reverify',
+                    payload: {
+                      passed: false,
+                      failureKind: sliceVerify.failureKind,
+                      results: sliceVerify.results,
+                    },
+                  });
+                  ctx.reportIds.push(verdictReportId);
+                }
+              }
+            }
+            // Route through the epic remediation budget. Pass → done (+ budget
+            // reset); fail with budget → re-loop via the intermediate place to the
+            // fail sibling → remediation; fail exhausted → halt.
+            return routeVerdict(inputToken, verdictReportId, passed);
+          })();
+          net.scheduleDeferred(skel.id, skel.contract, { places: skel.inputs, tokens: consumed }, deferred);
+          return [];
+        };
+        break;
+      }
+
+      case 'remediate-epic': {
+        const {
+          actionKey,
+          epicId,
+          representativeSliceId,
+          outputs: loopOutputs,
+          agentReturnPlace,
+          epicTestTargets,
+        } = h;
+        const epic = plan.epics.find((e) => e.id === epicId)!;
+        const slice = plan.slices.find((s) => s.id === representativeSliceId)!;
+        const baseToken: Token = { sliceId: '', epicId };
+
+        // FE-884: run a code agent against the folded epic tree (where the
+        // integration test actually runs), then detect-and-reject + round-trip
+        // the fix onto the representative slice's branch so harvestCookRun folds
+        // it. Always loops back to verify-ready — a rejected/no-op attempt simply
+        // re-fails verify, burning a budget unit. Brownfield-only by construction.
+        fire = async (consumed) => {
+          const deferred = (async () => {
+            const foldedDir = resolveEpicSandboxDir(input.sandboxDir, epicId);
+            const actCtx: ActionContext = { slice, epic, plan, sandboxDir: foldedDir, reports };
+            await actions[actionKey]!(actCtx);
+            const outcome = transferFoldedFixToSlice({
+              parentSandboxDir: input.sandboxDir,
+              foldedDir,
+              slice,
+              epicTestTargets,
+            });
+            ctx.reportIds.push(
+              createReport(reports, {
+                epicId,
+                sliceId: representativeSliceId,
+                actor: 'coding-agent',
+                event: 'epic-remediated',
+                payload: { accepted: outcome.accepted, reason: outcome.reason, touched: outcome.touched },
+              }),
+            );
+            // Loop back to re-verify + return the code agent to its pool.
+            return [
+              ...loopOutputs.map((pl) => ({ place: pl, token: { ...baseToken } })),
+              { place: agentReturnPlace, token: { ...baseToken } },
+            ];
           })();
           net.scheduleDeferred(skel.id, skel.contract, { places: skel.inputs, tokens: consumed }, deferred);
           return [];
