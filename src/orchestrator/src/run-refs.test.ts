@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { brunchRef, pruneWorktrees } from './run-refs.js';
+import { brunchRef, gcCookRun, pruneWorktrees } from './run-refs.js';
 
 describe('brunchRef — the run ref namespace', () => {
   it('builds run and slice refs under sibling brunch/{run,slice} segments', () => {
@@ -52,5 +53,63 @@ describe('pruneWorktrees', () => {
         stdio: ['ignore', 'pipe', 'pipe'],
       }),
     ).not.toThrow();
+  });
+});
+
+describe('gcCookRun', () => {
+  let source: string;
+
+  function git(...args: string[]): string {
+    return execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+      cwd: source,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+  }
+  function branchExists(ref: string): boolean {
+    try {
+      git('rev-parse', '--verify', `refs/heads/${ref}`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  /** A run rooted at .brunch/cook/runs/<id>/worktree with one nested slice worktree. */
+  function seedRun(runId: string): { runDir: string } {
+    const runDir = join(source, '.brunch', 'cook', 'runs', runId);
+    const parent = join(runDir, 'worktree');
+    git('worktree', 'add', '-q', '-b', brunchRef.run(runId), parent, 'HEAD');
+    git('worktree', 'add', '-q', '-b', brunchRef.slice(runId, 'a'), join(parent, 'a'), brunchRef.run(runId));
+    return { runDir };
+  }
+
+  beforeEach(() => {
+    source = mkdtempSync(join(tmpdir(), 'brunch-gc-'));
+    git('init', '-q', '-b', 'main');
+    git('commit', '-q', '--allow-empty', '-m', 'base');
+  });
+  afterEach(() => rmSync(source, { recursive: true, force: true }));
+
+  it('reclaims run worktrees + slice branches but keeps the run branch artifact', () => {
+    const { runDir } = seedRun('r1');
+    const artifact = git('rev-parse', brunchRef.run('r1'));
+
+    gcCookRun({ sourceDir: source, runId: 'r1', runDir });
+
+    expect(existsSync(runDir)).toBe(false); // worktree dirs gone
+    expect(branchExists(brunchRef.slice('r1', 'a'))).toBe(false); // intermediate slice branch deleted
+    expect(branchExists(brunchRef.run('r1'))).toBe(true); // the promoted artifact survives
+    expect(git('rev-parse', brunchRef.run('r1'))).toBe(artifact);
+  });
+
+  it('leaves an unrelated run untouched', () => {
+    const { runDir: r1Dir } = seedRun('r1');
+    const { runDir: r2Dir } = seedRun('r2');
+
+    gcCookRun({ sourceDir: source, runId: 'r1', runDir: r1Dir });
+
+    expect(existsSync(r2Dir)).toBe(true);
+    expect(branchExists(brunchRef.slice('r2', 'a'))).toBe(true);
+    expect(branchExists(brunchRef.run('r2'))).toBe(true);
   });
 });
