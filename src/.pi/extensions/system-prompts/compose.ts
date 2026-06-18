@@ -21,6 +21,7 @@ export interface ComposeAgentPromptInput {
   context?: AgentPromptContextBundle;
   activeTools?: readonly string[];
   gaps: readonly ElicitationGap[];
+  agentBody?: string;
 }
 
 export interface ComposeAgentPromptResult {
@@ -38,6 +39,7 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
   const definition = AGENT_PROMPT_DEFINITIONS[input.agentId];
   const manifests = manifestsForState(input.sessionState, input.gaps);
   const prompt = joinSections([
+    input.agentBody ?? '',
     renderAgentControl(input, definition),
     renderRuntimeState(input),
     renderElicitationRecommendation(input),

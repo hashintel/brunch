@@ -184,7 +184,16 @@ describe('Brunch prompt-pack topology', () => {
     );
 
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('base\n\n[Brunch agent control]'),
+      systemPrompt: expect.stringContaining('base\n\n# Agent: elicitor'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('It should keep multi-spec discipline'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('# Agent: elicitor\n\nThe elicitor'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('[Brunch agent control]'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('- strategy: step-wise-disambiguate'),

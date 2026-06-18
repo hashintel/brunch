@@ -1,3 +1,7 @@
+# Agent: elicitor
+
+Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
+
 [Brunch agent control]
 - agent: elicitor
 - foreground role: elicitor (derived from op_mode=elicit)

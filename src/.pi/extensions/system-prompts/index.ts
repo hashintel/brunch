@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import {
@@ -7,7 +9,11 @@ import {
   type AgentPromptWorkspaceContext,
 } from '../../../session/agent-context-seed.js';
 import type { GraphReaders } from '../graph/index.js';
-import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
+import {
+  activeToolNamesForBrunchAgentState,
+  agentBodyResourceLocation,
+  projectBrunchAgentState,
+} from '../runtime/index.js';
 import { composeAgentPrompt, type AgentPromptContextBundle } from './compose.js';
 import { createWorldReadCache, type WorldReads } from './world-reads.js';
 
@@ -66,6 +72,7 @@ export function registerBrunchPrompting(
     const resolvedPromptContext = await resolvePromptContext(promptContext);
 
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
+    const agentBody = await readAgentBody(state.agentRole);
     const world = worldReadCache.read(resolvedPromptContext.graphReads, resolvedPromptContext.spec.id);
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
@@ -83,6 +90,7 @@ export function registerBrunchPrompting(
       context,
       activeTools,
       gaps: world.gaps,
+      agentBody,
     });
 
     if (prompt.trim().length === 0) return undefined;
@@ -92,6 +100,10 @@ export function registerBrunchPrompting(
       systemPrompt: `${basePrompt}\n\n${prompt}`,
     };
   });
+}
+
+async function readAgentBody(agentId: ReturnType<typeof projectState>['agentRole']): Promise<string> {
+  return readFile(agentBodyResourceLocation(agentId), 'utf8');
 }
 
 function contextForPrompt(

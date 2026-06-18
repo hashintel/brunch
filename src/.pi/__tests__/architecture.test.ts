@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +12,14 @@ const legacyImportNeedles = [
   'compose' + '-brunch-prompt',
   ['context', 'prompt-packs'].join('/'),
   ['context', 'builders'].join('/'),
+];
+
+const agentDefinitionExpectations = [
+  {
+    system: 'src/.pi/agents/elicitor/SYSTEM.md',
+    legacyFlat: 'src/.pi/agents/elicitor.md',
+    needles: ['# Agent: elicitor', 'multi-spec discipline'],
+  },
 ];
 
 const resourceExpectations = [
@@ -38,6 +46,16 @@ describe('agents topology', () => {
       for (const needle of expectation.needles) {
         expect(content).toContain(needle);
       }
+    }
+  });
+
+  it('keeps live agent definitions under <agent>/SYSTEM.md', async () => {
+    for (const expectation of agentDefinitionExpectations) {
+      const content = await readFile(join(projectRoot, expectation.system), 'utf8');
+      for (const needle of expectation.needles) {
+        expect(content).toContain(needle);
+      }
+      await expect(access(join(projectRoot, expectation.legacyFlat))).rejects.toThrow();
     }
   });
 

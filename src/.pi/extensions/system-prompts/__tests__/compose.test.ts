@@ -63,8 +63,13 @@ describe('composeAgentPrompt', () => {
       context,
       activeTools: ['read', 'grep', 'present_options'],
       gaps: zeroCoverageGaps,
+      agentBody: '[Agent: elicitor]\nUse this role body before runtime metadata.',
     });
 
+    expect(result.prompt).toContain('[Agent: elicitor]\nUse this role body before runtime metadata.');
+    expect(result.prompt.indexOf('[Agent: elicitor]')).toBeLessThan(
+      result.prompt.indexOf('[Brunch agent control]'),
+    );
     expect(result.prompt).toContain('[Brunch agent control]');
     expect(result.prompt).toContain('- agent: elicitor');
     expect(result.prompt).toContain('[Brunch runtime state]');
@@ -401,11 +406,14 @@ function composePreviewPrompt(input: Partial<ComposeAgentPromptInput> = {}): str
     workspace: previewWorkspace,
     activeTools: ['read', 'grep', 'find', 'ls', 'present_question', 'request_answer'],
     gaps: previewFloorGaps(0),
+    agentBody: '# Agent: elicitor\n\nPreview role body from `src/.pi/agents/elicitor/SYSTEM.md`.',
     ...input,
   }).prompt;
 }
 
 function expectPromptContracts(rendered: string): void {
+  expect(rendered).toContain('# Agent: elicitor');
+  expect(rendered.indexOf('# Agent: elicitor')).toBeLessThan(rendered.indexOf('[Brunch agent control]'));
   expect(rendered).toContain('[Brunch agent control]');
   expect(rendered).toContain('[Brunch runtime state]');
   expect(rendered).toContain('[Brunch pushed context]');

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import { activeToolNamesForPosture, manifestsForState } from './state.js';
+import { activeToolNamesForPosture, agentBodyResourceLocation, manifestsForState } from './state.js';
 
 const registeredToolNames = [
   'read',
@@ -189,6 +189,13 @@ describe('agent posture policy', () => {
     // manifest derivation is a wiring bug, never a legal quiet posture.
     const state = projectBrunchAgentState([]);
     expect(() => manifestsForState(state, [])).toThrow(/no elicitation gap/);
+  });
+
+  it('resolves agent SYSTEM.md bodies through the code-owned runtime registry location', () => {
+    const location = agentBodyResourceLocation('elicitor');
+    expect(location).toMatch(/src\/\.pi\/agents\/elicitor\/SYSTEM\.md$/);
+    const body = readFileSync(location, 'utf8');
+    expect(body).toContain('# Agent: elicitor');
   });
 
   it('keeps state.ts free of grade-gate symbols', () => {

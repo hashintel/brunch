@@ -317,6 +317,10 @@ function selectAxisResources<TId extends string>({
   return [resources[selection]];
 }
 
+export function agentBodyResourceLocation(agentId: AgentRoleId): string {
+  return fileURLToPath(new URL(`../../agents/${agentId}/SYSTEM.md`, import.meta.url));
+}
+
 function promptResourceLocation(family: PromptResourceFamily, id: string): string {
   return fileURLToPath(new URL(`../../skills/${family}/${id}.md`, import.meta.url));
 }
