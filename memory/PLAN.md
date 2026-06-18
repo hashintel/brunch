@@ -80,6 +80,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - `first-run-provider-setup` — provider/key UX and runtime seam can progress independently of semantic-stack work.
 - `workspace-gitignore-assist` — small workspace hygiene surface with low overlap.
 - `productized-web-research` — waits on prompt/context scenario substrate for probe quality, but can remain separate from semantic schema work.
+- `cook-latency-hardening` — **FE-894**, branch `ka/fe-894-cook-latency-hardening` (stacked on FE-884). Latency-first cook perf workstream. **Not independent:** P0 instruments the in-process pi session harness (`getSessionStats`/`session.subscribe`) introduced by **FE-841**, and verify timing rides on FE-872's unified runner — neither is on `main`, so this stacks on the cook line rather than branching off `main`. P0 telemetry is local to `pi-actions.ts`; P1 (session-config cache retention/prefix) coordinates with `agent-extension-host`; sequence P1 after that contract ownership is confirmed.
 
 ### Horizon
 
@@ -229,6 +230,27 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Depends on:** `orchestrator-poc` (done), `cook-codebase-mode` (done). Complements `spec-to-cook-plan`'s integration-blind-verification follow-on (the emitter emits integration-demanding targets; this frontier makes the harness actually *run* them); upstream of any future integration oracle.
 - **Lexicon:** `evaluator` = read-only observer of verification results, distinct from the test-runner / code-writer; ties to `ln-oracles` "requisite variety."
 - **Design docs:** `docs/design/orchestrator.md`; SPEC §Verification Design.
+
+### cook-latency-hardening
+
+- **Name:** Cook orchestrator latency hardening — measure first, then shorten the critical path
+- **Linear:** FE-894
+- **Kind:** hardening
+- **Status:** planned (2026-06-18); P0 scoped on `ka/fe-894-cook-latency-hardening` (stacked on FE-884). Backed by analysis in `docs/design/cook-latency.md` + an ln-spike that retired the prompt-caching uncertainty (see Findings).
+- **Objective:** Reduce cook wall-clock (critical-path latency) for multi-slice runs without changing cook behavior. Total time ≈ critical path (longest dependent-slice chain) + per-action overhead along it; parallel firing widens the net but does not shorten depth. Attack per-node latency (model + verify) and ensure parallel width is real (not rate-limit-throttled), driven by measured numbers rather than topology reasoning.
+- **Findings (ln-spike, 2026-06-18):** (a) pi (`@earendil-works/pi-coding-agent` 0.79.1) applies Anthropic prompt caching **by default** — `cache_control` breakpoints on system prompt + last tool def + transcript (CHANGELOG #887); `cacheRetention` defaults to **short/5-min** (#2158); footer reports a live cache-hit rate (#49/56). (b) brunch overrides the system prompt with a static file (`pi-actions.ts:254`, empty append/skills/agents/prompts), so the prefix is byte-stable across slices of an action type → cross-session server-side caching is viable. (c) **The harness captures zero usage/timing telemetry** — `runPi`'s `session.subscribe` reads only `text_delta` (`pi-actions.ts:389`; ":81" comment: "text/lifecycle only"). So cacheRead/cacheWrite and per-action wall-clock are not observable today, and critical-path attribution is blocked until P0 lands.
+- **Why now / unlocks:** FE-743 proved parallel beats serial but never tuned the harness; the analysis surfaced 5 latency levers, but the spike showed none can be prioritized by evidence until usage/timing telemetry exists. P0 is the gating dependency for the rest. Independent of the Arc-1/Arc-2 feature ladder — pure harness hardening on a settled seam.
+- **Build order (slices — keep in CARDS/session, do not fragment):**
+  - **P0 (prerequisite)** — capture per-action usage + wall-clock timing in `runPi`, emitted into `reports.jsonl` / SSE. Read usage via `session.getSessionStats().tokens` after `prompt()` resolves (clean: fresh-session-per-action means session stats == action stats — sidesteps the text-only `subscribe` stream); time cold-start vs prompt turn. Confirms whether cross-slice prefix caching actually hits and which node dominates. *Scoped 2026-06-18.*
+  - **P1** — `cacheRetention` short→long (1h); guarantee invariant prefix is byte-identical and first; **stagger-prime** parallel slices so the first cold prefix write lands before siblings fire (N writes → 1 write + N−1 reads). *Coordinates with `agent-extension-host` — touches `buildSessionOptions`/pi session config.*
+  - **P3** — trim re-verification + the opus read-only `evaluate-done` gate off the critical path (`pi-actions.ts:511`); incremental build/test scope instead of rebuilding the verify dir from scratch.
+  - **P2** — right-size `agentPoolSize` (default = `plan.slices.length`, `net-compiler.ts:49`) against the Anthropic rate ceiling so width isn't silently throttled (tuning).
+  - **P4** — session/prefix reuse across same-type actions (also reduces cold-start). **P5** — model routing per action (mechanical actions off opus).
+- **Acceptance:** (1) a cook run emits per-action usage + timing telemetry observable in `reports.jsonl`; (2) the spike findings are confirmed or refuted by real numbers (cache hit/miss across slices); (3) at least P1 + one of P2/P3 land with a measured wall-clock improvement on a representative multi-slice run and no behavior change (engine contract suite green on both engines).
+- **Verification:** unit tests on the telemetry-capture seam (pure mapping from session events → usage record); before/after wall-clock comparison on a fixed multi-slice fixture run; engine contract suite as the no-regression oracle.
+- **Depends on:** **hard** — the in-process pi session harness (`createAgentSession`/`getSessionStats`) from **FE-841** and FE-872's unified test runner; neither is on `main`, so this frontier stacks on the cook line (currently FE-884), not off `main` (discovered during P0 scoping 2026-06-18). **Soft** — coordination with `agent-extension-host` for P1 only (the pi session-config contract). P0/P2/P3 are otherwise local to `pi-actions.ts`/`net-compiler.ts`.
+- **SPEC:** record the validated assumption *"pi applies Anthropic prompt caching by default; cook's latency lever is retention + prefix priming + verify-path trimming, not enabling caching"* in §Assumptions, and the *agent-extension-host owns pi session config* coordination constraint, when the first slice is scoped (via ln-sync).
+- **Design docs:** `docs/design/cook-latency.md` (source analysis + re-ranked proposals); `docs/design/orchestrator.md`.
 
 ### petri-petrinaut-semantics
 
