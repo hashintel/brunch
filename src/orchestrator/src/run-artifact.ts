@@ -119,14 +119,35 @@ export function dependencyOrder(plan: Plan, completedSliceIds: readonly string[]
  * Commit a slice's worktree to its `brunch/slice/<runId>/<sliceId>` branch.
  * Returns the commit handle, or null when the slice produced no changes (nothing
  * to fold). Runs only in the slice's own throwaway worktree.
+ *
+ * `parents` carries the commits of this slice's completed dependencies. The slice
+ * worktree was seeded with its deps' output (`seedSliceSandboxFromDeps`), so
+ * recording that ancestry makes the run fold compute the right merge base: a
+ * dep-seeded file then reads as an edit the dependent slice evolved, not an
+ * add/add conflict against the run base. Without it the fold false-conflicts on
+ * every dep-modified file — the dependency-seed interaction this composer was
+ * left unwired for (871ef087).
  */
-export function commitSliceWorktree(opts: { parentSandboxDir: string; slice: Slice }): SliceCommit | null {
+export function commitSliceWorktree(opts: {
+  parentSandboxDir: string;
+  slice: Slice;
+  parents?: readonly string[];
+}): SliceCommit | null {
   const sliceDir = resolveSliceWorktreeDir(opts.parentSandboxDir, opts.slice.id);
   git(['add', '-A'], sliceDir);
   if (git(['diff', '--cached', '--name-only'], sliceDir) === '') return null;
   const title = sliceTitle(opts.slice);
-  git([...COMMIT_IDENTITY, 'commit', '-q', '-m', `brunch(${opts.slice.id}): ${title}`], sliceDir);
-  return { sliceId: opts.slice.id, commit: git(['rev-parse', 'HEAD'], sliceDir), title };
+  // commit-tree (not `git commit`) so the slice commit can carry its dependency
+  // commits as additional parents alongside the run base.
+  const base = git(['rev-parse', 'HEAD'], sliceDir);
+  const tree = git(['write-tree'], sliceDir);
+  const parentArgs = ['-p', base, ...(opts.parents ?? []).flatMap((p) => ['-p', p])];
+  const commit = git(
+    [...COMMIT_IDENTITY, 'commit-tree', tree, ...parentArgs, '-m', `brunch(${opts.slice.id}): ${title}`],
+    sliceDir,
+  );
+  git(['update-ref', 'HEAD', commit], sliceDir);
+  return { sliceId: opts.slice.id, commit, title };
 }
 
 /**
@@ -196,9 +217,20 @@ export function foldSliceBranches(opts: {
  */
 export function harvestCookRun(run: CompletedRun, opts?: { granularity?: CommitGranularity }): RunArtifact {
   const ordered = dependencyOrder(run.plan, run.completedSliceIds);
-  const slices = ordered
-    .map((slice) => commitSliceWorktree({ parentSandboxDir: run.parentSandboxDir, slice }))
-    .filter((c): c is SliceCommit => c !== null);
+  // Commit deps before dependents (dependencyOrder guarantees this) so each slice
+  // commit can record its already-committed dependency commits as parents.
+  const commitBySlice = new Map<string, string>();
+  const slices: SliceCommit[] = [];
+  for (const slice of ordered) {
+    const parents = slice.depends_on
+      .map((depId) => commitBySlice.get(depId))
+      .filter((c): c is string => c !== undefined);
+    const sc = commitSliceWorktree({ parentSandboxDir: run.parentSandboxDir, slice, parents });
+    if (sc) {
+      commitBySlice.set(slice.id, sc.commit);
+      slices.push(sc);
+    }
+  }
   return foldSliceBranches({
     sourceDir: run.sourceDir,
     runId: run.runId,

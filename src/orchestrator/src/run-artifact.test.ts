@@ -154,10 +154,11 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     seedSliceWorktree('a', (d) => writeFileSync(join(d, 'a.txt'), 'A\n'));
     seedSliceWorktree('b', (d) => writeFileSync(join(d, 'b.txt'), 'B\n'));
 
+    // Disjoint siblings (the dependency-seeded case has its own test below).
     const plan: Plan = {
       mode: 'greenfield',
       epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
-      slices: [slice('a'), slice('b', ['a'])],
+      slices: [slice('a'), slice('b')],
     };
     const run: CompletedRun = {
       sourceDir: source,
@@ -173,6 +174,38 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     expect(artifact.commits.map((c) => c.sliceId)).toEqual(['a', 'b']);
     const files = gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n').sort();
     expect(files).toEqual(['a.txt', 'b.txt', 'base.txt']);
+  });
+
+  it('dependency-seeded: a dependent slice that extends a dep file folds clean (no false conflict)', () => {
+    // The dep-seed interaction the composer was left unwired for (871ef087). In a
+    // real run, slice B (depends on A) has A's completed output copied into its
+    // worktree by seedSliceSandboxFromDeps, then B extends it. Both slice branches
+    // are rooted at the run base, so neither has the other as an ancestor.
+    seedSliceWorktree('a', (d) => writeFileSync(join(d, 'lib.ts'), 'export const a = 1;\n'));
+    seedSliceWorktree('b', (d) =>
+      // dep-seeded A output, then B's own extension on top of it
+      writeFileSync(join(d, 'lib.ts'), 'export const a = 1;\nexport const b = 2;\n'),
+    );
+
+    const plan: Plan = {
+      mode: 'brownfield',
+      epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+      slices: [slice('a'), slice('b', ['a'])],
+    };
+    const run: CompletedRun = {
+      sourceDir: source,
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['a', 'b'],
+    };
+
+    const artifact = harvestCookRun(run);
+
+    // Desired: B's evolution of the dep-seeded file wins, no spurious conflict.
+    expect(artifact.conflicts).toEqual([]);
+    const lib = gitC(source, 'show', `${brunchRef.run('r1')}:lib.ts`);
+    expect(lib).toContain('export const b = 2;');
   });
 
   it('skips a slice that produced no changes', () => {
