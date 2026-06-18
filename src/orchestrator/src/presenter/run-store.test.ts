@@ -36,6 +36,14 @@ describe('RunStore', () => {
     expect(notified).toBe(0);
   });
 
+  it('seeds the footer runStart from cook-start, not store construction', () => {
+    // Store built at t=1000 (recipe/plan, before the cook), cook-start at t=5000.
+    const store = new RunStore('serve', () => 1000);
+    store.push({ kind: 'cook-start', runStart: 5000 });
+    // Footer timer shares the action-log clock's origin → no pre-cook time leaks in.
+    expect(store.getSnapshot().runStart).toBe(5000);
+  });
+
   it('notifies subscribers when state changes', () => {
     const store = new RunStore('cook', () => 0);
     let notified = 0;

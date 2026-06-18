@@ -139,6 +139,19 @@ export class RunStore {
       return;
     }
 
+    if (event.kind === 'cook-start') {
+      // Seed BOTH timers from one origin: the action-log clock (via the
+      // formatter) and the footer's `runStart`. On `brunch serve` the store is
+      // built during recipe/plan — before cook-start — so the constructor's
+      // `runStart` would otherwise count pre-cook time the action lines don't.
+      this.clock.seed(event.runStart);
+      const phase = nextPhase(this.state.phase, event);
+      if (event.runStart !== this.state.runStart || phase !== this.state.phase) {
+        this.commit({ phase, runStart: event.runStart });
+      }
+      return;
+    }
+
     const added = formatCookEvent(event, this.clock);
     const phase = nextPhase(this.state.phase, event);
     if (added.length === 0 && phase === this.state.phase) return;
