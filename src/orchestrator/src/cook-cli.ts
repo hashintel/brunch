@@ -17,7 +17,7 @@ import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
 import { landCookBranch, promoteGreenfieldRun } from './promote-run.js';
 import { harvestCookRun } from './run-artifact.js';
-import { brunchRef } from './run-refs.js';
+import { brunchRef, gcCookRun } from './run-refs.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
@@ -611,6 +611,15 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
             ...(land ? { land } : {}),
           })) {
             line(l);
+          }
+          // Completed + promoted: reclaim the run's worktrees + intermediate slice
+          // branches (the brunch/run/<runId> artifact branch is kept). Best-effort —
+          // cleanup must never fail a good run. Halted/conflicted runs returned
+          // earlier, so they keep their worktrees for inspection (keep-on-failure).
+          try {
+            gcCookRun({ sourceDir: sandbox.sourceDir, runId, runDir });
+          } catch {
+            /* leave the run dir if cleanup hiccups; not worth failing a promoted run */
           }
         } catch (err) {
           const reason = `promotion failed: ${err instanceof Error ? err.message : String(err)}`;

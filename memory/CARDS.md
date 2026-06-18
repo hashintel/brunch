@@ -83,12 +83,18 @@ Status: **in progress.**
 
 ---
 
-## Slice 2 — worktree + branch GC / lifecycle (light) — `next` after Slice 1
+## Slice 2 — worktree + branch GC / lifecycle (light) — `done`
 
-A finished run reclaims its worktrees + `brunch/{run,slice}/*` refs instead of the
-operator-owned cleanup `worktree.ts` documents. Ref-set depends on Slice 1's final
-branch topology, so scope after it lands. Keep-on-failure for inspection; promoted
-artifact survives GC.
+Branch `ka/fe-883-worktree-gc` (stacked on FE-883). `gcCookRun` (run-refs.ts,
+commit bf43477f) reclaims the run's worktrees (run + nested slice/__epic__,
+deepest-first) + the intermediate `brunch/slice/<runId>/*` branches, keeping the
+`brunch/run/<runId>` artifact branch and every other run untouched; realpath-safe
+(macOS /var→/private/var). Wired into cook-cli: auto-GC on a **completed +
+promoted** brownfield run, best-effort (never fails a good run); halted/conflicted
+runs return earlier and keep their worktrees for inspection (keep-on-failure).
+Decision: auto-GC (no flag) — "no leaks by default". Tests: run-refs.test.ts
+(reclaim + unrelated-run-untouched). Gap: no end-to-end runCook test exercises the
+auto-GC call (same gap as the promotion wiring).
 
 ## Slice 3 — per-slice build-cache write isolation (candidate)
 
