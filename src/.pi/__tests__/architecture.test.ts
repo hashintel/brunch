@@ -20,7 +20,29 @@ const agentDefinitionExpectations = [
     legacyFlat: 'src/.pi/agents/elicitor.md',
     needles: ['# Agent: elicitor', 'multi-spec discipline'],
   },
+  {
+    system: 'src/.pi/agents/reviewer/SYSTEM.md',
+    legacyFlat: 'src/.pi/agents/reviewer.md',
+    needles: ['# Agent: reviewer', 'future side agent'],
+  },
+  {
+    system: 'src/.pi/agents/pi-coder/SYSTEM.md',
+    needles: ['# Agent: pi-coder', 'You are an expert coding assistant operating inside pi'],
+  },
 ];
+
+const runtimeRegistryExpectations = [
+  {
+    file: 'src/session/runtime-state.ts',
+    required: "export type AgentRoleId = 'elicitor';",
+  },
+  {
+    file: 'src/.pi/extensions/runtime/state.ts',
+    required: 'export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition> = {',
+  },
+];
+
+const unregisteredAgentNeedles = ['reviewer', 'pi-coder'];
 
 const resourceExpectations = [
   {
@@ -49,13 +71,25 @@ describe('agents topology', () => {
     }
   });
 
-  it('keeps live agent definitions under <agent>/SYSTEM.md', async () => {
+  it('keeps agent body resources under <agent>/SYSTEM.md', async () => {
     for (const expectation of agentDefinitionExpectations) {
       const content = await readFile(join(projectRoot, expectation.system), 'utf8');
       for (const needle of expectation.needles) {
         expect(content).toContain(needle);
       }
-      await expect(access(join(projectRoot, expectation.legacyFlat))).rejects.toThrow();
+      if (expectation.legacyFlat) {
+        await expect(access(join(projectRoot, expectation.legacyFlat))).rejects.toThrow();
+      }
+    }
+  });
+
+  it('keeps named future agent bodies out of the runtime registry', async () => {
+    for (const expectation of runtimeRegistryExpectations) {
+      const content = await readFile(join(projectRoot, expectation.file), 'utf8');
+      expect(content).toContain(expectation.required);
+      for (const needle of unregisteredAgentNeedles) {
+        expect(content, `${expectation.file} must not register ${needle}`).not.toContain(needle);
+      }
     }
   });
 

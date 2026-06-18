@@ -14,7 +14,10 @@ agents/
 ├── README.md
 ├── elicitor/
 │   └── SYSTEM.md     keyed foreground elicit-mode system-prompt resource
-└── reviewer.md       keyed future review-side system-prompt resource (legacy flat shape)
+├── pi-coder/
+│   └── SYSTEM.md     future unwired coding-agent augmentation baseline
+└── reviewer/
+    └── SYSTEM.md     keyed future review-side system-prompt resource
 ```
 
 This directory is **markdown-only**, like `.pi/skills/`. It carries no
@@ -45,6 +48,8 @@ tree answers "who owns prompt assembly?" by walking to `system-prompts/` and
 `read_context` pull tool. The seed renderers were renamed (`renderWorkspaceSeed`,
 `renderGraphSeed`) to de-conflate from `renderers/` and the pull tool.
 
-The D85-L agent-definition convention is partially enacted: `elicitor` is the
-live foreground agent and now uses `<agent>/SYSTEM.md`; `reviewer.md` remains a
-flat future-role resource until a scoped follow-on relocates it.
+The D85-L agent-definition convention is enacted for the live foreground body and
+for named future bodies: `elicitor/SYSTEM.md`, `reviewer/SYSTEM.md`, and the
+unwired `pi-coder/SYSTEM.md` baseline all use `<agent>/SYSTEM.md`. `reviewer.md`
+flat legacy shape is retired. `pi-coder` records Pi's `buildSystemPrompt`
+worked-example baseline while D58-L's augment-vs-replace question stays open.
