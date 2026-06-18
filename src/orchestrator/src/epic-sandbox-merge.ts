@@ -258,8 +258,10 @@ export function seedSliceFromParentWorktree(
   //    worktree yet — i.e. untracked / gitignored content (`dist/`, etc.) that
   //    pi-actions might need at runtime. `node_modules/` is symlinked to the
   //    parent's single copy instead of duplicated per slice (see
-  //    SHAREABLE_TOP_LEVEL_ENTRIES); `walkFiles` skips symlinks, so the shared
-  //    tree is never re-walked during dependency seeding, merge, or promotion.
+  //    SHAREABLE_TOP_LEVEL_ENTRIES); `walkFiles` skips those entries by NAME, so
+  //    the shared tree is never re-walked during dependency seeding, merge, or
+  //    promotion — even if an in-slice `npm install` clobbers the symlink into a
+  //    real dir.
   const excludedNames = new Set<string>(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
   for (const s of plan.slices) excludedNames.add(s.id);
   copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames, SHAREABLE_TOP_LEVEL_ENTRIES);
