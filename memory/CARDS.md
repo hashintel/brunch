@@ -41,21 +41,22 @@ Status: **in progress.**
   composition path → the tree verified == the tree shipped; no verify≠ship gap on
   same-file edits. The worktree-checkout unknown is de-risked by materializeFoldedWorktree.
 
-○ 1b/1c INTEGRATION (remaining — engine wiring):
-  - net-compiler.ts verify-epic (~870): for brownfield, replace mergeSlicesIntoEpicSandbox
-    (file-copy) with commit-epic-slices (commitSliceWorktree, dep order + dep parents)
-    + materializeFoldedWorktree into __epic__/<epicId>/ + relink node_modules
-    (linkSharedTopLevelEntries). Greenfield keeps the file-copy union. Fold conflict →
-    fail the epic (first-class).
-  - cook-cli.ts promotion (~567): brownfield branch calls harvestCookRun instead of
-    promotionSourceDir + promoteBrownfieldRun; fold conflicts → fatal run outcome
-    (recordCookExitStatus(false)). I135-K preserved (all plumbing).
-  - Needs an end-to-end runCook/engine integration test (none exists today for
-    multi-slice brownfield promotion) — note this gap.
+✓ 1b/1c INTEGRATION (done, commit d92ce38b) — engine wired end-to-end:
+  - net-compiler verify-epic: brownfield uses materializeEpicVerifyTree (commit
+    slices dep-order → fold → detached worktree at __epic__/<epicId>/ → relink
+    node_modules); fold conflict → fail the epic (passed:false report → fail sibling).
+    Greenfield keeps the file-copy union.
+  - cook-cli promotion: brownfield calls harvestCookRun; fold conflicts → fatal run
+    outcome. I135-K preserved (all plumbing).
+  - commitSliceWorktree made idempotent so promotion reuses the commits verify made.
+  - Stale epic-sandbox-merge.ts TODO updated; SPEC I124-K amended (plan.mode fork).
+  - Full orchestrator suite green (672). Single-slice brownfield-smoke exercises the
+    engine plumbing; a *multi-slice* end-to-end engine test is still a gap to add.
 
-○ 1d — delete the superseded file-copy composition (mergeSlicesIntoEpicSandbox /
-  promoteBrownfieldRun once unused) + the stale epic-sandbox-merge.ts:226 TODO.
-  Amends I124-K to fork on plan.mode (brownfield → fold; greenfield → file-copy union).
+○ 1d (remaining) — retire the now-dead promoteBrownfieldRun + BrownfieldPromoteOptions.
+  Blocked on rewriting the landCookBranch test fixture (repoWithPromotedCook uses
+  promoteBrownfieldRun to build a promoted branch — rebuild it via harvestCookRun or
+  a plain commit). mergeSlicesIntoEpicSandbox STAYS (it is the greenfield composer).
 ```
 
 ### Acceptance Criteria (slice-level)

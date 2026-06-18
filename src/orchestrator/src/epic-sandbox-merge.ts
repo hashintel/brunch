@@ -223,13 +223,13 @@ function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: str
  * slice worktree — `git worktree add` would fail with "already exists." The
  * caller must remove the prior worktree first if re-seeding.
  *
- * TODO(cook-artifact-lifecycle follow-on, separate frontier): the slice branch
- * exists but is never committed to. After this lands, a future frontier should
- * add slice-completion commits, replace `mergeSlicesIntoEpicSandbox`'s file-copy
- * with a git merge of slice branches into an epic branch, and surface real
- * merge conflicts (today's file-copy is silent last-slice-wins). That work
- * earns the "discoverable cook artifact" criterion via `git merge brunch/run/<runId>`
- * promotion semantics.
+ * Brownfield slice branches are now committed and folded by `run-artifact.ts`
+ * (`commitSliceWorktree` + the `merge-tree` fold), wired into both verify-epic
+ * and promotion (FE-883) — real conflicts surface fail-closed instead of the old
+ * silent last-slice-wins. `mergeSlicesIntoEpicSandbox` below is the **greenfield**
+ * composer only: greenfield slices share no common ancestor, so a 3-way merge has
+ * no base to merge against and the file-copy union (declaration-order-wins,
+ * collisions reported) is the right tool there.
  */
 export function seedSliceFromParentWorktree(
   parentSandboxDir: string,
