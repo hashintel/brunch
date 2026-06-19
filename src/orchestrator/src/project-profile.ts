@@ -120,12 +120,12 @@ export function parseProfileId(value: string): ProfileId {
 }
 
 /**
- * Resolve the toolchain for a plan's profile id. Absent → bun (lenient, for
- * hand-authored fixture plans); unknown → `UnknownProfileError`, so a typo'd
- * id in plan.yaml fails loudly instead of silently running under bun.
+ * Resolve the toolchain for a plan's profile id. Empty/absent → bun (lenient,
+ * for hand-authored fixture plans); unknown → `UnknownProfileError`, so a
+ * typo'd id in plan.yaml fails loudly instead of silently running under bun.
  */
-export function resolveToolchain(profile?: ProfileId): Toolchain {
-  if (profile === undefined) return bunProfile.toolchain;
+export function resolveToolchain(profile?: ProfileId | null | ''): Toolchain {
+  if (profile === undefined || profile === null || profile === '') return bunProfile.toolchain;
   return PROFILES[parseProfileId(profile)].toolchain;
 }
 

@@ -119,6 +119,11 @@ describe('resolveToolchain', () => {
     expect(resolveToolchain(undefined)).toBe(bunProfile.toolchain);
   });
 
+  it('falls back to bun for YAML-empty profile values', () => {
+    expect(resolveToolchain(null)).toBe(bunProfile.toolchain);
+    expect(resolveToolchain('')).toBe(bunProfile.toolchain);
+  });
+
   it('throws UnknownProfileError for an unrecognized id, listing valid profiles', () => {
     // @ts-expect-error — exercise the runtime guard against unvalidated YAML.
     expect(() => resolveToolchain('rust')).toThrow(UnknownProfileError);
