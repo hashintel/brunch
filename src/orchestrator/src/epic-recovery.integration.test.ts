@@ -89,6 +89,9 @@ describe('FE-884 — recoverable epic verification (codebase mode)', () => {
       // FE-884 Slice B: force the verify-epic verdict to report an infra/timeout
       // failure — 'always' (never recovers) or 'once' (infra then pass).
       epicInfra?: 'always' | 'once';
+      // Regression for Bugbot a4a0a7bc: probe infra used to report only
+      // `reachability: "infra"`, which must still route as infra, not logic.
+      epicProbeInfra?: 'always' | 'once';
     },
   ): ActionHandlers {
     const evalCalls = new Map<string, number>();
@@ -128,6 +131,12 @@ describe('FE-884 — recoverable epic verification (codebase mode)', () => {
         if (opts.epicInfra === 'always' || (opts.epicInfra === 'once' && verifyCalls === 1)) {
           reports.append(
             line(id, ctx, 'orchestrator', 'epic-verified', { passed: false, failureKind: 'infra' }),
+          );
+          return id;
+        }
+        if (opts.epicProbeInfra === 'always' || (opts.epicProbeInfra === 'once' && verifyCalls === 1)) {
+          reports.append(
+            line(id, ctx, 'orchestrator', 'epic-verified', { passed: false, reachability: 'infra' }),
           );
           return id;
         }
@@ -337,6 +346,25 @@ describe('FE-884 — recoverable epic verification (codebase mode)', () => {
       // never invoked — an infra blip is a toolchain re-run, not a logic fix.
       const verifies = reports.getAll().filter((r) => r.event === 'epic-verified');
       expect(verifies.length).toBe(2);
+      expect(reports.getAll().filter((r) => r.event === 'epic-remediated')).toHaveLength(0);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'probe infra retry: a reachability infra verdict re-runs verify — not the remediation agent — then completes',
+    async () => {
+      const source = makeSeededRepo();
+      const reports = new InMemoryReportSink();
+      const actions = withReports(
+        reports,
+        makeFakeActions(reports, { remediation: 'noop', epicPasses: true, epicProbeInfra: 'once' }),
+      );
+
+      const { result } = await runCook(source, actions, passingRunner(), 3);
+
+      expect(result.status).toBe('completed');
+      expect(reports.getAll().filter((r) => r.event === 'epic-verified')).toHaveLength(2);
       expect(reports.getAll().filter((r) => r.event === 'epic-remediated')).toHaveLength(0);
     },
     GIT_TEST_TIMEOUT_MS,

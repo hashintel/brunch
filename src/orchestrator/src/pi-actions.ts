@@ -772,11 +772,12 @@ export function createPiActions(opts?: {
         }
       }
       const passed = testsPassed && (probe === undefined || probe.reachable);
+      const combinedFailureKind = failureKind ?? (probe?.kind === 'infra' ? 'infra' : undefined);
 
       log(passed ? '●' : '✗', `epic      ${ctx.epic.id} → ${passed ? 'PASS' : 'FAIL'}`);
       return report(ctx, 'orchestrator', 'epic-verified', {
         passed,
-        failureKind,
+        failureKind: combinedFailureKind,
         ...(probe ? { reachability: probe.kind } : {}),
       });
     },

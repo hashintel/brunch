@@ -1139,9 +1139,11 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             // Route through the epic budgets. Pass → done (+ budget reset); infra
             // fail → re-verify (bounded, no remediation); test fail with budget →
             // re-loop to the fail sibling → remediation; exhausted → halt.
-            const verdictFailureKind = (
-              reports.getById(verdictReportId)?.payload as { failureKind?: TestFailureKind } | undefined
-            )?.failureKind;
+            const verdictPayload = reports.getById(verdictReportId)?.payload as
+              | { failureKind?: TestFailureKind; reachability?: string }
+              | undefined;
+            const verdictFailureKind =
+              verdictPayload?.failureKind ?? (verdictPayload?.reachability === 'infra' ? 'infra' : undefined);
             return routeVerdict(inputToken, verdictReportId, passed, verdictFailureKind);
           })();
           net.scheduleDeferred(skel.id, skel.contract, { places: skel.inputs, tokens: consumed }, deferred);

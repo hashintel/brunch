@@ -352,7 +352,7 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
     sandboxDir: string;
     epic: Epic;
     groundProbe?: ProbeGrounder;
-  }): Promise<{ passed: boolean; reachability?: string }> {
+  }): Promise<{ passed: boolean; failureKind?: string; reachability?: string }> {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const reports = new InMemoryReportSink();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
@@ -380,7 +380,10 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
       plan,
       sandboxDir: opts.sandboxDir,
       reports,
-    }).then((id) => reports.getById(id)!.payload as { passed: boolean; reachability?: string });
+    }).then(
+      (id) =>
+        reports.getById(id)!.payload as { passed: boolean; failureKind?: string; reachability?: string },
+    );
   }
 
   it('grounds a reachability intent into a concrete target, then probes it', async () => {
@@ -414,6 +417,7 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
       },
     });
     expect(payload.passed).toBe(false);
+    expect(payload.failureKind).toBe('infra');
     expect(payload.reachability).toBe('infra');
   });
 
@@ -597,7 +601,7 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
     sandboxDir: string;
     epic: Epic;
     groundProbe?: ProbeGrounder;
-  }): Promise<{ passed: boolean; reachability?: string }> {
+  }): Promise<{ passed: boolean; failureKind?: string; reachability?: string }> {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const reports = new InMemoryReportSink();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
@@ -625,7 +629,10 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
       plan,
       sandboxDir: opts.sandboxDir,
       reports,
-    }).then((id) => reports.getById(id)!.payload as { passed: boolean; reachability?: string });
+    }).then(
+      (id) =>
+        reports.getById(id)!.payload as { passed: boolean; failureKind?: string; reachability?: string },
+    );
   }
 
   it('grounds a reachability intent into a concrete target, then probes it', async () => {
@@ -659,6 +666,7 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
       },
     });
     expect(payload.passed).toBe(false);
+    expect(payload.failureKind).toBe('infra');
     expect(payload.reachability).toBe('infra');
   });
 
