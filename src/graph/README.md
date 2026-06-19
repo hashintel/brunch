@@ -1,7 +1,7 @@
 # graph/ — Graph domain layer
 
 Canonical reference: `docs/design/GRAPH_MODEL.md`
-SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D81-L
+SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L
 
 ## Owns
 
@@ -28,11 +28,11 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   `CommandExecutor.acceptReviewSet` is the only graph mutation entrypoint for
   accepted review sets and records `operation: "accept_review_set"`.
 
-- **Capture translators** (`capture/`) — retired submit-time structured-response
-  fossils until the D80-L live sweep fully replaces them. Current FE-861 capture
-  conduct lives in `src/.pi/skills/methods/capture.md`; the graph layer's live
-  responsibility is the mutation/gap boundary that sweep conduct routes through,
-  not a product-side extraction pass.
+- **Capture** — the submit-time `capture/` structured-response translator was
+  deleted 2026-06-19 (D80-L fossil retirement). Capture is now elicitor
+  turn-boundary sweep conduct in `src/.pi/skills/methods/capture.md`; the graph
+  layer owns only the `mutate_graph` / `update_elicitation_gaps` mutation/gap
+  boundary that sweep conduct routes through, not a product-side extraction pass.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
   detail levels: active-context and graph-truth overview, node
   neighborhood, selected-spec graph-code lookup, open reconciliation needs, and
@@ -162,10 +162,6 @@ graph/
     review-set payload contract
     selected-spec projected-code resolution
     explicit-basis mutateGraph translation
-
-  capture/
-    structured-response.ts
-      deterministic labeled-answer capture to explicit-basis mutateGraph input
 
   queries.ts
     getGraphOverview

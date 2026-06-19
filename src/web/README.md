@@ -331,7 +331,7 @@ planned mutation hooks (not sidecar-accepted today):
 
   session.submitExchangeResponse
     submitExchangeResponseMutationOptions(rpc)
-    On success: invalidate session.pendingExchange, session.exchanges, session.runtimeState; captured labeled text answers also publish graph.overview / graph.nodeNeighborhood topics for the transcript-bound spec.
+    On success: invalidate session.pendingExchange, session.exchanges, session.runtimeState; review-set approval also publishes graph.overview / graph.nodeNeighborhood topics for the transcript-bound spec.
 
 reserved future method:
   session.submitMessage

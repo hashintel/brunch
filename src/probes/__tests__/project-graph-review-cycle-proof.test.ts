@@ -145,7 +145,6 @@ function approvedResponse(): JsonRpcResponse {
       status: 'accepted',
       exchangeId: 'review-1',
       answer: { review: { decision: 'approve', comment: 'Probe approval.' } },
-      capture: { status: 'no_capture', reason: 'review responses do not run synchronous capture' },
       review: { status: 'approved', lsn: 3, createdNodes: { 'req-resolution-state': { id: 2 } } },
     },
   };

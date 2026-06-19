@@ -684,7 +684,7 @@ describe('Brunch prompt-pack topology', () => {
     const acceptedBlindSpots = [
       'prompt/body quality is fitness evidence',
       'graph-write reliability remains with graph-tool-resilience',
-      'capture quality remains with capture-response-to-graph',
+      'capture conduct remains with methods/capture.md',
     ];
 
     expect(disambiguateIntentPrompt).toContain('name="step-wise-disambiguate"');
@@ -700,7 +700,7 @@ describe('Brunch prompt-pack topology', () => {
     expect(acceptedBlindSpots).toEqual([
       'prompt/body quality is fitness evidence',
       'graph-write reliability remains with graph-tool-resilience',
-      'capture quality remains with capture-response-to-graph',
+      'capture conduct remains with methods/capture.md',
     ]);
   });
 
