@@ -118,7 +118,7 @@ Each lower-line block carries its own completeness obligation (see Context §Com
 
 ### Recently Completed
 
-- 2026-06-19 `alpha-hardening` — closed the three loose residues: explicit `--all-seeds` workbench seeding plus seed disposition catalog, the import-free `src/session/schema/kinds.ts` runtime-vocab leaf, and explicit deferral/adoption decisions for the FE-893 prompt-shape questions (`SKILL.md + references/`, `[sub]`, `_generated/`, and adopted `SYSTEM.md`).
+- 2026-06-19 `alpha-hardening` (FE-897) — closed the three loose residues: explicit `--all-seeds` workbench seeding plus seed disposition catalog, the import-free `src/session/schema/kinds.ts` runtime-vocab leaf, and explicit deferral/adoption decisions for the FE-893 prompt-shape questions (`SKILL.md + references/`, `[sub]`, `_generated/`, and adopted `SYSTEM.md`).
 - 2026-06-18 `prompt-skill-consolidation` (FE-893, merged #235) — materialized D85-L: runtime manifest collapsed to two AUTO axes (`strategy`, `lens`; `goal` inlined into `elicitor/SYSTEM.md`), `propose-graph`/`project-graph` re-filed as graph-write methods gated by capability ids, the `methods/capture` skill home created (FE-861 fills its body), `review-for-gaps` demoted to audit-only, and the `elicitation backlog` lexicon swept. Full definition + deferred-shape residue (now under `alpha-hardening`): `docs/archive/PLAN_HISTORY.md`.
 - 2026-06-17 review-induced contract hardening — the exhausted `memory/REFACTOR.md` plan is retired after landing both induced findings: ordinary TUI sidecar `/rpc` observer connections stay read-only while the explicit `/rpc/driver` connection carries live driver/answer methods when handles exist (`88b3fe2e`), `read_graph list_by_band` renders dual-band nodes under the requested band and fails loud on nonmatching filtered renders (`54d187ac`), and SPEC records the sidecar authority invariant (`dd300e76`). Evidence: `src/rpc/README.md`, `src/renderers/README.md`, web-host/streaming tests, and graph renderer tests.
 - 2026-06-17 `web-driver-streaming` streaming battery (FE-873, branch `ln/fe-873-web-as-driver`) — the full topology-A oracle battery landed on the tier-2 faux substrate: observer relay claims 1–4 (`291c5d93`), replay-less reconnect/resume claim 6 (`dab95b7d`), one-driver/many-observer fan-out claim 7 (`181c46da`), command-intake `session.driveTurn` plain-turn driving (`58204632`/`4ca87e62`/`79ca68f1`), and the claim-5 live `request_answer` answered leg via the Brunch-owned `LiveExchangeBroker` + `session.answerExchange` (`e3916c79`), plus two review-driven tidies (`625d2cbe`/`946df517`). Sidecar driver/answer methods are discoverable only on the explicit `/rpc/driver` connection when their handle is attached; ordinary `/rpc` observer connections remain read-only. Remaining web-driver legs (non-freeform `request_*` variants, React web consumer, `--mode web`, agent-as-user split) stay in the `web-driver-streaming` Horizon frontier. Evidence: SPEC §Verification Design streaming battery row + `src/rpc/README.md` §Streaming transport coverage.
@@ -306,7 +306,8 @@ Deferred below the demo line until the demo lands. The earlier context-pipeline 
 ### alpha-hardening
 
 - **Name:** Alpha-week loose-ends collection (seed flag + runtime leaf + prompt-skill deferred shape)
-- **Linear:** unassigned — one branch; the three residues are small enough to share a tracker unit, not each their own.
+- **Linear:** FE-897 — one branch; the three residues are small enough to share a tracker unit, not each their own.
+- **Branch:** `ln/fe-897-alpha-hardening-residues`
 - **Kind:** hardening / collection
 - **Status:** done — 2026-06-19
 - **Certainty:** proving (each residue is small and low-blast-radius)
