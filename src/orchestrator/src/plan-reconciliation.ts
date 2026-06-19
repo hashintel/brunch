@@ -234,6 +234,33 @@ export function formatReconciliationWarning(warning: ReconciliationWarning): str
   }
 }
 
+/**
+ * One-sentence plain-English account of why a reconciliation warning
+ * fired. Appended after the terse code line in `--verbose` mode so a
+ * reviewer doesn't have to know the code vocabulary. Co-located with the
+ * union so a new code adds its explanation in the same diff.
+ */
+export function explainReconciliationWarning(warning: ReconciliationWarning): string {
+  switch (warning.code) {
+    case 'synthesized-verification-target':
+      return 'the slice authored no verification, so a default test target was synthesized from its id';
+    case 'dropped-dependency-nonexistent-id':
+      return 'the slice depended on an id no slice declares; the edge was dropped';
+    case 'dropped-self-loop':
+      return 'the slice depended on itself; the self-edge was dropped';
+    case 'cycle-break-dropped-edge':
+      return 'the edge was dropped to break a dependency cycle between slices';
+    case 'dropped-dependency-on-non-buildable':
+      return 'the slice depended on a non-buildable slice; the edge was dropped';
+    case 'dropped-non-buildable-slice':
+      return 'the slice had nothing buildable and was dropped from the plan';
+    case 'dropped-empty-epic':
+      return 'the epic had no surviving slices and was dropped';
+    case 'orphan-slice-assigned-to-default-epic':
+      return 'the slice referenced no valid epic and was reassigned to the default epic';
+  }
+}
+
 function enrichDefinitionWithCriteria(slice: Slice): string {
   const criterionTexts = slice.verification
     .filter((entry) => entry.kind === 'criterion')

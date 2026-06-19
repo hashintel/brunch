@@ -1,0 +1,107 @@
+# Scope cards — cook-artifact-lifecycle (FE-883)
+
+Execution queue for `cook-artifact-lifecycle` (FE-883, branch
+`ka/fe-883-orchestrator-improvements`, on FE-864).
+
+**Reality check (corrected after basing on FE-864, the current seam):** the
+brownfield git-merge composer already exists — `run-artifact.ts` (commit
+871ef087): `commitSliceWorktree` + `foldSliceBranches` do a real `git merge-tree`
+3-way fold of per-slice branches in dependency order, fail-closed on conflicts,
+pure plumbing (I135-K preserved). It was deliberately left **unwired** pending "a
+live-run check of the dependency-seed interaction". So FE-883 is *wire the
+existing composer*, not *build it*.
+
+This matches the Slice-1 spike decision (2026-06-18): git-merge for brownfield
+(common ancestor → real 3-way), file-copy union for greenfield (no common
+ancestor), elevate collisions to a first-class outcome.
+
+---
+
+## Slice 1 — wire the run-artifact composer into the live path
+
+Status: **in progress.**
+
+### Sub-steps
+
+```
+✓ 1a (done, commit 2357f941) — composer correct under dependency-seeding. The
+  deferred "live-run check" failed: a dependent slice extending a dep-seeded file
+  false-conflicted because slice branches share no inter-slice ancestry. Fix:
+  commit each slice recording its dependency commits as parents, so the fold's
+  merge-base is the dependency. Regression test added; unfaithful happy-path test
+  corrected. (epic-sandbox-merge.ts file-copy untouched.)
+
+✓ mechanism (commits fadb1b52, 5e1d8d32) — proved + factored the fold so both
+  1b and 1c can use it: foldToCommit (fold N slice commits onto a base, fail-closed,
+  no ref write) + materializeFoldedWorktree (fold + `git worktree add --detach`,
+  rework-safe). Tests pin: 3-way merge of different-hunk edits to one file keeps
+  both; the fold materializes on disk in a verify worktree.
+
+✓ 1c DECISION (2026-06-18): verify against the folded tree (option i). One
+  composition path → the tree verified == the tree shipped; no verify≠ship gap on
+  same-file edits. The worktree-checkout unknown is de-risked by materializeFoldedWorktree.
+
+✓ 1b/1c INTEGRATION (done, commit d92ce38b) — engine wired end-to-end:
+  - net-compiler verify-epic: brownfield uses materializeEpicVerifyTree (commit
+    slices dep-order → fold → detached worktree at __epic__/<epicId>/ → relink
+    node_modules); fold conflict → fail the epic (passed:false report → fail sibling).
+    Greenfield keeps the file-copy union.
+  - cook-cli promotion: brownfield calls harvestCookRun; fold conflicts → fatal run
+    outcome. I135-K preserved (all plumbing).
+  - commitSliceWorktree made idempotent so promotion reuses the commits verify made.
+  - Stale epic-sandbox-merge.ts TODO updated; SPEC I124-K amended (plan.mode fork).
+  - Full orchestrator suite green (672). Single-slice brownfield-smoke exercises the
+    engine plumbing; a *multi-slice* end-to-end engine test is still a gap to add.
+
+○ 1d (remaining) — retire the now-dead promoteBrownfieldRun + BrownfieldPromoteOptions.
+  Blocked on rewriting the landCookBranch test fixture (repoWithPromotedCook uses
+  promoteBrownfieldRun to build a promoted branch — rebuild it via harvestCookRun or
+  a plain commit). mergeSlicesIntoEpicSandbox STAYS (it is the greenfield composer).
+```
+
+### Acceptance Criteria (slice-level)
+
+```
+✓ dep-seed — a dependent slice extending a dep-seeded file folds clean (done, 1a)
+○ brownfield-3way — two brownfield slices editing different hunks of the same
+  pre-existing file both survive promotion (the file-copy union drops one)
+○ brownfield-conflict — a true overlapping-hunk conflict surfaces as a fatal run
+  outcome, not a buried event field
+○ checkout-untouched — promotion still never touches the user's branch / tree /
+  index (I135-K)
+○ greenfield-unchanged — serial-greenfield shared-tree + parallel-greenfield
+  file-copy paths preserved
+```
+
+### Verification Approach
+
+```
+- Inner: run-artifact.test.ts (done), promote-run.test.ts, epic-sandbox-merge.test.ts
+- Middle: brownfield-smoke.integration.test.ts — seeded repo, overlapping slices
+- Outer: dogfood a multi-slice brownfield cook with an intentional file overlap
+```
+
+---
+
+## Slice 2 — worktree + branch GC / lifecycle (light) — `done`
+
+Branch `ka/fe-883-worktree-gc` (stacked on FE-883). `gcCookRun` (run-refs.ts,
+commit bf43477f) reclaims the run's worktrees (run + nested slice/__epic__,
+deepest-first) + the intermediate `brunch/slice/<runId>/*` branches, keeping the
+`brunch/run/<runId>` artifact branch and every other run untouched; realpath-safe
+(macOS /var→/private/var). Wired into cook-cli: auto-GC on a **completed +
+promoted** brownfield run, best-effort (never fails a good run); halted/conflicted
+runs return earlier and keep their worktrees for inspection (keep-on-failure).
+Decision: auto-GC (no flag) — "no leaks by default". Tests: run-refs.test.ts
+(reclaim + unrelated-run-untouched). Gap: no end-to-end runCook test exercises the
+auto-GC call (same gap as the promotion wiring).
+
+## Slice 3 — per-slice build-cache write isolation (candidate)
+
+May instead be an FE-879 follow-on (FE-879 owns `SHAREABLE_TOP_LEVEL_ENTRIES`).
+Decide ownership before scoping.
+
+## Out of scope (noted)
+
+- Sync `git worktree add` serialization (`epic-sandbox-merge.ts:288`) — perf, not
+  correctness; FE-879 laziness already bounds worktree count.

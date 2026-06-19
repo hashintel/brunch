@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, readdirSync, symlinkSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, readdirSync, symlinkSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 /**
@@ -24,6 +24,10 @@ export function cowCopy(src: string, dest: string): void {
 export const COW_COPY_DEFAULT_EXCLUDE = new Set(['.git', '.brunch']);
 
 const NO_SYMLINKS: ReadonlySet<string> = new Set();
+
+export function sharedEntrySymlinkType(sourcePath: string): Parameters<typeof symlinkSync>[2] {
+  return process.platform === 'win32' && lstatSync(sourcePath).isDirectory() ? 'junction' : undefined;
+}
 
 /**
  * Provision top-level entries from `sourceDir` that are absent in `destDir`
@@ -50,9 +54,31 @@ export function copyMissingTopLevelEntries(
     if (existsSync(destPath)) continue;
     const sourcePath = join(source, entry);
     if (symlink.has(entry)) {
-      symlinkSync(sourcePath, destPath);
+      symlinkSync(sourcePath, destPath, sharedEntrySymlinkType(sourcePath));
     } else {
       cowCopy(sourcePath, destPath);
     }
+  }
+}
+
+/**
+ * Symlink the named top-level entries (typically `node_modules/`) from
+ * `sourceDir` into `destDir` when present in the source and absent in the
+ * destination. Used to re-share deps into a merged tree built by a file walk
+ * that skips symlinks — without it the merged cwd has no resolvable modules.
+ */
+export function linkSharedTopLevelEntries(
+  sourceDir: string,
+  destDir: string,
+  names: ReadonlySet<string>,
+): void {
+  const source = resolve(sourceDir);
+  const dest = resolve(destDir);
+  for (const name of names) {
+    const sourcePath = join(source, name);
+    const destPath = join(dest, name);
+    if (!existsSync(sourcePath)) continue;
+    if (existsSync(destPath)) continue;
+    symlinkSync(sourcePath, destPath, sharedEntrySymlinkType(sourcePath));
   }
 }

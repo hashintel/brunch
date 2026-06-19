@@ -18,8 +18,8 @@ describe('Ink App', () => {
     await tick();
 
     const frame = lastFrame() ?? '';
-    // Wordmark header + command.
-    expect(frame).toContain('brunch');
+    // Big lowercase ASCII wordmark rendered + the command label.
+    expect(frame).toContain('/_.___/');
     expect(frame).toContain('cook');
     // Brigade tracker shows every phase, with cook active (◐) once cooking.
     expect(frame).toContain('prep');
@@ -63,5 +63,91 @@ describe('Ink App', () => {
 
     frame = lastFrame() ?? '';
     expect(frame).not.toContain('agent writing tests');
+  });
+});
+
+describe('Ink App — slice grid', () => {
+  it("renders epics with per-slice status, the running slice's step/detail, and queued slices", async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+
+    store.push({
+      kind: 'run-shape',
+      epics: [{ id: 'api-auth' }],
+      slices: [
+        { id: 'login', epicId: 'api-auth' },
+        { id: 'refresh', epicId: 'api-auth' },
+      ],
+    });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api-auth', status: 'passed' });
+    store.push({ kind: 'slice', id: 'refresh', epicId: 'api-auth', status: 'running', step: 'code' });
+    store.push({ kind: 'activity-progress', id: 'refresh', detail: 'edit src/token.ts' });
+    await tick();
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('api-auth'); // epic group header
+    expect(frame).toContain('✓ login'); // passed
+    expect(frame).toContain('refresh · code · edit src/token.ts'); // running w/ step + detail
+  });
+});
+
+describe('Ink App — failure legibility', () => {
+  it('shows a failed slice reason and pins a halt summary', async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'tests failed' });
+    store.push({ kind: 'cook-done', ok: false, reason: 'login exhausted retries' });
+    await tick();
+
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('login · tests failed');
+    expect(frame).toContain('✗ halted · login exhausted retries');
+  });
+
+  it('shows no halt summary for a completed run', async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'passed' });
+    store.push({ kind: 'cook-done', ok: true });
+    await tick();
+
+    expect(lastFrame() ?? '').not.toContain('✗ halted');
+  });
+});
+
+describe('Ink App — attempt count', () => {
+  it('shows the attempt as n/max only once a slice has retried', async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+    // maxRetries 3 → total attempts 4 (the n/max denominator).
+    store.push({
+      kind: 'run-shape',
+      epics: [{ id: 'api' }],
+      slices: [{ id: 'login', epicId: 'api' }],
+      maxRetries: 3,
+    });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    await tick();
+    expect(lastFrame() ?? '').not.toContain('attempt'); // first run: no clutter
+
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'tests failed' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    await tick();
+    expect(lastFrame() ?? '').toContain('attempt 2/4');
+  });
+
+  it('falls back to a bare attempt count when the retry budget is unknown', async () => {
+    const store = new RunStore('cook', () => 0);
+    const { lastFrame } = render(<App store={store} now={() => 0} />);
+    store.push({ kind: 'run-shape', epics: [{ id: 'api' }], slices: [{ id: 'login', epicId: 'api' }] });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'failed', reason: 'x' });
+    store.push({ kind: 'slice', id: 'login', epicId: 'api', status: 'running', step: 'code' });
+    await tick();
+    const frame = lastFrame() ?? '';
+    expect(frame).toContain('attempt 2');
+    expect(frame).not.toContain('attempt 2/');
   });
 });

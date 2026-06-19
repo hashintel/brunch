@@ -52,6 +52,9 @@ export const createClientConfig = <T extends object>({
   server: {
     port: defaultDevServerPort,
     strictPort: true,
+    watch: {
+      ignored: ['**/.brunch/**'],
+    },
     proxy: {
       '/api': getBackendProxyTarget(env),
     },

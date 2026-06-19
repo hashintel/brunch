@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { copyMissingTopLevelEntries } from './cow-copy.js';
+import { brunchRef, pruneWorktrees } from './run-refs.js';
 
 export type SandboxInfo = {
   runId: string;
@@ -28,10 +29,10 @@ export type CreateSandboxOptions =
  *
  * - **fixture mode (default):** the sandbox worktree is an empty directory.
  * - **codebase mode:** the sandbox worktree is a `git worktree add` of
- *   `opts.sourceDir` on a fresh branch `cook/<runId>`. The source branch in
- *   `sourceDir` is left untouched; agent commits land on the cook branch.
+ *   `opts.sourceDir` on a fresh branch `brunch/run/<runId>`. The source branch in
+ *   `sourceDir` is left untouched; agent commits land on the run branch.
  *   Branch/worktree cleanup is intentionally operator-owned for now:
- *   `git worktree remove <sandboxDir>` and `git branch -D cook/<runId>`.
+ *   `git worktree remove <sandboxDir>` and `git branch -D brunch/run/<runId>`.
  */
 export function createSandbox(
   baseDir: string,
@@ -49,7 +50,10 @@ export function createSandbox(
     if (existsSync(sandboxDir)) {
       rmSync(sandboxDir, { recursive: true, force: true });
     }
-    const branch = `cook/${id}`;
+    // Reap any stale registration for this path before re-adding (a prior run
+    // whose dir was removed out-of-band would otherwise block `worktree add`).
+    pruneWorktrees(opts.sourceDir);
+    const branch = brunchRef.run(id);
     execFileSync('git', ['worktree', 'add', '-b', branch, sandboxDir, 'HEAD'], {
       cwd: opts.sourceDir,
       stdio: ['ignore', 'pipe', 'pipe'],

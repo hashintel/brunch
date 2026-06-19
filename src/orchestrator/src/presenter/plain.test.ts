@@ -26,7 +26,7 @@ describe('PlainPresenter — plan surface', () => {
   it('renders the plan banner byte-for-byte', () => {
     expect(render([{ kind: 'plan-start', specId: 2, outDir: '/tmp/x' }])).toEqual([
       '',
-      '  brunch plan',
+      '  brunch recipe',
       '  ──────────────────────────────────────',
       '  spec       2',
       '  out        /tmp/x',
@@ -36,7 +36,7 @@ describe('PlainPresenter — plan surface', () => {
 
   it('renders the plan-written summary', () => {
     expect(render([{ kind: 'plan-written', path: '/p/plan.yaml', epics: 1, slices: 2 }])).toEqual([
-      '  ✓  plan      /p/plan.yaml',
+      '  ✓  recipe    /p/plan.yaml',
       '     1 epics, 2 slices',
       '',
     ]);

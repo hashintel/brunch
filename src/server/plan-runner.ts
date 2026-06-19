@@ -18,6 +18,7 @@ import type { RunModel } from '../orchestrator/src/plan-architect.js';
 import {
   emitPlanFromSnapshot,
   emitterWarningCategory,
+  explainEmitterWarning,
   formatEmitterWarning,
   type EmitterWarning,
 } from '../orchestrator/src/plan-emitter.js';
@@ -92,14 +93,6 @@ export type RunPlanArgs = {
 export async function runPlan(args: RunPlanArgs): Promise<void> {
   const { bus } = args;
 
-  bus.emit({ kind: 'plan-start', specId: args.specificationId, outDir: args.outDir });
-
-  const result = await emitPlanFromSnapshot(args.snapshot, {
-    ...(args.runModel ? { runModel: args.runModel } : {}),
-    ...(args.profile ? { profile: args.profile } : {}),
-    ...(args.repoDir ? { repoDir: args.repoDir } : {}),
-  });
-
   // Spec-scoped output path. Each spec gets its own subdir so multiple
   // specs can live side-by-side on the same project / branch. `brunch
   // cook` resolves either by `--spec=<id>` or by auto-picking the most
@@ -107,6 +100,17 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   // path stays in cook's resolver as the authored-single-plan fallback
   // (this command never writes there). Layout owned by spec-plan-paths.
   const planPath = specPlanPath(args.outDir, args.specificationId);
+
+  // Show the spec plan dir (e.g. .brunch/cook/specs/49), not the launch
+  // root — that's the exact place this run writes plan.yaml.
+  bus.emit({ kind: 'plan-start', specId: args.specificationId, outDir: dirname(planPath) });
+
+  const result = await emitPlanFromSnapshot(args.snapshot, {
+    ...(args.runModel ? { runModel: args.runModel } : {}),
+    ...(args.profile ? { profile: args.profile } : {}),
+    ...(args.repoDir ? { repoDir: args.repoDir } : {}),
+  });
+
   mkdirSync(dirname(planPath), { recursive: true });
   writeFileSync(planPath, stringifyYaml(result.plan));
 
@@ -119,9 +123,17 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
 
   // Audit-weight display: failure + transformation always; synthesis
   // only when --verbose. The header counts only what we print so the
-  // number on screen matches the lines below it.
+  // number on screen matches the lines below it. In verbose mode each
+  // line also carries a plain-English account of why it fired.
   const printed = result.warnings.filter((warning) => shouldPrint(warning, args.verbose));
-  bus.emit({ kind: 'plan-warnings', messages: printed.map((warning) => formatEmitterWarning(warning)) });
+  bus.emit({
+    kind: 'plan-warnings',
+    messages: printed.map((warning) =>
+      args.verbose
+        ? `${formatEmitterWarning(warning)} — ${explainEmitterWarning(warning)}`
+        : formatEmitterWarning(warning),
+    ),
+  });
 }
 
 function shouldPrint(warning: EmitterWarning, verbose: boolean): boolean {

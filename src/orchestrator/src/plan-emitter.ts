@@ -27,6 +27,7 @@ import { materializeArchitectedPlan, type MaterializeWarning } from './plan-mate
 import { projectPlanningContext } from './plan-planning-context.js';
 import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 import {
+  explainReconciliationWarning,
   formatReconciliationWarning,
   reconcilePlan,
   reconciliationWarningCategory,
@@ -300,6 +301,33 @@ export function formatEmitterWarning(warning: EmitterWarning): string {
     return `file-write-conflict  ${warning.path} ← ${warning.sliceIds.join(', ')}`;
   }
   return formatReconciliationWarning(warning);
+}
+
+/**
+ * One-sentence plain-English account of an `EmitterWarning`, appended
+ * after the terse code line in `--verbose` mode. Delegates reconciliation
+ * codes to `explainReconciliationWarning`.
+ */
+export function explainEmitterWarning(warning: EmitterWarning): string {
+  if (warning.code === 'architect-failed-fallback-to-projection') {
+    return 'the architect step failed; the plan fell back to a deterministic projection';
+  }
+  if (warning.code === 'synthesized-integration-seam') {
+    return 'the epic authored no integration test, so a default integration seam was synthesized';
+  }
+  if (warning.code === 'dropped-unknown-requirement-ref') {
+    return 'the slice referenced a requirement id the spec does not contain; the ref was dropped';
+  }
+  if (warning.code === 'dropped-epic-dependency-nonexistent-id') {
+    return 'the epic depended on an id no epic declares; the edge was dropped';
+  }
+  if (warning.code === 'cycle-break-dropped-epic-edge') {
+    return 'the edge was dropped to break a dependency cycle between epics';
+  }
+  if (warning.code === 'file-write-conflict') {
+    return 'more than one slice writes this file; review for a missing dependency or a split';
+  }
+  return explainReconciliationWarning(warning);
 }
 
 export type { MaterializeWarning };

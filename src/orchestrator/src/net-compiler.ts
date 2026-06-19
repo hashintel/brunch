@@ -16,6 +16,7 @@ import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprin
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
 import { createReport } from './report-helpers.js';
+import { materializeEpicVerifyTree } from './run-artifact.js';
 import { runVerification } from './test-runner.js';
 import type { ActionContext, OrchestratorInput, Plan, RunCtx, RunPolicy, Slice } from './types.js';
 
@@ -707,6 +708,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           const deferred = (async () => {
             const slice = plan.slices.find((s) => s.id === sliceId)!;
             const sandboxDir = resolveSliceCwd(slice);
+            input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'running', step: 'verify' });
             // Shared verification seam: same verdict rule + infra-dominates
             // aggregate as evaluate-done / verify-epic (FE-872 unification).
             const {
@@ -728,8 +730,12 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             });
             ctx.reportIds.push(reportId);
 
+            // Failed rows carry the same reason vocabulary as evaluate-done so
+            // the slice grid shows why it failed (the presenter renders `reason`).
+            const failedReason = failureKind === 'infra' ? 'infra error' : 'tests failed';
             const tok: Token = { ...inputToken, reportId };
             if (passed) {
+              input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'passed' });
               return [
                 { place: intermediatePlace, token: tok },
                 { place: budgetPlace, token: { ...baseToken, retryCount: 0 } },
@@ -741,6 +747,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               // infra failure, name that cause — "retry exhaustion" would
               // misdirect the reader to the code.
               ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
+              input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'failed', reason: failedReason });
               const haltReason =
                 failureKind === 'infra'
                   ? `Slice ${sliceId} toolchain/install failure during verification`
@@ -752,6 +759,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
                 },
               ];
             }
+            input.emit?.({ kind: 'slice', id: sliceId, epicId, status: 'failed', reason: failedReason });
             return [
               { place: intermediatePlace, token: tok },
               { place: budgetPlace, token: { ...baseToken, retryCount: retryCount + 1 } },
@@ -864,25 +872,65 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               const mergeSliceIds = sliceIdsInMergeOrder.filter(
                 (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
               );
-              const merge = mergeSlicesIntoEpicSandbox({
-                parentSandboxDir: input.sandboxDir,
-                epicId,
-                sliceIds: mergeSliceIds,
-              });
-              ctx.reportIds.push(
-                createReport(reports, {
+              if (input.sandboxMode === 'codebase') {
+                // Brownfield: compose by git merge-tree fold so verify-epic runs
+                // against the same tree promotion will ship — not a file-copy union
+                // that silently last-slice-wins on same-file edits (FE-883).
+                const folded = materializeEpicVerifyTree({
+                  parentSandboxDir: input.sandboxDir,
+                  runId: runId!,
+                  plan,
+                  sliceIds: mergeSliceIds,
                   epicId,
-                  sliceId: '',
-                  actor: 'orchestrator',
-                  event: 'epic-sandbox-merged',
-                  payload: {
-                    epicSandboxDir: merge.epicSandboxDir,
-                    sliceIds: mergeSliceIds,
-                    conflicts: merge.conflicts,
-                  },
-                }),
-              );
-              epicSandboxDir = merge.epicSandboxDir;
+                });
+                ctx.reportIds.push(
+                  createReport(reports, {
+                    epicId,
+                    sliceId: '',
+                    actor: 'orchestrator',
+                    event: 'epic-sandbox-merged',
+                    payload: {
+                      epicSandboxDir: folded.epicSandboxDir,
+                      sliceIds: mergeSliceIds,
+                      conflicts: folded.conflicts,
+                    },
+                  }),
+                );
+                // Fail-closed: a real cross-slice conflict leaves a partial tree;
+                // fail the epic rather than verify it. Routes via the fail sibling.
+                if (folded.conflicts.length > 0) {
+                  const failId = createReport(reports, {
+                    epicId,
+                    sliceId: '',
+                    actor: 'orchestrator',
+                    event: 'epic-verified',
+                    payload: { passed: false, reason: 'merge-conflict', conflicts: folded.conflicts },
+                  });
+                  ctx.reportIds.push(failId);
+                  return [{ place: intermediatePlace, token: { ...inputToken, reportId: failId } }];
+                }
+                epicSandboxDir = folded.epicSandboxDir;
+              } else {
+                const merge = mergeSlicesIntoEpicSandbox({
+                  parentSandboxDir: input.sandboxDir,
+                  epicId,
+                  sliceIds: mergeSliceIds,
+                });
+                ctx.reportIds.push(
+                  createReport(reports, {
+                    epicId,
+                    sliceId: '',
+                    actor: 'orchestrator',
+                    event: 'epic-sandbox-merged',
+                    payload: {
+                      epicSandboxDir: merge.epicSandboxDir,
+                      sliceIds: mergeSliceIds,
+                      conflicts: merge.conflicts,
+                    },
+                  }),
+                );
+                epicSandboxDir = merge.epicSandboxDir;
+              }
             } else {
               epicSandboxDir = input.sandboxDir;
             }

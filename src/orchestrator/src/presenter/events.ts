@@ -29,7 +29,29 @@ export type CookEvent =
   // Updates the in-flight detail of an open activity (e.g. a pi token heartbeat).
   | { kind: 'activity-progress'; id: string; detail: string }
   // Closes the activity; the wait is over.
-  | { kind: 'activity-end'; id: string };
+  | { kind: 'activity-end'; id: string }
+  // The run finished (emitted after promotion); `ok` = completed vs halted,
+  // `reason` is the halt reason when it did not complete.
+  | { kind: 'cook-done'; ok: boolean; reason?: string }
+  // --- slice grid ---
+  // Seeds the epic→slice progress grid up front (all slices start queued).
+  // `maxRetries` is the per-slice retry budget — total attempts is that + 1.
+  | {
+      kind: 'run-shape';
+      epics: { id: string }[];
+      slices: { id: string; epicId: string }[];
+      maxRetries?: number;
+    }
+  // A slice changed state. `step` is the current sub-action while running;
+  // `reason` is why it failed (e.g. 'tests failed', 'infra error').
+  | {
+      kind: 'slice';
+      id: string;
+      epicId: string;
+      status: 'running' | 'passed' | 'failed';
+      step?: string;
+      reason?: string;
+    };
 
 export interface Presenter {
   onEvent(event: CookEvent): void;
