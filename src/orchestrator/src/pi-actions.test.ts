@@ -881,9 +881,11 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
 
       // Same names as the built-ins, so the SDK registry overrides them and the
       // per-action allowlist (I126-K) keeps filtering both the same way. On
-      // macOS the bash tool is shadowed too (seatbelt spawn hook).
+      // enforcing backends the bash tool is shadowed too (seatbelt/bwrap hook).
       const expected =
-        process.platform === 'darwin' ? ['bash', 'edit', 'read', 'write'] : ['edit', 'read', 'write'];
+        process.platform === 'darwin' || process.platform === 'linux'
+          ? ['bash', 'edit', 'read', 'write']
+          : ['edit', 'read', 'write'];
       expect(capturedCustomTools?.map((t) => t.name).sort()).toEqual(expected);
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
