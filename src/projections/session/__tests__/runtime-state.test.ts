@@ -47,15 +47,14 @@ function runtimeEntry(id: string, state: BrunchAgentState, parentId = 'binding-1
 }
 
 describe('runtime-state projection', () => {
-  it('accepts freestyle as a real strategy id in runtime state parsing', () => {
-    expect(AGENT_STRATEGY_IDS).toContain('freestyle');
+  it('accepts only interaction-shape strategy ids in runtime state parsing', () => {
+    expect(AGENT_STRATEGY_IDS).toEqual(['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate']);
 
     const freestyle: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
       agentStrategy: 'freestyle',
       agentLens: 'intent',
-      agentGoal: 'grounding-advance',
     };
 
     expect(
@@ -77,7 +76,6 @@ describe('runtime-state projection', () => {
         role: 'elicitor',
         strategy: DEFAULT_BRUNCH_AGENT_STATE.agentStrategy,
         lens: DEFAULT_BRUNCH_AGENT_STATE.agentLens,
-        goal: DEFAULT_BRUNCH_AGENT_STATE.agentGoal,
       },
       mentions: { graphNodes: [], files: [] },
       world: { graph: { latestLsn: null }, git: { head: null } },
@@ -97,14 +95,12 @@ describe('runtime-state projection', () => {
       operationalMode: 'elicit',
       agentStrategy: 'step-wise-decision-tree',
       agentLens: 'intent',
-      agentGoal: 'grounding-advance',
     };
     const latest: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
-      agentStrategy: 'project-graph',
+      agentStrategy: 'step-wise-disambiguate',
       agentLens: 'oracle',
-      agentGoal: 'commit-converge',
     };
 
     expect(
@@ -151,9 +147,8 @@ describe('runtime-state projection', () => {
       agent: {
         operationalMode: 'elicit',
         role: 'elicitor',
-        strategy: 'project-graph',
+        strategy: 'step-wise-disambiguate',
         lens: 'oracle',
-        goal: 'commit-converge',
       },
       mentions: {
         graphNodes: [{ id: 'node-1', handle: 'D12', title: 'Decision seam', seenLsn: 7 }],

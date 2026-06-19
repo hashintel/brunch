@@ -127,7 +127,6 @@ describe('Brunch prompt-pack topology', () => {
           ...DEFAULT_BRUNCH_AGENT_STATE,
           agentStrategy: 'step-wise-decision-tree',
           agentLens: 'intent',
-          agentGoal: 'auto',
         }),
       ]),
       spec: promptContext.spec,
@@ -138,10 +137,10 @@ describe('Brunch prompt-pack topology', () => {
 
     expect(result.prompt).toContain('[Brunch agent control]');
     expect(result.prompt).toContain('- op_mode: elicit');
-    expect(result.prompt).toContain('- goal: auto');
+    expect(result.prompt).not.toMatch(/- goal:/);
     expect(result.prompt).toContain('- strategy: step-wise-decision-tree');
     expect(result.prompt).toContain('- lens: intent');
-    expect(result.prompt).toContain('<available_goals>');
+    expect(result.prompt).not.toContain('<available_goals>');
     expect(result.prompt).toContain('<available_strategies>');
     expect(result.prompt).toContain('<available_lenses>');
     expect(result.prompt).toContain('<available_methods>');
@@ -155,7 +154,6 @@ describe('Brunch prompt-pack topology', () => {
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
-      agentGoal: 'elicit-expand',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
 
@@ -184,7 +182,16 @@ describe('Brunch prompt-pack topology', () => {
     );
 
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('base\n\n[Brunch agent control]'),
+      systemPrompt: expect.stringContaining('base\n\n# Agent: elicitor'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('It should keep multi-spec discipline'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('# Agent: elicitor\n\nThe elicitor'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.stringContaining('[Brunch agent control]'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('- strategy: step-wise-disambiguate'),
@@ -199,6 +206,12 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(result).toMatchObject({
       systemPrompt: expect.not.stringContaining('readiness_grade='),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.not.stringContaining('- goal:'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.not.stringContaining('<available_goals>'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('[Selected-spec graph context · design lens]'),
@@ -341,9 +354,8 @@ describe('Brunch prompt-pack topology', () => {
     );
     const latestState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: 'propose-graph',
+      agentStrategy: 'step-wise-decision-tree',
       agentLens: 'oracle',
-      agentGoal: 'commit-converge',
     };
     appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
     const switchedPromptResults = await Promise.all(
@@ -424,7 +436,7 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.stringContaining('- strategy: auto'),
     });
     expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('- strategy: propose-graph'),
+      systemPrompt: expect.stringContaining('- strategy: step-wise-decision-tree'),
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
@@ -583,7 +595,6 @@ describe('Brunch prompt-pack topology', () => {
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
-      agentGoal: 'elicit-expand',
     };
     const promptResults = await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
@@ -664,13 +675,11 @@ describe('Brunch prompt-pack topology', () => {
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'intent',
-      agentGoal: 'elicit-expand',
     });
-    const proposeDesignPrompt = await promptFor({
+    const disambiguateDesignPrompt = await promptFor({
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: 'propose-graph',
+      agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
-      agentGoal: 'elicit-expand',
     });
     const acceptedBlindSpots = [
       'prompt/body quality is fitness evidence',
@@ -680,14 +689,14 @@ describe('Brunch prompt-pack topology', () => {
 
     expect(disambiguateIntentPrompt).toContain('name="step-wise-disambiguate"');
     expect(disambiguateIntentPrompt).not.toContain('name="propose-graph"');
-    expect(proposeDesignPrompt).toContain('name="propose-graph"');
-    expect(proposeDesignPrompt).not.toContain('name="step-wise-disambiguate"');
+    expect(disambiguateDesignPrompt).toContain('name="step-wise-disambiguate"');
+    expect(disambiguateDesignPrompt).not.toContain('name="step-wise-decision-tree"');
     expect(disambiguateIntentPrompt).toContain('[Selected-spec graph context · intent lens]');
     expect(disambiguateIntentPrompt).toContain('intent claims, terms, assumptions');
-    expect(proposeDesignPrompt).toContain('[Selected-spec graph context · design lens]');
-    expect(proposeDesignPrompt).toContain('design modules/interfaces');
+    expect(disambiguateDesignPrompt).toContain('[Selected-spec graph context · design lens]');
+    expect(disambiguateDesignPrompt).toContain('design modules/interfaces');
     expect(disambiguateIntentPrompt).toContain('Clarify Brunch prompt posture');
-    expect(proposeDesignPrompt).toContain('Clarify Brunch prompt posture');
+    expect(disambiguateDesignPrompt).toContain('Clarify Brunch prompt posture');
     expect(acceptedBlindSpots).toEqual([
       'prompt/body quality is fitness evidence',
       'graph-write reliability remains with graph-tool-resilience',

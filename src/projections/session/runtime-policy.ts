@@ -1,7 +1,5 @@
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import type {
-  AgentGoalId,
-  AgentGoalSelection,
   AgentLensId,
   AgentLensSelection,
   AgentRoleId,
@@ -37,8 +35,6 @@ export interface AgentRoleDefinition {
   allowedStrategies: readonly AgentStrategyId[];
   defaultLens: AgentLensSelection;
   allowedLenses: readonly AgentLensId[];
-  defaultGoal: AgentGoalSelection;
-  allowedGoals: readonly AgentGoalId[];
   promptPackIds: readonly PromptPackId[];
   modelPreference?: ModelPreference;
   thinkingLevel?: ThinkingLevel;
@@ -65,17 +61,9 @@ export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> = 
     id: 'elicitor',
     operationalMode: 'elicit',
     defaultStrategy: 'auto',
-    allowedStrategies: [
-      'freestyle',
-      'step-wise-decision-tree',
-      'step-wise-disambiguate',
-      'propose-graph',
-      'project-graph',
-    ],
+    allowedStrategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
     defaultLens: 'auto',
     allowedLenses: ['intent', 'design', 'oracle'],
-    defaultGoal: 'grounding-advance',
-    allowedGoals: ['grounding-advance', 'elicit-expand', 'commit-converge', 'capture-posture'],
     promptPackIds: ['elicitor'],
   },
 };
@@ -89,16 +77,6 @@ export const TOOL_POLICY_DEFINITIONS: Record<ToolPolicyId, ToolPolicyDefinition>
 };
 
 export const AUTO_EXCLUDED_STRATEGIES = new Set<AgentStrategyId>(['freestyle']);
-
-const GOAL_CAPABILITY: Partial<Record<AgentGoalId, CapabilityId>> = {
-  'elicit-expand': 'generative-lens',
-  'commit-converge': 'commitment-review',
-};
-
-const STRATEGY_CAPABILITY: Partial<Record<AgentStrategyId, CapabilityId>> = {
-  'propose-graph': 'propose-graph',
-  'project-graph': 'project-graph',
-};
 
 const LENS_CAPABILITY: Partial<Record<AgentLensId, CapabilityId>> = {
   design: 'generative-lens',
@@ -117,13 +95,8 @@ export function isCapabilityLegalForGaps(
   return evaluateCapabilityReadiness(capability, gaps).status !== 'negotiate';
 }
 
-export type RuntimeAffordanceAxis = 'goal' | 'strategy' | 'lens';
+export type RuntimeAffordanceAxis = 'strategy' | 'lens';
 
-export function axisOptionsForRuntimeState(
-  axis: 'goal',
-  state: ResolvedBrunchAgentState,
-  gaps: readonly ElicitationGap[],
-): readonly AgentGoalId[];
 export function axisOptionsForRuntimeState(
   axis: 'strategy',
   state: ResolvedBrunchAgentState,
@@ -138,12 +111,7 @@ export function axisOptionsForRuntimeState(
   axis: RuntimeAffordanceAxis,
   state: ResolvedBrunchAgentState,
   gaps: readonly ElicitationGap[],
-): readonly (AgentGoalId | AgentStrategyId | AgentLensId)[] {
-  if (axis === 'goal') {
-    return state.agentRoleDefinition.allowedGoals.filter((id) =>
-      isCapabilityLegalForGaps(GOAL_CAPABILITY[id], gaps),
-    );
-  }
+): readonly (AgentStrategyId | AgentLensId)[] {
   if (axis === 'strategy') {
     const legal = pinnableAxisOptionsForRuntimeState('strategy', state, gaps);
     return state.agentStrategy === 'auto' ? legal.filter((id) => !AUTO_EXCLUDED_STRATEGIES.has(id)) : legal;
@@ -174,17 +142,11 @@ export function pinnableAxisOptionsForRuntimeState(
   gaps: readonly ElicitationGap[],
 ): readonly (AgentStrategyId | AgentLensId)[] {
   if (axis === 'strategy') {
-    return state.agentRoleDefinition.allowedStrategies.filter((id) =>
-      isCapabilityLegalForGaps(STRATEGY_CAPABILITY[id], gaps),
-    );
+    return state.agentRoleDefinition.allowedStrategies;
   }
   return state.agentRoleDefinition.allowedLenses.filter((id) =>
     isCapabilityLegalForGaps(LENS_CAPABILITY[id], gaps),
   );
-}
-
-export function defaultGoalForRuntimeState(state: ResolvedBrunchAgentState): AgentGoalSelection {
-  return state.agentRoleDefinition.defaultGoal;
 }
 
 export function defaultStrategyForRuntimeState(state: ResolvedBrunchAgentState): AgentStrategySelection {

@@ -1,6 +1,6 @@
 # .pi/skills/ — Brunch prompt resources
 
-SPEC decisions: D25-L, D39-L, D52-L, D58-L, D59-L
+SPEC decisions: D25-L, D39-L, D52-L, D58-L, D59-L, D85-L
 
 ## Owns
 
@@ -13,7 +13,6 @@ These are Pi-harness prompt resources, not product data models and not ambient f
 ```text
 skills/
 ├── README.md
-├── goals/         what objective the session agent is pursuing
 ├── strategies/    reusable interaction shapes
 ├── lenses/        topical focus lenses
 └── methods/       tool-routing and sequencing guidance
@@ -28,7 +27,7 @@ rules:
   .pi/skills/         x> graph mutation     [guidance only]
 ```
 
-The legal set is sealed by code-owned manifest metadata in `.pi/extensions/runtime/state.ts`; adding a markdown file does not make it available until the state table advertises it.
+The legal set is sealed by code-owned manifest metadata in `.pi/extensions/runtime/state.ts`; adding a markdown file does not make it available until the state table advertises it. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/.pi/agents/elicitor/SYSTEM.md`.
 
 ## Prompt-resource body lock ledger
 
@@ -36,13 +35,7 @@ User-approved COMPOSE disposition (2026-06-11): the git-tracked markdown source 
 
 | Family | Resource | Required? | Lock disposition |
 | --- | --- | --- | --- |
-| goals | `capture-posture.md` | required | Source file + manifest readability invariant. |
-| goals | `commit-converge.md` | required | Source file + manifest readability invariant. |
-| goals | `elicit-expand.md` | required | Source file + manifest readability invariant. |
-| goals | `grounding-advance.md` | required | Source file + manifest readability invariant. |
 | strategies | `freestyle.md` | required | Source file + manifest readability invariant; excluded from AUTO by `state.ts`. |
-| strategies | `project-graph.md` | required | Source file + manifest readability invariant. |
-| strategies | `propose-graph.md` | required | Source file + manifest readability invariant. |
 | strategies | `step-wise-decision-tree.md` | required | Source file + manifest readability invariant. |
 | strategies | `step-wise-disambiguate.md` | required | Source file + manifest readability invariant. |
 | lenses | `design.md` | required | Source file + manifest readability invariant. |
@@ -50,7 +43,7 @@ User-approved COMPOSE disposition (2026-06-11): the git-tracked markdown source 
 | lenses | `oracle.md` | required | Source file + manifest readability invariant. |
 | methods | `commit-graph.md` | required | Source file + manifest readability invariant; capability-gated by selected-spec gaps. |
 | methods | `generate-proposal.md` | required | Source file + manifest readability invariant; capability-gated by selected-spec gaps. |
-| methods | `infer-and-capture.md` | required | Source file + manifest readability invariant. |
+| methods | `capture.md` | required | Source file + manifest readability invariant; canonical home for capture conduct, full body deferred to FE-861. |
 | methods | `read-context.md` | required | Source file + manifest readability invariant. |
-| methods | `review-for-gaps.md` | required | Source file + manifest readability invariant; capability-gated by selected-spec gaps. |
+| methods | `review-for-gaps.md` | required | Source file + manifest readability invariant; audit-only, capability-gated by selected-spec gaps. |
 | methods | `run-structured-exchange.md` | required | Source file + manifest readability invariant. |

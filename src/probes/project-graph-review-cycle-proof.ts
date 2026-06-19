@@ -24,9 +24,8 @@ const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
 
 interface ProjectGraphReviewRuntimeStateReport {
   readonly operationalMode: 'elicit';
-  readonly agentStrategy: 'project-graph';
+  readonly agentStrategy: 'step-wise-disambiguate';
   readonly agentLens: 'intent';
-  readonly agentGoal: 'commit-converge';
 }
 
 interface ProjectGraphReviewCycleProofOptions {
@@ -193,15 +192,13 @@ export async function runProjectGraphReviewCycleProof(
   const runtimeState: BrunchAgentState = {
     schemaVersion: 1,
     operationalMode: 'elicit',
-    agentStrategy: 'project-graph',
+    agentStrategy: 'step-wise-disambiguate',
     agentLens: 'intent',
-    agentGoal: 'commit-converge',
   };
   const runtimeStateReport: ProjectGraphReviewRuntimeStateReport = {
     operationalMode: 'elicit',
-    agentStrategy: 'project-graph',
+    agentStrategy: 'step-wise-disambiguate',
     agentLens: 'intent',
-    agentGoal: 'commit-converge',
   };
   appendBrunchAgentRuntimeSwitch(activated.session.manager, runtimeState, 'extension');
   const productUpdates = createProductUpdatePublisher();
@@ -350,7 +347,7 @@ export function summarizeProjectGraphReviewCycleProof(
     runId: input.runId,
     generatedAt: input.generatedAt,
     mission:
-      'Prove the project-graph strategy can present an exact review set and approve it through public RPC.',
+      'Prove the project-graph capability path can present an exact review set and approve it through public RPC.',
     evaluationFocus:
       'FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.',
     seedSet: input.seedSet ?? DEFAULT_SEED_SET,

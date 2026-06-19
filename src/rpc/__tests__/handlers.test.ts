@@ -1920,9 +1920,8 @@ describe('JSON-RPC handlers', () => {
     const latestState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
-      agentStrategy: 'propose-graph',
+      agentStrategy: 'step-wise-decision-tree',
       agentLens: 'design',
-      agentGoal: 'capture-posture',
     };
     await writeExplicitSessionFixture(cwd, [
       { type: 'session', id: 'session-1', cwd },
@@ -1967,9 +1966,8 @@ describe('JSON-RPC handlers', () => {
         agent: {
           operationalMode: 'elicit',
           role: 'elicitor',
-          strategy: 'propose-graph',
+          strategy: 'step-wise-decision-tree',
           lens: 'design',
-          goal: 'capture-posture',
         },
         mentions: { graphNodes: [], files: [] },
         world: { graph: { latestLsn: null }, git: { head: null } },

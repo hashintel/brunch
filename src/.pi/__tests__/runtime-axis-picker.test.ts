@@ -18,7 +18,7 @@ const theme = createTestLabTheme();
 describe('runtime posture picker overlays', () => {
   it('renders auto plus every strategy and highlights the current projection', () => {
     const component = createRuntimeStrategyPickerComponent({
-      current: 'propose-graph',
+      current: 'step-wise-decision-tree',
       theme,
       onDone: () => {},
     });
@@ -30,8 +30,8 @@ describe('runtime posture picker overlays', () => {
       expect(text).toContain(strategy);
     }
     // Current value renders as a success-colored badge and in the header line.
-    expect(text).toContain('\x1b[48;5;34m\x1b[30m propose-graph ');
-    expect(text).toContain('\x1b[38;5;34mpropose-graph\x1b[39m');
+    expect(text).toContain('\x1b[48;5;34m\x1b[30m step-wise-decision-tree ');
+    expect(text).toContain('\x1b[38;5;34mstep-wise-decision-tree\x1b[39m');
   });
 
   it('renders auto plus every lens and highlights the current projection', () => {

@@ -12,7 +12,7 @@ import {
   projectBrunchAgentState,
 } from '../../../../projections/session/runtime-state.js';
 import type { WorkspacePostureState } from '../../../../session/workspace-session-coordinator.js';
-import { GOAL_RESOURCES, LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../runtime/state.js';
+import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../runtime/state.js';
 import { composeAgentPrompt, type ComposeAgentPromptInput } from '../compose.js';
 
 const projectRoot = dirname(dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))));
@@ -63,8 +63,13 @@ describe('composeAgentPrompt', () => {
       context,
       activeTools: ['read', 'grep', 'present_options'],
       gaps: zeroCoverageGaps,
+      agentBody: '[Agent: elicitor]\nUse this role body before runtime metadata.',
     });
 
+    expect(result.prompt).toContain('[Agent: elicitor]\nUse this role body before runtime metadata.');
+    expect(result.prompt.indexOf('[Agent: elicitor]')).toBeLessThan(
+      result.prompt.indexOf('[Brunch agent control]'),
+    );
     expect(result.prompt).toContain('[Brunch agent control]');
     expect(result.prompt).toContain('- agent: elicitor');
     expect(result.prompt).toContain('[Brunch runtime state]');
@@ -82,11 +87,11 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).toContain('[Brunch pushed context]');
     expect(result.prompt).toContain('handle: graph-overview: compact selected-spec graph summary');
     expect(result.prompt).toContain('[Selected-spec graph context · intent lens]');
-    expect(result.prompt).toContain('<available_goals>');
+    expect(result.prompt).not.toContain('<available_goals>');
     expect(result.prompt).toContain('<available_strategies>');
     expect(result.prompt).toContain('<available_lenses>');
     expect(result.prompt).toContain('<available_methods>');
-    expect(result.prompt).toContain('name="grounding-advance"');
+    expect(result.prompt).not.toContain('name="grounding-advance"');
     expect(result.prompt).not.toContain('name="capture-posture"');
     expect(result.prompt).not.toContain('name="commit-converge"');
   });
@@ -165,7 +170,6 @@ describe('composeAgentPrompt', () => {
             source: 'user',
             state: {
               ...DEFAULT_BRUNCH_AGENT_STATE,
-              agentGoal: 'auto',
             },
           },
         },
@@ -176,17 +180,10 @@ describe('composeAgentPrompt', () => {
       gaps: coveredGaps,
     });
 
-    expect(auto.manifests.goals.map((entry) => entry.name)).toEqual([
-      'grounding-advance',
-      'elicit-expand',
-      'commit-converge',
-      'capture-posture',
-    ]);
+    expect(Object.keys(auto.manifests)).toEqual(['strategies', 'lenses', 'methods']);
     expect(auto.manifests.strategies.map((entry) => entry.name)).toEqual([
       'step-wise-decision-tree',
       'step-wise-disambiguate',
-      'propose-graph',
-      'project-graph',
     ]);
     expect(auto.manifests.lenses.map((entry) => entry.name)).toEqual(['intent', 'design', 'oracle']);
 
@@ -204,7 +201,6 @@ describe('composeAgentPrompt', () => {
               ...DEFAULT_BRUNCH_AGENT_STATE,
               agentStrategy: 'step-wise-disambiguate',
               agentLens: 'design',
-              agentGoal: 'elicit-expand',
             },
           },
         },
@@ -215,7 +211,6 @@ describe('composeAgentPrompt', () => {
       gaps: coveredGaps,
     });
 
-    expect(pinned.manifests.goals.map((entry) => entry.name)).toEqual(['elicit-expand']);
     expect(pinned.manifests.strategies.map((entry) => entry.name)).toEqual(['step-wise-disambiguate']);
     expect(pinned.manifests.lenses.map((entry) => entry.name)).toEqual(['design']);
 
@@ -264,7 +259,7 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).not.toContain('[Brunch elicitation recommendation]');
   });
 
-  it('keeps pinned readiness-thin selections in the prompt while gated methods remain filtered out', () => {
+  it('keeps pinned strategy selections in the prompt while gated graph-write methods remain filtered out', () => {
     const result = composeAgentPrompt({
       agentId: 'elicitor',
       sessionState: projectBrunchAgentState([
@@ -277,8 +272,7 @@ describe('composeAgentPrompt', () => {
             source: 'user',
             state: {
               ...DEFAULT_BRUNCH_AGENT_STATE,
-              agentStrategy: 'project-graph',
-              agentGoal: 'commit-converge',
+              agentStrategy: 'step-wise-disambiguate',
             },
           },
         },
@@ -289,13 +283,13 @@ describe('composeAgentPrompt', () => {
       gaps: zeroCoverageGaps,
     });
 
-    expect(result.prompt).toContain('- goal: commit-converge');
-    expect(result.prompt).toContain('- strategy: project-graph');
-    expect(result.manifests.goals.map((entry) => entry.name)).toEqual(['commit-converge']);
-    expect(result.manifests.strategies.map((entry) => entry.name)).toEqual(['project-graph']);
+    expect(result.prompt).not.toMatch(/- goal:/);
+    expect(result.prompt).toContain('- strategy: step-wise-disambiguate');
+    expect(Object.keys(result.manifests)).toEqual(['strategies', 'lenses', 'methods']);
+    expect(result.manifests.strategies.map((entry) => entry.name)).toEqual(['step-wise-disambiguate']);
     expect(result.manifests.methods.map((entry) => entry.name)).toEqual([
       'run-structured-exchange',
-      'infer-and-capture',
+      'capture',
       'read-context',
     ]);
   });
@@ -318,7 +312,6 @@ describe('composeAgentPrompt', () => {
 
   it('keeps every manifest prompt resource readable and non-trivial', async () => {
     const entries = [
-      ...Object.values(GOAL_RESOURCES),
       ...Object.values(STRATEGY_RESOURCES),
       ...Object.values(LENS_RESOURCES),
       ...Object.values(METHOD_RESOURCES),
@@ -401,17 +394,23 @@ function composePreviewPrompt(input: Partial<ComposeAgentPromptInput> = {}): str
     workspace: previewWorkspace,
     activeTools: ['read', 'grep', 'find', 'ls', 'present_question', 'request_answer'],
     gaps: previewFloorGaps(0),
+    agentBody: '# Agent: elicitor\n\nPreview role body from `src/.pi/agents/elicitor/SYSTEM.md`.',
     ...input,
   }).prompt;
 }
 
 function expectPromptContracts(rendered: string): void {
+  expect(rendered).toContain('# Agent: elicitor');
+  expect(rendered.indexOf('# Agent: elicitor')).toBeLessThan(rendered.indexOf('[Brunch agent control]'));
   expect(rendered).toContain('[Brunch agent control]');
   expect(rendered).toContain('[Brunch runtime state]');
   expect(rendered).toContain('[Brunch pushed context]');
   expect(rendered).toContain('[Brunch prompt-resource routing]');
   expect(rendered).not.toContain('readiness_grade');
   expect(rendered).not.toContain('READINESS_GRADES');
+  expect(rendered).not.toContain('<available_goals>');
+  expect(rendered).not.toMatch(/\bgoal=/);
+  expect(rendered).not.toMatch(/- goal:/);
 }
 
 describe('composeAgentPrompt previews', () => {

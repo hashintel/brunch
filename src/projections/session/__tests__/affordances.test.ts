@@ -14,16 +14,11 @@ function resolved(overrides: Partial<typeof DEFAULT_BRUNCH_AGENT_STATE> = {}) {
 }
 
 describe('runtime affordances derivation', () => {
-  it('reports legal options and default-on-switch values for every posture axis', () => {
+  it('reports legal options and default-on-switch values for runtime posture axes', () => {
     expect(affordances(resolved(), groundingFloorGaps())).toEqual({
-      goal: {
-        selection: 'grounding-advance',
-        legalOptions: ['grounding-advance', 'elicit-expand', 'commit-converge', 'capture-posture'],
-        defaultOnSwitch: 'grounding-advance',
-      },
       strategy: {
         selection: 'auto',
-        legalOptions: ['step-wise-decision-tree', 'step-wise-disambiguate', 'propose-graph', 'project-graph'],
+        legalOptions: ['step-wise-decision-tree', 'step-wise-disambiguate'],
         defaultOnSwitch: 'auto',
       },
       lens: {
@@ -37,7 +32,6 @@ describe('runtime affordances derivation', () => {
   it('keeps floor options legal when relevant gaps have zero coverage', () => {
     const derived = affordances(resolved(), groundingFloorGaps({ defaultCoverage: 0 }));
 
-    expect(derived.goal.legalOptions).toEqual(['grounding-advance', 'capture-posture']);
     expect(derived.strategy.legalOptions).toEqual(['step-wise-decision-tree', 'step-wise-disambiguate']);
     expect(derived.lens.legalOptions).toEqual(['intent']);
 
@@ -51,25 +45,14 @@ describe('runtime affordances derivation', () => {
     });
   });
 
-  it('excludes gated options until capability-relevant gaps are covered', () => {
+  it('keeps strategy options capability-independent while gating generative lenses', () => {
     const uncovered = affordances(resolved(), groundingFloorGaps({ defaultCoverage: 0 }));
+    const covered = affordances(resolved(), groundingFloorGaps());
 
-    expect(uncovered.goal.legalOptions).not.toContain('elicit-expand');
-    expect(uncovered.goal.legalOptions).not.toContain('commit-converge');
-    expect(uncovered.strategy.legalOptions).not.toContain('propose-graph');
-    expect(uncovered.strategy.legalOptions).not.toContain('project-graph');
+    expect(uncovered.strategy.legalOptions).toEqual(['step-wise-decision-tree', 'step-wise-disambiguate']);
+    expect(covered.strategy.legalOptions).toEqual(['step-wise-decision-tree', 'step-wise-disambiguate']);
     expect(uncovered.lens.legalOptions).not.toContain('design');
     expect(uncovered.lens.legalOptions).not.toContain('oracle');
-  });
-
-  it('moves gated options from absent to present when gap coverage rises', () => {
-    const uncovered = affordances(resolved(), groundingFloorGaps({ coverage: { context: 0 } })).strategy
-      .legalOptions;
-    const covered = affordances(resolved(), groundingFloorGaps({ coverage: { context: 0.5 } })).strategy
-      .legalOptions;
-
-    expect(uncovered).not.toContain('propose-graph');
-    expect(covered).toContain('propose-graph');
   });
 
   it('keeps freestyle on the user-pin surface even while the AUTO manifest excludes it', () => {
@@ -104,28 +87,22 @@ describe('runtime affordances derivation', () => {
 
     expect(affordances(resolved({ agentStrategy: 'freestyle' }), groundingFloorGaps()).strategy).toEqual({
       selection: 'freestyle',
-      legalOptions: [
-        'freestyle',
-        'step-wise-decision-tree',
-        'step-wise-disambiguate',
-        'propose-graph',
-        'project-graph',
-      ],
+      legalOptions: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
       defaultOnSwitch: 'auto',
     });
   });
 
-  it('fails loud when a gated option requires a kind absent from the register (config bug, not uncovered)', () => {
+  it('fails loud when a gated lens requires a kind absent from the register (config bug, not uncovered)', () => {
     // A capability-relevant kind missing from the gap register is a seeding/config bug;
     // the affordance projection must surface it, not silently omit the option.
     const missingThesis = groundingFloorGaps().filter((g) => g.refersTo !== 'thesis');
-    expect(() => axisOptionsForRuntimeState('strategy', resolved(), missingThesis)).toThrow(
+    expect(() => axisOptionsForRuntimeState('lens', resolved(), missingThesis)).toThrow(
       /no elicitation gap for thesis/,
     );
   });
 
-  it('fails loud on an empty gap register (wiring bug — every spec is seeded with floor gaps)', () => {
-    expect(() => axisOptionsForRuntimeState('strategy', resolved(), [])).toThrow(/no elicitation gap/);
+  it('fails loud on an empty gap register for gated lenses (wiring bug — every spec is seeded with floor gaps)', () => {
+    expect(() => axisOptionsForRuntimeState('lens', resolved(), [])).toThrow(/no elicitation gap/);
   });
 
   it('derives per-axis legal options without grade-gate symbols', () => {

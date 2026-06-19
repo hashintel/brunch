@@ -7,7 +7,6 @@ import {
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   latestValidBrunchAgentStateEntryData,
-  type AgentGoalSelection,
   type AgentLensSelection,
   type AgentStrategySelection,
   type BrunchAgentState,
@@ -34,7 +33,6 @@ export interface RuntimeStateProjection {
     role: ResolvedBrunchAgentState['agentRole'];
     strategy: AgentStrategySelection;
     lens: AgentLensSelection;
-    goal: AgentGoalSelection;
   };
   mentions: {
     graphNodes: GraphNodeMention[];
@@ -97,7 +95,6 @@ export function projectSessionRuntimeState(envelope: BrunchSessionEnvelope): Run
       role: agentState.agentRole,
       strategy: agentState.agentStrategy,
       lens: agentState.agentLens,
-      goal: agentState.agentGoal,
     },
     mentions: projectMentions(envelope.entries),
     world: projectWorld(envelope.entries),

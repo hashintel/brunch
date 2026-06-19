@@ -1,4 +1,4 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -14,14 +14,44 @@ const legacyImportNeedles = [
   ['context', 'builders'].join('/'),
 ];
 
+const agentDefinitionExpectations = [
+  {
+    system: 'src/.pi/agents/elicitor/SYSTEM.md',
+    legacyFlat: 'src/.pi/agents/elicitor.md',
+    needles: ['# Agent: elicitor', 'multi-spec discipline'],
+  },
+  {
+    system: 'src/.pi/agents/reviewer/SYSTEM.md',
+    legacyFlat: 'src/.pi/agents/reviewer.md',
+    needles: ['# Agent: reviewer', 'future side agent'],
+  },
+  {
+    system: 'src/.pi/agents/pi-coder/SYSTEM.md',
+    needles: ['# Agent: pi-coder', 'You are an expert coding assistant operating inside pi'],
+  },
+];
+
+const runtimeRegistryExpectations = [
+  {
+    file: 'src/session/runtime-state.ts',
+    required: "export type AgentRoleId = 'elicitor';",
+  },
+  {
+    file: 'src/.pi/extensions/runtime/state.ts',
+    required: 'export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition> = {',
+  },
+];
+
+const unregisteredAgentNeedles = ['reviewer', 'pi-coder'];
+
 const resourceExpectations = [
   {
     file: 'src/.pi/skills/methods/run-structured-exchange.md',
     needles: ['details.schema', 'schema` plus `v', 'answered`, `cancelled`, or `unavailable`'],
   },
   {
-    file: 'src/.pi/skills/methods/infer-and-capture.md',
-    needles: ['transcript-native analysis', 'not graph mutation', 'must never imply a graph bypass'],
+    file: 'src/.pi/skills/methods/capture.md',
+    needles: ['single home', 'FE-861', 'Gap close/spawn responsibility belongs here'],
   },
   {
     file: 'src/.pi/skills/methods/generate-proposal.md',
@@ -37,6 +67,28 @@ describe('agents topology', () => {
       const content = await readFile(join(projectRoot, expectation.file), 'utf8');
       for (const needle of expectation.needles) {
         expect(content).toContain(needle);
+      }
+    }
+  });
+
+  it('keeps agent body resources under <agent>/SYSTEM.md', async () => {
+    for (const expectation of agentDefinitionExpectations) {
+      const content = await readFile(join(projectRoot, expectation.system), 'utf8');
+      for (const needle of expectation.needles) {
+        expect(content).toContain(needle);
+      }
+      if (expectation.legacyFlat) {
+        await expect(access(join(projectRoot, expectation.legacyFlat))).rejects.toThrow();
+      }
+    }
+  });
+
+  it('keeps named future agent bodies out of the runtime registry', async () => {
+    for (const expectation of runtimeRegistryExpectations) {
+      const content = await readFile(join(projectRoot, expectation.file), 'utf8');
+      expect(content).toContain(expectation.required);
+      for (const needle of unregisteredAgentNeedles) {
+        expect(content, `${expectation.file} must not register ${needle}`).not.toContain(needle);
       }
     }
   });

@@ -1,23 +1,28 @@
 # .pi/agents/ — agent role definitions (markdown)
 
-SPEC decisions: D25-L, D40-L, D58-L
+SPEC decisions: D25-L, D40-L, D58-L, D85-L
 
 ## Owns
 
 The keyed agent role prompt resources only — the markdown bodies an agent role
-contributes as its system-prompt persona. Agent prompt files live directly under
-this directory as `src/.pi/agents/{agent-name}.md`.
+contributes as its system-prompt persona. Live agent definitions use the
+`src/.pi/agents/{agent-name}/SYSTEM.md` convention so references can later sit
+beside the body without making filesystem discovery part of product behavior.
 
 ```text
 agents/
 ├── README.md
-├── elicitor.md       keyed foreground elicit-mode system-prompt resource
-└── reviewer.md       keyed future review-side system-prompt resource
+├── elicitor/
+│   └── SYSTEM.md     keyed foreground elicit-mode system-prompt resource
+├── pi-coder/
+│   └── SYSTEM.md     future unwired coding-agent augmentation baseline
+└── reviewer/
+    └── SYSTEM.md     keyed future review-side system-prompt resource
 ```
 
 This directory is **markdown-only**, like `.pi/skills/`. It carries no
 TypeScript and registers no Pi hooks. The `{name, description, location}`
-manifest metadata that advertises these files is code-owned in
+manifest metadata and agent-body location are code-owned in
 `.pi/extensions/runtime/state.ts`, not filesystem-discovered (D39-L sealing).
 
 ## Does NOT own
@@ -42,3 +47,9 @@ tree answers "who owns prompt assembly?" by walking to `system-prompts/` and
 `runtime/`, and so "context" stops meaning both the pushed prompt seed and the
 `read_context` pull tool. The seed renderers were renamed (`renderWorkspaceSeed`,
 `renderGraphSeed`) to de-conflate from `renderers/` and the pull tool.
+
+The D85-L agent-definition convention is enacted for the live foreground body and
+for named future bodies: `elicitor/SYSTEM.md`, `reviewer/SYSTEM.md`, and the
+unwired `pi-coder/SYSTEM.md` baseline all use `<agent>/SYSTEM.md`. `reviewer.md`
+flat legacy shape is retired. `pi-coder` records Pi's `buildSystemPrompt`
+worked-example baseline while D58-L's augment-vs-replace question stays open.

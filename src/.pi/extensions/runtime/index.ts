@@ -25,6 +25,8 @@ import {
 } from '../../../projections/session/runtime-policy.js';
 import { activeToolNamesForPosture } from './state.js';
 
+export { agentBodyResourceLocation } from './state.js';
+
 export {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import { activeToolNamesForPosture, manifestsForState } from './state.js';
+import { activeToolNamesForPosture, agentBodyResourceLocation, manifestsForState } from './state.js';
 
 const registeredToolNames = [
   'read',
@@ -38,7 +38,7 @@ describe('agent posture policy', () => {
     const coveredMethods = manifestsForState(state, coveredGaps).methods.map((entry) => entry.name);
     const coveredTools = activeToolNamesForPosture({ registeredToolNames, state, gaps: coveredGaps });
 
-    expect(floorMethods).toEqual(['run-structured-exchange', 'infer-and-capture', 'read-context']);
+    expect(floorMethods).toEqual(['run-structured-exchange', 'capture', 'read-context']);
     expect(floorTools).not.toContain('mutate_graph');
     expect(floorTools).not.toContain('present_review_set');
     expect(floorTools).not.toContain('request_review');
@@ -51,7 +51,7 @@ describe('agent posture policy', () => {
 
     expect(coveredMethods).toEqual([
       'run-structured-exchange',
-      'infer-and-capture',
+      'capture',
       'commit-graph',
       'read-context',
       'generate-proposal',
@@ -126,7 +126,6 @@ describe('agent posture policy', () => {
             operationalMode: 'elicit',
             agentStrategy: 'freestyle',
             agentLens: 'auto',
-            agentGoal: 'grounding-advance',
           },
         },
       },
@@ -135,8 +134,6 @@ describe('agent posture policy', () => {
     expect(manifestsForState(autoState, groundingFloorGaps()).strategies.map((entry) => entry.name)).toEqual([
       'step-wise-decision-tree',
       'step-wise-disambiguate',
-      'propose-graph',
-      'project-graph',
     ]);
     expect(
       manifestsForState(pinnedFreestyle, groundingFloorGaps({ defaultCoverage: 0 })).strategies.map(
@@ -158,7 +155,7 @@ describe('agent posture policy', () => {
     );
   });
 
-  it('keeps a pinned goal visible when capability-readiness negotiates, while gated methods stay absent', () => {
+  it('omits gated methods when capability-readiness negotiates', () => {
     const state = projectBrunchAgentState([
       {
         type: 'custom',
@@ -172,7 +169,6 @@ describe('agent posture policy', () => {
             operationalMode: 'elicit',
             agentStrategy: 'auto',
             agentLens: 'auto',
-            agentGoal: 'commit-converge',
           },
         },
       },
@@ -180,8 +176,10 @@ describe('agent posture policy', () => {
 
     const manifests = manifestsForState(state, groundingFloorGaps({ coverage: { thesis: 0 } }));
 
-    expect(manifests.goals.map((entry) => entry.name)).toEqual(['commit-converge']);
+    expect(Object.keys(manifests)).toEqual(['strategies', 'lenses', 'methods']);
     expect(manifests.methods.map((entry) => entry.name)).not.toContain('review-for-gaps');
+    expect(manifests.methods.map((entry) => entry.name)).not.toContain('commit-graph');
+    expect(manifests.methods.map((entry) => entry.name)).not.toContain('generate-proposal');
   });
 
   it('fails loud on an empty gap register instead of returning empty manifests', () => {
@@ -189,6 +187,13 @@ describe('agent posture policy', () => {
     // manifest derivation is a wiring bug, never a legal quiet posture.
     const state = projectBrunchAgentState([]);
     expect(() => manifestsForState(state, [])).toThrow(/no elicitation gap/);
+  });
+
+  it('resolves agent SYSTEM.md bodies through the code-owned runtime registry location', () => {
+    const location = agentBodyResourceLocation('elicitor');
+    expect(location).toMatch(/src\/\.pi\/agents\/elicitor\/SYSTEM\.md$/);
+    const body = readFileSync(location, 'utf8');
+    expect(body).toContain('# Agent: elicitor');
   });
 
   it('keeps state.ts free of grade-gate symbols', () => {

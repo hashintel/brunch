@@ -65,9 +65,8 @@ const approvedOverview: GraphSlice = {
 
 const runtimeState = {
   operationalMode: 'elicit',
-  agentStrategy: 'project-graph',
+  agentStrategy: 'step-wise-disambiguate',
   agentLens: 'intent',
-  agentGoal: 'commit-converge',
 } as const;
 
 function toolResultEntry(toolName: string, details: unknown): string {

@@ -11,9 +11,8 @@ function readyProjection(): RuntimeStateProjection {
     agent: {
       operationalMode: 'elicit',
       role: 'elicitor',
-      strategy: 'project-graph',
+      strategy: 'step-wise-disambiguate',
       lens: 'oracle',
-      goal: 'commit-converge',
     },
     mentions: {
       graphNodes: [{ id: 'node-1', handle: 'D12', title: 'Decision seam', seenLsn: 7 }],
@@ -40,9 +39,8 @@ describe('renderRuntimeFrame', () => {
     await expect(rendered).toMatchFileSnapshot('../__previews__/runtime-frame-ready.md');
     expect(rendered).toContain('#D12');
     expect(rendered).not.toContain('node-1');
-    expect(rendered).toContain(
-      'mode=elicit; role=elicitor; strategy=project-graph; lens=oracle; goal=commit-converge',
-    );
+    expect(rendered).toContain('mode=elicit; role=elicitor; strategy=step-wise-disambiguate; lens=oracle');
+    expect(rendered).not.toContain('goal=');
   });
 
   it('renders not-ready state without throwing', () => {

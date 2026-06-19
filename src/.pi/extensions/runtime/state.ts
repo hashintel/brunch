@@ -9,16 +9,11 @@ import {
   toolPolicyForRuntimeState,
   type ResolvedBrunchAgentState,
 } from '../../../projections/session/runtime-policy.js';
-import type {
-  AgentGoalId,
-  AgentLensId,
-  AgentRoleId,
-  AgentStrategyId,
-} from '../../../session/runtime-state.js';
-type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods';
+import type { AgentLensId, AgentRoleId, AgentStrategyId } from '../../../session/runtime-state.js';
+type PromptResourceFamily = 'strategies' | 'lenses' | 'methods';
 export type MethodId =
   | 'run-structured-exchange'
-  | 'infer-and-capture'
+  | 'capture'
   | 'commit-graph'
   | 'read-context'
   | 'generate-proposal'
@@ -36,14 +31,12 @@ export interface AgentPromptDefinition {
   model: string;
   thinking: 'low' | 'medium' | 'high';
   toolAuthority: string;
-  allowedGoals: readonly AgentGoalId[];
   allowedStrategies: readonly AgentStrategyId[];
   allowedLenses: readonly AgentLensId[];
   allowedMethods: readonly MethodId[];
 }
 
 export interface PromptManifests {
-  goals: readonly PromptResourceManifestEntry[];
   strategies: readonly PromptResourceManifestEntry[];
   lenses: readonly PromptResourceManifestEntry[];
   methods: readonly PromptResourceManifestEntry[];
@@ -83,48 +76,18 @@ export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition
     model: 'default',
     thinking: 'medium',
     toolAuthority:
-      'elicit read-only; graph writes only through Brunch graph tools when a legal strategy allows them',
-    allowedGoals: ['grounding-advance', 'elicit-expand', 'commit-converge', 'capture-posture'],
-    allowedStrategies: [
-      'freestyle',
-      'step-wise-decision-tree',
-      'step-wise-disambiguate',
-      'propose-graph',
-      'project-graph',
-    ],
+      'elicit read-only; graph writes only through Brunch graph tools when legal methods allow them',
+    allowedStrategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
     allowedLenses: ['intent', 'design', 'oracle'],
     allowedMethods: [
       'run-structured-exchange',
-      'infer-and-capture',
+      'capture',
       'commit-graph',
       'read-context',
       'generate-proposal',
       'review-for-gaps',
     ],
   },
-};
-
-export const GOAL_RESOURCES: Record<AgentGoalId, PromptResourceManifestEntry> = {
-  'grounding-advance': resource(
-    'goals',
-    'grounding-advance',
-    'Establish the basic initiative frame and readiness evidence for moving beyond onboarding.',
-  ),
-  'elicit-expand': resource(
-    'goals',
-    'elicit-expand',
-    'Expand the selected spec while ambiguity remains productive.',
-  ),
-  'commit-converge': resource(
-    'goals',
-    'commit-converge',
-    'Converge on reviewable commitments once the spec is ready for commitments.',
-  ),
-  'capture-posture': resource(
-    'goals',
-    'capture-posture',
-    'Confirm workspace posture without storing it as spec or graph truth.',
-  ),
 };
 
 export const STRATEGY_RESOURCES: Record<AgentStrategyId, PromptResourceManifestEntry> = {
@@ -142,16 +105,6 @@ export const STRATEGY_RESOURCES: Record<AgentStrategyId, PromptResourceManifestE
     'strategies',
     'step-wise-disambiguate',
     'Use contrastive examples to collapse meaningful ambiguity.',
-  ),
-  'propose-graph': resource(
-    'strategies',
-    'propose-graph',
-    'Offer a concept-level graph proposal and commit only through Brunch graph tools after acceptance.',
-  ),
-  'project-graph': resource(
-    'strategies',
-    'project-graph',
-    'Generate a dry-run-valid review-set proposal for user approval.',
   ),
 };
 
@@ -175,10 +128,10 @@ export const METHOD_RESOURCES: Record<MethodId, PromptResourceManifestEntry> = {
     'run-structured-exchange',
     'Present typed Brunch exchanges and request typed responses.',
   ),
-  'infer-and-capture': resource(
+  capture: resource(
     'methods',
-    'infer-and-capture',
-    'Extract only high-confidence facts from a completed exchange.',
+    'capture',
+    'Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct.',
   ),
   'commit-graph': resource(
     'methods',
@@ -217,14 +170,6 @@ export function manifestsForState(
   }
 
   return {
-    goals: selectAxisResources({
-      label: 'goal',
-      selection: state.agentGoal,
-      allowed: definition.allowedGoals,
-      resources: GOAL_RESOURCES,
-      legalIds: axisOptionsForRuntimeState('goal', state, gaps),
-      state,
-    }),
     strategies: selectAxisResources({
       label: 'strategy',
       selection: state.agentStrategy,
@@ -294,7 +239,7 @@ function selectAxisResources<TId extends string>({
   state,
   autoExcluded,
 }: {
-  label: 'goal' | 'strategy' | 'lens';
+  label: 'strategy' | 'lens';
   selection: 'auto' | TId;
   allowed: readonly TId[];
   resources: Record<TId, PromptResourceManifestEntry>;
@@ -315,6 +260,10 @@ function selectAxisResources<TId extends string>({
   // pinned axis visible and let method/tool legality carry the negotiation
   // boundary instead of crashing prompt assembly.
   return [resources[selection]];
+}
+
+export function agentBodyResourceLocation(agentId: AgentRoleId): string {
+  return fileURLToPath(new URL(`../../agents/${agentId}/SYSTEM.md`, import.meta.url));
 }
 
 function promptResourceLocation(family: PromptResourceFamily, id: string): string {
