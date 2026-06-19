@@ -1,6 +1,6 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D69-L, D71-L
+SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L
 
 ## Owns
 
@@ -38,7 +38,7 @@ extensions/
 ├── system-prompts/          before_agent_start prompt append + gap-driven active-tool selection; prompt composition (compose.ts) + pushed seed contexts (seed/)
 ├── web/                     web_fetch/web_search read tools for referenced-document acquisition
 ├── workspace/               spec/session picker command adapter
-└── subagents/               future subagent config/tool surface
+└── subagents/               D44-L `subagent` tool — sealed SDK child sessions (default-off, opt-in)
 ```
 
 ## Boundary rules

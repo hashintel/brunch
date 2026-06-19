@@ -40,6 +40,11 @@ import {
   type BrunchSessionBoundaryPipelineStep,
 } from '../.pi/extensions/session/lifecycle.js';
 import {
+  BRUNCH_SUBAGENT_TOOL,
+  registerBrunchSubagents,
+  type BrunchSubagentsDeps,
+} from '../.pi/extensions/subagents/index.js';
+import {
   registerBrunchPrompting,
   type BrunchPromptContextProvider,
 } from '../.pi/extensions/system-prompts/index.js';
@@ -103,6 +108,11 @@ export { registerBrunchWebTools } from '../.pi/extensions/web/index.js';
 export { registerBrunchGraph } from '../.pi/extensions/graph/index.js';
 export { registerBrunchReconciliation } from '../.pi/extensions/reconciliation/index.js';
 export {
+  BRUNCH_SUBAGENT_TOOL,
+  registerBrunchSubagents,
+  type BrunchSubagentsDeps,
+} from '../.pi/extensions/subagents/index.js';
+export {
   BRUNCH_INTROSPECTION_COMMAND,
   createInMemoryBrunchIntrospectionStore,
   registerBrunchIntrospection,
@@ -134,6 +144,12 @@ export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, '
   promptContext?: BrunchPromptContextProvider;
   introspection?: BrunchPiIntrospectionOptions;
   continuityDrains?: () => readonly ContinuityDrain[];
+  /**
+   * Optional subagent registry (D44-L). When provided, the `subagent` tool is
+   * registered and opted into the active-tool set; when omitted it is absent
+   * (default-off), so production foreground sessions are unchanged.
+   */
+  subagents?: BrunchSubagentsDeps;
 }
 
 export interface BrunchPiIntrospectionOptions extends BrunchIntrospectionOptions {
@@ -164,9 +180,14 @@ export function createBrunchPiExtensions(
     const graphMentionSource = options.graphMentionSource ?? graphMentionSourceFromDeps(options.graph);
     const promptContext = options.promptContext;
     const introspectionOptions = options.introspection;
-    const devAllowedToolNames = introspectionOptions?.enabled
-      ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]
-      : undefined;
+    // Opt-in tool channel: tools registered but kept out of the base `elicit`
+    // allowlist (D40-L) are made active only when explicitly opted in here —
+    // dev introspection query tools (D69-L) and the `subagent` tool (D44-L).
+    const optInAllowedToolNames = [
+      ...(introspectionOptions?.enabled ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL] : []),
+      ...(options.subagents ? [BRUNCH_SUBAGENT_TOOL] : []),
+    ];
+    const devAllowedToolNames = optInAllowedToolNames.length > 0 ? optInAllowedToolNames : undefined;
     const entryDebugCache = introspectionOptions?.enabled ? introspectionOptions.debugCache : undefined;
     const continuitySteps = options.graph
       ? [
@@ -198,6 +219,7 @@ export function createBrunchPiExtensions(
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
       registerBrunchWebTools,
+      ...(options.subagents ? [(api: ExtensionAPI) => registerBrunchSubagents(api, options.subagents!)] : []),
       // Prompting registers immediately after operational-mode policy and
       // before mention autocomplete when prompt context is provided; its
       // position in this list is the registration order, not a splice index.
