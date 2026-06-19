@@ -162,10 +162,16 @@ describe('createPiActions evaluate-done', () => {
 // A controllable stand-in for the SDK boundary so runPi's drive logic can be
 // tested without network or a real model. abort() unsticks a hung prompt the
 // way the real session does.
-function makeFakeSession(behavior: { emit?: string | readonly unknown[]; hang?: boolean }) {
+function makeFakeSession(behavior: {
+  emit?: string | readonly unknown[];
+  hang?: boolean;
+  finalStopReason?: 'stop' | 'error' | 'aborted';
+  errorMessage?: string;
+}) {
   const calls = { prompt: [] as string[], aborted: false, disposed: false };
   let listener: ((event: unknown) => void) | undefined;
   let resolveHang: (() => void) | undefined;
+  const messages: unknown[] = [];
   const session = {
     subscribe(fn: (event: unknown) => void) {
       listener = fn;
@@ -182,6 +188,14 @@ function makeFakeSession(behavior: { emit?: string | readonly unknown[]; hang?: 
         });
       }
       if (behavior.hang) await new Promise<void>((res) => (resolveHang = res));
+      if (behavior.finalStopReason) {
+        messages.push({
+          role: 'assistant',
+          content: [],
+          stopReason: behavior.finalStopReason,
+          ...(behavior.errorMessage ? { errorMessage: behavior.errorMessage } : {}),
+        });
+      }
     },
     async abort() {
       calls.aborted = true;
@@ -191,7 +205,10 @@ function makeFakeSession(behavior: { emit?: string | readonly unknown[]; hang?: 
       calls.disposed = true;
     },
     get state() {
-      return { messages: [] as unknown[] };
+      return { messages };
+    },
+    get messages() {
+      return messages;
     },
   };
   return { calls, session };
@@ -281,6 +298,23 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
         /timed out/,
       );
       expect(fake.calls.aborted).toBe(true);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects when the SDK resolves prompt with a failed assistant turn', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const fake = makeFakeSession({
+        emit: 'partial output',
+        finalStopReason: 'error',
+        errorMessage: 'model failed',
+      });
+      const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+
+      await expect(runPi(baseOpts(sandboxDir, 'read'), { createSession })).rejects.toThrow(/model failed/);
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }

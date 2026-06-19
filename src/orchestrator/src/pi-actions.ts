@@ -94,6 +94,26 @@ function piTimeoutError(timeoutMs: number): Error {
   return new Error(`pi timed out after ${timeoutMs / 1000}s`);
 }
 
+function finalAgentFailure(session: {
+  messages?: unknown[];
+  state?: { messages?: unknown[] };
+}): string | undefined {
+  const messages = session.messages ?? session.state?.messages ?? [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || typeof message !== 'object') continue;
+    const record = message as { role?: unknown; stopReason?: unknown; errorMessage?: unknown };
+    if (record.role !== 'assistant') continue;
+    if (record.stopReason !== 'error' && record.stopReason !== 'aborted') return undefined;
+    const detail =
+      typeof record.errorMessage === 'string' && record.errorMessage.length > 0
+        ? `: ${record.errorMessage}`
+        : '';
+    return `agent ended with stopReason "${record.stopReason}"${detail}`;
+  }
+  return undefined;
+}
+
 // Map one action's inputs to SDK session config — tools/model/system-prompt, no
 // context/skills, in-memory session. Auth from brunch's own ANTHROPIC_API_KEY, not
 // the user's ~/.pi credentials, which is what keeps a fresh checkout self-contained.
@@ -165,6 +185,7 @@ async function runPi(
   let overflowed = false;
   let timedOut = false;
   let promptError: unknown;
+  let agentFailure: string | undefined;
   let unsubscribe: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
@@ -211,6 +232,7 @@ async function runPi(
 
     try {
       await Promise.race([session.prompt(opts.task), timeout]);
+      agentFailure = finalAgentFailure(session);
     } catch (err) {
       promptError = err;
     }
@@ -226,6 +248,9 @@ async function runPi(
   if (promptError) {
     const detail = promptError instanceof Error ? promptError.message : JSON.stringify(promptError);
     throw new Error(`pi failed: ${detail}`);
+  }
+  if (agentFailure) {
+    throw new Error(`pi failed: ${agentFailure}`);
   }
 
   const dur = ((Date.now() - start) / 1000).toFixed(1);
