@@ -815,8 +815,9 @@ export function createPiActions(opts?: {
 
     'remediate-epic': async (ctx: ActionContext) => {
       log('▸', `remediate ${ctx.epic.id}`);
+      let piResult: PiResult;
       try {
-        await runPi(
+        piResult = await runPi(
           {
             label: `remediate ${ctx.epic.id}`,
             model: 'claude-opus-4-8',
@@ -838,7 +839,11 @@ export function createPiActions(opts?: {
         throw err;
       }
 
-      return report(ctx, 'coding-agent', 'remediation-agent-done', { sliceId: ctx.slice.id });
+      return report(ctx, 'coding-agent', 'remediation-agent-done', {
+        sliceId: ctx.slice.id,
+        usage: piResult.usage,
+        timingMs: piResult.timingMs,
+      });
     },
   };
 }

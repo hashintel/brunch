@@ -1553,4 +1553,23 @@ describe('per-action telemetry surfaces usage + timing (FE-894 P0)', () => {
     expect(payload.timingMs.coldStartMs).toBeGreaterThanOrEqual(0);
     expect(payload.timingMs.promptMs).toBeGreaterThanOrEqual(0);
   });
+
+  it('remediate-epic attaches usage + timing to the remediation-agent-done report', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const reports = new InMemoryReportSink();
+    const stats = { tokens: { input: 150, output: 60, cacheRead: 1200, cacheWrite: 100, total: 1510 } };
+    const fake = makeFakeSession({ emit: 'patched the product code', stats });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession });
+
+    const id = await actions['remediate-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as {
+      usage: PiUsage;
+      timingMs: { coldStartMs: number; promptMs: number };
+    };
+
+    expect(payload.usage).toEqual(stats.tokens);
+    expect(payload.timingMs.coldStartMs).toBeGreaterThanOrEqual(0);
+    expect(payload.timingMs.promptMs).toBeGreaterThanOrEqual(0);
+  });
 });
