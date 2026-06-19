@@ -212,6 +212,55 @@ describe('Brunch explicit Pi extension registry', () => {
     ]);
   });
 
+  it('advances the capture sweep watermark from the live before_agent_start boundary', async () => {
+    const appended: Array<Record<string, unknown>> = [
+      { type: 'message', message: { role: 'user', content: 'The web observer must be read-only.' } },
+      { type: 'message', message: { role: 'toolResult', toolName: 'bash', details: { ok: true } } },
+    ];
+    const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
+    const sessionManager = {
+      getEntries: () => appended.slice(),
+      appendCustomEntry(customType: string, data: unknown) {
+        appended.push({ type: 'custom', customType, data });
+      },
+      appendCustomMessageEntry(customType: string, content: string, _display: boolean, details?: unknown) {
+        appended.push({ type: 'custom_message', customType, content, details });
+      },
+    };
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graph: {
+        specId: 1,
+        commandExecutor: {} as never,
+        reads: {
+          queryGraph: () => ({ lsn: 0, nodes: [], edges: [] }) as never,
+          getNodes: () => [],
+          resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
+          latestLsn: () => 0,
+        },
+      },
+    })(recordingApiWithEvents(events));
+
+    await events.get('before_agent_start')?.[0]?.({}, { sessionManager });
+
+    expect(appended).toEqual([
+      { type: 'message', message: { role: 'user', content: 'The web observer must be read-only.' } },
+      { type: 'message', message: { role: 'toolResult', toolName: 'bash', details: { ok: true } } },
+      {
+        type: 'custom',
+        customType: 'brunch.capture_sweep_watermark',
+        data: expect.objectContaining({ customType: 'brunch.capture_sweep_watermark' }),
+      },
+    ]);
+
+    await expect(
+      events.get('before_provider_request')?.[0]?.({}, { sessionManager }),
+    ).resolves.toBeUndefined();
+    expect(appended).toHaveLength(3);
+  });
+
   it('threads transcript mentions and continuity drains into the live prepareNextTurn adapter', async () => {
     const appended: Array<Record<string, unknown>> = [
       { type: 'custom', customType: 'brunch.context_seed', data: { specId: 1, snapshotLsn: 1 } },
