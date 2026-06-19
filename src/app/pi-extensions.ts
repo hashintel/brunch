@@ -42,6 +42,7 @@ import {
   registerBrunchPrompting,
   type BrunchPromptContextProvider,
 } from '../.pi/extensions/system-prompts/index.js';
+import { registerBrunchWebTools } from '../.pi/extensions/web/index.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import {
   CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE,
@@ -96,6 +97,7 @@ export {
   registerBrunchCommands,
 } from '../.pi/extensions/commands/index.js';
 export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from '../.pi/extensions/workspace/index.js';
+export { registerBrunchWebTools } from '../.pi/extensions/web/index.js';
 
 export { registerBrunchGraph } from '../.pi/extensions/graph/index.js';
 export {
@@ -193,6 +195,7 @@ export function createBrunchPiExtensions(
       registerBrunchBranchPolicyHandlers,
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
+      registerBrunchWebTools,
       // Prompting registers immediately after operational-mode policy and
       // before mention autocomplete when prompt context is provided; its
       // position in this list is the registration order, not a splice index.

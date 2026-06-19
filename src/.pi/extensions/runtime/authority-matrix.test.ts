@@ -16,6 +16,8 @@ const REGISTERED_POC_TOOLS = [
   'grep',
   'find',
   'ls',
+  'web_fetch',
+  'web_search',
   ...SIDE_EFFECTING_POC_TOOLS,
   'present_question',
   'request_answer',
@@ -72,7 +74,7 @@ describe('minimal authority matrix', () => {
     const policy = TOOL_POLICY_DEFINITIONS[state.operationalModeDefinition.toolPolicyId];
 
     expect(policy.id).toBe('elicit-read-only');
-    expect(policy.baseAllowedToolNames).toEqual(['read', 'grep', 'find', 'ls']);
+    expect(policy.baseAllowedToolNames).toEqual(['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search']);
     expect(policy.blockedToolNames).toEqual([...SIDE_EFFECTING_POC_TOOLS]);
 
     for (const toolName of SIDE_EFFECTING_POC_TOOLS) {
@@ -81,7 +83,16 @@ describe('minimal authority matrix', () => {
 
     expect(
       activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state, uncoveredGaps),
-    ).toEqual(['read', 'grep', 'find', 'ls', 'present_question', 'request_answer']);
+    ).toEqual([
+      'read',
+      'grep',
+      'find',
+      'ls',
+      'web_fetch',
+      'web_search',
+      'present_question',
+      'request_answer',
+    ]);
   });
 
   it('falls back to conservative uncovered gaps when no selected-spec gap read is available', () => {
@@ -92,6 +103,8 @@ describe('minimal authority matrix', () => {
       'grep',
       'find',
       'ls',
+      'web_fetch',
+      'web_search',
       'present_question',
       'request_answer',
     ]);

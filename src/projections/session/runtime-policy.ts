@@ -71,7 +71,7 @@ export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> = 
 export const TOOL_POLICY_DEFINITIONS: Record<ToolPolicyId, ToolPolicyDefinition> = {
   'elicit-read-only': {
     id: 'elicit-read-only',
-    baseAllowedToolNames: ['read', 'grep', 'find', 'ls'],
+    baseAllowedToolNames: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search'],
     blockedToolNames: ['bash', 'edit', 'write'],
   },
 };

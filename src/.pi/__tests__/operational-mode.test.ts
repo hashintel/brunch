@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
+  activeToolNamesForBrunchAgentState,
   appendBrunchAgentRuntimeInit,
   appendBrunchAgentRuntimeSwitch,
   projectBrunchAgentState,
@@ -131,6 +132,8 @@ describe('Brunch agent runtime-state projection', () => {
           'grep',
           'find',
           'ls',
+          'web_fetch',
+          'web_search',
           'present_question',
           'present_options',
           'request_answer',
@@ -168,6 +171,8 @@ describe('Brunch agent runtime-state projection', () => {
         'grep',
         'find',
         'ls',
+        'web_fetch',
+        'web_search',
         'present_question',
         'present_options',
         'request_answer',
@@ -187,6 +192,14 @@ describe('Brunch agent runtime-state projection', () => {
     await expect(
       Promise.resolve(events.tool_call?.({ toolName: 'read_graph' } as never)),
     ).resolves.toBeUndefined();
+    expect(
+      activeToolNamesForBrunchAgentState(
+        {
+          getAllTools: () => ['read', 'web_fetch', 'web_search', 'bash'].map((name) => ({ name })),
+        } as never,
+        projectBrunchAgentState([runtimeEntry(latestState)]),
+      ),
+    ).toEqual(['read', 'web_fetch', 'web_search']);
     expect(events.user_bash?.({ command: 'rm -rf .' } as never)).toMatchObject({
       result: {
         exitCode: 1,
