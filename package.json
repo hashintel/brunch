@@ -83,6 +83,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^6.0.2",
+    "@xterm/headless": "^6.0.0",
     "better-sqlite3": "^12.10.1",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
