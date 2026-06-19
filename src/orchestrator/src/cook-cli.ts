@@ -644,6 +644,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
               `  ✗  promotion halted at ${artifact.branch} @ ${artifact.head.slice(0, 8)} — resolve the conflict and re-run`,
             );
             line('');
+            bus.emit({ kind: 'cook-done', ok: false, reason: 'promotion conflict' });
             recordCookExitStatus(false);
             return;
           }

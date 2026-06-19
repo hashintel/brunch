@@ -25,6 +25,10 @@ export const COW_COPY_DEFAULT_EXCLUDE = new Set(['.git', '.brunch']);
 
 const NO_SYMLINKS: ReadonlySet<string> = new Set();
 
+export function sharedEntrySymlinkType(sourcePath: string): Parameters<typeof symlinkSync>[2] {
+  return process.platform === 'win32' && lstatSync(sourcePath).isDirectory() ? 'junction' : undefined;
+}
+
 /**
  * Provision top-level entries from `sourceDir` that are absent in `destDir`
  * (untracked/gitignored dirs like `node_modules/`, `dist/`). Skips names in
@@ -50,11 +54,7 @@ export function copyMissingTopLevelEntries(
     if (existsSync(destPath)) continue;
     const sourcePath = join(source, entry);
     if (symlink.has(entry)) {
-      symlinkSync(
-        sourcePath,
-        destPath,
-        process.platform === 'win32' && lstatSync(sourcePath).isDirectory() ? 'junction' : undefined,
-      );
+      symlinkSync(sourcePath, destPath, sharedEntrySymlinkType(sourcePath));
     } else {
       cowCopy(sourcePath, destPath);
     }
@@ -79,6 +79,6 @@ export function linkSharedTopLevelEntries(
     const destPath = join(dest, name);
     if (!existsSync(sourcePath)) continue;
     if (existsSync(destPath)) continue;
-    symlinkSync(sourcePath, destPath);
+    symlinkSync(sourcePath, destPath, sharedEntrySymlinkType(sourcePath));
   }
 }
