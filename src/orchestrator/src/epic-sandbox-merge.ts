@@ -18,7 +18,7 @@
 // owned by other epics. It never walks filesystem state to discover more scope.
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { copyMissingTopLevelEntries } from './cow-copy.js';
@@ -251,13 +251,57 @@ export function seedSliceFromParentWorktree(
   );
 
   // 2. CoW-copy whatever's in the parent worktree but NOT in the slice
-  //    worktree yet — i.e. untracked / gitignored content (`node_modules/`,
-  //    `dist/`, etc.) that pi-actions might need at runtime.
+  //    worktree yet — i.e. untracked / gitignored content (`dist/`, etc.) that
+  //    pi-actions might need at runtime. `node_modules/` is symlinked to the
+  //    parent's single copy instead of duplicated per slice (see
+  //    SHAREABLE_TOP_LEVEL_ENTRIES); `walkFiles` skips symlinks, so the shared
+  //    tree is never re-walked during dependency seeding, merge, or promotion.
   const excludedNames = new Set<string>(['.git', '.brunch', EPIC_MERGE_SEGMENT]);
   for (const s of plan.slices) excludedNames.add(s.id);
-  copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames);
+  copyMissingTopLevelEntries(parentSandboxDir, sliceDir, excludedNames, SHAREABLE_TOP_LEVEL_ENTRIES);
 
   return sliceDir;
+}
+
+/**
+ * Top-level gitignored entries shared across slice sandboxes via symlink rather
+ * than CoW-copied per slice. `node_modules/` is install output that pi-actions
+ * read (resolve deps, run tests/build) but do not author, so a single
+ * parent-owned copy linked into each slice removes N-1 redundant tree copies.
+ * Build caches under it (`.cache`, `.vite`) become shared too — acceptable for
+ * cook's transient runs; revisit if a tool needs per-slice write isolation.
+ */
+const SHAREABLE_TOP_LEVEL_ENTRIES: ReadonlySet<string> = new Set(['node_modules']);
+
+/**
+ * Idempotent codebase-mode slice worktree provisioning: create the git worktree
+ * on first call, no-op if it already exists. Called from `resolveSliceCwd` on
+ * every fire (action, run-tests, assess) and across reworks, so it must tolerate
+ * repeats. Provisioning is synchronous (`execFileSync`), so concurrent fires of
+ * distinct slices under the parallel policy serialize on the JS thread — no two
+ * `git worktree add` invocations against the shared object store overlap.
+ */
+export function ensureSliceWorktree(
+  parentSandboxDir: string,
+  sliceId: string,
+  plan: Plan,
+  runId: string,
+): string {
+  const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
+  if (existsSync(sliceDir)) {
+    // An existing path is only a no-op when it is a real git worktree we
+    // provisioned (own `.git` gitfile). A bare existing entry means the slice
+    // id collided with a tracked parent path (e.g. slice `src` vs the repo's
+    // `src/`); adopting it as the sandbox would silently break per-slice
+    // isolation, so fail loudly — matching seedSliceFromParentWorktree's guard.
+    if (!existsSync(join(sliceDir, '.git'))) {
+      throw new Error(
+        `Slice id "${sliceId}" collides with an existing entry in the parent worktree (not a provisioned cook worktree)`,
+      );
+    }
+    return sliceDir;
+  }
+  return seedSliceFromParentWorktree(parentSandboxDir, sliceId, plan, runId);
 }
 
 /** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
@@ -300,6 +344,7 @@ function mergeSliceDirsInto(parentSandboxDir: string, sliceIds: string[], destDi
     rmSync(destDir, { recursive: true, force: true });
   }
   mkdirSync(destDir, { recursive: true });
+  linkShareableTopLevelEntries(parentSandboxDir, destDir);
 
   const writers = new Map<string, string[]>();
   const epicRoot = resolve(resolve(parentSandboxDir), EPIC_MERGE_SEGMENT);
@@ -334,6 +379,20 @@ export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
 
 export type WholePlanMergeResult = { mergeDir: string; conflicts: MergeConflict[] };
 
+export type MergeSourceDir = {
+  id: string;
+  dir: string;
+};
+
+function linkShareableTopLevelEntries(parentSandboxDir: string, destDir: string): void {
+  for (const entry of SHAREABLE_TOP_LEVEL_ENTRIES) {
+    const sourcePath = join(parentSandboxDir, entry);
+    const destPath = join(destDir, entry);
+    if (!existsSync(sourcePath) || existsSync(destPath)) continue;
+    symlinkSync(sourcePath, destPath);
+  }
+}
+
 // Union all completed slice dirs into one tree (the whole-plan promotion source
 // for parallel greenfield). `sliceIds` should be in plan declaration order.
 export function mergeCompletedSlicesIntoTree(opts: {
@@ -342,6 +401,35 @@ export function mergeCompletedSlicesIntoTree(opts: {
   destDir: string;
 }): WholePlanMergeResult {
   const conflicts = mergeSliceDirsInto(opts.parentSandboxDir, opts.sliceIds, opts.destDir);
+  return { mergeDir: opts.destDir, conflicts };
+}
+
+export function mergeSourceDirsIntoTree(opts: {
+  sources: readonly MergeSourceDir[];
+  destDir: string;
+}): WholePlanMergeResult {
+  if (existsSync(opts.destDir)) {
+    rmSync(opts.destDir, { recursive: true, force: true });
+  }
+  mkdirSync(opts.destDir, { recursive: true });
+
+  const writers = new Map<string, string[]>();
+  for (const source of opts.sources) {
+    if (!existsSync(source.dir)) continue;
+    for (const file of walkFiles(source.dir)) {
+      const rel = relativePathWithin(source.dir, file);
+      const list = writers.get(rel) ?? [];
+      list.push(source.id);
+      writers.set(rel, list);
+      copyIntoTree(file, join(opts.destDir, rel), opts.destDir);
+    }
+  }
+
+  const conflicts: MergeConflict[] = [];
+  for (const [path, sources] of writers) {
+    if (sources.length > 1) conflicts.push({ path, slices: sources, winner: sources[sources.length - 1]! });
+  }
+  conflicts.sort((a, b) => a.path.localeCompare(b.path));
   return { mergeDir: opts.destDir, conflicts };
 }
 

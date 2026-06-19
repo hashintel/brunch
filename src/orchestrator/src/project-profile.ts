@@ -130,3 +130,26 @@ export function resolveToolchain(profile?: ProfileId | null | ''): Toolchain {
 }
 
 export const defaultToolchain: Toolchain = bunProfile.toolchain;
+
+/**
+ * Relocate a toolchain's test targets into `dir`, preserving the profile's
+ * filename convention (`{id}.test.ts`, `{id}.integration.test.ts`). Brownfield
+ * detection uses this to co-locate cook's generated tests in the directory the
+ * host repo already keeps its tests — see `detectTestDir`. A profile's default
+ * test directory (e.g. `tests/`) can fall outside a repo's narrowed runner
+ * include glob, making the chosen path unrunnable; relocating to the repo's own
+ * test directory keeps it discoverable. `dir` of `''`/`'.'` strips the prefix
+ * (tests at the repo root).
+ */
+export function withTestDir(toolchain: Toolchain, dir: string): Toolchain {
+  const cleaned = dir.replace(/\/+$/, '');
+  const relocate = (target: string): string => {
+    const basename = target.slice(target.lastIndexOf('/') + 1);
+    return cleaned === '' || cleaned === '.' ? basename : `${cleaned}/${basename}`;
+  };
+  return {
+    ...toolchain,
+    sliceTarget: (sliceId) => relocate(toolchain.sliceTarget(sliceId)),
+    epicTarget: (epicId) => relocate(toolchain.epicTarget(epicId)),
+  };
+}

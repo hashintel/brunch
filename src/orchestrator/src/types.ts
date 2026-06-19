@@ -14,7 +14,43 @@ export type Epic = {
   summary: string;
   depends_on: string[];
   verification: Verification[];
+  /**
+   * Integration-oracle (FE-876) reachability target — a *concrete* probe
+   * (boot argv + paths). When present it is used directly; this is the Half-A
+   * path (fixtures / explicit targets). `not-reachable` is the FE-800 orphan
+   * (code merged but never wired into the running app). Absent + no
+   * `reachability` → unit-test verdict only (unchanged behavior).
+   */
+  probe?: ProbeTarget;
+  /**
+   * Integration-oracle (FE-876) Half B — host-blind reachability *intent* the
+   * architect emits (D160-K: planning stays host-blind). Cook-time grounding
+   * resolves it into a concrete `ProbeTarget` by reading the worktree, via the
+   * injected `ProbeGrounder` (the dispatch-seam piece). `probe` takes precedence
+   * when both are set; intent without an injected grounder is a no-op (the
+   * grounder lands with the pi-harness contract).
+   */
+  reachability?: ReachabilityIntent;
 };
+
+/**
+ * A host-blind description of what must be reachable once the feature is wired,
+ * e.g. "the GET /health endpoint returns 200 and the new feature route
+ * responds". The architect emits this without knowing the boot command or port;
+ * cook-time grounding turns it into a concrete `ProbeTarget`.
+ */
+export type ReachabilityIntent = {
+  feature: string;
+};
+
+/**
+ * Cook-time grounding seam (FE-876 Half B, dispatch seam): resolve a host-blind
+ * `ReachabilityIntent` into a concrete `ProbeTarget` by reading the merged
+ * worktree. Injected into `createPiActions` so the agent dispatch is swappable
+ * and tests can stub it; the production implementation (an `execute`-mode agent
+ * that reads the worktree) lands with the pi-harness contract.
+ */
+export type ProbeGrounder = (intent: ReachabilityIntent, sandboxDir: string) => Promise<ProbeTarget>;
 
 export type Slice = {
   id: string;
@@ -95,14 +131,100 @@ export type ActionHandlers = Record<string, ActionHandler>;
 // Test runner — deterministic, orchestrator-owned
 // ---------------------------------------------------------------------------
 
+/**
+ * Why a failed test run failed. `infra` = the toolchain itself broke (the test
+ * runner binary is missing / deps never installed) — a different fix than `test`
+ * = the code under test failed its assertions. Distinguishing them stops the
+ * cook loop from sending the code-writer to "fix the code" when nothing was ever
+ * installed (`TestResult.passed` alone collapsed both into one failure).
+ */
+export type TestFailureKind = 'infra' | 'test';
+
 export type TestResult = {
   passed: boolean;
   output: string;
+  /** Set only when `passed` is false; classifies the failure. */
+  failureKind?: TestFailureKind;
 };
 
 export interface TestRunner {
   run(target: string, sandboxDir: string): Promise<TestResult>;
 }
+
+/** One verification target's outcome: its id plus the runner's `TestResult`. */
+export type VerificationResult = { target: string } & TestResult;
+
+/**
+ * The verdict over a set of verification targets. `done` is the single oracle
+ * rule — at least one target and every target passing (no requisite variety
+ * otherwise). `failureKind` is the aggregate over the failed targets: `infra`
+ * (the toolchain broke) dominates a plain `test` failure, because a run that
+ * never executed is the actionable signal. Undefined when `done`.
+ */
+export type VerificationOutcome = {
+  done: boolean;
+  failureKind?: TestFailureKind;
+  results: VerificationResult[];
+};
+
+// ---------------------------------------------------------------------------
+// App runtime probe — real *app* execution, the analogue of test execution
+// ---------------------------------------------------------------------------
+
+/**
+ * The verdict of booting the host app and exercising one feature endpoint:
+ * - `reachable`     — the app answered the feature probe (wired into the running app)
+ * - `not-reachable` — the app booted but the feature endpoint is absent (the
+ *                     FE-800 orphan: a module that exists but isn't wired in)
+ * - `infra`         — the app never booted / never became ready (a different
+ *                     fix than "feature absent", mirroring `TestFailureKind`)
+ */
+export type ProbeOutcomeKind = 'reachable' | 'not-reachable' | 'infra';
+
+/**
+ * What the probe needs to boot + exercise an app. The boot argv and URLs are
+ * **inputs** (later supplied by cook-time grounding), not a per-stack boot
+ * engine — the harness owns the deterministic check, the boot mechanics may
+ * lean on the agent's `bash`.
+ */
+export type ProbeSpec = {
+  /** Argv that boots the app in the sandbox (e.g. `['node','server.js']`). */
+  boot: readonly string[];
+  /** URL polled until the app accepts connections (any HTTP response = ready). */
+  readyUrl: string;
+  /** URL whose response decides feature reachability. */
+  featureUrl: string;
+  /** Extra env for the boot process (e.g. a chosen `PORT`). */
+  env?: Record<string, string>;
+};
+
+/**
+ * The harness-resolvable shape of a probe: boot argv + the *paths* to poll and
+ * exercise, before a concrete port is bound. `buildProbeSpec` turns this into a
+ * `ProbeSpec` by allocating a free port — the deterministic, harness-owned piece
+ * (a hardcoded port collides under parallel cook). Cook-time grounding later
+ * supplies the argv + paths; the harness never guesses them.
+ */
+export type ProbeTarget = {
+  /** Argv that boots the app in the sandbox (e.g. `['node','server.js']`). */
+  boot: readonly string[];
+  /** Path polled until the app accepts connections (e.g. `/health`). */
+  readyPath: string;
+  /** Path whose response decides feature reachability (e.g. `/feature`). */
+  featurePath: string;
+  /** Extra env for the boot process; the allocated `PORT` is added on top. */
+  env?: Record<string, string>;
+};
+
+export type ProbeResult = {
+  kind: ProbeOutcomeKind;
+  /** Convenience: `kind === 'reachable'`. */
+  reachable: boolean;
+  /** HTTP status of the feature probe, when the app answered. */
+  status?: number;
+  /** Boot output + diagnostics, for the run report. */
+  output: string;
+};
 
 // ---------------------------------------------------------------------------
 // Orchestrator seam

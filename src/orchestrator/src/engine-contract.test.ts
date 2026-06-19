@@ -36,6 +36,7 @@ const engines = [
 function createFakes(opts?: {
   evalSequence?: boolean[]; // sequence of done values for evaluate-done
   testRunResults?: boolean[]; // sequence of passed values for test runner
+  testFailureKind?: 'infra' | 'test'; // failureKind stamped on failed runs (default: test)
   verifyEpicResult?: boolean; // result of verify-epic
   semanticResults?: boolean[]; // sequence of satisfied values for assess-semantic
   throwOnAction?: string; // action name that throws
@@ -136,7 +137,8 @@ function createFakes(opts?: {
       const passed = testSeq[testRunIdx % testSeq.length]!;
       testRunIdx++;
       callOrder.push(`run-tests:${passed ? 'pass' : 'fail'}`);
-      return { passed, output: passed ? 'ok' : 'FAIL' };
+      if (passed) return { passed, output: 'ok' };
+      return { passed, output: 'FAIL', failureKind: opts?.testFailureKind ?? 'test' };
     },
   };
 
@@ -924,6 +926,36 @@ describe('Adapter: §7 event vocabulary', () => {
     // the halt token deposited on the `:halted` place.
     expect(halted[0]!.reason).toMatch(/retry exhaustion/);
   });
+
+  it('infra failure names the toolchain cause in the halt reason', async () => {
+    // FE-872: an exhausted run whose verification hit infra/toolchain failure
+    // must not read as "retry exhaustion" — that misdirects the reader to the
+    // code instead of the runner/toolchain.
+    const fakes = createFakes({ testRunResults: [false], testFailureKind: 'infra' });
+    const ctx: RunCtx = {
+      reportIds: [],
+      sliceOutcomes: new Map(),
+      epicOutcomes: new Map(),
+    };
+    const input: OrchestratorInput = {
+      plan: simplePlan,
+      sandboxDir: '/tmp/fake',
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 1 },
+    };
+
+    const net = compilePlan(input, ctx);
+    const events: NetEvent[] = [];
+    await net.run('serial', () => net.hasHaltToken(), { emit: (e) => events.push(e) });
+
+    const halted = events.filter((e) => e.kind === 'net_halted');
+    expect(halted.length).toBe(1);
+    expect(halted[0]!.reason).toMatch(/toolchain\/install failure/);
+    expect(halted[0]!.reason).not.toMatch(/never ran/);
+    expect(halted[0]!.reason).not.toMatch(/retry exhaustion/);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1458,9 +1490,14 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     const parallelMs = Date.now() - t1;
 
     // Parallel should be no slower than serial (they're effectively equal
-    // now that async dispatch lets handlers overlap in both policies).
-    // Allow a small constant slack for scheduling jitter.
-    expect(parallelMs).toBeLessThan(serialMs + 25);
+    // now that async dispatch lets handlers overlap in both policies). The
+    // tolerance scales with serialMs because both runs absorb scheduling jitter
+    // and CPU contention from concurrent test files (real-process suites elsewhere
+    // can starve the event loop); an absolute slack flakes under that load. A true
+    // regression — parallel policy serializing its handlers — would be many ×
+    // serialMs (the plan fans out ~15 async handlers at DELAY_MS each), well past
+    // this bound.
+    expect(parallelMs).toBeLessThan(serialMs * 2 + 50);
   });
 });
 

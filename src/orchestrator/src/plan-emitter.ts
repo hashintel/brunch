@@ -33,8 +33,9 @@ import {
   type PlanningEnrichment,
   type ReconciliationWarning,
 } from './plan-reconciliation.js';
-import { resolveToolchain, type ProfileId, type Toolchain } from './project-profile.js';
-import type { Plan } from './types.js';
+import { detectProfile, detectTestDir, type ProfileDetection } from './project-detect.js';
+import { resolveToolchain, withTestDir, type ProfileId, type Toolchain } from './project-profile.js';
+import type { Plan, PlanMode } from './types.js';
 
 const EMPTY_ENRICHMENT: PlanningEnrichment = {
   sliceDependencies: [],
@@ -80,7 +81,58 @@ export type EmitPlanOptions = {
    * one resolved from the selected profile (`resolveToolchain`).
    */
   toolchain?: Toolchain;
+  /**
+   * Project directory to detect the toolchain from (`brunch-detect`). Used only
+   * for **brownfield** plans — greenfield has an empty worktree and never
+   * detects. When omitted, detection is skipped and the FE-843 chain is
+   * unchanged (back-compat for callers/tests that don't read a repo).
+   */
+  repoDir?: string;
+  /** Injectable detector seam (tests). Defaults to `detectProfile`. */
+  detect?: (repoDir: string) => ProfileDetection;
+  /**
+   * Injectable test-directory detector seam (tests). Defaults to
+   * `detectTestDir`. Brownfield-only; co-locates generated tests where the host
+   * repo already keeps its tests so a narrowed runner include glob still
+   * discovers them.
+   */
+  detectTestDir?: (repoDir: string) => string | null;
 };
+
+/**
+ * Resolve the profile id stamped onto the emitted plan, with `brunch-detect`
+ * inserted as the brownfield front of the FE-843 chain:
+ *
+ *   flag ≫ detected (brownfield) ≫ spec ≫ architect-classified ≫ bun
+ *
+ * Detection reads the real repo, so its identity beats spec prose. A loud
+ * detection failure must not silently fall to bun: it falls through to an
+ * explicit spec/architect choice if one exists, otherwise throws — the
+ * actionable failure `brunch-detect` promises instead of cooking a brownfield
+ * repo under the wrong toolchain. Greenfield (or brownfield without a repo dir)
+ * keeps the unchanged FE-843 chain.
+ */
+function resolveEmittedProfile(args: {
+  flag?: ProfileId;
+  mode: PlanMode;
+  repoDir?: string;
+  specProfile?: ProfileId;
+  classified: ProfileId | null;
+  detect: (repoDir: string) => ProfileDetection;
+}): ProfileId {
+  // Explicit flag wins and short-circuits detection (no repo read).
+  if (args.flag) return args.flag;
+
+  if (args.mode === 'brownfield' && args.repoDir !== undefined) {
+    const detected = args.detect(args.repoDir);
+    if (detected.detected) return detected.profile;
+    if (args.specProfile) return args.specProfile;
+    if (args.classified) return args.classified;
+    throw new Error(`brunch detect: ${detected.reason}`);
+  }
+
+  return args.specProfile ?? args.classified ?? 'bun';
+}
 
 export async function emitPlanFromSnapshot(
   snapshot: CompletedSpecSnapshot,
@@ -93,12 +145,31 @@ export async function emitPlanFromSnapshot(
 
   const architectResult = await architectPlan(projected, runModel, planningContext);
 
-  // Selection chain: explicit flag ≫ spec profile ≫ architect-classified ≫
-  // bun. Resolved exactly once, here; both paths below stamp the result onto
+  // Selection chain: flag ≫ detected (brownfield) ≫ spec ≫ architect-classified
+  // ≫ bun. Resolved exactly once, here; both paths below stamp the result onto
   // the emitted plan. A failed architect simply skips its rung.
-  const classified = architectResult.status === 'succeeded' ? architectResult.draft.profile : null;
-  const profile: ProfileId = options.profile ?? projected.profile ?? classified ?? 'bun';
-  const toolchain = options.toolchain ?? resolveToolchain(profile);
+  const classified: ProfileId | null =
+    architectResult.status === 'succeeded' ? (architectResult.draft.profile ?? null) : null;
+  const profile: ProfileId = resolveEmittedProfile({
+    flag: options.profile,
+    mode: projected.mode,
+    repoDir: options.repoDir,
+    specProfile: projected.profile,
+    classified,
+    detect: options.detect ?? detectProfile,
+  });
+  // Co-locate generated tests where the brownfield repo already keeps its own.
+  // Detection picks the runner (profile); this picks the *path*, because a
+  // profile's default test directory can fall outside the host runner's
+  // (narrowed) include glob and so be unrunnable — the FE-871 "No test files
+  // found" failure. Skipped when a toolchain is injected directly, for
+  // greenfield, or when no repo dir is available; null = no existing tests to
+  // learn from, so the profile default stands.
+  let toolchain = options.toolchain ?? resolveToolchain(profile);
+  if (options.toolchain === undefined && projected.mode === 'brownfield' && options.repoDir !== undefined) {
+    const testDir = (options.detectTestDir ?? detectTestDir)(options.repoDir);
+    if (testDir !== null) toolchain = withTestDir(toolchain, testDir);
+  }
 
   if (architectResult.status === 'failed') {
     return fallback(projected, profile, toolchain, architectResult, architectResult.reason);

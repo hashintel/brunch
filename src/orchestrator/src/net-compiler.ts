@@ -5,12 +5,9 @@
 //   3. compilePlan(input, ctx) → PetriNet            (convenience wrapper)
 // ---------------------------------------------------------------------------
 
-import { mkdirSync } from 'node:fs';
-
 import {
+  ensureSliceWorktree,
   mergeSlicesIntoEpicSandbox,
-  resolveSliceWorktreeDir,
-  seedSliceFromParentWorktree,
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
 } from './epic-sandbox-merge.js';
@@ -19,6 +16,7 @@ import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprin
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
 import { createReport } from './report-helpers.js';
+import { runVerification } from './test-runner.js';
 import type { ActionContext, OrchestratorInput, Plan, RunCtx, RunPolicy, Slice } from './types.js';
 
 // ---------------------------------------------------------------------------
@@ -555,35 +553,30 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
     net.addPlace(place);
   }
 
-  // Runtime filesystem preparation lives in wireHandlers so every action/test
-  // cwd exists before any transition can fire. This is the one intentional side
-  // effect in the wiring pass; a future prepareRunFilesystem step can split it
-  // out if more provisioning responsibilities accumulate.
-  // Per-slice dirs are parallel-safe; dependency seeding happens at fire time.
-  // In codebase mode, seed each slice dir with the parent worktree's contents
-  // (the source repo's HEAD via `git worktree add`) so pi-actions can modify
-  // existing code instead of writing into an empty dir.
+  // Per-slice sandboxes are provisioned lazily at fire time (in resolveSliceCwd),
+  // not eagerly here: a run that touches 2 of 8 slices pays for 2 worktrees, not
+  // 8. Each slice dir is an independent root, so concurrent fires of distinct
+  // slices never contend; repeat fires of the same slice (rework) are idempotent.
   // 'shared' (serial greenfield): all slices accrete into the run sandbox.
   // 'per-slice': each slice gets its own git worktree (codebase) or plain dir
   // (greenfield parallel), merged into __epic__ for verification.
+  // Fail fast on the missing-runId precondition rather than at first fire.
   const sliceLayout = input.sliceLayout ?? 'per-slice';
-  if (input.sandboxMode === 'codebase') {
-    if (!input.runId) {
-      throw new Error('codebase mode requires input.runId (used to name slice-level git branches)');
-    }
-    for (const slice of plan.slices) {
-      seedSliceFromParentWorktree(input.sandboxDir, slice.id, plan, input.runId);
-    }
-  } else if (sliceLayout === 'per-slice') {
-    for (const slice of plan.slices) {
-      mkdirSync(resolveSliceWorktreeDir(input.sandboxDir, slice.id), { recursive: true });
-    }
+  const { runId } = input;
+  if (input.sandboxMode === 'codebase' && !runId) {
+    throw new Error('codebase mode requires input.runId (used to name slice-level git branches)');
   }
 
-  const resolveSliceCwd = (slice: Slice): string =>
-    sliceLayout === 'shared'
-      ? input.sandboxDir
-      : seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, { preserveExisting: true });
+  const resolveSliceCwd = (slice: Slice): string => {
+    if (sliceLayout === 'shared') return input.sandboxDir;
+    // Codebase mode: materialize the slice's git worktree (HEAD checkout +
+    // symlinked node_modules) on first touch so pi-actions modify existing code
+    // rather than an empty dir; greenfield per-slice gets a plain dir below.
+    if (input.sandboxMode === 'codebase') {
+      ensureSliceWorktree(input.sandboxDir, slice.id, plan, runId!);
+    }
+    return seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, { preserveExisting: true });
+  };
 
   // Register transitions with wired fire handlers
   for (const skel of blueprint.transitions) {
@@ -714,18 +707,24 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
           const deferred = (async () => {
             const slice = plan.slices.find((s) => s.id === sliceId)!;
             const sandboxDir = resolveSliceCwd(slice);
-            const results = [];
-            for (const target of targets) {
-              results.push({ target, ...(await testRunner.run(target, sandboxDir)) });
-            }
-            const passed = results.length > 0 && results.every((result) => result.passed);
+            // Shared verification seam: same verdict rule + infra-dominates
+            // aggregate as evaluate-done / verify-epic (FE-872 unification).
+            const {
+              done: passed,
+              failureKind,
+              results,
+            } = await runVerification(
+              targets.map((target) => ({ target })),
+              testRunner,
+              sandboxDir,
+            );
             const output = results.map((result) => result.output).join('\n');
             const reportId = createReport(reports, {
               epicId,
               sliceId,
               actor: 'test-runner',
               event: 'tests-run',
-              payload: { passed, output, results },
+              payload: { passed, output, failureKind, results },
             });
             ctx.reportIds.push(reportId);
 
@@ -738,12 +737,18 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
             }
             if (retryCount >= maxRetries) {
               // FE-761 Slice 2b: structural halt — emit a halt token
-              // carrying its own reason.
+              // carrying its own reason. FE-872: when verification reports an
+              // infra failure, name that cause — "retry exhaustion" would
+              // misdirect the reader to the code.
               ctx.sliceOutcomes.set(sliceId, { sliceId, status: 'halted' });
+              const haltReason =
+                failureKind === 'infra'
+                  ? `Slice ${sliceId} toolchain/install failure during verification`
+                  : `Slice ${sliceId} retry exhaustion`;
               return [
                 {
                   place: p(sliceId, 'halted'),
-                  token: { ...tok, haltReason: `Slice ${sliceId} retry exhaustion` },
+                  token: { ...tok, haltReason },
                 },
               ];
             }

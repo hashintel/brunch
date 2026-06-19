@@ -2,8 +2,14 @@ import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { cookBannerLines, cookSummaryLines } from './cook-report.js';
 import { createOrchestrator } from './engine.js';
-import { type MergeConflict, mergeCompletedSlicesIntoTree } from './epic-sandbox-merge.js';
+import {
+  epicIdsForEpicVerifyMerge,
+  type MergeConflict,
+  mergeCompletedSlicesIntoTree,
+  mergeSourceDirsIntoTree,
+} from './epic-sandbox-merge.js';
 import { FileReportSink } from './file-report-sink.js';
 import { loadLocalEnvFile } from './local-env.js';
 import type { FiringPolicy } from './petri-net.js';
@@ -12,8 +18,9 @@ import { createPetrinautStreamBus, type PetrinautStreamBus } from './petrinaut-s
 import { createPetrinautStreamServer, type PetrinautStreamServer } from './petrinaut-stream-server.js';
 import { createPiActions } from './pi-actions.js';
 import { loadPlan } from './plan-loader.js';
+import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
-import { promoteGreenfieldRun } from './promote-run.js';
+import { promoteBrownfieldRun, promoteGreenfieldRun } from './promote-run.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
@@ -370,16 +377,68 @@ export function promotionSourceDir(opts: {
   runDir: string;
   plan: Plan;
   completedSliceIds: string[];
+  verifiedEpicSandboxes?: readonly VerifiedEpicSandbox[];
 }): { dir: string; conflicts: MergeConflict[] } {
   if (opts.sliceLayout === 'shared') return { dir: opts.sandboxDir, conflicts: [] };
   const completed = new Set(opts.completedSliceIds);
   const ordered = opts.plan.slices.map((s) => s.id).filter((id) => completed.has(id));
+  const verified = maximalVerifiedEpicSandboxes(opts.plan, opts.verifiedEpicSandboxes ?? []);
+  if (verified.length > 0) {
+    const coveredEpics = new Set<string>();
+    for (const sandbox of verified) {
+      for (const epicId of epicIdsForEpicVerifyMerge(opts.plan, sandbox.epicId)) coveredEpics.add(epicId);
+    }
+    const fallbackSlices = opts.plan.slices
+      .filter((slice) => completed.has(slice.id) && !coveredEpics.has(slice.epic_id))
+      .map((slice) => ({ id: slice.id, dir: join(opts.sandboxDir, slice.id) }));
+    const verifiedSources = verified.map((sandbox) => ({
+      id: `__epic__/${sandbox.epicId}`,
+      dir: sandbox.dir,
+    }));
+    const merge = mergeSourceDirsIntoTree({
+      sources: [...fallbackSlices, ...verifiedSources],
+      destDir: join(opts.runDir, '__promote__'),
+    });
+    return { dir: merge.mergeDir, conflicts: merge.conflicts };
+  }
   const merge = mergeCompletedSlicesIntoTree({
     parentSandboxDir: opts.sandboxDir,
     sliceIds: ordered,
     destDir: join(opts.runDir, '__promote__'),
   });
   return { dir: merge.mergeDir, conflicts: merge.conflicts };
+}
+
+export type VerifiedEpicSandbox = {
+  epicId: string;
+  dir: string;
+};
+
+function maximalVerifiedEpicSandboxes(
+  plan: Plan,
+  verifiedEpicSandboxes: readonly VerifiedEpicSandbox[],
+): VerifiedEpicSandbox[] {
+  const byEpic = new Map(verifiedEpicSandboxes.map((sandbox) => [sandbox.epicId, sandbox]));
+  const verifiedEpicIds = new Set(byEpic.keys());
+  return plan.epics
+    .map((epic) => byEpic.get(epic.id))
+    .filter((sandbox): sandbox is VerifiedEpicSandbox => {
+      if (!sandbox) return false;
+      return ![...verifiedEpicIds].some(
+        (otherEpicId) =>
+          otherEpicId !== sandbox.epicId &&
+          epicIdsForEpicVerifyMerge(plan, otherEpicId).includes(sandbox.epicId),
+      );
+    });
+}
+
+function verifiedEpicSandboxesFromReports(reports: FileReportSink): VerifiedEpicSandbox[] {
+  return reports.getAll().flatMap((line) => {
+    if (line.event !== 'epic-sandbox-merged') return [];
+    const { epicSandboxDir } = line.payload;
+    if (typeof epicSandboxDir !== 'string') return [];
+    return [{ epicId: line.epicId, dir: epicSandboxDir }];
+  });
 }
 
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };
@@ -401,7 +460,16 @@ function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
   return { kind: 'dirty', status };
 }
 
-export async function runCook(opts: CookOptions): Promise<void> {
+export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
+  const line = (text: string) => bus.emit({ kind: 'line', text });
+  const promoting = <T>(label: string, fn: () => T): T => {
+    bus.emit({ kind: 'activity-start', id: 'promote', label });
+    try {
+      return fn();
+    } finally {
+      bus.emit({ kind: 'activity-end', id: 'promote' });
+    }
+  };
   const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
 
   // Streaming pre-flight happens before any cook side effect (banner, plan
@@ -416,7 +484,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
       env: { PETRINAUT_URL: process.env.PETRINAUT_URL },
     });
     if ('error' in resolvedUrl) {
-      console.error(resolvedUrl.error);
+      line(resolvedUrl.error);
       process.exit(1);
     }
     petrinautUrl = resolvedUrl.url;
@@ -425,7 +493,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
 
   const resolved = resolveCookPlan(opts.dir, opts.specId);
   if (resolved.kind === 'error') {
-    console.error(resolved.message);
+    line(resolved.message);
     process.exit(1);
   }
 
@@ -434,7 +502,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
   // Worktree strategy follows the plan's spec-derived mode, not its location.
   const sandbox = resolveSandboxPlan(plan.mode, resolved.sourceDir);
   if (sandbox.kind === 'error') {
-    console.error(sandbox.message);
+    line(sandbox.message);
     process.exit(1);
   }
 
@@ -451,15 +519,16 @@ export async function runCook(opts: CookOptions): Promise<void> {
   const epicCount = plan.epics.length;
   const sliceCount = plan.slices.length;
 
-  console.error('');
-  console.error(`  brunch cook`);
-  console.error(`  ──────────────────────────────────────`);
-  console.error(`  policy     ${opts.policy}`);
-  console.error(`  plan       ${epicCount} epics, ${sliceCount} slices`);
-  console.error(`  retries    ${opts.maxRetries}`);
-  console.error(`  sandbox    ${sandboxDir}`);
-  console.error(`  reports    ${reportsPath}`);
-  console.error('');
+  for (const l of cookBannerLines({
+    policy: opts.policy,
+    epicCount,
+    sliceCount,
+    maxRetries: opts.maxRetries,
+    sandboxDir,
+    reportsPath,
+  })) {
+    line(l);
+  }
 
   const reports = new FileReportSink(reportsPath);
   const toolchain = resolveToolchain(plan.profile);
@@ -468,7 +537,15 @@ export async function runCook(opts: CookOptions): Promise<void> {
   const engine = createOrchestrator(opts.policy);
 
   const runStart = Date.now();
-  const actions = createPiActions({ verbose: opts.verbose, runStart, toolchain });
+  // Seed the presenter's elapsed clock; per-action progress carries no
+  // pre-formatted timing — the presenter owns it (I136-K).
+  bus.emit({ kind: 'cook-start', runStart });
+  const actions = createPiActions({
+    verbose: opts.verbose,
+    emit: (event) => bus.emit(event),
+    toolchain,
+    testRunner,
+  });
 
   // Stand up the live-stream setup handle when streaming is enabled.
   // Auto-open is suppressed by `--no-petrinaut-open` or CI.
@@ -478,6 +555,7 @@ export async function runCook(opts: CookOptions): Promise<void> {
           petrinautUrl,
           shouldOpen: opts.petrinautOpen && !process.env.CI,
           openUrl: defaultOpenUrl,
+          log: (text) => line(text),
           ...(streamPort !== undefined ? { port: streamPort } : {}),
         })
       : undefined;
@@ -504,41 +582,31 @@ export async function runCook(opts: CookOptions): Promise<void> {
     const duration = fmtDuration(Date.now() - runStart);
     const ok = result.status === 'completed';
 
-    console.error('');
-    console.error(`  ──────────────────────────────────────`);
-    console.error(
-      `  ${ok ? '✓' : '✗'}  ${result.status}${result.reason ? ` — ${result.reason}` : ''}  (${duration})`,
-    );
-    for (const warning of result.warnings) {
-      console.error(`  !  ${warning}`);
-    }
-    console.error('');
-
-    for (const e of result.epics) {
-      const icon = e.status === 'completed' ? '✓' : '✗';
-      const slices = result.slices.filter(
-        (s) => plan.slices.find((ps) => ps.id === s.sliceId)?.epic_id === e.epicId,
-      );
-      const sliceSummary = slices
-        .map((s) => `${s.status === 'completed' ? '✓' : '✗'} ${s.sliceId}`)
-        .join('  ');
-      console.error(`  ${icon}  ${e.epicId}`);
-      console.error(`     ${sliceSummary}`);
+    for (const l of cookSummaryLines({
+      status: result.status,
+      ...(result.reason ? { reason: result.reason } : {}),
+      duration,
+      warnings: result.warnings,
+      epics: result.epics,
+      slices: result.slices,
+      planSlices: plan.slices,
+      reportCount: result.reports.length,
+      reportsPath,
+    })) {
+      line(l);
     }
 
-    console.error('');
-    console.error(`  ${result.reports.length} events → ${reportsPath}`);
-    console.error('');
-
-    // Promotion-back is opt-in via --out and greenfield-only; a run that did
-    // not complete promotes nothing (the artifact stays inspectable).
-    if (opts.outDir) {
-      if (sandbox.kind === 'codebase') {
-        console.error(`  !  --out promotion is greenfield-only; brownfield output stays at ${sandboxDir}`);
-        console.error('');
-      } else if (!ok) {
-        console.error(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
-        console.error('');
+    // Brownfield promotion is automatic (the result already lives on the repo's
+    // own `cook/<runId>` branch); greenfield promotion is opt-in via --out. A run
+    // that did not complete promotes nothing — the artifact stays inspectable.
+    if (sandbox.kind === 'codebase') {
+      if (opts.outDir) {
+        line(`  !  --out is ignored for brownfield; the result lands on cook/${runId} in the repo`);
+        line('');
+      }
+      if (!ok) {
+        line(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
+        line('');
       } else {
         try {
           const source = promotionSourceDir({
@@ -547,25 +615,59 @@ export async function runCook(opts: CookOptions): Promise<void> {
             runDir,
             plan,
             completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
+            verifiedEpicSandboxes: verifiedEpicSandboxesFromReports(reports),
           });
           for (const c of source.conflicts) {
-            console.error(
-              `  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`,
-            );
+            line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
           }
-          const promoted = promoteGreenfieldRun({
-            sandboxDir: source.dir,
-            target: opts.outDir,
-            runId,
-            force: opts.force,
-          });
-          console.error(
-            `  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`,
+          const promoted = promoting(`promoting → cook/${runId}`, () =>
+            promoteBrownfieldRun({
+              sourceDir: sandbox.sourceDir,
+              sourceTreeDir: source.dir,
+              runId,
+            }),
           );
-          console.error('');
+          line(
+            `  ✓  promoted → ${promoted.branch} @ ${promoted.commit.slice(0, 8)}  (merge it into your branch when ready)`,
+          );
+          line('');
         } catch (err) {
-          console.error(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
-          console.error('');
+          line(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          line('');
+          recordCookExitStatus(false);
+          return;
+        }
+      }
+    } else if (opts.outDir) {
+      if (!ok) {
+        line(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
+        line('');
+      } else {
+        try {
+          const source = promotionSourceDir({
+            sliceLayout,
+            sandboxDir,
+            runDir,
+            plan,
+            completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
+            verifiedEpicSandboxes: verifiedEpicSandboxesFromReports(reports),
+          });
+          for (const c of source.conflicts) {
+            line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
+          }
+          const promoted = promoting(`promoting → ${opts.outDir}`, () =>
+            promoteGreenfieldRun({
+              sandboxDir: source.dir,
+              target: opts.outDir!,
+              runId,
+              force: opts.force,
+            }),
+          );
+          line(`  ✓  promoted → ${promoted.target}  (${promoted.branch} @ ${promoted.commit.slice(0, 8)})`);
+          line('');
+        } catch (err) {
+          line(`  ✗  promotion failed: ${err instanceof Error ? err.message : String(err)}`);
+          line('');
           recordCookExitStatus(false);
           return;
         }

@@ -22,6 +22,7 @@ import {
   type EmitterWarning,
 } from '../orchestrator/src/plan-emitter.js';
 import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.js';
+import type { CookBus } from '../orchestrator/src/presenter/bus.js';
 import { parseProfileId, type ProfileId } from '../orchestrator/src/project-profile.js';
 import { parseSpecId, specPlanPath } from '../orchestrator/src/spec-plan-paths.js';
 
@@ -66,6 +67,10 @@ export function parsePlanArgs(args: string[], defaultOutDir: string = process.cw
   return { specificationId, outDir, verbose, profile };
 }
 
+export function planRepoDirForLaunch(launchCwd: string): string {
+  return resolve(launchCwd);
+}
+
 export type RunPlanArgs = {
   specificationId: number;
   snapshot: CompletedSpecSnapshot;
@@ -73,25 +78,26 @@ export type RunPlanArgs = {
   verbose: boolean;
   /** Toolchain profile override (`--profile`); wins over the spec's profile. */
   profile?: ProfileId;
+  /**
+   * Project directory the toolchain is detected from for brownfield plans
+   * (`brunch-detect`). The CLI passes the launch cwd; greenfield ignores it.
+   */
+  repoDir?: string;
   /** Injectable LLM seam. Defaults to the production anthropic adapter via the emitter. */
   runModel?: RunModel;
-  /** Injectable stderr writer. Defaults to `console.error`. */
-  log?: (line: string) => void;
+  /** Presentation boundary. The orchestrator emits CookEvents; a presenter renders them. */
+  bus: CookBus;
 };
 
 export async function runPlan(args: RunPlanArgs): Promise<void> {
-  const log = args.log ?? ((line: string) => console.error(line));
+  const { bus } = args;
 
-  log('');
-  log('  brunch plan');
-  log('  ──────────────────────────────────────');
-  log(`  spec       ${args.specificationId}`);
-  log(`  out        ${args.outDir}`);
-  log('');
+  bus.emit({ kind: 'plan-start', specId: args.specificationId, outDir: args.outDir });
 
   const result = await emitPlanFromSnapshot(args.snapshot, {
     ...(args.runModel ? { runModel: args.runModel } : {}),
     ...(args.profile ? { profile: args.profile } : {}),
+    ...(args.repoDir ? { repoDir: args.repoDir } : {}),
   });
 
   // Spec-scoped output path. Each spec gets its own subdir so multiple
@@ -104,21 +110,18 @@ export async function runPlan(args: RunPlanArgs): Promise<void> {
   mkdirSync(dirname(planPath), { recursive: true });
   writeFileSync(planPath, stringifyYaml(result.plan));
 
-  log(`  ✓  plan      ${planPath}`);
-  log(`     ${result.plan.epics.length} epics, ${result.plan.slices.length} slices`);
-  log('');
+  bus.emit({
+    kind: 'plan-written',
+    path: planPath,
+    epics: result.plan.epics.length,
+    slices: result.plan.slices.length,
+  });
 
   // Audit-weight display: failure + transformation always; synthesis
   // only when --verbose. The header counts only what we print so the
   // number on screen matches the lines below it.
   const printed = result.warnings.filter((warning) => shouldPrint(warning, args.verbose));
-  if (printed.length > 0) {
-    log(`  ${printed.length} warnings:`);
-    for (const warning of printed) {
-      log(`  !  ${formatEmitterWarning(warning)}`);
-    }
-    log('');
-  }
+  bus.emit({ kind: 'plan-warnings', messages: printed.map((warning) => formatEmitterWarning(warning)) });
 }
 
 function shouldPrint(warning: EmitterWarning, verbose: boolean): boolean {

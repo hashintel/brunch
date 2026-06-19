@@ -15,8 +15,18 @@ import { parse as parseYaml } from 'yaml';
 
 import type { ArchitectDraft, RunModel } from '../orchestrator/src/plan-architect.js';
 import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.js';
+import { CookBus } from '../orchestrator/src/presenter/bus.js';
+import { PlainPresenter } from '../orchestrator/src/presenter/plain.js';
 import type { Plan } from '../orchestrator/src/types.js';
-import { parsePlanArgs, runPlan } from './plan-runner.js';
+import { parsePlanArgs, planRepoDirForLaunch, runPlan } from './plan-runner.js';
+
+/** A bus wired to a capturing PlainPresenter — the golden stderr stream. */
+function captureBus(): { bus: CookBus; lines: string[] } {
+  const lines: string[] = [];
+  const bus = new CookBus();
+  bus.subscribe(new PlainPresenter({ log: (line) => lines.push(line) }));
+  return { bus, lines };
+}
 
 describe('parsePlanArgs', () => {
   it('parses <specId>, --out=<dir>, --verbose', () => {
@@ -87,6 +97,12 @@ describe('parsePlanArgs', () => {
   });
 });
 
+describe('planRepoDirForLaunch', () => {
+  it('uses the command launch directory without walking up to the .brunch project root', () => {
+    expect(planRepoDirForLaunch('/repo/packages/app')).toBe('/repo/packages/app');
+  });
+});
+
 describe('runPlan', () => {
   function makeRunWithCycle() {
     const snapshot: CompletedSpecSnapshot = {
@@ -130,7 +146,7 @@ describe('runPlan', () => {
 
   it('writes .brunch/cook/plan.yaml and hides synthesis events at default verbosity', async () => {
     const { snapshot, dir, runModel } = makeRunWithCycle();
-    const stderrLines: string[] = [];
+    const { bus, lines: stderrLines } = captureBus();
 
     await runPlan({
       specificationId: 2,
@@ -138,7 +154,7 @@ describe('runPlan', () => {
       outDir: dir,
       verbose: false,
       runModel,
-      log: (line) => stderrLines.push(line),
+      bus,
     });
 
     const planPath = join(dir, '.brunch', 'cook', 'specs', '2', 'plan.yaml');
@@ -163,7 +179,7 @@ describe('runPlan', () => {
       verbose: false,
       profile: 'node-vitest',
       runModel,
-      log: () => {},
+      bus: new CookBus(),
     });
 
     const planPath = join(dir, '.brunch', 'cook', 'specs', '2', 'plan.yaml');
@@ -173,7 +189,7 @@ describe('runPlan', () => {
 
   it('shows synthesis events when --verbose is set', async () => {
     const { snapshot, dir, runModel } = makeRunWithCycle();
-    const stderrLines: string[] = [];
+    const { bus, lines: stderrLines } = captureBus();
 
     await runPlan({
       specificationId: 2,
@@ -181,7 +197,7 @@ describe('runPlan', () => {
       outDir: dir,
       verbose: true,
       runModel,
-      log: (line) => stderrLines.push(line),
+      bus,
     });
 
     expect(stderrLines.some((line) => line.includes('cycle-break-dropped-edge'))).toBe(true);
@@ -200,7 +216,7 @@ describe('runPlan', () => {
     const runModel: RunModel = async () => {
       throw new Error('llm-boom');
     };
-    const stderrLines: string[] = [];
+    const { bus, lines: stderrLines } = captureBus();
 
     await runPlan({
       specificationId: 2,
@@ -208,7 +224,7 @@ describe('runPlan', () => {
       outDir: dir,
       verbose: false,
       runModel,
-      log: (line) => stderrLines.push(line),
+      bus,
     });
 
     const planPath = join(dir, '.brunch', 'cook', 'specs', '2', 'plan.yaml');

@@ -1,9 +1,11 @@
 import { execFileSync } from 'node:child_process';
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -14,6 +16,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  ensureSliceWorktree,
   epicIdsForEpicVerifyMerge,
   mergeCompletedSlicesIntoTree,
   mergeSlicesIntoEpicSandbox,
@@ -274,17 +277,29 @@ describe('seedSliceFromParentWorktree', () => {
     expect(readFileSync(join(sliceDir, 'src/a.ts'), 'utf8')).toBe('export const a = 1;\n');
   });
 
-  it('untracked content arrives via CoW copy from the parent', () => {
+  it('untracked content (other than node_modules) arrives via CoW copy from the parent', () => {
     const { parent, addUntracked } = makeGitParentWorktree('r2');
-    // Simulate node_modules / generated artifacts present in the parent
-    // worktree but NOT tracked by git.
-    addUntracked('node_modules/dep/index.js', 'module.exports = 1;\n');
+    // Simulate generated artifacts present in the parent worktree but NOT
+    // tracked by git. `dist/` is copied (a slice may rebuild it independently).
     addUntracked('dist/bundle.js', 'console.log("bundle");\n');
 
     const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r2');
 
-    expect(readFileSync(join(sliceDir, 'node_modules/dep/index.js'), 'utf8')).toBe('module.exports = 1;\n');
+    expect(lstatSync(join(sliceDir, 'dist')).isSymbolicLink()).toBe(false);
     expect(readFileSync(join(sliceDir, 'dist/bundle.js'), 'utf8')).toBe('console.log("bundle");\n');
+  });
+
+  it('shares node_modules via a symlink to the parent rather than copying it', () => {
+    const { parent, addUntracked } = makeGitParentWorktree('r2b');
+    addUntracked('node_modules/dep/index.js', 'module.exports = 1;\n');
+
+    const sliceDir = seedSliceFromParentWorktree(parent, 'only', singleSlicePlan, 'r2b');
+
+    const linkPath = join(sliceDir, 'node_modules');
+    expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(linkPath)).toBe(join(parent, 'node_modules'));
+    // Resolves transparently for pi-actions reading deps through the link.
+    expect(readFileSync(join(linkPath, 'dep/index.js'), 'utf8')).toBe('module.exports = 1;\n');
   });
 
   it('slice worktree is checked out on a slice-level cook branch', () => {
@@ -338,6 +353,85 @@ describe('seedSliceFromParentWorktree', () => {
       expect(() => seedSliceFromParentWorktree(parent, 'src', plan, 'r6')).toThrow(
         'Slice id "src" collides with an existing entry in the parent worktree',
       );
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+});
+
+describe('ensureSliceWorktree', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  const singleSlicePlan: Plan = {
+    mode: 'brownfield',
+    epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+    slices: [{ id: 'only', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
+  };
+
+  function makeGitParentWorktree(runId: string): string {
+    const source = mkdtempSync(join(tmpdir(), 'cook-source-'));
+    dirs.push(source);
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: source });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: source });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: source });
+    writeFileSync(join(source, 'README.md'), '# project\n');
+    execFileSync('git', ['add', '.'], { cwd: source });
+    execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: source });
+
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
+    dirs.push(runDir);
+    const parent = join(runDir, 'worktree');
+    execFileSync('git', ['worktree', 'add', '-q', '-b', `cook/${runId}`, parent, 'HEAD'], { cwd: source });
+    return parent;
+  }
+
+  it(
+    'creates the slice worktree on first call and is a no-op on repeat (rework-safe)',
+    () => {
+      const parent = makeGitParentWorktree('r1');
+
+      const first = ensureSliceWorktree(parent, 'only', singleSlicePlan, 'r1');
+      expect(existsSync(join(first, 'README.md'))).toBe(true);
+
+      // Second call must not throw (seedSliceFromParentWorktree would, via its
+      // path-availability assertion) and must return the same dir.
+      const second = ensureSliceWorktree(parent, 'only', singleSlicePlan, 'r1');
+      expect(second).toBe(first);
+    },
+    GIT_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'fails loudly when a slice id collides with a tracked parent entry, not a worktree',
+    () => {
+      // A slice id matching a tracked top-level dir (here `src`) resolves to an
+      // existing path that is NOT a provisioned worktree. Early-returning it
+      // would hand the project source to the slice as its sandbox.
+      const source = mkdtempSync(join(tmpdir(), 'cook-source-'));
+      dirs.push(source);
+      execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: source });
+      execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: source });
+      execFileSync('git', ['config', 'user.name', 'Test'], { cwd: source });
+      mkdirSync(join(source, 'src'));
+      writeFileSync(join(source, 'src', 'index.ts'), 'export {};\n');
+      execFileSync('git', ['add', '.'], { cwd: source });
+      execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: source });
+
+      const runDir = mkdtempSync(join(tmpdir(), 'cook-run-'));
+      dirs.push(runDir);
+      const parent = join(runDir, 'worktree');
+      execFileSync('git', ['worktree', 'add', '-q', '-b', 'cook/r2', parent, 'HEAD'], { cwd: source });
+
+      const collidingPlan: Plan = {
+        mode: 'brownfield',
+        epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
+        slices: [{ id: 'src', epic_id: 'e1', definition: '', depends_on: [], verification: [] }],
+      };
+
+      expect(() => ensureSliceWorktree(parent, 'src', collidingPlan, 'r2')).toThrow(/collides/i);
     },
     GIT_TEST_TIMEOUT_MS,
   );
@@ -532,6 +626,24 @@ describe('mergeSlicesIntoEpicSandbox', () => {
 
     expect(existsSync(join(result.epicSandboxDir, 'src/a.ts'))).toBe(true);
     expect(existsSync(join(result.epicSandboxDir, 'escape.link'))).toBe(false);
+  });
+
+  it('keeps the parent node_modules link available in the merged verify sandbox', () => {
+    const parent = makeParent();
+    seedSlice(parent, 'slice-a', { 'src/a.ts': 'A\n' });
+    mkdirSync(join(parent, 'node_modules', 'dep'), { recursive: true });
+    writeFileSync(join(parent, 'node_modules', 'dep/index.js'), 'module.exports = 1;\n');
+    symlinkSync(join(parent, 'node_modules'), join(parent, 'slice-a', 'node_modules'), 'dir');
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-a',
+      sliceIds: ['slice-a'],
+    });
+
+    const linkPath = join(result.epicSandboxDir, 'node_modules');
+    expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+    expect(readFileSync(join(linkPath, 'dep/index.js'), 'utf8')).toBe('module.exports = 1;\n');
   });
 
   it('replaces a file with a directory when later slices need nested paths', () => {

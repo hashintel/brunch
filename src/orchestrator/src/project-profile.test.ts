@@ -7,6 +7,7 @@ import {
   PROFILES,
   resolveToolchain,
   UnknownProfileError,
+  withTestDir,
 } from './project-profile.js';
 
 describe('toolchain target shaping', () => {
@@ -139,5 +140,32 @@ describe('parseProfileId', () => {
     }
     expect(() => parseProfileId('rust')).toThrow(UnknownProfileError);
     expect(() => parseProfileId('toString')).toThrow(UnknownProfileError);
+  });
+});
+
+describe('withTestDir relocates test targets while preserving the filename convention', () => {
+  it('moves a tests/-default profile into the detected directory', () => {
+    const relocated = withTestDir(PROFILES['node-vitest'].toolchain, 'src');
+    expect(relocated.sliceTarget('req-180')).toBe('src/req-180.test.ts');
+    expect(relocated.epicTarget('epic-1')).toBe('src/epic-1.integration.test.ts');
+  });
+
+  it('relocates the root-co-located brunch profile into a directory', () => {
+    const relocated = withTestDir(brunchProfile.toolchain, 'src');
+    expect(relocated.sliceTarget('req-180')).toBe('src/req-180.test.ts');
+  });
+
+  it('strips a trailing slash from the directory', () => {
+    expect(withTestDir(bunProfile.toolchain, 'pkg/').sliceTarget('s1')).toBe('pkg/s1.test.ts');
+  });
+
+  it('an empty or "." directory places tests at the repo root', () => {
+    expect(withTestDir(bunProfile.toolchain, '').sliceTarget('s1')).toBe('s1.test.ts');
+    expect(withTestDir(bunProfile.toolchain, '.').sliceTarget('s1')).toBe('s1.test.ts');
+  });
+
+  it('leaves the test command untouched (only the target path changes)', () => {
+    const relocated = withTestDir(PROFILES['node-vitest'].toolchain, 'src');
+    expect(relocated.testCommand('src/x.test.ts')).toEqual(['npx', 'vitest', 'run', 'src/x.test.ts']);
   });
 });

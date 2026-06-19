@@ -1,4 +1,3 @@
-import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -14,10 +13,22 @@ import {
   SettingsManager,
 } from '@earendil-works/pi-coding-agent';
 
+import { buildProbeSpec, runProbe } from './app-probe.js';
+import type { CookEvent } from './presenter/events.js';
 import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
 import { sliceLabel } from './slice-label.js';
-import type { ActionContext, ActionHandlers, Epic, Slice } from './types.js';
+import { runVerification, ToolchainTestRunner } from './test-runner.js';
+import type {
+  ActionContext,
+  ActionHandlers,
+  Epic,
+  ProbeGrounder,
+  ProbeResult,
+  ProbeTarget,
+  Slice,
+  TestRunner,
+} from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const promptsDir = __dirname.includes('dist')
@@ -28,27 +39,30 @@ const promptsDir = __dirname.includes('dist')
 // Logging
 // ---------------------------------------------------------------------------
 
-let t0 = 0;
 let _verbose = false;
-
-function elapsed(): string {
-  const s = ((Date.now() - t0) / 1000).toFixed(1);
-  return `${s}s`.padStart(7);
-}
+// Presentation boundary. Per-action progress flows to the CookBus as
+// CookEvents; the presenter owns formatting (and the elapsed clock —
+// I136-K). Defaults to a no-op so unit tests that ignore output run clean.
+let _emit: (event: CookEvent) => void = () => {};
 
 function log(icon: string, msg: string): void {
-  console.error(`  ${elapsed()}  ${icon}  ${msg}`);
+  _emit({ kind: 'action', icon, message: msg });
 }
 
 function logVerbose(output: string): void {
   if (!_verbose) return;
-  const trimmed = output.trim();
-  if (!trimmed) return;
-  console.error('');
-  for (const line of trimmed.split('\n')) {
-    console.error(`             │ ${line}`);
+  // The presenter trims and skips blank output.
+  _emit({ kind: 'verbose', text: output });
+}
+
+/** Bracket a wait so it shows as a live pending activity; always closes. */
+async function withActivity<T>(id: string, label: string, fn: () => Promise<T>): Promise<T> {
+  _emit({ kind: 'activity-start', id, label });
+  try {
+    return await fn();
+  } finally {
+    _emit({ kind: 'activity-end', id });
   }
-  console.error('');
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +185,9 @@ async function runPi(
   const timeoutMs = deps.timeoutMs ?? PI_TIMEOUT_MS;
   const maxOutput = deps.maxOutput ?? PI_MAX_OUTPUT;
   const start = Date.now();
+  // Open a live wait so the (up to 5-minute) agent session isn't dead air.
+  _emit({ kind: 'activity-start', id: opts.label, label: opts.label });
+  let heartbeatKb = 0;
 
   const isolatedDir = createAgentDir();
   let cleanedAgentDir = false;
@@ -227,6 +244,12 @@ async function runPi(
         }
         captured += delta;
         capturedBytes += deltaBytes;
+        // Throttled heartbeat — every 2 KB — so the spinner shows progress, not churn.
+        const kb = Math.floor(capturedBytes / 1024);
+        if (kb >= heartbeatKb + 2) {
+          heartbeatKb = kb;
+          _emit({ kind: 'activity-progress', id: opts.label, detail: `${kb} KB` });
+        }
       }
     });
 
@@ -241,6 +264,9 @@ async function runPi(
     unsubscribe?.();
     session?.dispose();
     cleanupAgentDir();
+    // Always close the wait — even on timeout / overflow / prompt error — so
+    // the spinner can never hang.
+    _emit({ kind: 'activity-end', id: opts.label });
   }
 
   if (timedOut) throw piTimeoutError(timeoutMs);
@@ -261,65 +287,25 @@ async function runPi(
 
 export { runPi };
 
-/**
- * Decide whether a slice is done by executing its verification targets. `done`
- * requires at least one target and every target passing — a slice with no
- * runnable verification cannot be proven done (no requisite variety). This is
- * the real oracle: it replaces the prior LLM verdict over criterion prose,
- * which a standalone component or Ladle story could satisfy without the
- * feature working.
- */
-export async function evaluateVerificationTargets(
-  targets: readonly { target: string }[],
-  runTarget: (target: string) => Promise<boolean>,
-): Promise<{ done: boolean; results: Array<{ target: string; passed: boolean }> }> {
-  const results: Array<{ target: string; passed: boolean }> = [];
-  for (const t of targets) {
-    let passed = false;
-    try {
-      passed = await runTarget(t.target);
-    } catch {
-      passed = false;
-    }
-    results.push({ target: t.target, passed });
-  }
-  return { done: results.length > 0 && results.every((r) => r.passed), results };
-}
-
-async function runTest(toolchain: Toolchain, target: string, sandboxDir: string): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
-    const [command, ...args] = toolchain.testCommand(target);
-    const child = spawn(command!, args, {
-      cwd: sandboxDir,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
-    let settled = false;
-
-    const finish = (passed: boolean): void => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      const output = Buffer.concat([...stdoutChunks, ...stderrChunks]).toString('utf8');
-      logVerbose(output);
-      resolve(passed);
-    };
-
-    const timer = setTimeout(() => {
-      child.kill('SIGTERM');
-      finish(false);
-    }, 60_000);
-
-    child.stdout?.on('data', (chunk: Buffer) => stdoutChunks.push(chunk));
-    child.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
-    child.on('error', () => finish(false));
-    child.on('close', (code) => finish(code === 0));
-  });
-}
-
 function report(ctx: ActionContext, actor: string, event: string, payload: Record<string, unknown>): string {
   return createReport(ctx.reports, { epicId: ctx.epic.id, sliceId: ctx.slice.id, actor, event, payload });
+}
+
+/**
+ * Resolve the epic's reachability probe target (FE-876): a concrete `epic.probe`
+ * wins (Half A — fixtures / explicit); otherwise a host-blind `epic.reachability`
+ * intent is ground into a `ProbeTarget` by the injected cook-time grounder
+ * (Half B). With no concrete target, no intent, or no grounder, there is nothing
+ * to probe — the epic falls back to the unit-test verdict alone.
+ */
+async function resolveProbeTarget(
+  epic: Epic,
+  sandboxDir: string,
+  ground: ProbeGrounder | undefined,
+): Promise<ProbeTarget | undefined> {
+  if (epic.probe) return epic.probe;
+  if (epic.reachability && ground) return ground(epic.reachability, sandboxDir);
+  return undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -344,25 +330,42 @@ export function epicVerifyTask(epic: Epic, toolchain: Toolchain): string {
 
 export function createPiActions(opts?: {
   verbose?: boolean;
-  runStart?: number;
+  /** Presentation sink. Per-action progress is emitted as CookEvents; defaults to no-op. */
+  emit?: (event: CookEvent) => void;
   toolchain?: Toolchain;
+  testRunner?: TestRunner;
+  /** Inject the agent-session factory (tests stub it so no real session runs). */
+  createSession?: SessionFactory;
+  /**
+   * Cook-time probe grounding (FE-876 Half B): resolve an epic's host-blind
+   * `reachability` intent into a concrete `ProbeTarget`. Absent → reachability
+   * intents are not enforced (the agent grounder lands with the pi-harness
+   * contract); concrete `epic.probe` targets work regardless.
+   */
+  groundProbe?: ProbeGrounder;
 }): ActionHandlers {
   _verbose = opts?.verbose ?? false;
-  t0 = opts?.runStart ?? Date.now();
+  _emit = opts?.emit ?? (() => {});
   const toolchain = opts?.toolchain ?? defaultToolchain;
+  const testRunner = opts?.testRunner ?? new ToolchainTestRunner(toolchain);
+  const groundProbe = opts?.groundProbe;
+  const piDeps = opts?.createSession ? { createSession: opts.createSession } : {};
 
   return {
     'evaluate-done': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
       log('?', `evaluate  ${label}`);
-      const { done, results } = await evaluateVerificationTargets(ctx.slice.verification, (target) =>
-        runTest(toolchain, target, ctx.sandboxDir),
+      const { done, failureKind, results } = await withActivity(
+        `verify ${label}`,
+        `running tests · ${label}`,
+        () => runVerification(ctx.slice.verification, testRunner, ctx.sandboxDir),
       );
       for (const r of results) {
+        logVerbose(r.output);
         log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
       }
       log(done ? '●' : '○', `verdict   ${label} → ${done ? 'DONE' : 'NEEDS WORK'}`);
-      return report(ctx, 'evaluator', 'eval-done', { done, results });
+      return report(ctx, 'evaluator', 'eval-done', { done, failureKind, results });
     },
 
     'write-tests': async (ctx: ActionContext) => {
@@ -370,14 +373,17 @@ export function createPiActions(opts?: {
       log('▸', `tests     ${label}`);
       const task = sliceTestTask(ctx.slice, toolchain);
 
-      await runPi({
-        label: `tests     ${label}`,
-        model: 'claude-sonnet-4-6',
-        promptFile: join(promptsDir, 'test-writer.md'),
-        task,
-        sandboxDir: ctx.sandboxDir,
-        tools: toolsForAction('write-tests'),
-      });
+      await runPi(
+        {
+          label: `tests     ${label}`,
+          model: 'claude-sonnet-4-6',
+          promptFile: join(promptsDir, 'test-writer.md'),
+          task,
+          sandboxDir: ctx.sandboxDir,
+          tools: toolsForAction('write-tests'),
+        },
+        piDeps,
+      );
 
       return report(ctx, 'test-writer', 'tests-written', {
         sliceId: ctx.slice.id,
@@ -390,14 +396,17 @@ export function createPiActions(opts?: {
       log('▸', `code      ${label}`);
       const task = `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`;
 
-      await runPi({
-        label: `code      ${label}`,
-        model: 'claude-sonnet-4-6',
-        promptFile: join(promptsDir, 'code-writer.md'),
-        task,
-        sandboxDir: ctx.sandboxDir,
-        tools: toolsForAction('write-code'),
-      });
+      await runPi(
+        {
+          label: `code      ${label}`,
+          model: 'claude-sonnet-4-6',
+          promptFile: join(promptsDir, 'code-writer.md'),
+          task,
+          sandboxDir: ctx.sandboxDir,
+          tools: toolsForAction('write-code'),
+        },
+        piDeps,
+      );
 
       return report(ctx, 'code-writer', 'code-written', {
         sliceId: ctx.slice.id,
@@ -415,25 +424,66 @@ export function createPiActions(opts?: {
       log('▸', `verify    ${ctx.epic.id}`);
       const writeTask = epicVerifyTask(ctx.epic, toolchain);
 
-      await runPi({
-        label: `verify    ${ctx.epic.id} (write)`,
-        model: 'claude-sonnet-4-6',
-        promptFile: join(promptsDir, 'test-writer.md'),
-        task: writeTask,
-        sandboxDir: ctx.sandboxDir,
-        tools: toolsForAction('verify-epic'),
-      });
+      await runPi(
+        {
+          label: `verify    ${ctx.epic.id} (write)`,
+          model: 'claude-sonnet-4-6',
+          promptFile: join(promptsDir, 'test-writer.md'),
+          task: writeTask,
+          sandboxDir: ctx.sandboxDir,
+          tools: toolsForAction('verify-epic'),
+        },
+        piDeps,
+      );
 
-      let allPassed = true;
-      for (const v of ctx.epic.verification) {
-        const passed = await runTest(toolchain, v.target, ctx.sandboxDir);
-        log(passed ? '✓' : '✗', `verify    ${v.target}`);
-        allPassed &&= passed;
+      const {
+        done: testsPassed,
+        failureKind,
+        results,
+      } = await withActivity(`verify-epic ${ctx.epic.id}`, `running tests · ${ctx.epic.id}`, () =>
+        runVerification(ctx.epic.verification, testRunner, ctx.sandboxDir),
+      );
+      for (const r of results) {
+        logVerbose(r.output);
+        log(r.passed ? '✓' : '✗', `verify    ${r.target}`);
       }
 
-      log(allPassed ? '●' : '✗', `epic      ${ctx.epic.id} → ${allPassed ? 'PASS' : 'FAIL'}`);
+      // Integration oracle (FE-876): the epic is reachable only when the booted
+      // merged tree answers the feature endpoint. `not-reachable` is the FE-800
+      // orphan (code merged but never wired into the running app); `infra` is a
+      // harness fault, not a wiring verdict. Gate the boot on tests passing —
+      // never boot a known-broken build. The probe target is either concrete
+      // (`epic.probe`, Half A) or cook-time-grounded from `epic.reachability`
+      // (Half B); a grounder that throws is itself an `infra` fault.
+      let probe: ProbeResult | undefined;
+      if (testsPassed) {
+        try {
+          const target = await resolveProbeTarget(ctx.epic, ctx.sandboxDir, groundProbe);
+          if (target) {
+            probe = await withActivity(
+              `probe ${ctx.epic.id}`,
+              `probing reachability · ${ctx.epic.id}`,
+              async () => runProbe(await buildProbeSpec(target), ctx.sandboxDir),
+            );
+          }
+        } catch (err) {
+          probe = { kind: 'infra', reachable: false, output: `probe grounding failed: ${String(err)}` };
+        }
+        if (probe) {
+          logVerbose(probe.output);
+          log(
+            probe.reachable ? '✓' : '✗',
+            `probe     ${ctx.epic.id} → ${probe.kind}${probe.status === undefined ? '' : ` (${probe.status})`}`,
+          );
+        }
+      }
+      const passed = testsPassed && (probe === undefined || probe.reachable);
+
+      log(passed ? '●' : '✗', `epic      ${ctx.epic.id} → ${passed ? 'PASS' : 'FAIL'}`);
       return report(ctx, 'orchestrator', 'epic-verified', {
-        passed: allPassed,
+        passed,
+        failureKind,
+        ...(probe ? { reachability: probe.kind } : {}),
       });
     },
   };

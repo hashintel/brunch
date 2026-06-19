@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -585,6 +585,30 @@ describe('promotionSourceDir', () => {
     expect(existsSync(join(r.dir, 'a.txt'))).toBe(true);
     expect(existsSync(join(r.dir, 'b.txt'))).toBe(true);
     expect(r.dir).not.toBe(sandbox);
+  });
+
+  it('promotes the verified epic sandbox when verify-epic authored integration files there', () => {
+    const sandbox = mkdtempSync(join(tmpdir(), 'ps-perslice-'));
+    const runDir = mkdtempSync(join(tmpdir(), 'ps-run-'));
+    psDirs.push(sandbox, runDir);
+    mkdirSync(join(sandbox, 'a'));
+    writeFileSync(join(sandbox, 'a', 'feature.txt'), 'slice-only\n');
+    const epicDir = join(sandbox, '__epic__', 'e1');
+    mkdirSync(join(epicDir, 'tests'), { recursive: true });
+    writeFileSync(join(epicDir, 'feature.txt'), 'verified\n');
+    writeFileSync(join(epicDir, 'tests/integration.test.ts'), 'it("works", () => {});\n');
+
+    const r = promotionSourceDir({
+      sliceLayout: 'per-slice',
+      sandboxDir: sandbox,
+      runDir,
+      plan,
+      completedSliceIds: ['a', 'b'],
+      verifiedEpicSandboxes: [{ epicId: 'e1', dir: epicDir }],
+    });
+
+    expect(readFileSync(join(r.dir, 'feature.txt'), 'utf8')).toBe('verified\n');
+    expect(readFileSync(join(r.dir, 'tests/integration.test.ts'), 'utf8')).toBe('it("works", () => {});\n');
   });
 });
 

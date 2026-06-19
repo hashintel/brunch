@@ -3,20 +3,20 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   createPiActions,
   epicVerifyTask,
-  evaluateVerificationTargets,
   runPi,
   type SessionFactory,
   sliceTestTask,
   toolsForAction,
 } from './pi-actions.js';
+import type { CookEvent } from './presenter/events.js';
 import { brunchProfile, bunProfile } from './project-profile.js';
 import { InMemoryReportSink } from './report-sink.js';
-import type { ActionContext, Epic, Slice } from './types.js';
+import type { ActionContext, Epic, Plan, ProbeGrounder, Slice, TestResult, TestRunner } from './types.js';
 
 const promptsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'prompts');
 
@@ -58,34 +58,342 @@ describe('cook task builders carry the toolchain conventions, not a hardcoded st
   });
 });
 
-describe('evaluateVerificationTargets — done reflects real test execution', () => {
-  it('done only when at least one target exists and every target passes', async () => {
-    const { done } = await evaluateVerificationTargets([{ target: 'a' }, { target: 'b' }], async () => true);
-    expect(done).toBe(true);
-  });
+describe('evaluate-done / verify-epic share the runner seam — failureKind is visible at both', () => {
+  const slice: Slice = {
+    id: 'chunk',
+    epic_id: 'utils',
+    definition: 'Add chunk()',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+  };
+  const epic: Epic = {
+    id: 'utils',
+    summary: 'Utilities',
+    depends_on: [],
+    verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+  };
+  const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
 
-  it('not done if any target fails, and reports per-target results', async () => {
-    const { done, results } = await evaluateVerificationTargets(
-      [{ target: 'a' }, { target: 'b' }],
-      async (t) => t === 'a',
-    );
-    expect(done).toBe(false);
-    expect(results).toEqual([
-      { target: 'a', passed: true },
-      { target: 'b', passed: false },
-    ]);
-  });
+  function fakeRunner(result: TestResult): TestRunner {
+    return {
+      async run() {
+        return result;
+      },
+    };
+  }
 
-  it('not done when there are no verification targets (nothing proves it)', async () => {
-    const { done } = await evaluateVerificationTargets([], async () => true);
-    expect(done).toBe(false);
-  });
+  function ctx(reports: InMemoryReportSink): ActionContext {
+    return { slice, epic, plan, sandboxDir: '/tmp/unused', reports };
+  }
 
-  it('a throwing runner counts as a failed target', async () => {
-    const { done } = await evaluateVerificationTargets([{ target: 'x' }], async () => {
-      throw new Error('runner blew up');
+  it('evaluate-done surfaces an infra failureKind in the eval-done report', async () => {
+    const reports = new InMemoryReportSink();
+    const actions = createPiActions({
+      testRunner: fakeRunner({ passed: false, output: 'no runner', failureKind: 'infra' }),
     });
-    expect(done).toBe(false);
+    const id = await actions['evaluate-done']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { done: boolean; failureKind?: string };
+    expect(payload.done).toBe(false);
+    expect(payload.failureKind).toBe('infra');
+  });
+
+  it('evaluate-done reports a passing verdict with no failureKind', async () => {
+    const reports = new InMemoryReportSink();
+    const actions = createPiActions({ testRunner: fakeRunner({ passed: true, output: 'ok' }) });
+    const id = await actions['evaluate-done']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { done: boolean; failureKind?: string };
+    expect(payload.done).toBe(true);
+    expect(payload.failureKind).toBeUndefined();
+  });
+
+  it('verify-epic surfaces an infra failureKind in the epic-verified report', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const reports = new InMemoryReportSink();
+    // verify-epic first runs a pi session to author the integration test; stub
+    // it so no real agent runs, then the injected runner reports the infra fail.
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const actions = createPiActions({
+      testRunner: fakeRunner({ passed: false, output: 'no runner', failureKind: 'infra' }),
+      createSession,
+    });
+    const id = await actions['verify-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { passed: boolean; failureKind?: string };
+    expect(payload.passed).toBe(false);
+    expect(payload.failureKind).toBe('infra');
+  });
+
+  it('brackets the test-run wait with a balanced activity-start/end', async () => {
+    const events: CookEvent[] = [];
+    const actions = createPiActions({
+      testRunner: fakeRunner({ passed: true, output: 'ok' }),
+      emit: (e) => events.push(e),
+    });
+    await actions['evaluate-done']!(ctx(new InMemoryReportSink()));
+
+    const starts = events.filter((e) => e.kind === 'activity-start');
+    const ends = events.filter((e) => e.kind === 'activity-end');
+    expect(starts).toHaveLength(1);
+    expect(ends).toHaveLength(1);
+    expect((ends[0] as { id: string }).id).toBe((starts[0] as { id: string }).id);
+  });
+
+  it('closes the pi-session activity even when the session fails (finally)', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const events: CookEvent[] = [];
+    const createSession = (async () => {
+      throw new Error('session boom');
+    }) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+
+    await expect(actions['write-tests']!(ctx(new InMemoryReportSink()))).rejects.toThrow();
+    expect(events.filter((e) => e.kind === 'activity-start')).toHaveLength(1);
+    expect(events.filter((e) => e.kind === 'activity-end')).toHaveLength(1);
+  });
+});
+
+describe('verify-epic integration oracle (FE-876) — reachability folds into the epic verdict', () => {
+  const probeDirs: string[] = [];
+  afterEach(() => {
+    for (const dir of probeDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+  });
+
+  // A real zero-dep app that answers `routes` (path → status); 404 otherwise.
+  function appSandbox(routes: Record<string, number>): string {
+    const dir = mkdtempSync(join(tmpdir(), 'verify-epic-probe-'));
+    probeDirs.push(dir);
+    writeFileSync(
+      join(dir, 'server.js'),
+      `const http = require('node:http');\n` +
+        `const routes = ${JSON.stringify(routes)};\n` +
+        `http.createServer((req, res) => {\n` +
+        `  const status = routes[req.url] ?? 404;\n` +
+        `  res.writeHead(status); res.end(String(status));\n` +
+        `}).listen(Number(process.env.PORT), '127.0.0.1');\n`,
+    );
+    return dir;
+  }
+
+  function epicWithProbe(): Epic {
+    return {
+      id: 'utils',
+      summary: 'Utilities',
+      depends_on: [],
+      verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+      probe: { boot: ['node', 'server.js'], readyPath: '/health', featurePath: '/feature' },
+    };
+  }
+
+  function passingActions(sandboxDir: string): {
+    actions: ReturnType<typeof createPiActions>;
+    ctx: (reports: InMemoryReportSink) => ActionContext;
+  } {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const epic = epicWithProbe();
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      createSession,
+    });
+    return { actions, ctx: (reports) => ({ slice, epic, plan, sandboxDir, reports }) };
+  }
+
+  it('tests pass + feature reachable → epic passes (reachable)', async () => {
+    const reports = new InMemoryReportSink();
+    const { actions, ctx } = passingActions(appSandbox({ '/health': 200, '/feature': 200 }));
+    const id = await actions['verify-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { passed: boolean; reachability?: string };
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBe('reachable');
+  });
+
+  it('tests pass but feature endpoint is absent → epic fails (the FE-800 orphan)', async () => {
+    const reports = new InMemoryReportSink();
+    // App boots and answers /health, but /feature is 404 — merged but not wired in.
+    const { actions, ctx } = passingActions(appSandbox({ '/health': 200 }));
+    const id = await actions['verify-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as { passed: boolean; reachability?: string };
+    expect(payload.passed).toBe(false);
+    expect(payload.reachability).toBe('not-reachable');
+  });
+
+  it('failing tests short-circuit the probe — no boot, unchanged unit verdict', async () => {
+    const reports = new InMemoryReportSink();
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const epic = epicWithProbe();
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: false, output: 'no runner', failureKind: 'infra' };
+        },
+      },
+      createSession,
+    });
+    // Point at a dir with no server.js: if the probe booted, it would error — it
+    // must not run because tests failed first.
+    const id = await actions['verify-epic']!({ slice, epic, plan, sandboxDir: tmpdir(), reports });
+    const payload = reports.getById(id)!.payload as {
+      passed: boolean;
+      failureKind?: string;
+      reachability?: string;
+    };
+    expect(payload.passed).toBe(false);
+    expect(payload.failureKind).toBe('infra');
+    expect(payload.reachability).toBeUndefined();
+  });
+
+  it('no probe target → unit-test verdict only (unchanged behavior)', async () => {
+    const reports = new InMemoryReportSink();
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const epic: Epic = {
+      id: 'utils',
+      summary: 'Utilities',
+      depends_on: [],
+      verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+    };
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      createSession,
+    });
+    const id = await actions['verify-epic']!({ slice, epic, plan, sandboxDir: tmpdir(), reports });
+    const payload = reports.getById(id)!.payload as { passed: boolean; reachability?: string };
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBeUndefined();
+  });
+
+  // ---- Half B: cook-time grounding seam -----------------------------------
+
+  function intentEpic(extra?: Partial<Epic>): Epic {
+    return {
+      id: 'utils',
+      summary: 'Utilities',
+      depends_on: [],
+      verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+      reachability: { feature: 'the /feature route responds' },
+      ...extra,
+    };
+  }
+
+  function groundedVerifyEpic(opts: {
+    sandboxDir: string;
+    epic: Epic;
+    groundProbe?: ProbeGrounder;
+  }): Promise<{ passed: boolean; reachability?: string }> {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const reports = new InMemoryReportSink();
+    const fake = makeFakeSession({ emit: 'wrote the integration test' });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const slice: Slice = {
+      id: 'chunk',
+      epic_id: 'utils',
+      definition: 'Add chunk()',
+      depends_on: [],
+      verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+    };
+    const plan: Plan = { mode: 'greenfield', epics: [opts.epic], slices: [slice] };
+    const actions = createPiActions({
+      testRunner: {
+        async run() {
+          return { passed: true, output: 'ok' };
+        },
+      },
+      createSession,
+      groundProbe: opts.groundProbe,
+    });
+    return actions['verify-epic']!({
+      slice,
+      epic: opts.epic,
+      plan,
+      sandboxDir: opts.sandboxDir,
+      reports,
+    }).then((id) => reports.getById(id)!.payload as { passed: boolean; reachability?: string });
+  }
+
+  it('grounds a reachability intent into a concrete target, then probes it', async () => {
+    let seenFeature = '';
+    const payload = await groundedVerifyEpic({
+      sandboxDir: appSandbox({ '/health': 200, '/feature': 200 }),
+      epic: intentEpic(),
+      groundProbe: async (intent) => {
+        seenFeature = intent.feature;
+        return { boot: ['node', 'server.js'], readyPath: '/health', featurePath: '/feature' };
+      },
+    });
+    expect(seenFeature).toContain('/feature');
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBe('reachable');
+  });
+
+  it('a reachability intent with no injected grounder is a no-op (unit verdict only)', async () => {
+    // sandbox has no app; if grounding ran and probed, it would error/fail.
+    const payload = await groundedVerifyEpic({ sandboxDir: tmpdir(), epic: intentEpic() });
+    expect(payload.passed).toBe(true);
+    expect(payload.reachability).toBeUndefined();
+  });
+
+  it('a grounder that throws is an infra fault — the epic fails, not silently passes', async () => {
+    const payload = await groundedVerifyEpic({
+      sandboxDir: tmpdir(),
+      epic: intentEpic(),
+      groundProbe: async () => {
+        throw new Error('agent could not resolve wiring');
+      },
+    });
+    expect(payload.passed).toBe(false);
+    expect(payload.reachability).toBe('infra');
+  });
+
+  it('a concrete probe target wins over a reachability intent (Half A precedence)', async () => {
+    let grounderCalled = false;
+    const payload = await groundedVerifyEpic({
+      sandboxDir: appSandbox({ '/health': 200, '/feature': 200 }),
+      epic: intentEpic({
+        probe: { boot: ['node', 'server.js'], readyPath: '/health', featurePath: '/feature' },
+      }),
+      groundProbe: async () => {
+        grounderCalled = true;
+        throw new Error('should not be called');
+      },
+    });
+    expect(grounderCalled).toBe(false);
+    expect(payload.reachability).toBe('reachable');
   });
 });
 

@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync, realpathSync } from 'node:fs';
-import { basename, isAbsolute, relative, resolve } from 'node:path';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 
 export type PromoteResult = { target: string; branch: string; commit: string };
 
@@ -11,8 +12,16 @@ export type PromoteOptions = {
   force: boolean;
 };
 
-function git(args: string[], cwd: string): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+export type BrownfieldPromoteOptions = {
+  /** The user's repo root the brownfield cook ran against (a worktree of it). */
+  sourceDir: string;
+  /** The composed final tree to land (from `promotionSourceDir`). */
+  sourceTreeDir: string;
+  runId: string;
+};
+
+function git(args: string[], cwd: string, env?: NodeJS.ProcessEnv): string {
+  return execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
 // Deterministic committer so promotion never depends on (or mutates) global git config.
@@ -109,4 +118,66 @@ export function promoteGreenfieldRun(opts: PromoteOptions): PromoteResult {
 
   const commit = git(['rev-parse', 'HEAD'], target);
   return { target, branch, commit };
+}
+
+/**
+ * Land a completed *brownfield* run's composed tree onto the `cook/<runId>`
+ * branch of the user's repo as one reviewable commit — the brownfield analogue
+ * of `promoteGreenfieldRun`. The brownfield sandbox was created with
+ * `git worktree add -b cook/<runId> … HEAD`, so the branch already exists at the
+ * base the run started from; this commits the result on top of it via plumbing
+ * (`commit-tree` + compare-and-swap `update-ref`) using a throwaway index and an
+ * external work-tree, so the user's real working tree, index, and active branch
+ * are never touched. Merging `cook/<runId>` into the working branch stays the
+ * user's call — promotion never freelances into it.
+ */
+export function promoteBrownfieldRun(opts: BrownfieldPromoteOptions): PromoteResult {
+  const sourceDir = resolve(opts.sourceDir);
+  const sourceTreeDir = resolve(opts.sourceTreeDir);
+  const branch = `cook/${opts.runId}`;
+  const ref = `refs/heads/${branch}`;
+
+  // The branch must already exist (the sandbox branched it from HEAD); its tip is
+  // the parent we commit on top of and the CAS expected-value for update-ref.
+  let parent: string;
+  try {
+    parent = git(['rev-parse', '--verify', ref], sourceDir);
+  } catch {
+    throw new Error(
+      `Brownfield promotion expects an existing ${branch} branch in ${sourceDir} (created by the cook worktree).`,
+    );
+  }
+
+  // Absolute git dir so a throwaway index + external work-tree can target the
+  // user's object store without depending on cwd.
+  const gitDir = resolve(sourceDir, git(['rev-parse', '--git-dir'], sourceDir));
+  const tmp = mkdtempSync(join(tmpdir(), 'brunch-promote-'));
+  const env: NodeJS.ProcessEnv = { ...process.env, GIT_INDEX_FILE: join(tmp, 'index') };
+  const plumb = ['--git-dir', gitDir, '--work-tree', sourceTreeDir];
+  try {
+    // Seed the index from the base, then stage the composed tree as the delta —
+    // adds, modifications, and deletions, all relative to the base commit.
+    git([...plumb, 'read-tree', parent], sourceDir, env);
+    git([...plumb, 'add', '-A'], sourceDir, env);
+    const tree = git(['--git-dir', gitDir, 'write-tree'], sourceDir, env);
+    const commit = git(
+      [
+        ...COMMIT_IDENTITY,
+        '--git-dir',
+        gitDir,
+        'commit-tree',
+        tree,
+        '-p',
+        parent,
+        '-m',
+        `cook: ${opts.runId}`,
+      ],
+      sourceDir,
+      env,
+    );
+    git(['--git-dir', gitDir, 'update-ref', ref, commit, parent], sourceDir, env);
+    return { target: sourceDir, branch, commit };
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
 }
