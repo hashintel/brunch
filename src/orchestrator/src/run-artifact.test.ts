@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -271,5 +279,34 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
 
     expect(artifact.commits.map((c) => c.sliceId)).toEqual(['a']);
     expect(gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n')).toContain('a.txt');
+  });
+
+  it('links brownfield verify deps from a slice install when it added dependencies', () => {
+    writeFileSync(join(source, '.git/info/exclude'), 'node_modules/\n');
+    mkdirSync(join(parent, 'node_modules/base'), { recursive: true });
+    writeFileSync(join(parent, 'node_modules/base/index.js'), 'base\n');
+    seedSliceWorktree('a', (d) => {
+      writeFileSync(join(d, 'a.txt'), 'A\n');
+      mkdirSync(join(d, 'node_modules/added'), { recursive: true });
+      writeFileSync(join(d, 'node_modules/added/index.js'), 'added\n');
+    });
+    const plan: Plan = {
+      mode: 'brownfield',
+      epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+      slices: [slice('a')],
+    };
+
+    const result = materializeEpicVerifyTree({
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      sliceIds: ['a'],
+      epicId: 'e',
+    });
+
+    const link = join(result.epicSandboxDir, 'node_modules');
+    expect(lstatSync(link).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(link)).toBe(join(parent, 'a', 'node_modules'));
+    expect(readFileSync(join(link, 'added/index.js'), 'utf8')).toBe('added\n');
   });
 });
