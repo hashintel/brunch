@@ -79,7 +79,7 @@ D60-L read-shape ownership is explicit: every durable graph read shape has one c
 | `list_by_band` | `getGraphSliceByReadinessBands` | required | deferred | deferred | Web-eligible D64-L evidence slice; RPC follows a concrete web/client need. |
 | `gaps` | `getGraphGaps` | required | n/a | n/a | Agent/RPC-only diagnostic shape; not a web observer projection. |
 | `related` | `getRelatedNodes` | required | n/a | n/a | Agent/RPC-only traversal helper; not a web observer projection. |
-| `reconciliation_needs` | `getOpenReconciliationNeeds` | deferred | deferred | deferred | Agent-internal register read; no transport consumer yet. |
+| `reconciliation_needs` | `getOpenReconciliationNeeds` | dedicated register tool | deferred | deferred | Exposed to agents through `read_reconciliation_needs`, not as a `read_graph` mode; no RPC/web projection yet. |
 | `elicitation_gaps` | `getElicitationGaps` | deferred | deferred | deferred | Consumed by prompt readiness and the read-only elicitation driver through the selected-spec graph-read seam; still not a `read_graph`/RPC/web projection. |
 
 `observed-shapes-coverage.test.ts` guards the required subsets against accidental drift: the tool mode union must stay at the six required agent shapes, while RPC and web stay at `overview` + `neighborhood` until a scoped feature deliberately promotes another row.

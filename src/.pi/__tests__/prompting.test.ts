@@ -110,6 +110,7 @@ const promptContext = {
     getNodes: () => [],
     resolveNodeCode: () => undefined,
     getElicitationGaps: () => groundingFloorGaps(),
+    getOpenReconciliationNeeds: () => [],
     latestLsn: () => 4,
   },
 };
@@ -268,6 +269,7 @@ describe('Brunch prompt-pack topology', () => {
             getNodes: () => [],
             resolveNodeCode: () => undefined,
             getElicitationGaps: () => groundingFloorGaps(),
+            getOpenReconciliationNeeds: () => [],
             latestLsn: () => 1,
           },
         }),

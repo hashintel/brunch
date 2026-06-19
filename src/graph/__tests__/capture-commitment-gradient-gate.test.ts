@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { registerBrunchElicitation } from '../../.pi/extensions/elicitation/index.js';
 import { registerBrunchGraph } from '../../.pi/extensions/graph/index.js';
+import { registerBrunchReconciliation } from '../../.pi/extensions/reconciliation/index.js';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import { changeLog } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
 import {
   getElicitationGaps,
   getNodes,
+  getOpenReconciliationNeeds,
   latestGraphLsn,
   queryGraph,
   resolveGraphNodeCode,
@@ -36,16 +38,19 @@ function registerCaptureTools(db: BrunchDb, specId: number, commandExecutor: Com
       getNodes(db, specId, selectors, options),
     resolveNodeCode: (code: string) => resolveGraphNodeCode(db, specId, code),
     getElicitationGaps: () => getElicitationGaps(db, specId),
+    getOpenReconciliationNeeds: () => getOpenReconciliationNeeds(db, specId),
     latestLsn: () => latestGraphLsn(db, specId),
   };
 
   registerBrunchGraph(pi as never, { specId, commandExecutor, reads });
   registerBrunchElicitation(pi as never, { specId, commandExecutor, reads });
+  registerBrunchReconciliation(pi as never, { specId, commandExecutor, reads });
 
   const byName = new Map(tools.map((tool) => [tool.name, tool]));
   return {
     mutateGraph: byName.get('mutate_graph')!,
     updateGaps: byName.get('update_elicitation_gaps')!,
+    updateReconciliationNeeds: byName.get('update_reconciliation_needs')!,
   };
 }
 
@@ -182,6 +187,57 @@ describe('capture commitment-gradient routing gate', () => {
 
     const contextGap = gaps.find((gap) => gap.refersTo === 'context')!;
     expect(contextGap).toMatchObject({ answered: true, disposition: 'answered', coverage: 1 });
+  });
+
+  it('routes a fixed contradiction-tagged item to a semantic-conflict reconciliation need, not graph truth or an elicitation gap', async () => {
+    const db = createTestDb();
+    const commandExecutor = new CommandExecutor(db);
+    const created = commandExecutor.createSpec({ name: 'Contradiction Spec', slug: 'contradiction' });
+    expect(created.status).toBe('success');
+    if (created.status !== 'success') throw new Error('unreachable');
+    const tools = registerCaptureTools(db, created.specId, commandExecutor);
+
+    const first = commandExecutor.createNode({
+      specId: created.specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'The web observer may mutate graph truth',
+      basis: 'explicit',
+    });
+    const second = commandExecutor.createNode({
+      specId: created.specId,
+      plane: 'intent',
+      kind: 'constraint',
+      title: 'The web observer must remain read-only',
+      basis: 'explicit',
+    });
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
+    if (first.status !== 'success' || second.status !== 'success') throw new Error('unreachable');
+
+    const beforeLsn = latestGraphLsn(db, created.specId);
+    const beforeGapIds = getElicitationGaps(db, created.specId).map((gap) => gap.id);
+    const contradiction = (await tools.updateReconciliationNeeds.execute('contradiction', {
+      action: 'create',
+      needKind: 'semantic_conflict',
+      target: { kind: 'node_pair', aId: first.nodeId, bId: second.nodeId },
+      reason: 'The latest answer conflicts with existing selected-spec graph truth.',
+    } as never)) as { details: { status: string; lsn: number } };
+
+    expect(contradiction.details).toMatchObject({ status: 'success', lsn: beforeLsn + 1 });
+    expect(getOpenReconciliationNeeds(db, created.specId)).toEqual([
+      expect.objectContaining({
+        kind: 'semantic_conflict',
+        target: { kind: 'node_pair', aId: first.nodeId, bId: second.nodeId },
+      }),
+    ]);
+    expect(getElicitationGaps(db, created.specId).map((gap) => gap.id)).toEqual(beforeGapIds);
+    expect(queryGraph(db, created.specId, {}, { visibility: 'all' }).nodes.map((node) => node.title)).toEqual(
+      expect.arrayContaining([
+        'The web observer may mutate graph truth',
+        'The web observer must remain read-only',
+      ]),
+    );
   });
 
   it('closes manual gaps on the graph clock and rejects structurally illegal capture batches loudly', async () => {

@@ -25,6 +25,7 @@ import {
 } from '../.pi/extensions/introspection/index.js';
 import { type GraphMentionSource } from '../.pi/extensions/mentions/index.js';
 import { registerBrunchMentionAutocomplete } from '../.pi/extensions/mentions/index.js';
+import { registerBrunchReconciliation } from '../.pi/extensions/reconciliation/index.js';
 import {
   conservativeUncoveredFloorGaps,
   registerBrunchOperationalModePolicy,
@@ -100,6 +101,7 @@ export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from '../.pi/exte
 export { registerBrunchWebTools } from '../.pi/extensions/web/index.js';
 
 export { registerBrunchGraph } from '../.pi/extensions/graph/index.js';
+export { registerBrunchReconciliation } from '../.pi/extensions/reconciliation/index.js';
 export {
   BRUNCH_INTROSPECTION_COMMAND,
   createInMemoryBrunchIntrospectionStore,
@@ -218,9 +220,10 @@ export function createBrunchPiExtensions(
           getElicitationGaps: commandGapReads,
         }),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
-      // Elicitation register is a distinct tool surface from the graph register,
-      // but it reads through the same workspace graph runtime deps.
+      // Elicitation and reconciliation registers are distinct surfaces from the
+      // graph register, but they read through the same workspace graph runtime deps.
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchElicitation(api, options.graph!)] : []),
+      ...(options.graph ? [(api: ExtensionAPI) => registerBrunchReconciliation(api, options.graph!)] : []),
       ...(introspectionOptions?.enabled
         ? [
             (api: ExtensionAPI) => {

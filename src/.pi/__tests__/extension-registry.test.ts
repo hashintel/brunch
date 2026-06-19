@@ -132,16 +132,24 @@ describe('Brunch explicit Pi extension registry', () => {
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getElicitationGaps: () => [],
+          getOpenReconciliationNeeds: () => [],
           latestLsn: () => 1,
         },
       },
     })(recording.api);
 
     expect(recording.toolNames).toEqual(
-      expect.arrayContaining(['mutate_graph', 'read_graph', 'read_elicitation_gaps']),
+      expect.arrayContaining([
+        'mutate_graph',
+        'read_graph',
+        'read_elicitation_gaps',
+        'read_reconciliation_needs',
+        'update_reconciliation_needs',
+      ]),
     );
-    // the elicitation register is a dedicated tool, not a read_graph mode
+    // the elicitation/reconciliation registers are dedicated tools, not read_graph modes
     expect(recording.toolNames.filter((name) => name === 'read_elicitation_gaps')).toHaveLength(1);
+    expect(recording.toolNames.filter((name) => name === 'read_reconciliation_needs')).toHaveLength(1);
   });
 
   it('wires prepareNextTurn into the live session boundary and leaves provider-request as guard-only', async () => {
@@ -173,6 +181,7 @@ describe('Brunch explicit Pi extension registry', () => {
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getElicitationGaps: () => [],
+          getOpenReconciliationNeeds: () => [],
           latestLsn: () => graphLsn,
         },
       },
@@ -240,6 +249,7 @@ describe('Brunch explicit Pi extension registry', () => {
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getElicitationGaps: () => [],
+          getOpenReconciliationNeeds: () => [],
           latestLsn: () => 0,
         },
       },
@@ -295,6 +305,7 @@ describe('Brunch explicit Pi extension registry', () => {
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getElicitationGaps: () => [],
+          getOpenReconciliationNeeds: () => [],
           latestLsn: () => 2,
         },
       },

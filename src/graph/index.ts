@@ -28,6 +28,7 @@ export {
 
 export type { EdgeCategory, GraphEdge } from './schema/edges.js';
 export type { ElicitationGap, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
+export type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
 export type { GraphNode, NodeKind, ReadinessBand } from './schema/nodes.js';
 
@@ -61,6 +62,7 @@ export { CommandExecutor } from './command-executor.js';
 export { openWorkspaceCommandExecutor, openWorkspaceGraphRuntime } from './workspace-store.js';
 export type { WorkspaceGraphRuntime } from './workspace-store.js';
 export type {
+  CreateReconNeedResult,
   Diagnostic,
   EdgePatch,
   GraphMutationNodeRef,
@@ -68,6 +70,7 @@ export type {
   MutateGraphInput,
   MutateGraphSuccess,
   NodePatch,
+  ResolveReconNeedResult,
   RoleNamedEdgeDraft,
   SpecRecord,
   StructuralIllegal,

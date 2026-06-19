@@ -7,6 +7,7 @@ import type {
   EdgeCategory,
   EdgeDirection,
   ElicitationGap,
+  ReconciliationNeed,
   GraphFilter,
   GraphSlice,
   GraphVisibility,
@@ -35,6 +36,7 @@ export interface GraphReaders {
   ) => readonly NodeNeighborhood[];
   readonly resolveNodeCode: (code: string) => number | undefined;
   readonly getElicitationGaps: (specId: number) => readonly ElicitationGap[];
+  readonly getOpenReconciliationNeeds: (specId: number) => readonly ReconciliationNeed[];
   /** Cheap current-LSN read; detect graph change without a full queryGraph. */
   readonly latestLsn: (specId: number) => number;
 }
