@@ -18,6 +18,11 @@ skills/
 └── methods/       tool-routing and sequencing guidance
 ```
 
+## Deferred prompt-resource shapes
+
+- **`SKILL.md + references/` shape:** deferred until a skill needs sub-references. The intended adoption shape is one skill folder, for example `methods/capture/SKILL.md` plus `methods/capture/references/*.md`, and adoption should happen for the first concrete skill that needs adjacent reference material rather than by reshaping every flat `.md` file preemptively. The code-owned manifest in `.pi/extensions/runtime/state.ts` remains the only availability surface.
+- **_generated/ typed-vocab references:** deferred until a concrete stale-member need appears, such as an agent relying on a reference whose runtime axis or graph vocabulary members can drift from the TypeScript `kinds.ts` leaves. If built, these files are generated from typed sources, regenerated and drift-checked, and locked separately from the authored prompt-resource body lock below. No empty `_generated/` directory or stub generator exists while the need is absent.
+
 ## Boundary rules
 
 ```pseudo

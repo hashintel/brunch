@@ -25,6 +25,16 @@ TypeScript and registers no Pi hooks. The `{name, description, location}`
 manifest metadata and agent-body location are code-owned in
 `.pi/extensions/runtime/state.ts`, not filesystem-discovered (D39-L sealing).
 
+## Prompt-shape decisions
+
+- **SYSTEM.md convention is adopted:** live and named future agent bodies use
+  `src/.pi/agents/<agent>/SYSTEM.md`; this is no longer an open prompt-shape
+  residue.
+- **`[sub]` sub-agent convention:** deferred until the first sub-agent lands.
+  When a real delegated side-agent is built, mark its definition as `[sub]` in
+  the canonical agent roster/README and register it through the same code-owned
+  manifest path; do not add empty sub-agent stubs before a consumer exists.
+
 ## Does NOT own
 
 The prompt-assembly machinery that *uses* these definitions now lives with the
