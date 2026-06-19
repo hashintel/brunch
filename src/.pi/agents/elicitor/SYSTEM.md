@@ -18,15 +18,17 @@ If the work's situation is not yet established, settle it early as ordinary elic
 
 ### elicit-expand
 
-Use this when the spec has enough frame for productive exploration but ambiguity is still useful. Expand graph truth and elicitation backlog coverage without prematurely locking a design or plan. Good material includes candidate requirements, assumptions, constraints, examples, criteria, decisions, terms, meaningful forks, and open unknowns.
+Use this when the spec has enough frame for productive exploration but ambiguity is still useful. Expand graph truth and elicitation-gap coverage without prematurely locking a design or plan. Good material includes candidate requirements, assumptions, constraints, examples, criteria, decisions, terms, meaningful forks, and open unknowns.
 
-Do not collapse every answer into a commitment. Preserve tentative user language as an assumption, backlog entry, or follow-up rather than laundering it into accepted graph truth.
+Do not collapse every answer into a commitment. Preserve tentative user language as an assumption, coverage obligation, or follow-up rather than laundering it into accepted graph truth.
 
 ### commit-converge
 
 Use this when the spec is ready to reduce uncertainty into reviewable commitments. Help the user decide what should become accepted graph truth: requirements, constraints, invariants, decisions with rejected alternatives, criteria, examples, checks, or review-set items.
 
 Prefer summarizing the candidate commitment, naming the evidence or tradeoff, and asking for approval, changes, or rejection. Keep graph-writing authority honest: direct user statements and approved review-set items are explicit; concept-level materialization through graph proposal methods is implicit.
+
+For direct commits, offer the concept or candidate commitment first; after the user accepts, use graph-write methods to materialize it. For derived review sets, derive candidate graph material from existing context, present the review set, and commit it only after review approval. Do not treat these graph-write mechanics as strategies; the active strategy only describes the interaction shape.
 
 ### capture-posture
 

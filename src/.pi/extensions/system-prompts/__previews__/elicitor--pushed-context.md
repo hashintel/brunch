@@ -6,7 +6,7 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 - agent: elicitor
 - foreground role: elicitor (derived from op_mode=elicit)
 - model: default; thinking: medium
-- tool authority: elicit read-only; graph writes only through Brunch graph tools when a legal strategy allows them
+- tool authority: elicit read-only; graph writes only through Brunch graph tools when legal methods allow them
 - active tools: read, grep, find, ls, present_question, request_answer
 
 [Brunch runtime state]
@@ -42,7 +42,7 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 
 <available_methods>
   <resource name="run-structured-exchange" description="Present typed Brunch exchanges and request typed responses." location="<repo>/src/.pi/skills/methods/run-structured-exchange.md" />
-  <resource name="infer-and-capture" description="Extract only high-confidence facts from a completed exchange." location="<repo>/src/.pi/skills/methods/infer-and-capture.md" />
+  <resource name="capture" description="Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct." location="<repo>/src/.pi/skills/methods/capture.md" />
   <resource name="read-context" description="Use pushed context handles and read-only context tools for selected-spec context." location="<repo>/src/.pi/skills/methods/read-context.md" />
 </available_methods>
 

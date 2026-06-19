@@ -109,7 +109,7 @@ describe('context tools', () => {
               state: {
                 schemaVersion: 1,
                 operationalMode: 'elicit',
-                agentStrategy: 'project-graph',
+                agentStrategy: 'step-wise-disambiguate',
                 agentLens: 'oracle',
               },
             },
@@ -136,7 +136,7 @@ describe('context tools', () => {
       specId: 1,
       sessionId: 'session-1',
       agent: {
-        strategy: 'project-graph',
+        strategy: 'step-wise-disambiguate',
         lens: 'oracle',
       },
     });

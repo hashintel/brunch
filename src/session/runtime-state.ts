@@ -3,12 +3,7 @@ export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE = 'brunch.agent_runtime_stat
 export type OperationalModeId = 'elicit';
 export type AgentRoleId = 'elicitor';
 type AutoAxisSelection = 'auto';
-export type AgentStrategyId =
-  | 'freestyle'
-  | 'step-wise-decision-tree'
-  | 'step-wise-disambiguate'
-  | 'propose-graph'
-  | 'project-graph';
+export type AgentStrategyId = 'freestyle' | 'step-wise-decision-tree' | 'step-wise-disambiguate';
 export type AgentStrategySelection = AutoAxisSelection | AgentStrategyId;
 export type AgentLensId = 'intent' | 'design' | 'oracle';
 export type AgentLensSelection = AutoAxisSelection | AgentLensId;
@@ -65,8 +60,6 @@ export const AGENT_STRATEGY_IDS: readonly AgentStrategyId[] = [
   'freestyle',
   'step-wise-decision-tree',
   'step-wise-disambiguate',
-  'propose-graph',
-  'project-graph',
 ];
 export const AGENT_LENS_IDS: readonly AgentLensId[] = ['intent', 'design', 'oracle'];
 

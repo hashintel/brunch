@@ -61,13 +61,7 @@ export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> = 
     id: 'elicitor',
     operationalMode: 'elicit',
     defaultStrategy: 'auto',
-    allowedStrategies: [
-      'freestyle',
-      'step-wise-decision-tree',
-      'step-wise-disambiguate',
-      'propose-graph',
-      'project-graph',
-    ],
+    allowedStrategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
     defaultLens: 'auto',
     allowedLenses: ['intent', 'design', 'oracle'],
     promptPackIds: ['elicitor'],
@@ -83,11 +77,6 @@ export const TOOL_POLICY_DEFINITIONS: Record<ToolPolicyId, ToolPolicyDefinition>
 };
 
 export const AUTO_EXCLUDED_STRATEGIES = new Set<AgentStrategyId>(['freestyle']);
-
-const STRATEGY_CAPABILITY: Partial<Record<AgentStrategyId, CapabilityId>> = {
-  'propose-graph': 'propose-graph',
-  'project-graph': 'project-graph',
-};
 
 const LENS_CAPABILITY: Partial<Record<AgentLensId, CapabilityId>> = {
   design: 'generative-lens',
@@ -153,9 +142,7 @@ export function pinnableAxisOptionsForRuntimeState(
   gaps: readonly ElicitationGap[],
 ): readonly (AgentStrategyId | AgentLensId)[] {
   if (axis === 'strategy') {
-    return state.agentRoleDefinition.allowedStrategies.filter((id) =>
-      isCapabilityLegalForGaps(STRATEGY_CAPABILITY[id], gaps),
-    );
+    return state.agentRoleDefinition.allowedStrategies;
   }
   return state.agentRoleDefinition.allowedLenses.filter((id) =>
     isCapabilityLegalForGaps(LENS_CAPABILITY[id], gaps),

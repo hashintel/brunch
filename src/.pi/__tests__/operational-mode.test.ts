@@ -85,7 +85,7 @@ describe('Brunch agent runtime-state projection', () => {
     const latestState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
-      agentStrategy: 'propose-graph',
+      agentStrategy: 'step-wise-decision-tree',
       agentLens: 'design',
     };
     const latest = runtimeEntry(latestState);
@@ -117,7 +117,7 @@ describe('Brunch agent runtime-state projection', () => {
     const latestState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
-      agentStrategy: 'project-graph',
+      agentStrategy: 'step-wise-disambiguate',
       agentLens: 'oracle',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
@@ -350,7 +350,7 @@ describe('Brunch agent runtime-state projection', () => {
     const latestState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
-      agentStrategy: 'propose-graph',
+      agentStrategy: 'step-wise-decision-tree',
       agentLens: 'intent',
     };
 

@@ -1,20 +1,16 @@
 # strategies/ — Interaction-shape prompt resources
 
-SPEC decisions: D25-L, D26-L, D53-L
+SPEC decisions: D25-L, D26-L, D53-L, D85-L
 
-Each strategy describes an interaction shape — how the agent
-structures its turns, what commitment mechanism it uses, and what
-the user experiences.
+Each strategy describes an interaction shape — how the agent structures its turns and what the user experiences. Graph-write commitment mechanisms are method-routed by D85-L, not strategy-axis members.
 
 ## Strategies
 
-| Strategy                  | Commitment path | Notes                              |
-|---------------------------|-----------------|------------------------------------|
-| `freestyle`               | ordinary-turn capture | user-pinned free chat; AUTO never selects it |
-| `step-wise-decision-tree` | single-exchange | Q&A one claim at a time            |
-| `step-wise-disambiguate`  | single-exchange | contrastive examples               |
-| `propose-graph`           | direct commit   | concept → user accepts → mutateGraph |
-| `project-graph`           | review-set      | derive from existing graph          |
+| Strategy | Interaction path | Notes |
+| --- | --- | --- |
+| `freestyle` | ordinary turns | user-pinned free chat; AUTO never selects it |
+| `step-wise-decision-tree` | single-exchange Q&A | one claim at a time |
+| `step-wise-disambiguate` | contrastive examples | collapse meaningful ambiguity |
 
 ## Prompt resource contents
 
@@ -23,9 +19,7 @@ Each `.md` file in this directory is a prompt resource the agent reads
 
 - What the agent is doing in this strategy
 - How to structure the turn
-- What commitment mechanism to use
-- What graph operations are available
-- Category-selection rubric (for graph-writing strategies)
+- How to compose with graph-write methods when commitments are ready
 
 ## Observer classification guide (M5 input)
 

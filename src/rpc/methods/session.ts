@@ -97,8 +97,6 @@ const RuntimeStateResultSchema = Type.Object(
           Type.Literal('freestyle'),
           Type.Literal('step-wise-decision-tree'),
           Type.Literal('step-wise-disambiguate'),
-          Type.Literal('propose-graph'),
-          Type.Literal('project-graph'),
         ]),
         lens: Type.Union([
           Type.Literal('auto'),

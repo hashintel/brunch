@@ -50,8 +50,8 @@ const resourceExpectations = [
     needles: ['details.schema', 'schema` plus `v', 'answered`, `cancelled`, or `unavailable`'],
   },
   {
-    file: 'src/.pi/skills/methods/infer-and-capture.md',
-    needles: ['transcript-native analysis', 'not graph mutation', 'must never imply a graph bypass'],
+    file: 'src/.pi/skills/methods/capture.md',
+    needles: ['single home', 'FE-861', 'Gap close/spawn responsibility belongs here'],
   },
   {
     file: 'src/.pi/skills/methods/generate-proposal.md',

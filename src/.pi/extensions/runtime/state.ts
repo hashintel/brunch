@@ -13,7 +13,7 @@ import type { AgentLensId, AgentRoleId, AgentStrategyId } from '../../../session
 type PromptResourceFamily = 'strategies' | 'lenses' | 'methods';
 export type MethodId =
   | 'run-structured-exchange'
-  | 'infer-and-capture'
+  | 'capture'
   | 'commit-graph'
   | 'read-context'
   | 'generate-proposal'
@@ -76,18 +76,12 @@ export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition
     model: 'default',
     thinking: 'medium',
     toolAuthority:
-      'elicit read-only; graph writes only through Brunch graph tools when a legal strategy allows them',
-    allowedStrategies: [
-      'freestyle',
-      'step-wise-decision-tree',
-      'step-wise-disambiguate',
-      'propose-graph',
-      'project-graph',
-    ],
+      'elicit read-only; graph writes only through Brunch graph tools when legal methods allow them',
+    allowedStrategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
     allowedLenses: ['intent', 'design', 'oracle'],
     allowedMethods: [
       'run-structured-exchange',
-      'infer-and-capture',
+      'capture',
       'commit-graph',
       'read-context',
       'generate-proposal',
@@ -112,16 +106,6 @@ export const STRATEGY_RESOURCES: Record<AgentStrategyId, PromptResourceManifestE
     'step-wise-disambiguate',
     'Use contrastive examples to collapse meaningful ambiguity.',
   ),
-  'propose-graph': resource(
-    'strategies',
-    'propose-graph',
-    'Offer a concept-level graph proposal and commit only through Brunch graph tools after acceptance.',
-  ),
-  'project-graph': resource(
-    'strategies',
-    'project-graph',
-    'Generate a dry-run-valid review-set proposal for user approval.',
-  ),
 };
 
 export const LENS_RESOURCES: Record<AgentLensId, PromptResourceManifestEntry> = {
@@ -144,10 +128,10 @@ export const METHOD_RESOURCES: Record<MethodId, PromptResourceManifestEntry> = {
     'run-structured-exchange',
     'Present typed Brunch exchanges and request typed responses.',
   ),
-  'infer-and-capture': resource(
+  capture: resource(
     'methods',
-    'infer-and-capture',
-    'Extract only high-confidence facts from a completed exchange.',
+    'capture',
+    'Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct.',
   ),
   'commit-graph': resource(
     'methods',

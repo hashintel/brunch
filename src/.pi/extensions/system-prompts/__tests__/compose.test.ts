@@ -184,8 +184,6 @@ describe('composeAgentPrompt', () => {
     expect(auto.manifests.strategies.map((entry) => entry.name)).toEqual([
       'step-wise-decision-tree',
       'step-wise-disambiguate',
-      'propose-graph',
-      'project-graph',
     ]);
     expect(auto.manifests.lenses.map((entry) => entry.name)).toEqual(['intent', 'design', 'oracle']);
 
@@ -261,7 +259,7 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).not.toContain('[Brunch elicitation recommendation]');
   });
 
-  it('keeps pinned readiness-thin strategy selections in the prompt while gated methods remain filtered out', () => {
+  it('keeps pinned strategy selections in the prompt while gated graph-write methods remain filtered out', () => {
     const result = composeAgentPrompt({
       agentId: 'elicitor',
       sessionState: projectBrunchAgentState([
@@ -274,7 +272,7 @@ describe('composeAgentPrompt', () => {
             source: 'user',
             state: {
               ...DEFAULT_BRUNCH_AGENT_STATE,
-              agentStrategy: 'project-graph',
+              agentStrategy: 'step-wise-disambiguate',
             },
           },
         },
@@ -286,12 +284,12 @@ describe('composeAgentPrompt', () => {
     });
 
     expect(result.prompt).not.toMatch(/- goal:/);
-    expect(result.prompt).toContain('- strategy: project-graph');
+    expect(result.prompt).toContain('- strategy: step-wise-disambiguate');
     expect(Object.keys(result.manifests)).toEqual(['strategies', 'lenses', 'methods']);
-    expect(result.manifests.strategies.map((entry) => entry.name)).toEqual(['project-graph']);
+    expect(result.manifests.strategies.map((entry) => entry.name)).toEqual(['step-wise-disambiguate']);
     expect(result.manifests.methods.map((entry) => entry.name)).toEqual([
       'run-structured-exchange',
-      'infer-and-capture',
+      'capture',
       'read-context',
     ]);
   });

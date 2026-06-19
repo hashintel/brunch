@@ -38,7 +38,7 @@ describe('agent posture policy', () => {
     const coveredMethods = manifestsForState(state, coveredGaps).methods.map((entry) => entry.name);
     const coveredTools = activeToolNamesForPosture({ registeredToolNames, state, gaps: coveredGaps });
 
-    expect(floorMethods).toEqual(['run-structured-exchange', 'infer-and-capture', 'read-context']);
+    expect(floorMethods).toEqual(['run-structured-exchange', 'capture', 'read-context']);
     expect(floorTools).not.toContain('mutate_graph');
     expect(floorTools).not.toContain('present_review_set');
     expect(floorTools).not.toContain('request_review');
@@ -51,7 +51,7 @@ describe('agent posture policy', () => {
 
     expect(coveredMethods).toEqual([
       'run-structured-exchange',
-      'infer-and-capture',
+      'capture',
       'commit-graph',
       'read-context',
       'generate-proposal',
@@ -134,8 +134,6 @@ describe('agent posture policy', () => {
     expect(manifestsForState(autoState, groundingFloorGaps()).strategies.map((entry) => entry.name)).toEqual([
       'step-wise-decision-tree',
       'step-wise-disambiguate',
-      'propose-graph',
-      'project-graph',
     ]);
     expect(
       manifestsForState(pinnedFreestyle, groundingFloorGaps({ defaultCoverage: 0 })).strategies.map(
@@ -180,6 +178,8 @@ describe('agent posture policy', () => {
 
     expect(Object.keys(manifests)).toEqual(['strategies', 'lenses', 'methods']);
     expect(manifests.methods.map((entry) => entry.name)).not.toContain('review-for-gaps');
+    expect(manifests.methods.map((entry) => entry.name)).not.toContain('commit-graph');
+    expect(manifests.methods.map((entry) => entry.name)).not.toContain('generate-proposal');
   });
 
   it('fails loud on an empty gap register instead of returning empty manifests', () => {

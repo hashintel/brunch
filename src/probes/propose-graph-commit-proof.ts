@@ -137,7 +137,7 @@ export async function runProposeGraphCommitProof(
   const runtimeState: BrunchAgentState = {
     schemaVersion: 1,
     operationalMode: 'elicit',
-    agentStrategy: 'propose-graph',
+    agentStrategy: 'step-wise-decision-tree',
     agentLens: 'intent',
   };
   appendBrunchAgentRuntimeSwitch(workspace.session.manager, runtimeState, 'extension');
@@ -346,7 +346,7 @@ export function summarizeProposeGraphCommitProof(
     probeId: PROBE_ID,
     runId: input.runId,
     generatedAt: input.generatedAt,
-    mission: 'Prove the propose-graph strategy can commit graph truth through mutate_graph.',
+    mission: 'Prove the propose-graph capability path can commit graph truth through mutate_graph.',
     evaluationFocus:
       scenarioId === 'existing-code-ref'
         ? 'A14-L selected-spec projected-code reference through the default runtime.'

@@ -36,8 +36,6 @@ User-approved COMPOSE disposition (2026-06-11): the git-tracked markdown source 
 | Family | Resource | Required? | Lock disposition |
 | --- | --- | --- | --- |
 | strategies | `freestyle.md` | required | Source file + manifest readability invariant; excluded from AUTO by `state.ts`. |
-| strategies | `project-graph.md` | required | Source file + manifest readability invariant. |
-| strategies | `propose-graph.md` | required | Source file + manifest readability invariant. |
 | strategies | `step-wise-decision-tree.md` | required | Source file + manifest readability invariant. |
 | strategies | `step-wise-disambiguate.md` | required | Source file + manifest readability invariant. |
 | lenses | `design.md` | required | Source file + manifest readability invariant. |
@@ -45,7 +43,7 @@ User-approved COMPOSE disposition (2026-06-11): the git-tracked markdown source 
 | lenses | `oracle.md` | required | Source file + manifest readability invariant. |
 | methods | `commit-graph.md` | required | Source file + manifest readability invariant; capability-gated by selected-spec gaps. |
 | methods | `generate-proposal.md` | required | Source file + manifest readability invariant; capability-gated by selected-spec gaps. |
-| methods | `infer-and-capture.md` | required | Source file + manifest readability invariant. |
+| methods | `capture.md` | required | Source file + manifest readability invariant; canonical home for capture conduct, full body deferred to FE-861. |
 | methods | `read-context.md` | required | Source file + manifest readability invariant. |
-| methods | `review-for-gaps.md` | required | Source file + manifest readability invariant; capability-gated by selected-spec gaps. |
+| methods | `review-for-gaps.md` | required | Source file + manifest readability invariant; audit-only, capability-gated by selected-spec gaps. |
 | methods | `run-structured-exchange.md` | required | Source file + manifest readability invariant. |

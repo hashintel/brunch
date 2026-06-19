@@ -300,7 +300,7 @@ describe('propose-graph commit proof report', () => {
       probeId: 'propose-graph-commit',
       runId: 'artifact-run',
       generatedAt: '2026-06-02T00:00:00.000Z',
-      mission: 'Prove the propose-graph strategy can commit graph truth through mutate_graph.',
+      mission: 'Prove the propose-graph capability path can commit graph truth through mutate_graph.',
       evaluationFocus: 'A14-L structural legality for direct mutateGraph batches.',
       success: true,
       cwd: '/tmp/brunch-proof',

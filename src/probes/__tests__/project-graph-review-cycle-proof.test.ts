@@ -65,7 +65,7 @@ const approvedOverview: GraphSlice = {
 
 const runtimeState = {
   operationalMode: 'elicit',
-  agentStrategy: 'project-graph',
+  agentStrategy: 'step-wise-disambiguate',
   agentLens: 'intent',
 } as const;
 

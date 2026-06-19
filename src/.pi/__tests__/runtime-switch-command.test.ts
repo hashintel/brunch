@@ -97,7 +97,7 @@ function commandHarness(
 
 describe('Brunch runtime switch commands', () => {
   it.each([
-    [BRUNCH_STRATEGY_COMMAND, 'propose-graph', { agentStrategy: 'propose-graph' }],
+    [BRUNCH_STRATEGY_COMMAND, 'step-wise-decision-tree', { agentStrategy: 'step-wise-decision-tree' }],
     [BRUNCH_STRATEGY_COMMAND, 'auto', { agentStrategy: 'auto' }],
     [BRUNCH_LENS_COMMAND, 'intent', { agentLens: 'intent' }],
     [BRUNCH_LENS_COMMAND, 'auto', { agentLens: 'auto' }],
@@ -126,7 +126,7 @@ describe('Brunch runtime switch commands', () => {
   });
 
   it('opens the strategy picker for no-arg strategy commands and commits through the runtime switch path', async () => {
-    const harness = commandHarness({ customResult: 'project-graph' });
+    const harness = commandHarness({ customResult: 'step-wise-disambiguate' });
 
     await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('', harness.ctx);
 
@@ -137,7 +137,7 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries[0]?.data).toMatchObject({
       reason: 'switch',
       source: 'user',
-      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'project-graph' },
+      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'step-wise-disambiguate' },
     });
     expect(harness.activeToolNames).toHaveLength(1);
   });
@@ -215,18 +215,18 @@ describe('Brunch runtime switch commands', () => {
   it('derives the post-switch tool posture from the supplied gap reader, not an empty register', async () => {
     const harness = commandHarness();
 
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('propose-graph', harness.ctx);
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('step-wise-decision-tree', harness.ctx);
 
     // The harness gap reader reports a covered grounding floor, so the
     // recomputed active tools must include the capability-gated mutate_graph
-    // instead of the floor-locked set an empty register would produce.
+    // from method legality instead of the floor-locked set an empty register would produce.
     expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['mutate_graph']));
   });
 
   it('requests a chrome refresh after a successful runtime switch and not on rejection or cancel', async () => {
     const harness = commandHarness({ customResult: undefined });
 
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('propose-graph', harness.ctx);
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('step-wise-decision-tree', harness.ctx);
     expect(harness.chromeRefreshes).toHaveLength(1);
 
     await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('unknown-lens', harness.ctx);
@@ -236,16 +236,16 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.chromeRefreshes).toHaveLength(1);
   });
 
-  it('allows pinning a readiness-thin strategy; readiness never bars the pin (D74-L)', async () => {
+  it('keeps interaction-shape strategies pinnable independent of readiness (D74-L)', async () => {
     const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
 
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('propose-graph', harness.ctx);
+    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('step-wise-decision-tree', harness.ctx);
 
     expect(harness.entries).toHaveLength(1);
     expect(harness.entries[0]?.data).toMatchObject({
       reason: 'switch',
       source: 'user',
-      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'propose-graph' },
+      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'step-wise-decision-tree' },
     });
   });
 
@@ -277,9 +277,8 @@ describe('Brunch runtime switch commands', () => {
     };
 
     const strategyText = renderPicker(harness.customCalls[0]);
-    expect(strategyText).toContain('-- NOTE: propose-graph and project-graph need more grounding');
-    // Caution options render muted gray while staying selectable.
-    expect(strategyText).toContain('\x1b[38;5;244mpropose-graph\x1b[39m');
+    expect(strategyText).not.toContain('-- NOTE:');
+    expect(strategyText).toContain('step-wise-decision-tree');
 
     expect(renderPicker(harness.customCalls[1])).toContain('-- NOTE: design and oracle need more grounding');
   });

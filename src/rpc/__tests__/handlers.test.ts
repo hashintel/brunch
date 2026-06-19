@@ -1920,7 +1920,7 @@ describe('JSON-RPC handlers', () => {
     const latestState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
-      agentStrategy: 'propose-graph',
+      agentStrategy: 'step-wise-decision-tree',
       agentLens: 'design',
     };
     await writeExplicitSessionFixture(cwd, [
@@ -1966,7 +1966,7 @@ describe('JSON-RPC handlers', () => {
         agent: {
           operationalMode: 'elicit',
           role: 'elicitor',
-          strategy: 'propose-graph',
+          strategy: 'step-wise-decision-tree',
           lens: 'design',
         },
         mentions: { graphNodes: [], files: [] },

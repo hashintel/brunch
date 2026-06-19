@@ -47,8 +47,8 @@ function runtimeEntry(id: string, state: BrunchAgentState, parentId = 'binding-1
 }
 
 describe('runtime-state projection', () => {
-  it('accepts freestyle as a real strategy id in runtime state parsing', () => {
-    expect(AGENT_STRATEGY_IDS).toContain('freestyle');
+  it('accepts only interaction-shape strategy ids in runtime state parsing', () => {
+    expect(AGENT_STRATEGY_IDS).toEqual(['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate']);
 
     const freestyle: BrunchAgentState = {
       schemaVersion: 1,
@@ -99,7 +99,7 @@ describe('runtime-state projection', () => {
     const latest: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
-      agentStrategy: 'project-graph',
+      agentStrategy: 'step-wise-disambiguate',
       agentLens: 'oracle',
     };
 
@@ -147,7 +147,7 @@ describe('runtime-state projection', () => {
       agent: {
         operationalMode: 'elicit',
         role: 'elicitor',
-        strategy: 'project-graph',
+        strategy: 'step-wise-disambiguate',
         lens: 'oracle',
       },
       mentions: {

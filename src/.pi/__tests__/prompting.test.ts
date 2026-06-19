@@ -354,7 +354,7 @@ describe('Brunch prompt-pack topology', () => {
     );
     const latestState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: 'propose-graph',
+      agentStrategy: 'step-wise-decision-tree',
       agentLens: 'oracle',
     };
     appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
@@ -436,7 +436,7 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.stringContaining('- strategy: auto'),
     });
     expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('- strategy: propose-graph'),
+      systemPrompt: expect.stringContaining('- strategy: step-wise-decision-tree'),
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
@@ -676,9 +676,9 @@ describe('Brunch prompt-pack topology', () => {
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'intent',
     });
-    const proposeDesignPrompt = await promptFor({
+    const disambiguateDesignPrompt = await promptFor({
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: 'propose-graph',
+      agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
     });
     const acceptedBlindSpots = [
@@ -689,14 +689,14 @@ describe('Brunch prompt-pack topology', () => {
 
     expect(disambiguateIntentPrompt).toContain('name="step-wise-disambiguate"');
     expect(disambiguateIntentPrompt).not.toContain('name="propose-graph"');
-    expect(proposeDesignPrompt).toContain('name="propose-graph"');
-    expect(proposeDesignPrompt).not.toContain('name="step-wise-disambiguate"');
+    expect(disambiguateDesignPrompt).toContain('name="step-wise-disambiguate"');
+    expect(disambiguateDesignPrompt).not.toContain('name="step-wise-decision-tree"');
     expect(disambiguateIntentPrompt).toContain('[Selected-spec graph context · intent lens]');
     expect(disambiguateIntentPrompt).toContain('intent claims, terms, assumptions');
-    expect(proposeDesignPrompt).toContain('[Selected-spec graph context · design lens]');
-    expect(proposeDesignPrompt).toContain('design modules/interfaces');
+    expect(disambiguateDesignPrompt).toContain('[Selected-spec graph context · design lens]');
+    expect(disambiguateDesignPrompt).toContain('design modules/interfaces');
     expect(disambiguateIntentPrompt).toContain('Clarify Brunch prompt posture');
-    expect(proposeDesignPrompt).toContain('Clarify Brunch prompt posture');
+    expect(disambiguateDesignPrompt).toContain('Clarify Brunch prompt posture');
     expect(acceptedBlindSpots).toEqual([
       'prompt/body quality is fitness evidence',
       'graph-write reliability remains with graph-tool-resilience',

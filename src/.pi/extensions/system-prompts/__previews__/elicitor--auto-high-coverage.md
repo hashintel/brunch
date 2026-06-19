@@ -6,7 +6,7 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 - agent: elicitor
 - foreground role: elicitor (derived from op_mode=elicit)
 - model: default; thinking: medium
-- tool authority: elicit read-only; graph writes only through Brunch graph tools when a legal strategy allows them
+- tool authority: elicit read-only; graph writes only through Brunch graph tools when legal methods allow them
 - active tools: read, grep, find, ls, present_question, request_answer
 
 [Brunch runtime state]
@@ -24,8 +24,6 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 <available_strategies>
   <resource name="step-wise-decision-tree" description="Ask one structured question at a time and branch from the answer." location="<repo>/src/.pi/skills/strategies/step-wise-decision-tree.md" />
   <resource name="step-wise-disambiguate" description="Use contrastive examples to collapse meaningful ambiguity." location="<repo>/src/.pi/skills/strategies/step-wise-disambiguate.md" />
-  <resource name="propose-graph" description="Offer a concept-level graph proposal and commit only through Brunch graph tools after acceptance." location="<repo>/src/.pi/skills/strategies/propose-graph.md" />
-  <resource name="project-graph" description="Generate a dry-run-valid review-set proposal for user approval." location="<repo>/src/.pi/skills/strategies/project-graph.md" />
 </available_strategies>
 
 <available_lenses>
@@ -36,7 +34,7 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 
 <available_methods>
   <resource name="run-structured-exchange" description="Present typed Brunch exchanges and request typed responses." location="<repo>/src/.pi/skills/methods/run-structured-exchange.md" />
-  <resource name="infer-and-capture" description="Extract only high-confidence facts from a completed exchange." location="<repo>/src/.pi/skills/methods/infer-and-capture.md" />
+  <resource name="capture" description="Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct." location="<repo>/src/.pi/skills/methods/capture.md" />
   <resource name="commit-graph" description="Commit graph truth only through Brunch graph tools and CommandExecutor-backed results." location="<repo>/src/.pi/skills/methods/commit-graph.md" />
   <resource name="read-context" description="Use pushed context handles and read-only context tools for selected-spec context." location="<repo>/src/.pi/skills/methods/read-context.md" />
   <resource name="generate-proposal" description="Generate reviewable candidate graph material without committing it directly." location="<repo>/src/.pi/skills/methods/generate-proposal.md" />

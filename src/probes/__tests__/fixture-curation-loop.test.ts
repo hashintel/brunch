@@ -65,6 +65,12 @@ const mixedBasisOverview: GraphSlice = {
   lsn: 3,
 };
 
+const runtimeState = {
+  operationalMode: 'elicit' as const,
+  agentStrategy: 'step-wise-decision-tree' as const,
+  agentLens: 'intent' as const,
+};
+
 describe('fixture curation loop report', () => {
   it('requires real mutate_graph transcript evidence and implicit graph readback', () => {
     const report = summarizeFixtureCurationRun({
@@ -76,11 +82,7 @@ describe('fixture curation loop report', () => {
       specId: 7,
       sessionId: 'session-1',
       prompt: 'Please curate the graph.',
-      runtimeState: {
-        operationalMode: 'elicit',
-        agentStrategy: 'propose-graph',
-        agentLens: 'intent',
-      },
+      runtimeState,
       model: 'test-model',
       sessionText: [
         toolResultEntry('read_graph', { status: 'success' }),
@@ -128,11 +130,7 @@ describe('fixture curation loop report', () => {
       specId: 7,
       sessionId: 'session-1',
       prompt: 'Please curate the graph.',
-      runtimeState: {
-        operationalMode: 'elicit',
-        agentStrategy: 'propose-graph',
-        agentLens: 'intent',
-      },
+      runtimeState,
       sessionText: toolResultEntry('mutate_graph', {
         status: 'success',
         lsn: 2,
@@ -162,11 +160,7 @@ describe('fixture curation loop report', () => {
       specId: 7,
       sessionId: 'session-1',
       prompt: 'Please curate the graph.',
-      runtimeState: {
-        operationalMode: 'elicit',
-        agentStrategy: 'propose-graph',
-        agentLens: 'intent',
-      },
+      runtimeState,
       sessionText: toolResultEntry('mutate_graph', {
         status: 'success',
         lsn: 3,
@@ -219,11 +213,7 @@ describe('fixture curation loop report', () => {
       specId: 7,
       sessionId: 'session-1',
       prompt: 'Please curate the graph.',
-      runtimeState: {
-        operationalMode: 'elicit',
-        agentStrategy: 'propose-graph',
-        agentLens: 'intent',
-      },
+      runtimeState,
       sessionText: toolResultEntry('mutate_graph', {
         status: 'success',
         lsn: 3,

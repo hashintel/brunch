@@ -72,7 +72,7 @@ describe('Brunch chrome projection', () => {
       agentState: {
         schemaVersion: 1,
         operationalMode: 'elicit',
-        agentStrategy: 'propose-graph',
+        agentStrategy: 'step-wise-decision-tree',
         agentLens: 'intent',
         agentRole: 'elicitor',
         operationalModeDefinition: {} as never,
@@ -80,7 +80,9 @@ describe('Brunch chrome projection', () => {
       },
     })[1];
 
-    expect(footerLine).toBe('mode [opt-m]: elicit | strategy [opt-s]: propose-graph | lens [opt-l]: intent');
+    expect(footerLine).toBe(
+      'mode [opt-m]: elicit | strategy [opt-s]: step-wise-decision-tree | lens [opt-l]: intent',
+    );
     expect(footerLine).not.toContain('strategy: auto');
   });
 
