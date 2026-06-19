@@ -14,11 +14,11 @@ rpc handler surfaces:
 ├── read-only RPC registry
 │   └── read methods only
 └── TUI-started web sidecar
-    ├── read methods
-    └── one live-session driver method
+    ├── /rpc observer connections: read methods only
+    └── /rpc/driver connection: read methods + live-session driver methods when handles exist
 ```
 
-The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-hosted process: it exposes projection/read methods plus `rpc.discover`, rejects normal workspace/session write methods as `Method not found`, and adds live driver methods only when their process-local handles are attached (`session.driveTurn` for a live `AgentSession`, `session.answerExchange` for a live exchange broker). Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
+The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-hosted process: ordinary `/rpc` observer connections expose projection/read methods plus `rpc.discover` and reject workspace/session write methods as `Method not found`. The explicitly designated `/rpc/driver` connection adds live driver methods only when their process-local handles are attached (`session.driveTurn` for a live `AgentSession`, `session.answerExchange` for a live exchange broker). Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
 
 RPC handlers project from canonical stores:
 
@@ -59,7 +59,7 @@ rpc/
 │   ├── createRpcHandlers(...)            -> default full registry
 │   ├── createRpcHandlers({devRpc})       -> full registry plus gated dev.* harnesses
 │   ├── createReadOnlyRpcHandlers(...)    -> read-only registry, never dev.*
-│   ├── createWebSidecarRpcHandlers(...)  -> read registry; session.driveTurn only with driver handle
+│   ├── createWebSidecarRpcHandlers(...)  -> driver registry; live methods only with handles
 │   └── rpc.discover                      -> discovery over active registry
 └── methods/
     ├── registry.ts                    -> method definition + discovery shape
@@ -117,7 +117,25 @@ TUI-started web sidecar without live driver handle:
     session.submitMessage
     session.driveTurn
 
-TUI-started web sidecar with live driver handles:
+TUI-started web sidecar observer connection (/rpc), even when live driver handles exist:
+  reads:
+    rpc.discover
+    workspace.state
+    workspace.selectionState
+    session.pendingExchange
+    session.exchanges
+    session.runtimeState
+    graph.overview
+    graph.nodeNeighborhood
+  rejected as method-not-found:
+    workspace.activate
+    session.triggerExchange
+    session.submitExchangeResponse
+    session.submitMessage
+    session.driveTurn
+    session.answerExchange
+
+TUI-started web sidecar driver connection (/rpc/driver) with live driver handles:
   reads:
     rpc.discover
     workspace.state
@@ -224,18 +242,18 @@ session.submitMessage
   effects: appends a user message to the selected session transcript, rejects ordinary text while a structured exchange is pending unless interruption=true, and when captured publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
 
 session.driveTurn
-  access: write (TUI-started web sidecar only, discovered only when a driver handle is attached)
+  access: write (`/rpc/driver` on the TUI-started web sidecar only, discovered only when a driver handle is attached; ordinary `/rpc` observers never discover it)
   params: {prompt}
   result: {status: completed}
-  errors: -32601 when no driver handle is attached; -32010 when an attached handle reports no current live session
+  errors: -32601 on ordinary observers or when no driver handle is attached; -32010 when an attached handle reports no current live session
   effects: re-enters the live in-process AgentSession with one plain prompt; resulting AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
   boundary: not a generic transcript write API; no workspace activation, no submitMessage, no concurrency arbiter
 
 session.answerExchange
-  access: write (TUI-started web sidecar only, discovered only when a live-exchange answer broker handle is attached)
+  access: write (`/rpc/driver` on the TUI-started web sidecar only, discovered only when a live-exchange answer broker handle is attached; ordinary `/rpc` observers never discover it)
   params: {exchangeId, answer}
   result: {status: completed}
-  errors: -32601 when no broker handle is attached; -32008 when no matching live exchange is pending
+  errors: -32601 on ordinary observers or when no broker handle is attached; -32008 when no matching live exchange is pending
   effects: resolves the in-process request_answer promise; Pi then appends the provider-legal tool result and continues the same live turn, whose AgentSessionEvents stream as brunch.sessionEvent frames and reduce to Pi JSONL transcript truth
   boundary: not a transcript append API and not a second exchange store; request_choice/request_choices/request_review and terminal-vs-web answer racing are separate follow-ons
 

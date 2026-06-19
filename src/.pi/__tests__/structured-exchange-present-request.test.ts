@@ -5,6 +5,7 @@ import { CommandExecutor } from '../../graph/command-executor.js';
 import {
   PRESENT_OPTIONS_TOOL,
   PRESENT_REVIEW_SET_TOOL,
+  REQUEST_ANSWER_TOOL,
   REQUEST_CHOICE_TOOL,
   REQUEST_CHOICES_TOOL,
   REQUEST_REVIEW_TOOL,
@@ -201,6 +202,102 @@ describe('structured exchange present/request tools', () => {
     const rendered = result.content[0] ? present.renderResult(result, {}, theme).render?.(80).join('\n') : '';
     expect(rendered).toContain('Where should the shell live?');
     expect(rendered).toContain('Move under src/tui-client');
+  });
+
+  it('records request_answer responses from the UI editor when no broker is attached', async () => {
+    const request = registeredTools().get(REQUEST_ANSWER_TOOL);
+    if (!request) throw new Error('request_answer was not registered');
+
+    const result = await request.execute(
+      'request-answer-ui-call',
+      {
+        exchangeId: 'answer-source-ui',
+        respondsToPresentTool: 'present_question',
+        prompt: 'What should the UI answer?',
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { editor: async () => 'Use the local UI editor.' } } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      exchange_id: 'answer-source-ui',
+      tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
+      answered: { text: 'Use the local UI editor.' },
+    });
+  });
+
+  it('records request_answer responses from the live broker when only a broker is attached', async () => {
+    const request = registeredTools({
+      liveExchange: { awaitAnswer: async () => 'Use the live sidecar broker.' },
+    }).get(REQUEST_ANSWER_TOOL);
+    if (!request) throw new Error('request_answer was not registered');
+
+    const result = await request.execute(
+      'request-answer-broker-call',
+      {
+        exchangeId: 'answer-source-broker',
+        respondsToPresentTool: 'present_question',
+        prompt: 'What should the broker answer?',
+      },
+      undefined,
+      undefined,
+      { hasUI: false, ui: {} } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      exchange_id: 'answer-source-broker',
+      tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
+      answered: { text: 'Use the live sidecar broker.' },
+    });
+  });
+
+  it('records request_answer unavailable when no answer source exists', async () => {
+    const request = registeredTools().get(REQUEST_ANSWER_TOOL);
+    if (!request) throw new Error('request_answer was not registered');
+
+    const result = await request.execute(
+      'request-answer-unavailable-call',
+      {
+        exchangeId: 'answer-source-unavailable',
+        respondsToPresentTool: 'present_question',
+        prompt: 'What should answer?',
+      },
+      undefined,
+      undefined,
+      { hasUI: false, ui: {} } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      exchange_id: 'answer-source-unavailable',
+      tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
+      unavailable: { message: 'request_answer requires interactive UI' },
+    });
+  });
+
+  it('prefers the live broker over the UI editor when both request_answer sources exist', async () => {
+    const request = registeredTools({
+      liveExchange: { awaitAnswer: async () => 'Use the broker answer.' },
+    }).get(REQUEST_ANSWER_TOOL);
+    if (!request) throw new Error('request_answer was not registered');
+
+    const result = await request.execute(
+      'request-answer-mixed-call',
+      {
+        exchangeId: 'answer-source-mixed',
+        respondsToPresentTool: 'present_question',
+        prompt: 'Which answer source wins?',
+      },
+      undefined,
+      undefined,
+      { hasUI: true, ui: { editor: async () => 'Use the UI editor answer.' } } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      exchange_id: 'answer-source-mixed',
+      tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
+      answered: { text: 'Use the broker answer.' },
+    });
   });
 
   it('persists a request_choice response without repeating the presented content', async () => {

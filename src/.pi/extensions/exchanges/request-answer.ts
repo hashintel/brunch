@@ -26,10 +26,10 @@ export function createRequestAnswerTool(answerBroker?: LiveExchangeAwaiter) {
     async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
       const params = zRequestAnswerParams.parse(rawParams) satisfies RequestAnswerParams;
       let answer: string | undefined;
-      if (ctx.hasUI && typeof ctx.ui.editor === 'function') {
-        answer = await ctx.ui.editor(params.prompt);
-      } else if (answerBroker) {
+      if (answerBroker) {
         answer = await answerBroker.awaitAnswer({ exchangeId: params.exchangeId });
+      } else if (ctx.hasUI && typeof ctx.ui.editor === 'function') {
+        answer = await ctx.ui.editor(params.prompt);
       } else {
         const details = projectRequestAnswer({
           exchangeId: params.exchangeId,

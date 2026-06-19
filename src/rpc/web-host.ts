@@ -4,12 +4,12 @@ import { dirname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { WorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
-import { createWebSidecarRpcHandlers } from './handlers.js';
+import { createReadOnlyRpcHandlers, createWebSidecarRpcHandlers } from './handlers.js';
 import type { SessionTurnDriver } from './methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from './methods/session-exchange-answer.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from './product-updates.js';
 import type { SessionEventRelay } from './session-event-relay.js';
-import { attachWebRpcTransport, type WebRpcTransport } from './websocket.js';
+import { attachWebRpcTransport, isWebRpcUpgradeHandled, type WebRpcTransport } from './websocket.js';
 
 export interface WebHostOptions {
   cwd: string;
@@ -71,23 +71,49 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
   });
-  let rpcTransport: WebRpcTransport | null = null;
+  const rpcTransports: WebRpcTransport[] = [];
   if (options.coordinator) {
     const productUpdates = options.productUpdates ?? createProductUpdatePublisher();
-    rpcTransport = attachWebRpcTransport({
-      server,
-      path: '/rpc',
-      handlers: createWebSidecarRpcHandlers({
-        coordinator: options.coordinator,
-        cwd: options.cwd,
+    rpcTransports.push(
+      attachWebRpcTransport({
+        server,
+        path: '/rpc',
+        handlers: createReadOnlyRpcHandlers({
+          coordinator: options.coordinator,
+          cwd: options.cwd,
+          productUpdates,
+        }),
         productUpdates,
-        ...(options.sessionTurnDriver ? { sessionTurnDriver: options.sessionTurnDriver } : {}),
-        ...(options.sessionExchangeAnswer ? { sessionExchangeAnswer: options.sessionExchangeAnswer } : {}),
+        ...(options.sessionEvents ? { sessionEvents: options.sessionEvents } : {}),
       }),
-      productUpdates,
-      ...(options.sessionEvents ? { sessionEvents: options.sessionEvents } : {}),
-    });
+    );
+
+    if (options.sessionTurnDriver || options.sessionExchangeAnswer) {
+      rpcTransports.push(
+        attachWebRpcTransport({
+          server,
+          path: '/rpc/driver',
+          handlers: createWebSidecarRpcHandlers({
+            coordinator: options.coordinator,
+            cwd: options.cwd,
+            productUpdates,
+            ...(options.sessionTurnDriver ? { sessionTurnDriver: options.sessionTurnDriver } : {}),
+            ...(options.sessionExchangeAnswer
+              ? { sessionExchangeAnswer: options.sessionExchangeAnswer }
+              : {}),
+          }),
+          productUpdates,
+          ...(options.sessionEvents ? { sessionEvents: options.sessionEvents } : {}),
+        }),
+      );
+    }
   }
+
+  server.on('upgrade', (request, socket) => {
+    if (!isWebRpcUpgradeHandled(request)) {
+      socket.destroy();
+    }
+  });
 
   const hostname = options.hostname ?? '127.0.0.1';
   await listen(server, options.port ?? 0, hostname);
@@ -99,7 +125,7 @@ export async function startWebHost(options: WebHostOptions): Promise<RunningWebH
   return {
     url: `http://${hostname}:${address.port}`,
     async close() {
-      await rpcTransport?.close();
+      await Promise.all(rpcTransports.map((transport) => transport.close()));
       await close(server);
     },
   };

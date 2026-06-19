@@ -48,6 +48,22 @@ edges (sorted by upstream)
 | 5 | CON1 | bounds | REQ1 |`);
 });
 
+test('band-filtered render groups dual-band nodes by the requested band that admitted them', () => {
+  expect(
+    formatGraphOverview({ ...slice, nodes: [slice.nodes[2]!], edges: [] }, 'Graph slice by readiness band', {
+      requestedReadinessBands: ['elicitation'],
+    }),
+  ).toContain('nodes — intent · elicitation (1)');
+});
+
+test('band-filtered render fails loud when a node matches none of the requested bands', () => {
+  expect(() =>
+    formatGraphOverview({ ...slice, nodes: [slice.nodes[0]!], edges: [] }, 'Graph slice by readiness band', {
+      requestedReadinessBands: ['grounding'],
+    }),
+  ).toThrow('Node kind requirement does not belong to requested readiness bands: grounding');
+});
+
 test('overview preserves caller heading for read_graph list modes and seed', () => {
   expect(
     formatGraphOverview(

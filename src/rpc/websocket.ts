@@ -1,4 +1,4 @@
-import type { Server as HttpServer } from 'node:http';
+import type { IncomingMessage, Server as HttpServer } from 'node:http';
 
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
 
@@ -9,6 +9,12 @@ import type { SessionEventRelay } from './session-event-relay.js';
 
 export interface WebRpcTransport {
   close(): Promise<void>;
+}
+
+const handledUpgradeRequests = new WeakSet<IncomingMessage>();
+
+export function isWebRpcUpgradeHandled(request: IncomingMessage): boolean {
+  return handledUpgradeRequests.has(request);
 }
 
 export function attachWebRpcTransport(options: {
@@ -41,10 +47,8 @@ export function attachWebRpcTransport(options: {
   });
 
   options.server.on('upgrade', (request, socket, head) => {
-    if (request.url !== options.path) {
-      socket.destroy();
-      return;
-    }
+    if (request.url !== options.path) return;
+    handledUpgradeRequests.add(request);
 
     webSocketServer.handleUpgrade(request, socket, head, (webSocket) => {
       webSocketServer.emit('connection', webSocket, request);

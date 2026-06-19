@@ -23,9 +23,14 @@ import { markdownTable, joinMarkdownBlocks } from '../markdown.js';
  * truncated — conciseness for large graphs is a future "ultra compact"
  * variant of this renderer, not a payload cut).
  */
+export interface GraphOverviewRenderContext {
+  readonly requestedReadinessBands?: readonly ReadinessBand[];
+}
+
 export function formatGraphOverview(
   overview: Pick<GraphSlice, 'nodes' | 'edges' | 'lsn'>,
   heading = 'Graph overview',
+  context: GraphOverviewRenderContext = {},
 ): string {
   if (overview.nodes.length === 0 && overview.edges.length === 0) {
     return `${heading} (LSN ${overview.lsn}): empty (no nodes or edges).`;
@@ -37,7 +42,7 @@ export function formatGraphOverview(
   return joinMarkdownBlocks(
     header,
     formatLegend(overview.nodes.map((node) => node.kind)),
-    ...formatNodeSections(overview.nodes),
+    ...formatNodeSections(overview.nodes, context),
     formatEdgeTable(overview.edges, nodesById),
   );
 }
@@ -52,17 +57,21 @@ function formatLegend(kinds: readonly NodeKind[]): string {
   return entries.length > 0 ? `legend: ${entries.join(', ')}` : '';
 }
 
-function formatNodeSections(nodes: readonly GraphSlice['nodes'][number][]): string[] {
+function formatNodeSections(
+  nodes: readonly GraphSlice['nodes'][number][],
+  context: GraphOverviewRenderContext,
+): string[] {
   const sections: string[] = [];
+  const bandOrder = context.requestedReadinessBands ?? BAND_ORDER;
   const nodeGroups = new Map<string, typeof nodes>();
   for (const node of nodes) {
-    const band = primaryBand(node.kind);
+    const band = bandForRender(node.kind, context.requestedReadinessBands);
     const key = `${node.plane}\u0000${band}`;
     nodeGroups.set(key, [...(nodeGroups.get(key) ?? []), node]);
   }
 
   for (const plane of NODE_PLANES) {
-    for (const band of BAND_ORDER) {
+    for (const band of bandOrder) {
       const sectionNodes = nodeGroups.get(`${plane}\u0000${band}`);
       if (!sectionNodes || sectionNodes.length === 0) continue;
       const sortedNodes = [...sectionNodes].sort(compareNodes);
@@ -85,7 +94,20 @@ function formatNodeSections(nodes: readonly GraphSlice['nodes'][number][]): stri
   return sections;
 }
 
-function primaryBand(kind: NodeKind): ReadinessBand {
+function bandForRender(
+  kind: NodeKind,
+  requestedReadinessBands: readonly ReadinessBand[] | undefined,
+): ReadinessBand {
+  if (requestedReadinessBands) {
+    const kindBands: readonly ReadinessBand[] = NODE_KIND_METADATA[kind].readinessBands;
+    const band = requestedReadinessBands.find((candidate) => kindBands.includes(candidate));
+    if (!band) {
+      throw new Error(
+        `Node kind ${kind} does not belong to requested readiness bands: ${requestedReadinessBands.join(', ')}`,
+      );
+    }
+    return band;
+  }
   const band = NODE_KIND_METADATA[kind].readinessBands[0];
   if (!band) throw new Error(`Node kind ${kind} has no readiness band metadata`);
   return band;

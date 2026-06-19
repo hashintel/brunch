@@ -2,34 +2,24 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  fauxAssistantMessage,
-  registerFauxProvider,
-  type Context,
-  type FauxProviderRegistration,
-} from '@earendil-works/pi-ai';
-import {
-  AuthStorage,
-  createAgentSessionRuntime,
-  ModelRegistry,
-  type AgentSessionEvent,
-} from '@earendil-works/pi-coding-agent';
+import { fauxAssistantMessage, type Context } from '@earendil-works/pi-ai';
+import { createAgentSessionRuntime, type AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import { afterAll, describe, expect, it } from 'vitest';
-import { WebSocket } from 'ws';
 
-import {
-  createBrunchAgentSessionRuntimeFactory,
-  runBrunchTui,
-  type BrunchAgentServicesOverride,
-} from '../../app/brunch-tui.js';
-import {
-  BRUNCH_FAUX_HARNESS_API_KEY,
-  brunchFauxProviderConfig,
-  defaultBrunchFauxModel,
-} from '../../probes/faux-provider.js';
-import { BRUNCH_SESSION_EVENT_METHOD, type SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
+import { createBrunchAgentSessionRuntimeFactory, runBrunchTui } from '../../app/brunch-tui.js';
+import type { SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
+import {
+  assembleAssistantTextFromStream,
+  contiguousRange,
+  latestAssistantTextFromJsonl,
+  registerKeptFauxProvider,
+  RpcSocket,
+  settle,
+  waitFor,
+  waitForEvent,
+} from './web-driver-streaming-support.js';
 
 const TURN_1_TEXT = 'Reconnect turn one: canonical JSONL survives a mid-stream observer drop. '
   .repeat(6)
@@ -37,14 +27,6 @@ const TURN_1_TEXT = 'Reconnect turn one: canonical JSONL survives a mid-stream o
 const TURN_2_TEXT = 'Reconnect turn two: resumed frames still reduce to flushed transcript truth. '
   .repeat(6)
   .trim();
-
-type JsonRpcResponse =
-  | { readonly jsonrpc: '2.0'; readonly id: string | number | null; readonly result: unknown }
-  | {
-      readonly jsonrpc: '2.0';
-      readonly id: string | number | null;
-      readonly error: { readonly message: string };
-    };
 
 type ProjectionSnapshot = {
   readonly runtimeState: unknown;
@@ -58,7 +40,7 @@ describe('web-driver-streaming reconnect/resume', () => {
   });
 
   it('reconnects by refetching canonical session projections, not replaying relay frames', async () => {
-    const faux = registerKeptFauxProvider('KICK opening turn before reconnect proof.');
+    const faux = registerKeptFauxProvider('reconnect', 'KICK opening turn before reconnect proof.');
     cleanups.push(() => faux.provider.unregister());
 
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-fe873-reconnect-'));
@@ -203,161 +185,4 @@ async function readProjection(
     client.request('session.exchanges', params),
   ]);
   return { runtimeState, exchanges };
-}
-
-class RpcSocket {
-  readonly #socket: WebSocket;
-  readonly #sessionEventListeners = new Set<(frame: SessionEventRelayFrame) => void>();
-  readonly #pending = new Map<string | number, (response: JsonRpcResponse) => void>();
-  #nextId = 1;
-
-  private constructor(socket: WebSocket) {
-    this.#socket = socket;
-    socket.on('message', (data: Buffer) => this.#receive(data));
-  }
-
-  static async open(url: string): Promise<RpcSocket> {
-    const socket = new WebSocket(url);
-    await new Promise<void>((resolve, reject) => {
-      socket.once('open', () => resolve());
-      socket.once('error', reject);
-    });
-    return new RpcSocket(socket);
-  }
-
-  onSessionEvent(listener: (frame: SessionEventRelayFrame) => void): void {
-    this.#sessionEventListeners.add(listener);
-  }
-
-  request(method: string, params: unknown): Promise<unknown> {
-    const id = this.#nextId;
-    this.#nextId += 1;
-    const request = { jsonrpc: '2.0' as const, id, method, params };
-    return new Promise((resolve, reject) => {
-      this.#pending.set(id, (response) => {
-        if ('error' in response) {
-          reject(new Error(response.error.message));
-          return;
-        }
-        resolve(response.result);
-      });
-      this.#socket.send(JSON.stringify(request));
-    });
-  }
-
-  close(): void {
-    if (this.#socket.readyState === WebSocket.CLOSED || this.#socket.readyState === WebSocket.CLOSING) return;
-    this.#socket.close();
-  }
-
-  terminate(): void {
-    if (this.#socket.readyState === WebSocket.CLOSED) return;
-    this.#socket.terminate();
-  }
-
-  #receive(data: Buffer): void {
-    const message = JSON.parse(data.toString('utf8')) as JsonRpcResponse | SessionEventRelayFrame;
-    if ('method' in message && message.method === BRUNCH_SESSION_EVENT_METHOD) {
-      for (const listener of this.#sessionEventListeners) listener(message);
-      return;
-    }
-    if ('id' in message && message.id !== null) {
-      const resolve = this.#pending.get(message.id);
-      if (!resolve) return;
-      this.#pending.delete(message.id);
-      resolve(message);
-    }
-  }
-}
-
-function registerKeptFauxProvider(kickText: string): {
-  readonly provider: FauxProviderRegistration;
-  readonly agentServices: BrunchAgentServicesOverride;
-} {
-  const model = defaultBrunchFauxModel();
-  const provider = registerFauxProvider({
-    provider: model.provider,
-    api: `${model.api}-reconnect`,
-    models: [{ id: model.modelId, name: model.modelName, input: ['text'] }],
-  });
-  provider.setResponses([() => fauxAssistantMessage(kickText)]);
-  const authStorage = AuthStorage.inMemory({
-    [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
-  });
-  const modelRegistry = ModelRegistry.inMemory(authStorage);
-  modelRegistry.registerProvider(
-    model.provider,
-    brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_API_KEY),
-  );
-  const registeredModel = modelRegistry.find(model.provider, model.modelId);
-  if (!registeredModel) {
-    provider.unregister();
-    throw new Error(`reconnect faux model not registered: ${model.provider}/${model.modelId}`);
-  }
-  return { provider, agentServices: { authStorage, modelRegistry, model: registeredModel } };
-}
-
-function assembleAssistantTextFromStream(events: readonly AgentSessionEvent[]): string {
-  let text = '';
-  for (const event of events) {
-    if (event.type !== 'message_update' && event.type !== 'message_end') continue;
-    const message = (event as { message?: { role?: string; content?: unknown } }).message;
-    if (!message || message.role !== 'assistant' || !Array.isArray(message.content)) continue;
-    const joined = message.content
-      .flatMap((block: { type?: string; text?: string }) =>
-        block.type === 'text' && typeof block.text === 'string' ? [block.text] : [],
-      )
-      .join('\n');
-    if (joined.length >= text.length) text = joined;
-  }
-  return text;
-}
-
-function latestAssistantTextFromJsonl(jsonl: string): string | undefined {
-  const assistantMessages = jsonl
-    .trim()
-    .split('\n')
-    .flatMap((line) => {
-      const entry = JSON.parse(line) as { message?: { role?: string; content?: unknown } };
-      const message = entry.message;
-      if (!message || message.role !== 'assistant' || !Array.isArray(message.content)) return [];
-      return [
-        message.content
-          .flatMap((block: { type?: string; text?: string }) =>
-            block.type === 'text' && typeof block.text === 'string' ? [block.text] : [],
-          )
-          .join('\n'),
-      ];
-    });
-  return assistantMessages.at(-1);
-}
-
-function waitForEvent(
-  session: { subscribe: (listener: (event: AgentSessionEvent) => void) => () => void },
-  type: AgentSessionEvent['type'],
-): Promise<void> {
-  return new Promise((resolve) => {
-    const unsubscribe = session.subscribe((event) => {
-      if (event.type === type) {
-        unsubscribe();
-        resolve();
-      }
-    });
-  });
-}
-
-async function waitFor(predicate: () => boolean, timeoutMs: number, what: string): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (!predicate()) {
-    if (Date.now() > deadline) throw new Error(`timed out after ${timeoutMs}ms waiting for ${what}`);
-    await settle(25);
-  }
-}
-
-function settle(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function contiguousRange(start: number, length: number): readonly number[] {
-  return Array.from({ length }, (_, index) => start + index);
 }
