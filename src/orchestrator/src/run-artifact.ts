@@ -61,6 +61,8 @@ export type CompletedRun = {
   completedSliceIds: string[];
 };
 
+export type FoldedChangeBaseline = ReadonlyMap<string, string | null>;
+
 // Deterministic committer so promotion never depends on (or mutates) global git config.
 const COMMIT_IDENTITY = ['-c', 'user.name=brunch', '-c', 'user.email=cook@brunch'];
 
@@ -172,6 +174,20 @@ function touchesTestTarget(touched: string, targets: readonly string[]): boolean
   return targets.some((t) => touched === t || touched.endsWith(`/${t}`) || basename(t) === base);
 }
 
+function worktreeObjectId(dir: string, path: string): string | null {
+  if (!existsSync(join(dir, path))) return null;
+  return git(['hash-object', '--', path], dir);
+}
+
+/** Capture already-dirty folded-tree files before the remediation agent runs. */
+export function captureFoldedChangeBaseline(foldedDir: string): FoldedChangeBaseline {
+  git(['add', '-A'], foldedDir);
+  const paths = git(['diff', '--cached', '--name-only'], foldedDir).split('\n').filter(Boolean);
+  const baseline = new Map(paths.map((path) => [path, worktreeObjectId(foldedDir, path)]));
+  git(['reset'], foldedDir);
+  return baseline;
+}
+
 /**
  * FE-884 remediation round-trip. After a remediation agent edits the *folded*
  * `__epic__/<eid>/` tree (the detached worktree where the integration test runs),
@@ -196,11 +212,17 @@ export function transferFoldedFixToSlice(opts: {
   foldedDir: string;
   slice: Slice;
   epicTestTargets: readonly string[];
+  baseline?: FoldedChangeBaseline;
 }): { accepted: boolean; reason?: 'no-op' | 'touched-test' | 'apply-failed'; touched: string[] } {
   const { foldedDir } = opts;
   const sliceDir = resolveSliceWorktreeDir(opts.parentSandboxDir, opts.slice.id);
   // Stage everything so new files are enumerated too, then list touched paths.
   git(['add', '-A'], foldedDir);
+  for (const [path, objectId] of opts.baseline ?? []) {
+    if (worktreeObjectId(foldedDir, path) === objectId) {
+      git(['reset', '--', path], foldedDir);
+    }
+  }
   const touched = git(['diff', '--cached', '--name-only'], foldedDir).split('\n').filter(Boolean);
   if (touched.length === 0) {
     git(['reset'], foldedDir);

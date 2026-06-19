@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   brunchRef,
+  captureFoldedChangeBaseline,
   commitSliceWorktree,
   type CompletedRun,
   dependencyOrder,
@@ -397,6 +398,28 @@ describe('transferFoldedFixToSlice (FE-884 remediation round-trip)', () => {
     expect(outcome.reason).toBe('touched-test');
     // The whole attempt is discarded — nothing reaches the slice branch.
     expect(gitC(source, 'show', `${brunchRef.slice('r1', 'a')}:lib.ts`)).toContain('broken');
+  });
+
+  it('ignores unchanged verify-test files that were dirty before remediation', () => {
+    // verify-epic writes the failing integration test before the remediation
+    // agent runs. That baseline oracle must not be mistaken for an agent edit.
+    writeFileSync(join(foldedDir, 'it.test.ts'), 'it("fails until product is fixed", () => {});\n');
+    const baseline = captureFoldedChangeBaseline(foldedDir);
+    writeFileSync(join(foldedDir, 'lib.ts'), 'export const view = "fixed";\n');
+
+    const outcome = transferFoldedFixToSlice({
+      parentSandboxDir: parent,
+      foldedDir,
+      slice: slice('a'),
+      epicTestTargets: ['it.test.ts'],
+      baseline,
+    });
+
+    expect(outcome).toMatchObject({ accepted: true, touched: ['lib.ts'] });
+    expect(gitC(source, 'show', `${brunchRef.slice('r1', 'a')}:lib.ts`)).toContain('fixed');
+    expect(gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.slice('r1', 'a'))).not.toContain(
+      'it.test.ts',
+    );
   });
 
   it('rejects a no-op attempt (agent changed nothing)', () => {
