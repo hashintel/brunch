@@ -8,25 +8,6 @@ import {
   type OperationalModeId,
 } from './schema/kinds.js';
 
-export type {
-  AgentLensId,
-  AgentLensSelection,
-  AgentRoleId,
-  AgentStrategyId,
-  AgentStrategySelection,
-  AutoAxisSelection,
-  OperationalModeChoice,
-  OperationalModeId,
-  PlannedOperationalModeId,
-} from './schema/kinds.js';
-export {
-  AGENT_LENS_IDS,
-  AGENT_ROLE_IDS,
-  AGENT_STRATEGY_IDS,
-  OPERATIONAL_MODE_IDS,
-  PLANNED_OPERATIONAL_MODE_IDS,
-} from './schema/kinds.js';
-
 export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE = 'brunch.agent_runtime_state';
 
 export type ToolPolicyId = 'elicit-read-only';

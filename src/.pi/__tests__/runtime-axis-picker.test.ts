@@ -5,7 +5,7 @@ import {
   AGENT_STRATEGY_IDS,
   type AgentLensSelection,
   type AgentStrategySelection,
-} from '../../session/runtime-state.js';
+} from '../../session/schema/kinds.js';
 import {
   createRuntimeLensPickerComponent,
   createRuntimeModePickerComponent,

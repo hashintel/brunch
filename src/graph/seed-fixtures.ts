@@ -338,26 +338,17 @@ export async function runSeedFixturesCli(options: SeedCliOptions = {}): Promise<
     }
     const executor = await openWorkspaceCommandExecutor(parsed.workspace);
 
-    if (parsed.selection.kind === 'single') {
-      const seed = parsed.selection.seed;
-      const fixture = await readSelectedSeed(seed.set, seed.slug);
+    const seeds = parsed.selection.kind === 'single' ? [parsed.selection.seed] : await trackedSeedRefs();
+    for (const seed of seeds) {
+      let fixture = await readSelectedSeed(seed.set, seed.slug);
+      if (parsed.selection.kind === 'all') fixture = fixtureForAllSeeds(seed, fixture);
       const result = seedFixture(executor, fixture);
       stdout(
         `seeded ${seed.ref} → spec ${result.specId} ` +
           `(${result.nodeCount} nodes, ${result.edgeCount} edges)\n`,
       );
-    } else {
-      const seeds = await trackedSeedRefs();
-      for (const seed of seeds) {
-        const fixture = fixtureForAllSeeds(seed, await readSelectedSeed(seed.set, seed.slug));
-        const result = seedFixture(executor, fixture);
-        stdout(
-          `seeded ${seed.ref} → spec ${result.specId} ` +
-            `(${result.nodeCount} nodes, ${result.edgeCount} edges)\n`,
-        );
-      }
-      stdout(`seeded ${seeds.length} tracked seeds\n`);
     }
+    if (parsed.selection.kind === 'all') stdout(`seeded ${seeds.length} tracked seeds\n`);
     stdout(`Destination: ${destinationDb}\n`);
     return 0;
   } catch (error) {

@@ -21,7 +21,7 @@ import type { GraphSlice } from '../graph/queries.js';
 import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
 import { formatGraphNodeCode, type GraphNode } from '../graph/schema/nodes.js';
 import { renderSoftReadinessEstimate } from '../renderers/session/readiness-estimate.js';
-import type { AgentLensSelection } from './runtime-state.js';
+import type { AgentLensSelection } from './schema/kinds.js';
 import type { WorkspacePostureState } from './workspace-session-coordinator.js';
 
 export interface AgentPromptSpecContext {
