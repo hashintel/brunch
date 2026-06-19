@@ -4,7 +4,12 @@ import { join, resolve } from 'node:path';
 
 import { cookBannerLines, cookSummaryLines } from './cook-report.js';
 import { createOrchestrator } from './engine.js';
-import { type MergeConflict, mergeCompletedSlicesIntoTree } from './epic-sandbox-merge.js';
+import {
+  epicIdsForEpicVerifyMerge,
+  type MergeConflict,
+  mergeCompletedSlicesIntoTree,
+  mergeSourceDirsIntoTree,
+} from './epic-sandbox-merge.js';
 import { FileReportSink } from './file-report-sink.js';
 import { loadLocalEnvFile } from './local-env.js';
 import type { FiringPolicy } from './petri-net.js';
@@ -372,16 +377,68 @@ export function promotionSourceDir(opts: {
   runDir: string;
   plan: Plan;
   completedSliceIds: string[];
+  verifiedEpicSandboxes?: readonly VerifiedEpicSandbox[];
 }): { dir: string; conflicts: MergeConflict[] } {
   if (opts.sliceLayout === 'shared') return { dir: opts.sandboxDir, conflicts: [] };
   const completed = new Set(opts.completedSliceIds);
   const ordered = opts.plan.slices.map((s) => s.id).filter((id) => completed.has(id));
+  const verified = maximalVerifiedEpicSandboxes(opts.plan, opts.verifiedEpicSandboxes ?? []);
+  if (verified.length > 0) {
+    const coveredEpics = new Set<string>();
+    for (const sandbox of verified) {
+      for (const epicId of epicIdsForEpicVerifyMerge(opts.plan, sandbox.epicId)) coveredEpics.add(epicId);
+    }
+    const fallbackSlices = opts.plan.slices
+      .filter((slice) => completed.has(slice.id) && !coveredEpics.has(slice.epic_id))
+      .map((slice) => ({ id: slice.id, dir: join(opts.sandboxDir, slice.id) }));
+    const verifiedSources = verified.map((sandbox) => ({
+      id: `__epic__/${sandbox.epicId}`,
+      dir: sandbox.dir,
+    }));
+    const merge = mergeSourceDirsIntoTree({
+      sources: [...fallbackSlices, ...verifiedSources],
+      destDir: join(opts.runDir, '__promote__'),
+    });
+    return { dir: merge.mergeDir, conflicts: merge.conflicts };
+  }
   const merge = mergeCompletedSlicesIntoTree({
     parentSandboxDir: opts.sandboxDir,
     sliceIds: ordered,
     destDir: join(opts.runDir, '__promote__'),
   });
   return { dir: merge.mergeDir, conflicts: merge.conflicts };
+}
+
+export type VerifiedEpicSandbox = {
+  epicId: string;
+  dir: string;
+};
+
+function maximalVerifiedEpicSandboxes(
+  plan: Plan,
+  verifiedEpicSandboxes: readonly VerifiedEpicSandbox[],
+): VerifiedEpicSandbox[] {
+  const byEpic = new Map(verifiedEpicSandboxes.map((sandbox) => [sandbox.epicId, sandbox]));
+  const verifiedEpicIds = new Set(byEpic.keys());
+  return plan.epics
+    .map((epic) => byEpic.get(epic.id))
+    .filter((sandbox): sandbox is VerifiedEpicSandbox => {
+      if (!sandbox) return false;
+      return ![...verifiedEpicIds].some(
+        (otherEpicId) =>
+          otherEpicId !== sandbox.epicId &&
+          epicIdsForEpicVerifyMerge(plan, otherEpicId).includes(sandbox.epicId),
+      );
+    });
+}
+
+function verifiedEpicSandboxesFromReports(reports: FileReportSink): VerifiedEpicSandbox[] {
+  return reports.getAll().flatMap((line) => {
+    if (line.event !== 'epic-sandbox-merged') return [];
+    const { epicSandboxDir } = line.payload;
+    if (typeof epicSandboxDir !== 'string') return [];
+    return [{ epicId: line.epicId, dir: epicSandboxDir }];
+  });
 }
 
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };
@@ -558,6 +615,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
             runDir,
             plan,
             completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
+            verifiedEpicSandboxes: verifiedEpicSandboxesFromReports(reports),
           });
           for (const c of source.conflicts) {
             line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
@@ -592,6 +650,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
             runDir,
             plan,
             completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
+            verifiedEpicSandboxes: verifiedEpicSandboxesFromReports(reports),
           });
           for (const c of source.conflicts) {
             line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);

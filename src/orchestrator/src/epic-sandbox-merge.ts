@@ -18,7 +18,7 @@
 // owned by other epics. It never walks filesystem state to discover more scope.
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { copyMissingTopLevelEntries } from './cow-copy.js';
@@ -344,6 +344,7 @@ function mergeSliceDirsInto(parentSandboxDir: string, sliceIds: string[], destDi
     rmSync(destDir, { recursive: true, force: true });
   }
   mkdirSync(destDir, { recursive: true });
+  linkShareableTopLevelEntries(parentSandboxDir, destDir);
 
   const writers = new Map<string, string[]>();
   const epicRoot = resolve(resolve(parentSandboxDir), EPIC_MERGE_SEGMENT);
@@ -378,6 +379,20 @@ export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
 
 export type WholePlanMergeResult = { mergeDir: string; conflicts: MergeConflict[] };
 
+export type MergeSourceDir = {
+  id: string;
+  dir: string;
+};
+
+function linkShareableTopLevelEntries(parentSandboxDir: string, destDir: string): void {
+  for (const entry of SHAREABLE_TOP_LEVEL_ENTRIES) {
+    const sourcePath = join(parentSandboxDir, entry);
+    const destPath = join(destDir, entry);
+    if (!existsSync(sourcePath) || existsSync(destPath)) continue;
+    symlinkSync(sourcePath, destPath);
+  }
+}
+
 // Union all completed slice dirs into one tree (the whole-plan promotion source
 // for parallel greenfield). `sliceIds` should be in plan declaration order.
 export function mergeCompletedSlicesIntoTree(opts: {
@@ -386,6 +401,35 @@ export function mergeCompletedSlicesIntoTree(opts: {
   destDir: string;
 }): WholePlanMergeResult {
   const conflicts = mergeSliceDirsInto(opts.parentSandboxDir, opts.sliceIds, opts.destDir);
+  return { mergeDir: opts.destDir, conflicts };
+}
+
+export function mergeSourceDirsIntoTree(opts: {
+  sources: readonly MergeSourceDir[];
+  destDir: string;
+}): WholePlanMergeResult {
+  if (existsSync(opts.destDir)) {
+    rmSync(opts.destDir, { recursive: true, force: true });
+  }
+  mkdirSync(opts.destDir, { recursive: true });
+
+  const writers = new Map<string, string[]>();
+  for (const source of opts.sources) {
+    if (!existsSync(source.dir)) continue;
+    for (const file of walkFiles(source.dir)) {
+      const rel = relativePathWithin(source.dir, file);
+      const list = writers.get(rel) ?? [];
+      list.push(source.id);
+      writers.set(rel, list);
+      copyIntoTree(file, join(opts.destDir, rel), opts.destDir);
+    }
+  }
+
+  const conflicts: MergeConflict[] = [];
+  for (const [path, sources] of writers) {
+    if (sources.length > 1) conflicts.push({ path, slices: sources, winner: sources[sources.length - 1]! });
+  }
+  conflicts.sort((a, b) => a.path.localeCompare(b.path));
   return { mergeDir: opts.destDir, conflicts };
 }
 

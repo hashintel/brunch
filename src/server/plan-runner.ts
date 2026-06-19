@@ -67,6 +67,10 @@ export function parsePlanArgs(args: string[], defaultOutDir: string = process.cw
   return { specificationId, outDir, verbose, profile };
 }
 
+export function planRepoDirForLaunch(launchCwd: string): string {
+  return resolve(launchCwd);
+}
+
 export type RunPlanArgs = {
   specificationId: number;
   snapshot: CompletedSpecSnapshot;

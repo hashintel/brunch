@@ -148,7 +148,7 @@ if (rawArgs[0] === 'cook') {
     process.exit(1);
   });
 } else if (rawArgs[0] === 'serve') {
-  const { runPlan } = await import('./plan-runner.js');
+  const { planRepoDirForLaunch, runPlan } = await import('./plan-runner.js');
   const { runCook } = await import('../orchestrator/src/cook-cli.js');
   const { parseServeArgs, runServe } = await import('./serve-runner.js');
   const { withCookBus } = await import('../orchestrator/src/presenter.js');
@@ -156,7 +156,7 @@ if (rawArgs[0] === 'cook') {
     withCompletedSpec(
       'serve',
       () => parseServeArgs(rawArgs.slice(1)),
-      async (opts, { project, snapshot }) => {
+      async (opts, { snapshot }) => {
         // Cook runs against the same dir the plan was written to (launchCwd); see
         // serveCookOptions — runCook reads opts.dir raw, so serve must thread it.
         await runServe(opts, launchCwd, {
@@ -167,8 +167,8 @@ if (rawArgs[0] === 'cook') {
               outDir: launchCwd,
               verbose: opts.verbose,
               profile: opts.profile,
-              // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
-              repoDir: project.cwd,
+              // Brownfield detection reads the same directory cook will clone; greenfield ignores it.
+              repoDir: planRepoDirForLaunch(launchCwd),
               bus,
             }),
           cook: (cookOpts) => runCook(cookOpts, bus),
@@ -177,21 +177,21 @@ if (rawArgs[0] === 'cook') {
     ),
   );
 } else if (rawArgs[0] === 'plan') {
-  const { parsePlanArgs, runPlan } = await import('./plan-runner.js');
+  const { parsePlanArgs, planRepoDirForLaunch, runPlan } = await import('./plan-runner.js');
   const { withCookBus } = await import('../orchestrator/src/presenter.js');
   await withCookBus('plan', (bus) =>
     withCompletedSpec(
       'plan',
       () => parsePlanArgs(rawArgs.slice(1), launchCwd),
-      async (opts, { project, snapshot }) => {
+      async (opts, { snapshot }) => {
         await runPlan({
           specificationId: opts.specificationId,
           snapshot,
           outDir: opts.outDir,
           verbose: opts.verbose,
           profile: opts.profile,
-          // Brownfield detection reads the launch cwd (the user's repo); greenfield ignores it.
-          repoDir: project.cwd,
+          // Brownfield detection reads the command launch directory, not the .brunch project root.
+          repoDir: planRepoDirForLaunch(launchCwd),
           bus,
         });
       },

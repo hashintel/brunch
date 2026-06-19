@@ -18,7 +18,7 @@ import type { CompletedSpecSnapshot } from '../orchestrator/src/plan-projection.
 import { CookBus } from '../orchestrator/src/presenter/bus.js';
 import { PlainPresenter } from '../orchestrator/src/presenter/plain.js';
 import type { Plan } from '../orchestrator/src/types.js';
-import { parsePlanArgs, runPlan } from './plan-runner.js';
+import { parsePlanArgs, planRepoDirForLaunch, runPlan } from './plan-runner.js';
 
 /** A bus wired to a capturing PlainPresenter — the golden stderr stream. */
 function captureBus(): { bus: CookBus; lines: string[] } {
@@ -94,6 +94,12 @@ describe('parsePlanArgs', () => {
 
   it('rejects an unknown --profile value, listing valid ids', () => {
     expect(() => parsePlanArgs(['2', '--profile=rust'])).toThrow(/rust.*bun.*node-vitest/s);
+  });
+});
+
+describe('planRepoDirForLaunch', () => {
+  it('uses the command launch directory without walking up to the .brunch project root', () => {
+    expect(planRepoDirForLaunch('/repo/packages/app')).toBe('/repo/packages/app');
   });
 });
 

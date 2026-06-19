@@ -628,6 +628,24 @@ describe('mergeSlicesIntoEpicSandbox', () => {
     expect(existsSync(join(result.epicSandboxDir, 'escape.link'))).toBe(false);
   });
 
+  it('keeps the parent node_modules link available in the merged verify sandbox', () => {
+    const parent = makeParent();
+    seedSlice(parent, 'slice-a', { 'src/a.ts': 'A\n' });
+    mkdirSync(join(parent, 'node_modules', 'dep'), { recursive: true });
+    writeFileSync(join(parent, 'node_modules', 'dep/index.js'), 'module.exports = 1;\n');
+    symlinkSync(join(parent, 'node_modules'), join(parent, 'slice-a', 'node_modules'), 'dir');
+
+    const result = mergeSlicesIntoEpicSandbox({
+      parentSandboxDir: parent,
+      epicId: 'epic-a',
+      sliceIds: ['slice-a'],
+    });
+
+    const linkPath = join(result.epicSandboxDir, 'node_modules');
+    expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+    expect(readFileSync(join(linkPath, 'dep/index.js'), 'utf8')).toBe('module.exports = 1;\n');
+  });
+
   it('replaces a file with a directory when later slices need nested paths', () => {
     const parent = makeParent();
     seedSlice(parent, 'slice-a', { 'src/x': 'file\n' });
