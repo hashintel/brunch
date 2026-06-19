@@ -27,7 +27,10 @@ const agentDefinitionExpectations = [
   },
   {
     system: 'src/.pi/agents/pi-coder/SYSTEM.md',
-    needles: ['# Agent: pi-coder', 'You are an expert coding assistant operating inside pi'],
+    needles: [
+      'expert coding assistant operating inside *brunch*',
+      'Show file paths clearly when working with files',
+    ],
   },
 ];
 
