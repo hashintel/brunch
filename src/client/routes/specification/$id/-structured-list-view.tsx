@@ -428,7 +428,7 @@ function ItemDetailsFooter({
   );
 }
 
-export function EmptyStateCard({
+function EmptyStateCard({
   state,
   title,
   description,
