@@ -87,6 +87,9 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log(
     '  --out=<dir>               Output directory (default: cwd); plan lands under .brunch/cook/specs/<specId>/',
   );
+  console.log(
+    '  --profile=<id>            Toolchain profile override (default: spec profile, else bun); persisted into plan.yaml',
+  );
   console.log('  --verbose, -v             Verbose output');
   process.exit(0);
 }
@@ -117,6 +120,7 @@ if (rawArgs[0] === 'cook') {
       snapshot,
       outDir: opts.outDir,
       verbose: opts.verbose,
+      profile: opts.profile,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

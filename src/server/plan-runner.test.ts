@@ -76,6 +76,15 @@ describe('parsePlanArgs', () => {
   it('rejects a second positional argument instead of overwriting the first', () => {
     expect(() => parsePlanArgs(['2', '3'])).toThrow(/positional|"3"/);
   });
+
+  it('parses --profile=<id> into a validated profile', () => {
+    expect(parsePlanArgs(['2', '--profile=node-vitest']).profile).toBe('node-vitest');
+    expect(parsePlanArgs(['2']).profile).toBeUndefined();
+  });
+
+  it('rejects an unknown --profile value, listing valid ids', () => {
+    expect(() => parsePlanArgs(['2', '--profile=rust'])).toThrow(/rust.*bun.*node-vitest/s);
+  });
 });
 
 describe('runPlan', () => {
@@ -142,6 +151,24 @@ describe('runPlan', () => {
     expect(stderrLines.some((line) => line.includes('synthesized-verification-target'))).toBe(false);
     // Header echoes the spec id.
     expect(stderrLines.some((line) => line.includes('spec') && line.includes('2'))).toBe(true);
+  });
+
+  it('passes the profile override through to the emitted plan', async () => {
+    const { snapshot, dir, runModel } = makeRunWithCycle();
+
+    await runPlan({
+      specificationId: 2,
+      snapshot,
+      outDir: dir,
+      verbose: false,
+      profile: 'node-vitest',
+      runModel,
+      log: () => {},
+    });
+
+    const planPath = join(dir, '.brunch', 'cook', 'specs', '2', 'plan.yaml');
+    const reloaded = parseYaml(readFileSync(planPath, 'utf8')) as Plan;
+    expect(reloaded.profile).toBe('node-vitest');
   });
 
   it('shows synthesis events when --verbose is set', async () => {

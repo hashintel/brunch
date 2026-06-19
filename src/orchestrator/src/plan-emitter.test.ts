@@ -241,6 +241,70 @@ describe('emitPlanFromSnapshot', () => {
     });
   });
 
+  it('stamps the bun default when the snapshot has no profile', async () => {
+    const result = await emitPlanFromSnapshot(snapshot, { runModel: draftModel(coveringDraft()) });
+    expect(result.plan.profile).toBe('bun');
+  });
+
+  it('explicit profile option wins over the snapshot profile', async () => {
+    const result = await emitPlanFromSnapshot(
+      { ...snapshot, profile: 'brunch' },
+      { runModel: draftModel(coveringDraft()), profile: 'node-vitest' },
+    );
+
+    expect(result.plan.profile).toBe('node-vitest');
+    // Targets follow the override, not the snapshot profile.
+    for (const slice of result.plan.slices) {
+      expect(slice.verification).toEqual([{ kind: 'unit-test', target: `tests/${slice.id}.test.ts` }]);
+    }
+  });
+
+  it('uses the architect-classified profile when flag and snapshot are silent', async () => {
+    const result = await emitPlanFromSnapshot(snapshot, {
+      runModel: draftModel({ ...coveringDraft(), profile: 'deno' }),
+    });
+    expect(result.plan.profile).toBe('deno');
+  });
+
+  it('snapshot profile beats the architect-classified one; flag beats both', async () => {
+    const draft = { ...coveringDraft(), profile: 'deno' as const };
+
+    const fromSnapshot = await emitPlanFromSnapshot(
+      { ...snapshot, profile: 'brunch' },
+      { runModel: draftModel(draft) },
+    );
+    expect(fromSnapshot.plan.profile).toBe('brunch');
+
+    const fromFlag = await emitPlanFromSnapshot(
+      { ...snapshot, profile: 'brunch' },
+      { runModel: draftModel(draft), profile: 'node-vitest' },
+    );
+    expect(fromFlag.plan.profile).toBe('node-vitest');
+  });
+
+  it('a hallucinated architect profile fails authoring and falls back to bun', async () => {
+    const result = await emitPlanFromSnapshot(snapshot, {
+      runModel: draftModel({ ...coveringDraft(), profile: 'rust' } as never),
+    });
+
+    expect(result.architectResult.status).toBe('failed');
+    expect(result.plan.profile).toBe('bun');
+    expect(result.warnings.some((w) => w.code === 'architect-failed-fallback-to-projection')).toBe(true);
+  });
+
+  it('stamps the resolved profile on the fallback path too', async () => {
+    const throwingModel: RunModel = async () => {
+      throw new Error('boom');
+    };
+    const result = await emitPlanFromSnapshot(snapshot, {
+      runModel: throwingModel,
+      profile: 'node-vitest',
+    });
+
+    expect(result.architectResult.status).toBe('failed');
+    expect(result.plan.profile).toBe('node-vitest');
+  });
+
   it('round-trips the emitted plan (incl. writes) through loadPlan after YAML serialization', async () => {
     const result = await emitPlanFromSnapshot(snapshot, { runModel: draftModel(coveringDraft()) });
 

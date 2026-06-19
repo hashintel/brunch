@@ -13,7 +13,7 @@
   "license": "(MIT OR Apache-2.0)",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.19.0"
   },
   "bin": {
     "brunch": "bin/brunch.js"
@@ -30,7 +30,10 @@
   },
   "overrides": {
     "esbuild": "^0.25.12",
-    "react-inspector": "^9.0.0"
+    "react-inspector": "^9.0.0",
+    "hono": "4.12.25",
+    "protobufjs": "7.6.4",
+    "ws": "8.21.0"
   },
   "scripts": {
     "build": "vite build && vite build --mode server-runtime",
@@ -54,6 +57,7 @@
     "@ai-sdk/anthropic": "^3.0.66",
     "@ai-sdk/provider-utils": "^4.0.21",
     "@ai-sdk/react": "^3.0.145",
+    "@earendil-works/pi-coding-agent": "0.79.8",
     "@fontsource-variable/geist-mono": "^5.2.7",
     "@fontsource-variable/inter": "^5.2.8",
     "@radix-ui/react-checkbox": "^1.3.3",

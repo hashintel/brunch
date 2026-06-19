@@ -1,6 +1,18 @@
 import { spawn } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import {
+  AuthStorage,
+  type CreateAgentSessionOptions,
+  createAgentSession,
+  DefaultResourceLoader,
+  ModelRegistry,
+  SessionManager,
+  SettingsManager,
+} from '@earendil-works/pi-coding-agent';
 
 import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
@@ -44,7 +56,8 @@ function logVerbose(output: string): void {
 // ---------------------------------------------------------------------------
 
 const PI_TIMEOUT_MS = 300_000;
-const PI_MAX_BUFFER = 10 * 1024 * 1024;
+// Output cap — the timeout alone won't stop a fast, chatty agent.
+const PI_MAX_OUTPUT = 10 * 1024 * 1024;
 
 // Per-action tool scoping. The evaluator observes, it does not produce: a
 // read-only toolset means `evaluate-done` cannot fix code during evaluation and
@@ -57,97 +70,196 @@ export function toolsForAction(action: string): string {
   return action === 'evaluate-done' ? READ_ONLY_TOOLS : WRITE_TOOLS;
 }
 
-// Async on purpose: `pi` runs for tens of seconds per call. A synchronous
-// `spawnSync` would freeze the shared event loop, starving the SSE stream
-// server of the chance to flush frames while a slice is being worked.
-// Awaiting an async child keeps the loop free so transition firings stream
-// live.
-function runPi(opts: {
+interface RunPiOpts {
   label: string;
   model: string;
   promptFile: string;
   task: string;
   sandboxDir: string;
   tools: string;
-}): Promise<string> {
+}
+
+/** The pi SDK session factory — injectable so the drive loop is testable without a model or network. */
+export type SessionFactory = typeof createAgentSession;
+
+function createAgentDir(): string {
+  return mkdtempSync(join(tmpdir(), 'brunch-pi-'));
+}
+
+function removeAgentDir(path: string): void {
+  rmSync(path, { recursive: true, force: true });
+}
+
+function piTimeoutError(timeoutMs: number): Error {
+  return new Error(`pi timed out after ${timeoutMs / 1000}s`);
+}
+
+function finalAgentFailure(session: {
+  messages?: unknown[];
+  state?: { messages?: unknown[] };
+}): string | undefined {
+  const messages = session.messages ?? session.state?.messages ?? [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || typeof message !== 'object') continue;
+    const record = message as { role?: unknown; stopReason?: unknown; errorMessage?: unknown };
+    if (record.role !== 'assistant') continue;
+    if (record.stopReason !== 'error' && record.stopReason !== 'aborted') return undefined;
+    const detail =
+      typeof record.errorMessage === 'string' && record.errorMessage.length > 0
+        ? `: ${record.errorMessage}`
+        : '';
+    return `agent ended with stopReason "${record.stopReason}"${detail}`;
+  }
+  return undefined;
+}
+
+// Map one action's inputs to SDK session config — tools/model/system-prompt, no
+// context/skills, in-memory session. Auth from brunch's own ANTHROPIC_API_KEY, not
+// the user's ~/.pi credentials, which is what keeps a fresh checkout self-contained.
+async function buildSessionOptions(opts: RunPiOpts, isolatedDir: string): Promise<CreateAgentSessionOptions> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'ANTHROPIC_API_KEY is not set — the in-process pi agent needs it (no pi login / auth.json required)',
+    );
+  }
+
+  const authStorage = AuthStorage.create(join(isolatedDir, 'auth.json'));
+  authStorage.setRuntimeApiKey('anthropic', apiKey);
+  const modelRegistry = ModelRegistry.inMemory(authStorage);
+  const model = modelRegistry.find('anthropic', opts.model);
+  if (!model) {
+    throw new Error(`model anthropic/${opts.model} not found in the pi model registry`);
+  }
+
+  const systemPrompt = readFileSync(opts.promptFile, 'utf8');
+  const resourceLoader = new DefaultResourceLoader({
+    cwd: opts.sandboxDir,
+    agentDir: isolatedDir,
+    systemPromptOverride: () => systemPrompt,
+    appendSystemPromptOverride: () => [],
+    agentsFilesOverride: () => ({ agentsFiles: [] }),
+    skillsOverride: () => ({ skills: [], diagnostics: [] }),
+    promptsOverride: () => ({ prompts: [], diagnostics: [] }),
+  });
+  await resourceLoader.reload();
+
+  return {
+    cwd: opts.sandboxDir,
+    agentDir: isolatedDir,
+    model,
+    authStorage,
+    modelRegistry,
+    resourceLoader,
+    tools: opts.tools.split(','),
+    sessionManager: SessionManager.inMemory(opts.sandboxDir),
+    settingsManager: SettingsManager.inMemory({ compaction: { enabled: false } }),
+  };
+}
+
+// In-process (not a spawned CLI) so brunch is self-contained. Each run gets a
+// throwaway agent/auth dir to keep concurrent slices isolated; the dir is removed
+// after the session ends. Output is buffered from text_delta events, never written
+// to brunch's stdout (keeps the cook SSE stream clean); the timeout covers both
+// session setup and the prompt turn, aborting cooperatively once a session exists.
+async function runPi(
+  opts: RunPiOpts,
+  deps: { createSession?: SessionFactory; timeoutMs?: number; maxOutput?: number } = {},
+): Promise<string> {
+  const createSession = deps.createSession ?? createAgentSession;
+  const timeoutMs = deps.timeoutMs ?? PI_TIMEOUT_MS;
+  const maxOutput = deps.maxOutput ?? PI_MAX_OUTPUT;
   const start = Date.now();
 
-  return new Promise<string>((resolve, reject) => {
-    const child = spawn(
-      'pi',
-      [
-        '-p',
-        '--no-session',
-        '--no-context-files',
-        '--mode',
-        'text',
-        '--provider',
-        'anthropic',
-        '--model',
-        opts.model,
-        '--system-prompt',
-        '',
-        '--append-system-prompt',
-        opts.promptFile,
-        '--tools',
-        opts.tools,
-        opts.task,
-      ],
-      { cwd: opts.sandboxDir, stdio: ['ignore', 'pipe', 'pipe'] },
+  const isolatedDir = createAgentDir();
+  let cleanedAgentDir = false;
+  const cleanupAgentDir = (): void => {
+    if (cleanedAgentDir) return;
+    cleanedAgentDir = true;
+    removeAgentDir(isolatedDir);
+  };
+  let session: Awaited<ReturnType<SessionFactory>>['session'] | undefined;
+  let captured = '';
+  let capturedBytes = 0;
+  let overflowed = false;
+  let timedOut = false;
+  let promptError: unknown;
+  let agentFailure: string | undefined;
+  let unsubscribe: (() => void) | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      timedOut = true;
+      void session?.abort();
+      reject(piTimeoutError(timeoutMs));
+    }, timeoutMs);
+  });
+
+  try {
+    const setup = (async () => {
+      const created = await createSession(await buildSessionOptions(opts, isolatedDir));
+      if (timedOut) {
+        created.session.dispose();
+      }
+      return created.session;
+    })();
+    void setup.then(
+      () => {
+        if (timedOut && !session) cleanupAgentDir();
+      },
+      () => {
+        if (timedOut && !session) cleanupAgentDir();
+      },
     );
 
-    const stdoutChunks: Buffer[] = [];
-    const stderrChunks: Buffer[] = [];
-    let stdoutLen = 0;
-    let settled = false;
+    session = await Promise.race([setup, timeout]);
 
-    const settle = (fn: () => void): void => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      fn();
-    };
-
-    const timer = setTimeout(() => {
-      settle(() => {
-        child.kill('SIGTERM');
-        reject(new Error(`pi timed out after ${PI_TIMEOUT_MS / 1000}s`));
-      });
-    }, PI_TIMEOUT_MS);
-
-    child.stdout?.on('data', (chunk: Buffer) => {
-      stdoutLen += chunk.length;
-      if (stdoutLen > PI_MAX_BUFFER) {
-        settle(() => {
-          child.kill('SIGTERM');
-          reject(new Error('pi output exceeded 10MB buffer'));
-        });
-        return;
-      }
-      stdoutChunks.push(chunk);
-    });
-    child.stderr?.on('data', (chunk: Buffer) => stderrChunks.push(chunk));
-
-    child.on('error', (err) => {
-      settle(() => reject(new Error(`pi failed to start: ${err.message}`)));
-    });
-
-    child.on('close', (code) => {
-      settle(() => {
-        const stdout = Buffer.concat(stdoutChunks).toString('utf8');
-        if (code !== 0) {
-          const stderr = Buffer.concat(stderrChunks).toString('utf8').trim();
-          reject(new Error(`pi exited ${code}${stderr ? `: ${stderr}` : ''}`));
+    unsubscribe = session.subscribe((event) => {
+      if (event.type === 'message_update' && event.assistantMessageEvent.type === 'text_delta') {
+        if (overflowed) return;
+        const delta = event.assistantMessageEvent.delta;
+        const deltaBytes = Buffer.byteLength(delta, 'utf8');
+        if (capturedBytes + deltaBytes > maxOutput) {
+          overflowed = true;
+          void session?.abort();
           return;
         }
-        const dur = ((Date.now() - start) / 1000).toFixed(1);
-        log('✓', `${opts.label} (${dur}s)`);
-        logVerbose(stdout);
-        resolve(stdout);
-      });
+        captured += delta;
+        capturedBytes += deltaBytes;
+      }
     });
-  });
+
+    try {
+      await Promise.race([session.prompt(opts.task), timeout]);
+      agentFailure = finalAgentFailure(session);
+    } catch (err) {
+      promptError = err;
+    }
+  } finally {
+    if (timer) clearTimeout(timer);
+    unsubscribe?.();
+    session?.dispose();
+    cleanupAgentDir();
+  }
+
+  if (timedOut) throw piTimeoutError(timeoutMs);
+  if (overflowed) throw new Error(`pi output exceeded ${Math.floor(maxOutput / (1024 * 1024))}MB buffer`);
+  if (promptError) {
+    const detail = promptError instanceof Error ? promptError.message : JSON.stringify(promptError);
+    throw new Error(`pi failed: ${detail}`);
+  }
+  if (agentFailure) {
+    throw new Error(`pi failed: ${agentFailure}`);
+  }
+
+  const dur = ((Date.now() - start) / 1000).toFixed(1);
+  log('✓', `${opts.label} (${dur}s)`);
+  logVerbose(captured);
+  return captured;
 }
+
+export { runPi };
 
 /**
  * Decide whether a slice is done by executing its verification targets. `done`

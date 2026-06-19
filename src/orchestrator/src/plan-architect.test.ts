@@ -113,6 +113,30 @@ describe('architectPlan', () => {
     expect(result.status).toBe('succeeded');
   });
 
+  it('accepts an optional profile classification (id or null) in the draft schema', async () => {
+    const withProfile = await architectPlan(projected, async () => ({ ...wellFormed, profile: 'deno' }));
+    expect(withProfile.status).toBe('succeeded');
+    if (withProfile.status === 'succeeded') expect(withProfile.draft.profile).toBe('deno');
+
+    const silent = await architectPlan(projected, async () => ({ ...wellFormed, profile: null }));
+    expect(silent.status).toBe('succeeded');
+
+    const invalid = await architectPlan(projected, async () => ({ ...wellFormed, profile: 'rust' }));
+    expect(invalid.status).toBe('failed');
+  });
+
+  it('prompts for profile classification from spec prose only, listing valid ids', async () => {
+    let prompt = '';
+    await architectPlan(projected, async (p) => {
+      prompt = p;
+      return wellFormed;
+    });
+
+    expect(prompt).toContain('`profile`');
+    expect(prompt).toContain('node-vitest');
+    expect(prompt).toContain('null');
+  });
+
   it('builds a prompt that demands writes, derivedFrom, decomposition, and criteria + bans test authoring', async () => {
     let prompt = '';
     await architectPlan(

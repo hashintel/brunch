@@ -25,6 +25,7 @@ import * as z from 'zod/v4';
 
 import { buildExemplarBlock } from './plan-exemplars.js';
 import { EMPTY_PLANNING_CONTEXT, type PlanningContext } from './plan-planning-context.js';
+import { PROFILE_IDS, type ProfileId } from './project-profile.js';
 import type { Plan } from './types.js';
 
 const architectSliceSchema = z.object({
@@ -47,6 +48,15 @@ export const architectDraftSchema = z
     ),
     slices: z.array(architectSliceSchema),
     nonBuildableRequirementIds: z.array(z.string()),
+    /**
+     * Toolchain profile classified from the spec prose alone (D160-K: no
+     * host introspection). `null` when the spec names no stack. Lowest rung
+     * of the emitter's selection chain — flag and spec profile both win.
+     */
+    profile: z
+      .enum(PROFILE_IDS as [ProfileId, ...ProfileId[]])
+      .nullable()
+      .optional(),
   })
   .superRefine((draft, ctx) => {
     const seenSliceIds = new Set<string>();
@@ -170,6 +180,9 @@ function buildArchitectPrompt(projected: Plan, context: PlanningContext): string
     '6. Do NOT author tests or verification entries, and do NOT inspect the target',
     '   repository — reason only from the spec, conventions, and the exemplars. The',
     '   cook agent writes the tests at run time.',
+    '7. `profile`: if the requirement/criteria prose names a tech stack, classify it',
+    `   as one of: ${PROFILE_IDS.join(', ')}. Set null when the spec is silent or`,
+    '   names a stack outside that list — never guess.',
     '',
     'Requirements (id + definition + acceptance criteria):',
     requirementBlocks,
@@ -183,7 +196,7 @@ function buildArchitectPrompt(projected: Plan, context: PlanningContext): string
     buildExemplarBlock(),
     '',
     'Output the authored `epics`, `slices` (each with `writes` + `derivedFrom`),',
-    'and `nonBuildableRequirementIds`.',
+    '`nonBuildableRequirementIds`, and `profile`.',
   ].join('\n');
 }
 

@@ -5,10 +5,12 @@ Run `brunch cook` against the brunch repo in codebase (brownfield) mode.
 ## Pre-flight
 
 ```sh
-which pi && pi --version                       # pi >= 0.74
-npm run build                                  # dist/ fresh
+npm run build                                  # dist/ fresh (bundles the in-process pi SDK)
+grep -q '^ANTHROPIC_API_KEY=' .env             # cook feeds this to the embedded agent
 git status --porcelain --untracked-files=no    # must be empty
 ```
+
+`brunch cook` embeds `@earendil-works/pi-coding-agent` in-process (FE-841), so no external `pi` binary on `$PATH` is required — only `ANTHROPIC_API_KEY` in `.env`, which the cook command loads via `--env-file=.env`.
 
 `.brunch/` is already gitignored, so cook artifacts won't appear in `git status`.
 
@@ -28,10 +30,12 @@ Run `/ln-scope` on a `memory/PLAN.md` frontier to produce a scope card (Target B
 
 Extract the frontier section and ask pi for YAML:
 
+The `pi` CLI is no longer a global prerequisite, but it still ships inside the bundled dep — invoke it with `npx pi` (resolves to `node_modules/.bin/pi`):
+
 ```sh
 FRONTIER="<id>"
 awk "/^### $FRONTIER\$/,/^### /" memory/PLAN.md | head -n -1 > /tmp/f.md
-pi -p --no-session --provider anthropic --model claude-haiku-4-5 \
+npx pi -p --no-session --provider anthropic --model claude-haiku-4-5 \
    --tools "read,write" \
    "Translate /tmp/f.md into .brunch/cook/plan.yaml. One epic, one slice per
     Acceptance line (max 2). Each slice needs a verification.target pointing
@@ -118,6 +122,6 @@ Periodic stragglers: `git worktree prune` + `git branch --list 'cook*' | xargs -
 
 ## Known limitations
 
-- **Pi evaluator may short-circuit.** Pi has `read,write,edit,bash` even during `evaluate-done` and may fix the file during evaluation rather than going through write-tests → write-code → run-tests. Non-deterministic.
+- **Agent runs in-process.** Cook drives the agent via the embedded `@earendil-works/pi-coding-agent` SDK (FE-841), not a spawned `pi` CLI. `evaluate-done` is scoped to a read-only tool allowlist (`toolsForAction('evaluate-done')`), so the evaluator cannot fix the file during evaluation (I126-K); `done` comes from executing the verification targets, not an LLM verdict.
 - **No commit on the cook branch.** Modification is in untracked subdirs of the cook branch's worktree, not committed. Promotion is manual `cp -R`.
 - **Plan vs frontier mismatch.** `.brunch/cook/plan.yaml` is orchestrator runtime, not planning vocabulary. `/ln-scope` or pi-assisted translation is the bridge.
