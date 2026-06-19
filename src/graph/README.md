@@ -1,7 +1,7 @@
 # graph/ — Graph domain layer
 
 Canonical reference: `docs/design/GRAPH_MODEL.md`
-SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D75-L
+SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D81-L
 
 ## Owns
 
@@ -28,10 +28,11 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   `CommandExecutor.acceptReviewSet` is the only graph mutation entrypoint for
   accepted review sets and records `operation: "accept_review_set"`.
 
-- **Capture translators** (`capture/`) — narrow, high-confidence structured
-  response translators that turn transcript-native answers into `mutateGraph`
-  command input. They do not write DB rows directly and do not own session
-  projection.
+- **Capture translators** (`capture/`) — retired submit-time structured-response
+  fossils until the D80-L live sweep fully replaces them. Current FE-861 capture
+  conduct lives in `src/.pi/skills/methods/capture.md`; the graph layer's live
+  responsibility is the mutation/gap boundary that sweep conduct routes through,
+  not a product-side extraction pass.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
   detail levels: active-context and graph-truth overview, node
   neighborhood, selected-spec graph-code lookup, open reconciliation needs, and
@@ -134,6 +135,12 @@ graph/
     mutateGraph / dryRunMutateGraph
     acceptReviewSet
     create/resolve reconciliation need
+
+  __tests__/capture-commitment-gradient-gate.test.ts
+    deterministic FE-861 routing gate over real mutate_graph + update_elicitation_gaps tool adapters
+    high-confidence explicit/implicit commits
+    low-confidence noticings -> one existing-or-new elicitation gap
+    structural gap answered derivation + manual gap close on the graph clock
 
   command-executor/
     command-types.ts
