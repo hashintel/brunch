@@ -36,6 +36,10 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
   <resource name="run-structured-exchange" description="Present typed Brunch exchanges and request typed responses." location="<repo>/src/.pi/skills/methods/run-structured-exchange.md" />
   <resource name="capture" description="Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct." location="<repo>/src/.pi/skills/methods/capture.md" />
   <resource name="commit-graph" description="Commit graph truth only through Brunch graph tools and CommandExecutor-backed results." location="<repo>/src/.pi/skills/methods/commit-graph.md" />
+  <resource name="elicit-by-question" description="Acquire missing material by asking the human one focused question." location="<repo>/src/.pi/skills/methods/elicit-by-question.md" />
+  <resource name="ingest-paste" description="Acquire user-provided pasted material as conversational transcript content." location="<repo>/src/.pi/skills/methods/ingest-paste.md" />
+  <resource name="read-referenced-documents" description="Read bounded user-referenced documents and digest them before capture." location="<repo>/src/.pi/skills/methods/read-referenced-documents.md" />
+  <resource name="explore-and-characterize" description="Explore a bounded brownfield area and write a characterization digest before capture." location="<repo>/src/.pi/skills/methods/explore-and-characterize.md" />
   <resource name="read-context" description="Use pushed context handles and read-only context tools for selected-spec context." location="<repo>/src/.pi/skills/methods/read-context.md" />
   <resource name="generate-proposal" description="Generate reviewable candidate graph material without committing it directly." location="<repo>/src/.pi/skills/methods/generate-proposal.md" />
   <resource name="review-for-gaps" description="Review commitments for gaps, conflicts, and verification debt." location="<repo>/src/.pi/skills/methods/review-for-gaps.md" />

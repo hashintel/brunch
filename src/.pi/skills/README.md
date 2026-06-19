@@ -44,6 +44,10 @@ User-approved COMPOSE disposition (2026-06-11): the git-tracked markdown source 
 | methods | `commit-graph.md` | required | Source file + manifest readability invariant; capability-gated by selected-spec gaps. |
 | methods | `generate-proposal.md` | required | Source file + manifest readability invariant; capability-gated by selected-spec gaps. |
 | methods | `capture.md` | required | Source file + manifest readability invariant; canonical home for FE-861 capture conduct and the D81-L commitment gradient. |
+| methods | `elicit-by-question.md` | required | Source file + manifest readability invariant; D82-L direct conversational acquisition mode. |
+| methods | `ingest-paste.md` | required | Source file + manifest readability invariant; D82-L pasted-material acquisition mode. |
+| methods | `read-referenced-documents.md` | required | Source file + manifest readability invariant; D82-L bounded document-read mode with assistant digest before capture. |
+| methods | `explore-and-characterize.md` | required | Source file + manifest readability invariant; D82-L bounded brownfield exploration mode with assistant digest before capture. |
 | methods | `read-context.md` | required | Source file + manifest readability invariant. |
 | methods | `review-for-gaps.md` | required | Source file + manifest readability invariant; audit-only, capability-gated by selected-spec gaps. |
 | methods | `run-structured-exchange.md` | required | Source file + manifest readability invariant. |

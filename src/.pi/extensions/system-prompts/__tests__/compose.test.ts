@@ -290,6 +290,10 @@ describe('composeAgentPrompt', () => {
     expect(result.manifests.methods.map((entry) => entry.name)).toEqual([
       'run-structured-exchange',
       'capture',
+      'elicit-by-question',
+      'ingest-paste',
+      'read-referenced-documents',
+      'explore-and-characterize',
       'read-context',
     ]);
   });
