@@ -8,8 +8,11 @@
 // - slice sandboxes are the only mutable roots during action/test/assess fires;
 // - dependency seeding copies from already-completed dependency slice roots and
 //   never mutates those source roots;
-// - post-action validation uses preserveExisting, so dependency overlays add
-//   missing inputs without deleting the current slice's own in-flight work;
+// - post-action validation uses preserveExisting: dependency overlays add
+//   missing inputs AND update files still at their base-checkout content,
+//   while preserving paths the slice itself authored (content differs from
+//   HEAD) — a dep edit to a base-existing file must reach the dependent's tree
+//   or the fold phantom-deletes it (I124-K);
 // - rework/reset paths prune only the current slice sandbox outside the copied
 //   dependency baseline.
 //
@@ -310,6 +313,35 @@ export function ensureSliceWorktree(
   return seedSliceFromParentWorktree(parentSandboxDir, sliceId, plan, runId);
 }
 
+/**
+ * Is `rel` the slice's own work, or the inherited run-base checkout?
+ *
+ * In codebase mode `ensureSliceWorktree` checks the slice out at the run base
+ * before any dependency seed runs, so every tracked file already exists at base
+ * content. A naive "skip if it exists" overlay then drops a dependency's edit to
+ * a base-existing file (e.g. `package.json`) — yet `commitSliceWorktree` still
+ * records the dep as a merge parent, so the fold reads the missing edit as a
+ * deletion and phantom-deletes it (I124-K; the cook spec-49 halt).
+ *
+ * A file whose current content matches its committed HEAD blob is that pristine
+ * base checkout, so a dependency edit must overlay it. Anything that differs
+ * from HEAD, has no HEAD blob, or lives outside a git worktree (greenfield plain
+ * dir → `git` throws) is treated as authored and preserved.
+ */
+function isSliceAuthored(sliceDir: string, rel: string): boolean {
+  const run = (args: string[]): string =>
+    execFileSync('git', args, {
+      cwd: sliceDir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  try {
+    return run(['rev-parse', `HEAD:${rel}`]) !== run(['hash-object', '--', rel]);
+  } catch {
+    return true;
+  }
+}
+
 /** Copy completed dependency slice worktrees into `slice`'s sandbox (plan order). */
 export function seedSliceSandboxFromDeps(
   parentSandboxDir: string,
@@ -335,7 +367,8 @@ export function seedSliceSandboxFromDeps(
 
   for (const [rel, src] of depFiles) {
     const dest = join(sliceDir, rel);
-    if (preserveExisting && existsSync(dest)) continue;
+    // Preserve only the slice's own work; let a dep edit overlay the base checkout.
+    if (preserveExisting && existsSync(dest) && isSliceAuthored(sliceDir, rel)) continue;
     copyIntoTree(src, dest, sliceDir);
   }
 

@@ -13,6 +13,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { ensureSliceWorktree, seedSliceSandboxFromDeps } from './epic-sandbox-merge.js';
 import {
   brunchRef,
   captureFoldedChangeBaseline,
@@ -250,6 +251,40 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     expect(artifact.conflicts).toEqual([]);
     const lib = gitC(source, 'show', `${brunchRef.run('r1')}:lib.ts`);
     expect(lib).toContain('export const b = 2;');
+  });
+
+  it('dependency-seeded: a dep edit to a base-existing file survives the fold (I124-K, cook spec-49 repro)', () => {
+    // The cook spec-49 halt. The dep slice edits a file present at the run base
+    // (package.json there; base.txt here). The dependent is checked out at the
+    // run base and seeded the production way — ensureSliceWorktree (base
+    // checkout) then seedSliceSandboxFromDeps({preserveExisting:true}). If the
+    // seed skips the base-checkout file because it already exists, the
+    // dependent's tree lacks the dep's edit while commitSliceWorktree still
+    // records the dep as a merge parent — so the fold reads the missing edit as
+    // a deletion and phantom-deletes it (the @xyflow/react + d3-force drop).
+    const plan: Plan = {
+      mode: 'brownfield',
+      epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+      slices: [slice('dep'), slice('app', ['dep'])],
+    };
+
+    seedSliceWorktree('dep', (d) => writeFileSync(join(d, 'base.txt'), 'base\nedited-by-dep\n'));
+
+    // Dependent 'app': base checkout, then the real production dependency seed.
+    ensureSliceWorktree(parent, 'app', plan, 'r1');
+    seedSliceSandboxFromDeps(parent, plan, slice('app', ['dep']), { preserveExisting: true });
+    writeFileSync(join(parent, 'app', 'app.txt'), 'app\n');
+
+    const artifact = harvestCookRun({
+      sourceDir: source,
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['dep', 'app'],
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    expect(gitC(source, 'show', `${brunchRef.run('r1')}:base.txt`)).toContain('edited-by-dep');
   });
 
   it('skips a slice that produced no changes', () => {
