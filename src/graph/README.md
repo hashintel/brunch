@@ -1,7 +1,7 @@
 # graph/ — Graph domain layer
 
 Canonical reference: `docs/design/GRAPH_MODEL.md`
-SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L
+SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L
 
 ## Owns
 
@@ -9,10 +9,12 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   graph/spec writes. It hides structural validation, transaction mechanics,
   spec-local LSN allocation, per-kind node ordinal allocation, change-log append,
   and structured command results. It also owns prospective-register writes for
-  `elicitation_gaps` (`createSpec` seeding, legacy/local seed-floor repair, and
+  `elicitation_gaps` (`createSpec` seeding, legacy/local seed repair, and
   create/disposition commands), because the gap register shares the same
-  spec-local LSN and audit boundary. Gaps name obligations by
-  `refersTo: NodeKind` + free-form `question`, not a parallel typology enum.
+  spec-local LSN and audit boundary. Seeded gaps include the D75-L grounding
+  presence floor plus the D82-L manual situating gap that routes opening
+  acquisition mode. Gaps name obligations by `refersTo: NodeKind` + free-form
+  `question`, not a parallel typology enum.
 
 - **mutateGraph** — atomic graph mutation for direct writers and future curation:
   one tool call, one transaction, one selected-spec LSN, all-or-nothing. The
@@ -61,9 +63,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   flow). Pure functions; no DB access.
 
 - **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
-  through `db/connection.ts`, repairs legacy/local specs missing the current
-  seeded elicitation-gap floor through `CommandExecutor`, and returns the
-  executor plus bound query readers for adapters.
+  through `db/connection.ts`, repairs legacy/local specs missing current
+  seeded elicitation gaps through `CommandExecutor`, and returns the executor
+  plus bound query readers for adapters.
 
 ## Observed read-shape ledger
 
@@ -126,7 +128,7 @@ graph/
 
   command-executor.ts
     CommandExecutor
-    seeded elicitation-gap floor + spec-record mapping
+    seeded elicitation-gap floor/situating agenda + spec-record mapping
     re-exports command input/result types (command-types.ts)
     createSpec (spec identity only; no stored readiness grade)
     create/set elicitation-gap disposition
@@ -177,7 +179,7 @@ graph/
 
   workspace-store.ts
     openWorkspaceGraphRuntime(cwd)
-    seeded elicitation-gap floor repair for legacy/local specs
+    seeded elicitation-gap repair for legacy/local specs
     bound queryGraph/getNodes/getElicitationGaps readers
     openWorkspaceCommandExecutor(cwd)
 

@@ -123,6 +123,21 @@ const SEEDED_ELICITATION_GAPS: readonly {
     lensAffinity: 'intent',
   },
   {
+    refersTo: 'context',
+    question: 'Is this new-from-scratch, a brownfield codebase, or a continuation of a prior thread?',
+    rationale:
+      'Situates the opening acquisition route: new-from-scratch usually starts with elicit-by-question or ingest-paste; brownfield codebase usually starts with explore-and-characterize or read-referenced-documents; continuation of a prior thread usually starts by ingesting paste or reading referenced documents before capture.',
+    basis: 'implicit',
+    band: 'grounding',
+    predicate: {
+      kind: 'manual',
+      rubric: 'The opening orientation is clear enough to choose an acquisition mode.',
+    },
+    importance: 3,
+    planeAffinity: 'intent',
+    lensAffinity: 'intent',
+  },
+  {
     refersTo: 'thesis',
     question: 'Who is this for, and what pull or pain makes it worth doing?',
     rationale: 'Identifies the primary audience and why the work matters for them.',
@@ -178,6 +193,14 @@ const SEEDED_ELICITATION_GAPS: readonly {
     lensAffinity: 'intent',
   },
 ] as const;
+
+function seededElicitationGapKey(seed: {
+  readonly refersTo: string;
+  readonly question: string;
+  readonly predicateKind: string;
+}): string {
+  return `${seed.refersTo}\u0000${seed.predicateKind}\u0000${seed.question}`;
+}
 
 function specRecordFromRow(row: typeof schema.specs.$inferSelect): SpecRecord {
   return {
@@ -315,15 +338,28 @@ export class CommandExecutor {
       const specRows = tx.select({ id: schema.specs.id }).from(schema.specs).all();
 
       for (const spec of specRows) {
-        const existingKinds = new Set(
+        const existingSeedKeys = new Set(
           tx
-            .select({ refersTo: schema.elicitationGaps.refers_to })
+            .select({
+              refersTo: schema.elicitationGaps.refers_to,
+              question: schema.elicitationGaps.question,
+              predicateKind: schema.elicitationGaps.predicate_kind,
+            })
             .from(schema.elicitationGaps)
             .where(eq(schema.elicitationGaps.spec_id, spec.id))
             .all()
-            .map((row) => row.refersTo),
+            .map((row) => seededElicitationGapKey(row)),
         );
-        const missing = SEEDED_ELICITATION_GAPS.filter((entry) => !existingKinds.has(entry.refersTo));
+        const missing = SEEDED_ELICITATION_GAPS.filter(
+          (entry) =>
+            !existingSeedKeys.has(
+              seededElicitationGapKey({
+                refersTo: entry.refersTo,
+                question: entry.question,
+                predicateKind: entry.predicate.kind,
+              }),
+            ),
+        );
         if (missing.length === 0) continue;
 
         const lsn = this.bumpExistingSpecLsn(tx, spec.id);

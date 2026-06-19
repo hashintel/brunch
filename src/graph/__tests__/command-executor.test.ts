@@ -402,7 +402,7 @@ describe('CommandExecutor', () => {
       ).toEqual([{ specId: result.specId, lsn: 1 }]);
     });
 
-    it('seeds grounding typology gaps for the new spec at create-spec LSN', () => {
+    it('seeds grounding typology gaps and the situating gap for the new spec at create-spec LSN', () => {
       const result = executor.createSpec({ name: 'Grounded Spec', slug: 'grounded-spec' });
       expect(result.status).toBe('success');
       if (result.status !== 'success') throw new Error('unreachable');
@@ -426,25 +426,81 @@ describe('CommandExecutor', () => {
           .all(),
       ).toEqual(
         [
-          ['context', 'What kind of thing is this, and what domain or environment does it live in?', 3],
-          ['thesis', 'Who is this for, and what pull or pain makes it worth doing?', 3],
-          ['goal', 'What outcome or value should this create?', 3],
-          ['constraint', 'What binding constraints, non-goals, or boundaries already shape the work?', 3],
-          ['term', 'What key word or domain term needs a shared definition?', 1],
-          ['assumption', 'What are we assuming that might be false?', 1],
-        ].map(([refersTo, question, importance]) => ({
+          [
+            'context',
+            'What kind of thing is this, and what domain or environment does it live in?',
+            3,
+            'presence',
+          ],
+          [
+            'context',
+            'Is this new-from-scratch, a brownfield codebase, or a continuation of a prior thread?',
+            3,
+            'manual',
+          ],
+          ['thesis', 'Who is this for, and what pull or pain makes it worth doing?', 3, 'presence'],
+          ['goal', 'What outcome or value should this create?', 3, 'presence'],
+          [
+            'constraint',
+            'What binding constraints, non-goals, or boundaries already shape the work?',
+            3,
+            'presence',
+          ],
+          ['term', 'What key word or domain term needs a shared definition?', 1, 'presence'],
+          ['assumption', 'What are we assuming that might be false?', 1, 'presence'],
+        ].map(([refersTo, question, importance, predicateKind]) => ({
           refersTo,
           question,
           disposition: 'open',
           basis: 'implicit',
           readinessBand: 'grounding',
-          predicateKind: 'presence',
+          predicateKind,
           importance,
           planeAffinity: 'intent',
           lensAffinity: 'intent',
           createdAtLsn: result.lsn,
         })),
       );
+    });
+
+    it('seeds a situating gap whose rationale routes acquisition modes', () => {
+      const result = executor.createSpec({ name: 'Situated Spec', slug: 'situated-spec' });
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+
+      const row = db
+        .select({
+          refersTo: elicitationGaps.refers_to,
+          question: elicitationGaps.question,
+          rationale: elicitationGaps.rationale,
+          predicateKind: elicitationGaps.predicate_kind,
+          predicate: elicitationGaps.predicate,
+          importance: elicitationGaps.importance,
+          readinessBand: elicitationGaps.readiness_band,
+        })
+        .from(elicitationGaps)
+        .where(eq(elicitationGaps.spec_id, result.specId))
+        .all()
+        .find((gap) => gap.predicateKind === 'manual');
+
+      expect(row).toMatchObject({
+        refersTo: 'context',
+        question: 'Is this new-from-scratch, a brownfield codebase, or a continuation of a prior thread?',
+        predicateKind: 'manual',
+        importance: 3,
+        readinessBand: 'grounding',
+      });
+      expect(row?.rationale).toContain('new-from-scratch');
+      expect(row?.rationale).toContain('brownfield codebase');
+      expect(row?.rationale).toContain('continuation of a prior thread');
+      expect(row?.rationale).toContain('elicit-by-question');
+      expect(row?.rationale).toContain('ingest-paste');
+      expect(row?.rationale).toContain('read-referenced-documents');
+      expect(row?.rationale).toContain('explore-and-characterize');
+      expect(JSON.parse(row!.predicate)).toEqual({
+        kind: 'manual',
+        rubric: 'The opening orientation is clear enough to choose an acquisition mode.',
+      });
     });
 
     it('scopes create_spec audit LSNs to the newly created spec', () => {
@@ -497,6 +553,26 @@ describe('CommandExecutor', () => {
         name: 'Spec A',
         slug: 'spec-a',
       });
+    });
+
+    it('repairs a floor-predating spec with the missing manual situating gap', () => {
+      const legacy = executor.createSpec({ name: 'Legacy Spec', slug: 'legacy-spec' });
+      expect(legacy.status).toBe('success');
+      if (legacy.status !== 'success') throw new Error('unreachable');
+      db.delete(elicitationGaps).where(eq(elicitationGaps.predicate_kind, 'manual')).run();
+
+      const repair = executor.repairSeededElicitationGaps();
+
+      expect(repair.status).toBe('success');
+      expect(repair.repairedSpecs).toContainEqual({ specId: legacy.specId, insertedCount: 1, lsn: 2 });
+      expect(
+        db
+          .select({ predicateKind: elicitationGaps.predicate_kind, refersTo: elicitationGaps.refers_to })
+          .from(elicitationGaps)
+          .where(eq(elicitationGaps.spec_id, legacy.specId))
+          .all()
+          .filter((row) => row.predicateKind === 'manual'),
+      ).toEqual([{ predicateKind: 'manual', refersTo: 'context' }]);
     });
 
     it('fails loud when an existing spec is missing its graph clock row', () => {

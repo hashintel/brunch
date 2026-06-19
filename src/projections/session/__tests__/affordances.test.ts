@@ -97,12 +97,12 @@ describe('runtime affordances derivation', () => {
     // the affordance projection must surface it, not silently omit the option.
     const missingThesis = groundingFloorGaps().filter((g) => g.refersTo !== 'thesis');
     expect(() => axisOptionsForRuntimeState('lens', resolved(), missingThesis)).toThrow(
-      /no elicitation gap for thesis/,
+      /no presence gap for thesis/,
     );
   });
 
   it('fails loud on an empty gap register for gated lenses (wiring bug — every spec is seeded with floor gaps)', () => {
-    expect(() => axisOptionsForRuntimeState('lens', resolved(), [])).toThrow(/no elicitation gap/);
+    expect(() => axisOptionsForRuntimeState('lens', resolved(), [])).toThrow(/no presence gap/);
   });
 
   it('derives per-axis legal options without grade-gate symbols', () => {

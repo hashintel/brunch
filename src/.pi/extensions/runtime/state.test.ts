@@ -198,7 +198,7 @@ describe('agent posture policy', () => {
     // Every spec is seeded with floor gaps at creation; an empty register reaching
     // manifest derivation is a wiring bug, never a legal quiet posture.
     const state = projectBrunchAgentState([]);
-    expect(() => manifestsForState(state, [])).toThrow(/no elicitation gap/);
+    expect(() => manifestsForState(state, [])).toThrow(/no presence gap/);
   });
 
   it('resolves agent SYSTEM.md bodies through the code-owned runtime registry location', () => {
