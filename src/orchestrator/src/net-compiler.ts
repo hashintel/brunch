@@ -17,7 +17,11 @@ import type { NetBlueprint, TokenSeed, TransitionSkeleton } from './net-blueprin
 import { PetriNet } from './petri-net.js';
 import type { Token } from './petri-net.js';
 import { createReport } from './report-helpers.js';
-import { materializeEpicVerifyTree, transferFoldedFixToSlice } from './run-artifact.js';
+import {
+  captureFoldedChangeBaseline,
+  materializeEpicVerifyTree,
+  transferFoldedFixToSlice,
+} from './run-artifact.js';
 import { runVerification } from './test-runner.js';
 import type {
   ActionContext,
@@ -1167,6 +1171,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
         fire = async (consumed) => {
           const deferred = (async () => {
             const foldedDir = resolveEpicSandboxDir(input.sandboxDir, epicId);
+            const baseline = captureFoldedChangeBaseline(foldedDir);
             const actCtx: ActionContext = { slice, epic, plan, sandboxDir: foldedDir, reports };
             await actions[actionKey]!(actCtx);
             const outcome = transferFoldedFixToSlice({
@@ -1174,6 +1179,7 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               foldedDir,
               slice,
               epicTestTargets,
+              baseline,
             });
             ctx.reportIds.push(
               createReport(reports, {
