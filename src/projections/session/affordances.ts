@@ -4,7 +4,7 @@ import type {
   AgentLensSelection,
   AgentStrategyId,
   AgentStrategySelection,
-} from '../../session/runtime-state.js';
+} from '../../session/schema/kinds.js';
 import {
   axisOptionsForRuntimeState,
   defaultLensForRuntimeState,

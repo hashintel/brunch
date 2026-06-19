@@ -71,6 +71,20 @@ describe('projection topology boundaries', () => {
     expect(sourceImportersOf('src/projections/graph/neighborhood.ts')).toEqual([]);
   });
 
+  it('keeps runtime vocab in a pure session schema leaf', () => {
+    expect(importedSourcePaths('src/session/schema/kinds.ts')).toEqual([]);
+    expect(importedSourcePaths('src/session/runtime-state.ts')).toContain('src/session/schema/kinds.ts');
+
+    const schemaSource = readFileSync(join(ROOT, 'src/session/schema/kinds.ts'), 'utf8');
+    expect(schemaSource).not.toContain('READINESS_GRADES');
+    expect(schemaSource).not.toMatch(/AgentGoal|GOAL/i);
+
+    const runtimeStateSource = readFileSync(join(ROOT, 'src/session/runtime-state.ts'), 'utf8');
+    expect(runtimeStateSource).not.toMatch(/export const OPERATIONAL_MODE_IDS\s*=\s*\[/);
+    expect(runtimeStateSource).not.toMatch(/export const AGENT_STRATEGY_IDS\s*=\s*\[/);
+    expect(runtimeStateSource).not.toMatch(/export const AGENT_LENS_IDS\s*=\s*\[/);
+  });
+
   it('keeps runtime-state transcript facts from importing reusable runtime projections', () => {
     expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain(
       'src/projections/session/runtime-state.ts',

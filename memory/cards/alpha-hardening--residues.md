@@ -97,7 +97,7 @@ roster catalog covers every tracked seed set.
 
 ## Card 2 — runtime-vocab leaf (`src/session/schema/kinds.ts`)
 
-Status: next (after card 1)
+Status: done
 
 ### Objective
 
@@ -164,6 +164,10 @@ src/projections/session/affordances.ts             ~   (import axis vocab from l
 src/projections/session/runtime-state.ts           ?   (re-export path, if it re-exports vocab today)
 src/projections/__tests__/topology-boundaries.test.ts  ~   (extend with leaf import-boundary assertion)
 ```
+
+### Build note
+
+Done 2026-06-19: `src/session/schema/kinds.ts` is now the import-free runtime-axis vocab leaf; `runtime-state.ts` consumes/re-exports it, projections and the prompt manifest import vocab types from the leaf, and topology tests lock the import boundary plus no-goal/no-READINESS_GRADES constraints. Added `src/session/schema/README.md` and refreshed `src/session/README.md`/D73-L for the session-side mirror.
 
 ---
 

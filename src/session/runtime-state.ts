@@ -1,12 +1,34 @@
+import {
+  AGENT_LENS_IDS,
+  AGENT_STRATEGY_IDS,
+  OPERATIONAL_MODE_IDS,
+  type AgentLensSelection,
+  type AgentStrategySelection,
+  type AutoAxisSelection,
+  type OperationalModeId,
+} from './schema/kinds.js';
+
+export type {
+  AgentLensId,
+  AgentLensSelection,
+  AgentRoleId,
+  AgentStrategyId,
+  AgentStrategySelection,
+  AutoAxisSelection,
+  OperationalModeChoice,
+  OperationalModeId,
+  PlannedOperationalModeId,
+} from './schema/kinds.js';
+export {
+  AGENT_LENS_IDS,
+  AGENT_ROLE_IDS,
+  AGENT_STRATEGY_IDS,
+  OPERATIONAL_MODE_IDS,
+  PLANNED_OPERATIONAL_MODE_IDS,
+} from './schema/kinds.js';
+
 export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE = 'brunch.agent_runtime_state';
 
-export type OperationalModeId = 'elicit';
-export type AgentRoleId = 'elicitor';
-type AutoAxisSelection = 'auto';
-export type AgentStrategyId = 'freestyle' | 'step-wise-decision-tree' | 'step-wise-disambiguate';
-export type AgentStrategySelection = AutoAxisSelection | AgentStrategyId;
-export type AgentLensId = 'intent' | 'design' | 'oracle';
-export type AgentLensSelection = AutoAxisSelection | AgentLensId;
 export type ToolPolicyId = 'elicit-read-only';
 export type PromptPackId = 'brunch-base' | 'elicit' | 'elicitor';
 export type ModelPreference = 'default';
@@ -45,23 +67,6 @@ export const DEFAULT_BRUNCH_AGENT_STATE: BrunchAgentState = {
   agentStrategy: 'auto',
   agentLens: 'auto',
 };
-
-// Runtime axis vocabularies are exported for adapter surfaces that validate user-authored posture switches.
-export const OPERATIONAL_MODE_IDS: readonly OperationalModeId[] = ['elicit'];
-/**
- * Planned operational modes shown (disabled) on display surfaces such as the
- * mode picker. Not valid runtime state: deliberately outside OperationalModeId
- * until implemented.
- */
-export const PLANNED_OPERATIONAL_MODE_IDS = ['execute'] as const;
-export type PlannedOperationalModeId = (typeof PLANNED_OPERATIONAL_MODE_IDS)[number];
-export type OperationalModeChoice = OperationalModeId | PlannedOperationalModeId;
-export const AGENT_STRATEGY_IDS: readonly AgentStrategyId[] = [
-  'freestyle',
-  'step-wise-decision-tree',
-  'step-wise-disambiguate',
-];
-export const AGENT_LENS_IDS: readonly AgentLensId[] = ['intent', 'design', 'oracle'];
 
 interface CustomEntryLike {
   type?: unknown;
