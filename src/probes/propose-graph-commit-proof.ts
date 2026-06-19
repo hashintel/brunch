@@ -139,7 +139,6 @@ export async function runProposeGraphCommitProof(
     operationalMode: 'elicit',
     agentStrategy: 'propose-graph',
     agentLens: 'intent',
-    agentGoal: 'commit-converge',
   };
   appendBrunchAgentRuntimeSwitch(workspace.session.manager, runtimeState, 'extension');
   const graph = await openWorkspaceGraphRuntime(cwd);

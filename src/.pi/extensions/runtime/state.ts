@@ -9,13 +9,8 @@ import {
   toolPolicyForRuntimeState,
   type ResolvedBrunchAgentState,
 } from '../../../projections/session/runtime-policy.js';
-import type {
-  AgentGoalId,
-  AgentLensId,
-  AgentRoleId,
-  AgentStrategyId,
-} from '../../../session/runtime-state.js';
-type PromptResourceFamily = 'goals' | 'strategies' | 'lenses' | 'methods';
+import type { AgentLensId, AgentRoleId, AgentStrategyId } from '../../../session/runtime-state.js';
+type PromptResourceFamily = 'strategies' | 'lenses' | 'methods';
 export type MethodId =
   | 'run-structured-exchange'
   | 'infer-and-capture'
@@ -36,14 +31,12 @@ export interface AgentPromptDefinition {
   model: string;
   thinking: 'low' | 'medium' | 'high';
   toolAuthority: string;
-  allowedGoals: readonly AgentGoalId[];
   allowedStrategies: readonly AgentStrategyId[];
   allowedLenses: readonly AgentLensId[];
   allowedMethods: readonly MethodId[];
 }
 
 export interface PromptManifests {
-  goals: readonly PromptResourceManifestEntry[];
   strategies: readonly PromptResourceManifestEntry[];
   lenses: readonly PromptResourceManifestEntry[];
   methods: readonly PromptResourceManifestEntry[];
@@ -84,7 +77,6 @@ export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition
     thinking: 'medium',
     toolAuthority:
       'elicit read-only; graph writes only through Brunch graph tools when a legal strategy allows them',
-    allowedGoals: ['grounding-advance', 'elicit-expand', 'commit-converge', 'capture-posture'],
     allowedStrategies: [
       'freestyle',
       'step-wise-decision-tree',
@@ -102,29 +94,6 @@ export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition
       'review-for-gaps',
     ],
   },
-};
-
-export const GOAL_RESOURCES: Record<AgentGoalId, PromptResourceManifestEntry> = {
-  'grounding-advance': resource(
-    'goals',
-    'grounding-advance',
-    'Establish the basic initiative frame and readiness evidence for moving beyond onboarding.',
-  ),
-  'elicit-expand': resource(
-    'goals',
-    'elicit-expand',
-    'Expand the selected spec while ambiguity remains productive.',
-  ),
-  'commit-converge': resource(
-    'goals',
-    'commit-converge',
-    'Converge on reviewable commitments once the spec is ready for commitments.',
-  ),
-  'capture-posture': resource(
-    'goals',
-    'capture-posture',
-    'Confirm workspace posture without storing it as spec or graph truth.',
-  ),
 };
 
 export const STRATEGY_RESOURCES: Record<AgentStrategyId, PromptResourceManifestEntry> = {
@@ -217,14 +186,6 @@ export function manifestsForState(
   }
 
   return {
-    goals: selectAxisResources({
-      label: 'goal',
-      selection: state.agentGoal,
-      allowed: definition.allowedGoals,
-      resources: GOAL_RESOURCES,
-      legalIds: axisOptionsForRuntimeState('goal', state, gaps),
-      state,
-    }),
     strategies: selectAxisResources({
       label: 'strategy',
       selection: state.agentStrategy,
@@ -294,7 +255,7 @@ function selectAxisResources<TId extends string>({
   state,
   autoExcluded,
 }: {
-  label: 'goal' | 'strategy' | 'lens';
+  label: 'strategy' | 'lens';
   selection: 'auto' | TId;
   allowed: readonly TId[];
   resources: Record<TId, PromptResourceManifestEntry>;

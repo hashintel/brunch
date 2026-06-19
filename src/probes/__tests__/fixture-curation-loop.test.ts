@@ -80,7 +80,6 @@ describe('fixture curation loop report', () => {
         operationalMode: 'elicit',
         agentStrategy: 'propose-graph',
         agentLens: 'intent',
-        agentGoal: 'commit-converge',
       },
       model: 'test-model',
       sessionText: [
@@ -133,7 +132,6 @@ describe('fixture curation loop report', () => {
         operationalMode: 'elicit',
         agentStrategy: 'propose-graph',
         agentLens: 'intent',
-        agentGoal: 'commit-converge',
       },
       sessionText: toolResultEntry('mutate_graph', {
         status: 'success',
@@ -168,7 +166,6 @@ describe('fixture curation loop report', () => {
         operationalMode: 'elicit',
         agentStrategy: 'propose-graph',
         agentLens: 'intent',
-        agentGoal: 'commit-converge',
       },
       sessionText: toolResultEntry('mutate_graph', {
         status: 'success',
@@ -226,7 +223,6 @@ describe('fixture curation loop report', () => {
         operationalMode: 'elicit',
         agentStrategy: 'propose-graph',
         agentLens: 'intent',
-        agentGoal: 'commit-converge',
       },
       sessionText: toolResultEntry('mutate_graph', {
         status: 'success',

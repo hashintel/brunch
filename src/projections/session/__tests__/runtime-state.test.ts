@@ -55,7 +55,6 @@ describe('runtime-state projection', () => {
       operationalMode: 'elicit',
       agentStrategy: 'freestyle',
       agentLens: 'intent',
-      agentGoal: 'grounding-advance',
     };
 
     expect(
@@ -77,7 +76,6 @@ describe('runtime-state projection', () => {
         role: 'elicitor',
         strategy: DEFAULT_BRUNCH_AGENT_STATE.agentStrategy,
         lens: DEFAULT_BRUNCH_AGENT_STATE.agentLens,
-        goal: DEFAULT_BRUNCH_AGENT_STATE.agentGoal,
       },
       mentions: { graphNodes: [], files: [] },
       world: { graph: { latestLsn: null }, git: { head: null } },
@@ -97,14 +95,12 @@ describe('runtime-state projection', () => {
       operationalMode: 'elicit',
       agentStrategy: 'step-wise-decision-tree',
       agentLens: 'intent',
-      agentGoal: 'grounding-advance',
     };
     const latest: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
       agentStrategy: 'project-graph',
       agentLens: 'oracle',
-      agentGoal: 'commit-converge',
     };
 
     expect(
@@ -153,7 +149,6 @@ describe('runtime-state projection', () => {
         role: 'elicitor',
         strategy: 'project-graph',
         lens: 'oracle',
-        goal: 'commit-converge',
       },
       mentions: {
         graphNodes: [{ id: 'node-1', handle: 'D12', title: 'Decision seam', seenLsn: 7 }],

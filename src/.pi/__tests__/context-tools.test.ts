@@ -111,7 +111,6 @@ describe('context tools', () => {
                 operationalMode: 'elicit',
                 agentStrategy: 'project-graph',
                 agentLens: 'oracle',
-                agentGoal: 'commit-converge',
               },
             },
           },
@@ -139,7 +138,6 @@ describe('context tools', () => {
       agent: {
         strategy: 'project-graph',
         lens: 'oracle',
-        goal: 'commit-converge',
       },
     });
   });

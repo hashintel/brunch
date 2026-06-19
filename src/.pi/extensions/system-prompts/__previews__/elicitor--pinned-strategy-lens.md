@@ -11,7 +11,6 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 
 [Brunch runtime state]
 - op_mode: elicit
-- goal: grounding-advance
 - strategy: step-wise-disambiguate
 - lens: design
 - spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, commitment=0.00
@@ -21,10 +20,6 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 [Brunch pushed context]
 - handles: none pushed
 - rendered context blocks: none pushed
-
-<available_goals>
-  <resource name="grounding-advance" description="Establish the basic initiative frame and readiness evidence for moving beyond onboarding." location="<repo>/src/.pi/skills/goals/grounding-advance.md" />
-</available_goals>
 
 <available_strategies>
   <resource name="step-wise-disambiguate" description="Use contrastive examples to collapse meaningful ambiguity." location="<repo>/src/.pi/skills/strategies/step-wise-disambiguate.md" />
@@ -47,4 +42,4 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 - Use only resources advertised in the manifests above; do not infer availability from the filesystem.
 - For AUTO axes, choose from the current manifest and read the selected resource before applying detailed behavior.
 - For pinned axes, the singleton manifest entry is the selected resource.
-- Current pins: goal=grounding-advance; strategy=step-wise-disambiguate; lens=design.
+- Current pins: strategy=step-wise-disambiguate; lens=design.

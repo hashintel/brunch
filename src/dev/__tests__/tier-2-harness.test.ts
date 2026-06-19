@@ -259,7 +259,6 @@ describe('origination-kick-live — the product originates the opening turn on i
                 operationalMode: 'elicit',
                 agentStrategy: 'freestyle',
                 agentLens: 'auto',
-                agentGoal: 'grounding-advance',
               },
             },
           },

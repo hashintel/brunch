@@ -44,7 +44,6 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
     renderRuntimeState(input),
     renderElicitationRecommendation(input),
     renderPushedContext(input.context),
-    renderManifestFamily('available_goals', manifests.goals),
     renderManifestFamily('available_strategies', manifests.strategies),
     renderManifestFamily('available_lenses', manifests.lenses),
     renderManifestFamily('available_methods', manifests.methods),
@@ -73,7 +72,6 @@ function renderRuntimeState(input: ComposeAgentPromptInput): string {
   return [
     '[Brunch runtime state]',
     `- op_mode: ${input.sessionState.operationalMode}`,
-    `- goal: ${input.sessionState.agentGoal}`,
     `- strategy: ${input.sessionState.agentStrategy}`,
     `- lens: ${input.sessionState.agentLens}`,
     `- spec: ${input.spec.name} (#${input.spec.id}), ${renderSoftReadinessEstimate(input.gaps)}`,
@@ -141,7 +139,7 @@ function renderRouterRules(state: ResolvedBrunchAgentState): string {
     '- Use only resources advertised in the manifests above; do not infer availability from the filesystem.',
     '- For AUTO axes, choose from the current manifest and read the selected resource before applying detailed behavior.',
     '- For pinned axes, the singleton manifest entry is the selected resource.',
-    `- Current pins: goal=${state.agentGoal}; strategy=${state.agentStrategy}; lens=${state.agentLens}.`,
+    `- Current pins: strategy=${state.agentStrategy}; lens=${state.agentLens}.`,
   ].join('\n');
 }
 

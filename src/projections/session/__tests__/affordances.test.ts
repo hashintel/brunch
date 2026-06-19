@@ -14,13 +14,8 @@ function resolved(overrides: Partial<typeof DEFAULT_BRUNCH_AGENT_STATE> = {}) {
 }
 
 describe('runtime affordances derivation', () => {
-  it('reports legal options and default-on-switch values for every posture axis', () => {
+  it('reports legal options and default-on-switch values for runtime posture axes', () => {
     expect(affordances(resolved(), groundingFloorGaps())).toEqual({
-      goal: {
-        selection: 'grounding-advance',
-        legalOptions: ['grounding-advance', 'elicit-expand', 'commit-converge', 'capture-posture'],
-        defaultOnSwitch: 'grounding-advance',
-      },
       strategy: {
         selection: 'auto',
         legalOptions: ['step-wise-decision-tree', 'step-wise-disambiguate', 'propose-graph', 'project-graph'],
@@ -37,7 +32,6 @@ describe('runtime affordances derivation', () => {
   it('keeps floor options legal when relevant gaps have zero coverage', () => {
     const derived = affordances(resolved(), groundingFloorGaps({ defaultCoverage: 0 }));
 
-    expect(derived.goal.legalOptions).toEqual(['grounding-advance', 'capture-posture']);
     expect(derived.strategy.legalOptions).toEqual(['step-wise-decision-tree', 'step-wise-disambiguate']);
     expect(derived.lens.legalOptions).toEqual(['intent']);
 
@@ -54,8 +48,6 @@ describe('runtime affordances derivation', () => {
   it('excludes gated options until capability-relevant gaps are covered', () => {
     const uncovered = affordances(resolved(), groundingFloorGaps({ defaultCoverage: 0 }));
 
-    expect(uncovered.goal.legalOptions).not.toContain('elicit-expand');
-    expect(uncovered.goal.legalOptions).not.toContain('commit-converge');
     expect(uncovered.strategy.legalOptions).not.toContain('propose-graph');
     expect(uncovered.strategy.legalOptions).not.toContain('project-graph');
     expect(uncovered.lens.legalOptions).not.toContain('design');

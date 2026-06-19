@@ -74,7 +74,6 @@ describe('Brunch chrome projection', () => {
         operationalMode: 'elicit',
         agentStrategy: 'propose-graph',
         agentLens: 'intent',
-        agentGoal: 'grounding-advance',
         agentRole: 'elicitor',
         operationalModeDefinition: {} as never,
         agentRoleDefinition: {} as never,

@@ -106,13 +106,6 @@ const RuntimeStateResultSchema = Type.Object(
           Type.Literal('design'),
           Type.Literal('oracle'),
         ]),
-        goal: Type.Union([
-          Type.Literal('auto'),
-          Type.Literal('grounding-advance'),
-          Type.Literal('elicit-expand'),
-          Type.Literal('commit-converge'),
-          Type.Literal('capture-posture'),
-        ]),
       },
       { additionalProperties: false },
     ),

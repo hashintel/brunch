@@ -127,7 +127,6 @@ describe('Brunch prompt-pack topology', () => {
           ...DEFAULT_BRUNCH_AGENT_STATE,
           agentStrategy: 'step-wise-decision-tree',
           agentLens: 'intent',
-          agentGoal: 'auto',
         }),
       ]),
       spec: promptContext.spec,
@@ -138,10 +137,10 @@ describe('Brunch prompt-pack topology', () => {
 
     expect(result.prompt).toContain('[Brunch agent control]');
     expect(result.prompt).toContain('- op_mode: elicit');
-    expect(result.prompt).toContain('- goal: auto');
+    expect(result.prompt).not.toMatch(/- goal:/);
     expect(result.prompt).toContain('- strategy: step-wise-decision-tree');
     expect(result.prompt).toContain('- lens: intent');
-    expect(result.prompt).toContain('<available_goals>');
+    expect(result.prompt).not.toContain('<available_goals>');
     expect(result.prompt).toContain('<available_strategies>');
     expect(result.prompt).toContain('<available_lenses>');
     expect(result.prompt).toContain('<available_methods>');
@@ -155,7 +154,6 @@ describe('Brunch prompt-pack topology', () => {
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
-      agentGoal: 'elicit-expand',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
 
@@ -208,6 +206,12 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(result).toMatchObject({
       systemPrompt: expect.not.stringContaining('readiness_grade='),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.not.stringContaining('- goal:'),
+    });
+    expect(result).toMatchObject({
+      systemPrompt: expect.not.stringContaining('<available_goals>'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('[Selected-spec graph context · design lens]'),
@@ -352,7 +356,6 @@ describe('Brunch prompt-pack topology', () => {
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'propose-graph',
       agentLens: 'oracle',
-      agentGoal: 'commit-converge',
     };
     appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
     const switchedPromptResults = await Promise.all(
@@ -592,7 +595,6 @@ describe('Brunch prompt-pack topology', () => {
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
-      agentGoal: 'elicit-expand',
     };
     const promptResults = await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
@@ -673,13 +675,11 @@ describe('Brunch prompt-pack topology', () => {
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'intent',
-      agentGoal: 'elicit-expand',
     });
     const proposeDesignPrompt = await promptFor({
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'propose-graph',
       agentLens: 'design',
-      agentGoal: 'elicit-expand',
     });
     const acceptedBlindSpots = [
       'prompt/body quality is fitness evidence',

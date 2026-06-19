@@ -1,6 +1,6 @@
 # .pi/skills/ — Brunch prompt resources
 
-SPEC decisions: D25-L, D39-L, D52-L, D58-L, D59-L
+SPEC decisions: D25-L, D39-L, D52-L, D58-L, D59-L, D85-L
 
 ## Owns
 
@@ -13,7 +13,6 @@ These are Pi-harness prompt resources, not product data models and not ambient f
 ```text
 skills/
 ├── README.md
-├── goals/         what objective the session agent is pursuing
 ├── strategies/    reusable interaction shapes
 ├── lenses/        topical focus lenses
 └── methods/       tool-routing and sequencing guidance
@@ -28,7 +27,7 @@ rules:
   .pi/skills/         x> graph mutation     [guidance only]
 ```
 
-The legal set is sealed by code-owned manifest metadata in `.pi/extensions/runtime/state.ts`; adding a markdown file does not make it available until the state table advertises it.
+The legal set is sealed by code-owned manifest metadata in `.pi/extensions/runtime/state.ts`; adding a markdown file does not make it available until the state table advertises it. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/.pi/agents/elicitor/SYSTEM.md`.
 
 ## Prompt-resource body lock ledger
 
@@ -36,10 +35,6 @@ User-approved COMPOSE disposition (2026-06-11): the git-tracked markdown source 
 
 | Family | Resource | Required? | Lock disposition |
 | --- | --- | --- | --- |
-| goals | `capture-posture.md` | required | Source file + manifest readability invariant. |
-| goals | `commit-converge.md` | required | Source file + manifest readability invariant. |
-| goals | `elicit-expand.md` | required | Source file + manifest readability invariant. |
-| goals | `grounding-advance.md` | required | Source file + manifest readability invariant. |
 | strategies | `freestyle.md` | required | Source file + manifest readability invariant; excluded from AUTO by `state.ts`. |
 | strategies | `project-graph.md` | required | Source file + manifest readability invariant. |
 | strategies | `propose-graph.md` | required | Source file + manifest readability invariant. |

@@ -126,7 +126,6 @@ describe('agent posture policy', () => {
             operationalMode: 'elicit',
             agentStrategy: 'freestyle',
             agentLens: 'auto',
-            agentGoal: 'grounding-advance',
           },
         },
       },
@@ -158,7 +157,7 @@ describe('agent posture policy', () => {
     );
   });
 
-  it('keeps a pinned goal visible when capability-readiness negotiates, while gated methods stay absent', () => {
+  it('omits gated methods when capability-readiness negotiates', () => {
     const state = projectBrunchAgentState([
       {
         type: 'custom',
@@ -172,7 +171,6 @@ describe('agent posture policy', () => {
             operationalMode: 'elicit',
             agentStrategy: 'auto',
             agentLens: 'auto',
-            agentGoal: 'commit-converge',
           },
         },
       },
@@ -180,7 +178,7 @@ describe('agent posture policy', () => {
 
     const manifests = manifestsForState(state, groundingFloorGaps({ coverage: { thesis: 0 } }));
 
-    expect(manifests.goals.map((entry) => entry.name)).toEqual(['commit-converge']);
+    expect(Object.keys(manifests)).toEqual(['strategies', 'lenses', 'methods']);
     expect(manifests.methods.map((entry) => entry.name)).not.toContain('review-for-gaps');
   });
 

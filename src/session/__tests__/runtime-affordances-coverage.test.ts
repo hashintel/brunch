@@ -8,27 +8,6 @@ import { DEFAULT_BRUNCH_AGENT_STATE } from '../runtime-state.js';
 
 const runtimeAffordanceLedger = [
   {
-    row: 'goal.options',
-    owner: 'affordances.goal.legalOptions',
-    agent: 'required',
-    rpc: 'deferred',
-    web: 'deferred',
-  },
-  {
-    row: 'goal.default_on_switch',
-    owner: 'affordances.goal.defaultOnSwitch',
-    agent: 'required',
-    rpc: 'deferred',
-    web: 'deferred',
-  },
-  {
-    row: 'goal.selection',
-    owner: 'session.runtimeState.agent.goal',
-    agent: 'required',
-    rpc: 'required',
-    web: 'deferred',
-  },
-  {
     row: 'strategy.options',
     owner: 'affordances.strategy.legalOptions',
     agent: 'required',
@@ -100,7 +79,7 @@ function runtimeStateSchemaAgentFields(): string[] {
   if (!runtimeState) throw new Error('session.runtimeState RPC method is not registered.');
   const agentProperties = (runtimeState.resultSchema as any).properties.agent.properties;
   return Object.keys(agentProperties)
-    .filter((field) => field === 'goal' || field === 'strategy' || field === 'lens')
+    .filter((field) => field === 'strategy' || field === 'lens')
     .map((field) => `${field}.selection`)
     .sort();
 }
@@ -108,9 +87,6 @@ function runtimeStateSchemaAgentFields(): string[] {
 describe('runtime affordances coverage ledger', () => {
   it('keeps the closed ledger focused on derived posture axes plus tripwired deferred rows', () => {
     expect(runtimeAffordanceLedger.map((row) => row.row)).toEqual([
-      'goal.options',
-      'goal.default_on_switch',
-      'goal.selection',
       'strategy.options',
       'strategy.default_on_switch',
       'strategy.selection',

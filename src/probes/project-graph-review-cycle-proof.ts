@@ -26,7 +26,6 @@ interface ProjectGraphReviewRuntimeStateReport {
   readonly operationalMode: 'elicit';
   readonly agentStrategy: 'project-graph';
   readonly agentLens: 'intent';
-  readonly agentGoal: 'commit-converge';
 }
 
 interface ProjectGraphReviewCycleProofOptions {
@@ -195,13 +194,11 @@ export async function runProjectGraphReviewCycleProof(
     operationalMode: 'elicit',
     agentStrategy: 'project-graph',
     agentLens: 'intent',
-    agentGoal: 'commit-converge',
   };
   const runtimeStateReport: ProjectGraphReviewRuntimeStateReport = {
     operationalMode: 'elicit',
     agentStrategy: 'project-graph',
     agentLens: 'intent',
-    agentGoal: 'commit-converge',
   };
   appendBrunchAgentRuntimeSwitch(activated.session.manager, runtimeState, 'extension');
   const productUpdates = createProductUpdatePublisher();

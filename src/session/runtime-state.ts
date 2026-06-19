@@ -12,8 +12,6 @@ export type AgentStrategyId =
 export type AgentStrategySelection = AutoAxisSelection | AgentStrategyId;
 export type AgentLensId = 'intent' | 'design' | 'oracle';
 export type AgentLensSelection = AutoAxisSelection | AgentLensId;
-export type AgentGoalId = 'grounding-advance' | 'elicit-expand' | 'commit-converge' | 'capture-posture';
-export type AgentGoalSelection = AutoAxisSelection | AgentGoalId;
 export type ToolPolicyId = 'elicit-read-only';
 export type PromptPackId = 'brunch-base' | 'elicit' | 'elicitor';
 export type ModelPreference = 'default';
@@ -24,7 +22,6 @@ export interface BrunchAgentState {
   operationalMode: OperationalModeId;
   agentStrategy: AgentStrategySelection;
   agentLens: AgentLensSelection;
-  agentGoal: AgentGoalSelection;
 }
 
 export interface BrunchAgentStateEntryData {
@@ -52,7 +49,6 @@ export const DEFAULT_BRUNCH_AGENT_STATE: BrunchAgentState = {
   operationalMode: 'elicit',
   agentStrategy: 'auto',
   agentLens: 'auto',
-  agentGoal: 'grounding-advance',
 };
 
 // Runtime axis vocabularies are exported for adapter surfaces that validate user-authored posture switches.
@@ -73,12 +69,6 @@ export const AGENT_STRATEGY_IDS: readonly AgentStrategyId[] = [
   'project-graph',
 ];
 export const AGENT_LENS_IDS: readonly AgentLensId[] = ['intent', 'design', 'oracle'];
-const AGENT_GOAL_IDS: readonly AgentGoalId[] = [
-  'grounding-advance',
-  'elicit-expand',
-  'commit-converge',
-  'capture-posture',
-];
 
 interface CustomEntryLike {
   type?: unknown;
@@ -108,14 +98,12 @@ export function parseBrunchAgentState(value: unknown): BrunchAgentState | undefi
   if ('agentRole' in value) return undefined;
   if (!isAxisSelection(value.agentStrategy, AGENT_STRATEGY_IDS)) return undefined;
   if (!isAxisSelection(value.agentLens, AGENT_LENS_IDS)) return undefined;
-  if (!isAxisSelection(value.agentGoal, AGENT_GOAL_IDS)) return undefined;
 
   return {
     schemaVersion: 1,
     operationalMode: value.operationalMode,
     agentStrategy: value.agentStrategy,
     agentLens: value.agentLens,
-    agentGoal: value.agentGoal,
   };
 }
 

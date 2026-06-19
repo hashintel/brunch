@@ -62,18 +62,16 @@ describe('Brunch agent runtime-state projection', () => {
         operationalMode: 'elicit',
         defaultStrategy: DEFAULT_BRUNCH_AGENT_STATE.agentStrategy,
         defaultLens: DEFAULT_BRUNCH_AGENT_STATE.agentLens,
-        defaultGoal: DEFAULT_BRUNCH_AGENT_STATE.agentGoal,
       },
     });
   });
 
-  it('accepts AUTO as a selection sentinel for every objective axis', () => {
+  it('accepts AUTO as a selection sentinel for every runtime axis', () => {
     const autoState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
       agentStrategy: 'auto',
       agentLens: 'auto',
-      agentGoal: 'auto',
     };
 
     expect(projectBrunchAgentState([runtimeEntry(autoState)])).toMatchObject({
@@ -89,7 +87,6 @@ describe('Brunch agent runtime-state projection', () => {
       operationalMode: 'elicit',
       agentStrategy: 'propose-graph',
       agentLens: 'design',
-      agentGoal: 'auto',
     };
     const latest = runtimeEntry(latestState);
 
@@ -104,7 +101,6 @@ describe('Brunch agent runtime-state projection', () => {
       operationalMode: 'elicit',
       agentStrategy: 'not-a-strategy',
       agentLens: 'intent',
-      agentGoal: 'auto',
     } as unknown as BrunchAgentState);
     const malformed = {
       type: 'custom',
@@ -123,7 +119,6 @@ describe('Brunch agent runtime-state projection', () => {
       operationalMode: 'elicit',
       agentStrategy: 'project-graph',
       agentLens: 'oracle',
-      agentGoal: 'commit-converge',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
     const activeTools: string[][] = [];
@@ -222,7 +217,6 @@ describe('Brunch agent runtime-state projection', () => {
       operationalMode: 'elicit',
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
-      agentGoal: 'capture-posture',
     };
 
     appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
@@ -246,7 +240,6 @@ describe('Brunch agent runtime-state projection', () => {
         operationalMode: 'execute',
         agentStrategy: 'step-wise-decision-tree',
         agentLens: 'intent',
-        agentGoal: 'auto',
       },
       {
         schemaVersion: 1,
@@ -254,49 +247,18 @@ describe('Brunch agent runtime-state projection', () => {
         agentRole: 'elicitor',
         agentStrategy: 'step-wise-decision-tree',
         agentLens: 'intent',
-        agentGoal: 'auto',
       },
       {
         schemaVersion: 1,
         operationalMode: 'elicit',
         agentStrategy: 'not-a-strategy',
         agentLens: 'intent',
-        agentGoal: 'auto',
       },
       {
         schemaVersion: 1,
         operationalMode: 'elicit',
         agentStrategy: 'step-wise-decision-tree',
         agentLens: 'not-a-lens',
-        agentGoal: 'auto',
-      },
-      {
-        schemaVersion: 1,
-        operationalMode: 'elicit',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-        agentGoal: 'not-a-goal',
-      },
-      {
-        schemaVersion: 1,
-        operationalMode: 'elicit',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-        agentGoal: 'elicit-I',
-      },
-      {
-        schemaVersion: 1,
-        operationalMode: 'elicit',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-        agentGoal: 'elicit-II',
-      },
-      {
-        schemaVersion: 1,
-        operationalMode: 'elicit',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-        agentGoal: 'commitment-converge',
       },
     ]) {
       expect(() =>
@@ -306,14 +268,13 @@ describe('Brunch agent runtime-state projection', () => {
     expect(manager.entries).toEqual([]);
   });
 
-  it('does not project invalid runtime mode, legacy role, strategy, lens, or goal entries', () => {
+  it('does not project invalid runtime mode, legacy role, strategy, or lens entries', () => {
     for (const invalidState of [
       {
         schemaVersion: 1,
         operationalMode: 'execute',
         agentStrategy: 'step-wise-decision-tree',
         agentLens: 'intent',
-        agentGoal: 'auto',
       },
       {
         schemaVersion: 1,
@@ -321,55 +282,42 @@ describe('Brunch agent runtime-state projection', () => {
         agentRole: 'elicitor',
         agentStrategy: 'step-wise-decision-tree',
         agentLens: 'intent',
-        agentGoal: 'auto',
       },
       {
         schemaVersion: 1,
         operationalMode: 'elicit',
         agentStrategy: 'not-a-strategy',
         agentLens: 'intent',
-        agentGoal: 'auto',
       },
       {
         schemaVersion: 1,
         operationalMode: 'elicit',
         agentStrategy: 'step-wise-decision-tree',
         agentLens: 'not-a-lens',
-        agentGoal: 'auto',
-      },
-      {
-        schemaVersion: 1,
-        operationalMode: 'elicit',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-        agentGoal: 'not-a-goal',
-      },
-      {
-        schemaVersion: 1,
-        operationalMode: 'elicit',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-        agentGoal: 'elicit-I',
-      },
-      {
-        schemaVersion: 1,
-        operationalMode: 'elicit',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-        agentGoal: 'elicit-II',
-      },
-      {
-        schemaVersion: 1,
-        operationalMode: 'elicit',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-        agentGoal: 'commitment-converge',
       },
     ]) {
       expect(
         projectBrunchAgentState([runtimeEntry(invalidState as unknown as BrunchAgentState)]),
       ).toMatchObject(DEFAULT_BRUNCH_AGENT_STATE);
     }
+  });
+
+  it('ignores stale agentGoal fields on existing transcript entries', () => {
+    expect(
+      projectBrunchAgentState([
+        runtimeEntry({
+          schemaVersion: 1,
+          operationalMode: 'elicit',
+          agentStrategy: 'step-wise-decision-tree',
+          agentLens: 'intent',
+          agentGoal: 'commit-converge',
+        } as unknown as BrunchAgentState),
+      ]),
+    ).toMatchObject({
+      operationalMode: 'elicit',
+      agentStrategy: 'step-wise-decision-tree',
+      agentLens: 'intent',
+    });
   });
 
   it('appends runtime init from the extension session-start hook', async () => {
@@ -404,7 +352,6 @@ describe('Brunch agent runtime-state projection', () => {
       operationalMode: 'elicit',
       agentStrategy: 'propose-graph',
       agentLens: 'intent',
-      agentGoal: 'grounding-advance',
     };
 
     manager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {

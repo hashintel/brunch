@@ -225,7 +225,6 @@ function applyRuntimeSwitch(
     operationalMode: current.operationalMode,
     agentStrategy: patch.axis === 'strategy' ? patch.value : current.agentStrategy,
     agentLens: patch.axis === 'lens' ? patch.value : current.agentLens,
-    agentGoal: current.agentGoal,
   };
 
   appendBrunchAgentRuntimeSwitch(
