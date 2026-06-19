@@ -10,8 +10,8 @@
 // are nested under the run worktree, so an in-worktree merge would be a footgun.
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, lstatSync, rmSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
 import { linkSharedTopLevelEntries } from './cow-copy.js';
 import {
@@ -308,6 +308,21 @@ function commitSlicesInDependencyOrder(opts: {
   return slices;
 }
 
+function selectSharedEntrySource(
+  parentSandboxDir: string,
+  sliceIds: readonly string[],
+  name: string,
+): string {
+  const installers = sliceIds.filter((id) => {
+    const entry = join(resolveSliceWorktreeDir(parentSandboxDir, id), name);
+    if (!existsSync(entry)) return false;
+    const st = lstatSync(entry);
+    return st.isDirectory() && !st.isSymbolicLink();
+  });
+  const winner = installers.at(-1);
+  return winner ? resolveSliceWorktreeDir(parentSandboxDir, winner) : parentSandboxDir;
+}
+
 export function harvestCookRun(run: CompletedRun, opts?: { granularity?: CommitGranularity }): RunArtifact {
   const slices = commitSlicesInDependencyOrder({
     parentSandboxDir: run.parentSandboxDir,
@@ -355,6 +370,16 @@ export function materializeEpicVerifyTree(opts: {
     destDir: epicSandboxDir,
   });
   // The fold tree carries only tracked content; relink shared deps for the test run.
-  linkSharedTopLevelEntries(parentSandboxDir, epicSandboxDir, SHAREABLE_TOP_LEVEL_ENTRIES);
+  for (const name of SHAREABLE_TOP_LEVEL_ENTRIES) {
+    linkSharedTopLevelEntries(
+      selectSharedEntrySource(
+        parentSandboxDir,
+        slices.map((slice) => slice.sliceId),
+        name,
+      ),
+      epicSandboxDir,
+      new Set([name]),
+    );
+  }
   return { epicSandboxDir, conflicts };
 }
