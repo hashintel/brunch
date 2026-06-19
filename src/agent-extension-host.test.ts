@@ -50,6 +50,17 @@ const cookWitness = {
       mode: 'execute',
       capabilities: [{ id: 'verify-epic', summary: 'Write + run an epic integration test.', handler: null }],
     },
+    {
+      id: 'execute.remediate-epic',
+      mode: 'execute',
+      capabilities: [
+        {
+          id: 'remediate-epic',
+          summary: 'Fix a failed epic integration test on the folded tree.',
+          handler: null,
+        },
+      ],
+    },
   ],
 } as const satisfies AgentExtensionConsumerWitness;
 
