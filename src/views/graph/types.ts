@@ -41,4 +41,6 @@ export interface GraphNodeData {
 export interface GraphEdgeData {
   /** The relationship type this edge represents. */
   relationship: GraphEdgeRelationship;
+  /** Whether this edge is visually de-emphasized. */
+  dimmed?: boolean;
 }
