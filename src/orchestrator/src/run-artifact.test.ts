@@ -422,6 +422,23 @@ describe('transferFoldedFixToSlice (FE-884 remediation round-trip)', () => {
     );
   });
 
+  it('cleans the slice worktree when a folded fix cannot be applied', () => {
+    const sliceDir = join(parent, 'a');
+    writeFileSync(join(foldedDir, 'lib.ts'), 'export const view = "fixed";\n');
+    writeFileSync(join(sliceDir, 'lib.ts'), 'export const view = "locally diverged";\n');
+
+    const outcome = transferFoldedFixToSlice({
+      parentSandboxDir: parent,
+      foldedDir,
+      slice: slice('a'),
+      epicTestTargets: ['it.test.ts'],
+    });
+
+    expect(outcome).toMatchObject({ accepted: false, reason: 'apply-failed', touched: ['lib.ts'] });
+    expect(readFileSync(join(sliceDir, 'lib.ts'), 'utf8')).toBe('export const view = "broken";\n');
+    expect(gitC(sliceDir, 'status', '--short')).toBe('');
+  });
+
   it('rejects a no-op attempt (agent changed nothing)', () => {
     const outcome = transferFoldedFixToSlice({
       parentSandboxDir: parent,

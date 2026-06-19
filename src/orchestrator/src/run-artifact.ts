@@ -244,6 +244,8 @@ export function transferFoldedFixToSlice(opts: {
     encoding: 'utf8',
   });
   if (applied.status !== 0) {
+    git(['reset', '--hard'], sliceDir);
+    git(['clean', '-fd'], sliceDir);
     return { accepted: false, reason: 'apply-failed', touched };
   }
   commitSliceWorktree({ parentSandboxDir: opts.parentSandboxDir, slice: opts.slice });
