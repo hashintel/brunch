@@ -38,9 +38,7 @@ Also name any frontier-level cross-cutting obligations that this slice must pres
 
 Name the inherited **certainty posture** explicitly: `Posture: proving (inherited from <frontier-id>)` or `Posture: earned (inherited from <frontier-id>)`. If scoping reveals the posture is wrong for this slice (most commonly: an earned frontier surfaces a real unknown), downgrade to `proving` and route back through `ln-plan` if the frontier definition itself must shift. Do not silently scope earned-mode slices over fog.
 
-Do not create new planning documents or scratch scope stores without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`. The sanctioned derivative location for scope files is `memory/cards/`, described below.
-
-If scoping reveals that one frontier item needs multiple sequential slices, keep them nested under that same frontier item unless the plan-level frontier must change. Do not silently turn slices into separate tracker / branch work items.
+Do not create new planning documents or scratch scope stores without explicit permission: canonical state stays `memory/SPEC.md` + `memory/PLAN.md`; scope files live under `memory/cards/` (below).
 
 ## Scope file storage
 
@@ -78,7 +76,7 @@ The `memory/cards/` directory is a scoping inbox where multiple agents can depos
 
 The card does **not** inline canonical context — it points to the Cold-start reads block in whichever card template it uses. The full execution context is the card *plus* the canonical docs its Cold-start reads enumerate, which `ln-build` reloads on a fresh thread. A card therefore need not be self-contained to be cold-buildable; it must make its required reads explicit. "Free-standing enough for a separate builder thread" means *its Cold-start reads are complete*, not *its content is duplicated* — inlining SPEC/PLAN text into the card duplicates canonical truth and invites drift.
 
-Multiple scope files per frontier are permitted — they represent independent concerns that happen to land on the same branch. They do **not** imply multiple Linear issues or multiple Graphite branches; the frontier item remains the tracker/branch boundary.
+Multiple scope files per frontier are permitted — independent concerns that land on the same branch, not separate issues/branches (the frontier item stays the tracker/branch boundary, per the orientation rule above).
 
 ## Multi-card scope files
 
@@ -142,7 +140,7 @@ The file is horizontal; each **row** is built as an ordinary thin slice under it
 
 ### Anti-sprawl boundary
 
-The ledger is a **closed list**, not a generative one. "Fill the layer" means *close these enumerated rows*, never "do everything that rhymes" (global `AGENTS.md` §completionist sprawl). Add a row mid-flight only when a genuinely-missing capability is discovered — record it with Status `new` and a one-line justification, never as completionist symmetry.
+The ledger is a **closed list**, not a generative one. "Fill the layer" means *close these enumerated rows*, never "do everything that rhymes" (global `AGENTS.md` §completionist sprawl; named failure modes in [`../ln-plan/references/coverage.md`](../ln-plan/references/coverage.md) §Anti-patterns). Add a row mid-flight only when a genuinely-missing capability is discovered — record it with Status `new` and a one-line justification, never as completionist symmetry.
 
 ## Overlap-as-independence-test
 

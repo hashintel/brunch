@@ -11,7 +11,7 @@ If context is unclear, ask **one** clarifying question — then recommend.
 
 The canonical rule is simple: durable planning state lives only in `memory/SPEC.md` and `memory/PLAN.md`, and new or uncertain work defaults to the canonical flow until a narrow exception is clearly justified.
 
-Do not invent new planning documents, sidecar ledgers, or alternate storage locations without explicit user permission. If a fact matters beyond the current step, reconcile it into `memory/SPEC.md` or `memory/PLAN.md`; if it is temporary transfer state, keep it in `HANDOFF.md`; if it is one or more prepared scope cards for a frontier item, keep them in a scope file under `memory/cards/`; if it is a temporary refactor execution plan, keep it in `memory/REFACTOR.md`. Derivative files stay live only while they still carry unfinished work.
+Do not invent new planning documents, sidecar ledgers, or alternate storage locations without explicit user permission. Reconcile durable facts into `memory/SPEC.md` / `memory/PLAN.md`; keep volatile state only in its sanctioned derivative — `HANDOFF.md` (transfer state), `memory/cards/` (prepared scope cards), `memory/REFACTOR.md` (refactor plan) — and only while it still carries unfinished work.
 
 Orient, then classify.
 
@@ -35,6 +35,8 @@ Start the assessment with 2-4 bullets naming:
 ## Work-shape classification
 
 Classify the request by the proof it needs, not by whether it sounds like implementation.
+
+> Match the proof to the claim — a witness (one end-to-end path) for a vertical slice, closure (every required row) for a sweep — and don't declare done until they match.
 
 | Shape | Signals | Default handling |
 | --- | --- | --- |

@@ -117,9 +117,9 @@ For `Mode: single` / `chain`, use normal tracer-bullet TDD: one failing behavior
 
 For `Mode: sweep`, use closure-driven TDD: one failing row/property oracle → make that row/property conform → green. The oracle may be a test, grep guard, lint/import rule, schema check, fixture diff, golden assertion, or small enumerator script. It must fail because the required row is open, not because the harness is broken.
 
-Test behavior through public interfaces, not implementation details. A good test describes what capability exists and would survive internal refactoring. Avoid tests that mock internal collaborators, assert private call order, or inspect storage directly when the public interface can prove the behavior.
+Test through the public interface — capability that survives internal refactoring — not internals (mocked collaborators, asserted private call order, direct storage reads).
 
-Do not batch speculative tests first and then batch implementation. In slice mode, let each new behavioral test respond to what the previous cycle taught you. In sweep mode, let each closure oracle prove the next row/property rather than widening the ledger.
+Don't batch speculative tests then batch implementation: in slice mode each new test responds to what the last cycle taught you; in sweep mode each closure oracle proves the next row rather than widening the ledger.
 
 Run the relevant checks. Confirm failures are meaningful. If the card or row is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
 

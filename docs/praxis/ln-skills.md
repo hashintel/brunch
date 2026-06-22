@@ -43,37 +43,19 @@ Planning and scoping pressures depend on each frontier's **certainty posture**. 
 | `proving` | What does landing this *tell us*? | information gain | `.agents/skills/ln-plan/references/proving.md` |
 | `earned` | What does landing this *close*? | closure gain | `.agents/skills/ln-plan/references/earned.md` |
 
+This section orients; the operational doctrine lives in the references named below, which `ln-plan` and `ln-scope` load at point of use.
+
 #### Proving posture (tracer-bullet sequencing)
 
-A good tracer-bullet frontier or slice earns its keep on three convergent axes:
-
-- **Proof of life.** Does landing it light up an end-to-end path that did not exist?
-- **Invariants.** Does it locate or stabilize a seam that future slices will aim from?
-- **Uncertainty.** Does it retire a load-bearing assumption from `memory/SPEC.md` §Assumptions?
-
-The strongest next move scores on more than one axis. Prefer a slice that does several at once over one that maximizes a single axis.
-
-- **Reshape, don't defer.** If an assumption blocks a slice, reshape the slice before switching to study.
-- **Spike exception.** Use `ln-spike` only when no buildable tracer bullet can carry the proof — a third-party API contract, vendor characteristic, or research-grade unknown.
-- **Fire the tracer that tells you the most.** Under proving posture, attack uncertainty by building. Spikes, design passes, and prototypes are escape hatches when no slice could carry the proof more cheaply.
-
-Required annotation fields on Active/Next frontiers: at least one of `Retires`, `Depends on`, `Blocked by`, `Lights up`, `Stabilizes`.
+Optimize for **information gain**. A good tracer-bullet frontier scores on at least one of three axes — **proof of life** (lights a new end-to-end path), **invariants** (locates/stabilizes a seam), **uncertainty** (retires a load-bearing assumption) — and the strongest score on several. Attack uncertainty by *building*; spikes are the escape hatch only when no slice could carry the proof. Required annotation: at least one of `Retires`, `Depends on`, `Blocked by`, `Lights up`, `Stabilizes`. Full doctrine (epistemic horizon, reshape-don't-defer, spike exception) in `.agents/skills/ln-plan/references/proving.md`.
 
 #### Earned posture (closure sequencing)
 
-A good closure frontier or slice eliminates open shape, hardens a settled decision into topology, or retires an obsolete carrier. The decision kernel changes — the planner asks *what does this close?*, not *what does this tell us?*
-
-Closure move-set: **materialize, consolidate, name canonically, delete-as-progress, retire bridges/aliases/dual paths, take-the-bigger-step.**
-
-The "circling" recognition heuristic: when each new slice attaches an incremental proof to changes whose meaning is already established, and "caution" is the planner's stated reason but no specific risk can be named, switch posture and plan the closure move the proving slices have been deferring.
-
-Required annotation fields on Active/Next frontiers: at least one of `Closes`, `Materializes`, `Canonicalizes`, `Deletes / retires`, `Locks in`.
-
-Earned posture is not a license for sprawl — guardrails (one named seam, named closure target, declared touched paths, no auto-implementation of adjacent work) still bind. Topology READMEs and fractal sub-tree splits fire only when the seam is understood and structure carries real architectural meaning, not as ritual.
-
-Regression earned → proving is a state transition, not a third mode: downgrade the frontier or slice, reshape as a tracer, route back through `ln-plan` if the frontier itself splits.
+Optimize for **closure gain**. The decision kernel changes — the planner asks *what does this close?*, not *what does this tell us?* Closure move-set: **materialize, consolidate, name canonically, delete-as-progress, retire bridges/aliases/dual paths, take-the-bigger-step.** You are *circling* (switch posture) when each new slice re-proves established meaning and "caution" names no specific risk. Required annotation: at least one of `Closes`, `Materializes`, `Canonicalizes`, `Deletes / retires`, `Locks in`. Guardrails still bind (one named seam, named closure target, declared touched paths, no auto-implementation); regression earned → proving is a state transition, not a third mode. Full doctrine in `.agents/skills/ln-plan/references/earned.md`.
 
 #### Coverage sweeps / coverage frontiers (a frontier shape, not a posture)
+
+**Vertical work terminates on a witness (∃ — there exists one end-to-end path that holds); sweep work terminates on closure (∀ — the property holds for every required row in the inventory).** Tracer bullets buy integration evidence; sweeps buy role readiness.
 
 Tracer-complete is not load-bearing. Posture ranks the next *vertical* slice; it has no completeness test, so vertical tracers can leave a horizontal capability layer permanently shallow while every slice is "done." A **coverage frontier** is the plan-level container for a **sweep**: a pass that closes a named layer inventory with an aggregate DoD — "no required row in a closed enumerated inventory is left open" — while each row still builds under `proving` or `earned`. It is therefore a different frontier *shape*, not a third posture. The rule-of-three is now met in this repo, so coverage has a first-class planning reference at `.agents/skills/ln-plan/references/coverage.md`: use it for the admission gate, buildability classes (`buildable-now` / `evidence-gated` / `wait-gated`), temporary-ledger protocol, and anti-patterns (`category laundering`, `wrong-input derivation`, `residue denial`, `sequencing leakage`, `symmetry regrowth`). `ln-plan` recognizes and bounds the frontier; the row ledger lives in a `Mode: sweep` scope file under `memory/cards/` (authored via `ln-scope`); `ln-build` closes rows; `ln-sync` audits the contradictions sweep mode tends to create.
 

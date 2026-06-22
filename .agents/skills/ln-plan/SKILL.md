@@ -126,31 +126,15 @@ A plan may contain a mix of postures across its `Active` / `Next` frontiers. Loa
 
 ### Coverage sweeps / coverage frontiers (frontier *shape*, not a posture)
 
-Load [`references/coverage.md`](references/coverage.md) whenever a candidate frontier might need a **coverage sweep**, or when reclassifying a live coverage frontier.
+Load [`references/coverage.md`](references/coverage.md) whenever a candidate frontier might need a **coverage sweep**, or when reclassifying a live coverage frontier. It owns the full admission gate, buildability classes, required frontier content, temporary-ledger protocol, and anti-patterns; this section covers only what `ln-plan` decides.
 
-Tracer-complete is not load-bearing. Posture answers *how to rank the next vertical slice*; it carries **no completeness test**. Vertical tracers touch a horizontal capability layer (for example "the agent's READ tools as a whole") only as far as each claim needs, so a load-bearing layer can stay permanently shallow while every individual slice is still "done."
+Tracer-complete is not load-bearing: posture ranks the next *vertical* slice and carries **no completeness test**, so a load-bearing layer can stay permanently shallow while every slice is "done." A **coverage frontier** is the plan-level container for a **sweep** — a pass that terminates on closure over a named layer inventory (aggregate DoD: *no required row in a closed enumerated inventory is left open*), not on one more end-to-end witness. It is a frontier *shape*, not a third posture: each row still builds under `proving` or `earned`.
 
-A **coverage frontier** is the plan-level container for a **sweep**: a pass that terminates on closure over a named layer inventory, not on one more end-to-end witness. It is a different frontier *shape*, not a third posture: it adds no row-level execution mechanics — each row is still built under `proving` or `earned`. What it adds is a layer-level **aggregate definition of done**: *no required row in a closed enumerated inventory is left open.*
+**Recognition trigger.** Reach for coverage only when all three hold: (1) a named layer is load-bearing *as a whole* — its value is its breadth (capability surface, API method set, renderer family), not one claim; (2) you can author a closed, enumerated inventory up front; (3) rows can be marked required `●` vs deferred `○`. If you cannot close the enumeration, stay tracer-shallow — most layers should (correct YAGNI); without this gate coverage degenerates into completionist sprawl. The five-point admission gate and the buildable-now / evidence-gated / wait-gated classification live in `references/coverage.md`.
 
-**Recognition trigger.** Reach for a coverage frontier / sweep only when all three hold:
+`ln-plan`'s job is to recognize and bound the frontier, classify it, and sequence promoted rows. The row ledger lives in a `Mode: sweep` scope file under `memory/cards/` (authored via `ln-scope`); `ln-build` closes rows; the frontier completes when no `●` row remains `spec` / `new` / `partial`. A promoted last-open row keeps its temporary ledger live and outranks new unrelated coverage frontiers by default (see `references/coverage.md` §Temporary-ledger protocol).
 
-1. a **named layer is load-bearing as a whole** — its value *is* its breadth (an agent's capability surface, a public API's method set, a renderer family), not just one claim it proves;
-2. you can **author a closed, enumerated inventory** up front of what the layer must contain; and
-3. rows can be marked **required vs deferred** (e.g. POC `●` / later `○`).
-
-If you cannot close the enumeration, it is not a coverage frontier — stay tracer-shallow. Most product layers should (correct YAGNI). Coverage mode is safe *only because the surface is a closed list*; without this gate it degenerates into completionist sprawl (global `AGENTS.md` §completionist sprawl).
-
-**Frontier definition fields.** A coverage frontier names:
-
-- the **layer boundary** — what is in the layer and explicitly what is out;
-- the **aggregate DoD** — "every `●` row is closed";
-- a pointer to the **`Mode: sweep` scope file** under `memory/cards/` that holds the row ledger (authored via `ln-scope`).
-
-Each ledger row declares its own **fill mode** — `proving` if the row still carries an unknown, `earned` if it is settled-but-unbuilt. `ln-build` closes rows; the frontier completes when no `●` row remains in a `spec` / `new` / `partial` state — the ledger DoD, not a single tracer claim.
-
-**Maturity gate.** The rule-of-three is now met in this repo: the elicitor cross-cut, graph observed-shapes, and the current runtime/exchange follow-ons exposed recurring row-level failure modes. Coverage therefore now has a dedicated planning reference, but it remains a **frontier shape**, not a third certainty posture or an alternate planning store.
-
-**Sequencing precedence.** If a temporary sweep ledger remains open only because a required row has been promoted into `PLAN`, that promoted frontier outranks new unrelated coverage frontiers by default. Do not let "new breadth we could also do" preempt "the last required row that closes the still-live ledger" unless the user explicitly chooses that deprioritization.
+**Maturity gate.** The rule-of-three is met in this repo (the elicitor cross-cut, graph observed-shapes, and the runtime/exchange follow-ons each exposed recurring row-level failure modes), so coverage has a dedicated reference — but it remains a frontier shape, not a third certainty posture or an alternate planning store.
 
 ## Procedure
 

@@ -92,7 +92,11 @@ Use the sweep test:
 - **Layer:** is there one named layer whose value depends on breadth as a whole (tool surface, renderer family, public API method set, observed-shape inventory)?
 - **Inventory:** can the required surface be enumerated up front without reading future implementation tea leaves?
 - **Rows:** can each required row name an owner, source-of-truth inputs, and a closure oracle?
-- **Gaps:** are the open gaps breadth gaps, fidelity gaps, contract gaps, or oracle gaps?
+- **Gaps:** classify each open gap —
+  - **breadth** — required cases or peers missing from the inventory;
+  - **fidelity** — covered behavior is not production-grade (happy-path only);
+  - **contract** — role obligations exist but are not enforced;
+  - **oracle** — readiness cannot be cheaply proved.
 - **YAGNI guard:** is tracer-shallow actually correct because the layer is not load-bearing as a whole?
 
 Collect findings as numbered items (category: `coverage-candidacy`). Frame each as: the layer that appears shallow, the evidence that it is load-bearing as a whole, whether the coverage admission gate seems likely to pass, and whether follow-up should route to `ln-plan` for a coverage frontier / sweep or to `ln-oracles` / `ln-design` first.
