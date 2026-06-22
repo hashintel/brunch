@@ -139,6 +139,24 @@ Add `respond` for **`present_question` only**, behind the existing structured-ex
 
 The two cheap fixes already landed (`64fe9a41`, `95933e5f`) annotate and teach the *current* grammar. When this collapse lands, the `respondsToPresentTool` `.describe()` additions from `95933e5f` are **deleted with the field** — they were explicitly the now-half of a "teach now, delete later" plan. This document is the "delete later" design.
 
+## Adjacent gaps this design does NOT close (evidence from the 2026-06-22 runbook)
+
+A later runbook run surfaced two findings that bound this design's scope. Both are quality/legibility gaps, not correctness bugs (the exchanges completed; the agent self-corrected to `mutate_graph`), but they show the collapse addresses only one of three sub-problems. All three are faces of the same recurring **"enforced-but-untaught"** signal that ran through the whole FE-811 runbook.
+
+### Gap 1 — the present-side selection gap (NOT fixed by the request-side collapse)
+
+The collapse makes the *request* side unrepresentable-wrong, but the agent must still pick the right **present** tool — and it does so badly, in the *inverse* of the original bug. Twice in one run the agent used `present_question` (free-text) while authoring a genuinely **multiple-choice** question, embedding an enumerated candidate list in markdown prose ("The real situations: — New-from-scratch — Brownfield — Continuation. Which one, or more?") then collecting a free-text answer. The structured-choice machinery (`present_options` + `request_choice`, which captures a selectable option id) was bypassed.
+
+This is the same root as the original mis-pairing, one tool earlier: **the present-tool selection (`question` vs `options`) is under-guided.** The model does not reliably map "I am offering a finite set of answers" → `present_options`. The current `present_question` guideline mentions "for a multiple-choice question, use present_options instead" but buries it in a pairing-focused line; it is not catching.
+
+**Design implication:** the request-side collapse (B) does not touch this. The sharper structural fix would extend the collapse to the *present* side too — a single `present` (or `ask`) surface taking an optional `options[]`, where **the presence of options determines choice-vs-freeform**, making the present selection structural rather than a model decision. That is a strictly larger redesign than B; weigh it as a phase 2: B removes request-side mis-pairing first (proven dominant bug), then a present-side merge removes selection error. Until then, the cheap mitigation is richer `present_question`/`present_options` descriptions naming the choosing rule (a present-side analogue of `95933e5f`).
+
+### Gap 2 — the review-set nested payload shape is still invisible to the model
+
+The `64fe9a41` top-level payload typing fix **worked**: in this run `present_review_set.payload` arrived as a proper object with all six top-level keys (no JSON string). But it surfaced the *next* layer — the deep validator correctly rejected `grounding` as a string (should be `{summary, support[]}`), a missing required `epistemicStatus`, and a malformed `pitch`. The boundary schema only guarantees `schemaVersion: 1`, so the **rich nested shape stays invisible** and the model guesses the nested fields.
+
+**Design implication:** independent of the collapse, the review-set nested payload needs the same `.describe()`/typing treatment the top level got — either describe the nested `grounding`/`pitch`/`entityDrafts`/`edgeDrafts` shape in the boundary schema, or (better, post-collapse) `ask_review` takes typed structured params instead of an opaque nested payload. A small describe-pass like `95933e5f`; deferrable but cheap.
+
 ## Status / next
 
-Chosen but **not scheduled**. By the FE-811 framing this is post-runbook structural work. When picked up: `ln-scope` the `respond`-for-`present_question` tracer (claim 1), then migrate the remaining interaction types, then delete the request-tool taxonomy + `respondsToPresentTool` + the stopgap describes, and reconcile I23-L to the single-terminal-call grammar.
+Chosen but **not scheduled**. By the FE-811 framing this is post-runbook structural work. When picked up: `ln-scope` the `respond`-for-`present_question` tracer (claim 1), then migrate the remaining interaction types, then delete the request-tool taxonomy + `respondsToPresentTool` + the stopgap describes, and reconcile I23-L to the single-terminal-call grammar. The two adjacent gaps above are separately scoped: the present-side selection merge (phase 2 of the collapse) and the review-set nested-payload describe-pass (a standalone stopgap).
