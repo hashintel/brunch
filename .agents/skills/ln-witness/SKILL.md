@@ -1,6 +1,6 @@
 ---
 name: ln-witness
-description: "Audit a test suite for what it actually proves — attribute tests to behavioral kernels, place each on the progressive-checkability ladder, surface unwitnessed proof obligations, and generate contrastive rivals the tests fail to rule out. Use when a slice has tests but verification confidence is unclear, when tests pass but the spec feels under-witnessed, or when the user asks what these tests prove."
+description: "Audit what a test suite actually proves — attribute tests to behavioral kernels, rank each on the checkability ladder, surface unwitnessed proof obligations, and generate contrastive rivals the suite fails to rule out. Use when tests pass but verification confidence is unclear, or the user asks what these tests prove. Not for code-quality/architecture audit (use ln-review) or designing verification before building (use ln-oracles)."
 argument-hint: "[test files, directory, or frontier item to audit; include relevant invariants or kernels if known]"
 ---
 

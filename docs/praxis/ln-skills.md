@@ -11,7 +11,7 @@ The skills are a development workflow for keeping product intent, planning, impl
 | `memory/SPEC.md` | What and why: product contract, live assumptions, decisions, invariants, lexicon, verification stance. |
 | `memory/PLAN.md` | What's next: frontier items, sequencing, acceptance, verification notes. |
 | `HANDOFF.md` | Temporary resumability state when a session ends or context is fragile. |
-| `memory/cards/<frontier-id>--<slug>.md` | Scope files holding one vertical card, a short chain, or a sweep ledger. Multiple files per frontier permitted for independent concerns; one file = one execution context for `ln-build`. |
+| `memory/cards/<frontier-id>--<slug>.md` | Scope files holding one vertical card, a short slice sequence, or a sweep ledger. Multiple files per frontier permitted for independent concerns; one file = one execution context for `ln-build`. |
 | `memory/REFACTOR.md` | Temporary refactor execution plan, when explicitly created. |
 
 Do not invent alternate planning stores. If a fact matters durably, promote it through `ln-spec`, `ln-plan`, or `ln-sync`.

@@ -1,6 +1,6 @@
 ---
 name: ln-grill
-description: "Interview the user relentlessly about a plan or design until reaching shared understanding. Use when fleshing out an idea, stress-testing a design, or when the user says \"grill me\"."
+description: "Interview the user relentlessly about a plan or design until reaching shared understanding. Use when fleshing out a fuzzy idea or stress-testing a design, or when the user says \"grill me\". When a few competing interpretations would be settled faster by examples, use ln-disambiguate."
 ---
 
 # Ln Grill

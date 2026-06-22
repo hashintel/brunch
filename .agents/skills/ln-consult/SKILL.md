@@ -1,6 +1,6 @@
 ---
 name: ln-consult
-description: "Lightweight triage for the ln-* skill set. Use when unsure which ln skill to use next, starting work on something new, or when the user asks for guidance on their development process."
+description: "Triage the ln-* skill set — assess state and recommend the next skill. Use when unsure which ln skill applies, starting new work, or re-entering ambiguous work."
 ---
 
 # Ln Consult
@@ -30,7 +30,7 @@ Start the assessment with 2-4 bullets naming:
 - the active frontier item or nearby priority
 - volatile state or manual follow-up from handoff
 - the main open risk
-- the likely **work shape**: vertical slice, short chain, sweep, refactor, spike, or sync
+- the likely **work shape**: vertical slice, slice sequence, sweep, refactor, spike, or sync
 
 ## Work-shape classification
 
@@ -41,7 +41,7 @@ Classify the request by the proof it needs, not by whether it sounds like implem
 | Shape | Signals | Default handling |
 | --- | --- | --- |
 | **Vertical slice** | One behavior should work through the relevant boundaries; landing it is a witness | `ln-scope` with `Mode: single`, then `ln-build` |
-| **Short chain** | Several small vertical follow-ups are obvious inside one settled frontier and do not depend on earlier findings | `ln-scope` with `Mode: chain`, then serial `ln-build` |
+| **Slice sequence** | Several small vertical follow-ups are obvious inside one settled frontier and do not depend on earlier findings | `ln-scope` with `Mode: slices`, then sliced `ln-build` |
 | **Sweep** | All paths are lit but a load-bearing layer remains shallow; the work terminates on closure over an enumerated inventory | `ln-plan` for coverage-frontier admission, then `ln-scope` with `Mode: sweep` |
 | **Structural decision** | New seam, boundary, durable architecture choice, or assumption invalidation | `ln-spec` / `ln-plan` / `ln-design` / `ln-oracles` as needed before scoping |
 | **Direct fix** | Tiny bugfix, hardening, or docs/tooling edit inside a named settled seam | direct `ln-build` only when reconciliation is plausibly a no-op |
@@ -63,13 +63,13 @@ Default rule:
 `ln-scope` chooses the scope-file mode:
 
 - `Mode: single` — one vertical slice
-- `Mode: chain` — a short queue of already-legible vertical slices
+- `Mode: slices` — a short queue of already-legible vertical slices
 - `Mode: sweep` — a closed ledger for a coverage frontier
 
 Bounded exceptions:
 
 - `ln-scope → ln-build` for one settled slice
-- `ln-scope → serial ln-build` for one settled chain
+- `ln-scope → sliced ln-build` for one settled sequence
 - `ln-plan → ln-scope Mode: sweep → ln-build` for an admitted sweep
 - direct `ln-build` for a tiny direct fix inside a named settled seam
 
@@ -105,7 +105,7 @@ Spikes are the escape hatch, not the default.
 | All paths are lit but a load-bearing layer still feels thin; vertical slices keep leaving a capability surface shallow | structural | `ln-plan` — author a coverage frontier / sweep only if the admission gate in `ln-plan/references/coverage.md` passes |
 | Verification strategy is the main uncertainty | structural | `ln-oracles` |
 | Next work item needs precise boundaries | structural or bounded | `ln-scope` |
-| One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then serial `ln-build` loop, optionally via a `Mode: chain` scope file under `memory/cards/` |
+| One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then sliced `ln-build` loop, optionally via a `Mode: slices` scope file under `memory/cards/` |
 | Module interface needs exploration | structural | `ln-design` |
 | Full or light scope card exists, ready to code | bounded, hardening, bugfix | `ln-build` |
 | Technical uncertainty blocks progress, or a cheap investigation could invalidate planned work | any | `ln-spike` |

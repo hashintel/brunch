@@ -39,7 +39,7 @@ Within `Sequencing`, use:
 
 Archive deeper history to `docs/archive/PLAN_HISTORY.md` instead of keeping it live in `memory/PLAN.md`.
 
-Treat frontier items as branch-sized work, not commit-sized work. If one frontier item will unfold as several consecutive verified slices, keep that chain in a `Mode: chain` scope file under `memory/cards/` or in session context instead of fragmenting `memory/PLAN.md` into a commit ledger. `memory/PLAN.md` may carry at most a lightweight pointer such as `current execution pointer: memory/cards/<frontier-id>--<slug>.md`; detailed discretionary sub-slicing belongs in the scope file itself.
+Treat frontier items as branch-sized work, not commit-sized work. If one frontier item will unfold as several consecutive verified slices, keep that sequence in a `Mode: slices` scope file under `memory/cards/` or in session context instead of fragmenting `memory/PLAN.md` into a commit ledger. `memory/PLAN.md` may carry at most a lightweight pointer such as `current execution pointer: memory/cards/<frontier-id>--<slug>.md`; detailed discretionary sub-slicing belongs in the scope file itself.
 
 ## Operating posture
 

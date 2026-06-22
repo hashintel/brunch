@@ -128,7 +128,7 @@ Rules:
 - treat **frontier items** as the canonical plan/Linear/branch units
 - treat **slices** as scoped execution units from `ln-scope` / `ln-build`, usually inside one frontier item
 - edit `Sequencing` for ordering/status churn; do not move or rewrite `Frontier Definitions` merely to reorder work
-- keep detailed scope-card chains out of `memory/PLAN.md`; use scope files under `memory/cards/` for temporary slice execution chains and at most a lightweight pointer from the frontier definition listing active scope file path(s)
+- keep detailed scope-card sequences out of `memory/PLAN.md`; use scope files under `memory/cards/` for temporary slice-execution sequences and at most a lightweight pointer from the frontier definition listing active scope file path(s)
 - move older completed items to `docs/archive/PLAN_HISTORY.md`
 - keep only the last 2-3 completed items live
 - only active / next frontier definitions need detailed acceptance or traceability
