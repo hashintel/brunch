@@ -122,6 +122,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
     const actions = createPiActions({
       testRunner: fakeRunner({ passed: false, output: 'no runner', failureKind: 'infra' }),
       createSession,
+      confine: false,
     });
     const id = await actions['verify-epic']!(ctx(reports));
     const payload = reports.getById(id)!.payload as { passed: boolean; failureKind?: string };
@@ -150,7 +151,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
     const createSession = (async () => {
       throw new Error('session boom');
     }) as unknown as SessionFactory;
-    const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+    const actions = createPiActions({ createSession, emit: (e) => events.push(e), confine: false });
 
     await expect(actions['write-tests']!(ctx(new InMemoryReportSink()))).rejects.toThrow();
     expect(events.filter((e) => e.kind === 'activity-start')).toHaveLength(1);
@@ -165,7 +166,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
 
     for (const action of ['write-tests', 'write-code'] as const) {
       const events: CookEvent[] = [];
-      const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+      const actions = createPiActions({ createSession, emit: (e) => events.push(e), confine: false });
 
       await expect(actions[action]!(ctx(new InMemoryReportSink()))).rejects.toThrow(/session boom/);
 
@@ -866,6 +867,51 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
     }
   });
 
+  it('shadows the built-in file tools with sandbox-confined definitions (FE-853)', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const fake = makeFakeSession({ emit: 'ok' });
+      let capturedCustomTools: Array<{ name: string }> | undefined;
+      const createSession = (async (options: { customTools?: Array<{ name: string }> }) => {
+        capturedCustomTools = options.customTools;
+        return { session: fake.session };
+      }) as unknown as SessionFactory;
+
+      await runPi(baseOpts(sandboxDir, 'read,write,edit,bash'), { createSession });
+
+      // Same names as the built-ins, so the SDK registry overrides them and the
+      // per-action allowlist (I126-K) keeps filtering both the same way. On
+      // enforcing backends the bash tool is shadowed too (seatbelt/bwrap hook).
+      const expected =
+        process.platform === 'darwin' || process.platform === 'linux'
+          ? ['bash', 'edit', 'read', 'write']
+          : ['edit', 'read', 'write'];
+      expect(capturedCustomTools?.map((t) => t.name).sort()).toEqual(expected);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('omits confined custom tools when confinement is explicitly disabled', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const fake = makeFakeSession({ emit: 'ok' });
+      let capturedCustomTools: Array<{ name: string }> | undefined;
+      const createSession = (async (options: { customTools?: Array<{ name: string }> }) => {
+        capturedCustomTools = options.customTools;
+        return { session: fake.session };
+      }) as unknown as SessionFactory;
+
+      await runPi({ ...baseOpts(sandboxDir, 'read,write,edit,bash'), confine: false }, { createSession });
+
+      expect(capturedCustomTools?.map((t) => t.name).sort()).toEqual(['bash', 'edit', 'read', 'write']);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
   it('captures agent output without writing it to process.stdout', async () => {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
@@ -1327,7 +1373,7 @@ describe('action handlers emit slice grid events', () => {
     const events: CookEvent[] = [];
     const fake = makeFakeSession({ emit: 'wrote tests' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
-    const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+    const actions = createPiActions({ createSession, emit: (e) => events.push(e), confine: false });
     await actions['write-tests']!(ctx());
     expect(sliceEvents(events)[0]).toMatchObject({
       id: 'login',
@@ -1478,7 +1524,7 @@ describe('remediate-epic action — FE-884 Slice A production wiring', () => {
       captured = options;
       return { session: fake.session };
     }) as unknown as SessionFactory;
-    const actions = createPiActions({ createSession });
+    const actions = createPiActions({ createSession, confine: false });
 
     const foldedDir = '/tmp/__epic__/api';
     const id = await actions['remediate-epic']!({ slice, epic, plan, sandboxDir: foldedDir, reports });

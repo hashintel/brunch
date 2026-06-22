@@ -32,6 +32,16 @@ describe('toolchain test command', () => {
   });
 });
 
+describe('toolchain confinement probe', () => {
+  it('bun probes with `bun --version`', () => {
+    expect(bunProfile.toolchain.probeCommand()).toEqual(['bun', '--version']);
+  });
+
+  it('brunch probes the vitest runner', () => {
+    expect(brunchProfile.toolchain.probeCommand()).toEqual(['npx', 'vitest', '--version']);
+  });
+});
+
 describe('toolchain test conventions are framework-specific', () => {
   it('bun conventions mention bun:test', () => {
     expect(bunProfile.toolchain.testConventions).toContain('bun:test');

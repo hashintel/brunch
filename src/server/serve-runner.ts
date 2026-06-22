@@ -157,6 +157,7 @@ export function serveCookOptions(opts: ServeOptions, cookDir: string): CookOptio
     ...(opts.outDir ? { outDir: resolve(cookDir, opts.outDir) } : {}),
     landBranch: opts.land,
     force: opts.force,
+    confine: 'on',
     specId: opts.specificationId,
   };
 }

@@ -124,6 +124,7 @@ describe('runCook brownfield promotion failures', () => {
         petrinautStream: false,
         petrinautOpen: true,
         force: false,
+        confine: 'off',
       },
       bus,
     );

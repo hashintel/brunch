@@ -26,6 +26,7 @@ import { buildProbeSpec, runProbe } from './app-probe.js';
 import type { CookEvent } from './presenter/events.js';
 import { defaultToolchain, type Toolchain } from './project-profile.js';
 import { createReport } from './report-helpers.js';
+import { createConfinedTools } from './sandbox-guard.js';
 import { sliceLabel } from './slice-label.js';
 import { runVerification, ToolchainTestRunner } from './test-runner.js';
 import type {
@@ -156,8 +157,12 @@ function buildInstrumentedTools(
   cwd: string,
   onStart: (label: string) => void,
   onSettle: () => void,
+  confine = true,
 ): ToolDefinition[] {
+  const confinedTools = confine ? new Map(createConfinedTools(cwd).map((def) => [def.name, def])) : new Map();
   return names.flatMap((name) => {
+    const def = confinedTools.get(name);
+    if (def) return [instrumentToolDefinition(def, onStart, onSettle)];
     const build = TOOL_DEF_BUILDERS[name as keyof typeof TOOL_DEF_BUILDERS];
     if (!build) return [];
     return [instrumentToolDefinition(build(cwd) as ToolDefinition, onStart, onSettle)];
@@ -207,6 +212,7 @@ interface RunPiOpts {
   /** Activity id for the live wait/heartbeat. Defaults to `label`; set to the
    *  slice id so the heartbeat lands on that slice's grid row. */
   activityId?: string;
+  confine?: boolean;
 }
 
 /** The pi SDK session factory — injectable so the drive loop is testable without a model or network. */
@@ -341,6 +347,7 @@ async function buildSessionOptions(
       toolHooks.onStart();
     },
     toolHooks.onSettle,
+    opts.confine !== false,
   );
 
   return {
@@ -579,6 +586,7 @@ export function createPiActions(opts?: {
    * contract); concrete `epic.probe` targets work regardless.
    */
   groundProbe?: ProbeGrounder;
+  confine?: boolean;
 }): ActionHandlers {
   _verbose = opts?.verbose ?? false;
   _emit = opts?.emit ?? (() => {});
@@ -586,6 +594,7 @@ export function createPiActions(opts?: {
   const testRunner = opts?.testRunner ?? new ToolchainTestRunner(toolchain);
   const groundProbe = opts?.groundProbe;
   const piDeps = opts?.createSession ? { createSession: opts.createSession } : {};
+  const confine = opts?.confine ?? true;
 
   return {
     'evaluate-done': async (ctx: ActionContext) => {
@@ -639,6 +648,7 @@ export function createPiActions(opts?: {
             sandboxDir: ctx.sandboxDir,
             tools: toolsForAction('write-tests'),
             activityId: ctx.slice.id,
+            confine,
           },
           piDeps,
         );
@@ -675,6 +685,7 @@ export function createPiActions(opts?: {
             sandboxDir: ctx.sandboxDir,
             tools: toolsForAction('write-code'),
             activityId: ctx.slice.id,
+            confine,
           },
           piDeps,
         );
@@ -714,6 +725,7 @@ export function createPiActions(opts?: {
             task: writeTask,
             sandboxDir: ctx.sandboxDir,
             tools: toolsForAction('verify-epic'),
+            confine,
           },
           piDeps,
         );
@@ -793,6 +805,7 @@ export function createPiActions(opts?: {
             task: epicRemediateTask(ctx.epic),
             sandboxDir: ctx.sandboxDir,
             tools: toolsForAction('remediate-epic'),
+            confine,
           },
           piDeps,
         );
