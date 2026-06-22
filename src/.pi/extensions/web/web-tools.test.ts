@@ -4,6 +4,9 @@ import { registerBrunchWebTools } from './index.js';
 
 interface RegisteredTool {
   name: string;
+  parameters: {
+    properties: Record<string, { type?: string; maxLength?: number }>;
+  };
   execute: (
     toolCallId: string,
     params: never,
@@ -71,10 +74,78 @@ describe('Brunch web tools', () => {
     expect(result.content[0]?.text).toContain('# Fallback Doc');
   });
 
+  it('rejects unsupported URL schemes before fetching', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      registeredWebTools().web_fetch.execute('call-1', { url: 'file:///etc/passwd' } as never),
+    ).rejects.toThrow('file:///etc/passwd: Unsupported URL protocol: file:');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('reports invalid URLs as tool errors', async () => {
     await expect(
       registeredWebTools().web_fetch.execute('call-1', { url: 'not a url' } as never),
     ).rejects.toThrow('not a url: Invalid URL');
+  });
+
+  it('rejects oversized responses while reading bodies without content-length', async () => {
+    const chunk = new Uint8Array(1024 * 1024).fill(65);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                for (let index = 0; index < 6; index += 1) controller.enqueue(chunk);
+                controller.close();
+              },
+            }),
+            { headers: { 'content-type': 'text/plain' } },
+          ),
+      ),
+    );
+
+    await expect(
+      registeredWebTools().web_fetch.execute('call-1', { url: 'https://example.test/large' } as never),
+    ).rejects.toThrow(/Response too large/);
+  });
+
+  it('uses bounded reads for Jina fallback responses', async () => {
+    const chunk = new Uint8Array(1024 * 1024).fill(65);
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(
+            '<html><body><script></script><script></script><script></script><script></script></body></html>',
+            {
+              headers: { 'content-type': 'text/html' },
+            },
+          ),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                for (let index = 0; index < 6; index += 1) controller.enqueue(chunk);
+                controller.close();
+              },
+            }),
+            { headers: { 'content-type': 'text/markdown' } },
+          ),
+        ),
+    );
+
+    await expect(
+      registeredWebTools().web_fetch.execute('call-1', {
+        url: 'https://example.test/js-app',
+        useJinaFallback: true,
+      } as never),
+    ).rejects.toThrow(/Response too large/);
   });
 
   it('formats Brave LLM Context responses', async () => {
@@ -125,5 +196,14 @@ describe('Brunch web tools', () => {
     await expect(
       registeredWebTools().web_search.execute('call-1', { query: 'brunch capture' } as never),
     ).rejects.toThrow('Missing Brave API key. Set BRAVE_API_KEY in the environment.');
+  });
+
+  it('declares integer and query length constraints in tool schemas', () => {
+    const tools = registeredWebTools();
+    expect(tools.web_fetch.parameters.properties.maxChars.type).toBe('integer');
+    expect(tools.web_search.parameters.properties.query.maxLength).toBe(400);
+    expect(tools.web_search.parameters.properties.count.type).toBe('integer');
+    expect(tools.web_search.parameters.properties.maxTokens.type).toBe('integer');
+    expect(tools.web_search.parameters.properties.maxUrls.type).toBe('integer');
   });
 });

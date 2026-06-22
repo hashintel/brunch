@@ -190,9 +190,9 @@ export function createWebSearchTool() {
       'Use web_search maxTokens around 2048 for simple facts, 8192 for normal research, and 16384+ for deep research.',
     ],
     parameters: Type.Object({
-      query: Type.String({ description: 'Search query, maximum 400 characters.' }),
+      query: Type.String({ description: 'Search query, maximum 400 characters.', maxLength: 400 }),
       count: Type.Optional(
-        Type.Number({
+        Type.Integer({
           description: 'Max search results to consider. Default 20, max 50.',
           minimum: 1,
           maximum: 50,
@@ -207,14 +207,14 @@ export function createWebSearchTool() {
         ),
       ),
       maxTokens: Type.Optional(
-        Type.Number({
+        Type.Integer({
           description: 'Maximum tokens of context to return. Default 8192, max 32768.',
           minimum: 1024,
           maximum: 32768,
         }),
       ),
       maxUrls: Type.Optional(
-        Type.Number({
+        Type.Integer({
           description: 'Maximum URLs in response. Default 20, max 50.',
           minimum: 1,
           maximum: 50,

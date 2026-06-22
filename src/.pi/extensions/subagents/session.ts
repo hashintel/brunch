@@ -182,9 +182,13 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
   const createServices = input.createServices ?? createAgentSessionServices;
   const createSession = input.createSession ?? createAgentSessionFromServices;
 
-  if (ctx.signal?.aborted) {
-    return { agent: definition.name, status: 'error', text: `Subagent "${definition.name}" was aborted.` };
-  }
+  const abortedResult = (): SubagentResult => ({
+    agent: definition.name,
+    status: 'error',
+    text: `Subagent "${definition.name}" was aborted.`,
+  });
+
+  if (ctx.signal?.aborted) return abortedResult();
 
   const resolution = resolveSubagentModel(definition, ctx);
   if (resolution.status === 'unresolved') {
@@ -213,6 +217,7 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
       settingsManager: deps.createSettingsManager(),
       resourceLoaderOptions: { ...deps.resourceLoaderOptions, systemPrompt: definition.systemPrompt },
     });
+    if (ctx.signal?.aborted) return abortedResult();
 
     const { session } = await createSession({
       services,
@@ -228,6 +233,10 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
     if (ctx.signal) {
       onAbort = () => void session.abort();
       ctx.signal.addEventListener('abort', onAbort, { once: true });
+    }
+    if (ctx.signal?.aborted) {
+      void session.abort();
+      return abortedResult();
     }
 
     await session.prompt(task, { expandPromptTemplates: false, source: 'rpc' });

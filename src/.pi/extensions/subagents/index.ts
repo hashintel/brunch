@@ -59,16 +59,20 @@ export function createSemaphore(max: number): <T>(task: () => Promise<T>) => Pro
   const waiters: Array<() => void> = [];
 
   const release = (): void => {
-    active -= 1;
     const next = waiters.shift();
-    if (next) next();
+    if (next) {
+      next();
+      return;
+    }
+    active -= 1;
   };
 
   return async <T>(task: () => Promise<T>): Promise<T> => {
     if (active >= limit) {
       await new Promise<void>((resolve) => waiters.push(resolve));
+    } else {
+      active += 1;
     }
-    active += 1;
     try {
       return await task();
     } finally {
@@ -128,6 +132,20 @@ export function registerBrunchSubagents(pi: ExtensionAPI, deps: BrunchSubagentsD
       `Available agents: ${agentCatalog(deps.definitions)}.`,
     parameters: ParamsSchema,
     async execute(_toolCallId, params: Params, signal, _onUpdate, ctx) {
+      const hasSingleShape = params.agent !== undefined || params.task !== undefined;
+      const hasParallelShape = params.tasks !== undefined;
+      if (hasSingleShape && hasParallelShape) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: 'subagent accepts either { agent, task } or { tasks: [...] }, not both.',
+            },
+          ],
+          details: { results: [] },
+        };
+      }
+
       const requested =
         params.tasks ?? (params.agent && params.task ? [{ agent: params.agent, task: params.task }] : []);
       if (requested.length === 0) {
