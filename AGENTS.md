@@ -67,6 +67,8 @@ This is a marker convention, not a license to cut corners. The floor is never si
 
 Directory-level `README.md` files under `src/**/` are **canonical documentation co-located with the code they describe**. They materialize architectural intent into the file topology: what the directory owns and does not own, its dependency direction, the SPEC decision IDs (`D52-L`, `D40-L`, …) that lock its layout, the resource taxonomy or layout sketch, and any in-flight migration state. Treat them as drift-prone canonical artifacts alongside `memory/SPEC.md` and `memory/PLAN.md` — not as ambient prose.
 
+**Ownership direction — README owns current state, the SPEC decision owns the event.** A co-located README owns the *current materialized state*: what its subtree owns, its layout, dependency direction, and concrete public surface. A `memory/SPEC.md` decision owns the *event* — the chosen seam, its rationale, and its supersession. A decision **points to** the README that holds its current state and must not keep a second copy of it; once a decision has materialized into topology, thin it to event + pointer. A decision is archivable once its current state lives in a co-located README or a Critical Invariant (this is `ln-sync`'s migrate-to-co-located-home disposition). [`src/rpc/README.md`](src/rpc/README.md) already states the direction: "`memory/SPEC.md` records the architectural decision; this file names the concrete surface." Cross-cutting decisions that span several subtrees keep one thin event record in SPEC plus a pointer into each co-located home they touch.
+
 Common drift sources:
 
 - a SPEC decision cited by the README is renumbered, retired, or rewritten

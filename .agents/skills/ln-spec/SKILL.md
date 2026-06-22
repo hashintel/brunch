@@ -58,6 +58,8 @@ Use the mature SPEC shape unless the existing project clearly predates it and th
 
 SPEC is a live register, not an archive. Keep stable product contract separate from live architectural uncertainty and future direction. Prefer short guardrails plus links to PLAN/design docs over long design-doc-scale prose.
 
+A decision row is an **event** (chosen seam, rationale, supersession), not a state essay. When a decision materializes into topology, its current-state body belongs in the co-located home that owns it — for this project, the `src/**/README.md` for that subtree — and the decision keeps a one-line pointer. Do not duplicate a README's current-state prose into the decision; cross-cutting decisions keep one thin event record plus pointers into each home they touch. Ownership direction is defined in `AGENTS.md` §topology READMEs.
+
 ### Canonical-source ingestion
 
 When reseeding or reconciling SPEC from canonical design docs, do not merely compress by rhetorical importance. Translate each source artifact into the right durable home in SPEC.

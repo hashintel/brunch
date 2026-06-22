@@ -13,8 +13,11 @@ The skills are a development workflow for keeping product intent, planning, impl
 | `HANDOFF.md` | Temporary resumability state when a session ends or context is fragile. |
 | `memory/cards/<frontier-id>--<slug>.md` | Scope files holding one vertical card, a short slice sequence, or a sweep ledger. Multiple files per frontier permitted for independent concerns; one file = one execution context for `ln-build`. |
 | `memory/REFACTOR.md` | Temporary refactor execution plan, when explicitly created. |
+| `src/**/README.md` | Co-located current architectural state for its subtree: ownership, layout, dependency direction, concrete surface. SPEC decisions cite these as event + pointer, not a second copy (see `AGENTS.md` §topology READMEs). |
 
 Do not invent alternate planning stores. If a fact matters durably, promote it through `ln-spec`, `ln-plan`, or `ln-sync`.
+
+The concrete `src/**/README.md` glob is this project's binding for the generic *co-located current-state home* role. The `ln-*` skills reference that role, discover instances by glob, and defer ownership to `AGENTS.md` §topology READMEs — they encode no project topology. A future cross-project `ln-*` system would parameterize this path here, in this registry, not in the skills (Level-2 seam).
 
 ## Default flow
 

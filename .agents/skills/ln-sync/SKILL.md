@@ -30,7 +30,7 @@ Prefer `ln-sync` at these moments:
 | `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
 | `memory/cards/<frontier-id>--<slug>.md` | derivative scope files | only unfinished prepared scope cards; one file per concern; multiple files per frontier permitted for independent concerns |
 | `memory/REFACTOR.md` | derivative temporary execution plan | only unfinished refactor steps |
-| `src/**/README.md` | canonical topology documentation | ownership statement, SPEC decision references, dependency rules, layout sketch, live migration notes (see `AGENTS.md` §topology READMEs) |
+| `src/**/README.md` | canonical current-state for its subtree; SPEC decisions cite it as event+pointer, not a duplicate | ownership statement, SPEC decision references, dependency rules, layout sketch, live migration notes (see `AGENTS.md` §topology READMEs) |
 
 **Notation aid.** When refreshing SPEC or PLAN:
 
@@ -70,6 +70,7 @@ For each item in `memory/SPEC.md`, choose one:
 - **compress / merge** — overlaps another live row or carries too much rationale
 - **retire embedded** — fully shipped and now protected by code/tests/design docs
 - **move rationale** — valuable context, but too detailed for SPEC; keep a short guardrail and link to a design doc
+- **migrate to co-located home** — the decision's current-state body (topology, layout, dependency direction, concrete surface) is owned by a co-located `src/**/README.md` (see `AGENTS.md` §topology READMEs). Ensure that README holds the state, then thin the SPEC decision to event + pointer (chosen seam, rationale, supersession, → README). A decision is archivable once its current state lives in a co-located README or invariant.
 - **future direction** — not current product contract; move under Future Direction Register or ensure PLAN owns it
 - **remove** — moot, superseded, redundant, or implementation diary
 
