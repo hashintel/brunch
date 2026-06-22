@@ -119,6 +119,7 @@ Tracer-complete is not load-bearing. Posture ranks the next *vertical* slice; it
 | `ln-diagnose` | Something is broken, failing, flaky, slow, or nondeterministic. | Trusted repro loop, falsified hypotheses, regression oracle, route back to planning if needed. |
 | `ln-induct` | Review-bot comments or point observations may be symptomatic of a systemic-ish fault. | An induced diagnostic lens, an audit for unsampled instances, and a triaged report. |
 | `ln-review` | After implementation bursts, or when architecture/model hygiene needs an opinionated audit. | Quality findings and next-step recommendations. |
+| `ln-judo-review` | A stricter sibling of `ln-review`: a PR preserves incidental complexity, a file nears a size boundary, or spaghetti branching is creeping in and you want deletion-over-rearrangement pressure. | High-conviction restructuring findings; before/after `pseudo` shape pairs. |
 | `ln-refactor` | Working code needs restructuring without behavior change. | Refactor plan as tiny safe commits. |
 
 ## Discretionary skills that are easy to miss
@@ -183,8 +184,30 @@ Default commands:
 - Inner loop after meaningful edits: `npm run fix`
 - Gate before commit: `npm run verify`
 
+## Self-governance
+
+The skill system verifies itself, the same way the product code does. This is the layer adapted from the ponytail project's engineering discipline (consistency tests, drift-proofing) — deliberately *not* its always-on minimalism control plane, which would collide with the invoke-on-uncertainty model and the topology-stub guardrails above.
+
+**Shipped — static consistency check.** `npm run check:skills` (`scripts/check-ln-skills.mjs`, no dependencies) runs as the last step of `npm run check` and fails on:
+
+- a `ln-*` folder name that disagrees with its SKILL.md frontmatter `name`
+- a `ln-*` skill missing from this working guide
+- a dead cross-skill link (`../ln-x/SKILL.md`) inside any `ln-*` SKILL.md
+- a missing required guardrail phrase — currently the topology-stub carve-out in `ln-review` / `ln-judo-review` / `ln-build`, and the verification-harness commitment in `ln-build`
+
+Extend the guardrail list when a new Brunch-specific invariant must not silently disappear from a skill. Keep the script dependency-free and read-only.
+
+**Deferred — behavioral routing benchmarks (a.k.a. "Move B").** The static check proves the skill set is internally consistent; it does not prove the skills *route* correctly. A future addition: 3–5 small scenario fixtures that judge **method behavior**, not code LOC. Candidate scenarios:
+
+- an ambiguous request routes to `ln-grill` / `ln-disambiguate`, not straight to `ln-build`
+- a direct fix inside a settled seam routes to `ln-build`
+- a review of a topology-stub-heavy area does **not** recommend deleting `export {}` stubs absent contradicted-topology evidence (the highest-value guard — it pins the #1 ponytail false-positive this repo engineered around)
+- an implementation path cites `npm run verify`
+- a coverage/frontier question routes to `ln-plan` / `ln-review`, not ad-hoc implementation
+
+Scope notes when picking this up: this is the only piece that introduces a new namespace (a benchmarks/scenarios directory) and likely a `test:skills` script; it is *not* cross-harness portability (Brunch is single-harness — do not cargo-cult ponytail's 14-adapter machinery). Decide the judge mechanism (assertion over a recorded routing decision vs. an LLM-graded transcript) before building.
+
 ## References
 
 - Runtime skill instructions: `.agents/skills/ln-*/SKILL.md`
 - Repo protocol summary: `AGENTS.md`
-- Dev-layer design rationale: `docs/design/ln-skills/EVOLUTION.md`

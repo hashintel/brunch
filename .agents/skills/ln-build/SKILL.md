@@ -131,6 +131,10 @@ Honor the repo's pre-release posture: if the current schema, fixture shape, dumm
 
 No speculative abstractions. Only extract when two concrete cases force it. Do not anticipate later tests or build shape-only scaffolding; let the current behavioral test pull the interface into existence.
 
+Take the laziest rung that holds before writing custom code: stdlib → native platform feature → already-installed dependency → one line → the minimum that works. When two rungs tie, take the higher (less code) — but never the option that is flimsier on edge cases; lazy means less code, not a weaker algorithm. The floor is never negotiable: do not simplify away trust-boundary validation, data-loss handling, security, accessibility, or anything explicitly requested. Mark a deliberate shortcut with a `ceiling:` comment naming the ceiling and upgrade path (see `AGENTS.md` §simplification ceilings).
+
+When the code introduces, restates, or widens a type — or decides where to validate untrusted input — reach for the owner before re-deriving the shape. Load `expert-typescript-typing` (import → infer → project → declare only at a real semantic boundary; one state space, one owner) and its companion `expert-runtime-boundaries` (validate where uncertainty enters, then carry that trust downstream with types). Do not fork a type the schema, library, or domain already owns.
+
 Do not delete comment-rich empty source files as cleanup unless the current card names them or the deletion proof in `AGENTS.md` §intentional topology stubs is satisfied. Passing import/build checks is insufficient proof; ask the user when the topology intent is unclear.
 
 The card's Expected touched paths are tentative, not binding. If the build needs to diverge — a path you didn't anticipate, a file the work doesn't actually need — proceed and note the divergence briefly when updating the card's status. Significant divergence (touching new directories or seams not declared) is a signal to pause and re-check the overlap-as-independence-test against other active scope files for the same frontier.

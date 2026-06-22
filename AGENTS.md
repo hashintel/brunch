@@ -55,6 +55,12 @@ Delete or retire an intentional topology stub only when the active scope, SPEC, 
 
 This is not permission to add speculative scaffolding. New stubs must be current-milestone topology, concise, and tied to an active seam; prefer `Owns` / `Input` / `Output` / `Used by` or `Future callers` bullets plus a decision/frontier id when available.
 
+## simplification ceilings
+
+When you deliberately take a shortcut that has a known limit — a global lock, an O(n²) scan, a naive heuristic, a hardcoded single case — mark it with a `ceiling:` comment that names the ceiling and the upgrade path: `// ceiling: O(n²) scan, index it if the candidate list grows past a few hundred`. The comment makes the simplification read as intent, not ignorance, and tells the next reader (human or agent) exactly when to revisit it.
+
+This is a marker convention, not a license to cut corners. The floor is never simplified away: trust-boundary validation, error handling that prevents data loss, security, accessibility, and anything explicitly requested are not ceilings. A `ceiling:` comment is also not a TODO dumping ground — use it only where the shortcut is real and the upgrade trigger is nameable. Review skills (`ln-review`, `ln-judo-review`) treat a `ceiling:`-marked simplification as declared intent and flag it only when its named ceiling has actually been reached. There is no ceiling ledger yet; introduce one only when the comments reach a volume that warrants harvesting.
+
 ## topology READMEs
 
 Directory-level `README.md` files under `src/**/` are **canonical documentation co-located with the code they describe**. They materialize architectural intent into the file topology: what the directory owns and does not own, its dependency direction, the SPEC decision IDs (`D52-L`, `D40-L`, …) that lock its layout, the resource taxonomy or layout sketch, and any in-flight migration state. Treat them as drift-prone canonical artifacts alongside `memory/SPEC.md` and `memory/PLAN.md` — not as ambient prose.
@@ -95,12 +101,15 @@ Verification boundary: /ln-spec owns inner-loop verification (commands, policy).
 
 **Gate** (run before committing): `npm run verify` — fix → test → build. The gate auto-applies inner-loop fixes; if anything else fails, stop and fix it.
 
-**CI / read-only check**: `npm run check` — lint then fmt:check, no writes. Use this where the gate must not mutate the worktree.
+**CI / read-only check**: `npm run check` — lint then fmt:check then check:skills, no writes. Use this where the gate must not mutate the worktree.
+
+**Skill-system check**: `npm run check:skills` — verifies the `ln-*` skill set against the working guide, cross-skill links, and required guardrails (e.g. the topology-stub carve-out). Read-only; runs as the last step of `check`.
 
 | Script | Steps | Writes? |
 | --- | --- | --- |
 | `npm run fix` | lint:fix → fmt | yes |
-| `npm run check` | lint → fmt:check | no |
+| `npm run check` | lint → fmt:check → check:skills | no |
+| `npm run check:skills` | ln-* skill consistency | no |
 | `npm run verify` | fix → test → build | yes (via fix) |
 
 Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting. `check` mirrors that order (lint before fmt:check) so both scripts read as the same recipe in different modes.

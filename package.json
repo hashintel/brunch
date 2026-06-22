@@ -51,7 +51,8 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "fix": "npm run lint:fix && npm run fmt",
-    "check": "npm run lint && npm run fmt:check",
+    "check": "npm run lint && npm run fmt:check && npm run check:skills",
+    "check:skills": "node scripts/check-ln-skills.mjs",
     "release": "release-it",
     "verify": "npm run fix && npm run test && npm run build"
   },

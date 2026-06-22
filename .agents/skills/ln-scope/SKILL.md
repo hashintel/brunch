@@ -17,6 +17,8 @@ If a single vertical card's target behavior needs "and", split it into separate 
 
 Apply the repo's pre-release posture while scoping: prefer correcting the model and regenerating fixtures over preserving accidental compatibility, unless live docs or the user require migration support. Include deletion/retirement work in the slice when obsolete code, data, or terminology would otherwise linger.
 
+Before slicing, apply the first ladder rung: does each piece of the requested behavior need to exist at all? The cheapest slice is the one you never build — challenge a speculative or already-covered requirement (route back to `ln-grill` / `ln-spec`) rather than scoping it. The implementation ladder (stdlib → native → installed dependency → one line) is `ln-build`'s job, not scope's.
+
 ## Input
 
 The behavior to deliver: $ARGUMENTS
