@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "probeId": "ship-gate-runbook",
+  "runId": "2026-06-22T15-33-01Z",
+  "generatedAt": "2026-06-22T15:35:00.000Z",
+  "cwd": "<repo>/.fixtures/workbenches/ship-gate-runbook",
+  "cli": "BRUNCH_DEV=1 npm run dev -- --cwd <workbench> --mode tui --open-web",
+  "provider": { "kind": "real" },
+  "success": true,
+  "evidenceBasis": "accumulated",
+  "note": "Card 2 closed on accumulated evidence (user decision 2026-06-22). The live product path composes end-to-end through public entrypoints; this run is the promoted sample. The five composition bugs the runbook surfaced are all fixed on this branch (see checks + history); each prior run interrupted on a new finding, which is the ship gate doing its job rather than a failure of composition.",
+  "selectedSpec": { "id": 1, "title": "Alpha Grounding" },
+  "session": { "id": "019eeff6-ae6e-76df-a989-e2cb0fd9f976" },
+  "checks": {
+    "freshCwdNoImplicitResume": true,
+    "selectedSpecScoped": true,
+    "seededGapGroundedOpening": true,
+    "tuiAnswerRecordedNotSteered": true,
+    "highConfidenceCaptureCommitted": true,
+    "graphTruthGrewFromCapture": true,
+    "postureObservableSealed": true
+  },
+  "graph": {
+    "seed": { "lsn": 2, "nodeCount": 5, "edgeCount": 3 },
+    "after": { "lsn": 4, "nodeCount": 8, "edgeCount": 7 },
+    "committedFromLiveCapture": [
+      { "code": "CTX2", "kind": "context", "title": "Orientation assumes a new-from-scratch start: the spec begins near-empty" },
+      { "code": "CTX3", "kind": "context", "title": "Orientation targets an isolated new feature inside a larger codebase" },
+      { "code": "A1", "kind": "assumption", "title": "The new feature is well-isolated from the larger codebase" }
+    ]
+  },
+  "sealVerification": {
+    "appendSystemMdLeak": "absent",
+    "note": "system-prompt-after.md contains 0 occurrences of the ambient APPEND_SYSTEM.md 'Operating Discipline' content — the D39-L seal (commit 31c01106) holds in a real post-fix run."
+  },
+  "fixesProvenByThisRunbook": [
+    { "commit": "fed26506", "fix": "TUI request_answer reads the editor, not steering queue" },
+    { "commit": "6e2fe444", "fix": "alpha-grounding seed carries a thesis node (unblocks propose-graph readiness)" },
+    { "commit": "fe5634eb", "fix": "D86-L graph-write tools are floor; mutate_graph available at thin coverage" },
+    { "commit": "31c01106", "fix": "D39-L ambient APPEND_SYSTEM.md sealed out of Brunch sessions" },
+    { "commit": "64fe9a41", "fix": "present_review_set.payload typed at the param boundary" },
+    { "commit": "95933e5f", "fix": "present_*->request_* pairing taught in-band (describe + guideline)" }
+  ],
+  "knownResiduals": {
+    "note": "Quality/legibility, not correctness; captured in docs/design/STRUCTURED_EXCHANGE_COLLAPSE.md and PLAN structured-exchange-affordance.",
+    "items": [
+      "present-side selection: present_question used for multiple-choice questions that should be present_options",
+      "review-set nested payload shape (grounding/pitch) still invisible to the model below the typed top level"
+    ]
+  },
+  "artifacts": {
+    "runDir": "runs/ship-gate-runbook/2026-06-22T15-33-01Z",
+    "sessionJsonl": "runs/ship-gate-runbook/2026-06-22T15-33-01Z/session.jsonl",
+    "transcriptMarkdown": "runs/ship-gate-runbook/2026-06-22T15-33-01Z/transcript.md",
+    "graphOverviewAfter": "runs/ship-gate-runbook/2026-06-22T15-33-01Z/graph-overview-after.json",
+    "systemPromptAfter": "runs/ship-gate-runbook/2026-06-22T15-33-01Z/system-prompt-after.md",
+    "entryContents": "runs/ship-gate-runbook/2026-06-22T15-33-01Z/entry-contents.md",
+    "toolContents": "runs/ship-gate-runbook/2026-06-22T15-33-01Z/tool-contents.md",
+    "origination": "runs/ship-gate-runbook/2026-06-22T15-33-01Z/origination.md"
+  }
+}

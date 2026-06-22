@@ -1,0 +1,151 @@
+{
+  "nodes": [
+    {
+      "id": 16,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "assumption",
+      "kindOrdinal": 1,
+      "title": "The new feature is well-isolated from the larger codebase",
+      "body": "Orientation grounded only in the selected spec assumes the feature is genuinely separable from the absent surrounding codebase. If the feature turns out entangled with code that isn't present, spec-scoped orientation could quietly mislead the user by omitting dependencies living outside the spec. This is the load-bearing bet under TH1.",
+      "basis": "explicit",
+      "source": "derived",
+      "createdAtLsn": 4,
+      "updatedAtLsn": 4
+    },
+    {
+      "id": 3,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "constraint",
+      "kindOrdinal": 1,
+      "title": "Selection must stay scoped to the chosen spec",
+      "basis": "explicit",
+      "source": "fixture",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    },
+    {
+      "id": 2,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "context",
+      "kindOrdinal": 1,
+      "title": "A workspace may hold multiple specs",
+      "basis": "explicit",
+      "source": "fixture",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    },
+    {
+      "id": 15,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "context",
+      "kindOrdinal": 3,
+      "title": "Orientation targets an isolated new feature inside a larger, absent codebase",
+      "body": "The selected spec begins near-empty, but not because the world is greenfield. It describes a relatively well-isolated new feature that lives within a larger existing codebase which is not present in the workspace and not available to read. Orientation therefore cannot lean on inspecting surrounding code; it must work from the selected spec's own graph state. This corrects CTX2's 'new-from-scratch' framing, which conflated 'spec begins near-empty' with 'greenfield'.",
+      "basis": "explicit",
+      "source": "stakeholder",
+      "createdAtLsn": 4,
+      "updatedAtLsn": 4
+    },
+    {
+      "id": 1,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "goal",
+      "kindOrdinal": 1,
+      "title": "Help a user orient inside one workspace",
+      "basis": "explicit",
+      "source": "fixture",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    },
+    {
+      "id": 4,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "term",
+      "kindOrdinal": 1,
+      "title": "Selected spec",
+      "basis": "explicit",
+      "source": "fixture",
+      "detail": {
+        "definition": "The one spec whose graph and sessions a current interaction targets."
+      },
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    },
+    {
+      "id": 5,
+      "specId": 1,
+      "plane": "intent",
+      "kind": "thesis",
+      "kindOrdinal": 1,
+      "title": "Orientation comes from the selected spec's graph state, not the whole workspace at once",
+      "basis": "explicit",
+      "source": "fixture",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    }
+  ],
+  "edges": [
+    {
+      "id": 1,
+      "specId": 1,
+      "category": "support",
+      "sourceId": 2,
+      "targetId": 1,
+      "basis": "explicit",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2,
+      "stance": "for"
+    },
+    {
+      "id": 2,
+      "specId": 1,
+      "category": "boundary",
+      "sourceId": 3,
+      "targetId": 1,
+      "basis": "explicit",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2
+    },
+    {
+      "id": 3,
+      "specId": 1,
+      "category": "support",
+      "sourceId": 5,
+      "targetId": 1,
+      "basis": "explicit",
+      "createdAtLsn": 2,
+      "updatedAtLsn": 2,
+      "stance": "for"
+    },
+    {
+      "id": 9,
+      "specId": 1,
+      "category": "dependency",
+      "sourceId": 15,
+      "targetId": 1,
+      "basis": "explicit",
+      "createdAtLsn": 4,
+      "updatedAtLsn": 4,
+      "rationale": "Re-anchors the context-required-by-goal relation that CTX2 carried."
+    },
+    {
+      "id": 10,
+      "specId": 1,
+      "category": "support",
+      "sourceId": 16,
+      "targetId": 5,
+      "basis": "explicit",
+      "createdAtLsn": 4,
+      "updatedAtLsn": 4,
+      "stance": "for",
+      "rationale": "If the feature is well-isolated, orienting from the selected spec's graph alone is sufficient; isolation is what makes TH1 hold."
+    }
+  ],
+  "lsn": 4
+}
