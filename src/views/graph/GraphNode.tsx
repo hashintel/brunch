@@ -30,7 +30,7 @@ export function GraphNode({ data }: NodeProps & { data: GraphNodeData }) {
       )}
       style={cardStyle}
     >
-      <Handle type="target" position={Position.Top} isConnectable />
+      <Handle type="target" position={Position.Top} isConnectable={false} />
 
       <span className="graph-node__bar" aria-hidden="true" />
 
@@ -42,7 +42,7 @@ export function GraphNode({ data }: NodeProps & { data: GraphNodeData }) {
         <span className="graph-node__name line-clamp-2 text-xs-plus leading-snug text-ink">{content}</span>
       </div>
 
-      <Handle type="source" position={Position.Bottom} isConnectable />
+      <Handle type="source" position={Position.Bottom} isConnectable={false} />
     </div>
   );
 }
