@@ -1,6 +1,6 @@
 /** The shared graph canvas: owns focus state (select/hover) and composes the card view, panel, and legend. */
 
-import { MiniMap, ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
+import { ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Spinner } from '@/client/components/ui/spinner';
@@ -14,8 +14,8 @@ import { GraphEdge } from '@/views/graph/GraphEdge.js';
 import { GraphEmptyState } from '@/views/graph/GraphEmptyState.js';
 import { GraphNode } from '@/views/graph/GraphNode';
 import { Legend } from '@/views/graph/Legend.js';
-import { nodeColor } from '@/views/graph/nodeColor';
 import type { GraphEdgeRelationship, GraphNodeData, GraphNodeKind } from '@/views/graph/types.js';
+import { ZoomControl } from '@/views/graph/ZoomControl';
 
 import '@xyflow/react/dist/style.css';
 
@@ -195,7 +195,7 @@ function Canvas({ model, info }: { model: GraphModel; info: Map<string, NodeInfo
             onPaneClick={() => setSelectedId(null)}
             fitView
           >
-            <MiniMap nodeColor={(node) => nodeColor((node.data as unknown as GraphNodeData).kind)} />
+            <ZoomControl />
             <div className="absolute bottom-2 left-2 z-10">
               <Legend kinds={presentKinds} />
             </div>
