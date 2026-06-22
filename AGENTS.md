@@ -75,27 +75,18 @@ Common drift sources:
 
 Skills that touch canonical state (`/ln-sync`, `/ln-build`, `/ln-spec`, `/ln-review`, `/ln-refactor`) include topology READMEs in their drift checks and reconciliation. New topology READMEs should follow the established shape: short ownership statement, SPEC decision references, dependency rules, layout sketch when useful, and migration notes when relevant. Keep them short — they are an orientation surface, not a design doc; deep rationale belongs in `memory/SPEC.md` or `docs/`.
 
-## planning
+## planning & skills
 
-Two canonical documents in `memory/`:
+The `ln-*` skills in `.agents/skills/` are Brunch's development workflow for keeping product intent, planning, implementation, verification, and handoff aligned. Their canonical reference — default flow, skill map, operating posture, verification ownership, and self-governance — is **`docs/praxis/ln-skills.md`**. Read it before reaching for an `ln-*` skill or extending the set.
+
+Durable truth lives in two canonical planning documents in `memory/`:
 
 - **SPEC.md** [create: /ln-spec · read: all · update: /ln-sync] — what and why
 - **PLAN.md** [create: /ln-plan · read: all · update: /ln-sync, /ln-build, /ln-spike] — what's next
 
-Traceability: assumptions in SPEC.md link to decisions and frontier items in PLAN.md. Scope-card slices inherit from their containing frontier unless they reveal durable changes. Skills that touch planning or completion (/ln-spec, /ln-plan, /ln-build, /ln-spike) maintain these cross-references.
+Frontier-item traceability, scope-card inheritance, and the verification-ownership boundary live in `docs/praxis/ln-skills.md` and the individual skills — do not restate them here.
 
-### skills
-
-The `/ln-*` skills at `.agents/skills/` follow this flow. See `docs/praxis/ln-skills.md` for the colleague-facing reference, discretionary tools, and chooser table.
-
-- **Knowledge**: /ln-grill or /ln-disambiguate → /ln-spec → /ln-plan → /ln-oracles
-- **Execution**: /ln-scope → /ln-spike (optional) → /ln-build
-- **Quality**: /ln-review → /ln-refactor (optional) → /ln-sync
-- **Process**: /ln-consult (triage), /ln-handoff (state capture), /ln-design (interface exploration)
-
-Verification boundary: /ln-spec owns inner-loop verification (commands, policy). /ln-oracles owns middle/outer loop strategy, diagnostic assessment, and blind spots. /ln-scope applies the oracle strategy per slice. /ln-review audits oracle coverage.
-
-### verification
+## verification
 
 **Inner loop** (run after every meaningful edit): `npm run fix` — lint:fix then format.
 
