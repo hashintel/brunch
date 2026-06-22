@@ -20,6 +20,7 @@
  *
  * CLI (dev only, run via tsx):
  *   npm run seed -- --workspace <dir> --seed <set>/<slug> [--reset]
+ *   npm run seed -- --workspace <dir> --all-seeds [--reset]
  *
  * `--reset` deletes the target workspace's **runtime state** before seeding
  * — `.brunch/data.db` (plus `-wal`/`-shm`), the `.brunch/sessions/` and
@@ -31,7 +32,7 @@
  * inside it.
  */
 
-import { readFile, rm } from 'node:fs/promises';
+import { readFile, readdir, rm } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -246,11 +247,20 @@ interface SeedCliOptions {
 interface ParsedSeedCliArgs {
   readonly workspace: string;
   readonly reset: boolean;
-  readonly seed: {
-    readonly ref: string;
-    readonly set: string;
-    readonly slug: string;
-  };
+  readonly selection:
+    | {
+        readonly kind: 'single';
+        readonly seed: SeedRef;
+      }
+    | {
+        readonly kind: 'all';
+      };
+}
+
+interface SeedRef {
+  readonly ref: string;
+  readonly set: string;
+  readonly slug: string;
 }
 
 /**
@@ -277,6 +287,35 @@ async function readSelectedSeed(set: string, slug: string): Promise<SeedFixture>
   return JSON.parse(raw) as SeedFixture;
 }
 
+async function trackedSeedRefs(): Promise<readonly SeedRef[]> {
+  const sets = await readdir(SEEDS_ROOT, { withFileTypes: true });
+  const refs = await Promise.all(
+    sets
+      .filter((entry) => entry.isDirectory())
+      .map(async (set) => {
+        const files = await readdir(join(SEEDS_ROOT, set.name));
+        return files
+          .filter((file) => file.endsWith('.json'))
+          .map((file) => {
+            const slug = file.slice(0, -'.json'.length);
+            return { ref: `${set.name}/${slug}`, set: set.name, slug } satisfies SeedRef;
+          });
+      }),
+  );
+  return refs.flat().sort((left, right) => left.ref.localeCompare(right.ref));
+}
+
+function fixtureForAllSeeds(seed: SeedRef, fixture: SeedFixture): SeedFixture {
+  return {
+    ...fixture,
+    spec: {
+      ...fixture.spec,
+      slug: seed.ref.replace('/', '-'),
+      name: `${fixture.spec.name} (${seed.ref})`,
+    },
+  };
+}
+
 export async function runSeedFixturesCli(options: SeedCliOptions = {}): Promise<number> {
   const stdout = options.stdout ?? ((chunk) => process.stdout.write(chunk));
   const stderr = options.stderr ?? ((chunk) => process.stderr.write(chunk));
@@ -288,7 +327,6 @@ export async function runSeedFixturesCli(options: SeedCliOptions = {}): Promise<
 
   try {
     const destinationDb = join(parsed.workspace, '.brunch', 'data.db');
-    const fixture = await readSelectedSeed(parsed.seed.set, parsed.seed.slug);
     if (parsed.reset) {
       const runtimeState = workspaceRuntimeState(parsed.workspace);
       for (const file of runtimeState.files) {
@@ -299,11 +337,18 @@ export async function runSeedFixturesCli(options: SeedCliOptions = {}): Promise<
       }
     }
     const executor = await openWorkspaceCommandExecutor(parsed.workspace);
-    const result = seedFixture(executor, fixture);
-    stdout(
-      `seeded ${parsed.seed.ref} → spec ${result.specId} ` +
-        `(${result.nodeCount} nodes, ${result.edgeCount} edges)\n`,
-    );
+
+    const seeds = parsed.selection.kind === 'single' ? [parsed.selection.seed] : await trackedSeedRefs();
+    for (const seed of seeds) {
+      let fixture = await readSelectedSeed(seed.set, seed.slug);
+      if (parsed.selection.kind === 'all') fixture = fixtureForAllSeeds(seed, fixture);
+      const result = seedFixture(executor, fixture);
+      stdout(
+        `seeded ${seed.ref} → spec ${result.specId} ` +
+          `(${result.nodeCount} nodes, ${result.edgeCount} edges)\n`,
+      );
+    }
+    if (parsed.selection.kind === 'all') stdout(`seeded ${seeds.length} tracked seeds\n`);
     stdout(`Destination: ${destinationDb}\n`);
     return 0;
   } catch (error) {
@@ -322,6 +367,11 @@ function parseSeedCliArgs(argv: readonly string[], cwd: string): ParsedSeedCliAr
       reset = true;
       continue;
     }
+    if (arg === '--all-seeds') {
+      if (values.has(arg)) return null;
+      values.set(arg, 'true');
+      continue;
+    }
     if (arg === '--workspace' || arg === '--seed') {
       const value = argv[index + 1];
       if (!safeFlagValue(value) || values.has(arg)) return null;
@@ -330,10 +380,15 @@ function parseSeedCliArgs(argv: readonly string[], cwd: string): ParsedSeedCliAr
       continue;
     }
 
-    const equals = arg.match(/^(--workspace|--seed)=(.*)$/u);
+    const equals = arg.match(/^(--workspace|--seed|--all-seeds)=(.*)$/u);
     if (equals) {
-      const flag = equals[1] as '--workspace' | '--seed';
+      const flag = equals[1] as '--workspace' | '--seed' | '--all-seeds';
       const value = equals[2];
+      if (flag === '--all-seeds') {
+        if (value !== 'true' || values.has(flag)) return null;
+        values.set(flag, value);
+        continue;
+      }
       if (!safeFlagValue(value) || values.has(flag)) return null;
       values.set(flag, value);
       continue;
@@ -344,15 +399,24 @@ function parseSeedCliArgs(argv: readonly string[], cwd: string): ParsedSeedCliAr
 
   const workspace = values.get('--workspace');
   const seed = values.get('--seed');
-  if (!workspace || !seed) return null;
+  const allSeeds = values.has('--all-seeds');
+  if (!workspace || (!seed && !allSeeds) || (seed && allSeeds)) return null;
 
-  const [set, slug, extra] = seed.split('/');
+  if (allSeeds) {
+    return {
+      workspace: isAbsolute(workspace) ? workspace : resolve(cwd, workspace),
+      reset,
+      selection: { kind: 'all' },
+    };
+  }
+
+  const [set, slug, extra] = seed!.split('/');
   if (!safeSeedPart(set) || !safeSeedPart(slug) || extra) return null;
 
   return {
     workspace: isAbsolute(workspace) ? workspace : resolve(cwd, workspace),
     reset,
-    seed: { ref: seed, set, slug },
+    selection: { kind: 'single', seed: { ref: seed!, set, slug } },
   };
 }
 
@@ -366,8 +430,9 @@ function safeSeedPart(value: string | undefined): value is string {
 
 function seedUsage(): string {
   return (
-    'Usage: npm run seed -- --workspace <dir> --seed <set>/<slug> [--reset]\n' +
-    '  --reset  delete the target workspace runtime state before seeding:\n' +
+    'Usage: npm run seed -- --workspace <dir> (--seed <set>/<slug> | --all-seeds) [--reset]\n' +
+    '  --all-seeds  opt in to seed every tracked fixture as its own spec\n' +
+    '  --reset      delete the target workspace runtime state before seeding:\n' +
     '           .brunch/data.db (+ -wal/-shm), sessions/, debug/, and workspace.json\n'
   );
 }

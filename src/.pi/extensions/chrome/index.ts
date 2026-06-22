@@ -17,7 +17,7 @@ import type {
   AgentLensSelection,
   AgentStrategySelection,
   OperationalModeId,
-} from '../../../session/runtime-state.js';
+} from '../../../session/schema/kinds.js';
 import type {
   WorkspaceProjectState,
   WorkspaceSessionChromeState,

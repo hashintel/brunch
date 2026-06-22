@@ -7,13 +7,15 @@ import {
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   latestValidBrunchAgentStateEntryData,
-  type AgentLensSelection,
-  type AgentStrategySelection,
   type BrunchAgentState,
   type FileMention,
   type GraphNodeMention,
-  type OperationalModeId,
 } from '../../session/runtime-state.js';
+import type {
+  AgentLensSelection,
+  AgentStrategySelection,
+  OperationalModeId,
+} from '../../session/schema/kinds.js';
 import {
   AGENT_ROLE_DEFINITIONS,
   OPERATIONAL_MODE_DEFINITIONS,

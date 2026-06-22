@@ -40,8 +40,9 @@ probe report/transcript artifacts, then track it. Dev launchers must resolve
 scratch from the repo-root `.fixtures/scratch/`, independent of the workspace cwd
 they target.
 
-Seed workbench state explicitly; `npm run dev` never seeds by implication. From
-the repo root, load one tracked seed into one named workspace with:
+Seed workbench state explicitly; `npm run dev` never seeds by implication. See
+[`seeds/README.md`](./seeds/README.md) for the roster-level seed disposition
+catalog. From the repo root, load one tracked seed into one named workspace with:
 
 ```sh
 npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding
@@ -53,9 +54,10 @@ that destination path plus the `set/slug → specId` mapping. Add `--reset` to w
 the target workspace's runtime state before seeding — `data.db` (+ `-wal`/`-shm`),
 `sessions/`, `debug/`, and `workspace.json` — so a relaunch starts a fresh session
 instead of resuming a stale one; unknown files in `.brunch/` and the directory
-itself survive. Running `npm run seed`
-without `--workspace` and `--seed` fails with usage instead of loading every seed
-into the shell cwd.
+itself survive. Use `--all-seeds` only as an explicit opt-in when a manual
+workbench or probe-input database needs every tracked seed as a distinct spec.
+Running `npm run seed` without `--workspace` and either `--seed` or `--all-seeds`
+fails with usage instead of loading every seed into the shell cwd.
 
 ## Current runs
 

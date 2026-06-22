@@ -9,7 +9,7 @@ import {
   type AgentStrategySelection,
   type OperationalModeChoice,
   type OperationalModeId,
-} from '../../../session/runtime-state.js';
+} from '../../../session/schema/kinds.js';
 import {
   nextSegmentIndex,
   previousSegmentIndex,

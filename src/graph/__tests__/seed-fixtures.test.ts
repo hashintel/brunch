@@ -35,6 +35,18 @@ function graphClockLsn(db: BrunchDb, specId: number): number {
   );
 }
 
+function trackedSeedRefs(): string[] {
+  const seedsRoot = resolve(HERE, '../../../.fixtures/seeds');
+  return readdirSync(seedsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .flatMap((set) =>
+      readdirSync(join(seedsRoot, set.name))
+        .filter((file) => file.endsWith('.json'))
+        .map((file) => `${set.name}/${file.slice(0, -'.json'.length)}`),
+    )
+    .sort();
+}
+
 describe('seed fixture CLI', () => {
   it.each([
     { name: 'missing args', argv: [] },
@@ -84,7 +96,7 @@ describe('seed fixture CLI', () => {
     });
 
     expect(code).toBe(1);
-    expect(stderr).toContain('Usage: npm run seed -- --workspace <dir> --seed <set>/<slug>');
+    expect(stderr).toContain('Usage: npm run seed -- --workspace <dir>');
     expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
   });
 
@@ -102,6 +114,40 @@ describe('seed fixture CLI', () => {
 
     expect(code).toBe(1);
     expect(stderr).toContain('--reset');
+    expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+  });
+
+  it('rejects ambiguous single-seed and all-seeds requests', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-seed-cwd-'));
+    let stderr = '';
+
+    const code = await runSeedFixturesCli({
+      argv: ['--workspace', cwd, '--seed', 'workspace-spread/alpha-grounding', '--all-seeds'],
+      cwd,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('Usage: npm run seed -- --workspace <dir>');
+    expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
+  });
+
+  it('requires --workspace for --all-seeds', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-seed-cwd-'));
+    let stderr = '';
+
+    const code = await runSeedFixturesCli({
+      argv: ['--all-seeds'],
+      cwd,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('--all-seeds');
     expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
   });
 
@@ -177,6 +223,34 @@ describe('seed fixture CLI', () => {
     expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
   });
 
+  it('accepts equals-form --all-seeds and seeds every tracked fixture into the named workspace', async () => {
+    const shellCwd = await mkdtemp(join(tmpdir(), 'brunch-seed-shell-'));
+    const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
+    let stdout = '';
+
+    const code = await runSeedFixturesCli({
+      argv: [`--workspace=${targetWorkspace}`, '--all-seeds'],
+      cwd: shellCwd,
+      stdout: (chunk) => {
+        stdout += chunk;
+      },
+    });
+
+    const expectedRefs = trackedSeedRefs();
+    expect(code).toBe(0);
+    expect(stdout).toContain(`seeded ${expectedRefs.length} tracked seeds`);
+    expect(existsSync(join(shellCwd, '.brunch', 'data.db'))).toBe(false);
+    expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
+
+    const executor = await openWorkspaceCommandExecutor(targetWorkspace);
+    expect(
+      executor
+        .listSpecs()
+        .map((spec) => spec.slug)
+        .sort(),
+    ).toEqual(expectedRefs.map((ref) => ref.replace('/', '-')).sort());
+  });
+
   it('reports the selected seed ref rather than the fixture internal spec slug', async () => {
     const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
     let stdout = '';
@@ -235,14 +309,7 @@ describe('all tracked seeds remain structurally legal', () => {
   // One-level <set>/<slug>.json discovery: prep scripts (_*.ts), READMEs, and
   // raw-material subdirectories (e.g. bilal-port/_originals/) are excluded by
   // construction. No hand-maintained list to drift.
-  const seedsRoot = resolve(HERE, '../../../.fixtures/seeds');
-  const seedRefs = readdirSync(seedsRoot, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
-    .flatMap((set) =>
-      readdirSync(join(seedsRoot, set.name))
-        .filter((file) => file.endsWith('.json'))
-        .map((file) => `${set.name}/${file.slice(0, -'.json'.length)}`),
-    );
+  const seedRefs = trackedSeedRefs();
 
   it('discovers the tracked seed catalog', () => {
     expect(seedRefs.length).toBeGreaterThan(0);
@@ -270,6 +337,24 @@ describe('all tracked seeds remain structurally legal', () => {
     );
     for (const kind of GROUNDING_FLOOR_KINDS) {
       expect(gapKinds.has(kind)).toBe(true);
+    }
+  });
+
+  it('documents every tracked seed set in the disposition catalog', () => {
+    const catalogPath = resolve(HERE, '../../../.fixtures/seeds/README.md');
+    const catalog = readFileSync(catalogPath, 'utf8');
+    const allowedDispositions = new Set(['test', 'preview', 'manual workbench', 'probe input', 'parked']);
+    const catalogRows = new Map<string, string>();
+
+    for (const line of catalog.split('\n')) {
+      const match = line.match(/^\| `([^`]+)` \| ([^|]+) \| .+ \|$/u);
+      if (match) catalogRows.set(match[1]!, match[2]!.trim());
+    }
+
+    const trackedSets = new Set(seedRefs.map((ref) => ref.split('/')[0]!));
+    expect([...catalogRows.keys()].sort()).toEqual([...trackedSets].sort());
+    for (const disposition of catalogRows.values()) {
+      expect(allowedDispositions.has(disposition)).toBe(true);
     }
   });
 

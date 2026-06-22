@@ -38,15 +38,15 @@ import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-c
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import { pinnableAxisOptionsForRuntimeState } from '../../../projections/session/runtime-policy.js';
+import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import {
   AGENT_LENS_IDS,
   AGENT_STRATEGY_IDS,
   OPERATIONAL_MODE_IDS,
-  appendBrunchAgentRuntimeSwitch,
   type AgentLensSelection,
   type AgentStrategySelection,
   type OperationalModeChoice,
-} from '../../../session/runtime-state.js';
+} from '../../../session/schema/kinds.js';
 import {
   createRuntimeLensPickerComponent,
   createRuntimeModePickerComponent,

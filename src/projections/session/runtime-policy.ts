@@ -1,17 +1,19 @@
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import type {
+  BrunchAgentState,
+  ModelPreference,
+  PromptPackId,
+  ThinkingLevel,
+  ToolPolicyId,
+} from '../../session/runtime-state.js';
+import type {
   AgentLensId,
   AgentLensSelection,
   AgentRoleId,
   AgentStrategyId,
   AgentStrategySelection,
-  BrunchAgentState,
-  ModelPreference,
   OperationalModeId,
-  PromptPackId,
-  ThinkingLevel,
-  ToolPolicyId,
-} from '../../session/runtime-state.js';
+} from '../../session/schema/kinds.js';
 import { evaluateCapabilityReadiness, type CapabilityId } from './capability-readiness.js';
 
 export interface ToolPolicyDefinition {

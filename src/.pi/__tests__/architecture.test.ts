@@ -33,8 +33,8 @@ const agentDefinitionExpectations = [
 
 const runtimeRegistryExpectations = [
   {
-    file: 'src/session/runtime-state.ts',
-    required: "export type AgentRoleId = 'elicitor';",
+    file: 'src/session/schema/kinds.ts',
+    required: "export const AGENT_ROLE_IDS = ['elicitor'] as const;",
   },
   {
     file: 'src/.pi/extensions/runtime/state.ts',

@@ -13,6 +13,12 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Exchange extraction** — session exchange projection: prompt-side
   span + response-side span, per D13-L.
 
+- **Runtime vocabulary leaf** — `schema/kinds.ts` mirrors
+  `graph/schema/kinds.ts` for the session side: a drizzle-free, Pi-free leaf that
+  owns closed `op_mode` / `strategy` / `lens` ids plus the `auto` sentinel and
+  display-only planned mode choices. `runtime-state.ts` consumes and re-exports
+  this vocab; it no longer owns duplicate axis literals.
+
 - **Runtime-state transcript facts** — `brunch.agent_runtime_state` entry type,
   parser, and append helpers. Reusable runtime-state projection/policy lives in
   `projections/session/`; `.pi` may append operational-mode entries but does not
@@ -97,6 +103,7 @@ directly instead of growing a wrapper.
 | `cwd_inventory` | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`) | `read_workspace_context`, `renderers/workspace/workspace-context.ts` | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
 | `workspace_overview` | `workspace-overview-context.ts` (`inspectWorkspaceOverview`) | `read_workspace_context`, origination seed context, `renderers/workspace/workspace-context.ts` | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape. |
 | `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`) | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set. |
+| `agent_runtime_vocab` | `schema/kinds.ts` | `runtime-state.ts`, `projections/session/runtime-policy.ts`, `projections/session/affordances.ts`, `.pi/extensions/runtime/state.ts` | Pure vocabulary leaf for runtime axes; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
 | `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `projections/session/affordances.ts`, `.pi/extensions/runtime/` | Transcript-backed source read. Projection/policy layers derive from these facts rather than storing parallel hidden runtime memory. |
 
 ## Runtime affordance coverage ledger

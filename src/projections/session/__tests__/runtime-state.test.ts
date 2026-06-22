@@ -5,11 +5,11 @@ import {
   type BrunchSessionEnvelope,
 } from '../../../session/brunch-session-envelope.js';
 import {
-  AGENT_STRATEGY_IDS,
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   type BrunchAgentState,
 } from '../../../session/runtime-state.js';
+import { AGENT_STRATEGY_IDS } from '../../../session/schema/kinds.js';
 import { createSessionBindingData } from '../../../session/session-binding.js';
 import { projectSessionRuntimeState } from '../runtime-state.js';
 

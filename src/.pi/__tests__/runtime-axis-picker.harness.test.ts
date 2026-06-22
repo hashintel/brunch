@@ -1,7 +1,7 @@
 import { TUI } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
-import { AGENT_STRATEGY_IDS, type AgentStrategySelection } from '../../session/runtime-state.js';
+import { AGENT_STRATEGY_IDS, type AgentStrategySelection } from '../../session/schema/kinds.js';
 import { createRuntimeStrategyPickerComponent } from '../components/runtime-posture/axis-picker.js';
 import { createTestLabTheme } from './support/tui-theme.js';
 import { VirtualTerminal } from './support/virtual-terminal.js';
