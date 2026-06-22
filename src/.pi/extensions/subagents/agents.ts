@@ -62,6 +62,9 @@ function parseFrontmatterBlock(source: string): ParsedFrontmatter {
       throw new Error(`malformed frontmatter line (expected "key: value"): ${rawLine}`);
     }
     const key = line.slice(0, separator).trim();
+    if (Object.hasOwn(fields, key)) {
+      throw new Error(`duplicate frontmatter key "${key}"`);
+    }
     fields[key] = line.slice(separator + 1).trim();
   }
   return { fields, body };

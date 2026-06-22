@@ -49,15 +49,15 @@ const unregisteredAgentNeedles = ['reviewer', 'pi-coder'];
 
 const resourceExpectations = [
   {
-    file: 'src/.pi/skills/methods/run-structured-exchange.md',
+    file: 'src/.pi/skills/methods/run-structured-exchange/SKILL.md',
     needles: ['details.schema', 'schema` plus `v', 'answered`, `cancelled`, or `unavailable`'],
   },
   {
-    file: 'src/.pi/skills/methods/capture.md',
+    file: 'src/.pi/skills/methods/capture/SKILL.md',
     needles: ['single home', 'FE-861', 'Gap close/spawn responsibility belongs here'],
   },
   {
-    file: 'src/.pi/skills/methods/generate-proposal.md',
+    file: 'src/.pi/skills/methods/generate-proposal/SKILL.md',
     needles: ['legibility_cost_of_knowing', 'core_bet', 'graph_refs', '`{ node_id: string }` only'],
   },
 ];

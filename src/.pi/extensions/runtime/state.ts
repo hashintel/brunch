@@ -1,4 +1,7 @@
+import { basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { loadSkills, type Skill } from '@earendil-works/pi-coding-agent';
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { CapabilityId } from '../../../projections/session/capability-readiness.js';
@@ -104,90 +107,28 @@ export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition
   },
 };
 
-export const STRATEGY_RESOURCES: Record<AgentStrategyId, PromptResourceManifestEntry> = {
-  freestyle: resource(
-    'strategies',
-    'freestyle',
-    'Let the user drive with ordinary turns while keeping structured exchanges available as needed.',
-  ),
-  'step-wise-decision-tree': resource(
-    'strategies',
-    'step-wise-decision-tree',
-    'Ask one structured question at a time and branch from the answer.',
-  ),
-  'step-wise-disambiguate': resource(
-    'strategies',
-    'step-wise-disambiguate',
-    'Use contrastive examples to collapse meaningful ambiguity.',
-  ),
-};
+const STRATEGY_IDS = [
+  'freestyle',
+  'step-wise-decision-tree',
+  'step-wise-disambiguate',
+] as const satisfies readonly AgentStrategyId[];
+const LENS_IDS = ['intent', 'design', 'oracle'] as const satisfies readonly AgentLensId[];
+const METHOD_IDS = [
+  'run-structured-exchange',
+  'capture',
+  'commit-graph',
+  'elicit-by-question',
+  'ingest-paste',
+  'read-referenced-documents',
+  'explore-and-characterize',
+  'read-context',
+  'generate-proposal',
+  'review-for-gaps',
+] as const satisfies readonly MethodId[];
 
-export const LENS_RESOURCES: Record<AgentLensId, PromptResourceManifestEntry> = {
-  intent: resource(
-    'lenses',
-    'intent',
-    'Focus on intent-plane claims: goals, terms, assumptions, constraints, and decisions.',
-  ),
-  design: resource('lenses', 'design', 'Focus on design implications and module/interface boundaries.'),
-  oracle: resource(
-    'lenses',
-    'oracle',
-    'Focus on verification obligations, checks, evidence, and blind spots.',
-  ),
-};
-
-export const METHOD_RESOURCES: Record<MethodId, PromptResourceManifestEntry> = {
-  'run-structured-exchange': resource(
-    'methods',
-    'run-structured-exchange',
-    'Present typed Brunch exchanges and request typed responses.',
-  ),
-  capture: resource(
-    'methods',
-    'capture',
-    'Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct.',
-  ),
-  'commit-graph': resource(
-    'methods',
-    'commit-graph',
-    'Commit graph truth only through Brunch graph tools and CommandExecutor-backed results.',
-  ),
-  'elicit-by-question': resource(
-    'methods',
-    'elicit-by-question',
-    'Acquire missing material by asking the human one focused question.',
-  ),
-  'ingest-paste': resource(
-    'methods',
-    'ingest-paste',
-    'Acquire user-provided pasted material as conversational transcript content.',
-  ),
-  'read-referenced-documents': resource(
-    'methods',
-    'read-referenced-documents',
-    'Read bounded user-referenced documents and digest them before capture.',
-  ),
-  'explore-and-characterize': resource(
-    'methods',
-    'explore-and-characterize',
-    'Explore a bounded brownfield area and write a characterization digest before capture.',
-  ),
-  'read-context': resource(
-    'methods',
-    'read-context',
-    'Use pushed context handles and read-only context tools for selected-spec context.',
-  ),
-  'generate-proposal': resource(
-    'methods',
-    'generate-proposal',
-    'Generate reviewable candidate graph material without committing it directly.',
-  ),
-  'review-for-gaps': resource(
-    'methods',
-    'review-for-gaps',
-    'Review commitments for gaps, conflicts, and verification debt.',
-  ),
-};
+export const STRATEGY_RESOURCES = loadPromptResourceManifestEntries('strategies', STRATEGY_IDS);
+export const LENS_RESOURCES = loadPromptResourceManifestEntries('lenses', LENS_IDS);
+export const METHOD_RESOURCES = loadPromptResourceManifestEntries('methods', METHOD_IDS);
 
 export function manifestsForState(
   state: ResolvedBrunchAgentState,
@@ -301,17 +242,49 @@ export function agentBodyResourceLocation(agentId: AgentRoleId): string {
 }
 
 function promptResourceLocation(family: PromptResourceFamily, id: string): string {
-  return fileURLToPath(new URL(`../../skills/${family}/${id}.md`, import.meta.url));
+  return fileURLToPath(new URL(`../../skills/${family}/${id}/SKILL.md`, import.meta.url));
 }
 
-function resource(
+function loadPromptResourceManifestEntries<TId extends string>(
   family: PromptResourceFamily,
-  id: string,
-  description: string,
+  ids: readonly TId[],
+): Record<TId, PromptResourceManifestEntry> {
+  const skillPaths = ids.map((id) => promptResourceLocation(family, id));
+  const result = loadSkills({
+    cwd: process.cwd(),
+    agentDir: fileURLToPath(new URL('../../', import.meta.url)),
+    skillPaths,
+    includeDefaults: false,
+  });
+
+  const warnings = result.diagnostics.map((diagnostic) => `${diagnostic.path}: ${diagnostic.message}`);
+  if (warnings.length > 0) {
+    throw new Error(`Invalid Brunch prompt-resource skill metadata:\n${warnings.join('\n')}`);
+  }
+
+  const byName = new Map(result.skills.map((skill) => [skill.name, skill]));
+  return Object.fromEntries(
+    ids.map((id) => [id, skillToPromptResourceManifestEntry(family, id, byName.get(id))]),
+  ) as Record<TId, PromptResourceManifestEntry>;
+}
+
+function skillToPromptResourceManifestEntry(
+  family: PromptResourceFamily,
+  expectedId: string,
+  skill: Skill | undefined,
 ): PromptResourceManifestEntry {
+  if (!skill) {
+    throw new Error(`Missing Brunch prompt-resource skill metadata for ${family}/${expectedId}.`);
+  }
+  const parentDir = basename(dirname(skill.filePath));
+  if (skill.name !== expectedId || parentDir !== expectedId) {
+    throw new Error(
+      `Brunch prompt-resource skill ${family}/${expectedId} must have name == parent directory; got name=${skill.name}, dir=${parentDir}.`,
+    );
+  }
   return {
-    name: id,
-    description,
-    location: promptResourceLocation(family, id),
+    name: skill.name,
+    description: skill.description,
+    location: skill.filePath,
   };
 }

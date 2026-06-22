@@ -1,11 +1,11 @@
 # subagents extension — D44-L
 
 > **Status (handoff doc):** mechanism **built + verified**, but **not yet wired
-> into startup** — the `subagent` tool is present-but-dead in every build until a
-> launch path passes `subagents` to `createBrunchPiExtensions(...)`. This README
-> is intentionally fatter than the sibling topology READMEs because the feature
-> is mid-integration; once it is wired and the SPEC is reconciled, trim it back
-> to the short orientation-surface convention (ownership + SPEC refs + layout).
+> into startup** — the `subagent` tool is absent/default-off until a launch path
+> passes `subagents` to `createBrunchPiExtensions(...)`. This README is
+> intentionally fatter than the sibling topology READMEs because the feature is
+> mid-integration; once it is wired, trim it back to the short orientation-surface
+> convention (ownership + SPEC refs + layout).
 
 SPEC decisions: D44-L (subagent), D39-L (sealed profile), D40-L (registration ≠
 advertisement). Frontier: PLAN.md `subagent-adoption`.
@@ -22,10 +22,9 @@ advertisement). Frontier: PLAN.md `subagent-adoption`.
    is **never called** yet. Pick a gate (recommended: `BRUNCH_DEV`, mirroring
    introspection) and pass its result as `{ subagents }` into
    `createBrunchPiExtensions(...)`. See [How to wire it in](#how-to-wire-it-in).
-3. **SPEC drift to reconcile.** SPEC `D44-L` / `I29-L` still describe the
-   **superseded subprocess** model (`pi --mode json -p --no-session …`, argv-shape
-   tests). The implemented path is the **SDK sealed child session**. Reconcile
-   the SPEC text through the normal `/ln-sync` flow.
+3. **Canonical docs now match the implementation.** SPEC `D44-L` / `I29-L` name
+   the **SDK sealed child session** model; do not restore the superseded
+   subprocess/argv-shape design.
 4. **Don't reintroduce** ambient `~/.pi` discovery, the `globalThis.__pi_subagents`
    bridge, or a `pi` subprocess — all three conflict with D39-L sealing and were
    deliberately dropped.
@@ -88,7 +87,7 @@ last assistant message is the only thing that crosses back to the parent.
 | [`index.ts`](./index.ts) | `registerBrunchSubagents(pi, deps)` — registers the one `subagent` tool (single `{agent,task}` or parallel `{tasks:[…]}`), `createSemaphore` for bounded concurrency, result formatting. Re-exports the public surface. |
 | [`agents/*.md`](./agents) | Declarative agent definitions (see below). |
 | [`config.json`](./config.json) | Externalized concurrency cap (`maxConcurrency: 4`). |
-| [`subagents.test.ts`](./subagents.test.ts) | 26 tests: parsing, config, model resolution, tool planning, semaphore, registrar, and **two end-to-end faux-provider child-session runs** asserting the sealing invariants. |
+| [`subagents.test.ts`](./subagents.test.ts) | Tests parsing, config, model resolution, tool planning, semaphore fairness, registrar usage errors, abort lifecycle, and **two end-to-end faux-provider child-session runs** asserting the sealing invariants. |
 | [`../../../app/pi-subagents.ts`](../../../app/pi-subagents.ts) | **App composition root.** `loadBrunchSubagents({cwd, agentDir})` assembles `BrunchSubagentsDeps` using the sealed `pi-settings` helpers. Keeps `.pi/` free of `src/app` imports (deps are injected). |
 
 Boundary rule: `.pi/extensions/subagents/*` may import the SDK and `../web/`
@@ -243,8 +242,8 @@ in flight.)
 
 - **Startup wiring + gate** — see [How to wire it in](#how-to-wire-it-in). The
   mechanism is done; the gate is a product decision.
-- **SPEC reconciliation** — D44-L / I29-L describe the subprocess model; update
-  to the SDK child-session reality via `/ln-sync`.
+- **Product startup wiring** — choose and prove the launch gate that supplies
+  subagent deps intentionally; ordinary sessions should remain default-off until then.
 - **Nesting** and a **write-capable `worker`** — deferred until an execute
   operational mode lands.
 - **Progress UI** — NDJSON/`subagent.progress` streaming for TUI/web is deferred

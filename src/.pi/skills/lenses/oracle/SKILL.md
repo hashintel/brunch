@@ -1,3 +1,8 @@
+---
+name: oracle
+description: "Focus on verification obligations, checks, evidence, and blind spots."
+---
+
 # oracle
 
 Use this lens when the conversation is about how claims will be checked, witnessed, or kept honest. The plane focus is oracle: checks, validation methods, evidence, obligations, criteria, and blind spots.

@@ -1,3 +1,8 @@
+---
+name: explore-and-characterize
+description: "Explore a bounded brownfield area and write a characterization digest before capture."
+---
+
 # Method: explore and characterize
 
 Use this acquisition mode when the session needs an initial map of a brownfield codebase, product area, or unfamiliar territory before precise graph claims can be made. Exploration is bounded reconnaissance by the foreground elicitor using legal read tools; delegated subagents are a future seam and not required here.

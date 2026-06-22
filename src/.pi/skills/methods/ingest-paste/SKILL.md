@@ -1,3 +1,8 @@
+---
+name: ingest-paste
+description: "Acquire user-provided pasted material as conversational transcript content."
+---
+
 # Method: ingest paste
 
 Use this acquisition mode when the human provides a block of text, notes, requirements, logs, transcript excerpts, or other pasted material as the ground material for the selected spec. The paste enters the conversation directly; capture stays uniform and happens through the next capture sweep.

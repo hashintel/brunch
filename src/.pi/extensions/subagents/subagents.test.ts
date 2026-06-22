@@ -11,7 +11,7 @@ import {
   type ExtensionAPI,
   type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
@@ -88,6 +88,12 @@ describe('parseSubagentMarkdown', () => {
     expect(() => parseSubagentMarkdown('---\nname: x\ndescription: y\nthinking: turbo\n---\nBody.')).toThrow(
       /Invalid subagent frontmatter/,
     );
+  });
+
+  it('throws on duplicate frontmatter keys and reports the repeated key', () => {
+    expect(() =>
+      parseSubagentMarkdown('---\nname: scout\ndescription: one\nname: duplicate\n---\nBody.'),
+    ).toThrow(/duplicate frontmatter key "name"/);
   });
 
   it('throws on an empty body', () => {
@@ -236,6 +242,44 @@ describe('createSemaphore', () => {
     await Promise.all([task(), task(), task(), task(), task()]);
     expect(peak).toBe(2);
   });
+
+  it('does not admit a new arrival ahead of a released waiter', async () => {
+    const limit = createSemaphore(1);
+    let active = 0;
+    let peak = 0;
+    let releaseFirst!: () => void;
+    const first = limit(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
+      active -= 1;
+    });
+
+    let secondStarted!: () => void;
+    const secondStartedPromise = new Promise<void>((resolve) => {
+      secondStarted = resolve;
+    });
+    const second = limit(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      secondStarted();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      active -= 1;
+    });
+
+    releaseFirst();
+    const third = limit(async () => {
+      active += 1;
+      peak = Math.max(peak, active);
+      active -= 1;
+    });
+
+    await secondStartedPromise;
+    await Promise.all([first, second, third]);
+    expect(peak).toBe(1);
+  });
 });
 
 describe('registerBrunchSubagents', () => {
@@ -314,6 +358,21 @@ describe('registerBrunchSubagents', () => {
     const { getTool } = harness();
     const result = await getTool().execute('id', {}, undefined, undefined, ctx);
     expect((result.content[0] as { text: string }).text).toContain('subagent requires');
+  });
+
+  it('treats combined single and parallel invocation shapes as a usage error', async () => {
+    const { getTool, calls } = harness();
+    const result = await getTool().execute(
+      'id',
+      { agent: 'scout', task: 'single', tasks: [{ agent: 'proposer', task: 'parallel' }] },
+      undefined,
+      undefined,
+      ctx,
+    );
+    expect(calls).toEqual([]);
+    expect((result.content[0] as { text: string }).text).toContain(
+      'subagent accepts either { agent, task } or { tasks: [...] }, not both',
+    );
   });
 });
 
@@ -405,5 +464,87 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
     } finally {
       rig.dispose();
     }
+  });
+
+  it('does not prompt when the parent aborts during child setup', async () => {
+    const definition = parseSubagentMarkdown(SCOUT_MD);
+    const controller = new AbortController();
+    const prompt = vi.fn(async () => undefined);
+    const abort = vi.fn();
+    const dispose = vi.fn();
+    const createServices = vi.fn(async () => ({})) as never;
+    const createSession = vi.fn(async () => {
+      controller.abort();
+      return {
+        session: {
+          prompt,
+          abort,
+          dispose,
+          getLastAssistantText: () => 'should not be read',
+        },
+      };
+    }) as never;
+    const registry = { getAvailable: () => [{ provider: 'p', id: 'm' }], find: () => undefined } as never;
+
+    const result = await runSubagent({
+      definition,
+      task: 'will abort',
+      ctx: { cwd: '/w', modelRegistry: registry, model: undefined, signal: controller.signal },
+      deps: {
+        agentDir: '/agents',
+        createSettingsManager: () => SettingsManager.inMemory({ quietStartup: true }),
+        resourceLoaderOptions: sealedResourceLoaderOptions(),
+      },
+      createServices,
+      createSession,
+    });
+
+    expect(result).toEqual({ agent: 'scout', status: 'error', text: 'Subagent "scout" was aborted.' });
+    expect(prompt).not.toHaveBeenCalled();
+    expect(abort).toHaveBeenCalledOnce();
+    expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it('aborts and disposes an already-created child session when the parent aborts', async () => {
+    const definition = parseSubagentMarkdown(SCOUT_MD);
+    const controller = new AbortController();
+    const abort = vi.fn();
+    const dispose = vi.fn();
+    let promptStarted!: () => void;
+    const promptStartedPromise = new Promise<void>((resolve) => {
+      promptStarted = resolve;
+    });
+    const prompt = vi.fn(async () => {
+      promptStarted();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const createSession = vi.fn(async () => ({
+      session: {
+        prompt,
+        abort,
+        dispose,
+        getLastAssistantText: () => 'done',
+      },
+    })) as never;
+    const registry = { getAvailable: () => [{ provider: 'p', id: 'm' }], find: () => undefined } as never;
+
+    const running = runSubagent({
+      definition,
+      task: 'run',
+      ctx: { cwd: '/w', modelRegistry: registry, model: undefined, signal: controller.signal },
+      deps: {
+        agentDir: '/agents',
+        createSettingsManager: () => SettingsManager.inMemory({ quietStartup: true }),
+        resourceLoaderOptions: sealedResourceLoaderOptions(),
+      },
+      createServices: vi.fn(async () => ({})) as never,
+      createSession,
+    });
+    await promptStartedPromise;
+    controller.abort();
+
+    await expect(running).resolves.toEqual({ agent: 'scout', status: 'ok', text: 'done' });
+    expect(abort).toHaveBeenCalledOnce();
+    expect(dispose).toHaveBeenCalledOnce();
   });
 });

@@ -1,3 +1,8 @@
+---
+name: step-wise-disambiguate
+description: "Use contrastive examples to collapse meaningful ambiguity."
+---
+
 # step-wise-disambiguate
 
 Use this strategy when several plausible meanings would lead to different graph truth. Your job is to collapse ambiguity with contrastive examples instead of asking the user to define terms in the abstract.

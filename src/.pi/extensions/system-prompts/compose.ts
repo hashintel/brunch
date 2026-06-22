@@ -44,9 +44,7 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
     renderRuntimeState(input),
     renderElicitationRecommendation(input),
     renderPushedContext(input.context),
-    renderManifestFamily('available_strategies', manifests.strategies),
-    renderManifestFamily('available_lenses', manifests.lenses),
-    renderManifestFamily('available_methods', manifests.methods),
+    renderBrunchSkills(manifests),
     renderRouterRules(input.sessionState),
   ]);
 
@@ -122,23 +120,38 @@ function indentBlock(value: string): string {
     .join('\n');
 }
 
-function renderManifestFamily(tag: string, entries: PromptManifests[keyof PromptManifests]): string {
+function renderBrunchSkills(manifests: PromptManifests): string {
+  const entries = [
+    ...manifests.strategies.map((entry) => ({ kind: 'strategy', entry })),
+    ...manifests.lenses.map((entry) => ({ kind: 'lens', entry })),
+    ...manifests.methods.map((entry) => ({ kind: 'method', entry })),
+  ] as const;
+  if (entries.length === 0) return '';
   return [
-    `<${tag}>`,
-    ...entries.map(
-      (entry) =>
-        `  <resource name="${escapeXml(entry.name)}" description="${escapeXml(entry.description)}" location="${escapeXml(entry.location)}" />`,
-    ),
-    `</${tag}>`,
+    'The following Brunch skills provide specialized instructions for prompt-resource posture.',
+    "Use the read tool to load a skill's file when the selected strategy, lens, or method matches its description.",
+    'When a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.',
+    '',
+    '<brunch-skills>',
+    ...entries.flatMap(({ kind, entry }) => [
+      '  <skill>',
+      `    <kind>${kind}</kind>`,
+      `    <name>${escapeXml(entry.name)}</name>`,
+      `    <description>${escapeXml(entry.description)}</description>`,
+      `    <location>${escapeXml(entry.location)}</location>`,
+      '  </skill>',
+    ]),
+    '</brunch-skills>',
   ].join('\n');
 }
 
 function renderRouterRules(state: ResolvedBrunchAgentState): string {
   return [
     '[Brunch prompt-resource routing]',
-    '- Use only resources advertised in the manifests above; do not infer availability from the filesystem.',
-    '- For AUTO axes, choose from the current manifest and read the selected resource before applying detailed behavior.',
-    '- For pinned axes, the singleton manifest entry is the selected resource.',
+    '- Use only resources advertised in <brunch-skills>; do not infer availability from the filesystem.',
+    '- Strategy and lens are AUTO/pinnable axes: choose at most one advertised strategy and at most one advertised lens, then read the selected resource before applying detailed behavior.',
+    '- Methods compose freely when advertised; read a method skill when that mechanism is relevant to the next turn.',
+    '- For pinned axes, the singleton skill of that kind is the selected resource.',
     `- Current pins: strategy=${state.agentStrategy}; lens=${state.agentLens}.`,
   ].join('\n');
 }

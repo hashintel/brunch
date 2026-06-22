@@ -34,6 +34,10 @@ type FetchResult = {
 
 type Cleanup = () => void;
 
+type BoundedBody =
+  | { readonly status: 'ok'; readonly bytes: Uint8Array }
+  | { readonly status: 'too_large'; readonly maxSize: number };
+
 const withTimeoutSignal = (
   parentSignal: AbortSignal | undefined,
   timeoutMs: number,
@@ -58,6 +62,54 @@ const truncateContent = (content: string, maxChars: number): string => {
   const cutPoint = content.lastIndexOf('\n\n', maxChars);
   const end = cutPoint > Math.floor(maxChars * 0.5) ? cutPoint : maxChars;
   return `${content.slice(0, end).trim()}\n\n[... truncated to ${maxChars} characters ...]`;
+};
+
+const tooLargeError = (maxSize: number): string =>
+  `Response too large (over ${Math.round(maxSize / 1024 / 1024)}MB)`;
+
+const readBoundedBody = async (response: Response, maxSize: number): Promise<BoundedBody> => {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return bytes.byteLength > maxSize ? { status: 'too_large', maxSize } : { status: 'ok', bytes };
+  }
+
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > maxSize) {
+      await reader.cancel().catch(() => undefined);
+      return { status: 'too_large', maxSize };
+    }
+    chunks.push(value);
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { status: 'ok', bytes };
+};
+
+const decodeUtf8 = (bytes: Uint8Array): string => new TextDecoder().decode(bytes);
+
+const validateHttpUrl = (url: string): URL | { error: string } => {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { error: 'Invalid URL' };
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { error: `Unsupported URL protocol: ${parsed.protocol}` };
+  }
+  return parsed;
 };
 
 const isPdf = (url: string, contentType?: string): boolean => {
@@ -156,7 +208,11 @@ const extractWithJinaReader = async (url: string, signal?: AbortSignal): Promise
     });
     if (!response.ok) return null;
 
-    const content = await response.text();
+    const body = await readBoundedBody(response, MAX_RESPONSE_SIZE);
+    if (body.status === 'too_large') {
+      return { url, title: '', content: '', error: tooLargeError(body.maxSize) };
+    }
+    const content = decodeUtf8(body.bytes);
     const contentStart = content.indexOf('Markdown Content:');
     if (contentStart < 0) return null;
 
@@ -209,21 +265,24 @@ const extractViaHttp = async (url: string, signal?: AbortSignal): Promise<FetchR
     const isPdfContent = isPdf(url, contentType);
     const maxSize = isPdfContent ? MAX_PDF_SIZE : MAX_RESPONSE_SIZE;
     if (contentLengthHeader && parseInt(contentLengthHeader, 10) > maxSize) {
-      return {
-        url,
-        title: '',
-        content: '',
-        error: `Response too large (${Math.round(parseInt(contentLengthHeader, 10) / 1024 / 1024)}MB)`,
-      };
+      return { url, title: '', content: '', error: tooLargeError(maxSize) };
     }
 
-    if (isPdfContent) return await extractPdf(await response.arrayBuffer(), url);
+    const body = await readBoundedBody(response, maxSize);
+    if (body.status === 'too_large') {
+      return { url, title: '', content: '', error: tooLargeError(body.maxSize) };
+    }
+
+    if (isPdfContent) {
+      const pdfBytes = new Uint8Array(body.bytes);
+      return await extractPdf(pdfBytes.buffer, url);
+    }
 
     if (isUnsupportedContentType(contentType)) {
       return { url, title: '', content: '', error: `Unsupported content type: ${contentType.split(';')[0]}` };
     }
 
-    const text = await response.text();
+    const text = decodeUtf8(body.bytes);
     const isHtml = contentType.includes('text/html') || contentType.includes('application/xhtml+xml');
     if (!isHtml) {
       return { url, title: extractHeadingTitle(text) ?? getTitleFromUrl(url), content: text, error: null };
@@ -268,11 +327,8 @@ export const fetchAndExtract = async (
 ): Promise<FetchResult> => {
   if (signal?.aborted) return { url, title: '', content: '', error: 'Aborted' };
 
-  try {
-    new URL(url);
-  } catch {
-    return { url, title: '', content: '', error: 'Invalid URL' };
-  }
+  const parsedUrl = validateHttpUrl(url);
+  if ('error' in parsedUrl) return { url, title: '', content: '', error: parsedUrl.error };
 
   const httpResult = await extractViaHttp(url, signal);
   if (signal?.aborted) return { url, title: '', content: '', error: 'Aborted' };
@@ -312,7 +368,7 @@ export function createWebFetchTool() {
     parameters: Type.Object({
       url: Type.String({ description: 'URL to fetch.' }),
       maxChars: Type.Optional(
-        Type.Number({
+        Type.Integer({
           description: 'Maximum characters to return. Default 40000, max 200000.',
           minimum: 1000,
           maximum: 200000,

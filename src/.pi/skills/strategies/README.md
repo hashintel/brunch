@@ -14,8 +14,8 @@ Each strategy describes an interaction shape — how the agent structures its tu
 
 ## Prompt resource contents
 
-Each `.md` file in this directory is a prompt resource the agent reads
-(advertised via the D58-L `<available_strategies>` manifest) when the strategy is active. It should contain:
+Each `<strategy>/SKILL.md` file in this directory is a prompt resource the agent reads
+(advertised via the D58-L `<brunch-skills>` manifest with `<kind>strategy</kind>`) when the strategy is active. It should contain:
 
 - What the agent is doing in this strategy
 - How to structure the turn

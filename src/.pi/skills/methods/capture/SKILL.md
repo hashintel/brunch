@@ -1,3 +1,8 @@
+---
+name: capture
+description: "Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct."
+---
+
 # Method: capture
 
 Capture is the single home for FE-861 foreground elicitor selected-spec sweep discipline. Use it after every elicitor turn, before composing the next question: first turn the un-swept transcript tail into graph truth or elicitation agenda, then ask from the updated world.

@@ -3,6 +3,10 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-06-22 Prompt-resource topology closeout
+
+- 2026-06-22 `prompt-skill-topology` (FE-898) — Done on `ln/fe-898-prompt-skill-topology`: Brunch prompt resources now follow Agent Skills topology (`src/.pi/skills/<family>/<name>/SKILL.md` with frontmatter); `state.ts` keeps the code-owned legal path list/family/legality metadata and loads file-owned `name`/`description` through Pi `loadSkills({ skillPaths, includeDefaults: false })`; `compose.ts` emits `<brunch-skills>` with Pi-style `<skill>` elements plus `<kind>`; COMPOSE goldens were regenerated; and sealing tests prove unlisted `SKILL.md` files are not advertised. Durable contract lives in SPEC D58-L/D85-L and `src/.pi/skills/README.md`; the scope card was deleted.
+
 ## 2026-06-08 Sync archive
 
 Archived from `memory/PLAN.md` during the post-merge ln-sync once the 2026-06-08 coverage burst (`runtime-affordances-and-legality`, `capture-quality-spike`, `minimal-authority-shell`, cross-cut body-depth, `elicitation-backlog`) became the live completion window. These prior bursts move here.
@@ -562,11 +566,11 @@ These were never coherent vertical frontiers — they are standing obligations t
 
 ### Folded into the alpha-hardening collection frontier (residue carried live)
 
-#### dev-seed-fixtures (FE-848) — PARTIALLY BUILT; residue → alpha-hardening
+#### dev-seed-fixtures (FE-848) — historical snapshot (pre-closure); residue closed by alpha-hardening
 
 Explicit dev seeding + launchable workbench flow over the four-role `.fixtures/` contract. Built: seed CLI selects one fixture by set/slug + target workspace by path with fail-before-open validation; every seeded spec routes through `seedFixture`/`CommandExecutor` (spec-local LSN, change-log, gap seeding, structural validation; no direct DB rows); CLI names the destination `.brunch/data.db` + `set/slug → specId`; `npm run dev` never seeds implicitly; `.fixtures/README.md` + workbench README document the `seed` then `dev -- --cwd` flow; a fresh-workbench tracer reads `workspace.selectionState` through product RPC scoped to the workbench DB; seed CLI `--reset` (file-scoped workspace DB wipe); continuous all-seeds schema-currency test in `seed-fixtures.test.ts`. **Residue (◐):** explicit all-seeds opt-in flag/command; the captured-seed disposition catalog (`brunch-self`, `dumpchat`, `fable`, `rd-loop`, `yamlbase`, + Bilal/coverage sets → `test` / `preview` / `manual workbench` / `probe input` / `parked`). Traceability: D16-L, D20-L, D52-L, D61-L, D63-L, D70-L, D71-L, D79-L; I1-L, I11-L, I48-L. Loader stays `src/graph/seed-fixtures.ts`; seeds under `.fixtures/seeds/`; workbenches under `.fixtures/workbenches/`.
 
-#### runtime-vocab-leaf — UNBUILT (small); → alpha-hardening
+#### runtime-vocab-leaf — historical snapshot (pre-closure); closed by alpha-hardening
 
 Establish `src/session/schema/kinds.ts` as the drizzle-free, pi-free source-of-truth leaf for the session/runtime axis enums, mirroring `graph/schema/kinds.ts` (D73-L ownership direction). Scope shrank post-D85-L (the `goal` axis was dropped from runtime-state): the leaf owns `op_mode`, `strategy`, `lens`, and the `auto` sentinel; consumers (`.pi/extensions/runtime/state.ts` `MethodId`, `runtime-policy.ts`, `affordances.ts`, the display-only `PLANNED_OPERATIONAL_MODE_IDS` / `OperationalModeChoice` in `session/runtime-state.ts`) import the closed arrays from it. Must not recreate `READINESS_GRADES` (retired by `capability-readiness`). Verification: import-boundary/architecture test that the leaf imports nothing and consumers source axis enums from it. Traceability: D58-L, D59-L, D73-L / I25-L.
 

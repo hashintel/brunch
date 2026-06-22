@@ -2,6 +2,7 @@ import { access, readFile } from 'node:fs/promises';
 import { dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { parseFrontmatter } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
@@ -88,12 +89,13 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).toContain('handle: graph-overview: compact selected-spec graph summary');
     expect(result.prompt).toContain('[Selected-spec graph context · intent lens]');
     expect(result.prompt).not.toContain('<available_goals>');
-    expect(result.prompt).toContain('<available_strategies>');
-    expect(result.prompt).toContain('<available_lenses>');
-    expect(result.prompt).toContain('<available_methods>');
-    expect(result.prompt).not.toContain('name="grounding-advance"');
-    expect(result.prompt).not.toContain('name="capture-posture"');
-    expect(result.prompt).not.toContain('name="commit-converge"');
+    expect(result.prompt).toContain('<brunch-skills>');
+    expect(result.prompt).toContain('<kind>strategy</kind>');
+    expect(result.prompt).toContain('<kind>lens</kind>');
+    expect(result.prompt).toContain('<kind>method</kind>');
+    expect(result.prompt).not.toContain('<name>grounding-advance</name>');
+    expect(result.prompt).not.toContain('<name>capture-posture</name>');
+    expect(result.prompt).not.toContain('<name>commit-converge</name>');
   });
 
   it('surfaces rendered context text and preserves manifest legality when lens changes', () => {
@@ -242,8 +244,8 @@ describe('composeAgentPrompt', () => {
       '- spec: Elicitation Spec (#1), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, commitment=0.00',
     );
     expect(auto.prompt).not.toContain('readiness_grade=');
-    expect(auto.prompt).not.toContain('name="freestyle"');
-    expect(pinnedFreestyle.prompt).toContain('name="freestyle"');
+    expect(auto.prompt).not.toContain('<name>freestyle</name>');
+    expect(pinnedFreestyle.prompt).toContain('<name>freestyle</name>');
   });
 
   it('omits the elicitation recommendation when no open gaps remain', () => {
@@ -298,7 +300,7 @@ describe('composeAgentPrompt', () => {
     ]);
   });
 
-  it('advertises only readable .pi prompt resources without filesystem discovery', async () => {
+  it('advertises only readable code-owned .pi prompt resources without filesystem discovery', async () => {
     const result = composeAgentPrompt({
       agentId: 'elicitor',
       sessionState: projectBrunchAgentState([]),
@@ -312,6 +314,12 @@ describe('composeAgentPrompt', () => {
       expect(relative(projectRoot, entry.location).startsWith('src/.pi/')).toBe(true);
       await expect(access(entry.location)).resolves.toBeUndefined();
     }
+    expect(result.prompt).not.toContain('unlisted-fixture');
+    expect(
+      Object.values(result.manifests)
+        .flat()
+        .map((entry) => entry.name),
+    ).not.toContain('unlisted-fixture');
   });
 
   it('keeps every manifest prompt resource readable and non-trivial', async () => {
@@ -323,7 +331,10 @@ describe('composeAgentPrompt', () => {
 
     for (const entry of entries) {
       expect(relative(projectRoot, entry.location).startsWith('src/.pi/skills/')).toBe(true);
-      const body = await readFile(entry.location, 'utf8');
+      expect(entry.location.endsWith(`/${entry.name}/SKILL.md`)).toBe(true);
+      const raw = await readFile(entry.location, 'utf8');
+      const { frontmatter, body } = parseFrontmatter(raw);
+      expect(frontmatter).toMatchObject({ name: entry.name, description: entry.description });
       expect(
         body.length,
         `${entry.name} should carry prompt-resource guidance beyond a placeholder`,
@@ -413,6 +424,7 @@ function expectPromptContracts(rendered: string): void {
   expect(rendered).not.toContain('readiness_grade');
   expect(rendered).not.toContain('READINESS_GRADES');
   expect(rendered).not.toContain('<available_goals>');
+  expect(rendered).toContain('<brunch-skills>');
   expect(rendered).not.toMatch(/\bgoal=/);
   expect(rendered).not.toMatch(/- goal:/);
 }
@@ -455,8 +467,8 @@ describe('composeAgentPrompt previews', () => {
 
     await expect(rendered).toMatchFileSnapshot('../__previews__/elicitor--pinned-strategy-lens.md');
     expectPromptContracts(rendered);
-    expect(rendered).toContain('name="step-wise-disambiguate"');
-    expect(rendered).toContain('name="design"');
+    expect(rendered).toContain('<name>step-wise-disambiguate</name>');
+    expect(rendered).toContain('<name>design</name>');
   });
 
   it('elicitor--pushed-context: fixture handles and rendered contexts present', async () => {

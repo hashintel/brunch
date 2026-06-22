@@ -1,3 +1,8 @@
+---
+name: step-wise-decision-tree
+description: "Ask one structured question at a time and branch from the answer."
+---
+
 # step-wise-decision-tree
 
 Use this strategy to ask one structured question at a time and branch from the answer. The user should experience a clear local decision tree: one prompt, bounded response shape, then the next question chosen from what their answer made true or still unclear.

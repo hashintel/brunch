@@ -21,32 +21,106 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 - handles: none pushed
 - rendered context blocks: none pushed
 
-<available_strategies>
-  <resource name="step-wise-decision-tree" description="Ask one structured question at a time and branch from the answer." location="<repo>/src/.pi/skills/strategies/step-wise-decision-tree.md" />
-  <resource name="step-wise-disambiguate" description="Use contrastive examples to collapse meaningful ambiguity." location="<repo>/src/.pi/skills/strategies/step-wise-disambiguate.md" />
-</available_strategies>
+The following Brunch skills provide specialized instructions for prompt-resource posture.
+Use the read tool to load a skill's file when the selected strategy, lens, or method matches its description.
+When a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.
 
-<available_lenses>
-  <resource name="intent" description="Focus on intent-plane claims: goals, terms, assumptions, constraints, and decisions." location="<repo>/src/.pi/skills/lenses/intent.md" />
-  <resource name="design" description="Focus on design implications and module/interface boundaries." location="<repo>/src/.pi/skills/lenses/design.md" />
-  <resource name="oracle" description="Focus on verification obligations, checks, evidence, and blind spots." location="<repo>/src/.pi/skills/lenses/oracle.md" />
-</available_lenses>
-
-<available_methods>
-  <resource name="run-structured-exchange" description="Present typed Brunch exchanges and request typed responses." location="<repo>/src/.pi/skills/methods/run-structured-exchange.md" />
-  <resource name="capture" description="Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct." location="<repo>/src/.pi/skills/methods/capture.md" />
-  <resource name="commit-graph" description="Commit graph truth only through Brunch graph tools and CommandExecutor-backed results." location="<repo>/src/.pi/skills/methods/commit-graph.md" />
-  <resource name="elicit-by-question" description="Acquire missing material by asking the human one focused question." location="<repo>/src/.pi/skills/methods/elicit-by-question.md" />
-  <resource name="ingest-paste" description="Acquire user-provided pasted material as conversational transcript content." location="<repo>/src/.pi/skills/methods/ingest-paste.md" />
-  <resource name="read-referenced-documents" description="Read bounded user-referenced documents and digest them before capture." location="<repo>/src/.pi/skills/methods/read-referenced-documents.md" />
-  <resource name="explore-and-characterize" description="Explore a bounded brownfield area and write a characterization digest before capture." location="<repo>/src/.pi/skills/methods/explore-and-characterize.md" />
-  <resource name="read-context" description="Use pushed context handles and read-only context tools for selected-spec context." location="<repo>/src/.pi/skills/methods/read-context.md" />
-  <resource name="generate-proposal" description="Generate reviewable candidate graph material without committing it directly." location="<repo>/src/.pi/skills/methods/generate-proposal.md" />
-  <resource name="review-for-gaps" description="Review commitments for gaps, conflicts, and verification debt." location="<repo>/src/.pi/skills/methods/review-for-gaps.md" />
-</available_methods>
+<brunch-skills>
+  <skill>
+    <kind>strategy</kind>
+    <name>step-wise-decision-tree</name>
+    <description>Ask one structured question at a time and branch from the answer.</description>
+    <location><repo>/src/.pi/skills/strategies/step-wise-decision-tree/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>strategy</kind>
+    <name>step-wise-disambiguate</name>
+    <description>Use contrastive examples to collapse meaningful ambiguity.</description>
+    <location><repo>/src/.pi/skills/strategies/step-wise-disambiguate/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>lens</kind>
+    <name>intent</name>
+    <description>Focus on intent-plane claims: goals, terms, assumptions, constraints, and decisions.</description>
+    <location><repo>/src/.pi/skills/lenses/intent/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>lens</kind>
+    <name>design</name>
+    <description>Focus on design implications and module/interface boundaries.</description>
+    <location><repo>/src/.pi/skills/lenses/design/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>lens</kind>
+    <name>oracle</name>
+    <description>Focus on verification obligations, checks, evidence, and blind spots.</description>
+    <location><repo>/src/.pi/skills/lenses/oracle/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>run-structured-exchange</name>
+    <description>Present typed Brunch exchanges and request typed responses.</description>
+    <location><repo>/src/.pi/skills/methods/run-structured-exchange/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>capture</name>
+    <description>Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct.</description>
+    <location><repo>/src/.pi/skills/methods/capture/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>commit-graph</name>
+    <description>Commit graph truth only through Brunch graph tools and CommandExecutor-backed results.</description>
+    <location><repo>/src/.pi/skills/methods/commit-graph/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>elicit-by-question</name>
+    <description>Acquire missing material by asking the human one focused question.</description>
+    <location><repo>/src/.pi/skills/methods/elicit-by-question/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>ingest-paste</name>
+    <description>Acquire user-provided pasted material as conversational transcript content.</description>
+    <location><repo>/src/.pi/skills/methods/ingest-paste/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>read-referenced-documents</name>
+    <description>Read bounded user-referenced documents and digest them before capture.</description>
+    <location><repo>/src/.pi/skills/methods/read-referenced-documents/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>explore-and-characterize</name>
+    <description>Explore a bounded brownfield area and write a characterization digest before capture.</description>
+    <location><repo>/src/.pi/skills/methods/explore-and-characterize/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>read-context</name>
+    <description>Use pushed context handles and read-only context tools for selected-spec context.</description>
+    <location><repo>/src/.pi/skills/methods/read-context/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>generate-proposal</name>
+    <description>Generate reviewable candidate graph material without committing it directly.</description>
+    <location><repo>/src/.pi/skills/methods/generate-proposal/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>review-for-gaps</name>
+    <description>Review commitments for gaps, conflicts, and verification debt.</description>
+    <location><repo>/src/.pi/skills/methods/review-for-gaps/SKILL.md</location>
+  </skill>
+</brunch-skills>
 
 [Brunch prompt-resource routing]
-- Use only resources advertised in the manifests above; do not infer availability from the filesystem.
-- For AUTO axes, choose from the current manifest and read the selected resource before applying detailed behavior.
-- For pinned axes, the singleton manifest entry is the selected resource.
+- Use only resources advertised in <brunch-skills>; do not infer availability from the filesystem.
+- Strategy and lens are AUTO/pinnable axes: choose at most one advertised strategy and at most one advertised lens, then read the selected resource before applying detailed behavior.
+- Methods compose freely when advertised; read a method skill when that mechanism is relevant to the next turn.
+- For pinned axes, the singleton skill of that kind is the selected resource.
 - Current pins: strategy=auto; lens=auto.

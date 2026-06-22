@@ -1,3 +1,8 @@
+---
+name: elicit-by-question
+description: "Acquire missing material by asking the human one focused question."
+---
+
 # Method: elicit by question
 
 Use this acquisition mode when the next missing material is best obtained by asking the human one focused question and letting the answer enter the transcript directly. This is the ordinary Brunch elicitation path: ask, receive, then let the capture sweep decide what becomes graph truth and what becomes agenda.

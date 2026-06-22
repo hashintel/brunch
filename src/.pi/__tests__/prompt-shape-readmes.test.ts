@@ -8,12 +8,14 @@ function readRepoFile(relativePath: string): string {
 }
 
 describe('prompt-shape decisions', () => {
-  it('records each deferred prompt-shape question with its trigger in canonical READMEs', () => {
+  it('records adopted prompt-skill topology and remaining deferred prompt-shape triggers in canonical READMEs', () => {
     const skillsReadme = readRepoFile('src/.pi/skills/README.md');
     const agentsReadme = readRepoFile('src/.pi/agents/README.md');
 
-    expect(skillsReadme).toContain('SKILL.md + references/');
-    expect(skillsReadme).toContain('deferred until a skill needs sub-references');
+    expect(skillsReadme).toContain('Agent Skills-standard prompt resources');
+    expect(skillsReadme).toContain('<name>/SKILL.md');
+    expect(skillsReadme).toContain('references/` subfiles');
+    expect(skillsReadme).toContain('progressive disclosure');
     expect(skillsReadme).toContain('_generated/ typed-vocab references');
     expect(skillsReadme).toContain('deferred until a concrete stale-member need appears');
     expect(skillsReadme).toContain('regenerated and drift-checked');

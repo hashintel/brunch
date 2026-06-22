@@ -1,3 +1,8 @@
+---
+name: freestyle
+description: "Let the user drive with ordinary turns while keeping structured exchanges available as needed."
+---
+
 # freestyle
 
 Use this strategy only when explicitly pinned by the user or system; AUTO must not select it. It lets the user drive with ordinary conversational turns while keeping Brunch structured exchanges available when they become useful.

@@ -1,3 +1,8 @@
+---
+name: review-for-gaps
+description: "Review commitments for gaps, conflicts, and verification debt."
+---
+
 # review-for-gaps
 
 Use this method to inspect accepted or proposed commitments for missing support, contradictions, and verification debt. It is a review pass over graph meaning, not a license to rewrite the graph by yourself.
