@@ -122,6 +122,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
     const actions = createPiActions({
       testRunner: fakeRunner({ passed: false, output: 'no runner', failureKind: 'infra' }),
       createSession,
+      confine: false,
     });
     const id = await actions['verify-epic']!(ctx(reports));
     const payload = reports.getById(id)!.payload as { passed: boolean; failureKind?: string };
@@ -150,7 +151,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
     const createSession = (async () => {
       throw new Error('session boom');
     }) as unknown as SessionFactory;
-    const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+    const actions = createPiActions({ createSession, emit: (e) => events.push(e), confine: false });
 
     await expect(actions['write-tests']!(ctx(new InMemoryReportSink()))).rejects.toThrow();
     expect(events.filter((e) => e.kind === 'activity-start')).toHaveLength(1);
@@ -165,7 +166,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
 
     for (const action of ['write-tests', 'write-code'] as const) {
       const events: CookEvent[] = [];
-      const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+      const actions = createPiActions({ createSession, emit: (e) => events.push(e), confine: false });
 
       await expect(actions[action]!(ctx(new InMemoryReportSink()))).rejects.toThrow(/session boom/);
 
@@ -905,7 +906,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
 
       await runPi({ ...baseOpts(sandboxDir, 'read,write,edit,bash'), confine: false }, { createSession });
 
-      expect(capturedCustomTools).toBeUndefined();
+      expect(capturedCustomTools?.map((t) => t.name).sort()).toEqual(['bash', 'edit', 'read', 'write']);
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }
@@ -1372,7 +1373,7 @@ describe('action handlers emit slice grid events', () => {
     const events: CookEvent[] = [];
     const fake = makeFakeSession({ emit: 'wrote tests' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
-    const actions = createPiActions({ createSession, emit: (e) => events.push(e) });
+    const actions = createPiActions({ createSession, emit: (e) => events.push(e), confine: false });
     await actions['write-tests']!(ctx());
     expect(sliceEvents(events)[0]).toMatchObject({
       id: 'login',
@@ -1523,7 +1524,7 @@ describe('remediate-epic action — FE-884 Slice A production wiring', () => {
       captured = options;
       return { session: fake.session };
     }) as unknown as SessionFactory;
-    const actions = createPiActions({ createSession });
+    const actions = createPiActions({ createSession, confine: false });
 
     const foldedDir = '/tmp/__epic__/api';
     const id = await actions['remediate-epic']!({ slice, epic, plan, sandboxDir: foldedDir, reports });

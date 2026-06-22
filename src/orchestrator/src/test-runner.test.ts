@@ -187,6 +187,7 @@ describe('ToolchainTestRunner stamps failureKind', () => {
       sliceTarget: (id) => id,
       epicTarget: (id) => id,
       testCommand,
+      probeCommand: () => ['node', '--version'],
       testConventions: 'fake',
     };
   }
