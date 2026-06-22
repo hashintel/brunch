@@ -67,7 +67,13 @@ const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
     'request_choice',
     'request_choices',
   ],
-  'read-context': ['read_graph', 'read_session_context', 'read_elicitation_gaps'],
+  capture: ['update_elicitation_gaps', 'update_reconciliation_needs'],
+  'read-context': [
+    'read_graph',
+    'read_session_context',
+    'read_elicitation_gaps',
+    'read_reconciliation_needs',
+  ],
   'commit-graph': ['mutate_graph'],
   'generate-proposal': ['present_review_set', 'request_review'],
 };

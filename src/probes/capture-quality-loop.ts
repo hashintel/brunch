@@ -9,19 +9,24 @@ const PROBE_ID = 'capture-quality' as const;
 
 type CaptureFactKind = 'goal' | 'context' | 'constraint' | 'criterion' | 'requirement' | 'assumption';
 type CaptureRecommendation = 'graduate' | 'narrow' | 'keep_parked';
+export type CaptureQualityExpectedOutcome =
+  | 'commit_explicit'
+  | 'commit_implicit'
+  | 'spawn_gap'
+  | 'reconciliation_need';
 
 interface CaptureQualityExpectedFact {
   readonly id: string;
   readonly kind: CaptureFactKind;
   readonly title: string;
-  readonly shouldCommit: boolean;
+  readonly expectedOutcome: CaptureQualityExpectedOutcome;
   readonly rationale: string;
 }
 
 export interface CaptureQualityScenario {
   readonly id: string;
   readonly label: string;
-  readonly category: 'free_prose' | 'file_ref' | 'implication_heavy';
+  readonly category: 'free_prose' | 'file_ref' | 'implication_heavy' | 'contradiction';
   readonly input: string;
   readonly expectedFacts: readonly CaptureQualityExpectedFact[];
 }
@@ -30,7 +35,7 @@ interface CaptureQualityExtractedFact {
   readonly expectedId?: string;
   readonly kind: CaptureFactKind;
   readonly title: string;
-  readonly confidence: 'high' | 'low';
+  readonly expectedOutcome: CaptureQualityExpectedOutcome;
   readonly evidence: string;
 }
 
@@ -43,12 +48,13 @@ interface CaptureQualityScenarioResult {
   readonly scenarioId: string;
   readonly label: string;
   readonly category: CaptureQualityScenario['category'];
-  readonly shouldCommitCount: number;
-  readonly truePositiveCount: number;
-  readonly missedShouldCommit: readonly CaptureQualityExpectedFact[];
+  readonly expectedOutcomeCount: number;
+  readonly correctOutcomeCount: number;
+  readonly missedOutcomes: readonly CaptureQualityExpectedFact[];
   readonly falseCommitCount: number;
   readonly falseCommits: readonly CaptureQualityExtractedFact[];
-  readonly lowConfidenceImplicationCount: number;
+  readonly spawnGapCount: number;
+  readonly reconciliationNeedCount: number;
   readonly extractedFacts: readonly CaptureQualityExtractedFact[];
 }
 
@@ -61,13 +67,13 @@ export interface CaptureQualityReport {
   readonly extractorName: string;
   readonly scenarioCount: number;
   readonly totals: {
-    readonly shouldCommitCount: number;
-    readonly truePositiveCount: number;
-    readonly missedShouldCommitCount: number;
+    readonly expectedOutcomeCount: number;
+    readonly correctOutcomeCount: number;
+    readonly missedOutcomeCount: number;
     readonly falseCommitCount: number;
-    readonly lowConfidenceImplicationCount: number;
-    readonly precision: number;
-    readonly recall: number;
+    readonly spawnGapCount: number;
+    readonly reconciliationNeedCount: number;
+    readonly routingAccuracy: number;
   };
   readonly scenarioResults: readonly CaptureQualityScenarioResult[];
   readonly verdict: {
@@ -98,21 +104,21 @@ export const CAPTURE_QUALITY_SCENARIOS: readonly CaptureQualityScenario[] = [
         id: 'workspace-for-solo-developers',
         kind: 'context',
         title: 'The product is for solo developers working in a local spec workspace.',
-        shouldCommit: true,
+        expectedOutcome: 'commit_explicit',
         rationale: 'Direct statement of audience and workspace setting.',
       },
       {
         id: 'capture-goals-without-template',
         kind: 'goal',
         title: 'Capture project goals without forcing a rigid template.',
-        shouldCommit: true,
+        expectedOutcome: 'commit_explicit',
         rationale: 'Directly stated useful outcome.',
       },
       {
         id: 'new-contributor-explains-problem',
         kind: 'criterion',
         title: 'A new contributor can read the graph and explain the problem solved.',
-        shouldCommit: true,
+        expectedOutcome: 'commit_explicit',
         rationale: 'Explicit success criterion.',
       },
     ],
@@ -128,28 +134,28 @@ export const CAPTURE_QUALITY_SCENARIOS: readonly CaptureQualityScenario[] = [
         id: 'prd-is-product-frame',
         kind: 'context',
         title: 'docs/architecture/prd.md is the product frame for this answer.',
-        shouldCommit: true,
+        expectedOutcome: 'commit_explicit',
         rationale: 'Direct source/reference grounding.',
       },
       {
         id: 'graph-truth-sqlite-brunch',
         kind: 'constraint',
         title: 'Graph truth must stay in SQLite under .brunch.',
-        shouldCommit: true,
+        expectedOutcome: 'commit_explicit',
         rationale: 'Directly labeled as non-negotiable.',
       },
       {
         id: 'jsonl-ok-if-replay-recovers-exchanges',
         kind: 'criterion',
         title: 'JSONL transcript evidence is acceptable only if replay recovers structured exchange results.',
-        shouldCommit: true,
-        rationale: 'Explicit conditional acceptance criterion.',
+        expectedOutcome: 'commit_implicit',
+        rationale: 'Confidently materialized acceptance criterion from the stated condition.',
       },
       {
         id: 'must-build-full-replay-engine-now',
         kind: 'requirement',
         title: 'Build a full replay engine immediately.',
-        shouldCommit: false,
+        expectedOutcome: 'spawn_gap',
         rationale: 'This is an implication beyond the stated condition.',
       },
     ],
@@ -165,22 +171,39 @@ export const CAPTURE_QUALITY_SCENARIOS: readonly CaptureQualityScenario[] = [
         id: 'terminal-demo-preference-conditional',
         kind: 'assumption',
         title: 'The user may prefer the terminal view if the browser observer is confusing.',
-        shouldCommit: false,
+        expectedOutcome: 'spawn_gap',
         rationale: 'Conditional preference, not settled graph truth.',
       },
       {
         id: 'web-helpful-if-fast',
         kind: 'criterion',
         title: 'The web graph is helpful only if it keeps up quickly enough.',
-        shouldCommit: true,
-        rationale: 'Clear acceptance condition for web observer usefulness.',
+        expectedOutcome: 'commit_implicit',
+        rationale: 'Confidently materialized acceptance condition for web observer usefulness.',
       },
       {
         id: 'review-sets-in-poc',
         kind: 'requirement',
         title: 'Review sets belong in the POC story.',
-        shouldCommit: false,
+        expectedOutcome: 'spawn_gap',
         rationale: 'Explicitly undecided; should stay out of graph truth.',
+      },
+    ],
+  },
+  {
+    id: 'contradiction-readonly-observer',
+    label: 'Contradiction against existing graph truth',
+    category: 'contradiction',
+    input:
+      'Actually, the web observer should be allowed to mutate graph truth directly, even though the current selected spec says observers are read-only.',
+    expectedFacts: [
+      {
+        id: 'observer-readonly-conflict',
+        kind: 'constraint',
+        title: 'The web observer may mutate graph truth while remaining read-only.',
+        expectedOutcome: 'reconciliation_need',
+        rationale:
+          'Contradicts existing graph truth and must create a semantic-conflict reconciliation need.',
       },
     ],
   },
@@ -235,25 +258,25 @@ export function summarizeCaptureQualityRun(input: {
   );
   const totals = scenarioResults.reduce(
     (acc, result) => ({
-      shouldCommitCount: acc.shouldCommitCount + result.shouldCommitCount,
-      truePositiveCount: acc.truePositiveCount + result.truePositiveCount,
-      missedShouldCommitCount: acc.missedShouldCommitCount + result.missedShouldCommit.length,
+      expectedOutcomeCount: acc.expectedOutcomeCount + result.expectedOutcomeCount,
+      correctOutcomeCount: acc.correctOutcomeCount + result.correctOutcomeCount,
+      missedOutcomeCount: acc.missedOutcomeCount + result.missedOutcomes.length,
       falseCommitCount: acc.falseCommitCount + result.falseCommitCount,
-      lowConfidenceImplicationCount: acc.lowConfidenceImplicationCount + result.lowConfidenceImplicationCount,
+      spawnGapCount: acc.spawnGapCount + result.spawnGapCount,
+      reconciliationNeedCount: acc.reconciliationNeedCount + result.reconciliationNeedCount,
     }),
     {
-      shouldCommitCount: 0,
-      truePositiveCount: 0,
-      missedShouldCommitCount: 0,
+      expectedOutcomeCount: 0,
+      correctOutcomeCount: 0,
+      missedOutcomeCount: 0,
       falseCommitCount: 0,
-      lowConfidenceImplicationCount: 0,
+      spawnGapCount: 0,
+      reconciliationNeedCount: 0,
     },
   );
-  const precisionDenominator = totals.truePositiveCount + totals.falseCommitCount;
-  const precision = precisionDenominator === 0 ? 0 : round(totals.truePositiveCount / precisionDenominator);
-  const recall =
-    totals.shouldCommitCount === 0 ? 0 : round(totals.truePositiveCount / totals.shouldCommitCount);
-  const verdict = verdictFor({ ...totals, precision, recall });
+  const routingAccuracy =
+    totals.expectedOutcomeCount === 0 ? 0 : round(totals.correctOutcomeCount / totals.expectedOutcomeCount);
+  const verdict = verdictFor({ ...totals, routingAccuracy });
 
   return {
     schemaVersion: 1,
@@ -263,7 +286,7 @@ export function summarizeCaptureQualityRun(input: {
     cwd: input.cwd,
     extractorName: input.extractorName,
     scenarioCount: input.scenarios.length,
-    totals: { ...totals, precision, recall },
+    totals: { ...totals, routingAccuracy },
     scenarioResults,
     verdict,
   };
@@ -309,34 +332,32 @@ function summarizeScenario(
   extractedFacts: readonly CaptureQualityExtractedFact[],
 ): CaptureQualityScenarioResult {
   const expectedById = new Map(scenario.expectedFacts.map((fact) => [fact.id, fact]));
-  const highConfidence = extractedFacts.filter((fact) => fact.confidence === 'high');
-  const truePositiveIds = new Set(
-    highConfidence.flatMap((fact) => {
+  const correctOutcomeIds = new Set(
+    extractedFacts.flatMap((fact) => {
       const expected = fact.expectedId === undefined ? undefined : expectedById.get(fact.expectedId);
-      return expected?.shouldCommit === true ? [expected.id] : [];
+      return expected?.expectedOutcome === fact.expectedOutcome ? [expected.id] : [];
     }),
   );
-  const falseCommits = highConfidence.filter((fact) => {
+  const falseCommits = extractedFacts.filter((fact) => {
+    if (!isCommitOutcome(fact.expectedOutcome)) return false;
     if (fact.expectedId === undefined) return true;
-    return expectedById.get(fact.expectedId)?.shouldCommit !== true;
+    const expected = expectedById.get(fact.expectedId);
+    return expected === undefined || !isCommitOutcome(expected.expectedOutcome);
   });
-  const shouldCommitFacts = scenario.expectedFacts.filter((fact) => fact.shouldCommit);
-  const missedShouldCommit = shouldCommitFacts.filter((fact) => !truePositiveIds.has(fact.id));
-  const lowConfidenceImplicationCount = extractedFacts.filter((fact) => {
-    if (fact.confidence !== 'low' || fact.expectedId === undefined) return false;
-    return expectedById.get(fact.expectedId)?.shouldCommit === false;
-  }).length;
+  const missedOutcomes = scenario.expectedFacts.filter((fact) => !correctOutcomeIds.has(fact.id));
 
   return {
     scenarioId: scenario.id,
     label: scenario.label,
     category: scenario.category,
-    shouldCommitCount: shouldCommitFacts.length,
-    truePositiveCount: truePositiveIds.size,
-    missedShouldCommit,
+    expectedOutcomeCount: scenario.expectedFacts.length,
+    correctOutcomeCount: correctOutcomeIds.size,
+    missedOutcomes,
     falseCommitCount: falseCommits.length,
     falseCommits,
-    lowConfidenceImplicationCount,
+    spawnGapCount: extractedFacts.filter((fact) => fact.expectedOutcome === 'spawn_gap').length,
+    reconciliationNeedCount: extractedFacts.filter((fact) => fact.expectedOutcome === 'reconciliation_need')
+      .length,
     extractedFacts,
   };
 }
@@ -344,26 +365,32 @@ function summarizeScenario(
 function verdictFor(totals: CaptureQualityReport['totals']): CaptureQualityReport['verdict'] {
   if (totals.falseCommitCount > 0) {
     return {
-      a22ConfidenceShift: 'negative: the measured extractor made at least one high-confidence false commit',
+      a22ConfidenceShift:
+        'negative: the measured extractor routed at least one gap or reconciliation item as graph truth',
       recommendation: 'keep_parked',
       summary:
-        'Do not graduate generalized capture until the extraction prompt/model can keep undecided implications out of high-confidence graph truth.',
+        'Do not graduate generalized capture until the extraction prompt/model can keep undecided or contradictory material out of graph truth.',
     };
   }
-  if (totals.recall < 0.8) {
+  if (totals.routingAccuracy < 0.8) {
     return {
-      a22ConfidenceShift: 'mixed: precision held, but recall missed too many directly stated facts',
+      a22ConfidenceShift: 'mixed: gradient-routing accuracy missed too many expected outcomes',
       recommendation: 'narrow',
       summary:
-        'Generalized capture can be narrowed to high-confidence directly extractive facts, but should not broaden until recall improves.',
+        'Generalized capture can be narrowed to high-confidence extractive facts, but should not broaden until gradient-routing accuracy improves.',
     };
   }
   return {
-    a22ConfidenceShift: 'positive: high-confidence capture separated commit-worthy facts from implications',
+    a22ConfidenceShift:
+      'positive: capture separated explicit commits, implicit commits, gaps, and reconciliation needs',
     recommendation: 'graduate',
     summary:
       'A22-L is fit to graduate into a narrow generalized-capture frontier, preserving an explicit false-commit guard.',
   };
+}
+
+function isCommitOutcome(outcome: CaptureQualityExpectedOutcome): boolean {
+  return outcome === 'commit_explicit' || outcome === 'commit_implicit';
 }
 
 async function readScenarioExtractions(path: string): Promise<CaptureQualityScenarioExtraction[]> {
@@ -371,7 +398,7 @@ async function readScenarioExtractions(path: string): Promise<CaptureQualityScen
 }
 
 function verdictMarkdown(report: CaptureQualityReport): string {
-  return `# Capture-quality verdict\n\n- A22-L confidence shift: ${report.verdict.a22ConfidenceShift}\n- Recommendation: ${report.verdict.recommendation}\n- Precision: ${report.totals.precision}\n- Recall: ${report.totals.recall}\n- False commits: ${report.totals.falseCommitCount}\n\n${report.verdict.summary}\n`;
+  return `# Capture-quality verdict\n\n- A22-L confidence shift: ${report.verdict.a22ConfidenceShift}\n- Recommendation: ${report.verdict.recommendation}\n- Routing accuracy: ${report.totals.routingAccuracy}\n- False commits: ${report.totals.falseCommitCount}\n- Gap spawns: ${report.totals.spawnGapCount}\n- Reconciliation needs: ${report.totals.reconciliationNeedCount}\n\n${report.verdict.summary}\n`;
 }
 
 function round(value: number): number {

@@ -27,6 +27,7 @@ extensions/
 ├── elicitation/             read_elicitation_gaps/update_elicitation_gaps Pi tools over the gap register
 ├── exchanges/               structured-exchange present_* / request_* Pi tools
 ├── graph/                   mutate_graph/read_graph Pi tools + selected-spec graph read seam
+├── reconciliation/          read_reconciliation_needs/update_reconciliation_needs Pi tools over the recon-need register
 ├── introspection/           dev-gated read-only provider-payload tap + /introspect command
 ├── introspect-query/        dev-gated read-only brunch_introspect_query tool over captured payloads
 ├── session-query/           dev-gated read-only brunch_session_query tool over current branch

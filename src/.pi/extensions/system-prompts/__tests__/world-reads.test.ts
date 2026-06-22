@@ -32,6 +32,7 @@ function trackingReaders(
       counts.getElicitationGaps += 1;
       return [];
     },
+    getOpenReconciliationNeeds: () => [],
     latestLsn: () => {
       currentLsn = lsnSequence[Math.min(call, lsnSequence.length - 1)] ?? 0;
       counts.latestLsn += 1;

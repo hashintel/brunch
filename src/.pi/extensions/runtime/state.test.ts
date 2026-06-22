@@ -24,6 +24,10 @@ const registeredToolNames = [
   'request_review',
   'read_graph',
   'read_session_context',
+  'read_elicitation_gaps',
+  'update_elicitation_gaps',
+  'read_reconciliation_needs',
+  'update_reconciliation_needs',
   'mutate_graph',
 ];
 
@@ -52,6 +56,10 @@ describe('agent posture policy', () => {
     expect(floorTools).not.toContain('request_review');
     expect(floorTools).toContain('read_graph');
     expect(floorTools).toContain('read_session_context');
+    expect(floorTools).toContain('read_elicitation_gaps');
+    expect(floorTools).toContain('update_elicitation_gaps');
+    expect(floorTools).toContain('read_reconciliation_needs');
+    expect(floorTools).toContain('update_reconciliation_needs');
     expect(floorTools).not.toContain('bash');
     expect(floorTools).toEqual(
       expect.arrayContaining(['present_question', 'present_options', 'request_answer']),

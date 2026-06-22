@@ -524,7 +524,7 @@ notes:
 
 ## 2026-06-19 Sync archive
 
-PLAN footprint reduction + frontier restructuring (`ln-sync` + `ln-plan`). Archived three done frontiers, demoted two standing obligations out of the frontier list, and folded three genuine small residues into a new `alpha-hardening` collection frontier (kept live in PLAN). `poc-live-ship-gate`, `web-driver-streaming`, `generalized-capture`, `renderer-golden-coverage`, and `demo-polish` stay their own live frontiers.
+PLAN footprint reduction + frontier restructuring (`ln-sync` + `ln-plan`). Archived three done frontiers, demoted two standing obligations out of the frontier list, and folded three genuine small residues into a new `alpha-hardening` collection frontier — which itself closed as FE-897 on 2026-06-19 (def archived below). `poc-live-ship-gate`, `web-driver-streaming`, `generalized-capture`, `renderer-golden-coverage`, and `demo-polish` stay their own live frontiers.
 
 ### Completed frontier definitions
 
@@ -548,6 +548,10 @@ DX follow-on to `dx-feedback-loops`: hardened the four-role `.fixtures/` topolog
 #### origination-follow-ups (FE-852 residue) — DONE (2026-06-12)
 
 Alpha-week observability repair: `completeAssistantKick` owns kick fired/skipped/failed classification, TUI launch no longer buries failures in `console.error`, `BRUNCH_DEV` mirrors origination decision/outcome records to `.brunch/debug/origination.md`, tier-2 boot assertions cover new-session fired / resume-debt fired / no-debt idle / explicit-freestyle idle / no-model skipped, and `kickTurnMessage` has a D78-L wording lock. The RPC `triggerExchange` site stays intentionally seed-only (no live AgentSession in that transport). Optional-only follow-up: widen the `.brunch/debug/entry-contents.md` mirror to pi-side appends (`brunch.kick`) if later requested; the TUI pending-action indicator is `demo-polish` presentation work.
+
+#### alpha-hardening (FE-897) — DONE (2026-06-19)
+
+Alpha-week loose-ends collection: three small residues from completed frontiers, each landing as its own commit on `ln/fe-897-alpha-hardening-residues`. (1) **dev-seed-fixtures residue (FE-848):** explicit `--all-seeds` workbench opt-in (no ambient all-seeds default) + the captured-seed disposition catalog (`brunch-self`, `dumpchat`, `fable`, `rd-loop`, `yamlbase`, + Bilal/coverage sets → `test` / `preview` / `manual workbench` / `probe input` / `parked`). (2) **runtime-vocab-leaf:** `src/session/schema/kinds.ts` established as the drizzle-free, pi-free source-of-truth leaf for the runtime axes (`op_mode`, `strategy`, `lens`, `auto` sentinel; `goal` dropped by D85-L), mirroring `graph/schema/kinds.ts` (D73-L); consumers import from it, the leaf imports nothing, no `READINESS_GRADES` recreated; D73-L SPEC text updated to name the session leaf. (3) **FE-893 deferred prompt-shape:** the four open questions closed by canonical-README decision without reshaping files — `SKILL.md + references/` deferred until a skill needs sub-references; `.pi/agents/<agent>/SYSTEM.md` adopted for live + named future bodies; `[sub]` notation deferred until a real delegated sub-agent; `_generated/` typed-vocab refs deferred until a concrete stale-member need (D85-L SPEC paragraph reconciled). Source residue defs (dev-seed-fixtures, runtime-vocab-leaf) retained in full below. Traceability: D39-L, D58-L, D59-L, D73-L, D79-L, D85-L / I1-L, I25-L, I38-L, I48-L.
 
 ### Demoted to cross-cutting obligations (no longer standalone frontiers)
 

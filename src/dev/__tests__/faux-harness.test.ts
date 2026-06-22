@@ -127,6 +127,7 @@ describe('createBrunchFauxHarness', () => {
                     disposition: 'answered' as const,
                     createdAtLsn: 1,
                   })),
+                getOpenReconciliationNeeds: () => [],
                 latestLsn: () => 1,
               },
             }),

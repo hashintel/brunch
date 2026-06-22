@@ -18,13 +18,14 @@ chain capture-then-ask:
 
 Walk the un-swept material once by readiness band and likely node kind. Conversational answers, ordinary user text, and acquisition digests are all sweep inputs. Large raw reads or tool results should be digested first; capture from the digest plus the conversation, not from unbounded raw bulk.
 
-Use the graph and gap tools as the mutation boundary:
+Use the graph, gap, and reconciliation tools as the mutation boundary:
 
 | Capture outcome | Tool | Boundary rule |
 | --- | --- | --- |
 | Graph truth | `mutate_graph` | one selected-spec graph mutation through the role-named grammar |
 | New agenda | `update_elicitation_gaps` `spawn` | one gap write; question/rationale only, not domain truth |
 | Manual gap disposition | `update_elicitation_gaps` `set_disposition` | one disposition write on the graph clock |
+| Contradiction with existing graph truth | `update_reconciliation_needs` `create` | one reconciliation need; records the impasse, never overwrites the conflicting node |
 
 Do not invent graph payload fields, LSNs, result shapes, or capture-local edge syntax. Relation-bearing capture uses `mutate_graph` role fields such as `dependency/dependent`, `support/claim`, `abstract/concrete`, `boundary/subject`, and sibling category roles.
 
@@ -37,8 +38,9 @@ Confidence controls commitment. Directness alone does not.
 | directly stated by the user | commit graph truth | `explicit` |
 | confidently materialized from stated content, including safe implied edges or structure | commit graph truth | `implicit` |
 | a low-confidence noticing, suspicion, possible implication, or missing piece | never commit; map to an elicitation gap | gap `basis: implicit` |
+| a contradiction with existing graph truth | never commit or spawn a gap; create a reconciliation need | `semantic_conflict` over the conflicting `node_pair` |
 
-Low-confidence material must not become graph truth. Its durable form is an `elicitation_gap`: a question plus rationale that names the node kind it would help establish.
+Low-confidence material must not become graph truth. Its durable form is an `elicitation_gap`: a question plus rationale that names the node kind it would help establish. A contradiction is different: it is not missing prospective coverage, but a retrospective impasse over existing graph truth. Record it as a `reconciliation_need` so repair stays distinct from the elicitation agenda.
 
 ```pseudo
 data-shape low-confidence-noticing:
@@ -83,5 +85,6 @@ If either endpoint is low-confidence, do not create the edge. Spawn or reuse a g
 - Do not run a product-side extraction pass or revive submit-time labeled-prefix capture.
 - Do not create observer/auditor queues as the primary capture path.
 - Do not store low-confidence domain content inside gaps as if it were truth.
-- Do not create a second mutation clock; graph mutations and gap writes share the selected spec's `{specId, lsn}` change log.
+- Do not file contradictions as elicitation gaps; use reconciliation needs for retrospective impasses.
+- Do not create a second mutation clock; graph mutations, gap writes, and reconciliation-need writes share the selected spec's `{specId, lsn}` change log.
 - Do not use capture-local `{category, source, target}` edge dialects; use the canonical role-named `mutate_graph` grammar.

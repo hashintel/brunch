@@ -2,12 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import { registerBrunchElicitation } from '../../.pi/extensions/elicitation/index.js';
 import { registerBrunchGraph } from '../../.pi/extensions/graph/index.js';
+import { registerBrunchReconciliation } from '../../.pi/extensions/reconciliation/index.js';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import { changeLog } from '../../db/schema.js';
+import {
+  CAPTURE_QUALITY_SCENARIOS,
+  type CaptureQualityExpectedOutcome,
+} from '../../probes/capture-quality-loop.js';
 import { CommandExecutor } from '../command-executor.js';
 import {
   getElicitationGaps,
   getNodes,
+  getOpenReconciliationNeeds,
   latestGraphLsn,
   queryGraph,
   resolveGraphNodeCode,
@@ -36,16 +42,19 @@ function registerCaptureTools(db: BrunchDb, specId: number, commandExecutor: Com
       getNodes(db, specId, selectors, options),
     resolveNodeCode: (code: string) => resolveGraphNodeCode(db, specId, code),
     getElicitationGaps: () => getElicitationGaps(db, specId),
+    getOpenReconciliationNeeds: () => getOpenReconciliationNeeds(db, specId),
     latestLsn: () => latestGraphLsn(db, specId),
   };
 
   registerBrunchGraph(pi as never, { specId, commandExecutor, reads });
   registerBrunchElicitation(pi as never, { specId, commandExecutor, reads });
+  registerBrunchReconciliation(pi as never, { specId, commandExecutor, reads });
 
   const byName = new Map(tools.map((tool) => [tool.name, tool]));
   return {
     mutateGraph: byName.get('mutate_graph')!,
     updateGaps: byName.get('update_elicitation_gaps')!,
+    updateReconciliationNeeds: byName.get('update_reconciliation_needs')!,
   };
 }
 
@@ -137,7 +146,121 @@ async function routeLowConfidenceNoticing(options: {
   return String(spawn.details.id);
 }
 
+async function routeScenarioMatrixFact(options: {
+  readonly db: BrunchDb;
+  readonly specId: number;
+  readonly commandExecutor: CommandExecutor;
+  readonly tools: ReturnType<typeof registerCaptureTools>;
+  readonly ref: string;
+  readonly kind: NodeKind;
+  readonly title: string;
+  readonly expectedOutcome: CaptureQualityExpectedOutcome;
+  readonly rationale: string;
+}) {
+  if (options.expectedOutcome === 'spawn_gap') {
+    const beforeNodes = queryGraph(options.db, options.specId, {}, { visibility: 'all' }).nodes.length;
+    await routeLowConfidenceNoticing({
+      tools: options.tools,
+      existingGaps: () => getElicitationGaps(options.db, options.specId),
+      nodeKind: options.kind,
+      question: `Should capture commit this noticing: ${options.title}?`,
+      rationale: options.rationale,
+    });
+    expect(queryGraph(options.db, options.specId, {}, { visibility: 'all' }).nodes).toHaveLength(beforeNodes);
+    return;
+  }
+
+  if (options.expectedOutcome === 'reconciliation_need') {
+    const first = options.commandExecutor.createNode({
+      specId: options.specId,
+      plane: 'intent',
+      kind: 'constraint',
+      title: 'The web observer must remain read-only',
+      basis: 'explicit',
+    });
+    const second = options.commandExecutor.createNode({
+      specId: options.specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'The web observer may mutate graph truth',
+      basis: 'explicit',
+    });
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
+    if (first.status !== 'success' || second.status !== 'success') throw new Error('unreachable');
+    const gapIds = getElicitationGaps(options.db, options.specId).map((gap) => gap.id);
+
+    const result = (await options.tools.updateReconciliationNeeds.execute(`recon-${options.ref}`, {
+      action: 'create',
+      needKind: 'semantic_conflict',
+      target: { kind: 'node_pair', aId: first.nodeId, bId: second.nodeId },
+      reason: options.rationale,
+    } as never)) as { details: { status: string } };
+
+    expect(result.details.status).toBe('success');
+    expect(getOpenReconciliationNeeds(options.db, options.specId)).toEqual([
+      expect.objectContaining({ kind: 'semantic_conflict' }),
+    ]);
+    expect(getElicitationGaps(options.db, options.specId).map((gap) => gap.id)).toEqual(gapIds);
+    return;
+  }
+
+  const createBasis = options.expectedOutcome === 'commit_explicit' ? 'explicit' : 'implicit';
+  const result = (await options.tools.mutateGraph.execute(`commit-${options.ref}`, {
+    createBasis,
+    ops: [
+      {
+        op: 'create_node',
+        ref: options.ref,
+        plane: 'intent',
+        kind: options.kind,
+        title: options.title,
+      },
+    ],
+  } as never)) as { details: { status: string } };
+
+  expect(result.details.status).toBe('success');
+  expect(queryGraph(options.db, options.specId, {}, { visibility: 'all' }).nodes).toEqual(
+    expect.arrayContaining([expect.objectContaining({ title: options.title, basis: createBasis })]),
+  );
+}
+
 describe('capture commitment-gradient routing gate', () => {
+  it('routes every closed capture-quality scenario class through the commitment gradient', async () => {
+    const seenCategories = new Set<string>();
+
+    for (const scenario of CAPTURE_QUALITY_SCENARIOS) {
+      const db = createTestDb();
+      const commandExecutor = new CommandExecutor(db);
+      const created = commandExecutor.createSpec({ name: scenario.label, slug: scenario.id });
+      expect(created.status).toBe('success');
+      if (created.status !== 'success') throw new Error('unreachable');
+      const tools = registerCaptureTools(db, created.specId, commandExecutor);
+      seenCategories.add(scenario.category);
+
+      for (const [index, fact] of scenario.expectedFacts.entries()) {
+        await routeScenarioMatrixFact({
+          db,
+          specId: created.specId,
+          commandExecutor,
+          tools,
+          ref: `${fact.kind}-${index}`,
+          kind: fact.kind,
+          title: fact.title,
+          expectedOutcome: fact.expectedOutcome,
+          rationale: fact.rationale,
+        });
+      }
+    }
+
+    expect([...seenCategories].sort()).toEqual([
+      'contradiction',
+      'file_ref',
+      'free_prose',
+      'implication_heavy',
+    ]);
+  });
+
   it('routes fixed high-confidence items to graph truth and low-confidence noticings to exactly one existing-or-new gap', async () => {
     const db = createTestDb();
     const commandExecutor = new CommandExecutor(db);
@@ -182,6 +305,57 @@ describe('capture commitment-gradient routing gate', () => {
 
     const contextGap = gaps.find((gap) => gap.refersTo === 'context')!;
     expect(contextGap).toMatchObject({ answered: true, disposition: 'answered', coverage: 1 });
+  });
+
+  it('routes a fixed contradiction-tagged item to a semantic-conflict reconciliation need, not graph truth or an elicitation gap', async () => {
+    const db = createTestDb();
+    const commandExecutor = new CommandExecutor(db);
+    const created = commandExecutor.createSpec({ name: 'Contradiction Spec', slug: 'contradiction' });
+    expect(created.status).toBe('success');
+    if (created.status !== 'success') throw new Error('unreachable');
+    const tools = registerCaptureTools(db, created.specId, commandExecutor);
+
+    const first = commandExecutor.createNode({
+      specId: created.specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'The web observer may mutate graph truth',
+      basis: 'explicit',
+    });
+    const second = commandExecutor.createNode({
+      specId: created.specId,
+      plane: 'intent',
+      kind: 'constraint',
+      title: 'The web observer must remain read-only',
+      basis: 'explicit',
+    });
+    expect(first.status).toBe('success');
+    expect(second.status).toBe('success');
+    if (first.status !== 'success' || second.status !== 'success') throw new Error('unreachable');
+
+    const beforeLsn = latestGraphLsn(db, created.specId);
+    const beforeGapIds = getElicitationGaps(db, created.specId).map((gap) => gap.id);
+    const contradiction = (await tools.updateReconciliationNeeds.execute('contradiction', {
+      action: 'create',
+      needKind: 'semantic_conflict',
+      target: { kind: 'node_pair', aId: first.nodeId, bId: second.nodeId },
+      reason: 'The latest answer conflicts with existing selected-spec graph truth.',
+    } as never)) as { details: { status: string; lsn: number } };
+
+    expect(contradiction.details).toMatchObject({ status: 'success', lsn: beforeLsn + 1 });
+    expect(getOpenReconciliationNeeds(db, created.specId)).toEqual([
+      expect.objectContaining({
+        kind: 'semantic_conflict',
+        target: { kind: 'node_pair', aId: first.nodeId, bId: second.nodeId },
+      }),
+    ]);
+    expect(getElicitationGaps(db, created.specId).map((gap) => gap.id)).toEqual(beforeGapIds);
+    expect(queryGraph(db, created.specId, {}, { visibility: 'all' }).nodes.map((node) => node.title)).toEqual(
+      expect.arrayContaining([
+        'The web observer may mutate graph truth',
+        'The web observer must remain read-only',
+      ]),
+    );
   });
 
   it('closes manual gaps on the graph clock and rejects structurally illegal capture batches loudly', async () => {
