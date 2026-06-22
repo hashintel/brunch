@@ -4,8 +4,6 @@ import { useState } from 'react';
 
 import { ChatShellLayout } from '@/client/components/chat-shell-layout';
 import { KnowledgeGraphIdentity } from '@/client/components/knowledge-graph-identity';
-import { SpatialGraph } from '@/views/graph/SpatialGraph.js';
-import { GRAPH_VIEW_PARAM, parseViewMode, ViewToggle } from '@/views/graph/ViewToggle.js';
 import type { WorkflowState } from '@/shared/api-types.js';
 import type { WorkflowPhase } from '@/shared/phase-close.js';
 import {
@@ -14,6 +12,8 @@ import {
   getPhaseRoutePath,
   getWorkflowPhaseLabel,
 } from '@/shared/phase-descriptors.js';
+import { GraphCanvas } from '@/views/graph/GraphCanvas.js';
+import { GRAPH_VIEW_PARAM, parseViewMode, ViewToggle } from '@/views/graph/ViewToggle.js';
 
 import {
   primeSpecificationEntitiesProjectWide,
@@ -126,7 +126,7 @@ function GraphRouteComponent() {
 
   const activeView =
     view === 'graph' ? (
-      <SpatialGraph entityState={entityState} />
+      <GraphCanvas entityState={entityState} />
     ) : (
       <StructuredListView
         entityState={entityState}

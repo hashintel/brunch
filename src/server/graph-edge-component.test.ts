@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
 
-import { createElement as h } from 'react';
-
 import { cleanup, render } from '@testing-library/react';
+import { createElement as h } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { kindAccentHex } from '@/client/components/knowledge-card';
@@ -30,16 +29,13 @@ const target = { x: 120, y: 60 };
  * Render a GraphEdge inside an <svg> host (edges are SVG content) and return
  * the container plus the edge's root element (marked with data-graph-edge).
  */
-function renderEdge(
-  props: {
-    relationship: GraphEdgeRelationship;
-    selected?: boolean;
-    dimmed?: boolean;
-  },
-): { container: HTMLElement; root: Element } {
-  const { container } = render(
-    h('svg', null, h(GraphEdge, { source, target, ...props })),
-  );
+function renderEdge(props: {
+  relationship: GraphEdgeRelationship;
+  selected?: boolean;
+  dimmed?: boolean;
+  labelsShown?: boolean;
+}): { container: HTMLElement; root: Element } {
+  const { container } = render(h('svg', null, h(GraphEdge, { source, target, ...props })));
   const root = container.querySelector('[data-graph-edge]');
   if (root === null) {
     throw new Error('GraphEdge did not render an element marked with data-graph-edge');
@@ -49,7 +45,10 @@ function renderEdge(
 
 /** Normalize a human label back toward its relationship key for comparison. */
 function toKey(text: string): string {
-  return text.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
 }
 
 describe('GraphEdge', () => {
@@ -160,6 +159,35 @@ describe('GraphEdge', () => {
     const { container, root } = renderEdge({ relationship: 'depends_on' });
     expect(root.getAttribute('data-selected')).toBe('false');
     expect(root.getAttribute('data-dimmed')).toBe('false');
+    expect(container.querySelector('[data-edge-label]')).toBeNull();
+  });
+});
+
+describe('GraphEdge — global labelsShown toggle', () => {
+  it('reveals the relationship label when labelsShown is on, even if unselected', () => {
+    const { container } = renderEdge({ relationship: 'depends_on', labelsShown: true });
+    const label = container.querySelector('[data-edge-label]');
+    expect(label).not.toBeNull();
+    expect(toKey(label?.textContent ?? '')).toContain('depends_on');
+  });
+
+  it('reveals a label for every relationship type when labelsShown is on', () => {
+    for (const relationship of allRelationships) {
+      const { container } = renderEdge({ relationship, labelsShown: true });
+      const label = container.querySelector('[data-edge-label]');
+      expect(label, `expected a visible label for ${relationship}`).not.toBeNull();
+      expect(toKey(label?.textContent ?? '')).toContain(relationship);
+      cleanup();
+    }
+  });
+
+  it('keeps the label visible when labelsShown is on and the edge is also selected', () => {
+    const { container } = renderEdge({ relationship: 'verifies', labelsShown: true, selected: true });
+    expect(container.querySelector('[data-edge-label]')).not.toBeNull();
+  });
+
+  it('falls back to hidden when labelsShown is off and the edge is unselected', () => {
+    const { container } = renderEdge({ relationship: 'derived_from', labelsShown: false });
     expect(container.querySelector('[data-edge-label]')).toBeNull();
   });
 });

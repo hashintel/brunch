@@ -18,12 +18,7 @@ export type GraphNodeKind =
   | 'assumption';
 
 /** The relationship type a graph edge represents. */
-export type GraphEdgeRelationship =
-  | 'depends_on'
-  | 'derived_from'
-  | 'constrains'
-  | 'verifies'
-  | 'refines';
+export type GraphEdgeRelationship = 'depends_on' | 'derived_from' | 'constrains' | 'verifies' | 'refines';
 
 /** Render data carried by a graph node. */
 export interface GraphNodeData {
@@ -35,6 +30,12 @@ export interface GraphNodeData {
   selected: boolean;
   /** Whether this node is visually de-emphasized. */
   dimmed: boolean;
+  /** Short reference code identifying the knowledge item (e.g. "R3"). */
+  referenceCode: string;
+  /** The knowledge item's content or name. */
+  content: string;
+  /** The rationale behind the knowledge item. */
+  rationale: string;
 }
 
 /** Render data carried by a graph edge. */

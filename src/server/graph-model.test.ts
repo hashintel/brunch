@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EntitiesData } from '@/shared/api-types.js';
 import {
   activePathDivergence,
   crossPhaseDecisionLink,
@@ -8,9 +7,9 @@ import {
   emptySpec,
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
-import type { GraphEdgeRelationship, GraphNodeKind } from '@/views/graph/types.js';
-
+import type { EntitiesData } from '@/shared/api-types.js';
 import { buildGraphModel } from '@/views/graph/buildGraphModel.js';
+import type { GraphEdgeRelationship, GraphNodeKind } from '@/views/graph/types.js';
 
 const SPEC_ID = 1;
 

@@ -1,18 +1,30 @@
+/**
+ * Behavioral contract for the retuned `forceLayout` pass.
+ *
+ * The layout uses CARD-tuned forces: a collision force sized to the single
+ * uniform collapsed card footprint, with link distance / charge retuned so
+ * cards settle WITHOUT OVERLAPPING while preserving the organic,
+ * relationship-clustered feel. Layout still settles synchronously to
+ * convergence before first paint (settle-once: identical positions on repeat,
+ * no animated fly-in).
+ *
+ * These tests pin the observable spatial properties:
+ *   - every card carries a finite, settled position (structural)
+ *   - the layout is deterministic / settle-once
+ *   - connected items cluster, hubs sit centrally, orphans drift outward
+ *     (organic feel is preserved)
+ *   - cards no longer overlap and are separated at CARD scale, not dot scale
+ *     (the collision behavior)
+ *
+ * They are written against the public `forceLayout` surface and the shared
+ * `cardFootprint`, never against the simulation's internal force constants.
+ */
+
 import { describe, expect, it } from 'vitest';
 
-import type { GraphEdgeData, GraphNodeData } from '@/views/graph/types.js';
+import { cardFootprint } from '@/views/graph/cardFootprint';
 import { forceLayout } from '@/views/graph/forceLayout.js';
-
-/**
- * Behavioral contract for the `forceLayout` pass.
- *
- * `forceLayout` takes a graph model (React-Flow-shaped nodes + edges) and runs
- * a d3-force simulation to convergence *synchronously*, returning final node
- * positions. There is no animated fly-in: the positions handed back are the
- * settled layout. These tests pin the observable spatial properties the slice
- * promises — connected items cluster, dense hubs sit centrally, and orphans are
- * pushed to the periphery — plus the structural guarantees React Flow needs.
- */
+import type { GraphEdgeData, GraphNodeData } from '@/views/graph/types.js';
 
 interface LayoutNodeInput {
   id: string;
@@ -37,7 +49,10 @@ interface Point {
 }
 
 function makeNode(id: string, kind: GraphNodeData['kind'] = 'term'): LayoutNodeInput {
-  return { id, data: { kind, degree: 0, selected: false, dimmed: false } };
+  return {
+    id,
+    data: { kind, degree: 0, selected: false, dimmed: false, referenceCode: '', content: '', rationale: '' },
+  };
 }
 
 function makeEdge(
@@ -79,7 +94,18 @@ function positionsById(result: ReadonlyArray<{ id: string; position: Point }>): 
   return map;
 }
 
-describe('forceLayout', () => {
+/** Smallest centre-to-centre distance between any two distinct cards. */
+function minPairwiseDistance(points: Point[]): number {
+  let min = Infinity;
+  for (let i = 0; i < points.length; i++) {
+    for (let j = i + 1; j < points.length; j++) {
+      min = Math.min(min, distance(points[i]!, points[j]!));
+    }
+  }
+  return min;
+}
+
+describe('forceLayout — structural guarantees', () => {
   it('returns a finite position for every node, keyed by id', () => {
     const model: GraphModel = {
       nodes: [makeNode('a'), makeNode('b'), makeNode('c')],
@@ -101,8 +127,7 @@ describe('forceLayout', () => {
     const result = forceLayout({ nodes: [makeNode('solo')], edges: [] });
 
     expect(result).toHaveLength(1);
-    const positions = positionsById(result);
-    expect(positions.has('solo')).toBe(true);
+    expect(positionsById(result).has('solo')).toBe(true);
   });
 
   it('preserves each node’s render data alongside its position', () => {
@@ -111,14 +136,12 @@ describe('forceLayout', () => {
       edges: [makeEdge('req-1', 'goal-1', 'derived_from')],
     };
 
-    const result = forceLayout(model);
-
-    const byId = new Map(result.map((node) => [node.id, node]));
+    const byId = new Map(forceLayout(model).map((node) => [node.id, node]));
     expect((byId.get('goal-1') as { data: GraphNodeData }).data.kind).toBe('goal');
     expect((byId.get('req-1') as { data: GraphNodeData }).data.kind).toBe('requirement');
   });
 
-  it('settles to a stable, converged layout (no fly-in: identical positions on repeat)', () => {
+  it('settles once to a stable, converged layout (identical positions on repeat)', () => {
     const build = (): GraphModel => ({
       nodes: ['a', 'b', 'c', 'd', 'e'].map((id) => makeNode(id)),
       edges: [makeEdge('a', 'b'), makeEdge('b', 'c'), makeEdge('c', 'd'), makeEdge('d', 'e')],
@@ -133,8 +156,70 @@ describe('forceLayout', () => {
       expect(other.y).toBeCloseTo(point.y, 3);
     }
   });
+});
 
-  it('clusters connected items: each node’s nearest neighbor shares its cluster', () => {
+describe('forceLayout — cards settle without overlapping (collision sized to footprint)', () => {
+  it('separates connected cards by at least a card footprint, not dot scale', () => {
+    // A chain of cards: link force pulls neighbours together, but the
+    // footprint-sized collision floor keeps every card at card scale apart.
+    const model: GraphModel = {
+      nodes: ['a', 'b', 'c', 'd', 'e'].map((id) => makeNode(id)),
+      edges: [makeEdge('a', 'b'), makeEdge('b', 'c'), makeEdge('c', 'd'), makeEdge('d', 'e')],
+    };
+
+    const positions = [...positionsById(forceLayout(model)).values()];
+
+    // Dot-tuned layout settled neighbours ~40px apart (smaller than the card).
+    // A footprint-sized collision force must hold them at least a card apart.
+    expect(minPairwiseDistance(positions)).toBeGreaterThanOrEqual(cardFootprint.height);
+  });
+
+  it('keeps even a dense clique of cards from overlapping', () => {
+    // The hardest case for collision: every card is linked to every other, so
+    // link attraction is maximal. Collision must still win.
+    const ids = ['n0', 'n1', 'n2', 'n3', 'n4', 'n5'];
+    const model: GraphModel = { nodes: ids.map((id) => makeNode(id)), edges: clique(ids) };
+
+    const positions = [...positionsById(forceLayout(model)).values()];
+
+    expect(minPairwiseDistance(positions)).toBeGreaterThanOrEqual(cardFootprint.height);
+  });
+
+  it('no two card bounding boxes overlap in a mixed graph', () => {
+    // Two linked clusters plus a hub and an orphan — a representative spread.
+    const clusterA = ['a0', 'a1', 'a2', 'a3'];
+    const clusterB = ['b0', 'b1', 'b2', 'b3'];
+    const leaves = ['l0', 'l1', 'l2'];
+    const model: GraphModel = {
+      nodes: [...clusterA, ...clusterB, 'hub', ...leaves, 'orphan'].map((id) => makeNode(id)),
+      edges: [
+        ...clique(clusterA),
+        ...clique(clusterB),
+        makeEdge('a0', 'b0'),
+        ...leaves.map((id) => makeEdge('hub', id)),
+      ],
+    };
+
+    const positions = [...positionsById(forceLayout(model)).values()];
+
+    // Each card occupies a width×height axis-aligned box centred on its
+    // position. Two boxes overlap iff they are within width on x AND height on
+    // y. A footprint-sized collision force must prevent that for every pair.
+    // A 1px tolerance absorbs the simulation's convergence epsilon.
+    const tol = 1;
+    for (let i = 0; i < positions.length; i++) {
+      for (let j = i + 1; j < positions.length; j++) {
+        const dx = Math.abs(positions[i]!.x - positions[j]!.x);
+        const dy = Math.abs(positions[i]!.y - positions[j]!.y);
+        const separated = dx >= cardFootprint.width - tol || dy >= cardFootprint.height - tol;
+        expect(separated).toBe(true);
+      }
+    }
+  });
+});
+
+describe('forceLayout — organic relationship-clustered feel is preserved', () => {
+  it('clusters connected items: each card’s nearest neighbour shares its cluster', () => {
     const clusterA = ['a0', 'a1', 'a2', 'a3'];
     const clusterB = ['b0', 'b1', 'b2', 'b3'];
     const model: GraphModel = {
@@ -172,15 +257,14 @@ describe('forceLayout', () => {
     const pointsA = clusterA.map((id) => positions.get(id)!);
     const pointsB = clusterB.map((id) => positions.get(id)!);
 
-    const diameter = (pts: Point[]) =>
-      Math.max(...pts.flatMap((p) => pts.map((q) => distance(p, q))));
+    const diameter = (pts: Point[]) => Math.max(...pts.flatMap((p) => pts.map((q) => distance(p, q))));
     const separation = distance(centroid(pointsA), centroid(pointsB));
 
     expect(separation).toBeGreaterThan(diameter(pointsA));
     expect(separation).toBeGreaterThan(diameter(pointsB));
   });
 
-  it('places a dense hub centrally among its neighbors', () => {
+  it('places a dense hub centrally among its neighbours', () => {
     const leaves = ['l0', 'l1', 'l2', 'l3', 'l4', 'l5', 'l6', 'l7'];
     const model: GraphModel = {
       nodes: [makeNode('hub'), ...leaves.map((id) => makeNode(id))],
@@ -197,7 +281,7 @@ describe('forceLayout', () => {
     expect(hubDistance).toBeLessThan(avgLeafDistance);
   });
 
-  it('pushes an orphan node to the periphery', () => {
+  it('pushes an orphan card to the periphery', () => {
     const connected = ['c0', 'c1', 'c2', 'c3'];
     const model: GraphModel = {
       nodes: [...connected, 'orphan'].map((id) => makeNode(id)),
@@ -208,9 +292,7 @@ describe('forceLayout', () => {
     const center = centroid([...positions.values()]);
 
     const orphanDistance = distance(positions.get('orphan')!, center);
-    const maxConnectedDistance = Math.max(
-      ...connected.map((id) => distance(positions.get(id)!, center)),
-    );
+    const maxConnectedDistance = Math.max(...connected.map((id) => distance(positions.get(id)!, center)));
 
     expect(orphanDistance).toBeGreaterThan(maxConnectedDistance);
   });

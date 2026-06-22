@@ -103,6 +103,9 @@ describe('graph view types module', () => {
         degree: 3,
         selected: false,
         dimmed: true,
+        referenceCode: 'G1',
+        content: 'A goal',
+        rationale: '',
       };
 
       const edge: GraphEdgeData = {
@@ -120,7 +123,7 @@ describe('graph view types module', () => {
     const assignments = knowledgeKinds
       .map(
         (kind, index) =>
-          `const n${index}: GraphNodeData = { kind: '${kind}', degree: 0, selected: false, dimmed: false }; void n${index};`,
+          `const n${index}: GraphNodeData = { kind: '${kind}', degree: 0, selected: false, dimmed: false, referenceCode: '', content: '', rationale: '' }; void n${index};`,
       )
       .join('\n');
 
@@ -135,7 +138,7 @@ describe('graph view types module', () => {
   it('rejects a GraphNodeData.kind that is not a knowledge entity kind', () => {
     const errors = contractViolations(`
       import type { GraphNodeData } from './types.js';
-      const node: GraphNodeData = { kind: 'banana', degree: 1, selected: false, dimmed: false };
+      const node: GraphNodeData = { kind: 'banana', degree: 1, selected: false, dimmed: false, referenceCode: '', content: '', rationale: '' };
       void node;
     `);
 
@@ -145,7 +148,7 @@ describe('graph view types module', () => {
   it('requires degree to be a number', () => {
     const errors = contractViolations(`
       import type { GraphNodeData } from './types.js';
-      const node: GraphNodeData = { kind: 'goal', degree: 'three', selected: false, dimmed: false };
+      const node: GraphNodeData = { kind: 'goal', degree: 'three', selected: false, dimmed: false, referenceCode: '', content: '', rationale: '' };
       void node;
     `);
 
@@ -155,7 +158,7 @@ describe('graph view types module', () => {
   it('requires the selected and dimmed flags to be booleans', () => {
     const errors = contractViolations(`
       import type { GraphNodeData } from './types.js';
-      const node: GraphNodeData = { kind: 'goal', degree: 1, selected: 'yes', dimmed: 0 };
+      const node: GraphNodeData = { kind: 'goal', degree: 1, selected: 'yes', dimmed: 0, referenceCode: '', content: '', rationale: '' };
       void node;
     `);
 
@@ -166,6 +169,16 @@ describe('graph view types module', () => {
     const errors = contractViolations(`
       import type { GraphNodeData } from './types.js';
       const node: GraphNodeData = { kind: 'goal' };
+      void node;
+    `);
+
+    expect(errors.length).toBeGreaterThan(0);
+  });
+
+  it('requires GraphNodeData to carry the projected referenceCode, content, and rationale', () => {
+    const errors = contractViolations(`
+      import type { GraphNodeData } from './types.js';
+      const node: GraphNodeData = { kind: 'goal', degree: 1, selected: false, dimmed: false };
       void node;
     `);
 

@@ -12,9 +12,8 @@ import { createElement } from 'react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { crossPhaseDecisionLink } from '@/client/__fixtures__/graph-view.js';
-import type { SpecificationState } from '@/shared/specification.js';
-
 import { queryClient } from '@/client/query-client.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 /**
  * The /graph route is the JOIN slice. It is the sole writer of
@@ -25,7 +24,7 @@ import { queryClient } from '@/client/query-client.js';
  *     hosts it at the route level so BOTH views share one header,
  *   - it hosts the list/graph ViewToggle,
  *   - it reads the active view from the `?view` URL param, and
- *   - it feeds both the StructuredListView and the SpatialGraph from a single
+ *   - it feeds both the StructuredListView and the GraphCanvas from a single
  *     project-wide entity state, rendering only the active view.
  *
  * The route component is code-split by the TanStack Router plugin, so it is
@@ -131,8 +130,8 @@ function defaultFetchHandler(input: RequestInfo | URL): Response {
 /**
  * React Flow measures its container and node sizes through ResizeObserver,
  * DOMMatrixReadOnly and element offset getters — none of which exist in a
- * headless DOM. Install the standard @xyflow/react test doubles so the spatial
- * graph canvas actually mounts. This is test plumbing, not behaviour under test.
+ * headless DOM. Install the standard @xyflow/react test doubles so the graph
+ * canvas actually mounts. This is test plumbing, not behaviour under test.
  */
 function mockReactFlow() {
   class MockResizeObserver {
@@ -221,11 +220,7 @@ async function renderRouteAt(pathname: string) {
   });
 
   return render(
-    createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      createElement(RouterProvider, { router }),
-    ),
+    createElement(QueryClientProvider, { client: queryClient }, createElement(RouterProvider, { router })),
   );
 }
 

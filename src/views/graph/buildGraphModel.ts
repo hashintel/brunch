@@ -46,6 +46,9 @@ export function buildGraphModel(entityState: EntitiesData): GraphModel {
           degree: 0,
           selected: false,
           dimmed: false,
+          referenceCode: item.referenceCode ?? '',
+          content: item.content ?? '',
+          rationale: 'rationale' in item ? (item.rationale ?? '') : '',
         },
       };
       nodes.push(node);

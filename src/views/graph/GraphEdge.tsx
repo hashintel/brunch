@@ -9,7 +9,7 @@
  * attributes so callers can style them.
  */
 
-import { useId } from 'react';
+import { useId, type ReactElement } from 'react';
 
 import { arrowheadConfig, edgeStyle } from '@/views/graph/nodeStyle';
 import type { GraphEdgeRelationship } from '@/views/graph/types';
@@ -28,6 +28,11 @@ interface GraphEdgeProps {
   target: Point;
   /** Whether the edge is currently selected (reveals its label, highlights). */
   selected?: boolean;
+  /**
+   * When true the relationship label is shown unconditionally. When false (the
+   * default) the label falls back to selection-gated reveal.
+   */
+  labelsShown?: boolean;
   /** Whether the edge is visually de-emphasized. */
   dimmed?: boolean;
 }
@@ -42,8 +47,9 @@ export function GraphEdge({
   source,
   target,
   selected = false,
+  labelsShown = false,
   dimmed = false,
-}: GraphEdgeProps): JSX.Element {
+}: GraphEdgeProps): ReactElement {
   const markerId = `graph-edge-arrowhead-${useId()}`;
   const label = relationshipLabel(relationship);
   const tooltip = `${label} relationship`;
@@ -57,7 +63,6 @@ export function GraphEdge({
       data-relationship={relationship}
       data-selected={String(selected)}
       data-dimmed={String(dimmed)}
-      title={tooltip}
       className={className}
     >
       <title>{tooltip}</title>
@@ -86,12 +91,8 @@ export function GraphEdge({
         strokeWidth={edgeStyle.strokeWidth}
         markerEnd={`url(#${markerId})`}
       />
-      {selected ? (
-        <text
-          data-edge-label=""
-          x={(source.x + target.x) / 2}
-          y={(source.y + target.y) / 2}
-        >
+      {labelsShown || selected ? (
+        <text data-edge-label="" x={(source.x + target.x) / 2} y={(source.y + target.y) / 2}>
           {label}
         </text>
       ) : null}

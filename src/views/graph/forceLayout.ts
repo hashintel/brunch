@@ -11,12 +11,15 @@
 
 import {
   forceCenter,
+  forceCollide,
   forceLink,
   forceManyBody,
   forceSimulation,
   type SimulationLinkDatum,
   type SimulationNodeDatum,
 } from 'd3-force';
+
+import { cardFootprint } from '@/views/graph/cardFootprint';
 
 import type { GraphEdgeData, GraphNodeData } from './types.js';
 
@@ -79,15 +82,22 @@ export function forceLayout(model: GraphModel): PositionedNode[] {
     target: edge.target,
   }));
 
+  // Collision radius sized so that the circular collision floor guarantees the
+  // uniform collapsed card boxes (width×height) can never overlap: half the box
+  // diagonal is the largest centre-to-centre distance at which two boxes still
+  // touch, so packing to that radius keeps every pair separated on x or y.
+  const collisionRadius = Math.hypot(cardFootprint.width, cardFootprint.height) / 2;
+
   const simulation = forceSimulation<SimNode>(nodes)
     .randomSource(seededRandom(0x9e3779b9))
     .force(
       'link',
       forceLink<SimNode, SimulationLinkDatum<SimNode>>(links)
         .id((node) => node.id)
-        .distance(40),
+        .distance(collisionRadius * 2),
     )
-    .force('charge', forceManyBody<SimNode>().strength(-120))
+    .force('charge', forceManyBody<SimNode>().strength(-800))
+    .force('collide', forceCollide<SimNode>(collisionRadius).strength(1).iterations(4))
     .force('center', forceCenter(0, 0))
     .stop();
 

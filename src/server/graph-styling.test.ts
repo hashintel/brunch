@@ -1,64 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { kindAccentHex } from '@/client/components/knowledge-card';
-import { arrowheadConfig, edgeStyle, nodeColor, nodeSize } from '@/views/graph/nodeStyle';
-import type { GraphNodeKind } from '@/views/graph/types';
+import { arrowheadConfig, edgeStyle } from '@/views/graph/nodeStyle';
 
-// The eight knowledge kinds a graph node can represent. Mirrors the
-// GraphNodeKind union in src/views/graph/types.ts.
-const allKinds: GraphNodeKind[] = [
-  'goal',
-  'term',
-  'context',
-  'constraint',
-  'requirement',
-  'criterion',
-  'decision',
-  'assumption',
-];
-
-describe('nodeColor', () => {
-  it('maps every node kind to its accent color from the kindAccentHex palette', () => {
-    for (const kind of allKinds) {
-      expect(nodeColor(kind)).toBe(kindAccentHex[kind]);
-    }
-  });
-
-  it('returns a hex color string', () => {
-    for (const kind of allKinds) {
-      expect(nodeColor(kind)).toMatch(/^#[0-9a-fA-F]{6}$/);
-    }
-  });
-
-  it('distinguishes kinds that have distinct palette entries', () => {
-    expect(nodeColor('goal')).not.toBe(nodeColor('requirement'));
-    expect(nodeColor('constraint')).not.toBe(nodeColor('context'));
-  });
-});
-
-describe('nodeSize', () => {
-  it('gives an isolated node (degree 0) a positive base size', () => {
-    expect(nodeSize(0)).toBeGreaterThan(0);
-  });
-
-  it('renders more-connected nodes larger than less-connected ones', () => {
-    expect(nodeSize(8)).toBeGreaterThan(nodeSize(1));
-    expect(nodeSize(1)).toBeGreaterThan(nodeSize(0));
-  });
-
-  it('never shrinks as degree grows (monotonic non-decreasing)', () => {
-    for (let degree = 0; degree < 25; degree += 1) {
-      expect(nodeSize(degree + 1)).toBeGreaterThanOrEqual(nodeSize(degree));
-    }
-  });
-
-  it('keeps even extreme degrees within a finite, bounded size', () => {
-    const huge = nodeSize(100_000);
-    expect(Number.isFinite(huge)).toBe(true);
-    expect(huge).toBeGreaterThan(nodeSize(0));
-    expect(huge).toBeLessThanOrEqual(1000);
-  });
-});
+// Node accent colors now live in nodeColor.ts (see node-color-mapping.test.ts)
+// and the uniform card box in cardFootprint.ts (see card-footprint.test.ts);
+// nodeStyle.ts is now only the neutral edge styling.
 
 describe('edgeStyle', () => {
   it('exposes a neutral stroke color as a hex string', () => {
