@@ -392,6 +392,44 @@ describe('structured exchange present/request tools', () => {
     ).toEqual([]);
   });
 
+  it('rejects a JSON-string review-set payload at the param boundary, not deep in the executor', async () => {
+    // Regression: the live ship-gate run passed payload as a JSON-encoded string
+    // (payload was z.unknown()), which slipped past the tool boundary and only
+    // failed with an opaque "payload must be an object" deep in the executor.
+    const present = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!present) throw new Error('present_review_set was not registered');
+
+    await expect(
+      present.execute(
+        'present-review-string',
+        { exchangeId: 'review-string', payload: JSON.stringify(validReviewPayload()) },
+        undefined,
+        undefined,
+        {} as never,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('rejects the mutate_graph {createBasis, ops} shape as a review-set payload', async () => {
+    // Regression: same live run — the agent reached for the mutate_graph payload
+    // shape; without schemaVersion it must fail at the param boundary.
+    const present = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!present) throw new Error('present_review_set was not registered');
+
+    await expect(
+      present.execute(
+        'present-review-wrong-shape',
+        {
+          exchangeId: 'review-wrong-shape',
+          payload: { createBasis: 'explicit', ops: [{ op: 'create_node', kind: 'context' }] },
+        },
+        undefined,
+        undefined,
+        {} as never,
+      ),
+    ).rejects.toThrow();
+  });
+
   it('persists request_review approve, change-request, and reject responses', async () => {
     const request = registeredTools().get(REQUEST_REVIEW_TOOL);
     if (!request) throw new Error('request_review was not registered');
