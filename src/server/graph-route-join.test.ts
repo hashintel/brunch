@@ -310,18 +310,26 @@ describe('graph route — shares one header lifted out of the list view', () => 
 });
 
 describe('graph route — hosts the list/graph view toggle', () => {
-  it('offers switching to the graph from the list view', async () => {
+  it('marks the list segment active and offers the graph segment in the list view', async () => {
     await renderRouteAt(graphView('?view=list'));
 
-    const toggle = await screen.findByRole('button', { name: /graph view/i });
-    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect((await screen.findByRole('button', { name: /list view/i })).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect((await screen.findByRole('button', { name: /graph view/i })).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
   });
 
-  it('offers switching back to the list from the graph view', async () => {
+  it('marks the graph segment active and offers the list segment in the graph view', async () => {
     await renderRouteAt(graphView('?view=graph'));
 
-    const toggle = await screen.findByRole('button', { name: /list view/i });
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    expect((await screen.findByRole('button', { name: /graph view/i })).getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+    expect((await screen.findByRole('button', { name: /list view/i })).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
   });
 });
 

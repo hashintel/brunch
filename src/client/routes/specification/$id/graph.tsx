@@ -100,7 +100,6 @@ function GraphRouteComponent() {
     >
       <KnowledgeGraphIdentity entityState={entityState} />
       <div className="flex items-center gap-3">
-        <ViewToggle />
         {view === 'list' && (
           <button
             type="button"
@@ -114,6 +113,7 @@ function GraphRouteComponent() {
             <ToggleIcon className="size-3.5" />
           </button>
         )}
+        <ViewToggle />
         {backToChatLink && (
           <>
             <div aria-hidden="true" className="h-4 w-px bg-rule" />
