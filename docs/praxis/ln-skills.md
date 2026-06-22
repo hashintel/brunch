@@ -36,7 +36,7 @@ The flow is not a checklist. Skip steps whose uncertainty is already retired.
 
 ### Operating posture
 
-Planning and scoping pressures depend on each frontier's **certainty posture**. The project default lives in `.pi/POSTURE.md` (`certainty: proving | earned`); individual frontiers in `memory/PLAN.md` may carry an explicit `Certainty:` override. Posture is **per-frontier**, not per-project — a mostly-earned repo can carry a fresh proving seam, and a settled seam can regress to proving on a new unknown.
+Planning and scoping pressures depend on each frontier's **certainty posture**. The project default lives in `memory/POSTURE.md` (`certainty: proving | earned`); individual frontiers in `memory/PLAN.md` may carry an explicit `Certainty:` override. Posture is **per-frontier**, not per-project — a mostly-earned repo can carry a fresh proving seam, and a settled seam can regress to proving on a new unknown.
 
 | Certainty | Ask | Optimize for | Reference |
 | --- | --- | --- | --- |

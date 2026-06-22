@@ -26,7 +26,7 @@ describe('workspace state store', () => {
       schemaVersion: 1,
       project: { name: '@hashintel/brunch-demo', slug: 'hashintel-brunch-demo' },
       defaults: null,
-      posture: { certainty: '', stakes: '', audience: '', horizon: '', migration: '', sourcing: '' },
+      posture: { certainty: '', stakes: '', audience: '', horizon: '', migration: '', dependencies: '' },
     });
     await expect(readWorkspaceState(cwd)).resolves.toEqual(state);
   });

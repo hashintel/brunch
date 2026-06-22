@@ -568,7 +568,7 @@ describe('WorkspaceSessionCoordinator', () => {
         audience: '',
         horizon: '',
         migration: '',
-        sourcing: '',
+        dependencies: '',
       },
     });
   });

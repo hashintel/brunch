@@ -33,6 +33,8 @@ Use `git` for commits and reads (status, log, diff, add, commit). Use `gt` for s
 
 ## development phase posture
 
+Brunch's declared posture is `prototype` + `stakes: high` (see `memory/POSTURE.md` and the `posture` skill for the schema). The guidance below is the brunch-specific reading of that posture.
+
 Brunch is pre-release. Optimize for conceptual correctness, domain clarity, and future leverage over backward compatibility with existing local/dev data.
 
 Do not preserve old data models, fixtures, dummy data, or compatibility shims merely because they exist. If a schema or domain model is wrong, change it and regenerate fixtures/seeds/tests as needed. Migration support is required only when SPEC.md, PLAN.md, or the user explicitly says existing data must be preserved.
