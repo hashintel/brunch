@@ -176,33 +176,38 @@ function Canvas({ model, info }: { model: GraphModel; info: Map<string, NodeInfo
     [selectedId, model, info],
   );
 
+  // The detail panel floats as a right-edge overlay rather than a flex sibling, so
+  // opening it never resizes the React Flow viewport — keeping the canvas-centered
+  // ZoomControl (and the layout) from shifting when a node is selected.
   return (
-    <div className="flex h-full w-full">
-      <div className="relative min-w-0 flex-1">
-        {positions === null ? (
-          <div className="flex h-full w-full items-center justify-center" data-graph-loading="">
-            <Spinner />
+    <div className="relative h-full w-full">
+      {positions === null ? (
+        <div className="flex h-full w-full items-center justify-center" data-graph-loading="">
+          <Spinner />
+        </div>
+      ) : (
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodeClick={(_, node) => setSelectedId((prev) => (prev === node.id ? null : node.id))}
+          onNodeMouseEnter={(_, node) => setHoveredId(node.id)}
+          onNodeMouseLeave={() => setHoveredId(null)}
+          onPaneClick={() => setSelectedId(null)}
+          fitView
+        >
+          <ZoomControl />
+          <div className="absolute bottom-2 left-2 z-10">
+            <Legend kinds={presentKinds} />
           </div>
-        ) : (
-          <ReactFlow
-            nodes={flowNodes}
-            edges={flowEdges}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            onNodeClick={(_, node) => setSelectedId((prev) => (prev === node.id ? null : node.id))}
-            onNodeMouseEnter={(_, node) => setHoveredId(node.id)}
-            onNodeMouseLeave={() => setHoveredId(null)}
-            onPaneClick={() => setSelectedId(null)}
-            fitView
-          >
-            <ZoomControl />
-            <div className="absolute bottom-2 left-2 z-10">
-              <Legend kinds={presentKinds} />
-            </div>
-          </ReactFlow>
-        )}
-      </div>
-      {detail !== null ? <GraphDetailPanel detail={detail} onClose={() => setSelectedId(null)} /> : null}
+        </ReactFlow>
+      )}
+      {detail !== null ? (
+        <div className="absolute inset-y-0 right-0 z-20">
+          <GraphDetailPanel detail={detail} onClose={() => setSelectedId(null)} />
+        </div>
+      ) : null}
     </div>
   );
 }
