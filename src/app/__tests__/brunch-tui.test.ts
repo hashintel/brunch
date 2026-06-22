@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
 import {
+  DefaultResourceLoader,
   SessionManager,
   type ExtensionCommandContext,
   type ExtensionContext,
@@ -1307,6 +1308,8 @@ describe('Brunch TUI boot', () => {
       noPromptTemplates: true,
       noSkills: true,
       noThemes: true,
+      // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
+      appendSystemPrompt: [],
       extensionFactories: [extension],
     });
     expect(env.PI_OFFLINE).toBe('1');
@@ -1399,8 +1402,33 @@ describe('Brunch TUI boot', () => {
       noPromptTemplates: true,
       noSkills: true,
       noThemes: true,
+      // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
+      appendSystemPrompt: [],
       extensionFactories: [extension],
     });
+  });
+
+  it('seals ambient APPEND_SYSTEM.md out of the real Pi resource loader (D39-L)', async () => {
+    // Live oracle: drive Pi's real DefaultResourceLoader through Brunch's seal
+    // with an ambient global APPEND_SYSTEM.md planted in agentDir. Without
+    // appendSystemPrompt: [], Pi's loader falls through to ambient discovery and
+    // the file leaks into the system prompt (the bug the ship-gate runbook hit).
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-seal-cwd-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-seal-agentdir-'));
+    const sentinel = 'AMBIENT_APPEND_SENTINEL_must_not_leak';
+    await writeFile(join(agentDir, 'APPEND_SYSTEM.md'), `# Ambient\n\n${sentinel}\n`);
+
+    const settings = createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
+    const loader = new DefaultResourceLoader({
+      cwd,
+      agentDir,
+      settingsManager: settings.settingsManager,
+      ...settings.resourceLoaderOptions,
+    });
+    await loader.reload();
+
+    expect(loader.getAppendSystemPrompt()).toEqual([]);
+    expect(JSON.stringify(loader.getAppendSystemPrompt())).not.toContain(sentinel);
   });
 
   it('keeps Pi settings/resource policy out of the TUI launcher', async () => {
