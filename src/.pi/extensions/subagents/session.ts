@@ -1,0 +1,253 @@
+/**
+ * Sealed SDK child sessions for subagents (D44-L / I29-L).
+ *
+ * Each subagent runs as an in-process SDK `AgentSession` — NOT a `pi`
+ * subprocess and NOT ambient `~/.pi` discovery. The child is constructed from
+ * explicit, sealed services so it inherits nothing implicit:
+ *
+ *   - sealed in-memory `SettingsManager` (injected from the app layer)
+ *   - sealed `DefaultResourceLoader` options (no extensions/skills/prompts/
+ *     themes/context files) with the agent body as the system prompt
+ *   - `AuthStorage.inMemory()` so ambient `auth.json` never leaks
+ *   - the parent's `ModelRegistry` (carries resolved auth + registered
+ *     providers) so the child needs no ambient model bootstrap
+ *   - an in-memory `SessionManager` so nothing is persisted to disk
+ *   - an explicit tool allowlist built from Brunch-owned tool definitions
+ *
+ * The child has no conversation context (the task string must be
+ * self-contained), no `CommandExecutor`, no graph access, and no Brunch RPC.
+ * Its last assistant message is returned to the caller as tool-result content.
+ */
+
+import {
+  AuthStorage,
+  createAgentSessionFromServices,
+  createAgentSessionServices,
+  createFindToolDefinition,
+  createGrepToolDefinition,
+  createLsToolDefinition,
+  createReadToolDefinition,
+  SessionManager,
+  type CreateAgentSessionFromServicesOptions,
+  type CreateAgentSessionServicesOptions,
+  type ExtensionContext,
+  type SettingsManager,
+  type ToolDefinition,
+} from '@earendil-works/pi-coding-agent';
+
+import { createWebFetchTool } from '../web/web-fetch.js';
+import { createWebSearchTool } from '../web/web-search.js';
+import type { SubagentDefinition } from './agents.js';
+
+type ChildModel = NonNullable<CreateAgentSessionFromServicesOptions['model']>;
+type ChildModelRegistry = ExtensionContext['modelRegistry'];
+
+/** The subset of the tool execution context a subagent run needs. */
+export interface SubagentRunContext {
+  readonly cwd: string;
+  readonly modelRegistry: ChildModelRegistry;
+  readonly model: ExtensionContext['model'];
+  readonly signal?: AbortSignal | undefined;
+}
+
+/**
+ * Sealed runtime primitives injected from the app composition root so this
+ * `.pi` module never imports `src/app`.
+ */
+export interface SubagentSealedDeps {
+  readonly agentDir: string;
+  /** Builds a fresh sealed in-memory settings manager per child session. */
+  readonly createSettingsManager: () => SettingsManager;
+  /** Sealed resource-loader options (no ambient discovery), sans system prompt. */
+  readonly resourceLoaderOptions: CreateAgentSessionServicesOptions['resourceLoaderOptions'];
+}
+
+export interface RunSubagentInput {
+  readonly definition: SubagentDefinition;
+  readonly task: string;
+  readonly ctx: SubagentRunContext;
+  readonly deps: SubagentSealedDeps;
+  /** Injectable SDK builders (defaults to the real ones) for testing. */
+  readonly createServices?: typeof createAgentSessionServices;
+  readonly createSession?: typeof createAgentSessionFromServices;
+}
+
+export interface SubagentResult {
+  readonly agent: string;
+  readonly status: 'ok' | 'error';
+  readonly text: string;
+}
+
+export type ModelResolution =
+  | { readonly status: 'resolved'; readonly model: ChildModel }
+  | { readonly status: 'unresolved'; readonly reason: string };
+
+/**
+ * Resolve a child model from the agent's `model` field. `default` inherits the
+ * parent's current model (falling back to the first available registered
+ * model); `provider/model-id` is looked up in the parent's registry.
+ */
+export function resolveSubagentModel(
+  definition: SubagentDefinition,
+  ctx: Pick<SubagentRunContext, 'model' | 'modelRegistry'>,
+): ModelResolution {
+  if (definition.model === 'default') {
+    const model = ctx.model ?? ctx.modelRegistry.getAvailable()[0];
+    if (!model) return { status: 'unresolved', reason: 'no model is available for "default"' };
+    return { status: 'resolved', model };
+  }
+
+  const separator = definition.model.indexOf('/');
+  if (separator <= 0 || separator === definition.model.length - 1) {
+    return {
+      status: 'unresolved',
+      reason: `model "${definition.model}" must be "default" or "provider/model-id"`,
+    };
+  }
+  const provider = definition.model.slice(0, separator);
+  const modelId = definition.model.slice(separator + 1);
+  const model = ctx.modelRegistry.find(provider, modelId);
+  if (!model) {
+    return { status: 'unresolved', reason: `model "${definition.model}" is not registered or available` };
+  }
+  return { status: 'resolved', model };
+}
+
+export interface SubagentToolPlan {
+  readonly tools?: string[];
+  readonly customTools?: ToolDefinition[];
+  readonly noTools?: 'all';
+}
+
+/**
+ * Brunch-owned tool definitions a subagent may be granted. Read-only filesystem
+ * tools come from the SDK (cwd-bound; they override the built-ins of the same
+ * name); web tools come from Brunch's own factories. Write/shell built-ins
+ * (`bash`/`edit`/`write`) are never offered.
+ */
+function subagentToolPool(cwd: string): Map<string, ToolDefinition> {
+  const pool = new Map<string, ToolDefinition>();
+  for (const definition of [
+    createReadToolDefinition(cwd),
+    createGrepToolDefinition(cwd),
+    createFindToolDefinition(cwd),
+    createLsToolDefinition(cwd),
+  ]) {
+    pool.set(definition.name, definition as ToolDefinition);
+  }
+  for (const tool of [createWebSearchTool(), createWebFetchTool()]) {
+    pool.set(tool.name, tool as unknown as ToolDefinition);
+  }
+  return pool;
+}
+
+/**
+ * Translate an agent's declared tool allowlist into SDK session options.
+ * Throws on an unknown tool name (a Brunch authoring bug — fail loud).
+ */
+export function planSubagentTools(
+  definition: SubagentDefinition,
+  ctx: Pick<SubagentRunContext, 'cwd'>,
+): SubagentToolPlan {
+  if (definition.tools.length === 0) return { noTools: 'all' };
+
+  const pool = subagentToolPool(ctx.cwd);
+  const customTools: ToolDefinition[] = [];
+  const unknown: string[] = [];
+  for (const name of definition.tools) {
+    const tool = pool.get(name);
+    if (tool) customTools.push(tool);
+    else unknown.push(name);
+  }
+  if (unknown.length > 0) {
+    throw new Error(
+      `subagent "${definition.name}" requests unknown tool(s): ${unknown.join(', ')}. ` +
+        `Available: ${[...pool.keys()].join(', ')}.`,
+    );
+  }
+  return { tools: [...definition.tools], customTools };
+}
+
+function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Run one subagent to completion in a sealed child session and return its last
+ * assistant message. Never throws: failures are returned as an error result so
+ * the foreground tool call always gets usable content.
+ */
+export async function runSubagent(input: RunSubagentInput): Promise<SubagentResult> {
+  const { definition, task, ctx, deps } = input;
+  const createServices = input.createServices ?? createAgentSessionServices;
+  const createSession = input.createSession ?? createAgentSessionFromServices;
+
+  if (ctx.signal?.aborted) {
+    return { agent: definition.name, status: 'error', text: `Subagent "${definition.name}" was aborted.` };
+  }
+
+  const resolution = resolveSubagentModel(definition, ctx);
+  if (resolution.status === 'unresolved') {
+    return {
+      agent: definition.name,
+      status: 'error',
+      text: `Subagent "${definition.name}" could not start: ${resolution.reason}`,
+    };
+  }
+
+  let toolPlan: SubagentToolPlan;
+  try {
+    toolPlan = planSubagentTools(definition, ctx);
+  } catch (error) {
+    return { agent: definition.name, status: 'error', text: errorText(error) };
+  }
+
+  let dispose: (() => void) | undefined;
+  let onAbort: (() => void) | undefined;
+  try {
+    const services = await createServices({
+      cwd: ctx.cwd,
+      agentDir: deps.agentDir,
+      authStorage: AuthStorage.inMemory(),
+      modelRegistry: ctx.modelRegistry,
+      settingsManager: deps.createSettingsManager(),
+      resourceLoaderOptions: { ...deps.resourceLoaderOptions, systemPrompt: definition.systemPrompt },
+    });
+
+    const { session } = await createSession({
+      services,
+      sessionManager: SessionManager.inMemory(ctx.cwd),
+      model: resolution.model,
+      thinkingLevel: definition.thinking,
+      ...(toolPlan.noTools ? { noTools: toolPlan.noTools } : {}),
+      ...(toolPlan.tools ? { tools: toolPlan.tools } : {}),
+      ...(toolPlan.customTools ? { customTools: toolPlan.customTools } : {}),
+    });
+    dispose = () => session.dispose();
+
+    if (ctx.signal) {
+      onAbort = () => void session.abort();
+      ctx.signal.addEventListener('abort', onAbort, { once: true });
+    }
+
+    await session.prompt(task, { expandPromptTemplates: false, source: 'rpc' });
+    const text = session.getLastAssistantText()?.trim() ?? '';
+    if (text.length === 0) {
+      return {
+        agent: definition.name,
+        status: 'error',
+        text: `Subagent "${definition.name}" returned no output.`,
+      };
+    }
+    return { agent: definition.name, status: 'ok', text };
+  } catch (error) {
+    return {
+      agent: definition.name,
+      status: 'error',
+      text: `Subagent "${definition.name}" failed: ${errorText(error)}`,
+    };
+  } finally {
+    if (ctx.signal && onAbort) ctx.signal.removeEventListener('abort', onAbort);
+    dispose?.();
+  }
+}
