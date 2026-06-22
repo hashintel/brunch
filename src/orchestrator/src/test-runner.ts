@@ -91,6 +91,7 @@ export class ToolchainTestRunner implements TestRunner {
     const result = spawnSync(spawn.command, spawn.args, {
       cwd: sandboxDir,
       encoding: 'utf8',
+      env: spawn.env ? { ...process.env, ...spawn.env } : undefined,
       timeout: VERIFY_TIMEOUT_MS,
       stdio: ['ignore', 'pipe', 'pipe'],
     });

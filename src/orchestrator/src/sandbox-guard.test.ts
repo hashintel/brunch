@@ -335,6 +335,22 @@ describe('bwrap arg synthesis (limit-mode binds)', () => {
     const bad = await guard.preflight(['false']);
     expect(bad.ok).toBe(false);
   });
+
+  it('redirects test and preflight temp dirs into the sandbox under enforcing backends', () => {
+    type TestBackend = NonNullable<NonNullable<Parameters<typeof createSandboxGuard>[1]>['backend']>;
+    const backend: TestBackend = {
+      id: 'seatbelt',
+      enforces: true,
+      wrap: ({ command, args }) => ({ command, args: [...args] }),
+    };
+    const guard = createSandboxGuard(sandboxDir, { backend });
+
+    const confined = guard.confineTest(['node', '--version']);
+
+    expect(confined.env?.TMPDIR).toBe(join(realpathSync(sandboxDir), '.brunch-tmp'));
+    expect(confined.env?.TMP).toBe(confined.env?.TMPDIR);
+    expect(confined.env?.TEMP).toBe(confined.env?.TMPDIR);
+  });
 });
 
 describe('decidePreflight — fail-closed bootstrap decision', () => {

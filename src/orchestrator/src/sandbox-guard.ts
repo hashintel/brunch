@@ -261,6 +261,7 @@ export interface NormalizedRequest {
 export interface ConfinedSpawn {
   command: string;
   args: string[];
+  env?: NodeJS.ProcessEnv;
 }
 
 /**
@@ -381,12 +382,13 @@ export function createSandboxGuard(
 
   const confineTest = (argv: readonly string[]): ConfinedSpawn => {
     const [command, ...args] = argv;
-    return backend.wrap({ shell: false, command: command ?? '', args });
+    const spawn = backend.wrap({ shell: false, command: command ?? '', args });
+    return tmp ? { ...spawn, env: { TMPDIR: tmp, TMP: tmp, TEMP: tmp } } : spawn;
   };
 
   const preflight = async (probeArgv: readonly string[] = ['true']): Promise<ProbeResult> => {
-    const { command, args } = confineTest(probeArgv);
-    const { ok, code } = await spawnOk(command, args, policy.sandboxRoot);
+    const { command, args, env } = confineTest(probeArgv);
+    const { ok, code } = await spawnOk(command, args, policy.sandboxRoot, env);
     return { ok, code, backend: backend.id };
   };
 
@@ -398,9 +400,14 @@ function spawnOk(
   command: string,
   args: readonly string[],
   cwd: string,
+  env?: NodeJS.ProcessEnv,
 ): Promise<{ ok: boolean; code: number | null }> {
   return new Promise((resolve) => {
-    const child = spawn(command, [...args], { cwd, stdio: 'ignore' });
+    const child = spawn(command, [...args], {
+      cwd,
+      env: env ? { ...process.env, ...env } : undefined,
+      stdio: 'ignore',
+    });
     child.on('error', () => resolve({ ok: false, code: null }));
     child.on('close', (code) => resolve({ ok: code === 0, code }));
   });

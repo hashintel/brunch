@@ -245,6 +245,22 @@ describe('ToolchainTestRunner stamps failureKind', () => {
     expect(result.output).not.toContain('[agent-tail]');
     expect(result.output).toContain('real runner output');
   });
+
+  it('passes sandbox-local temp env from the confiner to the spawned test process', async () => {
+    const toolchain = fakeToolchain(() => [
+      process.execPath,
+      '-e',
+      'process.stdout.write(process.env.TMPDIR ?? "missing")',
+    ]);
+    const result = await new ToolchainTestRunner(toolchain, (argv) => ({
+      command: argv[0] ?? '',
+      args: argv.slice(1),
+      env: { TMPDIR: '/sandbox/.brunch-tmp', TMP: '/sandbox/.brunch-tmp', TEMP: '/sandbox/.brunch-tmp' },
+    })).run('x', process.cwd());
+
+    expect(result.passed).toBe(true);
+    expect(result.output).toBe('/sandbox/.brunch-tmp');
+  });
 });
 
 describe('runVerification — the single verdict + aggregate seam', () => {
