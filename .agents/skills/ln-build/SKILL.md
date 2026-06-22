@@ -1,12 +1,12 @@
 ---
 name: ln-build
-description: "Implement one scoped slice using TDD red-green-refactor. Use when ready to write code for a defined slice of work, or when the user wants test-driven development."
+description: "Implement one scoped work unit using TDD red-green-refactor: a vertical slice card or one row of a sweep ledger. Use when a scope file is ready to build."
 argument-hint: "[scope file path under memory/cards/, an inline scope card, or a trivial direct-fix request]"
 ---
 
 # Ln Build
 
-Implement **one** scope card. Beck's red-green-refactor, one cycle, no scope creep.
+Implement **one** scoped unit: the next vertical card, or the next required row in a sweep ledger. Red-green-refactor still governs, but **red** means the smallest oracle proving this scoped unit is not closed. One cycle, no scope creep.
 
 ## Input
 
@@ -14,7 +14,7 @@ A scope file under `memory/cards/`, an inline scope card from `ln-scope`, or a t
 
 Extract: target behavior / objective, acceptance criteria, verification approach, cold-start reads, and (when present) expected touched paths.
 
-Treat the scope card as the next implementation slice inside its containing `memory/PLAN.md` frontier item (or, for dev/tooling/docs work, the named category prefix). The frontier item is the plan-level work item and Linear/branch unit; the scope-card slice is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive slices may land on the same branch — including slices that live in separate scope files but share a frontier.
+Treat the selected scope file as the next execution artifact inside its containing `memory/PLAN.md` frontier item (or, for dev/tooling/docs work, the named category prefix). The frontier item is the plan-level work item and Linear/branch unit; the scope file is just the current execution step inside it — a slice, chain, or sweep. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-file granularity; multiple consecutive scope files may land on the same branch.
 
 ### Selecting a scope file
 
@@ -30,7 +30,7 @@ Never scan or pick by mtime, alphabetical order, or directory-listing heuristics
 
 Once a file is selected, work the next card marked `next` (or the first unfinished card in file order if status markers are absent). If that card is already satisfied on the current branch, do **not** manufacture a no-op build commit; verify the acceptance criteria, mark the card `done` or `dropped` as appropriate, reconcile, and either continue to the next ready card in the same file or route back to `ln-scope` if no build remains.
 
-If the selected file is `Mode: coverage`, it holds a row ledger rather than cards — follow the [Coverage execution mode](#coverage-execution-mode) loop below instead of card-based selection.
+If the selected file is `Mode: sweep`, it holds a row ledger rather than cards — follow the [Sweep execution mode](#sweep-execution-mode) loop below instead of card-based selection.
 
 Re-enter before red.
 
@@ -89,37 +89,39 @@ Even when `ln-scope` honored the hard anti-speculation gate (no card's scope was
 
 Never silently continue past a stale-downstream signal. Never silently delete a stale chain before a replacement exists.
 
-## Coverage execution mode
+## Sweep execution mode
 
-When a scope file is `Mode: coverage` (see [`ln-scope`](../ln-scope/SKILL.md) §Coverage scope files), it holds a closed enumerated ledger of one capability layer rather than a sequence of full cards. The build loop is row-driven:
+When a scope file is `Mode: sweep` (see [`ln-scope`](../ln-scope/SKILL.md) §Sweep scope files), it holds a closed enumerated ledger of one capability layer rather than a sequence of full cards. The build loop is row-driven:
 
 Before taking a row, reload [`../ln-plan/references/coverage.md`](../ln-plan/references/coverage.md) if you have not read it in this thread.
 
 1. take the next open required (`●`) row — one whose Status is `spec`, `new`, or `partial`
-2. **coverage re-orient checkpoint** — verify the row still fits the declared layer boundary, that its named owner is still the right owner, and that its promised behavior is derivable from the row's source-of-truth inputs. If any of those fail, stop and route back through `ln-scope` / `ln-plan`
+2. **sweep re-orient checkpoint** — verify the row still fits the declared layer boundary, that its named owner is still the right owner, and that its promised behavior is derivable from the row's source-of-truth inputs. If any of those fail, stop and route back through `ln-scope` / `ln-plan`
 3. build it under the **fill mode declared in that row** (`proving` → tracer that retires the row's unknown; `earned` → land and lock the settled capability). A `new` row needs its micro-decision resolved (`ln-disambiguate` / `ln-spec`) before it can be built
 4. run red → green → refactor and the verification harness for that row
 5. flip the row's Status to `built` in the ledger and reconcile canonical state
 6. commit the row-sized change
 7. continue until **no `●` row remains in `spec` / `new` / `partial`** — that aggregate DoD, not any single row, completes the coverage frontier
 
-The chain stop conditions and Stale-downstream re-orient apply per row. Coverage-specific rules:
+The chain stop conditions and Stale-downstream re-orient apply per row. Sweep-specific rules:
 
 - **Do not add rows as you go** except to record a genuinely-missing capability (Status `new`, one-line justification). The ledger is a closed list; filling it never means "do everything that rhymes" (global `AGENTS.md` §completionist sprawl).
 - **One new row maximum.** If implementation discovers a second new row or a new sub-seam, the inventory was not actually closed; stop and route back through `ln-plan`.
 - **A row that grows past ledger-row size** spawns its own `single` scope file; replace the row's Owner / next cell with a pointer rather than fattening the ledger.
 - **Do not silently change frontier class.** If the row turns out to be evidence-gated or wait-gated rather than buildable-now, stop and reconcile the classification instead of forcing a ceremonial build.
-- **Do not launder ownership.** If the build wants to move single-owner logic into a shared layer (or pull shared logic back into a single owner), stop and re-scope the row explicitly rather than smuggling a topology decision through coverage execution.
+- **Do not launder ownership.** If the build wants to move single-owner logic into a shared layer (or pull shared logic back into a single owner), stop and re-scope the row explicitly rather than smuggling a topology decision through sweep execution.
 
 ## Red
 
-Translate acceptance criteria into failing tests when the change benefits from them. For bugfixes or subtle seam changes, prefer one high-leverage regression test. For trivial maintenance or doc-only work, tests may be unnecessary.
+For `Mode: single` / `chain`, use normal tracer-bullet TDD: one failing behavioral test → minimum code to pass → next failing behavioral test. For bugfixes or subtle seam changes, prefer one high-leverage regression test. For trivial maintenance or doc-only work, tests may be unnecessary.
+
+For `Mode: sweep`, use closure-driven TDD: one failing row/property oracle → make that row/property conform → green. The oracle may be a test, grep guard, lint/import rule, schema check, fixture diff, golden assertion, or small enumerator script. It must fail because the required row is open, not because the harness is broken.
 
 Test behavior through public interfaces, not implementation details. A good test describes what capability exists and would survive internal refactoring. Avoid tests that mock internal collaborators, assert private call order, or inspect storage directly when the public interface can prove the behavior.
 
-Do not horizontal-slice TDD. Never write a batch of imagined tests first and then a batch of implementation. Use tracer bullets: one failing behavioral test → minimum code to pass → next failing behavioral test. Each new test should respond to what the previous cycle taught you.
+Do not batch speculative tests first and then batch implementation. In slice mode, let each new behavioral test respond to what the previous cycle taught you. In sweep mode, let each closure oracle prove the next row/property rather than widening the ledger.
 
-Run the relevant checks. Confirm failures are meaningful. If the card is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
+Run the relevant checks. Confirm failures are meaningful. If the card or row is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
 
 ## Green
 

@@ -150,7 +150,7 @@ Scan recent code / commits for:
 - temporary ledgers declared exhausted while a required row is still `spec` / `new` / `partial`, including rows that have merely been promoted into `PLAN`
 - promoted last-open coverage rows that are sequenced behind unrelated new coverage frontiers without an explicit user reprioritization
 - coverage cards whose promised derivation or legality logic cannot be justified from the source-of-truth inputs named in the card
-- coverage ledgers that grew multiple `new` rows mid-flight, signaling that the inventory was not actually closed
+- sweep ledgers that grew multiple `new` rows mid-flight, signaling that the inventory was not actually closed
 - prepared cards in scope files under `memory/cards/` that should be retired, re-scoped, or reconciled into the next thread's live state
 - stale derivative artifacts that should be deleted after reconciliation
 - cross-cutting subsystems that appear only in glossary/design-doc links but are required by multiple active/next frontiers
@@ -201,7 +201,7 @@ Before finishing, perform a cross-skill preservation check:
 - If a later agent read only `memory/SPEC.md` and `memory/PLAN.md`, what durable design choices from `ln-design` would they miss?
 - What verification architecture or loop-tier strategy from `ln-oracles` or canonical docs would they miss?
 - What cross-cutting obligations would disappear because they are carried only by links, not by live rows or frontier definitions?
-- Would they know which temporary coverage ledgers are still live, which promoted rows still keep those ledgers open, and why those rows sequence where they do?
+- Would they know which temporary sweep ledgers are still live, which promoted rows still keep those ledgers open, and why those rows sequence where they do?
 - Do any topology READMEs under `src/**/` still cite SPEC IDs or describe topology this sync just changed? Reconcile those READMEs as part of the sync, not as a follow-up.
 
 If any answer is non-empty, sync is incomplete.

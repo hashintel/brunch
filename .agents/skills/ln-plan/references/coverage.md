@@ -1,12 +1,12 @@
-# Planning shape: coverage frontier
+# Planning shape: coverage frontier / sweep
 
-Load this reference whenever a frontier candidate is being classified as a **coverage frontier**, when scoping a `Mode: coverage` ledger, or when syncing a live coverage frontier against code and temporary ledgers.
+Load this reference whenever a frontier candidate is being classified as a **coverage frontier**, when scoping a `Mode: sweep` ledger, or when syncing a live coverage frontier against code and temporary ledgers.
 
-Coverage is a **frontier shape**, not a third certainty posture. Each row still executes under `proving` or `earned`.
+Coverage is a **frontier shape**, not a third certainty posture. **Sweep** is the action shape: the pass that closes the named layer inventory. Each row still executes under `proving` or `earned`.
 
 ## Objective function
 
-Optimize for **breadth closure** across one named load-bearing layer without widening the layer. A coverage frontier is valuable when the layer's value *is* its closed inventory, and vertical tracers keep leaving that inventory permanently shallow even though each tracer is locally correct.
+Optimize for **breadth closure** across one named load-bearing layer without widening the layer. A coverage frontier is valuable when the layer's value *is* its closed inventory, and vertical tracers keep leaving that inventory permanently shallow even though each tracer is locally correct. The sweep terminates on closure over the inventory, not on one more end-to-end witness.
 
 ## Admission gate
 
@@ -18,7 +18,7 @@ A frontier is coverage **only when all of these hold**:
 4. **Owner + oracle per required row.** Every required row has one canonical owner and one closure oracle. If you cannot say who owns the row or how you would know it is closed, the row is still fog.
 5. **Authority split is explicit.** If a temporary ledger exists outside `memory/PLAN.md`, it inventories rows only. `memory/PLAN.md` still owns frontier ids, sequencing, and promoted work.
 
-If any gate fails, do **not** use coverage mode. Stay tracer-shallow, or route to `ln-spec`, `ln-design`, `ln-spike`, or ordinary `ln-plan` work first.
+If any gate fails, do **not** use sweep mode. Stay tracer-shallow, or route to `ln-spec`, `ln-design`, `ln-spike`, or ordinary `ln-plan` work first.
 
 ## Buildability classes
 
@@ -70,7 +70,7 @@ Temporary ledgers are allowed for a bounded cross-cut, but their authority is na
 ## Anti-patterns
 
 - **Category laundering.** Calling something "coverage" because it feels broad, even though the inventory is not actually closeable.
-- **Shape laundering.** Smuggling a new abstraction or topology decision under the safer-sounding label of "coverage ledger."
+- **Shape laundering.** Smuggling a new abstraction or topology decision under the safer-sounding label of "sweep ledger."
 - **Consumer bleed-through.** Promoting a shape to every consumer because one consumer needs it.
 - **Wrong-input derivation.** Scoping a shared derivation whose declared inputs cannot possibly justify the promised legality, ranking, or selection behavior.
 - **Residue denial.** Declaring a cross-cut or temporary ledger exhausted while a required row is still open, merely because it has an owner now.

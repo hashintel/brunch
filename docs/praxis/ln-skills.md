@@ -11,7 +11,7 @@ The skills are a development workflow for keeping product intent, planning, impl
 | `memory/SPEC.md` | What and why: product contract, live assumptions, decisions, invariants, lexicon, verification stance. |
 | `memory/PLAN.md` | What's next: frontier items, sequencing, acceptance, verification notes. |
 | `HANDOFF.md` | Temporary resumability state when a session ends or context is fragile. |
-| `memory/cards/<frontier-id>--<slug>.md` | Scope files holding one or more prepared scope cards. Multiple files per frontier permitted for independent concerns; one file = one execution context for `ln-build`. |
+| `memory/cards/<frontier-id>--<slug>.md` | Scope files holding one vertical card, a short chain, or a sweep ledger. Multiple files per frontier permitted for independent concerns; one file = one execution context for `ln-build`. |
 | `memory/REFACTOR.md` | Temporary refactor execution plan, when explicitly created. |
 
 Do not invent alternate planning stores. If a fact matters durably, promote it through `ln-spec`, `ln-plan`, or `ln-sync`.
@@ -73,9 +73,9 @@ Earned posture is not a license for sprawl — guardrails (one named seam, named
 
 Regression earned → proving is a state transition, not a third mode: downgrade the frontier or slice, reshape as a tracer, route back through `ln-plan` if the frontier itself splits.
 
-#### Coverage frontiers (a frontier shape, not a posture)
+#### Coverage sweeps / coverage frontiers (a frontier shape, not a posture)
 
-Posture ranks the next *vertical* slice; it has no completeness test, so vertical tracers can leave a horizontal capability layer permanently shallow while every slice is "done." A **coverage frontier** closes that gap with a layer-level **aggregate DoD** — "no required row in a closed enumerated inventory is left open" — while each row still builds under `proving` or `earned`. It is therefore a different frontier *shape*, not a third posture. The rule-of-three is now met in this repo, so coverage has a first-class planning reference at `.agents/skills/ln-plan/references/coverage.md`: use it for the admission gate, buildability classes (`buildable-now` / `evidence-gated` / `wait-gated`), temporary-ledger protocol, and anti-patterns (`category laundering`, `wrong-input derivation`, `residue denial`, `sequencing leakage`, `symmetry regrowth`). `ln-plan` recognizes and bounds the frontier; the row ledger lives in a `Mode: coverage` scope file under `memory/cards/` (authored via `ln-scope`); `ln-build` closes rows; `ln-sync` audits the contradictions coverage mode tends to create.
+Tracer-complete is not load-bearing. Posture ranks the next *vertical* slice; it has no completeness test, so vertical tracers can leave a horizontal capability layer permanently shallow while every slice is "done." A **coverage frontier** is the plan-level container for a **sweep**: a pass that closes a named layer inventory with an aggregate DoD — "no required row in a closed enumerated inventory is left open" — while each row still builds under `proving` or `earned`. It is therefore a different frontier *shape*, not a third posture. The rule-of-three is now met in this repo, so coverage has a first-class planning reference at `.agents/skills/ln-plan/references/coverage.md`: use it for the admission gate, buildability classes (`buildable-now` / `evidence-gated` / `wait-gated`), temporary-ledger protocol, and anti-patterns (`category laundering`, `wrong-input derivation`, `residue denial`, `sequencing leakage`, `symmetry regrowth`). `ln-plan` recognizes and bounds the frontier; the row ledger lives in a `Mode: sweep` scope file under `memory/cards/` (authored via `ln-scope`); `ln-build` closes rows; `ln-sync` audits the contradictions sweep mode tends to create.
 
 #### Posture distribution across skills
 
@@ -147,7 +147,8 @@ There is currently no project-local `ln-map` skill in `.agents/skills/`. If you 
 | “Which interpretation is intended?” | `ln-disambiguate` |
 | “What should the canonical truth say?” | `ln-spec` |
 | “What work items should exist?” | `ln-plan` |
-| “Is a whole capability layer going shallow under vertical slicing?” | `ln-plan` (coverage frontier) |
+| “All paths are lit, but is the layer load-bearing?” | `ln-review` for diagnosis, then `ln-plan` for a coverage frontier / sweep |
+| “Is a whole capability layer going shallow under vertical slicing?” | `ln-plan` (coverage frontier / sweep) |
 | “What is the smallest buildable slice?” | `ln-scope` |
 | “Which module/API shape should we choose?” | `ln-design` |
 | “How will we know this works?” | `ln-oracles` |

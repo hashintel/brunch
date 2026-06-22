@@ -83,6 +83,20 @@ Collect gaps as numbered findings (category: `oracle-coverage`).
 
 **Notation aid.** Map test artifacts against acceptance leaves with `pseudo matrix` (coverage variant): rows = obligation leaves from a `pseudo tree` decomposition of the frontier acceptance, columns = test artifacts. Gaps surface as `.` cells; partial coverage as `~`. Compact, scannable, and the matrix itself becomes a coverage artifact reviewers can re-run.
 
+### Load-bearing layer coverage (category: `coverage-candidacy`)
+
+Look for tracer-complete false done: all named paths are lit, but a layer or capability family is still present-because-touched rather than load-bearing for its role.
+
+Use the sweep test:
+
+- **Layer:** is there one named layer whose value depends on breadth as a whole (tool surface, renderer family, public API method set, observed-shape inventory)?
+- **Inventory:** can the required surface be enumerated up front without reading future implementation tea leaves?
+- **Rows:** can each required row name an owner, source-of-truth inputs, and a closure oracle?
+- **Gaps:** are the open gaps breadth gaps, fidelity gaps, contract gaps, or oracle gaps?
+- **YAGNI guard:** is tracer-shallow actually correct because the layer is not load-bearing as a whole?
+
+Collect findings as numbered items (category: `coverage-candidacy`). Frame each as: the layer that appears shallow, the evidence that it is load-bearing as a whole, whether the coverage admission gate seems likely to pass, and whether follow-up should route to `ln-plan` for a coverage frontier / sweep or to `ln-oracles` / `ln-design` first.
+
 ### Lexicon alignment (category: `naming`)
 
 If `memory/SPEC.md` exists, survey how §Lexicon terms (both method and domain) appear across:

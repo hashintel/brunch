@@ -1,19 +1,19 @@
 ---
 name: ln-scope
-description: "Define one thin vertical slice with target behavior, risks, and acceptance criteria. Use when scoping the next piece of work before building, or when a slice from `memory/PLAN.md` needs precise definition."
-argument-hint: "[behavior to deliver in this slice]"
+description: "Define one buildable scope file: a vertical slice, a short chain of slices, or a sweep ledger for a coverage frontier. Use when the next piece of work needs precise boundaries before building."
+argument-hint: "[behavior, closure target, or sweep to scope]"
 ---
 
 # Ln Scope
 
-Define one or more buildable scope cards in a **scope file** under `memory/cards/`. Each card describes one slice; the file groups cards intended to be built together.
+Define one buildable **scope file** under `memory/cards/`. A scope file is one of three execution shapes: one vertical slice, a short chain of vertical slices, or a sweep ledger for a coverage frontier.
 
 A card carries one of two weights:
 
 - a **full scope card** for structural work
 - a **light scope card** for bounded feature or hardening work inside settled seams
 
-If a single card's target behavior needs "and", split it into separate cards (which may live in the same file).
+If a single vertical card's target behavior needs "and", split it into separate cards (which may live in the same file). If the work is horizontal, do not force it into card form — use `Mode: sweep` only when `ln-plan` has admitted a coverage frontier.
 
 Apply the repo's pre-release posture while scoping: prefer correcting the model and regenerating fixtures over preserving accidental compatibility, unless live docs or the user require migration support. Include deletion/retirement work in the slice when obsolete code, data, or terminology would otherwise linger.
 
@@ -27,7 +27,7 @@ If `memory/SPEC.md` exists, use its lexicon and respect its live invariants.
 
 If `memory/PLAN.md` exists, check whether the named work is already represented as a frontier item in `Sequencing` (`Active`, `Next`, `Parallel / Low-conflict`, or `Horizon`) and `Frontier Definitions`.
 
-Treat the containing `memory/PLAN.md` frontier item as the Linear-issue / branch boundary. Here, a frontier item means the canonical plan item, preferably keyed by a stable frontier id in `Frontier Definitions`, not the scope card you are about to write. Your scope card may narrow that frontier item into the next buildable slice, but scope-card granularity alone does **not** imply a new issue or branch. Only route to `ln-plan` for new frontier items when the frontier itself must be split or reordered.
+Treat the containing `memory/PLAN.md` frontier item as the Linear-issue / branch boundary. Here, a frontier item means the canonical plan item, preferably keyed by a stable frontier id in `Frontier Definitions`, not the scope file you are about to write. Your scope file may narrow that frontier item into the next buildable slice, chain, or sweep, but scope-file granularity alone does **not** imply a new issue or branch. Only route to `ln-plan` for new frontier items when the frontier itself must be split or reordered.
 
 If this is a fresh thread or an unfamiliar area, also read `HANDOFF.md` if present. Read `docs/archive/PLAN_HISTORY.md` only if the frontier rationale or touched area is still unclear.
 
@@ -36,13 +36,13 @@ Also name any frontier-level cross-cutting obligations that this slice must pres
 
 Name the inherited **certainty posture** explicitly: `Posture: proving (inherited from <frontier-id>)` or `Posture: earned (inherited from <frontier-id>)`. If scoping reveals the posture is wrong for this slice (most commonly: an earned frontier surfaces a real unknown), downgrade to `proving` and route back through `ln-plan` if the frontier definition itself must shift. Do not silently scope earned-mode slices over fog.
 
-Do not create new planning documents or scratch scope stores without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`. The sanctioned derivative location for scope cards is `memory/cards/`, described below.
+Do not create new planning documents or scratch scope stores without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`. The sanctioned derivative location for scope files is `memory/cards/`, described below.
 
 If scoping reveals that one frontier item needs multiple sequential slices, keep them nested under that same frontier item unless the plan-level frontier must change. Do not silently turn slices into separate tracker / branch work items.
 
 ## Scope file storage
 
-All scope cards — single or multi — live in a **scope file** under `memory/cards/`.
+All scoped execution artifacts — single cards, chains, and sweep ledgers — live in a **scope file** under `memory/cards/`.
 
 ### File naming
 
@@ -64,11 +64,11 @@ Every scope file starts with this header:
 
 Frontier: <frontier-id> | n/a
 Status:   active | superseded | done
-Mode:     single | chain | coverage
+Mode:     single | chain | sweep
 Created:  YYYY-MM-DD
 ```
 
-`Mode: single` means one card in this file. `Mode: chain` means several cards intended as a sequential mini-queue. `Mode: coverage` means the file holds a **closed enumerated ledger** for a horizontal coverage frontier (see [§Coverage scope files](#coverage-scope-files-mode-coverage)). Independent concerns belong in **separate files**, not separate sections within one file.
+`Mode: single` means one vertical card in this file. `Mode: chain` means several vertical cards intended as a sequential mini-queue. `Mode: sweep` means the file holds a **closed enumerated ledger** for a coverage frontier (see [§Sweep scope files](#sweep-scope-files-mode-sweep)). Independent concerns belong in **separate files**, not separate sections within one file.
 
 ### Why one file per concern, not one file for everything
 
@@ -102,15 +102,15 @@ Chain discipline:
 - if any card trips the promotion checklist, reveals a frontier split, or turns out to depend on unknown results from an earlier card, stop the chain and route back through `ln-spec` or `ln-plan` as appropriate
 - delete the scope file when its chain is exhausted or superseded (per-file deletion only)
 
-## Coverage scope files (`Mode: coverage`)
+## Sweep scope files (`Mode: sweep`)
 
-A `Mode: coverage` scope file is the execution artifact for a **horizontal coverage frontier** (see [`ln-plan`](../ln-plan/SKILL.md) §Horizontal coverage frontiers). Where `single` / `chain` files group *vertical* slices, a coverage file holds a **closed enumerated ledger** of one capability layer, and its definition of done is *aggregate*: every required row closed.
+A `Mode: sweep` scope file is the execution artifact for a **coverage frontier** (see [`ln-plan`](../ln-plan/SKILL.md) §Coverage sweeps / coverage frontiers). Where `single` / `chain` files group vertical slices, a sweep file holds a **closed enumerated ledger** of one capability layer, and its definition of done is *aggregate*: every required row closed.
 
-Before writing or revising a coverage file, load [`../ln-plan/references/coverage.md`](../ln-plan/references/coverage.md).
+Before writing or revising a sweep file, load [`../ln-plan/references/coverage.md`](../ln-plan/references/coverage.md).
 
-Write one only when `ln-plan` has established a coverage frontier whose admission gate is satisfied. If you cannot close the enumeration, do not use this mode; write ordinary vertical cards instead.
+Write one only when `ln-plan` has established a coverage frontier whose admission gate is satisfied. If you cannot close the enumeration, do not use sweep mode; write ordinary vertical cards instead.
 
-### Coverage preflight
+### Sweep preflight
 
 Before you write the ledger or scope one row-sized fill, answer these explicitly:
 
@@ -122,7 +122,7 @@ Before you write the ledger or scope one row-sized fill, answer these explicitly
 
 ### Ledger shape
 
-The file body is a coverage ledger — one table per sub-seam if the layer splits:
+The file body is a sweep ledger — one table per sub-seam if the layer splits:
 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
@@ -157,7 +157,7 @@ Path overlap declared at scope time = collision at build time. The touched-paths
 
 ## Scope-weight decision
 
-Choose one before writing each scope card.
+For vertical `single` / `chain` files, choose one before writing each scope card. Sweep ledgers use row discipline instead.
 
 ### Full scope card
 

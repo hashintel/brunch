@@ -54,7 +54,7 @@ The posture is **per frontier**, not per project. A mostly-earned repo can carry
 
 Posture annotations are **required** on every `Active` / `Next` frontier (see the matching reference for the field set). If no posture-specific annotation applies, the frontier is not earning its slot — reshape, reclassify, or demote it.
 
-When implementation later reveals the posture was wrong, treat that as a state transition (downgrade earned → proving, reshape the slice, route back through `ln-plan` if the frontier itself splits). Do not invent a third permanent posture. (A horizontal **coverage frontier** is a frontier *shape*, not a third posture — see [§Horizontal coverage frontiers](#horizontal-coverage-frontiers-frontier-shape-not-a-posture).)
+When implementation later reveals the posture was wrong, treat that as a state transition (downgrade earned → proving, reshape the slice, route back through `ln-plan` if the frontier itself splits). Do not invent a third permanent posture. (A **coverage frontier** is a frontier shape for a horizontal **sweep**, not a third posture — see [§Coverage sweeps / coverage frontiers](#coverage-sweeps--coverage-frontiers-frontier-shape-not-a-posture).)
 
 Defensive parsing: depend primarily on `.pi/POSTURE.md`'s `certainty:` field; tolerate extra or mismatched fields rather than failing on schema drift.
 
@@ -124,15 +124,15 @@ Sequencing pressures and required annotation fields depend on the active frontie
 
 A plan may contain a mix of postures across its `Active` / `Next` frontiers. Load both references when planning a mixed plan.
 
-### Horizontal coverage frontiers (frontier *shape*, not a posture)
+### Coverage sweeps / coverage frontiers (frontier *shape*, not a posture)
 
-Load [`references/coverage.md`](references/coverage.md) whenever a candidate frontier might be coverage, or when reclassifying a live coverage frontier.
+Load [`references/coverage.md`](references/coverage.md) whenever a candidate frontier might need a **coverage sweep**, or when reclassifying a live coverage frontier.
 
-Posture answers *how to rank the next vertical slice*; it carries **no completeness test**. Vertical tracers touch a horizontal capability layer (for example "the agent's READ tools as a whole") only as far as each claim needs, so a load-bearing layer can stay permanently shallow while every individual slice is still "done."
+Tracer-complete is not load-bearing. Posture answers *how to rank the next vertical slice*; it carries **no completeness test**. Vertical tracers touch a horizontal capability layer (for example "the agent's READ tools as a whole") only as far as each claim needs, so a load-bearing layer can stay permanently shallow while every individual slice is still "done."
 
-A **coverage frontier** fills that gap. It is a different frontier *shape*, not a third posture: it adds no row-level execution mechanics — each row is still built under `proving` or `earned`. What it adds is a layer-level **aggregate definition of done**: *no required row in a closed enumerated inventory is left open.*
+A **coverage frontier** is the plan-level container for a **sweep**: a pass that terminates on closure over a named layer inventory, not on one more end-to-end witness. It is a different frontier *shape*, not a third posture: it adds no row-level execution mechanics — each row is still built under `proving` or `earned`. What it adds is a layer-level **aggregate definition of done**: *no required row in a closed enumerated inventory is left open.*
 
-**Recognition trigger.** Reach for a coverage frontier only when all three hold:
+**Recognition trigger.** Reach for a coverage frontier / sweep only when all three hold:
 
 1. a **named layer is load-bearing as a whole** — its value *is* its breadth (an agent's capability surface, a public API's method set, a renderer family), not just one claim it proves;
 2. you can **author a closed, enumerated inventory** up front of what the layer must contain; and
@@ -144,13 +144,13 @@ If you cannot close the enumeration, it is not a coverage frontier — stay trac
 
 - the **layer boundary** — what is in the layer and explicitly what is out;
 - the **aggregate DoD** — "every `●` row is closed";
-- a pointer to the **`Mode: coverage` scope file** under `memory/cards/` that holds the row ledger (authored via `ln-scope`).
+- a pointer to the **`Mode: sweep` scope file** under `memory/cards/` that holds the row ledger (authored via `ln-scope`).
 
 Each ledger row declares its own **fill mode** — `proving` if the row still carries an unknown, `earned` if it is settled-but-unbuilt. `ln-build` closes rows; the frontier completes when no `●` row remains in a `spec` / `new` / `partial` state — the ledger DoD, not a single tracer claim.
 
 **Maturity gate.** The rule-of-three is now met in this repo: the elicitor cross-cut, graph observed-shapes, and the current runtime/exchange follow-ons exposed recurring row-level failure modes. Coverage therefore now has a dedicated planning reference, but it remains a **frontier shape**, not a third certainty posture or an alternate planning store.
 
-**Sequencing precedence.** If a temporary coverage ledger remains open only because a required row has been promoted into `PLAN`, that promoted frontier outranks new unrelated coverage frontiers by default. Do not let "new breadth we could also do" preempt "the last required row that closes the still-live ledger" unless the user explicitly chooses that deprioritization.
+**Sequencing precedence.** If a temporary sweep ledger remains open only because a required row has been promoted into `PLAN`, that promoted frontier outranks new unrelated coverage frontiers by default. Do not let "new breadth we could also do" preempt "the last required row that closes the still-live ledger" unless the user explicitly chooses that deprioritization.
 
 ## Procedure
 
