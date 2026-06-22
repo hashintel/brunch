@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useLocation } from '@tanstack/react-router';
+import { createFileRoute, Link, useLocation, useSearch } from '@tanstack/react-router';
 import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { useState } from 'react';
 
@@ -12,6 +12,8 @@ import {
   getPhaseRoutePath,
   getWorkflowPhaseLabel,
 } from '@/shared/phase-descriptors.js';
+import { GraphCanvas } from '@/views/graph/GraphCanvas.js';
+import { GRAPH_VIEW_PARAM, parseViewMode, ViewToggle } from '@/views/graph/ViewToggle.js';
 
 import {
   primeSpecificationEntitiesProjectWide,
@@ -62,6 +64,8 @@ function GraphRouteComponent() {
   const entityState = useSpecificationEntitiesProjectWide();
   const bundle = useSpecificationBundleData();
   const { state } = useLocation();
+  const search = useSearch({ strict: false }) as { [GRAPH_VIEW_PARAM]?: string };
+  const view = parseViewMode(search[GRAPH_VIEW_PARAM]);
   const target = returnTarget(bundle.workflow, String(bundle.specification.id), state?.fromPhase);
   const [rowsDefaultOpen, setRowsDefaultOpen] = useState(true);
   const [rowsRemountKey, setRowsRemountKey] = useState(0);
@@ -89,42 +93,57 @@ function GraphRouteComponent() {
     </Link>
   ) : undefined;
 
-  const headerLeft = <KnowledgeGraphIdentity entityState={entityState} />;
-
-  const headerRight = (
-    <div className="flex items-center gap-3">
-      <button
-        type="button"
-        data-graph-action="toggle-all-rows"
-        aria-label={toggleLabel}
-        aria-pressed={!rowsDefaultOpen}
-        title={toggleLabel}
-        onClick={toggleAllRows}
-        className={ROW_TOGGLE_CLASS}
-      >
-        <ToggleIcon className="size-3.5" />
-      </button>
-      {backToChatLink && (
-        <>
-          <div aria-hidden="true" className="h-4 w-px bg-rule" />
-          {backToChatLink}
-        </>
-      )}
+  const header = (
+    <div
+      data-graph-header-bar
+      className="flex h-16 w-full shrink-0 items-center justify-between border-b border-rule px-6"
+    >
+      <KnowledgeGraphIdentity entityState={entityState} />
+      <div className="flex items-center gap-3">
+        {view === 'list' && (
+          <button
+            type="button"
+            data-graph-action="toggle-all-rows"
+            aria-label={toggleLabel}
+            aria-pressed={!rowsDefaultOpen}
+            title={toggleLabel}
+            onClick={toggleAllRows}
+            className={ROW_TOGGLE_CLASS}
+          >
+            <ToggleIcon className="size-3.5" />
+          </button>
+        )}
+        <ViewToggle />
+        {backToChatLink && (
+          <>
+            <div aria-hidden="true" className="h-4 w-px bg-rule" />
+            {backToChatLink}
+          </>
+        )}
+      </div>
     </div>
   );
+
+  const activeView =
+    view === 'graph' ? (
+      <GraphCanvas entityState={entityState} />
+    ) : (
+      <StructuredListView
+        entityState={entityState}
+        emptyStateAction={emptyStateAction}
+        rowsDefaultOpen={rowsDefaultOpen}
+        rowsRemountKey={rowsRemountKey}
+      />
+    );
 
   return (
     <ChatShellLayout
       specificationId={String(bundle.specification.id)}
       center={
-        <StructuredListView
-          entityState={entityState}
-          emptyStateAction={emptyStateAction}
-          headerLeft={headerLeft}
-          headerRight={headerRight}
-          rowsDefaultOpen={rowsDefaultOpen}
-          rowsRemountKey={rowsRemountKey}
-        />
+        <div className="flex h-full flex-col bg-background">
+          {header}
+          <div className="min-h-0 flex-1">{activeView}</div>
+        </div>
       }
     />
   );

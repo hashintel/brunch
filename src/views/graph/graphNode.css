@@ -1,0 +1,34 @@
+/* graph-node accenting + state animation. No transition on left/top/all and no entrance keyframe,
+   so React Flow's per-frame repositioning stays snappy. */
+
+.graph-node {
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+/* Per-kind accent bar — kind encoding that isn't colour-only (it pairs with the named KindBadge). */
+.graph-node__bar {
+  flex: none;
+  width: 3px;
+  background: var(--graph-node-accent);
+}
+
+/* Selection: lift slightly and ring in the node's own kind accent (never a fixed palette colour). */
+.graph-node.is-selected {
+  transform: scale(1.03);
+  box-shadow:
+    0 0 0 2px var(--graph-node-accent),
+    0 6px 16px rgba(0, 0, 0, 0.12);
+  border-color: var(--graph-node-accent);
+}
+
+.graph-node.is-dimmed {
+  opacity: 0.35;
+}
+
+.graph-node:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
