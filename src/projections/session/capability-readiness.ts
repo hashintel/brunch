@@ -63,8 +63,8 @@ function relevantGapRecords(
 ): readonly ElicitationGap[] {
   const relevantKinds = CAPABILITY_RELEVANT_GAPS[capability];
   return relevantKinds.flatMap((kind) => {
-    const records = gaps.filter((record) => record.refersTo === kind);
-    if (records.length === 0) throw new Error(`capability ${capability} has no elicitation gap for ${kind}`);
+    const records = gaps.filter((record) => record.refersTo === kind && record.predicate.kind === 'presence');
+    if (records.length === 0) throw new Error(`capability ${capability} has no presence gap for ${kind}`);
     return records;
   });
 }

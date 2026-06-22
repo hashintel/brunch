@@ -1,11 +1,6 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import {
-  captureExplicitTextFacts,
-  captureStructuredResponseFacts,
-} from '../../graph/capture/structured-response.js';
-import type { StructuredResponseCaptureOutcome } from '../../graph/capture/structured-response.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { reviewSetProposalPayloadFromDetails } from '../../projections/exchanges/review-set-payload.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
@@ -222,32 +217,6 @@ const ExchangeResponseParamsSchema = Type.Object(
   { additionalProperties: false },
 );
 
-const ExchangeResponseCaptureResultSchema = Type.Union([
-  Type.Object(
-    {
-      status: Type.Literal('captured'),
-      lsn: PositiveIntegerSchema,
-      nodeCount: NonNegativeIntegerSchema,
-      createdNodes: Type.Object({}, { additionalProperties: true }),
-    },
-    { additionalProperties: false },
-  ),
-  Type.Object(
-    {
-      status: Type.Literal('no_capture'),
-      reason: NonBlankStringSchema,
-    },
-    { additionalProperties: false },
-  ),
-  Type.Object(
-    {
-      status: Type.Literal('structural_illegal'),
-      diagnostics: Type.Array(Type.Object({}, { additionalProperties: true })),
-    },
-    { additionalProperties: false },
-  ),
-]);
-
 const ExchangeResponseReviewResultSchema = Type.Union([
   Type.Object(
     {
@@ -277,7 +246,6 @@ const ExchangeResponseResultSchema = Type.Object(
     status: Type.Literal('accepted'),
     exchangeId: NonBlankStringSchema,
     answer: Type.Object({}, { additionalProperties: true }),
-    capture: ExchangeResponseCaptureResultSchema,
     review: Type.Optional(ExchangeResponseReviewResultSchema),
     note: Type.Optional(Type.String()),
   },
@@ -298,19 +266,14 @@ const SubmitMessageResultSchema = Type.Object(
     messageId: NonBlankStringSchema,
     text: NonBlankStringSchema,
     interruption: Type.Boolean(),
-    capture: ExchangeResponseCaptureResultSchema,
   },
   { additionalProperties: false },
 );
 
 type ExchangeResponseParams = StructuredExchangeResponseInput;
-type ExchangeResponseResult = Omit<Static<typeof ExchangeResponseResultSchema>, 'capture'> & {
-  readonly capture: StructuredResponseCaptureOutcome;
-};
+type ExchangeResponseResult = Static<typeof ExchangeResponseResultSchema>;
 type SubmitMessageParams = Static<typeof SubmitMessageParamsSchema>;
-type SubmitMessageResult = Omit<Static<typeof SubmitMessageResultSchema>, 'capture'> & {
-  readonly capture: StructuredResponseCaptureOutcome;
-};
+type SubmitMessageResult = Static<typeof SubmitMessageResultSchema>;
 
 export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] = [
   {
@@ -430,7 +393,7 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
     method: 'session.submitMessage',
     access: 'write',
     description:
-      'Append an ordinary user message to the selected session and run synchronous explicit-text capture, or record an explicit interruption while a structured exchange is pending.',
+      'Append an ordinary user message to the selected session, or record an explicit interruption while a structured exchange is pending.',
     paramsSchema: SubmitMessageParamsSchema,
     resultSchema: SubmitMessageResultSchema,
     examples: [
@@ -439,7 +402,7 @@ export const sessionRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
         id: 12,
         method: 'session.submitMessage',
         params: {
-          text: 'Goal: Keep ordinary messages on the same selected-spec capture path.',
+          text: 'Please add this to the transcript for the next capture sweep.',
         },
       },
     ],
@@ -588,21 +551,8 @@ async function handleSubmitMessage(
       : state.session.manager.appendMessage(ordinaryUserMessage(params.text));
   flushSessionManagerToFile(state.session.manager, state.session.file);
 
-  const graph = await options.getGraphRuntime();
-  const capture =
-    params.interruption === true
-      ? ({
-          status: 'no_capture',
-          reason: 'explicit interruptions are transcript-visible only and do not run synchronous capture',
-        } as const)
-      : captureExplicitTextFacts({
-          specId: target.envelope.binding.specId,
-          text: params.text,
-          source: `session_message:${messageId}`,
-          commandExecutor: graph.commandExecutor,
-        });
-
   if (params.interruption !== true) {
+    const graph = await options.getGraphRuntime();
     for (const fact of resolveMentionFacts({
       text: params.text,
       specId: target.envelope.binding.specId,
@@ -618,15 +568,9 @@ async function handleSubmitMessage(
     messageId,
     text: params.text,
     interruption: params.interruption === true,
-    capture,
   };
 
   publishSelectedSessionUpdates(options.productUpdates, state, target.envelope.binding.specId);
-  if (capture.status === 'captured') {
-    options.productUpdates?.publish(
-      graphMutationProductUpdates({ specId: target.envelope.binding.specId, lsn: capture.lsn }),
-    );
-  }
   return createJsonRpcSuccess(requestId, result);
 }
 
@@ -691,28 +635,16 @@ async function handleSubmitExchangeResponse(
       status: 'accepted',
       exchangeId: pending.exchangeId,
       answer: accepted.answer,
-      capture: { status: 'no_capture', reason: 'review responses do not run synchronous capture' },
       review,
       ...(params.note === undefined ? {} : { note: params.note }),
     };
     return createJsonRpcSuccess(requestId, result);
   }
 
-  const capture =
-    review === undefined
-      ? captureStructuredResponseFacts({
-          specId: target.envelope.binding.specId,
-          exchangeId: pending.exchangeId,
-          answer: accepted.answer,
-          commandExecutor: graph.commandExecutor,
-        })
-      : { status: 'no_capture' as const, reason: 'review responses do not run synchronous capture' };
-
   const result: ExchangeResponseResult = {
     status: 'accepted',
     exchangeId: pending.exchangeId,
     answer: accepted.answer,
-    capture,
     ...(review === undefined ? {} : { review }),
     ...(params.note === undefined ? {} : { note: params.note }),
   };
@@ -724,8 +656,7 @@ async function handleSubmitExchangeResponse(
   flushSessionManagerToFile(state.session.manager, state.session.file);
 
   publishSelectedSessionUpdates(options.productUpdates, state, target.envelope.binding.specId);
-  const mutationLsn =
-    review?.status === 'approved' ? review.lsn : capture.status === 'captured' ? capture.lsn : null;
+  const mutationLsn = review?.status === 'approved' ? review.lsn : null;
   if (mutationLsn !== null) {
     options.productUpdates?.publish(
       graphMutationProductUpdates({ specId: target.envelope.binding.specId, lsn: mutationLsn }),

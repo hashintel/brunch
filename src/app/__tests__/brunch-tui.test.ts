@@ -742,6 +742,8 @@ describe('Brunch TUI boot', () => {
       'read_workspace_context',
       'read_specification_context',
       'read_session_context',
+      'web_fetch',
+      'web_search',
       'present_alternatives',
       'present_question',
       'present_options',

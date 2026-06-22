@@ -497,16 +497,12 @@ describe('JSON-RPC handlers', () => {
     }
 
     if (!submit) throw new Error('expected discovered session.submitExchangeResponse method');
-    expect(JSON.stringify(submit.resultSchema.properties?.capture)).toContain('captured');
-    expect(JSON.stringify(submit.resultSchema.properties?.capture)).toContain('no_capture');
-    expect(JSON.stringify(submit.resultSchema.properties?.capture)).toContain('structural_illegal');
+    expect(submit.resultSchema.properties?.capture).toBeUndefined();
 
     if (!submitMessage) throw new Error('expected discovered session.submitMessage method');
     expect(JSON.stringify(submitMessage.paramsSchema.properties?.text)).toContain('string');
     expect(JSON.stringify(submitMessage.paramsSchema.properties?.interruption)).toContain('boolean');
-    expect(JSON.stringify(submitMessage.resultSchema.properties?.capture)).toContain('captured');
-    expect(JSON.stringify(submitMessage.resultSchema.properties?.capture)).toContain('no_capture');
-    expect(JSON.stringify(submitMessage.resultSchema.properties?.capture)).toContain('structural_illegal');
+    expect(submitMessage.resultSchema.properties?.capture).toBeUndefined();
     for (const example of submitMessage.examples.filter((example) => example.params !== undefined)) {
       expect(Value.Check(submitMessage.paramsSchema, example.params)).toBe(true);
     }
@@ -1322,7 +1318,6 @@ describe('JSON-RPC handlers', () => {
           lsn: expect.any(Number),
           createdNodes: { 'requirement-draft': { id: expect.any(Number), code: 'REQ1' } },
         },
-        capture: { status: 'no_capture' },
       },
     });
     if (!('result' in response)) throw new Error('expected review approval response');
@@ -1350,7 +1345,7 @@ describe('JSON-RPC handlers', () => {
     await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('request_review');
   });
 
-  it('captures explicit labeled text answers into the transcript-bound spec graph and publishes graph invalidations', async () => {
+  it('accepts labeled text answers without submit-time capture or graph invalidations', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-response-capture-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     const workspace = await coordinatorInstance.createSetupSession({
@@ -1402,26 +1397,23 @@ describe('JSON-RPC handlers', () => {
       id: 273,
       result: {
         status: 'accepted',
-        capture: {
-          status: 'captured',
-          lsn: expect.any(Number),
-          nodeCount: 4,
-          createdNodes: {
-            goal: { code: 'G1' },
-            context: { code: 'CTX1' },
-            constraint: { code: 'CON1' },
-            criterion: { code: 'AC1' },
-          },
+        exchangeId: 'deterministic-grounding-text-2',
+        answer: {
+          text: expect.stringContaining('Goal: Help product teams'),
         },
       },
     });
-    if (!('result' in response)) throw new Error('expected capture response');
-    const lsn = (response.result as { capture: { lsn: number } }).capture.lsn;
-    expect(updates).toContainEqual({ topic: 'graph.overview', specId: workspace.spec.id, lsn });
-    expect(updates).toContainEqual({
+    if (!('result' in response)) throw new Error('expected response');
+    expect(response.result).not.toHaveProperty('capture');
+    expect(updates).not.toContainEqual({
+      topic: 'graph.overview',
+      specId: workspace.spec.id,
+      lsn: expect.any(Number),
+    });
+    expect(updates).not.toContainEqual({
       topic: 'graph.nodeNeighborhood',
       specId: workspace.spec.id,
-      lsn,
+      lsn: expect.any(Number),
     });
 
     const overview = await handlers.handle({
@@ -1432,19 +1424,8 @@ describe('JSON-RPC handlers', () => {
     });
     expect(overview).toMatchObject({
       result: {
-        nodes: expect.arrayContaining([
-          expect.objectContaining({
-            kind: 'goal',
-            kindOrdinal: 1,
-            basis: 'explicit',
-            source: 'structured_exchange_response:deterministic-grounding-text-2',
-          }),
-          expect.objectContaining({
-            kind: 'criterion',
-            kindOrdinal: 1,
-            basis: 'explicit',
-          }),
-        ]),
+        nodes: [],
+        edges: [],
       },
     });
 
@@ -1463,7 +1444,7 @@ describe('JSON-RPC handlers', () => {
     });
   });
 
-  it('captures explicit labeled ordinary messages into the transcript-bound spec graph and publishes graph invalidations', async () => {
+  it('accepts labeled ordinary messages without submit-time capture or graph invalidations', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-message-capture-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
     const workspace = await coordinatorInstance.createSetupSession({
@@ -1491,10 +1472,10 @@ describe('JSON-RPC handlers', () => {
       method: 'session.submitMessage',
       params: {
         text: [
-          'Goal: Keep ordinary messages on the same selected-spec capture path.',
+          'Goal: Keep ordinary messages in transcript truth for the next capture sweep.',
           'Context: Users may say this outside a structured exchange.',
           'Constraint: Do not silently answer pending structured requests.',
-          'Criterion: Graph updates still publish selected-spec invalidations.',
+          'Criterion: Submit-time RPC responses stay slim.',
         ].join('\n'),
       },
     });
@@ -1505,23 +1486,20 @@ describe('JSON-RPC handlers', () => {
       result: {
         status: 'accepted',
         interruption: false,
-        capture: {
-          status: 'captured',
-          lsn: expect.any(Number),
-          nodeCount: 4,
-          createdNodes: {
-            goal: { code: 'G1' },
-            context: { code: 'CTX1' },
-            constraint: { code: 'CON1' },
-            criterion: { code: 'AC1' },
-          },
-        },
       },
     });
     if (!('result' in response)) throw new Error('expected submitMessage response');
-    const lsn = (response.result as { capture: { lsn: number } }).capture.lsn;
-    expect(updates).toContainEqual({ topic: 'graph.overview', specId: workspace.spec.id, lsn });
-    expect(updates).toContainEqual({ topic: 'graph.nodeNeighborhood', specId: workspace.spec.id, lsn });
+    expect(response.result).not.toHaveProperty('capture');
+    expect(updates).not.toContainEqual({
+      topic: 'graph.overview',
+      specId: workspace.spec.id,
+      lsn: expect.any(Number),
+    });
+    expect(updates).not.toContainEqual({
+      topic: 'graph.nodeNeighborhood',
+      specId: workspace.spec.id,
+      lsn: expect.any(Number),
+    });
 
     const overview = await handlers.handle({
       jsonrpc: '2.0',
@@ -1531,13 +1509,8 @@ describe('JSON-RPC handlers', () => {
     });
     expect(overview).toMatchObject({
       result: {
-        nodes: expect.arrayContaining([
-          expect.objectContaining({
-            kind: 'goal',
-            basis: 'explicit',
-            source: expect.stringContaining('session_message:'),
-          }),
-        ]),
+        nodes: [],
+        edges: [],
       },
     });
 
@@ -1551,7 +1524,7 @@ describe('JSON-RPC handlers', () => {
     ).resolves.toMatchObject({ result: { nodes: [], edges: [] } });
     const after = await readFile(workspace.session.file, 'utf8');
     expect(after.length).toBeGreaterThan(before.length);
-    expect(after).toContain('Keep ordinary messages on the same selected-spec capture path.');
+    expect(after).toContain('Keep ordinary messages in transcript truth for the next capture sweep.');
   });
 
   it('resolves stable graph mentions at submit time for the selected session transcript', async () => {
@@ -1641,10 +1614,6 @@ describe('JSON-RPC handlers', () => {
       result: {
         status: 'accepted',
         interruption: true,
-        capture: {
-          status: 'no_capture',
-          reason: 'explicit interruptions are transcript-visible only and do not run synchronous capture',
-        },
       },
     });
     const sessionText = await readFile(workspace.session.file, 'utf8');

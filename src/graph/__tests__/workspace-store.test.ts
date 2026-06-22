@@ -77,7 +77,7 @@ describe('openWorkspaceGraphRuntime', () => {
       ).toHaveLength(1);
       expect(
         repaired.select().from(elicitationGaps).where(eq(elicitationGaps.spec_id, spec.id)).all(),
-      ).toHaveLength(6);
+      ).toHaveLength(7);
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

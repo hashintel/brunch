@@ -42,7 +42,12 @@ import {
   registerBrunchPrompting,
   type BrunchPromptContextProvider,
 } from '../.pi/extensions/system-prompts/index.js';
+import { registerBrunchWebTools } from '../.pi/extensions/web/index.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
+import {
+  CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE,
+  prepareCaptureSweepAdvance,
+} from '../projections/session/sweep-watermark.js';
 import type { LiveExchangeAwaiter } from '../session/live-exchange-broker.js';
 import { mentionFactsFromEntries } from '../session/mention-ledger.js';
 import {
@@ -92,6 +97,7 @@ export {
   registerBrunchCommands,
 } from '../.pi/extensions/commands/index.js';
 export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from '../.pi/extensions/workspace/index.js';
+export { registerBrunchWebTools } from '../.pi/extensions/web/index.js';
 
 export { registerBrunchGraph } from '../.pi/extensions/graph/index.js';
 export {
@@ -160,9 +166,12 @@ export function createBrunchPiExtensions(
       ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]
       : undefined;
     const entryDebugCache = introspectionOptions?.enabled ? introspectionOptions.debugCache : undefined;
-    const continuityStep = options.graph
-      ? createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains, entryDebugCache)
-      : undefined;
+    const continuitySteps = options.graph
+      ? [
+          createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains, entryDebugCache),
+          createCaptureSweepAdvanceStep(entryDebugCache),
+        ]
+      : [];
     const chromeRefresh: { current: (() => void) | null } = { current: null };
     const graph = options.graph;
     const commandGapReads =
@@ -171,7 +180,7 @@ export function createBrunchPiExtensions(
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => {
         registerBrunchSessionBoundary(api, onSessionBoundary, {
-          continuitySteps: continuityStep ? [continuityStep] : [],
+          continuitySteps,
         });
         if (options.graph) {
           registerBrunchContinuityGuard(api, options.graph, options.continuityDrains, entryDebugCache);
@@ -186,6 +195,7 @@ export function createBrunchPiExtensions(
       registerBrunchBranchPolicyHandlers,
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
+      registerBrunchWebTools,
       // Prompting registers immediately after operational-mode policy and
       // before mention autocomplete when prompt context is provided; its
       // position in this list is the registration order, not a splice index.
@@ -243,6 +253,24 @@ function createPrepareNextTurnContinuityStep(
     for (const entry of result.entriesToAppend) {
       appendPreparedContinuityEntry(sessionManager, entry);
       if (entryDebugCache) void appendEntryContentToDebugCache(entryDebugCache, entry).catch(() => {});
+    }
+  };
+}
+
+function createCaptureSweepAdvanceStep(
+  entryDebugCache: BrunchDebugCacheOptions | undefined,
+): BrunchSessionBoundaryPipelineStep {
+  return ({ phase, sessionManager }) => {
+    if (phase !== 'before_agent_start') return;
+    const advance = prepareCaptureSweepAdvance(sessionManager.getEntries());
+    if (!advance.marker) return;
+    sessionManager.appendCustomEntry(CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE, advance.marker);
+    if (entryDebugCache) {
+      void appendEntryContentToDebugCache(entryDebugCache, {
+        type: 'custom',
+        customType: CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE,
+        data: { ...advance.marker },
+      }).catch(() => {});
     }
   };
 }

@@ -38,6 +38,10 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 <available_methods>
   <resource name="run-structured-exchange" description="Present typed Brunch exchanges and request typed responses." location="<repo>/src/.pi/skills/methods/run-structured-exchange.md" />
   <resource name="capture" description="Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct." location="<repo>/src/.pi/skills/methods/capture.md" />
+  <resource name="elicit-by-question" description="Acquire missing material by asking the human one focused question." location="<repo>/src/.pi/skills/methods/elicit-by-question.md" />
+  <resource name="ingest-paste" description="Acquire user-provided pasted material as conversational transcript content." location="<repo>/src/.pi/skills/methods/ingest-paste.md" />
+  <resource name="read-referenced-documents" description="Read bounded user-referenced documents and digest them before capture." location="<repo>/src/.pi/skills/methods/read-referenced-documents.md" />
+  <resource name="explore-and-characterize" description="Explore a bounded brownfield area and write a characterization digest before capture." location="<repo>/src/.pi/skills/methods/explore-and-characterize.md" />
   <resource name="read-context" description="Use pushed context handles and read-only context tools for selected-spec context." location="<repo>/src/.pi/skills/methods/read-context.md" />
 </available_methods>
 

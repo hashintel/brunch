@@ -35,6 +35,7 @@ extensions/
 ├── runtime/                 active-tool policy + tool/user_bash guards; prompt-resource manifest & method/tool legality (state.ts)
 ├── session/                 session lifecycle hooks
 ├── system-prompts/          before_agent_start prompt append + gap-driven active-tool selection; prompt composition (compose.ts) + pushed seed contexts (seed/)
+├── web/                     web_fetch/web_search read tools for referenced-document acquisition
 ├── workspace/               spec/session picker command adapter
 └── subagents/               future subagent config/tool surface
 ```

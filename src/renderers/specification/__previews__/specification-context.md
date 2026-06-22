@@ -2,7 +2,7 @@
 Overview:
 - id: 1
 - title: Alpha Grounding
-- readiness estimate (soft; gates nothing): grounding=0.71, elicitation=0.00, commitment=0.00
+- readiness estimate (soft; gates nothing): grounding=0.59, elicitation=0.00, commitment=0.00
 
 Graph (LSN 2): 4 nodes, 2 edges
 
@@ -24,9 +24,10 @@ edges (sorted by upstream)
 
 Gaps:
 ```toon
-[2]{id,band,refersTo,importance,coverage,question}:
-  "2",grounding,thesis,3,0,"Who is this for, and what pull or pain makes it worth doing?"
-  "6",grounding,assumption,1,0,What are we assuming that might be false?
+[3]{id,band,refersTo,importance,coverage,question}:
+  "2",grounding,context,3,0,"Is this new-from-scratch, a brownfield codebase, or a continuation of a prior thread?"
+  "3",grounding,thesis,3,0,"Who is this for, and what pull or pain makes it worth doing?"
+  "7",grounding,assumption,1,0,What are we assuming that might be false?
 ```
 
 Sessions:

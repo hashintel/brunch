@@ -68,7 +68,7 @@ describe('capability readiness over elicitation gaps', () => {
 
   it('fails loud when a required kind has no referring gap record', () => {
     expect(() => evaluateCapabilityReadiness('propose-graph', groundingFloorGaps().slice(0, 3))).toThrow(
-      /no elicitation gap for constraint/,
+      /no presence gap for constraint/,
     );
   });
 

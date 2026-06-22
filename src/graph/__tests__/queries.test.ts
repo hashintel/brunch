@@ -139,8 +139,8 @@ describe('getElicitationGaps', () => {
     expect(before.question).toBe(
       'What kind of thing is this, and what domain or environment does it live in?',
     );
-    expect(getElicitationGaps(db, specId)).toHaveLength(6);
-    expect(getElicitationGaps(db, other.specId)).toHaveLength(6);
+    expect(getElicitationGaps(db, specId)).toHaveLength(7);
+    expect(getElicitationGaps(db, other.specId)).toHaveLength(7);
     expect(getElicitationGaps(db, other.specId).find((gap) => gap.refersTo === 'context')!.answered).toBe(
       false,
     );

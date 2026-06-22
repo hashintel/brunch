@@ -38,7 +38,15 @@ describe('agent posture policy', () => {
     const coveredMethods = manifestsForState(state, coveredGaps).methods.map((entry) => entry.name);
     const coveredTools = activeToolNamesForPosture({ registeredToolNames, state, gaps: coveredGaps });
 
-    expect(floorMethods).toEqual(['run-structured-exchange', 'capture', 'read-context']);
+    expect(floorMethods).toEqual([
+      'run-structured-exchange',
+      'capture',
+      'elicit-by-question',
+      'ingest-paste',
+      'read-referenced-documents',
+      'explore-and-characterize',
+      'read-context',
+    ]);
     expect(floorTools).not.toContain('mutate_graph');
     expect(floorTools).not.toContain('present_review_set');
     expect(floorTools).not.toContain('request_review');
@@ -53,6 +61,10 @@ describe('agent posture policy', () => {
       'run-structured-exchange',
       'capture',
       'commit-graph',
+      'elicit-by-question',
+      'ingest-paste',
+      'read-referenced-documents',
+      'explore-and-characterize',
       'read-context',
       'generate-proposal',
       'review-for-gaps',
@@ -186,7 +198,7 @@ describe('agent posture policy', () => {
     // Every spec is seeded with floor gaps at creation; an empty register reaching
     // manifest derivation is a wiring bug, never a legal quiet posture.
     const state = projectBrunchAgentState([]);
-    expect(() => manifestsForState(state, [])).toThrow(/no elicitation gap/);
+    expect(() => manifestsForState(state, [])).toThrow(/no presence gap/);
   });
 
   it('resolves agent SYSTEM.md bodies through the code-owned runtime registry location', () => {

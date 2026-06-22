@@ -15,6 +15,10 @@ export type MethodId =
   | 'run-structured-exchange'
   | 'capture'
   | 'commit-graph'
+  | 'elicit-by-question'
+  | 'ingest-paste'
+  | 'read-referenced-documents'
+  | 'explore-and-characterize'
   | 'read-context'
   | 'generate-proposal'
   | 'review-for-gaps';
@@ -83,6 +87,10 @@ export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition
       'run-structured-exchange',
       'capture',
       'commit-graph',
+      'elicit-by-question',
+      'ingest-paste',
+      'read-referenced-documents',
+      'explore-and-characterize',
       'read-context',
       'generate-proposal',
       'review-for-gaps',
@@ -137,6 +145,26 @@ export const METHOD_RESOURCES: Record<MethodId, PromptResourceManifestEntry> = {
     'methods',
     'commit-graph',
     'Commit graph truth only through Brunch graph tools and CommandExecutor-backed results.',
+  ),
+  'elicit-by-question': resource(
+    'methods',
+    'elicit-by-question',
+    'Acquire missing material by asking the human one focused question.',
+  ),
+  'ingest-paste': resource(
+    'methods',
+    'ingest-paste',
+    'Acquire user-provided pasted material as conversational transcript content.',
+  ),
+  'read-referenced-documents': resource(
+    'methods',
+    'read-referenced-documents',
+    'Read bounded user-referenced documents and digest them before capture.',
+  ),
+  'explore-and-characterize': resource(
+    'methods',
+    'explore-and-characterize',
+    'Explore a bounded brownfield area and write a characterization digest before capture.',
   ),
   'read-context': resource(
     'methods',

@@ -47,7 +47,7 @@ canonical stores:
     worldUpdate entries
 ```
 
-RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. The current graph read subset is deliberately limited to `graph.overview` and `graph.nodeNeighborhood`; `src/graph/README.md` owns the observed-shape ledger and decides which graph-owned shapes are required, deferred, or not applicable per consumer. Mutations route through the owning product seam: session transcript operations through `session.*`, synchronous high-confidence response capture through `session.submitExchangeResponse` → `graph/capture` → `CommandExecutor`, review-set approval through `session.submitExchangeResponse` → `CommandExecutor.acceptReviewSet`, and other graph mutations through the agent/tool or `CommandExecutor` path that owns them. `dev.*` is the only exception family: methods in that namespace are explicitly gated local harnesses, absent from default discovery and absent from the read-only sidecar.
+RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. The current graph read subset is deliberately limited to `graph.overview` and `graph.nodeNeighborhood`; `src/graph/README.md` owns the observed-shape ledger and decides which graph-owned shapes are required, deferred, or not applicable per consumer. Mutations route through the owning product seam: session transcript operations through `session.*`, review-set approval through `session.submitExchangeResponse` → `CommandExecutor.acceptReviewSet`, and other graph mutations through the agent/tool or `CommandExecutor` path that owns them. High-confidence capture is elicitor turn-boundary sweep conduct (D80-L), not a submit-path mutation. `dev.*` is the only exception family: methods in that namespace are explicitly gated local harnesses, absent from default discovery and absent from the read-only sidecar.
 
 ## Method registry
 
@@ -217,29 +217,21 @@ session.submitExchangeResponse
     exchangeId
     answer: {text} | {optionId} | {optionIds} | {review:{decision, comment?}}
     note?
-  result: accepted terminal response plus capture/review outcome
-    capture:
-      captured(lsn, nodeCount, createdNodes)
-      | no_capture(reason)
-      | structural_illegal(diagnostics)
+  result: accepted terminal response plus review outcome
     review:
       approved(lsn, createdNodes)
       | request_changes
       | rejected
       | structural_illegal(diagnostics)
-  effects: appends request_* toolResult response, publishes selected-session invalidations, and when captured or approved publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
+  effects: appends request_* toolResult response, publishes selected-session invalidations, and on review-set approval publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
 
 session.submitMessage
   access: write
   params:
     text
     interruption?
-  result: accepted ordinary user message plus capture outcome
-    capture:
-      captured(lsn, nodeCount, createdNodes)
-      | no_capture(reason)
-      | structural_illegal(diagnostics)
-  effects: appends a user message to the selected session transcript, rejects ordinary text while a structured exchange is pending unless interruption=true, and when captured publishes graph.overview / graph.nodeNeighborhood invalidations for the transcript-bound spec
+  result: accepted ordinary user message
+  effects: appends a user message to the selected session transcript and rejects ordinary text while a structured exchange is pending unless interruption=true (no submit-time capture — capture is elicitor turn-boundary sweep conduct, D80-L)
 
 session.driveTurn
   access: write (`/rpc/driver` on the TUI-started web sidecar only, discovered only when a driver handle is attached; ordinary `/rpc` observers never discover it)
@@ -370,7 +362,7 @@ query key families:
 | `session.exchanges` | `sessionExchangesQueryOptions(rpc, target)` | target; no current web history panel | `session.exchanges` |
 | `session.runtimeState` | `sessionRuntimeStateQueryOptions(rpc, target)` | implemented query option; not yet route-rendered | `session.runtimeState` |
 | `session.triggerExchange` | `triggerExchangeMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state |
-| `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; captured text answers additionally invalidate `graph.overview(specId)` / `graph.nodeNeighborhood(specId)` |
+| `session.submitExchangeResponse` | `submitExchangeResponseMutationOptions(rpc)` | target full-host mutation; sidecar rejects | invalidates pending/exchanges/runtime state; review-set approval additionally invalidates `graph.overview(specId)` / `graph.nodeNeighborhood(specId)` |
 | `session.driveTurn` | `driveTurnMutationOptions(rpc)` | target; driver-attached sidecar accepted, web UI not wired | live `brunch.sessionEvent` stream; transcript projection refetch via existing session queries if needed |
 | `session.answerExchange` | `answerExchangeMutationOptions(rpc)` | target; broker-attached sidecar accepted for `request_answer`, web UI not wired | live `brunch.sessionEvent` stream; transcript projection refetch via existing session queries if needed |
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
@@ -417,15 +409,9 @@ capture_* toolResult (future)
     possible semantic candidates
     no graph mutation
 
-synchronous response capture (current POC tracer)
-  request_answer text with direct labels:
-    Goal: ...
-    Context: ...
-    Constraint: ...
-    Criterion: ...
-  -> graph/capture translator
-  -> CommandExecutor.mutateGraph({createBasis: explicit, ops})
-  -> selected-spec graph truth
+generalized capture (D80-L)
+  elicitor turn-boundary banded sweep over the un-swept transcript tail
+  -> mutate_graph (commit) / update_elicitation_gaps (spawn) — not a submit-path mutation
 
 ```
 Payload facets such as establishment offers, elicitor intent hints, and review/proposal material belong inside structured exchange payloads when they are part of an exchange. They are not separate public RPC entities.
