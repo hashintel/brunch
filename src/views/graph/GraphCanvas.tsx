@@ -5,16 +5,17 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Spinner } from '@/client/components/ui/spinner';
 import type { EntitiesData } from '@/shared/api-types.js';
-import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
 import { buildGraphModel, type GraphModel } from '@/views/graph/buildGraphModel.js';
 import { isEdgeIncident, neighborIds } from '@/views/graph/focus.js';
 import { forceLayout } from '@/views/graph/forceLayout.js';
-import { GraphDetailPanel, type GraphDetail } from '@/views/graph/GraphDetailPanel.js';
+import { buildGraphDetail } from '@/views/graph/graphDetail.js';
+import { GraphDetailPanel } from '@/views/graph/GraphDetailPanel.js';
 import { GraphEdge } from '@/views/graph/GraphEdge.js';
 import { GraphEmptyState } from '@/views/graph/GraphEmptyState.js';
 import { GraphNode } from '@/views/graph/GraphNode';
 import { Legend } from '@/views/graph/Legend.js';
-import type { GraphEdgeRelationship, GraphNodeData, GraphNodeKind } from '@/views/graph/types.js';
+import type { GraphEdgeRelationship, GraphNodeData } from '@/views/graph/types.js';
 import { ZoomControl } from '@/views/graph/ZoomControl';
 
 import '@xyflow/react/dist/style.css';
@@ -44,65 +45,8 @@ function GraphFlowEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<E
 const nodeTypes = { graph: GraphNode };
 const edgeTypes = { graph: GraphFlowEdge };
 
-/** Per-node card detail (kind, reference code, name, rationale), keyed by node id. */
-interface NodeInfo {
-  kind: GraphNodeKind;
-  referenceCode: string;
-  content: string;
-  rationale: string;
-}
-
-/** Map every node id (`${kind}:${id}`) to its detail from the entity state. */
-function nodeInfoById(entityState: EntitiesData): Map<string, NodeInfo> {
-  const byId = new Map<string, NodeInfo>();
-  for (const entry of knowledgeKindRegistry) {
-    for (const item of entityState[entry.collectionKey]) {
-      byId.set(`${entry.kind}:${item.id}`, {
-        kind: entry.kind,
-        referenceCode: item.referenceCode ?? '',
-        content: item.content,
-        rationale: 'rationale' in item && item.rationale !== null ? item.rationale : '',
-      });
-    }
-  }
-  return byId;
-}
-
-/** Build the detail-panel payload for the selected node from the model + info. */
-function buildDetail(selectedId: string, model: GraphModel, info: Map<string, NodeInfo>): GraphDetail | null {
-  const self = info.get(selectedId);
-  if (self === undefined) return null;
-
-  const connections: GraphDetail['connections'] = [];
-  for (const edge of model.edges) {
-    const incidentAsSource = edge.source === selectedId;
-    const incidentAsTarget = edge.target === selectedId;
-    if (!incidentAsSource && !incidentAsTarget) continue;
-
-    const otherId = incidentAsSource ? edge.target : edge.source;
-    const other = info.get(otherId);
-    if (other === undefined) continue;
-
-    connections.push({
-      direction: incidentAsSource ? 'outgoing' : 'incoming',
-      relationship: edge.data.relationship,
-      otherKind: other.kind,
-      otherReference: other.referenceCode,
-      otherContent: other.content,
-    });
-  }
-
-  return {
-    kind: self.kind,
-    referenceCode: self.referenceCode,
-    content: self.content,
-    rationale: self.rationale,
-    connections,
-  };
-}
-
 /** Inner canvas: lays out once, then renders the surface with focus-driven dimming and incident labels. */
-function Canvas({ model, info }: { model: GraphModel; info: Map<string, NodeInfo> }) {
+function Canvas({ model }: { model: GraphModel }) {
   const [positions, setPositions] = useState<Map<string, { x: number; y: number }> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -128,14 +72,10 @@ function Canvas({ model, info }: { model: GraphModel; info: Map<string, NodeInfo
   const flowNodes = useMemo<Node[]>(() => {
     if (positions === null) return [];
     return model.nodes.map((node): Node => {
-      const detail = info.get(node.id);
       const data: GraphNodeData = {
         ...node.data,
         selected: node.id === selectedId,
         dimmed: selectedId !== null && !neighbors.has(node.id),
-        referenceCode: detail?.referenceCode ?? '',
-        content: detail?.content ?? '',
-        rationale: detail?.rationale ?? '',
       };
       return {
         id: node.id,
@@ -144,7 +84,7 @@ function Canvas({ model, info }: { model: GraphModel; info: Map<string, NodeInfo
         data: data as unknown as Record<string, unknown>,
       };
     });
-  }, [model.nodes, positions, info, selectedId, neighbors]);
+  }, [model.nodes, positions, selectedId, neighbors]);
 
   // Label/highlight/dim by incidence to the hovered or selected node; never re-runs layout.
   const flowEdges = useMemo<Edge<FlowEdgeData>[]>(() => {
@@ -172,8 +112,8 @@ function Canvas({ model, info }: { model: GraphModel; info: Map<string, NodeInfo
   );
 
   const detail = useMemo(
-    () => (selectedId === null ? null : buildDetail(selectedId, model, info)),
-    [selectedId, model, info],
+    () => (selectedId === null ? null : buildGraphDetail(selectedId, model)),
+    [selectedId, model],
   );
 
   // The detail panel floats as a right-edge overlay rather than a flex sibling, so
@@ -215,11 +155,10 @@ function Canvas({ model, info }: { model: GraphModel; info: Map<string, NodeInfo
 /** The shared graph canvas's sole composing component. */
 export function GraphCanvas({ entityState }: { entityState: EntitiesData }) {
   const model = useMemo(() => buildGraphModel(entityState), [entityState]);
-  const info = useMemo(() => nodeInfoById(entityState), [entityState]);
 
   if (model.nodes.length === 0) {
     return <GraphEmptyState />;
   }
 
-  return <Canvas model={model} info={info} />;
+  return <Canvas model={model} />;
 }

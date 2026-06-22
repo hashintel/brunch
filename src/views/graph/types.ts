@@ -43,3 +43,21 @@ export interface GraphEdgeData {
   /** The relationship type this edge represents. */
   relationship: GraphEdgeRelationship;
 }
+
+/** One connection incident to the selected node, oriented from its point of view. */
+export interface GraphDetailConnection {
+  direction: 'outgoing' | 'incoming';
+  relationship: GraphEdgeRelationship;
+  otherKind: GraphNodeKind;
+  otherReference: string;
+  otherContent: string;
+}
+
+/** Everything the detail panel renders for the selected node. */
+export interface GraphDetail {
+  kind: GraphNodeKind;
+  referenceCode: string;
+  content: string;
+  rationale: string;
+  connections: GraphDetailConnection[];
+}

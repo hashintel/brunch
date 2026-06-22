@@ -4,25 +4,7 @@ import { X } from 'lucide-react';
 
 import { KindBadge } from '@/client/components/knowledge-card';
 import { knowledgeKindRegistryByKind } from '@/shared/knowledge.js';
-import type { GraphEdgeRelationship, GraphNodeKind } from '@/views/graph/types';
-
-/** One connection incident to the selected node, oriented from its point of view. */
-export interface GraphDetailConnection {
-  direction: 'outgoing' | 'incoming';
-  relationship: GraphEdgeRelationship;
-  otherKind: GraphNodeKind;
-  otherReference: string;
-  otherContent: string;
-}
-
-/** Everything the panel renders for the selected node. */
-export interface GraphDetail {
-  kind: GraphNodeKind;
-  referenceCode: string;
-  content: string;
-  rationale: string;
-  connections: GraphDetailConnection[];
-}
+import type { GraphDetail, GraphDetailConnection, GraphEdgeRelationship } from '@/views/graph/types';
 
 function humanizeRelationship(relationship: GraphEdgeRelationship): string {
   return relationship.replace(/_/g, ' ');
