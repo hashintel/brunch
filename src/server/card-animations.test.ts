@@ -109,20 +109,18 @@ describe('card-animations — hover lift', () => {
   });
 });
 
-describe('card-animations — expand/collapse card overlay', () => {
-  it('animates the card overlay with a transition or keyframe animation', () => {
-    const source = css();
-    const overlayRule =
-      ruleBodies(source, /overlay|card/i).join('\n') +
-      (/@keyframes/.test(source) ? '\n@keyframes-present' : '');
-    expect(overlayRule).toMatch(/transition|animation|@keyframes-present/i);
+describe('card-animations — per-kind accent bar', () => {
+  it('tints the accent bar from the node-kind accent CSS variable', () => {
+    const bar = ruleBodies(css(), /\.graph-node__bar/);
+    expect(bar.length).toBeGreaterThan(0);
+    expect(bar.join('\n')).toMatch(/--graph-node-accent/);
   });
+});
 
-  it('animates a property suited to expand/collapse (height/scale/opacity/transform)', () => {
-    const overlay = ruleBodies(css(), /overlay|card/i)
-      .join('\n')
-      .toLowerCase();
-    expect(overlay).toMatch(/height|max-height|transform|scale|opacity|clip-path/);
+describe('card-animations — selection ring is kind-tinted, not a fixed palette colour', () => {
+  it('rings the selected card from its own kind accent variable', () => {
+    const selected = ruleBodies(css(), /\.is-selected/).join('\n');
+    expect(selected).toMatch(/--graph-node-accent/);
   });
 });
 

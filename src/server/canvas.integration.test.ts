@@ -1,25 +1,21 @@
 // @vitest-environment happy-dom
 
 /**
- * Epic integration: "Graph canvas wiring — edge label toggle, edges, and
+ * Epic integration: "Graph canvas wiring — focus-scoped labels, edges, and
  * settle-once".
  *
- * This test exercises the three canvas slices together through their public
- * surfaces, reproducing exactly the wiring the `GraphCanvas` performs:
+ * Exercises the canvas slices together through their public surfaces:
  *
  *   1. entity state -> `buildGraphModel` -> nodes + edges (graph data),
  *   2. that model -> `forceLayout` -> settled, deterministic positions
  *      (settle-once: identical positions on a repeat run, no animated fly-in),
- *   3. the global edge-label toggle (`?edgeLabels` URL param, parsed by
- *      `parseEdgeLabelsVisible`) threaded as the `labelsShown` prop onto every
- *      `GraphEdge` so flipping one switch reveals/hides every edge's
- *      relationship label at once.
+ *   3. focus scoping (`focus.ts`): a node's incident edges reveal their labels
+ *      and its neighbours stay lit while the rest dim, threaded as the
+ *      `labelsShown` prop onto each `GraphEdge` exactly as the canvas does.
  *
- * The canvas threads the toggle into each edge via `labelsShown={labelsVisible}`
- * (see `GraphFlowEdge` in GraphCanvas), and `GraphEdge` reveals its label when
- * `labelsShown || selected`. These tests pin that end-to-end composition through
- * the rendered DOM and the layout output, not through any single slice in
- * isolation.
+ * `GraphEdge` reveals its label when `labelsShown || selected`. These tests pin
+ * the end-to-end composition through the rendered DOM and the layout output, not
+ * through any single slice in isolation.
  */
 
 import { cleanup, render } from '@testing-library/react';
@@ -28,13 +24,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types';
 import { buildGraphModel } from '@/views/graph/buildGraphModel';
-import {
-  DEFAULT_EDGE_LABELS_VISIBLE,
-  edgeLabelsToSearch,
-  EDGE_LABELS_PARAM,
-  parseEdgeLabelsVisible,
-  toggleEdgeLabels,
-} from '@/views/graph/EdgeLabelToggle';
+import { isEdgeIncident, neighborIds } from '@/views/graph/focus';
 import { forceLayout } from '@/views/graph/forceLayout';
 import { GraphEdge } from '@/views/graph/GraphEdge';
 
@@ -44,7 +34,8 @@ afterEach(() => {
 
 // ---------------------------------------------------------------------------
 // Fixture: a small but real intent graph spanning several knowledge kinds and
-// multiple relationship types, shaped like the server's `EntitiesData`.
+// multiple relationship types, shaped like the server's `EntitiesData`. The
+// requirement (id 5) is a hub — every relationship touches it.
 // ---------------------------------------------------------------------------
 
 function makeItem(id: number, kind: string, content: string) {
@@ -104,11 +95,11 @@ function layoutEdges(edges: ReturnType<typeof buildGraphModel>['edges']) {
 }
 
 /**
- * Render the model's edges exactly as the canvas threads them: every edge gets
- * `labelsShown={labelsVisible}` (the canvas's `GraphFlowEdge` wiring), with the
- * endpoints drawn from the settled layout positions.
+ * Render the model's edges exactly as the canvas threads them under a focus:
+ * each edge gets `labelsShown={isEdgeIncident(edge, focusId)}`, with endpoints
+ * drawn from the settled layout positions.
  */
-function renderCanvasEdges(visible: boolean): { container: HTMLElement } {
+function renderFocusedEdges(focusId: string | null): { container: HTMLElement } {
   const model = buildGraphModel(makeEntities());
   const positioned = forceLayout({ nodes: model.nodes, edges: layoutEdges(model.edges) });
   const positions = new Map(positioned.map((node) => [node.id, node.position]));
@@ -121,7 +112,7 @@ function renderCanvasEdges(visible: boolean): { container: HTMLElement } {
       relationship: edge.data.relationship,
       source,
       target,
-      labelsShown: visible,
+      labelsShown: isEdgeIncident(edge, focusId),
     });
   });
 
@@ -142,26 +133,21 @@ describe('canvas wiring: graph data -> force layout -> edges', () => {
     const model = buildGraphModel(makeEntities());
     const positioned = forceLayout({ nodes: model.nodes, edges: layoutEdges(model.edges) });
 
-    // All eight knowledge kinds become nodes, and all four relationships edges.
     expect(model.nodes).toHaveLength(8);
     expect(model.edges).toHaveLength(4);
     expect(positioned).toHaveLength(8);
 
-    // Every layout position is a real, finite coordinate (force ran, not NaN).
     for (const node of positioned) {
       expect(Number.isFinite(node.position.x)).toBe(true);
       expect(Number.isFinite(node.position.y)).toBe(true);
     }
 
-    // Every edge connects two ids that exist as laid-out nodes.
     const ids = new Set(positioned.map((node) => node.id));
     for (const edge of model.edges) {
       expect(ids.has(edge.source)).toBe(true);
       expect(ids.has(edge.target)).toBe(true);
     }
 
-    // The force actually spread the nodes — they are not all stacked at one
-    // point (guards against a no-op layout that would still settle "once").
     const distinct = new Set(positioned.map((node) => `${node.position.x},${node.position.y}`));
     expect(distinct.size).toBeGreaterThan(1);
   });
@@ -209,63 +195,45 @@ describe('canvas wiring: graph data -> force layout -> edges', () => {
   });
 });
 
-describe('canvas wiring: global edge-label toggle reveals every edge label', () => {
-  it('hides every edge label when the toggle is off (default param state)', () => {
-    expect(parseEdgeLabelsVisible(undefined)).toBe(DEFAULT_EDGE_LABELS_VISIBLE);
-
-    const { container } = renderCanvasEdges(parseEdgeLabelsVisible(undefined));
+describe('canvas wiring: focus reveals only the focused node’s incident edge labels', () => {
+  it('shows no edge labels when nothing is focused', () => {
+    const { container } = renderFocusedEdges(null);
     expect(container.querySelectorAll('[data-edge-label]')).toHaveLength(0);
   });
 
-  it('reveals a label on every edge when the toggle is on', () => {
-    const visible = parseEdgeLabelsVisible('on');
-    expect(visible).toBe(true);
-
+  it('labels every edge incident to a focused hub, and only those', () => {
     const model = buildGraphModel(makeEntities());
-    const { container } = renderCanvasEdges(visible);
+    const hub = 'requirement:5';
+    const incident = model.edges.filter((edge) => isEdgeIncident(edge, hub));
 
+    const { container } = renderFocusedEdges(hub);
     const labels = container.querySelectorAll('[data-edge-label]');
-    expect(labels).toHaveLength(model.edges.length);
+    expect(labels).toHaveLength(incident.length);
 
-    // Each rendered label corresponds to one of the model's relationships.
     const rendered = Array.from(labels).map((label) => labelKey(label.textContent ?? ''));
-    const expected = model.edges.map((edge) => edge.data.relationship);
-    expect(rendered.sort()).toEqual(expected.sort());
+    expect(rendered.sort()).toEqual(incident.map((edge) => edge.data.relationship).sort());
   });
 
-  it('flips the entire edge set when the toggle changes, driven by the URL param', () => {
+  it('labels only the single incident edge when focusing a leaf node', () => {
+    const model = buildGraphModel(makeEntities());
+    const leaf = 'goal:1';
+    const incident = model.edges.filter((edge) => isEdgeIncident(edge, leaf));
+    expect(incident).toHaveLength(1);
+
+    const { container } = renderFocusedEdges(leaf);
+    expect(container.querySelectorAll('[data-edge-label]')).toHaveLength(1);
+  });
+
+  it('keeps the focused node and its neighbours as the lit set (the rest dim)', () => {
     const model = buildGraphModel(makeEntities());
 
-    // Start: param absent -> default (off) -> no labels.
-    const offVisible = parseEdgeLabelsVisible(undefined);
-    const { container: off } = renderCanvasEdges(offVisible);
-    expect(off.querySelectorAll('[data-edge-label]')).toHaveLength(0);
-    cleanup();
-
-    // Toggle once and serialise to the search param, as the control does.
-    const toggled = toggleEdgeLabels(offVisible);
-    const search = edgeLabelsToSearch(toggled);
-    expect(search[EDGE_LABELS_PARAM]).toBe('on');
-
-    // Re-read the param off the URL and re-thread it: every edge now labelled.
-    const onVisible = parseEdgeLabelsVisible(search[EDGE_LABELS_PARAM]);
-    expect(onVisible).toBe(true);
-    const { container: on } = renderCanvasEdges(onVisible);
-    expect(on.querySelectorAll('[data-edge-label]')).toHaveLength(model.edges.length);
-  });
-
-  it('round-trips the toggle through the param so the choice survives a refresh', () => {
-    const initial = parseEdgeLabelsVisible(undefined);
-    expect(initial).toBe(false);
-
-    const afterFirst = parseEdgeLabelsVisible(
-      edgeLabelsToSearch(toggleEdgeLabels(initial))[EDGE_LABELS_PARAM],
+    // The hub plus all four of its endpoints stay lit.
+    expect(neighborIds(model.edges, 'requirement:5')).toEqual(
+      new Set(['requirement:5', 'goal:1', 'criterion:6', 'constraint:4', 'decision:7']),
     );
-    expect(afterFirst).toBe(true);
-
-    const afterSecond = parseEdgeLabelsVisible(
-      edgeLabelsToSearch(toggleEdgeLabels(afterFirst))[EDGE_LABELS_PARAM],
-    );
-    expect(afterSecond).toBe(false);
+    // A leaf lights only itself and the hub.
+    expect(neighborIds(model.edges, 'goal:1')).toEqual(new Set(['goal:1', 'requirement:5']));
+    // No focus lights nobody (so nothing dims).
+    expect(neighborIds(model.edges, null).size).toBe(0);
   });
 });

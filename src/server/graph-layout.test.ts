@@ -23,7 +23,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { cardFootprint } from '@/views/graph/cardFootprint';
-import { forceLayout } from '@/views/graph/forceLayout.js';
+import { forceLayout, kindRank } from '@/views/graph/forceLayout.js';
 import type { GraphEdgeData, GraphNodeData } from '@/views/graph/types.js';
 
 interface LayoutNodeInput {
@@ -295,5 +295,51 @@ describe('forceLayout — organic relationship-clustered feel is preserved', () 
     const maxConnectedDistance = Math.max(...connected.map((id) => distance(positions.get(id)!, center)));
 
     expect(orphanDistance).toBeGreaterThan(maxConnectedDistance);
+  });
+});
+
+describe('forceLayout — knowledge hierarchy lays out top-to-bottom by kind', () => {
+  // One node per kind, wired along the natural hierarchy, so the vertical bias
+  // has a real multi-kind graph to tilt into layers.
+  const model: GraphModel = {
+    nodes: [
+      makeNode('goal', 'goal'),
+      makeNode('context', 'context'),
+      makeNode('term', 'term'),
+      makeNode('constraint', 'constraint'),
+      makeNode('decision', 'decision'),
+      makeNode('assumption', 'assumption'),
+      makeNode('requirement', 'requirement'),
+      makeNode('criterion', 'criterion'),
+    ],
+    edges: [
+      makeEdge('requirement', 'goal', 'derived_from'),
+      makeEdge('criterion', 'requirement', 'verifies'),
+      makeEdge('requirement', 'decision', 'depends_on'),
+      makeEdge('constraint', 'requirement', 'constrains'),
+    ],
+  };
+
+  it('settles shallow-rank kinds above deep-rank kinds on average', () => {
+    const positions = positionsById(forceLayout(model));
+    const layerY = (kind: GraphNodeData['kind']) => positions.get(kind)!.y;
+    const meanY = (kinds: readonly GraphNodeData['kind'][]) =>
+      kinds.reduce((sum, k) => sum + layerY(k), 0) / kinds.length;
+
+    // The bias is deliberately gentle, so any single node may interleave (an
+    // orphan floats to its band, a link-tethered node is pulled toward its
+    // neighbour). What holds is the aggregate tilt: the shallow framing layers
+    // (ranks 0–1) sit above the deep requirement/criterion layers (ranks 3–4).
+    const shallow = ['goal', 'context', 'term', 'constraint'] as const;
+    const deep = ['requirement', 'criterion'] as const;
+    for (const k of shallow) expect(kindRank[k]).toBeLessThanOrEqual(1);
+    for (const k of deep) expect(kindRank[k]).toBeGreaterThanOrEqual(3);
+
+    expect(meanY(shallow)).toBeLessThan(meanY(deep));
+  });
+
+  it('places the rank-0 goal above the rank-4 criterion', () => {
+    const positions = positionsById(forceLayout(model));
+    expect(positions.get('goal')!.y).toBeLessThan(positions.get('criterion')!.y);
   });
 });

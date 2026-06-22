@@ -1,50 +1,34 @@
-/*
- * card-animations — animate graph node *state changes* with CSS transitions.
- *
- * Scope: selection emphasis (.is-selected / .is-dimmed), a hover lift, and an
- * expand/collapse card overlay. Deliberately excluded: per-tick position
- * animation (no transition on left/top/all) and any fly-in entrance keyframe.
- */
+/* graph-node accenting + state animation. No transition on left/top/all and no entrance keyframe,
+   so React Flow's per-frame repositioning stays snappy. */
 
 .graph-node {
-  /* Only state-driven properties ease; layout (left/top) is never transitioned
-     so React Flow's per-frame repositioning stays snappy. */
   transition:
     opacity 150ms ease,
     transform 150ms ease,
     box-shadow 150ms ease;
 }
 
-/* Selection emphasis: lift slightly and add a focus ring. */
-.graph-node.is-selected {
-  transform: scale(1.03);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.8);
-  outline: 1px solid rgba(59, 130, 246, 0.4);
-  border-color: rgba(59, 130, 246, 0.8);
+/* Per-kind accent bar — kind encoding that isn't colour-only (it pairs with the named KindBadge). */
+.graph-node__bar {
+  flex: none;
+  width: 3px;
+  background: var(--graph-node-accent);
 }
 
-/* De-emphasised neighbours fade back. */
+/* Selection: lift slightly and ring in the node's own kind accent (never a fixed palette colour). */
+.graph-node.is-selected {
+  transform: scale(1.03);
+  box-shadow:
+    0 0 0 2px var(--graph-node-accent),
+    0 6px 16px rgba(0, 0, 0, 0.12);
+  border-color: var(--graph-node-accent);
+}
+
 .graph-node.is-dimmed {
   opacity: 0.35;
 }
 
-/* Hover lift: the card eases upward rather than snapping. */
 .graph-node:hover {
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
-}
-
-/* Expand/collapse card overlay: animate height + opacity as it opens/closes. */
-.graph-node__card-overlay {
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition:
-    max-height 200ms ease,
-    opacity 200ms ease;
-}
-
-.graph-node.is-expanded .graph-node__card-overlay {
-  max-height: 480px;
-  opacity: 1;
 }

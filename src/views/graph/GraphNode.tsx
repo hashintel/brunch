@@ -1,18 +1,9 @@
-/**
- * React Flow custom node rendered as a rectangular *card*.
- *
- * Collapsed, the card draws on the single uniform `cardFootprint` and shows the
- * knowledge item's reference code and name, accented by kind via `nodeColor`.
- * Clicking the card expands it, revealing the item's rationale in a z-raised
- * overlay that floats above neighbours without changing the collapsed footprint
- * (so no layout reflow / no simulation re-run). Assumption nodes with no
- * rationale show a "no reasoning recorded" affordance instead. Source/target
- * handles are retained so edges can attach.
- */
+/** React Flow node rendered as a knowledge card, reusing the knowledge-card visual language. */
 
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { useState, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 
+import { KindBadge } from '@/client/components/knowledge-card';
 import { cn } from '@/client/lib/utils';
 import { cardFootprint } from '@/views/graph/cardFootprint';
 import { nodeColor } from '@/views/graph/nodeColor';
@@ -21,51 +12,34 @@ import type { GraphNodeData } from '@/views/graph/types';
 import './graphNode.css';
 
 export function GraphNode({ data }: NodeProps & { data: GraphNodeData }) {
-  const { kind, selected, dimmed, referenceCode, content, rationale } = data;
-  const [expanded, setExpanded] = useState(false);
+  const { kind, selected, dimmed, referenceCode, content } = data;
 
-  const accent = nodeColor(kind);
-  const hasRationale = rationale.trim().length > 0;
-  const showNoReasoning = kind === 'assumption' && !hasRationale;
-
-  const rootStyle: CSSProperties & Record<'--graph-node-accent', string> = {
-    '--graph-node-accent': accent,
-    position: 'relative',
-    ...(expanded ? { zIndex: 10 } : {}),
-  };
-
-  const cardStyle: CSSProperties = {
+  // Accent rides on a CSS var so the stylesheet tints ring/bar from the node's own kind.
+  const cardStyle: CSSProperties & Record<'--graph-node-accent', string> = {
     width: cardFootprint.width,
     height: cardFootprint.height,
-    borderColor: accent,
+    '--graph-node-accent': nodeColor(kind),
   };
 
   return (
     <div
       className={cn(
-        'graph-node',
+        'graph-node flex overflow-hidden rounded-xl border border-rule bg-white text-left shadow-[var(--shadow-card)]',
         selected && 'is-selected',
         dimmed && 'is-dimmed',
-        expanded && 'is-expanded',
       )}
-      style={rootStyle}
-      onClick={() => setExpanded((prev) => !prev)}
+      style={cardStyle}
     >
       <Handle type="target" position={Position.Top} isConnectable />
 
-      <div className="graph-node__card border" style={cardStyle}>
-        <span className="graph-node__reference" style={{ color: accent }}>
-          {referenceCode}
-        </span>
-        <span className="graph-node__name">{content}</span>
-      </div>
+      <span className="graph-node__bar" aria-hidden="true" />
 
-      <div className="graph-node__card-overlay">
-        {showNoReasoning ? (
-          <span className="graph-node__no-reasoning">No reasoning recorded</span>
-        ) : (
-          <span className="graph-node__rationale">{rationale}</span>
-        )}
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 px-3 py-2.5">
+        <div className="flex items-center gap-1.5">
+          <KindBadge kind={kind} />
+          <span className="font-mono text-xxs font-medium text-hint">{referenceCode}</span>
+        </div>
+        <span className="graph-node__name line-clamp-2 text-xs-plus leading-snug text-ink">{content}</span>
       </div>
 
       <Handle type="source" position={Position.Bottom} isConnectable />

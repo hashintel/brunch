@@ -924,13 +924,16 @@ export function StructuredListView({
     <ChipActivateProvider value={onChipActivate}>
       <SelectionMenu rect={selection?.rect ?? null} onChat={handleChat} onAnnotate={handleAnnotate} />
       <div data-graph-structured-list className="flex h-full flex-col bg-background">
-        <div
-          data-graph-header-bar
-          className="flex h-16 w-full shrink-0 items-center justify-between border-b border-rule px-6"
-        >
-          {headerLeft}
-          {headerRight}
-        </div>
+        {/* Only render an internal header bar when a consumer supplies content (the /graph route owns the page header). */}
+        {(headerLeft || headerRight) && (
+          <div
+            data-graph-header-bar
+            className="flex h-16 w-full shrink-0 items-center justify-between border-b border-rule px-6"
+          >
+            {headerLeft}
+            {headerRight}
+          </div>
+        )}
         {view !== 'empty' && (
           <div
             data-graph-filter-bar

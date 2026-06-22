@@ -92,7 +92,20 @@ export function GraphEdge({
         markerEnd={`url(#${markerId})`}
       />
       {labelsShown || selected ? (
-        <text data-edge-label="" x={(source.x + target.x) / 2} y={(source.y + target.y) / 2}>
+        <text
+          data-edge-label=""
+          x={(source.x + target.x) / 2}
+          y={(source.y + target.y) / 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fontSize={11}
+          fill={edgeStyle.stroke}
+          // White halo under the glyphs keeps the label legible over lines/cards without a sized rect.
+          stroke="white"
+          strokeWidth={3}
+          strokeLinejoin="round"
+          paintOrder="stroke"
+        >
           {label}
         </text>
       ) : null}

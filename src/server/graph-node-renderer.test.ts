@@ -1,40 +1,32 @@
 // @vitest-environment happy-dom
 
 /**
- * Oracle for the `graph-node-renderer` slice.
+ * Oracle for the GraphNode card renderer.
  *
- * The slice implements the GraphNode renderer at `src/graph/GraphNode.tsx` as a
- * rectangular *card* that replaces the old rounded-full dot:
- *
- *   - collapsed, it shows the item's reference code and name, accented by kind
- *     via `nodeColor` and laid out on the single uniform `cardFootprint`;
- *   - it expands to reveal the item's rationale as a z-raised overlay that
- *     floats above neighbours WITHOUT changing the card's collapsed footprint
- *     (no layout reflow / no simulation re-run);
- *   - assumption nodes with no rationale show a "no reasoning recorded"
- *     affordance instead of empty rationale;
- *   - it retains source/target connection handles so edges can attach.
+ * GraphNode renders a knowledge item as a rectangular card on the single uniform
+ * `cardFootprint`, reusing the knowledge-card visual language: a KindBadge +
+ * reference code + a name. Kind is accented via `nodeColor` (a CSS var driving
+ * the accent bar / selection ring). Selection and neighbour-dimming are driven
+ * by the `data` payload — the canvas owns that state; full rationale and
+ * connections live in the side panel, not on the card. Source/target handles are
+ * retained so edges can attach.
  *
  * These tests drive the component through its public React Flow node surface
- * (the `data` payload + user interaction), so they survive internal refactors
- * but pin the documented rendering contract.
+ * (the `data` payload), so they survive internal refactors but pin the contract.
  */
 
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, render } from '@testing-library/react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { createElement, type ComponentType } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
+import { knowledgeKinds, knowledgeKindReferencePrefixes, type KnowledgeKind } from '@/shared/knowledge.js';
 import { cardFootprint } from '@/views/graph/cardFootprint';
 import { GraphNode } from '@/views/graph/GraphNode';
 import { nodeColor } from '@/views/graph/nodeColor';
 
 afterEach(cleanup);
 
-// The render payload the card draws from: the existing kind/degree/selected/
-// dimmed fields plus the reference code, name (content), and rationale carried
-// from the knowledge item it represents.
 interface RenderData {
   kind: KnowledgeKind;
   degree: number;
@@ -58,11 +50,10 @@ function baseData(overrides: Partial<RenderData> = {}): RenderData {
   };
 }
 
-// React Flow hands its custom node a NodeProps object carrying the data payload.
 function makeProps(data: RenderData) {
   return {
     id: `${data.kind}:1`,
-    type: 'graphNode',
+    type: 'graph',
     data,
     selected: data.selected,
     dragging: false,
@@ -83,7 +74,6 @@ function renderNode(data: RenderData) {
     createElement(
       ReactFlowProvider,
       null,
-      // Typed as a React Flow node; cast loosely for the test harness.
       createElement(
         GraphNode as unknown as ComponentType<Record<string, unknown>>,
         makeProps(data) as unknown as Record<string, unknown>,
@@ -116,39 +106,23 @@ function hasFootprintBox(container: HTMLElement): boolean {
   );
 }
 
-/** Highest inline z-index declared anywhere in the rendered tree (0 if none). */
-function maxZIndex(container: HTMLElement): number {
-  let max = 0;
-  for (const el of container.querySelectorAll('*')) {
-    const style = el.getAttribute('style') ?? '';
-    const m = style.match(/z-index:\s*(-?\d+)/);
-    if (m) max = Math.max(max, Number(m[1]));
-  }
-  return max;
-}
-
-/** Click the card root to toggle its expanded state. */
-function toggleExpand(container: HTMLElement): void {
-  fireEvent.click(rootEl(container));
-}
-
-describe('GraphNode — collapsed card identity', () => {
+describe('GraphNode — card identity', () => {
   it('renders a rectangular card, not the old rounded-full dot', () => {
     const { container } = renderNode(baseData());
     expect(container.innerHTML).not.toContain('rounded-full');
   });
 
-  it('shows the reference code in the collapsed state', () => {
+  it('shows the reference code', () => {
     const { container } = renderNode(baseData({ referenceCode: 'R42' }));
     expect(container.textContent ?? '').toContain('R42');
   });
 
-  it("shows the item's name (content) in the collapsed state", () => {
+  it("shows the item's name (content)", () => {
     const { container } = renderNode(baseData({ content: 'Encrypt data at rest' }));
     expect(container.textContent ?? '').toContain('Encrypt data at rest');
   });
 
-  it('lays the collapsed card out on the single uniform footprint', () => {
+  it('lays the card out on the single uniform footprint', () => {
     const { container } = renderNode(baseData());
     expect(hasFootprintBox(container)).toBe(true);
   });
@@ -160,9 +134,24 @@ describe('GraphNode — collapsed card identity', () => {
     const big = renderNode(baseData({ degree: 16 }));
     expect(hasFootprintBox(big.container)).toBe(true);
   });
+
+  it('clamps the name so a long title cannot overflow the fixed card', () => {
+    const { container } = renderNode(baseData());
+    const clamped = container.querySelector('.line-clamp-2');
+    expect(clamped).not.toBeNull();
+    expect(clamped?.textContent ?? '').toContain('Persist drafts to disk');
+  });
 });
 
-describe('GraphNode — accented by kind via nodeColor', () => {
+describe('GraphNode — reuses the knowledge-card kind language', () => {
+  it("renders the kind's badge prefix alongside the reference code", () => {
+    for (const kind of knowledgeKinds) {
+      const { container } = renderNode(baseData({ kind, referenceCode: 'X1' }));
+      expect(container.textContent ?? '').toContain(knowledgeKindReferencePrefixes[kind]);
+      cleanup();
+    }
+  });
+
   it('paints each kind with its accent color from nodeColor', () => {
     for (const kind of knowledgeKinds) {
       const { container } = renderNode(baseData({ kind }));
@@ -198,74 +187,18 @@ describe('GraphNode — connection handles', () => {
   });
 });
 
-describe('GraphNode — expand to reveal rationale', () => {
-  it('starts collapsed (no expanded state class)', () => {
-    const { container } = renderNode(baseData());
-    expect(rootClass(container)).not.toMatch(/expand/i);
+describe('GraphNode — canvas-driven selection / dimming state', () => {
+  it('is neither selected nor dimmed by default', () => {
+    const cls = rootClass(renderNode(baseData()).container);
+    expect(cls).not.toMatch(/is-selected/);
+    expect(cls).not.toMatch(/is-dimmed/);
   });
 
-  it('marks the card expanded after the expand affordance is activated', () => {
-    const { container } = renderNode(baseData());
-    toggleExpand(container);
-    expect(rootClass(container)).toMatch(/expand/i);
+  it('marks the selected state from data so the stylesheet can emphasise it', () => {
+    expect(rootClass(renderNode(baseData({ selected: true })).container)).toMatch(/is-selected/);
   });
 
-  it('reveals the rationale text once expanded', () => {
-    const rationale = 'Regulatory audit requires a durable record';
-    const { container } = renderNode(baseData({ rationale }));
-    toggleExpand(container);
-    expect(container.textContent ?? '').toContain(rationale);
-  });
-
-  it('renders the rationale inside the card overlay element', () => {
-    const rationale = 'Regulatory audit requires a durable record';
-    const { container } = renderNode(baseData({ rationale }));
-    toggleExpand(container);
-    const overlay = container.querySelector('.graph-node__card-overlay');
-    expect(overlay).not.toBeNull();
-    expect(overlay?.textContent ?? '').toContain(rationale);
-  });
-
-  it('collapses again when the affordance is toggled back', () => {
-    const { container } = renderNode(baseData());
-    toggleExpand(container);
-    expect(rootClass(container)).toMatch(/expand/i);
-    toggleExpand(container);
-    expect(rootClass(container)).not.toMatch(/expand/i);
-  });
-});
-
-describe('GraphNode — overlay floats above neighbours without reflow', () => {
-  it('z-raises the node when expanded so the overlay floats above neighbours', () => {
-    const { container } = renderNode(baseData());
-    const collapsedZ = maxZIndex(container);
-    toggleExpand(container);
-    expect(maxZIndex(container)).toBeGreaterThan(collapsedZ);
-  });
-
-  it('keeps the collapsed card footprint unchanged when expanded (no layout reflow)', () => {
-    const { container } = renderNode(baseData());
-    expect(hasFootprintBox(container)).toBe(true);
-    toggleExpand(container);
-    // The card box itself stays the uniform footprint; the rationale is an
-    // overlay, so revealing it never grows the packed card.
-    expect(hasFootprintBox(container)).toBe(true);
-  });
-});
-
-describe('GraphNode — assumption with no rationale', () => {
-  it('shows a "no reasoning recorded" affordance for an assumption with empty rationale', () => {
-    const { container } = renderNode(baseData({ kind: 'assumption', rationale: '' }));
-    toggleExpand(container);
-    expect((container.textContent ?? '').toLowerCase()).toContain('no reasoning recorded');
-  });
-
-  it('does not invent a "no reasoning recorded" affordance when an assumption has a rationale', () => {
-    const rationale = 'Assumed because the spec predates the new auth flow';
-    const { container } = renderNode(baseData({ kind: 'assumption', rationale }));
-    toggleExpand(container);
-    const text = (container.textContent ?? '').toLowerCase();
-    expect(text).toContain(rationale.toLowerCase());
-    expect(text).not.toContain('no reasoning recorded');
+  it('marks the dimmed state from data so de-emphasised neighbours fade', () => {
+    expect(rootClass(renderNode(baseData({ dimmed: true })).container)).toMatch(/is-dimmed/);
   });
 });

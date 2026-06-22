@@ -1,12 +1,7 @@
 /**
- * d3-force layout pass for the graph view.
- *
- * Takes the React-Flow-shaped graph model and runs a d3-force simulation to
- * convergence *synchronously*, ticking until the simulation's alpha cools below
- * its target. The settled node positions are returned for React Flow to consume
- * directly — there is no animated fly-in. The chosen forces make connected
- * items cluster, dense hubs settle centrally, and orphans drift to the
- * periphery.
+ * d3-force layout pass: ticks to convergence synchronously (no fly-in) so connected items cluster,
+ * hubs centre, and orphans drift out, with a gentle per-kind vertical bias (`kindRank`) tilting the
+ * knowledge hierarchy top-to-bottom without overpowering the clustering.
  */
 
 import {
@@ -15,13 +10,14 @@ import {
   forceLink,
   forceManyBody,
   forceSimulation,
+  forceY,
   type SimulationLinkDatum,
   type SimulationNodeDatum,
 } from 'd3-force';
 
 import { cardFootprint } from '@/views/graph/cardFootprint';
 
-import type { GraphEdgeData, GraphNodeData } from './types.js';
+import type { GraphEdgeData, GraphNodeData, GraphNodeKind } from './types.js';
 
 interface LayoutNodeInput {
   id: string;
@@ -50,6 +46,26 @@ export interface PositionedNode {
 interface SimNode extends SimulationNodeDatum {
   id: string;
   data: GraphNodeData;
+}
+
+/** Vertical layer per kind, top (0) to bottom: goals → framing → design → requirements → criteria. */
+export const kindRank: Record<GraphNodeKind, number> = {
+  goal: 0,
+  context: 1,
+  term: 1,
+  constraint: 1,
+  decision: 2,
+  assumption: 2,
+  requirement: 3,
+  criterion: 4,
+};
+
+/** Vertical spacing between adjacent layers, in pixels. */
+const LAYER_HEIGHT = 260;
+
+/** Target y for a kind's layer, centred so the middle layer sits near the origin. */
+function layerY(kind: GraphNodeKind): number {
+  return (kindRank[kind] - 2) * LAYER_HEIGHT;
 }
 
 /**
@@ -88,6 +104,8 @@ export function forceLayout(model: GraphModel): PositionedNode[] {
   // touch, so packing to that radius keeps every pair separated on x or y.
   const collisionRadius = Math.hypot(cardFootprint.width, cardFootprint.height) / 2;
 
+  // forceCenter only re-centres (never compresses), so charge/collision keep the organic 2D shape;
+  // the weak forceY toward each kind's layer tilts it top-to-bottom without flattening same-kind clusters.
   const simulation = forceSimulation<SimNode>(nodes)
     .randomSource(seededRandom(0x9e3779b9))
     .force(
@@ -99,6 +117,7 @@ export function forceLayout(model: GraphModel): PositionedNode[] {
     .force('charge', forceManyBody<SimNode>().strength(-800))
     .force('collide', forceCollide<SimNode>(collisionRadius).strength(1).iterations(4))
     .force('center', forceCenter(0, 0))
+    .force('y', forceY<SimNode>((node) => layerY(node.data.kind)).strength(0.06))
     .stop();
 
   // Tick to convergence synchronously. Mirrors d3's default cooling schedule:
