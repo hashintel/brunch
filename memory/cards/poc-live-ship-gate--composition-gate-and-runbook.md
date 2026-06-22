@@ -165,7 +165,7 @@ src/probes/
 
 ## Card 2 — Live fresh-cwd runbook + durable artifact schema (manual/outer)
 
-Status: next
+Status: in progress — runbook/schema landed; live provider sample run still required
 
 ### Target Behavior
 
@@ -248,3 +248,10 @@ docs/architecture/
 .fixtures/runs/ship-gate-runbook/         +   (sample captured run)
 src/probes/portable-report.ts             ?   (only if the artifact schema needs a shared shape)
 ```
+
+### Build notes
+
+- Landed `docs/architecture/poc-live-ship-runbook.md`: public-entry-only live TUI procedure, step-by-step artifact capture checklist, report shape, and pass/fail rule. The runbook mirrors `portable-report` conventions without adding a shared TypeScript shape because the deliverable is manual/outer evidence, not a product API.
+- Added `.fixtures/runs/ship-gate-runbook/README.md` as the artifact home and required file list. It explicitly says no live provider evidence has been captured yet, so it cannot be mistaken for ship evidence.
+- Stop condition fired: this card requires an outer-loop manual run against a real provider/browser before it can be marked done. The remaining acceptance item is a dated `.fixtures/runs/ship-gate-runbook/<run-id>/` sample run containing transcript, graph, gap, posture, and web-observer artifacts.
+- Verification performed for this build portion: `git diff --check -- docs/architecture/poc-live-ship-runbook.md .fixtures/runs/ship-gate-runbook/README.md memory/cards/poc-live-ship-gate--composition-gate-and-runbook.md` passed. `npx oxfmt --check ...` has no Markdown target in this repo and exited with “Expected at least one target file”; no JSON artifact was authored to parse.
