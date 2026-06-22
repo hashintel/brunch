@@ -15,7 +15,7 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 - lens: auto
 - spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, commitment=0.00
 - workspace: /work/brunch-preview
-- workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; sourcing=strip-or-build
+- workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; dependencies=resist
 
 [Brunch pushed context]
 - handles: none pushed

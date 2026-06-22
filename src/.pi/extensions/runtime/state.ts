@@ -57,8 +57,12 @@ export interface BrunchPostureToolPolicyInput {
 }
 
 const METHOD_CAPABILITY: Partial<Record<MethodId, CapabilityId>> = {
-  'commit-graph': 'propose-graph',
-  'generate-proposal': 'project-graph',
+  // D86-L: graph-write methods are NOT readiness-gated. `mutate_graph` (commit-graph)
+  // and the review-set tools (generate-proposal) are floor capabilities in elicit mode
+  // whenever gaps exist; readiness is advisory (epistemic scaling + establishment offer),
+  // never a tool gate. Gating them created a bootstrap deadlock (a fresh/foundation-light
+  // spec could never write its context/thesis/goal/constraint frame). `review-for-gaps`
+  // (deliberate audit, grants no graph-write tool) stays gated by commitment-review.
   'review-for-gaps': 'commitment-review',
 };
 

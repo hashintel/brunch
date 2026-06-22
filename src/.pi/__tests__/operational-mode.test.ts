@@ -180,6 +180,7 @@ describe('Brunch agent runtime-state projection', () => {
         'request_choices',
         'read_graph',
         'read_session_context',
+        'mutate_graph',
       ],
     ]);
     expect(promptResult).toBeUndefined();

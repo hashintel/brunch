@@ -63,7 +63,7 @@ const promptContext = {
       audience: 'internal',
       horizon: 'current-milestone',
       migration: 'free-rewrite',
-      sourcing: 'strip-or-build',
+      dependencies: 'resist',
     }),
   },
   session: { id: 'session-1', label: 'Session' },
@@ -377,63 +377,27 @@ describe('Brunch prompt-pack topology', () => {
     const switchedPrompt = switchedPromptResults.find(Boolean);
 
     expect(manager.entries[0]?.customType).toBe(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE);
+    // D86-L: graph-write tools (present_review_set / request_review / mutate_graph) are
+    // floor in elicit mode, so every entry carries them regardless of gap coverage.
+    const elicitFloorTools = [
+      'read',
+      'grep',
+      'present_options',
+      'request_answer',
+      'request_choice',
+      'request_choices',
+      'present_review_set',
+      'request_review',
+      'read_graph',
+      'read_session_context',
+      'mutate_graph',
+    ];
     expect(activeTools).toEqual([
-      [
-        'read',
-        'grep',
-        'present_options',
-        'request_answer',
-        'request_choice',
-        'request_choices',
-        'read_graph',
-        'read_session_context',
-      ],
-      [
-        'read',
-        'grep',
-        'present_options',
-        'request_answer',
-        'request_choice',
-        'request_choices',
-        'read_graph',
-        'read_session_context',
-      ],
-      [
-        'read',
-        'grep',
-        'present_options',
-        'request_answer',
-        'request_choice',
-        'request_choices',
-        'present_review_set',
-        'request_review',
-        'read_graph',
-        'read_session_context',
-        'mutate_graph',
-      ],
-      [
-        'read',
-        'grep',
-        'present_options',
-        'request_answer',
-        'request_choice',
-        'request_choices',
-        'read_graph',
-        'read_session_context',
-      ],
-      [
-        'read',
-        'grep',
-        'present_options',
-        'request_answer',
-        'request_choice',
-        'request_choices',
-        'present_review_set',
-        'request_review',
-        'read_graph',
-        'read_session_context',
-        'mutate_graph',
-      ],
+      elicitFloorTools,
+      elicitFloorTools,
+      elicitFloorTools,
+      elicitFloorTools,
+      elicitFloorTools,
     ]);
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining('- strategy: auto'),
@@ -507,7 +471,7 @@ describe('Brunch prompt-pack topology', () => {
     expect(promptResult?.systemPrompt).toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
   });
 
-  it('applies selected-spec gaps to mutate_graph tool activation', async () => {
+  it('keeps mutate_graph floor regardless of selected-spec gap coverage (D86-L)', async () => {
     async function activeToolsForGaps(gaps: readonly ElicitationGap[]) {
       const events: Record<string, (event: never, ctx?: never) => unknown> = {};
       const activeTools: string[][] = [];
@@ -544,13 +508,12 @@ describe('Brunch prompt-pack topology', () => {
       return activeTools.at(-1) ?? [];
     }
 
-    await expect(activeToolsForGaps(groundingFloorGaps({ defaultCoverage: 0 }))).resolves.not.toContain(
+    // D86-L: graph-write tools are floor in elicit mode — present even at zero grounding
+    // coverage, not gap-activated. Readiness is advisory, never a graph-write tool gate.
+    await expect(activeToolsForGaps(groundingFloorGaps({ defaultCoverage: 0 }))).resolves.toContain(
       'mutate_graph',
     );
-    await expect(activeToolsForGaps(groundingFloorGaps({ coverage: { context: 0.5 } }))).resolves.toContain(
-      'mutate_graph',
-    );
-    await expect(activeToolsForGaps(groundingFloorGaps({ coverage: { context: 0.5 } }))).resolves.toContain(
+    await expect(activeToolsForGaps(groundingFloorGaps({ defaultCoverage: 0 }))).resolves.toContain(
       'present_review_set',
     );
     // the elicitation read tool rides the ungated read-context method
