@@ -1,3 +1,8 @@
+---
+name: read-context
+description: "Use pushed context handles and read-only context tools for selected-spec context."
+---
+
 # read-context
 
 Use this method when pushed prompt context is insufficient for the next elicitation move. It tells you how to sequence selected-spec reads without turning context gathering into a separate research project.

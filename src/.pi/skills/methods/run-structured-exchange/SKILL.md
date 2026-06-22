@@ -1,3 +1,8 @@
+---
+name: run-structured-exchange
+description: "Present typed Brunch exchanges and request typed responses."
+---
+
 # Method: run-structured-exchange
 
 Use Brunch structured exchanges for typed human responses: questions, single-choice, multi-choice, freeform, and review outcomes.

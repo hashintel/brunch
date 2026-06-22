@@ -1,3 +1,8 @@
+---
+name: intent
+description: "Focus on intent-plane claims: goals, terms, assumptions, constraints, and decisions."
+---
+
 # intent
 
 Use this lens when the conversation is about what the product/spec means: goals, thesis/context, terms, requirements, assumptions, constraints, invariants, decisions, criteria, and examples. The plane focus is intent; design and oracle material may appear only as support or downstream consequence.

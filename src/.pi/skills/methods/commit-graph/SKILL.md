@@ -1,3 +1,8 @@
+---
+name: commit-graph
+description: "Commit graph truth only through Brunch graph tools and CommandExecutor-backed results."
+---
+
 # commit-graph
 
 Use this method only after the active posture and user exchange have established a legal direct-commit path. It is sequencing guidance for graph writes, not permission to treat every answer as durable truth.

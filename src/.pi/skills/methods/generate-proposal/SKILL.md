@@ -1,3 +1,8 @@
+---
+name: generate-proposal
+description: "Generate reviewable candidate graph material without committing it directly."
+---
+
 # Method: generate-proposal
 
 Generate proposal material as a coherent batch with explicit claims, edges, and rationale. Keep proposed material separate from accepted graph truth.

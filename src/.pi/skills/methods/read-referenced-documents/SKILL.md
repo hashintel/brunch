@@ -1,3 +1,8 @@
+---
+name: read-referenced-documents
+description: "Read bounded user-referenced documents and digest them before capture."
+---
+
 # Method: read referenced documents
 
 Use this acquisition mode when the human points at specific files, URLs, docs, tickets, or other bounded references that should ground the spec. The job is to read the referenced material, author a digest in the conversation, and let the capture sweep work from that digest plus any conversational framing.

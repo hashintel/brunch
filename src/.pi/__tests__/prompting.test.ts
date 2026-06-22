@@ -142,10 +142,11 @@ describe('Brunch prompt-pack topology', () => {
     expect(result.prompt).toContain('- strategy: step-wise-decision-tree');
     expect(result.prompt).toContain('- lens: intent');
     expect(result.prompt).not.toContain('<available_goals>');
-    expect(result.prompt).toContain('<available_strategies>');
-    expect(result.prompt).toContain('<available_lenses>');
-    expect(result.prompt).toContain('<available_methods>');
-    expect(result.prompt).toContain('name="step-wise-decision-tree"');
+    expect(result.prompt).toContain('<brunch-skills>');
+    expect(result.prompt).toContain('<kind>strategy</kind>');
+    expect(result.prompt).toContain('<kind>lens</kind>');
+    expect(result.prompt).toContain('<kind>method</kind>');
+    expect(result.prompt).toContain('<name>step-wise-decision-tree</name>');
     expect(result.prompt).not.toContain('# Brunch base');
     expect(result.prompt).not.toContain('Request outcomes are an exactly-one property-presence union');
   });
@@ -617,10 +618,10 @@ describe('Brunch prompt-pack topology', () => {
     expect(promptingIndex).toBeGreaterThan(userBashPolicyIndex);
     expect(promptingIndex).toBeLessThan(nextBeforeAgentStartIndex);
     expect(promptResult).toMatchObject({
-      systemPrompt: expect.stringContaining('<available_strategies>'),
+      systemPrompt: expect.stringContaining('<brunch-skills>'),
     });
     expect(promptResult).toMatchObject({
-      systemPrompt: expect.stringContaining('name="step-wise-disambiguate"'),
+      systemPrompt: expect.stringContaining('<name>step-wise-disambiguate</name>'),
     });
   });
 
@@ -686,13 +687,13 @@ describe('Brunch prompt-pack topology', () => {
     const acceptedBlindSpots = [
       'prompt/body quality is fitness evidence',
       'graph-write reliability remains with graph-tool-resilience',
-      'capture conduct remains with methods/capture.md',
+      'capture conduct remains with methods/capture/SKILL.md',
     ];
 
-    expect(disambiguateIntentPrompt).toContain('name="step-wise-disambiguate"');
-    expect(disambiguateIntentPrompt).not.toContain('name="propose-graph"');
-    expect(disambiguateDesignPrompt).toContain('name="step-wise-disambiguate"');
-    expect(disambiguateDesignPrompt).not.toContain('name="step-wise-decision-tree"');
+    expect(disambiguateIntentPrompt).toContain('<name>step-wise-disambiguate</name>');
+    expect(disambiguateIntentPrompt).not.toContain('<name>propose-graph</name>');
+    expect(disambiguateDesignPrompt).toContain('<name>step-wise-disambiguate</name>');
+    expect(disambiguateDesignPrompt).not.toContain('<name>step-wise-decision-tree</name>');
     expect(disambiguateIntentPrompt).toContain('[Selected-spec graph context · intent lens]');
     expect(disambiguateIntentPrompt).toContain('intent claims, terms, assumptions');
     expect(disambiguateDesignPrompt).toContain('[Selected-spec graph context · design lens]');
@@ -702,7 +703,7 @@ describe('Brunch prompt-pack topology', () => {
     expect(acceptedBlindSpots).toEqual([
       'prompt/body quality is fitness evidence',
       'graph-write reliability remains with graph-tool-resilience',
-      'capture conduct remains with methods/capture.md',
+      'capture conduct remains with methods/capture/SKILL.md',
     ]);
   });
 

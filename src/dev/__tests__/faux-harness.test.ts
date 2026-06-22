@@ -160,7 +160,8 @@ describe('createBrunchFauxHarness', () => {
       const activeToolsLine = systemPrompt?.split('\n').find((line) => line.startsWith('- active tools:'));
       expect(harness.providerContexts).toHaveLength(1);
       expect(systemPrompt).toContain('[Brunch agent control]');
-      expect(systemPrompt).toContain('<available_strategies>');
+      expect(systemPrompt).toContain('<brunch-skills>');
+      expect(systemPrompt).toContain('<kind>strategy</kind>');
       expect(activeToolsLine).toContain('read');
       expect(activeToolsLine).toContain('grep');
       expect(activeToolsLine).toContain('find');

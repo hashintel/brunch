@@ -1,3 +1,8 @@
+---
+name: design
+description: "Focus on design implications and module/interface boundaries."
+---
+
 # design
 
 Use this lens when the spec pressure is about modules, interfaces, ownership, boundaries, or architecture. The plane focus is design: how accepted intent could be realized without prematurely treating implementation detail as product truth.
