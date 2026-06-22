@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
@@ -275,10 +275,9 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
-  it('prefers the live broker over the UI editor when both request_answer sources exist', async () => {
-    const request = registeredTools({
-      liveExchange: { awaitAnswer: async () => 'Use the broker answer.' },
-    }).get(REQUEST_ANSWER_TOOL);
+  it('prefers the UI editor over the live broker when both request_answer sources exist', async () => {
+    const awaitAnswer = vi.fn(async () => 'Use the broker answer.');
+    const request = registeredTools({ liveExchange: { awaitAnswer } }).get(REQUEST_ANSWER_TOOL);
     if (!request) throw new Error('request_answer was not registered');
 
     const result = await request.execute(
@@ -293,10 +292,11 @@ describe('structured exchange present/request tools', () => {
       { hasUI: true, ui: { editor: async () => 'Use the UI editor answer.' } } as never,
     );
 
+    expect(awaitAnswer).not.toHaveBeenCalled();
     expect(result.details).toMatchObject({
       exchange_id: 'answer-source-mixed',
       tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
-      answered: { text: 'Use the broker answer.' },
+      answered: { text: 'Use the UI editor answer.' },
     });
   });
 

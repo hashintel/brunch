@@ -21,6 +21,15 @@ There are two distinct envelopes in this seam — do not conflate them:
   transcript details as key presence — `answered` / `cancelled` /
   `unavailable` — never a status string.
 
+## Answer sources
+
+`request_answer` is dual-homed because interactive TUI sessions and headless
+web-driver sessions close the same transcript result through different live
+surfaces. When `ctx.hasUI` and `ctx.ui.editor` are present, the TUI editor is the
+authoritative response surface; the live broker is the fallback for headless /
+web-driver turns. A future web-as-driver race across both sources needs an
+awaiter-cancel path before it can replace this precedence rule.
+
 ## Dependency rules
 
 ```pseudo
