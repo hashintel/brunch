@@ -45,7 +45,7 @@ extension that consumes it:
   and `seed/graph.ts` render the pushed context blocks).
 - **Prompt-resource manifest + tool/method legality** — `.pi/extensions/runtime/`
   (`state.ts`).
-- **Goal/strategy/lens/method resources** — `.pi/skills/`.
+- **Strategy/lens/method prompt-resource skills** — `.pi/skills/`.
 - **Reusable lossy text/markdown rendering** — `renderers/`.
 - **Pi tool definitions, lifecycle hooks, UI** — `.pi/extensions/*`.
 

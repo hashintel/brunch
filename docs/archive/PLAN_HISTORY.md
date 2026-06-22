@@ -3,6 +3,10 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-06-22 Prompt-resource topology closeout
+
+- 2026-06-22 `prompt-skill-topology` (FE-898) — Done on `ln/fe-898-prompt-skill-topology`: Brunch prompt resources now follow Agent Skills topology (`src/.pi/skills/<family>/<name>/SKILL.md` with frontmatter); `state.ts` keeps the code-owned legal path list/family/legality metadata and loads file-owned `name`/`description` through Pi `loadSkills({ skillPaths, includeDefaults: false })`; `compose.ts` emits `<brunch-skills>` with Pi-style `<skill>` elements plus `<kind>`; COMPOSE goldens were regenerated; and sealing tests prove unlisted `SKILL.md` files are not advertised. Durable contract lives in SPEC D58-L/D85-L and `src/.pi/skills/README.md`; the scope card was deleted.
+
 ## 2026-06-08 Sync archive
 
 Archived from `memory/PLAN.md` during the post-merge ln-sync once the 2026-06-08 coverage burst (`runtime-affordances-and-legality`, `capture-quality-spike`, `minimal-authority-shell`, cross-cut body-depth, `elicitation-backlog`) became the live completion window. These prior bursts move here.
