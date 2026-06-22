@@ -15,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   brunchRef,
+  captureFoldedChangeBaseline,
   commitSliceWorktree,
   type CompletedRun,
   dependencyOrder,
@@ -23,6 +24,7 @@ import {
   materializeEpicVerifyTree,
   materializeFoldedWorktree,
   type SliceCommit,
+  transferFoldedFixToSlice,
 } from './run-artifact.js';
 import type { Plan, Slice } from './types.js';
 
@@ -308,5 +310,143 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     expect(lstatSync(link).isSymbolicLink()).toBe(true);
     expect(readlinkSync(link)).toBe(join(parent, 'a', 'node_modules'));
     expect(readFileSync(join(link, 'added/index.js'), 'utf8')).toBe('added\n');
+  });
+});
+
+// FE-884: the remediation round-trip — the riskiest assumption. A fix made in the
+// detached folded epic tree must reach a *slice branch* (harvest never folds the
+// epic dir), and a fix that edits the epic's integration test must be rejected.
+describe('transferFoldedFixToSlice (FE-884 remediation round-trip)', () => {
+  let source: string;
+  let parent: string;
+  let foldedDir: string;
+  const plan: Plan = {
+    mode: 'brownfield',
+    epics: [
+      {
+        id: 'e',
+        summary: 'E',
+        depends_on: [],
+        verification: [{ kind: 'integration-test', target: 'it.test.ts' }],
+      },
+    ],
+    slices: [slice('a')],
+  };
+
+  beforeEach(() => {
+    source = mkdtempSync(join(tmpdir(), 'brunch-remediate-'));
+    gitC(source, 'init', '-q', '-b', 'main');
+    writeFileSync(join(source, 'base.txt'), 'base\n');
+    gitC(source, 'add', '-A');
+    gitC(source, 'commit', '-q', '-m', 'base');
+    parent = join(source, 'sandbox');
+    gitC(source, 'worktree', 'add', '-q', '-b', brunchRef.run('r1'), parent, 'HEAD');
+    // Slice 'a' worktree carries the (buggy) product file the agent will fix.
+    const sliceDir = join(parent, 'a');
+    gitC(source, 'worktree', 'add', '-q', '-b', brunchRef.slice('r1', 'a'), sliceDir, brunchRef.run('r1'));
+    writeFileSync(join(sliceDir, 'lib.ts'), 'export const view = "broken";\n');
+    // verify-epic composed the folded tree (commits slice 'a', folds it detached).
+    foldedDir = materializeEpicVerifyTree({
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      sliceIds: ['a'],
+      epicId: 'e',
+    }).epicSandboxDir;
+  });
+  afterEach(() => rmSync(source, { recursive: true, force: true }));
+
+  it('round-trips a product-code fix onto the slice branch so harvest folds it', () => {
+    // The remediation agent fixes the bug in the folded tree (where the epic test runs).
+    writeFileSync(join(foldedDir, 'lib.ts'), 'export const view = "fixed";\n');
+
+    const outcome = transferFoldedFixToSlice({
+      parentSandboxDir: parent,
+      foldedDir,
+      slice: slice('a'),
+      epicTestTargets: ['it.test.ts'],
+    });
+    expect(outcome.accepted).toBe(true);
+
+    // The fix is on the slice branch...
+    expect(gitC(source, 'show', `${brunchRef.slice('r1', 'a')}:lib.ts`)).toContain('fixed');
+    // ...and therefore survives promotion (harvest folds slice branches, not the epic dir).
+    const artifact = harvestCookRun({
+      sourceDir: source,
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['a'],
+    });
+    expect(artifact.conflicts).toEqual([]);
+    expect(gitC(source, 'show', `${brunchRef.run('r1')}:lib.ts`)).toContain('fixed');
+  });
+
+  it('rejects (detect-and-reject) an attempt that edits the epic integration test', () => {
+    // An agent tries to green the epic by gutting its own oracle.
+    writeFileSync(join(foldedDir, 'it.test.ts'), 'it("passes", () => {});\n');
+    writeFileSync(join(foldedDir, 'lib.ts'), 'export const view = "sneaky";\n');
+
+    const outcome = transferFoldedFixToSlice({
+      parentSandboxDir: parent,
+      foldedDir,
+      slice: slice('a'),
+      epicTestTargets: ['it.test.ts'],
+    });
+
+    expect(outcome.accepted).toBe(false);
+    expect(outcome.reason).toBe('touched-test');
+    // The whole attempt is discarded — nothing reaches the slice branch.
+    expect(gitC(source, 'show', `${brunchRef.slice('r1', 'a')}:lib.ts`)).toContain('broken');
+  });
+
+  it('ignores unchanged verify-test files that were dirty before remediation', () => {
+    // verify-epic writes the failing integration test before the remediation
+    // agent runs. That baseline oracle must not be mistaken for an agent edit.
+    writeFileSync(join(foldedDir, 'it.test.ts'), 'it("fails until product is fixed", () => {});\n');
+    const baseline = captureFoldedChangeBaseline(foldedDir);
+    writeFileSync(join(foldedDir, 'lib.ts'), 'export const view = "fixed";\n');
+
+    const outcome = transferFoldedFixToSlice({
+      parentSandboxDir: parent,
+      foldedDir,
+      slice: slice('a'),
+      epicTestTargets: ['it.test.ts'],
+      baseline,
+    });
+
+    expect(outcome).toMatchObject({ accepted: true, touched: ['lib.ts'] });
+    expect(gitC(source, 'show', `${brunchRef.slice('r1', 'a')}:lib.ts`)).toContain('fixed');
+    expect(gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.slice('r1', 'a'))).not.toContain(
+      'it.test.ts',
+    );
+  });
+
+  it('cleans the slice worktree when a folded fix cannot be applied', () => {
+    const sliceDir = join(parent, 'a');
+    writeFileSync(join(foldedDir, 'lib.ts'), 'export const view = "fixed";\n');
+    writeFileSync(join(sliceDir, 'lib.ts'), 'export const view = "locally diverged";\n');
+
+    const outcome = transferFoldedFixToSlice({
+      parentSandboxDir: parent,
+      foldedDir,
+      slice: slice('a'),
+      epicTestTargets: ['it.test.ts'],
+    });
+
+    expect(outcome).toMatchObject({ accepted: false, reason: 'apply-failed', touched: ['lib.ts'] });
+    expect(readFileSync(join(sliceDir, 'lib.ts'), 'utf8')).toBe('export const view = "broken";\n');
+    expect(gitC(sliceDir, 'status', '--short')).toBe('');
+  });
+
+  it('rejects a no-op attempt (agent changed nothing)', () => {
+    const outcome = transferFoldedFixToSlice({
+      parentSandboxDir: parent,
+      foldedDir,
+      slice: slice('a'),
+      epicTestTargets: ['it.test.ts'],
+    });
+    expect(outcome.accepted).toBe(false);
+    expect(outcome.reason).toBe('no-op');
   });
 });

@@ -559,6 +559,11 @@ export function epicVerifyTask(epic: Epic, toolchain: Toolchain): string {
   return `Write an integration test for epic "${epic.id}": ${epic.summary}\nThis test should verify that all slices in this epic work together correctly.\nVerification targets: ${targets}\nWrite the test file(s). ${toolchain.testConventions} Then run them to verify they pass.`;
 }
 
+export function epicRemediateTask(epic: Epic): string {
+  const targets = epic.verification.map((v) => `${v.kind}: ${v.target}`).join(', ');
+  return `Remediate the failing integration test for epic "${epic.id}": ${epic.summary}\nThe slices in this epic each pass on their own, but the epic's integration test fails now that they are folded together in this tree. Read the failing test, find the cross-slice defect, and fix the product code so the test passes.\nVerification targets: ${targets}\nDo not modify the integration test or any test file — fix the implementation, not the oracle.`;
+}
+
 export function createPiActions(opts?: {
   verbose?: boolean;
   /** Presentation sink. Per-action progress is emitted as CookEvents; defaults to no-op. */
@@ -767,13 +772,42 @@ export function createPiActions(opts?: {
         }
       }
       const passed = testsPassed && (probe === undefined || probe.reachable);
+      const combinedFailureKind = failureKind ?? (probe?.kind === 'infra' ? 'infra' : undefined);
 
       log(passed ? '●' : '✗', `epic      ${ctx.epic.id} → ${passed ? 'PASS' : 'FAIL'}`);
       return report(ctx, 'orchestrator', 'epic-verified', {
         passed,
-        failureKind,
+        failureKind: combinedFailureKind,
         ...(probe ? { reachability: probe.kind } : {}),
       });
+    },
+
+    'remediate-epic': async (ctx: ActionContext) => {
+      log('▸', `remediate ${ctx.epic.id}`);
+      try {
+        await runPi(
+          {
+            label: `remediate ${ctx.epic.id}`,
+            model: 'claude-opus-4-8',
+            promptFile: join(promptsDir, 'code-writer.md'),
+            task: epicRemediateTask(ctx.epic),
+            sandboxDir: ctx.sandboxDir,
+            tools: toolsForAction('remediate-epic'),
+          },
+          piDeps,
+        );
+      } catch (err) {
+        _emit({
+          kind: 'slice',
+          id: ctx.slice.id,
+          epicId: ctx.epic.id,
+          status: 'failed',
+          reason: 'epic remediation failed',
+        });
+        throw err;
+      }
+
+      return report(ctx, 'coding-agent', 'remediation-agent-done', { sliceId: ctx.slice.id });
     },
   };
 }

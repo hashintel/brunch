@@ -338,7 +338,7 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     }
   });
 
-  it('verify-epic decomposes into producer + pass sibling + fail halt-sibling', () => {
+  it('verify-epic decomposes into producer + pass sibling + fail→remediate router (FE-884)', () => {
     // verifyPlan: epic-1 has verification, slice-1 inside it.
     const verifyPlan = {
       mode: 'greenfield' as const,
@@ -366,13 +366,33 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     expect(producer, 'expect verify-epic producer').toBeDefined();
     expect(producer!.handler.kind).toBe('verify-epic');
 
-    // Producer emits to single intermediate place (no direct done/halt routes).
-    expect(enumerateCandidateOutputs(producer!)).toEqual(new Set(['epic:epic-1:verify:reported']));
+    // FE-884: the verify producer carries the epic retry budget — it emits to the
+    // intermediate place, the budget place, and (on exhaustion) the halt place,
+    // mirroring the slice run-tests producer. Slice B adds the verify-ready place:
+    // an infra/timeout verdict re-runs verify (bounded) without remediation.
+    expect(enumerateCandidateOutputs(producer!)).toEqual(
+      new Set([
+        'epic:epic-1:verify:reported',
+        'epic:epic-1:retry-budget',
+        'epic:epic-1:halted',
+        'epic:epic-1:verify-ready',
+      ]),
+    );
+
+    // FE-884 Slice B: the verify producer descriptor carries the infra-retry
+    // budget + reverify target distinct from the remediation retry budget.
+    const verifyHandler = producer!.handler as {
+      kind: string;
+      maxInfraRetries: number;
+      reverifyPlace: string;
+    };
+    expect(verifyHandler.maxInfraRetries).toBe(3);
+    expect(verifyHandler.reverifyPlace).toBe('epic:epic-1:verify-ready');
 
     const passSibling = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:pass');
     const failSibling = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:fail');
     expect(passSibling, 'expect epic-verify:pass sibling').toBeDefined();
-    expect(failSibling, 'expect epic-verify:fail halt-sibling').toBeDefined();
+    expect(failSibling, 'expect epic-verify:fail router').toBeDefined();
 
     for (const sibling of [passSibling!, failSibling!]) {
       expect(sibling.inputs).toEqual(['epic:epic-1:verify:reported']);
@@ -381,10 +401,9 @@ describe('FE-761 Slice 1: sibling-transition decomposition', () => {
     // Pass sibling emits to the epic done place (no depSignals here — epic-1 has no epic dependents).
     expect(enumerateCandidateOutputs(passSibling!)).toEqual(new Set(['epic:epic-1:done']));
 
-    // Fail halt-sibling emits to the epic halted place (FE-761 Slice 2a:
-    // halted-as-place — halt is now a structural place-token, not a ctx side
-    // effect alone).
-    expect(enumerateCandidateOutputs(failSibling!)).toEqual(new Set(['epic:epic-1:halted']));
+    // FE-884: the fail sibling is now a router to remediation, not a halt sink.
+    // Halt is the producer's job on budget exhaustion.
+    expect(enumerateCandidateOutputs(failSibling!)).toEqual(new Set(['epic:epic-1:remediate:ready']));
 
     // Branching descriptor fields are gone from the producer.
     const producerHandler = producer!.handler;
@@ -477,5 +496,101 @@ describe('FE-761 Slice 2a: halted-as-place', () => {
   it('does not declare epic:<eid>:halted for epics without verification', () => {
     const blueprint = compileTopology(simplePlan, { maxRetries: 3 });
     expect(blueprint.places).not.toContain('epic:epic-1:halted');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// FE-884: recoverable epic verification
+//
+// A failed epic verification routes to a remediation code agent against the
+// folded epic tree and re-verifies, mirroring the slice run-tests retry loop.
+// The budget lives in the verify producer; the fail sibling is a pure router to
+// remediation; halt happens only on budget exhaustion.
+// ---------------------------------------------------------------------------
+
+describe('FE-884: recoverable epic verification', () => {
+  // The remediation topology is compiled for every plan; codebase-only behavior
+  // (the actual remediation round-trip) is gated at runtime via sandboxMode, so
+  // the topology fixture is a plain brownfield plan, not the (invalid) 'codebase'
+  // plan mode.
+  const verifyPlan: Plan = {
+    mode: 'brownfield',
+    epics: [
+      {
+        id: 'epic-1',
+        summary: 'E',
+        depends_on: [],
+        verification: [{ kind: 'integration-test', target: 'it.test.ts' }],
+      },
+    ],
+    slices: [
+      {
+        id: 'slice-1',
+        epic_id: 'epic-1',
+        definition: 'D',
+        depends_on: [],
+        verification: [{ kind: 'unit-test', target: 't' }],
+      },
+    ],
+  };
+
+  it('declares the epic remediation places and seeds the retry budget', () => {
+    const blueprint = compileTopology(verifyPlan, { maxRetries: 3 });
+    expect(blueprint.places).toContain('epic:epic-1:retry-budget');
+    expect(blueprint.places).toContain('epic:epic-1:remediate:ready');
+    expect(blueprint.places).toContain('epic:epic-1:remediate:running');
+
+    const budgetSeed = blueprint.initialTokens.find((t) => t.place === 'epic:epic-1:retry-budget');
+    expect(budgetSeed, 'expect a seeded epic retry-budget token').toBeDefined();
+    expect(budgetSeed!.token.retryCount).toBe(0);
+  });
+
+  it('verify dispatch consumes the epic retry-budget (budget checked out for the verify)', () => {
+    const blueprint = compileTopology(verifyPlan, { maxRetries: 3 });
+    const dispatch = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:dispatch');
+    expect(dispatch).toBeDefined();
+    expect(dispatch!.inputs).toEqual(['epic:epic-1:verify-ready', 'epic:epic-1:retry-budget']);
+  });
+
+  it('the fail sibling routes to remediation, not the halt place', () => {
+    const blueprint = compileTopology(verifyPlan, { maxRetries: 3 });
+    const failSibling = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:fail');
+    expect(failSibling).toBeDefined();
+    expect(enumerateCandidateOutputs(failSibling!)).toEqual(new Set(['epic:epic-1:remediate:ready']));
+  });
+
+  it('remediation decomposes into dispatch (grabs code agent) + complete (loops back to verify)', () => {
+    const blueprint = compileTopology(verifyPlan, { maxRetries: 3 });
+
+    const dispatch = blueprint.transitions.find((t) => t.id === 'epic-remediate:epic-1:dispatch');
+    expect(dispatch, 'expect remediate dispatch').toBeDefined();
+    expect(dispatch!.inputs).toEqual(['epic:epic-1:remediate:ready', 'pool:code-agent']);
+    expect(enumerateCandidateOutputs(dispatch!)).toEqual(new Set(['epic:epic-1:remediate:running']));
+
+    const complete = blueprint.transitions.find((t) => t.id === 'epic-remediate:epic-1:complete');
+    expect(complete, 'expect remediate complete').toBeDefined();
+    expect(complete!.handler.kind).toBe('remediate-epic');
+    expect(complete!.inputs).toEqual(['epic:epic-1:remediate:running']);
+    // Loops back to re-verify and returns the code agent to its pool.
+    expect(enumerateCandidateOutputs(complete!)).toEqual(
+      new Set(['epic:epic-1:verify-ready', 'pool:code-agent']),
+    );
+
+    const handler = complete!.handler;
+    if (handler.kind === 'remediate-epic') {
+      // Detect-and-reject knows the epic's own integration test targets.
+      expect(handler.epicTestTargets).toEqual(['it.test.ts']);
+    }
+  });
+
+  it('the verify producer carries the epic retry budget and max-retries', () => {
+    const blueprint = compileTopology(verifyPlan, { maxRetries: 5 });
+    const producer = blueprint.transitions.find((t) => t.id === 'epic-verify:epic-1:complete');
+    const handler = producer!.handler;
+    expect(handler.kind).toBe('verify-epic');
+    if (handler.kind === 'verify-epic') {
+      expect(handler.budgetPlace).toBe('epic:epic-1:retry-budget');
+      expect(handler.maxRetries).toBe(5);
+    }
   });
 });

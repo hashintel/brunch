@@ -190,11 +190,14 @@ type CompleteEpicDescriptor = {
 };
 
 /**
- * Verify epic — producer. Runs verification synchronously against the
- * merged epic sandbox, attaches the verify-epic report to the output
- * token, and emits to a single intermediate place. Sibling-passthrough
- * transitions downstream route by the report's `passed` field — pass
- * marks the epic completed and emits done + dep-signals; fail halts.
+ * Verify epic — producer with a remediation budget (FE-884). Runs verification
+ * synchronously against the merged epic sandbox, attaches the verify-epic report
+ * to the output token, and emits to a single intermediate place plus the epic
+ * retry-budget place. Sibling-passthrough transitions downstream route by the
+ * report's `passed` field — pass marks the epic completed and emits done +
+ * dep-signals; fail (with budget remaining) routes to remediation. On budget
+ * exhaustion the producer instead emits a halt token (carrying its own
+ * `haltReason`) to `epic:<eid>:halted` — mirroring the slice run-tests loop.
  */
 type VerifyEpicDescriptor = {
   kind: 'verify-epic';
@@ -204,6 +207,42 @@ type VerifyEpicDescriptor = {
   representativeSliceId: string;
   /** Single intermediate output place; siblings route from here. */
   intermediatePlace: string;
+  /** Place to emit the (decremented or reset) epic retry-budget token to. */
+  budgetPlace: string;
+  maxRetries: number;
+  /** FE-884 Slice B: the verify-ready place to re-route to on an infra/timeout
+   *  failure (re-run verify without remediation). */
+  reverifyPlace: string;
+  /** FE-884 Slice B: max infra/timeout re-verifies before halting. */
+  maxInfraRetries: number;
+};
+
+/**
+ * Remediate epic — producer (FE-884). On a failed epic verification with budget
+ * remaining, a code agent is dispatched against the folded `__epic__/<eid>/`
+ * tree (where the integration test actually runs), fed the verify diagnosis, to
+ * fix the cross-slice defect. Two guards on the result:
+ *   - detect-and-reject: if the agent touched any epic integration test target,
+ *     the attempt is reverted (the fix is discarded) so re-verify fails again and
+ *     the budget burns — a remediation may only edit product code, never weaken
+ *     its own oracle.
+ *   - round-trip: an accepted product-code fix is transferred from the detached
+ *     folded tree onto the representative slice's branch (commitSliceWorktree) so
+ *     `harvestCookRun` folds it into the promoted artifact.
+ * Then loops back to the epic verify-ready place to re-verify.
+ */
+type RemediateEpicDescriptor = {
+  kind: 'remediate-epic';
+  actionKey: string;
+  epicId: string;
+  /** Slice whose branch carries an accepted fix (round-trip target). */
+  representativeSliceId: string;
+  /** Loop-back output set (the epic verify-ready place). */
+  outputs: string[];
+  /** Place to return the code-agent resource token to. */
+  agentReturnPlace: string;
+  /** Epic integration test targets — touching any rejects the attempt. */
+  epicTestTargets: string[];
 };
 
 export type HandlerDescriptor =
@@ -215,7 +254,8 @@ export type HandlerDescriptor =
   | AssessSemanticDescriptor
   | CompleteSliceDescriptor
   | CompleteEpicDescriptor
-  | VerifyEpicDescriptor;
+  | VerifyEpicDescriptor
+  | RemediateEpicDescriptor;
 
 // ---------------------------------------------------------------------------
 // Transition skeleton — topology + declarative handler recipe
@@ -288,6 +328,15 @@ export function enumerateCandidateOutputs(transition: TransitionSkeleton): Set<s
       return out;
     case 'verify-epic':
       out.add(h.intermediatePlace);
+      out.add(h.budgetPlace);
+      out.add(`epic:${h.epicId}:halted`);
+      // FE-884 Slice B: an infra/timeout verdict re-routes to verify-ready
+      // (re-run verify without remediation).
+      out.add(h.reverifyPlace);
+      return out;
+    case 'remediate-epic':
+      for (const p of h.outputs) out.add(p);
+      out.add(h.agentReturnPlace);
       return out;
   }
 }

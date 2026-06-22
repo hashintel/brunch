@@ -11,7 +11,7 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, lstatSync, rmSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 import { linkSharedTopLevelEntries } from './cow-copy.js';
 import {
@@ -60,6 +60,8 @@ export type CompletedRun = {
   /** Slice ids that completed; harvest re-sorts into dependency order. */
   completedSliceIds: string[];
 };
+
+export type FoldedChangeBaseline = ReadonlyMap<string, string | null>;
 
 // Deterministic committer so promotion never depends on (or mutates) global git config.
 const COMMIT_IDENTITY = ['-c', 'user.name=brunch', '-c', 'user.email=cook@brunch'];
@@ -164,6 +166,90 @@ export function commitSliceWorktree(opts: {
   );
   git(['update-ref', 'HEAD', commit], sliceDir);
   return { sliceId: opts.slice.id, commit, title };
+}
+
+/** Does a git-touched path correspond to one of the epic's integration test targets? */
+function touchesTestTarget(touched: string, targets: readonly string[]): boolean {
+  const base = basename(touched);
+  return targets.some((t) => touched === t || touched.endsWith(`/${t}`) || basename(t) === base);
+}
+
+function worktreeObjectId(dir: string, path: string): string | null {
+  if (!existsSync(join(dir, path))) return null;
+  return git(['hash-object', '--', path], dir);
+}
+
+/** Capture already-dirty folded-tree files before the remediation agent runs. */
+export function captureFoldedChangeBaseline(foldedDir: string): FoldedChangeBaseline {
+  git(['add', '-A'], foldedDir);
+  const paths = git(['diff', '--cached', '--name-only'], foldedDir).split('\n').filter(Boolean);
+  const baseline = new Map(paths.map((path) => [path, worktreeObjectId(foldedDir, path)]));
+  git(['reset'], foldedDir);
+  return baseline;
+}
+
+/**
+ * FE-884 remediation round-trip. After a remediation agent edits the *folded*
+ * `__epic__/<eid>/` tree (the detached worktree where the integration test runs),
+ * carry the fix back so it can be verified and promoted:
+ *
+ *   - detect-and-reject (oracle integrity): if the agent touched any epic
+ *     integration test target, discard the whole attempt (`reset --hard` +
+ *     `clean`) and reject — a remediation may only edit product code, never
+ *     weaken its own oracle. The caller re-verifies (which fails again, burning a
+ *     budget unit).
+ *   - round-trip: otherwise apply the product-code diff onto the representative
+ *     slice's worktree and commit it to `brunch/slice/<runId>/<sliceId>`, so the
+ *     next verify-epic re-fold *and* `harvestCookRun` both include the fix. The
+ *     detached folded tree is never harvested directly — only slice branches are.
+ *
+ * Apply is `--3way` and failure is non-fatal (returns `apply-failed`): a fix that
+ * cannot be attributed to the representative slice's tree is rejected rather than
+ * thrown, so the loop degrades to a burned budget unit instead of crashing.
+ */
+export function transferFoldedFixToSlice(opts: {
+  parentSandboxDir: string;
+  foldedDir: string;
+  slice: Slice;
+  epicTestTargets: readonly string[];
+  baseline?: FoldedChangeBaseline;
+}): { accepted: boolean; reason?: 'no-op' | 'touched-test' | 'apply-failed'; touched: string[] } {
+  const { foldedDir } = opts;
+  const sliceDir = resolveSliceWorktreeDir(opts.parentSandboxDir, opts.slice.id);
+  // Stage everything so new files are enumerated too, then list touched paths.
+  git(['add', '-A'], foldedDir);
+  for (const [path, objectId] of opts.baseline ?? []) {
+    if (worktreeObjectId(foldedDir, path) === objectId) {
+      git(['reset', '--', path], foldedDir);
+    }
+  }
+  const touched = git(['diff', '--cached', '--name-only'], foldedDir).split('\n').filter(Boolean);
+  if (touched.length === 0) {
+    git(['reset'], foldedDir);
+    return { accepted: false, reason: 'no-op', touched: [] };
+  }
+  if (touched.some((pth) => touchesTestTarget(pth, opts.epicTestTargets))) {
+    // Discard the whole attempt — the agent tried to edit its own oracle.
+    git(['reset', '--hard'], foldedDir);
+    git(['clean', '-fd'], foldedDir);
+    return { accepted: false, reason: 'touched-test', touched };
+  }
+  // Raw (untrimmed) capture: a patch must keep its trailing newline or `git
+  // apply` rejects it as corrupt — the trimming `git()` helper would break it.
+  const patch = execFileSync('git', ['diff', '--cached'], { cwd: foldedDir, encoding: 'utf8' });
+  git(['reset'], foldedDir); // leave the folded tree unstaged; it is force-rebuilt on re-verify
+  const applied = spawnSync('git', ['apply', '--3way', '--whitespace=nowarn'], {
+    cwd: sliceDir,
+    input: patch,
+    encoding: 'utf8',
+  });
+  if (applied.status !== 0) {
+    git(['reset', '--hard'], sliceDir);
+    git(['clean', '-fd'], sliceDir);
+    return { accepted: false, reason: 'apply-failed', touched };
+  }
+  commitSliceWorktree({ parentSandboxDir: opts.parentSandboxDir, slice: opts.slice });
+  return { accepted: true, touched };
 }
 
 /**

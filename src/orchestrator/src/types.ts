@@ -242,6 +242,9 @@ export type RunPolicy = {
   maxRetries: number;
   /** Maximum semantic rework cycles per slice before halting. Defaults to maxRetries. */
   maxSemanticReworks?: number;
+  /** FE-884 Slice B: max epic verify re-runs on an infra/timeout failure before
+   *  halting (toolchain blips are re-run, not remediated). Defaults to maxRetries. */
+  maxInfraRetries?: number;
   /** Number of tokens per shared agent pool (test-agent, code-agent).
    *  Defaults to slice count (unbounded — one token per slice). */
   agentPoolSize?: number;

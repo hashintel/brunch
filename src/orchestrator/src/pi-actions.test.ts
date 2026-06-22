@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   cookResourceLoader,
   createPiActions,
+  epicRemediateTask,
   epicVerifyTask,
   instrumentToolDefinition,
   runPi,
@@ -351,7 +352,7 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
     sandboxDir: string;
     epic: Epic;
     groundProbe?: ProbeGrounder;
-  }): Promise<{ passed: boolean; reachability?: string }> {
+  }): Promise<{ passed: boolean; failureKind?: string; reachability?: string }> {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const reports = new InMemoryReportSink();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
@@ -379,7 +380,10 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
       plan,
       sandboxDir: opts.sandboxDir,
       reports,
-    }).then((id) => reports.getById(id)!.payload as { passed: boolean; reachability?: string });
+    }).then(
+      (id) =>
+        reports.getById(id)!.payload as { passed: boolean; failureKind?: string; reachability?: string },
+    );
   }
 
   it('grounds a reachability intent into a concrete target, then probes it', async () => {
@@ -413,6 +417,7 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
       },
     });
     expect(payload.passed).toBe(false);
+    expect(payload.failureKind).toBe('infra');
     expect(payload.reachability).toBe('infra');
   });
 
@@ -596,7 +601,7 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
     sandboxDir: string;
     epic: Epic;
     groundProbe?: ProbeGrounder;
-  }): Promise<{ passed: boolean; reachability?: string }> {
+  }): Promise<{ passed: boolean; failureKind?: string; reachability?: string }> {
     process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
     const reports = new InMemoryReportSink();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
@@ -624,7 +629,10 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
       plan,
       sandboxDir: opts.sandboxDir,
       reports,
-    }).then((id) => reports.getById(id)!.payload as { passed: boolean; reachability?: string });
+    }).then(
+      (id) =>
+        reports.getById(id)!.payload as { passed: boolean; failureKind?: string; reachability?: string },
+    );
   }
 
   it('grounds a reachability intent into a concrete target, then probes it', async () => {
@@ -658,6 +666,7 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
       },
     });
     expect(payload.passed).toBe(false);
+    expect(payload.failureKind).toBe('infra');
     expect(payload.reachability).toBe('infra');
   });
 
@@ -1436,5 +1445,58 @@ describe('cookResourceLoader (FE-881) loads sandbox skills, excludes global', ()
 
     expect(names).toContain('repo-skill');
     expect(names).not.toContain('global-skill');
+  });
+});
+
+describe('remediate-epic action — FE-884 Slice A production wiring', () => {
+  const slice: Slice = {
+    id: 'login',
+    epic_id: 'api',
+    definition: 'Login',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/login.test.ts' }],
+  };
+  const epic: Epic = {
+    id: 'api',
+    summary: 'API surface',
+    depends_on: [],
+    verification: [{ kind: 'integration-test', target: 'tests/api.integration.test.ts' }],
+  };
+  const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+
+  it('createPiActions registers a remediate-epic handler', () => {
+    const actions = createPiActions();
+    expect(actions['remediate-epic']).toBeTypeOf('function');
+  });
+
+  it('drives a write-capable agent against the folded epic tree and reports the attempt', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const reports = new InMemoryReportSink();
+    const fake = makeFakeSession({ emit: 'patched the product code' });
+    let captured: { cwd?: string; tools?: string[] } | undefined;
+    const createSession = (async (options: { cwd?: string; tools?: string[] }) => {
+      captured = options;
+      return { session: fake.session };
+    }) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession });
+
+    const foldedDir = '/tmp/__epic__/api';
+    const id = await actions['remediate-epic']!({ slice, epic, plan, sandboxDir: foldedDir, reports });
+
+    expect(captured?.cwd).toBe(foldedDir);
+    expect(captured?.tools).toEqual(['read', 'write', 'edit', 'bash']);
+    expect(fake.calls.prompt[0]).toContain('api');
+    expect(fake.calls.prompt[0]).toContain('tests/api.integration.test.ts');
+    const rec = reports.getById(id)!;
+    expect(rec.actor).toBe('coding-agent');
+    expect(rec.event).toBe('remediation-agent-done');
+    expect(rec.epicId).toBe('api');
+  });
+
+  it('epicRemediateTask names the epic and instructs fixing code, not the oracle', () => {
+    const task = epicRemediateTask(epic);
+    expect(task).toContain('api');
+    expect(task).toContain('tests/api.integration.test.ts');
+    expect(task.toLowerCase()).toContain('do not');
   });
 });

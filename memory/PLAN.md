@@ -76,6 +76,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### Parallel / Low-conflict
 
 - `cook-artifact-lifecycle` — **FE-883**, branch `ka/fe-883-orchestrator-improvements` (on FE-864). Wire the already-built `run-artifact.ts` git-merge composer (871ef087) into the live promotion/verify path, replacing the file-copy union; then worktree/branch GC. Slice 1a (composer correct under dep-seeding) landed; wiring + GC remain. Execution queue in `memory/CARDS.md`.
+- `epic-verify-recovery` — **FE-884**, branch `ka/fe-884-epic-verify-recovery` (stacked on FE-883's `ka/fe-883-worktree-gc`). Make a failed epic verification recoverable instead of terminal: a remediation loop on the verify-epic fail-sibling (detect-and-reject + dual re-verify + diff-transfer round-trip), epic infra/timeout classification (B), then partial promotion (C). Slices A + B landed; C remains. Per-branch queue in `memory/CARDS.md` (FE-884 on this branch).
 - `first-run-provider-setup` — provider/key UX and runtime seam can progress independently of semantic-stack work.
 - `workspace-gitignore-assist` — small workspace hygiene surface with low overlap.
 - `productized-web-research` — waits on prompt/context scenario substrate for probe quality, but can remain separate from semantic schema work.
@@ -504,6 +505,22 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Depends on:** `brownfield-promotion` FE-877 (done), the FE-864 composer 871ef087 (done), FE-879 lazy/shared-`node_modules` (done).
 - **Traceability:** Requirement 49; I124-K (file-copy → fork on `plan.mode` on wiring), I135-K (promotion checkout-untouched, preserved); A49. Precursor to Horizon `parallel-merge-conflict-reconciliation`.
 - **Design docs:** `docs/design/orchestrator.md`; SPEC §A49.
+
+### epic-verify-recovery
+
+- **Name:** Epic verification recovery — recoverable epic verify instead of terminal halt
+- **Linear:** FE-884
+- **Kind:** structural (Slice A establishes I138-K, amends the verify-epic topology); hardening
+- **Status:** in progress (2026-06-18) — branch `ka/fe-884-epic-verify-recovery` on FE-883's GC tip. Slices A + B landed; C remains. Queue in `memory/CARDS.md`.
+- **Objective:** Close the orchestrator's verification asymmetry — the slice tier is recoverable (run-tests retry loop) but the epic tier routes `epic-verify:<epic>:fail` straight to halt, so a diagnosed cross-slice defect discards the whole run and promotes nothing. Make a failed epic recoverable: a remediation code agent on the folded `__epic__` tree, bounded by an `epic-retry-budget`, with detect-and-reject (no editing the epic test) + dual re-verify (epic test AND slice suites) integrity guards, and a diff-transfer round-trip so the fix promotes. Substrate-free — distinct from Arc-2 `interactive-recovery`/`adaptive-replan`.
+- **Why now / unlocks:** Builds directly on FE-883's folded-tree composition (`materializeEpicVerifyTree`, `harvestCookRun`); without it, the worked example (run `59100820`: a one-line fixable `useViewParam` defect) halts a 60-minute run and is fixed by hand. Raises cook's unattended completion rate before the Arc-2 autonomy ladder.
+- **Slice A (done, `580ed50f`; production action `79376fe0`):** the remediation loop + detect-reject + dual re-verify + `transferFoldedFixToSlice` round-trip. Round-trip design finding: `harvestCookRun` folds only slice worktrees, so the folded-tree fix is committed to the representative slice branch. Proven by topology goldens, run-artifact units, and a scripted-agent e2e (fixable / reject / veto / exhaustion). **Gap caught later:** the e2e only ever exercised an *injected* `remediate-epic` action, so the production `createPiActions` factory was never given one — every real cook run crashed with `actions[actionKey] is not a function` the instant an epic verdict failed. `79376fe0` registers the production action (code-writer agent on the folded tree) and pins it on the agent-extension-host capability witness. Real-agent dogfood of run 59100820 is outer-loop, deferred.
+- **Slice B (done):** split the verify-epic fail path on `failureKind` (FE-872) — infra/timeout re-verifies under a separate `infraRetryCount`/`maxInfraRetries` budget (no agent), halting honestly on exhaustion; test/logic still remediates. Correctness fix: `spawnSync` timeout surfaces as `ETIMEDOUT`, previously misclassified `test` (would have fed the agent a non-bug) → now infra, ceiling raised 60s→180s. Distinct from FE-864's pi session deadline.
+- **Remaining:** C — partial promotion: `harvestCookRun` lands passing epics + returns the failing epic's diagnosis instead of `nothing promoted` (depends on A's round-trip + FE-883 GC ref-set; not yet carded).
+- **Acceptance / verification:** see `memory/CARDS.md`; oracle strategy folded into SPEC §Verification Design.
+- **Depends on:** `cook-artifact-lifecycle` FE-883 (folded tree + harvest + idempotent `commitSliceWorktree`); FE-872 (failureKind, for B).
+- **Traceability:** Requirement 49; establishes I138-K, D170-K; builds on I124-K, D159-K.
+- **Design docs:** `docs/design/orchestrator.md`.
 
 ### brunch-ship
 
