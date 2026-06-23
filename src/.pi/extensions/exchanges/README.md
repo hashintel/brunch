@@ -1,9 +1,10 @@
 # exchanges/ — structured-exchange Pi tools
 
 Owns Pi registration and live UI collection for the structured-exchange tool
-family (`present_*` / `request_*`). Result details are constructed only through
-`projections/exchanges/*` and validated against the Zod schemas in `schemas/`
-(see `schemas/README.md` for the details contract).
+family (`present_question`, `present_review_set`, and `request_response`). Result
+details are constructed only through `projections/exchanges/*` and validated
+against the Zod schemas in `schemas/` (see `schemas/README.md` for the details
+contract).
 
 ## The two envelopes
 
@@ -23,17 +24,41 @@ There are two distinct envelopes in this seam — do not conflate them:
 
 ## Answer sources
 
-`request_answer` is dual-homed because interactive TUI sessions and headless
-web-driver sessions close the same transcript result through different live
-surfaces. When `ctx.hasUI` and `ctx.ui.editor` are present, the TUI editor is the
+`request_response` is dual-homed for free-text prompts because interactive TUI
+sessions and headless web-driver sessions close the same transcript result
+through different live surfaces. It routes through `shared/answer-source.ts`:
+when `ctx.hasUI` and `ctx.ui.editor` are present, the TUI editor is the
 authoritative response surface; the live broker is the fallback for headless /
 web-driver turns. A future web-as-driver race across both sources needs an
 awaiter-cancel path before it can replace this precedence rule.
+
+`present_question` is the merged prompt anchor. `options[]` presence derives the
+response kind: no options → free-text `answer`, options → single `choice`, and
+options + `multiple` → `choices`. `request_response` finds the pending `present_question`
+from the current session transcript and dispatches by that server-owned kind.
+Choice and multi-choice response paths intentionally remain TUI-only for this
+slice; without `ctx.ui` they return `unavailable`, matching the retired choice
+tools rather than inventing a broker choice surface.
+
+## Single terminal
+
+`request_response` is the **only** terminal tool. It routes by the pending
+present's `tool_meta.curr`: `present_question` to the answer/choice/choices
+sources above, and `present_review_set` to `shared/review-source.ts`
+(approve / request-changes / reject, with a required change-request comment).
+The retired `request_answer` / `request_choice` / `request_choices` /
+`request_review` names survive only as transcript **result-detail discriminants**
+(`tool_meta.curr` on the request details, the `projectRequest*` / `formatRequest*`
+families, and the `capture_*` chains); `request_response` derives the response
+kind from the pending present and emits those same canonical request details.
+`shared/ui-context.ts` is the one structural `ctx` slice every collector reads,
+so the tool casts the runtime `ctx` once at the boundary.
 
 ## Dependency rules
 
 ```pseudo
 exchanges/*        -> schemas/, projections/exchanges/, renderers/exchanges/
+exchanges/shared/  -> shared UI dispatch only; no tool-result detail literals
 exchanges/schemas/ -> zod only (pi-schema.ts is the lone TSchema adapter)
 ```
 

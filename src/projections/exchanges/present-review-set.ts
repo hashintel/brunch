@@ -25,7 +25,7 @@ export function projectPresentReviewSet(input: {
     exchange_id: input.exchangeId,
     tool_meta: {
       curr: 'present_review_set',
-      next: 'request_review',
+      next: 'request_response',
     },
     display: {
       heading: input.payload.pitch.title.trim(),

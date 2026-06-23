@@ -43,7 +43,7 @@ interface StructuredExchangeOrderingProofOptions {
 
 const scenario: OrderingScenario = {
   mission: 'Prove same-assistant-message present/request structured-exchange ordering.',
-  evaluationFocus: 'Verify sequential present_options persists before request_choice opens response UI.',
+  evaluationFocus: 'Verify sequential present_question persists before request_response opens response UI.',
   maxTurns: 1,
 };
 
@@ -120,18 +120,18 @@ export async function runStructuredExchangeOrderingProof(
     }
 
     const toolResults = await readToolResults(sessionFile);
-    const present = toolResults.find((result) => result.toolName === 'present_options');
-    const request = toolResults.find((result) => result.toolName === 'request_choice');
+    const present = toolResults.find((result) => result.toolName === 'present_question');
+    const request = toolResults.find((result) => result.toolName === 'request_response');
     if (!present || !request) {
       throw new Error('Ordering proof did not persist both tool results');
     }
 
     const eventOrder = orderingEvents(client.events);
     const jsonlToolResultOrder = toolResults.map((result) => result.toolName);
-    const presentIndex = eventOrder.indexOf('present_options:end');
+    const presentIndex = eventOrder.indexOf('present_question:end');
     const requestUiIndex = eventOrder.indexOf('ui:select');
-    const jsonlPresentIndex = jsonlToolResultOrder.indexOf('present_options');
-    const jsonlRequestIndex = jsonlToolResultOrder.indexOf('request_choice');
+    const jsonlPresentIndex = jsonlToolResultOrder.indexOf('present_question');
+    const jsonlRequestIndex = jsonlToolResultOrder.indexOf('request_response');
 
     return {
       scenario,
@@ -191,7 +191,7 @@ export function orderingExtensionSource(adapterPath: string, fauxProviderPath: s
       pi.registerProvider(model.provider, brunchFauxProviderConfig(model, provider, BRUNCH_FAUX_HARNESS_ENV_API_KEY))
       provider.setResponses([
         fauxAssistantMessage([
-          fauxToolCall("present_options", {
+          fauxToolCall("present_question", {
             exchangeId: "ordering-proof",
             heading: "Where should the extension shell live?",
             body: "This present result must persist before the request UI opens.",
@@ -199,18 +199,9 @@ export function orderingExtensionSource(adapterPath: string, fauxProviderPath: s
               { id: "root", content: "Keep src/pi-extensions.ts", rationale: "Smallest diff." },
               { id: "tui", content: "Move under src/tui-client", rationale: "Clearer ownership." },
             ],
-            expectedRequestTool: "request_choice",
           }, { id: "present-ordering-call" }),
-          fauxToolCall("request_choice", {
+          fauxToolCall("request_response", {
             exchangeId: "ordering-proof",
-            respondsToPresentTool: "present_options",
-            prompt: "Select one option.",
-            choices: [
-              { id: "root", label: "Keep src/pi-extensions.ts" },
-              { id: "tui", label: "Move under src/tui-client" },
-            ],
-            allowOther: false,
-            commentPrompt: "Optional comment",
           }, { id: "request-ordering-call" }),
         ], { stopReason: "toolUse" }),
         fauxAssistantMessage("Ordering proof complete.", { stopReason: "stop" }),
@@ -220,7 +211,7 @@ export function orderingExtensionSource(adapterPath: string, fauxProviderPath: s
         handler: async () => {
           const selected = await pi.setModel(provider.getModel())
           if (!selected) throw new Error("Ordering proof faux model was not selectable")
-          pi.setActiveTools(["present_options", "request_choice"])
+          pi.setActiveTools(["present_question", "request_response"])
           pi.sendUserMessage("Run the present/request ordering proof.")
         },
       })
@@ -253,7 +244,7 @@ async function readToolResults(sessionFile: string): Promise<ToolResultRecord[]>
     if (!isRecord(entry) || entry.type !== 'message') return [];
     const message = entry.message;
     if (!isRecord(message) || message.role !== 'toolResult') return [];
-    if (message.toolName !== 'present_options' && message.toolName !== 'request_choice') {
+    if (message.toolName !== 'present_question' && message.toolName !== 'request_response') {
       return [];
     }
     return [{ toolName: message.toolName, details: message.details }];

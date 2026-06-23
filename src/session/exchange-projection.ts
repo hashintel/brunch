@@ -229,8 +229,19 @@ function requestClosesPresent(request: RequestDetails, present: PresentDetails):
   return (
     request.exchange_id === present.exchange_id &&
     request.tool_meta.prev === present.tool_meta.curr &&
-    request.tool_meta.curr === present.tool_meta.next
+    expectedRequestDetailTool(present) === request.tool_meta.curr
   );
+}
+
+function expectedRequestDetailTool(
+  present: PresentDetails,
+): 'request_answer' | 'request_choice' | 'request_choices' | 'request_review' {
+  if (present.tool_meta.curr === 'present_review_set') return 'request_review';
+  if (present.tool_meta.curr === 'present_candidates') return 'request_choice';
+  if (!('response_kind' in present)) return 'request_answer';
+  if (present.response_kind === 'choices') return 'request_choices';
+  if (present.response_kind === 'choice') return 'request_choice';
+  return 'request_answer';
 }
 
 function structuredExchangePresentDetails(entry: SessionEntry): PresentDetails | undefined {

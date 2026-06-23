@@ -51,7 +51,8 @@ const presentQuestionToolResult = {
       schema: 'brunch.structured_exchange.present',
       v: 1,
       exchange_id: 'domain',
-      tool_meta: { curr: 'present_question', next: 'request_answer' },
+      tool_meta: { curr: 'present_question', next: 'request_response' },
+      response_kind: 'answer',
       display: {
         heading: 'Domain?',
         body: 'What are we specifying?',
@@ -103,7 +104,7 @@ const presentReviewSetToolResult = {
       schema: 'brunch.structured_exchange.present',
       v: 1,
       exchange_id: 'review-cycle',
-      tool_meta: { curr: 'present_review_set', next: 'request_review' },
+      tool_meta: { curr: 'present_review_set', next: 'request_response' },
       display: {
         heading: 'Review cycle wiring',
         body: 'Review this graph proposal.',
@@ -153,7 +154,7 @@ const requestChoicesToolResult = {
       schema: 'brunch.structured_exchange.request',
       v: 1,
       exchange_id: 'domain',
-      tool_meta: { prev: 'present_options', curr: 'request_choices' },
+      tool_meta: { prev: 'present_question', curr: 'request_choices' },
       answered: {
         choices: [
           { id: 'speed', label: 'Move quickly', kind: 'listed' },
@@ -377,12 +378,13 @@ describe('session exchange projection', () => {
         id: 'present-options-1',
         message: {
           ...presentQuestionToolResult.message,
-          toolName: 'present_options',
+          toolName: 'present_question',
           details: {
             schema: 'brunch.structured_exchange.present',
             v: 1,
             exchange_id: 'domain',
-            tool_meta: { curr: 'present_options', next: 'request_choices' },
+            tool_meta: { curr: 'present_question', next: 'request_response' },
+            response_kind: 'choices',
             display: { heading: 'Choose priorities' },
             options: [
               { id: 'speed', content: 'Move quickly' },
@@ -403,7 +405,7 @@ describe('session exchange projection', () => {
                   schema: 'brunch.structured_exchange.request',
                   v: 1,
                   exchange_id: 'domain',
-                  tool_meta: { prev: 'present_options', curr: 'request_choices' },
+                  tool_meta: { prev: 'present_question', curr: 'request_choices' },
                   [status]: status === 'cancelled' ? {} : { message: 'request_choices unavailable' },
                 },
         },
@@ -550,7 +552,8 @@ describe('session exchange projection', () => {
         schema: 'brunch.structured_exchange.present',
         v: 1,
         exchange_id: 'jsonl-text',
-        tool_meta: { curr: 'present_question', next: 'request_answer' },
+        tool_meta: { curr: 'present_question', next: 'request_response' },
+        response_kind: 'answer',
         display: { heading: 'Domain?' },
       },
       isError: false,
@@ -559,7 +562,7 @@ describe('session exchange projection', () => {
     manager.appendMessage({
       role: 'toolResult',
       toolCallId: 'call-exchange-jsonl',
-      toolName: 'request_answer',
+      toolName: 'request_response',
       content: [{ type: 'text', text: 'User answered: Developer tooling' }],
       details: {
         schema: 'brunch.structured_exchange.request',

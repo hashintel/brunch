@@ -1,16 +1,22 @@
-/**
- * Formats projected `present_question` data into durable markdown.
- *
- * Input:
- * - projected output from projections/exchanges/present-question.ts
- *
- * Output:
- * - durable prompt-side markdown for toolResult.content
- */
-
 import type { PresentQuestionProjection } from '../../projections/exchanges/present-question.js';
-import { joinMarkdownBlocks, markdownHeading } from '../markdown.js';
+
+function markdownEscape(text: string): string {
+  return text.replace(/([\\`*_{}[\]()#+\-.!|>])/g, '\\$1');
+}
 
 export function formatPresentQuestion(projection: PresentQuestionProjection): string {
-  return joinMarkdownBlocks(markdownHeading(2, projection.heading), projection.body);
+  const lines = [`## ${projection.heading.trim()}`];
+  const body = projection.body?.trim();
+  if (body) lines.push('', body);
+
+  if ('options' in projection.details) {
+    projection.details.options.forEach((option, index) => {
+      lines.push('', `### ${index + 1}. ${option.content.trim()}`);
+      const rationale = option.rationale?.trim();
+      if (rationale) lines.push('', `**Rationale:** ${rationale}`);
+      lines.push('', `<!-- option-id: ${markdownEscape(option.id)} -->`);
+    });
+  }
+
+  return lines.join('\n');
 }

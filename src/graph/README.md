@@ -48,9 +48,10 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
   `ReconciliationNeed`, `ElicitationGap` (`refersTo` + `question`),
-  kind/category types, per-kind node ordinals, and derived intent-kind grouping. Raw domain enum
-  taxonomy lives in the zero-import `schema/kinds.ts` leaf so web-facing graph
-  imports do not pull in Drizzle.
+  kind/category types, per-kind node ordinals, per-kind node `detail` schemas,
+  and derived intent-kind grouping. Raw domain enum taxonomy lives in the
+  zero-import `schema/kinds.ts` leaf so web-facing graph imports do not pull in
+  Drizzle.
 
 - **Policy** (`policy/category-policy.ts`) — the single per-category
   metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact
@@ -191,6 +192,8 @@ graph/
       synthetic gap builders (presenceGap, groundingFloorGaps); production
       fail-closed floor + test fixtures ride the same shape
     nodes.ts
+      GraphNode and node taxonomy metadata
+      per-kind detail schema owner consumed by validation + mutation boundary schemas
     edges.ts
     reconciliation-need.ts
 

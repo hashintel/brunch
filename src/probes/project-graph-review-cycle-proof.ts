@@ -48,7 +48,7 @@ export interface ProjectGraphReviewCycleArtifacts {
 
 interface ReviewCycleToolEvidence {
   readonly presentReviewSetCount: number;
-  readonly requestReviewCount: number;
+  readonly requestResponseCount: number;
   readonly successfulPresentReviewSetCount: number;
   readonly structuralIllegalPresentReviewSetCount: number;
 }
@@ -424,7 +424,7 @@ export async function writeProjectGraphReviewCycleArtifacts(options: {
 
 function reviewCycleToolEvidence(sessionText: string): ReviewCycleToolEvidence {
   let presentReviewSetCount = 0;
-  let requestReviewCount = 0;
+  let requestResponseCount = 0;
   let successfulPresentReviewSetCount = 0;
   let structuralIllegalPresentReviewSetCount = 0;
 
@@ -438,14 +438,14 @@ function reviewCycleToolEvidence(sessionText: string): ReviewCycleToolEvidence {
         successfulPresentReviewSetCount += 1;
       }
     }
-    if (message.toolName === 'request_review') {
-      requestReviewCount += 1;
+    if (message.toolName === 'request_response') {
+      requestResponseCount += 1;
     }
   }
 
   return {
     presentReviewSetCount,
-    requestReviewCount,
+    requestResponseCount,
     successfulPresentReviewSetCount,
     structuralIllegalPresentReviewSetCount,
   };
@@ -546,7 +546,7 @@ Proposal constraints:
 - When referencing existing graph truth, use existingCode strings from read_graph output, never raw ids.
 - Use schemaVersion 1, lens "intent", epistemicStatus "inferred", non-empty grounding.summary, grounding.support, pitch.title, and pitch.narrative.
 - Do not call mutate_graph directly.
-- Do not call request_review; stop after a successful present_review_set so the external Brunch RPC reviewer can approve it.`;
+- Do not call request_response; stop after a successful present_review_set so the external Brunch RPC reviewer can approve it.`;
 }
 
 function defaultRunId(): string {

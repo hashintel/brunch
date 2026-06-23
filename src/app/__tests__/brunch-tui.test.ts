@@ -747,12 +747,8 @@ describe('Brunch TUI boot', () => {
       'web_search',
       'present_alternatives',
       'present_question',
-      'present_options',
       'present_review_set',
-      'request_answer',
-      'request_choice',
-      'request_choices',
-      'request_review',
+      'request_response',
     ]);
     expect(commands.get(BRUNCH_SWITCH_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
@@ -1241,22 +1237,11 @@ describe('Brunch TUI boot', () => {
     registerBrunchOperationalModePolicy({
       registerTool: (tool: { name: string }) => registeredTools.push(tool.name),
       getAllTools: () =>
-        [
-          'read',
-          'grep',
-          'find',
-          'ls',
-          'present_question',
-          'present_options',
-          'request_answer',
-          'request_choice',
-          'request_choices',
-          'bash',
-          'edit',
-          'write',
-        ].map((name) => ({
-          name,
-        })),
+        ['read', 'grep', 'find', 'ls', 'present_question', 'request_response', 'bash', 'edit', 'write'].map(
+          (name) => ({
+            name,
+          }),
+        ),
       setActiveTools: (tools: string[]) => activeTools.push(tools),
       on: (event: string, handler: (event: never) => unknown) => {
         events[event] = handler;
@@ -1265,19 +1250,7 @@ describe('Brunch TUI boot', () => {
 
     expect(registeredTools).toEqual(['read', 'grep', 'find', 'ls']);
     await events.session_start?.({} as never);
-    expect(activeTools).toEqual([
-      [
-        'read',
-        'grep',
-        'find',
-        'ls',
-        'present_question',
-        'present_options',
-        'request_answer',
-        'request_choice',
-        'request_choices',
-      ],
-    ]);
+    expect(activeTools).toEqual([['read', 'grep', 'find', 'ls', 'present_question', 'request_response']]);
     await expect(
       Promise.resolve(events.before_agent_start?.({ systemPrompt: 'base' } as never)),
     ).resolves.toBeUndefined();

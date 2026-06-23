@@ -282,13 +282,7 @@ export async function runPublicRpcParityProof(
   }
   const tools = toolResultEntries(sessionText);
   const toolCoverage = [...new Set(tools.map((entry) => entry.toolName))].sort();
-  for (const required of [
-    'present_question',
-    'request_answer',
-    'present_options',
-    'request_choice',
-    'request_choices',
-  ]) {
+  for (const required of ['present_question', 'request_response']) {
     if (!toolCoverage.includes(required)) {
       throw new Error(`Missing tool coverage for ${required}`);
     }
@@ -306,7 +300,9 @@ export async function runPublicRpcParityProof(
     throw new Error('Public RPC parity proof repeated deterministic prompts');
   }
 
-  const optionPresentResults = tools.filter((entry) => entry.toolName === 'present_options');
+  const optionPresentResults = tools.filter(
+    (entry) => entry.toolName === 'present_question' && Array.isArray(entry.details?.options),
+  );
   for (const entry of optionPresentResults) {
     const richOption = entry.details?.options?.find(
       (option) => option.content !== undefined && option.rationale !== undefined,

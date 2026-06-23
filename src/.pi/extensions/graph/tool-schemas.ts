@@ -16,6 +16,8 @@ import {
   EDGE_STANCES,
   INTENT_KINDS,
   ORACLE_KINDS,
+  NODE_DETAIL_JSON_SCHEMAS,
+  NODE_KINDS_REQUIRING_DETAIL,
   PLAN_KINDS,
   type EdgeCategory,
   type EdgeDirection,
@@ -23,6 +25,8 @@ import {
 } from '../../../graph/index.js';
 
 const ALL_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
+const DETAIL_KINDS = new Set<string>(NODE_KINDS_REQUIRING_DETAIL);
+const KINDS_WITHOUT_DETAIL = ALL_KINDS.filter((kind) => !DETAIL_KINDS.has(kind));
 
 export type ToolEdgeRef = string | { readonly existingCode: string };
 export type ToolMutateCreateNodeOp = {
@@ -115,10 +119,13 @@ export const MutateNodeSchema = Type.Object(
       }),
     ),
     detail: Type.Optional(
-      Type.Unknown({
-        description:
-          'Per-kind detail: decision requires {chosen_option, rejected, rationale}; term requires {definition, aliases?}',
-      }),
+      Type.Union(
+        [Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.decision), Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.term)],
+        {
+          description:
+            'Per-kind detail: decision requires {chosen_option, rejected, rationale}; term requires {definition, aliases?}; omit for all other kinds.',
+        },
+      ),
     ),
   },
   { additionalProperties: false },
@@ -151,19 +158,42 @@ function roleNamedCreateEdgeSchema(category: EdgeCategory) {
   );
 }
 
-const MutateCreateNodeOpSchema = Type.Object(
-  {
-    op: Type.Literal('create_node'),
-    ref: MutateNodeSchema.properties.ref,
-    plane: MutateNodeSchema.properties.plane,
-    kind: MutateNodeSchema.properties.kind,
-    title: MutateNodeSchema.properties.title,
-    body: MutateNodeSchema.properties.body,
-    source: MutateNodeSchema.properties.source,
-    detail: MutateNodeSchema.properties.detail,
-  },
-  { additionalProperties: false },
-);
+const MutateCreateNodeBaseProperties = {
+  op: Type.Literal('create_node'),
+  ref: MutateNodeSchema.properties.ref,
+  title: MutateNodeSchema.properties.title,
+  body: MutateNodeSchema.properties.body,
+  source: MutateNodeSchema.properties.source,
+} as const;
+
+const MutateCreateNodeOpSchema = Type.Union([
+  Type.Object(
+    {
+      ...MutateCreateNodeBaseProperties,
+      plane: Type.Literal('intent'),
+      kind: Type.Literal('decision'),
+      detail: Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.decision),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      ...MutateCreateNodeBaseProperties,
+      plane: Type.Literal('intent'),
+      kind: Type.Literal('term'),
+      detail: Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.term),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      ...MutateCreateNodeBaseProperties,
+      plane: MutateNodeSchema.properties.plane,
+      kind: StringEnum([...KINDS_WITHOUT_DETAIL]),
+    },
+    { additionalProperties: false },
+  ),
+]);
 
 export const MutateCreateEdgeSchema = Type.Union(
   EDGE_CATEGORIES.map((category) => roleNamedCreateEdgeSchema(category)),

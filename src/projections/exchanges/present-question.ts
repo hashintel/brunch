@@ -1,19 +1,7 @@
-/**
- * Canonical projection for `present_question` content.
- *
- * Input:
- * - domain prompt state for a Brunch structured question
- *
- * Output:
- * - normalized heading/body projection plus canonical Zod-authored details
- *
- * Used by:
- * - renderers/exchanges/present-question.ts
- * - session/structured-exchange-loop.ts
- * - .pi/extensions/exchanges/present-question.ts
- */
-
-import type { PresentQuestionDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type {
+  PresentQuestionDetails,
+  PresentQuestionParams,
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
   zPresentQuestionDetails,
@@ -25,33 +13,34 @@ export interface PresentQuestionProjection {
   readonly details: PresentQuestionDetails;
 }
 
-export interface ProjectPresentQuestionInput {
-  readonly exchangeId: string;
-  readonly heading: string;
-  readonly body?: string | undefined;
-}
-
-export function projectPresentQuestion(input: ProjectPresentQuestionInput): PresentQuestionProjection {
+export function projectPresentQuestion(input: PresentQuestionParams): PresentQuestionProjection {
   const heading = input.heading.trim();
   const body = normalizeOptionalText(input.body);
+  const responseKind = input.options ? (input.multiple ? 'choices' : 'choice') : 'answer';
   const details = zPresentQuestionDetails.parse({
     schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
     v: 1,
     exchange_id: input.exchangeId,
-    tool_meta: {
-      curr: 'present_question',
-      next: 'request_answer',
-    },
+    tool_meta: { curr: 'present_question', next: 'request_response' },
+    response_kind: responseKind,
     display: {
       heading,
       ...(body ? { body } : {}),
     },
+    ...(input.options
+      ? {
+          options: input.options.map((option) => ({
+            id: option.id,
+            content: option.content,
+            ...(option.rationale !== undefined ? { rationale: option.rationale } : {}),
+          })),
+          ...(input.allowOther !== undefined ? { allow_other: input.allowOther } : {}),
+          ...(input.allowNone !== undefined ? { allow_none: input.allowNone } : {}),
+          ...(input.commentPrompt !== undefined ? { comment_prompt: input.commentPrompt } : {}),
+        }
+      : {}),
   });
-  return {
-    heading,
-    ...(body ? { body } : {}),
-    details,
-  };
+  return { heading, ...(body ? { body } : {}), details };
 }
 
 function normalizeOptionalText(value: string | undefined): string | undefined {

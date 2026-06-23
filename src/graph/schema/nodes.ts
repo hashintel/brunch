@@ -163,17 +163,62 @@ export function intentKindCategory(kind: IntentKind): IntentKindCategory {
 // Per-kind detail schemas
 // ---------------------------------------------------------------------------
 
+type JsonSchema = Readonly<Record<string, unknown>>;
+
 /** Detail payload for `decision` nodes. */
-interface DecisionDetail {
+export interface DecisionDetail {
   readonly chosen_option: string;
   readonly rejected: readonly string[];
   readonly rationale: string;
 }
 
 /** Detail payload for `term` nodes. */
-interface TermDetail {
+export interface TermDetail {
   readonly definition: string;
   readonly aliases?: readonly string[];
+}
+
+export const NODE_DETAIL_JSON_SCHEMAS = {
+  decision: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['chosen_option', 'rejected', 'rationale'],
+    properties: {
+      chosen_option: { type: 'string', description: 'The selected option or position.' },
+      rejected: {
+        type: 'array',
+        minItems: 1,
+        items: { type: 'string' },
+        description: 'Rejected alternatives considered by this decision.',
+      },
+      rationale: { type: 'string', description: 'Why the chosen option won.' },
+    },
+    description: 'Detail required for decision nodes.',
+  },
+  term: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['definition'],
+    properties: {
+      definition: { type: 'string', description: 'Canonical definition for the term.' },
+      aliases: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Optional alternate names for the same concept.',
+      },
+    },
+    description: 'Detail required for term nodes.',
+  },
+} as const satisfies Readonly<Record<string, JsonSchema>>;
+
+export type NodeKindRequiringDetail = keyof typeof NODE_DETAIL_JSON_SCHEMAS;
+
+export const NODE_KINDS_REQUIRING_DETAIL = Object.keys(
+  NODE_DETAIL_JSON_SCHEMAS,
+) as readonly NodeKindRequiringDetail[];
+
+export function nodeDetailKnownFields(kind: NodeKindRequiringDetail): readonly string[] {
+  return Object.keys(NODE_DETAIL_JSON_SCHEMAS[kind].properties);
 }
 
 /** Discriminated union of all per-kind detail payloads. */

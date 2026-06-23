@@ -16,12 +16,8 @@ const registeredToolNames = [
   'edit',
   'write',
   'present_question',
-  'present_options',
-  'request_answer',
-  'request_choice',
-  'request_choices',
+  'request_response',
   'present_review_set',
-  'request_review',
   'read_graph',
   'read_session_context',
   'read_elicitation_gaps',
@@ -56,7 +52,7 @@ describe('agent posture policy', () => {
     // D86-L: graph-write tools are floor — present even at zero grounding coverage.
     expect(floorTools).toContain('mutate_graph');
     expect(floorTools).toContain('present_review_set');
-    expect(floorTools).toContain('request_review');
+    expect(floorTools).toContain('request_response');
     expect(floorTools).toContain('read_graph');
     expect(floorTools).toContain('read_session_context');
     expect(floorTools).toContain('read_elicitation_gaps');
@@ -65,7 +61,7 @@ describe('agent posture policy', () => {
     expect(floorTools).toContain('update_reconciliation_needs');
     expect(floorTools).not.toContain('bash');
     expect(floorTools).toEqual(
-      expect.arrayContaining(['present_question', 'present_options', 'request_answer']),
+      expect.arrayContaining(['present_question', 'present_question', 'request_response']),
     );
 
     expect(coveredMethods).toEqual([
@@ -81,7 +77,7 @@ describe('agent posture policy', () => {
       'review-for-gaps',
     ]);
     expect(coveredTools).toContain('mutate_graph');
-    expect(coveredTools).toEqual(expect.arrayContaining(['present_review_set', 'request_review']));
+    expect(coveredTools).toEqual(expect.arrayContaining(['present_review_set', 'request_response']));
   });
 
   it('keeps graph-write tools floor even when graph-write readiness negotiates (D86-L)', () => {
@@ -96,7 +92,7 @@ describe('agent posture policy', () => {
 
     const tools = activeToolNamesForPosture({ registeredToolNames, state, gaps: negotiating });
     expect(tools).toContain('mutate_graph');
-    expect(tools).toEqual(expect.arrayContaining(['present_review_set', 'request_review']));
+    expect(tools).toEqual(expect.arrayContaining(['present_review_set', 'request_response']));
   });
 
   it('allows registered dev tool names only through the injected dev allow-list', () => {

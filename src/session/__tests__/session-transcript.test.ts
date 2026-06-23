@@ -51,7 +51,7 @@ describe('session transcript renderer', () => {
         message: {
           role: 'toolResult',
           toolCallId: 'present-call-1',
-          toolName: 'present_options',
+          toolName: 'present_question',
           content: [
             {
               type: 'text',
@@ -62,7 +62,8 @@ describe('session transcript renderer', () => {
             schema: 'brunch.structured_exchange.present',
             v: 1,
             exchange_id: 'turn-1',
-            tool_meta: { curr: 'present_options', next: 'request_choice' },
+            tool_meta: { curr: 'present_question', next: 'request_response' },
+            response_kind: 'choice',
             display: { heading: 'Which direction?' },
             options: [{ id: 'fast', content: 'Fast', rationale: 'validates the seam.' }],
           },
@@ -78,7 +79,7 @@ describe('session transcript renderer', () => {
         message: {
           role: 'toolResult',
           toolCallId: 'request-call-1',
-          toolName: 'request_choice',
+          toolName: 'request_response',
           content: [
             {
               type: 'text',
@@ -89,7 +90,7 @@ describe('session transcript renderer', () => {
             schema: 'brunch.structured_exchange.request',
             v: 1,
             exchange_id: 'turn-1',
-            tool_meta: { prev: 'present_options', curr: 'request_choice' },
+            tool_meta: { prev: 'present_question', curr: 'request_choice' },
             answered: {
               choice: { id: 'fast', label: 'Fast', kind: 'listed' },
               comment: 'Keep it deterministic.',
@@ -143,7 +144,7 @@ describe('session transcript renderer', () => {
 
       Generic file contents
 
-      ## 3. Tool result: present_options
+      ## 3. Tool result: present_question
 
       ## Which direction?
 
@@ -151,7 +152,7 @@ describe('session transcript renderer', () => {
 
       **Rationale:** validates the seam.
 
-      ## 4. Tool result: request_choice
+      ## 4. Tool result: request_response
 
       ### Response
 

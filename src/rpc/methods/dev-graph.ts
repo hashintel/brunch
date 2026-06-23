@@ -16,7 +16,9 @@ import {
   authoredEdgeEndpointFields,
   EDGE_CATEGORIES,
   EDGE_STANCES,
+  NODE_DETAIL_JSON_SCHEMAS,
   NODE_KINDS,
+  NODE_KINDS_REQUIRING_DETAIL,
   parseGraphNodeCode,
 } from '../../graph/index.js';
 import { graphMutationProductUpdates } from '../product-updates.js';
@@ -31,8 +33,13 @@ const NodePlaneSchema = Type.Union([
   Type.Literal('design'),
   Type.Literal('plan'),
 ]);
-const NodeKindSchema = Type.Union(NODE_KINDS.map((kind) => Type.Literal(kind)));
 const EdgeStanceSchema = Type.Union(EDGE_STANCES.map((stance) => Type.Literal(stance)));
+const DetailKinds = new Set<string>(NODE_KINDS_REQUIRING_DETAIL);
+const NodeKindsWithoutDetail = NODE_KINDS.filter((kind) => !DetailKinds.has(kind));
+const NodeDetailSchema = Type.Union([
+  Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.decision),
+  Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.term),
+]);
 
 const DevExistingCodeRefSchema = Type.Object(
   {
@@ -45,19 +52,42 @@ const DevExistingCodeRefSchema = Type.Object(
 
 const DevCreateEdgeEndpointSchema = Type.Union([Type.String(), DevExistingCodeRefSchema]);
 
-const DevCreateNodeOpSchema = Type.Object(
-  {
-    op: Type.Literal('create_node'),
-    ref: Type.String(),
-    plane: NodePlaneSchema,
-    kind: NodeKindSchema,
-    title: Type.String(),
-    body: Type.Optional(Type.String()),
-    source: Type.Optional(Type.String()),
-    detail: Type.Optional(Type.Unknown()),
-  },
-  { additionalProperties: false },
-);
+const DevCreateNodeBaseProperties = {
+  op: Type.Literal('create_node'),
+  ref: Type.String(),
+  title: Type.String(),
+  body: Type.Optional(Type.String()),
+  source: Type.Optional(Type.String()),
+} as const;
+
+const DevCreateNodeOpSchema = Type.Union([
+  Type.Object(
+    {
+      ...DevCreateNodeBaseProperties,
+      plane: Type.Literal('intent'),
+      kind: Type.Literal('decision'),
+      detail: Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.decision),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      ...DevCreateNodeBaseProperties,
+      plane: Type.Literal('intent'),
+      kind: Type.Literal('term'),
+      detail: Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.term),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      ...DevCreateNodeBaseProperties,
+      plane: NodePlaneSchema,
+      kind: Type.Union(NodeKindsWithoutDetail.map((kind) => Type.Literal(kind))),
+    },
+    { additionalProperties: false },
+  ),
+]);
 
 const DevCreateEdgeOpSchemas = EDGE_CATEGORIES.map((category) => {
   const [sourceField, targetField] = authoredEdgeEndpointFields(category);
@@ -79,7 +109,7 @@ const DevNodePatchSchema = Type.Object(
     title: Type.Optional(Type.String()),
     body: Type.Optional(Type.Union([Type.String(), Type.Null()])),
     source: Type.Optional(Type.Union([Type.String(), Type.Null()])),
-    detail: Type.Optional(Type.Unknown()),
+    detail: Type.Optional(Type.Union([NodeDetailSchema, Type.Null()])),
   },
   { additionalProperties: false },
 );

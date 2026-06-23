@@ -27,10 +27,10 @@ export const zPendingStructuredExchange = z
     note: z.object({ allowed: z.boolean() }).strict(),
     reviewSet: z.record(z.string(), z.unknown()).optional(),
     // Which present tool opened a single-select exchange. Candidate lists and
-    // option lists both answer via request_choice but capture differently
+    // prompt option lists both answer via request_choice but capture differently
     // (capture_candidate vs capture_choice), so the provenance must round-trip
-    // rather than be assumed. Absent ⇒ present_options.
-    respondsToPresentTool: z.enum(['present_options', 'present_candidates']).optional(),
+    // rather than be assumed. Absent ⇒ present_question.
+    respondsToPresentTool: z.enum(['present_question', 'present_candidates']).optional(),
   })
   .strict();
 export const PendingStructuredExchangeSchema = z.toJSONSchema(zPendingStructuredExchange, {
@@ -109,12 +109,7 @@ function pendingExchangeFromStructuredPresent(
     };
   }
 
-  const mode =
-    details.tool_meta.next === 'request_choices'
-      ? 'multi-select'
-      : details.tool_meta.curr === 'present_question'
-        ? 'text'
-        : 'single-select';
+  const mode = promptMode(details);
 
   return {
     exchangeId: details.exchange_id,
@@ -133,6 +128,14 @@ function pendingExchangeFromStructuredPresent(
       ? { respondsToPresentTool: 'present_candidates' as const }
       : {}),
   };
+}
+
+function promptMode(details: PresentDetails): PendingStructuredExchange['mode'] {
+  if (details.tool_meta.curr !== 'present_question') return 'single-select';
+  const responseKind = (details as { response_kind: 'answer' | 'choice' | 'choices' }).response_kind;
+  if (responseKind === 'answer') return 'text';
+  if (responseKind === 'choices') return 'multi-select';
+  return 'single-select';
 }
 
 function presentDetailsText(details: PresentDetails, markdown: string): string {

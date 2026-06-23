@@ -1,25 +1,20 @@
-import { defineTool } from '@earendil-works/pi-coding-agent';
-
-import { projectRequestChoices } from '../../../projections/exchanges/request-choices.js';
-import { formatRequestChoices } from '../../../renderers/exchanges/request-choices.js';
-import { piSchema } from './pi-schema.js';
+import { projectRequestChoices } from '../../../../projections/exchanges/request-choices.js';
+import { formatRequestChoices } from '../../../../renderers/exchanges/request-choices.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_VERSION,
   zRequestChoicesEditorReply,
-  zRequestChoicesParams,
-  type RequestChoiceParam,
   type RequestChoicesEditorChoice,
   type RequestChoicesEditorEnvelopeInput,
   type RequestChoicesEditorResponse,
-  type RequestChoicesParams,
   type SelectedChoice,
-} from './schemas/index.js';
-import { normalizeOptionalText, renderMarkdownResult } from './shared/markdown.js';
+} from '../schemas/index.js';
+import { normalizeOptionalText } from './markdown.js';
 
-export const REQUEST_CHOICES_TOOL = 'request_choices' as const;
-
-type StructuredExchangeChoice = RequestChoiceParam;
+export interface StructuredExchangeChoice {
+  readonly id: string;
+  readonly label: string;
+}
 
 export function buildRequestChoicesEditorPrefill(params: {
   prompt: string;
@@ -99,10 +94,10 @@ export interface RequestChoicesEditorFlowParams {
 }
 
 /**
- * The full editor exchange for request_choices: schema-derived prefill, edited
- * JSON back, schema parse, choice matching, and projection into canonical
- * result details. The tool drives it through `ctx.ui.editor`; the RPC proof
- * probe drives it through a raw RPC editor relay.
+ * The full editor exchange for request_choices result details: schema-derived
+ * prefill, edited JSON back, schema parse, choice matching, and projection into
+ * canonical result details. request_response drives it through `ctx.ui.editor`;
+ * the RPC proof probe drives it through a raw RPC editor relay.
  */
 export async function requestChoicesViaEditor(
   params: RequestChoicesEditorFlowParams,
@@ -148,49 +143,3 @@ export async function requestChoicesViaEditor(
   });
   return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
 }
-
-export const requestChoicesTool = defineTool({
-  name: REQUEST_CHOICES_TOOL,
-  label: 'Request choices',
-  description:
-    'Collect one-or-more user choices as the request half of a Brunch structured exchange. Use only after the corresponding present_options tool result has displayed the offer content.',
-  promptSnippet: 'Request multiple choices after presenting structured options',
-  promptGuidelines: [
-    'Use request_choices only after the matching present_options tool.',
-    'Do not repeat the present_options markdown content in request_choices parameters; reference it by exchangeId.',
-    'Require a comment when the response selects Other or None.',
-  ],
-  parameters: piSchema(zRequestChoicesParams),
-  executionMode: 'sequential',
-
-  async execute(_toolCallId, rawParams, _signal, _onUpdate, ctx) {
-    const params = zRequestChoicesParams.parse(rawParams) satisfies RequestChoicesParams;
-
-    if (!ctx.hasUI || typeof ctx.ui.editor !== 'function') {
-      const details = projectRequestChoices({
-        exchangeId: params.exchangeId,
-        status: 'unavailable',
-        message: 'request_choices requires interactive UI',
-      });
-      return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
-    }
-
-    const flowParams: RequestChoicesEditorFlowParams = {
-      exchangeId: params.exchangeId,
-      prompt: params.prompt,
-      choices: params.choices,
-      ...(params.allowOther !== undefined ? { allowOther: params.allowOther } : {}),
-      ...(params.allowNone !== undefined ? { allowNone: params.allowNone } : {}),
-      ...(params.commentPrompt !== undefined ? { commentPrompt: params.commentPrompt } : {}),
-    };
-    return requestChoicesViaEditor(flowParams, (prefill) => ctx.ui.editor(prefill));
-  },
-
-  renderCall() {
-    return renderMarkdownResult({ content: [] });
-  },
-
-  renderResult(result, _options, theme) {
-    return renderMarkdownResult(result, theme);
-  },
-});

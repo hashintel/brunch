@@ -7,7 +7,7 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 - foreground role: elicitor (derived from op_mode=elicit)
 - model: default; thinking: medium
 - tool authority: elicit read-only; graph writes only through Brunch graph tools when legal methods allow them
-- active tools: read, grep, find, ls, present_question, request_answer
+- active tools: read, grep, find, ls, present_question, request_response
 
 [Brunch runtime state]
 - op_mode: elicit

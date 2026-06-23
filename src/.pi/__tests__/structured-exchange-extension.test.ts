@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  PRESENT_OPTIONS_TOOL,
-  REQUEST_CHOICE_TOOL,
+  PRESENT_QUESTION_TOOL,
+  REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
 } from '../extensions/exchanges/index.js';
 
@@ -31,15 +31,15 @@ const theme = {
 describe('structured exchange renderers', () => {
   it('keeps renderCall non-semantic for present/request tools', () => {
     const tools = registerTools();
-    const present = tools.get(PRESENT_OPTIONS_TOOL);
-    const request = tools.get(REQUEST_CHOICE_TOOL);
+    const present = tools.get(PRESENT_QUESTION_TOOL);
+    const request_response = tools.get(REQUEST_RESPONSE_TOOL);
 
     expect(stripAnsi(present.renderCall({}, theme, {}).render(80).join('\n'))).toBe('');
-    expect(stripAnsi(request.renderCall({}, theme, {}).render(80).join('\n'))).toBe('');
+    expect(stripAnsi(request_response.renderCall({}, theme, {}).render(80).join('\n'))).toBe('');
   });
 
-  it('renders present_options from tool result markdown content', async () => {
-    const present = registerTools().get(PRESENT_OPTIONS_TOOL);
+  it('renders present_question from tool result markdown content', async () => {
+    const present = registerTools().get(PRESENT_QUESTION_TOOL);
 
     const result = await present.execute(
       'call-1',

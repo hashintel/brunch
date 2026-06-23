@@ -16,12 +16,13 @@ describe('structured-exchange ordering proof', () => {
     expect(source).not.toContain('/src/dev/');
   });
 
-  it('runs same-assistant-message present_options before request_choice with sequential tools', async () => {
+  it('runs same-assistant-message present_question before request_response with sequential tools', async () => {
     const proof = await runStructuredExchangeOrderingProof();
 
     expect(proof.scenario).toMatchObject({
       mission: 'Prove same-assistant-message present/request structured-exchange ordering.',
-      evaluationFocus: 'Verify sequential present_options persists before request_choice opens response UI.',
+      evaluationFocus:
+        'Verify sequential present_question persists before request_response opens response UI.',
       maxTurns: 1,
     });
     expect(proof.verdict).toEqual({
@@ -29,18 +30,18 @@ describe('structured-exchange ordering proof', () => {
       jsonlPresentBeforeRequest: true,
     });
     expect(proof.eventOrder).toEqual([
-      'present_options:start',
-      'present_options:end',
-      'request_choice:start',
+      'present_question:start',
+      'present_question:end',
+      'request_response:start',
       'ui:select',
       'ui:input',
-      'request_choice:end',
+      'request_response:end',
     ]);
-    expect(proof.jsonlToolResultOrder).toEqual(['present_options', 'request_choice']);
+    expect(proof.jsonlToolResultOrder).toEqual(['present_question', 'request_response']);
     expect(proof.presentDetails).toMatchObject({
       schema: 'brunch.structured_exchange.present',
       exchange_id: 'ordering-proof',
-      tool_meta: { curr: 'present_options', next: 'request_choice' },
+      tool_meta: { curr: 'present_question', next: 'request_response' },
       options: [
         { id: 'root', content: 'Keep src/pi-extensions.ts' },
         { id: 'tui', content: 'Move under src/tui-client' },
@@ -49,7 +50,7 @@ describe('structured-exchange ordering proof', () => {
     expect(proof.requestDetails).toMatchObject({
       schema: 'brunch.structured_exchange.request',
       exchange_id: 'ordering-proof',
-      tool_meta: { prev: 'present_options', curr: 'request_choice' },
+      tool_meta: { prev: 'present_question', curr: 'request_choice' },
       answered: {
         choice: { id: 'tui', label: 'Move under src/tui-client', kind: 'listed' },
         comment: 'Sequential ordering looks safe for the next parity proof.',

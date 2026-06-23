@@ -18,20 +18,17 @@ import {
   zPresentCandidatesDetails,
   zPresentDetails,
   zPresentDetailsHeader,
-  zPresentOptionsDetails,
   zPresentQuestionDetails,
   zPresentReviewSetDetails,
   zPresentToolMeta,
   zRequestAnswerDetails,
-  zRequestAnswerParams,
   zRequestChoiceDetails,
-  zRequestChoiceParams,
   zRequestChoicesDetails,
-  zRequestChoicesParams,
   zRequestDetails,
   zRequestDetailsHeader,
   zRequestReviewDetails,
   zRequestToolMeta,
+  zRequestResponseParams,
 } from '../extensions/exchanges/schemas/index.js';
 
 function expectJsonSchemaExport(schema: z.ZodType) {
@@ -79,10 +76,10 @@ describe('structured exchange shared schemas', () => {
 
     expect(
       zPresentToolMeta.parse({
-        curr: 'present_options',
-        next: 'request_choices',
+        curr: 'present_question',
+        next: 'request_response',
       }),
-    ).toEqual({ curr: 'present_options', next: 'request_choices' });
+    ).toEqual({ curr: 'present_question', next: 'request_response' });
     expect(
       zRequestToolMeta.parse({
         prev: 'present_candidates',
@@ -118,7 +115,7 @@ describe('structured exchange present schemas', () => {
     schema: 'brunch.structured_exchange.present',
     v: 1,
     exchange_id: 'candidate-direction',
-    tool_meta: { curr: 'present_candidates', next: 'request_choice' },
+    tool_meta: { curr: 'present_candidates', next: 'request_response' },
     display: {
       heading: 'Which direction should we take?',
       body: 'Pick one candidate.',
@@ -153,7 +150,8 @@ describe('structured exchange present schemas', () => {
         schema: 'brunch.structured_exchange.present',
         v: 1,
         exchange_id: 'problem-frame',
-        tool_meta: { curr: 'present_question', next: 'request_answer' },
+        tool_meta: { curr: 'present_question', next: 'request_response' },
+        response_kind: 'answer',
         display: {
           heading: 'What problem are we solving first?',
           body: 'Name the pain.',
@@ -163,11 +161,12 @@ describe('structured exchange present schemas', () => {
     ).toMatchObject({ tool_meta: { curr: 'present_question' } });
 
     expect(
-      zPresentOptionsDetails.parse({
+      zPresentQuestionDetails.parse({
         schema: 'brunch.structured_exchange.present',
         v: 1,
         exchange_id: 'domain-shape',
-        tool_meta: { curr: 'present_options', next: 'request_choices' },
+        tool_meta: { curr: 'present_question', next: 'request_response' },
+        response_kind: 'choices',
         display: { heading: 'Which risks should stay visible?' },
         options: [
           {
@@ -177,14 +176,14 @@ describe('structured exchange present schemas', () => {
           },
         ],
       }),
-    ).toMatchObject({ tool_meta: { next: 'request_choices' } });
+    ).toMatchObject({ tool_meta: { next: 'request_response' }, response_kind: 'choices' });
 
     expect(
       zPresentReviewSetDetails.parse({
         schema: 'brunch.structured_exchange.present',
         v: 1,
         exchange_id: 'review-set-17',
-        tool_meta: { curr: 'present_review_set', next: 'request_review' },
+        tool_meta: { curr: 'present_review_set', next: 'request_response' },
         display: { heading: 'Review proposed requirements' },
         review_set: {
           nodes: [
@@ -216,7 +215,7 @@ describe('structured exchange present schemas', () => {
       schema: 'brunch.structured_exchange.present',
       v: 1,
       exchange_id: 'review-set-17',
-      tool_meta: { curr: 'present_review_set', next: 'request_review' },
+      tool_meta: { curr: 'present_review_set', next: 'request_response' },
       display: { heading: 'Review proposed requirements' },
       review_set: {
         nodes: [
@@ -313,31 +312,18 @@ describe('structured exchange present schemas', () => {
 
   it('exports present schemas to JSON Schema', () => {
     expectJsonSchemaExport(zPresentQuestionDetails);
-    expectJsonSchemaExport(zPresentOptionsDetails);
     expectJsonSchemaExport(zPresentReviewSetDetails);
     expectJsonSchemaExport(zPresentCandidatesDetails);
     expectJsonSchemaExport(zPresentDetails);
   });
 });
 
-describe('structured exchange request param legibility (D-series pairing)', () => {
-  // Regression for the live ship-gate confusion: respondsToPresentTool is the
-  // field that encodes the present_* -> request_* pairing, and was the only
-  // model-facing param field with no .describe(), so the model guessed and
-  // tried request_choice after present_question. Each request_* param must
-  // surface the pairing rule in its model-facing JSON Schema.
-  it.each([
-    ['request_answer', zRequestAnswerParams],
-    ['request_choice', zRequestChoiceParams],
-    ['request_choices', zRequestChoicesParams],
-  ])('describes respondsToPresentTool for %s', (_name, schema) => {
-    const json = z.toJSONSchema(schema) as {
-      properties?: { respondsToPresentTool?: { description?: string } };
-    };
-    const description = json.properties?.respondsToPresentTool?.description;
-    expect(description, 'respondsToPresentTool must teach the pairing rule').toBeTruthy();
-    expect(description).toMatch(/present_/);
-    expect(description).toMatch(/exchangeId/i);
+describe('structured exchange request_response params', () => {
+  it('parses and exports the single exchangeId param', () => {
+    expect(zRequestResponseParams.parse({ exchangeId: 'problem-frame' })).toEqual({
+      exchangeId: 'problem-frame',
+    });
+    expectJsonSchemaExport(zRequestResponseParams);
   });
 });
 
@@ -406,7 +392,7 @@ describe('structured exchange request schemas', () => {
         v: 1,
         exchange_id: 'domain-shape',
         tool_meta: {
-          prev: 'present_options',
+          prev: 'present_question',
           curr: 'request_choice',
           next: 'capture_choice',
         },
@@ -426,7 +412,7 @@ describe('structured exchange request schemas', () => {
         schema: 'brunch.structured_exchange.request',
         v: 1,
         exchange_id: 'domain-shape',
-        tool_meta: { prev: 'present_options', curr: 'request_choice' },
+        tool_meta: { prev: 'present_question', curr: 'request_choice' },
         cancelled: { message: 'User cancelled.' },
         comment: 'human text in the wrong place',
       }),
@@ -437,7 +423,7 @@ describe('structured exchange request schemas', () => {
         schema: 'brunch.structured_exchange.request',
         v: 1,
         exchange_id: 'domain-shape',
-        tool_meta: { prev: 'present_options', curr: 'request_choice' },
+        tool_meta: { prev: 'present_question', curr: 'request_choice' },
         answered: {
           choice: {
             id: 'local-first',
@@ -476,7 +462,7 @@ describe('structured exchange request schemas', () => {
         schema: 'brunch.structured_exchange.request',
         v: 1,
         exchange_id: 'domain-shape',
-        tool_meta: { prev: 'present_options', curr: 'request_choice' },
+        tool_meta: { prev: 'present_question', curr: 'request_choice' },
         answered: {
           choice: { id: 'none', label: 'None of these', kind: 'none' },
         },
@@ -491,7 +477,7 @@ describe('structured exchange request schemas', () => {
         v: 1,
         exchange_id: 'open-risks',
         tool_meta: {
-          prev: 'present_options',
+          prev: 'present_question',
           curr: 'request_choices',
           next: 'capture_choices',
         },
@@ -516,7 +502,7 @@ describe('structured exchange request schemas', () => {
         schema: 'brunch.structured_exchange.request',
         v: 1,
         exchange_id: 'open-risks',
-        tool_meta: { prev: 'present_options', curr: 'request_choices' },
+        tool_meta: { prev: 'present_question', curr: 'request_choices' },
         answered: {
           choices: [{ id: 'none', label: 'None of these', kind: 'none' }],
         },

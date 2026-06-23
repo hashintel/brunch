@@ -1,8 +1,8 @@
-# Structured Exchange: collapse the request side to a single server-routed `respond`
+# Structured Exchange: collapse the request side to a single server-routed `request_response`
 
-> Status: **design proposal** (chosen shape, not yet built).
-> Date: 2026-06-22.
-> Scope: the structured-exchange **tool surface** — the `present_*` / `request_*` two-call grammar. This document records a Design-It-Twice (`ln-design`) exploration of three module shapes, the comparison, the chosen design, its load-bearing claims, and the recommended first tracer bullet. It does **not** change behavior; it is the durable rationale for the eventual build.
+> Status: **built** (single-terminal rename + present-side `present_question` merge + review collapse all landed 2026-06-23). `request_response` is the sole terminal, dispatching `present_question` and `present_review_set` by pending present tool; `request_review` is retired as a tool but preserved as a result-detail discriminant. Remaining frontier work (pieces 3–5 + `ln-review` graduation) is the broader discriminant-companion contract, tracked in `memory/PLAN.md`.
+> Date: 2026-06-22; updated 2026-06-23.
+> Scope: the structured-exchange **tool surface** — the `present_*` / `request_*` two-call grammar. This document records a Design-It-Twice (`ln-design`) exploration of three module shapes, the comparison, the chosen design, its load-bearing claims, and the tracer bullets that have now started landing.
 >
 > Governs / refines: `memory/SPEC.md` **I23-L** (structured-exchange tuple grammar), **D37-L/D38-L** (structured-exchange contract), **D84-L/D86-L** (live-exchange broker / TUI editor response surface). Companion: [REVIEW_SETS.md](REVIEW_SETS.md) (the review-set proposal payload), `src/.pi/extensions/exchanges/schemas/README.md` (the schema source boundaries).
 >
@@ -65,21 +65,21 @@ data-shape
 - **Recoverability mechanism:** the tool must **synchronously commit a durable `present`-phase checkpoint to the transcript BEFORE it blocks** on `ctx.ui`, then append a terminal result on answer. Recovery scans for `phase: "present"` checkpoints with no terminal.
 - **Fatal uncertainty:** this requires Pi to support **committing a durable transcript toolResult from inside a still-running tool**. If Pi only writes `toolResult` after the tool returns, then under hard interruption the durable question is trapped inside the unfinished call and **I23-L cannot hold**. This is an unproven, load-bearing dependency on Pi's execution model.
 
-### Design B — `present_*` + a single server-routed `respond` (CHOSEN)
+### Design B — `present_*` + a single server-routed `request_response` (CHOSEN)
 
-Keep all `present_*` tools (they remain the durable anchor — recoverability **unchanged**). Collapse the four `request_*` tools into **one** `respond` tool whose UI mode (editor / select / multi / review) is **derived by the runtime from the pending present's type**, not declared by the model.
+Keep all `present_*` tools (they remain the durable anchor — recoverability **unchanged**). Collapse the four `request_*` tools into **one** `request_response` tool whose UI mode (editor / select / multi / review) is **derived by the runtime from the pending present's type**, not declared by the model.
 
 ```
 chain
   present_question({ heading, body, ... })
     -> durable toolResult + { exchangeId, responseKind: "answer" }   (server-owned)
-  respond({ exchangeId })
+  request_response({ exchangeId })
     -> runtime sees pending present_question -> opens editor -> records
        { kind: "answer", answer }
 ```
 
 - **Hides:** the request-tool taxonomy, `respondsToPresentTool`, `tool_meta.next` as a model-facing contract, the editor-vs-select-vs-review UI routing, the TUI-vs-broker fallback.
-- **Recoverability mechanism:** unchanged. `present_*` still emits the durable anchor exactly as today; recovery still finds unmatched presents and now offers the single legal continuation (`respond`). No new Pi capability required.
+- **Recoverability mechanism:** unchanged. `present_*` still emits the durable anchor exactly as today; recovery still finds unmatched presents and now offers the single legal continuation (`request_response`). No new Pi capability required.
 - **Mis-pairing:** **unrepresentable** — there is no request-tool name for the model to get wrong. The terminal half is one polymorphic call routed by server-owned pending state.
 
 ### Design C — Derive-don't-trust (minimal)
@@ -92,9 +92,9 @@ Keep both call layers and all 8 tools; downgrade `respondsToPresentTool` to advi
 
 ## Comparison
 
-| Axis (Ousterhout) | A — collapse | B — `respond` | C — derive |
+| Axis (Ousterhout) | A — collapse | B — `request_response` | C — derive |
 | --- | --- | --- | --- |
-| **Depth** | High but leaky (one tool owns paint+block+record+recovery) | **Highest clean** — `respond` is a deep dispatcher; `present_*` stays a focused anchor | Medium — same 8 tools, behavior hidden in routing |
+| **Depth** | High but leaky (one tool owns paint+block+record+recovery) | **Highest clean** — `request_response` is a deep dispatcher; `present_*` stays a focused anchor | Medium — same 8 tools, behavior hidden in routing |
 | **Kills mis-pair by construction** | yes (no pairing field) | **yes** (no request tool to name) | no (coerces, doesn't prevent) |
 | **Recoverability risk** | **high** — unproven mid-tool checkpoint | **none** — present anchor unchanged | none |
 | **Churn** | largest (8→4, three-layer + recovery rewrite) | medium (4 request→1; present untouched) | smallest |
@@ -104,34 +104,34 @@ Keep both call layers and all 8 tools; downgrade `respondsToPresentTool` to advi
 
 ## Chosen design: B, with C's mechanism as the migration bridge
 
-End state is **B**: `present_*` tools unchanged; a single `respond` tool; UI mode derived from the pending present; `respondsToPresentTool` and the request-tool taxonomy deleted.
+End state is **B**: `present_*` tools unchanged; a single `request_response` tool; UI mode derived from the pending present; `respondsToPresentTool` and the request-tool taxonomy deleted.
 
-Borrow **C's derive-from-pending mechanism as the migration path**: during transition, route any terminal call (legacy `request_*` or new `respond`) through the same pending-present lookup, so the surface can migrate tool-by-tool without breaking mid-flight. The bridge is removed when all interaction types route through `respond`.
+Borrow **C's derive-from-pending mechanism as the migration path**: during transition, route any terminal call (legacy `request_*` or new `request_response`) through the same pending-present lookup, so the surface can migrate tool-by-tool without breaking mid-flight. The bridge is removed when all interaction types route through `request_response`.
 
 ### What changes across the three layers
 
-- **`src/.pi/extensions/exchanges/`** — the four `request_*.ts` tools collapse into one `respond.ts`; `present_*.ts` tools gain a server-owned `responseKind` on their result; `respondsToPresentTool` removed from params.
-- **`src/projections/exchanges/`** — request projections collapse behind a normalized pending-exchange record (`{ presentToolName, exchangeId, responseKind, consumedAt? }`); recovery maps unmatched presents → `respond`.
+- **`src/.pi/extensions/exchanges/`** — the four `request_*.ts` tools collapse into one `request-response.ts`; `present_*.ts` tools gain a server-owned `responseKind` on their result; `respondsToPresentTool` removed from params.
+- **`src/projections/exchanges/`** — request projections collapse behind a normalized pending-exchange record (`{ presentToolName, exchangeId, responseKind, consumedAt? }`); recovery maps unmatched presents → `request_response`.
 - **`src/renderers/exchanges/`** — present renderers unchanged; the four request renderers collapse behind one dispatcher keyed by `responseKind`.
-- **`schemas/`** — delete `respondsToPresentTool` and model-facing `tool_meta.next`; add a `respond` params schema (`{ exchangeId }` + small shared options); `tool_meta.curr/next` becomes internal/derivation-only, no longer a model contract.
+- **`schemas/`** — delete `respondsToPresentTool` and model-facing `tool_meta.next`; add a `request_response` params schema (`{ exchangeId }` + small shared options); `tool_meta.curr/next` becomes internal/derivation-only, no longer a model contract.
 
 ### Interaction with the broker / web-driver path (D84-L/D86-L)
 
-`respond` must serve **both** response surfaces the current request tools serve: the TUI `ctx.ui` editor/select (D86-L: TUI editor is authoritative when present) and the live-exchange broker (D84-L: web-driver fallback). The dispatcher routes UI *mode* by `responseKind` and routes *surface* by the existing D86-L precedence (interactive editor when present, else broker). This is an open detail to confirm during scoping — see claim 1.
+`request_response` must serve **both** response surfaces the current request tools serve: the TUI `ctx.ui` editor/select (D86-L: TUI editor is authoritative when present) and the live-exchange broker (D84-L: web-driver fallback). The dispatcher routes UI *mode* by `responseKind` and routes *surface* by the existing D86-L precedence (interactive editor when present, else broker). This is an open detail to confirm during scoping — see claim 1.
 
 ## Load-bearing claims
 
-1. **A single `respond` dispatcher can serve all current request UIs (editor / select / multi / review) across both the TUI and broker surfaces without UX parity loss** — because the four request tools today differ only by UI mode and terminal payload shape, not by surface mechanics. *Not currently in `memory/SPEC.md` §Assumptions; add it when the build starts.* Highest-risk claim.
-2. **The pending unmatched present is unambiguously identifiable at `respond` time** (at most one open exchange per turn). Largely implied by I23-L's "exactly one matching terminal request before the next turn"; make explicit.
+1. **A single `request_response` dispatcher can serve all current request UIs (editor / select / multi / review) across both the TUI and broker surfaces without UX parity loss** — because the four request tools today differ only by UI mode and terminal payload shape, not by surface mechanics. *Not currently in `memory/SPEC.md` §Assumptions; add it when the build starts.* Highest-risk claim.
+2. **The pending unmatched present is unambiguously identifiable at `request_response` time** (at most one open exchange per turn). Largely implied by I23-L's "exactly one matching terminal request before the next turn"; make explicit.
 3. **Removing the request-tool taxonomy drops mis-pairing to zero** — trivially true by construction (no wrong tool to name). Not a risk, a definition.
 
 ## Recommended first tracer bullet
 
-Add `respond` for **`present_question` only**, behind the existing structured-exchange surface, leaving the other three pairs intact:
+Add `request_response` for **`present_question` only**, behind the existing structured-exchange surface, leaving the other three pairs intact. **Landed 2026-06-23** as the first tracer:
 
 - `present_question` emits `responseKind: "answer"` on its result.
-- `respond({ exchangeId })` finds the pending `present_question`, opens the **same editor path** `request_answer` uses (proving reuse), records the terminal answer, marks consumed.
-- `recovery.ts` offers `respond` for an unmatched `present_question`.
+- `request_response({ exchangeId })` finds the pending `present_question`, opens the **same editor path** `request_answer` uses (proving reuse), records the terminal answer, marks consumed.
+- `recovery.ts` offers `request_response` for an unmatched `present_question`.
 
 **Breaks if claim 1 is wrong** (the dispatcher cannot reuse the editor/broker path) — and proves the seam end-to-end on the dominant free-text case before migrating `options` / `review` / `candidates`. A tracer slice proves claim 1 more cheaply than a throwaway spike, so prefer `ln-scope` → `ln-build` over `ln-spike`.
 
@@ -159,4 +159,4 @@ The `64fe9a41` top-level payload typing fix **worked**: in this run `present_rev
 
 ## Status / next
 
-Chosen but **not scheduled**. By the FE-811 framing this is post-runbook structural work. When picked up: `ln-scope` the `respond`-for-`present_question` tracer (claim 1), then migrate the remaining interaction types, then delete the request-tool taxonomy + `respondsToPresentTool` + the stopgap describes, and reconcile I23-L to the single-terminal-call grammar. The two adjacent gaps above are separately scoped: the present-side selection merge (phase 2 of the collapse) and the review-set nested-payload describe-pass (a standalone stopgap).
+Chosen and **built**. The `request_response`-for-`present_question` tracer landed first: `request_response({ exchangeId })` finds the unmatched prompt from the session transcript and shares the same TUI-editor → live-broker → unavailable dispatcher as `request_answer`. The present-side merge landed as `present_question`: no `options` derives free-text `answer`, `options` derives single `choice`, and `options + multiple` derives `choices`. The review collapse then folded `request_review` into `request_response`: `request_response.execute` is a thin router on the pending present's `tool_meta.curr` — `present_question` to the answer/choice/choices sources, `present_review_set` to the extracted `shared/review-source.ts` (approve/request-changes/reject) — and `request_review` is retired as a tool while its result details are preserved. Choice, multi-choice, and review paths reuse the TUI select/editor flows and return `unavailable` without `ctx.ui` rather than inventing broker surfaces. The `present_candidates` stub stays unimplemented (its candidate result-detail vocabulary kept). Remaining: the review-set nested-payload describe-pass (piece 3) and the wider discriminant-companion pieces 4–5 in `memory/PLAN.md`.

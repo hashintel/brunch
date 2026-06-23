@@ -6,7 +6,6 @@ import {
   zMarkdown,
   zPresentCandidatesToolMeta,
   zPresentDetailsHeader,
-  zPresentOptionsToolMeta,
   zPresentQuestionToolMeta,
   zPresentReviewSetToolMeta,
 } from './shared.js';
@@ -16,16 +15,8 @@ export const PresentDisplaySchema = z.toJSONSchema(zPresentDisplay, {
   unrepresentable: 'throw',
 });
 
-export const zPresentQuestionDetails = zPresentDetailsHeader
-  .extend({
-    tool_meta: zPresentQuestionToolMeta,
-    display: zPresentDisplay,
-  })
-  .strict();
-export type PresentQuestionDetails = z.infer<typeof zPresentQuestionDetails>;
-export const PresentQuestionDetailsSchema = z.toJSONSchema(zPresentQuestionDetails, {
-  unrepresentable: 'throw',
-});
+export const zResponseKind = z.enum(['answer', 'choice', 'choices']);
+export type ResponseKind = z.infer<typeof zResponseKind>;
 
 export const zPresentOption = z
   .object({
@@ -38,15 +29,29 @@ export const PresentOptionSchema = z.toJSONSchema(zPresentOption, {
   unrepresentable: 'throw',
 });
 
-export const zPresentOptionsDetails = zPresentDetailsHeader
+const zPromptWithOptions = zPresentDetailsHeader
   .extend({
-    tool_meta: zPresentOptionsToolMeta,
+    tool_meta: zPresentQuestionToolMeta,
+    response_kind: z.enum(['choice', 'choices']),
     display: zPresentDisplay,
     options: z.array(zPresentOption).min(1),
+    allow_other: z.boolean().optional(),
+    allow_none: z.boolean().optional(),
+    comment_prompt: zMarkdown.optional(),
   })
   .strict();
-export type PresentOptionsDetails = z.infer<typeof zPresentOptionsDetails>;
-export const PresentOptionsDetailsSchema = z.toJSONSchema(zPresentOptionsDetails, {
+
+const zPromptWithoutOptions = zPresentDetailsHeader
+  .extend({
+    tool_meta: zPresentQuestionToolMeta,
+    response_kind: z.literal('answer'),
+    display: zPresentDisplay,
+  })
+  .strict();
+
+export const zPresentQuestionDetails = z.union([zPromptWithOptions, zPromptWithoutOptions]);
+export type PresentQuestionDetails = z.infer<typeof zPresentQuestionDetails>;
+export const PresentQuestionDetailsSchema = z.toJSONSchema(zPresentQuestionDetails, {
   unrepresentable: 'throw',
 });
 
@@ -214,7 +219,6 @@ export const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesD
 
 export const zPresentDetails = z.union([
   zPresentQuestionDetails,
-  zPresentOptionsDetails,
   zPresentReviewSetDetails,
   zPresentCandidatesDetails,
 ]);

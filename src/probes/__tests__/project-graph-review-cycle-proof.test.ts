@@ -86,7 +86,7 @@ function presentReviewSetEntry(): string {
     schema: 'brunch.structured_exchange.present',
     v: 1,
     exchange_id: 'review-1',
-    tool_meta: { curr: 'present_review_set', next: 'request_review' },
+    tool_meta: { curr: 'present_review_set', next: 'request_response' },
     display: { heading: 'Derived macro-view requirement' },
     review_set: {
       nodes: [
@@ -109,8 +109,8 @@ function presentReviewSetEntry(): string {
   });
 }
 
-function requestReviewEntry(): string {
-  return toolResultEntry('request_review', {
+function requestResponseReviewEntry(): string {
+  return toolResultEntry('request_response', {
     schema: 'brunch.structured_exchange.request',
     v: 1,
     exchange_id: 'review-1',
@@ -162,7 +162,7 @@ describe('project-graph review-cycle proof report', () => {
       prompt: 'Present a review set.',
       runtimeState,
       model: 'test-model',
-      sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
       baseOverview,
       finalOverview: approvedOverview,
       pendingResponse: pendingReviewResponse(),
@@ -173,7 +173,7 @@ describe('project-graph review-cycle proof report', () => {
     expect(report.success).toBe(true);
     expect(report.toolEvidence).toMatchObject({
       presentReviewSetCount: 1,
-      requestReviewCount: 1,
+      requestResponseCount: 1,
       successfulPresentReviewSetCount: 1,
     });
     expect(report.pendingReview).toMatchObject({
@@ -238,7 +238,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-1',
       prompt: 'Present a review set.',
       runtimeState,
-      sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
       baseOverview,
       finalOverview: approvedOverview,
       pendingResponse: pendingReviewResponse(),
@@ -248,7 +248,7 @@ describe('project-graph review-cycle proof report', () => {
     const artifacts = await writeProjectGraphReviewCycleArtifacts({
       fixtureRoot,
       runId: report.runId,
-      sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
       report,
       graphOverview: approvedOverview,
     });
@@ -289,7 +289,7 @@ describe('project-graph review-cycle proof report', () => {
       sessionId: 'session-1',
       prompt: 'Present a review set.',
       runtimeState,
-      sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
       baseOverview,
       finalOverview: approvedOverview,
       pendingResponse: pendingReviewResponse(),
@@ -299,7 +299,7 @@ describe('project-graph review-cycle proof report', () => {
     const artifacts = await writeProjectGraphReviewCycleArtifacts({
       fixtureRoot,
       runId: report.runId,
-      sessionText: [presentReviewSetEntry(), requestReviewEntry()].join('\n'),
+      sessionText: [presentReviewSetEntry(), requestResponseReviewEntry()].join('\n'),
       report,
       graphOverview: approvedOverview,
     });

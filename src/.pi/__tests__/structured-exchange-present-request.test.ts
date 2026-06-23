@@ -3,12 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { createDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import {
-  PRESENT_OPTIONS_TOOL,
+  PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
-  REQUEST_ANSWER_TOOL,
-  REQUEST_CHOICE_TOOL,
-  REQUEST_CHOICES_TOOL,
-  REQUEST_REVIEW_TOOL,
+  REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
 } from '../extensions/exchanges/index.js';
 import {
@@ -105,32 +102,56 @@ function validReviewPayload() {
   };
 }
 
+function pendingReviewSet(exchangeId: string, heading = 'Review proposal') {
+  return [
+    {
+      type: 'message',
+      message: {
+        role: 'toolResult',
+        details: {
+          schema: 'brunch.structured_exchange.present',
+          v: 1,
+          exchange_id: exchangeId,
+          tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: REQUEST_RESPONSE_TOOL },
+          display: { heading },
+          review_set: {
+            nodes: [
+              { draft_id: 'req-approval', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+            ],
+            edges: [
+              {
+                category: 'dependency',
+                dependency: { draft_id: 'req-approval' },
+                dependent: { existing_code: 'G1' },
+              },
+            ],
+          },
+        },
+      },
+    },
+  ];
+}
+
 describe('structured exchange present/request tools', () => {
   it('registers implemented present/request tools as sequential', () => {
     const tools = registeredTools();
 
     expect([...tools.keys()]).toEqual([
-      'present_question',
-      PRESENT_OPTIONS_TOOL,
+      PRESENT_QUESTION_TOOL,
       PRESENT_REVIEW_SET_TOOL,
-      'request_answer',
-      REQUEST_CHOICE_TOOL,
-      REQUEST_CHOICES_TOOL,
-      REQUEST_REVIEW_TOOL,
+      REQUEST_RESPONSE_TOOL,
     ]);
-    expect(tools.get(PRESENT_OPTIONS_TOOL)?.executionMode).toBe('sequential');
-    expect(tools.get(REQUEST_CHOICE_TOOL)?.executionMode).toBe('sequential');
+    expect(tools.get(PRESENT_QUESTION_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.executionMode).toBe('sequential');
-    expect(tools.get(REQUEST_CHOICES_TOOL)?.executionMode).toBe('sequential');
-    expect(tools.get(REQUEST_REVIEW_TOOL)?.executionMode).toBe('sequential');
+    expect(tools.get(REQUEST_RESPONSE_TOOL)?.executionMode).toBe('sequential');
   });
 
-  it('persists a present_question result through the shared project and format seam', async () => {
-    const present = registeredTools().get('present_question');
+  it('persists a freeform present_question result through the shared project and format seam', async () => {
+    const present = registeredTools().get(PRESENT_QUESTION_TOOL);
     if (!present) throw new Error('present_question was not registered');
 
     const result = await present.execute(
-      'present-question-call-1',
+      'present-question-freeform-call-1',
       {
         exchangeId: 'problem-frame',
         heading: 'What problem are we solving?',
@@ -149,7 +170,8 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'problem-frame',
-      tool_meta: { curr: 'present_question', next: 'request_answer' },
+      tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+      response_kind: 'answer',
       display: {
         heading: 'What problem are we solving?',
         body: 'Keep the answer grounded in current Brunch session behavior.',
@@ -157,9 +179,9 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
-  it('persists a present_options result as markdown content plus recoverable details', async () => {
-    const present = registeredTools().get(PRESENT_OPTIONS_TOOL);
-    if (!present) throw new Error('present_options was not registered');
+  it('persists a choice present_question result as markdown content plus recoverable details', async () => {
+    const present = registeredTools().get(PRESENT_QUESTION_TOOL);
+    if (!present) throw new Error('present_question was not registered');
 
     const result = await present.execute(
       'present-call-1',
@@ -179,7 +201,6 @@ describe('structured exchange present/request tools', () => {
             rationale: 'Clearer ownership.',
           },
         ],
-        expectedRequestTool: REQUEST_CHOICE_TOOL,
       },
       undefined,
       undefined,
@@ -191,7 +212,8 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location',
-      tool_meta: { curr: PRESENT_OPTIONS_TOOL, next: REQUEST_CHOICE_TOOL },
+      tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+      response_kind: 'choice',
       display: {
         heading: 'Where should the shell live?',
         body: 'Choose the module boundary for Brunch Pi extensions.',
@@ -204,119 +226,190 @@ describe('structured exchange present/request tools', () => {
     expect(rendered).toContain('Move under src/tui-client');
   });
 
-  it('records request_answer responses from the UI editor when no broker is attached', async () => {
-    const request = registeredTools().get(REQUEST_ANSWER_TOOL);
-    if (!request) throw new Error('request_answer was not registered');
+  it('responds to a pending present_question through the UI editor using the presented prompt', async () => {
+    const editor = vi.fn(async () => 'Answer collected by request_response.');
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
 
-    const result = await request.execute(
-      'request-answer-ui-call',
+    const result = await request_response.execute(
+      'request-response-ui-call',
+      { exchangeId: 'respond-question' },
+      undefined,
+      undefined,
       {
-        exchangeId: 'answer-source-ui',
-        respondsToPresentTool: 'present_question',
-        prompt: 'What should the UI answer?',
-      },
-      undefined,
-      undefined,
-      { hasUI: true, ui: { editor: async () => 'Use the local UI editor.' } } as never,
+        hasUI: true,
+        ui: { editor },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'respond-question',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'answer',
+                  display: { heading: 'What should request_response ask?', body: 'This body is context.' },
+                },
+              },
+            },
+          ],
+        },
+      } as never,
     );
 
+    expect(editor).toHaveBeenCalledWith('What should request_response ask?');
     expect(result.details).toMatchObject({
-      exchange_id: 'answer-source-ui',
-      tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
-      answered: { text: 'Use the local UI editor.' },
+      exchange_id: 'respond-question',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_answer' },
+      answered: { text: 'Answer collected by request_response.' },
     });
   });
 
-  it('records request_answer responses from the live broker when only a broker is attached', async () => {
-    const request = registeredTools({
-      liveExchange: { awaitAnswer: async () => 'Use the live sidecar broker.' },
-    }).get(REQUEST_ANSWER_TOOL);
-    if (!request) throw new Error('request_answer was not registered');
+  it('responds to a pending present_question through the live broker when no editor exists', async () => {
+    const awaitAnswer = vi.fn(async () => 'Answer collected by broker.');
+    const request_response = registeredTools({ liveExchange: { awaitAnswer } }).get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
 
-    const result = await request.execute(
-      'request-answer-broker-call',
+    const result = await request_response.execute(
+      'request-response-broker-call',
+      { exchangeId: 'respond-broker' },
+      undefined,
+      undefined,
       {
-        exchangeId: 'answer-source-broker',
-        respondsToPresentTool: 'present_question',
-        prompt: 'What should the broker answer?',
-      },
-      undefined,
-      undefined,
-      { hasUI: false, ui: {} } as never,
+        hasUI: false,
+        ui: {},
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'respond-broker',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'answer',
+                  display: { heading: 'Answer from broker?' },
+                },
+              },
+            },
+          ],
+        },
+      } as never,
     );
 
-    expect(result.details).toMatchObject({
-      exchange_id: 'answer-source-broker',
-      tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
-      answered: { text: 'Use the live sidecar broker.' },
+    expect(awaitAnswer).toHaveBeenCalledWith({ exchangeId: 'respond-broker' });
+    expect(result.details).toMatchObject({ answered: { text: 'Answer collected by broker.' } });
+  });
+
+  it('records request_response cancellation and unknown/non-question diagnostics without throwing', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const cancelled = await request_response.execute(
+      'request-response-cancelled-call',
+      { exchangeId: 'respond-cancelled' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { editor: async () => undefined },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'respond-cancelled',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'answer',
+                  display: { heading: 'Cancel this?' },
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+    const unknown = await request_response.execute(
+      'request-response-unknown-call',
+      { exchangeId: 'missing' },
+      undefined,
+      undefined,
+      { hasUI: false, ui: {}, sessionManager: { getBranch: () => [] } } as never,
+    );
+    const headlessChoice = await request_response.execute(
+      'request-response-headless-choice-call',
+      { exchangeId: 'options' },
+      undefined,
+      undefined,
+      {
+        hasUI: false,
+        ui: {},
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'options',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Choose' },
+                  options: [{ id: 'a', content: 'A' }],
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(cancelled.details).toMatchObject({ tool_meta: { curr: 'request_answer' }, cancelled: {} });
+    expect(unknown.details).toMatchObject({ status: 'unavailable' });
+    expect(headlessChoice.details).toMatchObject({
+      unavailable: { message: 'request_response choice requires interactive UI' },
     });
   });
 
-  it('records request_answer unavailable when no answer source exists', async () => {
-    const request = registeredTools().get(REQUEST_ANSWER_TOOL);
-    if (!request) throw new Error('request_answer was not registered');
-
-    const result = await request.execute(
-      'request-answer-unavailable-call',
+  it('offers request_response as the recovery continuation for unmatched present_question', () => {
+    const incomplete = findIncompleteStructuredExchangePresents([
       {
-        exchangeId: 'answer-source-unavailable',
-        respondsToPresentTool: 'present_question',
-        prompt: 'What should answer?',
+        type: 'message',
+        message: {
+          role: 'toolResult',
+          details: {
+            schema: 'brunch.structured_exchange.present',
+            v: 1,
+            exchange_id: 'recover-answer',
+            tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+            response_kind: 'answer',
+            display: { heading: 'Recover this answer?' },
+          },
+        },
       },
-      undefined,
-      undefined,
-      { hasUI: false, ui: {} } as never,
-    );
+    ]);
 
-    expect(result.details).toMatchObject({
-      exchange_id: 'answer-source-unavailable',
-      tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
-      unavailable: { message: 'request_answer requires interactive UI' },
-    });
+    expect(incomplete[0]?.continuationTool).toBe(REQUEST_RESPONSE_TOOL);
   });
 
-  it('prefers the UI editor over the live broker when both request_answer sources exist', async () => {
-    const awaitAnswer = vi.fn(async () => 'Use the broker answer.');
-    const request = registeredTools({ liveExchange: { awaitAnswer } }).get(REQUEST_ANSWER_TOOL);
-    if (!request) throw new Error('request_answer was not registered');
+  it('responds to a pending choice present_question without repeating the presented content', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
 
-    const result = await request.execute(
-      'request-answer-mixed-call',
-      {
-        exchangeId: 'answer-source-mixed',
-        respondsToPresentTool: 'present_question',
-        prompt: 'Which answer source wins?',
-      },
-      undefined,
-      undefined,
-      { hasUI: true, ui: { editor: async () => 'Use the UI editor answer.' } } as never,
-    );
-
-    expect(awaitAnswer).not.toHaveBeenCalled();
-    expect(result.details).toMatchObject({
-      exchange_id: 'answer-source-mixed',
-      tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
-      answered: { text: 'Use the UI editor answer.' },
-    });
-  });
-
-  it('persists a request_choice response without repeating the presented content', async () => {
-    const request = registeredTools().get(REQUEST_CHOICE_TOOL);
-    if (!request) throw new Error('request_choice was not registered');
-
-    const result = await request.execute(
-      'request-call-1',
-      {
-        exchangeId: 'shell-location',
-        respondsToPresentTool: PRESENT_OPTIONS_TOOL,
-        prompt: 'Select one option.',
-        choices: [
-          { id: 'root', label: 'Keep src/pi-extensions.ts' },
-          { id: 'tui', label: 'Move under src/tui-client' },
-        ],
-        allowOther: false,
-        commentPrompt: 'Optional comment',
-      },
+    const result = await request_response.execute(
+      'request-response-choice-call-1',
+      { exchangeId: 'shell-location' },
       undefined,
       undefined,
       {
@@ -324,6 +417,29 @@ describe('structured exchange present/request tools', () => {
         ui: {
           select: async () => 'Move under src/tui-client',
           input: async () => 'Aligns ownership with /reload iteration.',
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'shell-location',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Select one option.' },
+                  options: [
+                    { id: 'root', content: 'Keep src/pi-extensions.ts' },
+                    { id: 'tui', content: 'Move under src/tui-client' },
+                  ],
+                  comment_prompt: 'Optional comment',
+                },
+              },
+            },
+          ],
         },
       } as never,
     );
@@ -334,7 +450,7 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location',
-      tool_meta: { prev: PRESENT_OPTIONS_TOOL, curr: REQUEST_CHOICE_TOOL },
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
       answered: {
         choice: { id: 'tui', label: 'Move under src/tui-client', kind: 'listed' },
         comment: 'Aligns ownership with /reload iteration.',
@@ -363,7 +479,7 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'review-cycle-1',
-      tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: REQUEST_REVIEW_TOOL },
+      tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: REQUEST_RESPONSE_TOOL },
       review_set: {
         nodes: [{ draft_id: 'goal-review' }, { draft_id: 'req-approve' }],
         edges: [{ dependency: { draft_id: 'req-approve' }, dependent: { draft_id: 'goal-review' } }],
@@ -430,92 +546,98 @@ describe('structured exchange present/request tools', () => {
     ).rejects.toThrow();
   });
 
-  it('persists request_review approve, change-request, and reject responses', async () => {
-    const request = registeredTools().get(REQUEST_REVIEW_TOOL);
-    if (!request) throw new Error('request_review was not registered');
+  it('drives request_response review decisions against a pending present_review_set', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
 
     for (const [selected, review, comment] of [
       ['Approve', 'approve', 'Looks right.'],
       ['Request changes', 'request_changes', 'Tighten the grounding.'],
       ['Reject', 'reject', 'Wrong direction.'],
     ] as const) {
-      const result = await request.execute(
-        `request-review-${review}`,
-        { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+      const result = await request_response.execute(
+        `request-response-review-${review}`,
+        { exchangeId: 'review-cycle-1' },
         undefined,
         undefined,
-        { hasUI: true, ui: { select: async () => selected, input: async () => comment } } as never,
+        {
+          hasUI: true,
+          ui: { select: async () => selected, input: async () => comment },
+          sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
+        } as never,
       );
 
       expect(result.content[0]?.text).toContain('### Review decision');
       expect(result.details).toMatchObject({
         exchange_id: 'review-cycle-1',
-        tool_meta: { prev: PRESENT_REVIEW_SET_TOOL, curr: REQUEST_REVIEW_TOOL },
+        tool_meta: { prev: PRESENT_REVIEW_SET_TOOL, curr: 'request_review' },
         answered: { decision: review, comment },
       });
     }
   });
 
-  it('requires request_review change requests to carry a non-empty comment', async () => {
-    const request = registeredTools().get(REQUEST_REVIEW_TOOL);
-    if (!request) throw new Error('request_review was not registered');
+  it('requires request_response review change requests to carry a non-empty comment', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
 
-    const result = await request.execute(
-      'request-review-empty-change',
-      { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+    const result = await request_response.execute(
+      'request-response-review-empty-change',
+      { exchangeId: 'review-cycle-1' },
       undefined,
       undefined,
-      { hasUI: true, ui: { select: async () => 'Request changes', input: async () => '   ' } } as never,
+      {
+        hasUI: true,
+        ui: { select: async () => 'Request changes', input: async () => '   ' },
+        sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
+      } as never,
     );
 
     expect(result.details).toMatchObject({
-      tool_meta: { curr: REQUEST_REVIEW_TOOL },
-      unavailable: { message: 'request_review request_changes requires a comment' },
+      tool_meta: { curr: 'request_review' },
+      unavailable: { message: 'request_response review change request requires a comment' },
     });
   });
 
-  it('records request_review cancellation and unavailable UI as terminal outcomes', async () => {
-    const request = registeredTools().get(REQUEST_REVIEW_TOOL);
-    if (!request) throw new Error('request_review was not registered');
+  it('records request_response review cancellation and unavailable UI as terminal outcomes', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
 
-    const cancelled = await request.execute(
-      'request-review-cancelled',
-      { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+    const cancelled = await request_response.execute(
+      'request-response-review-cancelled',
+      { exchangeId: 'review-cycle-1' },
       undefined,
       undefined,
-      { hasUI: true, ui: { select: async () => undefined } } as never,
+      {
+        hasUI: true,
+        ui: { select: async () => undefined },
+        sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
+      } as never,
     );
-    const unavailable = await request.execute(
-      'request-review-unavailable',
-      { exchangeId: 'review-cycle-1', prompt: 'Review proposal' },
+    const unavailable = await request_response.execute(
+      'request-response-review-unavailable',
+      { exchangeId: 'review-cycle-1' },
       undefined,
       undefined,
-      { hasUI: false, ui: {} } as never,
+      {
+        hasUI: false,
+        ui: {},
+        sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
+      } as never,
     );
 
-    expect(cancelled.details).toMatchObject({ cancelled: {}, tool_meta: { curr: REQUEST_REVIEW_TOOL } });
-    expect(unavailable.details).toMatchObject({ unavailable: {}, tool_meta: { curr: REQUEST_REVIEW_TOOL } });
+    expect(cancelled.details).toMatchObject({ cancelled: {}, tool_meta: { curr: 'request_review' } });
+    expect(unavailable.details).toMatchObject({ unavailable: {}, tool_meta: { curr: 'request_review' } });
     expect(isStructuredExchangeRequestDetails(cancelled.details)).toBe(true);
     expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });
 
-  it('persists a request_choices response through the editor fallback', async () => {
-    const request = registeredTools().get(REQUEST_CHOICES_TOOL);
-    if (!request) throw new Error('request_choices was not registered');
+  it('responds to a pending multi-choice present_question through the editor fallback', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
 
-    const result = await request.execute(
-      'request-choices-call-1',
-      {
-        exchangeId: 'priorities',
-        respondsToPresentTool: PRESENT_OPTIONS_TOOL,
-        prompt: 'Select all priorities.',
-        choices: [
-          { id: 'speed', label: 'Move quickly' },
-          { id: 'safety', label: 'Keep the transcript safe' },
-        ],
-        allowOther: true,
-        commentPrompt: 'Optional comment',
-      },
+    const result = await request_response.execute(
+      'request-response-choices-call-1',
+      { exchangeId: 'priorities' },
       undefined,
       undefined,
       {
@@ -534,6 +656,30 @@ describe('structured exchange present/request tools', () => {
             return JSON.stringify(payload);
           },
         },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'priorities',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choices',
+                  display: { heading: 'Select all priorities.' },
+                  options: [
+                    { id: 'speed', content: 'Move quickly' },
+                    { id: 'safety', content: 'Keep the transcript safe' },
+                  ],
+                  allow_other: true,
+                  comment_prompt: 'Optional comment',
+                },
+              },
+            },
+          ],
+        },
       } as never,
     );
 
@@ -545,7 +691,7 @@ describe('structured exchange present/request tools', () => {
     expect(result.details).toMatchObject({
       schema: 'brunch.structured_exchange.request',
       exchange_id: 'priorities',
-      tool_meta: { prev: PRESENT_OPTIONS_TOOL, curr: REQUEST_CHOICES_TOOL },
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choices' },
       answered: {
         choices: [
           { id: 'speed', label: 'Move quickly', kind: 'listed' },
@@ -556,20 +702,13 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
-  it('rejects request_choices other/none selections without a comment', async () => {
-    const request = registeredTools().get(REQUEST_CHOICES_TOOL);
-    if (!request) throw new Error('request_choices was not registered');
+  it('rejects request_response multi-choice other/none selections without a comment', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
 
-    const result = await request.execute(
-      'request-choices-call-2',
-      {
-        exchangeId: 'priorities',
-        respondsToPresentTool: PRESENT_OPTIONS_TOOL,
-        prompt: 'Select all priorities.',
-        choices: [{ id: 'speed', label: 'Move quickly' }],
-        allowOther: true,
-        allowNone: true,
-      },
+    const result = await request_response.execute(
+      'request-response-choices-call-2',
+      { exchangeId: 'priorities' },
       undefined,
       undefined,
       {
@@ -585,11 +724,32 @@ describe('structured exchange present/request tools', () => {
             return JSON.stringify(payload);
           },
         },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'priorities',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choices',
+                  display: { heading: 'Select all priorities.' },
+                  options: [{ id: 'speed', content: 'Move quickly' }],
+                  allow_other: true,
+                  allow_none: true,
+                },
+              },
+            },
+          ],
+        },
       } as never,
     );
 
     expect(result.details).toMatchObject({
-      tool_meta: { curr: REQUEST_CHOICES_TOOL },
+      tool_meta: { curr: 'request_choices' },
       unavailable: { message: 'request_choices requires a comment for Other or None selections' },
     });
     expect(result.content[0]?.text).toContain('request_choices requires a comment');
@@ -605,7 +765,8 @@ describe('structured exchange present/request tools', () => {
             schema: 'brunch.structured_exchange.present',
             v: 1,
             exchange_id: 'shell-location',
-            tool_meta: { curr: PRESENT_OPTIONS_TOOL, next: REQUEST_CHOICE_TOOL },
+            tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+            response_kind: 'choice',
             display: { heading: 'Where should the shell live?' },
             options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
           },
