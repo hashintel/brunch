@@ -121,6 +121,7 @@ Remaining live work:
 These were deferred below the demo line; the demo/alpha lower line has now landed, so they are the available next candidates pending the strategic re-focus. The earlier context-pipeline coverage trio is **mostly done** (`projection-shape-coverage`, `prompt-composition-golden-coverage` complete; definitions archived in `docs/archive/PLAN_HISTORY.md`); only `renderer-golden-coverage` remains and it was never a ship blocker.
 
 - `renderer-golden-coverage` — **reshaped 2026-06-16 by D83-L** (context-render house style: md-pen + TOON + stringify-tree, `<workspace>`/`<specification>`/`<session>` scope clustering); **actively worked on `ln/fe-870-renderer-golden-context-tools`** (FE-870), below the demo lane and **never a ship gate**. **Landed:** substrate, `<workspace>`, `<specification>`, the full graph-render migration (overview → G-D, neighborhood → G-C, `<specification>` graph block embedded; dead `formatGraphSlice` retired), and the band-filtered graph-slice hardening (`list_by_band` groups dual-band nodes by the requested band) — scope cards retired. **Remaining (fresh `ln-scope` pass):** the `<session>` render, `renderGraphSeed`'s seed migration, the `exchanges/*` tool-result migration, the `formatRelatedNodesResult` (`related`-mode) structural-leak repair + relocation into `renderers/`, and the `brunch print` house-style-vs-status fork. Open prioritization question: keep below the demo line or treat the active branch as a parallel track.
+- `readiness-bands-interrogation` — **proving** investigation of the readiness-band model (D64-L): is it earning its keep, or is it another instance of the over-ambitious-gating pattern already retired three times (`intentKindCategory` strip 2026-06-23; readiness-grade gating D45-L/D74-L/D86-L)? Carries a candidate D64-L amendment (a 4th `projection` band + kind re-banding, SPEC Future Direction) but is **not committed to building it** — the product is the verdict. Independent of the FE-1052 spine. Full definition in Frontier Definitions.
 - `exchange-symmetry-audit` — the delete-oriented exchange three-layer audit split out of `exchanges-and-generalized-capture` (its capture vertical is promoted to block 3 as `generalized-capture`). Earned/cleanup, not demo-blocking.
 - `role-safe-graph-mutations` — done; the `mutateGraph` grammar that `generalized-capture` relation-bearing writes must target. Listed here only as the dependency the capture block aims at.
 
@@ -294,6 +295,33 @@ These were deferred below the demo line; the demo/alpha lower line has now lande
 - **Near-future successor (named, not this block):** `subagent-adoption` — exploration/research modes delegated to side/sub-agents with the digest as handback (SPEC Future Direction §Subagent acquisition). Candidate reference flow (2026-06-12): the `flow-shape-liftout` skill shape as a sub-agent flow for deep **codebase-to-spec extraction** (an `explore-and-characterize` acquisition); web fetch/search prerequisite is satisfied by the 2026-06-19 FE-861 core-tools slice.
 - **Current execution pointer (2026-06-22):** FE-861 and its immediate prompt-skill successor FE-898 are complete. Landed FE-861 slices: D80-L banded sweep + watermark, D81-L commitment-gradient routing gate, contradiction→`reconciliation_need` outlet, submit-time labeled-prefix fossil retirement, `web_fetch`/`web_search` prerequisite, D82-L acquisition-modes + digest + situating-gap layer, and the false-commit scenario matrix. The closed capture-quality-spike family now uses gradient `expectedOutcome` rows instead of binary `shouldCommit`; every scenario class (free prose, file refs, implication-heavy, contradiction) has deterministic routing coverage through the real `mutate_graph` / `update_elicitation_gaps` / `update_reconciliation_needs` adapters, while the probe remains a fitness scorer over gradient-routing accuracy. FE-898 then moved all prompt-resource skills to Agent Skills `SKILL.md` topology and retired its scope card. Both successors and the POC ship-gate lane have since landed; this definition is retained one cycle for traceability and is an archival candidate for the next sync.
 
+### readiness-bands-interrogation
+
+- **Name:** Interrogate the readiness-band model (is it over-ambitious gating?)
+- **Linear:** unassigned
+- **Branch:** tbd
+- **Kind:** structural investigation (may produce a D64-L amendment, or a deletion/simplification)
+- **Status:** Next — parallel / low-conflict; independent of the FE-1052 spine
+- **Certainty:** proving — the product is a **verdict** about the band model, not a predetermined change. Do not pre-commit to the `projection`-band proposal; it is one hypothesis on trial.
+- **Lights up:** a clear answer to "what, concretely, reads readiness bands, and does each reader need the band or a thinner signal?"
+- **Stabilizes:** D64-L — either re-locks it as-is with documented readers, amends it (e.g. the 4th `projection` band + re-banding), or simplifies/retires part of it.
+- **The pattern under test (why this matters):** Brunch has repeatedly caught **over-ambitious modelling, specifically gating**, and walked it back — the stored `readiness_grade` gate (retired D45-L), method/tool readiness gating that deadlocked graph-writes (relaxed D74-L→D86-L), and just now the reader-less `intentKindCategory` axis (stripped 2026-06-23). Bands are the next suspect: a band is a *grouping that gates/weights behavior*, and the proposed amendment would **add** a band and re-band ~9 kinds. Before extending the model, interrogate whether the current model even earns its readers, applying the same "no property without a clear reader" + "readiness never bars work" (I31-L) discipline.
+- **Objective:** Run an `ln-grill` on the readiness-band model: enumerate every live reader of `readinessBands` (graph-slice render, readiness-estimate rollup D45-L, capability-readiness weighting D74-L, `list_by_band` / context filters I35-L, the I39-L band guard, elicitation-driver, TUI, web), and for each ask: does it need a *band*, or a thinner per-kind/per-gap signal? Then decide D64-L's fate — re-lock, amend (the `projection` band + re-banding), or simplify/retire — and only then route to `ln-spec`/`ln-scope` if a change is warranted.
+- **Why now / unlocks:** The FE-1052 grill surfaced an attractive band re-mapping (SPEC Future Direction §Coherence and readiness semantics), but folding it in mid-migration would have overturned a locked, reader-heavy invariant on a feel. This frontier is the proper home for that interrogation — and the user's stronger interest is auditing the band model for over-gating regardless of whether the amendment lands.
+- **Hypotheses on trial (none pre-accepted):**
+  - H1 — the `projection` band (design/oracle kinds "projected from intent") names a real seam and improves readiness legibility.
+  - H2 — some band readers don't need a band at all (a per-kind flag or a gap-derived signal suffices) → simplify, don't extend.
+  - H3 — bands are doing gating work that I31-L says readiness must never do (barring/withholding) → relax, as with D45-L/D74-L/D86-L.
+  - H4 — the three-band model is correct and the re-mapping is scope-creep → re-lock D64-L, reject the amendment.
+- **Acceptance:**
+  - Every live `readinessBands` reader enumerated with: what it reads the band *for*, and whether a thinner signal would serve.
+  - A decision on each hypothesis, written as a D64-L re-lock / amendment / simplification in `memory/SPEC.md` (with the candidate-amendment Future-Direction note resolved either way).
+  - If a change is warranted, it routes to `ln-scope` as its own slice(s); if not, the Future-Direction note is retired with rationale.
+- **Verification:** Inner — if a change lands, the band guard (I39-L) + readiness-estimate tests re-point to the new model; capability-readiness (I31-L) stays "never bars work." Investigation output is canonical-doc reconciliation, not new runtime behavior unless an amendment is chosen.
+- **Cross-cutting obligations:** Honor I31-L (readiness never bars graph truth or work) throughout — any band change must not reintroduce a hard gate. Bands stay a *derived* grouping (D64-L), never stored. Coordinate with `renderer-golden-coverage` (FE-870, a live band reader via `list_by_band` / graph-slice) if banding changes.
+- **Traceability:** D45-L, D64-L, D74-L, D86-L / I31-L, I35-L, I39-L; SPEC Future Direction §Coherence and readiness semantics (candidate amendment), §Vocabulary evolution (`term` band-less if project-lifted).
+- **Design docs:** `memory/SPEC.md` D64-L + the candidate-amendment note; `docs/design/ONTOLOGY_REVIEW_PROTOCOL.md` (the `/pseudo` band survey); `src/graph/schema/nodes.ts` (`NODE_KIND_METADATA` band assignments).
+
 ### exchange-symmetry-audit
 
 > **Split from `exchanges-and-generalized-capture` (2026-06-11 demo cut).** The delete-oriented audit half (objective 2 of the former combined item); the capture vertical is now the separate `generalized-capture` frontier above. **Deferred below the demo line** (earned/cleanup, not demo-blocking).
@@ -374,6 +402,7 @@ nodes:
   exchange-symmetry-audit        [deferred · earned] delete-oriented exchange three-layer symmetry audit; below the demo line
   ontology-revision              [active · proving · FE-1052] the single data-model/ontology frontier: edges 8->9 (renames + refinement), node renames/adds (vv_*, entity, sketch, story, unknown; thesis sharpened), detail.form union, spec.kind field (D87-L/D88-L/D89-L); ABSORBS graph-model-doc-retirement (retire GRAPH_MODEL.md, re-point ~15 citations) + graph--edge-impact-remodel (affected+impactKind+stanceRequired) as accessory tasks
   # graph-model-doc-retirement + graph--edge-impact-remodel: ABSORBED into ontology-revision (2026-06-23) as accessory tasks; no longer standalone nodes
+  readiness-bands-interrogation  [next · proving] interrogate D64-L band model for over-gating (the pattern retired in D45-L/D74-L/D86-L + the intentKindCategory strip); carries the candidate projection-band amendment but not committed to it; independent of the FE-1052 spine
   subagent-adoption              [parallel · proving · PR #239] sealed SDK subagent tool built/default-off; launch-path gate remains
   web-driver-streaming             [horizon · proving · observer+command relay built · FE-873] topology A: in-process AgentSession event relay + Brunch-domain multiplex + explicit `/rpc/driver` command-intake/live answer broker; consolidates R12 subscriptions / reconnect-resume / web-as-driver staging / agent-as-user substrate split
   # done anchors still carrying live edges (full definitions: docs/archive/PLAN_HISTORY.md):
@@ -402,6 +431,8 @@ edges:
   renderer-golden-coverage  -[tripwire]->     prompt-composition-golden-coverage  (COMPOSE done except the deferred full-stack real-rendered-context golden)
   ontology-revision         -[coordinate]->   renderer-golden-coverage     (FE-1052 retires GRAPH_MODEL.md that the renderer frontier reconciled; renderer goldens re-lock against the new vocabulary — freeze the new kinds/edges early)
   ontology-revision         -[unblocks]->     coherence-first-class, oracle-design-plan-graphs  (consumers of the settled ontology; depend on it, not absorbed)
+  ontology-revision         -[surfaced]->     readiness-bands-interrogation  (FE-1052 grill raised the band re-mapping; the interrogation is its proper home, independent of the FE-1052 branch)
+  readiness-bands-interrogation -[coordinate]-> renderer-golden-coverage  (FE-870 is a live band reader via list_by_band / graph-slice; band changes re-lock its goldens)
 
 parallel obligations:
   probes-and-transcripts-evolution -[evidence]-> every P0/P1 frontier
