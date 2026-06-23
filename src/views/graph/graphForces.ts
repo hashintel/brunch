@@ -55,6 +55,26 @@ export function layerY(kind: GraphNodeKind): number {
 
 export const collisionRadius = Math.hypot(cardFootprint.width, cardFootprint.height) / 2;
 
+function radialBound(radius: number): (alpha: number) => void {
+  let nodes: SimNode[] = [];
+  const force = (alpha: number) => {
+    for (const node of nodes) {
+      const x = node.x ?? 0;
+      const y = node.y ?? 0;
+      const dist = Math.hypot(x, y);
+      if (dist > radius) {
+        const pull = ((dist - radius) / dist) * alpha;
+        node.vx = (node.vx ?? 0) - x * pull;
+        node.vy = (node.vy ?? 0) - y * pull;
+      }
+    }
+  };
+  force.initialize = (simNodes: SimNode[]) => {
+    nodes = simNodes;
+  };
+  return force;
+}
+
 const GRAPH_SEED = 0x9e3779b9;
 
 function seededRandom(seed: number): () => number {
@@ -75,6 +95,8 @@ export function buildSimulation(model: SimModel): {
   const nodes: SimNode[] = model.nodes.map((node) => ({ id: node.id, data: node.data }));
   const links: SimLink[] = model.edges.map((edge) => ({ source: edge.source, target: edge.target }));
 
+  const boundRadius = collisionRadius * (3 + Math.sqrt(nodes.length));
+
   const simulation = forceSimulation<SimNode>(nodes)
     .randomSource(seededRandom(GRAPH_SEED))
     .force(
@@ -87,6 +109,7 @@ export function buildSimulation(model: SimModel): {
     .force('collide', forceCollide<SimNode>(collisionRadius).strength(1).iterations(4))
     .force('center', forceCenter(0, 0))
     .force('y', forceY<SimNode>((node) => layerY(node.data.kind)).strength(0.06))
+    .force('bound', radialBound(boundRadius))
     .stop();
 
   return { simulation, nodes };

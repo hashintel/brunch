@@ -24,6 +24,7 @@ import { describe, expect, it } from 'vitest';
 
 import { cardFootprint } from '@/views/graph/cardFootprint';
 import { forceLayout, kindRank } from '@/views/graph/forceLayout.js';
+import { collisionRadius } from '@/views/graph/graphForces.js';
 import type { GraphEdgeData, GraphNodeData } from '@/views/graph/types.js';
 
 interface LayoutNodeInput {
@@ -295,6 +296,20 @@ describe('forceLayout — organic relationship-clustered feel is preserved', () 
     const maxConnectedDistance = Math.max(...connected.map((id) => distance(positions.get(id)!, center)));
 
     expect(orphanDistance).toBeGreaterThan(maxConnectedDistance);
+  });
+
+  it('keeps a lone orphan within a graph-scaled radius rather than flinging it far', () => {
+    const connected = ['c0', 'c1', 'c2', 'c3'];
+    const model: GraphModel = {
+      nodes: [...connected, 'orphan'].map((id) => makeNode(id)),
+      edges: clique(connected),
+    };
+
+    const positions = positionsById(forceLayout(model));
+    const orphan = positions.get('orphan')!;
+    const boundRadius = collisionRadius * (3 + Math.sqrt(model.nodes.length));
+
+    expect(Math.hypot(orphan.x, orphan.y)).toBeLessThanOrEqual(boundRadius * 1.2);
   });
 });
 
