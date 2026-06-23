@@ -93,10 +93,10 @@ function rootClass(container: HTMLElement): string {
 }
 
 /** Numeric pixel value of an inline style property on a single element, or undefined. */
-function stylePx(el: Element, prop: string): number | undefined {
-  const style = el.getAttribute('style') ?? '';
-  const m = style.match(new RegExp(`${prop}:\\s*([\\d.]+)px`));
-  return m ? Number(m[1]) : undefined;
+function stylePx(el: Element, prop: 'width' | 'height'): number | undefined {
+  if (!(el instanceof HTMLElement) && !(el instanceof SVGElement)) return undefined;
+  const value = el.style[prop];
+  return value.endsWith('px') ? Number.parseFloat(value) : undefined;
 }
 
 /** True when some element in the tree is sized exactly to the uniform footprint. */
