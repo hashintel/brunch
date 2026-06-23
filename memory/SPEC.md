@@ -626,7 +626,7 @@ The structural/behavioral split is the key discipline: never let a behavioral fi
 
 ### Verification Commands
 
-Infrastructure is not yet fully laid (Phase 3 of POC bootstrapping). Commands follow `AGENTS.md` conventions:
+The verification harness is established (oxlint + oxfmt + vitest). Commands follow `AGENTS.md` conventions:
 
 | Step | Check | Command |
 | --- | --- | --- |
