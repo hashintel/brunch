@@ -4,7 +4,7 @@ import type { PresentReviewSetProjection } from '../../projections/exchanges/pre
 export function formatPresentReviewSet(projection: PresentReviewSetProjection): string {
   const payload = projection.payload;
   const lines = [
-    `## ${payload.pitch.title}`,
+    `# ${payload.pitch.title}`,
     '',
     payload.pitch.narrative,
     '',
@@ -12,13 +12,13 @@ export function formatPresentReviewSet(projection: PresentReviewSetProjection): 
     '',
     `Epistemic status: ${payload.epistemicStatus}`,
     '',
-    '### Grounding',
+    '## Grounding',
     '',
     payload.grounding.summary,
     '',
     ...payload.grounding.support.map((support) => `- ${support}`),
     '',
-    '### Entity drafts',
+    '## Entity drafts',
   ];
 
   payload.entityDrafts.forEach((draft) => {
@@ -26,7 +26,7 @@ export function formatPresentReviewSet(projection: PresentReviewSetProjection): 
     if (draft.body) lines.push(`  ${draft.body}`);
   });
 
-  lines.push('', '### Edge drafts');
+  lines.push('', '## Edge drafts');
   payload.edgeDrafts.forEach((draft) => {
     const { source: sourceRef, target: targetRef } = roleNamedEdgeDraftEndpoints(draft);
     const source = 'draftId' in sourceRef ? sourceRef.draftId : sourceRef.existingCode;

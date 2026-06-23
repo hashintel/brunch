@@ -27,6 +27,7 @@ interface ToolExecutionResult {
 interface RegisteredTool {
   name: string;
   executionMode?: string;
+  renderShell?: string;
   execute: (
     toolCallId: string,
     params: Record<string, unknown>,
@@ -144,6 +145,9 @@ describe('structured exchange present/request tools', () => {
     expect(tools.get(PRESENT_QUESTION_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(REQUEST_RESPONSE_TOOL)?.executionMode).toBe('sequential');
+    expect(tools.get(PRESENT_QUESTION_TOOL)?.renderShell).toBe('self');
+    expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.renderShell).toBe('self');
+    expect(tools.get(REQUEST_RESPONSE_TOOL)?.renderShell).toBe('self');
   });
 
   it('persists a freeform present_question result through the shared project and format seam', async () => {
@@ -163,7 +167,7 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(result.content[0]?.text).toMatchInlineSnapshot(`
-      "## What problem are we solving?
+      "# What problem are we solving?
 
       Keep the answer grounded in current Brunch session behavior."
     `);
@@ -207,8 +211,9 @@ describe('structured exchange present/request tools', () => {
       {} as never,
     );
 
-    expect(result.content[0]?.text).toContain('## Where should the shell live?');
+    expect(result.content[0]?.text).toContain('# Where should the shell live?');
     expect(result.content[0]?.text).toContain('Clearer ownership.');
+    expect(result.content[0]?.text).not.toContain('<!--');
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location',
@@ -444,7 +449,7 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(result.content[0]?.text).toContain('### Response');
+    expect(result.content[0]?.text).toContain('# Response');
     expect(result.content[0]?.text).toContain('Move under src/tui-client');
     expect(result.content[0]?.text).not.toContain('Clearer ownership');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
@@ -471,11 +476,11 @@ describe('structured exchange present/request tools', () => {
       {} as never,
     );
 
-    expect(result.content[0]?.text).toContain('## Review cycle wiring');
+    expect(result.content[0]?.text).toContain('# Review cycle wiring');
     expect(result.content[0]?.text).toContain('Epistemic status: inferred');
-    expect(result.content[0]?.text).toContain('### Entity drafts');
+    expect(result.content[0]?.text).toContain('## Entity drafts');
     expect(result.content[0]?.text).toContain('Approval is atomic');
-    expect(result.content[0]?.text).toContain('### Edge drafts');
+    expect(result.content[0]?.text).toContain('## Edge drafts');
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'review-cycle-1',
@@ -582,7 +587,7 @@ describe('structured exchange present/request tools', () => {
         } as never,
       );
 
-      expect(result.content[0]?.text).toContain('### Review decision');
+      expect(result.content[0]?.text).toContain('# Review decision');
       expect(result.details).toMatchObject({
         exchange_id: 'review-cycle-1',
         tool_meta: { prev: PRESENT_REVIEW_SET_TOOL, curr: 'request_review' },
@@ -646,6 +651,77 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });
 
+  it('responds to a pending multi-choice present_question through a TUI custom picker', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+    const editor = vi.fn();
+
+    const result = await request_response.execute(
+      'request-response-choices-custom-call-1',
+      { exchangeId: 'priorities' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          custom: async (factory: (...args: unknown[]) => unknown) => {
+            let picked: unknown;
+            const component = factory(null, theme, null, (result: unknown) => {
+              picked = result;
+            }) as { render(width: number): string[]; handleInput(data: string): void };
+            expect(component.render(80).join('\n')).toContain('[ ] Move quickly');
+            component.handleInput(' ');
+            component.handleInput('\x1b[B');
+            component.handleInput(' ');
+            component.handleInput('\r');
+            return picked;
+          },
+          input: async () => 'Speed is primary.',
+          editor,
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'priorities',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choices',
+                  display: { heading: 'Select all priorities.' },
+                  options: [
+                    { id: 'speed', content: 'Move quickly' },
+                    { id: 'safety', content: 'Keep the transcript safe' },
+                  ],
+                  comment_prompt: 'If more than one, which is primary?',
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(editor).not.toHaveBeenCalled();
+    expect(result.content[0]?.text).not.toContain('brunch.structured_exchange.request_choices.editor');
+    expect(result.content[0]?.text).toContain('Move quickly');
+    expect(result.content[0]?.text).toContain('Keep the transcript safe');
+    expect(result.content[0]?.text).toContain('Speed is primary.');
+    expect(result.details).toMatchObject({
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choices' },
+      answered: {
+        choices: [
+          { id: 'speed', label: 'Move quickly', kind: 'listed' },
+          { id: 'safety', label: 'Keep the transcript safe', kind: 'listed' },
+        ],
+        comment: 'Speed is primary.',
+      },
+    });
+  });
+
   it('responds to a pending multi-choice present_question through the editor fallback', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
@@ -698,7 +774,7 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(result.content[0]?.text).toContain('### Response');
+    expect(result.content[0]?.text).toContain('# Response');
     expect(result.content[0]?.text).toContain('Move quickly');
     expect(result.content[0]?.text).toContain('Other');
     expect(result.content[0]?.text).toContain('Also keep the proof deterministic.');

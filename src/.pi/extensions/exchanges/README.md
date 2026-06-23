@@ -14,9 +14,10 @@ There are two distinct envelopes in this seam — do not conflate them:
   `brunch.structured_exchange.request_choices.editor`). Pi UI built-ins cover
   every other `request_*` response shape, but the multi-choice
   `request_choices` payload cannot ride them, and Pi's `ctx.ui.custom` cannot
-  cross RPC. So `request_choices` prefills this JSON envelope into
-  `ctx.ui.editor` for the client to edit and return. Its `status` string is
-  wire-level editor state only.
+  cross RPC. So TUI uses a Brunch checkbox picker first, while RPC/headless
+  fallback still prefills this JSON envelope into `ctx.ui.editor` for the
+  client to edit and return. Its `status` string is wire-level editor state
+  only.
 - **Transcript result envelope** (`schemas/request.ts`,
   `brunch.structured_exchange.request`). The outcome of a request is carried in
   transcript details as key presence — `answered` / `cancelled` /

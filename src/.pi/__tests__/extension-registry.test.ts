@@ -94,7 +94,6 @@ describe('Brunch explicit Pi extension registry', () => {
       'model_select',
       'thinking_level_select',
       'turn_end',
-      'session_before_tree',
       'session_before_fork',
       'session_start',
       'before_agent_start',

@@ -35,7 +35,7 @@ describe('structured exchange loop helpers', () => {
       toolResultMessage: {
         role: 'toolResult',
         toolName: 'request_response',
-        content: [{ text: '### Response\n\nA local product specification workspace.' }],
+        content: [{ text: '# Response\n\nA local product specification workspace.' }],
         details: {
           schema: 'brunch.structured_exchange.request',
           exchange_id: pending.exchangeId,
@@ -148,7 +148,7 @@ describe('structured exchange loop helpers', () => {
             role: 'toolResult',
             toolCallId: 'present-review-call-1',
             toolName: 'present_review_set',
-            content: [{ type: 'text', text: '## Review cycle wiring\n\nReview this graph proposal.' }],
+            content: [{ type: 'text', text: '# Review cycle wiring\n\nReview this graph proposal.' }],
             details: {
               schema: 'brunch.structured_exchange.present',
               v: 1,
@@ -230,13 +230,11 @@ describe('structured exchange loop helpers', () => {
               {
                 type: 'text',
                 text: [
-                  '## Choose proof quality',
+                  '# Choose proof quality',
                   '',
-                  '### 1. Transcript fidelity',
+                  '## 1. Transcript fidelity',
                   '',
                   '**Rationale:** Pi JSONL keeps truth recoverable.',
-                  '',
-                  '<!-- option-id: transcript -->',
                 ].join('\n'),
               },
             ],
@@ -295,13 +293,7 @@ describe('structured exchange loop helpers', () => {
             content: [
               {
                 type: 'text',
-                text: [
-                  '## Pick a candidate',
-                  '',
-                  '### 1. Candidate A',
-                  '',
-                  '<!-- option-id: cand-a -->',
-                ].join('\n'),
+                text: ['# Pick a candidate', '', '## 1. Candidate A'].join('\n'),
               },
             ],
             details: {

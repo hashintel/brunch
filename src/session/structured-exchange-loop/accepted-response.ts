@@ -79,7 +79,7 @@ export function acceptedResponseFromParams(
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_response'),
-        content: [{ type: 'text', text: `### Response\n\n${params.answer.text}` }],
+        content: [{ type: 'text', text: `# Response\n\n${params.answer.text}` }],
         details: projectRequestAnswer({
           exchangeId: pending.exchangeId,
           status: 'answered',
@@ -206,7 +206,7 @@ function toolResultMessageBase(
 }
 
 function choiceResponseMarkdown(choices: Array<{ label: string }>, comment: string | undefined): string {
-  const lines = ['### Response', '', ...choices.map((choice) => `- ${choice.label}`)];
+  const lines = ['# Response', '', ...choices.map((choice) => `- ${choice.label}`)];
   if (comment !== undefined && comment.trim().length > 0) {
     lines.push('', 'Comment:', '', `> ${comment.trim()}`);
   }
@@ -219,7 +219,7 @@ function reviewResponseMarkdown(
 ): string {
   const label =
     decision === 'approve' ? 'Approved' : decision === 'request_changes' ? 'Requested changes' : 'Rejected';
-  const lines = ['### Review decision', '', label];
+  const lines = ['# Review decision', '', label];
   if (comment !== undefined && comment.length > 0) {
     lines.push('', 'Comment:', '', `> ${comment}`);
   }

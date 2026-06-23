@@ -965,7 +965,7 @@ describe('Brunch TUI boot', () => {
     expect(events).toEqual(['waitForIdle', 'custom', 'notify:warning']);
   });
 
-  it('cancels Pi branch-flow hooks with a stable user-facing reason', async () => {
+  it('cancels Pi fork/clone hooks with a stable user-facing reason while leaving /tree native', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-'));
     const manager = SessionManager.create(cwd, join(cwd, '.brunch', 'sessions'));
     const notifications: Array<{
@@ -998,21 +998,14 @@ describe('Brunch TUI boot', () => {
       registerTool: (_tool: unknown) => {},
     } as never);
 
-    await expect(
-      Promise.resolve(handlers.get('session_before_tree')?.({ type: 'session_before_tree' }, ctx)),
-    ).resolves.toEqual({ cancel: true });
+    expect(handlers.has('session_before_tree')).toBe(false);
     await expect(
       Promise.resolve(handlers.get('session_before_fork')?.({ type: 'session_before_fork' }, ctx)),
     ).resolves.toEqual({ cancel: true });
     expect(notifications).toEqual([
       {
         message:
-          'Brunch does not support Pi session branches in this POC. Use /new to continue within the selected spec.',
-        type: 'warning',
-      },
-      {
-        message:
-          'Brunch does not support Pi session branches in this POC. Use /new to continue within the selected spec.',
+          'Brunch does not support Pi session forks/clones in this POC. Use /new to continue within the selected spec.',
         type: 'warning',
       },
     ]);

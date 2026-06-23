@@ -40,6 +40,6 @@ export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExc
     createPresentReviewSetTool(deps.review),
     deps.liveExchange ? createRequestResponseTool(deps.liveExchange) : requestResponseTool,
   ]) {
-    pi.registerTool(tool);
+    pi.registerTool({ ...tool, renderShell: 'self' as const });
   }
 }

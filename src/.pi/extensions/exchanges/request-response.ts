@@ -1,7 +1,5 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
-import { projectRequestChoices } from '../../../projections/exchanges/request-choices.js';
-import { formatRequestChoices } from '../../../renderers/exchanges/request-choices.js';
 import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
 import { piSchema } from './pi-schema.js';
 import {
@@ -12,7 +10,7 @@ import {
 } from './schemas/index.js';
 import { collectAnswerFromSources } from './shared/answer-source.js';
 import { collectChoiceFromUi } from './shared/choice-source.js';
-import { requestChoicesViaEditor } from './shared/choices-editor.js';
+import { requestChoicesFromSources } from './shared/choices-editor.js';
 import { renderMarkdownResult } from './shared/markdown.js';
 import { findIncompleteStructuredExchangePresents } from './shared/recovery.js';
 import { collectReviewFromUi } from './shared/review-source.js';
@@ -48,7 +46,7 @@ function diagnostic(
 }
 
 function diagnosticResult(details: RequestResponseDiagnosticDetails) {
-  return { content: [{ type: 'text' as const, text: `### Response\n\n_${details.message}_` }], details };
+  return { content: [{ type: 'text' as const, text: `# Response\n\n_${details.message}_` }], details };
 }
 
 function assertNever(value: never): never {
@@ -79,17 +77,8 @@ async function collectQuestionResponse(
         ...(present.allow_other !== undefined ? { allowOther: present.allow_other } : {}),
         ...(present.comment_prompt !== undefined ? { commentPrompt: present.comment_prompt } : {}),
       });
-    case 'choices': {
-      if (!ctx.hasUI || typeof ctx.ui?.editor !== 'function') {
-        const details = projectRequestChoices({
-          exchangeId,
-          status: 'unavailable',
-          message: 'request_response choices requires interactive UI',
-        });
-        return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
-      }
-      const editor = ctx.ui.editor;
-      return requestChoicesViaEditor(
+    case 'choices':
+      return requestChoicesFromSources(
         {
           exchangeId,
           prompt: present.display.heading,
@@ -98,9 +87,8 @@ async function collectQuestionResponse(
           ...(present.allow_none !== undefined ? { allowNone: present.allow_none } : {}),
           ...(present.comment_prompt !== undefined ? { commentPrompt: present.comment_prompt } : {}),
         },
-        (prefill) => editor(prefill),
+        ctx,
       );
-    }
     default:
       return assertNever(present);
   }

@@ -1,20 +1,15 @@
 import type { PresentQuestionProjection } from '../../projections/exchanges/present-question.js';
 
-function markdownEscape(text: string): string {
-  return text.replace(/([\\`*_{}[\]()#+\-.!|>])/g, '\\$1');
-}
-
 export function formatPresentQuestion(projection: PresentQuestionProjection): string {
-  const lines = [`## ${projection.heading.trim()}`];
+  const lines = [`# ${projection.heading.trim()}`];
   const body = projection.body?.trim();
   if (body) lines.push('', body);
 
   if ('options' in projection.details) {
     projection.details.options.forEach((option, index) => {
-      lines.push('', `### ${index + 1}. ${option.content.trim()}`);
+      lines.push('', `## ${index + 1}. ${option.content.trim()}`);
       const rationale = option.rationale?.trim();
       if (rationale) lines.push('', `**Rationale:** ${rationale}`);
-      lines.push('', `<!-- option-id: ${markdownEscape(option.id)} -->`);
     });
   }
 

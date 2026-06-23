@@ -90,7 +90,7 @@ export const presentReviewSetTool = createPresentReviewSetTool();
 function formatStructuralIllegal(result: {
   readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
 }): string {
-  return ['STRUCTURAL_ILLEGAL', '', ...result.diagnostics.map((d) => `- ${d.field}: ${d.message}`)].join(
+  return ['# STRUCTURAL_ILLEGAL', '', ...result.diagnostics.map((d) => `- ${d.field}: ${d.message}`)].join(
     '\n',
   );
 }
