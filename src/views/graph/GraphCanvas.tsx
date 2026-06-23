@@ -152,7 +152,10 @@ function Canvas({ model, hiddenKinds }: { model: GraphModel; hiddenKinds: Readon
         onNodeDragStop={(_, node) => onNodeDragStop(node.id)}
         nodesDraggable
         nodesConnectable={false}
+        minZoom={0.1}
+        maxZoom={2}
         fitView
+        fitViewOptions={{ minZoom: 1, maxZoom: 1 }}
       >
         <ZoomControl />
         <div className="absolute bottom-2 left-2 z-10">

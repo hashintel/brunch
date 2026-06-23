@@ -139,32 +139,38 @@ describe('ZoomControl — live percentage readout', () => {
 });
 
 describe('ZoomControl — actions', () => {
-  it('zooms out when the [−] control is clicked', () => {
+  it('steps zoom out by 10% when the [−] control is clicked', () => {
+    setScale(1);
     const { root } = renderControl();
     fireEvent.click(root.querySelector('[data-zoom-out]') as Element);
-    expect(mocks.zoomOut).toHaveBeenCalled();
-    expect(mocks.zoomIn).not.toHaveBeenCalled();
+    expect(mocks.zoomTo).toHaveBeenCalledWith(0.9);
   });
 
-  it('zooms in when the [+] control is clicked', () => {
+  it('steps zoom in by 10% when the [+] control is clicked', () => {
+    setScale(1);
     const { root } = renderControl();
     fireEvent.click(root.querySelector('[data-zoom-in]') as Element);
-    expect(mocks.zoomIn).toHaveBeenCalled();
-    expect(mocks.zoomOut).not.toHaveBeenCalled();
+    expect(mocks.zoomTo).toHaveBeenCalledWith(1.1);
   });
 
-  it('re-frames all nodes with fitView when the percentage is clicked', () => {
+  it('snaps a fractional zoom to the nearest 10% mark when stepping', () => {
+    setScale(0.43);
     const { root } = renderControl();
-    fireEvent.click(root.querySelector('[data-zoom-percentage]') as Element);
-    expect(mocks.fitView).toHaveBeenCalled();
+    fireEvent.click(root.querySelector('[data-zoom-in]') as Element);
+    expect(mocks.zoomTo).toHaveBeenCalledWith(0.5);
   });
 
-  it('does not snap zoom to 100% (no zoomTo/setViewport) when the percentage is clicked', () => {
-    setScale(0.4);
+  it('clamps zoom out at the minimum', () => {
+    setScale(0.1);
+    const { root } = renderControl();
+    fireEvent.click(root.querySelector('[data-zoom-out]') as Element);
+    expect(mocks.zoomTo).toHaveBeenCalledWith(0.1);
+  });
+
+  it('fits all nodes (capped at 100%) when the percentage is clicked', () => {
     const { root } = renderControl();
     fireEvent.click(root.querySelector('[data-zoom-percentage]') as Element);
-    expect(mocks.fitView).toHaveBeenCalled();
+    expect(mocks.fitView).toHaveBeenCalledWith({ minZoom: 0.1, maxZoom: 1 });
     expect(mocks.zoomTo).not.toHaveBeenCalled();
-    expect(mocks.setViewport).not.toHaveBeenCalled();
   });
 });
