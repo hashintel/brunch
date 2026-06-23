@@ -1,14 +1,14 @@
 # Edge-category metadata: declared propagation (`affected` + `impactKind`)
 
-Frontier: graph-model-doc-retirement (graph-schema concern; folds into the GRAPH_MODEL.md retirement — see memory/PLAN.md)
-Status:   proposed — ready; `kind-metadata-drift` is done (card retired 2026-06-17), so sequence with the GRAPH_MODEL.md retirement (`graph-model-doc-retirement` in memory/PLAN.md), after the renders land
+Frontier: ontology-revision (FE-1052) — accessory task; this remodel lands WITH the D87-L edge renames, not after (same graph/schema + policy files). See memory/PLAN.md.
+Status:   proposed — ready; absorbed into ontology-revision (FE-1052) 2026-06-23. Vocabulary below reconciled to D87-L (witness/rationale/exclusion/cross_reference + new refinement). Sequence within the FE-1052 rename pass.
 Mode:     single
-Created:  2026-06-16 (thinned to the net-win core; the `tail`/`head` rename was considered and cut — see §Out)
+Created:  2026-06-16 (thinned to the net-win core; the `tail`/`head` rename was considered and cut — see §Out). Reconciled 2026-06-23 to the D87-L edge vocabulary.
 
 ## Orientation
 
 - Surfaced designing the graph-render edge column, which normalizes edges to *impact direction* via `edgeImpact()`. This promotes that already-derived semantics into **declared** edge-category metadata + an explicit invariant, so impact direction stops being inferable from storage order.
-- Graph-schema change, separate from the renderer cards. The per-category table is also GRAPH_MODEL.md content, so land it in code **with** the GRAPH_MODEL.md retirement (`graph-model-doc-retirement`, same `graph/schema` + `policy` area). The earlier `kind-metadata-drift` reconciliation is done.
+- Graph-schema change, now an accessory task **inside** `ontology-revision` (FE-1052). The per-category table is also GRAPH_MODEL.md content, and GRAPH_MODEL.md retirement is itself an FE-1052 accessory task, so land this remodel **in the same pass as the D87-L edge renames** (`src/graph/schema` + `policy`) rather than as a separate follow-on. The earlier `kind-metadata-drift` reconciliation is done.
 - Canonical today: `EDGE_CATEGORY_METADATA` (`src/graph/policy/category-policy.ts`) with `impactOnSourceChange`/`impactOnTargetChange`; `edgeImpact()` (`projection/direction.ts`) derives `{downstreamEndpoint, strength}` from them.
 
 ## Target Behavior
@@ -31,20 +31,25 @@ interface EdgeCategoryMetadata {
 }
 ```
 
+Category names below are the **D87-L** vocabulary (renamed from the pre-FE-1052 `proof`/`support`/`boundary`/`association`):
+
 | Category | source role | target role | impactKind | affected | stanceRequired |
 | --- | --- | --- | --- | --- | --- |
 | `dependency` | dependency | dependent | `cascade` | `target` | false |
-| `proof` | oracle | claim | `advisory` | `source` | true |
-| `support` | support | claim | `advisory` | `source` | true |
+| `witness` | oracle | claim | `advisory` | `source` | true |
+| `rationale` | support | claim | `advisory` | `source` | true |
 | `realization` | abstract | concrete | `advisory` | `target` | false |
-| `boundary` | boundary | subject | `advisory` | `target` | false |
+| `refinement` | abstract | concrete | **(DECIDE in FE-1052)** | **(DECIDE)** | false |
+| `exclusion` | boundary | subject | `advisory` | `target` | false |
 | `composition` | whole | part | `advisory` | `source` | false |
 | `supersession` | successor | predecessor | `advisory` | `source` | false |
-| `association` | peer | peer | `none` | `null` | false |
+| `cross_reference` | peer | peer | `none` | `null` | false |
 
-(`affected`/`impactKind` cross-checked against the current impact columns — they match `edgeImpact()`'s derivation exactly. `criteriaHelpSignal` is true only for `proof`; `projectionEffect` is `hide_predecessor_from_active_context` only for `supersession` — unchanged.)
+(`affected`/`impactKind` for the eight pre-existing rows cross-checked against the current impact columns — they match `edgeImpact()`'s derivation exactly. `criteriaHelpSignal` is true only for `witness` (the renamed `proof`); `projectionEffect` is `hide_predecessor_from_active_context` only for `supersession` — unchanged.)
 
-Why it's a win (model integrity, Minsky): the two-field form *can* encode the invalid "impact in both directions" state; `affected` (a single endpoint) cannot — the existing "a well-formed category drives impact in at most one direction" comment becomes structural. `stanceRequired` retires the hardcoded `category === 'proof' || 'support'` check in `assertStanceLocality`. Net owned surface does not grow; it normalizes.
+**`refinement` is new (D87-L) and needs an explicit impact decision in FE-1052** — do not bake a row silently. Its present reader is formal refinement (abstract model ⊑ concrete implementation), so the source/target roles mirror `realization` (`abstract`→`concrete`). The open call: when the abstract spec changes, does the concrete *cascade* (a refinement is a stronger "implements" claim than `realization`'s `advisory`) or stay `advisory`? Resolve against the actual reconciliation read path during the build; default lean `advisory`/`affected: target` unless cascade earns its keep.
+
+Why it's a win (model integrity, Minsky): the two-field form *can* encode the invalid "impact in both directions" state; `affected` (a single endpoint) cannot — the existing "a well-formed category drives impact in at most one direction" comment becomes structural. `stanceRequired` retires the hardcoded `category === 'witness' || 'rationale'` check (the renamed `proof`/`support`) in `assertStanceLocality`. Net owned surface does not grow; it normalizes.
 
 ## Invariant (write at the top of the metadata)
 
@@ -59,7 +64,8 @@ Why it's a win (model integrity, Minsky): the two-field form *can* encode the in
 ```
 ✓ fields          — EDGE_CATEGORY_METADATA carries affected + impactKind + stanceRequired; impactOnSourceChange/impactOnTargetChange removed; criteriaHelpSignal + projectionEffect retained.
 ✓ accessor        — edgeImpact() reads affected/impactKind directly (thin accessor or retired); relationFromAnchor unchanged in behavior.
-✓ stance-table    — assertStanceLocality reads stanceRequired instead of the hardcoded proof/support check.
+✓ stance-table    — assertStanceLocality reads stanceRequired instead of the hardcoded witness/rationale (renamed proof/support) check.
+✓ refinement-row  — refinement's affected/impactKind decided explicitly (not copied) and pinned by the per-category guard.
 ✓ invariant-doc   — the "endpoint order carries no impact meaning" invariant is stated at the metadata head.
 ✓ guard           — a test pins the per-category affected/impactKind/stanceRequired mapping.
 ✓ green           — npm run verify; no behavior change to existing edge validation/reconciliation surfaces.
@@ -76,5 +82,5 @@ src/graph/policy/category-policy.ts                  ~   (affected/impactKind re
 src/graph/projection/direction.ts                    ~   (edgeImpact => thin accessor)
 src/graph/command-executor/role-named-edge-draft.ts  ~   (assertStanceLocality reads stanceRequired)
 src/graph/policy/__tests__/                          +?  (per-category mapping guard)
-docs/design/GRAPH_MODEL.md                           ~   (per-category table → code; rides the retirement Follow-on)
+docs/design/GRAPH_MODEL.md                           ~   (per-category table → code; rides the FE-1052 GRAPH_MODEL.md retirement accessory task)
 ```
