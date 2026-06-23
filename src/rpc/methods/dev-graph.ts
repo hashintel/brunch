@@ -14,13 +14,17 @@ import type {
 } from '../../graph/command-executor/graph-mutation-types.js';
 import {
   authoredEdgeEndpointFields,
+  CLAIM_FORM_JSON_SCHEMAS,
   EDGE_CATEGORIES,
   EDGE_CATEGORY_METADATA,
   EDGE_STANCES,
+  NODE_DETAIL_FORMS,
   NODE_DETAIL_JSON_SCHEMAS,
   NODE_KINDS,
   NODE_KINDS_REQUIRING_DETAIL,
+  NODE_KINDS_WITH_FORM_DETAIL,
   parseGraphNodeCode,
+  type NodeKindWithFormDetail,
 } from '../../graph/index.js';
 import { graphMutationProductUpdates } from '../product-updates.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
@@ -36,11 +40,22 @@ const NodePlaneSchema = Type.Union([
 ]);
 const EdgeStanceSchema = Type.Union(EDGE_STANCES.map((stance) => Type.Literal(stance)));
 const DetailKinds = new Set<string>(NODE_KINDS_REQUIRING_DETAIL);
-const NodeKindsWithoutDetail = NODE_KINDS.filter((kind) => !DetailKinds.has(kind));
+const FormDetailKinds = new Set<string>(NODE_KINDS_WITH_FORM_DETAIL);
+const NodeKindsWithoutDetail = NODE_KINDS.filter(
+  (kind) => !DetailKinds.has(kind) && !FormDetailKinds.has(kind),
+);
 const NodeDetailSchema = Type.Union([
   Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.decision),
   Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.term),
+  Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS.plain),
+  Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS.gherkin),
+  Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS.formal),
+  Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS.given),
 ]);
+
+function devClaimFormDetailSchema(kind: NodeKindWithFormDetail) {
+  return Type.Union(NODE_DETAIL_FORMS[kind].map((form) => Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS[form])));
+}
 
 const DevExistingCodeRefSchema = Type.Object(
   {
@@ -79,6 +94,17 @@ const DevCreateNodeOpSchema = Type.Union([
       detail: Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.term),
     },
     { additionalProperties: false },
+  ),
+  ...NODE_KINDS_WITH_FORM_DETAIL.map((kind) =>
+    Type.Object(
+      {
+        ...DevCreateNodeBaseProperties,
+        plane: Type.Literal('intent'),
+        kind: Type.Literal(kind),
+        detail: Type.Optional(devClaimFormDetailSchema(kind)),
+      },
+      { additionalProperties: false },
+    ),
   ),
   Type.Object(
     {

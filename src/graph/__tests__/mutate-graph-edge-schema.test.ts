@@ -99,6 +99,42 @@ describe('authored graph-mutation schemas', () => {
     expect(Value.Check(devMutateGraphParamsSchema, { specId: 1, ops: [contextWithDetail] })).toBe(false);
   });
 
+  it('teaches and enforces claim-kind detail.form companions', () => {
+    const requirementGherkin = createNodeOp('requirement', {
+      form: 'gherkin',
+      given: ['offline'],
+      when: ['save'],
+      then: ['persisted'],
+    });
+    const criterionFormal = createNodeOp('criterion', {
+      form: 'formal',
+      language: 'lean',
+      statement: 'p',
+    });
+    const requirementPlain = createNodeOp('requirement', { form: 'plain' });
+    const requirementNoDetail = createNodeOp('requirement');
+    const contextGiven = createNodeOp('context', { form: 'given', statement: 'stipulated' });
+    const requirementBogusForm = createNodeOp('requirement', { form: 'bogus' });
+    const contextPlain = createNodeOp('context', { form: 'plain' });
+    const gherkinNoThen = createNodeOp('criterion', { form: 'gherkin', given: ['x'] });
+
+    for (const op of [
+      requirementGherkin,
+      criterionFormal,
+      requirementPlain,
+      requirementNoDetail,
+      contextGiven,
+    ]) {
+      expect(Value.Check(MutateGraphParams, { ops: [op] })).toBe(true);
+      expect(Value.Check(devMutateGraphParamsSchema, { specId: 1, ops: [op] })).toBe(true);
+    }
+
+    for (const op of [requirementBogusForm, contextPlain, gherkinNoThen]) {
+      expect(Value.Check(MutateGraphParams, { ops: [op] })).toBe(false);
+      expect(Value.Check(devMutateGraphParamsSchema, { specId: 1, ops: [op] })).toBe(false);
+    }
+  });
+
   it('exposes detail payload properties instead of an opaque unknown schema', () => {
     const opSchema = MutateGraphParams.properties.ops.items as unknown as {
       readonly anyOf: readonly [

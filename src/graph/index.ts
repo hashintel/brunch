@@ -30,13 +30,27 @@ export type { EdgeCategory, GraphEdge } from './schema/edges.js';
 export type { ElicitationGap, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
 export type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
-export type { GraphNode, NodeKind, NodeKindRequiringDetail, ReadinessBand } from './schema/nodes.js';
+export type {
+  ClaimFormDetail,
+  ClaimFormDiscriminant,
+  GraphNode,
+  NodeDetail,
+  NodeKind,
+  NodeKindRequiringDetail,
+  NodeKindWithFormDetail,
+  ReadinessBand,
+} from './schema/nodes.js';
 
 export {
+  CLAIM_FORM_JSON_SCHEMAS,
+  claimFormKnownFields,
   formatGraphNodeCode,
   intentKindCategory,
+  NODE_DETAIL_FORMS,
   NODE_DETAIL_JSON_SCHEMAS,
   NODE_KINDS_REQUIRING_DETAIL,
+  NODE_KINDS_WITH_FORM_DETAIL,
+  nodeDetailForms,
   nodeDetailKnownFields,
   parseGraphNodeCode,
 } from './schema/nodes.js';

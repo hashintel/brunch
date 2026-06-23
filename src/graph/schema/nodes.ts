@@ -229,8 +229,126 @@ export function nodeDetailKnownFields(kind: NodeKindRequiringDetail): readonly s
   return Object.keys(NODE_DETAIL_JSON_SCHEMAS[kind].properties);
 }
 
+// ---------------------------------------------------------------------------
+// Claim-kind detail.form union (D88-L)
+//
+// `detail` extends to the claim kinds (requirement / criterion / invariant) and
+// to `context` as a shared `form`-discriminated union. The load-bearing rule:
+// `kind` drives behavior (readiness band D64-L, edge legality D51-L, the
+// elicitor source-question D56-L); `form` is inert payload plus a renderer hook.
+// One shared discriminant vocabulary lets a lens query all `formal`-form nodes
+// across kinds to round-trip a LEAN/Dafny file.
+// ---------------------------------------------------------------------------
+
+/** Plain claim — the default, no structured method payload. */
+export interface PlainFormDetail {
+  readonly form: 'plain';
+}
+
+/** Gherkin Given/When/Then payload. */
+export interface GherkinFormDetail {
+  readonly form: 'gherkin';
+  readonly given?: readonly string[];
+  readonly when?: readonly string[];
+  readonly then: readonly string[];
+}
+
+/** Formal verification payload (LEAN/Dafny round-trip). */
+export interface FormalFormDetail {
+  readonly form: 'formal';
+  readonly language: string;
+  readonly statement: string;
+}
+
+/** Axiom/given payload riding a `context` node (D88-L / protocol §6.6). */
+export interface GivenFormDetail {
+  readonly form: 'given';
+  readonly statement: string;
+}
+
+export const CLAIM_FORM_JSON_SCHEMAS = {
+  plain: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['form'],
+    properties: {
+      form: { const: 'plain', description: 'Plain claim — no structured method payload.' },
+    },
+    description: 'Plain claim form.',
+  },
+  gherkin: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['form', 'then'],
+    properties: {
+      form: { const: 'gherkin' },
+      given: { type: 'array', items: { type: 'string' }, description: 'Given preconditions.' },
+      when: { type: 'array', items: { type: 'string' }, description: 'When actions.' },
+      then: {
+        type: 'array',
+        minItems: 1,
+        items: { type: 'string' },
+        description: 'Then outcomes — at least one.',
+      },
+    },
+    description: 'Gherkin Given/When/Then payload.',
+  },
+  formal: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['form', 'language', 'statement'],
+    properties: {
+      form: { const: 'formal' },
+      language: { type: 'string', description: 'Target prover/solver, e.g. lean or dafny.' },
+      statement: { type: 'string', description: 'Formal statement text for round-trip.' },
+    },
+    description: 'Formal verification payload.',
+  },
+  given: {
+    type: 'object',
+    additionalProperties: false,
+    required: ['form', 'statement'],
+    properties: {
+      form: { const: 'given' },
+      statement: { type: 'string', description: 'Stipulated axiom/given statement.' },
+    },
+    description: 'Axiom/given payload on a context node.',
+  },
+} as const satisfies Readonly<Record<string, JsonSchema>>;
+
+export type ClaimFormDiscriminant = keyof typeof CLAIM_FORM_JSON_SCHEMAS;
+
+/**
+ * Allowed `detail.form` discriminants per node kind. Claim kinds carry the
+ * inert method-payload forms; `context` carries only `given`. Kinds absent
+ * from this map prohibit `detail` (unless they require it — decision/term).
+ */
+export const NODE_DETAIL_FORMS = {
+  requirement: ['plain', 'gherkin', 'formal'],
+  criterion: ['plain', 'gherkin', 'formal'],
+  invariant: ['plain', 'gherkin', 'formal'],
+  context: ['given'],
+} as const satisfies Partial<Record<NodeKind, readonly ClaimFormDiscriminant[]>>;
+
+export type NodeKindWithFormDetail = keyof typeof NODE_DETAIL_FORMS;
+
+export const NODE_KINDS_WITH_FORM_DETAIL = Object.keys(
+  NODE_DETAIL_FORMS,
+) as readonly NodeKindWithFormDetail[];
+
+export function nodeDetailForms(kind: NodeKindWithFormDetail): readonly ClaimFormDiscriminant[] {
+  return NODE_DETAIL_FORMS[kind];
+}
+
+export function claimFormKnownFields(form: ClaimFormDiscriminant): readonly string[] {
+  return Object.keys(CLAIM_FORM_JSON_SCHEMAS[form].properties);
+}
+
+/** Form-discriminated detail legal on claim kinds. */
+export type ClaimFormDetail = PlainFormDetail | GherkinFormDetail | FormalFormDetail | GivenFormDetail;
+
 /** Discriminated union of all per-kind detail payloads. */
-export type NodeDetail = DecisionDetail | TermDetail;
+export type NodeDetail = DecisionDetail | TermDetail | ClaimFormDetail;
 
 // ---------------------------------------------------------------------------
 // Main node interface

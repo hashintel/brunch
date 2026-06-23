@@ -26,10 +26,15 @@ import {
   READINESS_BANDS,
 } from '../schema/kinds.js';
 import {
+  claimFormKnownFields,
+  NODE_DETAIL_FORMS,
   NODE_KINDS_REQUIRING_DETAIL,
+  NODE_KINDS_WITH_FORM_DETAIL,
   nodeDetailKnownFields,
+  type ClaimFormDiscriminant,
   type NodeBasis,
   type NodeKindRequiringDetail,
+  type NodeKindWithFormDetail,
   type NodePlane,
   type ReadinessBand,
 } from '../schema/nodes.js';
@@ -50,6 +55,7 @@ const VALID_KINDS_BY_PLANE: Record<string, readonly string[]> = {
 };
 
 const KINDS_REQUIRING_DETAIL = new Set<string>(NODE_KINDS_REQUIRING_DETAIL);
+const KINDS_WITH_FORM_DETAIL = new Set<string>(NODE_KINDS_WITH_FORM_DETAIL);
 const VALID_NODE_BASES = NODE_BASES as unknown as string[];
 const VALID_READINESS_BANDS = READINESS_BANDS as unknown as string[];
 const VALID_NODE_KINDS = [
@@ -151,8 +157,13 @@ export function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
     return diagnostics;
   }
 
-  // Detail prohibition: all other kinds must NOT have detail
-  if (!KINDS_REQUIRING_DETAIL.has(input.kind) && input.detail != null) {
+  // Detail prohibition: kinds that neither require nor allow form detail must
+  // NOT carry detail. Claim kinds (+ context) accept an optional form union.
+  if (
+    !KINDS_REQUIRING_DETAIL.has(input.kind) &&
+    !KINDS_WITH_FORM_DETAIL.has(input.kind) &&
+    input.detail != null
+  ) {
     diagnostics.push({
       field: 'detail',
       message: `"${input.kind}" nodes must not have a detail object`,
@@ -166,6 +177,9 @@ export function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
   }
   if (input.kind === 'term' && input.detail != null) {
     validateTermDetail(input.detail, diagnostics);
+  }
+  if (KINDS_WITH_FORM_DETAIL.has(input.kind) && input.detail != null) {
+    validateClaimFormDetail(input.kind as NodeKindWithFormDetail, input.detail, diagnostics);
   }
 
   return diagnostics;
@@ -376,5 +390,86 @@ function validateTermDetail(detail: unknown, diagnostics: Diagnostic[]): void {
     if (!knownFields.has(key)) {
       diagnostics.push({ field: `detail.${key}`, message: 'unknown field' });
     }
+  }
+}
+
+function validateClaimFormDetail(
+  kind: NodeKindWithFormDetail,
+  detail: unknown,
+  diagnostics: Diagnostic[],
+): void {
+  if (typeof detail !== 'object' || detail === null) {
+    diagnostics.push({ field: 'detail', message: 'must be an object' });
+    return;
+  }
+
+  const d = detail as Record<string, unknown>;
+  const allowedForms: readonly ClaimFormDiscriminant[] = NODE_DETAIL_FORMS[kind];
+  const form = d['form'];
+
+  if (typeof form !== 'string' || !allowedForms.includes(form as ClaimFormDiscriminant)) {
+    diagnostics.push({
+      field: 'detail.form',
+      message: `form must be one of: ${allowedForms.join(', ')}`,
+    });
+    return;
+  }
+
+  switch (form as ClaimFormDiscriminant) {
+    case 'plain':
+      break;
+    case 'gherkin':
+      validateGherkinForm(d, diagnostics);
+      break;
+    case 'formal':
+      validateFormalForm(d, diagnostics);
+      break;
+    case 'given':
+      validateGivenForm(d, diagnostics);
+      break;
+    default: {
+      const unreachable: never = form as never;
+      void unreachable;
+    }
+  }
+
+  // Closed validation: reject unknown fields per form
+  const knownFields = new Set(claimFormKnownFields(form as ClaimFormDiscriminant));
+  for (const key of Object.keys(d)) {
+    if (!knownFields.has(key)) {
+      diagnostics.push({ field: `detail.${key}`, message: 'unknown field' });
+    }
+  }
+}
+
+function validateGherkinForm(d: Record<string, unknown>, diagnostics: Diagnostic[]): void {
+  if (
+    !Array.isArray(d['then']) ||
+    d['then'].length < 1 ||
+    !d['then'].every((step) => typeof step === 'string')
+  ) {
+    diagnostics.push({ field: 'detail.then', message: 'required non-empty string array' });
+  }
+
+  for (const field of ['given', 'when'] as const) {
+    const value = d[field];
+    if (value != null && (!Array.isArray(value) || !value.every((step) => typeof step === 'string'))) {
+      diagnostics.push({ field: `detail.${field}`, message: 'must be a string array if present' });
+    }
+  }
+}
+
+function validateFormalForm(d: Record<string, unknown>, diagnostics: Diagnostic[]): void {
+  if (typeof d['language'] !== 'string' || !d['language'].trim()) {
+    diagnostics.push({ field: 'detail.language', message: 'required string' });
+  }
+  if (typeof d['statement'] !== 'string' || !d['statement'].trim()) {
+    diagnostics.push({ field: 'detail.statement', message: 'required string' });
+  }
+}
+
+function validateGivenForm(d: Record<string, unknown>, diagnostics: Diagnostic[]): void {
+  if (typeof d['statement'] !== 'string' || !d['statement'].trim()) {
+    diagnostics.push({ field: 'detail.statement', message: 'required string' });
   }
 }

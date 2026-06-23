@@ -148,7 +148,7 @@ src/web/components/node-card.tsx       ~  (plane/label exhaustiveness)
 
 ---
 
-## Card 3 — `detail.form` union on claim kinds  [light · next]
+## Card 3 — `detail.form` union on claim kinds  [light · done]
 
 ### Objective
 
@@ -183,18 +183,28 @@ src/web/components/node-card.tsx       ~  (plane/label exhaustiveness)
 
 `Depends on: D88-L` — mechanism decided; rides the existing closed-detail pattern.
 
+### Decided (form payload shapes; §6.4 left them as `…`)
+
+- `plain`: `{ form }` only — the default; absent `detail` is equivalent.
+- `gherkin`: `{ form, given?: string[], when?: string[], then: string[] }` — `then` required non-empty (the AC outcome).
+- `formal`: `{ form, language: string, statement: string }` — LEAN/Dafny round-trip target + text.
+- `given`: `{ form, statement: string }` — axiom statement on a `context` node.
+- Legality table (`NODE_DETAIL_FORMS` in `nodes.ts`): claim kinds → `plain|gherkin|formal`; `context` → `given` only. One source of truth feeds both the CommandExecutor validator and the two boundary schemas.
+
 ### Expected touched paths (tentative)
 
 ```
-src/graph/schema/nodes.ts              ~
-src/graph/command-executor/**          ~
-src/.pi/extensions/graph/**            ~  (mutate_graph boundary)
-src/rpc/**                             ~  (dev-RPC mutation schema)
+src/graph/schema/nodes.ts              ~  (form union types + CLAIM_FORM_JSON_SCHEMAS + NODE_DETAIL_FORMS table)
+src/graph/index.ts                     ~  (re-export form surface)
+src/graph/command-executor/command-validation.ts  ~  (validateClaimFormDetail + per-form validators)
+src/.pi/extensions/graph/tool-schemas.ts          ~  (mutate_graph boundary form companions)
+src/rpc/methods/dev-graph.ts                       ~  (dev-RPC mutation schema form companions)
+src/graph/__tests__/{command-executor,mutate-graph-edge-schema}.test.ts  ~  (form behavior + boundary)
 ```
 
 ---
 
-## Card 4 — `spec.kind` field + story/unknown wiring  [light · later]
+## Card 4 — `spec.kind` field + story/unknown wiring  [light · next]
 
 ### Objective
 
