@@ -1,8 +1,8 @@
 # Elicitation Question Catalog
 
-Companion to [`GRAPH_MODEL.md`](GRAPH_MODEL.md) (§Per-plane node kinds, §Prompting) and
-[`ELICITATION_LENSES.md`](ELICITATION_LENSES.md). Rationale and texture, not authority —
-`memory/SPEC.md` remains the canonical register (D56-L, D65-L).
+Companion to the node-kind taxonomy in [`src/graph/schema/nodes.ts`](../../src/graph/schema/nodes.ts)
+(SPEC D56-L) and [`ELICITATION_LENSES.md`](ELICITATION_LENSES.md). Rationale and texture, not
+authority — `memory/SPEC.md` remains the canonical register (D56-L, D65-L).
 
 ## What this is — and what it is not
 
@@ -24,10 +24,9 @@ not as an entry in a parallel "typology" vocabulary:
 elicitation_gap = ⟨ question (free text), refersTo: NodeKind, band, satisfier, disposition ⟩
 ```
 
-Every intent kind already ships a canonical **source-question** (GRAPH_MODEL §Per-plane node
-kinds, D56-L) described there as *"the abstract driver — not a literal question to parrot, but a
-heuristic for what kind of material the node captures."* This catalog expands each driver into a
-fan of facets and example phrasings.
+Every intent kind already ships a canonical **source-question** (SPEC D56-L) — the abstract
+driver, not a literal question to parrot, but a heuristic for what kind of material the node
+captures. This catalog expands each driver into a fan of facets and example phrasings.
 
 ### Three guardrails
 

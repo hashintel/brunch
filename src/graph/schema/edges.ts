@@ -1,7 +1,7 @@
 /**
  * Graph edge type definitions.
  *
- * Canonical reference: docs/design/GRAPH_MODEL.md
+ * Canonical reference: memory/SPEC.md D51-L (closed edge categories); src/graph/policy/category-policy.ts (per-category metadata)
  * Supersedes: docs/architecture/pi-seam-extensions.md §"Edge types"
  *             (the prior named-relation catalogue)
  *

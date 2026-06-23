@@ -4,14 +4,14 @@ Audit of an external GPT-Pro thread on the Brunch graph ontology, **plus the
 design grill that resolved it**, prepared so the result can be spec'd, planned,
 and scoped directly. It records what was discussed and argued (§1–5, historical
 thread audit) and — authoritatively — **what was resolved** (§6–9), read against
-the *current* ontology as it stands in code and in
-[`GRAPH_MODEL.md`](GRAPH_MODEL.md).
+the *current* ontology as it stands in code (`src/graph/schema/`,
+`src/graph/policy/`) and `memory/SPEC.md`.
 
 - **Source thread:** `~/Downloads/brunch-ontology-review-RECONSTRUCTED.md`
   (ChatGPT export, 2026-06-23; 9 turns).
 - **Status:** working artifact, not yet canonical. The positions in §6–9 are
   settled unless re-opened, but they become SPEC truth only via `ln-spec`
-  propagation into `memory/SPEC.md` / `GRAPH_MODEL.md`.
+  propagation into `memory/SPEC.md`.
 - **Motivating goal.** The main elicitation flow — general capture of software
   specifications — is the present necessity this ontology serves. Additional
   specification *styles/methods* (BDD, EDD, formal-spec / formal-verification)
@@ -28,7 +28,7 @@ the *current* ontology as it stands in code and in
 
 So that the interrogation works against a fixed point, here is what exists
 *today* (`src/graph/schema/kinds.ts`, `src/graph/schema/nodes.ts`,
-`src/graph/policy/category-policy.ts`, `GRAPH_MODEL.md`). The thread used an
+`src/graph/policy/category-policy.ts`). The thread used an
 **aspirational** node/edge table that already bakes in several proposed renames
 (`claim`, `vv_method`, `entity`, `sketch`, `exclusion`, `conflict`, etc.). Those
 are *not* in code. The thread's tables are proposals, not the baseline.
@@ -401,9 +401,10 @@ Routing:
 ## 7. Heuristics surfaced (for the heuristics SoT follow-on)
 
 Heuristics are the **method-differentiation layer** (§6.1), not ancillary. They
-are currently scattered (`GRAPH_MODEL.md` promotion heuristic,
-`ELICITATION_QUESTIONS.md`, `ELICITATION_LENSES.md`, this doc); collating them
-into one inlinable source is a named follow-on (§9).
+are currently scattered (the kind-discrimination rules in
+`src/.pi/skills/methods/commit-graph/SKILL.md`, `ELICITATION_QUESTIONS.md`,
+`ELICITATION_LENSES.md`, this doc); collating them into one inlinable source is a
+named follow-on (§9).
 
 ```
 routing:
@@ -487,5 +488,5 @@ rather than into new kinds.
 1. **Heuristics SoT** — collate the scattered routing/elicitation heuristics
    (§7) into one inlinable source of truth for skills.
 2. **`ln-spec`** — propagate this resolved scope, the deferrals, and the
-   ceilings into `memory/SPEC.md` and `GRAPH_MODEL.md` (their canonical homes);
+   ceilings into `memory/SPEC.md` (the canonical home);
    only then does this artifact's content become SPEC truth.

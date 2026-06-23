@@ -1,7 +1,7 @@
 /**
  * Graph node type definitions.
  *
- * Canonical reference: docs/design/GRAPH_MODEL.md
+ * Canonical reference: memory/SPEC.md D54-L (node shape), D56-L (intent kinds), D62-L (projected codes), D64-L (readiness bands)
  *
  * Phase 2 lock-and-materialize: type definitions only.
  * Drizzle table definitions, structural validators, and the

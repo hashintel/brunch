@@ -757,7 +757,7 @@ function writeReadme(results: { slug: string; displayName: string; stats: Record
     '',
     '- `derived-risk-or-question` — was Bilal `risk` semanticRole; many are',
     '  literally "Open question (Q##): ..." phrased; per the interrogative',
-    '  normalization rule in `docs/design/GRAPH_MODEL.md`, curate into',
+    '  normalization rule in `src/.pi/skills/methods/commit-graph/SKILL.md`, curate into',
     '  `assumption`, `criterion`, or keep as `context`.',
     '- `derived-design-statement` — was Bilal `design` semanticRole; lacks',
     '  the structural material to prove a real decision/module; curate into',

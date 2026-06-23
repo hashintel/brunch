@@ -1,7 +1,7 @@
 /**
  * Directional projection — upstream / downstream / lateral.
  *
- * Canonical reference: docs/design/GRAPH_MODEL.md §"Context projections"
+ * Canonical reference: memory/SPEC.md D51-L; src/graph/policy/category-policy.ts (upstream/downstream/lateral derive from the impact columns)
  *
  * Reads the reconciliation-impact axis from per-category metadata. "Downstream"
  * is the endpoint that needs reconciliation when the other endpoint changes;

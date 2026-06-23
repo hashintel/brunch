@@ -2,7 +2,6 @@
  * Drizzle table definitions — canonical column-level source of truth.
  *
  * SPEC decisions: D16-L, D51-L, D54-L, D56-L, D73-L
- * Canonical reference: docs/design/GRAPH_MODEL.md
  *
  * Domain enum taxonomy lives in graph/schema/kinds.ts; this persistence layer
  * imports those literals for column constraints.

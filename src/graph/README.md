@@ -1,6 +1,5 @@
 # graph/ — Graph domain layer
 
-Canonical reference: `docs/design/GRAPH_MODEL.md`
 SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L
 
 ## Owns

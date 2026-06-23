@@ -1,7 +1,7 @@
 /**
  * Per-edge-category metadata — the single source of edge-category semantics.
  *
- * Canonical reference: docs/design/GRAPH_MODEL.md §"Per-category policy"
+ * Canonical reference: memory/SPEC.md D51-L (closed edge categories + per-category policy)
  *
  * This table is the one place that maps a structural edge `category` to its
  * derived semantics. Two projection families read from it:

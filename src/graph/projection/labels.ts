@@ -1,7 +1,7 @@
 /**
  * Semantic-label projection — direction-aware phrasing from one endpoint.
  *
- * Canonical reference: docs/design/GRAPH_MODEL.md §"Tuple-label lookup"
+ * Canonical reference: memory/SPEC.md D51-L; src/graph/policy/category-policy.ts (anchor-relative labels derive from category + endpoint role)
  *
  * Produces plain-language headings for an edge read from the anchor's
  * perspective ("depends on", "realizes", "motivated by"), so renderers never
