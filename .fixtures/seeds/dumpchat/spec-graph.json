@@ -34,9 +34,9 @@
     { "local_id": 28, "plane": "intent", "kind": "example", "title": "A code-block copy button nested deep inside an assistant response that must be discarded", "basis": "explicit", "source": "docs/SPEC.md" },
 
     { "local_id": 29, "plane": "oracle", "kind": "check", "title": "extraction.test.ts: jsdom unit tests over filterByConsistentDepth and index alternation", "basis": "explicit", "source": "entrypoints/lib/dumpchat/extraction.test.ts" },
-    { "local_id": 30, "plane": "oracle", "kind": "validation_method", "title": "In-page Verify Export diagnostics run against a live conversation page", "basis": "explicit", "source": "README.md" },
+    { "local_id": 30, "plane": "oracle", "kind": "vv_method", "title": "In-page Verify Export diagnostics run against a live conversation page", "basis": "explicit", "source": "README.md" },
     { "local_id": 31, "plane": "oracle", "kind": "evidence", "title": "Downloaded diagnostics JSON (schema chat-export-diagnostics 1.0.0) with counts and health level", "basis": "explicit", "source": "README.md" },
-    { "local_id": 32, "plane": "oracle", "kind": "obligation", "title": "Selectors must be re-verified per platform after each frontend change", "basis": "explicit", "source": "projected" },
+    { "local_id": 32, "plane": "oracle", "kind": "vv_obligation", "title": "Selectors must be re-verified per platform after each frontend change", "basis": "explicit", "source": "projected" },
 
     { "local_id": 33, "plane": "design", "kind": "module", "title": "dumpchat.content.ts — content script injecting UI and orchestrating export/verify", "basis": "explicit", "source": "entrypoints/dumpchat.content.ts" },
     { "local_id": 34, "plane": "design", "kind": "module", "title": "lib/dumpchat/extraction.ts — four-step extraction and diagnostic report builder", "basis": "explicit", "source": "entrypoints/lib/dumpchat/extraction.ts" },
@@ -89,6 +89,6 @@
     { "category": "rationale", "source_local_id": 18, "target_local_id": 4, "stance": "for", "basis": "explicit", "rationale": "The user-first assumption supports the alternation thesis." },
     { "category": "rationale", "source_local_id": 9, "target_local_id": 20, "stance": "for", "basis": "explicit", "rationale": "Frequently-changing DOMs motivate preferring stable data-testid selectors." },
     { "category": "rationale", "source_local_id": 28, "target_local_id": 11, "stance": "for", "basis": "explicit", "rationale": "The deep code-block example illustrates why turn buttons must be separated from code-block buttons." },
-    { "category": "rationale", "source_local_id": 32, "target_local_id": 3, "stance": "against", "basis": "explicit", "rationale": "The ongoing per-platform re-verification obligation tempers the claim that copy-button selectors are permanently reliable." }
+    { "category": "rationale", "source_local_id": 32, "target_local_id": 3, "stance": "against", "basis": "explicit", "rationale": "The ongoing per-platform re-verification vv_obligation tempers the claim that copy-button selectors are permanently reliable." }
   ]
 }

@@ -48,10 +48,10 @@
     { "local_id": 41, "plane": "oracle", "kind": "check", "title": "Round-trip test: serialize → parse → serialize yields identical output", "basis": "explicit", "source": "memory/PLAN.md" },
     { "local_id": 42, "plane": "oracle", "kind": "check", "title": "Drift tests: deleting or adding a JSON file makes status report drift", "basis": "explicit", "source": "memory/PLAN.md" },
     { "local_id": 43, "plane": "oracle", "kind": "check", "title": "Concurrent-invocation stress test: two CLI calls cannot corrupt state", "basis": "explicit", "source": "memory/PLAN.md" },
-    { "local_id": 44, "plane": "oracle", "kind": "validation_method", "title": "Round-trip integration: put via CLI → verify JSON file → rebuild SQLite → query → assert identical record", "basis": "explicit", "source": "memory/SPEC.md" },
-    { "local_id": 45, "plane": "oracle", "kind": "validation_method", "title": "doctor command validates schema, round-trip stability, foreign keys, and export determinism", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 44, "plane": "oracle", "kind": "vv_method", "title": "Round-trip integration: put via CLI → verify JSON file → rebuild SQLite → query → assert identical record", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 45, "plane": "oracle", "kind": "vv_method", "title": "doctor command validates schema, round-trip stability, foreign keys, and export determinism", "basis": "explicit", "source": "memory/SPEC.md" },
     { "local_id": 46, "plane": "oracle", "kind": "evidence", "title": "beads/Dolt assessment: six version-control capabilities a plain SQL database cannot provide", "basis": "explicit", "source": "docs/beads-dolt-assessment.md" },
-    { "local_id": 47, "plane": "oracle", "kind": "obligation", "title": "Every slice must pass inner- and middle-loop tests before it is considered done", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 47, "plane": "oracle", "kind": "vv_obligation", "title": "Every slice must pass inner- and middle-loop tests before it is considered done", "basis": "explicit", "source": "memory/SPEC.md" },
 
     { "local_id": 48, "plane": "design", "kind": "module", "title": "serializer.ts — deterministic JSON (stable keys, normalized whitespace, UTF-8)", "basis": "explicit", "source": "memory/SPEC.md" },
     { "local_id": 49, "plane": "design", "kind": "module", "title": "json-store.ts — atomic, deterministic per-record file reads/writes", "basis": "explicit", "source": "memory/SPEC.md" },

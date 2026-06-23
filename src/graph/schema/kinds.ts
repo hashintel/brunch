@@ -3,6 +3,8 @@ export const INTENT_KINDS = [
   'thesis',
   'term',
   'context',
+  'story',
+  'unknown',
   'requirement',
   'assumption',
   'constraint',
@@ -12,9 +14,9 @@ export const INTENT_KINDS = [
   'example',
 ] as const;
 
-export const ORACLE_KINDS = ['check', 'validation_method', 'evidence', 'obligation'] as const;
+export const ORACLE_KINDS = ['check', 'vv_method', 'evidence', 'vv_obligation'] as const;
 
-export const DESIGN_KINDS = ['module', 'interface'] as const;
+export const DESIGN_KINDS = ['module', 'interface', 'entity', 'sketch'] as const;
 
 export const PLAN_KINDS = ['milestone', 'frontier', 'slice'] as const;
 

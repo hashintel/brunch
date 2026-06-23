@@ -61,14 +61,14 @@
     { "local_id": 45, "plane": "oracle", "kind": "check", "title": "Static guard: manifest/catalog generation does not import or Vite-load story modules", "basis": "explicit", "source": "memory/SPEC.md" },
     { "local_id": 46, "plane": "oracle", "kind": "check", "title": "Static guard: preview mode does not grow the documented Vite contact surface", "basis": "explicit", "source": "memory/SPEC.md" },
 
-    { "local_id": 47, "plane": "oracle", "kind": "validation_method", "title": "Playwright headless Chromium browser probes for end-to-end DOM behavior", "basis": "explicit", "source": "memory/SPEC.md" },
-    { "local_id": 48, "plane": "oracle", "kind": "validation_method", "title": "Mount-id marker convention: compare data-mount-id across URL changes to assert remount vs rerender", "basis": "explicit", "source": "memory/SPEC.md" },
-    { "local_id": 49, "plane": "oracle", "kind": "validation_method", "title": "Six-tier probe harness in tools/verify.ts: static, browser, dynamic, SSR, build, preview", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 47, "plane": "oracle", "kind": "vv_method", "title": "Playwright headless Chromium browser probes for end-to-end DOM behavior", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 48, "plane": "oracle", "kind": "vv_method", "title": "Mount-id marker convention: compare data-mount-id across URL changes to assert remount vs rerender", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 49, "plane": "oracle", "kind": "vv_method", "title": "Six-tier probe harness in tools/verify.ts: static, browser, dynamic, SSR, build, preview", "basis": "explicit", "source": "memory/SPEC.md" },
 
     { "local_id": 50, "plane": "oracle", "kind": "evidence", "title": "vite-config-composition spike: 5 fixtures pass, no-merge audit passes, contact surface enumerated", "basis": "explicit", "source": "memory/SPEC.md" },
     { "local_id": 51, "plane": "oracle", "kind": "evidence", "title": "Slice 5c probes: live preview-mode transition reconciliation and dev catalog freshness pass", "basis": "explicit", "source": "memory/ROADMAP.md" },
 
-    { "local_id": 52, "plane": "oracle", "kind": "obligation", "title": "docs/vite-contact-surface.md is reviewed at PR time; new Vite-internal dependencies require explicit justification", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 52, "plane": "oracle", "kind": "vv_obligation", "title": "docs/vite-contact-surface.md is reviewed at PR time; new Vite-internal dependencies require explicit justification", "basis": "explicit", "source": "memory/SPEC.md" },
 
     { "local_id": 53, "plane": "design", "kind": "module", "title": "Workbench Core — normalized story graph, shell state, metadata contracts, capability orchestration", "basis": "explicit", "source": "memory/SPEC.md" },
     { "local_id": 54, "plane": "design", "kind": "module", "title": "Vite Host Binding — integrates the core into Vite dev/build/preview", "basis": "explicit", "source": "memory/SPEC.md" },

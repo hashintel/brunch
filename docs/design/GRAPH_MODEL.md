@@ -753,7 +753,7 @@ readiness bands in [§Node kind metadata](#node-kind-metadata-codes-and-readines
 | Category | Kind | Modality of claim | Source question |
 | --- | --- | --- | --- |
 | basic | `goal` | Value or outcome claim | "What outcome are we after?" |
-| basic | `thesis` | Position or bet claim | "What do we believe about who this is for and why?" |
+| basic | `thesis` | Testable/refutable/refinable bet claim | "What load-bearing bet about who this is for and why could be proven wrong?" |
 | basic | `term` | Naming commitment | "What do we mean when we say X?" |
 | basic | `context` | Descriptive claim | "What is true about the world this lives in?" |
 | structural | `requirement` | Obligation claim | "What must the system do?" |
@@ -991,7 +991,10 @@ The prior `framing_as` orthogonal modality (problem, persona, JTBD,
 non-goal, etc.) is retired. Its work is absorbed by:
 
 - **`thesis`** — carries "what/who/why" material (problem framing,
-  persona framing, value proposition framing)
+  persona framing, value proposition framing) as a **testable, refutable,
+  refinable bet** — a position the spec could be shown wrong about, not a
+  vague aspiration. (Kept as `thesis`, not renamed to `claim`; `claim` stays
+  the D61-L umbrella term for all truth-bearing nodes.)
 - **`term`** — carries naming commitments
 - **`constraint`** — carries exclusions and boundary claims
 - **`invariant`** — carries preservation claims (was formerly

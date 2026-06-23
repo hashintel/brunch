@@ -43,6 +43,7 @@ export type NodeBasis = (typeof NODE_BASES)[number];
  *  - basic:      `goal`, `thesis`, `term`, `context`
  *  - structural: `requirement`, `assumption`, `constraint`, `invariant`
  *  - reasoning:  `decision`, `criterion`, `example`
+ *  - elicitation: `story`, `unknown`
  */
 type IntentKind = (typeof INTENT_KINDS)[number];
 
@@ -67,7 +68,7 @@ export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind;
  *
  * Never persisted — computed via {@link intentKindCategory}.
  */
-type IntentKindCategory = 'basic' | 'structural' | 'reasoning';
+type IntentKindCategory = 'basic' | 'structural' | 'reasoning' | 'elicitation';
 
 export type ReadinessBand = 'grounding' | 'elicitation' | 'commitment';
 
@@ -85,6 +86,8 @@ export const NODE_KIND_METADATA = {
   thesis: { label: 'TH', readinessBands: ['grounding'] },
   term: { label: 'T', readinessBands: ['grounding'] },
   context: { label: 'CTX', readinessBands: ['grounding'] },
+  story: { label: 'ST', readinessBands: ['elicitation'] },
+  unknown: { label: 'UNK', readinessBands: ['elicitation'] },
   requirement: { label: 'REQ', readinessBands: ['commitment'] },
   assumption: { label: 'A', readinessBands: ['elicitation'] },
   constraint: { label: 'CON', readinessBands: ['grounding', 'elicitation'] },
@@ -93,11 +96,13 @@ export const NODE_KIND_METADATA = {
   criterion: { label: 'AC', readinessBands: ['commitment'] },
   example: { label: 'EX', readinessBands: ['elicitation'] },
   check: { label: 'CH', readinessBands: ['commitment'] },
-  validation_method: { label: 'VV', readinessBands: ['elicitation'] },
+  vv_method: { label: 'VV', readinessBands: ['elicitation'] },
   evidence: { label: 'E', readinessBands: ['commitment'] },
-  obligation: { label: 'O', readinessBands: ['elicitation'] },
+  vv_obligation: { label: 'O', readinessBands: ['elicitation'] },
   module: { label: 'MOD', readinessBands: ['elicitation'] },
   interface: { label: 'API', readinessBands: ['elicitation'] },
+  entity: { label: 'ENT', readinessBands: ['elicitation'] },
+  sketch: { label: 'SKT', readinessBands: ['elicitation'] },
   milestone: { label: 'M', readinessBands: ['commitment'] },
   frontier: { label: 'F', readinessBands: ['commitment'] },
   slice: { label: 'S', readinessBands: ['commitment'] },
@@ -147,6 +152,9 @@ export function intentKindCategory(kind: IntentKind): IntentKindCategory {
     case 'term':
     case 'context':
       return 'basic';
+    case 'story':
+    case 'unknown':
+      return 'elicitation';
     case 'requirement':
     case 'assumption':
     case 'constraint':

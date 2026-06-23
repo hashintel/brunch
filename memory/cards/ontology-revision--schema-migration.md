@@ -102,7 +102,7 @@ src/.pi/**, src/projections/**, src/renderers/**  ~  (edge-literal callers)
 
 ---
 
-## Card 2 — Node vocabulary (renames + adds)  [light · next]
+## Card 2 — Node vocabulary (renames + adds)  [light · done]
 
 ### Objective
 
@@ -148,7 +148,7 @@ src/web/components/node-card.tsx       ~  (plane/label exhaustiveness)
 
 ---
 
-## Card 3 — `detail.form` union on claim kinds  [light · later]
+## Card 3 — `detail.form` union on claim kinds  [light · next]
 
 ### Objective
 

@@ -84,8 +84,8 @@ test('overview: kind-band fixture golden stays uncapped and sectioned', async ()
     readGraphSliceFixture({ set: 'kind-band-spread', fixture: 'coverage-matrix' }),
   );
   await expect(rendered).toMatchFileSnapshot('../__previews__/graph-overview-kind-band-spread.md');
-  expect(rendered).toContain('Graph overview (LSN 2): 20 nodes, 7 edges');
-  expect(rendered).toContain('| S1 | 20 | Lock one neighborhood preview |');
+  expect(rendered).toContain('Graph overview (LSN 2): 24 nodes, 7 edges');
+  expect(rendered).toContain('| S1 | 24 | Lock one neighborhood preview |');
 });
 
 function node(input: {
