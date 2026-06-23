@@ -214,48 +214,60 @@ export const MutateGraphParams = Type.Object(
   { additionalProperties: false },
 );
 
+const READ_GRAPH_MODES = ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related'] as const;
+
 export const ReadGraphParams = {
   type: 'object',
   additionalProperties: false,
   required: ['mode'],
   properties: {
-    mode: { enum: ['overview', 'neighborhood', 'list_by_kind', 'list_by_band', 'related'] },
+    mode: { enum: [...READ_GRAPH_MODES] },
     show: {
       enum: ['active', 'all'] satisfies readonly GraphVisibility[],
       description: 'Graph visibility to read (default: active)',
     },
     nodeCode: {
       type: 'string',
-      description: 'Projected code of the anchor node in the selected spec, e.g. G1 or CON2',
+      minLength: 1,
+      description: 'neighborhood: projected code of the anchor node in the selected spec, e.g. G1 or CON2',
     },
     hops: { type: 'number', description: 'Neighborhood traversal depth (default: 1)' },
     kinds: {
       type: 'array',
       items: { type: 'string' },
-      description: 'One or more node kinds for list_by_kind mode; unknown kinds produce an empty slice',
+      description:
+        'list_by_kind: optional node-kind filter. Omit or pass [] for an unfiltered slice; unknown kinds produce an empty slice.',
     },
     readinessBands: {
       type: 'array',
       items: { type: 'string' },
       description:
-        'One or more readiness bands for list_by_band mode (grounding, elicitation, commitment); unknown bands produce an empty slice',
+        'list_by_band: optional readiness-band filter. Omit or pass [] for an unfiltered slice; unknown bands produce an empty slice.',
     },
     anchorCodes: {
       type: 'array',
-      items: { type: 'string' },
-      description: 'Projected codes of anchor nodes in the selected spec for related mode',
+      minItems: 1,
+      items: { type: 'string', minLength: 1 },
+      description: 'related: one or more projected codes of anchor nodes in the selected spec',
     },
     edgeCategory: {
       enum: [...EDGE_CATEGORIES],
-      description: 'Edge category to follow in related mode',
+      description: 'related: edge category to follow',
     },
     direction: {
       enum: ['outgoing', 'incoming', 'both'] satisfies readonly EdgeDirection[],
-      description: 'Traversal direction for related mode (default: both)',
+      description: 'related: traversal direction (default: both)',
     },
   },
+  oneOf: [
+    { required: ['mode'], properties: { mode: { const: 'overview' } } },
+    { required: ['mode', 'nodeCode'], properties: { mode: { const: 'neighborhood' } } },
+    { required: ['mode'], properties: { mode: { const: 'list_by_kind' } } },
+    { required: ['mode'], properties: { mode: { const: 'list_by_band' } } },
+    { required: ['mode', 'anchorCodes', 'edgeCategory'], properties: { mode: { const: 'related' } } },
+  ],
   description:
-    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Neighborhood mode requires nodeCode. List modes accept kind or readiness-band filters and return an empty slice for empty or unknown filters.',
+    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Mode-specific companions are enforced at the parameter schema boundary and mirrored by loud adapter diagnostics: neighborhood requires nodeCode; related requires anchorCodes plus edgeCategory. List modes intentionally treat omitted/empty filters as unfiltered slices; unknown filters produce an empty slice.',
 } as const;
 
 export type ToolMutateGraphParamsSchema = Static<typeof MutateGraphParams>;

@@ -130,10 +130,10 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
         text = formatGraphOverview(slice, 'Graph slice by readiness band', { requestedReadinessBands });
         details = slice;
       } else if (params.mode === 'related') {
-        if ((params.anchorCodes?.length ?? 0) === 0) {
+        if ((params.anchorCodes?.length ?? 0) === 0 || params.anchorCodes?.some(isBlankString) === true) {
           details = {
             status: 'structural_illegal',
-            diagnostics: [{ field: 'anchorCodes', message: 'related mode requires anchorCodes' }],
+            diagnostics: [{ field: 'anchorCodes', message: 'related mode requires non-empty anchorCodes' }],
           };
           text = formatStructuralIllegal(details);
         } else if (params.edgeCategory == null) {
@@ -154,10 +154,12 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
           });
           details = readsForAnchors;
         }
-      } else if (params.nodeCode == null) {
+      } else if (params.nodeCode == null || isBlankString(params.nodeCode)) {
         details = {
           status: 'structural_illegal',
-          diagnostics: [{ field: 'nodeCode', message: 'nodeCode is required for neighborhood mode' }],
+          diagnostics: [
+            { field: 'nodeCode', message: 'non-empty nodeCode is required for neighborhood mode' },
+          ],
         };
         text = formatStructuralIllegal(details);
       } else {
@@ -174,6 +176,10 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       return { content: [{ type: 'text' as const, text }], details };
     },
   });
+}
+
+function isBlankString(value: string): boolean {
+  return value.trim().length === 0;
 }
 
 function filterNodeNeighborhoodEdges(

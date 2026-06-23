@@ -1,3 +1,4 @@
+import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../../db/connection.js';
@@ -15,6 +16,7 @@ import {
 import { formatGraphOverview } from '../../renderers/graph/graph-slice.js';
 import { translateMutateGraph, formatMutateGraphResult } from '../extensions/graph/command-adapter.js';
 import { registerBrunchGraph, type GraphReaders } from '../extensions/graph/index.js';
+import { ReadGraphParams } from '../extensions/graph/tool-schemas.js';
 
 let nextSpecSlug = 0;
 
@@ -41,6 +43,25 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
 }
 
 describe('graph tool adapter', () => {
+  it('teaches read_graph mode companions at the schema boundary', () => {
+    expect(Value.Check(ReadGraphParams, { mode: 'overview' })).toBe(true);
+    expect(Value.Check(ReadGraphParams, { mode: 'neighborhood', nodeCode: 'G1' })).toBe(true);
+    expect(Value.Check(ReadGraphParams, { mode: 'neighborhood' })).toBe(false);
+    expect(Value.Check(ReadGraphParams, { mode: 'neighborhood', nodeCode: '' })).toBe(false);
+    expect(
+      Value.Check(ReadGraphParams, { mode: 'related', anchorCodes: ['G1'], edgeCategory: 'dependency' }),
+    ).toBe(true);
+    expect(Value.Check(ReadGraphParams, { mode: 'related', edgeCategory: 'dependency' })).toBe(false);
+    expect(
+      Value.Check(ReadGraphParams, { mode: 'related', anchorCodes: [], edgeCategory: 'dependency' }),
+    ).toBe(false);
+    expect(Value.Check(ReadGraphParams, { mode: 'related', anchorCodes: ['G1'] })).toBe(false);
+
+    // List modes deliberately keep their filter-empty behavior separate from malformed companion calls.
+    expect(Value.Check(ReadGraphParams, { mode: 'list_by_kind' })).toBe(true);
+    expect(Value.Check(ReadGraphParams, { mode: 'list_by_band', readinessBands: [] })).toBe(true);
+  });
+
   it('translates existing projected codes before handing edges to CommandExecutor', () => {
     const input = translateMutateGraph(
       {
@@ -145,5 +166,41 @@ describe('graph tools end-to-end', () => {
 
     await read.execute('tool-4', { mode: 'neighborhood', nodeCode: 'G1' } as never);
     expect(carriers).toHaveLength(2);
+  });
+
+  it('fails loud when mode-specific read_graph companions are malformed', async () => {
+    const db = createTestDb();
+    const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
+    const reads = createGraphReads(db, specId);
+    const tools: Array<{ name: string; execute: (toolCallId: string, params: never) => Promise<unknown> }> =
+      [];
+
+    registerBrunchGraph({ registerTool: (tool: unknown) => tools.push(tool as never) } as never, {
+      specId,
+      commandExecutor: executor,
+      reads,
+    });
+
+    const read = tools.find((tool) => tool.name === 'read_graph')!;
+    const missingNode = (await read.execute('tool-1', { mode: 'neighborhood' } as never)) as {
+      content: readonly { text: string }[];
+      details: { status: string; diagnostics: readonly { field: string; message: string }[] };
+    };
+    expect(missingNode.details).toEqual({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'nodeCode', message: 'non-empty nodeCode is required for neighborhood mode' }],
+    });
+    expect(missingNode.content[0]!.text).toContain('STRUCTURAL_ILLEGAL');
+
+    const missingAnchors = (await read.execute('tool-2', {
+      mode: 'related',
+      anchorCodes: [],
+      edgeCategory: 'dependency',
+    } as never)) as typeof missingNode;
+    expect(missingAnchors.details).toEqual({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'anchorCodes', message: 'related mode requires non-empty anchorCodes' }],
+    });
   });
 });
