@@ -16,7 +16,6 @@ import {
 } from '../graph/index.js';
 import type { GraphSlice } from '../graph/queries.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
-import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
@@ -44,7 +43,6 @@ interface ProposeGraphCommitProofOptions {
 export interface ProposeGraphCommitProofArtifacts {
   runDir: string;
   sessionJsonl: string;
-  transcriptMarkdown: string;
   reportJson: string;
 }
 
@@ -547,7 +545,6 @@ export async function writeProposeGraphCommitProofArtifacts(options: {
   const artifacts: ProposeGraphCommitProofArtifacts = {
     runDir: runDirRef,
     sessionJsonl: `${runDirRef}/session.jsonl`,
-    transcriptMarkdown: `${runDirRef}/transcript.md`,
     reportJson: `${runDirRef}/report.json`,
   };
   const diskPath = (ref: string) => resolve(options.fixtureRoot, ref);
@@ -559,17 +556,6 @@ export async function writeProposeGraphCommitProofArtifacts(options: {
 
   await mkdir(diskPath(artifacts.runDir), { recursive: true });
   await writeFile(diskPath(artifacts.sessionJsonl), options.sessionText, 'utf8');
-  const transcriptMarkdown = [
-    renderSessionTranscript(options.sessionText, { title: 'session.jsonl' }),
-    '',
-    '## Raw session JSONL',
-    '',
-    '```jsonl',
-    options.sessionText.trimEnd(),
-    '```',
-    '',
-  ].join('\n');
-  await writeFile(diskPath(artifacts.transcriptMarkdown), transcriptMarkdown, 'utf8');
   await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(persistedReport, null, 2)}\n`, 'utf8');
 
   return artifacts;

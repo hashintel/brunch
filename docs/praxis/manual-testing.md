@@ -48,11 +48,11 @@ Validate a seed against the current command layer with `npx tsx src/graph/valida
 
 ## Capturing evidence from a manual session
 
-Durable evidence follows the probe-first, transcript-backed model (`docs/architecture/probes-and-transcripts.md`):
+Durable evidence follows the harness/probe-first, JSONL-backed model (`docs/architecture/probes-and-transcripts.md`):
 
 - Live dev-loop output lands in gitignored `.fixtures/scratch/<loop>/<run-id>/`.
-- Promote a reviewed run deliberately: move it under `.fixtures/runs/<probe-id>/<run-id>/`, add the probe report/transcript artifacts, then track it.
-- In `BRUNCH_DEV` TUI launches, the workspace's `.brunch/debug/` mirrors the latest system prompt and Brunch tool contents — an ephemeral inspection cache, not evidence.
+- Promote a reviewed run deliberately: move it under `.fixtures/runs/<probe-id>/<run-id>/`, add the probe report and source `session.jsonl` artifacts, then track it.
+- In `BRUNCH_DEV` / faux-harness launches, the workspace's `.brunch/debug/` mirrors the latest system prompt, Brunch tool contents, and optional `transcript.md` debug rendering — an ephemeral inspection cache, not committed evidence.
 
 Do not hand-author golden JSON or copy rows out of a workbench DB; workbench `.brunch/` state is local runtime, never canonical fixture truth.
 

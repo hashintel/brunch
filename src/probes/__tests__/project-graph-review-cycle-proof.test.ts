@@ -257,9 +257,6 @@ describe('project-graph review-cycle proof report', () => {
     await expect(readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).resolves.toContain(
       'present_review_set',
     );
-    await expect(readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).resolves.toContain(
-      '## Raw session JSONL',
-    );
     await expect(readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).resolves.toContain(
       'project-graph-review-cycle',
     );
@@ -307,7 +304,6 @@ describe('project-graph review-cycle proof report', () => {
     const expectedRefs = {
       runDir: 'runs/project-graph-review-cycle/portable-run',
       sessionJsonl: 'runs/project-graph-review-cycle/portable-run/session.jsonl',
-      transcriptMarkdown: 'runs/project-graph-review-cycle/portable-run/transcript.md',
       reportJson: 'runs/project-graph-review-cycle/portable-run/report.json',
       graphOverviewJson: 'runs/project-graph-review-cycle/portable-run/graph-overview.json',
     };

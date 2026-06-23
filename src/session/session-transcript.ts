@@ -1,5 +1,5 @@
-import { readFile } from 'node:fs/promises';
-import { basename, resolve } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { FileEntry } from '@earendil-works/pi-coding-agent';
@@ -12,6 +12,17 @@ type TranscriptEntry = FileEntry;
 export async function renderSessionTranscriptFile(sessionFile: string): Promise<string> {
   const text = await readFile(sessionFile, 'utf8');
   return renderSessionTranscript(text, { title: basename(sessionFile) });
+}
+
+export async function writeDebugSessionTranscript(options: {
+  readonly cwd: string;
+  readonly sessionFile: string;
+}): Promise<string> {
+  const transcript = await renderSessionTranscriptFile(options.sessionFile);
+  const debugDir = join(options.cwd, '.brunch', 'debug');
+  await mkdir(debugDir, { recursive: true });
+  await writeFile(join(debugDir, 'transcript.md'), transcript, 'utf8');
+  return transcript;
 }
 
 export function renderSessionTranscript(jsonl: string, options: { title?: string } = {}): string {

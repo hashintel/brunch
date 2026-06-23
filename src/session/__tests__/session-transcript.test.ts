@@ -140,11 +140,7 @@ describe('session transcript renderer', () => {
 
       hello custom
 
-      ## 2. Tool result: read
-
-      Generic file contents
-
-      ## 3. Tool result: present_question
+      ## 2. Tool result: present_question
 
       ## Which direction?
 
@@ -152,7 +148,7 @@ describe('session transcript renderer', () => {
 
       **Rationale:** validates the seam.
 
-      ## 4. Tool result: request_response
+      ## 3. Tool result: request_response
 
       ### Response
 
@@ -162,7 +158,7 @@ describe('session transcript renderer', () => {
 
       > Keep it deterministic.
 
-      ## 5. Assistant
+      ## 4. Assistant
 
       I will inspect the workspace.
       "

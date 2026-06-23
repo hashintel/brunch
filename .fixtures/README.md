@@ -2,11 +2,13 @@
 
 Current seed data, launchable workbenches, curated probe artifacts, and ephemeral
 dev-loop scratch output for the Brunch POC. The active convention for committed
-evidence is **probe first, transcript-backed**: each committed run must have a
-probe id, a run id, executable/reportable oracle output, and the transcript
-artifact needed for human review. Brief-based golden fixtures may return later,
-but they should be generated through this probe/transcript path rather than a
-separate brief-library subsystem.
+evidence is **harness/probe first, JSONL-backed**: each committed run must have a
+probe id, a run id, executable/reportable oracle output, and the source
+`session.jsonl` needed for review. Human-readable transcript rendering now
+belongs in workspace-local `.brunch/debug/transcript.md` during faux-harness runs,
+not as a default committed probe artifact. Brief-based golden fixtures may return
+later, but they should be generated through the current harness/probe path rather
+than a separate brief-library subsystem.
 
 See [`docs/architecture/probes-and-transcripts.md`](../docs/architecture/probes-and-transcripts.md)
 for the current architecture.
@@ -26,7 +28,6 @@ for the current architecture.
 │   └── <probe-id>/
 │       └── <run-id>/
 │           ├── session.jsonl        # Source transcript / canonical run evidence
-│           ├── transcript.md        # Human-readable semantic rendering
 │           ├── report.json          # Probe report and artifact paths
 │           └── graph-overview.json  # Optional graph readback when graph truth is the proof target
 └── scratch/                    # Gitignored ephemeral dev-loop output
@@ -36,9 +37,9 @@ for the current architecture.
 
 Promote scratch to evidence only deliberately: move a reviewed
 `scratch/<loop>/<run-id>/` under `runs/<probe-id>/<run-id>/`, add the missing
-probe report/transcript artifacts, then track it. Dev launchers must resolve
-scratch from the repo-root `.fixtures/scratch/`, independent of the workspace cwd
-they target.
+probe report and source transcript artifacts, then track it. Dev launchers must
+resolve scratch from the repo-root `.fixtures/scratch/`, independent of the
+workspace cwd they target.
 
 Seed workbench state explicitly; `npm run dev` never seeds by implication. See
 [`seeds/README.md`](./seeds/README.md) for the roster-level seed disposition

@@ -51,7 +51,6 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
     expect(artifacts).toEqual({
       runDir: `runs/public-rpc-parity/${report.runId}`,
       sessionJsonl: `runs/public-rpc-parity/${report.runId}/session.jsonl`,
-      transcriptMarkdown: `runs/public-rpc-parity/${report.runId}/transcript.md`,
       reportJson: `runs/public-rpc-parity/${report.runId}/report.json`,
     });
     if (artifacts === undefined) throw new Error('Expected artifact paths');
@@ -61,7 +60,6 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
     expect(basename(dirname(artifacts.runDir))).toBe(report.probeId);
 
     const sessionJsonl = await readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8');
-    const transcript = await readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8');
     const persistedReport = JSON.parse(
       await readFile(join(fixtureRoot, artifacts.reportJson), 'utf8'),
     ) as typeof report;
@@ -70,9 +68,6 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
     expect(persistedReport.cwd).toBe('<ephemeral-workspace>');
 
     expect(sessionJsonl).toContain('"toolName":"present_question"');
-    expect(transcript).toContain('# Transcript — session.jsonl');
-    expect(transcript).toContain('Tool result: present_question');
-    expect(transcript).toContain('Tool result: request_response');
     expect(persistedReport).toMatchObject({
       schemaVersion: 1,
       probeId: 'public-rpc-parity',
@@ -86,7 +81,6 @@ describe('public Brunch RPC structured-exchange parity proof', () => {
     expect(persistedReport.exchangeIds).toEqual(report.exchangeIds);
     expect(persistedReport.exchangeIds).toHaveLength(3);
     expect(new Set(persistedReport.exchangeIds).size).toBe(3);
-    expect(transcript.match(/Is this a new product or feature from scratch\?/g) ?? []).toHaveLength(1);
     for (const exchangeId of persistedReport.exchangeIds) {
       expect(sessionJsonl).toContain(exchangeId);
     }

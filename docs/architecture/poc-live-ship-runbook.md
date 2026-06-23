@@ -60,7 +60,6 @@ A committed run directory uses this shape:
 ```text
 .fixtures/runs/ship-gate-runbook/<run-id>/
 ├── report.json
-├── transcript.md
 ├── session.jsonl
 ├── graph-summary-before.json
 ├── graph-summary-after.json
@@ -115,7 +114,6 @@ A committed run directory uses this shape:
   "artifacts": {
     "runDir": "runs/ship-gate-runbook/2026-06-22T00-00-00Z",
     "sessionJsonl": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/session.jsonl",
-    "transcriptMarkdown": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/transcript.md",
     "reportJson": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/report.json",
     "graphBefore": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/graph-summary-before.json",
     "graphAfter": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/graph-summary-after.json",
@@ -143,7 +141,7 @@ npx tsx src/dev/workspace-rpc.ts --workspace "$WORKSPACE" graph.overview '{"spec
 npx tsx src/dev/workspace-rpc.ts --workspace "$WORKSPACE" session.runtimeState '{"specId":1,"sessionId":"<session id>"}' > "$RUN_DIR/runtime-state-after.json"
 ```
 
-Render `transcript.md` from the copied JSONL using the same transcript renderer used by existing probe runs, or write a focused markdown index that quotes only product-visible transcript entries and links back to `session.jsonl`.
+If a human-readable transcript is useful during the run, use the workspace-local `.brunch/debug/transcript.md` emitted by the faux-harness/debug renderer. Do not add `transcript.md` as a default committed probe artifact; keep `session.jsonl` as the source evidence.
 
 ## Pass/fail rule
 
