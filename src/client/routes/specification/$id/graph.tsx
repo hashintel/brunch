@@ -1,10 +1,11 @@
 import { createFileRoute, Link, useLocation, useSearch } from '@tanstack/react-router';
 import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { ChatShellLayout } from '@/client/components/chat-shell-layout';
 import { KnowledgeGraphIdentity } from '@/client/components/knowledge-graph-identity';
 import type { WorkflowState } from '@/shared/api-types.js';
+import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 import type { WorkflowPhase } from '@/shared/phase-close.js';
 import {
   areAllWorkflowPhasesClosed,
@@ -20,7 +21,7 @@ import {
   useSpecificationBundleData,
   useSpecificationEntitiesProjectWide,
 } from './-specification-data.js';
-import { StructuredListView } from './-structured-list-view.js';
+import { KindFilterBar, StructuredListView, type PopulatedKind } from './-structured-list-view.js';
 
 const BACK_LINK_CLASS = 'inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink';
 const RETURN_LINK_CLASS = 'inline-flex items-center gap-1 text-xs font-medium text-link hover:underline';
@@ -69,6 +70,31 @@ function GraphRouteComponent() {
   const target = returnTarget(bundle.workflow, String(bundle.specification.id), state?.fromPhase);
   const [rowsDefaultOpen, setRowsDefaultOpen] = useState(true);
   const [rowsRemountKey, setRowsRemountKey] = useState(0);
+  const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
+
+  const populatedKinds = useMemo<PopulatedKind[]>(
+    () =>
+      knowledgeKindRegistry
+        .map((entry) => ({ entry, count: entityState[entry.collectionKey].length }))
+        .filter(({ count }) => count > 0),
+    [entityState],
+  );
+
+  const toggleKind = (kind: KnowledgeKind) =>
+    setHiddenKinds((current) => {
+      const next = new Set(current);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+
+  const showKind = (kind: KnowledgeKind) =>
+    setHiddenKinds((current) => {
+      if (!current.has(kind)) return current;
+      const next = new Set(current);
+      next.delete(kind);
+      return next;
+    });
 
   const toggleAllRows = () => {
     setRowsDefaultOpen((prev) => !prev);
@@ -124,9 +150,20 @@ function GraphRouteComponent() {
     </div>
   );
 
+  const graphFilterBar =
+    view === 'graph' && populatedKinds.length > 0 ? (
+      <KindFilterBar
+        populatedKinds={populatedKinds}
+        hiddenKinds={hiddenKinds}
+        onToggle={toggleKind}
+        onNavigate={showKind}
+        onShowAll={() => setHiddenKinds(new Set())}
+      />
+    ) : null;
+
   const activeView =
     view === 'graph' ? (
-      <GraphCanvas entityState={entityState} emptyStateAction={emptyStateAction} />
+      <GraphCanvas entityState={entityState} emptyStateAction={emptyStateAction} hiddenKinds={hiddenKinds} />
     ) : (
       <StructuredListView
         entityState={entityState}
@@ -142,6 +179,7 @@ function GraphRouteComponent() {
       center={
         <div className="flex h-full flex-col bg-background">
           {header}
+          {graphFilterBar}
           <div className="min-h-0 flex-1">{activeView}</div>
         </div>
       }

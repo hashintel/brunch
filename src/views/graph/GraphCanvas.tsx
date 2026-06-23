@@ -4,14 +4,13 @@ import { ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import type { EntitiesData } from '@/shared/api-types.js';
-import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
 import { buildGraphModel, type GraphModel } from '@/views/graph/buildGraphModel.js';
 import { isEdgeIncident, neighborIds } from '@/views/graph/focus.js';
 import { buildGraphDetail } from '@/views/graph/graphDetail.js';
 import { GraphDetailPanel } from '@/views/graph/GraphDetailPanel.js';
 import { GraphEdge } from '@/views/graph/GraphEdge.js';
 import { GraphEmptyState } from '@/views/graph/GraphEmptyState.js';
-import { GraphKindFilter, type PopulatedKind } from '@/views/graph/GraphKindFilter.js';
 import { GraphNode } from '@/views/graph/GraphNode';
 import type { GraphEdgeRelationship, GraphNodeData } from '@/views/graph/types.js';
 import { useForceLayout } from '@/views/graph/useForceLayout.js';
@@ -53,20 +52,12 @@ function GraphFlowEdge({
 
 const nodeTypes = { graph: GraphNode };
 const edgeTypes = { graph: GraphFlowEdge };
+const EMPTY_HIDDEN_KINDS: ReadonlySet<KnowledgeKind> = new Set();
 
 /** Inner canvas: lays out once, then renders the surface with focus-driven dimming and incident labels. */
-function Canvas({ model }: { model: GraphModel }) {
+function Canvas({ model, hiddenKinds }: { model: GraphModel; hiddenKinds: ReadonlySet<KnowledgeKind> }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
-
-  const populatedKinds = useMemo<PopulatedKind[]>(() => {
-    const counts = new Map<KnowledgeKind, number>();
-    for (const node of model.nodes) counts.set(node.data.kind, (counts.get(node.data.kind) ?? 0) + 1);
-    return knowledgeKindRegistry
-      .map((entry) => ({ entry, count: counts.get(entry.kind) ?? 0 }))
-      .filter(({ count }) => count > 0);
-  }, [model.nodes]);
 
   const visibleModel = useMemo<GraphModel>(() => {
     if (hiddenKinds.size === 0) return model;
@@ -83,25 +74,6 @@ function Canvas({ model }: { model: GraphModel }) {
     onNodeDrag,
     onNodeDragStop,
   } = useForceLayout(visibleModel);
-
-  const toggleKind = (kind: KnowledgeKind) =>
-    setHiddenKinds((current) => {
-      const next = new Set(current);
-      if (next.has(kind)) next.delete(kind);
-      else next.add(kind);
-      return next;
-    });
-
-  const focusKind = (kind: KnowledgeKind) => {
-    setHiddenKinds((current) => {
-      if (!current.has(kind)) return current;
-      const next = new Set(current);
-      next.delete(kind);
-      return next;
-    });
-    const first = model.nodes.find((node) => node.data.kind === kind);
-    if (first !== undefined) setSelectedId(first.id);
-  };
 
   const nodeIds = useMemo(() => new Set(visibleModel.nodes.map((node) => node.id)), [visibleModel.nodes]);
   const activeSelectedId = selectedId !== null && nodeIds.has(selectedId) ? selectedId : null;
@@ -177,14 +149,6 @@ function Canvas({ model }: { model: GraphModel }) {
         fitView
       >
         <ZoomControl />
-        <div className="absolute bottom-2 left-2 z-10">
-          <GraphKindFilter
-            populatedKinds={populatedKinds}
-            hiddenKinds={hiddenKinds}
-            onToggle={toggleKind}
-            onNavigate={focusKind}
-          />
-        </div>
       </ReactFlow>
       {detail !== null ? (
         <div className="absolute inset-y-0 right-0 z-20">
@@ -203,9 +167,11 @@ function Canvas({ model }: { model: GraphModel }) {
 export function GraphCanvas({
   entityState,
   emptyStateAction,
+  hiddenKinds = EMPTY_HIDDEN_KINDS,
 }: {
   entityState: EntitiesData;
   emptyStateAction?: ReactNode;
+  hiddenKinds?: ReadonlySet<KnowledgeKind>;
 }) {
   const model = useMemo(() => buildGraphModel(entityState), [entityState]);
 
@@ -213,5 +179,5 @@ export function GraphCanvas({
     return <GraphEmptyState action={emptyStateAction} />;
   }
 
-  return <Canvas model={model} />;
+  return <Canvas model={model} hiddenKinds={hiddenKinds} />;
 }

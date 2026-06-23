@@ -21,11 +21,12 @@
  * the observable overlay DOM, so they survive internal refactors of the canvas.
  */
 
-import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { cleanup, render, waitFor } from '@testing-library/react';
 import { createElement as h } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { crossPhaseDecisionLink } from '@/client/__fixtures__/graph-view.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
 import { GraphCanvas } from '@/views/graph/GraphCanvas';
 
 afterEach(() => {
@@ -85,37 +86,18 @@ describe('canvas overlay wiring: ZoomControl pill mounted inside <ReactFlow>', (
   });
 });
 
-describe('canvas overlay wiring: bottom-left kind filter', () => {
-  it('renders the kind filter inside the React Flow surface', async () => {
-    const container = await renderSettledCanvas();
-    const surface = container.querySelector('.react-flow');
-    const filter = container.querySelector('[data-graph-kind-filter]');
-    expect(filter).not.toBeNull();
-    expect(surface?.contains(filter as Node)).toBe(true);
-  });
-
-  it('keeps the kind filter anchored bottom-left', async () => {
-    const container = await renderSettledCanvas();
-    const filter = container.querySelector('[data-graph-kind-filter]');
-    expect(filter).not.toBeNull();
-    const wrapper = filter?.parentElement;
-    expect(wrapper).not.toBeNull();
-    const cls = wrapper?.className ?? '';
-    expect(cls).toMatch(/\bbottom-/);
-    expect(cls).toMatch(/\bleft-/);
-  });
-
-  it('removes a kind from the graph when its eye control is clicked', async () => {
-    const container = await renderSettledCanvas();
-    const goalToggle = container.querySelector('[data-graph-kind-toggle="goal"]');
-    expect(goalToggle).not.toBeNull();
-
-    const before = container.querySelectorAll('.react-flow__node').length;
+describe('canvas overlay wiring: hidden kinds prop filters the surface', () => {
+  it('drops nodes of a hidden kind from the surface', async () => {
+    const { container: full } = render(h(GraphCanvas, { entityState: ENTITIES }));
+    await waitFor(() => expect(full.querySelector('.react-flow')).toBeTruthy());
+    const before = full.querySelectorAll('.react-flow__node').length;
     expect(before).toBeGreaterThan(0);
+    cleanup();
 
-    fireEvent.click(goalToggle!);
-    await waitFor(() => {
-      expect(container.querySelectorAll('.react-flow__node').length).toBeLessThan(before);
-    });
+    const { container: filtered } = render(
+      h(GraphCanvas, { entityState: ENTITIES, hiddenKinds: new Set<KnowledgeKind>(['goal']) }),
+    );
+    await waitFor(() => expect(filtered.querySelector('.react-flow')).toBeTruthy());
+    expect(filtered.querySelectorAll('.react-flow__node').length).toBeLessThan(before);
   });
 });

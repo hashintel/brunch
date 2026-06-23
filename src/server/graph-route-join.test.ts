@@ -278,6 +278,17 @@ describe('graph route — renders the active view chosen by the ?view param', ()
     expect(container.querySelector('[data-graph-row]')).toBeNull();
   });
 
+  it('renders the reusable kind filter in the graph view top bar', async () => {
+    const { container } = await renderRouteAt(graphView('?view=graph'));
+
+    await waitFor(() => {
+      expect(container.querySelector('.react-flow')).toBeTruthy();
+    });
+    const bar = container.querySelector('[data-graph-filter-bar]');
+    expect(bar).toBeTruthy();
+    expect(bar?.querySelector('[data-graph-kind-chip]')).toBeTruthy();
+  });
+
   it('falls back to the list view for an unrecognised ?view value', async () => {
     const { container } = await renderRouteAt(graphView('?view=totally-bogus'));
 

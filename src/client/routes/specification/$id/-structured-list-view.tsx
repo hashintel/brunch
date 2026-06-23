@@ -191,7 +191,7 @@ function collectItemsForGroup(
   return result;
 }
 
-interface PopulatedKind {
+export interface PopulatedKind {
   entry: (typeof knowledgeKindRegistry)[number];
   count: number;
 }
@@ -227,6 +227,55 @@ function KindFilterToggler({
           onToggle={onToggle}
         />
       ))}
+    </div>
+  );
+}
+
+export function KindFilterBar({
+  populatedKinds,
+  hiddenKinds,
+  onToggle,
+  onNavigate,
+  onShowAll,
+}: {
+  populatedKinds: PopulatedKind[];
+  hiddenKinds: ReadonlySet<KnowledgeKind>;
+  onToggle: (kind: KnowledgeKind) => void;
+  onNavigate: (kind: KnowledgeKind) => void;
+  onShowAll: () => void;
+}) {
+  return (
+    <div
+      data-graph-filter-bar
+      className="flex w-full shrink-0 flex-col items-center gap-2 border-b border-rule bg-tint px-6 py-2 md:flex-row md:gap-3"
+    >
+      <span
+        aria-hidden="true"
+        className="invisible hidden shrink-0 rounded px-2 py-0.5 text-xs md:inline-flex"
+      >
+        Show all
+      </span>
+      <div className="w-full min-w-0 md:flex-1">
+        <KindFilterToggler
+          populatedKinds={populatedKinds}
+          hiddenKinds={hiddenKinds}
+          onNavigate={onNavigate}
+          onToggle={onToggle}
+        />
+      </div>
+      <button
+        type="button"
+        data-graph-kind-show-all
+        onClick={onShowAll}
+        aria-label="Show all kinds"
+        aria-hidden={hiddenKinds.size === 0}
+        tabIndex={hiddenKinds.size === 0 ? -1 : 0}
+        className={`shrink-0 cursor-pointer rounded px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30 ${
+          hiddenKinds.size === 0 ? 'hidden md:invisible md:inline-flex' : 'inline-flex'
+        }`}
+      >
+        Show all
+      </button>
     </div>
   );
 }
@@ -935,38 +984,13 @@ export function StructuredListView({
           </div>
         )}
         {view !== 'empty' && (
-          <div
-            data-graph-filter-bar
-            className="flex w-full shrink-0 flex-col items-center gap-2 border-b border-rule bg-tint px-6 py-2 md:flex-row md:gap-3"
-          >
-            <span
-              aria-hidden="true"
-              className="invisible hidden shrink-0 rounded px-2 py-0.5 text-xs md:inline-flex"
-            >
-              Show all
-            </span>
-            <div className="w-full min-w-0 md:flex-1">
-              <KindFilterToggler
-                populatedKinds={populatedKinds}
-                hiddenKinds={hiddenKinds}
-                onNavigate={unhideAndNavigate}
-                onToggle={toggleKind}
-              />
-            </div>
-            <button
-              type="button"
-              data-graph-kind-show-all
-              onClick={() => setHiddenKinds(new Set())}
-              aria-label="Show all kinds"
-              aria-hidden={hiddenKinds.size === 0}
-              tabIndex={hiddenKinds.size === 0 ? -1 : 0}
-              className={`shrink-0 cursor-pointer rounded px-2 py-0.5 text-xs text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30 ${
-                hiddenKinds.size === 0 ? 'hidden md:invisible md:inline-flex' : 'inline-flex'
-              }`}
-            >
-              Show all
-            </button>
-          </div>
+          <KindFilterBar
+            populatedKinds={populatedKinds}
+            hiddenKinds={hiddenKinds}
+            onToggle={toggleKind}
+            onNavigate={unhideAndNavigate}
+            onShowAll={() => setHiddenKinds(new Set())}
+          />
         )}
         {/* FE-716 C30: pending-review queue integrated into the chat shell body
             (<UnifiedChatShell /> mounts <PendingReviewSection /> directly).
