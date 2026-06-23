@@ -1,14 +1,4 @@
-/**
- * A single graph edge.
- *
- * Renders a uniform neutral line with a directional arrowhead, deliberately
- * untinted by any node kind accent color. The specific relationship type is
- * hidden by default and revealed only on selection (a visible label) while
- * always remaining available as a hover tooltip and a machine-readable data
- * attribute. Dim/highlight states are expressed through CSS classes and data
- * attributes so callers can style them.
- */
-
+import { getBezierPath, Position } from '@xyflow/react';
 import { useId, type ReactElement } from 'react';
 
 import { arrowheadConfig, edgeStyle } from '@/views/graph/graphStyle';
@@ -22,24 +12,16 @@ interface Point {
 }
 
 interface GraphEdgeProps {
-  /** The relationship type this edge represents. */
   relationship: GraphEdgeRelationship;
-  /** Edge start point. */
   source: Point;
-  /** Edge end point. */
   target: Point;
-  /** Whether the edge is currently selected (reveals its label, highlights). */
+  sourcePosition?: Position;
+  targetPosition?: Position;
   selected?: boolean;
-  /**
-   * When true the relationship label is shown unconditionally. When false (the
-   * default) the label falls back to selection-gated reveal.
-   */
   labelsShown?: boolean;
-  /** Whether the edge is visually de-emphasized. */
   dimmed?: boolean;
 }
 
-/** Human-readable form of a relationship key, e.g. `derived from`. */
 function relationshipLabel(relationship: GraphEdgeRelationship): string {
   return relationship.replace(/_/g, ' ');
 }
@@ -48,6 +30,8 @@ export function GraphEdge({
   relationship,
   source,
   target,
+  sourcePosition = Position.Bottom,
+  targetPosition = Position.Top,
   selected = false,
   labelsShown = false,
   dimmed = false,
@@ -58,6 +42,15 @@ export function GraphEdge({
   const className = ['graph-edge', selected && 'graph-edge--selected', dimmed && 'graph-edge--dimmed']
     .filter(Boolean)
     .join(' ');
+
+  const [path, labelX, labelY] = getBezierPath({
+    sourceX: source.x,
+    sourceY: source.y,
+    sourcePosition,
+    targetX: target.x,
+    targetY: target.y,
+    targetPosition,
+  });
 
   return (
     <g
@@ -84,11 +77,9 @@ export function GraphEdge({
           />
         </marker>
       </defs>
-      <line
-        x1={source.x}
-        y1={source.y}
-        x2={target.x}
-        y2={target.y}
+      <path
+        d={path}
+        fill="none"
         stroke={edgeStyle.stroke}
         strokeWidth={edgeStyle.strokeWidth}
         markerEnd={`url(#${markerId})`}
@@ -96,13 +87,12 @@ export function GraphEdge({
       {labelsShown || selected ? (
         <text
           data-edge-label=""
-          x={(source.x + target.x) / 2}
-          y={(source.y + target.y) / 2}
+          x={labelX}
+          y={labelY}
           textAnchor="middle"
           dominantBaseline="central"
           fontSize={11}
           fill={edgeStyle.stroke}
-          // White halo under the glyphs keeps the label legible over lines/cards without a sized rect.
           stroke="white"
           strokeWidth={3}
           strokeLinejoin="round"

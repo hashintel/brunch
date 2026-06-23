@@ -186,12 +186,14 @@ describe('canvas wiring: graph data -> force layout -> edges', () => {
       ),
     );
 
-    const line = container.querySelector('line');
-    expect(line).not.toBeNull();
-    expect(Number(line?.getAttribute('x1'))).toBe(source!.x);
-    expect(Number(line?.getAttribute('y1'))).toBe(source!.y);
-    expect(Number(line?.getAttribute('x2'))).toBe(target!.x);
-    expect(Number(line?.getAttribute('y2'))).toBe(target!.y);
+    const path = container.querySelector('path[d]');
+    expect(path).not.toBeNull();
+    // The bezier edge starts at the source and ends at the target endpoint.
+    const coords = (path?.getAttribute('d') ?? '').match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+    expect(coords[0]).toBeCloseTo(source!.x, 1);
+    expect(coords[1]).toBeCloseTo(source!.y, 1);
+    expect(coords.at(-2)).toBeCloseTo(target!.x, 1);
+    expect(coords.at(-1)).toBeCloseTo(target!.y, 1);
   });
 });
 

@@ -27,13 +27,23 @@ interface FlowEdgeData extends Record<string, unknown> {
 }
 
 /** Adapts a React Flow edge into the standalone GraphEdge renderer. */
-function GraphFlowEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<Edge<FlowEdgeData>>) {
+function GraphFlowEdge({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+}: EdgeProps<Edge<FlowEdgeData>>) {
   if (data === undefined) return null;
   return (
     <GraphEdge
       relationship={data.relationship}
       source={{ x: sourceX, y: sourceY }}
       target={{ x: targetX, y: targetY }}
+      sourcePosition={sourcePosition}
+      targetPosition={targetPosition}
       labelsShown={data.labelsVisible}
       selected={data.selected}
       dimmed={data.dimmed}
