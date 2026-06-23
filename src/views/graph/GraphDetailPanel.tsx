@@ -3,18 +3,11 @@
 import { X } from 'lucide-react';
 
 import { KindBadge } from '@/client/components/knowledge-card';
-import { ArrowheadShape } from '@/views/graph/edgeArrowhead';
-import { edgeColor, edgeDash } from '@/views/graph/graphStyle';
-import type { GraphDetail, GraphDetailConnection, GraphEdgeRelationship } from '@/views/graph/types';
+import { edgeColor } from '@/views/graph/graphStyle';
+import type { GraphDetail, GraphEdgeRelationship } from '@/views/graph/types';
 
 function humanizeRelationship(relationship: GraphEdgeRelationship): string {
   return relationship.replace(/_/g, ' ');
-}
-
-/** Phrase a connection from the selected node's perspective. */
-function connectionPhrase(connection: GraphDetailConnection): string {
-  const rel = humanizeRelationship(connection.relationship);
-  return connection.direction === 'outgoing' ? rel : `${rel} by`;
 }
 
 export function GraphDetailPanel({
@@ -86,21 +79,12 @@ export function GraphDetailPanel({
                       <span className="font-mono text-xxs font-medium text-hint">
                         {connection.otherReference}
                       </span>
-                      <svg width={18} height={8} viewBox="0 0 18 8" aria-hidden="true" className="shrink-0">
-                        <line
-                          x1={0}
-                          y1={4}
-                          x2={10}
-                          y2={4}
-                          stroke={edgeColor(connection.relationship)}
-                          strokeWidth={1.5}
-                          strokeDasharray={edgeDash(connection.relationship)}
-                        />
-                        <g transform="translate(10,0)">
-                          <ArrowheadShape size={8} color={edgeColor(connection.relationship)} />
-                        </g>
-                      </svg>
-                      <span className="text-xxs text-sub">{connectionPhrase(connection)}</span>
+                      <span
+                        className="text-xxs font-medium"
+                        style={{ color: edgeColor(connection.relationship) }}
+                      >
+                        {humanizeRelationship(connection.relationship)}
+                      </span>
                     </div>
                     <p className="line-clamp-2 leading-snug text-ink">{connection.otherContent}</p>
                   </button>
