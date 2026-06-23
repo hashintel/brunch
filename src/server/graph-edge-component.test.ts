@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { kindAccentHex } from '@/client/components/knowledge-card';
 // The component under test. Lives alongside the other graph view modules.
 import { GraphEdge } from '@/views/graph/GraphEdge';
-import { arrowheadConfig, edgeStyle } from '@/views/graph/nodeStyle';
+import { arrowheadConfig, edgeStyle } from '@/views/graph/graphStyle';
 import type { GraphEdgeRelationship } from '@/views/graph/types';
 
 afterEach(() => {

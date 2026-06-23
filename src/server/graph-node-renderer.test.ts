@@ -23,7 +23,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { knowledgeKinds, knowledgeKindReferencePrefixes, type KnowledgeKind } from '@/shared/knowledge.js';
 import { cardFootprint } from '@/views/graph/cardFootprint';
 import { GraphNode } from '@/views/graph/GraphNode';
-import { nodeColor } from '@/views/graph/nodeColor';
+import { nodeColor } from '@/views/graph/graphStyle';
 
 afterEach(cleanup);
 

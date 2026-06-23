@@ -6,7 +6,7 @@ import type { CSSProperties } from 'react';
 import { KindBadge } from '@/client/components/knowledge-card';
 import { cn } from '@/client/lib/utils';
 import { cardFootprint } from '@/views/graph/cardFootprint';
-import { nodeColor } from '@/views/graph/nodeColor';
+import { nodeColor } from '@/views/graph/graphStyle';
 import type { GraphNodeData } from '@/views/graph/types';
 
 import './graphNode.css';

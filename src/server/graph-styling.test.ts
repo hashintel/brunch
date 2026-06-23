@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { kindAccentHex } from '@/client/components/knowledge-card';
-import { arrowheadConfig, edgeStyle } from '@/views/graph/nodeStyle';
+import { arrowheadConfig, edgeStyle } from '@/views/graph/graphStyle';
 
 // Node accent colors now live in nodeColor.ts (see node-color-mapping.test.ts)
 // and the uniform card box in cardFootprint.ts (see card-footprint.test.ts);

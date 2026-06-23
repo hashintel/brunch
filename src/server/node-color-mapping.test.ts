@@ -5,14 +5,14 @@
  * `src/graph/nodeColor.ts`, reusing/exposing the existing accent palette so
  * cards and graph nodes share one source of truth.
  *
- * Tested through the public surface only (`@/views/graph/nodeColor`); the assertions
+ * Tested through the public surface only (`@/views/graph/graphStyle`); the assertions
  * survive any internal refactor of where the palette literally lives.
  */
 
 import { describe, expect, it } from 'vitest';
 
 import { knowledgeKinds, type KnowledgeKind } from '@/shared/knowledge.js';
-import { nodeColor, nodeColorByKind } from '@/views/graph/nodeColor';
+import { nodeColor, nodeColorByKind } from '@/views/graph/graphStyle';
 
 // The canonical accent palette this mapping must reuse/expose. These are the
 // existing per-kind accent hexes used for card accenting; the slice's job is to

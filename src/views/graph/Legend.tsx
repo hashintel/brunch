@@ -1,7 +1,7 @@
 /** Kind legend: maps each kind present in the graph to its accent swatch + label, in registry order. */
 
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
-import { nodeColor } from '@/views/graph/nodeColor';
+import { nodeColor } from '@/views/graph/graphStyle';
 
 export function Legend({ kinds }: { kinds: ReadonlySet<KnowledgeKind> }) {
   const present = knowledgeKindRegistry.filter((entry) => kinds.has(entry.kind));

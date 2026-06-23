@@ -11,7 +11,7 @@
 
 import { useId, type ReactElement } from 'react';
 
-import { arrowheadConfig, edgeStyle } from '@/views/graph/nodeStyle';
+import { arrowheadConfig, edgeStyle } from '@/views/graph/graphStyle';
 import type { GraphEdgeRelationship } from '@/views/graph/types';
 
 interface Point {
