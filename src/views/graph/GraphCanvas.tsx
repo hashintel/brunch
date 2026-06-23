@@ -7,7 +7,6 @@ import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 import { buildGraphModel, type GraphModel } from '@/views/graph/buildGraphModel.js';
 import { isEdgeIncident, neighborIds } from '@/views/graph/focus.js';
-import { forceLayout } from '@/views/graph/forceLayout.js';
 import { buildGraphDetail } from '@/views/graph/graphDetail.js';
 import { GraphDetailPanel } from '@/views/graph/GraphDetailPanel.js';
 import { GraphEdge } from '@/views/graph/GraphEdge.js';
@@ -15,6 +14,7 @@ import { GraphEmptyState } from '@/views/graph/GraphEmptyState.js';
 import { GraphNode } from '@/views/graph/GraphNode';
 import { Legend } from '@/views/graph/Legend.js';
 import type { GraphEdgeRelationship, GraphNodeData } from '@/views/graph/types.js';
+import { useForceLayout } from '@/views/graph/useForceLayout.js';
 import { ZoomControl } from '@/views/graph/ZoomControl';
 
 import '@xyflow/react/dist/style.css';
@@ -49,18 +49,10 @@ function Canvas({ model }: { model: GraphModel }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  const positions = useMemo(() => {
-    const positioned = forceLayout({
-      nodes: model.nodes,
-      edges: model.edges.map((edge, index) => ({
-        id: `${edge.source}->${edge.target}#${index}`,
-        source: edge.source,
-        target: edge.target,
-        data: edge.data,
-      })),
-    });
-    return new Map(positioned.map((node) => [node.id, node.position]));
-  }, [model]);
+  // Positions stream from a live, self-settling simulation rather than a one-shot
+  // synchronous layout, so the graph glides in and stays movable (SPEC D128: these
+  // positions are ephemeral graph-local interaction, never written back to the model).
+  const { nodes: liveNodes } = useForceLayout(model);
 
   const nodeIds = useMemo(() => new Set(model.nodes.map((node) => node.id)), [model.nodes]);
   const activeSelectedId = selectedId !== null && nodeIds.has(selectedId) ? selectedId : null;
@@ -76,8 +68,10 @@ function Canvas({ model }: { model: GraphModel }) {
     [model.edges, activeSelectedId],
   );
 
+  // Overlay focus (selected/dimmed) onto the live positions without disturbing them:
+  // positions come from the simulation, selection/dimming from focus state.
   const flowNodes = useMemo<Node[]>(() => {
-    return model.nodes.map((node): Node => {
+    return liveNodes.map((node): Node => {
       const data: GraphNodeData = {
         ...node.data,
         selected: node.id === activeSelectedId,
@@ -86,11 +80,11 @@ function Canvas({ model }: { model: GraphModel }) {
       return {
         id: node.id,
         type: 'graph',
-        position: positions.get(node.id) ?? { x: 0, y: 0 },
+        position: node.position,
         data: data as unknown as Record<string, unknown>,
       };
     });
-  }, [model.nodes, positions, activeSelectedId, neighbors]);
+  }, [liveNodes, activeSelectedId, neighbors]);
 
   // Label/highlight/dim by incidence to the hovered or selected node; never re-runs layout.
   const flowEdges = useMemo<Edge<FlowEdgeData>[]>(() => {
