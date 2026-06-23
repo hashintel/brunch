@@ -20,6 +20,7 @@ import {
   zPresentDetailsHeader,
   zPresentQuestionDetails,
   zPresentReviewSetDetails,
+  zPresentReviewSetParams,
   zPresentToolMeta,
   zRequestAnswerDetails,
   zRequestChoiceDetails,
@@ -315,6 +316,32 @@ describe('structured exchange present schemas', () => {
     expectJsonSchemaExport(zPresentReviewSetDetails);
     expectJsonSchemaExport(zPresentCandidatesDetails);
     expectJsonSchemaExport(zPresentDetails);
+  });
+});
+
+describe('structured exchange present params', () => {
+  it('exports the nested present_review_set payload companion shape', () => {
+    const schema = z.toJSONSchema(zPresentReviewSetParams, { unrepresentable: 'throw' }) as unknown as {
+      readonly properties: {
+        readonly payload: {
+          readonly properties: {
+            readonly grounding: { readonly properties: Readonly<Record<string, unknown>> };
+            readonly pitch: { readonly properties: Readonly<Record<string, unknown>> };
+            readonly entityDrafts: unknown;
+            readonly edgeDrafts: unknown;
+            readonly epistemicStatus: unknown;
+          };
+        };
+      };
+    };
+
+    expect(schema.properties.payload.properties.epistemicStatus).toBeDefined();
+    expect(schema.properties.payload.properties.grounding.properties).toHaveProperty('summary');
+    expect(schema.properties.payload.properties.grounding.properties).toHaveProperty('support');
+    expect(schema.properties.payload.properties.pitch.properties).toHaveProperty('title');
+    expect(schema.properties.payload.properties.pitch.properties).toHaveProperty('narrative');
+    expect(schema.properties.payload.properties.entityDrafts).toBeDefined();
+    expect(schema.properties.payload.properties.edgeDrafts).toBeDefined();
   });
 });
 

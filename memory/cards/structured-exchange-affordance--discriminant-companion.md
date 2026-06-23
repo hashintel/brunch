@@ -132,7 +132,7 @@ already covers both the agent and dev-RPC graph mutation schemas.
 
 ---
 
-## Slice 2 — describe the review-set nested payload at the boundary (piece 3) — next
+## Slice 2 — describe the review-set nested payload at the boundary (piece 3) — done
 
 ### Objective
 
@@ -179,6 +179,19 @@ src/.pi/extensions/exchanges/schemas/params.ts         ~
 src/graph/review-set.ts                                 ? (export the shape if the boundary derives from it)
 src/.pi/__tests__/structured-exchange-present-request.test.ts  ? (assert described shape)
 ```
+
+### Result
+
+Done 2026-06-23. `src/graph/review-set.ts` now owns the
+`present_review_set.payload` boundary-teaching schema beside the deep diagnostic
+validator. `zPresentReviewSetParams` imports that owner, so the Pi tool parameter
+schema advertises the nested `lens`, `epistemicStatus`, `grounding`, `pitch`,
+`entityDrafts`, and role-named `edgeDrafts` shape while preserving the existing
+STRUCTURAL_ILLEGAL dry-run path for missing required proposal fields. Regression
+coverage landed in `src/.pi/__tests__/structured-exchange-schemas.test.ts` and
+`src/.pi/__tests__/structured-exchange-present-request.test.ts`; topology/current
+state was refreshed in the graph and structured-exchange schema READMEs plus
+SPEC I17/I23/I26.
 
 ---
 

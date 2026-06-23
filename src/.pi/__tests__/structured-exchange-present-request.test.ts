@@ -546,6 +546,21 @@ describe('structured exchange present/request tools', () => {
     ).rejects.toThrow();
   });
 
+  it('rejects malformed nested review-set companions at the param boundary', async () => {
+    const present = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!present) throw new Error('present_review_set was not registered');
+
+    await expect(
+      present.execute(
+        'present-review-malformed-grounding',
+        { exchangeId: 'review-malformed-grounding', payload: { ...validReviewPayload(), grounding: 'thin' } },
+        undefined,
+        undefined,
+        {} as never,
+      ),
+    ).rejects.toThrow();
+  });
+
   it('drives request_response review decisions against a pending present_review_set', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');

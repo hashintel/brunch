@@ -1,5 +1,7 @@
 import * as z from 'zod';
 
+import { zReviewSetProposalPayloadForBoundary } from '../../../../graph/review-set.js';
+
 export const zPresentedOptionParam = z
   .object({
     id: z.string().min(1).describe('Stable option id for the later request_response result details.'),
@@ -45,17 +47,12 @@ export const zPresentReviewSetParams = z
       .string()
       .describe('Optional transcript/proposal entry id to carry into later acceptance audit.')
       .optional(),
-    // Boundary shape only: reject a JSON string or the wrong tool's shape
-    // (e.g. mutate_graph's {createBasis, ops}) before the deep validator runs.
-    // The full nested proposal shape is owned by validateReviewSetPayloadShape
-    // in graph/review-set.ts (single owner); this loose object requires just the
-    // review-set discriminator so a non-object or mismatched payload fails here
-    // with a named field error instead of deep in the command executor.
-    payload: z
-      .looseObject({ schemaVersion: z.literal(1) })
-      .describe(
-        'Canonical review-set proposal payload object (schemaVersion: 1, lens, grounding, pitch, entityDrafts, edgeDrafts).',
-      ),
+    // Boundary teaching only: the nested shape is owned beside the graph-owned
+    // validateReviewSetPayloadShape diagnostic validator. The schema rejects
+    // non-objects, wrong top-level tool shapes, and malformed nested companions;
+    // missing required nested fields still flow to the graph validator for
+    // field-level STRUCTURAL_ILLEGAL diagnostics.
+    payload: zReviewSetProposalPayloadForBoundary,
   })
   .strict();
 export type PresentReviewSetParams = z.infer<typeof zPresentReviewSetParams>;
