@@ -12,7 +12,7 @@ import type { GraphNodeData } from '@/views/graph/types';
 import './graphNode.css';
 
 export function GraphNode({ data }: NodeProps & { data: GraphNodeData }) {
-  const { kind, selected, dimmed, referenceCode, content } = data;
+  const { kind, selected, dimmed, highlighted, referenceCode, content } = data;
 
   // Accent rides on a CSS var so the stylesheet tints ring/bar from the node's own kind.
   const cardStyle: CSSProperties & Record<'--graph-node-accent', string> = {
@@ -27,6 +27,7 @@ export function GraphNode({ data }: NodeProps & { data: GraphNodeData }) {
         'graph-node flex overflow-hidden rounded-xl border border-rule bg-white text-left shadow-[var(--shadow-card)]',
         selected && 'is-selected',
         dimmed && 'is-dimmed',
+        highlighted && 'is-highlighted',
       )}
       style={cardStyle}
     >

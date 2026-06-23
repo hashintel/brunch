@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useLocation, useSearch } from '@tanstack/react-router';
 import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { ChatShellLayout } from '@/client/components/chat-shell-layout';
 import { KnowledgeGraphIdentity } from '@/client/components/knowledge-graph-identity';
@@ -13,7 +13,7 @@ import {
   getPhaseRoutePath,
   getWorkflowPhaseLabel,
 } from '@/shared/phase-descriptors.js';
-import { GraphCanvas } from '@/views/graph/GraphCanvas.js';
+import { GraphCanvas, type KindHighlight } from '@/views/graph/GraphCanvas.js';
 import { GRAPH_VIEW_PARAM, parseViewMode, ViewToggle } from '@/views/graph/ViewToggle.js';
 
 import {
@@ -71,6 +71,8 @@ function GraphRouteComponent() {
   const [rowsDefaultOpen, setRowsDefaultOpen] = useState(true);
   const [rowsRemountKey, setRowsRemountKey] = useState(0);
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
+  const [highlight, setHighlight] = useState<KindHighlight | null>(null);
+  const highlightNonce = useRef(0);
 
   const populatedKinds = useMemo<PopulatedKind[]>(
     () =>
@@ -88,13 +90,16 @@ function GraphRouteComponent() {
       return next;
     });
 
-  const showKind = (kind: KnowledgeKind) =>
+  const focusKind = (kind: KnowledgeKind) => {
     setHiddenKinds((current) => {
       if (!current.has(kind)) return current;
       const next = new Set(current);
       next.delete(kind);
       return next;
     });
+    highlightNonce.current += 1;
+    setHighlight({ kind, nonce: highlightNonce.current });
+  };
 
   const toggleAllRows = () => {
     setRowsDefaultOpen((prev) => !prev);
@@ -156,14 +161,19 @@ function GraphRouteComponent() {
         populatedKinds={populatedKinds}
         hiddenKinds={hiddenKinds}
         onToggle={toggleKind}
-        onNavigate={showKind}
+        onNavigate={focusKind}
         onShowAll={() => setHiddenKinds(new Set())}
       />
     ) : null;
 
   const activeView =
     view === 'graph' ? (
-      <GraphCanvas entityState={entityState} emptyStateAction={emptyStateAction} hiddenKinds={hiddenKinds} />
+      <GraphCanvas
+        entityState={entityState}
+        emptyStateAction={emptyStateAction}
+        hiddenKinds={hiddenKinds}
+        highlight={highlight}
+      />
     ) : (
       <StructuredListView
         entityState={entityState}

@@ -30,6 +30,8 @@ export interface GraphNodeData {
   selected: boolean;
   /** Whether this node is visually de-emphasized. */
   dimmed: boolean;
+  /** Whether this node is momentarily flashed (e.g. when its kind is picked in the filter). */
+  highlighted?: boolean;
   /** Short reference code identifying the knowledge item (e.g. "R3"). */
   referenceCode: string;
   /** The knowledge item's content or name. */

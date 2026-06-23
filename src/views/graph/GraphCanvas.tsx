@@ -54,11 +54,34 @@ function GraphFlowEdge({
 const nodeTypes = { graph: GraphNode };
 const edgeTypes = { graph: GraphFlowEdge };
 const EMPTY_HIDDEN_KINDS: ReadonlySet<KnowledgeKind> = new Set();
+const HIGHLIGHT_MS = 1200;
+
+/** A request to momentarily flash every node of a kind; `nonce` re-triggers repeat picks. */
+export interface KindHighlight {
+  kind: KnowledgeKind;
+  nonce: number;
+}
 
 /** Inner canvas: lays out once, then renders the surface with focus-driven dimming and incident labels. */
-function Canvas({ model, hiddenKinds }: { model: GraphModel; hiddenKinds: ReadonlySet<KnowledgeKind> }) {
+function Canvas({
+  model,
+  hiddenKinds,
+  highlight,
+}: {
+  model: GraphModel;
+  hiddenKinds: ReadonlySet<KnowledgeKind>;
+  highlight: KindHighlight | null;
+}) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [highlightedKind, setHighlightedKind] = useState<KnowledgeKind | null>(null);
+
+  useEffect(() => {
+    if (highlight === null) return;
+    setHighlightedKind(highlight.kind);
+    const timer = setTimeout(() => setHighlightedKind(null), HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [highlight]);
 
   const visibleModel = useMemo<GraphModel>(() => {
     if (hiddenKinds.size === 0) return model;
@@ -97,10 +120,11 @@ function Canvas({ model, hiddenKinds }: { model: GraphModel; hiddenKinds: Readon
         ...base,
         selected: node.id === activeSelectedId,
         dimmed: activeSelectedId !== null && !neighbors.has(node.id),
+        highlighted: highlightedKind !== null && base.kind === highlightedKind,
       };
       return { ...node, data: data as unknown as Record<string, unknown> };
     });
-  }, [liveNodes, activeSelectedId, neighbors]);
+  }, [liveNodes, activeSelectedId, neighbors, highlightedKind]);
 
   // Label/highlight/dim by incidence to the hovered or selected node; never re-runs layout.
   const flowEdges = useMemo<Edge<FlowEdgeData>[]>(() => {
@@ -155,7 +179,7 @@ function Canvas({ model, hiddenKinds }: { model: GraphModel; hiddenKinds: Readon
         minZoom={0.1}
         maxZoom={2}
         fitView
-        fitViewOptions={{ minZoom: 1, maxZoom: 1 }}
+        fitViewOptions={{ maxZoom: 1 }}
       >
         <ZoomControl />
         <div className="absolute bottom-2 left-2 z-10">
@@ -180,10 +204,12 @@ export function GraphCanvas({
   entityState,
   emptyStateAction,
   hiddenKinds = EMPTY_HIDDEN_KINDS,
+  highlight = null,
 }: {
   entityState: EntitiesData;
   emptyStateAction?: ReactNode;
   hiddenKinds?: ReadonlySet<KnowledgeKind>;
+  highlight?: KindHighlight | null;
 }) {
   const model = useMemo(() => buildGraphModel(entityState), [entityState]);
 
@@ -191,5 +217,5 @@ export function GraphCanvas({
     return <GraphEmptyState action={emptyStateAction} />;
   }
 
-  return <Canvas model={model} hiddenKinds={hiddenKinds} />;
+  return <Canvas model={model} hiddenKinds={hiddenKinds} highlight={highlight} />;
 }

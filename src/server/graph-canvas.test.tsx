@@ -85,6 +85,20 @@ describe('GraphCanvas', () => {
     expect(renderedNodes().find((node) => node.id === selectedNode.id)?.data.selected).toBe(true);
   });
 
+  it('flashes nodes of the highlighted kind', () => {
+    render(
+      createElement(GraphCanvas, {
+        entityState: crossPhaseDecisionLink(),
+        highlight: { kind: 'goal', nonce: 1 },
+      }),
+    );
+    const nodes = renderedNodes() as Array<{ id: string; data: { highlighted?: boolean } }>;
+    const goal = nodes.find((node) => node.id.startsWith('goal:'));
+    const other = nodes.find((node) => !node.id.startsWith('goal:'));
+    expect(goal?.data.highlighted).toBe(true);
+    expect(other?.data.highlighted).toBe(false);
+  });
+
   it('lets nodes be dragged but not connected at the React Flow level', () => {
     render(createElement(GraphCanvas, { entityState: crossPhaseDecisionLink() }));
 
