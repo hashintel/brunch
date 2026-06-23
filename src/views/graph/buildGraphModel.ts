@@ -6,7 +6,7 @@
  * of incident edges (incoming and outgoing).
  */
 import type { EntitiesData } from '@/shared/api-types.js';
-import { knowledgeKindRegistry } from '@/shared/knowledge.js';
+import { createKnowledgeReferenceCode, knowledgeKindRegistry } from '@/shared/knowledge.js';
 
 import type { GraphEdgeData, GraphNodeData, GraphNodeKind } from './types.js';
 
@@ -46,7 +46,7 @@ export function buildGraphModel(entityState: EntitiesData): GraphModel {
           degree: 0,
           selected: false,
           dimmed: false,
-          referenceCode: item.referenceCode ?? '',
+          referenceCode: item.referenceCode ?? createKnowledgeReferenceCode(entry.kind, item.id),
           content: item.content ?? '',
           rationale: 'rationale' in item ? (item.rationale ?? '') : '',
         },
@@ -61,6 +61,9 @@ export function buildGraphModel(entityState: EntitiesData): GraphModel {
   for (const rel of entityState.relationships) {
     const source = nodeId(rel.source.kind, rel.source.id);
     const target = nodeId(rel.target.kind, rel.target.id);
+    const sourceNode = nodesById.get(source);
+    const targetNode = nodesById.get(target);
+    if (sourceNode === undefined || targetNode === undefined) continue;
 
     edges.push({
       source,
@@ -68,10 +71,8 @@ export function buildGraphModel(entityState: EntitiesData): GraphModel {
       data: { relationship: rel.type },
     });
 
-    const sourceNode = nodesById.get(source);
-    if (sourceNode) sourceNode.data.degree += 1;
-    const targetNode = nodesById.get(target);
-    if (targetNode) targetNode.data.degree += 1;
+    sourceNode.data.degree += 1;
+    targetNode.data.degree += 1;
   }
 
   return { nodes, edges };

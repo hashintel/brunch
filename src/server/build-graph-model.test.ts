@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { crossPhaseDecisionLink, emptySpec } from '@/client/__fixtures__/graph-view.js';
 import type { EntitiesData } from '@/shared/api-types.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { buildGraphModel } from '@/views/graph/buildGraphModel.js';
 import type { GraphNodeKind } from '@/views/graph/types.js';
 
@@ -111,7 +112,7 @@ describe('buildGraphModel — descriptor projection onto node data', () => {
     expect(byId.get(nodeId('assumption', 8))?.data.rationale).toBe('');
   });
 
-  it('projects a missing reference code as an empty string rather than undefined', () => {
+  it('projects a missing reference code using the list-view fallback prefix plus id', () => {
     const fixture: EntitiesData = {
       ...emptySpec(),
       goals: [
@@ -129,7 +130,7 @@ describe('buildGraphModel — descriptor projection onto node data', () => {
 
     const node = nodesById(buildGraphModel(fixture)).get(nodeId('goal', 99));
 
-    expect(node?.data.referenceCode).toBe('');
+    expect(node?.data.referenceCode).toBe(createKnowledgeReferenceCode('goal', 99));
   });
 
   it('derives descriptor values from collections lacking a stored kind field', () => {
@@ -157,28 +158,29 @@ describe('buildGraphModel — descriptor projection onto node data', () => {
     for (const goal of entityState.goals) {
       sourceById.set(nodeId('goal', goal.id), {
         content: goal.content,
-        referenceCode: goal.referenceCode ?? '',
+        referenceCode: goal.referenceCode ?? createKnowledgeReferenceCode('goal', goal.id),
         rationale: goal.rationale ?? '',
       });
     }
     for (const constraint of entityState.constraints) {
       sourceById.set(nodeId('constraint', constraint.id), {
         content: constraint.content,
-        referenceCode: constraint.referenceCode ?? '',
+        referenceCode: constraint.referenceCode ?? createKnowledgeReferenceCode('constraint', constraint.id),
         rationale: constraint.rationale ?? '',
       });
     }
     for (const decision of entityState.decisions) {
       sourceById.set(nodeId('decision', decision.id), {
         content: decision.content,
-        referenceCode: decision.referenceCode ?? '',
+        referenceCode: decision.referenceCode ?? createKnowledgeReferenceCode('decision', decision.id),
         rationale: decision.rationale ?? '',
       });
     }
     for (const requirement of entityState.requirements) {
       sourceById.set(nodeId('requirement', requirement.id), {
         content: requirement.content,
-        referenceCode: requirement.referenceCode ?? '',
+        referenceCode:
+          requirement.referenceCode ?? createKnowledgeReferenceCode('requirement', requirement.id),
         rationale: requirement.rationale ?? '',
       });
     }

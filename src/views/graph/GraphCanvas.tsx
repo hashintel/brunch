@@ -1,9 +1,8 @@
 /** The shared graph canvas: owns focus state (select/hover) and composes the card view, panel, and legend. */
 
 import { ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { Spinner } from '@/client/components/ui/spinner';
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 import { buildGraphModel, type GraphModel } from '@/views/graph/buildGraphModel.js';
@@ -47,11 +46,10 @@ const edgeTypes = { graph: GraphFlowEdge };
 
 /** Inner canvas: lays out once, then renders the surface with focus-driven dimming and incident labels. */
 function Canvas({ model }: { model: GraphModel }) {
-  const [positions, setPositions] = useState<Map<string, { x: number; y: number }> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const positions = useMemo(() => {
     const positioned = forceLayout({
       nodes: model.nodes,
       edges: model.edges.map((edge, index) => ({
@@ -61,21 +59,30 @@ function Canvas({ model }: { model: GraphModel }) {
         data: edge.data,
       })),
     });
-    setPositions(new Map(positioned.map((node) => [node.id, node.position])));
+    return new Map(positioned.map((node) => [node.id, node.position]));
+  }, [model]);
+
+  const nodeIds = useMemo(() => new Set(model.nodes.map((node) => node.id)), [model.nodes]);
+  const activeSelectedId = selectedId !== null && nodeIds.has(selectedId) ? selectedId : null;
+  const activeHoveredId = hoveredId !== null && nodeIds.has(hoveredId) ? hoveredId : null;
+
+  useEffect(() => {
     // A new model is a different graph; drop any stale focus.
     setSelectedId(null);
     setHoveredId(null);
   }, [model]);
 
-  const neighbors = useMemo(() => neighborIds(model.edges, selectedId), [model.edges, selectedId]);
+  const neighbors = useMemo(
+    () => neighborIds(model.edges, activeSelectedId),
+    [model.edges, activeSelectedId],
+  );
 
   const flowNodes = useMemo<Node[]>(() => {
-    if (positions === null) return [];
     return model.nodes.map((node): Node => {
       const data: GraphNodeData = {
         ...node.data,
-        selected: node.id === selectedId,
-        dimmed: selectedId !== null && !neighbors.has(node.id),
+        selected: node.id === activeSelectedId,
+        dimmed: activeSelectedId !== null && !neighbors.has(node.id),
       };
       return {
         id: node.id,
@@ -84,13 +91,13 @@ function Canvas({ model }: { model: GraphModel }) {
         data: data as unknown as Record<string, unknown>,
       };
     });
-  }, [model.nodes, positions, selectedId, neighbors]);
+  }, [model.nodes, positions, activeSelectedId, neighbors]);
 
   // Label/highlight/dim by incidence to the hovered or selected node; never re-runs layout.
   const flowEdges = useMemo<Edge<FlowEdgeData>[]>(() => {
     return model.edges.map((edge, index) => {
-      const incidentToSelected = isEdgeIncident(edge, selectedId);
-      const incidentToHovered = isEdgeIncident(edge, hoveredId);
+      const incidentToSelected = isEdgeIncident(edge, activeSelectedId);
+      const incidentToHovered = isEdgeIncident(edge, activeHoveredId);
       return {
         id: `${edge.source}->${edge.target}#${index}`,
         source: edge.source,
@@ -100,11 +107,11 @@ function Canvas({ model }: { model: GraphModel }) {
           relationship: edge.data.relationship,
           labelsVisible: incidentToSelected || incidentToHovered,
           selected: incidentToSelected,
-          dimmed: selectedId !== null && !incidentToSelected,
+          dimmed: activeSelectedId !== null && !incidentToSelected,
         },
       };
     });
-  }, [model.edges, selectedId, hoveredId]);
+  }, [model.edges, activeSelectedId, activeHoveredId]);
 
   const presentKinds = useMemo(
     () => new Set<KnowledgeKind>(model.nodes.map((node) => node.data.kind)),
@@ -112,8 +119,8 @@ function Canvas({ model }: { model: GraphModel }) {
   );
 
   const detail = useMemo(
-    () => (selectedId === null ? null : buildGraphDetail(selectedId, model)),
-    [selectedId, model],
+    () => (activeSelectedId === null ? null : buildGraphDetail(activeSelectedId, model)),
+    [activeSelectedId, model],
   );
 
   // The detail panel floats as a right-edge overlay rather than a flex sibling, so
@@ -121,28 +128,24 @@ function Canvas({ model }: { model: GraphModel }) {
   // ZoomControl (and the layout) from shifting when a node is selected.
   return (
     <div className="relative h-full w-full">
-      {positions === null ? (
-        <div className="flex h-full w-full items-center justify-center" data-graph-loading="">
-          <Spinner />
+      <ReactFlow
+        nodes={flowNodes}
+        edges={flowEdges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodeClick={(_, node) => setSelectedId((prev) => (prev === node.id ? null : node.id))}
+        onNodeMouseEnter={(_, node) => setHoveredId(node.id)}
+        onNodeMouseLeave={() => setHoveredId(null)}
+        onPaneClick={() => setSelectedId(null)}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        fitView
+      >
+        <ZoomControl />
+        <div className="absolute bottom-2 left-2 z-10">
+          <Legend kinds={presentKinds} />
         </div>
-      ) : (
-        <ReactFlow
-          nodes={flowNodes}
-          edges={flowEdges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          onNodeClick={(_, node) => setSelectedId((prev) => (prev === node.id ? null : node.id))}
-          onNodeMouseEnter={(_, node) => setHoveredId(node.id)}
-          onNodeMouseLeave={() => setHoveredId(null)}
-          onPaneClick={() => setSelectedId(null)}
-          fitView
-        >
-          <ZoomControl />
-          <div className="absolute bottom-2 left-2 z-10">
-            <Legend kinds={presentKinds} />
-          </div>
-        </ReactFlow>
-      )}
+      </ReactFlow>
       {detail !== null ? (
         <div className="absolute inset-y-0 right-0 z-20">
           <GraphDetailPanel detail={detail} onClose={() => setSelectedId(null)} />
@@ -153,11 +156,17 @@ function Canvas({ model }: { model: GraphModel }) {
 }
 
 /** The shared graph canvas's sole composing component. */
-export function GraphCanvas({ entityState }: { entityState: EntitiesData }) {
+export function GraphCanvas({
+  entityState,
+  emptyStateAction,
+}: {
+  entityState: EntitiesData;
+  emptyStateAction?: ReactNode;
+}) {
   const model = useMemo(() => buildGraphModel(entityState), [entityState]);
 
   if (model.nodes.length === 0) {
-    return <GraphEmptyState />;
+    return <GraphEmptyState action={emptyStateAction} />;
   }
 
   return <Canvas model={model} />;

@@ -368,3 +368,34 @@ describe('graph route — feeds both views from one project-wide entity state', 
     expect(within(header as HTMLElement).getByText(String(EXPECTED_ITEM_COUNT))).toBeTruthy();
   });
 });
+
+describe('graph route — graph empty state parity with list view', () => {
+  it('passes the return-to-workflow action into the graph empty state', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.match(/\/api\/specifications\/\d+\/entities/)) {
+        return jsonResponse({
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        });
+      }
+      return defaultFetchHandler(input);
+    });
+
+    const { container } = await renderRouteAt(graphView('?view=graph'));
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-graph-empty-state]')).toBeTruthy();
+    });
+    const action = screen.getByRole('link', { name: /view output/i });
+    expect(action.getAttribute('href')).toBe(`/specification/${SPEC_ID}/export`);
+    expect(container.querySelector('[data-graph-empty-state]')?.contains(action)).toBe(true);
+  });
+});

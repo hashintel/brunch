@@ -126,7 +126,7 @@ function GraphRouteComponent() {
 
   const activeView =
     view === 'graph' ? (
-      <GraphCanvas entityState={entityState} />
+      <GraphCanvas entityState={entityState} emptyStateAction={emptyStateAction} />
     ) : (
       <StructuredListView
         entityState={entityState}

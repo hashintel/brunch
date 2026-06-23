@@ -234,6 +234,39 @@ describe('buildGraphModel', () => {
     }
   });
 
+  it('omits relationships whose source or target item is missing', () => {
+    const fixture = allKindsAndRelations();
+    fixture.relationships = [
+      {
+        type: 'depends_on',
+        source: { kind: 'requirement', collection: 'knowledge_item', id: 5 },
+        target: { kind: 'goal', collection: 'knowledge_item', id: 1 },
+      },
+      {
+        type: 'depends_on',
+        source: { kind: 'requirement', collection: 'knowledge_item', id: 5 },
+        target: { kind: 'goal', collection: 'knowledge_item', id: 999 },
+      },
+      {
+        type: 'refines',
+        source: { kind: 'decision', collection: 'knowledge_item', id: 999 },
+        target: { kind: 'goal', collection: 'knowledge_item', id: 1 },
+      },
+    ];
+
+    const model = buildGraphModel(fixture);
+
+    expect(model.edges).toEqual([
+      {
+        source: nodeId('requirement', 5),
+        target: nodeId('goal', 1),
+        data: { relationship: 'depends_on' },
+      },
+    ]);
+    expect(nodesById(model).get(nodeId('requirement', 5))?.data.degree).toBe(1);
+    expect(nodesById(model).get(nodeId('goal', 1))?.data.degree).toBe(1);
+  });
+
   it('computes each node degree as the count of incident edges (incoming and outgoing)', () => {
     const model = buildGraphModel(allKindsAndRelations());
     const byId = nodesById(model);
