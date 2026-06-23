@@ -3,6 +3,8 @@
 import { X } from 'lucide-react';
 
 import { KindBadge } from '@/client/components/knowledge-card';
+import { ArrowheadShape } from '@/views/graph/edgeArrowhead';
+import { edgeStyle } from '@/views/graph/graphStyle';
 import type { GraphDetail, GraphDetailConnection, GraphEdgeRelationship } from '@/views/graph/types';
 
 function humanizeRelationship(relationship: GraphEdgeRelationship): string {
@@ -84,6 +86,22 @@ export function GraphDetailPanel({
                       <span className="font-mono text-xxs font-medium text-hint">
                         {connection.otherReference}
                       </span>
+                      <svg
+                        width={18}
+                        height={8}
+                        viewBox="0 0 18 8"
+                        aria-hidden="true"
+                        className="shrink-0 text-hint"
+                      >
+                        <line x1={0} y1={4} x2={10} y2={4} stroke={edgeStyle.stroke} strokeWidth={1.2} />
+                        <g transform="translate(10,0)">
+                          <ArrowheadShape
+                            relationship={connection.relationship}
+                            size={8}
+                            color={edgeStyle.stroke}
+                          />
+                        </g>
+                      </svg>
                       <span className="text-xxs text-sub">{connectionPhrase(connection)}</span>
                     </div>
                     <p className="line-clamp-2 leading-snug text-ink">{connection.otherContent}</p>

@@ -3,13 +3,13 @@
 import { kindAccentHex } from '@/client/components/knowledge-card';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
-/** Neutral edge styling, deliberately untinted by any kind accent color. */
+/** Neutral edge styling; relationship type is conveyed by arrowhead shape, not color. */
 export const edgeStyle = {
   stroke: '#94a3b8',
   strokeWidth: 1,
 } as const;
 
-/** Directional arrowhead configuration for edges. */
+/** Directional arrowhead dimensions; the shape varies by relationship (see edgeArrowhead). */
 export const arrowheadConfig = {
   width: 8,
   height: 8,

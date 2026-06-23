@@ -1,6 +1,7 @@
 import { getBezierPath, Position } from '@xyflow/react';
 import { useId, type ReactElement } from 'react';
 
+import { ArrowheadShape } from '@/views/graph/edgeArrowhead';
 import { arrowheadConfig, edgeStyle } from '@/views/graph/graphStyle';
 import type { GraphEdgeRelationship } from '@/views/graph/types';
 
@@ -39,6 +40,7 @@ export function GraphEdge({
   const markerId = `graph-edge-arrowhead-${useId()}`;
   const label = relationshipLabel(relationship);
   const tooltip = `${label} relationship`;
+  const stroke = edgeStyle.stroke;
   const className = ['graph-edge', selected && 'graph-edge--selected', dimmed && 'graph-edge--dimmed']
     .filter(Boolean)
     .join(' ');
@@ -71,16 +73,13 @@ export function GraphEdge({
           orient="auto"
           markerUnits="userSpaceOnUse"
         >
-          <polygon
-            points={`0,0 ${arrowheadConfig.width},${arrowheadConfig.height / 2} 0,${arrowheadConfig.height}`}
-            fill={arrowheadConfig.color}
-          />
+          <ArrowheadShape relationship={relationship} size={arrowheadConfig.width} color={stroke} />
         </marker>
       </defs>
       <path
         d={path}
         fill="none"
-        stroke={edgeStyle.stroke}
+        stroke={stroke}
         strokeWidth={edgeStyle.strokeWidth}
         markerEnd={`url(#${markerId})`}
       />
@@ -92,7 +91,7 @@ export function GraphEdge({
           textAnchor="middle"
           dominantBaseline="central"
           fontSize={11}
-          fill={edgeStyle.stroke}
+          fill={stroke}
           stroke="white"
           strokeWidth={3}
           strokeLinejoin="round"

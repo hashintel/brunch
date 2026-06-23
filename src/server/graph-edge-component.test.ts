@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { kindAccentHex } from '@/client/components/knowledge-card';
 // The component under test. Lives alongside the other graph view modules.
 import { GraphEdge } from '@/views/graph/GraphEdge';
-import { arrowheadConfig, edgeStyle } from '@/views/graph/graphStyle';
+import { edgeStyle } from '@/views/graph/graphStyle';
 import type { GraphEdgeRelationship } from '@/views/graph/types';
 
 afterEach(() => {
@@ -52,7 +52,7 @@ function toKey(text: string): string {
 }
 
 describe('GraphEdge', () => {
-  it('strokes the edge with the neutral edgeStyle constants from nodeStyle.ts', () => {
+  it('strokes the edge with the neutral edge color at the edgeStyle width', () => {
     const { container } = renderEdge({ relationship: 'depends_on' });
     const stroked = container.querySelector('line, path[d]');
     expect(stroked).not.toBeNull();
@@ -60,27 +60,30 @@ describe('GraphEdge', () => {
     expect(stroked?.getAttribute('stroke-width')).toBe(String(edgeStyle.strokeWidth));
   });
 
-  it('uses one uniform neutral stroke for every relationship type', () => {
-    const strokes = allRelationships.map((relationship) => {
-      const { container } = renderEdge({ relationship });
-      const stroked = container.querySelector('line, path[d]');
-      return stroked?.getAttribute('stroke');
-    });
-    for (const stroke of strokes) {
-      expect(stroke).toBe(edgeStyle.stroke);
-    }
-  });
-
-  it('keeps the rendered edge color neutral — never tinted by a node kind accent color', () => {
+  it('uses one uniform neutral stroke, never a node kind accent color', () => {
     const accents = Object.values(kindAccentHex).map((c) => c.toLowerCase());
     for (const relationship of allRelationships) {
       const { container } = renderEdge({ relationship });
       const stroked = container.querySelector('line, path[d]');
       const stroke = (stroked?.getAttribute('stroke') ?? '').toLowerCase();
-      expect(stroke.length).toBeGreaterThan(0);
+      expect(stroke).toBe(edgeStyle.stroke.toLowerCase());
       expect(accents).not.toContain(stroke);
       cleanup();
     }
+  });
+
+  it('distinguishes relationship types by arrowhead shape', () => {
+    const shapes = allRelationships.map((relationship) => {
+      const { container } = renderEdge({ relationship });
+      const shape = container.querySelector('marker > *');
+      const signature =
+        shape === null
+          ? ''
+          : `${shape.tagName}:${shape.getAttribute('points') ?? shape.getAttribute('r') ?? shape.getAttribute('width') ?? ''}`;
+      cleanup();
+      return signature;
+    });
+    expect(new Set(shapes).size).toBe(allRelationships.length);
   });
 
   it('renders a directional arrowhead marker that the edge references', () => {
@@ -93,10 +96,8 @@ describe('GraphEdge', () => {
     const marker = Array.from(container.querySelectorAll('marker')).find((m) => m.id === id);
     expect(marker, 'edge must define the arrowhead marker it references').toBeDefined();
 
-    const shape = marker?.querySelector('path, polygon');
+    const shape = marker?.querySelector('path, polygon, polyline, circle, rect');
     expect(shape, 'arrowhead marker must contain a drawable shape').not.toBeNull();
-    // The arrowhead shape is colored from the shared arrowheadConfig constant.
-    expect(shape?.getAttribute('fill')).toBe(arrowheadConfig.color);
   });
 
   it('exposes the relationship as a machine-readable data attribute', () => {
