@@ -1,18 +1,18 @@
-/** The shared graph canvas: owns focus state (select/hover) and composes the card view, panel, and legend. */
+/** The shared graph canvas: owns focus + kind-visibility state and composes the card view, panel, and kind filter. */
 
 import { ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import type { EntitiesData } from '@/shared/api-types.js';
-import type { KnowledgeKind } from '@/shared/knowledge.js';
+import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 import { buildGraphModel, type GraphModel } from '@/views/graph/buildGraphModel.js';
 import { isEdgeIncident, neighborIds } from '@/views/graph/focus.js';
 import { buildGraphDetail } from '@/views/graph/graphDetail.js';
 import { GraphDetailPanel } from '@/views/graph/GraphDetailPanel.js';
 import { GraphEdge } from '@/views/graph/GraphEdge.js';
 import { GraphEmptyState } from '@/views/graph/GraphEmptyState.js';
+import { GraphKindFilter, type PopulatedKind } from '@/views/graph/GraphKindFilter.js';
 import { GraphNode } from '@/views/graph/GraphNode';
-import { Legend } from '@/views/graph/Legend.js';
 import type { GraphEdgeRelationship, GraphNodeData } from '@/views/graph/types.js';
 import { useForceLayout } from '@/views/graph/useForceLayout.js';
 import { ZoomControl } from '@/views/graph/ZoomControl';
@@ -58,6 +58,23 @@ const edgeTypes = { graph: GraphFlowEdge };
 function Canvas({ model }: { model: GraphModel }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
+
+  const populatedKinds = useMemo<PopulatedKind[]>(() => {
+    const counts = new Map<KnowledgeKind, number>();
+    for (const node of model.nodes) counts.set(node.data.kind, (counts.get(node.data.kind) ?? 0) + 1);
+    return knowledgeKindRegistry
+      .map((entry) => ({ entry, count: counts.get(entry.kind) ?? 0 }))
+      .filter(({ count }) => count > 0);
+  }, [model.nodes]);
+
+  const visibleModel = useMemo<GraphModel>(() => {
+    if (hiddenKinds.size === 0) return model;
+    const nodes = model.nodes.filter((node) => !hiddenKinds.has(node.data.kind));
+    const visibleIds = new Set(nodes.map((node) => node.id));
+    const edges = model.edges.filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+    return { nodes, edges };
+  }, [model, hiddenKinds]);
 
   const {
     nodes: liveNodes,
@@ -65,9 +82,28 @@ function Canvas({ model }: { model: GraphModel }) {
     onNodeDragStart,
     onNodeDrag,
     onNodeDragStop,
-  } = useForceLayout(model);
+  } = useForceLayout(visibleModel);
 
-  const nodeIds = useMemo(() => new Set(model.nodes.map((node) => node.id)), [model.nodes]);
+  const toggleKind = (kind: KnowledgeKind) =>
+    setHiddenKinds((current) => {
+      const next = new Set(current);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+
+  const focusKind = (kind: KnowledgeKind) => {
+    setHiddenKinds((current) => {
+      if (!current.has(kind)) return current;
+      const next = new Set(current);
+      next.delete(kind);
+      return next;
+    });
+    const first = model.nodes.find((node) => node.data.kind === kind);
+    if (first !== undefined) setSelectedId(first.id);
+  };
+
+  const nodeIds = useMemo(() => new Set(visibleModel.nodes.map((node) => node.id)), [visibleModel.nodes]);
   const activeSelectedId = selectedId !== null && nodeIds.has(selectedId) ? selectedId : null;
   const activeHoveredId = hoveredId !== null && nodeIds.has(hoveredId) ? hoveredId : null;
 
@@ -77,8 +113,8 @@ function Canvas({ model }: { model: GraphModel }) {
   }, [nodeIds]);
 
   const neighbors = useMemo(
-    () => neighborIds(model.edges, activeSelectedId),
-    [model.edges, activeSelectedId],
+    () => neighborIds(visibleModel.edges, activeSelectedId),
+    [visibleModel.edges, activeSelectedId],
   );
 
   const flowNodes = useMemo<Node[]>(() => {
@@ -95,7 +131,7 @@ function Canvas({ model }: { model: GraphModel }) {
 
   // Label/highlight/dim by incidence to the hovered or selected node; never re-runs layout.
   const flowEdges = useMemo<Edge<FlowEdgeData>[]>(() => {
-    return model.edges.map((edge, index) => {
+    return visibleModel.edges.map((edge, index) => {
       const incidentToSelected = isEdgeIncident(edge, activeSelectedId);
       const incidentToHovered = isEdgeIncident(edge, activeHoveredId);
       return {
@@ -111,16 +147,11 @@ function Canvas({ model }: { model: GraphModel }) {
         },
       };
     });
-  }, [model.edges, activeSelectedId, activeHoveredId]);
-
-  const presentKinds = useMemo(
-    () => new Set<KnowledgeKind>(model.nodes.map((node) => node.data.kind)),
-    [model.nodes],
-  );
+  }, [visibleModel.edges, activeSelectedId, activeHoveredId]);
 
   const detail = useMemo(
-    () => (activeSelectedId === null ? null : buildGraphDetail(activeSelectedId, model)),
-    [activeSelectedId, model],
+    () => (activeSelectedId === null ? null : buildGraphDetail(activeSelectedId, visibleModel)),
+    [activeSelectedId, visibleModel],
   );
 
   // The detail panel floats as a right-edge overlay rather than a flex sibling, so
@@ -147,7 +178,12 @@ function Canvas({ model }: { model: GraphModel }) {
       >
         <ZoomControl />
         <div className="absolute bottom-2 left-2 z-10">
-          <Legend kinds={presentKinds} />
+          <GraphKindFilter
+            populatedKinds={populatedKinds}
+            hiddenKinds={hiddenKinds}
+            onToggle={toggleKind}
+            onNavigate={focusKind}
+          />
         </div>
       </ReactFlow>
       {detail !== null ? (

@@ -21,7 +21,7 @@
  * the observable overlay DOM, so they survive internal refactors of the canvas.
  */
 
-import { cleanup, render, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { createElement as h } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -85,23 +85,37 @@ describe('canvas overlay wiring: ZoomControl pill mounted inside <ReactFlow>', (
   });
 });
 
-describe('canvas overlay wiring: bottom-left Legend left as-is', () => {
-  it('still renders the Legend inside the React Flow surface', async () => {
+describe('canvas overlay wiring: bottom-left kind filter', () => {
+  it('renders the kind filter inside the React Flow surface', async () => {
     const container = await renderSettledCanvas();
     const surface = container.querySelector('.react-flow');
-    const legend = container.querySelector('[data-graph-legend]');
-    expect(legend).not.toBeNull();
-    expect(surface?.contains(legend as Node)).toBe(true);
+    const filter = container.querySelector('[data-graph-kind-filter]');
+    expect(filter).not.toBeNull();
+    expect(surface?.contains(filter as Node)).toBe(true);
   });
 
-  it('keeps the Legend anchored bottom-left', async () => {
+  it('keeps the kind filter anchored bottom-left', async () => {
     const container = await renderSettledCanvas();
-    const legend = container.querySelector('[data-graph-legend]');
-    expect(legend).not.toBeNull();
-    const wrapper = legend?.parentElement;
+    const filter = container.querySelector('[data-graph-kind-filter]');
+    expect(filter).not.toBeNull();
+    const wrapper = filter?.parentElement;
     expect(wrapper).not.toBeNull();
     const cls = wrapper?.className ?? '';
     expect(cls).toMatch(/\bbottom-/);
     expect(cls).toMatch(/\bleft-/);
+  });
+
+  it('removes a kind from the graph when its eye control is clicked', async () => {
+    const container = await renderSettledCanvas();
+    const goalToggle = container.querySelector('[data-graph-kind-toggle="goal"]');
+    expect(goalToggle).not.toBeNull();
+
+    const before = container.querySelectorAll('.react-flow__node').length;
+    expect(before).toBeGreaterThan(0);
+
+    fireEvent.click(goalToggle!);
+    await waitFor(() => {
+      expect(container.querySelectorAll('.react-flow__node').length).toBeLessThan(before);
+    });
   });
 });
