@@ -95,26 +95,9 @@ describe('useForceLayout', () => {
     }
   });
 
-  it('moves nodes off their seed positions as the simulation ticks', () => {
+  it('renders the settled forceLayout layout on mount, with no entrance animation', () => {
     const m = model();
     const { result } = renderHook(() => useForceLayout(m));
-    const seed = positionsById(result.current.nodes);
-
-    settle();
-
-    const settled = positionsById(result.current.nodes);
-    const moved = [...settled].some(([id, p]) => {
-      const start = seed.get(id)!;
-      return Math.hypot(p.x - start.x, p.y - start.y) > 1;
-    });
-    expect(moved).toBe(true);
-  });
-
-  it('settles into the same layout the synchronous forceLayout produces', () => {
-    const m = model();
-    const { result } = renderHook(() => useForceLayout(m));
-
-    settle();
 
     const live = positionsById(result.current.nodes);
     for (const expected of forceLayout(m)) {
@@ -122,14 +105,7 @@ describe('useForceLayout', () => {
       expect(actual.x).toBeCloseTo(expected.position.x, 4);
       expect(actual.y).toBeCloseTo(expected.position.y, 4);
     }
-  });
-
-  it('parks the frame loop once settled (no infinite ticking)', () => {
-    const m = model();
-    renderHook(() => useForceLayout(m));
-
-    settle();
-
+    // No frame loop is scheduled on mount: the graph is static until interaction.
     expect(frameQueue.length).toBe(0);
   });
 

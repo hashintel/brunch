@@ -49,10 +49,13 @@ function Canvas({ model }: { model: GraphModel }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  // Positions stream from a live, self-settling simulation rather than a one-shot
-  // synchronous layout, so the graph glides in and stays movable (SPEC D128: these
-  // positions are ephemeral graph-local interaction, never written back to the model).
-  const { nodes: liveNodes, onNodeDragStart, onNodeDrag, onNodeDragStop } = useForceLayout(model);
+  const {
+    nodes: liveNodes,
+    onNodesChange,
+    onNodeDragStart,
+    onNodeDrag,
+    onNodeDragStop,
+  } = useForceLayout(model);
 
   const nodeIds = useMemo(() => new Set(model.nodes.map((node) => node.id)), [model.nodes]);
   const activeSelectedId = selectedId !== null && nodeIds.has(selectedId) ? selectedId : null;
@@ -68,21 +71,15 @@ function Canvas({ model }: { model: GraphModel }) {
     [model.edges, activeSelectedId],
   );
 
-  // Overlay focus (selected/dimmed) onto the live positions without disturbing them:
-  // positions come from the simulation, selection/dimming from focus state.
   const flowNodes = useMemo<Node[]>(() => {
     return liveNodes.map((node): Node => {
+      const base = node.data as unknown as GraphNodeData;
       const data: GraphNodeData = {
-        ...node.data,
+        ...base,
         selected: node.id === activeSelectedId,
         dimmed: activeSelectedId !== null && !neighbors.has(node.id),
       };
-      return {
-        id: node.id,
-        type: 'graph',
-        position: node.position,
-        data: data as unknown as Record<string, unknown>,
-      };
+      return { ...node, data: data as unknown as Record<string, unknown> };
     });
   }, [liveNodes, activeSelectedId, neighbors]);
 
@@ -126,6 +123,7 @@ function Canvas({ model }: { model: GraphModel }) {
         edges={flowEdges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onNodesChange={onNodesChange}
         onNodeClick={(_, node) => setSelectedId((prev) => (prev === node.id ? null : node.id))}
         onNodeMouseEnter={(_, node) => setHoveredId(node.id)}
         onNodeMouseLeave={() => setHoveredId(null)}

@@ -18,6 +18,10 @@ vi.mock('@xyflow/react', async () => {
     },
     Handle: () => React.createElement('span', { 'data-react-flow-handle': '' }),
     Position: { Top: 'top', Bottom: 'bottom' },
+    useNodesState: (initial: unknown) => {
+      const [nodes, setNodes] = React.useState(initial);
+      return [nodes, setNodes, () => {}];
+    },
     useReactFlow: () => ({ fitView: vi.fn(), zoomIn: vi.fn(), zoomOut: vi.fn() }),
     useStore: <T,>(selector: (state: { transform: [number, number, number] }) => T) =>
       selector({ transform: [0, 0, 1] }),
