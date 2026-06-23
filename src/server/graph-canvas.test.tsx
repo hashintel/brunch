@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import { createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -38,7 +38,11 @@ function lastReactFlowProps() {
 }
 
 function renderedNodes() {
-  return lastReactFlowProps().nodes as Array<{ id: string; position: { x: number; y: number } }>;
+  return lastReactFlowProps().nodes as Array<{
+    id: string;
+    position: { x: number; y: number };
+    data: { selected: boolean };
+  }>;
 }
 
 describe('GraphCanvas', () => {
@@ -58,6 +62,23 @@ describe('GraphCanvas', () => {
     const nodes = renderedNodes();
     expect(nodes).toHaveLength(4);
     expect(nodes.some((node) => node.position.x !== 0 || node.position.y !== 0)).toBe(true);
+  });
+
+  it('preserves the selected node across entity refetches when that node still exists', () => {
+    const { rerender } = render(createElement(GraphCanvas, { entityState: crossPhaseDecisionLink() }));
+    const selectedNode = renderedNodes()[0];
+    if (selectedNode === undefined) throw new Error('expected graph nodes');
+
+    const onNodeClick = lastReactFlowProps().onNodeClick as (_event: unknown, node: { id: string }) => void;
+    act(() => {
+      onNodeClick({}, { id: selectedNode.id });
+    });
+
+    expect(renderedNodes().find((node) => node.id === selectedNode.id)?.data.selected).toBe(true);
+
+    rerender(createElement(GraphCanvas, { entityState: crossPhaseDecisionLink() }));
+
+    expect(renderedNodes().find((node) => node.id === selectedNode.id)?.data.selected).toBe(true);
   });
 
   it('marks the canvas read-only at the React Flow level', () => {

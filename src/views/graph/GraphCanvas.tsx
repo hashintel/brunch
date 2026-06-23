@@ -67,10 +67,9 @@ function Canvas({ model }: { model: GraphModel }) {
   const activeHoveredId = hoveredId !== null && nodeIds.has(hoveredId) ? hoveredId : null;
 
   useEffect(() => {
-    // A new model is a different graph; drop any stale focus.
-    setSelectedId(null);
-    setHoveredId(null);
-  }, [model]);
+    setSelectedId((current) => (current !== null && !nodeIds.has(current) ? null : current));
+    setHoveredId((current) => (current !== null && !nodeIds.has(current) ? null : current));
+  }, [nodeIds]);
 
   const neighbors = useMemo(
     () => neighborIds(model.edges, activeSelectedId),
