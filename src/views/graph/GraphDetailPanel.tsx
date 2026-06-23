@@ -3,7 +3,6 @@
 import { X } from 'lucide-react';
 
 import { KindBadge } from '@/client/components/knowledge-card';
-import { knowledgeKindRegistryByKind } from '@/shared/knowledge.js';
 import type { GraphDetail, GraphDetailConnection, GraphEdgeRelationship } from '@/views/graph/types';
 
 function humanizeRelationship(relationship: GraphEdgeRelationship): string {
@@ -25,7 +24,6 @@ export function GraphDetailPanel({
   onClose: () => void;
   onSelect: (id: string) => void;
 }) {
-  const kindLabel = knowledgeKindRegistryByKind[detail.kind].label;
   const hasRationale = detail.rationale.trim().length > 0;
 
   return (
@@ -38,7 +36,6 @@ export function GraphDetailPanel({
           <div className="flex items-center gap-1.5">
             <KindBadge kind={detail.kind} />
             <span className="font-mono text-xxs font-medium text-hint">{detail.referenceCode}</span>
-            <span className="text-xxs text-hint">{kindLabel}</span>
           </div>
           <p className="text-xs-plus leading-snug text-ink">{detail.content}</p>
         </div>
