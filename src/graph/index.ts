@@ -45,7 +45,6 @@ export {
   CLAIM_FORM_JSON_SCHEMAS,
   claimFormKnownFields,
   formatGraphNodeCode,
-  intentKindCategory,
   NODE_DETAIL_FORMS,
   NODE_DETAIL_JSON_SCHEMAS,
   NODE_KINDS_REQUIRING_DETAIL,

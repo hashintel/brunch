@@ -59,17 +59,6 @@ type PlanKind = (typeof PLAN_KINDS)[number];
 /** Union of every node kind across all planes. */
 export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind;
 
-// ---------------------------------------------------------------------------
-// Intent kind categories (derived, not stored)
-// ---------------------------------------------------------------------------
-
-/**
- * Derived grouping over {@link IntentKind}.
- *
- * Never persisted — computed via {@link intentKindCategory}.
- */
-type IntentKindCategory = 'basic' | 'structural' | 'reasoning' | 'elicitation';
-
 export type ReadinessBand = 'grounding' | 'elicitation' | 'commitment';
 
 export interface NodeKindMetadata {
@@ -142,29 +131,6 @@ export function parseGraphNodeCode(code: string): ParsedGraphNodeCode | undefine
     return { kind, kindOrdinal: Number(ordinalText) };
   }
   return undefined;
-}
-
-/** Pure derivation: intent kind → category. */
-export function intentKindCategory(kind: IntentKind): IntentKindCategory {
-  switch (kind) {
-    case 'goal':
-    case 'thesis':
-    case 'term':
-    case 'context':
-      return 'basic';
-    case 'story':
-    case 'unknown':
-      return 'elicitation';
-    case 'requirement':
-    case 'assumption':
-    case 'constraint':
-    case 'invariant':
-      return 'structural';
-    case 'decision':
-    case 'criterion':
-    case 'example':
-      return 'reasoning';
-  }
 }
 
 // ---------------------------------------------------------------------------

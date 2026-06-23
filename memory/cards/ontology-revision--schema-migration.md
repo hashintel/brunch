@@ -104,6 +104,8 @@ src/.pi/**, src/projections/**, src/renderers/**  ~  (edge-literal callers)
 
 ## Card 2 — Node vocabulary (renames + adds)  [light · done]
 
+> **Card-2 follow-up (2026-06-23): `intentKindCategory` axis stripped, not extended.** The build initially added a 4th category value `'elicitation'` (a readiness-*band* name) to fit `story`/`unknown` into the `basic|structural|reasoning` model — a conflation of two distinct axes (D56-L category vs D64-L band). Investigation found the entire category axis had **no code/test/prompt reader** (only a definition + one re-export; I36-L's "covered" citation was to a non-existent test). Per the user's call and "no property without a clear reader," the axis was **removed entirely** rather than fixed: deleted `IntentKindCategory` + `intentKindCategory()` from `nodes.ts` and the re-export from `graph/index.ts`; D56-L rewritten (no category axis), both I36-L rows corrected, the Lexicon entry retired, D61-L/Claim rephrased to name the truth-bearing kinds directly. The readiness band (D64-L) remains the only live grouping over kinds.
+
 ### Objective
 
 The node kind set is the D87-L vocabulary: `validation_method→vv_method`, `obligation→vv_obligation`; adds `entity` (design), `sketch` (design), `story` (intent/elicitation band), `unknown` (intent); `thesis` kept with sharpened definition; `criterion` confirmed at label `AC`. `NODE_KIND_METADATA` (labels + bands + category) and the kind-category derivation reflect the new set; callers + fixtures updated; `npm run verify` green.
@@ -121,7 +123,7 @@ The node kind set is the D87-L vocabulary: `validation_method→vv_method`, `obl
 
 ```
 ✓ INTENT_KINDS adds story + unknown; ORACLE_KINDS renames to vv_method/vv_obligation; DESIGN_KINDS adds entity + sketch.
-✓ NODE_KIND_METADATA: vv_method=VV, vv_obligation=O, entity=ENT, sketch=SKT, story label, unknown=UNK; bands + intent category assigned (story→elicitation; unknown→intent; entity/sketch→design).
+✓ NODE_KIND_METADATA: vv_method=VV, vv_obligation=O, entity=ENT, sketch=SKT, story=ST, unknown=UNK; readiness bands assigned (story/unknown→elicitation; entity/sketch→design plane). [Intent-category assignment removed — the axis was stripped, see follow-up note above.]
 ✓ thesis definition/prompting sharpened (testable/refutable/refinable) without renaming the kind; claim stays the umbrella (D61-L).
 ✓ all callers of validation_method/obligation updated; fixtures regenerated; npm run verify green.
 ```
@@ -129,7 +131,7 @@ The node kind set is the D87-L vocabulary: `validation_method→vv_method`, `obl
 ### Verification Approach
 
 ```
-- Inner: CommandExecutor per-plane kind validation + kind-category derivation tests; NODE_KIND_METADATA label/band guard (I39-L); web NodePlane exhaustiveness (I43-L/I44-L) stays green.
+- Inner: CommandExecutor per-plane kind validation; NODE_KIND_METADATA label/band guard (I39-L); web NodePlane exhaustiveness (I43-L/I44-L) stays green. (Kind-category derivation tests removed with the axis.)
 - Middle: graph round-trip over regenerated fixtures.
 ```
 
