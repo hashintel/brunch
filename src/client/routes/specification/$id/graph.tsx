@@ -3,6 +3,8 @@ import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 
 import { ChatShellLayout } from '@/client/components/chat-shell-layout';
+import { GraphCanvas, type KindHighlight } from '@/client/components/graph/GraphCanvas.js';
+import { GRAPH_VIEW_PARAM, parseViewMode, ViewToggle } from '@/client/components/graph/ViewToggle.js';
 import { KnowledgeGraphIdentity } from '@/client/components/knowledge-graph-identity';
 import type { WorkflowState } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
@@ -13,8 +15,6 @@ import {
   getPhaseRoutePath,
   getWorkflowPhaseLabel,
 } from '@/shared/phase-descriptors.js';
-import { GraphCanvas, type KindHighlight } from '@/views/graph/GraphCanvas.js';
-import { GRAPH_VIEW_PARAM, parseViewMode, ViewToggle } from '@/views/graph/ViewToggle.js';
 
 import {
   primeSpecificationEntitiesProjectWide,

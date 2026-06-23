@@ -23,7 +23,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '..', '..');
 
 // The stylesheet is co-located with the GraphNode card it animates.
-const candidatePaths = [resolve(repoRoot, 'src/views/graph/graphNode.css')];
+const candidatePaths = [resolve(repoRoot, 'src/client/components/graph/graphNode.css')];
 
 function cssPath(): string {
   const found = candidatePaths.find((p) => existsSync(p));
