@@ -52,7 +52,7 @@ function Canvas({ model }: { model: GraphModel }) {
   // Positions stream from a live, self-settling simulation rather than a one-shot
   // synchronous layout, so the graph glides in and stays movable (SPEC D128: these
   // positions are ephemeral graph-local interaction, never written back to the model).
-  const { nodes: liveNodes } = useForceLayout(model);
+  const { nodes: liveNodes, onNodeDragStart, onNodeDrag, onNodeDragStop } = useForceLayout(model);
 
   const nodeIds = useMemo(() => new Set(model.nodes.map((node) => node.id)), [model.nodes]);
   const activeSelectedId = selectedId !== null && nodeIds.has(selectedId) ? selectedId : null;
@@ -130,7 +130,10 @@ function Canvas({ model }: { model: GraphModel }) {
         onNodeMouseEnter={(_, node) => setHoveredId(node.id)}
         onNodeMouseLeave={() => setHoveredId(null)}
         onPaneClick={() => setSelectedId(null)}
-        nodesDraggable={false}
+        onNodeDragStart={(_, node) => onNodeDragStart(node.id)}
+        onNodeDrag={(_, node) => onNodeDrag(node.id, node.position)}
+        onNodeDragStop={(_, node) => onNodeDragStop(node.id)}
+        nodesDraggable
         nodesConnectable={false}
         fitView
       >

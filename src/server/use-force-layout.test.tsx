@@ -68,6 +68,16 @@ function settle(): number {
   return frames;
 }
 
+/** Run up to `n` scheduled frames without requiring the loop to settle (a pinned sim never parks). */
+function flush(n: number): void {
+  act(() => {
+    for (let i = 0; i < n && frameQueue.length > 0; i++) {
+      const cb = frameQueue.shift()!;
+      cb(0);
+    }
+  });
+}
+
 function positionsById(nodes: ReadonlyArray<{ id: string; position: { x: number; y: number } }>) {
   return new Map(nodes.map((n) => [n.id, n.position]));
 }
@@ -128,6 +138,63 @@ describe('useForceLayout', () => {
     const { result } = renderHook(() => useForceLayout(empty));
 
     expect(result.current.nodes).toEqual([]);
+    expect(frameQueue.length).toBe(0);
+  });
+});
+
+describe('useForceLayout — drag', () => {
+  function positionOf(
+    result: { current: { nodes: ReadonlyArray<{ id: string; position: { x: number; y: number } }> } },
+    id: string,
+  ) {
+    const node = result.current.nodes.find((n) => n.id === id);
+    if (node === undefined) throw new Error(`no node ${id}`);
+    return node.position;
+  }
+
+  it('pins a dragged node under the pointer', () => {
+    const m = model();
+    const { result } = renderHook(() => useForceLayout(m));
+    settle();
+
+    act(() => result.current.onNodeDragStart('a'));
+    act(() => result.current.onNodeDrag('a', { x: 900, y: -400 }));
+    flush(3);
+
+    const a = positionOf(result, 'a');
+    expect(a.x).toBeCloseTo(900, 3);
+    expect(a.y).toBeCloseTo(-400, 3);
+  });
+
+  it('reflows neighbors while a connected node is dragged', () => {
+    const m = model();
+    const { result } = renderHook(() => useForceLayout(m));
+    settle();
+    const before = positionOf(result, 'b');
+
+    act(() => result.current.onNodeDragStart('a'));
+    act(() => result.current.onNodeDrag('a', { x: 1200, y: 600 }));
+    flush(8);
+
+    const after = positionOf(result, 'b');
+    expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeGreaterThan(1);
+  });
+
+  it('eases a released node back off the drop point', () => {
+    const m = model();
+    const { result } = renderHook(() => useForceLayout(m));
+    settle();
+
+    act(() => result.current.onNodeDragStart('a'));
+    act(() => result.current.onNodeDrag('a', { x: 1500, y: 0 }));
+    flush(4);
+    expect(positionOf(result, 'a').x).toBeCloseTo(1500, 3);
+
+    act(() => result.current.onNodeDragStop('a'));
+    const frames = settle();
+
+    expect(positionOf(result, 'a').x).toBeLessThan(1500 - 1);
+    expect(frames).toBeGreaterThan(0);
     expect(frameQueue.length).toBe(0);
   });
 });

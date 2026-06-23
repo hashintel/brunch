@@ -81,11 +81,11 @@ describe('GraphCanvas', () => {
     expect(renderedNodes().find((node) => node.id === selectedNode.id)?.data.selected).toBe(true);
   });
 
-  it('marks the canvas read-only at the React Flow level', () => {
+  it('lets nodes be dragged but not connected at the React Flow level', () => {
     render(createElement(GraphCanvas, { entityState: crossPhaseDecisionLink() }));
 
     const props = lastReactFlowProps();
-    expect(props.nodesDraggable).toBe(false);
+    expect(props.nodesDraggable).toBe(true);
     expect(props.nodesConnectable).toBe(false);
   });
 });
