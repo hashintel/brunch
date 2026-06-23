@@ -176,6 +176,7 @@ These were deferred below the demo line; the demo/alpha lower line has now lande
 - **Cross-cutting obligations:** Freeze the new vocabulary early so the web client builds against a stable wire (compile-time `NODE_KIND_METADATA` breaks loudly on drift). Pre-release posture (POSTURE.md prototype + high-stakes): regenerate fixtures/seeds rather than preserve old-vocabulary data. Do **not** build the deferred items. Coordinate with `renderer-golden-coverage` (FE-870) — it reconciled GRAPH_MODEL's taxonomy copy; this frontier retires that doc, so the renderer goldens re-lock against the new vocabulary.
 - **Traceability:** D3-L, D51-L, D54-L, D56-L, D61-L, D62-L, D64-L, D73-L, D87-L, D88-L, D89-L / I36-L, I37-L, I39-L, I40-L, I41-L, I43-L, I44-L.
 - **Design docs:** `docs/design/ONTOLOGY_REVIEW_PROTOCOL.md` (§6 resolved scope, §7 heuristics, §8 deferrals); `memory/SPEC.md` D87-L–D89-L; `docs/design/GRAPH_MODEL.md` (current state, being retired); card `memory/cards/graph--edge-impact-remodel.md`.
+- **Current execution pointer (2026-06-23):** scoped as a 5-card `Mode: slices` file `memory/cards/ontology-revision--schema-migration.md` — card 1 (edge vocabulary + impact remodel, full, next) → card 2 (node vocabulary) → card 3 (`detail.form`) → card 4 (`spec.kind` + story/unknown) → card 5 (GRAPH_MODEL.md retirement). Card 1 folds in the absorbed `graph--edge-impact-remodel` (same files). The one open design call inside card 1 is `refinement`'s `affected`/`impactKind` (DECIDE-in-build, lean advisory/target).
 
 ### poc-live-ship-gate
 
