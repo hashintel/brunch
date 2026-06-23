@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 
 import { KindBadge } from '@/client/components/knowledge-card';
 import { ArrowheadShape } from '@/views/graph/edgeArrowhead';
-import { edgeColor } from '@/views/graph/graphStyle';
+import { edgeColor, edgeDash } from '@/views/graph/graphStyle';
 import type { GraphDetail, GraphDetailConnection, GraphEdgeRelationship } from '@/views/graph/types';
 
 function humanizeRelationship(relationship: GraphEdgeRelationship): string {
@@ -94,6 +94,7 @@ export function GraphDetailPanel({
                           y2={4}
                           stroke={edgeColor(connection.relationship)}
                           strokeWidth={1.5}
+                          strokeDasharray={edgeDash(connection.relationship)}
                         />
                         <g transform="translate(10,0)">
                           <ArrowheadShape size={8} color={edgeColor(connection.relationship)} />

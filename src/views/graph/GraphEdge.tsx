@@ -2,7 +2,7 @@ import { getBezierPath, Position } from '@xyflow/react';
 import { useId, type ReactElement } from 'react';
 
 import { ArrowheadShape } from '@/views/graph/edgeArrowhead';
-import { arrowheadConfig, edgeColor, edgeStyle } from '@/views/graph/graphStyle';
+import { arrowheadConfig, edgeColor, edgeDash, edgeStyle } from '@/views/graph/graphStyle';
 import type { GraphEdgeRelationship } from '@/views/graph/types';
 
 import './graphEdge.css';
@@ -81,6 +81,7 @@ export function GraphEdge({
         fill="none"
         stroke={stroke}
         strokeWidth={edgeStyle.strokeWidth}
+        strokeDasharray={edgeDash(relationship)}
         markerEnd={`url(#${markerId})`}
       />
       {labelsShown || selected ? (

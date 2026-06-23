@@ -35,6 +35,24 @@ export function edgeColor(relationship: GraphEdgeRelationship): string {
   return edgeColorByRelationship[relationship];
 }
 
+/**
+ * Stroke dash pattern per relationship type: `derived_from` and `refines` render
+ * dotted; the rest are solid (undefined → no dash). Lets edges read by line style
+ * as well as color.
+ */
+export const edgeDashByRelationship: Record<GraphEdgeRelationship, string | undefined> = {
+  depends_on: undefined,
+  derived_from: '2 3',
+  constrains: undefined,
+  verifies: undefined,
+  refines: '2 3',
+};
+
+/** Resolve a relationship type's stroke dash pattern (undefined = solid). */
+export function edgeDash(relationship: GraphEdgeRelationship): string | undefined {
+  return edgeDashByRelationship[relationship];
+}
+
 /** Accent color for each knowledge kind, keyed by kind (reuses the card palette so they never drift). */
 export const nodeColorByKind: Record<KnowledgeKind, string> = kindAccentHex;
 

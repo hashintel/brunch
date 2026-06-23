@@ -1,5 +1,5 @@
 import { ArrowheadShape } from '@/views/graph/edgeArrowhead';
-import { edgeColor } from '@/views/graph/graphStyle';
+import { edgeColor, edgeDash } from '@/views/graph/graphStyle';
 import type { GraphEdgeRelationship } from '@/views/graph/types';
 
 const RELATIONSHIP_ORDER: GraphEdgeRelationship[] = [
@@ -32,7 +32,15 @@ export function GraphArrowLegend({ relationships }: { relationships: ReadonlySet
             className="flex items-center gap-1.5"
           >
             <svg width={24} height={8} viewBox="0 0 24 8" aria-hidden="true" className="shrink-0">
-              <line x1={0} y1={4} x2={16} y2={4} stroke={color} strokeWidth={1.5} />
+              <line
+                x1={0}
+                y1={4}
+                x2={16}
+                y2={4}
+                stroke={color}
+                strokeWidth={1.5}
+                strokeDasharray={edgeDash(relationship)}
+              />
               <g transform="translate(16,0)">
                 <ArrowheadShape size={8} color={color} />
               </g>

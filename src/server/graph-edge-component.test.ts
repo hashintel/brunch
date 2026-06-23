@@ -71,6 +71,20 @@ describe('GraphEdge', () => {
     expect(new Set(strokes).size).toBe(allRelationships.length);
   });
 
+  it('renders derived_from and refines dotted, the rest solid', () => {
+    const dashOf = (relationship: GraphEdgeRelationship): string | null => {
+      const { container } = renderEdge({ relationship });
+      const dash = container.querySelector('path[d]')?.getAttribute('stroke-dasharray') ?? null;
+      cleanup();
+      return dash;
+    };
+    expect(dashOf('derived_from')).toBe('2 3');
+    expect(dashOf('refines')).toBe('2 3');
+    expect(dashOf('depends_on')).toBeNull();
+    expect(dashOf('constrains')).toBeNull();
+    expect(dashOf('verifies')).toBeNull();
+  });
+
   it('renders a directional arrowhead marker that the edge references', () => {
     const { container } = renderEdge({ relationship: 'depends_on' });
     const stroked = container.querySelector('line, path[d]');

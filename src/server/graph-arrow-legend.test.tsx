@@ -28,6 +28,18 @@ describe('GraphArrowLegend', () => {
     expect(container.querySelector('[data-graph-arrow-legend-item="depends_on"] svg')).not.toBeNull();
   });
 
+  it('shows dotted lines for derived_from and refines, solid otherwise', () => {
+    const all: GraphEdgeRelationship[] = ['depends_on', 'derived_from', 'constrains', 'verifies', 'refines'];
+    const { container } = render(h(GraphArrowLegend, { relationships: new Set(all) }));
+    const dashOf = (relationship: GraphEdgeRelationship) =>
+      container
+        .querySelector(`[data-graph-arrow-legend-item="${relationship}"] line`)
+        ?.getAttribute('stroke-dasharray') ?? null;
+    expect(dashOf('derived_from')).toBe('2 3');
+    expect(dashOf('refines')).toBe('2 3');
+    expect(dashOf('depends_on')).toBeNull();
+  });
+
   it('uses a distinct color per relationship type', () => {
     const all: GraphEdgeRelationship[] = ['depends_on', 'derived_from', 'constrains', 'verifies', 'refines'];
     const { container } = render(h(GraphArrowLegend, { relationships: new Set(all) }));
