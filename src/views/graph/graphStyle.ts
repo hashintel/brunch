@@ -17,12 +17,16 @@ export const arrowheadConfig = {
   color: '#94a3b8',
 } as const;
 
-/** A distinct color per relationship type, so edges read by type at a glance. */
+/**
+ * A distinct color per relationship type, so edges read by type at a glance.
+ * `constrains` and `verifies` reuse the matching item accent (constraint pink,
+ * requirement green) so the edge color echoes the item it relates.
+ */
 export const edgeColorByRelationship: Record<GraphEdgeRelationship, string> = {
   depends_on: '#4f46e5',
   derived_from: '#0d9488',
-  constrains: '#dc2626',
-  verifies: '#ea580c',
+  constrains: kindAccentHex.constraint,
+  verifies: kindAccentHex.requirement,
   refines: '#7c3aed',
 };
 

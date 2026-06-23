@@ -4,7 +4,6 @@ import { cleanup, render } from '@testing-library/react';
 import { createElement as h } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { kindAccentHex } from '@/client/components/knowledge-card';
 // The component under test. Lives alongside the other graph view modules.
 import { GraphEdge } from '@/views/graph/GraphEdge';
 import { edgeColor, edgeStyle } from '@/views/graph/graphStyle';
@@ -60,14 +59,12 @@ describe('GraphEdge', () => {
     expect(stroked?.getAttribute('stroke-width')).toBe(String(edgeStyle.strokeWidth));
   });
 
-  it('uses a distinct color per relationship type, never a node kind accent color', () => {
-    const accents = Object.values(kindAccentHex).map((c) => c.toLowerCase());
+  it('uses a distinct color per relationship type', () => {
     const strokes: string[] = [];
     for (const relationship of allRelationships) {
       const { container } = renderEdge({ relationship });
       const stroke = (container.querySelector('line, path[d]')?.getAttribute('stroke') ?? '').toLowerCase();
       expect(stroke).toBe(edgeColor(relationship).toLowerCase());
-      expect(accents).not.toContain(stroke);
       strokes.push(stroke);
       cleanup();
     }
