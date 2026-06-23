@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { kindAccentHex } from '@/client/components/knowledge-card';
 // The component under test. Lives alongside the other graph view modules.
 import { GraphEdge } from '@/views/graph/GraphEdge';
-import { edgeStyle } from '@/views/graph/graphStyle';
+import { edgeColor, edgeStyle } from '@/views/graph/graphStyle';
 import type { GraphEdgeRelationship } from '@/views/graph/types';
 
 afterEach(() => {
@@ -52,38 +52,26 @@ function toKey(text: string): string {
 }
 
 describe('GraphEdge', () => {
-  it('strokes the edge with the neutral edge color at the edgeStyle width', () => {
+  it('strokes the edge with its relationship color at the edgeStyle width', () => {
     const { container } = renderEdge({ relationship: 'depends_on' });
     const stroked = container.querySelector('line, path[d]');
     expect(stroked).not.toBeNull();
-    expect(stroked?.getAttribute('stroke')).toBe(edgeStyle.stroke);
+    expect(stroked?.getAttribute('stroke')).toBe(edgeColor('depends_on'));
     expect(stroked?.getAttribute('stroke-width')).toBe(String(edgeStyle.strokeWidth));
   });
 
-  it('uses one uniform neutral stroke, never a node kind accent color', () => {
+  it('uses a distinct color per relationship type, never a node kind accent color', () => {
     const accents = Object.values(kindAccentHex).map((c) => c.toLowerCase());
+    const strokes: string[] = [];
     for (const relationship of allRelationships) {
       const { container } = renderEdge({ relationship });
-      const stroked = container.querySelector('line, path[d]');
-      const stroke = (stroked?.getAttribute('stroke') ?? '').toLowerCase();
-      expect(stroke).toBe(edgeStyle.stroke.toLowerCase());
+      const stroke = (container.querySelector('line, path[d]')?.getAttribute('stroke') ?? '').toLowerCase();
+      expect(stroke).toBe(edgeColor(relationship).toLowerCase());
       expect(accents).not.toContain(stroke);
+      strokes.push(stroke);
       cleanup();
     }
-  });
-
-  it('distinguishes relationship types by arrowhead shape', () => {
-    const shapes = allRelationships.map((relationship) => {
-      const { container } = renderEdge({ relationship });
-      const shape = container.querySelector('marker > *');
-      const signature =
-        shape === null
-          ? ''
-          : `${shape.tagName}:${shape.getAttribute('points') ?? shape.getAttribute('r') ?? shape.getAttribute('width') ?? ''}`;
-      cleanup();
-      return signature;
-    });
-    expect(new Set(shapes).size).toBe(allRelationships.length);
+    expect(new Set(strokes).size).toBe(allRelationships.length);
   });
 
   it('renders a directional arrowhead marker that the edge references', () => {

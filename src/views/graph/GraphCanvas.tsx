@@ -7,6 +7,7 @@ import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 import { buildGraphModel, type GraphModel } from '@/views/graph/buildGraphModel.js';
 import { isEdgeIncident, neighborIds } from '@/views/graph/focus.js';
+import { GraphArrowLegend } from '@/views/graph/GraphArrowLegend.js';
 import { buildGraphDetail } from '@/views/graph/graphDetail.js';
 import { GraphDetailPanel } from '@/views/graph/GraphDetailPanel.js';
 import { GraphEdge } from '@/views/graph/GraphEdge.js';
@@ -121,6 +122,11 @@ function Canvas({ model, hiddenKinds }: { model: GraphModel; hiddenKinds: Readon
     });
   }, [visibleModel.edges, activeSelectedId, activeHoveredId]);
 
+  const presentRelationships = useMemo(
+    () => new Set<GraphEdgeRelationship>(visibleModel.edges.map((edge) => edge.data.relationship)),
+    [visibleModel.edges],
+  );
+
   const detail = useMemo(
     () => (activeSelectedId === null ? null : buildGraphDetail(activeSelectedId, visibleModel)),
     [activeSelectedId, visibleModel],
@@ -149,6 +155,9 @@ function Canvas({ model, hiddenKinds }: { model: GraphModel; hiddenKinds: Readon
         fitView
       >
         <ZoomControl />
+        <div className="absolute bottom-2 left-2 z-10">
+          <GraphArrowLegend relationships={presentRelationships} />
+        </div>
       </ReactFlow>
       {detail !== null ? (
         <div className="absolute inset-y-0 right-0 z-20">

@@ -2,7 +2,7 @@ import { getBezierPath, Position } from '@xyflow/react';
 import { useId, type ReactElement } from 'react';
 
 import { ArrowheadShape } from '@/views/graph/edgeArrowhead';
-import { arrowheadConfig, edgeStyle } from '@/views/graph/graphStyle';
+import { arrowheadConfig, edgeColor, edgeStyle } from '@/views/graph/graphStyle';
 import type { GraphEdgeRelationship } from '@/views/graph/types';
 
 import './graphEdge.css';
@@ -40,7 +40,7 @@ export function GraphEdge({
   const markerId = `graph-edge-arrowhead-${useId()}`;
   const label = relationshipLabel(relationship);
   const tooltip = `${label} relationship`;
-  const stroke = edgeStyle.stroke;
+  const stroke = edgeColor(relationship);
   const className = ['graph-edge', selected && 'graph-edge--selected', dimmed && 'graph-edge--dimmed']
     .filter(Boolean)
     .join(' ');
@@ -73,7 +73,7 @@ export function GraphEdge({
           orient="auto"
           markerUnits="userSpaceOnUse"
         >
-          <ArrowheadShape relationship={relationship} size={arrowheadConfig.width} color={stroke} />
+          <ArrowheadShape size={arrowheadConfig.width} color={stroke} />
         </marker>
       </defs>
       <path
