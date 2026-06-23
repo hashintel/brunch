@@ -69,6 +69,47 @@ describe('CommandExecutor', () => {
     expect(result.lsn).toBe(1);
   });
 
+  // --- createNode: story / unknown intent kinds (D87-L / D89-L) ---
+
+  it('creates a story node as an intent claim (no detail)', () => {
+    const result = executor.createNode({ specId, plane: 'intent', kind: 'story', title: 'Checkout flow' });
+
+    expect(result.status).toBe('success');
+  });
+
+  it('creates an unknown node as an intent claim, distinct from elicitation_gaps', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'unknown',
+      title: 'Regulatory regime for the EU launch is undecided',
+    });
+
+    expect(result.status).toBe('success');
+    // unknown rides the node graph; it does not create an elicitation-gap obligation.
+    expect(
+      db.select().from(elicitationGaps).where(eq(elicitationGaps.refers_to, 'unknown')).all(),
+    ).toHaveLength(0);
+  });
+
+  it('wires a story via composition to a requirement, reusing the existing edge vocabulary', () => {
+    const batch = runCreateOnlyMutation(executor, {
+      specId,
+      nodes: [
+        { ref: 's1', plane: 'intent', kind: 'story', title: 'Checkout flow' },
+        {
+          ref: 'r1',
+          plane: 'intent',
+          kind: 'requirement',
+          title: 'Cart total is recomputed on quantity change',
+        },
+      ],
+      edges: [{ category: 'composition', source: 's1', target: 'r1' }],
+    });
+
+    expect(batch.status).toBe('success');
+  });
+
   it("defaults basis to 'explicit' when omitted", () => {
     executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Some goal' });
 
@@ -511,6 +552,24 @@ describe('CommandExecutor', () => {
       expect(row.slug).toBe('brunch-poc');
     });
 
+    it('defaults spec kind to product when omitted (D89-L)', () => {
+      const result = executor.createSpec({ name: 'Default Scope', slug: 'default-scope' });
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+
+      expect(executor.getSpec(result.specId)?.kind).toBe('product');
+    });
+
+    it('persists and reads an explicit spec kind (D89-L)', () => {
+      const created = executor.createSpec({ name: 'Focused Lib', slug: 'focused-lib', kind: 'function' });
+      expect(created.status).toBe('success');
+      if (created.status !== 'success') throw new Error('unreachable');
+
+      const row = db.select().from(specs).where(eq(specs.id, created.specId)).get()!;
+      expect(row.kind).toBe('function');
+      expect(executor.getSpec(created.specId)?.kind).toBe('function');
+    });
+
     it('creates exactly one graph clock row for a new spec at LSN 1', () => {
       const result = executor.createSpec({ name: 'Clocked Spec', slug: 'clocked-spec' });
 
@@ -675,6 +734,7 @@ describe('CommandExecutor', () => {
         id: created.specId,
         name: 'Spec A',
         slug: 'spec-a',
+        kind: 'product',
       });
     });
 

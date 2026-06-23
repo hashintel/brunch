@@ -43,6 +43,13 @@
       "when": 1781168021116,
       "tag": "0005_bumpy_vampiro",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1782228984470,
+      "tag": "0006_cooing_mole_man",
+      "breakpoints": true
     }
   ]
 }

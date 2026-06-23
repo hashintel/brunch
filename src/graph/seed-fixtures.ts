@@ -39,6 +39,7 @@ import { fileURLToPath } from 'node:url';
 import type { GraphMutationOp } from './command-executor.js';
 import { CommandExecutor } from './command-executor.js';
 import type { EdgeCategory, EdgeStance } from './schema/edges.js';
+import type { SpecKind } from './schema/kinds.js';
 import type { NodeBasis, NodePlane } from './schema/nodes.js';
 import { openWorkspaceCommandExecutor } from './workspace-store.js';
 
@@ -50,6 +51,8 @@ import { openWorkspaceCommandExecutor } from './workspace-store.js';
 export interface SeedFixtureSpec {
   readonly slug: string;
   readonly name: string;
+  /** Spec scope (D89-L); defaults to `product` when omitted. */
+  readonly kind?: SpecKind;
 }
 
 /** A node row in a consolidated fixture; `local_id` is referenced by edges. */
@@ -119,6 +122,7 @@ export function seedFixture(executor: CommandExecutor, fixture: SeedFixture): Se
   const specResult = executor.createSpec({
     name: fixture.spec.name,
     slug: fixture.spec.slug,
+    ...(fixture.spec.kind === undefined ? {} : { kind: fixture.spec.kind }),
   });
   if (specResult.status !== 'success') {
     throw new Error(

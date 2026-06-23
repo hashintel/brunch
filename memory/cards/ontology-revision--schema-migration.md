@@ -206,7 +206,9 @@ src/graph/__tests__/{command-executor,mutate-graph-edge-schema}.test.ts  ~  (for
 
 ---
 
-## Card 4 — `spec.kind` field + story/unknown wiring  [light · next]
+## Card 4 — `spec.kind` field + story/unknown wiring  [light · done]
+
+> **Card-4 build (2026-06-23):** `SPEC_KINDS = product|feature|function` + `SpecKind` added to `graph/schema/kinds.ts` (drizzle-free taxonomy leaf, D73-L); `specs.kind text NOT NULL DEFAULT 'product'` column added to `db/schema.ts` with generated migration `drizzle/0006_cooing_mole_man.sql`; `SpecRecord.kind` + optional `CreateSpecInput.kind` thread through `command-types.ts`, `createSpec` (persists kind + change-log payload), `getSpec`/`listSpecs` (read it), re-exported from `graph/index.ts`. `kind` round-trips through the seed/export fixture contract (`SeedFixtureSpec.kind?`, exportSeedFixture emits it). story/unknown needed no new wiring — Card 2 already landed them as `intent` kinds and `composition` carries no kind-pair restriction; added legality + story→requirement composition + spec.kind persistence tests. Default `product` chosen as the broadest ownership relation for a scratch spec. `npm run verify` green.
 
 ### Objective
 
@@ -252,7 +254,7 @@ src/graph/**                           ~  (createSpec/getSpec, story/unknown wir
 
 ---
 
-## Card 5 — Retire `docs/design/GRAPH_MODEL.md`  [light · last]
+## Card 5 — Retire `docs/design/GRAPH_MODEL.md`  [light · next]
 
 ### Objective
 

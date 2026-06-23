@@ -35,6 +35,7 @@ function makeFixture(): SeedFixture {
     spec: {
       slug: 'curation-export',
       name: 'Curation Export',
+      kind: 'feature',
     },
     nodes: [
       {

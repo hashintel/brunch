@@ -24,7 +24,10 @@ export {
   LENS_AFFINITIES,
   GAP_DISPOSITIONS,
   GAP_PREDICATE_KINDS,
+  SPEC_KINDS,
 } from './schema/kinds.js';
+
+export type { SpecKind } from './schema/kinds.js';
 
 export type { EdgeCategory, GraphEdge } from './schema/edges.js';
 export type { ElicitationGap, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';

@@ -97,7 +97,7 @@ their boundary.
 
 ## Current schema posture
 
-The current graph and graph-adjacent tables are spec-scoped: `specs` (identity only: `id`, `name`, `slug`), `nodes`,
+The current graph and graph-adjacent tables are spec-scoped: `specs` (`id`, `name`, `slug`, and `kind` — the `product | feature | function` scope ownership relation, D89-L; `readiness_band` stays computed, not stored, per D45-L), `nodes`,
 `edges`, `node_kind_counters`, `graph_clock`, `change_log`,
 `reconciliation_need`, and `elicitation_gaps`. `graph_clock` is keyed by
 `spec_id`; `change_log` carries `spec_id` and is keyed by `(spec_id, lsn)`, so

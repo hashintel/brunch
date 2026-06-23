@@ -132,7 +132,7 @@ graph/
     CommandExecutor
     seeded elicitation-gap floor/situating agenda + spec-record mapping
     re-exports command input/result types (command-types.ts)
-    createSpec (spec identity only; no stored readiness grade)
+    createSpec (identity + spec.kind scope, D89-L; readiness stays computed, D45-L)
     create/set elicitation-gap disposition
     createNode
     per-kind node ordinal allocation
