@@ -16,7 +16,15 @@ function connectionPhrase(connection: GraphDetailConnection): string {
   return connection.direction === 'outgoing' ? rel : `${rel} by`;
 }
 
-export function GraphDetailPanel({ detail, onClose }: { detail: GraphDetail; onClose: () => void }) {
+export function GraphDetailPanel({
+  detail,
+  onClose,
+  onSelect,
+}: {
+  detail: GraphDetail;
+  onClose: () => void;
+  onSelect: (id: string) => void;
+}) {
   const kindLabel = knowledgeKindRegistryByKind[detail.kind].label;
   const hasRationale = detail.rationale.trim().length > 0;
 
@@ -67,18 +75,22 @@ export function GraphDetailPanel({ detail, onClose }: { detail: GraphDetail; onC
           ) : (
             <ul className="flex flex-col gap-1.5">
               {detail.connections.map((connection, index) => (
-                <li
-                  key={`${connection.direction}-${connection.otherKind}-${connection.otherReference}-${index}`}
-                  className="rounded-lg bg-white p-2.5 text-xs shadow-[var(--shadow-card-ring)]"
-                >
-                  <div className="mb-1 flex items-center gap-1.5">
-                    <KindBadge kind={connection.otherKind} />
-                    <span className="font-mono text-xxs font-medium text-hint">
-                      {connection.otherReference}
-                    </span>
-                    <span className="text-xxs text-sub">{connectionPhrase(connection)}</span>
-                  </div>
-                  <p className="line-clamp-2 leading-snug text-ink">{connection.otherContent}</p>
+                <li key={`${connection.direction}-${connection.otherId}-${connection.relationship}-${index}`}>
+                  <button
+                    type="button"
+                    data-graph-detail-connection={connection.otherId}
+                    onClick={() => onSelect(connection.otherId)}
+                    className="w-full cursor-pointer rounded-lg bg-white p-2.5 text-left text-xs shadow-[var(--shadow-card-ring)] outline-none hover:bg-wash focus-visible:ring-2 focus-visible:ring-foreground/30"
+                  >
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <KindBadge kind={connection.otherKind} />
+                      <span className="font-mono text-xxs font-medium text-hint">
+                        {connection.otherReference}
+                      </span>
+                      <span className="text-xxs text-sub">{connectionPhrase(connection)}</span>
+                    </div>
+                    <p className="line-clamp-2 leading-snug text-ink">{connection.otherContent}</p>
+                  </button>
                 </li>
               ))}
             </ul>

@@ -48,6 +48,7 @@ export interface GraphEdgeData {
 export interface GraphDetailConnection {
   direction: 'outgoing' | 'incoming';
   relationship: GraphEdgeRelationship;
+  otherId: string;
   otherKind: GraphNodeKind;
   otherReference: string;
   otherContent: string;

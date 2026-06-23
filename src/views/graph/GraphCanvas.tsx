@@ -152,7 +152,11 @@ function Canvas({ model }: { model: GraphModel }) {
       </ReactFlow>
       {detail !== null ? (
         <div className="absolute inset-y-0 right-0 z-20">
-          <GraphDetailPanel detail={detail} onClose={() => setSelectedId(null)} />
+          <GraphDetailPanel
+            detail={detail}
+            onClose={() => setSelectedId(null)}
+            onSelect={(id) => setSelectedId(id)}
+          />
         </div>
       ) : null}
     </div>

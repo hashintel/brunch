@@ -14,12 +14,14 @@ export function buildGraphDetail(selectedId: string, model: GraphModel): GraphDe
     const asTarget = edge.target === selectedId;
     if (!asSource && !asTarget) continue;
 
-    const other = dataById.get(asSource ? edge.target : edge.source);
+    const otherId = asSource ? edge.target : edge.source;
+    const other = dataById.get(otherId);
     if (other === undefined) continue;
 
     connections.push({
       direction: asSource ? 'outgoing' : 'incoming',
       relationship: edge.data.relationship,
+      otherId,
       otherKind: other.kind,
       otherReference: other.referenceCode,
       otherContent: other.content,
