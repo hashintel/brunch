@@ -16,6 +16,19 @@ graph-model contract.
 
 ## Status
 
+> **Ontology revision pending (FE-1052).** A committed multi-method ontology
+> revision (SPEC D87-L/D88-L/D89-L) reopens the locked kind set once for a small
+> batch: edge renames `proof→witness`, `support→rationale`, `boundary→exclusion`,
+> `association→cross_reference` + new `refinement` (8→9, stance preserved); node
+> renames `validation_method→vv_method`, `obligation→vv_obligation`; node adds
+> `entity`, `sketch`, `story`, `unknown`; `thesis` kept (definition sharpened);
+> `criterion` confirmed at label `AC`; `feature` is `spec.kind`, not a node; a
+> `detail.form` union on `requirement`/`criterion`/`invariant`. This document and
+> the `src/graph/schema/` enums are the canonical *current* state and change
+> **during the FE-1052 build**, not before. Until then the bodies below describe
+> shipping code; see [`ONTOLOGY_REVIEW_PROTOCOL.md`](ONTOLOGY_REVIEW_PROTOCOL.md)
+> §6 for the resolved target and `memory/SPEC.md` D87-L–D89-L for the decisions.
+
 - **Phase 1:** edges, edge policy, reconciliation-need shape. Locked.
 - **Phase 2:** per-plane node kinds, node shape, detail schemas,
   kind categories, `source` field, `provenance` retirement. Locked.
