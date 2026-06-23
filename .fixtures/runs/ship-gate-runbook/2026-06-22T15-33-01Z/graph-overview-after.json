@@ -94,7 +94,7 @@
     {
       "id": 1,
       "specId": 1,
-      "category": "support",
+      "category": "rationale",
       "sourceId": 2,
       "targetId": 1,
       "basis": "explicit",
@@ -105,7 +105,7 @@
     {
       "id": 2,
       "specId": 1,
-      "category": "boundary",
+      "category": "exclusion",
       "sourceId": 3,
       "targetId": 1,
       "basis": "explicit",
@@ -115,7 +115,7 @@
     {
       "id": 3,
       "specId": 1,
-      "category": "support",
+      "category": "rationale",
       "sourceId": 5,
       "targetId": 1,
       "basis": "explicit",
@@ -137,7 +137,7 @@
     {
       "id": 10,
       "specId": 1,
-      "category": "support",
+      "category": "rationale",
       "sourceId": 16,
       "targetId": 5,
       "basis": "explicit",

@@ -11,8 +11,8 @@
     { "local_id": 5, "plane": "intent", "kind": "thesis", "title": "Orientation comes from the selected spec's graph state, not the whole workspace at once", "basis": "explicit", "source": "fixture" }
   ],
   "edges": [
-    { "category": "support", "source_local_id": 2, "target_local_id": 1, "stance": "for", "basis": "explicit" },
-    { "category": "boundary", "source_local_id": 3, "target_local_id": 1, "basis": "explicit" },
-    { "category": "support", "source_local_id": 5, "target_local_id": 1, "stance": "for", "basis": "explicit" }
+    { "category": "rationale", "source_local_id": 2, "target_local_id": 1, "stance": "for", "basis": "explicit" },
+    { "category": "exclusion", "source_local_id": 3, "target_local_id": 1, "basis": "explicit" },
+    { "category": "rationale", "source_local_id": 5, "target_local_id": 1, "stance": "for", "basis": "explicit" }
   ]
 }

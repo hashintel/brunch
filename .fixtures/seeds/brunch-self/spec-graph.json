@@ -74,30 +74,30 @@
     { "category": "realization", "source_local_id": 15, "target_local_id": 54, "basis": "explicit", "rationale": "The neighborhood-renderer slice establishes the detail-view requirement." },
     { "category": "realization", "source_local_id": 24, "target_local_id": 13, "basis": "explicit", "rationale": "The one-authority requirement expresses the spec-local LSN invariant." },
 
-    { "category": "boundary", "source_local_id": 21, "target_local_id": 1, "basis": "explicit", "rationale": "The no-fork constraint bounds how the build-over-Pi goal may be met." },
-    { "category": "boundary", "source_local_id": 22, "target_local_id": 44, "basis": "explicit", "rationale": "The sealing constraint bounds what prompt composition may load." },
-    { "category": "boundary", "source_local_id": 23, "target_local_id": 14, "basis": "explicit", "rationale": "The single-data-plane constraint bounds the public-RPC requirement." },
+    { "category": "exclusion", "source_local_id": 21, "target_local_id": 1, "basis": "explicit", "rationale": "The no-fork constraint bounds how the build-over-Pi goal may be met." },
+    { "category": "exclusion", "source_local_id": 22, "target_local_id": 44, "basis": "explicit", "rationale": "The sealing constraint bounds what prompt composition may load." },
+    { "category": "exclusion", "source_local_id": 23, "target_local_id": 14, "basis": "explicit", "rationale": "The single-data-plane constraint bounds the public-RPC requirement." },
 
     { "category": "composition", "source_local_id": 50, "target_local_id": 53, "basis": "explicit", "rationale": "M3 contains the public-RPC parity frontier." },
     { "category": "composition", "source_local_id": 51, "target_local_id": 52, "basis": "explicit", "rationale": "M5 contains the read/render projection frontier." },
     { "category": "composition", "source_local_id": 52, "target_local_id": 54, "basis": "explicit", "rationale": "The read/render frontier contains the neighborhood-renderer slice." },
     { "category": "composition", "source_local_id": 52, "target_local_id": 55, "basis": "explicit", "rationale": "The read/render frontier contains the edge-policy projection slice." },
 
-    { "category": "association", "source_local_id": 7, "target_local_id": 8, "basis": "explicit", "rationale": "Lens and Strategy are orthogonal peer axes of the session agent." },
-    { "category": "association", "source_local_id": 3, "target_local_id": 31, "basis": "explicit", "rationale": "The freestyle decision sits in tension with the offer-first thesis." },
+    { "category": "cross_reference", "source_local_id": 7, "target_local_id": 8, "basis": "explicit", "rationale": "Lens and Strategy are orthogonal peer axes of the session agent." },
+    { "category": "cross_reference", "source_local_id": 3, "target_local_id": 31, "basis": "explicit", "rationale": "The freestyle decision sits in tension with the offer-first thesis." },
 
     { "category": "supersession", "source_local_id": 18, "target_local_id": 17, "basis": "explicit", "rationale": "Per-strategy offer-first supersedes the universal per-turn ritual requirement." },
 
-    { "category": "proof", "source_local_id": 36, "target_local_id": 13, "stance": "for", "basis": "explicit", "rationale": "The boundary test witnesses the one-authority requirement." },
-    { "category": "proof", "source_local_id": 37, "target_local_id": 25, "stance": "for", "basis": "explicit", "rationale": "The commit-batch tests witness all-or-nothing batch validation." },
-    { "category": "proof", "source_local_id": 37, "target_local_id": 27, "stance": "for", "basis": "explicit", "rationale": "The commit-batch tests witness per-plane kind validation." },
-    { "category": "proof", "source_local_id": 40, "target_local_id": 14, "stance": "for", "basis": "explicit", "rationale": "The FE-744 run witnesses the public-RPC requirement." },
-    { "category": "proof", "source_local_id": 41, "target_local_id": 33, "stance": "for", "basis": "explicit", "rationale": "The FE-809 run witnesses dry-run / real-run validation parity." },
+    { "category": "witness", "source_local_id": 36, "target_local_id": 13, "stance": "for", "basis": "explicit", "rationale": "The boundary test witnesses the one-authority requirement." },
+    { "category": "witness", "source_local_id": 37, "target_local_id": 25, "stance": "for", "basis": "explicit", "rationale": "The commit-batch tests witness all-or-nothing batch validation." },
+    { "category": "witness", "source_local_id": 37, "target_local_id": 27, "stance": "for", "basis": "explicit", "rationale": "The commit-batch tests witness per-plane kind validation." },
+    { "category": "witness", "source_local_id": 40, "target_local_id": 14, "stance": "for", "basis": "explicit", "rationale": "The FE-744 run witnesses the public-RPC requirement." },
+    { "category": "witness", "source_local_id": 41, "target_local_id": 33, "stance": "for", "basis": "explicit", "rationale": "The FE-809 run witnesses dry-run / real-run validation parity." },
 
-    { "category": "support", "source_local_id": 10, "target_local_id": 1, "stance": "for", "basis": "explicit", "rationale": "Pi's harness motivates building Brunch over Pi." },
-    { "category": "support", "source_local_id": 11, "target_local_id": 23, "stance": "for", "basis": "explicit", "rationale": "The shared-data-plane preference motivates the single-plane constraint." },
-    { "category": "support", "source_local_id": 2, "target_local_id": 15, "stance": "for", "basis": "explicit", "rationale": "The coherence goal motivates the overview/neighborhood read requirement." },
-    { "category": "support", "source_local_id": 19, "target_local_id": 4, "stance": "for", "basis": "explicit", "rationale": "The JSONL-suffices assumption supports the single-substrate thesis." },
-    { "category": "support", "source_local_id": 12, "target_local_id": 21, "stance": "against", "basis": "explicit", "rationale": "The fork-Pi minority view argues against the no-fork constraint." }
+    { "category": "rationale", "source_local_id": 10, "target_local_id": 1, "stance": "for", "basis": "explicit", "rationale": "Pi's harness motivates building Brunch over Pi." },
+    { "category": "rationale", "source_local_id": 11, "target_local_id": 23, "stance": "for", "basis": "explicit", "rationale": "The shared-data-plane preference motivates the single-plane constraint." },
+    { "category": "rationale", "source_local_id": 2, "target_local_id": 15, "stance": "for", "basis": "explicit", "rationale": "The coherence goal motivates the overview/neighborhood read requirement." },
+    { "category": "rationale", "source_local_id": 19, "target_local_id": 4, "stance": "for", "basis": "explicit", "rationale": "The JSONL-suffices assumption supports the single-substrate thesis." },
+    { "category": "rationale", "source_local_id": 12, "target_local_id": 21, "stance": "against", "basis": "explicit", "rationale": "The fork-Pi minority view argues against the no-fork constraint." }
   ]
 }

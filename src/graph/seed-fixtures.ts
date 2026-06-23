@@ -3,7 +3,7 @@
  *
  * Reads the brunch-shaped seed contract produced under
  * `.fixtures/seeds/<set>/<slug>.json` and commits each spec into a brunch
- * SQLite database through the normal `CommandExecutor` mutation boundary, so
+ * SQLite database through the normal `CommandExecutor` mutation exclusion, so
  * the graph clock, change log, and `*_lsn` columns stay coherent — seeded
  * data is indistinguishable from data an agent would have committed live.
  *
@@ -170,19 +170,19 @@ function roleNamedSeedEdgeDraft(
         dependent: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,
       };
-    case 'proof':
+    case 'witness':
       return {
         op: 'create_edge',
-        category: 'proof',
+        category: 'witness',
         oracle: String(edge.source_local_id),
         claim: String(edge.target_local_id),
         stance: edge.stance ?? 'for',
         rationale: edge.rationale ?? undefined,
       };
-    case 'support':
+    case 'rationale':
       return {
         op: 'create_edge',
-        category: 'support',
+        category: 'rationale',
         support: String(edge.source_local_id),
         claim: String(edge.target_local_id),
         stance: edge.stance ?? 'for',
@@ -196,10 +196,18 @@ function roleNamedSeedEdgeDraft(
         concrete: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,
       };
-    case 'boundary':
+    case 'refinement':
       return {
         op: 'create_edge',
-        category: 'boundary',
+        category: 'refinement',
+        abstract: String(edge.source_local_id),
+        concrete: String(edge.target_local_id),
+        rationale: edge.rationale ?? undefined,
+      };
+    case 'exclusion':
+      return {
+        op: 'create_edge',
+        category: 'exclusion',
         boundary: String(edge.source_local_id),
         subject: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,
@@ -212,10 +220,10 @@ function roleNamedSeedEdgeDraft(
         part: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,
       };
-    case 'association':
+    case 'cross_reference':
       return {
         op: 'create_edge',
-        category: 'association',
+        category: 'cross_reference',
         a: String(edge.source_local_id),
         b: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,

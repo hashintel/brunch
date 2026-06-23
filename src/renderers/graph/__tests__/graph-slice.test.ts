@@ -14,8 +14,8 @@ const slice: GraphSlice = {
     node({ id: 5, plane: 'oracle', kind: 'evidence', kindOrdinal: 1, title: 'Preview file records output' }),
   ],
   edges: [
-    edge({ id: 7, category: 'proof', sourceId: 5, targetId: 3, stance: 'for' }),
-    edge({ id: 5, category: 'boundary', sourceId: 2, targetId: 4 }),
+    edge({ id: 7, category: 'witness', sourceId: 5, targetId: 3, stance: 'for' }),
+    edge({ id: 5, category: 'exclusion', sourceId: 2, targetId: 4 }),
   ],
 };
 

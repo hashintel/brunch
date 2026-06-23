@@ -22,17 +22,17 @@
   "edges": [
     { "category": "dependency", "source_local_id": 2, "target_local_id": 1, "basis": "explicit" },
     { "category": "realization", "source_local_id": 3, "target_local_id": 1, "basis": "explicit" },
-    { "category": "boundary", "source_local_id": 4, "target_local_id": 1, "basis": "explicit" },
+    { "category": "exclusion", "source_local_id": 4, "target_local_id": 1, "basis": "explicit" },
     { "category": "dependency", "source_local_id": 1, "target_local_id": 5, "basis": "explicit" },
     { "category": "realization", "source_local_id": 1, "target_local_id": 6, "basis": "explicit" },
     { "category": "realization", "source_local_id": 1, "target_local_id": 7, "basis": "explicit" },
-    { "category": "proof", "source_local_id": 8, "target_local_id": 1, "stance": "for", "basis": "explicit" },
-    { "category": "proof", "source_local_id": 9, "target_local_id": 1, "stance": "against", "basis": "explicit" },
-    { "category": "support", "source_local_id": 10, "target_local_id": 1, "stance": "for", "basis": "explicit" },
-    { "category": "support", "source_local_id": 11, "target_local_id": 1, "stance": "against", "basis": "explicit" },
+    { "category": "witness", "source_local_id": 8, "target_local_id": 1, "stance": "for", "basis": "explicit" },
+    { "category": "witness", "source_local_id": 9, "target_local_id": 1, "stance": "against", "basis": "explicit" },
+    { "category": "rationale", "source_local_id": 10, "target_local_id": 1, "stance": "for", "basis": "explicit" },
+    { "category": "rationale", "source_local_id": 11, "target_local_id": 1, "stance": "against", "basis": "explicit" },
     { "category": "composition", "source_local_id": 12, "target_local_id": 1, "basis": "explicit" },
     { "category": "supersession", "source_local_id": 13, "target_local_id": 1, "basis": "explicit" },
-    { "category": "association", "source_local_id": 1, "target_local_id": 14, "basis": "explicit" },
-    { "category": "association", "source_local_id": 2, "target_local_id": 4, "basis": "explicit" }
+    { "category": "cross_reference", "source_local_id": 1, "target_local_id": 14, "basis": "explicit" },
+    { "category": "cross_reference", "source_local_id": 2, "target_local_id": 4, "basis": "explicit" }
   ]
 }

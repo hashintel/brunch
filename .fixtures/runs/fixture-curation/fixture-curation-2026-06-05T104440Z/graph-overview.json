@@ -1049,7 +1049,7 @@
     {
       "id": 9,
       "specId": 1,
-      "category": "support",
+      "category": "rationale",
       "sourceId": 71,
       "targetId": 66,
       "basis": "implicit",
@@ -1083,7 +1083,7 @@
     {
       "id": 12,
       "specId": 1,
-      "category": "support",
+      "category": "rationale",
       "sourceId": 72,
       "targetId": 60,
       "basis": "implicit",

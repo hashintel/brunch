@@ -452,7 +452,7 @@ describe('seedFixture', () => {
 
     expect(new Set(specEdges.map((row) => row.category))).toEqual(new Set(EDGE_CATEGORIES));
     expect(thesisId).toBeDefined();
-    expect(specEdges.some((row) => row.category === 'proof' && row.target_id === thesisId)).toBe(false);
+    expect(specEdges.some((row) => row.category === 'witness' && row.target_id === thesisId)).toBe(false);
   });
 
   it('loads the workspace-spread fixtures into one DB with distinct slugs', () => {

@@ -182,12 +182,12 @@ interface BrunchNodeFixture {
 interface BrunchEdgeFixture {
   category:
     | 'dependency'
-    | 'proof'
-    | 'support'
+    | 'witness'
+    | 'rationale'
     | 'realization'
-    | 'boundary'
+    | 'exclusion'
     | 'composition'
-    | 'association'
+    | 'cross_reference'
     | 'supersession';
   source_local_id: number;
   target_local_id: number;
@@ -453,7 +453,7 @@ function mapEdge(edge: BilalEdge, targetBrunchKind: string | null): EdgeMapping 
       return null; // absorbed
 
     case 'informed_by':
-      return { category: 'support', stance: 'for' };
+      return { category: 'rationale', stance: 'for' };
 
     case 'produced':
       return { category: 'realization', stance: null };
@@ -466,7 +466,7 @@ function mapEdge(edge: BilalEdge, targetBrunchKind: string | null): EdgeMapping 
       if (targetBrunchKind && STRUCTURAL_DECISIONAL_KINDS.has(targetBrunchKind)) {
         return { category: 'dependency', stance: null };
       }
-      return { category: 'support', stance: 'for' };
+      return { category: 'rationale', stance: 'for' };
 
     default:
       return null;

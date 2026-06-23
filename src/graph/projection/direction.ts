@@ -3,12 +3,12 @@
  *
  * Canonical reference: docs/design/GRAPH_MODEL.md §"Context projections"
  *
- * Derives the reconciliation-impact axis from the per-category metadata.
- * "Downstream" is the endpoint that needs reconciliation when the other
- * endpoint changes; the reconciliation flow logs downstream impacts when a
- * node is edited. This axis does NOT track the source→target storage geometry:
- * for `dependency`/`realization`/`boundary` the source is upstream, but for
- * `proof`/`support`/`composition`/`supersession` the target is upstream.
+ * Reads the reconciliation-impact axis from per-category metadata. "Downstream"
+ * is the endpoint that needs reconciliation when the other endpoint changes;
+ * the reconciliation flow logs downstream impacts when a node is edited. This
+ * axis does NOT track source→target storage geometry: impact direction is the
+ * category metadata's `affected` endpoint, not whichever node was stored as
+ * `source`.
  */
 
 import {
@@ -28,19 +28,13 @@ export interface EdgeImpact {
   readonly strength: EdgeImpactStrength;
 }
 
-/**
- * Which endpoint is downstream of the other, derived from impact metadata.
- * A well-formed category drives impact in at most one direction.
- */
+/** Which endpoint is downstream of the other, as declared by category metadata. */
 export function edgeImpact(category: EdgeCategory): EdgeImpact {
   const metadata = EDGE_CATEGORY_METADATA[category];
-  if (metadata.impactOnSourceChange !== 'none') {
-    return { downstreamEndpoint: 'target', strength: metadata.impactOnSourceChange };
-  }
-  if (metadata.impactOnTargetChange !== 'none') {
-    return { downstreamEndpoint: 'source', strength: metadata.impactOnTargetChange };
-  }
-  return { downstreamEndpoint: 'none', strength: 'none' };
+  return {
+    downstreamEndpoint: metadata.affected ?? 'none',
+    strength: metadata.impactKind,
+  };
 }
 
 export interface AnchoredRelation {

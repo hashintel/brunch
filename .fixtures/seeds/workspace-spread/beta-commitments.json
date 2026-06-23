@@ -13,6 +13,6 @@
   "edges": [
     { "category": "dependency", "source_local_id": 1, "target_local_id": 2, "basis": "explicit" },
     { "category": "realization", "source_local_id": 4, "target_local_id": 1, "basis": "explicit" },
-    { "category": "proof", "source_local_id": 5, "target_local_id": 2, "stance": "for", "basis": "explicit" }
+    { "category": "witness", "source_local_id": 5, "target_local_id": 2, "stance": "for", "basis": "explicit" }
   ]
 }

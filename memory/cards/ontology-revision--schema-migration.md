@@ -22,7 +22,7 @@ Cross-cutting obligations (all cards):
 
 ---
 
-## Card 1 — Edge vocabulary + impact remodel  [full · next]
+## Card 1 — Edge vocabulary + impact remodel  [full · done]
 
 ### Target Behavior
 
@@ -102,7 +102,7 @@ src/.pi/**, src/projections/**, src/renderers/**  ~  (edge-literal callers)
 
 ---
 
-## Card 2 — Node vocabulary (renames + adds)  [light · later]
+## Card 2 — Node vocabulary (renames + adds)  [light · next]
 
 ### Objective
 

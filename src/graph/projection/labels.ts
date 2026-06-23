@@ -35,11 +35,11 @@ const BASE: Record<EdgeCategory, Record<AnchorRole, Partial<Record<StanceKey, st
     source: { none: 'required by' }, // anchor is the dependency; neighbor depends on it
     target: { none: 'depends on' }, // anchor is the dependent
   },
-  proof: {
+  witness: {
     source: { for: 'witnesses', against: 'refutes' }, // anchor is the oracle
     target: { for: 'witnessed by', against: 'challenged by' }, // anchor is the claim
   },
-  support: {
+  rationale: {
     source: { for: 'supports', against: 'argues against' }, // anchor is the support
     target: { for: 'motivated by', against: 'opposed by' }, // anchor is the claim
   },
@@ -47,8 +47,12 @@ const BASE: Record<EdgeCategory, Record<AnchorRole, Partial<Record<StanceKey, st
     source: { none: 'realized by' }, // anchor is abstract
     target: { none: 'realizes' }, // anchor is concrete
   },
-  boundary: {
-    source: { none: 'bounds' }, // anchor is the boundary
+  refinement: {
+    source: { none: 'refined by' }, // anchor is abstract
+    target: { none: 'refines' }, // anchor is concrete
+  },
+  exclusion: {
+    source: { none: 'bounds' }, // anchor is the exclusion
     target: { none: 'bounded by' }, // anchor is the subject
   },
   composition: {
@@ -59,7 +63,7 @@ const BASE: Record<EdgeCategory, Record<AnchorRole, Partial<Record<StanceKey, st
     source: { none: 'supersedes' }, // anchor is the successor
     target: { none: 'superseded by' }, // anchor is the predecessor
   },
-  association: {
+  cross_reference: {
     source: { none: 'related to' },
     target: { none: 'related to' },
   },

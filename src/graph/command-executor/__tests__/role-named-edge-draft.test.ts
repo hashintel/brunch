@@ -11,15 +11,15 @@ const EDGE_DRAFT_FIXTURES = {
     dependent: { existing: 1 },
     rationale: 'depends',
   },
-  proof: {
-    category: 'proof',
+  witness: {
+    category: 'witness',
     oracle: 'oracle-ref',
     claim: { existing: 2 },
     stance: 'for',
     rationale: 'proves',
   },
-  support: {
-    category: 'support',
+  rationale: {
+    category: 'rationale',
     support: 'support-ref',
     claim: { existing: 3 },
     stance: 'against',
@@ -31,28 +31,34 @@ const EDGE_DRAFT_FIXTURES = {
     concrete: { existing: 4 },
     rationale: 'realizes',
   },
-  boundary: {
-    category: 'boundary',
+  refinement: {
+    category: 'refinement',
+    abstract: 'refinement-abstract-ref',
+    concrete: { existing: 5 },
+    rationale: 'refines',
+  },
+  exclusion: {
+    category: 'exclusion',
     boundary: 'boundary-ref',
-    subject: { existing: 5 },
+    subject: { existing: 6 },
     rationale: 'bounds',
   },
   composition: {
     category: 'composition',
     whole: 'whole-ref',
-    part: { existing: 6 },
+    part: { existing: 7 },
     rationale: 'contains',
   },
-  association: {
-    category: 'association',
+  cross_reference: {
+    category: 'cross_reference',
     a: 'peer-a',
-    b: { existing: 7 },
+    b: { existing: 8 },
     rationale: 'related',
   },
   supersession: {
     category: 'supersession',
     successor: 'successor-ref',
-    predecessor: { existing: 8 },
+    predecessor: { existing: 9 },
     rationale: 'supersedes',
   },
 } as const satisfies Record<(typeof EDGE_CATEGORIES)[number], RoleNamedEdgeDraft>;
@@ -64,7 +70,7 @@ describe('RoleNamedEdgeDraft', () => {
 
   it('matches metadata endpoint roles for every non-peer category', () => {
     for (const category of EDGE_CATEGORIES) {
-      if (category === 'association') {
+      if (category === 'cross_reference') {
         continue;
       }
 
@@ -83,13 +89,13 @@ describe('RoleNamedEdgeDraft', () => {
       const fixture = EDGE_DRAFT_FIXTURES[category];
       const normalized = normalizeRoleNamedEdgeDraft(fixture);
 
-      if (category === 'association') {
-        const associationFixture = EDGE_DRAFT_FIXTURES.association;
+      if (category === 'cross_reference') {
+        const cross_referenceFixture = EDGE_DRAFT_FIXTURES.cross_reference;
         expect(normalized).toMatchObject({
           category,
-          source: associationFixture.a,
-          target: associationFixture.b,
-          rationale: associationFixture.rationale,
+          source: cross_referenceFixture.a,
+          target: cross_referenceFixture.b,
+          rationale: cross_referenceFixture.rationale,
         });
         continue;
       }
@@ -104,9 +110,9 @@ describe('RoleNamedEdgeDraft', () => {
     }
   });
 
-  it('preserves stance only for proof and support edges', () => {
-    expect(normalizeRoleNamedEdgeDraft(EDGE_DRAFT_FIXTURES.proof).stance).toBe('for');
-    expect(normalizeRoleNamedEdgeDraft(EDGE_DRAFT_FIXTURES.support).stance).toBe('against');
+  it('preserves stance only for witness and rationale edges', () => {
+    expect(normalizeRoleNamedEdgeDraft(EDGE_DRAFT_FIXTURES.witness).stance).toBe('for');
+    expect(normalizeRoleNamedEdgeDraft(EDGE_DRAFT_FIXTURES.rationale).stance).toBe('against');
     expect(normalizeRoleNamedEdgeDraft(EDGE_DRAFT_FIXTURES.dependency).stance).toBeUndefined();
 
     expect(() =>
@@ -120,18 +126,18 @@ describe('RoleNamedEdgeDraft', () => {
 
     expect(() =>
       normalizeRoleNamedEdgeDraft({
-        category: 'proof',
+        category: 'witness',
         oracle: 'oracle-ref',
         claim: 'claim-ref',
       } as unknown as RoleNamedEdgeDraft),
-    ).toThrow('proof edges require stance "for" or "against".');
+    ).toThrow('witness edges require stance "for" or "against".');
   });
 
-  it('maps association peers to storage source and target explicitly', () => {
-    expect(normalizeRoleNamedEdgeDraft(EDGE_DRAFT_FIXTURES.association)).toEqual({
-      category: 'association',
+  it('maps cross_reference peers to storage source and target explicitly', () => {
+    expect(normalizeRoleNamedEdgeDraft(EDGE_DRAFT_FIXTURES.cross_reference)).toEqual({
+      category: 'cross_reference',
       source: 'peer-a',
-      target: { existing: 7 },
+      target: { existing: 8 },
       rationale: 'related',
     });
   });

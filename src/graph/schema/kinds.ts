@@ -27,12 +27,13 @@ export const NODE_BASES = ['explicit', 'implicit'] as const;
 
 export const EDGE_CATEGORIES = [
   'dependency',
-  'proof',
-  'support',
+  'witness',
+  'rationale',
   'realization',
-  'boundary',
+  'refinement',
+  'exclusion',
   'composition',
-  'association',
+  'cross_reference',
   'supersession',
 ] as const;
 

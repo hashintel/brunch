@@ -20,7 +20,7 @@ function synthetic(edge: TestEdge): OriginTaggedEdge<TestEdge> {
 }
 
 const supportFor = (rationale: string | null): TestEdge => ({
-  category: 'support',
+  category: 'rationale',
   source_local_id: 1,
   target_local_id: 2,
   stance: 'for',

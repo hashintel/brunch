@@ -41,19 +41,20 @@
   "edges": [
     { "category": "dependency", "source_local_id": 2, "target_local_id": 3, "basis": "explicit" },
     { "category": "dependency", "source_local_id": 5, "target_local_id": 4, "basis": "explicit" },
-    { "category": "proof", "source_local_id": 6, "target_local_id": 7, "stance": "for", "basis": "explicit" },
-    { "category": "proof", "source_local_id": 8, "target_local_id": 9, "stance": "against", "basis": "explicit" },
-    { "category": "support", "source_local_id": 10, "target_local_id": 11, "stance": "for", "basis": "explicit" },
-    { "category": "support", "source_local_id": 12, "target_local_id": 13, "stance": "against", "basis": "explicit" },
+    { "category": "witness", "source_local_id": 6, "target_local_id": 7, "stance": "for", "basis": "explicit" },
+    { "category": "witness", "source_local_id": 8, "target_local_id": 9, "stance": "against", "basis": "explicit" },
+    { "category": "rationale", "source_local_id": 10, "target_local_id": 11, "stance": "for", "basis": "explicit" },
+    { "category": "rationale", "source_local_id": 12, "target_local_id": 13, "stance": "against", "basis": "explicit" },
     { "category": "realization", "source_local_id": 14, "target_local_id": 15, "basis": "explicit" },
     { "category": "realization", "source_local_id": 17, "target_local_id": 16, "basis": "explicit" },
-    { "category": "boundary", "source_local_id": 18, "target_local_id": 19, "basis": "explicit" },
-    { "category": "boundary", "source_local_id": 20, "target_local_id": 21, "basis": "explicit" },
+    { "category": "refinement", "source_local_id": 14, "target_local_id": 17, "basis": "explicit" },
+    { "category": "exclusion", "source_local_id": 18, "target_local_id": 19, "basis": "explicit" },
+    { "category": "exclusion", "source_local_id": 20, "target_local_id": 21, "basis": "explicit" },
     { "category": "composition", "source_local_id": 22, "target_local_id": 23, "basis": "explicit" },
     { "category": "composition", "source_local_id": 24, "target_local_id": 25, "basis": "explicit" },
     { "category": "supersession", "source_local_id": 27, "target_local_id": 26, "basis": "explicit" },
     { "category": "supersession", "source_local_id": 29, "target_local_id": 28, "basis": "explicit" },
-    { "category": "association", "source_local_id": 30, "target_local_id": 31, "basis": "explicit" },
-    { "category": "association", "source_local_id": 32, "target_local_id": 33, "basis": "explicit" }
+    { "category": "cross_reference", "source_local_id": 30, "target_local_id": 31, "basis": "explicit" },
+    { "category": "cross_reference", "source_local_id": 32, "target_local_id": 33, "basis": "explicit" }
   ]
 }

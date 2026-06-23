@@ -11,7 +11,7 @@ const devMutateGraphParamsSchema = devGraphRpcMethods.find(
 )!.paramsSchema as TSchema;
 
 function roleNamedEdgeOp(category: EdgeCategory): Record<string, unknown> {
-  if (category === 'association') {
+  if (category === 'cross_reference') {
     return {
       op: 'create_edge',
       category,
@@ -26,7 +26,7 @@ function roleNamedEdgeOp(category: EdgeCategory): Record<string, unknown> {
     category,
     [metadata.sourceRole]: 'n1',
     [metadata.targetRole]: 'n2',
-    ...(category === 'proof' || category === 'support' ? { stance: 'for' } : {}),
+    ...(category === 'witness' || category === 'rationale' ? { stance: 'for' } : {}),
   };
 }
 
@@ -51,7 +51,7 @@ describe('authored graph-mutation schemas', () => {
     }
   });
 
-  it('reject generic source/target authored edges and peer-shaped association ops', () => {
+  it('reject generic source/target authored edges and peer-shaped cross_reference ops', () => {
     const genericDependency = {
       op: 'create_edge',
       category: 'dependency',
@@ -60,7 +60,7 @@ describe('authored graph-mutation schemas', () => {
     };
     const peerAssociation = {
       op: 'create_edge',
-      category: 'association',
+      category: 'cross_reference',
       peer: 'n1',
       b: 'n2',
     };

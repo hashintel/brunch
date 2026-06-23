@@ -94,7 +94,7 @@ async function routeFixedConfidenceTaggedExtraction(options: {
       },
       {
         op: 'create_edge',
-        category: 'support',
+        category: 'rationale',
         support: 'criterion',
         claim: 'requirement',
         stance: 'for',
@@ -293,7 +293,7 @@ describe('capture commitment-gradient routing gate', () => {
         }),
       ]),
     );
-    expect(graph.edges).toEqual([expect.objectContaining({ category: 'support', basis: 'implicit' })]);
+    expect(graph.edges).toEqual([expect.objectContaining({ category: 'rationale', basis: 'implicit' })]);
     expect(graph.nodes.map((node) => node.title)).not.toContain(
       'Should observer freshness be treated as a latency promise?',
     );
@@ -411,7 +411,7 @@ describe('capture commitment-gradient routing gate', () => {
       createBasis: 'explicit',
       ops: [
         { op: 'create_node', ref: 'goal', plane: 'intent', kind: 'goal', title: 'A goal' },
-        { op: 'create_edge', category: 'support', support: 'goal', claim: 'missing', stance: 'for' },
+        { op: 'create_edge', category: 'rationale', support: 'goal', claim: 'missing', stance: 'for' },
       ],
     } as never)) as {
       details: { status: string; diagnostics: readonly { field: string; message: string }[] };

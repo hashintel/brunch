@@ -93,7 +93,7 @@ const populatedGraphOverview = {
     {
       id: 20,
       specId: 1,
-      category: 'support',
+      category: 'rationale',
       sourceId: 11,
       targetId: 10,
       stance: 'for',

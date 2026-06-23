@@ -664,8 +664,8 @@
       "local_id": 66,
       "plane": "intent",
       "kind": "criterion",
-      "title": "In the micro-view graph, edges must be rendered in three visually distinct colors by category: support edges (derived_from, depends_on, inf…",
-      "body": "In the micro-view graph, edges must be rendered in three visually distinct colors by category: support edges (derived_from, depends_on, informed_by) in dim amber; workflow edges (produced, considered, selected, rejected, consequence, conflicting_input, resolved_by, spawned, refined_to, aggregates) in brighter green; structural edges (conflicts_with, motivates, defines, references, satisfied_by, operationalized_by, alternative_to, revises_baseline, and all lineage edge types) in muted cyan. Sampling 10 edges of each category from the reference artifact and reading their rendered colors must confirm the correct category mapping for all 30 sampled edges.",
+      "title": "In the micro-view graph, edges must be rendered in three visually distinct colors by category: rationale edges (derived_from, depends_on, inf…",
+      "body": "In the micro-view graph, edges must be rendered in three visually distinct colors by category: rationale edges (derived_from, depends_on, informed_by) in dim amber; workflow edges (produced, considered, selected, rejected, consequence, conflicting_input, resolved_by, spawned, refined_to, aggregates) in brighter green; structural edges (conflicts_with, motivates, defines, references, satisfied_by, operationalized_by, alternative_to, revises_baseline, and all lineage edge types) in muted cyan. Sampling 10 edges of each category from the reference artifact and reading their rendered colors must confirm the correct category mapping for all 30 sampled edges.",
       "basis": "explicit",
       "source": "stakeholder-inferred [CR19]",
       "detail": null
@@ -2661,7 +2661,7 @@
       "basis": "explicit",
       "source": "[DEC4]",
       "detail": {
-        "chosen_option": "The micro-view graph is rendered using Sigma.js (v3) with a WebGL backend. Nodes are drawn with a custom WebGL fragment shader implementing per-node phosphor glow whose intensity is driven by a uniform updated on hover and selection state. Node color encodes derivation phase (4 distinct phosphor hues). Node shape encodes kind (circle = content, diamond = hub). Edge color encodes category: support edges in dim amber, workflow edges in brighter green, structural edges in muted cyan. Lifecycle state is encoded as opacity: active = full, archived = 20% opacity, candidate = 60% opacity, withdrawn = 10% opacity. The Sigma canvas is overlaid with a CSS scanline texture layer (pointer-events: none) to reinforce the CRT aesthetic.",
+        "chosen_option": "The micro-view graph is rendered using Sigma.js (v3) with a WebGL backend. Nodes are drawn with a custom WebGL fragment shader implementing per-node phosphor glow whose intensity is driven by a uniform updated on hover and selection state. Node color encodes derivation phase (4 distinct phosphor hues). Node shape encodes kind (circle = content, diamond = hub). Edge color encodes category: rationale edges in dim amber, workflow edges in brighter green, structural edges in muted cyan. Lifecycle state is encoded as opacity: active = full, archived = 20% opacity, candidate = 60% opacity, withdrawn = 10% opacity. The Sigma canvas is overlaid with a CSS scanline texture layer (pointer-events: none) to reinforce the CRT aesthetic.",
         "rejected": [
           "Alternative: Use Cytoscape.js with its WebGL renderer (cytoscape-gl or pixi.js extension). Richer built-in layout algorithms and compound node support, but less control over custom shader effects and heavier bundle size.",
           "Alternative: Render the graph using D3-force with SVG. Provides per-element CSS control, easy CRT filter effects via SVG filter primitives, and simpler hit-testing, but SVG degrades significantly beyond ~1,000 nodes and edges."
@@ -3222,7 +3222,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 266,
       "target_local_id": 280,
       "stance": "for",
@@ -3294,7 +3294,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 131,
       "target_local_id": 277,
       "stance": "for",
@@ -3454,7 +3454,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 262,
       "target_local_id": 280,
       "stance": "for",
@@ -3846,7 +3846,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 255,
       "target_local_id": 279,
       "stance": "for",
@@ -4294,7 +4294,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 274,
       "target_local_id": 278,
       "stance": "for",
@@ -4342,7 +4342,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 63,
       "target_local_id": 244,
       "stance": "for",
@@ -4670,7 +4670,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 193,
       "target_local_id": 280,
       "stance": "for",
@@ -4822,7 +4822,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 267,
       "target_local_id": 280,
       "stance": "for",
@@ -5014,7 +5014,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 273,
       "target_local_id": 193,
       "stance": "for",
@@ -5206,7 +5206,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 110,
       "target_local_id": 28,
       "stance": "for",
@@ -5318,7 +5318,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 126,
       "target_local_id": 280,
       "stance": "for",
@@ -5374,7 +5374,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 189,
       "target_local_id": 28,
       "stance": "for",
@@ -5438,7 +5438,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 110,
       "target_local_id": 193,
       "stance": "for",
@@ -5510,7 +5510,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 140,
       "target_local_id": 279,
       "stance": "for",
@@ -5606,7 +5606,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 274,
       "target_local_id": 280,
       "stance": "for",
@@ -5614,7 +5614,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 110,
       "target_local_id": 204,
       "stance": "for",
@@ -5662,7 +5662,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 7,
       "target_local_id": 244,
       "stance": "for",
@@ -5702,7 +5702,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 67,
       "target_local_id": 143,
       "stance": "for",
@@ -5766,7 +5766,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 116,
       "target_local_id": 143,
       "stance": "for",
@@ -5846,7 +5846,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 149,
       "target_local_id": 279,
       "stance": "for",
@@ -5982,7 +5982,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 125,
       "target_local_id": 143,
       "stance": "for",
@@ -5990,7 +5990,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 55,
       "target_local_id": 204,
       "stance": "for",
@@ -6078,7 +6078,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 71,
       "target_local_id": 244,
       "stance": "for",
@@ -6086,7 +6086,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 270,
       "target_local_id": 143,
       "stance": "for",
@@ -6126,7 +6126,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 55,
       "target_local_id": 193,
       "stance": "for",
@@ -6246,7 +6246,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 190,
       "target_local_id": 204,
       "stance": "for",
@@ -6262,7 +6262,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 206,
       "target_local_id": 244,
       "stance": "for",
@@ -6446,7 +6446,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 269,
       "target_local_id": 277,
       "stance": "for",
@@ -6686,7 +6686,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 204,
       "target_local_id": 280,
       "stance": "for",
@@ -7134,7 +7134,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 40,
       "target_local_id": 278,
       "stance": "for",
@@ -7190,7 +7190,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 238,
       "target_local_id": 143,
       "stance": "for",
@@ -7358,7 +7358,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 190,
       "target_local_id": 280,
       "stance": "for",
@@ -7454,7 +7454,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 190,
       "target_local_id": 193,
       "stance": "for",

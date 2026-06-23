@@ -15,6 +15,7 @@ import type {
 import {
   authoredEdgeEndpointFields,
   EDGE_CATEGORIES,
+  EDGE_CATEGORY_METADATA,
   EDGE_STANCES,
   NODE_DETAIL_JSON_SCHEMAS,
   NODE_KINDS,
@@ -97,7 +98,7 @@ const DevCreateEdgeOpSchemas = EDGE_CATEGORIES.map((category) => {
       category: Type.Literal(category),
       [sourceField]: DevCreateEdgeEndpointSchema,
       [targetField]: DevCreateEdgeEndpointSchema,
-      ...(category === 'proof' || category === 'support' ? { stance: EdgeStanceSchema } : {}),
+      ...(EDGE_CATEGORY_METADATA[category].stanceRequired ? { stance: EdgeStanceSchema } : {}),
       rationale: Type.Optional(Type.String()),
     },
     { additionalProperties: false },
@@ -301,7 +302,7 @@ export const devGraphRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[
             { op: 'create_node', ref: 'n1', plane: 'intent', kind: 'thesis', title: 'Curated thesis' },
             {
               op: 'create_edge',
-              category: 'support',
+              category: 'rationale',
               support: { existingCode: 'G1' },
               claim: 'n1',
               stance: 'for',

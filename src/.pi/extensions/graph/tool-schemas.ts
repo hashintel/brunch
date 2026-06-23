@@ -1,7 +1,7 @@
 /**
  * Pi-tool-facing graph parameter schemas.
  *
- * This is the adapter-boundary schema layer for agent tools. It derives enum
+ * This is the adapter-exclusion schema layer for agent tools. It derives enum
  * literals from graph/index.ts, but it deliberately does not import db/ or
  * Drizzle row schemas: mutate_graph accepts a product command shape, not raw
  * SQLite rows.
@@ -13,6 +13,7 @@ import {
   authoredEdgeEndpointFields,
   DESIGN_KINDS,
   EDGE_CATEGORIES,
+  EDGE_CATEGORY_METADATA,
   EDGE_STANCES,
   INTENT_KINDS,
   ORACLE_KINDS,
@@ -49,7 +50,7 @@ export type ToolMutateCreateEdgeOp =
     }
   | {
       readonly op: 'create_edge';
-      readonly category: 'proof';
+      readonly category: 'witness';
       readonly oracle: ToolEdgeRef;
       readonly claim: ToolEdgeRef;
       readonly stance: 'for' | 'against';
@@ -57,7 +58,7 @@ export type ToolMutateCreateEdgeOp =
     }
   | {
       readonly op: 'create_edge';
-      readonly category: 'support';
+      readonly category: 'rationale';
       readonly support: ToolEdgeRef;
       readonly claim: ToolEdgeRef;
       readonly stance: 'for' | 'against';
@@ -72,8 +73,15 @@ export type ToolMutateCreateEdgeOp =
     }
   | {
       readonly op: 'create_edge';
-      readonly category: 'boundary';
-      readonly boundary: ToolEdgeRef;
+      readonly category: 'refinement';
+      readonly abstract: ToolEdgeRef;
+      readonly concrete: ToolEdgeRef;
+      readonly rationale?: string | undefined;
+    }
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'exclusion';
+      readonly exclusion: ToolEdgeRef;
       readonly subject: ToolEdgeRef;
       readonly rationale?: string | undefined;
     }
@@ -86,7 +94,7 @@ export type ToolMutateCreateEdgeOp =
     }
   | {
       readonly op: 'create_edge';
-      readonly category: 'association';
+      readonly category: 'cross_reference';
       readonly a: ToolEdgeRef;
       readonly b: ToolEdgeRef;
       readonly rationale?: string | undefined;
@@ -151,7 +159,7 @@ function roleNamedCreateEdgeSchema(category: EdgeCategory) {
       category: Type.Literal(category),
       [sourceField]: EdgeRefSchema,
       [targetField]: EdgeRefSchema,
-      ...(category === 'proof' || category === 'support' ? { stance: StringEnum([...EDGE_STANCES]) } : {}),
+      ...(EDGE_CATEGORY_METADATA[category].stanceRequired ? { stance: StringEnum([...EDGE_STANCES]) } : {}),
       rationale: Type.Optional(Type.String()),
     },
     { additionalProperties: false },
@@ -267,7 +275,7 @@ export const ReadGraphParams = {
     { required: ['mode', 'anchorCodes', 'edgeCategory'], properties: { mode: { const: 'related' } } },
   ],
   description:
-    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Mode-specific companions are enforced at the parameter schema boundary and mirrored by loud adapter diagnostics: neighborhood requires nodeCode; related requires anchorCodes plus edgeCategory. List modes intentionally treat omitted/empty filters as unfiltered slices; unknown filters produce an empty slice.',
+    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Mode-specific companions are enforced at the parameter schema exclusion and mirrored by loud adapter diagnostics: neighborhood requires nodeCode; related requires anchorCodes plus edgeCategory. List modes intentionally treat omitted/empty filters as unfiltered slices; unknown filters produce an empty slice.',
 } as const;
 
 export type ToolMutateGraphParamsSchema = Static<typeof MutateGraphParams>;

@@ -119,7 +119,7 @@ describe('CommandExecutor.acceptReviewSet', () => {
       payload: validPayload({
         edgeDrafts: [
           {
-            category: 'support',
+            category: 'rationale',
             support: { draftId: 'req-rollback' },
             claim: { draftId: 'goal-launch' },
           } as never,

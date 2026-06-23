@@ -1274,7 +1274,7 @@ describe('JSON-RPC handlers', () => {
       ],
       edgeDrafts: [
         {
-          category: 'support',
+          category: 'rationale',
           stance: 'for',
           support: { draftId: 'requirement-draft' },
           claim: { existingCode: 'G1' },
@@ -2442,7 +2442,7 @@ describe('JSON-RPC handlers', () => {
           { op: 'create_node', ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Dev RPC thesis' },
           {
             op: 'create_edge',
-            category: 'support',
+            category: 'rationale',
             support: { existingCode: 'REQ1' },
             claim: 'thesis',
             stance: 'for',
@@ -2481,7 +2481,7 @@ describe('JSON-RPC handlers', () => {
       result: {
         lsn: commitResult.lsn,
         nodes: expect.arrayContaining([expect.objectContaining({ title: 'Dev RPC thesis' })]),
-        edges: expect.arrayContaining([expect.objectContaining({ category: 'support', stance: 'for' })]),
+        edges: expect.arrayContaining([expect.objectContaining({ category: 'rationale', stance: 'for' })]),
       },
     });
 
@@ -2528,7 +2528,7 @@ describe('JSON-RPC handlers', () => {
           },
           {
             op: 'create_edge',
-            category: 'support',
+            category: 'rationale',
             support: { existingCode: 'REQ1' },
             claim: 'thesis',
             stance: 'for',
@@ -2686,7 +2686,7 @@ describe('JSON-RPC handlers', () => {
             },
             {
               op: 'create_edge',
-              category: 'support',
+              category: 'rationale',
               source: { existingCode: 'REQ1' },
               target: 'thesis',
               stance: 'for',
@@ -2738,7 +2738,7 @@ describe('JSON-RPC handlers', () => {
           { op: 'create_node', ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Sibling code thesis' },
           {
             op: 'create_edge',
-            category: 'support',
+            category: 'rationale',
             support: { existingCode: 'G1' },
             claim: 'thesis',
             stance: 'for',
@@ -2810,7 +2810,7 @@ describe('JSON-RPC handlers', () => {
               { op: 'create_node', ref: 'thesis', plane: 'intent', kind: 'thesis', title: 'Line RPC thesis' },
               {
                 op: 'create_edge',
-                category: 'support',
+                category: 'rationale',
                 support: { existingCode: 'REQ1' },
                 claim: 'thesis',
                 stance: 'for',

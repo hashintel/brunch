@@ -26,11 +26,11 @@
     { "local_id": 20, "plane": "plan", "kind": "slice", "title": "Lock one neighborhood preview", "basis": "explicit", "source": "fixture" }
   ],
   "edges": [
-    { "category": "support", "source_local_id": 1, "target_local_id": 7, "stance": "for", "basis": "explicit", "rationale": "The preview exists to advance renderer-facing product understanding." },
-    { "category": "boundary", "source_local_id": 6, "target_local_id": 16, "basis": "explicit", "rationale": "The graph layer owns DB access; the preview harness consumes that seam." },
+    { "category": "rationale", "source_local_id": 1, "target_local_id": 7, "stance": "for", "basis": "explicit", "rationale": "The preview exists to advance renderer-facing product understanding." },
+    { "category": "exclusion", "source_local_id": 6, "target_local_id": 16, "basis": "explicit", "rationale": "The graph layer owns DB access; the preview harness consumes that seam." },
     { "category": "dependency", "source_local_id": 7, "target_local_id": 8, "basis": "explicit", "rationale": "Stable graph-node codes make useful golden assertions possible." },
     { "category": "realization", "source_local_id": 16, "target_local_id": 7, "basis": "explicit", "rationale": "The harness materializes the renderer-facing requirement." },
-    { "category": "proof", "source_local_id": 14, "target_local_id": 8, "stance": "for", "basis": "explicit", "rationale": "A written preview file witnesses the golden-lock criterion." },
+    { "category": "witness", "source_local_id": 14, "target_local_id": 8, "stance": "for", "basis": "explicit", "rationale": "A written preview file witnesses the golden-lock criterion." },
     { "category": "composition", "source_local_id": 18, "target_local_id": 19, "basis": "explicit" },
     { "category": "composition", "source_local_id": 19, "target_local_id": 20, "basis": "explicit" }
   ]

@@ -1441,7 +1441,7 @@
     "specId": "942c7750-06a1-4c3e-ab30-9688e02909a4",
     "frameId": "84b4eb0c-0f87-4462-a813-11a34710c263",
     "phase": "shaping",
-    "text": "The micro-view graph is rendered using Sigma.js (v3) with a WebGL backend. Nodes are drawn with a custom WebGL fragment shader implementing per-node phosphor glow whose intensity is driven by a uniform updated on hover and selection state. Node color encodes derivation phase (4 distinct phosphor hues). Node shape encodes kind (circle = content, diamond = hub). Edge color encodes category: support edges in dim amber, workflow edges in brighter green, structural edges in muted cyan. Lifecycle state is encoded as opacity: active = full, archived = 20% opacity, candidate = 60% opacity, withdrawn = 10% opacity. The Sigma canvas is overlaid with a CSS scanline texture layer (pointer-events: none) to reinforce the CRT aesthetic.",
+    "text": "The micro-view graph is rendered using Sigma.js (v3) with a WebGL backend. Nodes are drawn with a custom WebGL fragment shader implementing per-node phosphor glow whose intensity is driven by a uniform updated on hover and selection state. Node color encodes derivation phase (4 distinct phosphor hues). Node shape encodes kind (circle = content, diamond = hub). Edge color encodes category: rationale edges in dim amber, workflow edges in brighter green, structural edges in muted cyan. Lifecycle state is encoded as opacity: active = full, archived = 20% opacity, candidate = 60% opacity, withdrawn = 10% opacity. The Sigma canvas is overlaid with a CSS scanline texture layer (pointer-events: none) to reinforce the CRT aesthetic.",
     "lifecycle": "active",
     "reviewStatus": {
       "_tag": "clean"
@@ -1495,7 +1495,7 @@
     "specId": "942c7750-06a1-4c3e-ab30-9688e02909a4",
     "frameId": "84b4eb0c-0f87-4462-a813-11a34710c263",
     "phase": "defining_done",
-    "text": "In the micro-view graph, edges must be rendered in three visually distinct colors by category: support edges (derived_from, depends_on, informed_by) in dim amber; workflow edges (produced, considered, selected, rejected, consequence, conflicting_input, resolved_by, spawned, refined_to, aggregates) in brighter green; structural edges (conflicts_with, motivates, defines, references, satisfied_by, operationalized_by, alternative_to, revises_baseline, and all lineage edge types) in muted cyan. Sampling 10 edges of each category from the reference artifact and reading their rendered colors must confirm the correct category mapping for all 30 sampled edges.",
+    "text": "In the micro-view graph, edges must be rendered in three visually distinct colors by category: rationale edges (derived_from, depends_on, informed_by) in dim amber; workflow edges (produced, considered, selected, rejected, consequence, conflicting_input, resolved_by, spawned, refined_to, aggregates) in brighter green; structural edges (conflicts_with, motivates, defines, references, satisfied_by, operationalized_by, alternative_to, revises_baseline, and all lineage edge types) in muted cyan. Sampling 10 edges of each category from the reference artifact and reading their rendered colors must confirm the correct category mapping for all 30 sampled edges.",
     "lifecycle": "active",
     "reviewStatus": {
       "_tag": "clean"

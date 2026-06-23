@@ -52,7 +52,7 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
         rationale: 'Rollback capability is required for safe launch.',
       },
       {
-        category: 'support',
+        category: 'rationale',
         support: { draftId: 'crit-observable' },
         claim: { draftId: 'goal-launch' },
         stance: 'for',
@@ -99,7 +99,7 @@ describe('review-set graph payload translation', () => {
         ...validPayload(),
         edgeDrafts: [
           {
-            category: 'support',
+            category: 'rationale',
             support: { draftId: 'crit-observable' },
             claim: { draftId: 'goal-launch' },
             stance: 'maybe',
