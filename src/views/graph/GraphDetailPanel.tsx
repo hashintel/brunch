@@ -80,7 +80,7 @@ export function GraphDetailPanel({
                         {connection.otherReference}
                       </span>
                       <span
-                        className="text-xxs font-medium"
+                        className="ml-auto text-xxs font-medium"
                         style={{ color: edgeColor(connection.relationship) }}
                       >
                         {humanizeRelationship(connection.relationship)}
