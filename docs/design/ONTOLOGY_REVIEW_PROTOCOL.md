@@ -1,44 +1,47 @@
 # Ontology Review Protocol
 
-Audit of an external GPT-Pro thread on the Brunch graph ontology, prepared as a
-pre-cursor to a deeper design interrogation. It records **what was discussed,
-what was argued (and by whom), what was effectively decided, and what remains
-open** — read against the *current* ontology as it actually stands in code and
-in [`GRAPH_MODEL.md`](GRAPH_MODEL.md).
+Audit of an external GPT-Pro thread on the Brunch graph ontology, **plus the
+design grill that resolved it**, prepared so the result can be spec'd, planned,
+and scoped directly. It records what was discussed and argued (§1–5, historical
+thread audit) and — authoritatively — **what was resolved** (§6–9), read against
+the *current* ontology as it stands in code and in
+[`GRAPH_MODEL.md`](GRAPH_MODEL.md).
 
 - **Source thread:** `~/Downloads/brunch-ontology-review-RECONSTRUCTED.md`
   (ChatGPT export, 2026-06-23; 9 turns).
-- **Status:** working artifact, not canonical. Nothing here is a SPEC decision.
-  Its job is to give the design interrogation a fixed map so we are not
-  re-deriving the same arguments.
-- **Motivating goal (new):** the ontology must be flexible enough to host
-  multiple specification *styles/methods* — BDD, EDD, and formal-spec /
-  formal-verification flows — and that flexibility is cheapest to establish
-  *now*, before the cost of an ontology change rises. This goal is the lens
-  against which each proposal below should ultimately be judged; it was **not**
-  the frame of the GPT thread, so I flag method-fit separately under §My
-  assessment.
+- **Status:** working artifact, not yet canonical. The positions in §6–9 are
+  settled unless re-opened, but they become SPEC truth only via `ln-spec`
+  propagation into `memory/SPEC.md` / `GRAPH_MODEL.md`.
+- **Motivating goal.** The main elicitation flow — general capture of software
+  specifications — is the present necessity this ontology serves. Additional
+  specification *styles/methods* (BDD, EDD, formal-spec / formal-verification)
+  are to be supported *on the same ontology*. The grill established the
+  governing result: **these methods are validation lenses, not sources of new
+  kinds.** Their vocabularies are subsets of our ontology, so a method maps as
+  `spec.kind` + a `detail.form` payload + a renderer + a heuristic-set — never
+  as its own node/edge kind. A method term that cannot map is a finding about
+  *our* model, not a licence to add a kind.
 
 ---
 
 ## 0. Current ontology baseline (fixed reference)
 
-So the interrogation argues against a fixed point, here is what exists *today*
-(`src/graph/schema/kinds.ts`, `src/graph/policy/category-policy.ts`,
-`GRAPH_MODEL.md`). The thread used an **aspirational** node/edge table that
-already bakes in several proposed renames (`claim`, `vv_method`, `entity`,
-`sketch`, `exclusion`, `conflict`, etc.). Those are *not* in code. The thread's
-tables are proposals, not the baseline.
+So that the interrogation works against a fixed point, here is what exists
+*today* (`src/graph/schema/kinds.ts`, `src/graph/schema/nodes.ts`,
+`src/graph/policy/category-policy.ts`, `GRAPH_MODEL.md`). The thread used an
+**aspirational** node/edge table that already bakes in several proposed renames
+(`claim`, `vv_method`, `entity`, `sketch`, `exclusion`, `conflict`, etc.). Those
+are *not* in code. The thread's tables are proposals, not the baseline.
 
-**Node kinds (20 total):**
+**Node kinds (20 total)** — labels are the actual `NODE_KIND_METADATA` codes:
 
 - **intent (11):** `goal` G, `thesis` TH, `term` T, `context` CTX,
-  `requirement` R, `assumption` A, `constraint` CON, `invariant` I,
-  `decision` D, `criterion` CR, `example` EX
-- **oracle (4):** `check` CH, `validation_method` VM, `evidence` EV,
-  `obligation` OB
-- **design (2):** `module` M, `interface` IF
-- **plan (3):** `milestone` MS, `frontier` FR, `slice` SL
+  `requirement` REQ, `assumption` A, `constraint` CON, `invariant` INV,
+  `decision` D, `criterion` AC, `example` EX
+- **oracle (4):** `check` CH, `validation_method` VV, `evidence` E,
+  `obligation` O
+- **design (2):** `module` MOD, `interface` API
+- **plan (3):** `milestone` M, `frontier` F, `slice` S
 
 **Edge categories (8):** `dependency`, `proof`, `support`, `realization`,
 `boundary`, `composition`, `association`, `supersession`. `stance` (`for` /
@@ -58,6 +61,10 @@ tables are proposals, not the baseline.
   (`upstream`/`downstream`/`lateral`, `hard`/`soft`) is derived from those
   columns, never from the arrow or the verb. Tuple-label lookup renders verbs
   from either endpoint.
+- **Structured `detail` exists today only for `decision` and `term`**
+  (`NodeDetail = DecisionDetail | TermDetail`); every other kind carries
+  `detail` null. Extending a `form`-discriminated `detail` to the claim kinds
+  is therefore new surface (see §6.4).
 - `framing_as` is **retired**, absorbed by `thesis`/`term`/`constraint`/`goal`.
 - Interrogatives never enter the graph; there is **no `question` kind**.
   "Open questions" live in the separate `elicitation_gaps` table.
@@ -86,12 +93,15 @@ existing bets rather than net-new direction.
 
 ---
 
-## 2. Edge-layer protocol
+## 2. Edge-layer protocol (thread snapshot)
+
+> **Historical.** The `Open?` column records the *thread's* state; §6 holds the
+> resolved positions that supersede it.
 
 | # | Item | GPT argued | User position | Effective decision | Current code | Open? |
 |---|------|-----------|---------------|--------------------|--------------|-------|
 | E1 | `association` weakest | Demote/rename to `cross_reference`; never activate; cold edge | (not contested) | Keep concept, treat as cold/last-resort | `association` kept, symmetric, "last resort", impact `none` | **Closed-ish** — name differs, behavior matches |
-| E2 | `support` overloaded | Rename → `rationale`; make non-evidential; reserve `proof`/`evidence` for truth | (not contested directly) | Tension noted, not resolved | `support` kept **with `for`/`against` stance** | **Open** — see §My assessment |
+| E2 | `support` overloaded | Rename → `rationale`; make non-evidential; reserve `proof`/`evidence` for truth | (not contested directly) | Tension noted, not resolved | `support` kept **with `for`/`against` stance** | **Open** — see §6 |
 | E3 | `boundary` overloaded | Split → `constrains` / `excludes` / `applies_under` | Later folded `exclusion` into the turn-4 table | Maybe split `exclusion` out | Single `boundary` (covers scope/constraint/exclusion) | **Open** |
 | E4 | Add `conflict` | "Most important missing edge"; surfaces contradiction; blocks silent acceptance | (accepted into turn-4 table) | Add `conflict` (symmetric, severity-tagged) | **Absent.** Contradiction lives in `reconciliation_need` (`semantic_conflict`) | **Open** — node-edge vs recon-need tension |
 | E5 | Add `refinement` | general→specific elaboration, distinct from `realization` | (accepted into turn-4 table) | Add `refinement` | **Absent.** Currently folded into `realization`/`composition` | **Open** |
@@ -107,15 +117,18 @@ two-tier tuple-label lookup). Settled.
 
 ---
 
-## 3. Node-layer protocol
+## 3. Node-layer protocol (thread snapshot)
+
+> **Historical.** The `Open?` column records the *thread's* state; §6 holds the
+> resolved positions that supersede it.
 
 | # | Item | GPT argued | User position | Effective decision | Current code | Open? |
 |---|------|-----------|---------------|--------------------|--------------|-------|
 | N1 | `frontier` weakest overall | Replace with `open_question`/`gap`/`issue`/`risk` | **Defended:** plan-plane mid-level between milestone/slice; composes/decomposes; could be `epic` | **Keep `frontier`** | `frontier` kept (plan plane) | **Closed** |
 | N2 | `thesis` → `claim` | `claim` is operationally sharper (testable/refutable/refinable) | **Agreed it is sharper** | Lean toward `claim`, not committed | `thesis` kept; carries "what/who/why" grounding | **Open (leaning rename)** |
 | N3 | `context` too broad | Keep but subtype or enforce a usefulness test | **Agreed**, already uses promotion heuristics | Keep `context` + heuristics | `context` kept + promotion heuristic table | **Closed** |
-| N4 | `criterion` ambiguous | Rename → `acceptance_criterion` | **Agreed**: rename *or* strong guidance | Keep `criterion`, guide it | `criterion` (CR) + modality guidance ("how will we judge it holds") | **Closed (chose guidance)** |
-| N5 | `obligation` too broad | Rename → `verification_obligation`/`proof_obligation` | (not contested) | Possibly rename | `obligation` (OB) kept | **Open (minor)** |
+| N4 | `criterion` ambiguous | Rename → `acceptance_criterion` | **Agreed**: rename *or* strong guidance | Keep `criterion`, guide it | `criterion` (label `AC`) + modality guidance ("how will we judge it holds") | **Closed (guidance; code already labels it AC)** |
+| N5 | `obligation` too broad | Rename → `verification_obligation`/`proof_obligation` | (not contested) | Possibly rename | `obligation` (O) kept | **Open (minor)** |
 | N6 | Add `actor` | "Biggest missing intent node"; grounds vague requirements | (not contested) | Strong candidate | **Absent** | **Open** |
 | N7 | Add `scenario` (vs replace `example`) | **Do not replace `example`** — different jobs (pattern vs instance); add `scenario` only if workflows are first-class | asked the replace question | Keep `example`; add `scenario` conditionally | `example` kept; no `scenario` | **Open (conditional)** |
 | N8 | Model the "unknown" | Not an open question — an *epistemic boundary*. Model as gap status `accepted_unknown` first; optionally a projected `unknown` node | **Raised the gap**: distinct from elicitation-gap and from assumption | Represent unknowns explicitly; node form deferred | **Absent as node;** SPEC defers `risk`/`unknown` node (closely matches) | **Open — overlaps SPEC `risk`** |
@@ -126,7 +139,9 @@ two-tier tuple-label lookup). Settled.
 ## 4. The central architectural argument (turns 5–8)
 
 This is the spine of the thread and the part most worth carrying into the
-interrogation.
+interrogation. **Resolved disposition: parked for the design interrogation**
+(§8) — the storage-naming choice is an internal concern, not part of the
+kind-set narrowing.
 
 **The question.** Should downstream-impact be encoded in `head`/`tail` storage
 direction?
@@ -176,12 +191,14 @@ must emit *multiple* impact arcs — e.g. edge-targeted reverse staleness, which
 current policy does not model).
 
 **Decided in-thread:** verb/semantic direction is not the carrier; roles +
-explicit impact topology is. **Open:** column naming, and whether multi-arc
+explicit impact topology is. **Parked:** column naming, and whether multi-arc
 edges justify the two-table split.
 
 ---
 
 ## 5. The workbench gap (turn 9)
+
+Informs the **deferred** speculation plane (§8).
 
 **Problem (user):** a crisp spec graph has nowhere for ongoing speculation,
 research, design-docs, implementation-sketches, investigation trails to live.
@@ -207,8 +224,9 @@ canonical spec graph and from an archive:
 - **Terminology collision — flag loudly.** "Workbench" in Brunch *already
   means something else*: a launchable fixtures workspace under
   `.fixtures/workbenches/` (Lexicon "Workbench", D71-L). GPT's "workbench
-  plane" is an unrelated ontology concept. The interrogation must pick a
-  non-colliding name (candidate, inquiry, scratchpad, draft-plane…).
+  plane" is an unrelated ontology concept. A non-colliding name must be picked
+  (the grill used the placeholder `bench`; candidate / inquiry / scratchpad
+  also in play).
 - SPEC already has the adjacent seam: **Candidate artefacts** (pre-graph,
   agent-proposed, awaiting adjudication) are *deferred*, and the commitment
   gradient (D81-L) deliberately keeps low-confidence "noticings" **out** of
@@ -219,207 +237,255 @@ canonical spec graph and from an archive:
   GPT's `provenance` is artifact→derived-claim lineage, which is a *different*
   relation than audit — but the naming will confuse.
 
-**Open:** whether ongoing/inquiry work becomes (a) typed graph nodes in a new
-plane, (b) flat-file docs with structured "candidate changes" blocks parsed on
-demand (close to today's `memory/` + design-doc practice), or (c) the deferred
-candidate-artefact substrate. This is the single largest net-new idea in the
-thread and the least settled.
-
 ---
 
-## 6. Decisions vs. open items (summary)
+## 6. Resolved scope (authoritative)
 
-**Effectively decided (in-thread, consistent with current code):**
+Output of the thread **and** the design grill. Supersedes the thread-snapshot
+dispositions in §2–3 wherever they differ. The deltas here are deliberately
+small: the multi-method goal is satisfied by the **closure rule** (§6.1), not by
+growing the kind set.
 
-- Keep `frontier` (N1). Keep `example` alongside any `scenario` (N7). Keep
-  `context` with promotion heuristics (N3). Keep `criterion` via guidance, not
-  rename (N4). Store one direction, render verbs both ways (E-verbs).
-- **Roles + impact-topology, not semantic/verb direction** (§4) — the thread's
-  headline, already the codebase's bet.
+### 6.1 The closure rule — methods are validation lenses, not kinds
 
-**Leaning but uncommitted:**
+A specification method (BDD, EDD, formal verification) does **not** earn its own
+node or edge kinds. It maps onto the existing ontology as:
 
-- `thesis` → `claim` (N2). `obligation` → `verification_obligation` (N5).
+```
+method  =  spec.kind            (ownership/scope of the spec; §6.5)
+        +  detail.form          (method-specific structured payload; §6.4)
+        +  a renderer           (round-trips the graph to/from the method's text)
+        +  a heuristic-set      (routing/elicitation guidance; §7)
+```
 
-**Genuinely open, for the interrogation:**
+A method term with no clean mapping is a **finding about our model**, not a
+reason to add a kind. (Worked validations: BDD §6.8; formal verification §6.6.)
 
-- Split `boundary`→`exclusion` (E3); add `conflict` (E4) and reconcile with
-  `reconciliation_need.semantic_conflict`; add `refinement` (E5).
-- Add `actor` (N6) and gated `participation` (E7); add `coverage` (E8).
-- Model "unknown"/`risk` (N8) — node vs gap-status; reconcile with deferred
-  SPEC `risk`.
-- Design-plane growth: `entity`, `sketch` (N9).
-- Workbench/inquiry plane + `provenance` edge + promotion flow (§5), incl. the
-  name collision.
-- Edge storage: column naming and whether to adopt `SemanticEdge` +
-  `ImpactArc[]` (§4).
-- `support` stance: keep `for`/`against`, or split rationale from evidence (E2).
+### 6.2 Node deltas
 
----
+| change | kind | label | plane / band | note |
+| --- | --- | --- | --- | --- |
+| rename | `thesis` → `claim` | CL | intent / grounding | sharper: testable/refutable bet |
+| rename | `validation_method` → `vv_method` | VV | oracle | verification *method* (prover/solver/test) |
+| rename | `obligation` → `vv_obligation` | O | oracle | proof/verification obligation |
+| recode | `criterion` | AC | intent / commitment | **already `AC` in code** — confirm, no change |
+| add | `unknown` | UNK | intent | known-unknown; triad cousin of context/assumption (§6.6) |
+| add | `entity` | ENT | design | data entity |
+| add | `sketch` | SKT | design | design sketch |
+| add | `story` | (TBD, e.g. ST) | intent / elicitation | intra-spec mid-level grouping (§6.5) |
 
-## 7. My assessment (current ontology + the multi-method goal)
+**Not a node:** `feature` — it is `spec.kind` (§6.5), not a node kind. The
+recurring "feature" intuition was spec-scope leaking into the node taxonomy.
+`actor` and `scenario` are **deferred** (§8).
 
-Read with the new goal — **host BDD, EDD, and formal-spec/verification styles
-on one ontology** — in mind. The thread never addressed method-fit, so this is
-additive.
+### 6.3 Edge deltas
 
-1. **The thread validates more than it changes.** Its central conclusion is
-   already the codebase's architecture. The high-value residue is the *node/edge
-   additions*, not the direction model. Frame the interrogation around "which
-   additions earn their place," not "how do we store direction."
-
-2. **`conflict` (E4) is the strongest add — and it is a model-shape decision,
-   not a cosmetic one.** Today contradiction is a *retrospective*
-   `reconciliation_need` (`semantic_conflict`), not a *prospective* graph edge.
-   BDD/EDD and especially **formal verification** want contradiction to be
-   first-class and traversable (you reason *over* incompatibilities). The
-   interrogation should decide cleanly: is conflict an edge (authored,
-   traversable, supports "design it twice"/tension analysis) or a recon-need
-   (derived, transient)? Having both is the drift risk.
-
-3. **`criterion`/`proof`/`example` are the BDD/EDD seam and are under-specified
-   for it.** BDD's Given/When/Then and EDD's example-tables map naturally onto
-   `example` (instance) + `criterion` (judgment) + `proof` (witness). If
-   `scenario` (N7) is added, it becomes the Gherkin-scenario carrier and the
-   bridge `goal→scenario→requirement→criterion→check→evidence`. I'd treat
-   `scenario` + `example`-subtyping as **the** BDD/EDD enabler and weigh it
-   above `actor`.
-
-4. **Formal verification pressures the oracle plane and "unknown".** Formal
-   flows want `obligation` (proof obligation), `invariant`, and a real
-   `assumption`/`unknown` distinction. N5 (`verification_obligation`), N8
-   (`unknown`/`risk`), and the `proof`/`formal_proof` naming note in
-   `GRAPH_MODEL.md` cluster here. If formal verification is a first-class
-   target, this cluster — not actors/scenarios — is the priority. The
-   interrogation should *rank the three methods* before ranking node adds,
-   because they pull in different directions.
-
-5. **`support`-with-stance (E2) is a latent inconsistency.** A `support` edge
-   carrying `for`/`against` invites exactly the "treat rationale as evidence"
-   drift GPT warned about, and `GRAPH_MODEL.md` already strains to separate
-   `proof` vs `support`. For formal/EDD work the proof/rationale boundary must
-   be crisp. Worth resolving early.
-
-6. **The workbench/inquiry plane is real but should resist becoming a second
-   graph.** Operating discipline here (local necessity, no capability-as-
-   anticipation) argues for the *lightest* form that works: structured
-   "candidate graph changes" blocks in flat docs + a promotion path, rather
-   than a fully typed fifth plane, until there is concrete pressure. The
-   deferred candidate-artefact seam is the natural home. Resolve the name
-   collision regardless.
-
-7. **Don't reopen the locked kind set casually.** D54-L/D56-L locked the kind
-   enums; SPEC repeatedly defers additions (`risk`) *because* reopening is
-   costly. The multi-method goal is a legitimate reason to reopen — but the
-   interrogation should reopen **once, deliberately**, batching the method-driven
-   adds (conflict, scenario, unknown/risk, refinement, actor) rather than
-   trickling them.
-
----
-
-## 8. Suggested entry points for the deeper interrogation
-
-1. **Rank the three methods** (BDD, EDD, formal) by priority — they pull the
-   ontology in different directions (§7.3–7.4).
-2. **Decide conflict's substrate** (edge vs recon-need) — highest-leverage,
-   model-shaping (§7.2).
-3. **Decide the inquiry/speculation home** and fix the "workbench" name
-   collision (§5, §7.6).
-4. **Batch the kind-set reopening** if methods justify it (§7.7): candidate set
-   = `claim`(rename), `scenario`, `actor`, `unknown`/`risk`, + edges `conflict`,
-   `refinement`, `coverage`, `exclusion`-split, `provenance`.
-5. **Resolve `support` stance** and the `proof`/`formal_proof` naming (§7.5).
-
----
-
-## 9. Refined active scope (user positions, 2026-06-23)
-
-Sections 1–8 are the neutral thread audit. This section records the user's
-**authoritative narrowing** after walking through their own notes — it
-supersedes the "leaning/open/deferred" dispositions above where they conflict.
-Still a working artifact, not a SPEC decision; this is the frozen starting set
-for the design interrogation.
-
-### 9.1 Active near-term (carry into the interrogation)
-
-**Edge renames** (behavior unchanged except the name):
-
-| current | → | endpoints (role-named) | stance |
+| change | category | endpoints (role-named) | stance |
 | --- | --- | --- | --- |
-| `proof` | **`witness`** | oracle/evidence → claim/check | **keep `for`/`against`** |
-| `support` | **`rationale`** | reasoning → claim | **keep `for`/`against`** |
-| `boundary` | **`exclusion`** | boundary → subject | — |
-| `association` | **`cross_reference`** | peer ↔ peer | — |
+| rename | `proof` → `witness` | oracle/evidence → claim/check | **keep `for`/`against`** |
+| rename | `support` → `rationale` | reasoning → claim | **keep `for`/`against`** |
+| rename | `boundary` → `exclusion` | boundary → subject | — |
+| rename | `association` → `cross_reference` | peer ↔ peer | — |
+| add | `refinement` | generality → specificity | — |
 
-**Edge adds:** `refinement` (generality → specificity) — present reader is
-formal refinement (abstract model ⊑ concrete implementation), distinct from
-`realization`. `coverage` was considered here but is now **deferred** (§9.5):
-it never cleared the present-reader bar.
+`refinement`'s present reader is **formal refinement** (abstract model ⊑
+concrete implementation), distinct from `realization`. `coverage`, `conflict`,
+`participation` are **deferred** (§8). `story` adds **no** edge — it reuses
+`composition` (story → requirement) and `witness` (criterion → requirement).
 
-**Node renames / recodes:** `thesis` → `claim`; `validation_method` →
-`vv_method`; `obligation` → `vv_obligation`; `criterion` recode → `AC`.
+### 6.4 The `detail.form` mechanism (method payload)
 
-**Node adds:** `unknown` (UNK, intent plane); `entity` (ENT) and `sketch`
-(SKT) on the design plane — both intentional, in.
+Extend the existing closed `detail` pattern (today `decision`/`term` only) to
+the **claim kinds** — `requirement`, `criterion`, `invariant` — with a shared,
+`form`-discriminated union:
 
-### 9.2 The `evidence`/`witness` naming resolution (N-collision)
+```ts
+type ClaimForm =
+  | { form: "plain" }
+  | { form: "gherkin"; /* rule | given/when/then payload */ … }
+  | { form: "formal";  /* statement, … (LEAN/Dafny round-trip) */ … }
+  | { form: "given";   /* see §6.6 — axiom payload on a context node */ … };
+```
 
-Renaming the *edge* `proof` → `evidence` would collide with the existing
-`evidence` **node** kind. Resolution: **name the edge `witness`, keep the node
-`evidence`.** The relation reads as a verb (`X witnesses claim Y`, rendered as
-`proves`/`refutes`/`falsifies`); the node stays the natural noun for the oracle
-artifact. So `proof` (edge) → `witness`; `evidence` (node) is unchanged. This
-is *not* the GPT proposal of `proof → evidence`; that path is rejected for the
-collision.
+Invariants:
 
-### 9.3 Stance is preserved
+- **`kind` drives behavior; `form` is inert payload.** Readiness band, edge
+  legality, and the elicitor's source-question all key off `kind`, never
+  `detail.form`. `form` adds structure + a renderer hook only.
+- **One shared discriminant vocabulary across the kinds**, so a lens can query
+  "all `formal`-form nodes in this spec" to render/round-trip a LEAN file
+  regardless of kind.
+- **`form` defaults from the active elicitation lens / `spec.kind`**,
+  overridable per-node (a `function`-kind spec defaults claims to `formal`).
+- `// ceiling:` method structure carried as `detail.form`, not per-method node
+  kinds; promote a form to its own kind only if banding/edge-role feedback
+  demands it.
 
-`for`/`against` stays on `witness` and `rationale` — i.e. **no behavioral
-change from current code**, where `proof`/`support` already require stance. The
-stance-less `EdgeArg` sketch in the user's notes was an oversimplification, not
-an intended loss; `rationale` may still be `against`. This closes E2's
-"drop-against" reading: stance is kept; only the proof/rationale *name*
-boundary (witness = evidential, rationale = motivational) carries the
-separation.
+### 6.5 Spec scope model (containing data model)
 
-### 9.4 Conditional
+`feature`/`story`/scope resolve **outside** the node graph, in the record that
+contains one spec's graph.
+
+- **`spec.kind = product | feature | function`** — an *ownership relation to the
+  codebase*, not a size:
+  - `product` — the spec owns the whole codebase.
+  - `feature` — the spec owns a part **and a cycle** within an existing
+    (brownfield) codebase.
+  - `function` / `library` — the spec exists to capture (often formal)
+    verification around a focused area of code.
+- **`story` node (§6.2)** — the intra-spec mid-level grouping (Gherkin `Feature`
+  when expressed inside one spec). Intent plane, `elicitation` band.
+- **Hybrid (A)+(B), both supported:** (A) intra-spec grouping via `story`; and
+  (B) inter-spec links via a **project graph** (specs-as-nodes, edge vocabulary
+  reused; `role: main | alt` marks the root). The project graph + `role` are
+  **deferred** (§8) — no present single-spec reader, and a stored root flag is
+  likely derivable from composition.
+- **`readiness_band` on a spec is computed**, not stored — a rollup of node
+  bands.
+- **Gherkin-`Feature` duality is incidental:** it may be a `kind: feature` spec
+  *or* a `story` node; same concept at two granularities. Disambiguation only —
+  not a smell.
+
+### 6.6 Epistemic triad + given/theorem routing
+
+**Context / Assumption / Unknown** form an **informal epistemic-certainty
+triad** — a *routing heuristic*, **not** a structural axis (we are **not**
+promoting an `epistemic_status` field now; OQ#12 stays deferred):
+
+- `context` — known / stipulated true.
+- `assumption` — believed but **deferred-falsifiable** ("what might be false").
+- `unknown` — known-unknown.
+
+Routing:
+
+- **axiom / given → `context` + `detail.form:"given"`** (known *and*
+  load-bearing). Load-bearing-ness comes from the **edges** (a `context` node
+  with outgoing `dependency` edges), not from the kind. `// ceiling:` promote to
+  a dedicated `given` kind only if the stipulated-vs-ambient distinction turns
+  out load-bearing for LEAN/Dafny users.
+- **theorem / property → `invariant`** (preservation claim that carries
+  `witness` edges). Keeping theorems as `invariant` also avoids colliding with
+  the renamed `claim` (the formal word for a theorem).
+- **contracts:** precondition → `constraint`; postcondition → `criterion` /
+  `invariant`; both hung on an `interface` node. **No `contract` kind.**
+
+### 6.7 `witness` / `evidence` naming + stance
+
+- The *edge* `proof` becomes **`witness`**; the *node* `evidence` is
+  **unchanged**. (Renaming the edge to `evidence` would collide with the node;
+  the relation reads as a verb — `X witnesses claim Y`, rendered
+  `proves`/`refutes`/`falsifies` — and the node stays the natural noun.)
+- **Stance `for`/`against` is preserved** on `witness` and `rationale` — i.e.
+  *no behavioral change from current code*. A counterexample is
+  `witness:against`; `rationale` may still be `against`. Only the
+  proof/rationale **name** boundary carries the witness=evidential vs
+  rationale=motivational separation.
+
+### 6.8 Gherkin → ontology (worked BDD validation)
+
+| Gherkin | Ontology | Note |
+| --- | --- | --- |
+| `Feature` | `story` node, or a `kind: feature` spec | §6.5 duality |
+| `Rule` | `requirement` (REQ) | 1 REQ → many AC |
+| `Example` / `Scenario` (G/W/T block) | `criterion` (AC) | `witness(criterion → requirement)` |
+| `Given` | `context` (or `assumption`) | precondition |
+| `When` | *internal to the criterion* | no `action`/`event` kind for BDD |
+| `Then` | `criterion` (stated) + `check` (step-def) | `realization(criterion → check)` |
+| `Background` | shared `context` | grouping |
+| `Scenario Outline` + `Examples` rows | `example` (EX) instances | attach via `witness:±` |
+| `Tags` / `Doc String` / `Data Table` | attributes / payload | not kinds |
+| counterexample | `example` + `witness:against` | stance earns its keep |
+
+---
+
+## 7. Heuristics surfaced (for the heuristics SoT follow-on)
+
+Heuristics are the **method-differentiation layer** (§6.1), not ancillary. They
+are currently scattered (`GRAPH_MODEL.md` promotion heuristic,
+`ELICITATION_QUESTIONS.md`, `ELICITATION_LENSES.md`, this doc); collating them
+into one inlinable source is a named follow-on (§9).
+
+```
+routing:
+  - axiom / given        → context + form:"given"   (known + load-bearing)
+  - deferred-falsifiable → assumption                (might-be-false + depended-on)
+  - known-gap            → unknown                   (known-unknown)
+  - theorem / property   → invariant                 (preservation claim + witness edges)
+  - load-bearing-ness    ← comes from EDGES (dependency vs support), not kind
+
+method-as-lens (the closure rule):
+  - a method = spec.kind + detail.form + renderer + heuristic-set
+  - no method earns its own node/edge kind
+  - a residual that cannot map = a finding about OUR model, not a new kind
+
+gherkin → ontology:
+  Feature→story | Rule→requirement | Example/GWT→criterion | Given→context
+  Then-impl→check | witness(criterion→requirement,±) | counterexample→example+witness:against
+```
+
+---
+
+## 8. Deferred, conditional, parked
+
+**Deferred (named, not now):**
+
+- Nodes: `actor`, `scenario` (intent).
+- Edges: `conflict`, `participation`, `coverage`.
+- Planes/graphs: the **speculation plane** (`bench`: MEM/HYP/IMP + promotion
+  flow, §5); the **project graph** (specs-as-nodes) + `role: main | alt` (§6.5).
+
+Consequence: with `conflict` deferred, **contradiction stays in
+`reconciliation_need.semantic_conflict`** — no authored conflict edge for now.
+`participation` follows `actor` out (it was gated on it). `coverage` is deferred
+for lack of a present main-flow reader: every method audited routed around it,
+and plan→intent links are derivable from `realization`/`composition`; re-open
+only when a read needs a *traversable* plan→intent edge.
+
+**Conditional:**
 
 - **`commit` plane.** Introduce **only if** it earns its keep by disambiguating
   *commitments* (`requirement`) and *projections* (`criterion`/AC) from
   `intent`. Decision test: does real query/projection code need the plane
-  boundary, or does the kind alone suffice? Checkable against actual read paths
-  during the interrogation. Not committed.
+  boundary, or does the kind alone suffice? Checkable against actual read paths.
 
-### 9.5 Deferred (named, not now)
-
-- Nodes: `actor`, `scenario` (intent plane).
-- Edges: `conflict`, `participation`, `coverage`.
-- The `bench` / speculation plane (MEM/HYP/IMP and the promotion flow).
-
-Consequence: with `conflict` deferred, **contradiction stays in
-`reconciliation_need.semantic_conflict`** — no authored conflict edge for now.
-`participation` was gated on `actor` anyway, so it follows `actor` out.
-
-`coverage` (plan_node → intent_node) is deferred because it has **no present
-reader in the main flow**: every method audited (BDD, formal) routed *around*
-it, and plan→intent links are derivable today from `realization`/`composition`.
-It earns its keep only when a main-flow read genuinely needs "this plan node
-covers that intent node" as a *traversable* edge rather than a derived one;
-re-open it then, not on a feel. (Same discipline that deferred `conflict` and
-`actor`.)
-
-### 9.6 Parked for the design interrogation
+**Parked for the design interrogation:**
 
 - The `source`/`target` vs `head`/`tail` storage naming and directional-impact
-  encoding question (§4) — explicitly deferred to the interrogation; it is an
-  internal-storage concern, not part of this kind-set narrowing.
+  encoding question (§4) — an internal-storage concern, not part of this
+  kind-set narrowing.
 
-### 9.7 Net delta vs current code
+**Ceilings (declared simplifications):**
 
-Edges: 8 → 9 (`dependency`, `witness`, `rationale`, `realization`,
+- Method structure rides `detail.form`, not per-method kinds (§6.4).
+- Formal givens ride `context` + `form:"given"`, not a `given` kind (§6.6).
+
+---
+
+## 9. Net delta + follow-ons
+
+**Edges: 8 → 9** (`dependency`, `witness`, `rationale`, `realization`,
 `refinement`, `exclusion`, `composition`, `cross_reference`, `supersession`) —
-renames plus `refinement` only; `coverage` deferred (§9.5). Nodes: +`unknown`,
-+`entity`, +`sketch`, with `thesis`→`claim` and the `vv_*`/`AC` recodes.
-Everything else from the thread is deferred, conditional, or parked — a
-deliberately small, method-agnostic reopening rather than the full batch in
-§8.4.
+four renames plus `refinement`.
+
+**Nodes:** +`unknown`, +`entity`, +`sketch`, +`story`; `thesis`→`claim`;
+`validation_method`→`vv_method`; `obligation`→`vv_obligation`; `criterion`
+confirmed at label `AC` (already current). `feature` dropped — it is
+`spec.kind`.
+
+**Containing model:** `spec.kind = product|feature|function`;
+`role: main|alt` (deferred); `readiness_band` computed.
+
+**New non-kind surface:** the `form`-discriminated `detail` union on
+`requirement`/`criterion`/`invariant` (§6.4).
+
+The kind-set reopening is small *because* the closure rule (§6.1) absorbs all
+three target methods into `spec.kind` + `detail.form` + renderer + heuristics
+rather than into new kinds.
+
+**Follow-ons:**
+
+1. **Heuristics SoT** — collate the scattered routing/elicitation heuristics
+   (§7) into one inlinable source of truth for skills.
+2. **`ln-spec`** — propagate this resolved scope, the deferrals, and the
+   ceilings into `memory/SPEC.md` and `GRAPH_MODEL.md` (their canonical homes);
+   only then does this artifact's content become SPEC truth.
