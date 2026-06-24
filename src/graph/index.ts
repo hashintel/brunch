@@ -45,6 +45,7 @@ export type {
 } from './schema/nodes.js';
 
 export {
+  bandsForKind,
   CLAIM_FORM_JSON_SCHEMAS,
   claimFormKnownFields,
   formatGraphNodeCode,

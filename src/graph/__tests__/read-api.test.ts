@@ -110,6 +110,9 @@ describe('graph read API', () => {
       queryGraph(db, specId, { bands: ['commitment'] })
         .nodes.map((node) => node.kind)
         .sort(),
-    ).toEqual(['evidence', 'requirement', 'requirement']);
+    ).toEqual(['requirement', 'requirement']);
+    expect(queryGraph(db, specId, { bands: ['projection'] }).nodes.map((node) => node.kind)).toEqual([
+      'evidence',
+    ]);
   });
 });

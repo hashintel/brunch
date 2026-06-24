@@ -9,6 +9,7 @@ import type { GraphSlice } from '../../graph/queries.js';
 import { NODE_KINDS, NODE_PLANES } from '../../graph/schema/kinds.js';
 import {
   NODE_KIND_METADATA,
+  bandsForKind,
   formatGraphNodeCode,
   type NodeKind,
   type ReadinessBand,
@@ -26,6 +27,8 @@ import { markdownTable, joinMarkdownBlocks } from '../markdown.js';
 export interface GraphOverviewRenderContext {
   readonly requestedReadinessBands?: readonly ReadinessBand[];
 }
+
+type RenderBand = ReadinessBand | 'unbanded';
 
 export function formatGraphOverview(
   overview: Pick<GraphSlice, 'nodes' | 'edges' | 'lsn'>,
@@ -47,7 +50,13 @@ export function formatGraphOverview(
   );
 }
 
-const BAND_ORDER: readonly ReadinessBand[] = ['grounding', 'elicitation', 'commitment'];
+const BAND_ORDER: readonly RenderBand[] = [
+  'grounding',
+  'elicitation',
+  'projection',
+  'commitment',
+  'unbanded',
+];
 
 function formatLegend(kinds: readonly NodeKind[]): string {
   const present = new Set(kinds);
@@ -62,7 +71,7 @@ function formatNodeSections(
   context: GraphOverviewRenderContext,
 ): string[] {
   const sections: string[] = [];
-  const bandOrder = context.requestedReadinessBands ?? BAND_ORDER;
+  const bandOrder: readonly RenderBand[] = context.requestedReadinessBands ?? BAND_ORDER;
   const nodeGroups = new Map<string, typeof nodes>();
   for (const node of nodes) {
     const band = bandForRender(node.kind, context.requestedReadinessBands);
@@ -97,9 +106,9 @@ function formatNodeSections(
 function bandForRender(
   kind: NodeKind,
   requestedReadinessBands: readonly ReadinessBand[] | undefined,
-): ReadinessBand {
+): RenderBand {
   if (requestedReadinessBands) {
-    const kindBands: readonly ReadinessBand[] = NODE_KIND_METADATA[kind].readinessBands;
+    const kindBands = bandsForKind(kind);
     const band = requestedReadinessBands.find((candidate) => kindBands.includes(candidate));
     if (!band) {
       throw new Error(
@@ -108,9 +117,7 @@ function bandForRender(
     }
     return band;
   }
-  const band = NODE_KIND_METADATA[kind].readinessBands[0];
-  if (!band) throw new Error(`Node kind ${kind} has no readiness band metadata`);
-  return band;
+  return bandsForKind(kind)[0] ?? 'unbanded';
 }
 
 function compareNodes(a: GraphSlice['nodes'][number], b: GraphSlice['nodes'][number]): number {

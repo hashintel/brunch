@@ -16,7 +16,7 @@ describe('readiness estimate projection', () => {
     ]);
 
     expect(Object.keys(estimate.coverage)).toEqual([...READINESS_BANDS]);
-    expect(estimate.coverage).toEqual({ grounding: 1, elicitation: 0.5, commitment: 0.25 });
+    expect(estimate.coverage).toEqual({ grounding: 1, elicitation: 0.5, projection: 0, commitment: 0.25 });
   });
 
   it('reports an empty band as zero coverage', () => {
@@ -25,6 +25,7 @@ describe('readiness estimate projection', () => {
     ).toEqual({
       grounding: 0.75,
       elicitation: 0,
+      projection: 0,
       commitment: 0,
     });
   });

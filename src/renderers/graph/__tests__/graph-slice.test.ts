@@ -36,7 +36,7 @@ nodes — intent · commitment (2)
 | REQ1 | 4 | Render stable graph-node codes |
 | AC1 | 3 | Golden diff is reviewable |
 
-nodes — oracle · commitment (1)
+nodes — oracle · projection (1)
 | code | id | title |
 | - | - | - |
 | E1 | 5 | Preview file records output |

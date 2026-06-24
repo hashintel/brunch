@@ -9,7 +9,7 @@ export interface ReadinessEstimate {
 /**
  * Derives the soft D45-L readiness estimate for UI display only.
  *
- * The estimate reports every D64-L band as an importance-weighted mean of gap
+ * The estimate reports every D94-L band as an importance-weighted mean of gap
  * coverage. Empty bands report 0: no obligations in a band means no established
  * coverage yet, not authority to proceed. This projection gates nothing and may
  * regress honestly as gap coverage changes.

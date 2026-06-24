@@ -203,7 +203,7 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining(
-        '- selected spec: Spec (#1); readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, commitment=0.00',
+        '- selected spec: Spec (#1); readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, projection=0.00, commitment=0.00',
       ),
     });
     expect(result).toMatchObject({
