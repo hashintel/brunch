@@ -2135,6 +2135,42 @@ describe('durable-resume — persist at pause + resume to completion', () => {
     }
   });
 
+  it('writes a pause snapshot when only completed slice gate tokens remain before epic verify', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-epic-gate-'));
+    try {
+      const fakes = createFakes({ evalSequence: [true] });
+
+      const paused = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: fakes.actions,
+        reports: fakes.reports,
+        testRunner: fakes.testRunner,
+        policy: { maxRetries: 3 },
+        runDir,
+        resume: {
+          marking: {
+            places: {
+              'slice:slice-1:completed': [{ sliceId: 'slice-1', epicId: 'epic-1' }],
+            },
+          },
+          slices: [{ sliceId: 'slice-1', status: 'completed' }],
+          epics: [],
+          reportIds: ['rpt-prior-slice'],
+        },
+        shouldPause: () => true,
+      });
+
+      expect(paused.status).toBe('halted');
+      const snap = loadRunSnapshot(runDir);
+      expect(snap).not.toBeNull();
+      expect(snap!.slices).toContainEqual({ sliceId: 'slice-1', status: 'completed' });
+      expect(snap!.epics).toEqual([]);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
   it('loadRunSnapshot returns null when no snapshot was written (e.g. a clean completion)', () => {
     const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-none-'));
     try {

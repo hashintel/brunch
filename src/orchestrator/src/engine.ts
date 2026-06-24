@@ -72,6 +72,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
 
       let haltReason: string | undefined;
       let hasStructuralHalt = false;
+      let pauseRequested = false;
       let eventSink: NetEventSink | undefined;
 
       try {
@@ -166,7 +167,14 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         if (input.resume) net.restoreMarking(input.resume.marking);
         // Structural halts stop immediately; external pauses wait for in-flight
         // deferred completions so persisted snapshots are quiescent.
-        await net.run(firingPolicy, () => net.hasHaltToken(), eventSink, input.shouldPause);
+        const shouldPause =
+          input.shouldPause &&
+          (() => {
+            const paused = input.shouldPause?.() ?? false;
+            if (paused) pauseRequested = true;
+            return paused;
+          });
+        await net.run(firingPolicy, () => net.hasHaltToken(), eventSink, shouldPause);
 
         hasStructuralHalt = net.hasHaltToken();
         // Derive halt reason from any halt token deposited during the run.
@@ -180,7 +188,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
 
         // durable-resume: persist a resume snapshot if the run stopped with resumable
         // work — taken here, before the never-reached fill-in marks in-flight slices halted.
-        if (input.runDir && (hasStructuralHalt || net.hasPendingWork())) {
+        if (input.runDir && (hasStructuralHalt || pauseRequested || net.hasPendingWork())) {
           const snapshot: RunSnapshot = {
             marking: net.snapshotMarking(),
             slices: [...ctx.sliceOutcomes.values()],
