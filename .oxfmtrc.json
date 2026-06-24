@@ -19,6 +19,7 @@
     "dist-web/**",
     "bin/**",
     "dist/**",
-    "drizzle/**"
+    "drizzle/**",
+    "src/treedocs.yaml"
   ]
 }
