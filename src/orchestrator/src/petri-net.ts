@@ -25,6 +25,18 @@ export type Token = {
 };
 
 /**
+ * Serializable snapshot of a net's marking — every place mapped to its current
+ * tokens. Tokens are plain data, so this is JSON-serializable: a halted run can
+ * persist its marking and a freshly recompiled net (same topology) can re-enter
+ * the interpreter at it (durable-resume). Captures quiescent markings only —
+ * in-flight deferred work is not represented, so snapshot at a halt/quiescent
+ * point.
+ */
+export type MarkingSnapshot = {
+  places: Record<string, Token[]>;
+};
+
+/**
  * Typed metadata per transition — describes what a transition represents
  * without affecting firing semantics. Enables the interpreter and event
  * model to distinguish mechanical from semantic transitions.
@@ -220,6 +232,40 @@ export class PetriNet {
 
   addTransition(def: TransitionDef): void {
     this.transitions.push(def);
+  }
+
+  /**
+   * Snapshot the current marking as plain, JSON-serializable data — a deep copy
+   * so later net mutation does not bleed into the snapshot. Includes every
+   * place (empty ones too) so a restore reproduces the exact distribution.
+   */
+  snapshotMarking(): MarkingSnapshot {
+    const places: Record<string, Token[]> = {};
+    for (const [placeId, tokens] of this.places) {
+      places[placeId] = tokens.map((t) => ({ ...t }));
+    }
+    return { places };
+  }
+
+  /**
+   * Replace the current marking with `snapshot`: every existing place is
+   * cleared, then the snapshot's tokens are deposited (deep-copied). A snapshot
+   * place absent from this net is a topology mismatch and throws — the
+   * recompiled net must match the net the snapshot was taken from. Resume
+   * assumes a quiescent snapshot (no in-flight deferred work).
+   */
+  restoreMarking(snapshot: MarkingSnapshot): void {
+    for (const placeId of Object.keys(snapshot.places)) {
+      if (!this.places.has(placeId)) {
+        throw new Error(`Cannot restore marking: unknown place "${placeId}"`);
+      }
+    }
+    for (const placeId of this.places.keys()) {
+      this.places.set(
+        placeId,
+        (snapshot.places[placeId] ?? []).map((t) => ({ ...t })),
+      );
+    }
   }
 
   /** Returns the number of registered places. */
