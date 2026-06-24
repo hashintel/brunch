@@ -52,7 +52,7 @@ const BASE: Record<EdgeCategory, Record<AnchorRole, Partial<Record<StanceKey, st
     target: { none: 'refines' }, // anchor is concrete
   },
   exclusion: {
-    source: { none: 'bounds' }, // anchor is the exclusion
+    source: { none: 'bounds' }, // anchor is the boundary
     target: { none: 'bounded by' }, // anchor is the subject
   },
   composition: {

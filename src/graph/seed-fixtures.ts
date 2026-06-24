@@ -3,7 +3,7 @@
  *
  * Reads the brunch-shaped seed contract produced under
  * `.fixtures/seeds/<set>/<slug>.json` and commits each spec into a brunch
- * SQLite database through the normal `CommandExecutor` mutation exclusion, so
+ * SQLite database through the normal `CommandExecutor` mutation boundary, so
  * the graph clock, change log, and `*_lsn` columns stay coherent — seeded
  * data is indistinguishable from data an agent would have committed live.
  *

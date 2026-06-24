@@ -1,7 +1,7 @@
 /**
  * Pi-tool-facing graph parameter schemas.
  *
- * This is the adapter-exclusion schema layer for agent tools. It derives enum
+ * This is the adapter-boundary schema layer for agent tools. It derives enum
  * literals from graph/index.ts, but it deliberately does not import db/ or
  * Drizzle row schemas: mutate_graph accepts a product command shape, not raw
  * SQLite rows.
@@ -92,7 +92,7 @@ export type ToolMutateCreateEdgeOp =
   | {
       readonly op: 'create_edge';
       readonly category: 'exclusion';
-      readonly exclusion: ToolEdgeRef;
+      readonly boundary: ToolEdgeRef;
       readonly subject: ToolEdgeRef;
       readonly rationale?: string | undefined;
     }
@@ -304,7 +304,7 @@ export const ReadGraphParams = {
     { required: ['mode', 'anchorCodes', 'edgeCategory'], properties: { mode: { const: 'related' } } },
   ],
   description:
-    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Mode-specific companions are enforced at the parameter schema exclusion and mirrored by loud adapter diagnostics: neighborhood requires nodeCode; related requires anchorCodes plus edgeCategory. List modes intentionally treat omitted/empty filters as unfiltered slices; unknown filters produce an empty slice.',
+    'Read a graph overview, selected-spec node neighborhood, projection-aware flat graph slice, or related nodes. Mode-specific companions are enforced at the parameter schema boundary and mirrored by loud adapter diagnostics: neighborhood requires nodeCode; related requires anchorCodes plus edgeCategory. List modes intentionally treat omitted/empty filters as unfiltered slices; unknown filters produce an empty slice.',
 } as const;
 
 export type ToolMutateGraphParamsSchema = Static<typeof MutateGraphParams>;
