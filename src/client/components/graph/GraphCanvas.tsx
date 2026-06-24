@@ -10,8 +10,11 @@ import { buildGraphDetail } from '@/client/components/graph/graphDetail.js';
 import { GraphDetailPanel } from '@/client/components/graph/GraphDetailPanel.js';
 import { GraphEdge } from '@/client/components/graph/GraphEdge.js';
 import { GraphEmptyState } from '@/client/components/graph/GraphEmptyState.js';
+import type { LayoutMode } from '@/client/components/graph/graphForces.js';
+import { GraphLayoutToggle } from '@/client/components/graph/GraphLayoutToggle.js';
 import { GraphNode } from '@/client/components/graph/GraphNode';
 import { GraphNodeActionsProvider } from '@/client/components/graph/graphNodeActions';
+import { useGraphPositions } from '@/client/components/graph/graphPositions.js';
 import { parseNodeId } from '@/client/components/graph/nodeId';
 import type { GraphEdgeRelationship, GraphNodeData } from '@/client/components/graph/types.js';
 import { useForceLayout } from '@/client/components/graph/useForceLayout.js';
@@ -71,13 +74,17 @@ function Canvas({
   model,
   hiddenKinds,
   highlight,
+  persistKey,
 }: {
   model: GraphModel;
   hiddenKinds: ReadonlySet<KnowledgeKind>;
   highlight: KindHighlight | null;
+  persistKey: string;
 }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [highlightedKind, setHighlightedKind] = useState<KnowledgeKind | null>(null);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('force');
+  const positions = useGraphPositions(persistKey);
   const patchList = usePatchList();
 
   useEffect(() => {
@@ -105,7 +112,7 @@ function Canvas({
     onNodeDragStart,
     onNodeDrag,
     onNodeDragStop,
-  } = useForceLayout(visibleModel);
+  } = useForceLayout(visibleModel, layoutMode, positions.overridesFor);
 
   const activeHoveredId = hoveredId !== null && nodeIds.has(hoveredId) ? hoveredId : null;
 
@@ -197,7 +204,11 @@ function Canvas({
           onPaneClick={selection.clear}
           onNodeDragStart={(_, node) => onNodeDragStart(node.id)}
           onNodeDrag={(_, node) => onNodeDrag(node.id, node.position)}
-          onNodeDragStop={(_, node) => onNodeDragStop(node.id)}
+          onNodeDragStop={(_, node) => {
+            onNodeDragStop(node.id);
+            // Force mode self-heals, so only the manual modes have a placement worth keeping.
+            if (layoutMode !== 'force') positions.save(layoutMode, node.id, node.position);
+          }}
           nodesDraggable
           nodesConnectable={false}
           minZoom={0.1}
@@ -206,6 +217,9 @@ function Canvas({
           fitViewOptions={{ maxZoom: 1 }}
         >
           <ZoomControl />
+          <div className="absolute top-2 left-2 z-10">
+            <GraphLayoutToggle mode={layoutMode} onChange={setLayoutMode} />
+          </div>
           <div className="absolute bottom-2 left-2 z-10">
             <GraphArrowLegend relationships={presentRelationships} />
           </div>
@@ -235,11 +249,14 @@ export function GraphCanvas({
   emptyStateAction,
   hiddenKinds = EMPTY_HIDDEN_KINDS,
   highlight = null,
+  persistKey = 'default',
 }: {
   entityState: EntitiesData;
   emptyStateAction?: ReactNode;
   hiddenKinds?: ReadonlySet<KnowledgeKind>;
   highlight?: KindHighlight | null;
+  /** Stable graph identity (e.g. specification id) that scopes locally-saved node positions. */
+  persistKey?: string;
 }) {
   const model = useMemo(() => buildGraphModel(entityState), [entityState]);
 
@@ -247,5 +264,5 @@ export function GraphCanvas({
     return <GraphEmptyState action={emptyStateAction} />;
   }
 
-  return <Canvas model={model} hiddenKinds={hiddenKinds} highlight={highlight} />;
+  return <Canvas model={model} hiddenKinds={hiddenKinds} highlight={highlight} persistKey={persistKey} />;
 }

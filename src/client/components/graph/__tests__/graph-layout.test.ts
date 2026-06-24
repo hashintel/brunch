@@ -26,6 +26,7 @@ import { cardFootprint } from '@/client/components/graph/cardFootprint';
 import { forceLayout, kindRank } from '@/client/components/graph/forceLayout.js';
 import { collisionRadius } from '@/client/components/graph/graphForces.js';
 import type { GraphEdgeData, GraphNodeData } from '@/client/components/graph/types.js';
+import { workflowLayout } from '@/client/components/graph/workflowLayout.js';
 
 interface LayoutNodeInput {
   id: string;
@@ -356,5 +357,70 @@ describe('forceLayout — knowledge hierarchy lays out top-to-bottom by kind', (
   it('places the rank-0 goal above the rank-4 criterion', () => {
     const positions = positionsById(forceLayout(model));
     expect(positions.get('goal')!.y).toBeLessThan(positions.get('criterion')!.y);
+  });
+});
+
+describe('workflowLayout — layered top-to-bottom flow', () => {
+  // One node per kind plus extra criteria, so a layer with multiple cards exercises
+  // the horizontal spread. Edges are irrelevant to the layered positions but kept
+  // realistic.
+  const model: GraphModel = {
+    nodes: [
+      makeNode('goal', 'goal'),
+      makeNode('term', 'term'),
+      makeNode('decision', 'decision'),
+      makeNode('requirement', 'requirement'),
+      makeNode('c0', 'criterion'),
+      makeNode('c1', 'criterion'),
+      makeNode('c2', 'criterion'),
+    ],
+    edges: [makeEdge('requirement', 'goal', 'derived_from'), makeEdge('c0', 'requirement', 'verifies')],
+  };
+
+  it('returns a finite position for every node', () => {
+    const positions = positionsById(workflowLayout(model));
+    expect([...positions.keys()].sort()).toEqual([
+      'c0',
+      'c1',
+      'c2',
+      'decision',
+      'goal',
+      'requirement',
+      'term',
+    ]);
+  });
+
+  it('stacks shallower kinds above deeper kinds, strictly by rank', () => {
+    const positions = positionsById(workflowLayout(model));
+    expect(positions.get('goal')!.y).toBeLessThan(positions.get('term')!.y);
+    expect(positions.get('term')!.y).toBeLessThan(positions.get('decision')!.y);
+    expect(positions.get('decision')!.y).toBeLessThan(positions.get('requirement')!.y);
+    expect(positions.get('requirement')!.y).toBeLessThan(positions.get('c0')!.y);
+  });
+
+  it('places every card of the same kind on one row (shared y)', () => {
+    const positions = positionsById(workflowLayout(model));
+    expect(positions.get('c0')!.y).toBe(positions.get('c1')!.y);
+    expect(positions.get('c1')!.y).toBe(positions.get('c2')!.y);
+  });
+
+  it('spreads a row horizontally without overlap, centred on the origin', () => {
+    const positions = positionsById(workflowLayout(model));
+    const row = [positions.get('c0')!, positions.get('c1')!, positions.get('c2')!];
+    const xs = row.map((p) => p.x).sort((a, b) => a - b);
+    for (let i = 1; i < xs.length; i++) {
+      expect(xs[i]! - xs[i - 1]!).toBeGreaterThanOrEqual(cardFootprint.width);
+    }
+    const meanX = xs.reduce((sum, x) => sum + x, 0) / xs.length;
+    expect(meanX).toBeCloseTo(0, 6);
+  });
+
+  it('is deterministic: identical positions on repeat', () => {
+    const first = positionsById(workflowLayout(model));
+    const second = positionsById(workflowLayout(model));
+    for (const [id, point] of first) {
+      expect(second.get(id)!.x).toBe(point.x);
+      expect(second.get(id)!.y).toBe(point.y);
+    }
   });
 });

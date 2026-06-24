@@ -20,6 +20,7 @@ import { forceLayout } from '@/client/components/graph/forceLayout.js';
 import type { SimModel } from '@/client/components/graph/graphForces.js';
 import type { GraphNodeData, GraphNodeKind } from '@/client/components/graph/types.js';
 import { useForceLayout } from '@/client/components/graph/useForceLayout.js';
+import { workflowLayout } from '@/client/components/graph/workflowLayout.js';
 
 function nodeData(kind: GraphNodeKind = 'term'): GraphNodeData {
   return { kind, degree: 0, selected: false, dimmed: false, referenceCode: '', content: '', rationale: '' };
@@ -114,6 +115,64 @@ describe('useForceLayout', () => {
     const { result } = renderHook(() => useForceLayout(empty));
 
     expect(result.current.nodes).toEqual([]);
+    expect(frameQueue.length).toBe(0);
+  });
+});
+
+describe('useForceLayout — static modes (workflow, free)', () => {
+  it('free mode lays out from forceLayout but never schedules a simulation frame', () => {
+    const m = model();
+    const { result } = renderHook(() => useForceLayout(m, 'free'));
+
+    const live = positionsById(result.current.nodes);
+    for (const expected of forceLayout(m)) {
+      const actual = live.get(expected.id)!;
+      expect(actual.x).toBeCloseTo(expected.position.x, 4);
+      expect(actual.y).toBeCloseTo(expected.position.y, 4);
+    }
+    expect(frameQueue.length).toBe(0);
+  });
+
+  it('workflow mode lays out from workflowLayout but never schedules a simulation frame', () => {
+    const m = model();
+    const { result } = renderHook(() => useForceLayout(m, 'workflow'));
+
+    const live = positionsById(result.current.nodes);
+    for (const expected of workflowLayout(m)) {
+      const actual = live.get(expected.id)!;
+      expect(actual.x).toBeCloseTo(expected.position.x, 4);
+      expect(actual.y).toBeCloseTo(expected.position.y, 4);
+    }
+    expect(frameQueue.length).toBe(0);
+  });
+
+  it('seeds saved manual positions over the computed layout in static modes', () => {
+    const m = model();
+    const overrides = new Map([['a', { x: 777, y: -333 }]]);
+    const overridesFor = () => overrides;
+    const { result } = renderHook(() => useForceLayout(m, 'workflow', overridesFor));
+
+    const live = positionsById(result.current.nodes);
+    // The overridden node sits exactly where it was saved...
+    expect(live.get('a')).toEqual({ x: 777, y: -333 });
+    // ...while un-saved nodes keep the layered workflow position.
+    const layout = new Map(workflowLayout(m).map((node) => [node.id, node.position]));
+    expect(live.get('b')).toEqual(layout.get('b'));
+  });
+
+  it('does not reflow on drag: dragging a node leaves its neighbors untouched', () => {
+    const m = model();
+    const { result } = renderHook(() => useForceLayout(m, 'free'));
+    const before = positionsById(result.current.nodes).get('b')!;
+
+    // React Flow owns positions in static modes; the hook's drag handlers no-op,
+    // so no simulation reheats and no frames are scheduled.
+    act(() => result.current.onNodeDragStart('a'));
+    act(() => result.current.onNodeDrag('a', { x: 900, y: -400 }));
+
+    const after = positionsById(result.current.nodes).get('b')!;
+    expect(after.x).toBeCloseTo(before.x, 4);
+    expect(after.y).toBeCloseTo(before.y, 4);
     expect(frameQueue.length).toBe(0);
   });
 });

@@ -173,6 +173,7 @@ function GraphRouteComponent() {
         emptyStateAction={emptyStateAction}
         hiddenKinds={hiddenKinds}
         highlight={highlight}
+        persistKey={String(bundle.specification.id)}
       />
     ) : (
       <StructuredListView

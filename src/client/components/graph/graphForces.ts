@@ -14,6 +14,9 @@ import { cardFootprint } from '@/client/components/graph/cardFootprint';
 
 import type { GraphNodeData, GraphNodeKind } from './types.js';
 
+/** Graph layout arrangement: organic force-directed, layered workflow, or free (manual). */
+export type LayoutMode = 'force' | 'workflow' | 'free';
+
 export interface SimNode extends SimulationNodeDatum {
   id: string;
   data: GraphNodeData;
