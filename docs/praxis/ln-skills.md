@@ -11,10 +11,13 @@ The skills are a development workflow for keeping product intent, planning, impl
 | `memory/SPEC.md` | What and why: product contract, live assumptions, decisions, invariants, lexicon, verification stance. |
 | `memory/PLAN.md` | What's next: frontier items, sequencing, acceptance, verification notes. |
 | `HANDOFF.md` | Temporary resumability state when a session ends or context is fragile. |
-| `memory/cards/<frontier-id>--<slug>.md` | Scope files holding one or more prepared scope cards. Multiple files per frontier permitted for independent concerns; one file = one execution context for `ln-build`. |
+| `memory/cards/<frontier-id>--<slug>.md` | Scope files holding one vertical card, a short slice sequence, or a sweep ledger. Multiple files per frontier permitted for independent concerns; one file = one execution context for `ln-build`. |
 | `memory/REFACTOR.md` | Temporary refactor execution plan, when explicitly created. |
+| `src/**/README.md` | Co-located current architectural state for its subtree: ownership, layout, dependency direction, concrete surface. SPEC decisions cite these as event + pointer, not a second copy (see `AGENTS.md` §topology READMEs). |
 
 Do not invent alternate planning stores. If a fact matters durably, promote it through `ln-spec`, `ln-plan`, or `ln-sync`.
+
+The concrete `src/**/README.md` glob is this project's binding for the generic *co-located current-state home* role. The `ln-*` skills reference that role, discover instances by glob, and defer ownership to `AGENTS.md` §topology READMEs — they encode no project topology. A future cross-project `ln-*` system would parameterize this path here, in this registry, not in the skills (Level-2 seam).
 
 ## Default flow
 
@@ -36,46 +39,28 @@ The flow is not a checklist. Skip steps whose uncertainty is already retired.
 
 ### Operating posture
 
-Planning and scoping pressures depend on each frontier's **certainty posture**. The project default lives in `.pi/POSTURE.md` (`certainty: proving | earned`); individual frontiers in `memory/PLAN.md` may carry an explicit `Certainty:` override. Posture is **per-frontier**, not per-project — a mostly-earned repo can carry a fresh proving seam, and a settled seam can regress to proving on a new unknown.
+Planning and scoping pressures depend on each frontier's **certainty posture**. The project default lives in `memory/POSTURE.md` (`certainty: proving | earned`); individual frontiers in `memory/PLAN.md` may carry an explicit `Certainty:` override. Posture is **per-frontier**, not per-project — a mostly-earned repo can carry a fresh proving seam, and a settled seam can regress to proving on a new unknown.
 
 | Certainty | Ask | Optimize for | Reference |
 | --- | --- | --- | --- |
 | `proving` | What does landing this *tell us*? | information gain | `.agents/skills/ln-plan/references/proving.md` |
 | `earned` | What does landing this *close*? | closure gain | `.agents/skills/ln-plan/references/earned.md` |
 
+This section orients; the operational doctrine lives in the references named below, which `ln-plan` and `ln-scope` load at point of use.
+
 #### Proving posture (tracer-bullet sequencing)
 
-A good tracer-bullet frontier or slice earns its keep on three convergent axes:
-
-- **Proof of life.** Does landing it light up an end-to-end path that did not exist?
-- **Invariants.** Does it locate or stabilize a seam that future slices will aim from?
-- **Uncertainty.** Does it retire a load-bearing assumption from `memory/SPEC.md` §Assumptions?
-
-The strongest next move scores on more than one axis. Prefer a slice that does several at once over one that maximizes a single axis.
-
-- **Reshape, don't defer.** If an assumption blocks a slice, reshape the slice before switching to study.
-- **Spike exception.** Use `ln-spike` only when no buildable tracer bullet can carry the proof — a third-party API contract, vendor characteristic, or research-grade unknown.
-- **Fire the tracer that tells you the most.** Under proving posture, attack uncertainty by building. Spikes, design passes, and prototypes are escape hatches when no slice could carry the proof more cheaply.
-
-Required annotation fields on Active/Next frontiers: at least one of `Retires`, `Depends on`, `Blocked by`, `Lights up`, `Stabilizes`.
+Optimize for **information gain**. A good tracer-bullet frontier scores on at least one of three axes — **proof of life** (lights a new end-to-end path), **invariants** (locates/stabilizes a seam), **uncertainty** (retires a load-bearing assumption) — and the strongest score on several. Attack uncertainty by *building*; spikes are the escape hatch only when no slice could carry the proof. Required annotation: at least one of `Retires`, `Depends on`, `Blocked by`, `Lights up`, `Stabilizes`. Full doctrine (epistemic horizon, reshape-don't-defer, spike exception) in `.agents/skills/ln-plan/references/proving.md`.
 
 #### Earned posture (closure sequencing)
 
-A good closure frontier or slice eliminates open shape, hardens a settled decision into topology, or retires an obsolete carrier. The decision kernel changes — the planner asks *what does this close?*, not *what does this tell us?*
+Optimize for **closure gain**. The decision kernel changes — the planner asks *what does this close?*, not *what does this tell us?* Closure move-set: **materialize, consolidate, name canonically, delete-as-progress, retire bridges/aliases/dual paths, take-the-bigger-step.** You are *circling* (switch posture) when each new slice re-proves established meaning and "caution" names no specific risk. Required annotation: at least one of `Closes`, `Materializes`, `Canonicalizes`, `Deletes / retires`, `Locks in`. Guardrails still bind (one named seam, named closure target, declared touched paths, no auto-implementation); regression earned → proving is a state transition, not a third mode. Full doctrine in `.agents/skills/ln-plan/references/earned.md`.
 
-Closure move-set: **materialize, consolidate, name canonically, delete-as-progress, retire bridges/aliases/dual paths, take-the-bigger-step.**
+#### Coverage sweeps / coverage frontiers (a frontier shape, not a posture)
 
-The "circling" recognition heuristic: when each new slice attaches an incremental proof to changes whose meaning is already established, and "caution" is the planner's stated reason but no specific risk can be named, switch posture and plan the closure move the proving slices have been deferring.
+**Vertical work terminates on a witness (∃ — there exists one end-to-end path that holds); sweep work terminates on closure (∀ — the property holds for every required row in the inventory).** Tracer bullets buy integration evidence; sweeps buy role readiness.
 
-Required annotation fields on Active/Next frontiers: at least one of `Closes`, `Materializes`, `Canonicalizes`, `Deletes / retires`, `Locks in`.
-
-Earned posture is not a license for sprawl — guardrails (one named seam, named closure target, declared touched paths, no auto-implementation of adjacent work) still bind. Topology READMEs and fractal sub-tree splits fire only when the seam is understood and structure carries real architectural meaning, not as ritual.
-
-Regression earned → proving is a state transition, not a third mode: downgrade the frontier or slice, reshape as a tracer, route back through `ln-plan` if the frontier itself splits.
-
-#### Coverage frontiers (a frontier shape, not a posture)
-
-Posture ranks the next *vertical* slice; it has no completeness test, so vertical tracers can leave a horizontal capability layer permanently shallow while every slice is "done." A **coverage frontier** closes that gap with a layer-level **aggregate DoD** — "no required row in a closed enumerated inventory is left open" — while each row still builds under `proving` or `earned`. It is therefore a different frontier *shape*, not a third posture. The rule-of-three is now met in this repo, so coverage has a first-class planning reference at `.agents/skills/ln-plan/references/coverage.md`: use it for the admission gate, buildability classes (`buildable-now` / `evidence-gated` / `wait-gated`), temporary-ledger protocol, and anti-patterns (`category laundering`, `wrong-input derivation`, `residue denial`, `sequencing leakage`, `symmetry regrowth`). `ln-plan` recognizes and bounds the frontier; the row ledger lives in a `Mode: coverage` scope file under `memory/cards/` (authored via `ln-scope`); `ln-build` closes rows; `ln-sync` audits the contradictions coverage mode tends to create.
+Tracer-complete is not load-bearing. Posture ranks the next *vertical* slice; it has no completeness test, so vertical tracers can leave a horizontal capability layer permanently shallow while every slice is "done." A **coverage frontier** is the plan-level container for a **sweep**: a pass that closes a named layer inventory with an aggregate DoD — "no required row in a closed enumerated inventory is left open" — while each row still builds under `proving` or `earned`. It is therefore a different frontier *shape*, not a third posture. The rule-of-three is now met in this repo, so coverage has a first-class planning reference at `.agents/skills/ln-plan/references/coverage.md`: use it for the admission gate, buildability classes (`buildable-now` / `evidence-gated` / `wait-gated`), temporary-ledger protocol, and anti-patterns (`category laundering`, `wrong-input derivation`, `residue denial`, `sequencing leakage`, `symmetry regrowth`). `ln-plan` recognizes and bounds the frontier; the row ledger lives in a `Mode: sweep` scope file under `memory/cards/` (authored via `ln-scope`); `ln-build` closes rows; `ln-sync` audits the contradictions sweep mode tends to create.
 
 #### Posture distribution across skills
 
@@ -119,6 +104,7 @@ Posture ranks the next *vertical* slice; it has no completeness test, so vertica
 | `ln-diagnose` | Something is broken, failing, flaky, slow, or nondeterministic. | Trusted repro loop, falsified hypotheses, regression oracle, route back to planning if needed. |
 | `ln-induct` | Review-bot comments or point observations may be symptomatic of a systemic-ish fault. | An induced diagnostic lens, an audit for unsampled instances, and a triaged report. |
 | `ln-review` | After implementation bursts, or when architecture/model hygiene needs an opinionated audit. | Quality findings and next-step recommendations. |
+| `ln-judo-review` | A stricter sibling of `ln-review`: a PR preserves incidental complexity, a file nears a size boundary, or spaghetti branching is creeping in and you want deletion-over-rearrangement pressure. | High-conviction restructuring findings; before/after `pseudo` shape pairs. |
 | `ln-refactor` | Working code needs restructuring without behavior change. | Refactor plan as tiny safe commits. |
 
 ## Discretionary skills that are easy to miss
@@ -147,7 +133,8 @@ There is currently no project-local `ln-map` skill in `.agents/skills/`. If you 
 | “Which interpretation is intended?” | `ln-disambiguate` |
 | “What should the canonical truth say?” | `ln-spec` |
 | “What work items should exist?” | `ln-plan` |
-| “Is a whole capability layer going shallow under vertical slicing?” | `ln-plan` (coverage frontier) |
+| “All paths are lit, but is the layer load-bearing?” | `ln-review` for diagnosis, then `ln-plan` for a coverage frontier / sweep |
+| “Is a whole capability layer going shallow under vertical slicing?” | `ln-plan` (coverage frontier / sweep) |
 | “What is the smallest buildable slice?” | `ln-scope` |
 | “Which module/API shape should we choose?” | `ln-design` |
 | “How will we know this works?” | `ln-oracles` |
@@ -182,8 +169,30 @@ Default commands:
 - Inner loop after meaningful edits: `npm run fix`
 - Gate before commit: `npm run verify`
 
+## Self-governance
+
+The skill system verifies itself, the same way the product code does. This is the layer adapted from the ponytail project's engineering discipline (consistency tests, drift-proofing) — deliberately *not* its always-on minimalism control plane, which would collide with the invoke-on-uncertainty model and the topology-stub guardrails above.
+
+**Shipped — static consistency check.** `npm run check:skills` (`scripts/check-ln-skills.mjs`, no dependencies) runs as the last step of `npm run check` and fails on:
+
+- a `ln-*` folder name that disagrees with its SKILL.md frontmatter `name`
+- a `ln-*` skill missing from this working guide
+- a dead cross-skill link (`../ln-x/SKILL.md`) inside any `ln-*` SKILL.md
+- a missing required guardrail phrase — currently the topology-stub carve-out in `ln-review` / `ln-judo-review` / `ln-build`, and the verification-harness commitment in `ln-build`
+
+Extend the guardrail list when a new Brunch-specific invariant must not silently disappear from a skill. Keep the script dependency-free and read-only.
+
+**Deferred — behavioral routing benchmarks (a.k.a. "Move B").** The static check proves the skill set is internally consistent; it does not prove the skills *route* correctly. A future addition: 3–5 small scenario fixtures that judge **method behavior**, not code LOC. Candidate scenarios:
+
+- an ambiguous request routes to `ln-grill` / `ln-disambiguate`, not straight to `ln-build`
+- a direct fix inside a settled seam routes to `ln-build`
+- a review of a topology-stub-heavy area does **not** recommend deleting `export {}` stubs absent contradicted-topology evidence (the highest-value guard — it pins the #1 ponytail false-positive this repo engineered around)
+- an implementation path cites `npm run verify`
+- a coverage/frontier question routes to `ln-plan` / `ln-review`, not ad-hoc implementation
+
+Scope notes when picking this up: this is the only piece that introduces a new namespace (a benchmarks/scenarios directory) and likely a `test:skills` script; it is *not* cross-harness portability (Brunch is single-harness — do not cargo-cult ponytail's 14-adapter machinery). Decide the judge mechanism (assertion over a recorded routing decision vs. an LLM-graded transcript) before building.
+
 ## References
 
 - Runtime skill instructions: `.agents/skills/ln-*/SKILL.md`
 - Repo protocol summary: `AGENTS.md`
-- Dev-layer design rationale: `docs/design/ln-skills/EVOLUTION.md`

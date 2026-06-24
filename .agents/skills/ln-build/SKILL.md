@@ -1,12 +1,12 @@
 ---
 name: ln-build
-description: "Implement one scoped slice using TDD red-green-refactor. Use when ready to write code for a defined slice of work, or when the user wants test-driven development."
+description: "Implement one scoped work unit using TDD red-green-refactor: a vertical slice card or one row of a sweep ledger. Use when a scope file is ready to build."
 argument-hint: "[scope file path under memory/cards/, an inline scope card, or a trivial direct-fix request]"
 ---
 
 # Ln Build
 
-Implement **one** scope card. Beck's red-green-refactor, one cycle, no scope creep.
+Implement **one** scoped unit: the next vertical card, or the next required row in a sweep ledger. Red-green-refactor still governs, but **red** means the smallest oracle proving this scoped unit is not closed. One cycle, no scope creep.
 
 ## Input
 
@@ -14,7 +14,7 @@ A scope file under `memory/cards/`, an inline scope card from `ln-scope`, or a t
 
 Extract: target behavior / objective, acceptance criteria, verification approach, cold-start reads, and (when present) expected touched paths.
 
-Treat the scope card as the next implementation slice inside its containing `memory/PLAN.md` frontier item (or, for dev/tooling/docs work, the named category prefix). The frontier item is the plan-level work item and Linear/branch unit; the scope-card slice is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive slices may land on the same branch — including slices that live in separate scope files but share a frontier.
+Treat the selected scope file as the next execution artifact inside its containing `memory/PLAN.md` frontier item (or, for dev/tooling/docs work, the named category prefix). The frontier item is the plan-level work item and Linear/branch unit; the scope file is just the current execution step inside it — a slice, slice sequence, or sweep. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-file granularity; multiple consecutive scope files may land on the same branch.
 
 ### Selecting a scope file
 
@@ -30,7 +30,7 @@ Never scan or pick by mtime, alphabetical order, or directory-listing heuristics
 
 Once a file is selected, work the next card marked `next` (or the first unfinished card in file order if status markers are absent). If that card is already satisfied on the current branch, do **not** manufacture a no-op build commit; verify the acceptance criteria, mark the card `done` or `dropped` as appropriate, reconcile, and either continue to the next ready card in the same file or route back to `ln-scope` if no build remains.
 
-If the selected file is `Mode: coverage`, it holds a row ledger rather than cards — follow the [Coverage execution mode](#coverage-execution-mode) loop below instead of card-based selection.
+If the selected file is `Mode: sweep`, it holds a row ledger rather than cards — follow the [Sweep execution mode](#sweep-execution-mode) loop below instead of card-based selection.
 
 Re-enter before red.
 
@@ -50,76 +50,25 @@ If the request is a direct fix and you cannot name the containing seam or whethe
 
 Do not invent new planning docs, scratch histories, or alternate memory locations while building. Durable state reconciles back into `memory/SPEC.md` and `memory/PLAN.md`; temporary support artifacts stay in `HANDOFF.md`, the active scope file under `memory/cards/`, or `memory/REFACTOR.md` only while they are still live.
 
-## Serial execution mode
+## Sliced execution mode
 
-When a scope file is `Mode: chain` and holds several prepared cards, `ln-build` may execute them in sequence within that one file instead of routing back through the user after every commit.
+When a scope file is `Mode: slices`, `ln-build` may execute its prepared cards in sequence within that one file instead of routing back to the user after every commit. Load [`references/sliced-execution.md`](references/sliced-execution.md) for the loop shape, stop conditions, and the Stale-downstream invalidation re-orient.
 
-Loop shape:
+## Sweep execution mode
 
-1. take the next ready card in the active scope file
-2. **re-orient checkpoint** — before starting, verify the card's premise still holds in light of what the previous card just taught you (see Stale-downstream invalidation below)
-3. decide whether it is still a real build target or is already satisfied / stale on the current branch
-4. if it is real work, run red → green → refactor
-5. run the verification harness
-6. reconcile canonical state and update the card's status in the scope file
-7. commit only if the card produced a real card-sized change
-8. continue only if no stop condition fires
-
-Stop the serial loop immediately when any of these becomes true:
-
-- verification fails
-- the active card needs promotion to structural work
-- the containing seam no longer feels settled
-- a manual outer-loop verification step is now required before proceeding
-- `memory/SPEC.md` or `memory/PLAN.md` needs non-trivial revision before the next card
-- the remaining cards in the file are no longer obviously valid (see below)
-- the user asked to pause or review between cards
-- context is getting fragile enough that handoff is safer than continuing
-
-### Stale-downstream invalidation
-
-Even when `ln-scope` honored the hard anti-speculation gate (no card's scope was *expected* to depend on earlier-card findings), implementation can still surprise you. Between each card in a chain, perform this explicit re-orient:
-
-- read the next card's Target Behavior, Acceptance Criteria, and Expected touched paths
-- ask: **does this card's premise still hold after what I just learned in the previous card?**
-  - Did the previous build change a path, name, or interface that this card references?
-  - Did the previous build retire or invalidate an assumption this card relies on?
-  - Did the previous build shift the seam such that this card's boundary crossings no longer match reality?
-- if any answer is yes, mark this card and every remaining card in the file as `stale` and stop the serial loop. Route back to `ln-scope` for the rest of the chain.
-
-Never silently continue past a stale-downstream signal. Never silently delete a stale chain before a replacement exists.
-
-## Coverage execution mode
-
-When a scope file is `Mode: coverage` (see [`ln-scope`](../ln-scope/SKILL.md) §Coverage scope files), it holds a closed enumerated ledger of one capability layer rather than a sequence of full cards. The build loop is row-driven:
-
-Before taking a row, reload [`../ln-plan/references/coverage.md`](../ln-plan/references/coverage.md) if you have not read it in this thread.
-
-1. take the next open required (`●`) row — one whose Status is `spec`, `new`, or `partial`
-2. **coverage re-orient checkpoint** — verify the row still fits the declared layer boundary, that its named owner is still the right owner, and that its promised behavior is derivable from the row's source-of-truth inputs. If any of those fail, stop and route back through `ln-scope` / `ln-plan`
-3. build it under the **fill mode declared in that row** (`proving` → tracer that retires the row's unknown; `earned` → land and lock the settled capability). A `new` row needs its micro-decision resolved (`ln-disambiguate` / `ln-spec`) before it can be built
-4. run red → green → refactor and the verification harness for that row
-5. flip the row's Status to `built` in the ledger and reconcile canonical state
-6. commit the row-sized change
-7. continue until **no `●` row remains in `spec` / `new` / `partial`** — that aggregate DoD, not any single row, completes the coverage frontier
-
-The chain stop conditions and Stale-downstream re-orient apply per row. Coverage-specific rules:
-
-- **Do not add rows as you go** except to record a genuinely-missing capability (Status `new`, one-line justification). The ledger is a closed list; filling it never means "do everything that rhymes" (global `AGENTS.md` §completionist sprawl).
-- **One new row maximum.** If implementation discovers a second new row or a new sub-seam, the inventory was not actually closed; stop and route back through `ln-plan`.
-- **A row that grows past ledger-row size** spawns its own `single` scope file; replace the row's Owner / next cell with a pointer rather than fattening the ledger.
-- **Do not silently change frontier class.** If the row turns out to be evidence-gated or wait-gated rather than buildable-now, stop and reconcile the classification instead of forcing a ceremonial build.
-- **Do not launder ownership.** If the build wants to move single-owner logic into a shared layer (or pull shared logic back into a single owner), stop and re-scope the row explicitly rather than smuggling a topology decision through coverage execution.
+When a scope file is `Mode: sweep` (see [`ln-scope`](../ln-scope/SKILL.md) §Sweep scope files), it holds a closed enumerated ledger rather than a sequence of cards, and the build loop is row-driven. Load [`references/sweep-execution.md`](references/sweep-execution.md) for the row loop and sweep-specific rules; reload [`../ln-plan/references/coverage.md`](../ln-plan/references/coverage.md) before taking a row.
 
 ## Red
 
-Translate acceptance criteria into failing tests when the change benefits from them. For bugfixes or subtle seam changes, prefer one high-leverage regression test. For trivial maintenance or doc-only work, tests may be unnecessary.
+For `Mode: single` / `slices`, use normal tracer-bullet TDD: one failing behavioral test → minimum code to pass → next failing behavioral test. For bugfixes or subtle seam changes, prefer one high-leverage regression test. For trivial maintenance or doc-only work, tests may be unnecessary.
 
-Test behavior through public interfaces, not implementation details. A good test describes what capability exists and would survive internal refactoring. Avoid tests that mock internal collaborators, assert private call order, or inspect storage directly when the public interface can prove the behavior.
+For `Mode: sweep`, use closure-driven TDD: one failing row/property oracle → make that row/property conform → green. The oracle may be a test, grep guard, lint/import rule, schema check, fixture diff, golden assertion, or small enumerator script. It must fail because the required row is open, not because the harness is broken.
 
-Do not horizontal-slice TDD. Never write a batch of imagined tests first and then a batch of implementation. Use tracer bullets: one failing behavioral test → minimum code to pass → next failing behavioral test. Each new test should respond to what the previous cycle taught you.
+Test through the public interface — capability that survives internal refactoring — not internals (mocked collaborators, asserted private call order, direct storage reads).
 
-Run the relevant checks. Confirm failures are meaningful. If the card is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
+Don't batch speculative tests then batch implementation: in slice mode each new test responds to what the last cycle taught you; in sweep mode each closure oracle proves the next row rather than widening the ledger.
+
+Run the relevant checks. Confirm failures are meaningful. If the card or row is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
 
 ## Green
 
@@ -128,6 +77,10 @@ Write the minimum coherent code to pass. Build inside-out: functional core first
 Honor the repo's pre-release posture: if the current schema, fixture shape, dummy data, or terminology is wrong for the model, change it and regenerate dependent artifacts rather than preserving accidental compatibility. Delete obsolete paths in the same slice when they are inside the active seam.
 
 No speculative abstractions. Only extract when two concrete cases force it. Do not anticipate later tests or build shape-only scaffolding; let the current behavioral test pull the interface into existence.
+
+Take the laziest rung that holds before writing custom code: stdlib → native platform feature → already-installed dependency → one line → the minimum that works. When two rungs tie, take the higher (less code) — but never the option that is flimsier on edge cases; lazy means less code, not a weaker algorithm. The floor is never negotiable: do not simplify away trust-boundary validation, data-loss handling, security, accessibility, or anything explicitly requested. Mark a deliberate shortcut with a `ceiling:` comment naming the ceiling and upgrade path (see `AGENTS.md` §simplification ceilings).
+
+When the code introduces, restates, or widens a type — or decides where to validate untrusted input — reach for the owner before re-deriving the shape. Load `expert-typescript-typing` (import → infer → project → declare only at a real semantic boundary; one state space, one owner) and its companion `expert-runtime-boundaries` (validate where uncertainty enters, then carry that trust downstream with types). Do not fork a type the schema, library, or domain already owns.
 
 Do not delete comment-rich empty source files as cleanup unless the current card names them or the deletion proof in `AGENTS.md` §intentional topology stubs is satisfied. Passing import/build checks is insufficient proof; ask the user when the topology intent is unclear.
 
@@ -221,7 +174,7 @@ Scope-file lifecycle under `memory/cards/`:
 
 - Delete the **specific scope file just consumed** when all its cards are `done` or `dropped` and no further build remains. Use a literal path: `git rm memory/cards/<frontier-id>--<slug>.md` (or `rm` if untracked). Never bulk-delete the directory or operate on `memory/cards/*` with globs.
 - If only some cards in the file are `done` and others remain `next` or `in progress`, leave the file in place with statuses updated.
-- If the chain became `stale` mid-build, leave the file in place with `Status: superseded` at the header so `ln-scope` / `ln-sync` can decide whether to rewrite or delete on the next pass.
+- If the sequence became `stale` mid-build, leave the file in place with `Status: superseded` at the header so `ln-scope` / `ln-sync` can decide whether to rewrite or delete on the next pass.
 - Other active scope files under `memory/cards/` for the same frontier (independent concerns) are out of scope for this build's cleanup. Do not touch them.
 
 Other volatile artifacts are **review-before-delete**, not automatic cleanup:
@@ -234,7 +187,7 @@ Before deleting any file, name the file, state why no future agent would need it
 
 ## Routing
 
-If serial execution mode is active and no stop condition fired, continue to the next card in the active scope file instead of routing back to the user yet.
+If sliced execution mode is active and no stop condition fired, continue to the next card in the active scope file instead of routing back to the user yet.
 
 Otherwise, after verification and any necessary promotion updates, present these options to the user (use `tool-ask-question`):
 

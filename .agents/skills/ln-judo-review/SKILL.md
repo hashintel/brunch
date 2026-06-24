@@ -12,6 +12,8 @@ This is a strict maintainability audit, not a cleanup pass. Do not stop at "this
 
 Do not apply deletion-judo to intentional topology stubs. A comment-rich `export {}` source file may be a planned public seam / topology contract; see `AGENTS.md` §intentional topology stubs. Deleting it is a valid judo move only when the documented intent is obsolete or absorbed, not merely because the file is unused today.
 
+Laziness-ladder violations are first-class deletion targets — tag them crisply: `stdlib:` hand-rolled code the standard library ships, `native:` a dependency or code doing what the platform already does, `yagni:` an abstraction, config, or layer with a single caller, `shrink:` the same behavior in fewer lines, `delete:` dead or speculative code (replacement: nothing). A simplification already carrying a `ceiling:` comment (see `AGENTS.md` §simplification ceilings) is declared intent: flag it only when its named ceiling has actually been reached, not because the shortcut exists.
+
 ## Input
 
 What to review: $ARGUMENTS
@@ -79,7 +81,7 @@ Prefer a small number of high-conviction comments over a long list of cosmetic n
 ```md
 ## Judo Review: [area]
 
-1. **[Description]** — [category: judo|depth|spaghetti|boundary|contract|file-size|naming] — [impact: low|medium|high]
+1. **[Description]** — [category: judo|depth|spaghetti|boundary|contract|file-size|naming|stdlib|native|yagni|shrink|delete] — [impact: low|medium|high]
    [1-2 sentence explanation and suggested action]
 ```
 

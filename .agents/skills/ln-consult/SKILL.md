@@ -1,6 +1,6 @@
 ---
 name: ln-consult
-description: "Lightweight triage for the ln-* skill set. Use when unsure which ln skill to use next, starting work on something new, or when the user asks for guidance on their development process."
+description: "Triage the ln-* skill set — assess state and recommend the next skill. Use when unsure which ln skill applies, starting new work, or re-entering ambiguous work."
 ---
 
 # Ln Consult
@@ -11,7 +11,7 @@ If context is unclear, ask **one** clarifying question — then recommend.
 
 The canonical rule is simple: durable planning state lives only in `memory/SPEC.md` and `memory/PLAN.md`, and new or uncertain work defaults to the canonical flow until a narrow exception is clearly justified.
 
-Do not invent new planning documents, sidecar ledgers, or alternate storage locations without explicit user permission. If a fact matters beyond the current step, reconcile it into `memory/SPEC.md` or `memory/PLAN.md`; if it is temporary transfer state, keep it in `HANDOFF.md`; if it is one or more prepared scope cards for a frontier item, keep them in a scope file under `memory/cards/`; if it is a temporary refactor execution plan, keep it in `memory/REFACTOR.md`. Derivative files stay live only while they still carry unfinished work.
+Do not invent new planning documents, sidecar ledgers, or alternate storage locations without explicit user permission. Reconcile durable facts into `memory/SPEC.md` / `memory/PLAN.md`; keep volatile state only in its sanctioned derivative — `HANDOFF.md` (transfer state), `memory/cards/` (prepared scope cards), `memory/REFACTOR.md` (refactor plan) — and only while it still carries unfinished work.
 
 Orient, then classify.
 
@@ -26,66 +26,66 @@ If this is a fresh thread or an unfamiliar area, reload the live context before 
 
 Start the assessment with 2-4 bullets naming:
 
-- the containing seam or subsystem
+- the containing seam, subsystem, or load-bearing layer
 - the active frontier item or nearby priority
 - volatile state or manual follow-up from handoff
 - the main open risk
-- the inherited **certainty posture** for the active frontier (see `docs/praxis/ln-skills.md` §Operating posture). Under `proving`, also name the cheapest tracer bullet that would score on proof of life, invariants, or uncertainty retirement. Under `earned`, name the closure target (what dual shape, ambiguity, or open decision does the next move close?).
+- the likely **work shape**: vertical slice, slice sequence, sweep, refactor, spike, or sync
 
-## Work-type classification
+## Work-shape classification
 
-Classify the request before routing.
+Classify the request by the proof it needs, not by whether it sounds like implementation.
 
-| Work type | Signals | Default handling |
+> Match the proof to the claim — a witness (one end-to-end path) for a vertical slice, closure (every required row) for a sweep — and don't declare done until they match.
+
+| Shape | Signals | Default handling |
 | --- | --- | --- |
-| **Structural** | New seam, new boundary, durable architectural choice, invalidates assumptions | `ln-spec` / `ln-plan` / `ln-scope` as needed |
-| **Bounded feature** | New capability inside settled seams | `ln-scope` with a light scope card, then `ln-build` |
-| **Hardening** | Dependency audit, fixture work, perf, tooling upkeep | direct `ln-build` only if the seam is already settled and scope is obvious; otherwise `ln-scope` |
-| **Bugfix** | Regression or incorrect behavior inside known seams | direct `ln-build` only if the seam is settled and reconciliation is likely to be a no-op |
-| **Refactor** | Rename, extract, restructure without changing behavior | `ln-refactor` |
+| **Vertical slice** | One behavior should work through the relevant boundaries; landing it is a witness | `ln-scope` with `Mode: single`, then `ln-build` |
+| **Slice sequence** | Several small vertical follow-ups are obvious inside one settled frontier and do not depend on earlier findings | `ln-scope` with `Mode: slices`, then sliced `ln-build` |
+| **Sweep** | All paths are lit but a load-bearing layer remains shallow; the work terminates on closure over an enumerated inventory | `ln-plan` for coverage-frontier admission, then `ln-scope` with `Mode: sweep` |
+| **Structural decision** | New seam, boundary, durable architecture choice, or assumption invalidation | `ln-spec` / `ln-plan` / `ln-design` / `ln-oracles` as needed before scoping |
+| **Direct fix** | Tiny bugfix, hardening, or docs/tooling edit inside a named settled seam | direct `ln-build` only when reconciliation is plausibly a no-op |
+| **Refactor** | Rename, extract, restructure without behavior change | `ln-refactor` |
+| **Sync / cleanup** | Canonical docs or derivative artifacts are stale, overweight, or contradictory | `ln-sync` |
 
-If the work crosses more than two seams, changes a requirement, or would change future planning if it went differently, promote it to **structural**.
+Promote the route to structural when the work crosses more than two seams, changes a requirement, changes future planning if it lands differently, or depends on a high-impact unresolved `memory/SPEC.md` §Assumption.
 
-If you cannot name the containing seam from the live docs, treat the work as **structural** until proven otherwise.
+If you cannot name the containing seam or layer from the live docs, treat the work as structural until proven otherwise.
 
-Presume **structural** on a fresh thread when the work touches workflow closure, routed layout ownership, persistence schema, knowledge-graph behavior, observer sync, or transport contracts.
+Presume structural on a fresh thread when the work touches workflow closure, routed layout ownership, persistence schema, knowledge-graph behavior, observer sync, or transport contracts.
 
 ## Canonical flow
 
 Default rule:
 
-`ln-grill` or `ln-disambiguate` → `ln-spec` → `ln-plan` → optional `ln-design` / `ln-oracles` → `ln-scope` → optional `ln-spike` → `ln-build` → `ln-review` → optional `ln-refactor` / `ln-sync`
+`ln-grill` or `ln-disambiguate` → `ln-spec` → `ln-plan` → optional `ln-design` / `ln-oracles` → `ln-scope` → optional `ln-spike` → `ln-build` → `ln-review` / `ln-witness` → optional `ln-refactor` / `ln-sync`
 
-Bounded exception:
+`ln-scope` chooses the scope-file mode:
 
-`ln-scope → ln-build`
+- `Mode: single` — one vertical slice
+- `Mode: slices` — a short queue of already-legible vertical slices
+- `Mode: sweep` — a closed ledger for a coverage frontier
 
-Bounded serial exception:
+Bounded exceptions:
 
-`ln-scope → ln-build → commit → ln-build ...` inside one already-settled frontier item, optionally with the prepared chain persisted as a `Mode: chain` scope file under `memory/cards/`
+- `ln-scope → ln-build` for one settled slice
+- `ln-scope → sliced ln-build` for one settled sequence
+- `ln-plan → ln-scope Mode: sweep → ln-build` for an admitted sweep
+- direct `ln-build` for a tiny direct fix inside a named settled seam
 
-Direct-build exception:
-
-`ln-build`
-
-Only recommend the bounded or direct-build exceptions when all of these are true:
-
-- the containing seam is already named in the live docs
-- no durable requirement / assumption / decision / invariant change is expected
-- post-build reconciliation can plausibly be a no-op
-- no high-impact unresolved `memory/SPEC.md` §Assumption is load-bearing for this work
-
-Only recommend the bounded serial exception when those same conditions hold and the next several commit-sized steps are obvious enough to queue without fresh planning.
+Only recommend bounded or direct-build paths when the containing seam/layer is already named, no durable requirement / assumption / decision / invariant change is expected, and post-build reconciliation can plausibly be a no-op.
 
 ## Posture-aware route override
 
-When several routes fit the work, the preferred route depends on the active frontier's certainty posture (see `docs/praxis/ln-skills.md` §Operating posture).
+When several routes fit the work, the preferred route depends on the active frontier's certainty posture (see `docs/praxis/ln-skills.md` §Operating posture). Posture ranks row/card execution; it does not replace the slice-vs-sweep shape decision.
 
-**Proving posture.** Prefer the route that fires the **tracer bullet that tells you the most**. A tracer-bullet slice scores on three convergent axes: proof of life, invariants, uncertainty. The best next slice scores on more than one.
+**Proving posture.** Prefer the route that fires the **tracer bullet that tells you the most**. A tracer-bullet slice or sweep row scores on proof of life, invariants, or uncertainty retirement. The best next unit scores on more than one.
 
-**Earned posture.** Prefer the route that lands the **closure that the recent slices have been deferring**. Closure slices answer: what dual shape closes, what topology materializes, what name canonicalizes, what carrier retires, what shape locks in. If the closure target is named and a single slice can land it, route directly to `ln-scope` / `ln-build` rather than to further planning.
+**Earned posture.** Prefer the route that lands the **closure that recent slices have been deferring**. Closure work materializes topology, canonicalizes names, retires bridges, deletes obsolete carriers, or locks in a settled shape. If the closure target is named and one scoped unit can land it, route to `ln-scope` / `ln-build` rather than further planning.
 
-Under proving posture, attack uncertainty by building. Recommend a non-build route only when no buildable tracer bullet can carry the proof:
+**Sweep shape.** Prefer `ln-plan` before scoping unless the coverage frontier already exists. A sweep is safe only with a named load-bearing layer, a closed inventory, required/deferred rows, and an owner + oracle per required row.
+
+Under proving posture, attack uncertainty by building. Recommend a non-build route only when no buildable tracer can carry the proof:
 
 - `ln-design` — module shape itself is uncertain and any slice would lock in the wrong seam
 - `ln-oracles` — verification is too uncertain to distinguish a passing slice from a wrong one
@@ -102,10 +102,10 @@ Spikes are the escape hatch, not the default.
 | Plausible interpretations diverge; examples would clarify faster than open-ended questioning | structural | `ln-disambiguate` |
 | Understanding exists, needs a written spec | structural | `ln-spec` |
 | Spec exists, needs work sequencing | structural | `ln-plan` |
-| A capability layer is load-bearing as a whole but vertical slices keep leaving it shallow | structural | `ln-plan` — author a coverage frontier only if the admission gate in `ln-plan/references/coverage.md` passes |
+| All paths are lit but a load-bearing layer still feels thin; vertical slices keep leaving a capability surface shallow | structural | `ln-plan` — author a coverage frontier / sweep only if the admission gate in `ln-plan/references/coverage.md` passes |
 | Verification strategy is the main uncertainty | structural | `ln-oracles` |
 | Next work item needs precise boundaries | structural or bounded | `ln-scope` |
-| One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then serial `ln-build` loop, optionally via a `Mode: chain` scope file under `memory/cards/` |
+| One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then sliced `ln-build` loop, optionally via a `Mode: slices` scope file under `memory/cards/` |
 | Module interface needs exploration | structural | `ln-design` |
 | Full or light scope card exists, ready to code | bounded, hardening, bugfix | `ln-build` |
 | Technical uncertainty blocks progress, or a cheap investigation could invalidate planned work | any | `ln-spike` |

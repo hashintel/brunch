@@ -30,7 +30,7 @@ Prefer `ln-sync` at these moments:
 | `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
 | `memory/cards/<frontier-id>--<slug>.md` | derivative scope files | only unfinished prepared scope cards; one file per concern; multiple files per frontier permitted for independent concerns |
 | `memory/REFACTOR.md` | derivative temporary execution plan | only unfinished refactor steps |
-| `src/**/README.md` | canonical topology documentation | ownership statement, SPEC decision references, dependency rules, layout sketch, live migration notes (see `AGENTS.md` §topology READMEs) |
+| `src/**/README.md` | canonical current-state for its subtree; SPEC decisions cite it as event+pointer, not a duplicate | ownership statement, SPEC decision references, dependency rules, layout sketch, live migration notes (see `AGENTS.md` §topology READMEs) |
 
 **Notation aid.** When refreshing SPEC or PLAN:
 
@@ -70,6 +70,7 @@ For each item in `memory/SPEC.md`, choose one:
 - **compress / merge** — overlaps another live row or carries too much rationale
 - **retire embedded** — fully shipped and now protected by code/tests/design docs
 - **move rationale** — valuable context, but too detailed for SPEC; keep a short guardrail and link to a design doc
+- **migrate to co-located home** — the decision's current-state body (topology, layout, dependency direction, concrete surface) is owned by a co-located `src/**/README.md` (see `AGENTS.md` §topology READMEs). Ensure that README holds the state, then thin the SPEC decision to event + pointer (chosen seam, rationale, supersession, → README). A decision is archivable once its current state lives in a co-located README or invariant.
 - **future direction** — not current product contract; move under Future Direction Register or ensure PLAN owns it
 - **remove** — moot, superseded, redundant, or implementation diary
 
@@ -128,7 +129,7 @@ Rules:
 - treat **frontier items** as the canonical plan/Linear/branch units
 - treat **slices** as scoped execution units from `ln-scope` / `ln-build`, usually inside one frontier item
 - edit `Sequencing` for ordering/status churn; do not move or rewrite `Frontier Definitions` merely to reorder work
-- keep detailed scope-card chains out of `memory/PLAN.md`; use scope files under `memory/cards/` for temporary slice execution chains and at most a lightweight pointer from the frontier definition listing active scope file path(s)
+- keep detailed scope-card sequences out of `memory/PLAN.md`; use scope files under `memory/cards/` for temporary slice-execution sequences and at most a lightweight pointer from the frontier definition listing active scope file path(s)
 - move older completed items to `docs/archive/PLAN_HISTORY.md`
 - keep only the last 2-3 completed items live
 - only active / next frontier definitions need detailed acceptance or traceability
@@ -150,7 +151,7 @@ Scan recent code / commits for:
 - temporary ledgers declared exhausted while a required row is still `spec` / `new` / `partial`, including rows that have merely been promoted into `PLAN`
 - promoted last-open coverage rows that are sequenced behind unrelated new coverage frontiers without an explicit user reprioritization
 - coverage cards whose promised derivation or legality logic cannot be justified from the source-of-truth inputs named in the card
-- coverage ledgers that grew multiple `new` rows mid-flight, signaling that the inventory was not actually closed
+- sweep ledgers that grew multiple `new` rows mid-flight, signaling that the inventory was not actually closed
 - prepared cards in scope files under `memory/cards/` that should be retired, re-scoped, or reconciled into the next thread's live state
 - stale derivative artifacts that should be deleted after reconciliation
 - cross-cutting subsystems that appear only in glossary/design-doc links but are required by multiple active/next frontiers
@@ -201,7 +202,7 @@ Before finishing, perform a cross-skill preservation check:
 - If a later agent read only `memory/SPEC.md` and `memory/PLAN.md`, what durable design choices from `ln-design` would they miss?
 - What verification architecture or loop-tier strategy from `ln-oracles` or canonical docs would they miss?
 - What cross-cutting obligations would disappear because they are carried only by links, not by live rows or frontier definitions?
-- Would they know which temporary coverage ledgers are still live, which promoted rows still keep those ledgers open, and why those rows sequence where they do?
+- Would they know which temporary sweep ledgers are still live, which promoted rows still keep those ledgers open, and why those rows sequence where they do?
 - Do any topology READMEs under `src/**/` still cite SPEC IDs or describe topology this sync just changed? Reconcile those READMEs as part of the sync, not as a follow-up.
 
 If any answer is non-empty, sync is incomplete.

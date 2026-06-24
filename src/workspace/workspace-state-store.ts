@@ -15,7 +15,7 @@ export interface WorkspacePostureState {
   audience: string;
   horizon: string;
   migration: string;
-  sourcing: string;
+  dependencies: string;
 }
 
 export interface WorkspaceDefaultState {
@@ -117,10 +117,10 @@ function isPostureState(value: unknown): value is WorkspacePostureState {
     typeof (value as { audience?: unknown }).audience === 'string' &&
     typeof (value as { horizon?: unknown }).horizon === 'string' &&
     typeof (value as { migration?: unknown }).migration === 'string' &&
-    typeof (value as { sourcing?: unknown }).sourcing === 'string'
+    typeof (value as { dependencies?: unknown }).dependencies === 'string'
   );
 }
 
 function emptyWorkspacePosture(): WorkspacePostureState {
-  return { certainty: '', stakes: '', audience: '', horizon: '', migration: '', sourcing: '' };
+  return { certainty: '', stakes: '', audience: '', horizon: '', migration: '', dependencies: '' };
 }

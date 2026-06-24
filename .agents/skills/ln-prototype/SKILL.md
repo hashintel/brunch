@@ -1,6 +1,6 @@
 ---
 name: ln-prototype
-description: "Throwaway design probe for logic, state models, UI variations, and affordances before production work. Use when the user wants to prototype, sanity-check a model, make something playable, compare UI directions, or explore a design before ln-spec/ln-plan/ln-scope."
+description: "Throwaway design probe for logic, state models, UI variations, and affordances before production work. Use to make something playable, compare UI directions, or sanity-check a model before ln-spec/ln-plan/ln-scope. Not for a technical can-this-work question (use ln-spike)."
 argument-hint: "[prototype question or design uncertainty]"
 ---
 

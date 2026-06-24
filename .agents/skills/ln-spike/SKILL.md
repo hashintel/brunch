@@ -1,6 +1,6 @@
 ---
 name: ln-spike
-description: "Time-boxed throwaway investigation to answer one hard question. Use when facing technical uncertainty before committing to a frontier item or scoped slice — the output is knowledge, not production code."
+description: "Time-boxed throwaway investigation answering one hard technical question — third-party behavior, perf characteristic, can-this-approach-work. Output is knowledge, not production code. Use before committing to a frontier item or scoped slice. Not for UX/feel/model-shape exploration (use ln-prototype)."
 argument-hint: "[question to answer and what you'll try]"
 ---
 
