@@ -65,8 +65,8 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
       // result reflects the whole run, not just the resumed tail.
       const ctx: RunCtx = {
         reportIds: input.resume ? [...input.resume.reportIds] : [],
-        sliceOutcomes: new Map(input.resume?.slices.map((s) => [s.sliceId, s])),
-        epicOutcomes: new Map(input.resume?.epics.map((e) => [e.epicId, e])),
+        sliceOutcomes: new Map(input.resume ? input.resume.slices.map((s) => [s.sliceId, s]) : []),
+        epicOutcomes: new Map(input.resume ? input.resume.epics.map((e) => [e.epicId, e]) : []),
         warnings: [],
       };
 

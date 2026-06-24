@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createOrchestrator, loadRunSnapshot } from './engine.js';
 import { compilePlan, compileTopology, wireHandlers } from './net-compiler.js';
-import type { NetEvent } from './petri-net.js';
+import { PetriNet, type NetEvent } from './petri-net.js';
 import {
   createPetrinautEventStream,
   type PetrinautEvent,
@@ -1938,6 +1938,71 @@ describe('durable-resume — persist at pause + resume to completion', () => {
     }
     throw new Error('Timed out waiting for condition');
   }
+
+  it('drains in-flight deferred work before a structural halt snapshot boundary', async () => {
+    const net = new PetriNet();
+    net.addPlace('work');
+    net.addPlace('halt-start');
+    net.addPlace('slice:slice-1:halted');
+    net.addPlace('done');
+    net.addToken('work', { sliceId: 'slice-1', epicId: 'epic-1' });
+    net.addToken('halt-start', { sliceId: 'slice-1', epicId: 'epic-1' });
+    let releaseDeferred: (() => void) | undefined;
+    let deferredSettled = false;
+
+    net.addTransition({
+      id: 'slow-deferred',
+      inputs: ['work'],
+      fire: async (consumed) => {
+        const deferred = (async () => {
+          await new Promise<void>((resolve) => {
+            releaseDeferred = resolve;
+          });
+          deferredSettled = true;
+          return [{ place: 'done', token: consumed[0]! }];
+        })();
+        net.scheduleDeferred(
+          'slow-deferred:complete',
+          undefined,
+          { places: ['work'], tokens: consumed },
+          deferred,
+        );
+        return [];
+      },
+    });
+    net.addTransition({
+      id: 'halt-now',
+      inputs: ['halt-start'],
+      fire: async (consumed) => [
+        { place: 'slice:slice-1:halted', token: { ...consumed[0]!, haltReason: 'stop' } },
+      ],
+    });
+    const events: NetEvent[] = [];
+    let returned = false;
+
+    const run = net
+      .run('parallel', () => net.hasHaltToken(), { emit: (event) => events.push(event) })
+      .finally(() => {
+        returned = true;
+      });
+
+    await waitUntil(() =>
+      events.some((event) => event.kind === 'transition_fired' && event.transitionId === 'halt-now'),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(returned).toBe(false);
+
+    releaseDeferred!();
+    await run;
+
+    expect(deferredSettled).toBe(true);
+    const deferredEventIndex = events.findIndex(
+      (event) => event.kind === 'transition_fired' && event.transitionId === 'slow-deferred:complete',
+    );
+    const haltedEventIndex = events.findIndex((event) => event.kind === 'net_halted');
+    expect(deferredEventIndex).toBeGreaterThanOrEqual(0);
+    expect(haltedEventIndex).toBeGreaterThan(deferredEventIndex);
+  });
 
   it('persists a RunSnapshot when paused mid-run, then resumes it to completion', async () => {
     const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-'));

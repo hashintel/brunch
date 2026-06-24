@@ -371,6 +371,30 @@ export class PetriNet {
     });
   }
 
+  private async stopAfterDeferredDrains(
+    shouldStop: (() => boolean) | undefined,
+    eventSink?: NetEventSink,
+  ): Promise<boolean> {
+    if (!shouldStop?.()) return false;
+    while (this.pendingDeferred > 0) {
+      await this.waitForOneDeferred();
+      if (this.deferredError) throw this.deferredError;
+    }
+    eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
+    return true;
+  }
+
+  private emitTerminalWhenNoEnabled(eventSink?: NetEventSink): void {
+    if (this.deferredError) throw this.deferredError;
+    if (this.hasHaltToken()) {
+      eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
+    } else if (this.hasWorkBearingTokens()) {
+      eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
+    } else {
+      eventSink?.emit({ kind: 'net_completed', ts: new Date().toISOString() });
+    }
+  }
+
   async run(
     policy: FiringPolicy,
     shouldHalt?: () => boolean,
@@ -393,18 +417,8 @@ export class PetriNet {
     this.deferredEventSink = eventSink;
     while (true) {
       if (this.deferredError) throw this.deferredError;
-      if (shouldHalt?.()) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
-        break;
-      }
-      if (shouldPause?.()) {
-        if (this.pendingDeferred > 0) {
-          await this.waitForOneDeferred();
-          continue;
-        }
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
-        break;
-      }
+      if (await this.stopAfterDeferredDrains(shouldHalt, eventSink)) break;
+      if (await this.stopAfterDeferredDrains(shouldPause, eventSink)) break;
 
       const enabled = this.transitions.find((t) => this.isEnabled(t));
       if (!enabled) {
@@ -416,11 +430,7 @@ export class PetriNet {
           await this.waitForOneDeferred();
           continue;
         }
-        if (this.hasWorkBearingTokens()) {
-          eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
-        } else {
-          eventSink?.emit({ kind: 'net_completed', ts: new Date().toISOString() });
-        }
+        this.emitTerminalWhenNoEnabled(eventSink);
         break;
       }
 
@@ -459,18 +469,8 @@ export class PetriNet {
     this.deferredEventSink = eventSink;
     while (true) {
       if (this.deferredError) throw this.deferredError;
-      if (shouldHalt?.()) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
-        break;
-      }
-      if (shouldPause?.()) {
-        if (this.pendingDeferred > 0) {
-          await this.waitForOneDeferred();
-          continue;
-        }
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
-        break;
-      }
+      if (await this.stopAfterDeferredDrains(shouldHalt, eventSink)) break;
+      if (await this.stopAfterDeferredDrains(shouldPause, eventSink)) break;
 
       const allEnabled = this.transitions.filter((t) => this.isEnabled(t));
 
@@ -481,11 +481,7 @@ export class PetriNet {
           await this.waitForOneDeferred();
           continue;
         }
-        if (this.hasWorkBearingTokens()) {
-          eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
-        } else {
-          eventSink?.emit({ kind: 'net_completed', ts: new Date().toISOString() });
-        }
+        this.emitTerminalWhenNoEnabled(eventSink);
         break;
       }
 
@@ -501,10 +497,7 @@ export class PetriNet {
       }
 
       if (claims.length === 0) {
-        eventSink?.emit({
-          kind: this.hasWorkBearingTokens() ? 'net_deadlocked' : 'net_completed',
-          ts: new Date().toISOString(),
-        });
+        this.emitTerminalWhenNoEnabled(eventSink);
         break;
       }
 
@@ -538,10 +531,8 @@ export class PetriNet {
       for (const { claim, outputs } of fulfilled) {
         this.depositClaim(claim, outputs, eventSink);
       }
-      if (shouldHalt?.()) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
-        break;
-      }
+      if (await this.stopAfterDeferredDrains(shouldHalt, eventSink)) break;
+      if (await this.stopAfterDeferredDrains(shouldPause, eventSink)) break;
     }
   }
 }
