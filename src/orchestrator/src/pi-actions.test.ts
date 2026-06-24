@@ -12,8 +12,10 @@ import {
   epicRemediateTask,
   epicVerifyTask,
   instrumentToolDefinition,
+  type PiUsage,
   runPi,
   sandboxScopedSkills,
+  sessionStatsToUsage,
   type SessionFactory,
   sliceTestTask,
   toolLabel,
@@ -56,6 +58,27 @@ describe('cook task builders carry the toolchain conventions, not a hardcoded st
   it('epic verify task carries the toolchain conventions', () => {
     expect(epicVerifyTask(epic, brunchProfile.toolchain)).toContain('vitest');
     expect(epicVerifyTask(epic, bunProfile.toolchain)).toContain('bun:test');
+  });
+
+  it('slice/epic/remediate tasks carry plan harness prior-art when supplied (FE-894 ①)', () => {
+    const notes = 'Code-split routes mount via the real router; React Flow needs a headless shim.';
+    expect(sliceTestTask(slice, brunchProfile.toolchain, notes)).toContain(notes);
+    expect(epicVerifyTask(epic, brunchProfile.toolchain, notes)).toContain(notes);
+    expect(epicRemediateTask(epic, notes)).toContain(notes);
+  });
+
+  it('task builders are byte-identical to the no-notes form when harness notes are absent', () => {
+    expect(sliceTestTask(slice, brunchProfile.toolchain, undefined)).toBe(
+      sliceTestTask(slice, brunchProfile.toolchain),
+    );
+    expect(epicVerifyTask(epic, brunchProfile.toolchain, undefined)).toBe(
+      epicVerifyTask(epic, brunchProfile.toolchain),
+    );
+    expect(epicRemediateTask(epic, undefined)).toBe(epicRemediateTask(epic));
+    // empty-string notes omit cleanly (no dangling marker)
+    expect(sliceTestTask(slice, brunchProfile.toolchain, '')).toBe(
+      sliceTestTask(slice, brunchProfile.toolchain),
+    );
   });
 
   it('the test-writer prompt no longer hardcodes a stack', () => {
@@ -766,6 +789,7 @@ function makeFakeSession(behavior: {
   hang?: boolean;
   finalStopReason?: 'stop' | 'error' | 'aborted';
   errorMessage?: string;
+  stats?: { tokens: PiUsage };
 }) {
   const calls = { prompt: [] as string[], aborted: false, disposed: false };
   let listener: ((event: unknown) => void) | undefined;
@@ -803,6 +827,9 @@ function makeFakeSession(behavior: {
     dispose() {
       calls.disposed = true;
     },
+    getSessionStats() {
+      return behavior.stats ?? { tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
+    },
     get state() {
       return { messages };
     },
@@ -839,7 +866,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
       expect(capturedOptions?.cwd).toBe(sandboxDir);
       expect(capturedOptions?.tools).toEqual(['read', 'write', 'edit', 'bash']);
       expect(fake.calls.prompt).toEqual(['do the thing']);
-      expect(out).toContain('wrote the tests');
+      expect(out.output).toContain('wrote the tests');
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }
@@ -1544,5 +1571,114 @@ describe('remediate-epic action — FE-884 Slice A production wiring', () => {
     expect(task).toContain('api');
     expect(task).toContain('tests/api.integration.test.ts');
     expect(task.toLowerCase()).toContain('do not');
+  });
+});
+
+describe('per-action telemetry surfaces usage + timing (FE-894 P0)', () => {
+  const slice: Slice = {
+    id: 'chunk',
+    epic_id: 'utils',
+    definition: 'Add chunk()',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+  };
+  const epic: Epic = {
+    id: 'utils',
+    summary: 'Utilities',
+    depends_on: [],
+    verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+  };
+  const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+  // Real dir: main's sandbox-guard realpath-resolves sandboxDir, so '/tmp/unused'
+  // (a non-existent path) now throws ENOENT. tmpdir() exists and matches how
+  // main's other action tests provide a sandbox.
+  const ctx = (reports: InMemoryReportSink): ActionContext => ({
+    slice,
+    epic,
+    plan,
+    sandboxDir: tmpdir(),
+    reports,
+  });
+
+  it('sessionStatsToUsage normalizes tokens and defaults missing fields to 0', () => {
+    expect(
+      sessionStatsToUsage({ tokens: { input: 100, output: 50, cacheRead: 900, cacheWrite: 0, total: 1050 } }),
+    ).toEqual({ input: 100, output: 50, cacheRead: 900, cacheWrite: 0, total: 1050 });
+    // missing stats / partial tokens are defensively zeroed — never throws.
+    expect(sessionStatsToUsage(undefined)).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      total: 0,
+    });
+    expect(sessionStatsToUsage({ tokens: { cacheRead: 42 } }).cacheRead).toBe(42);
+    expect(sessionStatsToUsage({ tokens: { cacheRead: 42 } }).input).toBe(0);
+  });
+
+  it('runPi returns the prompt-turn usage and a wall-clock timing split', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const stats = { tokens: { input: 100, output: 50, cacheRead: 900, cacheWrite: 0, total: 1050 } };
+      const fake = makeFakeSession({ emit: 'wrote the tests', stats });
+      const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+
+      const result = await runPi(
+        {
+          label: 'tests slice-1',
+          model: 'claude-opus-4-8',
+          promptFile: join(promptsDir, 'test-writer.md'),
+          task: 'do the thing',
+          sandboxDir,
+          tools: 'read',
+        },
+        { createSession },
+      );
+
+      expect(result.usage).toEqual(stats.tokens);
+      expect(result.timingMs.coldStartMs).toBeGreaterThanOrEqual(0);
+      expect(result.timingMs.promptMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('write-tests attaches usage + timing to the tests-written report', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const reports = new InMemoryReportSink();
+    const stats = { tokens: { input: 200, output: 80, cacheRead: 1800, cacheWrite: 200, total: 2280 } };
+    const fake = makeFakeSession({ emit: 'wrote the tests', stats });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession });
+
+    const id = await actions['write-tests']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as {
+      usage: PiUsage;
+      timingMs: { coldStartMs: number; promptMs: number };
+    };
+
+    expect(payload.usage).toEqual(stats.tokens);
+    expect(payload.timingMs.coldStartMs).toBeGreaterThanOrEqual(0);
+    expect(payload.timingMs.promptMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('remediate-epic attaches usage + timing to the remediation-agent-done report', async () => {
+    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    const reports = new InMemoryReportSink();
+    const stats = { tokens: { input: 150, output: 60, cacheRead: 1200, cacheWrite: 100, total: 1510 } };
+    const fake = makeFakeSession({ emit: 'patched the product code', stats });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession });
+
+    const id = await actions['remediate-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as {
+      usage: PiUsage;
+      timingMs: { coldStartMs: number; promptMs: number };
+    };
+
+    expect(payload.usage).toEqual(stats.tokens);
+    expect(payload.timingMs.coldStartMs).toBeGreaterThanOrEqual(0);
+    expect(payload.timingMs.promptMs).toBeGreaterThanOrEqual(0);
   });
 });

@@ -207,7 +207,13 @@ export function materializeArchitectedPlan(
   );
 
   return {
-    plan: { mode: projected.mode, profile: projected.profile, epics: outputEpics, slices: outputSlices },
+    plan: {
+      mode: projected.mode,
+      profile: projected.profile,
+      harnessNotes: draft.harnessNotes,
+      epics: outputEpics,
+      slices: outputSlices,
+    },
     coverage: {
       requirementIds,
       coveredRequirementIds: [...coveredRequirementIds],

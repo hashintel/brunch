@@ -218,6 +218,38 @@ interface RunPiOpts {
 /** The pi SDK session factory — injectable so the drive loop is testable without a model or network. */
 export type SessionFactory = typeof createAgentSession;
 
+/** Per-action token usage read from the pi session after its single prompt turn (FE-894 P0). */
+export type PiUsage = {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
+  total: number;
+};
+
+/** Per-action wall-clock split: session setup (cold start) vs the prompt turn. */
+export type PiTimingMs = { coldStartMs: number; promptMs: number };
+
+/** runPi's result: buffered agent output plus the telemetry that makes prompt-cache hits and per-action latency observable. */
+export type PiResult = { output: string; usage: PiUsage; timingMs: PiTimingMs };
+
+/**
+ * Normalize a pi `SessionStats` into a `PiUsage`, defaulting any absent token
+ * field to 0. Each cook action drives a *fresh* session with a single prompt,
+ * so the session's cumulative stats are exactly that action's usage. Pure and
+ * defensive — telemetry must never throw a live session.
+ */
+export function sessionStatsToUsage(stats: { tokens?: Partial<PiUsage> } | undefined): PiUsage {
+  const t = stats?.tokens ?? {};
+  return {
+    input: t.input ?? 0,
+    output: t.output ?? 0,
+    cacheRead: t.cacheRead ?? 0,
+    cacheWrite: t.cacheWrite ?? 0,
+    total: t.total ?? 0,
+  };
+}
+
 function createAgentDir(): string {
   return mkdtempSync(join(tmpdir(), 'brunch-pi-'));
 }
@@ -375,7 +407,7 @@ async function buildSessionOptions(
 async function runPi(
   opts: RunPiOpts,
   deps: { createSession?: SessionFactory; timeoutMs?: number; maxOutput?: number } = {},
-): Promise<string> {
+): Promise<PiResult> {
   const createSession = deps.createSession ?? createAgentSession;
   const timeoutMs = deps.timeoutMs ?? PI_TIMEOUT_MS;
   const maxOutput = deps.maxOutput ?? PI_MAX_OUTPUT;
@@ -400,6 +432,12 @@ async function runPi(
   let timedOut = false;
   let promptError: unknown;
   let agentFailure: string | undefined;
+  // Per-action telemetry (FE-894 P0): session-setup vs prompt-turn wall-clock,
+  // and the prompt's token usage (incl. prompt-cache reads/writes). Read from
+  // getSessionStats after the single prompt resolves; best-effort, never fatal.
+  let coldStartMs = 0;
+  let promptMs = 0;
+  let usage = sessionStatsToUsage(undefined);
   let unsubscribe: (() => void) | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let rejectTimeout: ((err: Error) => void) | undefined;
@@ -442,6 +480,7 @@ async function runPi(
   });
 
   try {
+    const setupStart = Date.now();
     isolatedDir = createAgentDir();
     const agentDir = isolatedDir;
     const setup = (async () => {
@@ -463,6 +502,7 @@ async function runPi(
     );
 
     session = await Promise.race([setup, timeout]);
+    coldStartMs = Date.now() - setupStart;
 
     unsubscribe = session.subscribe((event) => {
       // Any activity — text, tool call, tool-execution progress, thinking —
@@ -492,7 +532,15 @@ async function runPi(
     });
 
     try {
+      const promptStart = Date.now();
       await Promise.race([session.prompt(opts.task), timeout]);
+      promptMs = Date.now() - promptStart;
+      // Fresh-session-per-action ⇒ cumulative stats == this action's usage.
+      try {
+        usage = sessionStatsToUsage(session.getSessionStats());
+      } catch {
+        // Telemetry is best-effort; a stats read must never fail the action.
+      }
       agentFailure = finalAgentFailure(session);
     } catch (err) {
       promptError = err;
@@ -520,7 +568,7 @@ async function runPi(
   const dur = ((Date.now() - start) / 1000).toFixed(1);
   log('✓', `${opts.label} (${dur}s)`);
   logVerbose(captured);
-  return captured;
+  return { output: captured, usage, timingMs: { coldStartMs, promptMs } };
 }
 
 export { runPi };
@@ -555,20 +603,39 @@ async function resolveProbeTarget(
  * framework / import conventions come from the toolchain — never hardcoded
  * — so the prompt stays stack-agnostic (slice 2 of plan-build-architect).
  */
-export function sliceTestTask(slice: Slice, toolchain: Toolchain): string {
+export function sliceTestTask(slice: Slice, toolchain: Toolchain, harnessNotes?: string): string {
   const targets = slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ');
-  return `Write failing tests for slice "${slice.id}": ${slice.definition}\nVerification targets: ${targets}\nWrite test files that will initially fail. ${toolchain.testConventions}`;
+  return withHarnessNotes(
+    `Write failing tests for slice "${slice.id}": ${slice.definition}\nVerification targets: ${targets}\nWrite test files that will initially fail. ${toolchain.testConventions}`,
+    harnessNotes,
+  );
 }
 
 /** Build the cook epic-verify task — toolchain-supplied conventions, as above. */
-export function epicVerifyTask(epic: Epic, toolchain: Toolchain): string {
+export function epicVerifyTask(epic: Epic, toolchain: Toolchain, harnessNotes?: string): string {
   const targets = epic.verification.map((v) => `${v.kind}: ${v.target}`).join(', ');
-  return `Write an integration test for epic "${epic.id}": ${epic.summary}\nThis test should verify that all slices in this epic work together correctly.\nVerification targets: ${targets}\nWrite the test file(s). ${toolchain.testConventions} Then run them to verify they pass.`;
+  return withHarnessNotes(
+    `Write an integration test for epic "${epic.id}": ${epic.summary}\nThis test should verify that all slices in this epic work together correctly.\nVerification targets: ${targets}\nWrite the test file(s). ${toolchain.testConventions} Then run them to verify they pass.`,
+    harnessNotes,
+  );
 }
 
-export function epicRemediateTask(epic: Epic): string {
+export function epicRemediateTask(epic: Epic, harnessNotes?: string): string {
   const targets = epic.verification.map((v) => `${v.kind}: ${v.target}`).join(', ');
-  return `Remediate the failing integration test for epic "${epic.id}": ${epic.summary}\nThe slices in this epic each pass on their own, but the epic's integration test fails now that they are folded together in this tree. Read the failing test, find the cross-slice defect, and fix the product code so the test passes.\nVerification targets: ${targets}\nDo not modify the integration test or any test file — fix the implementation, not the oracle.`;
+  return withHarnessNotes(
+    `Remediate the failing integration test for epic "${epic.id}": ${epic.summary}\nThe slices in this epic each pass on their own, but the epic's integration test fails now that they are folded together in this tree. Read the failing test, find the cross-slice defect, and fix the product code so the test passes.\nVerification targets: ${targets}\nDo not modify the integration test or any test file — fix the implementation, not the oracle.`,
+    harnessNotes,
+  );
+}
+
+/**
+ * Append plan-supplied harness prior-art (FE-894 ①) to an agent task so slice
+ * agents apply the project's known build/framework seams instead of
+ * rediscovering them every slice. Absent/empty notes leave the task untouched.
+ */
+function withHarnessNotes(task: string, harnessNotes?: string): string {
+  if (!harnessNotes) return task;
+  return `${task}\nProject harness notes (prior art — apply these, do not rediscover): ${harnessNotes}`;
 }
 
 export function createPiActions(opts?: {
@@ -636,10 +703,11 @@ export function createPiActions(opts?: {
       const label = sliceLabel(ctx.slice);
       _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'running', step: 'tests' });
       log('▸', `tests     ${label}`);
-      const task = sliceTestTask(ctx.slice, toolchain);
+      const task = sliceTestTask(ctx.slice, toolchain, ctx.plan.harnessNotes);
 
+      let piResult: PiResult;
       try {
-        await runPi(
+        piResult = await runPi(
           {
             label: `tests     ${label}`,
             model: 'claude-opus-4-8',
@@ -666,6 +734,8 @@ export function createPiActions(opts?: {
       return report(ctx, 'test-writer', 'tests-written', {
         sliceId: ctx.slice.id,
         targets: ctx.slice.verification.map((v) => v.target),
+        usage: piResult.usage,
+        timingMs: piResult.timingMs,
       });
     },
 
@@ -673,10 +743,14 @@ export function createPiActions(opts?: {
       const label = sliceLabel(ctx.slice);
       _emit({ kind: 'slice', id: ctx.slice.id, epicId: ctx.epic.id, status: 'running', step: 'code' });
       log('▸', `code      ${label}`);
-      const task = `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`;
+      const task = withHarnessNotes(
+        `Write code to make tests pass for slice "${ctx.slice.id}": ${ctx.slice.definition}\nVerification targets: ${ctx.slice.verification.map((v) => `${v.kind}: ${v.target}`).join(', ')}\nImplement the minimum code to make all tests pass.`,
+        ctx.plan.harnessNotes,
+      );
 
+      let piResult: PiResult;
       try {
-        await runPi(
+        piResult = await runPi(
           {
             label: `code      ${label}`,
             model: 'claude-opus-4-8',
@@ -702,6 +776,8 @@ export function createPiActions(opts?: {
 
       return report(ctx, 'code-writer', 'code-written', {
         sliceId: ctx.slice.id,
+        usage: piResult.usage,
+        timingMs: piResult.timingMs,
       });
     },
 
@@ -714,10 +790,11 @@ export function createPiActions(opts?: {
 
     'verify-epic': async (ctx: ActionContext) => {
       log('▸', `verify    ${ctx.epic.id}`);
-      const writeTask = epicVerifyTask(ctx.epic, toolchain);
+      const writeTask = epicVerifyTask(ctx.epic, toolchain, ctx.plan.harnessNotes);
 
+      let piResult: PiResult;
       try {
-        await runPi(
+        piResult = await runPi(
           {
             label: `verify    ${ctx.epic.id} (write)`,
             model: 'claude-opus-4-8',
@@ -791,18 +868,21 @@ export function createPiActions(opts?: {
         passed,
         failureKind: combinedFailureKind,
         ...(probe ? { reachability: probe.kind } : {}),
+        usage: piResult.usage,
+        timingMs: piResult.timingMs,
       });
     },
 
     'remediate-epic': async (ctx: ActionContext) => {
       log('▸', `remediate ${ctx.epic.id}`);
+      let piResult: PiResult;
       try {
-        await runPi(
+        piResult = await runPi(
           {
             label: `remediate ${ctx.epic.id}`,
             model: 'claude-opus-4-8',
             promptFile: join(promptsDir, 'code-writer.md'),
-            task: epicRemediateTask(ctx.epic),
+            task: epicRemediateTask(ctx.epic, ctx.plan.harnessNotes),
             sandboxDir: ctx.sandboxDir,
             tools: toolsForAction('remediate-epic'),
             confine,
@@ -820,7 +900,11 @@ export function createPiActions(opts?: {
         throw err;
       }
 
-      return report(ctx, 'coding-agent', 'remediation-agent-done', { sliceId: ctx.slice.id });
+      return report(ctx, 'coding-agent', 'remediation-agent-done', {
+        sliceId: ctx.slice.id,
+        usage: piResult.usage,
+        timingMs: piResult.timingMs,
+      });
     },
   };
 }

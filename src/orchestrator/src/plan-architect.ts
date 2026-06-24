@@ -57,6 +57,13 @@ export const architectDraftSchema = z
       .enum(PROFILE_IDS as [ProfileId, ...ProfileId[]])
       .nullable()
       .optional(),
+    /**
+     * Harness prior-art (FE-894 ①): concise project build/framework seams the
+     * cook agents would otherwise rediscover per slice (code-split→router
+     * wiring, headless-render limits, shared-module conventions). Injected into
+     * every slice/epic agent task. Optional — absent leaves tasks unchanged.
+     */
+    harnessNotes: z.string().optional(),
   })
   .superRefine((draft, ctx) => {
     const seenSliceIds = new Set<string>();
@@ -185,6 +192,14 @@ function buildArchitectPrompt(projected: Plan, context: PlanningContext): string
     '7. `profile`: if the requirement/criteria prose names a tech stack, classify it',
     `   as one of: ${PROFILE_IDS.join(', ')}. Set null when the spec is silent or`,
     '   names a stack outside that list — never guess.',
+    '8. `harnessNotes` (optional): the build/framework prior-art the per-slice',
+    '   agents would otherwise rediscover independently — the seams that bite when',
+    '   slices are composed (e.g. how code-split units wire into the real router,',
+    '   headless/test-environment limits of the chosen UI libraries, shared-module',
+    '   or state conventions the join slices must honour). Write a few concise',
+    '   sentences of cross-cutting guidance that apply across slices. This is NOT',
+    '   test-runner setup (that comes from the toolchain) and NOT per-slice detail.',
+    '   Omit when the spec implies no non-obvious harness seams — never pad it.',
     '',
     'Requirements (id + definition + acceptance criteria):',
     requirementBlocks,
@@ -198,7 +213,7 @@ function buildArchitectPrompt(projected: Plan, context: PlanningContext): string
     buildExemplarBlock(),
     '',
     'Output the authored `epics`, `slices` (each with `writes` + `derivedFrom`),',
-    '`nonBuildableRequirementIds`, and `profile`.',
+    '`nonBuildableRequirementIds`, `profile`, and (optionally) `harnessNotes`.',
   ].join('\n');
 }
 

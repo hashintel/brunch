@@ -129,6 +129,27 @@ describe('architectPlan', () => {
     expect(invalid.status).toBe('failed');
   });
 
+  it('accepts an optional harnessNotes string in the draft schema (FE-894 ① 1b)', async () => {
+    const notes = 'Code-split routes mount via the real router; React Flow needs a headless shim.';
+    const withNotes = await architectPlan(projected, async () => ({ ...wellFormed, harnessNotes: notes }));
+    expect(withNotes.status).toBe('succeeded');
+    if (withNotes.status === 'succeeded') expect(withNotes.draft.harnessNotes).toBe(notes);
+
+    // omitting it stays valid (optional)
+    const without = await architectPlan(projected, async () => wellFormed);
+    expect(without.status).toBe('succeeded');
+    if (without.status === 'succeeded') expect(without.draft.harnessNotes).toBeUndefined();
+  });
+
+  it('prompts the architect to emit harness prior-art, not test-runner conventions (FE-894 ① 1b)', async () => {
+    let prompt = '';
+    await architectPlan(projected, async (p) => {
+      prompt = p;
+      return wellFormed;
+    });
+    expect(prompt).toContain('`harnessNotes`');
+  });
+
   it('prompts for profile classification from spec prose only, listing valid ids', async () => {
     let prompt = '';
     await architectPlan(projected, async (p) => {
