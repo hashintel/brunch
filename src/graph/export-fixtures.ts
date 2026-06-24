@@ -68,6 +68,7 @@ export function exportSeedFixture(db: BrunchDb, input: ExportSeedFixtureInput): 
     spec: {
       slug: spec.slug,
       name: spec.name,
+      kind: spec.kind,
     },
     nodes,
     edges,

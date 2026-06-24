@@ -86,7 +86,7 @@ describe('origination-kick-live — the product originates the opening turn on i
           ops: [
             { op: 'create_node', ref: 'g', plane: 'intent', kind: 'goal', title: 'Orient the user' },
             { op: 'create_node', ref: 'c', plane: 'intent', kind: 'context', title: 'Multi-spec workspace' },
-            { op: 'create_edge', category: 'support', support: 'c', claim: 'g', stance: 'for' },
+            { op: 'create_edge', category: 'rationale', support: 'c', claim: 'g', stance: 'for' },
           ],
         });
         if (result.status !== 'success') throw new Error('Tier-2 graph seed failed');

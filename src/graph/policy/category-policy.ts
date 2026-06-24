@@ -1,7 +1,7 @@
 /**
  * Per-edge-category metadata — the single source of edge-category semantics.
  *
- * Canonical reference: docs/design/GRAPH_MODEL.md §"Per-category policy"
+ * Canonical reference: memory/SPEC.md D51-L (closed edge categories + per-category policy)
  *
  * This table is the one place that maps a structural edge `category` to its
  * derived semantics. Two projection families read from it:
@@ -9,29 +9,14 @@
  *  - **endpoint roles** (`sourceRole` / `targetRole`) feed the semantic-label
  *    projection (`projection/labels.ts`) — direction-aware phrasing like
  *    "depends on" / "realizes" rendered from one endpoint's perspective.
- *  - **impact direction** (`impactOnSourceChange` / `impactOnTargetChange`)
- *    feeds the directional projection (`projection/direction.ts`) — the
- *    upstream/downstream grouping the reconciliation flow logs against.
+ *  - **impact direction** (`affected` / `impactKind`) feeds the directional
+ *    projection (`projection/direction.ts`) — the upstream/downstream grouping
+ *    the reconciliation flow logs against.
  *
- * It supersedes the prior split between the role/reconciliation metadata that
- * briefly lived in `schema/edges.ts` and the drifted `CATEGORY_POLICY` that
- * lived here (the two disagreed on impact direction for `proof`/`support`).
- *
- * Axes:
- *
- *  - `sourceRole` / `targetRole` — the semantic role each endpoint plays.
- *  - `impactOnSourceChange` — if the SOURCE node changes, how is the TARGET
- *     affected: `cascade` (hard — auto block/mark-stale; dependency only),
- *     `advisory` (soft — surface a ReconciliationNeed), or `none`.
- *  - `impactOnTargetChange` — symmetric: if the TARGET node changes, how is
- *     the SOURCE affected.
- *  - `criteriaHelpSignal` — the interviewer uses this edge when suggesting
- *     criteria for the claim ("requirement with no incoming `proof` → suggest
- *     a criterion").
- *  - `projectionEffect` — non-default effect on active-context builders.
- *
- * Phase 1 lock-and-materialize: data only. Coherence triggers, the
- * interviewer, and active-context filters consume this in later M4/M5 slices.
+ * Endpoint storage order (`source`/`target`) carries no impact meaning. Impact
+ * direction is given solely by `affected`; transitivity is given by
+ * `impactKind`. Consult the metadata — never infer direction from which node
+ * was stored as `source`.
  */
 
 import type { EdgeCategory } from '../schema/edges.js';
@@ -57,8 +42,8 @@ export type EdgeEndpointRole =
   | 'peer';
 
 /**
- * How strongly a change at one endpoint impacts the other.
- *  - `none`     — no reconciliation flows in this direction.
+ * How strongly impact propagates from the non-affected endpoint to `affected`.
+ *  - `none`     — no reconciliation flows in this category.
  *  - `advisory` — soft; surface a ReconciliationNeed for review.
  *  - `cascade`  — hard; may auto block / mark-stale (dependency only).
  */
@@ -69,8 +54,9 @@ export type ProjectionEffect = 'none' | 'hide_predecessor_from_active_context';
 export interface EdgeCategoryMetadata {
   readonly sourceRole: EdgeEndpointRole;
   readonly targetRole: EdgeEndpointRole;
-  readonly impactOnSourceChange: EdgeImpactStrength;
-  readonly impactOnTargetChange: EdgeImpactStrength;
+  readonly affected: EdgeEndpoint | null;
+  readonly impactKind: EdgeImpactStrength;
+  readonly stanceRequired: boolean;
   readonly criteriaHelpSignal: boolean;
   readonly projectionEffect: ProjectionEffect;
 }
@@ -83,64 +69,81 @@ export const EDGE_CATEGORY_METADATA = {
   dependency: {
     sourceRole: 'dependency',
     targetRole: 'dependent',
-    impactOnSourceChange: 'cascade',
-    impactOnTargetChange: 'none',
+    affected: 'target',
+    impactKind: 'cascade',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
-  proof: {
+  witness: {
     sourceRole: 'oracle',
     targetRole: 'claim',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'advisory',
+    affected: 'source',
+    impactKind: 'advisory',
+    stanceRequired: true,
     criteriaHelpSignal: true,
     projectionEffect: 'none',
   },
-  support: {
+  rationale: {
     sourceRole: 'support',
     targetRole: 'claim',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'advisory',
+    affected: 'source',
+    impactKind: 'advisory',
+    stanceRequired: true,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   realization: {
     sourceRole: 'abstract',
     targetRole: 'concrete',
-    impactOnSourceChange: 'advisory',
-    impactOnTargetChange: 'none',
+    affected: 'target',
+    impactKind: 'advisory',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
-  boundary: {
+  refinement: {
+    sourceRole: 'abstract',
+    targetRole: 'concrete',
+    affected: 'target',
+    impactKind: 'advisory',
+    stanceRequired: false,
+    criteriaHelpSignal: false,
+    projectionEffect: 'none',
+  },
+  exclusion: {
     sourceRole: 'boundary',
     targetRole: 'subject',
-    impactOnSourceChange: 'advisory',
-    impactOnTargetChange: 'none',
+    affected: 'target',
+    impactKind: 'advisory',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   composition: {
     sourceRole: 'whole',
     targetRole: 'part',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'advisory',
+    affected: 'source',
+    impactKind: 'advisory',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
-  association: {
+  cross_reference: {
     sourceRole: 'peer',
     targetRole: 'peer',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'none',
+    affected: null,
+    impactKind: 'none',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   supersession: {
     sourceRole: 'successor',
     targetRole: 'predecessor',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'advisory',
+    affected: 'source',
+    impactKind: 'advisory',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'hide_predecessor_from_active_context',
   },

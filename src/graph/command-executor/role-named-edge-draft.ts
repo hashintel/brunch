@@ -9,15 +9,15 @@ type RoleNamedEdgeDraftByCategory<Ref> = {
     readonly dependent: Ref;
     readonly rationale?: string | undefined;
   };
-  readonly proof: {
-    readonly category: 'proof';
+  readonly witness: {
+    readonly category: 'witness';
     readonly oracle: Ref;
     readonly claim: Ref;
     readonly stance: EdgeStance;
     readonly rationale?: string | undefined;
   };
-  readonly support: {
-    readonly category: 'support';
+  readonly rationale: {
+    readonly category: 'rationale';
     readonly support: Ref;
     readonly claim: Ref;
     readonly stance: EdgeStance;
@@ -29,8 +29,14 @@ type RoleNamedEdgeDraftByCategory<Ref> = {
     readonly concrete: Ref;
     readonly rationale?: string | undefined;
   };
-  readonly boundary: {
-    readonly category: 'boundary';
+  readonly refinement: {
+    readonly category: 'refinement';
+    readonly abstract: Ref;
+    readonly concrete: Ref;
+    readonly rationale?: string | undefined;
+  };
+  readonly exclusion: {
+    readonly category: 'exclusion';
     readonly boundary: Ref;
     readonly subject: Ref;
     readonly rationale?: string | undefined;
@@ -41,8 +47,8 @@ type RoleNamedEdgeDraftByCategory<Ref> = {
     readonly part: Ref;
     readonly rationale?: string | undefined;
   };
-  readonly association: {
-    readonly category: 'association';
+  readonly cross_reference: {
+    readonly category: 'cross_reference';
     readonly a: Ref;
     readonly b: Ref;
     readonly rationale?: string | undefined;
@@ -58,10 +64,13 @@ type RoleNamedEdgeDraftByCategory<Ref> = {
 export type RoleNamedEdgeDraftOf<Ref> = RoleNamedEdgeDraftByCategory<Ref>[EdgeCategory];
 export type RoleNamedEdgeDraft = RoleNamedEdgeDraftOf<GraphMutationNodeRef>;
 
-type NonAssociationRoleNamedEdgeDraft = Exclude<RoleNamedEdgeDraft, { readonly category: 'association' }>;
+type NonCrossReferenceRoleNamedEdgeDraft = Exclude<
+  RoleNamedEdgeDraft,
+  { readonly category: 'cross_reference' }
+>;
 
 export function authoredEdgeEndpointFields(category: EdgeCategory): readonly [string, string] {
-  if (category === 'association') {
+  if (category === 'cross_reference') {
     return ['a', 'b'];
   }
 
@@ -73,8 +82,9 @@ export function authoredEdgeEndpointFields(category: EdgeCategory): readonly [st
 }
 
 function assertStanceLocality(draft: RoleNamedEdgeDraft): void {
-  if (draft.category === 'proof' || draft.category === 'support') {
-    if (draft.stance !== 'for' && draft.stance !== 'against') {
+  const metadata = EDGE_CATEGORY_METADATA[draft.category];
+  if (metadata.stanceRequired) {
+    if (!('stance' in draft) || (draft.stance !== 'for' && draft.stance !== 'against')) {
       throw new Error(`${draft.category} edges require stance "for" or "against".`);
     }
     return;
@@ -85,14 +95,18 @@ function assertStanceLocality(draft: RoleNamedEdgeDraft): void {
   }
 }
 
-function normalizeNonAssociationEdgeDraft(draft: NonAssociationRoleNamedEdgeDraft): CreateGraphEdgeInput {
+function normalizeNonCrossReferenceEdgeDraft(
+  draft: NonCrossReferenceRoleNamedEdgeDraft,
+): CreateGraphEdgeInput {
   const { source, target } = roleNamedEdgeDraftEndpoints(draft);
 
   return {
     category: draft.category,
     source,
     target,
-    ...(draft.category === 'proof' || draft.category === 'support' ? { stance: draft.stance } : {}),
+    ...(EDGE_CATEGORY_METADATA[draft.category].stanceRequired && 'stance' in draft
+      ? { stance: draft.stance }
+      : {}),
     ...(draft.rationale === undefined ? {} : { rationale: draft.rationale }),
   };
 }
@@ -100,7 +114,7 @@ function normalizeNonAssociationEdgeDraft(draft: NonAssociationRoleNamedEdgeDraf
 export function normalizeRoleNamedEdgeDraft(draft: RoleNamedEdgeDraft): CreateGraphEdgeInput {
   assertStanceLocality(draft);
 
-  if (draft.category === 'association') {
+  if (draft.category === 'cross_reference') {
     return {
       category: draft.category,
       source: draft.a,
@@ -109,7 +123,7 @@ export function normalizeRoleNamedEdgeDraft(draft: RoleNamedEdgeDraft): CreateGr
     };
   }
 
-  return normalizeNonAssociationEdgeDraft(draft);
+  return normalizeNonCrossReferenceEdgeDraft(draft);
 }
 
 export function roleNamedEdgeDraftEndpoints<Ref>(draft: RoleNamedEdgeDraftOf<Ref>): {

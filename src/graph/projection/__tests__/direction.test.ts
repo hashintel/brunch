@@ -1,10 +1,8 @@
 /**
  * The full reconciliation-impact matrix, executable.
  *
- * Direction is derived mechanically from per-category impact metadata, NOT from
- * source→target storage geometry: for `dependency`/`realization`/`boundary` the
- * source is upstream, but for `proof`/`support`/`composition`/`supersession` the
- * target is upstream. Renderers rely on this coverage and never re-derive
+ * Direction is read from per-category impact metadata, NOT from source→target
+ * storage geometry. Renderers rely on this coverage and never re-derive
  * direction themselves.
  */
 
@@ -37,20 +35,26 @@ const MATRIX: readonly ImpactCell[] = [
     fromTarget: { relation: 'upstream', strength: 'advisory' },
   },
   {
-    category: 'boundary',
+    category: 'refinement',
+    impact: { downstreamEndpoint: 'target', strength: 'advisory' },
+    fromSource: { relation: 'downstream', strength: 'advisory' },
+    fromTarget: { relation: 'upstream', strength: 'advisory' },
+  },
+  {
+    category: 'exclusion',
     impact: { downstreamEndpoint: 'target', strength: 'advisory' },
     fromSource: { relation: 'downstream', strength: 'advisory' },
     fromTarget: { relation: 'upstream', strength: 'advisory' },
   },
   // target upstream → neighbor upstream when anchor is the source.
   {
-    category: 'proof',
+    category: 'witness',
     impact: { downstreamEndpoint: 'source', strength: 'advisory' },
     fromSource: { relation: 'upstream', strength: 'advisory' },
     fromTarget: { relation: 'downstream', strength: 'advisory' },
   },
   {
-    category: 'support',
+    category: 'rationale',
     impact: { downstreamEndpoint: 'source', strength: 'advisory' },
     fromSource: { relation: 'upstream', strength: 'advisory' },
     fromTarget: { relation: 'downstream', strength: 'advisory' },
@@ -69,7 +73,7 @@ const MATRIX: readonly ImpactCell[] = [
   },
   // symmetric → lateral both ways.
   {
-    category: 'association',
+    category: 'cross_reference',
     impact: { downstreamEndpoint: 'none', strength: 'none' },
     fromSource: { relation: 'lateral', strength: 'none' },
     fromTarget: { relation: 'lateral', strength: 'none' },
@@ -100,7 +104,7 @@ describe('relationFromAnchor', () => {
   it('the E2 worked example: realizes is upstream, motivated-by is downstream', () => {
     // realization(check → evidence): E2 is the concrete target → upstream.
     expect(relationFromAnchor('realization', 'target').relation).toBe('upstream');
-    // support(requirement → evidence): E2 is the claim target → downstream.
-    expect(relationFromAnchor('support', 'target').relation).toBe('downstream');
+    // rationale(requirement → evidence): E2 is the claim target → downstream.
+    expect(relationFromAnchor('rationale', 'target').relation).toBe('downstream');
   });
 });

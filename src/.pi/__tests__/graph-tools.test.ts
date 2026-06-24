@@ -69,7 +69,7 @@ describe('graph tool adapter', () => {
           { op: 'create_node', ref: 'n1', plane: 'intent', kind: 'goal', title: 'Test goal' },
           {
             op: 'create_edge',
-            category: 'support',
+            category: 'rationale',
             support: { existingCode: 'G1' },
             claim: 'n1',
             stance: 'for',
@@ -84,7 +84,7 @@ describe('graph tool adapter', () => {
     if ('status' in input) throw new Error('unreachable');
     expect(input.ops[1]).toMatchObject({
       op: 'create_edge',
-      category: 'support',
+      category: 'rationale',
       support: { existing: 42 },
       claim: 'n1',
       stance: 'for',

@@ -1,7 +1,7 @@
 /**
  * Graph edge type definitions.
  *
- * Canonical reference: docs/design/GRAPH_MODEL.md
+ * Canonical reference: memory/SPEC.md D51-L (closed edge categories); src/graph/policy/category-policy.ts (per-category metadata)
  * Supersedes: docs/architecture/pi-seam-extensions.md §"Edge types"
  *             (the prior named-relation catalogue)
  *
@@ -19,20 +19,21 @@ import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from './kinds.js';
  * Derived from `graph/schema/kinds.ts` — the single enum source.
  *
  * - `dependency`   dependency  → dependent      hard upstream; cascade
- * - `proof`        oracle      → claim          witness or refutation (stance required)
- * - `support`      support     → claim          motivation / rationale (stance required)
- * - `realization`  abstract    → concrete       expression / implementation
- * - `boundary`     boundary    → subject        scope / constraint / exclusion
- * - `composition`  whole       → part           containment / decomposition
- * - `supersession` successor   → predecessor    replacement lineage (acyclic)
- * - `association`  peer        ↔ peer           weak relatedness (symmetric)
+ * - `witness`        oracle      → claim          witness or refutation (stance required)
+ * - `rationale`      support     → claim          motivation / rationale (stance required)
+ * - `realization`    abstract    → concrete       expression / implementation
+ * - `refinement`     abstract    → concrete       formal refinement / specialization
+ * - `exclusion`      boundary    → subject        scope / constraint / exclusion
+ * - `composition`    whole       → part           containment / decomposition
+ * - `supersession`   successor   → predecessor    replacement lineage (acyclic)
+ * - `cross_reference` peer       ↔ peer           weak relatedness (symmetric)
  */
 export type EdgeCategory = (typeof EDGE_CATEGORIES)[number];
 
 /**
  * Polarity for stance-bearing edges.
  *
- * Required for `proof` and `support`.
+ * Required for `witness` and `rationale`.
  * Invalid (must be omitted) for every other category.
  */
 export type EdgeStance = (typeof EDGE_STANCES)[number];
@@ -57,7 +58,7 @@ type EdgeBasis = (typeof NODE_BASES)[number];
  *  - To change category: delete and recreate.
  *
  * Stance:
- *  - REQUIRED iff `category` is `"proof"` or `"support"`.
+ *  - REQUIRED iff `category` is `"witness"` or `"rationale"`.
  *  - INVALID (must be omitted) for every other category.
  *  - Structural validators in the CommandExecutor enforce this.
  *

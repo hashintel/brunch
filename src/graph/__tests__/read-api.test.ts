@@ -88,21 +88,21 @@ describe('graph read API', () => {
         { ref: 'r2', plane: 'intent', kind: 'requirement', title: 'Unproved requirement' },
         { ref: 'e1', plane: 'oracle', kind: 'evidence', title: 'Evidence' },
       ],
-      edges: [{ category: 'proof', source: 'e1', target: 'r1', stance: 'for' }],
+      edges: [{ category: 'witness', source: 'e1', target: 'r1', stance: 'for' }],
     });
     expect(batch.status).toBe('success');
 
     expect(
       queryGraph(db, specId, {
         kinds: ['requirement'],
-        hasEdge: { categories: ['proof'], direction: 'incoming' },
+        hasEdge: { categories: ['witness'], direction: 'incoming' },
       }).nodes.map((node) => node.title),
     ).toEqual(['Proved requirement']);
 
     expect(
       queryGraph(db, specId, {
         kinds: ['requirement'],
-        lacksEdge: { categories: ['proof'], direction: 'incoming' },
+        lacksEdge: { categories: ['witness'], direction: 'incoming' },
       }).nodes.map((node) => node.title),
     ).toEqual(['Unproved requirement']);
 

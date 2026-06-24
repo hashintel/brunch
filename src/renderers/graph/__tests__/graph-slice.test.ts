@@ -14,8 +14,8 @@ const slice: GraphSlice = {
     node({ id: 5, plane: 'oracle', kind: 'evidence', kindOrdinal: 1, title: 'Preview file records output' }),
   ],
   edges: [
-    edge({ id: 7, category: 'proof', sourceId: 5, targetId: 3, stance: 'for' }),
-    edge({ id: 5, category: 'boundary', sourceId: 2, targetId: 4 }),
+    edge({ id: 7, category: 'witness', sourceId: 5, targetId: 3, stance: 'for' }),
+    edge({ id: 5, category: 'exclusion', sourceId: 2, targetId: 4 }),
   ],
 };
 
@@ -84,8 +84,8 @@ test('overview: kind-band fixture golden stays uncapped and sectioned', async ()
     readGraphSliceFixture({ set: 'kind-band-spread', fixture: 'coverage-matrix' }),
   );
   await expect(rendered).toMatchFileSnapshot('../__previews__/graph-overview-kind-band-spread.md');
-  expect(rendered).toContain('Graph overview (LSN 2): 20 nodes, 7 edges');
-  expect(rendered).toContain('| S1 | 20 | Lock one neighborhood preview |');
+  expect(rendered).toContain('Graph overview (LSN 2): 24 nodes, 7 edges');
+  expect(rendered).toContain('| S1 | 24 | Lock one neighborhood preview |');
 });
 
 function node(input: {

@@ -69,6 +69,47 @@ describe('CommandExecutor', () => {
     expect(result.lsn).toBe(1);
   });
 
+  // --- createNode: story / unknown intent kinds (D87-L / D89-L) ---
+
+  it('creates a story node as an intent claim (no detail)', () => {
+    const result = executor.createNode({ specId, plane: 'intent', kind: 'story', title: 'Checkout flow' });
+
+    expect(result.status).toBe('success');
+  });
+
+  it('creates an unknown node as an intent claim, distinct from elicitation_gaps', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'unknown',
+      title: 'Regulatory regime for the EU launch is undecided',
+    });
+
+    expect(result.status).toBe('success');
+    // unknown rides the node graph; it does not create an elicitation-gap obligation.
+    expect(
+      db.select().from(elicitationGaps).where(eq(elicitationGaps.refers_to, 'unknown')).all(),
+    ).toHaveLength(0);
+  });
+
+  it('wires a story via composition to a requirement, reusing the existing edge vocabulary', () => {
+    const batch = runCreateOnlyMutation(executor, {
+      specId,
+      nodes: [
+        { ref: 's1', plane: 'intent', kind: 'story', title: 'Checkout flow' },
+        {
+          ref: 'r1',
+          plane: 'intent',
+          kind: 'requirement',
+          title: 'Cart total is recomputed on quantity change',
+        },
+      ],
+      edges: [{ category: 'composition', source: 's1', target: 'r1' }],
+    });
+
+    expect(batch.status).toBe('success');
+  });
+
   it("defaults basis to 'explicit' when omitted", () => {
     executor.createNode({ specId, plane: 'intent', kind: 'goal', title: 'Some goal' });
 
@@ -162,18 +203,141 @@ describe('CommandExecutor', () => {
     expect(result.diagnostics.some((d) => d.field === 'detail')).toBe(true);
   });
 
-  it('rejects non-decision/term node with detail present', () => {
+  it('rejects a prohibited-detail node with detail present', () => {
     const result = executor.createNode({
       specId,
       plane: 'intent',
-      kind: 'requirement',
-      title: 'Some requirement',
+      kind: 'goal',
+      title: 'Some goal',
       detail: { definition: 'should not be here' },
     });
 
     expect(result.status).toBe('structural_illegal');
     if (result.status !== 'structural_illegal') throw new Error('unreachable');
     expect(result.diagnostics.some((d) => d.field === 'detail')).toBe(true);
+  });
+
+  // --- createNode: claim-kind detail.form union (D88-L) ---
+
+  it('creates a claim node with no detail (default plain form)', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'Plain requirement',
+    });
+
+    expect(result.status).toBe('success');
+    const row = db.select().from(nodes).all()[0];
+    expect(row!.detail).toBeNull();
+  });
+
+  it('creates a criterion node with a gherkin form detail', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'criterion',
+      title: 'Offline save works',
+      detail: {
+        form: 'gherkin',
+        given: ['the app is offline'],
+        when: ['the user saves'],
+        then: ['the change is persisted locally'],
+      },
+    });
+
+    expect(result.status).toBe('success');
+    const row = db.select().from(nodes).all()[0];
+    const detail = JSON.parse(row!.detail!);
+    expect(detail.form).toBe('gherkin');
+    expect(detail.then).toEqual(['the change is persisted locally']);
+  });
+
+  it('creates an invariant node with a formal form detail', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'invariant',
+      title: 'Balance never negative',
+      detail: { form: 'formal', language: 'lean', statement: '∀ a, balance a ≥ 0' },
+    });
+
+    expect(result.status).toBe('success');
+    const row = db.select().from(nodes).all()[0];
+    const detail = JSON.parse(row!.detail!);
+    expect(detail.form).toBe('formal');
+    expect(detail.language).toBe('lean');
+  });
+
+  it('creates a context node with a given form detail', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'context',
+      title: 'Single-process assumption',
+      detail: { form: 'given', statement: 'Exactly one writer process exists.' },
+    });
+
+    expect(result.status).toBe('success');
+    const row = db.select().from(nodes).all()[0];
+    const detail = JSON.parse(row!.detail!);
+    expect(detail.form).toBe('given');
+  });
+
+  it('rejects a claim node whose detail form is not allowed for its kind', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'Bogus form',
+      detail: { form: 'bogus' },
+    });
+
+    expect(result.status).toBe('structural_illegal');
+    if (result.status !== 'structural_illegal') throw new Error('unreachable');
+    expect(result.diagnostics.some((d) => d.field === 'detail.form')).toBe(true);
+  });
+
+  it('rejects a context node that carries a non-given form', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'context',
+      title: 'Context with plain form',
+      detail: { form: 'plain' },
+    });
+
+    expect(result.status).toBe('structural_illegal');
+    if (result.status !== 'structural_illegal') throw new Error('unreachable');
+    expect(result.diagnostics.some((d) => d.field === 'detail.form')).toBe(true);
+  });
+
+  it('rejects a gherkin form detail without a then outcome', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'criterion',
+      title: 'Missing then',
+      detail: { form: 'gherkin', given: ['x'] },
+    });
+
+    expect(result.status).toBe('structural_illegal');
+    if (result.status !== 'structural_illegal') throw new Error('unreachable');
+    expect(result.diagnostics.some((d) => d.field === 'detail.then')).toBe(true);
+  });
+
+  it('rejects a claim form detail with unknown fields', () => {
+    const result = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'requirement',
+      title: 'Leaky form',
+      detail: { form: 'formal', language: 'dafny', statement: 's', extra_field: 'nope' },
+    });
+
+    expect(result.status).toBe('structural_illegal');
+    if (result.status !== 'structural_illegal') throw new Error('unreachable');
+    expect(result.diagnostics.some((d) => d.field === 'detail.extra_field')).toBe(true);
   });
 
   it('rejects decision with empty rejected array', () => {
@@ -388,6 +552,24 @@ describe('CommandExecutor', () => {
       expect(row.slug).toBe('brunch-poc');
     });
 
+    it('defaults spec kind to product when omitted (D89-L)', () => {
+      const result = executor.createSpec({ name: 'Default Scope', slug: 'default-scope' });
+      expect(result.status).toBe('success');
+      if (result.status !== 'success') throw new Error('unreachable');
+
+      expect(executor.getSpec(result.specId)?.kind).toBe('product');
+    });
+
+    it('persists and reads an explicit spec kind (D89-L)', () => {
+      const created = executor.createSpec({ name: 'Focused Lib', slug: 'focused-lib', kind: 'function' });
+      expect(created.status).toBe('success');
+      if (created.status !== 'success') throw new Error('unreachable');
+
+      const row = db.select().from(specs).where(eq(specs.id, created.specId)).get()!;
+      expect(row.kind).toBe('function');
+      expect(executor.getSpec(created.specId)?.kind).toBe('function');
+    });
+
     it('creates exactly one graph clock row for a new spec at LSN 1', () => {
       const result = executor.createSpec({ name: 'Clocked Spec', slug: 'clocked-spec' });
 
@@ -552,6 +734,7 @@ describe('CommandExecutor', () => {
         id: created.specId,
         name: 'Spec A',
         slug: 'spec-a',
+        kind: 'product',
       });
     });
 

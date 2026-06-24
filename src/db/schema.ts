@@ -2,7 +2,6 @@
  * Drizzle table definitions — canonical column-level source of truth.
  *
  * SPEC decisions: D16-L, D51-L, D54-L, D56-L, D73-L
- * Canonical reference: docs/design/GRAPH_MODEL.md
  *
  * Domain enum taxonomy lives in graph/schema/kinds.ts; this persistence layer
  * imports those literals for column constraints.
@@ -27,6 +26,7 @@ import {
   NODE_BASES,
   NODE_PLANES,
   READINESS_BANDS,
+  SPEC_KINDS,
 } from '../graph/schema/kinds.js';
 
 // ---------------------------------------------------------------------------
@@ -37,6 +37,8 @@ export const specs = sqliteTable('specs', {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
   slug: text().notNull(),
+  // Spec scope as an ownership relation to the codebase (D89-L), not a node kind.
+  kind: text({ enum: SPEC_KINDS }).notNull().default('product'),
 });
 
 export const nodes = sqliteTable(

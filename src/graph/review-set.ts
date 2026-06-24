@@ -92,7 +92,7 @@ const zReviewSetEdgeDraftForBoundary = z
       .strict(),
     z
       .object({
-        category: z.literal('proof'),
+        category: z.literal('witness'),
         oracle: zReviewSetEndpointRefForBoundary,
         claim: zReviewSetEndpointRefForBoundary,
         stance: z.enum(['for', 'against']),
@@ -101,7 +101,7 @@ const zReviewSetEdgeDraftForBoundary = z
       .strict(),
     z
       .object({
-        category: z.literal('support'),
+        category: z.literal('rationale'),
         support: zReviewSetEndpointRefForBoundary,
         claim: zReviewSetEndpointRefForBoundary,
         stance: z.enum(['for', 'against']),
@@ -118,7 +118,15 @@ const zReviewSetEdgeDraftForBoundary = z
       .strict(),
     z
       .object({
-        category: z.literal('boundary'),
+        category: z.literal('refinement'),
+        abstract: zReviewSetEndpointRefForBoundary,
+        concrete: zReviewSetEndpointRefForBoundary,
+        rationale: z.string().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        category: z.literal('exclusion'),
         boundary: zReviewSetEndpointRefForBoundary,
         subject: zReviewSetEndpointRefForBoundary,
         rationale: z.string().optional(),
@@ -134,7 +142,7 @@ const zReviewSetEdgeDraftForBoundary = z
       .strict(),
     z
       .object({
-        category: z.literal('association'),
+        category: z.literal('cross_reference'),
         a: zReviewSetEndpointRefForBoundary,
         b: zReviewSetEndpointRefForBoundary,
         rationale: z.string().optional(),
@@ -398,16 +406,15 @@ function validateRoleNamedReviewSetEdgeDraft(
   diagnostics: Diagnostic[],
 ): void {
   const path = `edgeDrafts[${index}]`;
-  if ((draft.category === 'proof' || draft.category === 'support') && draft.stance === undefined) {
-    diagnostics.push({ field: `${path}.stance`, message: 'stance is required for proof/support edges' });
+  const stanceRequired = EDGE_CATEGORY_METADATA[draft.category].stanceRequired;
+  if (stanceRequired && (!('stance' in draft) || draft.stance === undefined)) {
+    diagnostics.push({ field: `${path}.stance`, message: 'stance is required for witness/rationale edges' });
   }
-  if (
-    draft.category !== 'proof' &&
-    draft.category !== 'support' &&
-    'stance' in draft &&
-    draft.stance !== undefined
-  ) {
-    diagnostics.push({ field: `${path}.stance`, message: 'stance is allowed only on proof/support edges' });
+  if (!stanceRequired && 'stance' in draft && draft.stance !== undefined) {
+    diagnostics.push({
+      field: `${path}.stance`,
+      message: 'stance is allowed only on witness/rationale edges',
+    });
   }
 
   const sourceField = endpointFieldPath(draft, index, 'source');
@@ -419,7 +426,7 @@ function validateRoleNamedReviewSetEdgeDraft(
 
 function endpointFieldPath(draft: ReviewSetEdgeDraft, index: number, position: 'source' | 'target'): string {
   const path = `edgeDrafts[${index}]`;
-  if (draft.category === 'association') {
+  if (draft.category === 'cross_reference') {
     return `${path}.${position === 'source' ? 'a' : 'b'}`;
   }
 
@@ -434,17 +441,19 @@ function replaceRoleNamedEndpoints(
   switch (draft.category) {
     case 'dependency':
       return { ...draft, dependency: source, dependent: target };
-    case 'proof':
+    case 'witness':
       return { ...draft, oracle: source, claim: target };
-    case 'support':
+    case 'rationale':
       return { ...draft, support: source, claim: target };
     case 'realization':
       return { ...draft, abstract: source, concrete: target };
-    case 'boundary':
+    case 'refinement':
+      return { ...draft, abstract: source, concrete: target };
+    case 'exclusion':
       return { ...draft, boundary: source, subject: target };
     case 'composition':
       return { ...draft, whole: source, part: target };
-    case 'association':
+    case 'cross_reference':
       return { ...draft, a: source, b: target };
     case 'supersession':
       return { ...draft, successor: source, predecessor: target };

@@ -31,7 +31,7 @@ export function formatPresentReviewSet(projection: PresentReviewSetProjection): 
     const { source: sourceRef, target: targetRef } = roleNamedEdgeDraftEndpoints(draft);
     const source = 'draftId' in sourceRef ? sourceRef.draftId : sourceRef.existingCode;
     const target = 'draftId' in targetRef ? targetRef.draftId : targetRef.existingCode;
-    const stance = draft.category === 'proof' || draft.category === 'support' ? ` [${draft.stance}]` : '';
+    const stance = draft.category === 'witness' || draft.category === 'rationale' ? ` [${draft.stance}]` : '';
     lines.push('', `- ${source} —${draft.category}${stance}→ ${target}`);
     if (draft.rationale) lines.push(`  ${draft.rationale}`);
   });

@@ -2,6 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 
 import type { BrunchDb } from '../../db/connection.js';
 import * as schema from '../../db/schema.js';
+import { EDGE_CATEGORY_METADATA } from '../policy/category-policy.js';
 import type { EdgeCategory, EdgeStance } from '../schema/edges.js';
 import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from '../schema/kinds.js';
 import { formatGraphNodeCode, type NodeKind } from '../schema/nodes.js';
@@ -14,7 +15,6 @@ import type {
 } from './graph-mutation-types.js';
 
 const VALID_CATEGORIES = EDGE_CATEGORIES as unknown as string[];
-const STANCE_REQUIRED_CATEGORIES = new Set(['proof', 'support']);
 const VALID_STANCES = EDGE_STANCES as unknown as string[];
 const VALID_BASES = NODE_BASES as unknown as string[];
 
@@ -195,7 +195,7 @@ function validateAndPlanBatchEdge(
     return { diagnostics };
   }
 
-  const stanceRequired = STANCE_REQUIRED_CATEGORIES.has(input.category);
+  const stanceRequired = EDGE_CATEGORY_METADATA[input.category as EdgeCategory]?.stanceRequired ?? false;
   if (stanceRequired && input.stance == null) {
     diagnostics.push({ field: `${p}.stance`, message: `stance is required for "${input.category}" edges` });
   }

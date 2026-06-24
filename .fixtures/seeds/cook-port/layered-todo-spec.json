@@ -329,7 +329,7 @@
   ],
   "edges": [
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 28,
       "target_local_id": 1,
       "stance": "for",
@@ -337,7 +337,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 29,
       "target_local_id": 1,
       "stance": "for",
@@ -353,7 +353,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 2,
       "target_local_id": 1,
       "stance": "for",
@@ -361,7 +361,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 3,
       "target_local_id": 1,
       "stance": "for",
@@ -401,7 +401,7 @@
       "rationale": null
     },
     {
-      "category": "boundary",
+      "category": "exclusion",
       "source_local_id": 7,
       "target_local_id": 1,
       "stance": null,
@@ -409,7 +409,7 @@
       "rationale": null
     },
     {
-      "category": "boundary",
+      "category": "exclusion",
       "source_local_id": 8,
       "target_local_id": 19,
       "stance": null,
@@ -417,7 +417,7 @@
       "rationale": null
     },
     {
-      "category": "boundary",
+      "category": "exclusion",
       "source_local_id": 9,
       "target_local_id": 1,
       "stance": null,
@@ -441,7 +441,7 @@
       "rationale": null
     },
     {
-      "category": "proof",
+      "category": "witness",
       "source_local_id": 25,
       "target_local_id": 19,
       "stance": "for",
@@ -449,7 +449,7 @@
       "rationale": null
     },
     {
-      "category": "proof",
+      "category": "witness",
       "source_local_id": 26,
       "target_local_id": 23,
       "stance": "for",
@@ -457,7 +457,7 @@
       "rationale": null
     },
     {
-      "category": "proof",
+      "category": "witness",
       "source_local_id": 27,
       "target_local_id": 19,
       "stance": "for",
@@ -465,7 +465,7 @@
       "rationale": null
     },
     {
-      "category": "proof",
+      "category": "witness",
       "source_local_id": 24,
       "target_local_id": 19,
       "stance": "for",

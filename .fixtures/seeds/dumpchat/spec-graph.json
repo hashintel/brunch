@@ -34,9 +34,9 @@
     { "local_id": 28, "plane": "intent", "kind": "example", "title": "A code-block copy button nested deep inside an assistant response that must be discarded", "basis": "explicit", "source": "docs/SPEC.md" },
 
     { "local_id": 29, "plane": "oracle", "kind": "check", "title": "extraction.test.ts: jsdom unit tests over filterByConsistentDepth and index alternation", "basis": "explicit", "source": "entrypoints/lib/dumpchat/extraction.test.ts" },
-    { "local_id": 30, "plane": "oracle", "kind": "validation_method", "title": "In-page Verify Export diagnostics run against a live conversation page", "basis": "explicit", "source": "README.md" },
+    { "local_id": 30, "plane": "oracle", "kind": "vv_method", "title": "In-page Verify Export diagnostics run against a live conversation page", "basis": "explicit", "source": "README.md" },
     { "local_id": 31, "plane": "oracle", "kind": "evidence", "title": "Downloaded diagnostics JSON (schema chat-export-diagnostics 1.0.0) with counts and health level", "basis": "explicit", "source": "README.md" },
-    { "local_id": 32, "plane": "oracle", "kind": "obligation", "title": "Selectors must be re-verified per platform after each frontend change", "basis": "explicit", "source": "projected" },
+    { "local_id": 32, "plane": "oracle", "kind": "vv_obligation", "title": "Selectors must be re-verified per platform after each frontend change", "basis": "explicit", "source": "projected" },
 
     { "local_id": 33, "plane": "design", "kind": "module", "title": "dumpchat.content.ts — content script injecting UI and orchestrating export/verify", "basis": "explicit", "source": "entrypoints/dumpchat.content.ts" },
     { "local_id": 34, "plane": "design", "kind": "module", "title": "lib/dumpchat/extraction.ts — four-step extraction and diagnostic report builder", "basis": "explicit", "source": "entrypoints/lib/dumpchat/extraction.ts" },
@@ -64,31 +64,31 @@
     { "category": "realization", "source_local_id": 11, "target_local_id": 40, "basis": "explicit", "rationale": "The depth-filter slice realizes the separate-turn-buttons requirement." },
     { "category": "realization", "source_local_id": 13, "target_local_id": 41, "basis": "explicit", "rationale": "The clipboard-fallback slice realizes the DOM-text-fallback requirement." },
 
-    { "category": "boundary", "source_local_id": 20, "target_local_id": 5, "basis": "explicit", "rationale": "The data-testid constraint bounds how copyButtonSelector may be chosen." },
-    { "category": "boundary", "source_local_id": 20, "target_local_id": 37, "basis": "explicit", "rationale": "The data-testid constraint bounds the selectors allowed in a SiteConfig." },
-    { "category": "boundary", "source_local_id": 21, "target_local_id": 37, "basis": "explicit", "rationale": "The anti-structural-selector constraint bounds the SiteConfig selector bundle." },
+    { "category": "exclusion", "source_local_id": 20, "target_local_id": 5, "basis": "explicit", "rationale": "The data-testid constraint bounds how copyButtonSelector may be chosen." },
+    { "category": "exclusion", "source_local_id": 20, "target_local_id": 37, "basis": "explicit", "rationale": "The data-testid constraint bounds the selectors allowed in a SiteConfig." },
+    { "category": "exclusion", "source_local_id": 21, "target_local_id": 37, "basis": "explicit", "rationale": "The anti-structural-selector constraint bounds the SiteConfig selector bundle." },
 
     { "category": "composition", "source_local_id": 38, "target_local_id": 39, "basis": "explicit", "rationale": "M1 contains the platform-agnostic extraction-core frontier." },
     { "category": "composition", "source_local_id": 39, "target_local_id": 40, "basis": "explicit", "rationale": "The extraction-core frontier contains the depth-filter slice." },
     { "category": "composition", "source_local_id": 39, "target_local_id": 41, "basis": "explicit", "rationale": "The extraction-core frontier contains the clipboard-fallback slice." },
 
-    { "category": "association", "source_local_id": 5, "target_local_id": 6, "basis": "explicit", "rationale": "copyButtonSelector and SiteConfig are peer per-platform configuration concepts." },
-    { "category": "association", "source_local_id": 24, "target_local_id": 26, "basis": "explicit", "rationale": "Native-copy and index-alternation are peer extraction design choices." },
-    { "category": "association", "source_local_id": 29, "target_local_id": 30, "basis": "explicit", "rationale": "The jsdom unit check and the live diagnostics run are peer verification methods." },
+    { "category": "cross_reference", "source_local_id": 5, "target_local_id": 6, "basis": "explicit", "rationale": "copyButtonSelector and SiteConfig are peer per-platform configuration concepts." },
+    { "category": "cross_reference", "source_local_id": 24, "target_local_id": 26, "basis": "explicit", "rationale": "Native-copy and index-alternation are peer extraction design choices." },
+    { "category": "cross_reference", "source_local_id": 29, "target_local_id": 30, "basis": "explicit", "rationale": "The jsdom unit check and the live diagnostics run are peer verification methods." },
 
     { "category": "supersession", "source_local_id": 11, "target_local_id": 17, "basis": "explicit", "rationale": "Depth-based separation supersedes the brittle closest('pre, code') check." },
     { "category": "supersession", "source_local_id": 25, "target_local_id": 17, "basis": "explicit", "rationale": "The modal-depth filter decision supersedes the closest('pre, code') approach." },
 
-    { "category": "proof", "source_local_id": 29, "target_local_id": 22, "stance": "for", "basis": "explicit", "rationale": "The alternation unit tests witness the even=user / odd=assistant invariant." },
-    { "category": "proof", "source_local_id": 29, "target_local_id": 11, "stance": "for", "basis": "explicit", "rationale": "The filterByConsistentDepth tests witness separation of turn-level and code-block buttons." },
-    { "category": "proof", "source_local_id": 31, "target_local_id": 16, "stance": "for", "basis": "explicit", "rationale": "The downloaded diagnostics JSON evidences the Verify Export requirement." },
-    { "category": "proof", "source_local_id": 31, "target_local_id": 10, "stance": "for", "basis": "explicit", "rationale": "The diagnostics counts evidence that extraction succeeds when copy buttons are present." },
+    { "category": "witness", "source_local_id": 29, "target_local_id": 22, "stance": "for", "basis": "explicit", "rationale": "The alternation unit tests witness the even=user / odd=assistant invariant." },
+    { "category": "witness", "source_local_id": 29, "target_local_id": 11, "stance": "for", "basis": "explicit", "rationale": "The filterByConsistentDepth tests witness separation of turn-level and code-block buttons." },
+    { "category": "witness", "source_local_id": 31, "target_local_id": 16, "stance": "for", "basis": "explicit", "rationale": "The downloaded diagnostics JSON evidences the Verify Export requirement." },
+    { "category": "witness", "source_local_id": 31, "target_local_id": 10, "stance": "for", "basis": "explicit", "rationale": "The diagnostics counts evidence that extraction succeeds when copy buttons are present." },
 
-    { "category": "support", "source_local_id": 3, "target_local_id": 10, "stance": "for", "basis": "explicit", "rationale": "The copy-buttons-are-reliable thesis motivates the extraction-works requirement." },
-    { "category": "support", "source_local_id": 4, "target_local_id": 12, "stance": "for", "basis": "explicit", "rationale": "The alternation thesis motivates the classify-each-turn requirement." },
-    { "category": "support", "source_local_id": 18, "target_local_id": 4, "stance": "for", "basis": "explicit", "rationale": "The user-first assumption supports the alternation thesis." },
-    { "category": "support", "source_local_id": 9, "target_local_id": 20, "stance": "for", "basis": "explicit", "rationale": "Frequently-changing DOMs motivate preferring stable data-testid selectors." },
-    { "category": "support", "source_local_id": 28, "target_local_id": 11, "stance": "for", "basis": "explicit", "rationale": "The deep code-block example illustrates why turn buttons must be separated from code-block buttons." },
-    { "category": "support", "source_local_id": 32, "target_local_id": 3, "stance": "against", "basis": "explicit", "rationale": "The ongoing per-platform re-verification obligation tempers the claim that copy-button selectors are permanently reliable." }
+    { "category": "rationale", "source_local_id": 3, "target_local_id": 10, "stance": "for", "basis": "explicit", "rationale": "The copy-buttons-are-reliable thesis motivates the extraction-works requirement." },
+    { "category": "rationale", "source_local_id": 4, "target_local_id": 12, "stance": "for", "basis": "explicit", "rationale": "The alternation thesis motivates the classify-each-turn requirement." },
+    { "category": "rationale", "source_local_id": 18, "target_local_id": 4, "stance": "for", "basis": "explicit", "rationale": "The user-first assumption supports the alternation thesis." },
+    { "category": "rationale", "source_local_id": 9, "target_local_id": 20, "stance": "for", "basis": "explicit", "rationale": "Frequently-changing DOMs motivate preferring stable data-testid selectors." },
+    { "category": "rationale", "source_local_id": 28, "target_local_id": 11, "stance": "for", "basis": "explicit", "rationale": "The deep code-block example illustrates why turn buttons must be separated from code-block buttons." },
+    { "category": "rationale", "source_local_id": 32, "target_local_id": 3, "stance": "against", "basis": "explicit", "rationale": "The ongoing per-platform re-verification vv_obligation tempers the claim that copy-button selectors are permanently reliable." }
   ]
 }

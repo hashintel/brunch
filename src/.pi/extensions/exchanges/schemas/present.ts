@@ -89,7 +89,7 @@ export const zReviewSetEdgeDraft = z.union([
     .strict(),
   zReviewSetEdgeBase
     .extend({
-      category: z.literal('proof'),
+      category: z.literal('witness'),
       oracle: zReviewSetEndpointRef,
       claim: zReviewSetEndpointRef,
       stance: z.enum(['for', 'against']),
@@ -97,7 +97,7 @@ export const zReviewSetEdgeDraft = z.union([
     .strict(),
   zReviewSetEdgeBase
     .extend({
-      category: z.literal('support'),
+      category: z.literal('rationale'),
       support: zReviewSetEndpointRef,
       claim: zReviewSetEndpointRef,
       stance: z.enum(['for', 'against']),
@@ -112,7 +112,14 @@ export const zReviewSetEdgeDraft = z.union([
     .strict(),
   zReviewSetEdgeBase
     .extend({
-      category: z.literal('boundary'),
+      category: z.literal('refinement'),
+      abstract: zReviewSetEndpointRef,
+      concrete: zReviewSetEndpointRef,
+    })
+    .strict(),
+  zReviewSetEdgeBase
+    .extend({
+      category: z.literal('exclusion'),
       boundary: zReviewSetEndpointRef,
       subject: zReviewSetEndpointRef,
     })
@@ -126,7 +133,7 @@ export const zReviewSetEdgeDraft = z.union([
     .strict(),
   zReviewSetEdgeBase
     .extend({
-      category: z.literal('association'),
+      category: z.literal('cross_reference'),
       a: zReviewSetEndpointRef,
       b: zReviewSetEndpointRef,
     })

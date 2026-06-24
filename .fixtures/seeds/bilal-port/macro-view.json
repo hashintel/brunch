@@ -2785,7 +2785,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 99,
       "target_local_id": 230,
       "stance": "for",
@@ -2849,7 +2849,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 73,
       "target_local_id": 122,
       "stance": "for",
@@ -2905,7 +2905,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 20,
       "target_local_id": 232,
       "stance": "for",
@@ -3161,7 +3161,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 132,
       "target_local_id": 232,
       "stance": "for",
@@ -3465,7 +3465,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 73,
       "target_local_id": 181,
       "stance": "for",
@@ -3641,7 +3641,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 61,
       "target_local_id": 231,
       "stance": "for",
@@ -3665,7 +3665,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 33,
       "target_local_id": 230,
       "stance": "for",
@@ -3937,7 +3937,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 161,
       "target_local_id": 231,
       "stance": "for",
@@ -3953,7 +3953,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 96,
       "target_local_id": 232,
       "stance": "for",
@@ -3985,7 +3985,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 175,
       "target_local_id": 232,
       "stance": "for",
@@ -3993,7 +3993,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 180,
       "target_local_id": 231,
       "stance": "for",
@@ -4129,7 +4129,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 60,
       "target_local_id": 232,
       "stance": "for",
@@ -4641,7 +4641,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 184,
       "target_local_id": 232,
       "stance": "for",
@@ -4921,7 +4921,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 152,
       "target_local_id": 122,
       "stance": "for",
@@ -4961,7 +4961,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 217,
       "target_local_id": 231,
       "stance": "for",
@@ -5033,7 +5033,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 138,
       "target_local_id": 232,
       "stance": "for",
@@ -5521,7 +5521,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 77,
       "target_local_id": 232,
       "stance": "for",
@@ -5617,7 +5617,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 215,
       "target_local_id": 230,
       "stance": "for",
@@ -5737,7 +5737,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 129,
       "target_local_id": 142,
       "stance": "for",
@@ -6057,7 +6057,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 189,
       "target_local_id": 232,
       "stance": "for",
@@ -6097,7 +6097,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 90,
       "target_local_id": 181,
       "stance": "for",
@@ -6113,7 +6113,7 @@
       "rationale": null
     },
     {
-      "category": "support",
+      "category": "rationale",
       "source_local_id": 134,
       "target_local_id": 103,
       "stance": "for",

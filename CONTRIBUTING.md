@@ -16,7 +16,6 @@ Useful supporting docs:
 - [`docs/architecture/prd.md`](./docs/architecture/prd.md)
 - [`docs/architecture/pi-seam-extensions.md`](./docs/architecture/pi-seam-extensions.md)
 - [`docs/architecture/probes-and-transcripts.md`](./docs/architecture/probes-and-transcripts.md)
-- [`docs/design/GRAPH_MODEL.md`](./docs/design/GRAPH_MODEL.md)
 - [`.fixtures/README.md`](./.fixtures/README.md)
 
 Older `docs/design/*` files are design references unless `SPEC.md`, `PLAN.md`, or a nearby `src/**/README.md` names them as current authority.

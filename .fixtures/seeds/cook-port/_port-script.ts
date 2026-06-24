@@ -117,7 +117,7 @@ interface OutNode {
 }
 
 interface OutEdge {
-  category: 'dependency' | 'proof' | 'support' | 'boundary';
+  category: 'dependency' | 'witness' | 'rationale' | 'exclusion';
   source_local_id: number;
   target_local_id: number;
   stance: 'for' | null;
@@ -789,7 +789,7 @@ function portSpec(spec: SourceSpec): { spec: { slug: string; name: string }; nod
 
   const edges: OutEdge[] = [
     {
-      category: 'support',
+      category: 'rationale',
       source_local_id: groundingId,
       target_local_id: goalId,
       stance: 'for',
@@ -797,7 +797,7 @@ function portSpec(spec: SourceSpec): { spec: { slug: string; name: string }; nod
       rationale: null,
     },
     {
-      category: 'support',
+      category: 'rationale',
       source_local_id: designId,
       target_local_id: goalId,
       stance: 'for',
@@ -830,7 +830,7 @@ function portSpec(spec: SourceSpec): { spec: { slug: string; name: string }; nod
       case 'refines':
         // term refines goal → term supports the goal-as-claim.
         edges.push({
-          category: 'support',
+          category: 'rationale',
           source_local_id: fromId,
           target_local_id: toId,
           stance: 'for',
@@ -840,7 +840,7 @@ function portSpec(spec: SourceSpec): { spec: { slug: string; name: string }; nod
         break;
       case 'constrains':
         edges.push({
-          category: 'boundary',
+          category: 'exclusion',
           source_local_id: fromId,
           target_local_id: toId,
           stance: null,
@@ -850,7 +850,7 @@ function portSpec(spec: SourceSpec): { spec: { slug: string; name: string }; nod
         break;
       case 'verifies':
         edges.push({
-          category: 'proof',
+          category: 'witness',
           source_local_id: fromId,
           target_local_id: toId,
           stance: 'for',

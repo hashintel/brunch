@@ -1,6 +1,6 @@
-Graph overview (LSN 2): 20 nodes, 7 edges
+Graph overview (LSN 2): 24 nodes, 7 edges
 
-legend: G=goal, TH=thesis, T=term, CTX=context, REQ=requirement, A=assumption, CON=constraint, INV=invariant, D=decision, AC=criterion, EX=example, CH=check, VV=validation_method, E=evidence, O=obligation, MOD=module, API=interface, M=milestone, F=frontier, S=slice
+legend: G=goal, TH=thesis, T=term, CTX=context, ST=story, UNK=unknown, REQ=requirement, A=assumption, CON=constraint, INV=invariant, D=decision, AC=criterion, EX=example, CH=check, VV=vv_method, E=evidence, O=vv_obligation, MOD=module, API=interface, ENT=entity, SKT=sketch, M=milestone, F=frontier, S=slice
 
 nodes — intent · grounding (5)
 | code | id | title |
@@ -9,46 +9,50 @@ nodes — intent · grounding (5)
 | TH1 | 2 | A graph-native workspace can hold evolving specification truth |
 | T1 | 3 | Workspace |
 | CTX1 | 4 | The POC favors deterministic local fixtures over ambient state |
-| CON1 | 6 | Preview harnesses must not bypass the command layer |
+| CON1 | 8 | Preview harnesses must not bypass the command layer |
 
-nodes — intent · elicitation (4)
+nodes — intent · elicitation (6)
 | code | id | title |
 | - | - | - |
-| A1 | 5 | Seed fixtures should stay small enough to eyeball |
-| INV1 | 11 | Rendered edges should not leak raw database ids |
-| D1 | 9 | Golden files co-locate with renderer tests |
-| EX1 | 10 | A neighborhood preview for R1 is human-reviewable |
+| ST1 | 5 | A preview story groups renderer-facing checks |
+| UNK1 | 6 | The renderer audience's next preferred grouping is unknown |
+| A1 | 7 | Seed fixtures should stay small enough to eyeball |
+| INV1 | 13 | Rendered edges should not leak raw database ids |
+| D1 | 11 | Golden files co-locate with renderer tests |
+| EX1 | 12 | A neighborhood preview for R1 is human-reviewable |
 
 nodes — intent · commitment (2)
 | code | id | title |
 | - | - | - |
-| REQ1 | 7 | Renderers should emit stable graph-node codes |
-| AC1 | 8 | A preview can be locked as a diffable golden file |
+| REQ1 | 9 | Renderers should emit stable graph-node codes |
+| AC1 | 10 | A preview can be locked as a diffable golden file |
 
 nodes — oracle · elicitation (2)
 | code | id | title |
 | - | - | - |
-| VV1 | 12 | Seed fixture smoke test |
-| O1 | 15 | Keep preview artifacts readable in PR diffs |
+| VV1 | 14 | Seed fixture smoke test |
+| O1 | 17 | Keep preview artifacts readable in PR diffs |
 
 nodes — oracle · commitment (2)
 | code | id | title |
 | - | - | - |
-| CH1 | 13 | Verify every set loads through seedFixture |
-| E1 | 14 | Render preview writes a stable markdown file |
+| CH1 | 15 | Verify every set loads through seedFixture |
+| E1 | 16 | Render preview writes a stable markdown file |
 
-nodes — design · elicitation (2)
+nodes — design · elicitation (4)
 | code | id | title |
 | - | - | - |
-| MOD1 | 16 | Graph preview harness |
-| API1 | 17 | render-preview CLI |
+| MOD1 | 18 | Graph preview harness |
+| API1 | 19 | render-preview CLI |
+| ENT1 | 20 | Preview fixture record |
+| SKT1 | 21 | Renderer output sketch |
 
 nodes — plan · commitment (3)
 | code | id | title |
 | - | - | - |
-| M1 | 18 | Cross-cut render feedback loop |
-| F1 | 19 | Preview harness slice |
-| S1 | 20 | Lock one neighborhood preview |
+| M1 | 22 | Cross-cut render feedback loop |
+| F1 | 23 | Preview harness slice |
+| S1 | 24 | Lock one neighborhood preview |
 
 edges (sorted by upstream)
 | id | upstream | relation | downstream |

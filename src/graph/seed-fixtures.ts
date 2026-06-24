@@ -39,6 +39,7 @@ import { fileURLToPath } from 'node:url';
 import type { GraphMutationOp } from './command-executor.js';
 import { CommandExecutor } from './command-executor.js';
 import type { EdgeCategory, EdgeStance } from './schema/edges.js';
+import type { SpecKind } from './schema/kinds.js';
 import type { NodeBasis, NodePlane } from './schema/nodes.js';
 import { openWorkspaceCommandExecutor } from './workspace-store.js';
 
@@ -50,6 +51,8 @@ import { openWorkspaceCommandExecutor } from './workspace-store.js';
 export interface SeedFixtureSpec {
   readonly slug: string;
   readonly name: string;
+  /** Spec scope (D89-L); defaults to `product` when omitted. */
+  readonly kind?: SpecKind;
 }
 
 /** A node row in a consolidated fixture; `local_id` is referenced by edges. */
@@ -119,6 +122,7 @@ export function seedFixture(executor: CommandExecutor, fixture: SeedFixture): Se
   const specResult = executor.createSpec({
     name: fixture.spec.name,
     slug: fixture.spec.slug,
+    ...(fixture.spec.kind === undefined ? {} : { kind: fixture.spec.kind }),
   });
   if (specResult.status !== 'success') {
     throw new Error(
@@ -170,19 +174,19 @@ function roleNamedSeedEdgeDraft(
         dependent: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,
       };
-    case 'proof':
+    case 'witness':
       return {
         op: 'create_edge',
-        category: 'proof',
+        category: 'witness',
         oracle: String(edge.source_local_id),
         claim: String(edge.target_local_id),
         stance: edge.stance ?? 'for',
         rationale: edge.rationale ?? undefined,
       };
-    case 'support':
+    case 'rationale':
       return {
         op: 'create_edge',
-        category: 'support',
+        category: 'rationale',
         support: String(edge.source_local_id),
         claim: String(edge.target_local_id),
         stance: edge.stance ?? 'for',
@@ -196,10 +200,18 @@ function roleNamedSeedEdgeDraft(
         concrete: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,
       };
-    case 'boundary':
+    case 'refinement':
       return {
         op: 'create_edge',
-        category: 'boundary',
+        category: 'refinement',
+        abstract: String(edge.source_local_id),
+        concrete: String(edge.target_local_id),
+        rationale: edge.rationale ?? undefined,
+      };
+    case 'exclusion':
+      return {
+        op: 'create_edge',
+        category: 'exclusion',
         boundary: String(edge.source_local_id),
         subject: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,
@@ -212,10 +224,10 @@ function roleNamedSeedEdgeDraft(
         part: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,
       };
-    case 'association':
+    case 'cross_reference':
       return {
         op: 'create_edge',
-        category: 'association',
+        category: 'cross_reference',
         a: String(edge.source_local_id),
         b: String(edge.target_local_id),
         rationale: edge.rationale ?? undefined,

@@ -16,7 +16,7 @@ Faithful vs. projected:
   and the `SiteConfig` type contract.
 - **oracle** plane — **mixed**: the `extraction.test.ts` check and the in-page
   Verify Export run / diagnostics JSON are real; the per-platform re-verification
-  obligation is **projected**.
+  vv_obligation is **projected**.
 - **plan** plane — **substantially projected**: the source has no plan doc, so
   milestone / frontier / slice nodes are plausible projections from the intent,
   marked `source: "projected"`.

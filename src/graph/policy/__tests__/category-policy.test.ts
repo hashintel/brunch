@@ -7,64 +7,81 @@ const EXPECTED_EDGE_CATEGORY_METADATA = {
   dependency: {
     sourceRole: 'dependency',
     targetRole: 'dependent',
-    impactOnSourceChange: 'cascade',
-    impactOnTargetChange: 'none',
+    affected: 'target',
+    impactKind: 'cascade',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
-  proof: {
+  witness: {
     sourceRole: 'oracle',
     targetRole: 'claim',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'advisory',
+    affected: 'source',
+    impactKind: 'advisory',
+    stanceRequired: true,
     criteriaHelpSignal: true,
     projectionEffect: 'none',
   },
-  support: {
+  rationale: {
     sourceRole: 'support',
     targetRole: 'claim',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'advisory',
+    affected: 'source',
+    impactKind: 'advisory',
+    stanceRequired: true,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   realization: {
     sourceRole: 'abstract',
     targetRole: 'concrete',
-    impactOnSourceChange: 'advisory',
-    impactOnTargetChange: 'none',
+    affected: 'target',
+    impactKind: 'advisory',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
-  boundary: {
+  refinement: {
+    sourceRole: 'abstract',
+    targetRole: 'concrete',
+    affected: 'target',
+    impactKind: 'advisory',
+    stanceRequired: false,
+    criteriaHelpSignal: false,
+    projectionEffect: 'none',
+  },
+  exclusion: {
     sourceRole: 'boundary',
     targetRole: 'subject',
-    impactOnSourceChange: 'advisory',
-    impactOnTargetChange: 'none',
+    affected: 'target',
+    impactKind: 'advisory',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   composition: {
     sourceRole: 'whole',
     targetRole: 'part',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'advisory',
+    affected: 'source',
+    impactKind: 'advisory',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
-  association: {
+  cross_reference: {
     sourceRole: 'peer',
     targetRole: 'peer',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'none',
+    affected: null,
+    impactKind: 'none',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'none',
   },
   supersession: {
     sourceRole: 'successor',
     targetRole: 'predecessor',
-    impactOnSourceChange: 'none',
-    impactOnTargetChange: 'advisory',
+    affected: 'source',
+    impactKind: 'advisory',
+    stanceRequired: false,
     criteriaHelpSignal: false,
     projectionEffect: 'hide_predecessor_from_active_context',
   },
@@ -76,26 +93,35 @@ describe('EDGE_CATEGORY_METADATA', () => {
     expect(EDGE_CATEGORY_METADATA).toEqual(EXPECTED_EDGE_CATEGORY_METADATA);
   });
 
-  it('only dependency drives a hard cascade; reconciling categories are advisory', () => {
+  it('declares one affected endpoint and pins stance-bearing categories', () => {
     for (const [category, metadata] of Object.entries(EDGE_CATEGORY_METADATA)) {
-      const strengths = [metadata.impactOnSourceChange, metadata.impactOnTargetChange];
       if (category === 'dependency') {
-        expect(strengths).toContain('cascade');
+        expect(metadata.impactKind).toBe('cascade');
       } else {
-        expect(strengths).not.toContain('cascade');
+        expect(metadata.impactKind).not.toBe('cascade');
       }
-      // A well-formed category drives impact in at most one direction.
-      const driven = strengths.filter((s) => s !== 'none');
-      expect(driven.length).toBeLessThanOrEqual(1);
+
+      if (metadata.impactKind === 'none') {
+        expect(metadata.affected).toBeNull();
+      } else {
+        expect(metadata.affected).not.toBeNull();
+      }
     }
+
+    expect(
+      Object.entries(EDGE_CATEGORY_METADATA)
+        .filter(([, metadata]) => metadata.stanceRequired)
+        .map(([category]) => category)
+        .sort(),
+    ).toEqual(['rationale', 'witness']);
   });
 
   it('maps endpoint geometry to semantic roles', () => {
     expect(edgeEndpointRole('dependency', 'source')).toBe('dependency');
     expect(edgeEndpointRole('dependency', 'target')).toBe('dependent');
-    expect(edgeEndpointRole('proof', 'source')).toBe('oracle');
-    expect(edgeEndpointRole('proof', 'target')).toBe('claim');
-    expect(edgeEndpointRole('association', 'source')).toBe('peer');
-    expect(edgeEndpointRole('association', 'target')).toBe('peer');
+    expect(edgeEndpointRole('witness', 'source')).toBe('oracle');
+    expect(edgeEndpointRole('witness', 'target')).toBe('claim');
+    expect(edgeEndpointRole('cross_reference', 'source')).toBe('peer');
+    expect(edgeEndpointRole('cross_reference', 'target')).toBe('peer');
   });
 });

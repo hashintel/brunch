@@ -35,6 +35,7 @@ function makeFixture(): SeedFixture {
     spec: {
       slug: 'curation-export',
       name: 'Curation Export',
+      kind: 'feature',
     },
     nodes: [
       {
@@ -60,7 +61,7 @@ function makeFixture(): SeedFixture {
     ],
     edges: [
       {
-        category: 'support',
+        category: 'rationale',
         source_local_id: 2,
         target_local_id: 1,
         stance: 'for',

@@ -11,22 +11,34 @@ import { StringEnum, Type, type Static } from '@earendil-works/pi-ai';
 
 import {
   authoredEdgeEndpointFields,
+  CLAIM_FORM_JSON_SCHEMAS,
   DESIGN_KINDS,
   EDGE_CATEGORIES,
+  EDGE_CATEGORY_METADATA,
   EDGE_STANCES,
   INTENT_KINDS,
   ORACLE_KINDS,
+  NODE_DETAIL_FORMS,
   NODE_DETAIL_JSON_SCHEMAS,
   NODE_KINDS_REQUIRING_DETAIL,
+  NODE_KINDS_WITH_FORM_DETAIL,
   PLAN_KINDS,
   type EdgeCategory,
   type EdgeDirection,
   type GraphVisibility,
+  type NodeKindWithFormDetail,
 } from '../../../graph/index.js';
 
 const ALL_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
 const DETAIL_KINDS = new Set<string>(NODE_KINDS_REQUIRING_DETAIL);
-const KINDS_WITHOUT_DETAIL = ALL_KINDS.filter((kind) => !DETAIL_KINDS.has(kind));
+const FORM_DETAIL_KINDS = new Set<string>(NODE_KINDS_WITH_FORM_DETAIL);
+const KINDS_WITHOUT_DETAIL = ALL_KINDS.filter(
+  (kind) => !DETAIL_KINDS.has(kind) && !FORM_DETAIL_KINDS.has(kind),
+);
+
+function claimFormDetailSchema(kind: NodeKindWithFormDetail) {
+  return Type.Union(NODE_DETAIL_FORMS[kind].map((form) => Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS[form])));
+}
 
 export type ToolEdgeRef = string | { readonly existingCode: string };
 export type ToolMutateCreateNodeOp = {
@@ -49,7 +61,7 @@ export type ToolMutateCreateEdgeOp =
     }
   | {
       readonly op: 'create_edge';
-      readonly category: 'proof';
+      readonly category: 'witness';
       readonly oracle: ToolEdgeRef;
       readonly claim: ToolEdgeRef;
       readonly stance: 'for' | 'against';
@@ -57,7 +69,7 @@ export type ToolMutateCreateEdgeOp =
     }
   | {
       readonly op: 'create_edge';
-      readonly category: 'support';
+      readonly category: 'rationale';
       readonly support: ToolEdgeRef;
       readonly claim: ToolEdgeRef;
       readonly stance: 'for' | 'against';
@@ -72,7 +84,14 @@ export type ToolMutateCreateEdgeOp =
     }
   | {
       readonly op: 'create_edge';
-      readonly category: 'boundary';
+      readonly category: 'refinement';
+      readonly abstract: ToolEdgeRef;
+      readonly concrete: ToolEdgeRef;
+      readonly rationale?: string | undefined;
+    }
+  | {
+      readonly op: 'create_edge';
+      readonly category: 'exclusion';
       readonly boundary: ToolEdgeRef;
       readonly subject: ToolEdgeRef;
       readonly rationale?: string | undefined;
@@ -86,7 +105,7 @@ export type ToolMutateCreateEdgeOp =
     }
   | {
       readonly op: 'create_edge';
-      readonly category: 'association';
+      readonly category: 'cross_reference';
       readonly a: ToolEdgeRef;
       readonly b: ToolEdgeRef;
       readonly rationale?: string | undefined;
@@ -120,10 +139,17 @@ export const MutateNodeSchema = Type.Object(
     ),
     detail: Type.Optional(
       Type.Union(
-        [Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.decision), Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.term)],
+        [
+          Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.decision),
+          Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.term),
+          Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS.plain),
+          Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS.gherkin),
+          Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS.formal),
+          Type.Unsafe(CLAIM_FORM_JSON_SCHEMAS.given),
+        ],
         {
           description:
-            'Per-kind detail: decision requires {chosen_option, rejected, rationale}; term requires {definition, aliases?}; omit for all other kinds.',
+            'Per-kind detail: decision requires {chosen_option, rejected, rationale}; term requires {definition, aliases?}; requirement/criterion/invariant accept an optional {form: plain|gherkin|formal} payload; context accepts an optional {form: given} payload; omit for all other kinds.',
         },
       ),
     ),
@@ -151,7 +177,7 @@ function roleNamedCreateEdgeSchema(category: EdgeCategory) {
       category: Type.Literal(category),
       [sourceField]: EdgeRefSchema,
       [targetField]: EdgeRefSchema,
-      ...(category === 'proof' || category === 'support' ? { stance: StringEnum([...EDGE_STANCES]) } : {}),
+      ...(EDGE_CATEGORY_METADATA[category].stanceRequired ? { stance: StringEnum([...EDGE_STANCES]) } : {}),
       rationale: Type.Optional(Type.String()),
     },
     { additionalProperties: false },
@@ -184,6 +210,17 @@ const MutateCreateNodeOpSchema = Type.Union([
       detail: Type.Unsafe(NODE_DETAIL_JSON_SCHEMAS.term),
     },
     { additionalProperties: false },
+  ),
+  ...NODE_KINDS_WITH_FORM_DETAIL.map((kind) =>
+    Type.Object(
+      {
+        ...MutateCreateNodeBaseProperties,
+        plane: Type.Literal('intent'),
+        kind: Type.Literal(kind),
+        detail: Type.Optional(claimFormDetailSchema(kind)),
+      },
+      { additionalProperties: false },
+    ),
   ),
   Type.Object(
     {

@@ -534,7 +534,7 @@ Use read_graph in overview mode to inspect existing node codes. Then use present
 
 Proposal constraints:
 - Create one or two new intent-plane requirement or criterion nodes.
-- Include at least one edge using category "support" with stance "for" or category "realization".
+- Include at least one edge using category "rationale" with stance "for" or category "realization".
 - When referencing existing graph truth, use existingCode strings from read_graph output, never raw ids.
 - Use schemaVersion 1, lens "intent", epistemicStatus "inferred", non-empty grounding.summary, grounding.support, pitch.title, and pitch.narrative.
 - Do not call mutate_graph directly.

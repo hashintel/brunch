@@ -66,17 +66,17 @@ function reviewSetEdgeDetails(
         dependent: endpointRefDetails(target),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       };
-    case 'proof':
+    case 'witness':
       return {
-        category: 'proof',
+        category: 'witness',
         oracle: endpointRefDetails(source),
         claim: endpointRefDetails(target),
         stance: draft.stance,
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       };
-    case 'support':
+    case 'rationale':
       return {
-        category: 'support',
+        category: 'rationale',
         support: endpointRefDetails(source),
         claim: endpointRefDetails(target),
         stance: draft.stance,
@@ -89,9 +89,16 @@ function reviewSetEdgeDetails(
         concrete: endpointRefDetails(target),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       };
-    case 'boundary':
+    case 'refinement':
       return {
-        category: 'boundary',
+        category: 'refinement',
+        abstract: endpointRefDetails(source),
+        concrete: endpointRefDetails(target),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'exclusion':
+      return {
+        category: 'exclusion',
         boundary: endpointRefDetails(source),
         subject: endpointRefDetails(target),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
@@ -103,9 +110,9 @@ function reviewSetEdgeDetails(
         part: endpointRefDetails(target),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       };
-    case 'association':
+    case 'cross_reference':
       return {
-        category: 'association',
+        category: 'cross_reference',
         a: endpointRefDetails(source),
         b: endpointRefDetails(target),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),

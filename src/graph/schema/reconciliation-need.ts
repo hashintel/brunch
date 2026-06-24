@@ -1,7 +1,7 @@
 /**
  * Reconciliation-need type definitions.
  *
- * Canonical reference: docs/design/GRAPH_MODEL.md §"ReconciliationNeed"
+ * Canonical reference: memory/SPEC.md D8-L (reconciliation-need substrate), D51-L
  *
  * A reconciliation_need is a first-class record of an open impasse
  * over graph state — typically "this edge needs re-validation"

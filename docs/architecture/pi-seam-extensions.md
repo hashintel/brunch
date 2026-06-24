@@ -689,14 +689,14 @@ Kernel-activation gate: behavioral kernels should not engage in earnest before a
 #### Edge types
 
 > **Retired 2026-05-31.** The named-relation catalogue below is
-> superseded by [`docs/design/GRAPH_MODEL.md`](../design/GRAPH_MODEL.md),
-> which defines a closed set of eight structural edge categories
-> (`dependency`, `proof`, `support`, `realization`, `boundary`,
-> `composition`, `association`, `supersession`) with per-category
-> policy. The named relations below map into that scheme — see
-> GRAPH_MODEL.md §"Worked examples" for the oracle-plane mapping. The
-> oracle-plane *nodes* (`Check`, `ValidationMethod`, `Evidence`,
-> `Obligation`) defined above are not retired by this annotation.
+> superseded by the closed edge-category set in
+> [`src/graph/policy/category-policy.ts`](../../src/graph/policy/category-policy.ts)
+> (SPEC D51-L): nine structural categories (`dependency`, `witness`,
+> `rationale`, `realization`, `refinement`, `exclusion`, `composition`,
+> `cross_reference`, `supersession`) with per-category policy. The named
+> relations below map into that scheme. The oracle-plane *nodes* (`Check`,
+> `ValidationMethod`, `Evidence`, `Obligation`) defined above are not retired
+> by this annotation.
 
 Additive to the M4 edge-type catalogue (now retired — see note above):
 
@@ -711,7 +711,7 @@ Additive to the M4 edge-type catalogue (now retired — see note above):
 
 #### Coherence rule for assumption invalidation cascade
 
-One new rule in the coherence validator: when an `Assumption` transitions to `invalidated`, every active `Requirement` or `Invariant` with a `depends_on` edge to it must transition to `blocked` or surface a coherence violation. (Under the retired catalogue this keyed on the `depends_on` named relation; under GRAPH_MODEL.md the equivalent edges are `dependency(assumption → requirement)` and `dependency(assumption → invariant)`. The cascade rule is the same.) This is the cascade in its minimum form — a coherence rule, not an evolution engine. It composes with the M8 coherence work without inventing a separate lifecycle subsystem.
+One new rule in the coherence validator: when an `Assumption` transitions to `invalidated`, every active `Requirement` or `Invariant` with a `depends_on` edge to it must transition to `blocked` or surface a coherence violation. (Under the retired catalogue this keyed on the `depends_on` named relation; under the current model (SPEC D51-L) the equivalent edges are `dependency(assumption → requirement)` and `dependency(assumption → invariant)`. The cascade rule is the same.) This is the cascade in its minimum form — a coherence rule, not an evolution engine. It composes with the M8 coherence work without inventing a separate lifecycle subsystem.
 
 #### What the stub enables and what it does not
 

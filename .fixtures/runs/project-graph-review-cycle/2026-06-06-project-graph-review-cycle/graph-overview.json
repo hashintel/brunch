@@ -1025,7 +1025,7 @@
     {
       "id": 7,
       "specId": 1,
-      "category": "support",
+      "category": "rationale",
       "sourceId": 60,
       "targetId": 71,
       "basis": "explicit",
@@ -1037,7 +1037,7 @@
     {
       "id": 8,
       "specId": 1,
-      "category": "support",
+      "category": "rationale",
       "sourceId": 43,
       "targetId": 71,
       "basis": "explicit",
@@ -1049,7 +1049,7 @@
     {
       "id": 9,
       "specId": 1,
-      "category": "support",
+      "category": "rationale",
       "sourceId": 67,
       "targetId": 72,
       "basis": "explicit",
@@ -1061,7 +1061,7 @@
     {
       "id": 10,
       "specId": 1,
-      "category": "support",
+      "category": "rationale",
       "sourceId": 11,
       "targetId": 72,
       "basis": "explicit",

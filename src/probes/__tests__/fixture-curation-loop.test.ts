@@ -54,7 +54,7 @@ const mixedBasisOverview: GraphSlice = {
       specId: 7,
       sourceId: 2,
       targetId: 1,
-      category: 'support',
+      category: 'rationale',
       stance: 'for',
       basis: 'implicit',
       createdAtLsn: 3,

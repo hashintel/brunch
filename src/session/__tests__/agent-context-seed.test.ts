@@ -58,7 +58,7 @@ const overview: GraphSlice = {
     {
       id: 11,
       specId: 1,
-      category: 'proof',
+      category: 'witness',
       sourceId: 3,
       targetId: 4,
       stance: 'for',

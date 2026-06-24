@@ -52,7 +52,7 @@ const approvedOverview: GraphSlice = {
       specId: 7,
       sourceId: 2,
       targetId: 1,
-      category: 'support',
+      category: 'rationale',
       stance: 'for',
       basis: 'explicit',
       createdAtLsn: 3,
@@ -99,7 +99,7 @@ function presentReviewSetEntry(): string {
       ],
       edges: [
         {
-          category: 'support',
+          category: 'rationale',
           support: { draft_id: 'req-resolution-state' },
           claim: { existing_code: 'G1' },
           stance: 'for',
@@ -130,7 +130,7 @@ function pendingReviewResponse(): JsonRpcResponse {
         mode: 'review',
         reviewSet: {
           nodes: [{ draft_id: 'req-resolution-state' }],
-          edges: [{ category: 'support' }],
+          edges: [{ category: 'rationale' }],
         },
       },
     },

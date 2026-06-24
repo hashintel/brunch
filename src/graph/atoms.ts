@@ -1,7 +1,7 @@
 /**
  * Graph atoms — id and clock primitives shared across the graph layer.
  *
- * Canonical reference: docs/design/GRAPH_MODEL.md §"Atoms"
+ * Canonical reference: memory/SPEC.md D8-L (spec-local LSN clock), D62-L (integer node ids vs projected codes)
  *
  * Phase 1 lock-and-materialize: type definitions only.
  * Persistence (Drizzle + better-sqlite3 tables, LSN allocation, change_log)

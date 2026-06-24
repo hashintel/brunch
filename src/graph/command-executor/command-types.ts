@@ -8,6 +8,7 @@
  */
 
 import type { ElicitationGapLensAffinity, GapDisposition, GapPredicate } from '../schema/elicitation-gaps.js';
+import type { SpecKind } from '../schema/kinds.js';
 import type { NodeBasis, NodeKind, NodePlane, ReadinessBand } from '../schema/nodes.js';
 import type { MutateGraphSuccess, StructuralIllegal } from './graph-mutation-types.js';
 
@@ -86,6 +87,7 @@ export interface SpecRecord {
   readonly id: number;
   readonly name: string;
   readonly slug: string;
+  readonly kind: SpecKind;
 }
 
 /** Union of all possible command results. */
@@ -142,6 +144,8 @@ export type AcceptReviewSetDryRunResult = { readonly status: 'success' } | Struc
 export interface CreateSpecInput {
   readonly name: string;
   readonly slug: string;
+  /** Spec scope (D89-L); defaults to `product` (broadest ownership) when omitted. */
+  readonly kind?: SpecKind;
 }
 
 /** Input for accepting an exact user-reviewed graph batch. */

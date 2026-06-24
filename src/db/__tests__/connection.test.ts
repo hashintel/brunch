@@ -135,7 +135,7 @@ async function createLegacy0000Database(dbPath: string): Promise<void> {
       INSERT INTO edges (
         id, spec_id, category, source_id, target_id, stance, basis, rationale, created_at_lsn, updated_at_lsn
       )
-      VALUES (1, 1, 'support', 1, 3, 'for', 'accepted_review_set', NULL, 6, 8);
+      VALUES (1, 1, 'rationale', 1, 3, 'for', 'accepted_review_set', NULL, 6, 8);
 
       INSERT INTO reconciliation_need (
         id, spec_id, target_kind, target_edge_id, target_a_id, target_b_id, kind, status, reason, created_at_lsn, resolved_at_lsn

@@ -61,14 +61,14 @@
     { "local_id": 45, "plane": "oracle", "kind": "check", "title": "Static guard: manifest/catalog generation does not import or Vite-load story modules", "basis": "explicit", "source": "memory/SPEC.md" },
     { "local_id": 46, "plane": "oracle", "kind": "check", "title": "Static guard: preview mode does not grow the documented Vite contact surface", "basis": "explicit", "source": "memory/SPEC.md" },
 
-    { "local_id": 47, "plane": "oracle", "kind": "validation_method", "title": "Playwright headless Chromium browser probes for end-to-end DOM behavior", "basis": "explicit", "source": "memory/SPEC.md" },
-    { "local_id": 48, "plane": "oracle", "kind": "validation_method", "title": "Mount-id marker convention: compare data-mount-id across URL changes to assert remount vs rerender", "basis": "explicit", "source": "memory/SPEC.md" },
-    { "local_id": 49, "plane": "oracle", "kind": "validation_method", "title": "Six-tier probe harness in tools/verify.ts: static, browser, dynamic, SSR, build, preview", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 47, "plane": "oracle", "kind": "vv_method", "title": "Playwright headless Chromium browser probes for end-to-end DOM behavior", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 48, "plane": "oracle", "kind": "vv_method", "title": "Mount-id marker convention: compare data-mount-id across URL changes to assert remount vs rerender", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 49, "plane": "oracle", "kind": "vv_method", "title": "Six-tier probe harness in tools/verify.ts: static, browser, dynamic, SSR, build, preview", "basis": "explicit", "source": "memory/SPEC.md" },
 
     { "local_id": 50, "plane": "oracle", "kind": "evidence", "title": "vite-config-composition spike: 5 fixtures pass, no-merge audit passes, contact surface enumerated", "basis": "explicit", "source": "memory/SPEC.md" },
     { "local_id": 51, "plane": "oracle", "kind": "evidence", "title": "Slice 5c probes: live preview-mode transition reconciliation and dev catalog freshness pass", "basis": "explicit", "source": "memory/ROADMAP.md" },
 
-    { "local_id": 52, "plane": "oracle", "kind": "obligation", "title": "docs/vite-contact-surface.md is reviewed at PR time; new Vite-internal dependencies require explicit justification", "basis": "explicit", "source": "memory/SPEC.md" },
+    { "local_id": 52, "plane": "oracle", "kind": "vv_obligation", "title": "docs/vite-contact-surface.md is reviewed at PR time; new Vite-internal dependencies require explicit justification", "basis": "explicit", "source": "memory/SPEC.md" },
 
     { "local_id": 53, "plane": "design", "kind": "module", "title": "Workbench Core — normalized story graph, shell state, metadata contracts, capability orchestration", "basis": "explicit", "source": "memory/SPEC.md" },
     { "local_id": 54, "plane": "design", "kind": "module", "title": "Vite Host Binding — integrates the core into Vite dev/build/preview", "basis": "explicit", "source": "memory/SPEC.md" },
@@ -106,10 +106,10 @@
     { "category": "realization", "source_local_id": 20, "target_local_id": 56, "basis": "explicit", "rationale": "The controls capability realizes the optional-capability requirement." },
     { "category": "realization", "source_local_id": 21, "target_local_id": 55, "basis": "explicit", "rationale": "The React adapter implements no-leak story transitions via unmount/remount." },
 
-    { "category": "boundary", "source_local_id": 28, "target_local_id": 1, "basis": "explicit", "rationale": "The Vite-8-only constraint bounds how the workbench goal may be met." },
-    { "category": "boundary", "source_local_id": 29, "target_local_id": 15, "basis": "explicit", "rationale": "The no-merge constraint bounds the config-consumption requirement." },
-    { "category": "boundary", "source_local_id": 30, "target_local_id": 55, "basis": "explicit", "rationale": "The no-React constraint bounds how the React adapter may import React." },
-    { "category": "boundary", "source_local_id": 31, "target_local_id": 54, "basis": "explicit", "rationale": "The preserve-root constraint bounds how the host binding serves assets." },
+    { "category": "exclusion", "source_local_id": 28, "target_local_id": 1, "basis": "explicit", "rationale": "The Vite-8-only constraint bounds how the workbench goal may be met." },
+    { "category": "exclusion", "source_local_id": 29, "target_local_id": 15, "basis": "explicit", "rationale": "The no-merge constraint bounds the config-consumption requirement." },
+    { "category": "exclusion", "source_local_id": 30, "target_local_id": 55, "basis": "explicit", "rationale": "The no-React constraint bounds how the React adapter may import React." },
+    { "category": "exclusion", "source_local_id": 31, "target_local_id": 54, "basis": "explicit", "rationale": "The preserve-root constraint bounds how the host binding serves assets." },
 
     { "category": "composition", "source_local_id": 60, "target_local_id": 65, "basis": "explicit", "rationale": "The walking-skeleton milestone contains the config-composition spike." },
     { "category": "composition", "source_local_id": 62, "target_local_id": 66, "basis": "explicit", "rationale": "The live-shell milestone contains the preview-mode slice." },
@@ -117,23 +117,23 @@
     { "category": "composition", "source_local_id": 63, "target_local_id": 56, "basis": "explicit", "rationale": "The adapter/capability frontier delivers the controls capability." },
     { "category": "composition", "source_local_id": 63, "target_local_id": 58, "basis": "explicit", "rationale": "The adapter/capability frontier produces the adapter contract." },
 
-    { "category": "association", "source_local_id": 5, "target_local_id": 14, "basis": "explicit", "rationale": "The Ladle watermark term and the Ladle-as-corpus context are peer framings of the same prior art." },
-    { "category": "association", "source_local_id": 3, "target_local_id": 4, "basis": "explicit", "rationale": "The delegate-to-Vite thesis and the contact-surface thinness thesis are peer commitments." },
-    { "category": "association", "source_local_id": 10, "target_local_id": 4, "basis": "explicit", "rationale": "The false-thinness anti-pattern sharpens the contact-surface thinness thesis." },
+    { "category": "cross_reference", "source_local_id": 5, "target_local_id": 14, "basis": "explicit", "rationale": "The Ladle watermark term and the Ladle-as-corpus context are peer framings of the same prior art." },
+    { "category": "cross_reference", "source_local_id": 3, "target_local_id": 4, "basis": "explicit", "rationale": "The delegate-to-Vite thesis and the contact-surface thinness thesis are peer commitments." },
+    { "category": "cross_reference", "source_local_id": 10, "target_local_id": 4, "basis": "explicit", "rationale": "The false-thinness anti-pattern sharpens the contact-surface thinness thesis." },
 
     { "category": "supersession", "source_local_id": 22, "target_local_id": 23, "basis": "explicit", "rationale": "Manifest-backed controls defaults supersede the earlier client-side mod.args reading." },
 
-    { "category": "proof", "source_local_id": 43, "target_local_id": 30, "stance": "for", "basis": "explicit", "rationale": "The no-React seed-check witnesses the zero-React-dependency constraint." },
-    { "category": "proof", "source_local_id": 44, "target_local_id": 32, "stance": "for", "basis": "explicit", "rationale": "The boundary seed-check witnesses the core-must-not-import-host invariant." },
-    { "category": "proof", "source_local_id": 45, "target_local_id": 19, "stance": "for", "basis": "explicit", "rationale": "The no-story-import guard witnesses manifest-generation independence." },
-    { "category": "proof", "source_local_id": 47, "target_local_id": 21, "stance": "for", "basis": "explicit", "rationale": "The Playwright probes witness no-leak story transitions." },
-    { "category": "proof", "source_local_id": 50, "target_local_id": 25, "stance": "for", "basis": "explicit", "rationale": "The config-composition spike witnesses the single-env composition assumption." },
-    { "category": "proof", "source_local_id": 51, "target_local_id": 26, "stance": "for", "basis": "explicit", "rationale": "The slice 5c probes witness the dev-catalog memoization-without-staleness assumption." },
+    { "category": "witness", "source_local_id": 43, "target_local_id": 30, "stance": "for", "basis": "explicit", "rationale": "The no-React seed-check witnesses the zero-React-dependency constraint." },
+    { "category": "witness", "source_local_id": 44, "target_local_id": 32, "stance": "for", "basis": "explicit", "rationale": "The boundary seed-check witnesses the core-must-not-import-host invariant." },
+    { "category": "witness", "source_local_id": 45, "target_local_id": 19, "stance": "for", "basis": "explicit", "rationale": "The no-story-import guard witnesses manifest-generation independence." },
+    { "category": "witness", "source_local_id": 47, "target_local_id": 21, "stance": "for", "basis": "explicit", "rationale": "The Playwright probes witness no-leak story transitions." },
+    { "category": "witness", "source_local_id": 50, "target_local_id": 25, "stance": "for", "basis": "explicit", "rationale": "The config-composition spike witnesses the single-env composition assumption." },
+    { "category": "witness", "source_local_id": 51, "target_local_id": 26, "stance": "for", "basis": "explicit", "rationale": "The slice 5c probes witness the dev-catalog memoization-without-staleness assumption." },
 
-    { "category": "support", "source_local_id": 12, "target_local_id": 1, "stance": "for", "basis": "explicit", "rationale": "Vite 8's arrival and Ladle's poor fit motivate building the new workbench." },
-    { "category": "support", "source_local_id": 13, "target_local_id": 3, "stance": "for", "basis": "explicit", "rationale": "The ecosystem's thin-adapter pattern motivates the delegate-to-Vite thesis." },
-    { "category": "support", "source_local_id": 24, "target_local_id": 3, "stance": "for", "basis": "explicit", "rationale": "The Vite-8-is-sufficient assumption underwrites the delegate-to-Vite thesis." },
-    { "category": "support", "source_local_id": 2, "target_local_id": 15, "stance": "for", "basis": "explicit", "rationale": "The unmodified-config goal motivates the no-merge consumption requirement." },
-    { "category": "support", "source_local_id": 42, "target_local_id": 21, "stance": "against", "basis": "explicit", "rationale": "The latent concurrent-render race argues against the clean no-leak transition guarantee." }
+    { "category": "rationale", "source_local_id": 12, "target_local_id": 1, "stance": "for", "basis": "explicit", "rationale": "Vite 8's arrival and Ladle's poor fit motivate building the new workbench." },
+    { "category": "rationale", "source_local_id": 13, "target_local_id": 3, "stance": "for", "basis": "explicit", "rationale": "The ecosystem's thin-adapter pattern motivates the delegate-to-Vite thesis." },
+    { "category": "rationale", "source_local_id": 24, "target_local_id": 3, "stance": "for", "basis": "explicit", "rationale": "The Vite-8-is-sufficient assumption underwrites the delegate-to-Vite thesis." },
+    { "category": "rationale", "source_local_id": 2, "target_local_id": 15, "stance": "for", "basis": "explicit", "rationale": "The unmodified-config goal motivates the no-merge consumption requirement." },
+    { "category": "rationale", "source_local_id": 42, "target_local_id": 21, "stance": "against", "basis": "explicit", "rationale": "The latent concurrent-render race argues against the clean no-leak transition guarantee." }
   ]
 }

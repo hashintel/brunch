@@ -22,8 +22,8 @@ This pattern is **reusable across generative lenses**: the same mechanism that h
 
 Generative-lens proposals carry **structured entity-draft payloads** inside the `present_review_set` / `request_review` structured exchange. The proposal contains the graph entities and edges that *would* be created on acceptance, in a form `CommandExecutor` can validate without re-parsing.
 
-Edge drafts follow the locked graph contract from [GRAPH_MODEL.md](GRAPH_MODEL.md):
-closed `category` values, optional `stance` only for `proof`/`support`, and
+Edge drafts follow the locked graph contract from [`category-policy.ts`](../../src/graph/policy/category-policy.ts) (SPEC D51-L):
+closed `category` values, optional `stance` only for `witness`/`rationale`, and
 projected existing-node codes at adapter/UI boundaries instead of raw DB ids.
 Review-set payloads no longer carry a free-form `relation` string or a
 `basis: "accepted_review_set"` path value. Acceptance commits exact reviewed
@@ -50,7 +50,7 @@ Approximate shape (refined during M5 implementation):
     ],
     edge_drafts: [
       {
-        category: "support",
+        category: "rationale",
         source_draft_id: "thesis-1",
         target_draft_id: "requirement-2",
         stance: "for",

@@ -64,7 +64,7 @@ function reviewSetEdgeDraftFromDetails(
         dependent: endpointRefFromDetails(draft.dependent),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       };
-    case 'proof':
+    case 'witness':
       return {
         category: draft.category,
         oracle: endpointRefFromDetails(draft.oracle),
@@ -72,7 +72,7 @@ function reviewSetEdgeDraftFromDetails(
         stance: draft.stance,
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       };
-    case 'support':
+    case 'rationale':
       return {
         category: draft.category,
         support: endpointRefFromDetails(draft.support),
@@ -87,7 +87,14 @@ function reviewSetEdgeDraftFromDetails(
         concrete: endpointRefFromDetails(draft.concrete),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       };
-    case 'boundary':
+    case 'refinement':
+      return {
+        category: draft.category,
+        abstract: endpointRefFromDetails(draft.abstract),
+        concrete: endpointRefFromDetails(draft.concrete),
+        ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
+      };
+    case 'exclusion':
       return {
         category: draft.category,
         boundary: endpointRefFromDetails(draft.boundary),
@@ -101,7 +108,7 @@ function reviewSetEdgeDraftFromDetails(
         part: endpointRefFromDetails(draft.part),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       };
-    case 'association':
+    case 'cross_reference':
       return {
         category: draft.category,
         a: endpointRefFromDetails(draft.a),

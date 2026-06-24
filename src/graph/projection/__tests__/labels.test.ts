@@ -25,21 +25,24 @@ const BASE_MATRIX: readonly BaseCell[] = [
   { category: 'dependency', anchorRole: 'source', label: 'required by' },
   { category: 'dependency', anchorRole: 'target', label: 'depends on' },
 
-  { category: 'proof', anchorRole: 'source', stance: 'for', label: 'witnesses' },
-  { category: 'proof', anchorRole: 'source', stance: 'against', label: 'refutes' },
-  { category: 'proof', anchorRole: 'target', stance: 'for', label: 'witnessed by' },
-  { category: 'proof', anchorRole: 'target', stance: 'against', label: 'challenged by' },
+  { category: 'witness', anchorRole: 'source', stance: 'for', label: 'witnesses' },
+  { category: 'witness', anchorRole: 'source', stance: 'against', label: 'refutes' },
+  { category: 'witness', anchorRole: 'target', stance: 'for', label: 'witnessed by' },
+  { category: 'witness', anchorRole: 'target', stance: 'against', label: 'challenged by' },
 
-  { category: 'support', anchorRole: 'source', stance: 'for', label: 'supports' },
-  { category: 'support', anchorRole: 'source', stance: 'against', label: 'argues against' },
-  { category: 'support', anchorRole: 'target', stance: 'for', label: 'motivated by' },
-  { category: 'support', anchorRole: 'target', stance: 'against', label: 'opposed by' },
+  { category: 'rationale', anchorRole: 'source', stance: 'for', label: 'supports' },
+  { category: 'rationale', anchorRole: 'source', stance: 'against', label: 'argues against' },
+  { category: 'rationale', anchorRole: 'target', stance: 'for', label: 'motivated by' },
+  { category: 'rationale', anchorRole: 'target', stance: 'against', label: 'opposed by' },
 
   { category: 'realization', anchorRole: 'source', label: 'realized by' },
   { category: 'realization', anchorRole: 'target', label: 'realizes' },
 
-  { category: 'boundary', anchorRole: 'source', label: 'bounds' },
-  { category: 'boundary', anchorRole: 'target', label: 'bounded by' },
+  { category: 'refinement', anchorRole: 'source', label: 'refined by' },
+  { category: 'refinement', anchorRole: 'target', label: 'refines' },
+
+  { category: 'exclusion', anchorRole: 'source', label: 'bounds' },
+  { category: 'exclusion', anchorRole: 'target', label: 'bounded by' },
 
   { category: 'composition', anchorRole: 'source', label: 'contains' },
   { category: 'composition', anchorRole: 'target', label: 'part of' },
@@ -47,8 +50,8 @@ const BASE_MATRIX: readonly BaseCell[] = [
   { category: 'supersession', anchorRole: 'source', label: 'supersedes' },
   { category: 'supersession', anchorRole: 'target', label: 'superseded by' },
 
-  { category: 'association', anchorRole: 'source', label: 'related to' },
-  { category: 'association', anchorRole: 'target', label: 'related to' },
+  { category: 'cross_reference', anchorRole: 'source', label: 'related to' },
+  { category: 'cross_reference', anchorRole: 'target', label: 'related to' },
 ];
 
 interface RefineCell {
