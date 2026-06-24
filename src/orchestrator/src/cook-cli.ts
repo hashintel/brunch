@@ -10,6 +10,7 @@ import {
   mergeCompletedSlicesIntoTree,
   mergeSourceDirsIntoTree,
 } from './epic-sandbox-merge.js';
+import { projectExecProgress, writeExecProgress } from './exec-progress.js';
 import { FileReportSink } from './file-report-sink.js';
 import { loadLocalEnvFile } from './local-env.js';
 import type { FiringPolicy } from './petri-net.js';
@@ -672,6 +673,21 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
       reportsPath,
     })) {
       line(l);
+    }
+
+    // Durable execution-progress snapshot (FE-885): project the terminal
+    // result onto the spec's intent graph and write `exec-progress.json` into
+    // the spec-scoped run store, so a later UI can show what the spec asked for
+    // vs. what executed without re-deriving from raw agent output. Only when
+    // the run is spec-tied (`plan.spec` present → `runStoreDir` is the durable
+    // store); best-effort — a snapshot hiccup must never fail a good run.
+    if (plan.spec) {
+      try {
+        const progress = projectExecProgress({ plan, result, runId });
+        writeExecProgress(runStoreDir, progress);
+      } catch {
+        /* leave the run otherwise intact if the snapshot write hiccups */
+      }
     }
 
     // Brownfield promotion is automatic (the result already lives on the repo's
