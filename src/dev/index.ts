@@ -22,6 +22,14 @@ export {
   type BrunchIntrospectionSession,
 } from './introspection-launcher.js';
 export {
+  runGenerateFanOutWitness,
+  summarizeGenerateFanOutWitness,
+  writeGenerateFanOutWitnessArtifacts,
+  type GenerateFanOutWitnessArtifacts,
+  type GenerateFanOutWitnessReport,
+  type GenerateFanOutWitnessSummaryInput,
+} from './generate-fan-out-witness.js';
+export {
   resumeTier2Fixture,
   runTier2RealBootFauxTurn,
   type Tier2RealBootTurnResult,
