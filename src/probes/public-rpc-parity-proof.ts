@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { createRpcHandlers } from '../rpc/handlers.js';
-import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { mintDeterministicExchangeIntoSessionFile } from './deterministic-exchange-script.js';
 import { assertPortableRunId, portableCwd } from './portable-report.js';
@@ -52,7 +51,6 @@ interface PendingResult {
 interface PublicRpcParityProofArtifacts {
   runDir: string;
   sessionJsonl: string;
-  transcriptMarkdown: string;
   reportJson: string;
 }
 
@@ -282,13 +280,7 @@ export async function runPublicRpcParityProof(
   }
   const tools = toolResultEntries(sessionText);
   const toolCoverage = [...new Set(tools.map((entry) => entry.toolName))].sort();
-  for (const required of [
-    'present_question',
-    'request_answer',
-    'present_options',
-    'request_choice',
-    'request_choices',
-  ]) {
+  for (const required of ['present_question', 'request_response']) {
     if (!toolCoverage.includes(required)) {
       throw new Error(`Missing tool coverage for ${required}`);
     }
@@ -306,7 +298,9 @@ export async function runPublicRpcParityProof(
     throw new Error('Public RPC parity proof repeated deterministic prompts');
   }
 
-  const optionPresentResults = tools.filter((entry) => entry.toolName === 'present_options');
+  const optionPresentResults = tools.filter(
+    (entry) => entry.toolName === 'present_question' && Array.isArray(entry.details?.options),
+  );
   for (const entry of optionPresentResults) {
     const richOption = entry.details?.options?.find(
       (option) => option.content !== undefined && option.rationale !== undefined,
@@ -395,7 +389,6 @@ async function writeProofArtifacts(options: {
   const artifacts: PublicRpcParityProofArtifacts = {
     runDir: runDirRef,
     sessionJsonl: `${runDirRef}/session.jsonl`,
-    transcriptMarkdown: `${runDirRef}/transcript.md`,
     reportJson: `${runDirRef}/report.json`,
   };
   const diskPath = (ref: string) => resolve(options.fixtureRoot, ref);
@@ -407,11 +400,6 @@ async function writeProofArtifacts(options: {
 
   await mkdir(diskPath(artifacts.runDir), { recursive: true });
   await writeFile(diskPath(artifacts.sessionJsonl), options.sessionText, 'utf8');
-  await writeFile(
-    diskPath(artifacts.transcriptMarkdown),
-    renderSessionTranscript(options.sessionText, { title: 'session.jsonl' }),
-    'utf8',
-  );
   await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(persistedReport, null, 2)}\n`, 'utf8');
 
   return artifacts;

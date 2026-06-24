@@ -8,7 +8,6 @@ const SOURCE_ROOT = 'src';
 const PROJECTIONS_ROOT = 'src/projections';
 const ADAPTER_IMPORT_SEGMENTS = ['/.pi/', '/rpc/', '/app/', '/web/'];
 const PROJECTION_ADAPTER_EXCEPTIONS: Record<string, true> = {
-  'src/projections/exchanges/present-options.ts': true,
   'src/projections/exchanges/present-question.ts': true,
   'src/projections/exchanges/present-review-set.ts': true,
   'src/projections/exchanges/request-answer.ts': true,

@@ -10,16 +10,12 @@ const BRUNCH_DEBUG_CONTENT_TOOL_NAMES = new Set([
   'brunch_session_query',
   'mutate_graph',
   'present_alternatives',
-  'present_options',
   'present_question',
   'present_review_set',
   'read_graph',
   'read_session_context',
   'read_workspace_context',
-  'request_answer',
-  'request_choice',
-  'request_choices',
-  'request_review',
+  'request_response',
 ]);
 
 export async function mirrorSystemPromptToDebugCache(

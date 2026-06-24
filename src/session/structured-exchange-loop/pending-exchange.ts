@@ -27,10 +27,10 @@ export const zPendingStructuredExchange = z
     note: z.object({ allowed: z.boolean() }).strict(),
     reviewSet: z.record(z.string(), z.unknown()).optional(),
     // Which present tool opened a single-select exchange. Candidate lists and
-    // option lists both answer via request_choice but capture differently
+    // prompt option lists both answer via request_choice but capture differently
     // (capture_candidate vs capture_choice), so the provenance must round-trip
-    // rather than be assumed. Absent ⇒ present_options.
-    respondsToPresentTool: z.enum(['present_options', 'present_candidates']).optional(),
+    // rather than be assumed. Absent ⇒ present_question.
+    respondsToPresentTool: z.enum(['present_question', 'present_candidates']).optional(),
   })
   .strict();
 export const PendingStructuredExchangeSchema = z.toJSONSchema(zPendingStructuredExchange, {
@@ -109,12 +109,7 @@ function pendingExchangeFromStructuredPresent(
     };
   }
 
-  const mode =
-    details.tool_meta.next === 'request_choices'
-      ? 'multi-select'
-      : details.tool_meta.curr === 'present_question'
-        ? 'text'
-        : 'single-select';
+  const mode = promptMode(details);
 
   return {
     exchangeId: details.exchange_id,
@@ -122,10 +117,7 @@ function pendingExchangeFromStructuredPresent(
     mode,
     prompt,
     ...(detailsText.length > 0 ? { details: detailsText } : {}),
-    options:
-      'options' in details
-        ? parsePendingOptions(details.options, markdown)
-        : parsePendingOptions(undefined, markdown),
+    options: pendingOptionsFromDetails(details, markdown),
     note: { allowed: true },
     // Preserve which present tool opened a single-select exchange so the answer
     // captures as the matching tool (candidate vs choice).
@@ -135,12 +127,26 @@ function pendingExchangeFromStructuredPresent(
   };
 }
 
+function promptMode(details: PresentDetails): PendingStructuredExchange['mode'] {
+  if (details.tool_meta.curr !== 'present_question') return 'single-select';
+  const responseKind = (details as { response_kind: 'answer' | 'choice' | 'choices' }).response_kind;
+  if (responseKind === 'answer') return 'text';
+  if (responseKind === 'choices') return 'multi-select';
+  return 'single-select';
+}
+
 function presentDetailsText(details: PresentDetails, markdown: string): string {
   if ('preface' in details.display && details.display.preface && details.display.body) {
     return `${details.display.preface}\n\n${details.display.body}`;
   }
   if ('preface' in details.display && details.display.preface) return details.display.preface;
   return details.display.body ?? markdown;
+}
+
+function pendingOptionsFromDetails(details: PresentDetails, markdown: string): PendingChoice[] {
+  if ('options' in details) return parsePendingOptions(details.options, markdown);
+  if ('candidates' in details) return parsePendingCandidates(details.candidates, markdown);
+  return parsePendingOptions(undefined, markdown);
 }
 
 function parsePendingOptions(value: unknown, markdown: string = ''): PendingChoice[] {
@@ -167,6 +173,18 @@ function parsePendingOptions(value: unknown, markdown: string = ''): PendingChoi
   return options.length > 0 ? options : parseMarkdownPendingOptions(markdown);
 }
 
+function parsePendingCandidates(value: unknown, markdown: string = ''): PendingChoice[] {
+  if (!Array.isArray(value)) return parseMarkdownPendingOptions(markdown);
+  const candidates = value.flatMap((candidate) => {
+    if (typeof candidate !== 'object' || candidate === null) return [];
+    const id = (candidate as { id?: unknown }).id;
+    const title = (candidate as { title?: unknown }).title;
+    if (typeof id !== 'string' || typeof title !== 'string') return [];
+    return [{ id, label: title, content: title }];
+  });
+  return candidates.length > 0 ? candidates : parseMarkdownPendingOptions(markdown);
+}
+
 function parseMarkdownPendingOptions(markdown: string): PendingChoice[] {
   const options: PendingChoice[] = [];
   let pending:
@@ -177,7 +195,7 @@ function parseMarkdownPendingOptions(markdown: string): PendingChoice[] {
     | undefined;
 
   for (const line of markdown.split('\n')) {
-    const heading = /^###\s+\d+\.\s+(.+)$/.exec(line.trim());
+    const heading = /^#{2,3}\s+\d+\.\s+(.+)$/.exec(line.trim());
     if (heading) {
       pending = { content: heading[1]!.trim() };
       continue;

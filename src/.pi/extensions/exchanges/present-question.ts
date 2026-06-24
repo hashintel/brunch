@@ -12,10 +12,11 @@ export const presentQuestionTool = defineTool({
   name: PRESENT_QUESTION_TOOL,
   label: 'Present question',
   description:
-    'Persist and display a structured question as the present half of a Brunch structured exchange. Call request_answer after this result is available.',
-  promptSnippet: 'Present a structured question before requesting an answer',
+    'Persist and display a structured Brunch question. Omit options for free-text; include options for choice; set multiple for multi-choice. Call request_response after this result is available.',
+  promptSnippet: 'Present a structured question before requesting a response',
   promptGuidelines: [
-    'Use present_question before request_answer — a free-text question is answered by request_answer only, never request_choice/request_choices (those follow present_options/present_candidates). For a multiple-choice question, use present_options instead.',
+    'Use present_question for both free-text and option-based prompts; options[] presence determines the response kind.',
+    'Call request_response after present_question. Do not call request_answer, request_choice, or request_choices.',
     'The durable user-visible question is this tool result, not renderCall.',
   ],
   parameters: piSchema(zPresentQuestionParams),

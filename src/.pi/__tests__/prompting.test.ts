@@ -132,7 +132,7 @@ describe('Brunch prompt-pack topology', () => {
       ]),
       spec: promptContext.spec,
       workspace: promptContext.workspace,
-      activeTools: ['read', 'grep', 'present_options'],
+      activeTools: ['read', 'grep', 'present_question'],
       gaps: groundingFloorGaps(),
     });
 
@@ -165,7 +165,7 @@ describe('Brunch prompt-pack topology', () => {
           events[event] = handler;
         },
         getAllTools: () =>
-          ['read', 'grep', 'bash', 'write', 'present_options', 'request_answer'].map((name) => ({
+          ['read', 'grep', 'bash', 'write', 'present_question', 'request_response'].map((name) => ({
             name,
           })),
       } as never,
@@ -199,7 +199,7 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.stringContaining('- strategy: step-wise-disambiguate'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('- active tools: read, grep, present_options, request_answer'),
+      systemPrompt: expect.stringContaining('- active tools: read, grep, present_question, request_response'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining(
@@ -325,10 +325,8 @@ describe('Brunch prompt-pack topology', () => {
           'bash',
           'edit',
           'write',
-          'present_options',
-          'request_answer',
-          'request_choice',
-          'request_choices',
+          'present_question',
+          'request_response',
           'present_review_set',
           'request_review',
           'read_graph',
@@ -377,17 +375,14 @@ describe('Brunch prompt-pack topology', () => {
     const switchedPrompt = switchedPromptResults.find(Boolean);
 
     expect(manager.entries[0]?.customType).toBe(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE);
-    // D86-L: graph-write tools (present_review_set / request_review / mutate_graph) are
+    // D86-L: graph-write tools (present_review_set / request_response / mutate_graph) are
     // floor in elicit mode, so every entry carries them regardless of gap coverage.
     const elicitFloorTools = [
       'read',
       'grep',
-      'present_options',
-      'request_answer',
-      'request_choice',
-      'request_choices',
+      'present_question',
+      'request_response',
       'present_review_set',
-      'request_review',
       'read_graph',
       'read_session_context',
       'mutate_graph',
@@ -407,7 +402,7 @@ describe('Brunch prompt-pack topology', () => {
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
-        '- active tools: read, grep, present_options, request_answer, request_choice, request_choices, present_review_set, request_review, read_graph, read_session_context, mutate_graph',
+        '- active tools: read, grep, present_question, request_response, present_review_set, read_graph, read_session_context, mutate_graph',
       ),
     });
     expect(defaultPrompt).toMatchObject({
@@ -613,10 +608,7 @@ describe('Brunch prompt-pack topology', () => {
       registerShortcut() {},
       registerMessageRenderer() {},
       sendMessage() {},
-      getAllTools: () =>
-        ['read', 'grep', 'present_options', 'request_answer', 'request_choice', 'request_choices'].map(
-          (name) => ({ name }),
-        ),
+      getAllTools: () => ['read', 'grep', 'present_question', 'request_response'].map((name) => ({ name })),
       setActiveTools() {},
     } as never);
 

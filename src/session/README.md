@@ -31,8 +31,9 @@ plus the coordination logic for workspace/spec/session lifecycle.
   toolResult materialization, and the process-local live answer rendezvous used
   by the TUI sidecar (`live-exchange-broker.ts`). RPC maps these domain results
   to JSON-RPC status and error codes; transcript mechanics stay here. The broker
-  holds only an in-flight `request_answer` promise keyed by exchange id; the
-  answered result still reduces to Pi JSONL truth. **Provider-legality rule
+  holds only an in-flight `request_response` promise keyed by exchange id; the
+  answered result still reduces to canonical `request_answer` / `request_choice`
+  / `request_choices` Pi JSONL details. **Provider-legality rule
   (2026-06-12):** every synthetic exchange toolResult (present offers at
   origination, request responses at submit) persists as a *pair* — a synthetic
   assistant toolCall (`syntheticExchangeToolCallMessage`, sentinel provenance

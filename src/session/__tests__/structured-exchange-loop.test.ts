@@ -21,7 +21,7 @@ const bindingEntry = {
 } as const;
 
 describe('structured exchange loop helpers', () => {
-  it('materializes accepted text responses as request_answer tool results', () => {
+  it('materializes accepted text responses as request_response tool results', () => {
     const pending = nextDeterministicStructuredExchange(1);
 
     const accepted = acceptedResponseFromParams(pending, {
@@ -34,8 +34,8 @@ describe('structured exchange loop helpers', () => {
       answer: { text: 'A local product specification workspace.' },
       toolResultMessage: {
         role: 'toolResult',
-        toolName: 'request_answer',
-        content: [{ text: '### Response\n\nA local product specification workspace.' }],
+        toolName: 'request_response',
+        content: [{ text: '# Response\n\nA local product specification workspace.' }],
         details: {
           schema: 'brunch.structured_exchange.request',
           exchange_id: pending.exchangeId,
@@ -46,7 +46,7 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
-  it('materializes accepted single-select responses as request_choice tool results', () => {
+  it('materializes accepted single-select responses as request_response tool results', () => {
     const pending = nextDeterministicStructuredExchange(0);
 
     const accepted = acceptedResponseFromParams(pending, {
@@ -59,7 +59,7 @@ describe('structured exchange loop helpers', () => {
       ok: true,
       answer: { optionId: 'new-from-scratch', label: 'Yes — this is new from scratch' },
       toolResultMessage: {
-        toolName: 'request_choice',
+        toolName: 'request_response',
         content: [{ text: expect.stringContaining('> This is greenfield.') }],
         details: {
           tool_meta: { curr: 'request_choice' },
@@ -95,7 +95,7 @@ describe('structured exchange loop helpers', () => {
       ok: true,
       answer: { optionIds: ['transcript', 'other'] },
       toolResultMessage: {
-        toolName: 'request_choices',
+        toolName: 'request_response',
         content: [{ text: expect.stringContaining('> Also verify friction reporting.') }],
         details: {
           tool_meta: { curr: 'request_choices' },
@@ -148,12 +148,12 @@ describe('structured exchange loop helpers', () => {
             role: 'toolResult',
             toolCallId: 'present-review-call-1',
             toolName: 'present_review_set',
-            content: [{ type: 'text', text: '## Review cycle wiring\n\nReview this graph proposal.' }],
+            content: [{ type: 'text', text: '# Review cycle wiring\n\nReview this graph proposal.' }],
             details: {
               schema: 'brunch.structured_exchange.present',
               v: 1,
               exchange_id: 'review-cycle',
-              tool_meta: { curr: 'present_review_set', next: 'request_review' },
+              tool_meta: { curr: 'present_review_set', next: 'request_response' },
               display: { heading: 'Review cycle wiring', body: 'Review this graph proposal.' },
               review_set: reviewSet,
             },
@@ -225,18 +225,16 @@ describe('structured exchange loop helpers', () => {
           message: {
             role: 'toolResult',
             toolCallId: 'present-call-1',
-            toolName: 'present_options',
+            toolName: 'present_question',
             content: [
               {
                 type: 'text',
                 text: [
-                  '## Choose proof quality',
+                  '# Choose proof quality',
                   '',
-                  '### 1. Transcript fidelity',
+                  '## 1. Transcript fidelity',
                   '',
                   '**Rationale:** Pi JSONL keeps truth recoverable.',
-                  '',
-                  '<!-- option-id: transcript -->',
                 ].join('\n'),
               },
             ],
@@ -244,7 +242,8 @@ describe('structured exchange loop helpers', () => {
               schema: 'brunch.structured_exchange.present',
               v: 1,
               exchange_id: 'quality',
-              tool_meta: { curr: 'present_options', next: 'request_choice' },
+              tool_meta: { curr: 'present_question', next: 'request_response' },
+              response_kind: 'choice',
               display: { heading: 'Choose proof quality' },
               options: [
                 {
@@ -294,20 +293,14 @@ describe('structured exchange loop helpers', () => {
             content: [
               {
                 type: 'text',
-                text: [
-                  '## Pick a candidate',
-                  '',
-                  '### 1. Candidate A',
-                  '',
-                  '<!-- option-id: cand-a -->',
-                ].join('\n'),
+                text: ['# Pick a candidate', '', '## 1. Candidate A'].join('\n'),
               },
             ],
             details: {
               schema: 'brunch.structured_exchange.present',
               v: 1,
               exchange_id: 'cand',
-              tool_meta: { curr: 'present_candidates', next: 'request_choice' },
+              tool_meta: { curr: 'present_candidates', next: 'request_response' },
               display: { heading: 'Pick a candidate' },
               candidates: [
                 {

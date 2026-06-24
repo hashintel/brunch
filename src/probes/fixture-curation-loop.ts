@@ -18,7 +18,6 @@ import {
   type StructuralIllegal,
 } from '../graph/index.js';
 import { seedFixture, type SeedFixture } from '../graph/seed-fixtures.js';
-import { renderSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
@@ -54,7 +53,6 @@ interface FixtureCurationRunOptions {
 export interface FixtureCurationArtifacts {
   readonly runDir: string;
   readonly sessionJsonl: string;
-  readonly transcriptMarkdown: string;
   readonly reportJson: string;
   readonly graphOverviewJson: string;
 }
@@ -289,7 +287,6 @@ export async function writeFixtureCurationArtifacts(options: {
   const artifacts: FixtureCurationArtifacts = {
     runDir: runDirRef,
     sessionJsonl: `${runDirRef}/session.jsonl`,
-    transcriptMarkdown: `${runDirRef}/transcript.md`,
     reportJson: `${runDirRef}/report.json`,
     graphOverviewJson: `${runDirRef}/graph-overview.json`,
   };
@@ -298,11 +295,6 @@ export async function writeFixtureCurationArtifacts(options: {
 
   await mkdir(diskPath(artifacts.runDir), { recursive: true });
   await writeFile(diskPath(artifacts.sessionJsonl), options.sessionText, 'utf8');
-  await writeFile(
-    diskPath(artifacts.transcriptMarkdown),
-    `${renderSessionTranscript(options.sessionText, { title: 'session.jsonl' })}\n\n## Raw session JSONL\n\n\`\`\`jsonl\n${options.sessionText.trimEnd()}\n\`\`\`\n`,
-    'utf8',
-  );
   await writeFile(diskPath(artifacts.reportJson), `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   await writeFile(
     diskPath(artifacts.graphOverviewJson),

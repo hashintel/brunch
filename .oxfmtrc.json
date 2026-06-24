@@ -10,6 +10,7 @@
     ".github/**",
     ".claude/**",
     "*.md",
+    "package-lock.json",
     "docs/**",
     "memory/**",
     ".fixtures/**",

@@ -5,10 +5,10 @@ function markdownEscape(text: string): string {
 }
 
 export function formatRequestChoices(details: RequestChoicesDetails): string {
-  if ('cancelled' in details) return '### Response\n\n_User cancelled the request._';
-  if ('unavailable' in details) return `### Response\n\n_${details.unavailable.message}_`;
+  if ('cancelled' in details) return '# Response\n\n_User cancelled the request._';
+  if ('unavailable' in details) return `# Response\n\n_${details.unavailable.message}_`;
 
-  const lines = ['### Response'];
+  const lines = ['# Response'];
   if (details.answered.choices.length > 0) {
     lines.push('', ...details.answered.choices.map((choice) => `- ${markdownEscape(choice.label)}`));
   }

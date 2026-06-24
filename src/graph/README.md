@@ -24,11 +24,12 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   batch writes occur.
 
 - **review-set payload translation** (`review-set.ts`) — validates exact
-  user-reviewable review-set payloads, resolves projected existing-node codes
-  inside the selected spec, and translates them to explicit-basis `mutateGraph`
-  batches.
-  `CommandExecutor.acceptReviewSet` is the only graph mutation entrypoint for
-  accepted review sets and records `operation: "accept_review_set"`.
+  user-reviewable review-set payloads, owns the agent-facing boundary-teaching
+  schema for the nested proposal payload, resolves projected existing-node
+  codes inside the selected spec, and translates them to explicit-basis
+  `mutateGraph` batches. `CommandExecutor.acceptReviewSet` is the only graph
+  mutation entrypoint for accepted review sets and records
+  `operation: "accept_review_set"`.
 
 - **Capture** — the submit-time `capture/` structured-response translator was
   deleted 2026-06-19 (D80-L fossil retirement). Capture is now elicitor
@@ -48,9 +49,10 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
   `ReconciliationNeed`, `ElicitationGap` (`refersTo` + `question`),
-  kind/category types, per-kind node ordinals, and derived intent-kind grouping. Raw domain enum
-  taxonomy lives in the zero-import `schema/kinds.ts` leaf so web-facing graph
-  imports do not pull in Drizzle.
+  kind/category types, per-kind node ordinals, per-kind node `detail` schemas,
+  and derived intent-kind grouping. Raw domain enum taxonomy lives in the
+  zero-import `schema/kinds.ts` leaf so web-facing graph imports do not pull in
+  Drizzle.
 
 - **Policy** (`policy/category-policy.ts`) — the single per-category
   metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact
@@ -191,6 +193,8 @@ graph/
       synthetic gap builders (presenceGap, groundingFloorGaps); production
       fail-closed floor + test fixtures ride the same shape
     nodes.ts
+      GraphNode and node taxonomy metadata
+      per-kind detail schema owner consumed by validation + mutation boundary schemas
     edges.ts
     reconciliation-need.ts
 

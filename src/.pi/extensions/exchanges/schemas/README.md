@@ -33,7 +33,7 @@ schemas/
   index.ts
 ```
 
-The organization is layer-first: shared vocabulary, tool parameter schemas, present details, request details, capture details, the `request_choices` editor wire envelope, and one public export barrel.
+The organization is layer-first: shared vocabulary, tool parameter schemas, present details, request details, capture details, the `request_choices` editor wire envelope, and one public export barrel. `request_response` is a tool-parameter schema only: it reuses the canonical request transcript details (`request_answer` / `request_choice` / `request_choices` / `request_review`) rather than introducing a second request-details model.
 
 `editor.ts` is not part of the transcript details model: it owns the JSON envelope prefilled into `ctx.ui.editor` for `request_choices` (the one request payload Pi built-ins cannot carry over RPC). Its wire-level `status` string never appears in transcript details, which carry outcomes as key presence.
 
@@ -49,7 +49,7 @@ chain active Pi tool / session trigger / RPC editor relay
 
 - Active `.pi/extensions/exchanges/*.ts` files own Pi registration and UI collection only.
 - `../pi-schema.ts` is the only Zod JSON Schema to Pi `TSchema` adapter.
-- `present_review_set.payload` is a **loose object carrying the review-set discriminator** (`schemaVersion: 1`), not `z.unknown()`: the param boundary rejects a JSON string or the wrong tool's shape (e.g. `mutate_graph`'s `{createBasis, ops}`) before the deep validator runs. The full nested proposal shape stays owned by `validateReviewSetPayloadShape` in `graph/review-set.ts` (single owner); the boundary only guarantees an object with the discriminator so the model sees structure instead of an opaque blob.
+- `present_review_set.payload` is a **graph-owned boundary-teaching schema** (`zReviewSetProposalPayloadForBoundary` in `graph/review-set.ts`), not `z.unknown()`: the param boundary rejects a JSON string, the wrong tool's shape (e.g. `mutate_graph`'s `{createBasis, ops}`), and malformed nested companions such as `grounding: string`. The full requiredness/field-diagnostic contract stays owned by `validateReviewSetPayloadShape` in the same graph module; the boundary schema advertises `lens`, `epistemicStatus`, `grounding {summary, support[]}`, `pitch {title, narrative}`, `entityDrafts[]`, and role-named `edgeDrafts[]` so the model sees the nested structure before the deep validator runs.
 - `projections/exchanges/*` is the only construction boundary for active present/request `toolResult.details`.
 - `renderers/exchanges/*` owns durable markdown for active present/request emissions.
 - Session pending exchange recovery projects from canonical present/request details; it does not author a TypeBox semantic schema.
@@ -78,18 +78,20 @@ Present details:
 
 ```yaml
 tool_meta:
-  curr: present_question | present_options | present_review_set | present_candidates
-  next: request_answer | request_choice | request_choices | request_review
+  curr: present_question | present_review_set | present_candidates
+  next: request_response
 ```
 
 Request details:
 
 ```yaml
 tool_meta:
-  prev: present_question | present_options | present_review_set | present_candidates
+  prev: present_question | present_review_set | present_candidates
   curr: request_answer | request_choice | request_choices | request_review
   next?: capture_answer | capture_choice | capture_choices | capture_review | capture_candidate
 ```
+
+`request_response({ exchangeId })` emits canonical request details by the response kind derived from the pending present: `request_answer` for free text, `request_choice` for single choice, `request_choices` for multi-choice, and `request_review` for a `present_review_set` decision.
 
 Capture details:
 
@@ -116,8 +118,9 @@ schema: "brunch.structured_exchange.present"
 v: 1
 exchange_id: string
 tool_meta:
-  curr: present_question | present_options | present_review_set | present_candidates
-  next: request_answer | request_choice | request_choices | request_review
+  curr: present_question | present_review_set | present_candidates
+  next: request_response
+response_kind?: answer | choice | choices
 display:
   heading: string
   body?: markdown
@@ -126,7 +129,7 @@ display:
 
 ### `present_question`
 
-A question heading/body that presents like a normal assistant message:
+A merged question/offer anchor. No `options` means free text; `options` means a single choice; `options` with `multiple: true` in params projects `response_kind: choices`.
 
 ```yaml
 schema: "brunch.structured_exchange.present"
@@ -134,24 +137,22 @@ v: 1
 exchange_id: "problem-frame"
 tool_meta:
   curr: present_question
-  next: request_answer
+  next: request_response
+response_kind: answer
 display:
   heading: "What problem are we solving first?"
   body: "Name the pain, the protagonist, and the constraint that matters most."
   preface: "We have the project shape, but not the user-facing pull yet."
 ```
 
-### `present_options`
-
-Keep the existing `present_options` name. Options have content and optional rationale.
-
 ```yaml
 schema: "brunch.structured_exchange.present"
 v: 1
 exchange_id: "domain-shape"
 tool_meta:
-  curr: present_options
-  next: request_choice
+  curr: present_question
+  next: request_response
+response_kind: choice
 display:
   heading: "Which product shape should we optimize for?"
   body: "Pick the shape that best matches the POC posture."
@@ -164,8 +165,6 @@ options:
     rationale: "Better for teams, but outside the current deployment target."
 ```
 
-For multiple choice, `tool_meta.next` is `request_choices`.
-
 ### `present_review_set`
 
 Keep review-set semantics conservative and defer to existing design docs. Do not turn candidate selection into a review-set flow.
@@ -176,7 +175,7 @@ v: 1
 exchange_id: "review-set-17"
 tool_meta:
   curr: present_review_set
-  next: request_review
+  next: request_response
 display:
   heading: "Review proposed requirements"
   body: "Approve the set, request changes, or reject it."
@@ -226,7 +225,7 @@ v: 1
 exchange_id: string
 tool_meta:
   curr: present_candidates
-  next: request_choice
+  next: request_response
 display:
   heading: string
   body?: markdown
@@ -289,7 +288,7 @@ schema: "brunch.structured_exchange.request"
 v: 1
 exchange_id: string
 tool_meta:
-  prev: present_question | present_options | present_review_set | present_candidates
+  prev: present_question | present_review_set | present_candidates
   curr: request_answer | request_choice | request_choices | request_review
   next?: capture_answer | capture_choice | capture_choices | capture_review | capture_candidate
 answered:
@@ -304,9 +303,9 @@ Rules:
 
 - Use `comment`, not `note`, for user-authored supplementary text.
 - `message` appears only under `cancelled` or `unavailable`.
-- `request_answer` follows `present_question` and may lead to `capture_answer`.
-- `request_choice` follows `present_options` or `present_candidates`; after candidates it may lead to `capture_candidate`.
-- `request_choices` follows `present_options` and may lead to `capture_choices`.
+- `request_answer` follows `present_question` free-text prompts and may lead to `capture_answer`.
+- `request_choice` follows `present_question` option prompts or `present_candidates`; after candidates it may lead to `capture_candidate`.
+- `request_choices` follows `present_question` multi-option prompts and may lead to `capture_choices`.
 - `request_review` follows `present_review_set` and may lead to `capture_review`.
 - `request_review` supports `approve`, `request_changes`, and `reject`; `comment` is required for `request_changes`.
 - `other` and `none` choices require a user `comment`.

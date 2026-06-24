@@ -7,7 +7,7 @@ This directory owns reusable components rendered inside the embedded Pi coding-a
 ## Owns
 
 - Pi TUI components consumed by `.pi/extensions/` (e.g. workspace dialogs, runtime axis pickers, chrome header).
-- Shared visual primitives for those components: the `LabTheme`/`makeSolidBadge`/`renderSegmentTrack` substrate under `tui-lab/`.
+- Shared visual primitives for those components: the `LabTheme`/`makeSolidBadge`/`renderSegmentTrack` substrate under `tui-lab/`, plus tiny layout wrappers such as `lateral-padding.ts` and focused response pickers such as `multi-choice-picker.ts`.
 - Render-only component contracts whose props may use domain/session input types or DTOs needed to present Pi UI.
 
 ## Does NOT own
@@ -28,6 +28,8 @@ components/
 ├── brunch-version.ts
 ├── cards.ts
 ├── chrome-header.ts
+├── lateral-padding.ts          transparent horizontal padding wrapper
+├── multi-choice-picker.ts      focused checkbox-style exchange response picker
 ├── runtime-posture/             private sub-tree for runtime posture pickers
 │   ├── axis-picker.ts           public picker components
 │   └── strategy-picker.ts

@@ -181,9 +181,6 @@ describe('fixture curation loop report', () => {
     await expect(readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).resolves.toContain(
       '"toolName":"mutate_graph"',
     );
-    await expect(readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).resolves.toContain(
-      '## Raw session JSONL',
-    );
     await expect(readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).resolves.toContain(
       '"seedSlug": "macro-view-grounded-intent"',
     );
@@ -233,7 +230,6 @@ describe('fixture curation loop report', () => {
     const expectedRefs = {
       runDir: 'runs/fixture-curation/portable-run',
       sessionJsonl: 'runs/fixture-curation/portable-run/session.jsonl',
-      transcriptMarkdown: 'runs/fixture-curation/portable-run/transcript.md',
       reportJson: 'runs/fixture-curation/portable-run/report.json',
       graphOverviewJson: 'runs/fixture-curation/portable-run/graph-overview.json',
     };

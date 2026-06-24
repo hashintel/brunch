@@ -67,13 +67,7 @@ const METHOD_CAPABILITY: Partial<Record<MethodId, CapabilityId>> = {
 };
 
 const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
-  'run-structured-exchange': [
-    'present_question',
-    'present_options',
-    'request_answer',
-    'request_choice',
-    'request_choices',
-  ],
+  'run-structured-exchange': ['present_question', 'request_response'],
   capture: ['update_elicitation_gaps', 'update_reconciliation_needs'],
   'read-context': [
     'read_graph',
@@ -82,7 +76,7 @@ const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
     'read_reconciliation_needs',
   ],
   'commit-graph': ['mutate_graph'],
-  'generate-proposal': ['present_review_set', 'request_review'],
+  'generate-proposal': ['present_review_set', 'request_response'],
 };
 
 export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition> = {

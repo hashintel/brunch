@@ -30,9 +30,16 @@ export type { EdgeCategory, GraphEdge } from './schema/edges.js';
 export type { ElicitationGap, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
 export type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
-export type { GraphNode, NodeKind, ReadinessBand } from './schema/nodes.js';
+export type { GraphNode, NodeKind, NodeKindRequiringDetail, ReadinessBand } from './schema/nodes.js';
 
-export { formatGraphNodeCode, intentKindCategory, parseGraphNodeCode } from './schema/nodes.js';
+export {
+  formatGraphNodeCode,
+  intentKindCategory,
+  NODE_DETAIL_JSON_SCHEMAS,
+  NODE_KINDS_REQUIRING_DETAIL,
+  nodeDetailKnownFields,
+  parseGraphNodeCode,
+} from './schema/nodes.js';
 
 export { EDGE_CATEGORY_METADATA, edgeEndpointRole } from './policy/category-policy.js';
 export type {

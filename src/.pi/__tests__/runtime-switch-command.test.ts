@@ -76,9 +76,11 @@ function commandHarness(
         entries.push({ type: 'custom', customType, data });
       },
       getAllTools: () =>
-        ['read', 'grep', 'find', 'ls', 'present_question', 'request_answer', 'mutate_graph'].map((name) => ({
-          name,
-        })),
+        ['read', 'grep', 'find', 'ls', 'present_question', 'request_response', 'mutate_graph'].map(
+          (name) => ({
+            name,
+          }),
+        ),
       setActiveTools(names: string[]) {
         activeToolNames.push(names);
       },

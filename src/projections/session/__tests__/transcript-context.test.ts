@@ -56,14 +56,14 @@ describe('transcript-context projection', () => {
       toolResultEntry(
         'present-1',
         'generic-tool-1',
-        'present_options',
+        'present_question',
         '## Which direction?\n\n### 1. Fast\n\n**Rationale:** validates the seam.',
         3,
       ),
       toolResultEntry(
         'request-1',
         'present-1',
-        'request_choice',
+        'request_response',
         '### Response\n\n- Fast\n\nComment:\n\n> Keep it deterministic.',
         4,
       ),
@@ -98,17 +98,15 @@ describe('transcript-context projection', () => {
 
     const projected = projectTranscriptContext(entries as FileEntry[]);
 
-    expect(projected.messages).toHaveLength(5);
+    expect(projected.messages).toHaveLength(4);
     expect(projected.messages.map((message) => message.role)).toEqual([
       'user',
-      'toolResult',
       'toolResult',
       'toolResult',
       'assistant',
     ]);
     expect(projected.messages.map(primaryText)).toEqual([
       'hello custom',
-      'Generic file contents',
       '## Which direction?\n\n### 1. Fast\n\n**Rationale:** validates the seam.',
       '### Response\n\n- Fast\n\nComment:\n\n> Keep it deterministic.',
       'I will inspect the workspace.',

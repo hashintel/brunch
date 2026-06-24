@@ -8,7 +8,7 @@ This memo records evidence for the `pi-ui-extension-patterns` frontier. It is in
 | --- | --- | --- | --- |
 | Built-in slash autocomplete allowlist | feasible-with-cost | desirable before M5 UI polish; not enough for policy | source audit |
 | Built-in exact slash execution allowlist | requires-pi-change for strict suppression | required before claiming strict product-shell containment; not required for graph-command safety if dangerous effects are blocked separately | source audit + raw RPC probe |
-| Branch-flow effect blocking (`/fork`, `/clone`, `/tree`) | proven for lifecycle/API effect cancellation; residual pre-cancel UI exposure remains | required for I19-L and already partly used by Brunch | source audit + raw RPC probe |
+| Branch-flow effect blocking (`/fork`, `/clone`) | proven for lifecycle/API effect cancellation; residual pre-cancel UI exposure remains | required for I19-L and already used by Brunch; `/tree` is now intentionally left native | source audit + raw RPC probe |
 | Extension command collision override | not-feasible | product commands must avoid built-in names unless Pi adds policy | source audit |
 | RPC-visible chrome/status degradation | proven for status/widget/title; no-op for header/footer/working indicator | informs fixture-driver expectations | Brunch wrapper unit oracle + raw RPC probe |
 | Dynamic Brunch chrome wrapper | proven for deterministic product-state projection, branded startup identity, and TUI mounting; persistent activated chrome remains a manual polish check, not a frontier blocker | required before downstream M5/M6/M7 affordance wrappers call Pi UI primitives | Brunch-host tests + branded startup pty oracle + raw TUI transcript proof |
@@ -52,7 +52,7 @@ Policy buckets:
 | `/hotkeys` | interactive Pi hotkeys | hide or replace with Brunch hotkeys | autocomplete wrapper | none found | exact command exposes Pi actions including branch actions | command policy desirable |
 | `/fork` | interactive built-in branch creation after selector | hide + block effect | autocomplete wrapper | `session_before_fork` can cancel | selector/UI may appear before cancel depending path; exact command remains visible | command policy desirable; effect block available |
 | `/clone` | interactive built-in branch duplication | hide + block effect | autocomplete wrapper | `session_before_fork` can cancel | command accepted before cancellation notice | command policy desirable; effect block available |
-| `/tree` | interactive built-in branch navigator | hide + block effect | autocomplete wrapper | `session_before_tree` can cancel/customize | tree UI may start before cancellation path | command policy desirable; effect block available |
+| `/tree` | interactive built-in branch navigator | allow native | n/a | no Brunch blocker; `session_before_tree` remains available if policy changes | native tree UI is exposed intentionally | no current ask |
 | `/login` / `/logout` | interactive OAuth selectors | hide unless Brunch owns provider setup | autocomplete wrapper | none found | exposes Pi provider auth surface | command policy needed if disallowed |
 | `/new` | interactive session replacement | replace with Brunch same-spec coordinator flow | autocomplete wrapper | `session_before_switch` can cancel raw new-session effect | exact command still starts Pi new-session path before cancellation | command policy or Brunch command replacement needed |
 | `/compact` | interactive/manual compaction | allow only after Brunch context policy exists | autocomplete wrapper | `session_before_compact` can cancel/customize | exact command starts Pi compaction UI/path before cancellation | command policy desirable |
@@ -64,7 +64,7 @@ Policy buckets:
 | Prompt templates | autocomplete + expansion after `input` | hide unless Brunch owns prompt surface | settings/resources policy; `input` can handle before expansion | `input` can intercept template text before expansion | not built-in interactive command risk | optional |
 | Skill commands (`/skill:name`) | autocomplete if `enableSkillCommands`; expansion after `input` | hide in Brunch POC | disable skill commands or autocomplete wrapper | `input` can intercept before expansion | generic Pi skill surface | optional if disabled |
 | RPC-only session commands (`new_session`, `switch_session`, `fork`, `clone`, `compact`) | RPC command handlers | Brunch RPC should expose named product methods instead | not slash autocomplete | lifecycle hooks cancel session replacement/fork effects | raw Pi RPC is not Brunch public API | Brunch wrapper/policy, not Pi interactive policy |
-| Keybindings: model select/cycle, session new/tree/fork/resume, double-Escape tree/fork | `setupKeyHandlers()` and settings | hide/block branch/model/session generic flows | keybindings config can unbind some defaults; settings can set double-Escape to `none` | lifecycle hooks for session replacement/fork/tree | keyboard route can bypass slash autocomplete visibility | command/keybinding policy desirable |
+| Keybindings: model select/cycle, session new/tree/fork/resume, double-Escape tree/fork | `setupKeyHandlers()` and settings | hide/block branch/model/session generic flows except intentionally-native slash `/tree` navigation | keybindings config can unbind some defaults; Brunch currently sets double-Escape to `none` | lifecycle hooks for session replacement/fork; no `/tree` hook registered | keyboard route can bypass slash autocomplete visibility | command/keybinding policy desirable |
 
 ## Autocomplete and execution findings
 
@@ -108,7 +108,7 @@ Raw RPC probe corroborates the order split rather than replacing the source audi
 Lifecycle hooks provide effect blocking for branch/session transitions even though they do not fully suppress the generic Pi UI surface.
 
 - `session_before_fork` cancels `/fork`, `/clone`, and RPC `fork`/`clone` effects.
-- `session_before_tree` cancels `/tree` navigation effects.
+- `session_before_tree` can cancel `/tree` navigation effects, but Brunch intentionally does not register it now: native `/tree` is allowed as an inspection/navigation affordance.
 - `session_before_switch` cancels `/new`, `/resume`, RPC `new_session`, and RPC `switch_session` effects.
 - `session_before_compact` can cancel/customize `/compact`, but compaction policy is not identical to branch policy.
 
@@ -217,8 +217,8 @@ Strict Brunch product-shell containment needs an upstream command/keybinding pol
 
 ```ts
 pi.setCommandPolicy({
-  hiddenBuiltins: ["settings", "model", "scoped-models", "export", "import", "share", "fork", "clone", "tree", "login", "logout", "new", "resume"],
-  blockedBuiltins: ["fork", "clone", "tree", "new", "resume", "settings", "model"],
+  hiddenBuiltins: ["settings", "model", "scoped-models", "export", "import", "share", "fork", "clone", "login", "logout", "new", "resume"],
+  blockedBuiltins: ["fork", "clone", "new", "resume", "settings", "model"],
   onBlockedBuiltin: async (name, ctx) => ctx.ui.notify(`/${name} is not available in Brunch`, "warning"),
 });
 ```
@@ -226,7 +226,7 @@ pi.setCommandPolicy({
 Equivalent launch-time option:
 
 ```ts
-allowedBuiltInCommands: ["compact", "reload", "quit"]
+allowedBuiltInCommands: ["tree", "compact", "reload", "quit"]
 ```
 
 The policy must run before interactive-mode built-in dispatch and before autocomplete construction. Ideally it should also expose a keybinding-action policy for `app.model.*` and `app.session.*` actions so keyboard paths cannot bypass slash visibility.
@@ -260,7 +260,7 @@ The seam Brunch has now proven is the product relay and parity loop around that 
 
 - For the POC, Brunch can plausibly proceed if it hides disallowed commands from autocomplete and blocks branch/session effects with lifecycle hooks, **provided product documentation does not claim strict built-in suppression**.
 - Dynamic Brunch chrome is strong enough to make the startup and primary idle/working TUI surface read as Brunch-owned; exact built-in commands remain a residual shell-containment risk for product review.
-- `I19-L` remains protected by effect blocking and transcript-reader fail-fast behavior, not by complete command invisibility.
+- `I19-L` remains protected by fork/clone effect blocking and transcript-reader fail-fast behavior, not by complete command invisibility or `/tree` suppression.
 - M5/M6/M7 should route Brunch actions through Brunch-owned command names and handlers; extension command collisions are not an override mechanism.
 - M5/M6/M7 chrome/status affordances should call Brunch product wrappers (`renderBrunchChrome` or successors) instead of raw Pi `ctx.ui.*` primitives.
 - Future switcher/review/elicitation commands should follow the `/brunch` menu pattern: product-owned names, typed default `ctx.ui.custom()` decision components unless richer modal behavior is specifically needed, coordinator/command-layer activation, and replacement-session work only through `withSession` contexts.
@@ -269,7 +269,7 @@ The seam Brunch has now proven is the product relay and parity loop around that 
 ## Open evidence gaps
 
 - Interactive autocomplete filtering was source-proven but not visually observed in a TUI session from this API-only run.
-- Exact interactive `/fork`, `/tree`, `/new`, and `/resume` pre-cancel UI exposure should be manually observed in Brunch TUI or a controlled Pi TUI before product signoff.
+- Exact interactive `/fork`, `/new`, and `/resume` pre-cancel UI exposure should be manually observed in Brunch TUI or a controlled Pi TUI before product signoff; `/tree` should be manually observed as an intentionally-native affordance.
 - Keybinding unbinding/configuration strategy remains source-audited only; no Brunch-owned keybinding settings wrapper has been tested.
 - The branded startup no-resume oracle is executable and passed locally, but it is intentionally not a default CI gate because pty/script behavior is host-sensitive.
 - The in-session `/brunch` menu and workspace/session action are unit-proven at the handler/replacement-context seam; a qualitative manual TUI walkthrough should still confirm interaction feel and final chrome/session id in a live Pi runtime.

@@ -17,7 +17,7 @@ import {
   defaultBrunchFauxModel,
 } from '../probes/faux-provider.js';
 import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
-import { renderSessionTranscriptFile } from '../session/session-transcript.js';
+import { writeDebugSessionTranscript } from '../session/session-transcript.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { latestAssistantText } from './agent-messages.js';
 import {
@@ -35,7 +35,7 @@ export interface Tier2RealBootTurnResult {
   readonly providerContexts: readonly ProviderContextSnapshot[];
   readonly activeToolNames: readonly string[];
   readonly transcriptEntries: readonly unknown[];
-  readonly renderedTranscript: string;
+  readonly debugTranscriptFile: string;
 }
 
 export async function runTier2RealBootFauxTurn(
@@ -86,6 +86,7 @@ export async function runTier2RealBootFauxTurn(
 
   if (!sessionFile) throw new Error('Tier-2 real boot did not activate a session file.');
   const transcriptEntries = parseJsonl(await readFile(sessionFile, 'utf8'));
+  await writeDebugSessionTranscript({ cwd, sessionFile });
   return {
     cwd,
     sessionFile,
@@ -95,7 +96,7 @@ export async function runTier2RealBootFauxTurn(
     providerContexts: providerPayload === undefined ? [] : [providerPayload],
     activeToolNames: providerPayload?.activeToolNames ?? [],
     transcriptEntries,
-    renderedTranscript: await renderSessionTranscriptFile(sessionFile),
+    debugTranscriptFile: join(cwd, '.brunch', 'debug', 'transcript.md'),
   };
 }
 

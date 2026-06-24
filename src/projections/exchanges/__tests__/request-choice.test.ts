@@ -9,16 +9,16 @@ const answeredChoice = {
 } as const;
 
 describe('projectRequestChoice next-tool metadata', () => {
-  it('derives the capture_choice next step when answering present_options', () => {
+  it('derives the capture_choice next step when answering present_question options', () => {
     const details = projectRequestChoice({
       exchangeId: 'shell-location',
-      respondsToPresentTool: 'present_options',
+      respondsToPresentTool: 'present_question',
       status: 'answered',
       choice: answeredChoice,
     });
 
     expect(details.tool_meta).toEqual({
-      prev: 'present_options',
+      prev: 'present_question',
       curr: 'request_choice',
       next: 'capture_choice',
     });
@@ -42,12 +42,12 @@ describe('projectRequestChoice next-tool metadata', () => {
   it('omits the next step for non-answered outcomes', () => {
     const cancelled = projectRequestChoice({
       exchangeId: 'shell-location',
-      respondsToPresentTool: 'present_options',
+      respondsToPresentTool: 'present_question',
       status: 'cancelled',
     });
 
     expect(cancelled.tool_meta).toEqual({
-      prev: 'present_options',
+      prev: 'present_question',
       curr: 'request_choice',
     });
   });

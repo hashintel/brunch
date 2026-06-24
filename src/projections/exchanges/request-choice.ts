@@ -9,7 +9,7 @@ import {
 } from '../../.pi/extensions/exchanges/schemas/index.js';
 
 export type { RequestChoiceDetails, RequestOutcomeKey, SelectedChoice };
-export type RequestChoicePresentTool = 'present_options' | 'present_candidates';
+export type RequestChoicePresentTool = 'present_question' | 'present_candidates';
 
 export function projectRequestChoice(input: {
   readonly exchangeId: string;
@@ -53,8 +53,8 @@ export function projectRequestChoice(input: {
 
 /**
  * The capture tool that answers a request_choice depends on which present tool
- * the request responds to: option lists capture as a plain choice, candidate
- * lists capture as a candidate selection.
+ * the request responds to: prompt option lists capture as a plain choice,
+ * candidate lists capture as a candidate selection.
  */
 function captureToolForPresentTool(
   presentTool: RequestChoicePresentTool,

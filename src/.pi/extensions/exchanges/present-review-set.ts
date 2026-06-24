@@ -28,12 +28,12 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
     name: PRESENT_REVIEW_SET_TOOL,
     label: 'Present review set',
     description:
-      'Dry-run validate and display a Brunch graph review-set proposal. Use request_review after this result is available.',
+      'Dry-run validate and display a Brunch graph review-set proposal. Use request_response after this result is available.',
     promptSnippet: 'Present a graph review set for exact human approval',
     promptGuidelines: [
       'Use present_review_set only for exact graph drafts the user can approve or reject as a batch.',
       'If the tool returns structural_illegal, fix the payload and retry; do not ask the user to review invalid graph drafts.',
-      'Call request_review only after a successful present_review_set result.',
+      'Call request_response only after a successful present_review_set result.',
     ],
     parameters: PresentReviewSetParams,
     executionMode: 'sequential',
@@ -90,7 +90,7 @@ export const presentReviewSetTool = createPresentReviewSetTool();
 function formatStructuralIllegal(result: {
   readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
 }): string {
-  return ['STRUCTURAL_ILLEGAL', '', ...result.diagnostics.map((d) => `- ${d.field}: ${d.message}`)].join(
+  return ['# STRUCTURAL_ILLEGAL', '', ...result.diagnostics.map((d) => `- ${d.field}: ${d.message}`)].join(
     '\n',
   );
 }

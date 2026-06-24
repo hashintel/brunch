@@ -376,7 +376,8 @@ describe('FE-847 Tier-2 real boot harness', () => {
       ]),
     );
     expect(JSON.stringify(result.transcriptEntries)).toContain('Tier-2 oracle prompt');
-    expect(result.renderedTranscript).toContain('Tier-2 oracle response');
+    expect(result.debugTranscriptFile).toBe(`${result.cwd}/.brunch/debug/transcript.md`);
+    await expect(readFile(result.debugTranscriptFile, 'utf8')).resolves.toContain('Tier-2 oracle response');
   });
 
   it('resumes from a fixture transcript and exposes transcript state', async () => {

@@ -25,7 +25,14 @@ import {
   PLAN_KINDS,
   READINESS_BANDS,
 } from '../schema/kinds.js';
-import { type NodeBasis, type NodePlane, type ReadinessBand } from '../schema/nodes.js';
+import {
+  NODE_KINDS_REQUIRING_DETAIL,
+  nodeDetailKnownFields,
+  type NodeBasis,
+  type NodeKindRequiringDetail,
+  type NodePlane,
+  type ReadinessBand,
+} from '../schema/nodes.js';
 import type { CreateElicitationGapInput, CreateNodeInput } from './command-types.js';
 import type { Diagnostic, EdgePatch, NodePatch } from './graph-mutation-types.js';
 
@@ -42,7 +49,7 @@ const VALID_KINDS_BY_PLANE: Record<string, readonly string[]> = {
   plan: PLAN_KINDS as unknown as string[],
 };
 
-const KINDS_REQUIRING_DETAIL = new Set<string>(['decision', 'term']);
+const KINDS_REQUIRING_DETAIL = new Set<string>(NODE_KINDS_REQUIRING_DETAIL);
 const VALID_NODE_BASES = NODE_BASES as unknown as string[];
 const VALID_READINESS_BANDS = READINESS_BANDS as unknown as string[];
 const VALID_NODE_KINDS = [
@@ -306,7 +313,7 @@ function validateDecisionDetail(detail: unknown, diagnostics: Diagnostic[]): voi
   }
 
   const d = detail as Record<string, unknown>;
-  const knownFields = new Set(['chosen_option', 'rejected', 'rationale']);
+  const knownFields = new Set(nodeDetailKnownFields('decision' satisfies NodeKindRequiringDetail));
 
   if (typeof d['chosen_option'] !== 'string') {
     diagnostics.push({
@@ -345,7 +352,7 @@ function validateTermDetail(detail: unknown, diagnostics: Diagnostic[]): void {
   }
 
   const d = detail as Record<string, unknown>;
-  const knownFields = new Set(['definition', 'aliases']);
+  const knownFields = new Set(nodeDetailKnownFields('term' satisfies NodeKindRequiringDetail));
 
   if (typeof d['definition'] !== 'string') {
     diagnostics.push({

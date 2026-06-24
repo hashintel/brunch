@@ -25,7 +25,7 @@ export function projectRequestChoices(input: {
     v: 1,
     exchange_id: input.exchangeId,
     tool_meta: {
-      prev: 'present_options' as const,
+      prev: 'present_question' as const,
       curr: 'request_choices' as const,
     },
   };

@@ -16,9 +16,7 @@
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 
 import type { PresentDetails } from '../.pi/extensions/exchanges/schemas/index.js';
-import { projectPresentOptions } from '../projections/exchanges/present-options.js';
 import { projectPresentQuestion } from '../projections/exchanges/present-question.js';
-import { formatPresentOptions } from '../renderers/exchanges/present-options.js';
 import { formatPresentQuestion } from '../renderers/exchanges/present-question.js';
 import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
 import {
@@ -80,7 +78,7 @@ export function presentExchangeMessages(exchange: PendingStructuredExchange) {
 }
 
 function presentProjection(exchange: PendingStructuredExchange): {
-  toolName: 'present_question' | 'present_options';
+  toolName: 'present_question';
   markdown: string;
   details: PresentDetails;
 } {
@@ -97,16 +95,16 @@ function presentProjection(exchange: PendingStructuredExchange): {
     };
   }
 
-  const projection = projectPresentOptions({
+  const projection = projectPresentQuestion({
     exchangeId: exchange.exchangeId,
     heading: exchange.prompt,
     body: exchange.details,
     options: exchange.options,
-    expectedRequestTool: exchange.mode === 'multi-select' ? 'request_choices' : 'request_choice',
+    multiple: exchange.mode === 'multi-select',
   });
   return {
-    toolName: 'present_options',
-    markdown: formatPresentOptions(projection),
+    toolName: 'present_question',
+    markdown: formatPresentQuestion(projection),
     details: projection.details,
   };
 }

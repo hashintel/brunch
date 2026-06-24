@@ -32,7 +32,7 @@ describe('structured-exchange RPC proof', () => {
       schema: 'brunch.structured_exchange.request',
       v: 1,
       exchange_id: 'structured-exchange-rpc-proof',
-      tool_meta: { prev: 'present_options', curr: 'request_choices', next: 'capture_choices' },
+      tool_meta: { prev: 'present_question', curr: 'request_choices', next: 'capture_choices' },
       answered: {
         choices: [{ id: 'rpc-fallback', label: 'Ship RPC fallback', kind: 'listed' }],
         comment: 'Proceed, but report any relay friction separately.',

@@ -9,7 +9,7 @@ export function isStructuredExchangeRequestDetails(value: unknown): value is Req
   return zRequestDetails.safeParse(value).success;
 }
 
-interface EntryLike {
+export interface EntryLike {
   type?: unknown;
   message?: {
     role?: unknown;
@@ -24,6 +24,9 @@ function toolResultDetails(entry: EntryLike): unknown {
 export interface IncompleteStructuredExchangePresent {
   entry: EntryLike;
   details: PresentDetails;
+  // Single-terminal invariant: every pending present_* is continued by the one
+  // terminal request_response tool, regardless of which present produced it.
+  continuationTool: 'request_response';
 }
 
 export function findIncompleteStructuredExchangePresents(
@@ -35,7 +38,11 @@ export function findIncompleteStructuredExchangePresents(
   for (const entry of entries) {
     const details = toolResultDetails(entry);
     if (isStructuredExchangePresentDetails(details)) {
-      presents.set(details.exchange_id, { entry, details });
+      presents.set(details.exchange_id, {
+        entry,
+        details,
+        continuationTool: 'request_response',
+      });
     } else if (isStructuredExchangeRequestDetails(details)) {
       completed.add(details.exchange_id);
     }

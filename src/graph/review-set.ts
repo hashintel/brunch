@@ -1,4 +1,5 @@
 import { and, eq } from 'drizzle-orm';
+import * as z from 'zod';
 
 import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
@@ -69,6 +70,136 @@ const VALID_EPISTEMIC_STATUSES = ['inferred', 'assumed', 'asserted', 'observed']
 const VALID_PLANES = NODE_PLANES;
 const VALID_CATEGORIES = EDGE_CATEGORIES as unknown as readonly string[];
 const VALID_STANCES = EDGE_STANCES as unknown as readonly string[];
+
+const zReviewSetEndpointRefForBoundary = z
+  .union([
+    z.object({ draftId: z.string().min(1).describe('Review-set-local draft id.') }).strict(),
+    z
+      .object({ existingCode: z.string().min(1).describe('Projected graph node code from read_graph.') })
+      .strict(),
+  ])
+  .describe('Endpoint reference: exactly one of draftId or existingCode.');
+
+const zReviewSetEdgeDraftForBoundary = z
+  .union([
+    z
+      .object({
+        category: z.literal('dependency'),
+        dependency: zReviewSetEndpointRefForBoundary,
+        dependent: zReviewSetEndpointRefForBoundary,
+        rationale: z.string().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        category: z.literal('proof'),
+        oracle: zReviewSetEndpointRefForBoundary,
+        claim: zReviewSetEndpointRefForBoundary,
+        stance: z.enum(['for', 'against']),
+        rationale: z.string().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        category: z.literal('support'),
+        support: zReviewSetEndpointRefForBoundary,
+        claim: zReviewSetEndpointRefForBoundary,
+        stance: z.enum(['for', 'against']),
+        rationale: z.string().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        category: z.literal('realization'),
+        abstract: zReviewSetEndpointRefForBoundary,
+        concrete: zReviewSetEndpointRefForBoundary,
+        rationale: z.string().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        category: z.literal('boundary'),
+        boundary: zReviewSetEndpointRefForBoundary,
+        subject: zReviewSetEndpointRefForBoundary,
+        rationale: z.string().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        category: z.literal('composition'),
+        whole: zReviewSetEndpointRefForBoundary,
+        part: zReviewSetEndpointRefForBoundary,
+        rationale: z.string().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        category: z.literal('association'),
+        a: zReviewSetEndpointRefForBoundary,
+        b: zReviewSetEndpointRefForBoundary,
+        rationale: z.string().optional(),
+      })
+      .strict(),
+    z
+      .object({
+        category: z.literal('supersession'),
+        successor: zReviewSetEndpointRefForBoundary,
+        predecessor: zReviewSetEndpointRefForBoundary,
+        rationale: z.string().optional(),
+      })
+      .strict(),
+  ])
+  .describe('Role-named edge draft; companion endpoint fields are determined by category.');
+
+/**
+ * Agent-facing review-set payload shape for boundary teaching.
+ *
+ * `validateReviewSetPayloadShape` below remains the loud diagnostic authority:
+ * this schema is intentionally permissive on requiredness so malformed proposals
+ * can still return field-level STRUCTURAL_ILLEGAL diagnostics from the graph
+ * validator after the tool boundary has taught the nested companion shape.
+ */
+export const zReviewSetProposalPayloadForBoundary = z
+  .looseObject({
+    schemaVersion: z.literal(1),
+    lens: z.enum(VALID_LENSES).optional(),
+    epistemicStatus: z.enum(VALID_EPISTEMIC_STATUSES).optional(),
+    grounding: z
+      .object({
+        summary: z.string().min(1).describe('Short grounding summary for the proposal.'),
+        support: z.array(z.string().min(1)).min(1).describe('Concrete support/evidence strings.'),
+      })
+      .strict()
+      .optional(),
+    pitch: z
+      .object({
+        title: z.string().min(1).describe('Review-set title.'),
+        narrative: z.string().min(1).describe('Why this batch should be reviewed together.'),
+      })
+      .strict()
+      .optional(),
+    entityDrafts: z
+      .array(
+        z
+          .object({
+            draftId: z.string().min(1),
+            plane: z.enum(NODE_PLANES),
+            kind: z.string().min(1),
+            title: z.string().min(1),
+            body: z.string().optional(),
+            detail: z.unknown().optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .optional(),
+    edgeDrafts: z.array(zReviewSetEdgeDraftForBoundary).optional(),
+    proposalVersion: z.number().int().positive().optional(),
+    supersedes: z.string().min(1).optional(),
+  })
+  .describe(
+    'Review-set proposal payload. Required by the graph validator: schemaVersion, lens, epistemicStatus, grounding {summary, support[]}, pitch {title, narrative}, entityDrafts[], edgeDrafts[].',
+  );
 
 export function translateReviewSetPayloadToMutateGraph(options: {
   readonly db: Pick<BrunchDb, 'select'>;

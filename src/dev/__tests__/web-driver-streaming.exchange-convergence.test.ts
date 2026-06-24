@@ -25,7 +25,7 @@ import {
 
 const EXCHANGE_ID = 'live-answer-proof';
 const QUESTION = 'What should the web answer leg prove?';
-const ANSWER = 'The browser resolves the in-turn request_answer promise.';
+const ANSWER = 'The browser resolves the in-turn request_response promise.';
 const FINAL_TEXT = 'Answered exchange complete; the transcript now carries the live answer.';
 
 describe('web-driver-streaming live exchange answer broker', () => {
@@ -34,7 +34,7 @@ describe('web-driver-streaming live exchange answer broker', () => {
     for (const cleanup of cleanups.reverse()) await cleanup();
   });
 
-  it('lets the web answer a live request_answer turn and converge back to JSONL truth', async () => {
+  it('lets the web answer a live request_response turn and converge back to JSONL truth', async () => {
     const faux = registerKeptFauxProvider('exchange-answer', 'KICK opening turn before live exchange proof.');
     cleanups.push(() => faux.provider.unregister());
 
@@ -86,17 +86,14 @@ describe('web-driver-streaming live exchange answer broker', () => {
                   {
                     exchangeId: EXCHANGE_ID,
                     heading: QUESTION,
-                    body: 'This present result must become discoverable while request_answer is blocked.',
-                    expectedRequestTool: 'request_answer',
+                    body: 'This present result must become discoverable while request_response is blocked.',
                   },
                   { id: 'present-live-answer-call' },
                 ),
                 fauxToolCall(
-                  'request_answer',
+                  'request_response',
                   {
                     exchangeId: EXCHANGE_ID,
-                    prompt: QUESTION,
-                    respondsToPresentTool: 'present_question',
                   },
                   { id: 'request-live-answer-call' },
                 ),
@@ -112,10 +109,10 @@ describe('web-driver-streaming live exchange answer broker', () => {
         await waitFor(
           () =>
             [driver, ...observers].every((client) =>
-              hasToolEvent(client.events(), 'request_answer', 'start'),
+              hasToolEvent(client.events(), 'request_response', 'start'),
             ),
           4000,
-          'request_answer to start and block',
+          'request_response to start and block',
         );
         await expect(
           Promise.race([drivePromise.then(() => 'completed'), settle(100).then(() => 'blocked')]),

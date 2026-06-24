@@ -1,5 +1,7 @@
 import { Markdown, Text, type MarkdownTheme } from '@earendil-works/pi-tui';
 
+import { withLateralPadding } from '../../../components/lateral-padding.js';
+
 interface ThemeLike {
   fg?: (color: never, text: string) => string;
   bold?: (text: string) => string;
@@ -45,7 +47,9 @@ export function createStructuredExchangeMarkdownTheme(theme?: ThemeLike): Markdo
 }
 
 export function renderMarkdownResult(result: ToolResultLike, theme?: ThemeLike) {
-  return new Markdown(textFromToolContent(result), 0, 0, createStructuredExchangeMarkdownTheme(theme));
+  return withLateralPadding(
+    new Markdown(textFromToolContent(result), 0, 0, createStructuredExchangeMarkdownTheme(theme)),
+  );
 }
 
 export function renderPlainResult(result: ToolResultLike) {

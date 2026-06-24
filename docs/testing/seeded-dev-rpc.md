@@ -6,7 +6,7 @@ This is a **local development harness**:
 
 - reusable seed files under `.fixtures/seeds/**` are explicit starting truth;
 - `dev.graph.mutateGraph` is opt-in and routes through `CommandExecutor`, but is not a product API;
-- product-flow proof still comes from transcript-backed runs that use the real agent tools (`read_graph` / `mutate_graph`).
+- product-flow proof still comes from JSONL-backed harness/probe runs that use the real agent tools (`read_graph` / `mutate_graph`).
 
 ## 0. Choose an isolated workspace
 
@@ -190,7 +190,6 @@ A successful run writes:
 ```text
 .fixtures/runs/fixture-curation/<run-id>/
 ├── session.jsonl
-├── transcript.md
 ├── report.json
 └── graph-overview.json
 ```

@@ -339,14 +339,10 @@ describe('propose-graph commit proof report', () => {
     expect(artifacts).toEqual({
       runDir: 'runs/propose-graph-commit/artifact-run',
       sessionJsonl: 'runs/propose-graph-commit/artifact-run/session.jsonl',
-      transcriptMarkdown: 'runs/propose-graph-commit/artifact-run/transcript.md',
       reportJson: 'runs/propose-graph-commit/artifact-run/report.json',
     });
     expect(await readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).toContain('propose-graph-commit');
     expect(await readFile(join(fixtureRoot, artifacts.sessionJsonl), 'utf8')).toContain('mutate_graph');
-    expect(await readFile(join(fixtureRoot, artifacts.transcriptMarkdown), 'utf8')).toContain(
-      'Graph committed successfully',
-    );
 
     await expect(
       writeProposeGraphCommitProofArtifacts({

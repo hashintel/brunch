@@ -20,7 +20,7 @@ const REGISTERED_POC_TOOLS = [
   'web_search',
   ...SIDE_EFFECTING_POC_TOOLS,
   'present_question',
-  'request_answer',
+  'request_response',
   'mutate_graph',
 ] as const;
 
@@ -91,7 +91,7 @@ describe('minimal authority matrix', () => {
       'web_fetch',
       'web_search',
       'present_question',
-      'request_answer',
+      'request_response',
       'mutate_graph',
     ]);
   });
@@ -107,7 +107,7 @@ describe('minimal authority matrix', () => {
       'web_fetch',
       'web_search',
       'present_question',
-      'request_answer',
+      'request_response',
       'mutate_graph',
     ]);
   });

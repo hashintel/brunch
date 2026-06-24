@@ -1,11 +1,11 @@
 /**
- * Formats projected transcript context into probe transcript markdown.
+ * Formats projected transcript context into debug transcript markdown.
  *
  * Input:
  * - projected output from projections/session/transcript-context.ts
  *
  * Output:
- * - transcript.md artifact aligned with Pi-derived LLM-visible content
+ * - `.brunch/debug/transcript.md` aligned with Pi-derived LLM-visible content
  *
  * Replaces/adapts:
  * - session/session-transcript.ts

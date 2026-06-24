@@ -17,13 +17,9 @@ import {
 import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../extensions/commands/policy.js';
 import { registerBrunchContext as context } from '../extensions/context/index.js';
 import {
-  PRESENT_OPTIONS_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
-  REQUEST_ANSWER_TOOL,
-  REQUEST_CHOICE_TOOL,
-  REQUEST_CHOICES_TOOL,
-  REQUEST_REVIEW_TOOL,
+  REQUEST_RESPONSE_TOOL,
   registerStructuredExchange as structuredExchange,
 } from '../extensions/exchanges/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../extensions/mentions/index.js';
@@ -79,12 +75,8 @@ describe('Brunch explicit Pi extension registry', () => {
       'web_search',
       'present_alternatives',
       PRESENT_QUESTION_TOOL,
-      PRESENT_OPTIONS_TOOL,
       PRESENT_REVIEW_SET_TOOL,
-      REQUEST_ANSWER_TOOL,
-      REQUEST_CHOICE_TOOL,
-      REQUEST_CHOICES_TOOL,
-      REQUEST_REVIEW_TOOL,
+      REQUEST_RESPONSE_TOOL,
     ]);
     expect(recording.commandNames).toEqual([
       BRUNCH_SWITCH_COMMAND,
@@ -102,7 +94,6 @@ describe('Brunch explicit Pi extension registry', () => {
       'model_select',
       'thinking_level_select',
       'turn_end',
-      'session_before_tree',
       'session_before_fork',
       'session_start',
       'before_agent_start',
@@ -385,10 +376,7 @@ function recordingApiWithEvents(events: Map<string, Array<(event: any, ctx: any)
         'ls',
         'present_alternatives',
         PRESENT_QUESTION_TOOL,
-        PRESENT_OPTIONS_TOOL,
-        REQUEST_ANSWER_TOOL,
-        REQUEST_CHOICE_TOOL,
-        REQUEST_CHOICES_TOOL,
+        REQUEST_RESPONSE_TOOL,
         'bash',
         'edit',
         'write',
@@ -429,10 +417,7 @@ function createRecordingExtensionApi() {
         'ls',
         'present_alternatives',
         PRESENT_QUESTION_TOOL,
-        PRESENT_OPTIONS_TOOL,
-        REQUEST_ANSWER_TOOL,
-        REQUEST_CHOICE_TOOL,
-        REQUEST_CHOICES_TOOL,
+        REQUEST_RESPONSE_TOOL,
         'bash',
         'edit',
         'write',

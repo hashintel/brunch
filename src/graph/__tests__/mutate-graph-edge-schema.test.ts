@@ -30,7 +30,18 @@ function roleNamedEdgeOp(category: EdgeCategory): Record<string, unknown> {
   };
 }
 
-describe('authored graph-mutation edge schemas', () => {
+function createNodeOp(kind: string, detail?: unknown): Record<string, unknown> {
+  return {
+    op: 'create_node',
+    ref: 'n1',
+    plane: 'intent',
+    kind,
+    title: `${kind} title`,
+    ...(detail === undefined ? {} : { detail }),
+  };
+}
+
+describe('authored graph-mutation schemas', () => {
   it('accept canonical role-named endpoint fields for every edge category', () => {
     for (const category of EDGE_CATEGORIES) {
       const op = roleNamedEdgeOp(category);
@@ -58,5 +69,54 @@ describe('authored graph-mutation edge schemas', () => {
     expect(Value.Check(MutateCreateEdgeSchema, peerAssociation)).toBe(false);
     expect(Value.Check(devMutateGraphParamsSchema, { specId: 1, ops: [genericDependency] })).toBe(false);
     expect(Value.Check(devMutateGraphParamsSchema, { specId: 1, ops: [peerAssociation] })).toBe(false);
+  });
+
+  it('teaches and enforces per-kind create_node detail companions', () => {
+    const decision = createNodeOp('decision', {
+      chosen_option: 'SQLite',
+      rejected: ['PostgreSQL'],
+      rationale: 'Local POC storage.',
+    });
+    const term = createNodeOp('term', {
+      definition: 'A graph-native specification item.',
+      aliases: ['node'],
+    });
+    const malformedDecision = createNodeOp('decision', {
+      chosen_option: 'SQLite',
+      rejected: [],
+      rationale: 'Local POC storage.',
+    });
+    const contextWithDetail = createNodeOp('context', { definition: 'not legal here' });
+
+    expect(Value.Check(MutateGraphParams, { ops: [decision] })).toBe(true);
+    expect(Value.Check(MutateGraphParams, { ops: [term] })).toBe(true);
+    expect(Value.Check(MutateGraphParams, { ops: [malformedDecision] })).toBe(false);
+    expect(Value.Check(MutateGraphParams, { ops: [contextWithDetail] })).toBe(false);
+
+    expect(Value.Check(devMutateGraphParamsSchema, { specId: 1, ops: [decision] })).toBe(true);
+    expect(Value.Check(devMutateGraphParamsSchema, { specId: 1, ops: [term] })).toBe(true);
+    expect(Value.Check(devMutateGraphParamsSchema, { specId: 1, ops: [malformedDecision] })).toBe(false);
+    expect(Value.Check(devMutateGraphParamsSchema, { specId: 1, ops: [contextWithDetail] })).toBe(false);
+  });
+
+  it('exposes detail payload properties instead of an opaque unknown schema', () => {
+    const opSchema = MutateGraphParams.properties.ops.items as unknown as {
+      readonly anyOf: readonly [
+        {
+          readonly anyOf: readonly {
+            readonly properties: {
+              readonly detail: { readonly properties: Readonly<Record<string, unknown>> };
+            };
+          }[];
+        },
+      ];
+    };
+    const decisionCreate = opSchema.anyOf[0].anyOf[0]!;
+    const termCreate = opSchema.anyOf[0].anyOf[1]!;
+
+    expect(decisionCreate.properties.detail.properties).toHaveProperty('chosen_option');
+    expect(decisionCreate.properties.detail.properties).toHaveProperty('rejected');
+    expect(termCreate.properties.detail.properties).toHaveProperty('definition');
+    expect(termCreate.properties.detail.properties).toHaveProperty('aliases');
   });
 });

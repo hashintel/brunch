@@ -11,12 +11,7 @@ export const MarkdownSchema = z.toJSONSchema(zMarkdown, { unrepresentable: 'thro
 export const zGraphNodeRef = z.object({ node_id: z.string().min(1) }).strict();
 export const GraphNodeRefSchema = z.toJSONSchema(zGraphNodeRef, { unrepresentable: 'throw' });
 
-export const zPresentToolName = z.enum([
-  'present_question',
-  'present_options',
-  'present_review_set',
-  'present_candidates',
-]);
+export const zPresentToolName = z.enum(['present_question', 'present_review_set', 'present_candidates']);
 export const PresentToolNameSchema = z.toJSONSchema(zPresentToolName, { unrepresentable: 'throw' });
 
 export const zRequestToolName = z.enum([
@@ -60,21 +55,17 @@ export const zDisplayBase = z.object({ heading: z.string().min(1), body: zMarkdo
 export const DisplayBaseSchema = z.toJSONSchema(zDisplayBase, { unrepresentable: 'throw' });
 
 export const zPresentQuestionToolMeta = z
-  .object({ curr: z.literal('present_question'), next: z.literal('request_answer') })
-  .strict();
-export const zPresentOptionsToolMeta = z
-  .object({ curr: z.literal('present_options'), next: z.enum(['request_choice', 'request_choices']) })
+  .object({ curr: z.literal('present_question'), next: z.literal('request_response') })
   .strict();
 export const zPresentReviewSetToolMeta = z
-  .object({ curr: z.literal('present_review_set'), next: z.literal('request_review') })
+  .object({ curr: z.literal('present_review_set'), next: z.literal('request_response') })
   .strict();
 export const zPresentCandidatesToolMeta = z
-  .object({ curr: z.literal('present_candidates'), next: z.literal('request_choice') })
+  .object({ curr: z.literal('present_candidates'), next: z.literal('request_response') })
   .strict();
 
 export const zPresentToolMeta = z.discriminatedUnion('curr', [
   zPresentQuestionToolMeta,
-  zPresentOptionsToolMeta,
   zPresentReviewSetToolMeta,
   zPresentCandidatesToolMeta,
 ]);
@@ -89,7 +80,7 @@ export const zRequestAnswerToolMeta = z
   .strict();
 export const zRequestChoiceFromOptionsToolMeta = z
   .object({
-    prev: z.literal('present_options'),
+    prev: z.literal('present_question'),
     curr: z.literal('request_choice'),
     next: z.literal('capture_choice').optional(),
   })
@@ -103,7 +94,7 @@ export const zRequestChoiceFromCandidatesToolMeta = z
   .strict();
 export const zRequestChoicesToolMeta = z
   .object({
-    prev: z.literal('present_options'),
+    prev: z.literal('present_question'),
     curr: z.literal('request_choices'),
     next: z.literal('capture_choices').optional(),
   })

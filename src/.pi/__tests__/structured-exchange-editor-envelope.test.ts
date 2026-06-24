@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { projectRequestChoices } from '../../projections/exchanges/request-choices.js';
+import { zRequestChoicesEditorEnvelope } from '../extensions/exchanges/schemas/index.js';
 import {
   buildRequestChoicesEditorPrefill,
   parseRequestChoicesEditorResponse,
-} from '../extensions/exchanges/request-choices.js';
-import { zRequestChoicesEditorEnvelope } from '../extensions/exchanges/schemas/index.js';
+} from '../extensions/exchanges/shared/choices-editor.js';
 
 describe('request_choices editor envelope', () => {
   it('round-trips prefill, edited response, parse, and projection through the one schema', () => {
@@ -60,7 +60,7 @@ describe('request_choices editor envelope', () => {
       schema: 'brunch.structured_exchange.request',
       v: 1,
       exchange_id: 'priorities',
-      tool_meta: { prev: 'present_options', curr: 'request_choices', next: 'capture_choices' },
+      tool_meta: { prev: 'present_question', curr: 'request_choices', next: 'capture_choices' },
       answered: {
         choices: [
           { id: 'speed', label: 'Move quickly', kind: 'listed' },

@@ -219,7 +219,7 @@ web/
   features/
     exchanges/
       PendingExchangePanel.tsx
-      response controls for request_answer / request_choice / request_choices / request_review
+      response controls for request_response (answer/choice/choices/review)
 
     propose-graph/
       ProposeGraphExchange.tsx

@@ -62,7 +62,7 @@ describe('composeAgentPrompt', () => {
       spec: groundingSpec,
       workspace,
       context,
-      activeTools: ['read', 'grep', 'present_options'],
+      activeTools: ['read', 'grep', 'present_question'],
       gaps: zeroCoverageGaps,
       agentBody: '[Agent: elicitor]\nUse this role body before runtime metadata.',
     });
@@ -411,7 +411,7 @@ function composePreviewPrompt(input: Partial<ComposeAgentPromptInput> = {}): str
     sessionState: projectBrunchAgentState([]),
     spec: { id: 101, name: 'COMPOSE Preview Spec' },
     workspace: previewWorkspace,
-    activeTools: ['read', 'grep', 'find', 'ls', 'present_question', 'request_answer'],
+    activeTools: ['read', 'grep', 'find', 'ls', 'present_question', 'request_response'],
     gaps: previewFloorGaps(0),
     agentBody: '# Agent: elicitor\n\nPreview role body from `src/.pi/agents/elicitor/SYSTEM.md`.',
     ...input,
