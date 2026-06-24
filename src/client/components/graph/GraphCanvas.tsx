@@ -1,7 +1,7 @@
 /** The shared graph canvas: owns focus + kind-visibility state and composes the card view, panel, and kind filter. */
 
 import { ReactFlow, type Edge, type EdgeProps, type Node } from '@xyflow/react';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { buildGraphModel, type GraphModel } from '@/client/components/graph/buildGraphModel.js';
 import { isEdgeIncident, neighborIds } from '@/client/components/graph/focus.js';
@@ -11,9 +11,11 @@ import { GraphDetailPanel } from '@/client/components/graph/GraphDetailPanel.js'
 import { GraphEdge } from '@/client/components/graph/GraphEdge.js';
 import { GraphEmptyState } from '@/client/components/graph/GraphEmptyState.js';
 import { GraphNode } from '@/client/components/graph/GraphNode';
+import { GraphNodeActionsProvider } from '@/client/components/graph/graphNodeActions';
 import type { GraphEdgeRelationship, GraphNodeData } from '@/client/components/graph/types.js';
 import { useForceLayout } from '@/client/components/graph/useForceLayout.js';
 import { ZoomControl } from '@/client/components/graph/ZoomControl';
+import { usePatchList } from '@/client/components/patch-list-host';
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
@@ -75,6 +77,14 @@ function Canvas({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [highlightedKind, setHighlightedKind] = useState<KnowledgeKind | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const patchList = usePatchList();
+
+  const requestEdit = useCallback((nodeId: string) => {
+    setSelectedId(nodeId);
+    setEditingId(nodeId);
+  }, []);
+  const nodeActions = useMemo(() => ({ requestEdit }), [requestEdit]);
 
   useEffect(() => {
     if (highlight === null) return;
@@ -106,6 +116,7 @@ function Canvas({
   useEffect(() => {
     setSelectedId((current) => (current !== null && !nodeIds.has(current) ? null : current));
     setHoveredId((current) => (current !== null && !nodeIds.has(current) ? null : current));
+    setEditingId((current) => (current !== null && !nodeIds.has(current) ? null : current));
   }, [nodeIds]);
 
   const neighbors = useMemo(
@@ -156,42 +167,80 @@ function Canvas({
     [activeSelectedId, visibleModel],
   );
 
+  const editing = editingId !== null && editingId === activeSelectedId;
+  const saveEdit = useCallback(
+    (newContent: string) => {
+      setEditingId(null);
+      if (patchList === null || detail === null || activeSelectedId === null) return;
+      const itemId = Number(activeSelectedId.split(':')[1]);
+      patchList.stage({
+        kind: 'edit',
+        producerChatId: null,
+        anchor: { kind: detail.kind, itemId },
+        anchorReferenceCode: detail.referenceCode,
+        summary: `Edit ${detail.referenceCode}`,
+        currentContent: detail.content,
+        newContent,
+      });
+    },
+    [patchList, detail, activeSelectedId],
+  );
+
   // The detail panel floats as a right-edge overlay rather than a flex sibling, so
   // opening it never resizes the React Flow viewport — keeping the canvas-centered
   // ZoomControl (and the layout) from shifting when a node is selected.
   return (
     <div className="relative h-full w-full">
-      <ReactFlow
-        nodes={flowNodes}
-        edges={flowEdges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
-        onNodeClick={(_, node) => setSelectedId((prev) => (prev === node.id ? null : node.id))}
-        onNodeMouseEnter={(_, node) => setHoveredId(node.id)}
-        onNodeMouseLeave={() => setHoveredId(null)}
-        onPaneClick={() => setSelectedId(null)}
-        onNodeDragStart={(_, node) => onNodeDragStart(node.id)}
-        onNodeDrag={(_, node) => onNodeDrag(node.id, node.position)}
-        onNodeDragStop={(_, node) => onNodeDragStop(node.id)}
-        nodesDraggable
-        nodesConnectable={false}
-        minZoom={0.1}
-        maxZoom={2}
-        fitView
-        fitViewOptions={{ maxZoom: 1 }}
-      >
-        <ZoomControl />
-        <div className="absolute bottom-2 left-2 z-10">
-          <GraphArrowLegend relationships={presentRelationships} />
-        </div>
-      </ReactFlow>
+      <GraphNodeActionsProvider value={nodeActions}>
+        <ReactFlow
+          nodes={flowNodes}
+          edges={flowEdges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodesChange={onNodesChange}
+          onNodeClick={(_, node) => {
+            setEditingId(null);
+            setSelectedId((prev) => (prev === node.id ? null : node.id));
+          }}
+          onNodeMouseEnter={(_, node) => setHoveredId(node.id)}
+          onNodeMouseLeave={() => setHoveredId(null)}
+          onPaneClick={() => {
+            setEditingId(null);
+            setSelectedId(null);
+          }}
+          onNodeDragStart={(_, node) => onNodeDragStart(node.id)}
+          onNodeDrag={(_, node) => onNodeDrag(node.id, node.position)}
+          onNodeDragStop={(_, node) => onNodeDragStop(node.id)}
+          nodesDraggable
+          nodesConnectable={false}
+          minZoom={0.1}
+          maxZoom={2}
+          fitView
+          fitViewOptions={{ maxZoom: 1 }}
+        >
+          <ZoomControl />
+          <div className="absolute bottom-2 left-2 z-10">
+            <GraphArrowLegend relationships={presentRelationships} />
+          </div>
+        </ReactFlow>
+      </GraphNodeActionsProvider>
       {detail !== null ? (
         <div className="absolute inset-y-0 right-0 z-20">
           <GraphDetailPanel
+            key={activeSelectedId}
             detail={detail}
-            onClose={() => setSelectedId(null)}
-            onSelect={(id) => setSelectedId(id)}
+            editing={editing}
+            onClose={() => {
+              setEditingId(null);
+              setSelectedId(null);
+            }}
+            onSelect={(id) => {
+              setEditingId(null);
+              setSelectedId(id);
+            }}
+            onStartEdit={() => setEditingId(activeSelectedId)}
+            onCancelEdit={() => setEditingId(null)}
+            onSave={saveEdit}
           />
         </div>
       ) : null}

@@ -9,6 +9,6 @@
 
 /** The fixed width and height of a collapsed card, in pixels. */
 export const cardFootprint = {
-  width: 160,
-  height: 96,
+  width: 200,
+  height: 120,
 } as const;

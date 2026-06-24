@@ -105,7 +105,9 @@ export function buildSimulation(model: SimModel): {
         .id((node) => node.id)
         .distance(collisionRadius * 2),
     )
-    .force('charge', forceManyBody<SimNode>().strength(-800))
+    // Charge scales with the card footprint (∝ collisionRadius²) so cluster
+    // separation and the overall layout shape stay the same as the card size changes.
+    .force('charge', forceManyBody<SimNode>().strength(-(collisionRadius * collisionRadius) * 0.092))
     .force('collide', forceCollide<SimNode>(collisionRadius).strength(1).iterations(4))
     .force('center', forceCenter(0, 0))
     .force('y', forceY<SimNode>((node) => layerY(node.data.kind)).strength(0.06))

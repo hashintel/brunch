@@ -5,11 +5,8 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { createElement, type ComponentType } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ stage: vi.fn(), create: vi.fn(), canCreate: true }));
+const mocks = vi.hoisted(() => ({ create: vi.fn(), canCreate: true }));
 
-vi.mock('@/client/components/patch-list-host', () => ({
-  usePatchList: () => ({ stage: mocks.stage }),
-}));
 vi.mock('@/client/components/secondary-chat-trigger', () => ({
   useSecondaryChatTrigger: () => ({
     canCreate: mocks.canCreate,
@@ -20,6 +17,7 @@ vi.mock('@/client/components/secondary-chat-trigger', () => ({
 }));
 
 import { GraphNode } from '@/client/components/graph/GraphNode';
+import { GraphNodeActionsProvider } from '@/client/components/graph/graphNodeActions';
 
 const data = {
   kind: 'requirement',
@@ -31,27 +29,31 @@ const data = {
   rationale: '',
 };
 
-function renderNode() {
+function renderNode(requestEdit: (id: string) => void) {
   return render(
     createElement(
       ReactFlowProvider,
       null,
       createElement(
-        GraphNode as unknown as ComponentType<Record<string, unknown>>,
-        {
-          id: 'requirement:7',
-          type: 'graph',
-          data,
-          selected: false,
-          dragging: false,
-          isConnectable: true,
-          zIndex: 0,
-          positionAbsoluteX: 0,
-          positionAbsoluteY: 0,
-          deletable: true,
-          selectable: true,
-          draggable: true,
-        } as unknown as Record<string, unknown>,
+        GraphNodeActionsProvider,
+        { value: { requestEdit } },
+        createElement(
+          GraphNode as unknown as ComponentType<Record<string, unknown>>,
+          {
+            id: 'requirement:7',
+            type: 'graph',
+            data,
+            selected: false,
+            dragging: false,
+            isConnectable: true,
+            zIndex: 0,
+            positionAbsoluteX: 0,
+            positionAbsoluteY: 0,
+            deletable: true,
+            selectable: true,
+            draggable: true,
+          } as unknown as Record<string, unknown>,
+        ),
       ),
     ),
   );
@@ -59,38 +61,27 @@ function renderNode() {
 
 afterEach(() => {
   cleanup();
-  mocks.stage.mockClear();
   mocks.create.mockClear();
   mocks.canCreate = true;
 });
 
 describe('GraphNode — edit/chat actions', () => {
+  it('requests the sidebar editor for the node when the edit icon is clicked', () => {
+    const requestEdit = vi.fn();
+    const { container } = renderNode(requestEdit);
+    fireEvent.click(container.querySelector('[data-graph-node-edit]') as Element);
+    expect(requestEdit).toHaveBeenCalledWith('requirement:7');
+  });
+
   it('opens a side chat for the item when the chat icon is clicked', () => {
-    const { container } = renderNode();
+    const { container } = renderNode(vi.fn());
     fireEvent.click(container.querySelector('[data-graph-node-chat]') as Element);
     expect(mocks.create).toHaveBeenCalledWith({ kind: 'requirement', id: 7 });
   });
 
-  it('edits in place and stages an edit patch on Cmd+Enter', () => {
-    const { container } = renderNode();
-    fireEvent.click(container.querySelector('[data-graph-node-edit]') as Element);
-    const input = container.querySelector('[data-graph-node-edit-input]') as HTMLTextAreaElement;
-    expect(input).not.toBeNull();
-    fireEvent.change(input, { target: { value: 'Persist drafts to disk' } });
-    fireEvent.keyDown(input, { key: 'Enter', metaKey: true });
-    expect(mocks.stage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'edit',
-        anchor: { kind: 'requirement', itemId: 7 },
-        currentContent: 'Persist drafts',
-        newContent: 'Persist drafts to disk',
-      }),
-    );
-  });
-
   it('disables chat when creation is unavailable', () => {
     mocks.canCreate = false;
-    const { container } = renderNode();
+    const { container } = renderNode(vi.fn());
     const chat = container.querySelector('[data-graph-node-chat]') as HTMLButtonElement;
     expect(chat.disabled).toBe(true);
     fireEvent.click(chat);

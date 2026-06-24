@@ -137,7 +137,7 @@ describe('GraphNode — card identity', () => {
 
   it('clamps the name so a long title cannot overflow the fixed card', () => {
     const { container } = renderNode(baseData());
-    const clamped = container.querySelector('.line-clamp-2');
+    const clamped = container.querySelector('[class*="line-clamp-"]');
     expect(clamped).not.toBeNull();
     expect(clamped?.textContent ?? '').toContain('Persist drafts to disk');
   });

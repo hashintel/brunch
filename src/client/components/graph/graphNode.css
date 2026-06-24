@@ -49,13 +49,3 @@
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
 }
-
-/* Editing in place: ring in the node's own kind accent; no hover lift while typing. */
-.graph-node.is-editing,
-.graph-node.is-editing:hover {
-  transform: none;
-  box-shadow:
-    0 0 0 2px var(--graph-node-accent),
-    0 6px 16px rgba(0, 0, 0, 0.12);
-  border-color: var(--graph-node-accent);
-}
