@@ -15,7 +15,7 @@ export const presentQuestionTool = defineTool({
     'Persist and display a structured question as the present half of a Brunch structured exchange. Call request_answer after this result is available.',
   promptSnippet: 'Present a structured question before requesting an answer',
   promptGuidelines: [
-    'Use present_question before request_answer.',
+    'Use present_question before request_answer — a free-text question is answered by request_answer only, never request_choice/request_choices (those follow present_options/present_candidates). For a multiple-choice question, use present_options instead.',
     'The durable user-visible question is this tool result, not renderCall.',
   ],
   parameters: piSchema(zPresentQuestionParams),

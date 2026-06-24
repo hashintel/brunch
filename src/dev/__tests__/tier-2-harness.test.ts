@@ -407,9 +407,9 @@ describe('FE-844/FE-847 live gap legality through real boot', () => {
 
       // Legality is derived at the turn boundary (before_agent_start); this
       // harness does not fire session_start, so drive the boundary directly.
-      // Fresh spec: grounding floor gaps are uncovered, so capability-gated
-      // tools stay locked while floor tools remain available (and elicit mode
-      // never advertises bash/edit/write).
+      // Fresh spec: grounding floor gaps are uncovered. D86-L: graph-write tools
+      // (mutate_graph) are FLOOR — present even at thin coverage, never gated —
+      // while elicit mode still never advertises bash/edit/write.
       await boot.runtime.session.extensionRunner.emitBeforeAgentStart(
         'Derive legality',
         undefined,
@@ -418,7 +418,8 @@ describe('FE-844/FE-847 live gap legality through real boot', () => {
       );
       const lockedTools = boot.runtime.session.getActiveToolNames();
       expect(lockedTools).toEqual(expect.arrayContaining(['read_graph']));
-      expect(lockedTools).not.toEqual(expect.arrayContaining(['mutate_graph']));
+      // D86-L: mutate_graph stays floor even with the grounding floor uncovered.
+      expect(lockedTools).toEqual(expect.arrayContaining(['mutate_graph']));
       expect(lockedTools).not.toEqual(expect.arrayContaining(['bash']));
 
       // Cover the grounding floor in the real graph (foreign writer).
@@ -434,7 +435,8 @@ describe('FE-844/FE-847 live gap legality through real boot', () => {
       }
 
       // The next turn boundary re-derives legality from live selected-spec
-      // gap reads — covered floor gaps unlock the gated posture.
+      // gap reads. D86-L: graph-write tools were already floor; covering the
+      // grounding floor leaves mutate_graph present and still blocks bash.
       await boot.runtime.session.extensionRunner.emitBeforeAgentStart(
         'Re-derive legality',
         undefined,

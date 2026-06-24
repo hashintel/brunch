@@ -64,7 +64,10 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
 
       const projection = projectPresentReviewSet({
         exchangeId: params.exchangeId,
-        payload: params.payload as ReviewSetProposalPayload,
+        // Safe after a successful dry run: the deep validator (graph/review-set.ts)
+        // has confirmed the full shape. The boundary schema only guarantees an
+        // object with schemaVersion: 1, so widen through unknown deliberately.
+        payload: params.payload as unknown as ReviewSetProposalPayload,
       });
       return {
         content: [{ type: 'text' as const, text: formatPresentReviewSet(projection) }],

@@ -35,7 +35,7 @@ describe('inspectWorkspaceOverview', () => {
     const overview = await inspectWorkspaceOverview(cwd);
 
     expect(overview.specs).toEqual([
-      { id: alpha.specId, title: 'Alpha Grounding', nodeCount: 4, sessionCount: 1 },
+      { id: alpha.specId, title: 'Alpha Grounding', nodeCount: 5, sessionCount: 1 },
       { id: beta.specId, title: 'Beta Commitments', nodeCount: 5, sessionCount: 1 },
     ]);
     expect(overview.sessions).toEqual([

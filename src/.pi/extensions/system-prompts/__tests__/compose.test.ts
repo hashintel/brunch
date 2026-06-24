@@ -36,7 +36,7 @@ const workspace = {
     audience: 'internal',
     horizon: 'current-milestone',
     migration: 'free-rewrite',
-    sourcing: 'strip-or-build',
+    dependencies: 'resist',
   }),
 };
 
@@ -79,7 +79,7 @@ describe('composeAgentPrompt', () => {
     );
     expect(result.prompt).not.toContain('readiness_grade=');
     expect(result.prompt).toContain(
-      '- workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; sourcing=strip-or-build',
+      '- workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; dependencies=resist',
     );
     expect(result.prompt).toContain('[Brunch elicitation recommendation]');
     expect(result.prompt).toContain('- next question: constraint question');
@@ -261,7 +261,7 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).not.toContain('[Brunch elicitation recommendation]');
   });
 
-  it('keeps pinned strategy selections in the prompt while gated graph-write methods remain filtered out', () => {
+  it('keeps pinned strategy selections in the prompt while graph-write methods stay floor (D86-L)', () => {
     const result = composeAgentPrompt({
       agentId: 'elicitor',
       sessionState: projectBrunchAgentState([
@@ -289,14 +289,18 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).toContain('- strategy: step-wise-disambiguate');
     expect(Object.keys(result.manifests)).toEqual(['strategies', 'lenses', 'methods']);
     expect(result.manifests.strategies.map((entry) => entry.name)).toEqual(['step-wise-disambiguate']);
+    // D86-L: commit-graph + generate-proposal are floor (graph-write is never readiness-gated);
+    // review-for-gaps stays gated (deliberate audit, no graph-write tool) so it is absent at zero coverage.
     expect(result.manifests.methods.map((entry) => entry.name)).toEqual([
       'run-structured-exchange',
       'capture',
+      'commit-graph',
       'elicit-by-question',
       'ingest-paste',
       'read-referenced-documents',
       'explore-and-characterize',
       'read-context',
+      'generate-proposal',
     ]);
   });
 
@@ -364,7 +368,7 @@ const previewWorkspace: ComposeAgentPromptInput['workspace'] = {
     audience: 'internal',
     horizon: 'current-milestone',
     migration: 'free-rewrite',
-    sourcing: 'strip-or-build',
+    dependencies: 'resist',
   }),
 };
 

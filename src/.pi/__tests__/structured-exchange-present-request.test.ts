@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
@@ -275,10 +275,9 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
-  it('prefers the live broker over the UI editor when both request_answer sources exist', async () => {
-    const request = registeredTools({
-      liveExchange: { awaitAnswer: async () => 'Use the broker answer.' },
-    }).get(REQUEST_ANSWER_TOOL);
+  it('prefers the UI editor over the live broker when both request_answer sources exist', async () => {
+    const awaitAnswer = vi.fn(async () => 'Use the broker answer.');
+    const request = registeredTools({ liveExchange: { awaitAnswer } }).get(REQUEST_ANSWER_TOOL);
     if (!request) throw new Error('request_answer was not registered');
 
     const result = await request.execute(
@@ -293,10 +292,11 @@ describe('structured exchange present/request tools', () => {
       { hasUI: true, ui: { editor: async () => 'Use the UI editor answer.' } } as never,
     );
 
+    expect(awaitAnswer).not.toHaveBeenCalled();
     expect(result.details).toMatchObject({
       exchange_id: 'answer-source-mixed',
       tool_meta: { prev: 'present_question', curr: REQUEST_ANSWER_TOOL },
-      answered: { text: 'Use the broker answer.' },
+      answered: { text: 'Use the UI editor answer.' },
     });
   });
 
@@ -390,6 +390,44 @@ describe('structured exchange present/request tools', () => {
         { type: 'message', message: { role: 'toolResult', details: result.details } },
       ]),
     ).toEqual([]);
+  });
+
+  it('rejects a JSON-string review-set payload at the param boundary, not deep in the executor', async () => {
+    // Regression: the live ship-gate run passed payload as a JSON-encoded string
+    // (payload was z.unknown()), which slipped past the tool boundary and only
+    // failed with an opaque "payload must be an object" deep in the executor.
+    const present = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!present) throw new Error('present_review_set was not registered');
+
+    await expect(
+      present.execute(
+        'present-review-string',
+        { exchangeId: 'review-string', payload: JSON.stringify(validReviewPayload()) },
+        undefined,
+        undefined,
+        {} as never,
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('rejects the mutate_graph {createBasis, ops} shape as a review-set payload', async () => {
+    // Regression: same live run — the agent reached for the mutate_graph payload
+    // shape; without schemaVersion it must fail at the param boundary.
+    const present = registeredTools({ review: reviewDeps() }).get(PRESENT_REVIEW_SET_TOOL);
+    if (!present) throw new Error('present_review_set was not registered');
+
+    await expect(
+      present.execute(
+        'present-review-wrong-shape',
+        {
+          exchangeId: 'review-wrong-shape',
+          payload: { createBasis: 'explicit', ops: [{ op: 'create_node', kind: 'context' }] },
+        },
+        undefined,
+        undefined,
+        {} as never,
+      ),
+    ).rejects.toThrow();
   });
 
   it('persists request_review approve, change-request, and reject responses', async () => {

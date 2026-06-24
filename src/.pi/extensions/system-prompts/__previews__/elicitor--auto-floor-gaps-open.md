@@ -15,7 +15,7 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 - lens: auto
 - spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=0.00, elicitation=0.00, commitment=0.00
 - workspace: /work/brunch-preview
-- workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; sourcing=strip-or-build
+- workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; dependencies=resist
 
 [Brunch elicitation recommendation]
 - next question: What should Brunch know about the constraint before proceeding?
@@ -63,6 +63,12 @@ When a skill file references a relative path, resolve it against the skill direc
   </skill>
   <skill>
     <kind>method</kind>
+    <name>commit-graph</name>
+    <description>Commit graph truth only through Brunch graph tools and CommandExecutor-backed results.</description>
+    <location><repo>/src/.pi/skills/methods/commit-graph/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
     <name>elicit-by-question</name>
     <description>Acquire missing material by asking the human one focused question.</description>
     <location><repo>/src/.pi/skills/methods/elicit-by-question/SKILL.md</location>
@@ -90,6 +96,12 @@ When a skill file references a relative path, resolve it against the skill direc
     <name>read-context</name>
     <description>Use pushed context handles and read-only context tools for selected-spec context.</description>
     <location><repo>/src/.pi/skills/methods/read-context/SKILL.md</location>
+  </skill>
+  <skill>
+    <kind>method</kind>
+    <name>generate-proposal</name>
+    <description>Generate reviewable candidate graph material without committing it directly.</description>
+    <location><repo>/src/.pi/skills/methods/generate-proposal/SKILL.md</location>
   </skill>
 </brunch-skills>
 

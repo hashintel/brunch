@@ -29,7 +29,7 @@ describe('renderSpecificationContext', () => {
     await expect(rendered).toMatchFileSnapshot('../__previews__/specification-context.md');
     expect(rendered).toContain('<specification>');
     expect(rendered).toContain('Overview:');
-    expect(rendered).toContain('Graph (LSN 2): 4 nodes, 2 edges');
+    expect(rendered).toContain('Graph (LSN 2): 5 nodes, 3 edges');
     expect(rendered).toContain('Gaps:');
     expect(rendered).toContain('Sessions:');
     expect(rendered.indexOf('Overview:')).toBeLessThan(rendered.indexOf('Graph (LSN 2):'));

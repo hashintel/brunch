@@ -1,0 +1,210 @@
+{
+  "schemaVersion": 1,
+  "probeId": "ship-gate-composition",
+  "runId": "2026-06-22T12-03-12.181Z",
+  "generatedAt": "2026-06-22T12:03:13.621Z",
+  "cwd": "<ephemeral-workspace>",
+  "cli": "node dist/app/brunch.js --mode rpc",
+  "setup": {
+    "publicSeedCli": "node dist/graph/seed-fixtures.js",
+    "seeds": [
+      "workspace-spread/alpha-grounding",
+      "workspace-spread/beta-commitments"
+    ]
+  },
+  "alpha": {
+    "specId": 1,
+    "sessionId": "019eef36-9a4a-7143-b4d5-2aba9d7dcdc4",
+    "nodeTitles": [
+      "A workspace may hold multiple specs",
+      "Help a user orient inside one workspace",
+      "Selected spec",
+      "Selection must stay scoped to the chosen spec"
+    ],
+    "lsn": 2
+  },
+  "beta": {
+    "specId": 2,
+    "sessionId": "019eef36-9a50-7664-ba78-72f90d657977",
+    "nodeTitles": [
+      "Keep workspace context rendering separate from graph slices",
+      "Specs overview should show grade contrast at a glance",
+      "Workspace inventory witness",
+      "Workspace overview renderer",
+      "Workspace overviews should report node counts per spec"
+    ],
+    "lsn": 2
+  },
+  "selectedSpecId": 2,
+  "betaTitlesAbsentFromAlpha": true,
+  "runtimeStateObservable": true,
+  "steps": [
+    {
+      "name": "seeded workspace inventory",
+      "request": {
+        "method": "workspace.selectionState"
+      },
+      "response": {
+        "requiresSelection": true,
+        "specs": [
+          {
+            "id": 1,
+            "title": "Alpha Grounding"
+          },
+          {
+            "id": 2,
+            "title": "Beta Commitments"
+          }
+        ]
+      }
+    },
+    {
+      "name": "activate alpha through public RPC",
+      "request": {
+        "method": "workspace.activate",
+        "params": {
+          "decision": {
+            "action": "newSession",
+            "specId": 1
+          }
+        }
+      },
+      "response": {
+        "status": "ready",
+        "spec": {
+          "id": 1,
+          "title": "Alpha Grounding"
+        },
+        "session": {
+          "id": "019eef36-9a4a-7143-b4d5-2aba9d7dcdc4"
+        }
+      }
+    },
+    {
+      "name": "read selected alpha graph overview",
+      "request": {
+        "method": "graph.overview",
+        "params": {
+          "specId": 1
+        }
+      },
+      "response": {
+        "nodeCount": 4,
+        "edgeCount": 2,
+        "lsn": 2,
+        "nodeTitles": [
+          "A workspace may hold multiple specs",
+          "Help a user orient inside one workspace",
+          "Selected spec",
+          "Selection must stay scoped to the chosen spec"
+        ]
+      }
+    },
+    {
+      "name": "read alpha runtime posture observable",
+      "request": {
+        "method": "session.runtimeState",
+        "params": {
+          "specId": 1,
+          "sessionId": "019eef36-9a4a-7143-b4d5-2aba9d7dcdc4"
+        }
+      },
+      "response": {
+        "status": "ready",
+        "specId": 1,
+        "sessionId": "019eef36-9a4a-7143-b4d5-2aba9d7dcdc4",
+        "agent": {
+          "operationalMode": "elicit",
+          "role": "elicitor",
+          "strategy": "auto",
+          "lens": "auto"
+        },
+        "mentions": {
+          "graphNodes": [],
+          "files": []
+        },
+        "world": {
+          "graph": {
+            "latestLsn": null
+          },
+          "git": {
+            "head": null
+          }
+        },
+        "lifecycle": {
+          "specOrigin": null,
+          "sessionOrigin": null,
+          "sessionIndexInSpec": null,
+          "isFirstSessionForSpec": null,
+          "isTenthSessionForSpec": null
+        }
+      }
+    },
+    {
+      "name": "activate beta through public RPC",
+      "request": {
+        "method": "workspace.activate",
+        "params": {
+          "decision": {
+            "action": "newSession",
+            "specId": 2
+          }
+        }
+      },
+      "response": {
+        "status": "ready",
+        "spec": {
+          "id": 2,
+          "title": "Beta Commitments"
+        },
+        "session": {
+          "id": "019eef36-9a50-7664-ba78-72f90d657977"
+        }
+      }
+    },
+    {
+      "name": "confirm selected workspace inventory remains explicit",
+      "request": {
+        "method": "workspace.selectionState"
+      },
+      "response": {
+        "requiresSelection": false,
+        "specs": [
+          {
+            "id": 1,
+            "title": "Alpha Grounding"
+          },
+          {
+            "id": 2,
+            "title": "Beta Commitments"
+          }
+        ]
+      }
+    },
+    {
+      "name": "read selected beta graph overview",
+      "request": {
+        "method": "graph.overview",
+        "params": {
+          "specId": 2
+        }
+      },
+      "response": {
+        "nodeCount": 5,
+        "edgeCount": 3,
+        "lsn": 2,
+        "nodeTitles": [
+          "Keep workspace context rendering separate from graph slices",
+          "Specs overview should show grade contrast at a glance",
+          "Workspace inventory witness",
+          "Workspace overview renderer",
+          "Workspace overviews should report node counts per spec"
+        ]
+      }
+    }
+  ],
+  "artifacts": {
+    "runDir": "runs/ship-gate-composition/2026-06-22T12-03-12.181Z",
+    "reportJson": "runs/ship-gate-composition/2026-06-22T12-03-12.181Z/report.json"
+  }
+}

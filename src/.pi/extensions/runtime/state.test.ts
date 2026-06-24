@@ -45,15 +45,18 @@ describe('agent posture policy', () => {
     expect(floorMethods).toEqual([
       'run-structured-exchange',
       'capture',
+      'commit-graph',
       'elicit-by-question',
       'ingest-paste',
       'read-referenced-documents',
       'explore-and-characterize',
       'read-context',
+      'generate-proposal',
     ]);
-    expect(floorTools).not.toContain('mutate_graph');
-    expect(floorTools).not.toContain('present_review_set');
-    expect(floorTools).not.toContain('request_review');
+    // D86-L: graph-write tools are floor — present even at zero grounding coverage.
+    expect(floorTools).toContain('mutate_graph');
+    expect(floorTools).toContain('present_review_set');
+    expect(floorTools).toContain('request_review');
     expect(floorTools).toContain('read_graph');
     expect(floorTools).toContain('read_session_context');
     expect(floorTools).toContain('read_elicitation_gaps');
@@ -81,21 +84,19 @@ describe('agent posture policy', () => {
     expect(coveredTools).toEqual(expect.arrayContaining(['present_review_set', 'request_review']));
   });
 
-  it('moves a gated method and its tools from absent to present when coverage rises', () => {
+  it('keeps graph-write tools floor even when graph-write readiness negotiates (D86-L)', () => {
     const state = projectBrunchAgentState([]);
-    const uncovered = groundingFloorGaps({ coverage: { context: 0 } });
-    const covered = groundingFloorGaps({ coverage: { context: 0.5 } });
+    // thesis uncovered => propose-graph / project-graph readiness negotiates, but the
+    // graph-write methods/tools must stay available (no bootstrap deadlock).
+    const negotiating = groundingFloorGaps({ coverage: { thesis: 0 } });
 
-    expect(manifestsForState(state, uncovered).methods.map((entry) => entry.name)).not.toContain(
-      'commit-graph',
-    );
-    expect(activeToolNamesForPosture({ registeredToolNames, state, gaps: uncovered })).not.toContain(
-      'mutate_graph',
-    );
-    expect(manifestsForState(state, covered).methods.map((entry) => entry.name)).toContain('commit-graph');
-    expect(activeToolNamesForPosture({ registeredToolNames, state, gaps: covered })).toContain(
-      'mutate_graph',
-    );
+    const methods = manifestsForState(state, negotiating).methods.map((entry) => entry.name);
+    expect(methods).toContain('commit-graph');
+    expect(methods).toContain('generate-proposal');
+
+    const tools = activeToolNamesForPosture({ registeredToolNames, state, gaps: negotiating });
+    expect(tools).toContain('mutate_graph');
+    expect(tools).toEqual(expect.arrayContaining(['present_review_set', 'request_review']));
   });
 
   it('allows registered dev tool names only through the injected dev allow-list', () => {
@@ -175,7 +176,7 @@ describe('agent posture policy', () => {
     );
   });
 
-  it('omits gated methods when capability-readiness negotiates', () => {
+  it('omits only the non-graph-write gated method (review-for-gaps) when readiness negotiates', () => {
     const state = projectBrunchAgentState([
       {
         type: 'custom',
@@ -198,8 +199,9 @@ describe('agent posture policy', () => {
 
     expect(Object.keys(manifests)).toEqual(['strategies', 'lenses', 'methods']);
     expect(manifests.methods.map((entry) => entry.name)).not.toContain('review-for-gaps');
-    expect(manifests.methods.map((entry) => entry.name)).not.toContain('commit-graph');
-    expect(manifests.methods.map((entry) => entry.name)).not.toContain('generate-proposal');
+    // D86-L: graph-write methods stay present through negotiation.
+    expect(manifests.methods.map((entry) => entry.name)).toContain('commit-graph');
+    expect(manifests.methods.map((entry) => entry.name)).toContain('generate-proposal');
   });
 
   it('fails loud on an empty gap register instead of returning empty manifests', () => {

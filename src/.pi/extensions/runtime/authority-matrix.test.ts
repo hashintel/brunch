@@ -92,6 +92,7 @@ describe('minimal authority matrix', () => {
       'web_search',
       'present_question',
       'request_answer',
+      'mutate_graph',
     ]);
   });
 
@@ -107,6 +108,7 @@ describe('minimal authority matrix', () => {
       'web_search',
       'present_question',
       'request_answer',
+      'mutate_graph',
     ]);
   });
 

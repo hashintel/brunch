@@ -44,7 +44,17 @@ export const zPresentReviewSetParams = z
       .string()
       .describe('Optional transcript/proposal entry id to carry into later acceptance audit.')
       .optional(),
-    payload: z.unknown().describe('Canonical review-set proposal payload.'),
+    // Boundary shape only: reject a JSON string or the wrong tool's shape
+    // (e.g. mutate_graph's {createBasis, ops}) before the deep validator runs.
+    // The full nested proposal shape is owned by validateReviewSetPayloadShape
+    // in graph/review-set.ts (single owner); this loose object requires just the
+    // review-set discriminator so a non-object or mismatched payload fails here
+    // with a named field error instead of deep in the command executor.
+    payload: z
+      .looseObject({ schemaVersion: z.literal(1) })
+      .describe(
+        'Canonical review-set proposal payload object (schemaVersion: 1, lens, grounding, pitch, entityDrafts, edgeDrafts).',
+      ),
   })
   .strict();
 export type PresentReviewSetParams = z.infer<typeof zPresentReviewSetParams>;
@@ -55,7 +65,12 @@ export const zRequestAnswerParams = z
       .string()
       .min(1)
       .describe('The structured exchange id from the corresponding present_question entry.'),
-    respondsToPresentTool: z.literal('present_question').optional(),
+    respondsToPresentTool: z
+      .literal('present_question')
+      .optional()
+      .describe(
+        'The present_* tool that opened this exchange. request_answer follows present_question only; it must reuse the matching exchangeId.',
+      ),
     prompt: z.string().describe('Short live-input prompt. Do not repeat the presented question body.'),
   })
   .strict();
@@ -75,7 +90,11 @@ export const zRequestChoiceParams = z
       .string()
       .min(1)
       .describe('The structured exchange id from the corresponding present_* entry.'),
-    respondsToPresentTool: z.enum(['present_options', 'present_candidates']),
+    respondsToPresentTool: z
+      .enum(['present_options', 'present_candidates'])
+      .describe(
+        'The present_* tool that opened this exchange. request_choice follows present_options or present_candidates only (never present_question — use request_answer for that); it must reuse the matching exchangeId.',
+      ),
     prompt: z.string().describe('Short live-input prompt. Do not repeat the presented content.'),
     choices: z.array(zRequestChoiceParam).describe('Choices available for this response.'),
     allowOther: z.boolean().describe('Whether the user may choose Other.').optional(),
@@ -90,7 +109,11 @@ export const zRequestChoicesParams = z
       .string()
       .min(1)
       .describe('The structured exchange id from the corresponding present_options entry.'),
-    respondsToPresentTool: z.literal('present_options'),
+    respondsToPresentTool: z
+      .literal('present_options')
+      .describe(
+        'The present_* tool that opened this exchange. request_choices (multi-select) follows present_options only; it must reuse the matching exchangeId.',
+      ),
     prompt: z.string().describe('Short live-input prompt. Do not repeat the presented content.'),
     choices: z
       .array(zRequestChoiceParam)

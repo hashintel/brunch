@@ -23,8 +23,11 @@ import {
   zPresentReviewSetDetails,
   zPresentToolMeta,
   zRequestAnswerDetails,
+  zRequestAnswerParams,
   zRequestChoiceDetails,
+  zRequestChoiceParams,
   zRequestChoicesDetails,
+  zRequestChoicesParams,
   zRequestDetails,
   zRequestDetailsHeader,
   zRequestReviewDetails,
@@ -314,6 +317,27 @@ describe('structured exchange present schemas', () => {
     expectJsonSchemaExport(zPresentReviewSetDetails);
     expectJsonSchemaExport(zPresentCandidatesDetails);
     expectJsonSchemaExport(zPresentDetails);
+  });
+});
+
+describe('structured exchange request param legibility (D-series pairing)', () => {
+  // Regression for the live ship-gate confusion: respondsToPresentTool is the
+  // field that encodes the present_* -> request_* pairing, and was the only
+  // model-facing param field with no .describe(), so the model guessed and
+  // tried request_choice after present_question. Each request_* param must
+  // surface the pairing rule in its model-facing JSON Schema.
+  it.each([
+    ['request_answer', zRequestAnswerParams],
+    ['request_choice', zRequestChoiceParams],
+    ['request_choices', zRequestChoicesParams],
+  ])('describes respondsToPresentTool for %s', (_name, schema) => {
+    const json = z.toJSONSchema(schema) as {
+      properties?: { respondsToPresentTool?: { description?: string } };
+    };
+    const description = json.properties?.respondsToPresentTool?.description;
+    expect(description, 'respondsToPresentTool must teach the pairing rule').toBeTruthy();
+    expect(description).toMatch(/present_/);
+    expect(description).toMatch(/exchangeId/i);
   });
 });
 

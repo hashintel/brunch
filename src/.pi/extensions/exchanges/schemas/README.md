@@ -49,6 +49,7 @@ chain active Pi tool / session trigger / RPC editor relay
 
 - Active `.pi/extensions/exchanges/*.ts` files own Pi registration and UI collection only.
 - `../pi-schema.ts` is the only Zod JSON Schema to Pi `TSchema` adapter.
+- `present_review_set.payload` is a **loose object carrying the review-set discriminator** (`schemaVersion: 1`), not `z.unknown()`: the param boundary rejects a JSON string or the wrong tool's shape (e.g. `mutate_graph`'s `{createBasis, ops}`) before the deep validator runs. The full nested proposal shape stays owned by `validateReviewSetPayloadShape` in `graph/review-set.ts` (single owner); the boundary only guarantees an object with the discriminator so the model sees structure instead of an opaque blob.
 - `projections/exchanges/*` is the only construction boundary for active present/request `toolResult.details`.
 - `renderers/exchanges/*` owns durable markdown for active present/request emissions.
 - Session pending exchange recovery projects from canonical present/request details; it does not author a TypeBox semantic schema.

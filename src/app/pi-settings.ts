@@ -125,6 +125,11 @@ export interface BrunchResourceLoaderOptions {
   noPromptTemplates: true;
   noSkills: true;
   noThemes: true;
+  // D39-L seal: pin the append-system-prompt source to empty so Pi's resource
+  // loader never falls through to ambient discovery of `<cwd>/.pi/APPEND_SYSTEM.md`
+  // or `<agentDir>/APPEND_SYSTEM.md`. Without this an ambient global append leaks
+  // into the Brunch system prompt (the other no* flags do not cover it).
+  appendSystemPrompt: string[];
   extensionFactories: ExtensionFactory[];
 }
 
@@ -148,6 +153,7 @@ export function brunchResourceLoaderOptions(
     noPromptTemplates: true,
     noSkills: true,
     noThemes: true,
+    appendSystemPrompt: [],
     extensionFactories,
   };
 }
