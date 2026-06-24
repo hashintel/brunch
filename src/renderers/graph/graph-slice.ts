@@ -6,13 +6,12 @@ import type { EdgeEndpoint } from '../../graph/policy/category-policy.js';
 import { edgeImpact } from '../../graph/projection/direction.js';
 import { edgeLabel } from '../../graph/projection/labels.js';
 import type { GraphSlice } from '../../graph/queries.js';
-import { NODE_KINDS, NODE_PLANES } from '../../graph/schema/kinds.js';
+import { NODE_KINDS, NODE_PLANES, type ReadinessBand } from '../../graph/schema/kinds.js';
 import {
   NODE_KIND_METADATA,
   bandsForKind,
   formatGraphNodeCode,
   type NodeKind,
-  type ReadinessBand,
 } from '../../graph/schema/nodes.js';
 import { markdownTable, joinMarkdownBlocks } from '../markdown.js';
 

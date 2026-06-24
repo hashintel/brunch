@@ -19,13 +19,13 @@ import {
   type GapDisposition,
   type GapPredicate,
 } from './schema/elicitation-gaps.js';
+import type { ReadinessBand } from './schema/kinds.js';
 import {
   bandsForKind,
   parseGraphNodeCode,
   type GraphNode,
   type NodeDetail,
   type NodeKind,
-  type ReadinessBand,
 } from './schema/nodes.js';
 import type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 

@@ -27,7 +27,7 @@ export {
   SPEC_KINDS,
 } from './schema/kinds.js';
 
-export type { SpecKind } from './schema/kinds.js';
+export type { ReadinessBand, SpecKind } from './schema/kinds.js';
 
 export type { EdgeCategory, GraphEdge } from './schema/edges.js';
 export type { ElicitationGap, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
@@ -41,7 +41,6 @@ export type {
   NodeKind,
   NodeKindRequiringDetail,
   NodeKindWithFormDetail,
-  ReadinessBand,
 } from './schema/nodes.js';
 
 export {

@@ -16,7 +16,7 @@ import {
   NODE_PLANES,
   ORACLE_KINDS,
   PLAN_KINDS,
-  READINESS_BANDS,
+  type ReadinessBand,
 } from './kinds.js';
 
 // ---------------------------------------------------------------------------
@@ -66,8 +66,6 @@ type PlanKind = (typeof PLAN_KINDS)[number];
 
 /** Union of every node kind across all planes. */
 export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind;
-
-export type ReadinessBand = (typeof READINESS_BANDS)[number];
 
 export interface NodeKindMetadata {
   readonly label: string;

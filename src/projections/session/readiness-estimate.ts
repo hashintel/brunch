@@ -1,6 +1,5 @@
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import { READINESS_BANDS } from '../../graph/schema/kinds.js';
-import type { ReadinessBand } from '../../graph/schema/nodes.js';
+import { READINESS_BANDS, type ReadinessBand } from '../../graph/schema/kinds.js';
 
 export interface ReadinessEstimate {
   readonly coverage: Readonly<Record<ReadinessBand, number>>;

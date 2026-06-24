@@ -115,4 +115,43 @@ describe('graph read API', () => {
       'evidence',
     ]);
   });
+
+  it('filters graph slices by derived readiness bands', () => {
+    const batch = runCreateOnlyMutation(executor, {
+      specId,
+      nodes: [
+        { ref: 'goal', plane: 'intent', kind: 'goal', title: 'Goal' },
+        { ref: 'context', plane: 'intent', kind: 'context', title: 'Context' },
+        { ref: 'requirement', plane: 'intent', kind: 'requirement', title: 'Requirement' },
+        { ref: 'criterion', plane: 'intent', kind: 'criterion', title: 'Criterion' },
+        { ref: 'example', plane: 'intent', kind: 'example', title: 'Example' },
+        { ref: 'module', plane: 'design', kind: 'module', title: 'Module' },
+        { ref: 'evidence', plane: 'oracle', kind: 'evidence', title: 'Evidence' },
+        { ref: 'frontier', plane: 'plan', kind: 'frontier', title: 'Frontier' },
+      ],
+      edges: [],
+    });
+    expect(batch.status).toBe('success');
+
+    expect(
+      queryGraph(db, specId, { bands: ['projection'] })
+        .nodes.map((node) => node.kind)
+        .sort(),
+    ).toEqual(['evidence', 'module']);
+    expect(
+      queryGraph(db, specId, { bands: ['commitment'] })
+        .nodes.map((node) => node.kind)
+        .sort(),
+    ).toEqual(['criterion', 'frontier', 'requirement']);
+    expect(
+      queryGraph(db, specId, { bands: ['grounding'] })
+        .nodes.map((node) => node.kind)
+        .sort(),
+    ).toEqual(['context', 'goal']);
+    expect(
+      queryGraph(db, specId, { bands: ['elicitation'] })
+        .nodes.map((node) => node.kind)
+        .sort(),
+    ).toEqual(['context']);
+  });
 });

@@ -13,6 +13,7 @@ import {
   type GraphFilter,
   type GraphVisibility,
 } from '../../graph/queries.js';
+import { READINESS_BANDS } from '../../graph/schema/kinds.js';
 import { formatGraphOverview } from '../../renderers/graph/graph-slice.js';
 import { translateMutateGraph, formatMutateGraphResult } from '../extensions/graph/command-adapter.js';
 import { registerBrunchGraph, type GraphReaders } from '../extensions/graph/index.js';
@@ -60,6 +61,7 @@ describe('graph tool adapter', () => {
     // List modes deliberately keep their filter-empty behavior separate from malformed companion calls.
     expect(Value.Check(ReadGraphParams, { mode: 'list_by_kind' })).toBe(true);
     expect(Value.Check(ReadGraphParams, { mode: 'list_by_band', readinessBands: [] })).toBe(true);
+    expect(ReadGraphParams.properties.readinessBands.items).toEqual({ enum: [...READINESS_BANDS] });
   });
 
   it('translates existing projected codes before handing edges to CommandExecutor', () => {

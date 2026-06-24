@@ -1,7 +1,7 @@
 # Readiness-band four-band derived model (D94-L)
 
 Frontier: readiness-bands-interrogation
-Status:   active
+Status:   done
 Mode:     slices
 Created:  2026-06-24
 
@@ -10,7 +10,7 @@ Created:  2026-06-24
 - **Seam:** the readiness-band axis — `READINESS_BANDS` (drizzle-free leaf `src/graph/schema/kinds.ts`) + derived `bandsForKind(kind)` node membership (`src/graph/schema/nodes.ts`), with two carriers: `gap.band` (elicitation agenda) and node band membership (filter/render/threshold).
 - **Frontier:** `readiness-bands-interrogation` — verdict reached (D94-L firm + I50-L planned); this file materializes it.
 - **Posture:** earned (inherited from `readiness-bands-interrogation`; proving→earned transition recorded in PLAN). The proving question is answered; this is closure — materialize the model, re-point readers, delete the stored-table redundancy.
-- **Open risk:** Card 1 materialized the band-less render bucket; remaining risk is the explicit I50-L guard that proves agenda readers stay on `gap.band` while node readers stay on `bandsForKind`.
+- **Open risk:** Card 2 locked the I50-L two-carrier guard; remaining risk is doc/golden reconciliation and final advertisement review in Card 3.
 
 ### Cross-cutting obligations (inherited)
 
@@ -113,6 +113,8 @@ src/graph/schema/
 
 ## Card 2 — Re-point node-band readers + I50-L two-carrier guard
 
+**Status:** done — 2026-06-24. Node-band readers are pinned to derived `bandsForKind` behavior; `read_graph` advertises the closed four-band enum; `projection` is legal at the gap command boundary; and the I50-L source guard proves `sortElicitationGapsForAsking` + `readinessEstimate` do not import node-band metadata.
+
 **Posture:** earned (re-point readers to the derived rule; lock the carrier separation).
 
 ### Target Behavior
@@ -192,6 +194,8 @@ src/.pi/extensions/graph/
 ---
 
 ## Card 3 — Canonical-doc + golden reconciliation
+
+**Status:** done — 2026-06-24. `src/graph/README.md` band section describes the derived four-band model; D64-L→D94-L header citations updated in `nodes.ts` / `readiness-estimate.ts`; renderer previews/goldens regenerated against the four-band `BAND_ORDER`; no stale three-band refs remain in `src`. Full `npm run test` green (1027 passed).
 
 **Posture:** earned (canonicalize current-state docs; re-lock FE-870 goldens).
 

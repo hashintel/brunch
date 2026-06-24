@@ -17,8 +17,8 @@ import { createDb, type BrunchDb } from '../../db/connection.js';
 import { changeLog, edges, elicitationGaps, graphClock, nodes, specs } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
 import { GROUNDING_FLOOR_KINDS } from '../schema/elicitation-gap-fixtures.js';
-import { EDGE_CATEGORIES } from '../schema/kinds.js';
-import { NODE_KIND_METADATA, bandsForKind, type ReadinessBand } from '../schema/nodes.js';
+import { EDGE_CATEGORIES, type ReadinessBand } from '../schema/kinds.js';
+import { NODE_KIND_METADATA, bandsForKind } from '../schema/nodes.js';
 import { runSeedFixturesCli, seedFixture, type SeedFixture } from '../seed-fixtures.js';
 import { openWorkspaceCommandExecutor } from '../workspace-store.js';
 

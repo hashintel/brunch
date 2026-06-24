@@ -24,6 +24,7 @@ import {
   ORACLE_KINDS,
   PLAN_KINDS,
   READINESS_BANDS,
+  type ReadinessBand,
 } from '../schema/kinds.js';
 import {
   claimFormKnownFields,
@@ -36,7 +37,6 @@ import {
   type NodeKindRequiringDetail,
   type NodeKindWithFormDetail,
   type NodePlane,
-  type ReadinessBand,
 } from '../schema/nodes.js';
 import type { CreateElicitationGapInput, CreateNodeInput } from './command-types.js';
 import type { Diagnostic, EdgePatch, NodePatch } from './graph-mutation-types.js';
