@@ -5,7 +5,8 @@ import { createDb, type BrunchDb } from '../../db/connection.js';
 import { elicitationGaps, graphClock, specs } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
 import { getElicitationGaps, getOpenReconciliationNeeds } from '../queries.js';
-import { NODE_KIND_METADATA, parseGraphNodeCode } from '../schema/nodes.js';
+import { READINESS_BANDS } from '../schema/kinds.js';
+import { NODE_KIND_METADATA, bandsForKind, parseGraphNodeCode, type NodeKind } from '../schema/nodes.js';
 import { runCreateOnlyMutation } from './support/create-only-mutation.js';
 
 function createTestDb(): BrunchDb {
@@ -17,42 +18,88 @@ describe('graph node code metadata', () => {
     const labels = Object.values(NODE_KIND_METADATA).map((metadata) => metadata.label);
     expect(new Set(labels).size).toBe(labels.length);
     expect(labels.every((label) => /^[A-Z]{1,3}$/.test(label))).toBe(true);
-    expect(Object.values(NODE_KIND_METADATA).every((metadata) => metadata.readinessBands.length > 0)).toBe(
-      true,
-    );
     expect(parseGraphNodeCode('A1')).toEqual({ kind: 'assumption', kindOrdinal: 1 });
     expect(parseGraphNodeCode('CON2')).toEqual({ kind: 'constraint', kindOrdinal: 2 });
     expect(parseGraphNodeCode('REQ3')).toEqual({ kind: 'requirement', kindOrdinal: 3 });
     expect(parseGraphNodeCode('AC4')).toEqual({ kind: 'criterion', kindOrdinal: 4 });
   });
 
-  it('pins the merged code-label and readiness-band source of truth', () => {
+  it('pins code-label metadata without storing readiness bands per kind', () => {
     expect(NODE_KIND_METADATA).toEqual({
-      goal: { label: 'G', readinessBands: ['grounding'] },
-      thesis: { label: 'TH', readinessBands: ['grounding'] },
-      term: { label: 'T', readinessBands: ['grounding'] },
-      context: { label: 'CTX', readinessBands: ['grounding'] },
-      story: { label: 'ST', readinessBands: ['elicitation'] },
-      unknown: { label: 'UNK', readinessBands: ['elicitation'] },
-      requirement: { label: 'REQ', readinessBands: ['commitment'] },
-      assumption: { label: 'A', readinessBands: ['elicitation'] },
-      constraint: { label: 'CON', readinessBands: ['grounding', 'elicitation'] },
-      invariant: { label: 'INV', readinessBands: ['elicitation'] },
-      decision: { label: 'D', readinessBands: ['elicitation'] },
-      criterion: { label: 'AC', readinessBands: ['commitment'] },
-      example: { label: 'EX', readinessBands: ['elicitation'] },
-      check: { label: 'CH', readinessBands: ['commitment'] },
-      vv_method: { label: 'VV', readinessBands: ['elicitation'] },
-      evidence: { label: 'E', readinessBands: ['commitment'] },
-      vv_obligation: { label: 'O', readinessBands: ['elicitation'] },
-      module: { label: 'MOD', readinessBands: ['elicitation'] },
-      interface: { label: 'API', readinessBands: ['elicitation'] },
-      entity: { label: 'ENT', readinessBands: ['elicitation'] },
-      sketch: { label: 'SKT', readinessBands: ['elicitation'] },
-      milestone: { label: 'M', readinessBands: ['commitment'] },
-      frontier: { label: 'F', readinessBands: ['commitment'] },
-      slice: { label: 'S', readinessBands: ['commitment'] },
+      goal: { label: 'G' },
+      thesis: { label: 'TH' },
+      term: { label: 'T' },
+      context: { label: 'CTX' },
+      story: { label: 'ST' },
+      unknown: { label: 'UNK' },
+      requirement: { label: 'REQ' },
+      assumption: { label: 'A' },
+      constraint: { label: 'CON' },
+      invariant: { label: 'INV' },
+      decision: { label: 'D' },
+      criterion: { label: 'AC' },
+      example: { label: 'EX' },
+      check: { label: 'CH' },
+      vv_method: { label: 'VV' },
+      evidence: { label: 'E' },
+      vv_obligation: { label: 'O' },
+      module: { label: 'MOD' },
+      interface: { label: 'API' },
+      entity: { label: 'ENT' },
+      sketch: { label: 'SKT' },
+      milestone: { label: 'M' },
+      frontier: { label: 'F' },
+      slice: { label: 'S' },
     });
+  });
+
+  it('derives readiness bands from plane plus intent-kind bisection', () => {
+    expect(READINESS_BANDS).toEqual(['grounding', 'elicitation', 'projection', 'commitment']);
+
+    const projectionKinds = [
+      'module',
+      'interface',
+      'entity',
+      'check',
+      'vv_method',
+      'vv_obligation',
+      'evidence',
+    ] as const satisfies readonly NodeKind[];
+    for (const kind of projectionKinds) {
+      expect(bandsForKind(kind)).toEqual(['projection']);
+    }
+    const commitmentKinds = [
+      'milestone',
+      'frontier',
+      'slice',
+      'requirement',
+      'criterion',
+    ] as const satisfies readonly NodeKind[];
+    for (const kind of commitmentKinds) {
+      expect(bandsForKind(kind)).toEqual(['commitment']);
+    }
+    const dualBandKinds = ['context', 'constraint'] as const satisfies readonly NodeKind[];
+    for (const kind of dualBandKinds) {
+      expect(bandsForKind(kind)).toEqual(['grounding', 'elicitation']);
+    }
+    const bandLessKinds = ['example', 'sketch', 'term'] as const satisfies readonly NodeKind[];
+    for (const kind of bandLessKinds) {
+      expect(bandsForKind(kind)).toEqual([]);
+    }
+    const groundingKinds = ['goal', 'thesis'] as const satisfies readonly NodeKind[];
+    for (const kind of groundingKinds) {
+      expect(bandsForKind(kind)).toEqual(['grounding']);
+    }
+    const elicitationKinds = [
+      'story',
+      'unknown',
+      'assumption',
+      'invariant',
+      'decision',
+    ] as const satisfies readonly NodeKind[];
+    for (const kind of elicitationKinds) {
+      expect(bandsForKind(kind)).toEqual(['elicitation']);
+    }
   });
 });
 

@@ -5,7 +5,8 @@ import { CommandExecutor } from '../command-executor.js';
 import { selectElicitationGap, sortElicitationGapsForAsking } from '../elicitation-driver.js';
 import { getElicitationGaps } from '../queries.js';
 import type { ElicitationGap } from '../schema/elicitation-gaps.js';
-import type { NodeKind, ReadinessBand } from '../schema/nodes.js';
+import type { ReadinessBand } from '../schema/kinds.js';
+import type { NodeKind } from '../schema/nodes.js';
 
 function gap(overrides: Partial<ElicitationGap> & Pick<ElicitationGap, 'id'>): ElicitationGap {
   const refersTo = overrides.refersTo ?? 'context';

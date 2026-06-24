@@ -19,13 +19,13 @@ import {
   type GapDisposition,
   type GapPredicate,
 } from './schema/elicitation-gaps.js';
+import type { ReadinessBand } from './schema/kinds.js';
 import {
-  NODE_KIND_METADATA,
+  bandsForKind,
   parseGraphNodeCode,
   type GraphNode,
   type NodeDetail,
   type NodeKind,
-  type ReadinessBand,
 } from './schema/nodes.js';
 import type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
@@ -275,8 +275,7 @@ function nodeMatchesFilter(
     return false;
   }
   if (filter.bands && filter.bands.length > 0) {
-    const metadata = NODE_KIND_METADATA[row.kind as NodeKind];
-    if (!metadata.readinessBands.some((band) => filter.bands?.includes(band))) return false;
+    if (!bandsForKind(row.kind as NodeKind).some((band) => filter.bands?.includes(band))) return false;
   }
   if (filter.hasEdge && !hasMatchingEdge(row.id, edges, filter.hasEdge)) return false;
   if (filter.lacksEdge && hasMatchingEdge(row.id, edges, filter.lacksEdge)) return false;
@@ -359,8 +358,7 @@ function derivePresenceCoverage(
     if (predicate.plane !== undefined && row.plane !== predicate.plane) return false;
     if (predicate.nodeKind !== undefined && row.kind !== predicate.nodeKind) return false;
     if (predicate.band !== undefined) {
-      const metadata = NODE_KIND_METADATA[row.kind as NodeKind];
-      if (!(metadata.readinessBands as readonly ReadinessBand[]).includes(predicate.band)) return false;
+      if (!bandsForKind(row.kind as NodeKind).includes(predicate.band)) return false;
     }
     return true;
   }).length;

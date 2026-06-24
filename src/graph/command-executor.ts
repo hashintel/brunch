@@ -58,7 +58,8 @@ import type {
 import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
 import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
 import type { ElicitationGapLensAffinity, GapPredicate } from './schema/elicitation-gaps.js';
-import { type NodeBasis, type NodeKind, type NodePlane, type ReadinessBand } from './schema/nodes.js';
+import type { ReadinessBand } from './schema/kinds.js';
+import { type NodeBasis, type NodeKind, type NodePlane } from './schema/nodes.js';
 
 export type {
   Diagnostic,

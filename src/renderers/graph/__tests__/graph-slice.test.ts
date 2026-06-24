@@ -36,7 +36,7 @@ nodes — intent · commitment (2)
 | REQ1 | 4 | Render stable graph-node codes |
 | AC1 | 3 | Golden diff is reviewable |
 
-nodes — oracle · commitment (1)
+nodes — oracle · projection (1)
 | code | id | title |
 | - | - | - |
 | E1 | 5 | Preview file records output |
@@ -54,6 +54,23 @@ test('band-filtered render groups dual-band nodes by the requested band that adm
       requestedReadinessBands: ['elicitation'],
     }),
   ).toContain('nodes — intent · elicitation (1)');
+});
+
+test('overview renders projection and keeps band-less nodes in a trailing bucket', () => {
+  const rendered = formatGraphOverview({
+    ...slice,
+    nodes: [
+      node({ id: 6, kind: 'example', kindOrdinal: 1, title: 'Reference example' }),
+      slice.nodes[0]!,
+      slice.nodes[4]!,
+    ],
+    edges: [],
+  });
+
+  expect(rendered).toContain('nodes — oracle · projection (1)');
+  expect(rendered).toContain('nodes — intent · commitment (1)');
+  expect(rendered).toContain('nodes — intent · unbanded (1)');
+  expect(rendered).toContain('| EX1 | 6 | Reference example |');
 });
 
 test('band-filtered render fails loud when a node matches none of the requested bands', () => {

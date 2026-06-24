@@ -96,7 +96,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       "Use read_graph with mode 'overview' to see all nodes and edges before committing new graph elements.",
       "Use read_graph with mode 'neighborhood' and a projected nodeCode such as G1 or CON2 to inspect a specific node and its connections.",
       "Use read_graph with mode 'list_by_kind' and one or more kinds to inspect a bounded graph slice.",
-      "Use read_graph with mode 'list_by_band' and readiness bands (grounding, elicitation, commitment) to inspect spec evidence by band.",
+      "Use read_graph with mode 'list_by_band' and readiness bands (grounding, elicitation, projection, commitment) to inspect spec evidence by band.",
       "Set show to 'all' when you need superseded nodes; otherwise the default 'active' hides superseded nodes and dangling edges.",
     ],
     parameters: ReadGraphParams,

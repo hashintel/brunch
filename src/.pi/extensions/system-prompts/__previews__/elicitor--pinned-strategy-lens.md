@@ -13,7 +13,7 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 - op_mode: elicit
 - strategy: step-wise-disambiguate
 - lens: design
-- spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, commitment=0.00
+- spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, projection=0.00, commitment=0.00
 - workspace: /work/brunch-preview
 - workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; dependencies=resist
 

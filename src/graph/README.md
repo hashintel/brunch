@@ -1,6 +1,6 @@
 # graph/ — Graph domain layer
 
-SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L
+SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L
 
 ## Owns
 
@@ -49,9 +49,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
   `ReconciliationNeed`, `ElicitationGap` (`refersTo` + `question`),
   kind/category types, per-kind node ordinals, per-kind node `detail` schemas,
-  and derived intent-kind grouping. Raw domain enum taxonomy lives in the
-  zero-import `schema/kinds.ts` leaf so web-facing graph imports do not pull in
-  Drizzle.
+  derived readiness-band membership (`bandsForKind`), and derived intent-kind
+  grouping. Raw domain enum taxonomy lives in the zero-import `schema/kinds.ts`
+  leaf so web-facing graph imports do not pull in Drizzle.
 
 - **Policy** (`policy/category-policy.ts`) — the single per-category
   metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact
@@ -77,7 +77,7 @@ D60-L read-shape ownership is explicit: every durable graph read shape has one c
 | `overview` | `getGraphOverview` | required | required | required | — |
 | `neighborhood` | `getNodeNeighborhood` | required | required | required | — |
 | `list_by_kind` | `getGraphSliceByKinds` | required | deferred | deferred | Web-eligible bounded graph slice; RPC follows a concrete web/client need. |
-| `list_by_band` | `getGraphSliceByReadinessBands` | required | deferred | deferred | Web-eligible D64-L evidence slice; RPC follows a concrete web/client need. |
+| `list_by_band` | `getGraphSliceByReadinessBands` | required | deferred | deferred | Web-eligible D94-L derived-band evidence slice; RPC follows a concrete web/client need. |
 | `gaps` | `getGraphGaps` | required | n/a | n/a | Agent/RPC-only diagnostic shape; not a web observer projection. |
 | `related` | `getRelatedNodes` | required | n/a | n/a | Agent/RPC-only traversal helper; not a web observer projection. |
 | `reconciliation_needs` | `getOpenReconciliationNeeds` | dedicated register tool | deferred | deferred | Exposed to agents through `read_reconciliation_needs`, not as a `read_graph` mode; no RPC/web projection yet. |
@@ -193,6 +193,7 @@ graph/
       fail-closed floor + test fixtures ride the same shape
     nodes.ts
       GraphNode and node taxonomy metadata
+      derived readiness-band membership
       per-kind detail schema owner consumed by validation + mutation boundary schemas
     edges.ts
     reconciliation-need.ts

@@ -23,6 +23,7 @@ import {
   NODE_KINDS_REQUIRING_DETAIL,
   NODE_KINDS_WITH_FORM_DETAIL,
   PLAN_KINDS,
+  READINESS_BANDS,
   type EdgeCategory,
   type EdgeDirection,
   type GraphVisibility,
@@ -277,7 +278,7 @@ export const ReadGraphParams = {
     },
     readinessBands: {
       type: 'array',
-      items: { type: 'string' },
+      items: { enum: [...READINESS_BANDS] },
       description:
         'list_by_band: optional readiness-band filter. Omit or pass [] for an unfiltered slice; unknown bands produce an empty slice.',
     },

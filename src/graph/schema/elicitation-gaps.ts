@@ -10,8 +10,8 @@
  */
 
 import type { Lsn, NodeId } from '../atoms.js';
-import { GAP_DISPOSITIONS, GAP_PREDICATE_KINDS, LENS_AFFINITIES } from './kinds.js';
-import type { NodeBasis, NodeKind, NodePlane, ReadinessBand } from './nodes.js';
+import { GAP_DISPOSITIONS, GAP_PREDICATE_KINDS, LENS_AFFINITIES, type ReadinessBand } from './kinds.js';
+import type { NodeBasis, NodeKind, NodePlane } from './nodes.js';
 
 export type GapDisposition = (typeof GAP_DISPOSITIONS)[number];
 export type GapPredicateKind = (typeof GAP_PREDICATE_KINDS)[number];

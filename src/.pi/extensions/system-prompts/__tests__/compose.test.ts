@@ -96,7 +96,7 @@ describe('composeAgentPrompt', () => {
     expect(result.prompt).toContain('- agent: elicitor');
     expect(result.prompt).toContain('[Brunch runtime state]');
     expect(result.prompt).toContain(
-      '- spec: Grounding Spec (#1), readiness estimate (soft; gates nothing): grounding=0.00, elicitation=0.00, commitment=0.00',
+      '- spec: Grounding Spec (#1), readiness estimate (soft; gates nothing): grounding=0.00, elicitation=0.00, projection=0.00, commitment=0.00',
     );
     expect(result.prompt).not.toContain('readiness_grade=');
     expect(result.prompt).toContain(
@@ -262,7 +262,7 @@ describe('composeAgentPrompt', () => {
 
     expect(pinnedFreestyle.manifests.strategies.map((entry) => entry.name)).toEqual(['freestyle']);
     expect(auto.prompt).toContain(
-      '- spec: Elicitation Spec (#1), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, commitment=0.00',
+      '- spec: Elicitation Spec (#1), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, projection=0.00, commitment=0.00',
     );
     expect(auto.prompt).not.toContain('readiness_grade=');
     expect(auto.prompt).not.toContain('<name>freestyle</name>');

@@ -16,7 +16,7 @@ describe('readiness estimate projection', () => {
     ]);
 
     expect(Object.keys(estimate.coverage)).toEqual([...READINESS_BANDS]);
-    expect(estimate.coverage).toEqual({ grounding: 1, elicitation: 0.5, commitment: 0.25 });
+    expect(estimate.coverage).toEqual({ grounding: 1, elicitation: 0.5, projection: 0, commitment: 0.25 });
   });
 
   it('reports an empty band as zero coverage', () => {
@@ -25,6 +25,7 @@ describe('readiness estimate projection', () => {
     ).toEqual({
       grounding: 0.75,
       elicitation: 0,
+      projection: 0,
       commitment: 0,
     });
   });
@@ -53,12 +54,19 @@ describe('readiness estimate projection', () => {
     expect(lower.coverage.commitment).toBeLessThan(higher.coverage.commitment);
   });
 
-  it('does not import grade symbols and is not imported by legality paths', () => {
+  it('does not import grade symbols or node-band metadata and is not imported by legality paths', () => {
     const estimateSource = readFileSync(
       fileURLToPath(new URL('../readiness-estimate.ts', import.meta.url)),
       'utf8',
     );
     expect(estimateSource).not.toMatch(/ReadinessGrade|READINESS_GRADES|GRADE_RANK|MIN_GRADE/);
+    expect(estimateSource).not.toMatch(/NODE_KIND_METADATA|bandsForKind|schema\/nodes/);
+
+    const driverSource = readFileSync(
+      fileURLToPath(new URL('../../../graph/elicitation-driver.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(driverSource).not.toMatch(/NODE_KIND_METADATA|bandsForKind|schema\/nodes/);
 
     for (const relativePath of [
       '../runtime-policy.ts',

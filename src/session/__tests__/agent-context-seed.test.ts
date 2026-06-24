@@ -25,7 +25,7 @@ describe('renderWorkspaceSeed', () => {
 
     expect(rendered).toContain('- cwd: /repo/product');
     expect(rendered).toContain(
-      '- selected spec: Payments Spec (#42); readiness estimate (soft; gates nothing): grounding=0.50, elicitation=1.00, commitment=0.00',
+      '- selected spec: Payments Spec (#42); readiness estimate (soft; gates nothing): grounding=0.50, elicitation=1.00, projection=0.00, commitment=0.00',
     );
     expect(rendered).not.toContain('readiness_grade=');
     expect(rendered).toContain('- selected session: Grounding (session-7)');

@@ -8,8 +8,8 @@
  */
 
 import type { ElicitationGapLensAffinity, GapDisposition, GapPredicate } from '../schema/elicitation-gaps.js';
-import type { SpecKind } from '../schema/kinds.js';
-import type { NodeBasis, NodeKind, NodePlane, ReadinessBand } from '../schema/nodes.js';
+import type { ReadinessBand, SpecKind } from '../schema/kinds.js';
+import type { NodeBasis, NodeKind, NodePlane } from '../schema/nodes.js';
 import type { MutateGraphSuccess, StructuralIllegal } from './graph-mutation-types.js';
 
 // ---------------------------------------------------------------------------

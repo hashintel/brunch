@@ -1,7 +1,7 @@
 /**
  * Graph node type definitions.
  *
- * Canonical reference: memory/SPEC.md D54-L (node shape), D56-L (intent kinds), D62-L (projected codes), D64-L (readiness bands)
+ * Canonical reference: memory/SPEC.md D54-L (node shape), D56-L (intent kinds), D62-L (projected codes), D94-L (derived readiness bands)
  *
  * Phase 2 lock-and-materialize: type definitions only.
  * Drizzle table definitions, structural validators, and the
@@ -9,7 +9,15 @@
  */
 
 import type { Lsn, NodeId } from '../atoms.js';
-import { DESIGN_KINDS, INTENT_KINDS, NODE_BASES, NODE_PLANES, ORACLE_KINDS, PLAN_KINDS } from './kinds.js';
+import {
+  DESIGN_KINDS,
+  INTENT_KINDS,
+  NODE_BASES,
+  NODE_PLANES,
+  ORACLE_KINDS,
+  PLAN_KINDS,
+  type ReadinessBand,
+} from './kinds.js';
 
 // ---------------------------------------------------------------------------
 // Planes & basis
@@ -59,11 +67,8 @@ type PlanKind = (typeof PLAN_KINDS)[number];
 /** Union of every node kind across all planes. */
 export type NodeKind = IntentKind | OracleKind | DesignKind | PlanKind;
 
-export type ReadinessBand = 'grounding' | 'elicitation' | 'commitment';
-
 export interface NodeKindMetadata {
   readonly label: string;
-  readonly readinessBands: readonly ReadinessBand[];
 }
 
 type NodeKindMetadataByKind = {
@@ -71,31 +76,79 @@ type NodeKindMetadataByKind = {
 };
 
 export const NODE_KIND_METADATA = {
-  goal: { label: 'G', readinessBands: ['grounding'] },
-  thesis: { label: 'TH', readinessBands: ['grounding'] },
-  term: { label: 'T', readinessBands: ['grounding'] },
-  context: { label: 'CTX', readinessBands: ['grounding'] },
-  story: { label: 'ST', readinessBands: ['elicitation'] },
-  unknown: { label: 'UNK', readinessBands: ['elicitation'] },
-  requirement: { label: 'REQ', readinessBands: ['commitment'] },
-  assumption: { label: 'A', readinessBands: ['elicitation'] },
-  constraint: { label: 'CON', readinessBands: ['grounding', 'elicitation'] },
-  invariant: { label: 'INV', readinessBands: ['elicitation'] },
-  decision: { label: 'D', readinessBands: ['elicitation'] },
-  criterion: { label: 'AC', readinessBands: ['commitment'] },
-  example: { label: 'EX', readinessBands: ['elicitation'] },
-  check: { label: 'CH', readinessBands: ['commitment'] },
-  vv_method: { label: 'VV', readinessBands: ['elicitation'] },
-  evidence: { label: 'E', readinessBands: ['commitment'] },
-  vv_obligation: { label: 'O', readinessBands: ['elicitation'] },
-  module: { label: 'MOD', readinessBands: ['elicitation'] },
-  interface: { label: 'API', readinessBands: ['elicitation'] },
-  entity: { label: 'ENT', readinessBands: ['elicitation'] },
-  sketch: { label: 'SKT', readinessBands: ['elicitation'] },
-  milestone: { label: 'M', readinessBands: ['commitment'] },
-  frontier: { label: 'F', readinessBands: ['commitment'] },
-  slice: { label: 'S', readinessBands: ['commitment'] },
+  goal: { label: 'G' },
+  thesis: { label: 'TH' },
+  term: { label: 'T' },
+  context: { label: 'CTX' },
+  story: { label: 'ST' },
+  unknown: { label: 'UNK' },
+  requirement: { label: 'REQ' },
+  assumption: { label: 'A' },
+  constraint: { label: 'CON' },
+  invariant: { label: 'INV' },
+  decision: { label: 'D' },
+  criterion: { label: 'AC' },
+  example: { label: 'EX' },
+  check: { label: 'CH' },
+  vv_method: { label: 'VV' },
+  evidence: { label: 'E' },
+  vv_obligation: { label: 'O' },
+  module: { label: 'MOD' },
+  interface: { label: 'API' },
+  entity: { label: 'ENT' },
+  sketch: { label: 'SKT' },
+  milestone: { label: 'M' },
+  frontier: { label: 'F' },
+  slice: { label: 'S' },
 } as const satisfies NodeKindMetadataByKind;
+
+const INTENT_KIND_BANDS = {
+  goal: ['grounding'],
+  thesis: ['grounding'],
+  term: [],
+  context: ['grounding', 'elicitation'],
+  story: ['elicitation'],
+  unknown: ['elicitation'],
+  requirement: ['commitment'],
+  assumption: ['elicitation'],
+  constraint: ['grounding', 'elicitation'],
+  invariant: ['elicitation'],
+  decision: ['elicitation'],
+  criterion: ['commitment'],
+  example: [],
+} as const satisfies Readonly<Record<IntentKind, readonly ReadinessBand[]>>;
+
+const BAND_LESS_KINDS = new Set<NodeKind>(['example', 'sketch', 'term']);
+
+export function bandsForKind(kind: NodeKind): readonly ReadinessBand[] {
+  if (BAND_LESS_KINDS.has(kind)) return [];
+  if (isIntentKind(kind)) return INTENT_KIND_BANDS[kind];
+  if (isDesignKind(kind) || isOracleKind(kind)) {
+    return ['projection'];
+  }
+  if (isPlanKind(kind)) {
+    return ['commitment'];
+  }
+
+  const exhaustive: never = kind;
+  return exhaustive;
+}
+
+function isIntentKind(kind: NodeKind): kind is IntentKind {
+  return (INTENT_KINDS as readonly NodeKind[]).includes(kind);
+}
+
+function isOracleKind(kind: NodeKind): kind is OracleKind {
+  return (ORACLE_KINDS as readonly NodeKind[]).includes(kind);
+}
+
+function isDesignKind(kind: NodeKind): kind is DesignKind {
+  return (DESIGN_KINDS as readonly NodeKind[]).includes(kind);
+}
+
+function isPlanKind(kind: NodeKind): kind is PlanKind {
+  return (PLAN_KINDS as readonly NodeKind[]).includes(kind);
+}
 
 export type GraphNodeKindCode = (typeof NODE_KIND_METADATA)[NodeKind]['label'];
 
@@ -200,7 +253,7 @@ export function nodeDetailKnownFields(kind: NodeKindRequiringDetail): readonly s
 //
 // `detail` extends to the claim kinds (requirement / criterion / invariant) and
 // to `context` as a shared `form`-discriminated union. The load-bearing rule:
-// `kind` drives behavior (readiness band D64-L, edge legality D51-L, the
+// `kind` drives behavior (readiness band D94-L, edge legality D51-L, the
 // elicitor source-question D56-L); `form` is inert payload plus a renderer hook.
 // One shared discriminant vocabulary lets a lens query all `formal`-form nodes
 // across kinds to round-trip a LEAN/Dafny file.

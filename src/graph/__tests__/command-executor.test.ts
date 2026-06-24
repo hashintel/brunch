@@ -932,6 +932,34 @@ describe('CommandExecutor', () => {
       });
     });
 
+    it('accepts projection as a readiness band and rejects unknown bands', () => {
+      const projected = executor.createElicitationGap({
+        specId,
+        refersTo: 'module',
+        question: 'Which module should exist?',
+        rationale: 'Projection-band obligations cover design and oracle nodes.',
+        band: 'projection',
+        predicate: { kind: 'presence', band: 'projection', minimum: 1 },
+      });
+      expect(projected.status).toBe('success');
+
+      const unknown = executor.createElicitationGap({
+        specId,
+        refersTo: 'module',
+        question: 'Which module should exist?',
+        rationale: 'Unknown readiness bands stay boundary-illegal.',
+        band: 'later' as never,
+        predicate: { kind: 'presence', band: 'later' as never, minimum: 1 },
+      });
+      expect(unknown).toMatchObject({
+        status: 'structural_illegal',
+        diagnostics: expect.arrayContaining([
+          { field: 'band', message: '"later" is not a valid readiness band' },
+          { field: 'predicate.band', message: 'band is not valid' },
+        ]),
+      });
+    });
+
     it('rejects unsupported field and coverage predicates', () => {
       for (const predicate of [
         { kind: 'field', nodeKind: 'goal', field: 'title' },
