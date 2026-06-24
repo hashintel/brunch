@@ -52,13 +52,12 @@ export function projectPlanFromSpec(snapshot: CompletedSpecSnapshot): Plan {
   const criteriaById = new Map(snapshot.criteria.map((criterion) => [criterion.id, criterion]));
 
   const verifiersByRequirementId = new Map<number, KnowledgeItemSnapshot[]>();
-  for (const edge of snapshot.edges) {
-    if (edge.relation !== 'verifies') continue;
-    const criterion = criteriaById.get(edge.fromItemId);
+  for (const { criterionId, requirementId } of verifiesEdges(snapshot)) {
+    const criterion = criteriaById.get(criterionId);
     if (!criterion) continue;
-    const existing = verifiersByRequirementId.get(edge.toItemId) ?? [];
+    const existing = verifiersByRequirementId.get(requirementId) ?? [];
     existing.push(criterion);
-    verifiersByRequirementId.set(edge.toItemId, existing);
+    verifiersByRequirementId.set(requirementId, existing);
   }
 
   const slices = orderedRequirements.map((requirement) => {
@@ -94,6 +93,18 @@ function byKindOrdinal(a: KnowledgeItemSnapshot, b: KnowledgeItemSnapshot): numb
   return a.kindOrdinal - b.kindOrdinal || a.id - b.id;
 }
 
+/**
+ * The snapshot's `verifies` edges normalized to `{ criterionId, requirementId }`,
+ * encoding the `criterion --verifies--> requirement` direction (edge
+ * `fromItemId` is the criterion, `toItemId` the requirement) once for both
+ * projectors below, which build inverse adjacency maps from it.
+ */
+function verifiesEdges(snapshot: CompletedSpecSnapshot): { criterionId: number; requirementId: number }[] {
+  return snapshot.edges
+    .filter((edge) => edge.relation === 'verifies')
+    .map((edge) => ({ criterionId: edge.fromItemId, requirementId: edge.toItemId }));
+}
+
 /** Requirement item id in slice-id space — matches `Slice.derived_from`. */
 export function requirementItemId(requirementId: number): string {
   return `req-${requirementId}`;
@@ -116,11 +127,10 @@ export function buildPlanSpec(snapshot: CompletedSpecSnapshot): PlanSpec | undef
   if (snapshot.specId === undefined) return undefined;
 
   const verifiesByCriterionId = new Map<number, string[]>();
-  for (const edge of snapshot.edges) {
-    if (edge.relation !== 'verifies') continue;
-    const existing = verifiesByCriterionId.get(edge.fromItemId) ?? [];
-    existing.push(requirementItemId(edge.toItemId));
-    verifiesByCriterionId.set(edge.fromItemId, existing);
+  for (const { criterionId, requirementId } of verifiesEdges(snapshot)) {
+    const existing = verifiesByCriterionId.get(criterionId) ?? [];
+    existing.push(requirementItemId(requirementId));
+    verifiesByCriterionId.set(criterionId, existing);
   }
 
   const requirements = [...snapshot.requirements].sort(byKindOrdinal).map((requirement) => ({
