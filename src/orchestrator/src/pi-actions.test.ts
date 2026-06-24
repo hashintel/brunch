@@ -72,7 +72,7 @@ describe('cook task builders carry the toolchain conventions, not a hardcoded st
     expect(epicRemediateTask(epic, notes)).toContain(notes);
   });
 
-  it('task builders are byte-identical to the no-notes form when harness notes are absent', () => {
+  it('task builders are byte-identical to the no-notes form when harness notes are absent or blank', () => {
     expect(sliceTestTask(slice, brunchProfile.toolchain, undefined)).toBe(
       sliceTestTask(slice, brunchProfile.toolchain),
     );
@@ -82,6 +82,9 @@ describe('cook task builders carry the toolchain conventions, not a hardcoded st
     expect(epicRemediateTask(epic, undefined)).toBe(epicRemediateTask(epic));
     // empty-string notes omit cleanly (no dangling marker)
     expect(sliceTestTask(slice, brunchProfile.toolchain, '')).toBe(
+      sliceTestTask(slice, brunchProfile.toolchain),
+    );
+    expect(sliceTestTask(slice, brunchProfile.toolchain, '   \n\t')).toBe(
       sliceTestTask(slice, brunchProfile.toolchain),
     );
   });
@@ -795,6 +798,7 @@ function makeFakeSession(behavior: {
   finalStopReason?: 'stop' | 'error' | 'aborted';
   errorMessage?: string;
   stats?: { tokens: PiUsage };
+  statsThrows?: boolean;
 }) {
   const calls = { prompt: [] as string[], aborted: false, disposed: false };
   let listener: ((event: unknown) => void) | undefined;
@@ -833,6 +837,7 @@ function makeFakeSession(behavior: {
       calls.disposed = true;
     },
     getSessionStats() {
+      if (behavior.statsThrows) throw new Error('stats unavailable');
       return behavior.stats ?? { tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
     },
     get state() {
@@ -1644,6 +1649,32 @@ describe('per-action telemetry surfaces usage + timing (FE-894 P0)', () => {
       expect(result.usage).toEqual(stats.tokens);
       expect(result.timingMs.coldStartMs).toBeGreaterThanOrEqual(0);
       expect(result.timingMs.promptMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('runPi falls back to zero usage when the telemetry stats read fails', async () => {
+    ensureFakeAnthropicApiKey();
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const fake = makeFakeSession({ emit: 'wrote the tests', statsThrows: true });
+      const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+
+      const result = await runPi(
+        {
+          label: 'tests slice-1',
+          model: 'claude-opus-4-8',
+          promptFile: join(promptsDir, 'test-writer.md'),
+          task: 'do the thing',
+          sandboxDir,
+          tools: 'read',
+        },
+        { createSession },
+      );
+
+      expect(result.output).toContain('wrote the tests');
+      expect(result.usage).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 });
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }

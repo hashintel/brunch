@@ -634,8 +634,9 @@ export function epicRemediateTask(epic: Epic, harnessNotes?: string): string {
  * rediscovering them every slice. Absent/empty notes leave the task untouched.
  */
 function withHarnessNotes(task: string, harnessNotes?: string): string {
-  if (!harnessNotes) return task;
-  return `${task}\nProject harness notes (prior art — apply these, do not rediscover): ${harnessNotes}`;
+  const notes = harnessNotes?.trim();
+  if (!notes) return task;
+  return `${task}\nProject harness notes (prior art — apply these, do not rediscover): ${notes}`;
 }
 
 export function createPiActions(opts?: {

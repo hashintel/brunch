@@ -76,6 +76,16 @@ describe('materializeArchitectedPlan', () => {
     expect(materializeArchitectedPlan(projected, draft(), toolchain).plan.harnessNotes).toBeUndefined();
   });
 
+  it('normalizes blank architect-emitted harnessNotes away', () => {
+    expect(
+      materializeArchitectedPlan(projected, draft({ harnessNotes: '   \n\t' }), toolchain).plan.harnessNotes,
+    ).toBeUndefined();
+    expect(
+      materializeArchitectedPlan(projected, draft({ harnessNotes: '  Use the real router.  ' }), toolchain)
+        .plan.harnessNotes,
+    ).toBe('Use the real router.');
+  });
+
   it('computes coverage from derivedFrom (a req covered by many slices counts once)', () => {
     const d = draft();
     d.slices[2]!.derivedFrom = ['req-1']; // both a and b now cover req-1; req-2 uncovered
