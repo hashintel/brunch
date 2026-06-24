@@ -162,8 +162,7 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         }
 
         const net = wireHandlers(blueprint, input, ctx);
-        // durable-resume: re-enter from a persisted marking instead of the
-        // initial one. restoreMarking clears every place then loads the snapshot.
+        // durable-resume: re-enter from the persisted marking instead of the initial one.
         if (input.resume) net.restoreMarking(input.resume.marking);
         // Structural halts stop immediately; external pauses wait for in-flight
         // deferred completions so persisted snapshots are quiescent.
@@ -179,10 +178,8 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           }
         }
 
-        // durable-resume: if the run stopped with resumable work still on the
-        // net (a pause, or a halt that interactive-recovery could later clear),
-        // persist the marking + bookkeeping taken HERE — before the
-        // never-reached fill-in below marks in-flight slices halted.
+        // durable-resume: persist a resume snapshot if the run stopped with resumable
+        // work — taken here, before the never-reached fill-in marks in-flight slices halted.
         if (input.runDir && (hasStructuralHalt || net.hasPendingWork())) {
           const snapshot: RunSnapshot = {
             marking: net.snapshotMarking(),

@@ -420,13 +420,10 @@ export type SalvageSelection = {
 };
 
 /**
- * cook-partial-promotion (FE-1082): pick the slices safe to salvage from a
- * halted run — those belonging to epics that **completed**. Epic dependencies
- * gate epic execution, so a completed epic never depends on a failed one: the
- * selected set is dependency-closed and `harvestCookRun` folds it cleanly.
- * Slices of a halted epic are excluded even if the slice itself passed — the
- * epic never integrated. Returns the failed epics too, so the caller can report
- * what still needs fixing instead of the old all-or-nothing "nothing promoted".
+ * cook-partial-promotion: slices to salvage from a halted run — those of epics that
+ * **completed**. Epic deps gate execution, so the set is dependency-closed and folds
+ * cleanly; slices of a halted epic are excluded (it never integrated). Failed epics
+ * are returned for the caller's diagnosis.
  */
 export function selectSalvageableSlices(
   plan: Plan,

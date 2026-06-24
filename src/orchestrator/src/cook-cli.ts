@@ -650,10 +650,8 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
         line('');
       }
       if (!ok) {
-        // cook-partial-promotion (FE-1082): salvage the slices of epics that
-        // *did* complete (dependency-closed) instead of discarding the whole
-        // run, and report the failed epic(s) as the diagnosis. Nothing to
-        // salvage → the old all-or-nothing message.
+        // cook-partial-promotion: salvage completed epics instead of discarding the
+        // whole run; nothing to salvage → the old all-or-nothing message.
         const salvage = selectSalvageableSlices(plan, result);
         if (salvage.sliceIds.length === 0) {
           line(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
