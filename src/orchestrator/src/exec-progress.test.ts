@@ -12,7 +12,7 @@ import {
   writeExecProgress,
   type ExecProgress,
 } from './exec-progress.js';
-import type { OrchestratorResult, Plan } from './types.js';
+import type { OrchestratorResult, Plan, ReportLine } from './types.js';
 
 /**
  * A 3-slice plan: scaffold (no provenance) → feat-a (req-1) + feat-b (req-2),
@@ -63,6 +63,16 @@ function plan(): Plan {
 
 const statusOf = (p: ExecProgress, itemId: string) =>
   p.requirements.find((r) => r.item_id === itemId)!.status;
+
+const semanticReport = (sliceId: string, payload: Record<string, unknown>): ReportLine => ({
+  id: `rpt-${sliceId}`,
+  ts: '2026-06-24T00:00:00.000Z',
+  epicId: 'core',
+  sliceId,
+  actor: 'semantic-assessor',
+  event: 'semantic-assessed',
+  payload: { satisfied: true, ...payload },
+});
 
 describe('projectExecProgress', () => {
   it('marks every requirement completed on a fully completed run; criteria coverage is structural', () => {
@@ -179,7 +189,7 @@ describe('projectExecProgress', () => {
     expect(req4.next).toBe(true);
   });
 
-  it('never emits needs-review in v1 (semantic assessor inert)', () => {
+  it('never emits needs-review in v1 (semantic assessor stub emits no disposition)', () => {
     const result: OrchestratorResult = {
       status: 'completed',
       warnings: [],
@@ -187,8 +197,41 @@ describe('projectExecProgress', () => {
       epics: [{ epicId: 'core', status: 'completed' }],
       slices: plan().slices.map((s) => ({ sliceId: s.id, status: 'completed' as const })),
     };
-    const p = projectExecProgress({ plan: plan(), result, runId: 'r1' });
+    // The v1 stub emits `{ satisfied: true }` with no disposition.
+    const reports: ReportLine[] = plan().slices.map((s) => semanticReport(s.id, {}));
+    const p = projectExecProgress({ plan: plan(), result, runId: 'r1', reports });
     expect(p.requirements.every((r) => r.status !== 'needs-review')).toBe(true);
+  });
+
+  it('maps a needs-human-review disposition to a needs-review requirement status (wire-ready slot)', () => {
+    const result: OrchestratorResult = {
+      status: 'halted',
+      reason: 'feat-a flagged for human review',
+      warnings: [],
+      reports: [],
+      epics: [],
+      slices: [
+        { sliceId: 'scaffold', status: 'completed' },
+        { sliceId: 'feat-a', status: 'halted' },
+      ],
+    };
+    const reports: ReportLine[] = [semanticReport('feat-a', { disposition: 'needs-human-review' })];
+    const p = projectExecProgress({ plan: plan(), result, runId: 'r1', reports });
+    // needs-review outranks the structural `blocked` status feat-a would get.
+    expect(statusOf(p, 'req-1')).toBe('needs-review');
+  });
+
+  it('does not raise needs-review for a plain rework disposition', () => {
+    const result: OrchestratorResult = {
+      status: 'halted',
+      warnings: [],
+      reports: [],
+      epics: [],
+      slices: [{ sliceId: 'feat-a', status: 'halted' }],
+    };
+    const reports: ReportLine[] = [semanticReport('feat-a', { disposition: 'rework' })];
+    const p = projectExecProgress({ plan: plan(), result, runId: 'r1', reports });
+    expect(statusOf(p, 'req-1')).toBe('blocked');
   });
 
   it('projects empty lists when the plan has no spec block', () => {

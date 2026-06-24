@@ -17,14 +17,17 @@
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { OrchestratorResult, Plan } from './types.js';
+import type { OrchestratorResult, Plan, ReportLine, SemanticDisposition } from './types.js';
 
 export const EXEC_PROGRESS_FILE = 'exec-progress.json';
 
+const SEMANTIC_ASSESSED_EVENT = 'semantic-assessed';
+
 /**
  * Requirement lifecycle status. `next` is a separate readiness facet (see
- * `ExecProgressRequirement.next`), not a status. `needs-review` is reserved for
- * the semantic-assessor disposition (slice 4) and never fires in v1.
+ * `ExecProgressRequirement.next`), not a status. `needs-review` is derived from
+ * a `needs-human-review` semantic disposition (D173-K) — wire-ready but inert
+ * in v1, since the assessor stub emits no disposition.
  */
 export type RequirementStatus =
   | 'pending'
@@ -73,9 +76,12 @@ export function projectExecProgress(input: {
   plan: Plan;
   result: OrchestratorResult;
   runId: string;
+  /** Source log (D156-K). Only `semantic-assessed` disposition is read here. */
+  reports?: ReportLine[];
 }): ExecProgress {
   const { plan, result, runId } = input;
   const spec = plan.spec;
+  const reviewSlices = slicesNeedingReview(input.reports ?? []);
 
   const sliceStatus = new Map(result.slices.map((s) => [s.sliceId, s.status]));
   const epicStatus = new Map(result.epics.map((e) => [e.epicId, e.status]));
@@ -112,7 +118,14 @@ export function projectExecProgress(input: {
 
   const requirements: ExecProgressRequirement[] = (spec?.requirements ?? []).map((requirement) => {
     const slices = contributingSlices(requirement.item_id);
-    const status = requirementStatus(slices.map(dispositionOf));
+    // A `needs-human-review` disposition on any contributing slice is the
+    // human-attention signal (D173-K) — it outranks the structural lifecycle
+    // status (the slice halted, so it would otherwise read `blocked`). Inert in
+    // v1: the assessor stub emits no disposition, so this never fires.
+    const needsReview = slices.some((s) => reviewSlices.has(s));
+    const status: RequirementStatus = needsReview
+      ? 'needs-review'
+      : requirementStatus(slices.map(dispositionOf));
     const next = status === 'pending' && slices.some(sliceIsNext);
     return { item_id: requirement.item_id, content: requirement.content, status, next, slices };
   });
@@ -145,6 +158,28 @@ function requirementStatus(dispositions: SliceDisposition[]): RequirementStatus 
   if (dispositions.every((d) => d === 'completed')) return 'completed';
   if (dispositions.includes('completed')) return 'in-progress';
   return 'pending';
+}
+
+/**
+ * Slices whose latest `semantic-assessed` report carries a `needs-human-review`
+ * disposition (D173-K) — last write per slice wins. Inert in v1 (the assessor
+ * stub emits no disposition), so this returns an empty set in practice.
+ */
+function slicesNeedingReview(reports: ReportLine[]): Set<string> {
+  const latest = new Map<string, SemanticDisposition | undefined>();
+  for (const line of reports) {
+    if (line.event !== SEMANTIC_ASSESSED_EVENT) continue;
+    const disposition = line.payload['disposition'];
+    latest.set(
+      line.sliceId,
+      disposition === 'needs-human-review' || disposition === 'rework' ? disposition : undefined,
+    );
+  }
+  const out = new Set<string>();
+  for (const [sliceId, disposition] of latest) {
+    if (disposition === 'needs-human-review') out.add(sliceId);
+  }
+  return out;
 }
 
 /**

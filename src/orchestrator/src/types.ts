@@ -159,6 +159,25 @@ export type ReportLine = {
   payload: Record<string, unknown>;
 };
 
+/**
+ * Semantic-assessment disposition (FE-885 D173-K) — a wire-ready slot carried
+ * on the `semantic-assessed` report payload. `rework` routes the existing
+ * `satisfied`-falsy rework loop; `needs-human-review` is the human-attention
+ * signal the exec-progress projector maps to a `needs-review` requirement
+ * status. **Inert in v1** — the assessor is a stub that always returns
+ * `satisfied: true` and emits no disposition (real semantic gates are
+ * graph-derived, Phase 3). Recorded now so the durable contract and UI prompt
+ * need no reshaping when the assessor lands.
+ */
+export type SemanticDisposition = 'rework' | 'needs-human-review';
+
+/** Payload shape of a `semantic-assessed` report line. */
+export type SemanticAssessedPayload = {
+  satisfied: boolean;
+  disposition?: SemanticDisposition;
+  note?: string;
+};
+
 export interface ReportSink {
   append(line: ReportLine): void;
   getById(id: string): ReportLine | undefined;

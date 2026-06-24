@@ -683,7 +683,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
     // store); best-effort — a snapshot hiccup must never fail a good run.
     if (plan.spec) {
       try {
-        const progress = projectExecProgress({ plan, result, runId });
+        const progress = projectExecProgress({ plan, result, runId, reports: reports.getAll() });
         writeExecProgress(runStoreDir, progress);
       } catch {
         /* leave the run otherwise intact if the snapshot write hiccups */
