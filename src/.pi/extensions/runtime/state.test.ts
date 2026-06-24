@@ -4,8 +4,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
-import { FOREGROUND_AGENT_ROSTER } from '../../../projections/session/runtime-policy.js';
+import {
+  FOREGROUND_AGENT_ROSTER,
+  delegatableAgentsForRuntimeState,
+} from '../../../projections/session/runtime-policy.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
+import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../orchestrator-stub/index.js';
 import { activeToolNamesForPosture, agentBodyResourceLocation, manifestsForState } from './state.js';
 
 const registeredToolNames = [
@@ -26,6 +30,7 @@ const registeredToolNames = [
   'read_reconciliation_needs',
   'update_reconciliation_needs',
   'mutate_graph',
+  BRUNCH_ORCHESTRATOR_STUB_TOOL,
 ];
 
 describe('agent posture policy', () => {
@@ -222,7 +227,7 @@ describe('agent posture policy', () => {
       operationalMode: 'elicit',
       model: 'default',
       thinking: 'medium',
-      canDelegate: [],
+      canDelegate: ['explorer', 'researcher', 'projector', 'reviewer'],
     });
     expect(manifest.skills.strategies).toEqual([
       'freestyle',
@@ -230,6 +235,55 @@ describe('agent posture policy', () => {
       'step-wise-disambiguate',
     ]);
     expect(manifest.skills.lenses).toEqual(['intent', 'design', 'oracle']);
+  });
+
+  it('derives delegatable agents from the code-owned foreground roster', () => {
+    const state = projectBrunchAgentState([]);
+
+    expect(delegatableAgentsForRuntimeState(state)).toEqual([
+      'explorer',
+      'researcher',
+      'projector',
+      'reviewer',
+    ]);
+  });
+
+  it('activates the orchestrator stub only in execute mode', () => {
+    const executeState = projectBrunchAgentState([
+      {
+        type: 'custom',
+        customType: 'brunch.agent_runtime_state',
+        data: {
+          schemaVersion: 1,
+          reason: 'switch',
+          source: 'user',
+          state: {
+            schemaVersion: 1,
+            operationalMode: 'execute',
+            agentStrategy: 'auto',
+            agentLens: 'auto',
+          },
+        },
+      },
+    ]);
+    const elicitState = projectBrunchAgentState([]);
+
+    const executeTools = activeToolNamesForPosture({
+      registeredToolNames,
+      state: executeState,
+      gaps: groundingFloorGaps({ defaultCoverage: 0 }),
+    });
+    const elicitTools = activeToolNamesForPosture({
+      registeredToolNames,
+      state: elicitState,
+      gaps: groundingFloorGaps({ defaultCoverage: 0 }),
+    });
+
+    expect(executeState.agentRole).toBe('orchestrator');
+    expect(delegatableAgentsForRuntimeState(executeState)).toEqual([]);
+    expect(executeTools).toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
+    expect(executeTools).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
+    expect(elicitTools).not.toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
   });
 
   it('keeps state.ts free of grade-gate symbols', () => {

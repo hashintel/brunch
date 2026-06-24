@@ -23,6 +23,7 @@ import {
   registerStructuredExchange as structuredExchange,
 } from '../extensions/exchanges/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../extensions/mentions/index.js';
+import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../extensions/orchestrator-stub/index.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../extensions/runtime/index.js';
 import { registerBrunchSessionBoundary as sessionLifecycle } from '../extensions/session/lifecycle.js';
 import { registerBrunchPrompting as prompting } from '../extensions/system-prompts/index.js';
@@ -73,6 +74,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'read_session_context',
       'web_fetch',
       'web_search',
+      BRUNCH_ORCHESTRATOR_STUB_TOOL,
       'present_alternatives',
       PRESENT_QUESTION_TOOL,
       PRESENT_REVIEW_SET_TOOL,
@@ -107,6 +109,35 @@ describe('Brunch explicit Pi extension registry', () => {
       event === 'session_start' ? [index] : [],
     );
     expect(sessionStartIndexes[0]).toBeLessThan(sessionStartIndexes[1] ?? -1);
+  });
+
+  it('registers the orchestrator stub tool on the default product extension path', async () => {
+    const registeredTools: Array<{
+      name: string;
+      execute: (toolCallId: string, params: unknown) => Promise<{ content: readonly { text: string }[] }>;
+    }> = [];
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+    })({
+      on() {},
+      registerTool(tool: (typeof registeredTools)[number]) {
+        registeredTools.push(tool);
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => [],
+      setActiveTools() {},
+    } as never);
+
+    const stub = registeredTools.find((tool) => tool.name === BRUNCH_ORCHESTRATOR_STUB_TOOL);
+    expect(stub).toBeDefined();
+    await expect(stub!.execute('call-1', { message: 'standup' })).resolves.toMatchObject({
+      content: [{ type: 'text', text: 'orchestrator stub ran: standup' }],
+    });
   });
 
   it('registers both graph-register and elicitation-register tools when graph deps are provided', async () => {

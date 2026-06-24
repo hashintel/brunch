@@ -33,7 +33,7 @@
     "build": "tsc -p tsconfig.build.json && npm run build:info && npm run build:pi-assets && npm run build:web",
     "build:info": "node scripts/write-build-info.mjs",
     "prepack": "RELEASE=true npm run build",
-    "build:pi-assets": "mkdir -p dist/.pi/components/workspace-dialog dist/.pi/agents dist/.pi/skills && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp -R src/.pi/agents/elicitor dist/.pi/agents/ && find src/.pi/agents -maxdepth 1 -name '*.md' ! -name README.md -exec cp {} dist/.pi/agents/ \\; && cp -R src/.pi/skills/strategies src/.pi/skills/lenses src/.pi/skills/methods dist/.pi/skills/ && mkdir -p dist/.pi/extensions/subagents/agents && cp src/.pi/extensions/subagents/agents/*.md dist/.pi/extensions/subagents/agents/ && cp src/.pi/extensions/subagents/config.json dist/.pi/extensions/subagents/",
+    "build:pi-assets": "mkdir -p dist/.pi/components/workspace-dialog dist/.pi/agents dist/.pi/skills dist/.pi/extensions/subagents && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp -R src/.pi/agents/elicitor src/.pi/agents/explorer src/.pi/agents/orchestrator src/.pi/agents/pi-coder src/.pi/agents/projector src/.pi/agents/researcher src/.pi/agents/reviewer dist/.pi/agents/ && cp -R src/.pi/skills/strategies src/.pi/skills/lenses src/.pi/skills/methods dist/.pi/skills/ && cp src/.pi/extensions/subagents/config.json dist/.pi/extensions/subagents/",
     "build:web": "vite build",
     "seed": "tsx src/graph/seed-fixtures.ts",
     "db:generate": "drizzle-kit generate",

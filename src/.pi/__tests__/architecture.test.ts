@@ -21,9 +21,25 @@ const agentDefinitionExpectations = [
     needles: ['# Agent: elicitor', 'multi-spec discipline'],
   },
   {
+    system: 'src/.pi/agents/orchestrator/SYSTEM.md',
+    needles: ['# Agent: orchestrator', 'execute mode'],
+  },
+  {
     system: 'src/.pi/agents/reviewer/SYSTEM.md',
     legacyFlat: 'src/.pi/agents/reviewer.md',
-    needles: ['# Agent: reviewer', 'future side agent'],
+    needles: ['name: reviewer', 'checking candidate'],
+  },
+  {
+    system: 'src/.pi/agents/explorer/SYSTEM.md',
+    needles: ['name: explorer', 'read-only reconnaissance agent'],
+  },
+  {
+    system: 'src/.pi/agents/researcher/SYSTEM.md',
+    needles: ['name: researcher', 'web-research agent'],
+  },
+  {
+    system: 'src/.pi/agents/projector/SYSTEM.md',
+    needles: ['name: projector', 'candidate-proposal'],
   },
   {
     system: 'src/.pi/agents/pi-coder/SYSTEM.md',
@@ -37,16 +53,20 @@ const agentDefinitionExpectations = [
 const runtimeRegistryExpectations = [
   {
     file: 'src/session/schema/kinds.ts',
-    required: "export const AGENT_ROLE_IDS = ['elicitor'] as const;",
+    required: "export const AGENT_ROLE_IDS = ['elicitor', 'orchestrator'] as const;",
+    forbidden: ['reviewer', 'pi-coder'],
   },
   {
     file: 'src/projections/session/runtime-policy.ts',
     required:
       'export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeDefinition> = {',
+    // `reviewer` is a non-write background agent that legitimately appears in
+    // elicit's code-owned `canDelegate` set (D92-L delegatable-set lives beside
+    // the op_mode policy). Only `pi-coder` — an unwired planned foreground —
+    // must stay out of the foreground registry here.
+    forbidden: ['pi-coder'],
   },
 ];
-
-const unregisteredAgentNeedles = ['reviewer', 'pi-coder'];
 
 const resourceExpectations = [
   {
@@ -91,7 +111,7 @@ describe('agents topology', () => {
     for (const expectation of runtimeRegistryExpectations) {
       const content = await readFile(join(projectRoot, expectation.file), 'utf8');
       expect(content).toContain(expectation.required);
-      for (const needle of unregisteredAgentNeedles) {
+      for (const needle of expectation.forbidden) {
         expect(content, `${expectation.file} must not register ${needle}`).not.toContain(needle);
       }
     }

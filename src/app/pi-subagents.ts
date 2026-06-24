@@ -8,14 +8,33 @@
  * injection.
  */
 
+import type { GraphReaders } from '../.pi/extensions/graph/index.js';
 import { loadSubagentDefinitions, subagentAgentsDir } from '../.pi/extensions/subagents/agents.js';
 import { loadSubagentConfig, subagentConfigPath } from '../.pi/extensions/subagents/config.js';
 import type { BrunchSubagentsDeps } from '../.pi/extensions/subagents/index.js';
+import type {
+  AgentPromptSessionContext,
+  AgentPromptSpecContext,
+  AgentPromptWorkspaceContext,
+} from '../session/agent-context-seed.js';
 import { brunchResourceLoaderOptions, createBrunchSettingsManager } from './pi-settings.js';
 
 export interface LoadBrunchSubagentsOptions {
   readonly cwd: string;
   readonly agentDir: string;
+  readonly delegatableAgents: readonly string[];
+  readonly world?: LoadBrunchSubagentsWorld;
+}
+
+export interface LoadBrunchSubagentsWorld {
+  readonly graph: {
+    readonly specId: number;
+    readonly reads: GraphReaders;
+  };
+  readonly spec: AgentPromptSpecContext;
+  readonly workspace: AgentPromptWorkspaceContext;
+  readonly session?: AgentPromptSessionContext;
+  readonly sessionBranch: readonly unknown[];
 }
 
 /**
@@ -32,9 +51,64 @@ export async function loadBrunchSubagents(options: LoadBrunchSubagentsOptions): 
 
   return {
     definitions,
+    delegatableAgents: options.delegatableAgents,
     maxConcurrency: config.maxConcurrency,
     agentDir: options.agentDir,
     createSettingsManager: () => createBrunchSettingsManager(options.cwd, options.agentDir),
     resourceLoaderOptions: brunchResourceLoaderOptions([]),
+    ...(options.world
+      ? {
+          injectedWorld: {
+            snapshot: {
+              spec: options.world.spec,
+              workspace: options.world.workspace,
+              ...(options.world.session ? { session: options.world.session } : {}),
+              gaps: options.world.graph.reads.getElicitationGaps(options.world.graph.specId),
+              sessionDigest: renderSubagentSessionDigest(options.world.sessionBranch),
+            },
+            graph: options.world.graph,
+          },
+        }
+      : {}),
   };
+}
+
+export function renderSubagentSessionDigest(entries: readonly unknown[], maxEntries = 6): string {
+  if (entries.length === 0) return '- recent entries: none';
+  const recent = entries.slice(-maxEntries);
+  const omitted = entries.length - recent.length;
+  return [
+    omitted > 0 ? `- omitted earlier entries: ${omitted}` : '',
+    '- recent entries:',
+    ...recent.map(
+      (entry, index) => `  - ${entries.length - recent.length + index + 1}: ${entrySummary(entry)}`,
+    ),
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
+function entrySummary(entry: unknown): string {
+  if (!isRecord(entry)) return truncate(String(entry));
+  const type = stringField(entry, 'type') ?? 'entry';
+  if (type === 'message' && isRecord(entry.message)) {
+    const role = stringField(entry.message, 'role') ?? stringField(entry.message, 'type') ?? 'message';
+    return `${type}/${role}: ${truncate(JSON.stringify(entry.message))}`;
+  }
+  const customType = stringField(entry, 'customType');
+  if (customType) return `${type}/${customType}: ${truncate(JSON.stringify(entry.data ?? {}))}`;
+  return `${type}: ${truncate(JSON.stringify(entry))}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function stringField(record: Record<string, unknown>, key: string): string | undefined {
+  const value = record[key];
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined;
+}
+
+function truncate(value: string, maxLength = 220): string {
+  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
 }

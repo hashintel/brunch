@@ -1,10 +1,11 @@
 /**
- * Subagent agent definitions (D44-L).
+ * Subagent agent definitions (D44-L / D90-L).
  *
- * Agents are declarative markdown files with a small frontmatter block plus a
- * system-prompt body. The frontmatter is the registry contract; the body is the
- * subagent's standing instructions (it becomes the child session's system
- * prompt). Frontmatter is validated through a TypeBox schema (D41-L) so a
+ * Background agents are declarative SYSTEM.md files under the shared
+ * `src/.pi/agents/<id>/` body home. Each file carries a small frontmatter block
+ * plus a system-prompt body. The frontmatter is the registry contract; the body
+ * is the subagent's standing instructions and the first section of the assembled
+ * child prompt. Frontmatter is validated through a TypeBox schema (D41-L) so a
  * malformed agent fails loud at load time rather than producing a silently
  * misconfigured child session.
  *
@@ -22,7 +23,7 @@ import { Value } from 'typebox/value';
 
 import type { BackgroundAgentManifest } from '../../../session/schema/agent-manifest.js';
 
-export const BACKGROUND_SUBAGENT_IDS = ['scout', 'researcher', 'proposer'] as const;
+export const BACKGROUND_SUBAGENT_IDS = ['explorer', 'researcher', 'projector', 'reviewer'] as const;
 export type BackgroundSubagentId = (typeof BACKGROUND_SUBAGENT_IDS)[number];
 
 export const SUBAGENT_THINKING_LEVELS = ['low', 'medium', 'high'] as const;
@@ -52,7 +53,7 @@ export interface SubagentDefinition extends BackgroundAgentManifest {
   readonly tools: readonly string[];
   readonly model: SubagentFrontmatter['model'];
   readonly thinking: SubagentFrontmatter['thinking'];
-  /** The markdown body — used verbatim as the child session's system prompt. */
+  /** The markdown body — used as the first section of the assembled child prompt. */
   readonly systemPrompt: string;
 }
 
@@ -138,9 +139,9 @@ export function parseSubagentMarkdown(
   };
 }
 
-/** Filesystem location of the bundled agent markdown resources. */
+/** Filesystem location of the unified bundled agent body home. */
 export function subagentAgentsDir(): string {
-  return fileURLToPath(new URL('./agents', import.meta.url));
+  return fileURLToPath(new URL('../../agents', import.meta.url));
 }
 
 /**
@@ -154,7 +155,7 @@ export async function loadSubagentDefinitions(
 ): Promise<Map<string, SubagentDefinition>> {
   const definitions = new Map<string, SubagentDefinition>();
   for (const id of ids) {
-    const file = `${id}.md`;
+    const file = join(id, 'SYSTEM.md');
     const source = await readFile(join(dir, file), 'utf8');
     const definition = parseSubagentMarkdown(source, { sourcePath: file });
     if (definition.name !== id) {

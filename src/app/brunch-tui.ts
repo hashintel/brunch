@@ -13,6 +13,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
+import type { GraphReaders } from '../.pi/extensions/graph/index.js';
 import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
@@ -26,7 +27,10 @@ import {
   type ReadinessBand,
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
-import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
+import {
+  delegatableAgentsForRuntimeState,
+  projectBrunchAgentState,
+} from '../projections/session/runtime-state.js';
 import type { SessionTurnDriver } from '../rpc/methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from '../rpc/methods/session-exchange-answer.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
@@ -55,6 +59,7 @@ import {
   type BrunchIntrospectionStore,
 } from './pi-extensions.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from './pi-settings.js';
+import { loadBrunchSubagents } from './pi-subagents.js';
 export {
   BRUNCH_SETTINGS_AUDITED_GETTERS,
   BRUNCH_SETTINGS_POLICY,
@@ -390,6 +395,27 @@ export function createBrunchAgentSessionRuntimeFactory(
     // shortcut contexts do not carry.
     const liveAgentSession = context.liveAgentSession ?? { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
+    const agentState = projectBrunchAgentState(sessionManager.getEntries());
+    const subagents = context.dev
+      ? await loadBrunchSubagents({
+          cwd,
+          agentDir: runtimeAgentDir,
+          delegatableAgents: delegatableAgentsForRuntimeState(agentState),
+          world: {
+            graph: {
+              specId: currentWorkspace.spec.id,
+              reads: graphReadersForSpec(graph, currentWorkspace.spec.id),
+            },
+            spec: selectedSpecContext(graph, currentWorkspace.spec.id),
+            workspace: { cwd },
+            session: {
+              id: currentWorkspace.session.id,
+              ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
+            },
+            sessionBranch: sessionManager.getBranch(),
+          },
+        })
+      : undefined;
     const profile = createBrunchPiSettings({
       cwd,
       agentDir: runtimeAgentDir,
@@ -407,17 +433,12 @@ export function createBrunchAgentSessionRuntimeFactory(
             graph: graphDeps,
             ...(context.liveExchange ? { liveExchange: context.liveExchange.awaiter } : {}),
             ...(context.dev ? { introspection: context.dev.introspection } : {}),
+            ...(subagents ? { subagents } : {}),
             promptContext: () => {
               const specId = currentWorkspace.spec.id;
-              const selectedSpec = graph.commandExecutor.getSpec(specId);
-              if (!selectedSpec) {
-                throw new Error(`No selected spec found for Brunch prompt context: ${specId}`);
-              }
+              const selectedSpec = selectedSpecContext(graph, specId);
               return {
-                spec: {
-                  id: selectedSpec.id,
-                  name: selectedSpec.name,
-                },
+                spec: selectedSpec,
                 workspace: { cwd },
                 session: {
                   id: currentWorkspace.session.id,
@@ -438,10 +459,7 @@ export function createBrunchAgentSessionRuntimeFactory(
       entries: sessionManager.getEntries(),
       resumeOrigin: 'resume_debt',
       workspaceContext: await renderWorkspaceOverviewContext(cwd),
-      strategy:
-        projectBrunchAgentState(sessionManager.getEntries()).agentStrategy === 'freestyle'
-          ? 'freestyle'
-          : 'auto',
+      strategy: agentState.agentStrategy === 'freestyle' ? 'freestyle' : 'auto',
       manager: sessionManager,
     });
     if (context.dev) {
@@ -495,6 +513,28 @@ export function createBrunchAgentSessionRuntimeFactory(
       services,
       diagnostics: services.diagnostics,
     };
+  };
+}
+
+function selectedSpecContext(graph: WorkspaceGraphRuntime, specId: number): { id: number; name: string } {
+  const selectedSpec = graph.commandExecutor.getSpec(specId);
+  if (!selectedSpec) {
+    throw new Error(`No selected spec found for Brunch prompt context: ${specId}`);
+  }
+  return {
+    id: selectedSpec.id,
+    name: selectedSpec.name,
+  };
+}
+
+function graphReadersForSpec(graph: WorkspaceGraphRuntime, specId: number): GraphReaders {
+  return {
+    queryGraph: (filter, options) => graph.forSpec(specId).queryGraph(filter, options),
+    getNodes: (selectors, options) => graph.forSpec(specId).getNodes(selectors, options),
+    resolveNodeCode: (code) => graph.forSpec(specId).resolveNodeCode(code),
+    getElicitationGaps: () => graph.forSpec(specId).getElicitationGaps(),
+    getOpenReconciliationNeeds: () => graph.forSpec(specId).getOpenReconciliationNeeds(),
+    latestLsn: () => graph.forSpec(specId).latestLsn(),
   };
 }
 

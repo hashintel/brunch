@@ -9,6 +9,7 @@ import type {
   OperationalModeId,
 } from '../../session/schema/kinds.js';
 import { AGENT_METHOD_IDS } from '../../session/schema/kinds.js';
+import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../../session/schema/tool-names.js';
 import { evaluateCapabilityReadiness, type CapabilityId } from './capability-readiness.js';
 
 export interface ToolPolicyDefinition {
@@ -31,6 +32,8 @@ export interface ResolvedBrunchAgentState extends BrunchAgentState {
   agentRoleDefinition: AgentRoleDefinition;
 }
 
+const ELICIT_DELEGATABLE_AGENTS = ['explorer', 'researcher', 'projector', 'reviewer'] as const;
+
 export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeDefinition> = {
   elicit: {
     id: 'elicit',
@@ -52,7 +55,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
         methods: AGENT_METHOD_IDS,
       },
       tools: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search'],
-      canDelegate: [],
+      canDelegate: ELICIT_DELEGATABLE_AGENTS,
       defaultStrategy: 'auto',
       defaultLens: 'auto',
       toolAuthority:
@@ -61,6 +64,46 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
     toolPolicy: {
       id: 'elicit-read-only',
       baseAllowedToolNames: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search'],
+      blockedToolNames: ['bash', 'edit', 'write'],
+    },
+  },
+  execute: {
+    id: 'execute',
+    foregroundAgent: {
+      kind: 'foreground',
+      id: 'orchestrator',
+      operationalMode: 'execute',
+      description:
+        'Foreground Brunch execute-mode agent that coordinates task execution through code-owned tools.',
+      model: 'default',
+      thinking: 'medium',
+      body: {
+        source: 'file',
+        location: 'src/.pi/agents/orchestrator/SYSTEM.md',
+      },
+      skills: {
+        strategies: [],
+        lenses: [],
+        methods: [],
+      },
+      tools: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search', BRUNCH_ORCHESTRATOR_STUB_TOOL],
+      canDelegate: [],
+      defaultStrategy: 'auto',
+      defaultLens: 'auto',
+      toolAuthority:
+        'execute orchestrator read-only plus a code-owned stub tool; direct shell and file writes are blocked',
+    },
+    toolPolicy: {
+      id: 'execute-orchestrator',
+      baseAllowedToolNames: [
+        'read',
+        'grep',
+        'find',
+        'ls',
+        'web_fetch',
+        'web_search',
+        BRUNCH_ORCHESTRATOR_STUB_TOOL,
+      ],
       blockedToolNames: ['bash', 'edit', 'write'],
     },
   },
@@ -149,6 +192,10 @@ export function defaultLensForRuntimeState(state: ResolvedBrunchAgentState): Age
 
 export function toolPolicyForRuntimeState(state: ResolvedBrunchAgentState): ToolPolicyDefinition {
   return state.operationalModeDefinition.toolPolicy;
+}
+
+export function delegatableAgentsForRuntimeState(state: ResolvedBrunchAgentState): readonly string[] {
+  return state.agentRoleDefinition.canDelegate;
 }
 
 export function isToolBlockedForRuntimeState(state: ResolvedBrunchAgentState, toolName: string): boolean {

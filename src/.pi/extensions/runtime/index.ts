@@ -37,6 +37,7 @@ export {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   appendBrunchAgentRuntimeInit,
   appendBrunchAgentRuntimeSwitch,
+  parseBrunchAgentState,
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
   type BrunchAgentStateEntrySessionManager,

@@ -1,6 +1,6 @@
-export const OPERATIONAL_MODE_IDS = ['elicit'] as const;
+export const OPERATIONAL_MODE_IDS = ['elicit', 'execute'] as const;
 
-export const AGENT_ROLE_IDS = ['elicitor'] as const;
+export const AGENT_ROLE_IDS = ['elicitor', 'orchestrator'] as const;
 
 export const AGENT_KINDS = ['foreground', 'background'] as const;
 
@@ -39,6 +39,6 @@ export type AgentThinkingLevel = (typeof AGENT_THINKING_LEVELS)[number];
  * mode picker. Not valid runtime state: deliberately outside OperationalModeId
  * until implemented.
  */
-export const PLANNED_OPERATIONAL_MODE_IDS = ['execute', 'code'] as const;
+export const PLANNED_OPERATIONAL_MODE_IDS = ['code'] as const;
 export type PlannedOperationalModeId = (typeof PLANNED_OPERATIONAL_MODE_IDS)[number];
 export type OperationalModeChoice = OperationalModeId | PlannedOperationalModeId;

@@ -1,6 +1,6 @@
 # .pi/ — Brunch Pi runtime surface
 
-SPEC decisions: D25-L, D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L, D69-L
+SPEC decisions: D25-L, D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L, D69-L, D90-L, D91-L
 
 This directory is Brunch's sealed Pi-harness surface. It contains agent role definitions, Brunch prompt-resource skills, product extension registrars, and reusable TUI components that run inside the embedded Pi coding-agent harness.
 
@@ -29,7 +29,11 @@ This directory is Brunch's sealed Pi-harness surface. It contains agent role def
 ├── brunch-pi-extensions.ts      explicit Brunch extension factory; no ambient discovery
 ├── agents/                        agent role prompt definitions (markdown only)
 │   ├── elicitor/SYSTEM.md
+│   ├── explorer/SYSTEM.md
+│   ├── orchestrator/SYSTEM.md
 │   ├── pi-coder/SYSTEM.md
+│   ├── projector/SYSTEM.md
+│   ├── researcher/SYSTEM.md
 │   └── reviewer/SYSTEM.md
 ├── skills/                        Agent Skills-standard prompt resources read by the agent
 │   ├── strategies/<name>/SKILL.md

@@ -1,6 +1,6 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L
+SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L
 
 ## Owns
 
@@ -30,6 +30,7 @@ extensions/
 ├── reconciliation/          read_reconciliation_needs/update_reconciliation_needs Pi tools over the recon-need register
 ├── introspection/           dev-gated read-only provider-payload tap + /introspect command
 ├── introspect-query/        dev-gated read-only brunch_introspect_query tool over captured payloads
+├── orchestrator-stub/       code-owned execute-mode standup tool registered on the product path
 ├── session-query/           dev-gated read-only brunch_session_query tool over current branch
 ├── shared/                  projection/truncation helpers + Zod→Pi schema adapter for dev query tools
 ├── mentions/                #graph mention prompt hint + autocomplete provider
@@ -38,7 +39,7 @@ extensions/
 ├── system-prompts/          before_agent_start prompt append; prompt composition (compose.ts), prompt-skill manifest render/loader (prompt-skills.ts), pushed seed contexts (seed/)
 ├── web/                     web_fetch/web_search read tools for referenced-document acquisition
 ├── workspace/               spec/session picker command adapter
-└── subagents/               D44-L `subagent` tool — sealed SDK child sessions (default-off, opt-in)
+└── subagents/               D44-L/D91-L `subagent` tool — sealed SDK child sessions, assembled background prompts, injected parent-world reads (default-off, dev-gated opt-in)
 ```
 
 ## Boundary rules
