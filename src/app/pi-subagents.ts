@@ -75,6 +75,10 @@ export async function loadBrunchSubagents(options: LoadBrunchSubagentsOptions): 
 
 export function renderSubagentSessionDigest(entries: readonly unknown[], maxEntries = 6): string {
   if (entries.length === 0) return '- recent entries: none';
+  if (maxEntries <= 0)
+    return entries.length > 0
+      ? `- omitted earlier entries: ${entries.length}\n- recent entries: none`
+      : '- recent entries: none';
   const recent = entries.slice(-maxEntries);
   const omitted = entries.length - recent.length;
   return [
