@@ -338,6 +338,15 @@ export class PetriNet {
     return true;
   }
 
+  /**
+   * durable-resume (FE-1082): true when the net stopped with resumable work
+   * still on it — work-bearing tokens remain (not a clean completion). The
+   * engine uses this to decide whether to persist a resume snapshot.
+   */
+  hasPendingWork(): boolean {
+    return this.hasWorkBearingTokens();
+  }
+
   /** True when any non-resource place still holds tokens (actual deadlock, not clean completion). */
   private hasWorkBearingTokens(): boolean {
     for (const [placeId, tokens] of this.places) {

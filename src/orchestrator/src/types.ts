@@ -2,6 +2,7 @@
 // Plan model — epics → slices (YAML-derived)
 // ---------------------------------------------------------------------------
 
+import type { MarkingSnapshot } from './petri-net.js';
 import type { ProfileId } from './project-profile.js';
 
 export type Verification = {
@@ -332,6 +333,38 @@ export type OrchestratorInput = {
     runId: string;
     sdcpnFile: import('./petrinaut-sdcpn.js').SdcpnFile;
   }) => Promise<((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined>;
+  /**
+   * durable-resume (FE-1082): re-enter a halted/paused run. When set, the
+   * engine seeds run bookkeeping (outcomes + reportIds) from the snapshot and
+   * `restoreMarking`s its net marking after `wireHandlers`, instead of starting
+   * from the initial marking — so a fresh process continues from where the run
+   * stopped. The plan/policy must match the run the snapshot came from
+   * (recompiling produces the same topology).
+   */
+  resume?: RunSnapshot;
+  /**
+   * durable-resume (FE-1082): optional external stop signal, checked each run
+   * loop turn alongside the structural halt. When it returns true the run stops
+   * at a quiescent point with its pending work intact; if `runDir` is set the
+   * engine persists a `RunSnapshot` so the run can later resume. (Deciding
+   * *when* to pause — e.g. on an ambiguity that needs a human — belongs to
+   * `interactive-recovery`; this is just the mechanism.)
+   */
+  shouldPause?: () => boolean;
+};
+
+/**
+ * Everything needed to resume a stopped run: the net marking at the stop point
+ * plus the outcome bookkeeping accumulated before it, so a resumed run's result
+ * reflects the whole run (pre- and post-resume), not just the resumed tail.
+ * `reportIds` index lines already durable in `reports.jsonl`. Captures a
+ * quiescent marking only (no in-flight deferred work).
+ */
+export type RunSnapshot = {
+  marking: MarkingSnapshot;
+  slices: SliceOutcome[];
+  epics: EpicOutcome[];
+  reportIds: string[];
 };
 
 export type EpicOutcome = {

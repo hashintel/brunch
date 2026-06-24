@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { createOrchestrator } from './engine.js';
+import { createOrchestrator, loadRunSnapshot } from './engine.js';
 import { compilePlan, compileTopology, wireHandlers } from './net-compiler.js';
 import type { NetEvent } from './petri-net.js';
 import {
@@ -1923,5 +1923,86 @@ describe('Adapter: sandbox-per-slice isolation', () => {
     } finally {
       rmSync(parent, { recursive: true, force: true });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// durable-resume (FE-1082) — persist a run's marking at a pause, re-enter it
+// ---------------------------------------------------------------------------
+
+describe('durable-resume — persist at pause + resume to completion', () => {
+  it('persists a RunSnapshot when paused mid-run, then resumes it to completion', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-'));
+    try {
+      // Pause after the first transition fires → the run stops with pending work.
+      let checks = 0;
+      const first = createFakes();
+      const paused = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: first.actions,
+        reports: first.reports,
+        testRunner: first.testRunner,
+        policy: { maxRetries: 3 },
+        runDir,
+        shouldPause: () => checks++ >= 1,
+      });
+      expect(paused.status).toBe('halted'); // paused == did not complete
+
+      // A resumable snapshot was persisted, capturing real pending work.
+      expect(existsSync(join(runDir, 'run-snapshot.json'))).toBe(true);
+      const snap = loadRunSnapshot(runDir);
+      expect(snap).not.toBeNull();
+      const tokenCount = Object.values(snap!.marking.places).reduce((n, ts) => n + ts.length, 0);
+      expect(tokenCount).toBeGreaterThan(0);
+
+      // Resume on a fresh net + fresh fakes (evaluate-done says YES) → completes.
+      const second = createFakes({ evalSequence: [true] });
+      const resumed = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: second.actions,
+        reports: second.reports,
+        testRunner: second.testRunner,
+        policy: { maxRetries: 3 },
+        resume: snap!,
+      });
+      expect(resumed.status).toBe('completed');
+      expect(resumed.slices).toEqual([{ sliceId: 'slice-1', status: 'completed' }]);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('loadRunSnapshot returns null when no snapshot was written (e.g. a clean completion)', () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-none-'));
+    try {
+      expect(loadRunSnapshot(runDir)).toBeNull();
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('seeds prior outcomes + reportIds from the snapshot so the resumed result reflects the whole run', async () => {
+    const fakes = createFakes({ evalSequence: [true] });
+    const resumed = await createOrchestrator('serial').run({
+      plan: simplePlan,
+      sandboxDir: '/tmp/fake',
+      actions: fakes.actions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+      // Empty marking → the net is quiescent-complete; the seeded outcomes must
+      // still surface even though no transition re-touches slice-1/epic-1.
+      resume: {
+        marking: { places: {} },
+        slices: [{ sliceId: 'slice-1', status: 'completed' }],
+        epics: [{ epicId: 'epic-1', status: 'completed' }],
+        reportIds: ['rpt-prior-1'],
+      },
+    });
+    expect(resumed.status).toBe('completed');
+    expect(resumed.slices).toEqual([{ sliceId: 'slice-1', status: 'completed' }]);
+    expect(resumed.reports).toContain('rpt-prior-1');
   });
 });

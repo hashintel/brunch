@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { compileTopology, wireHandlers } from './net-compiler.js';
@@ -8,7 +8,22 @@ import { serializeBlueprint } from './petrinaut-export.js';
 import { createIdentityFolding, createNetFolding, type NetFolding } from './petrinaut-fold.js';
 import { projectBlueprintLanes } from './petrinaut-lane-projection.js';
 import { toSdcpnFile } from './petrinaut-sdcpn.js';
-import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx } from './types.js';
+import type { Orchestrator, OrchestratorInput, OrchestratorResult, RunCtx, RunSnapshot } from './types.js';
+
+/** File a halted/paused run's resume snapshot is written to under `runDir`. */
+const RUN_SNAPSHOT_FILE = 'run-snapshot.json';
+
+/**
+ * durable-resume (FE-1082): read a `RunSnapshot` previously persisted under
+ * `runDir`, or `null` if none exists (e.g. the run completed cleanly). The
+ * loaded snapshot is passed back as `OrchestratorInput.resume` to continue the
+ * run in a fresh process.
+ */
+export function loadRunSnapshot(runDir: string): RunSnapshot | null {
+  const path = join(runDir, RUN_SNAPSHOT_FILE);
+  if (!existsSync(path)) return null;
+  return JSON.parse(readFileSync(path, 'utf8')) as RunSnapshot;
+}
 
 // ---------------------------------------------------------------------------
 // createOrchestrator — single factory. Two-pass compilation pipeline:
@@ -46,10 +61,12 @@ function mergeEventCallbacks(
 export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
   return {
     async run(input: OrchestratorInput): Promise<OrchestratorResult> {
+      // durable-resume: seed bookkeeping from a prior snapshot so the resumed
+      // result reflects the whole run, not just the resumed tail.
       const ctx: RunCtx = {
-        reportIds: [],
-        sliceOutcomes: new Map(),
-        epicOutcomes: new Map(),
+        reportIds: input.resume ? [...input.resume.reportIds] : [],
+        sliceOutcomes: new Map(input.resume?.slices.map((s) => [s.sliceId, s])),
+        epicOutcomes: new Map(input.resume?.epics.map((e) => [e.epicId, e])),
         warnings: [],
       };
 
@@ -145,7 +162,11 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         }
 
         const net = wireHandlers(blueprint, input, ctx);
-        await net.run(firingPolicy, () => net.hasHaltToken(), eventSink);
+        // durable-resume: re-enter from a persisted marking instead of the
+        // initial one. restoreMarking clears every place then loads the snapshot.
+        if (input.resume) net.restoreMarking(input.resume.marking);
+        // Stop on the structural halt OR an external pause request (FE-1082).
+        await net.run(firingPolicy, () => net.hasHaltToken() || (input.shouldPause?.() ?? false), eventSink);
 
         hasStructuralHalt = net.hasHaltToken();
         // Derive halt reason from any halt token deposited during the run.
@@ -154,6 +175,24 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
           if (token.haltReason) {
             haltReason = token.haltReason;
             break;
+          }
+        }
+
+        // durable-resume: if the run stopped with resumable work still on the
+        // net (a pause, or a halt that interactive-recovery could later clear),
+        // persist the marking + bookkeeping taken HERE — before the
+        // never-reached fill-in below marks in-flight slices halted.
+        if (input.runDir && (hasStructuralHalt || net.hasPendingWork())) {
+          const snapshot: RunSnapshot = {
+            marking: net.snapshotMarking(),
+            slices: [...ctx.sliceOutcomes.values()],
+            epics: [...ctx.epicOutcomes.values()],
+            reportIds: [...ctx.reportIds],
+          };
+          try {
+            writeFileSync(join(input.runDir, RUN_SNAPSHOT_FILE), `${JSON.stringify(snapshot, null, 2)}\n`);
+          } catch (err) {
+            ctx.warnings?.push(`Resume snapshot not written: ${errorMessage(err)}`);
           }
         }
       } catch (err) {
