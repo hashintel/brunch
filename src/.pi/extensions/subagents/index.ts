@@ -38,6 +38,7 @@ export {
   planSubagentTools,
   resolveSubagentModel,
   runSubagent,
+  type SubagentInjectedWorld,
   type SubagentResult,
   type SubagentRunContext,
   type SubagentSealedDeps,

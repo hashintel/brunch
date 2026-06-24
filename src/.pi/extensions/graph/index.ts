@@ -1,6 +1,6 @@
 /** Graph tool registrar — wires mutate_graph and read_graph as Pi tools. */
 
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 
 import type { CommandExecutor } from '../../../graph/command-executor.js';
 import type {
@@ -48,6 +48,107 @@ export interface BrunchGraphDeps {
   readonly productUpdates?: ProductUpdatePublisher;
 }
 
+export interface ReadGraphToolDeps {
+  readonly specId: number;
+  readonly reads: GraphReaders;
+  readonly appendEntry?: ExtensionAPI['appendEntry'];
+}
+
+export function createReadGraphTool(deps: ReadGraphToolDeps): ToolDefinition<typeof ReadGraphParams> {
+  return {
+    name: 'read_graph',
+    label: 'Read Graph',
+    description:
+      'Read the current specification graph. ' +
+      "Use mode 'overview' for a full graph summary, or " +
+      "mode 'neighborhood' with nodeCode to see a specific node and its neighbors.",
+    promptSnippet: 'Read the specification graph (overview or node neighborhood)',
+    promptGuidelines: [
+      "Use read_graph with mode 'overview' to see all nodes and edges before committing new graph elements.",
+      "Use read_graph with mode 'neighborhood' and a projected nodeCode such as G1 or CON2 to inspect a specific node and its connections.",
+      "Use read_graph with mode 'list_by_kind' and one or more kinds to inspect a bounded graph slice.",
+      "Use read_graph with mode 'list_by_band' and readiness bands (grounding, elicitation, projection, commitment) to inspect spec evidence by band.",
+      "Set show to 'all' when you need superseded nodes; otherwise the default 'active' hides superseded nodes and dangling edges.",
+    ],
+    parameters: ReadGraphParams,
+
+    async execute(_toolCallId, params) {
+      const options = params.show === undefined ? undefined : { visibility: params.show };
+      let text: string;
+      let details:
+        | GraphSlice
+        | readonly NodeNeighborhood[]
+        | {
+            readonly status: 'structural_illegal';
+            readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
+          };
+
+      if (params.mode === 'overview') {
+        const slice = deps.reads.queryGraph(undefined, options);
+        text = formatGraphOverview(slice);
+        details = slice;
+        deps.appendEntry?.('brunch.graph_overview_snapshot', {
+          specId: deps.specId,
+          snapshotLsn: slice.lsn,
+        });
+      } else if (params.mode === 'list_by_kind') {
+        const slice = deps.reads.queryGraph({ kinds: params.kinds as readonly NodeKind[] }, options);
+        text = formatGraphOverview(slice, 'Graph slice by kind');
+        details = slice;
+      } else if (params.mode === 'list_by_band') {
+        const requestedReadinessBands = params.readinessBands as readonly ReadinessBand[];
+        const slice = deps.reads.queryGraph({ bands: requestedReadinessBands }, options);
+        text = formatGraphOverview(slice, 'Graph slice by readiness band', { requestedReadinessBands });
+        details = slice;
+      } else if (params.mode === 'related') {
+        if ((params.anchorCodes?.length ?? 0) === 0 || params.anchorCodes?.some(isBlankString) === true) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [{ field: 'anchorCodes', message: 'related mode requires non-empty anchorCodes' }],
+          };
+          text = formatStructuralIllegal(details);
+        } else if (params.edgeCategory == null) {
+          details = {
+            status: 'structural_illegal',
+            diagnostics: [{ field: 'edgeCategory', message: 'edgeCategory is required for related mode' }],
+          };
+          text = formatStructuralIllegal(details);
+        } else {
+          const anchorCodes = params.anchorCodes ?? [];
+          const readsForAnchors = deps.reads.getNodes(
+            anchorCodes.map((code) => ({ code })),
+            { ...options, hops: params.hops ?? 1 },
+          );
+          text = formatRelatedNodesResult({
+            status: 'success',
+            anchors: filterNodeNeighborhoodEdges(readsForAnchors, params.edgeCategory, params.direction),
+          });
+          details = readsForAnchors;
+        }
+      } else if (params.nodeCode == null || isBlankString(params.nodeCode)) {
+        details = {
+          status: 'structural_illegal',
+          diagnostics: [
+            { field: 'nodeCode', message: 'non-empty nodeCode is required for neighborhood mode' },
+          ],
+        };
+        text = formatStructuralIllegal(details);
+      } else {
+        const nodeRead = deps.reads.getNodes([{ code: params.nodeCode }], {
+          ...options,
+          hops: params.hops ?? 1,
+        });
+        text = formatNeighborhood(
+          nodeRead[0] ?? { selector: { code: params.nodeCode }, status: 'not_found', related: [], edges: [] },
+        );
+        details = nodeRead;
+      }
+
+      return { content: [{ type: 'text' as const, text }], details };
+    },
+  };
+}
+
 export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): void {
   const { commandExecutor, reads } = deps;
 
@@ -84,98 +185,13 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
     },
   });
 
-  pi.registerTool({
-    name: 'read_graph',
-    label: 'Read Graph',
-    description:
-      'Read the current specification graph. ' +
-      "Use mode 'overview' for a full graph summary, or " +
-      "mode 'neighborhood' with nodeCode to see a specific node and its neighbors.",
-    promptSnippet: 'Read the specification graph (overview or node neighborhood)',
-    promptGuidelines: [
-      "Use read_graph with mode 'overview' to see all nodes and edges before committing new graph elements.",
-      "Use read_graph with mode 'neighborhood' and a projected nodeCode such as G1 or CON2 to inspect a specific node and its connections.",
-      "Use read_graph with mode 'list_by_kind' and one or more kinds to inspect a bounded graph slice.",
-      "Use read_graph with mode 'list_by_band' and readiness bands (grounding, elicitation, projection, commitment) to inspect spec evidence by band.",
-      "Set show to 'all' when you need superseded nodes; otherwise the default 'active' hides superseded nodes and dangling edges.",
-    ],
-    parameters: ReadGraphParams,
-
-    async execute(_toolCallId, params) {
-      const options = params.show === undefined ? undefined : { visibility: params.show };
-      let text: string;
-      let details:
-        | GraphSlice
-        | readonly NodeNeighborhood[]
-        | {
-            readonly status: 'structural_illegal';
-            readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
-          };
-
-      if (params.mode === 'overview') {
-        const slice = reads.queryGraph(undefined, options);
-        text = formatGraphOverview(slice);
-        details = slice;
-        pi.appendEntry('brunch.graph_overview_snapshot', {
-          specId: deps.specId,
-          snapshotLsn: slice.lsn,
-        });
-      } else if (params.mode === 'list_by_kind') {
-        const slice = reads.queryGraph({ kinds: params.kinds as readonly NodeKind[] }, options);
-        text = formatGraphOverview(slice, 'Graph slice by kind');
-        details = slice;
-      } else if (params.mode === 'list_by_band') {
-        const requestedReadinessBands = params.readinessBands as readonly ReadinessBand[];
-        const slice = reads.queryGraph({ bands: requestedReadinessBands }, options);
-        text = formatGraphOverview(slice, 'Graph slice by readiness band', { requestedReadinessBands });
-        details = slice;
-      } else if (params.mode === 'related') {
-        if ((params.anchorCodes?.length ?? 0) === 0 || params.anchorCodes?.some(isBlankString) === true) {
-          details = {
-            status: 'structural_illegal',
-            diagnostics: [{ field: 'anchorCodes', message: 'related mode requires non-empty anchorCodes' }],
-          };
-          text = formatStructuralIllegal(details);
-        } else if (params.edgeCategory == null) {
-          details = {
-            status: 'structural_illegal',
-            diagnostics: [{ field: 'edgeCategory', message: 'edgeCategory is required for related mode' }],
-          };
-          text = formatStructuralIllegal(details);
-        } else {
-          const anchorCodes = params.anchorCodes ?? [];
-          const readsForAnchors = reads.getNodes(
-            anchorCodes.map((code) => ({ code })),
-            { ...options, hops: params.hops ?? 1 },
-          );
-          text = formatRelatedNodesResult({
-            status: 'success',
-            anchors: filterNodeNeighborhoodEdges(readsForAnchors, params.edgeCategory, params.direction),
-          });
-          details = readsForAnchors;
-        }
-      } else if (params.nodeCode == null || isBlankString(params.nodeCode)) {
-        details = {
-          status: 'structural_illegal',
-          diagnostics: [
-            { field: 'nodeCode', message: 'non-empty nodeCode is required for neighborhood mode' },
-          ],
-        };
-        text = formatStructuralIllegal(details);
-      } else {
-        const nodeRead = reads.getNodes([{ code: params.nodeCode }], {
-          ...options,
-          hops: params.hops ?? 1,
-        });
-        text = formatNeighborhood(
-          nodeRead[0] ?? { selector: { code: params.nodeCode }, status: 'not_found', related: [], edges: [] },
-        );
-        details = nodeRead;
-      }
-
-      return { content: [{ type: 'text' as const, text }], details };
-    },
-  });
+  pi.registerTool(
+    createReadGraphTool({
+      specId: deps.specId,
+      reads,
+      ...(pi.appendEntry ? { appendEntry: pi.appendEntry.bind(pi) } : {}),
+    }),
+  );
 }
 
 function isBlankString(value: string): boolean {

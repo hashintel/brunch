@@ -1,5 +1,5 @@
 /**
- * Sealed SDK child sessions for subagents (D44-L / I29-L).
+ * Sealed SDK child sessions for subagents (D44-L / D91-L / I29-L).
  *
  * Each subagent runs as an in-process SDK `AgentSession` — NOT a `pi`
  * subprocess and NOT ambient `~/.pi` discovery. The child is constructed from
@@ -7,15 +7,16 @@
  *
  *   - sealed in-memory `SettingsManager` (injected from the app layer)
  *   - sealed `DefaultResourceLoader` options (no extensions/skills/prompts/
- *     themes/context files) with the agent body as the system prompt
+ *     themes/context files) with an assembled background prompt
  *   - `AuthStorage.inMemory()` so ambient `auth.json` never leaks
  *   - the parent's `ModelRegistry` (carries resolved auth + registered
  *     providers) so the child needs no ambient model bootstrap
  *   - an in-memory `SessionManager` so nothing is persisted to disk
  *   - an explicit tool allowlist built from Brunch-owned tool definitions
  *
- * The child has no conversation context (the task string must be
- * self-contained), no `CommandExecutor`, no graph access, and no Brunch RPC.
+ * The child has no ambient conversation context, no `CommandExecutor`, and no
+ * Brunch RPC. Any parent world is injected explicitly by the app root: a fixed
+ * snapshot in the prompt plus selected-spec read tools such as `read_graph`.
  * Its last assistant message is returned to the caller as tool-result content.
  */
 
@@ -35,9 +36,11 @@ import {
   type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 
+import { createReadGraphTool, type GraphReaders } from '../graph/index.js';
 import { createWebFetchTool } from '../web/web-fetch.js';
 import { createWebSearchTool } from '../web/web-search.js';
 import type { SubagentDefinition } from './agents.js';
+import { composeBackgroundSubagentPrompt, type BackgroundWorldSnapshot } from './prompt-assembly.js';
 
 type ChildModel = NonNullable<CreateAgentSessionFromServicesOptions['model']>;
 type ChildModelRegistry = ExtensionContext['modelRegistry'];
@@ -60,6 +63,16 @@ export interface SubagentSealedDeps {
   readonly createSettingsManager: () => SettingsManager;
   /** Sealed resource-loader options (no ambient discovery), sans system prompt. */
   readonly resourceLoaderOptions: CreateAgentSessionServicesOptions['resourceLoaderOptions'];
+  /** Explicit parent-world handles injected by the app root; no ambient discovery. */
+  readonly injectedWorld?: SubagentInjectedWorld;
+}
+
+export interface SubagentInjectedWorld {
+  readonly snapshot: BackgroundWorldSnapshot;
+  readonly graph?: {
+    readonly specId: number;
+    readonly reads: GraphReaders;
+  };
 }
 
 export interface RunSubagentInput {
@@ -125,7 +138,7 @@ export interface SubagentToolPlan {
  * name); web tools come from Brunch's own factories. Write/shell built-ins
  * (`bash`/`edit`/`write`) are never offered.
  */
-function subagentToolPool(cwd: string): Map<string, ToolDefinition> {
+function subagentToolPool(cwd: string, injectedWorld?: SubagentInjectedWorld): Map<string, ToolDefinition> {
   const pool = new Map<string, ToolDefinition>();
   for (const definition of [
     createReadToolDefinition(cwd),
@@ -138,6 +151,15 @@ function subagentToolPool(cwd: string): Map<string, ToolDefinition> {
   for (const tool of [createWebSearchTool(), createWebFetchTool()]) {
     pool.set(tool.name, tool as unknown as ToolDefinition);
   }
+  if (injectedWorld?.graph) {
+    pool.set(
+      'read_graph',
+      createReadGraphTool({
+        specId: injectedWorld.graph.specId,
+        reads: injectedWorld.graph.reads,
+      }) as ToolDefinition,
+    );
+  }
   return pool;
 }
 
@@ -148,10 +170,11 @@ function subagentToolPool(cwd: string): Map<string, ToolDefinition> {
 export function planSubagentTools(
   definition: SubagentDefinition,
   ctx: Pick<SubagentRunContext, 'cwd'>,
+  injectedWorld?: SubagentInjectedWorld,
 ): SubagentToolPlan {
   if (definition.tools.length === 0) return { noTools: 'all' };
 
-  const pool = subagentToolPool(ctx.cwd);
+  const pool = subagentToolPool(ctx.cwd, injectedWorld);
   const customTools: ToolDefinition[] = [];
   const unknown: string[] = [];
   for (const name of definition.tools) {
@@ -201,7 +224,7 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
 
   let toolPlan: SubagentToolPlan;
   try {
-    toolPlan = planSubagentTools(definition, ctx);
+    toolPlan = planSubagentTools(definition, ctx, deps.injectedWorld);
   } catch (error) {
     return { agent: definition.name, status: 'error', text: errorText(error) };
   }
@@ -215,7 +238,13 @@ export async function runSubagent(input: RunSubagentInput): Promise<SubagentResu
       authStorage: AuthStorage.inMemory(),
       modelRegistry: ctx.modelRegistry,
       settingsManager: deps.createSettingsManager(),
-      resourceLoaderOptions: { ...deps.resourceLoaderOptions, systemPrompt: definition.systemPrompt },
+      resourceLoaderOptions: {
+        ...deps.resourceLoaderOptions,
+        systemPrompt: composeBackgroundSubagentPrompt({
+          definition,
+          ...(deps.injectedWorld ? { world: deps.injectedWorld.snapshot } : {}),
+        }).prompt,
+      },
     });
     if (ctx.signal?.aborted) return abortedResult();
 

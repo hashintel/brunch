@@ -4,8 +4,8 @@
  * Background agents are declarative SYSTEM.md files under the shared
  * `src/.pi/agents/<id>/` body home. Each file carries a small frontmatter block
  * plus a system-prompt body. The frontmatter is the registry contract; the body
- * is the subagent's standing instructions (it becomes the child session's
- * system prompt). Frontmatter is validated through a TypeBox schema (D41-L) so a
+ * is the subagent's standing instructions and the first section of the assembled
+ * child prompt. Frontmatter is validated through a TypeBox schema (D41-L) so a
  * malformed agent fails loud at load time rather than producing a silently
  * misconfigured child session.
  *
@@ -53,7 +53,7 @@ export interface SubagentDefinition extends BackgroundAgentManifest {
   readonly tools: readonly string[];
   readonly model: SubagentFrontmatter['model'];
   readonly thinking: SubagentFrontmatter['thinking'];
-  /** The markdown body — used verbatim as the child session's system prompt. */
+  /** The markdown body — used as the first section of the assembled child prompt. */
   readonly systemPrompt: string;
 }
 

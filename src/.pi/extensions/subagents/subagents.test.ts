@@ -2,7 +2,12 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { fauxAssistantMessage, registerFauxProvider, type Context } from '@earendil-works/pi-ai';
+import {
+  fauxAssistantMessage,
+  fauxToolCall,
+  registerFauxProvider,
+  type Context,
+} from '@earendil-works/pi-ai';
 import {
   AuthStorage,
   ModelRegistry,
@@ -13,11 +18,13 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { GraphSlice } from '../../../graph/queries.js';
 import {
   BRUNCH_FAUX_HARNESS_API_KEY,
   brunchFauxProviderConfig,
   defaultBrunchFauxModel,
 } from '../../../probes/faux-provider.js';
+import type { GraphReaders } from '../graph/index.js';
 import {
   loadSubagentDefinitions,
   parseSubagentMarkdown,
@@ -107,7 +114,7 @@ describe('loadSubagentDefinitions (bundled agents)', () => {
   it('loads the explorer, researcher, projector, and reviewer starter agents', async () => {
     const definitions = await loadSubagentDefinitions(subagentAgentsDir());
     expect([...definitions.keys()].sort()).toEqual(['explorer', 'projector', 'researcher', 'reviewer']);
-    expect(definitions.get('explorer')?.tools).toEqual(['read', 'grep', 'find', 'ls']);
+    expect(definitions.get('explorer')?.tools).toEqual(['read', 'grep', 'find', 'ls', 'read_graph']);
     expect(definitions.get('researcher')?.tools).toEqual(['web_search', 'web_fetch']);
     expect(definitions.get('projector')?.tools).toEqual([]);
     expect(definitions.get('reviewer')?.tools).toEqual([]);
@@ -231,6 +238,13 @@ describe('planSubagentTools', () => {
       'web_fetch',
       'web_search',
     ]);
+  });
+
+  it('maps read_graph only when parent graph readers are injected', () => {
+    const def = { name: 'explorer', tools: ['read_graph'] } as unknown as SubagentDefinition;
+    expect(() => planSubagentTools(def, { cwd: '/tmp' })).toThrow(/unknown tool/);
+    const plan = planSubagentTools(def, { cwd: '/tmp' }, injectedWorld());
+    expect((plan.customTools ?? []).map((tool: ToolDefinition) => tool.name)).toEqual(['read_graph']);
   });
 
   it('uses noTools for a tool-less agent', () => {
@@ -397,26 +411,45 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
   interface FauxRig {
     readonly ctx: SubagentRunContext;
     readonly deps: SubagentSealedDeps;
-    readonly captured: { systemPrompt?: string; toolNames: string[]; messages: string };
+    readonly captured: {
+      systemPrompt?: string;
+      toolNames: string[];
+      messages: string;
+      systemPrompts: string[];
+      toolNamesByTurn: string[][];
+      messagesByTurn: string[];
+    };
     dispose(): void;
   }
 
-  async function fauxRig(reply: string): Promise<FauxRig> {
+  async function fauxRig(
+    replies: string | Array<string | ((context: Context) => ReturnType<typeof fauxAssistantMessage>)>,
+  ): Promise<FauxRig> {
     const model = defaultBrunchFauxModel();
     const provider = registerFauxProvider({
       provider: model.provider,
       api: `${model.api}-faux-source`,
       models: [{ id: model.modelId, name: model.modelName, input: ['text'] }],
     });
-    const captured: FauxRig['captured'] = { toolNames: [], messages: '' };
-    provider.setResponses([
-      (context: Context) => {
-        captured.systemPrompt = context.systemPrompt;
+    const captured: FauxRig['captured'] = {
+      toolNames: [],
+      messages: '',
+      systemPrompts: [],
+      toolNamesByTurn: [],
+      messagesByTurn: [],
+    };
+    const responseList = Array.isArray(replies) ? replies : [replies];
+    provider.setResponses(
+      responseList.map((reply) => (context: Context) => {
+        captured.systemPrompt = context.systemPrompt ?? '';
         captured.toolNames = (context.tools ?? []).map((tool) => tool.name);
         captured.messages = JSON.stringify(context.messages);
-        return fauxAssistantMessage(reply);
-      },
-    ]);
+        captured.systemPrompts.push(captured.systemPrompt);
+        captured.toolNamesByTurn.push(captured.toolNames);
+        captured.messagesByTurn.push(captured.messages);
+        return typeof reply === 'function' ? reply(context) : fauxAssistantMessage(reply);
+      }),
+    );
     const authStorage = AuthStorage.inMemory({
       [model.provider]: { type: 'api_key', key: BRUNCH_FAUX_HARNESS_API_KEY },
     });
@@ -455,8 +488,10 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
         deps: rig.deps,
       });
       expect(result).toEqual({ agent: 'projector', status: 'ok', text: 'PROPOSED VARIANT' });
-      // Sealing: the child system prompt IS the agent body (not pi's coding base).
+      // Sealing: the child system prompt is assembled from the agent body, not Pi's coding base.
       expect(rig.captured.systemPrompt).toContain('You are a projector. Emit one variant.');
+      expect(rig.captured.systemPrompt).toContain('[Brunch background subagent control]');
+      expect(rig.captured.systemPrompt).not.toContain('[Brunch elicitation recommendation]');
       expect(rig.captured.systemPrompt).not.toContain('coding agent');
       // No tools for a projector.
       expect(rig.captured.toolNames).toEqual([]);
@@ -478,6 +513,38 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
       });
       expect(result.status).toBe('ok');
       expect([...rig.captured.toolNames].sort()).toEqual(['find', 'grep', 'ls', 'read']);
+    } finally {
+      rig.dispose();
+    }
+  });
+
+  it('assembles injected parent-world context and reads the parent graph through read_graph', async () => {
+    const rig = await fauxRig([
+      () =>
+        fauxAssistantMessage([fauxToolCall('read_graph', { mode: 'overview' }, { id: 'read_graph_call' })], {
+          stopReason: 'toolUse',
+        }),
+      'Graph read complete.',
+    ]);
+    try {
+      const result = await runSubagent({
+        definition: parseSubagentMarkdown(
+          '---\nname: explorer\ndescription: Parent graph recon\ntools: read_graph\nthinking: low\n---\nUse the parent graph.',
+        ),
+        task: 'Read the selected spec graph.',
+        ctx: rig.ctx,
+        deps: { ...rig.deps, injectedWorld: injectedWorld({ cwd: rig.ctx.cwd }) },
+      });
+
+      expect(result).toEqual({ agent: 'explorer', status: 'ok', text: 'Graph read complete.' });
+      expect(rig.captured.systemPrompts[0]).toContain('[Brunch injected world snapshot]');
+      expect(rig.captured.systemPrompts[0]).toContain('Parent Spec (#7)');
+      expect(rig.captured.systemPrompts[0]).toContain('user asked for graph reconciliation');
+      expect(rig.captured.systemPrompts[0]).not.toContain('Sibling-only goal');
+      expect(rig.captured.systemPrompts[0]).toContain('the graph itself is not baked into this prompt');
+      expect(rig.captured.toolNamesByTurn[0]).toEqual(['read_graph']);
+      expect(rig.captured.messagesByTurn[1]).toContain('Parent-only goal');
+      expect(rig.captured.messagesByTurn[1]).not.toContain('Sibling-only goal');
     } finally {
       rig.dispose();
     }
@@ -565,3 +632,47 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
     expect(dispose).toHaveBeenCalledOnce();
   });
 });
+
+function injectedWorld(options: { cwd?: string } = {}): NonNullable<SubagentSealedDeps['injectedWorld']> {
+  const parentGraph = graphSlice('Parent-only goal', 7);
+  const siblingGraph = graphSlice('Sibling-only goal', 8);
+  void siblingGraph;
+  const reads: GraphReaders = {
+    queryGraph: () => parentGraph,
+    getNodes: () => [],
+    resolveNodeCode: () => undefined,
+    getElicitationGaps: () => [],
+    getOpenReconciliationNeeds: () => [],
+    latestLsn: () => parentGraph.lsn,
+  };
+  return {
+    snapshot: {
+      spec: { id: 7, name: 'Parent Spec' },
+      workspace: { cwd: options.cwd ?? '/workspace' },
+      session: { id: 'session-7', label: 'Grounding' },
+      gaps: [],
+      sessionDigest: '- user asked for graph reconciliation',
+    },
+    graph: { specId: 7, reads },
+  };
+}
+
+function graphSlice(title: string, specId: number): GraphSlice {
+  return {
+    lsn: specId,
+    nodes: [
+      {
+        id: specId,
+        specId,
+        plane: 'intent',
+        kind: 'goal',
+        kindOrdinal: 1,
+        title,
+        basis: 'explicit',
+        createdAtLsn: specId,
+        updatedAtLsn: specId,
+      },
+    ],
+    edges: [],
+  };
+}

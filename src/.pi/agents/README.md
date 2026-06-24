@@ -1,6 +1,6 @@
 # .pi/agents/ — agent role definitions (markdown)
 
-SPEC decisions: D25-L, D40-L, D58-L, D85-L, D90-L, D93-L
+SPEC decisions: D25-L, D40-L, D58-L, D85-L, D90-L, D91-L, D93-L
 
 ## Owns
 
@@ -43,16 +43,21 @@ Both project into the shared manifest type
   residue.
 - **Background frontmatter is authoring DX:** background `SYSTEM.md` files carry
   `name`/`description`/`tools`/`model`/`thinking`, but the code-owned registry
-  decides which ids exist. Unlisted directories are not spawnable.
+  decides which ids exist. Unlisted directories are not spawnable. Background
+  bodies are the first section of an assembled child prompt; injected world
+  snapshots and graph-read tools are owned by `extensions/subagents/`.
 
 ## Does NOT own
 
 The prompt-assembly machinery that *uses* these definitions now lives with the
 extension that consumes it:
 
-- **Prompt composition + pushed seed contexts** — `.pi/extensions/system-prompts/`
-  (`compose.ts` emits the runtime header + gated manifest; `seed/workspace.ts`
-  and `seed/graph.ts` render the pushed context blocks).
+- **Foreground prompt composition + pushed seed contexts** —
+  `.pi/extensions/system-prompts/` (`compose.ts` emits the runtime header + gated
+  manifest; `seed/workspace.ts` and `seed/graph.ts` render the pushed context
+  blocks).
+- **Background prompt assembly and injected-world child-session wiring** —
+  `.pi/extensions/subagents/`.
 - **Prompt-resource manifest selection + tool/method legality** —
   `.pi/extensions/runtime/` (`state.ts`), fed by the foreground roster in
   `src/projections/session/runtime-policy.ts`.
