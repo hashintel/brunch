@@ -1,0 +1,543 @@
+# yaml-language-server: $schema=https://dandylyons.github.io/treedocs/schemas/0.2.0/treedocs.schema.json
+overrides:
+  align_columns: false
+  auto_init_empty: false
+  check_severity: error
+  exclude:
+  - __tests__
+  icons: false
+  indent_size: 2
+  max_description_length: 120
+  use_gitignore: true
+project:
+  last_updated: '2026-06-24'
+  name: src
+  version: 0.0.0
+schema_version: 0.2.0
+signature: sha256:213d96bfd3398512a050a2eb8cf00c18ba286c3e51a1bb19e2ebc7f11f585f39
+tree:
+  .pi:
+    README.md: 'Documents pi runtime resources, extensions, skills, and TUI components.'
+    _doc: 'Pi runtime resources, extensions, skills, and TUI components.'
+    agents:
+      README.md: 'Documents pi agent role prompt definitions.'
+      _doc: 'Pi agent role prompt definitions.'
+      elicitor:
+        SYSTEM.md: 'Defines the elicitor Pi agent system prompt.'
+        _doc: 'Contains elicitor resources for agents.'
+      explorer:
+        SYSTEM.md: 'Defines the explorer Pi agent system prompt.'
+        _doc: 'Contains explorer resources for agents.'
+      pi-coder:
+        SYSTEM.md: 'Defines the pi coder Pi agent system prompt.'
+        _doc: 'Contains pi coder resources for agents.'
+      projector:
+        SYSTEM.md: 'Defines the projector Pi agent system prompt.'
+        _doc: 'Contains projector resources for agents.'
+      researcher:
+        SYSTEM.md: 'Defines the researcher Pi agent system prompt.'
+        _doc: 'Contains researcher resources for agents.'
+      reviewer:
+        SYSTEM.md: 'Defines the reviewer Pi agent system prompt.'
+        _doc: 'Contains reviewer resources for agents.'
+    components:
+      README.md: 'Documents reusable Pi TUI components and visual assets.'
+      _doc: 'Reusable Pi TUI components and visual assets.'
+      alternatives.ts: 'Implements alternatives for components.'
+      brunch-identity.ts: 'Implements brunch identity for components.'
+      brunch-version.ts: 'Implements brunch version for components.'
+      cards.ts: 'Implements cards for components.'
+      chrome-header.ts: 'Implements chrome header for components.'
+      lateral-padding.ts: 'Implements lateral padding for components.'
+      multi-choice-picker.ts: 'Implements multi choice picker for components.'
+      runtime-posture:
+        _doc: 'Runtime posture picker components.'
+        axis-picker.ts: 'Implements axis picker for runtime posture.'
+        strategy-picker.ts: 'Implements strategy picker for runtime posture.'
+      tui-lab:
+        _doc: 'Shared experimental TUI styling primitives.'
+        index.ts: 'Exports the public module surface.'
+        segment-track.ts: 'Implements segment track for tui lab.'
+        style-palette.ts: 'Implements style palette for tui lab.'
+      workspace-dialog:
+        _doc: 'Workspace selection dialog model, view, and preflight runner.'
+        assets:
+          _doc: 'Workspace dialog logo and image assets.'
+          brunch-logo-quad-56x18-240.ansi: 'ANSI Brunch logo art asset.'
+          brunch-logo-quad-56x18.ansi: 'ANSI Brunch logo art asset.'
+          brunch.png: 'Brunch logo image asset.'
+        component.ts: 'Implements component for workspace dialog.'
+        index.ts: 'Exports the public module surface.'
+        model.ts: 'Implements model for workspace dialog.'
+        preflight.ts: 'Implements preflight for workspace dialog.'
+      workspace-dialog.ts: 'Implements workspace dialog for components.'
+    extensions:
+      README.md: 'Documents pi extension registrars and Brunch tool adapters.'
+      _doc: 'Pi extension registrars and Brunch tool adapters.'
+      chrome:
+        README.md: 'Documents pi shell chrome integration for Brunch.'
+        _doc: 'Pi shell chrome integration for Brunch.'
+        index.ts: 'Exports the public module surface.'
+      commands:
+        _doc: 'Command policy extension wiring.'
+        index.ts: 'Exports the public module surface.'
+        policy.ts: 'Defines policy for commands.'
+      compaction:
+        _doc: 'Session compaction contract definitions.'
+        index.ts: 'Exports the public module surface.'
+      context:
+        _doc: 'Pi context tools for workspace and specification reads.'
+        get-cwd.ts: 'Implements get cwd for context.'
+        get-specification.ts: 'Implements get specification for context.'
+        index.ts: 'Exports the public module surface.'
+        session-binding.ts: 'Implements session binding for context.'
+      elicitation:
+        _doc: 'Elicitation-gap Pi tools and tests.'
+        index.test.ts: 'Tests index test behavior.'
+        index.ts: 'Exports the public module surface.'
+      exchanges:
+        README.md: 'Documents structured-exchange Pi tools and UI sources.'
+        _doc: 'Structured-exchange Pi tools and UI sources.'
+        index.ts: 'Exports the public module surface.'
+        pi-schema.ts: 'Defines pi schema for exchanges.'
+        present-candidates.ts: 'Implements present candidates for exchanges.'
+        present-question.ts: 'Implements present question for exchanges.'
+        present-review-set.ts: 'Implements present review set for exchanges.'
+        request-response.ts: 'Implements request response for exchanges.'
+        schemas:
+          README.md: 'Documents structured-exchange boundary schemas.'
+          _doc: 'Structured-exchange boundary schemas.'
+          capture.ts: 'Implements capture for schemas.'
+          editor.ts: 'Implements editor for schemas.'
+          index.ts: 'Exports the public module surface.'
+          params.ts: 'Implements params for schemas.'
+          present.ts: 'Implements present for schemas.'
+          request.ts: 'Implements request for schemas.'
+          shared.ts: 'Implements shared for schemas.'
+        shared:
+          _doc: 'Shared structured-exchange UI source helpers.'
+          answer-source.ts: 'Implements answer source for shared.'
+          choice-source.ts: 'Implements choice source for shared.'
+          choices-editor.ts: 'Implements choices editor for shared.'
+          markdown.ts: 'Implements markdown for shared.'
+          recovery.ts: 'Implements recovery for shared.'
+          review-source.ts: 'Implements review source for shared.'
+          ui-context.ts: 'Implements ui context for shared.'
+      graph:
+        _doc: 'Graph Pi tool schemas and command adapters.'
+        command-adapter.ts: 'Implements command adapter for graph.'
+        index.ts: 'Exports the public module surface.'
+        tool-schemas.ts: 'Defines tool schemas for graph.'
+      introspect-query:
+        README.md: 'Documents dev-gated introspection query tool.'
+        _doc: 'Dev-gated introspection query tool.'
+        index.test.ts: 'Tests index test behavior.'
+        index.ts: 'Exports the public module surface.'
+      introspection:
+        README.md: 'Documents dev-only agent-input introspection capture.'
+        _doc: 'Dev-only agent-input introspection capture.'
+        debug-cache.ts: 'Implements debug cache for introspection.'
+        index.ts: 'Exports the public module surface.'
+      mentions:
+        _doc: 'Pi mention autocomplete integration.'
+        index.ts: 'Exports the public module surface.'
+      reconciliation:
+        _doc: 'Reconciliation-need Pi tools and tests.'
+        index.test.ts: 'Tests index test behavior.'
+        index.ts: 'Exports the public module surface.'
+      runtime:
+        _doc: 'Operational-mode policy and runtime state extension.'
+        authority-matrix.test.ts: 'Tests authority matrix test behavior.'
+        index.ts: 'Exports the public module surface.'
+        state.test.ts: 'Tests state test behavior.'
+        state.ts: 'Implements state for runtime.'
+      session:
+        _doc: 'Pi session lifecycle hooks.'
+        lifecycle.test.ts: 'Tests lifecycle test behavior.'
+        lifecycle.ts: 'Implements lifecycle for session.'
+      session-query:
+        README.md: 'Documents dev session-log query tool.'
+        _doc: 'Dev session-log query tool.'
+        index.test.ts: 'Tests index test behavior.'
+        index.ts: 'Exports the public module surface.'
+      shared:
+        _doc: 'Shared Pi extension schema and query helpers.'
+        pi-tool-schema.ts: 'Defines pi tool schema for shared.'
+        query-projection.ts: 'Projects query projection for shared.'
+      subagents:
+        README.md: 'Documents sealed Brunch subagent extension implementation.'
+        _doc: 'Sealed Brunch subagent extension implementation.'
+        agents.ts: 'Implements agents for subagents.'
+        config.json: 'Configures config data.'
+        config.ts: 'Implements config for subagents.'
+        index.ts: 'Exports the public module surface.'
+        prompt-assembly.ts: 'Implements prompt assembly for subagents.'
+        session.ts: 'Implements session for subagents.'
+        subagents.test.ts: 'Tests subagents test behavior.'
+      system-prompts:
+        __previews__:
+          _doc: 'Generated system-prompt previews.'
+          elicitor--auto-floor-gaps-open.md: 'Preview output for elicitor auto floor gaps open.'
+          elicitor--auto-high-coverage.md: 'Preview output for elicitor auto high coverage.'
+          elicitor--pinned-strategy-lens.md: 'Preview output for elicitor pinned strategy lens.'
+          elicitor--pushed-context.md: 'Preview output for elicitor pushed context.'
+        _doc: 'Dynamic system-prompt composition resources.'
+        compose.ts: 'Implements compose for system prompts.'
+        index.ts: 'Exports the public module surface.'
+        prompt-skills.ts: 'Implements prompt skills for system prompts.'
+        world-reads.ts: 'Implements world reads for system prompts.'
+      tui-lab:
+        _doc: 'Pi TUI laboratory command extension.'
+        index.ts: 'Exports the public module surface.'
+      web:
+        _doc: 'Web search and fetch Pi tools.'
+        index.ts: 'Exports the public module surface.'
+        web-fetch.ts: 'Implements web fetch for web.'
+        web-search.ts: 'Implements web search for web.'
+        web-tools.test.ts: 'Tests web tools test behavior.'
+      workspace:
+        _doc: 'Workspace lifecycle and product-update hooks.'
+        index.ts: 'Exports the public module surface.'
+    settings.json: 'Configures Brunch Pi extensions and runtime settings.'
+    skills:
+      README.md: 'Documents prompt-resource skills for Brunch agents.'
+      __fixtures__:
+        _doc: 'Skill validation fixtures.'
+        unlisted-fixture:
+          SKILL.md: 'Defines the unlisted fixture prompt skill.'
+          _doc: 'Fixture skill intentionally absent from listings.'
+      _doc: 'Prompt-resource skills for Brunch agents.'
+      lenses:
+        README.md: 'Documents topical focus prompt lenses.'
+        _doc: 'Topical focus prompt lenses.'
+        design:
+          SKILL.md: 'Defines the design prompt skill.'
+          _doc: 'Contains design resources for lenses.'
+        intent:
+          SKILL.md: 'Defines the intent prompt skill.'
+          _doc: 'Contains intent resources for lenses.'
+        oracle:
+          SKILL.md: 'Defines the oracle prompt skill.'
+          _doc: 'Contains oracle resources for lenses.'
+      methods:
+        _doc: 'Task method prompt skills.'
+        capture:
+          SKILL.md: 'Defines the capture prompt skill.'
+          _doc: 'Contains capture resources for methods.'
+        commit-graph:
+          SKILL.md: 'Defines the commit graph prompt skill.'
+          _doc: 'Contains commit graph resources for methods.'
+        elicit-by-question:
+          SKILL.md: 'Defines the elicit by question prompt skill.'
+          _doc: 'Contains elicit by question resources for methods.'
+        explore-and-characterize:
+          SKILL.md: 'Defines the explore and characterize prompt skill.'
+          _doc: 'Contains explore and characterize resources for methods.'
+        generate-proposal:
+          SKILL.md: 'Defines the generate proposal prompt skill.'
+          _doc: 'Contains generate proposal resources for methods.'
+        ingest-paste:
+          SKILL.md: 'Defines the ingest paste prompt skill.'
+          _doc: 'Contains ingest paste resources for methods.'
+        read-context:
+          SKILL.md: 'Defines the read context prompt skill.'
+          _doc: 'Contains read context resources for methods.'
+        read-referenced-documents:
+          SKILL.md: 'Defines the read referenced documents prompt skill.'
+          _doc: 'Contains read referenced documents resources for methods.'
+        review-for-gaps:
+          SKILL.md: 'Defines the review for gaps prompt skill.'
+          _doc: 'Contains review for gaps resources for methods.'
+        run-structured-exchange:
+          SKILL.md: 'Defines the run structured exchange prompt skill.'
+          _doc: 'Contains run structured exchange resources for methods.'
+      strategies:
+        README.md: 'Documents interaction strategy prompt skills.'
+        _doc: 'Interaction strategy prompt skills.'
+        freestyle:
+          SKILL.md: 'Defines the freestyle prompt skill.'
+          _doc: 'Contains freestyle resources for strategies.'
+        step-wise-decision-tree:
+          SKILL.md: 'Defines the step wise decision tree prompt skill.'
+          _doc: 'Contains step wise decision tree resources for strategies.'
+        step-wise-disambiguate:
+          SKILL.md: 'Defines the step wise disambiguate prompt skill.'
+          _doc: 'Contains step wise disambiguate resources for strategies.'
+  README.md: 'Documents the directory topology and ownership.'
+  app:
+    README.md: 'Documents CLI and runtime composition entry points.'
+    _doc: 'CLI and runtime composition entry points.'
+    brunch-tui.ts: 'Launches the Brunch TUI wrapper process.'
+    brunch.ts: 'Launches the Brunch CLI runtime.'
+    pi-extensions.ts: 'Composes Brunch Pi extensions for the app runtime.'
+    pi-settings.ts: 'Builds Pi settings with Brunch extension factories.'
+    pi-subagents.ts: 'Composes Brunch subagent definitions at startup.'
+  constants.ts: 'Defines shared Brunch filesystem constants.'
+  db:
+    README.md: 'Documents drizzle persistence substrate.'
+    _doc: 'Drizzle persistence substrate.'
+    connection.ts: 'Opens and migrates the Brunch SQLite database.'
+    row-schemas.ts: 'Derives runtime validation schemas from Drizzle tables.'
+    schema.ts: 'Defines canonical Drizzle database tables.'
+  dev:
+    README.md: 'Documents local development harnesses and helpers.'
+    _doc: 'Local development harnesses and helpers.'
+    agent-messages.ts: 'Implements agent messages for dev.'
+    brunch-dev.ts: 'Implements brunch dev for dev.'
+    faux-harness.ts: 'Implements faux harness for dev.'
+    faux-launcher.ts: 'Implements faux launcher for dev.'
+    index.ts: 'Exports the public module surface.'
+    introspection-launcher.ts: 'Implements introspection launcher for dev.'
+    pi-source-alias.ts: 'Implements pi source alias for dev.'
+    tier-2-harness.ts: 'Implements tier 2 harness for dev.'
+    workspace-rpc.ts: 'Implements workspace rpc for dev.'
+  graph:
+    README.md: 'Documents graph domain layer for specifications.'
+    _doc: 'Graph domain layer for specifications.'
+    atoms.ts: 'Defines atoms for graph.'
+    command-executor:
+      _doc: 'Private CommandExecutor mutation planning modules.'
+      command-types.ts: 'Defines command types for command executor.'
+      command-validation.ts: 'Implements command validation for command executor.'
+      create-graph-batch.ts: 'Implements create graph batch for command executor.'
+      graph-mutation-planner.ts: 'Implements graph mutation planner for command executor.'
+      graph-mutation-types.ts: 'Defines graph mutation types for command executor.'
+      graph-mutation-writer.ts: 'Implements graph mutation writer for command executor.'
+      role-named-edge-draft.ts: 'Implements role named edge draft for command executor.'
+    command-executor.ts: 'Implements command executor for graph.'
+    elicitation-driver.ts: 'Implements elicitation driver for graph.'
+    export-fixtures.ts: 'Implements export fixtures for graph.'
+    index.ts: 'Exports the public module surface.'
+    policy:
+      _doc: 'Graph semantic policy tables.'
+      category-policy.ts: 'Defines category policy for policy.'
+    projection:
+      _doc: 'Graph read-label projection helpers.'
+      direction.ts: 'Implements direction for projection.'
+      labels.ts: 'Implements labels for projection.'
+    queries.ts: 'Queries queries for graph.'
+    review-set.ts: 'Implements review set for graph.'
+    schema:
+      _doc: 'Graph domain type definitions.'
+      edges.ts: 'Implements edges for schema.'
+      elicitation-gap-fixtures.ts: 'Implements elicitation gap fixtures for schema.'
+      elicitation-gaps.ts: 'Implements elicitation gaps for schema.'
+      kinds.ts: 'Defines kinds for schema.'
+      nodes.ts: 'Implements nodes for schema.'
+      reconciliation-need.ts: 'Implements reconciliation need for schema.'
+    seed-fixtures.ts: 'Implements seed fixtures for graph.'
+    validate-fixture.ts: 'Implements validate fixture for graph.'
+    workspace-store.ts: 'Implements workspace store for graph.'
+  probes:
+    _doc: 'Executable proof scripts and probe harnesses.'
+    capture-quality-loop.ts: 'Implements capture quality loop for probes.'
+    check-workspace-session-stores.ts: 'Implements check workspace session stores for probes.'
+    deterministic-exchange-script.ts: 'Implements deterministic exchange script for probes.'
+    faux-provider.ts: 'Implements faux provider for probes.'
+    fixture-curation-loop.ts: 'Implements fixture curation loop for probes.'
+    portable-report.ts: 'Implements portable report for probes.'
+    project-graph-review-cycle-proof.ts: 'Implements project graph review cycle proof for probes.'
+    propose-graph-commit-proof.ts: 'Implements propose graph commit proof for probes.'
+    public-rpc-parity-proof.ts: 'Implements public rpc parity proof for probes.'
+    scripts:
+      _doc: 'Shell wrappers for probe checks.'
+      run-ship-gate-composition.sh: 'Runs the run ship gate composition probe script.'
+      verify-startup-no-resume.sh: 'Runs the verify startup no resume probe script.'
+    ship-gate-composition-proof.ts: 'Implements ship gate composition proof for probes.'
+    ship-gate-rpc-client.ts: 'Implements ship gate rpc client for probes.'
+    structured-exchange-ordering-proof.ts: 'Implements structured exchange ordering proof for probes.'
+    structured-exchange-rpc-proof.ts: 'Implements structured exchange rpc proof for probes.'
+    test-helpers.ts: 'Implements test helpers for probes.'
+  projections:
+    README.md: 'Documents reusable DTO projections between domain and boundaries.'
+    _doc: 'Reusable DTO projections between domain and boundaries.'
+    exchanges:
+      _doc: 'Structured-exchange DTO projections.'
+      present-candidates.ts: 'Implements present candidates for exchanges.'
+      present-question.ts: 'Implements present question for exchanges.'
+      present-review-set.ts: 'Implements present review set for exchanges.'
+      request-answer.ts: 'Implements request answer for exchanges.'
+      request-choice.ts: 'Implements request choice for exchanges.'
+      request-choices.ts: 'Implements request choices for exchanges.'
+      request-review.ts: 'Implements request review for exchanges.'
+      review-set-payload.ts: 'Implements review set payload for exchanges.'
+    graph:
+      _doc: 'Graph DTO projections.'
+      commit-result.ts: 'Implements commit result for graph.'
+      neighborhood.ts: 'Implements neighborhood for graph.'
+      overview.ts: 'Implements overview for graph.'
+      reconciliation-needs.ts: 'Implements reconciliation needs for graph.'
+    session:
+      _doc: 'Session runtime and transcript DTO projections.'
+      affordances.ts: 'Implements affordances for session.'
+      assistant-visible-watermark.ts: 'Implements assistant visible watermark for session.'
+      capability-readiness.ts: 'Implements capability readiness for session.'
+      continuity-entry-classifier.ts: 'Implements continuity entry classifier for session.'
+      readiness-estimate.ts: 'Implements readiness estimate for session.'
+      runtime-policy.ts: 'Defines runtime policy for session.'
+      runtime-state.ts: 'Implements runtime state for session.'
+      sweep-watermark.test.ts: 'Tests sweep watermark test behavior.'
+      sweep-watermark.ts: 'Implements sweep watermark for session.'
+      transcript-context.ts: 'Implements transcript context for session.'
+    workspace:
+      _doc: 'Workspace DTO projections.'
+      workspace-state.ts: 'Implements workspace state for workspace.'
+  renderers:
+    README.md: 'Documents lossy text renderers for model and debug surfaces.'
+    _doc: 'Lossy text renderers for model and debug surfaces.'
+    exchanges:
+      _doc: 'Structured-exchange markdown renderers.'
+      present-candidates.ts: 'Implements present candidates for exchanges.'
+      present-question.ts: 'Implements present question for exchanges.'
+      present-review-set.ts: 'Implements present review set for exchanges.'
+      request-answer.ts: 'Implements request answer for exchanges.'
+      request-choice.ts: 'Implements request choice for exchanges.'
+      request-choices.ts: 'Implements request choices for exchanges.'
+      request-review.ts: 'Implements request review for exchanges.'
+    graph:
+      __previews__:
+        _doc: 'Generated graph renderer previews.'
+        graph-overview-kind-band-spread.md: 'Preview output for graph overview kind band spread.'
+        neighborhood-brunch-self-MOD1-hops2.md: 'Preview output for neighborhood brunch self MOD1 hops2.'
+        neighborhood-brunch-self-REQ1.md: 'Preview output for neighborhood brunch self REQ1.'
+        neighborhood-code-health-REQ1.md: 'Preview output for neighborhood code health REQ1.'
+        neighborhood-hub-REQ1-compact.md: 'Preview output for neighborhood hub REQ1 compact.'
+        neighborhood-hub-REQ1-hops2.md: 'Preview output for neighborhood hub REQ1 hops2.'
+        neighborhood-hub-REQ1.md: 'Preview output for neighborhood hub REQ1.'
+      _doc: 'Graph context and result renderers.'
+      commit-result.ts: 'Implements commit result for graph.'
+      graph-slice.ts: 'Implements graph slice for graph.'
+      node-neighborhood.ts: 'Implements node neighborhood for graph.'
+      reconciliation-needs.ts: 'Implements reconciliation needs for graph.'
+    markdown.ts: 'Implements markdown for renderers.'
+    section.ts: 'Implements section for renderers.'
+    session:
+      __previews__:
+        _doc: 'Generated session renderer previews.'
+        runtime-frame-ready.md: 'Preview output for runtime frame ready.'
+      _doc: 'Session context renderers.'
+      readiness-estimate.ts: 'Implements readiness estimate for session.'
+      runtime-frame.ts: 'Implements runtime frame for session.'
+      transcript.ts: 'Implements transcript for session.'
+    specification:
+      __previews__:
+        _doc: 'Generated specification renderer previews.'
+        specification-context.md: 'Preview output for specification context.'
+      _doc: 'Specification context renderers.'
+      specification-context.ts: 'Implements specification context for specification.'
+    toon.ts: 'Implements toon for renderers.'
+    tree.ts: 'Implements tree for renderers.'
+    workspace:
+      __previews__:
+        _doc: 'Generated workspace renderer previews.'
+        workspace-cwd-context.md: 'Preview output for workspace cwd context.'
+        workspace-overview-context.md: 'Preview output for workspace overview context.'
+      _doc: 'Workspace context renderers.'
+      workspace-context.ts: 'Implements workspace context for workspace.'
+      workspace-state.ts: 'Implements workspace state for workspace.'
+  rpc:
+    README.md: 'Documents public JSON-RPC boundary for Brunch clients.'
+    _doc: 'Public JSON-RPC boundary for Brunch clients.'
+    handlers.ts: 'Implements handlers for rpc.'
+    methods:
+      _doc: 'Individual JSON-RPC method implementations and schemas.'
+      dev-graph.ts: 'Implements dev graph for methods.'
+      graph.ts: 'Implements graph for methods.'
+      registry.ts: 'Implements registry for methods.'
+      schemas.ts: 'Defines schemas for methods.'
+      session-driver.ts: 'Implements session driver for methods.'
+      session-exchange-answer.ts: 'Implements session exchange answer for methods.'
+      session.ts: 'Implements session for methods.'
+      workspace.ts: 'Implements workspace for methods.'
+    product-updates.ts: 'Implements product updates for rpc.'
+    protocol.ts: 'Defines protocol for rpc.'
+    session-event-relay.test.ts: 'Tests session event relay test behavior.'
+    session-event-relay.ts: 'Implements session event relay for rpc.'
+    web-host.ts: 'Implements web host for rpc.'
+    websocket.ts: 'Implements websocket for rpc.'
+  scripts:
+    README.md: 'Documents source-owned script entry points.'
+    _doc: 'Source-owned script entry points.'
+  session:
+    README.md: 'Documents session domain layer and turn orchestration.'
+    _doc: 'Session domain layer and turn orchestration.'
+    agent-context-seed.ts: 'Implements agent context seed for session.'
+    brunch-session-envelope.ts: 'Implements brunch session envelope for session.'
+    context-seed.ts: 'Implements context seed for session.'
+    exchange-projection.ts: 'Projects exchange projection for session.'
+    flush-session-manager.ts: 'Implements flush session manager for session.'
+    live-exchange-broker.ts: 'Implements live exchange broker for session.'
+    mention-ledger.ts: 'Implements mention ledger for session.'
+    originate-assistant-turn.ts: 'Implements originate assistant turn for session.'
+    prepare-next-turn.ts: 'Implements prepare next turn for session.'
+    runtime-state.ts: 'Implements runtime state for session.'
+    schema:
+      README.md: 'Documents session vocabulary definitions.'
+      _doc: 'Session vocabulary definitions.'
+      agent-manifest.ts: 'Implements agent manifest for schema.'
+      kinds.ts: 'Defines kinds for schema.'
+    session-binding.ts: 'Implements session binding for session.'
+    session-projection-reader.ts: 'Projects session projection reader for session.'
+    session-transcript.ts: 'Implements session transcript for session.'
+    specification-overview-context.ts: 'Implements specification overview context for session.'
+    start-assistant-turn.ts: 'Implements start assistant turn for session.'
+    structured-exchange-loop:
+      _doc: 'Private structured-exchange loop helpers.'
+      accepted-response.ts: 'Implements accepted response for structured exchange loop.'
+      pending-exchange.ts: 'Implements pending exchange for structured exchange loop.'
+      synthetic-tool-call.ts: 'Implements synthetic tool call for structured exchange loop.'
+    structured-exchange-loop.ts: 'Implements structured exchange loop for session.'
+    workspace-overview-context.ts: 'Implements workspace overview context for session.'
+    workspace-session-coordinator:
+      _doc: 'Private workspace session file discovery helpers.'
+      canonical-session-files.ts: 'Implements canonical session files for workspace session coordinator.'
+    workspace-session-coordinator.ts: 'Implements workspace session coordinator for session.'
+  utils:
+    _doc: 'Small shared utility helpers.'
+    strings.ts: 'Implements strings for utils.'
+  web:
+    README.md: 'Documents react web client for Brunch.'
+    _doc: 'React web client for Brunch.'
+    app-meta.ts: 'Implements app meta for web.'
+    app.tsx: 'Implements app for web.'
+    assets:
+      _doc: 'Web client static assets.'
+      brunch.png: 'Brunch logo image asset.'
+    components:
+      _doc: 'Reusable React UI components.'
+      app-header.tsx: 'Implements app header for components.'
+      drawer-card.tsx: 'Implements drawer card for components.'
+      icons.tsx: 'Implements icons for components.'
+      node-card.tsx: 'Implements node card for components.'
+    features:
+      _doc: 'Feature-specific web UI modules.'
+      graph:
+        _doc: 'Graph feature display helpers.'
+        kind-display.ts: 'Implements kind display for graph.'
+        structured-list-view.tsx: 'Implements structured list view for graph.'
+    main.tsx: 'Implements main for web.'
+    queries:
+      _doc: 'TanStack Query definitions for RPC data.'
+      graph.ts: 'Implements graph for queries.'
+      session.ts: 'Implements session for queries.'
+      workspace.ts: 'Implements workspace for queries.'
+    query-client.ts: 'Implements query client for web.'
+    query-keys.ts: 'Implements query keys for web.'
+    routes:
+      _doc: 'TanStack Router route components.'
+      root.tsx: 'Implements root for routes.'
+      spec.tsx: 'Implements spec for routes.'
+    rpc-client.ts: 'Implements rpc client for web.'
+    spec-id.ts: 'Implements spec id for web.'
+    styles.css: 'Defines global web client styles.'
+    subscriptions:
+      _doc: 'WebSocket-driven query invalidation hooks.'
+      brunch-updates.ts: 'Implements brunch updates for subscriptions.'
+      follow-workspace-spec.ts: 'Implements follow workspace spec for subscriptions.'
+    vite-env.d.ts: 'Declares Vite client types.'
+  workspace:
+    README.md: 'Documents workspace identity, inventory, and state storage.'
+    _doc: 'Workspace identity, inventory, and state storage.'
+    cwd-inventory.ts: 'Implements cwd inventory for workspace.'
+    project-identity.ts: 'Implements project identity for workspace.'
+    workspace-state-store.ts: 'Implements workspace state store for workspace.'
