@@ -170,18 +170,21 @@ function Canvas({
 
   const saveEdit = useCallback(
     (newContent: string) => {
+      // Stage the edit before closing the editor, so a missing patch-list host
+      // can't silently drop the content the moment the editor is dismissed.
+      if (patchList !== null && detail !== null && selection.selectedId !== null) {
+        const itemId = parseNodeId(selection.selectedId).id;
+        patchList.stage({
+          kind: 'edit',
+          producerChatId: null,
+          anchor: { kind: detail.kind, itemId },
+          anchorReferenceCode: detail.referenceCode,
+          summary: `Edit ${detail.referenceCode}`,
+          currentContent: detail.content,
+          newContent,
+        });
+      }
       selection.cancelEdit();
-      if (patchList === null || detail === null || selection.selectedId === null) return;
-      const itemId = parseNodeId(selection.selectedId).id;
-      patchList.stage({
-        kind: 'edit',
-        producerChatId: null,
-        anchor: { kind: detail.kind, itemId },
-        anchorReferenceCode: detail.referenceCode,
-        summary: `Edit ${detail.referenceCode}`,
-        currentContent: detail.content,
-        newContent,
-      });
     },
     [patchList, detail, selection],
   );
