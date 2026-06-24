@@ -58,8 +58,8 @@ export type ExecProgressCriterion = {
 export type ExecProgress = {
   spec_id: string;
   run_id: string;
-  run_status: 'completed' | 'halted';
-  reason?: string;
+  run_status: OrchestratorResult['status'];
+  reason?: OrchestratorResult['reason'];
   requirements: ExecProgressRequirement[];
   criteria: ExecProgressCriterion[];
 };
