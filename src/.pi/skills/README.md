@@ -17,6 +17,7 @@ skills/
 ├── strategies/<name>/SKILL.md              reusable interaction shapes
 ├── lenses/<name>/SKILL.md                  topical focus lenses
 └── methods/<name>/SKILL.md                 tool-routing and sequencing guidance
+    └── references/*.md                     optional disclosed reference payloads
 ```
 
 Each live resource is a directory whose `SKILL.md` has YAML frontmatter (`name`, `description`) plus the instruction body. `name` must equal the parent directory and the code-owned id in `.pi/extensions/runtime/state.ts`.
@@ -33,9 +34,9 @@ rules:
 
 The legal set is sealed by the code-owned path list in `.pi/extensions/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. Frontmatter owns `name` and `description`; code owns axis family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/.pi/agents/elicitor/SYSTEM.md`.
 
-## Deferred prompt-resource sub-shapes
+## Prompt-resource sub-shapes
 
-- **`references/` subfiles:** available under the Agent Skills standard when a concrete skill needs progressive disclosure. No empty reference directories are introduced.
+- **`references/` subfiles:** available under the Agent Skills standard when a concrete skill needs progressive disclosure. No empty reference directories are introduced. The first materialized instance is `methods/generate-proposal/references/`, where the shared `SKILL.md` points to plane-specific payloads without advertising those payloads as separate skills.
 - **_generated/ typed-vocab references:** deferred until a concrete stale-member need appears, such as an agent relying on a reference whose runtime axis or graph vocabulary members can drift from the TypeScript `kinds.ts` leaves. If built, these files are generated from typed sources, regenerated and drift-checked, and locked separately from the authored prompt-resource body lock below.
 
 ## Prompt-resource body lock ledger
