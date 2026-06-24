@@ -77,6 +77,23 @@ function reviewDeps() {
   return { specId: spec.specId, commandExecutor };
 }
 
+function candidateDetails(id: string, title: string) {
+  return {
+    id,
+    title,
+    user_rubric: {
+      core_bet: 'Make local graph work the thesis.',
+      best_fit: 'Keeps the POC focused.',
+      cost_complexity: 'Requires owning local state clearly.',
+      covers_well: 'Covers chrome, transcript, and graph coherence.',
+      main_risks: 'Does not solve cloud collaboration.',
+      lock_in_constraints: 'Commits to local-first semantics.',
+    },
+    meta_rubric: {},
+    graph_refs: [{ node_id: `${id}-node` }],
+  };
+}
+
 function validReviewPayload() {
   return {
     schemaVersion: 1,
@@ -467,6 +484,54 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
+  it('maps duplicate present_question option labels back to the selected stable id', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const select = vi.fn(async () => '2. Repeat label');
+    const result = await request_response.execute(
+      'request-response-duplicate-choice-call',
+      { exchangeId: 'duplicate-options' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'duplicate-options',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Select one option.' },
+                  options: [
+                    { id: 'first-option', content: 'Repeat label' },
+                    { id: 'second-option', content: 'Repeat label' },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(select).toHaveBeenCalledWith('Select one option.', ['1. Repeat label', '2. Repeat label']);
+    expect(result.details).toMatchObject({
+      exchange_id: 'duplicate-options',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
+      answered: {
+        choice: { id: 'second-option', label: 'Repeat label', kind: 'listed' },
+      },
+    });
+  });
+
   it('presents candidates as durable markdown and recoverable details without graph dependencies', async () => {
     const present = registeredTools().get(PRESENT_CANDIDATES_TOOL);
     if (!present) throw new Error('present_candidates was not registered');
@@ -569,6 +634,56 @@ describe('structured exchange present/request tools', () => {
       answered: { choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' } },
     });
     expect(result.details).not.toHaveProperty('review_set');
+  });
+
+  it('maps duplicate candidate titles back to the selected candidate id', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const select = vi.fn(async () => '2. Same direction');
+    const result = await request_response.execute(
+      'request-response-duplicate-candidate-call',
+      { exchangeId: 'duplicate-candidates' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'duplicate-candidates',
+                  tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  display: { heading: 'Which direction should we take?' },
+                  candidates: [
+                    candidateDetails('first-candidate', 'Same direction'),
+                    candidateDetails('second-candidate', 'Same direction'),
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(select).toHaveBeenCalledWith('Which direction should we take?', [
+      '1. Same direction',
+      '2. Same direction',
+    ]);
+    expect(result.details).toMatchObject({
+      exchange_id: 'duplicate-candidates',
+      tool_meta: { prev: PRESENT_CANDIDATES_TOOL, curr: 'request_choice', next: 'capture_candidate' },
+      answered: {
+        choice: { id: 'second-candidate', label: 'Same direction', kind: 'listed' },
+      },
+    });
   });
 
   it('presents a dry-run-valid review-set payload as durable markdown and recoverable details', async () => {

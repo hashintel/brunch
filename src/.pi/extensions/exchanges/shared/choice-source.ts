@@ -9,11 +9,28 @@ export interface StructuredExchangeChoice {
   readonly label: string;
 }
 
-function choiceByLabel(
-  choices: readonly StructuredExchangeChoice[],
+interface SelectableChoice {
+  readonly choice: StructuredExchangeChoice;
+  readonly selectLabel: string;
+}
+
+function selectableChoices(choices: readonly StructuredExchangeChoice[]): readonly SelectableChoice[] {
+  const labelCounts = new Map<string, number>();
+  for (const choice of choices) labelCounts.set(choice.label, (labelCounts.get(choice.label) ?? 0) + 1);
+  return choices.map((choice, index) => ({
+    choice,
+    selectLabel: labelCounts.get(choice.label) === 1 ? choice.label : `${index + 1}. ${choice.label}`,
+  }));
+}
+
+function choiceBySelection(
+  choices: readonly SelectableChoice[],
   selected: string,
 ): StructuredExchangeChoice | undefined {
-  return choices.find((choice) => choice.label === selected || choice.id === selected);
+  return choices.find(
+    ({ choice, selectLabel }) =>
+      selectLabel === selected || choice.label === selected || choice.id === selected,
+  )?.choice;
 }
 
 function selectedChoice(choice: StructuredExchangeChoice, kind: SelectedChoice['kind']): SelectedChoice {
@@ -46,11 +63,12 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
     return terminal('unavailable', 'request_response choice requires interactive UI');
   }
 
-  const labels = [...params.choices.map((choice) => choice.label), ...(params.allowOther ? ['Other'] : [])];
+  const choices = selectableChoices(params.choices);
+  const labels = [...choices.map((choice) => choice.selectLabel), ...(params.allowOther ? ['Other'] : [])];
   const selected = await params.ctx.ui.select(params.prompt, labels);
   if (selected === undefined) return terminal('cancelled');
 
-  const picked = choiceByLabel(params.choices, selected);
+  const picked = choiceBySelection(choices, selected);
   let choice: SelectedChoice;
   let comment = '';
   if (!picked) {
