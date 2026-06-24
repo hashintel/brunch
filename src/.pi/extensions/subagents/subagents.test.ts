@@ -352,6 +352,35 @@ describe('createSemaphore', () => {
 });
 
 describe('registerBrunchSubagents', () => {
+  const theme = {
+    fg: (_kind: string, value: string) => value,
+    bg: (_kind: string, value: string) => value,
+    bold: (value: string) => value,
+  };
+
+  interface Renderable {
+    render(width: number): string[];
+  }
+
+  function render(component: Renderable): string {
+    return component.render(120).join('\n');
+  }
+
+  function renderCall(tool: ToolDefinition, params: unknown): string {
+    if (!tool.renderCall) throw new Error('subagent tool is missing renderCall');
+    return render(tool.renderCall(params as never, theme as never, {} as never));
+  }
+
+  function renderResult(
+    tool: ToolDefinition,
+    result: { content: { type: string; text?: string }[]; details?: unknown },
+    options: { expanded: boolean; isPartial: boolean },
+    context: { isError?: boolean } = {},
+  ): string {
+    if (!tool.renderResult) throw new Error('subagent tool is missing renderResult');
+    return render(tool.renderResult(result as never, options, theme as never, context as never));
+  }
+
   function harness(options: { delegatableAgents?: readonly string[] } = {}): {
     pi: ExtensionAPI;
     getTool: () => ToolDefinition;
@@ -384,6 +413,74 @@ describe('registerBrunchSubagents', () => {
   it('registers a single "subagent" tool', () => {
     const { getTool } = harness();
     expect(getTool().name).toBe(BRUNCH_SUBAGENT_TOOL);
+  });
+
+  it('renders single, parallel, and invalid call shapes with bounded task previews', () => {
+    const { getTool } = harness();
+    const tool = getTool();
+    const longTask =
+      'read the graph and inspect every likely reconciliation point before summarizing '.repeat(4);
+
+    const single = renderCall(tool, { agent: 'explorer', task: longTask });
+    expect(single).toContain('subagent');
+    expect(single).toContain('explorer');
+    expect(single).not.toContain(longTask);
+
+    const parallel = renderCall(tool, {
+      tasks: [
+        { agent: 'explorer', task: 'map the touched files' },
+        { agent: 'projector', task: 'propose a variant' },
+      ],
+    });
+    expect(parallel).toContain('parallel (2)');
+    expect(parallel).toContain('explorer');
+    expect(parallel).toContain('projector');
+
+    expect(renderCall(tool, {})).toContain('invalid shape');
+  });
+
+  it('renders subagent result summaries without dumping returned text while collapsed', () => {
+    const { getTool } = harness();
+    const tool = getTool();
+    const result = {
+      content: [{ type: 'text', text: 'FULL MODEL CONTEXT CROSS-BACK' }],
+      details: {
+        results: [
+          { agent: 'explorer', status: 'ok', text: 'Explorer returned detailed findings.' },
+          { agent: 'projector', status: 'error', text: 'Projector failed with details.' },
+        ],
+      },
+    };
+
+    const collapsed = renderResult(tool, result, { expanded: false, isPartial: false });
+    expect(collapsed).toContain('1 ok, 1 error');
+    expect(collapsed).toContain('explorer ok');
+    expect(collapsed).toContain('projector error');
+    expect(collapsed).not.toContain('Explorer returned detailed findings.');
+
+    const expanded = renderResult(tool, result, { expanded: true, isPartial: false });
+    expect(expanded).toContain('Explorer returned detailed findings.');
+    expect(expanded).toContain('Projector failed with details.');
+  });
+
+  it('renders single-result, partial, and error states', () => {
+    const { getTool } = harness();
+    const tool = getTool();
+    const result = {
+      content: [{ type: 'text', text: 'Explorer detailed text.' }],
+      details: { results: [{ agent: 'explorer', status: 'ok', text: 'Explorer detailed text.' }] },
+    };
+
+    expect(renderResult(tool, result, { expanded: false, isPartial: false })).toContain('explorer ok');
+    expect(renderResult(tool, result, { expanded: false, isPartial: true })).toContain('Subagents running');
+    expect(
+      renderResult(
+        tool,
+        { content: [{ type: 'text', text: 'Subagent crashed' }], details: { results: [] } },
+        { expanded: false, isPartial: false },
+        { isError: true },
+      ),
+    ).toContain('Subagent crashed');
   });
 
   it('runs a single { agent, task } call', async () => {

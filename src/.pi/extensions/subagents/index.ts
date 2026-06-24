@@ -12,6 +12,7 @@
  */
 
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import { Text } from '@earendil-works/pi-tui';
 import { Type, type Static } from 'typebox';
 
 import type { SubagentDefinition } from './agents.js';
@@ -104,6 +105,157 @@ function formatResults(results: readonly SubagentResult[]): string {
   return results
     .map((result) => `## ${result.agent}${result.status === 'error' ? ' (error)' : ''}\n\n${result.text}`)
     .join('\n\n---\n\n');
+}
+
+interface ThemeLike {
+  fg(kind: string, value: string): string;
+  bold(value: string): string;
+}
+
+interface TextToolResultLike {
+  readonly content: readonly { readonly type: string; readonly text?: string }[];
+  readonly details?: unknown;
+}
+
+interface SubagentToolTask {
+  readonly agent: string;
+  readonly task: string;
+}
+
+interface SubagentToolParams {
+  readonly agent?: string;
+  readonly task?: string;
+  readonly tasks?: readonly SubagentToolTask[];
+}
+
+function firstText(result: TextToolResultLike): string {
+  return result.content.find((part) => part.type === 'text')?.text ?? '';
+}
+
+function previewText(value: string, maxChars: number): string {
+  return value.length > maxChars ? `${value.slice(0, maxChars - 3)}...` : value;
+}
+
+function renderContextComponent(context: unknown): Text | undefined {
+  return context && typeof context === 'object' && 'lastComponent' in context
+    ? (context as { lastComponent?: Text }).lastComponent
+    : undefined;
+}
+
+function renderContextIsError(context: unknown): boolean {
+  return Boolean(
+    context &&
+    typeof context === 'object' &&
+    'isError' in context &&
+    (context as { isError?: boolean }).isError,
+  );
+}
+
+function renderSubagentCall(args: Partial<SubagentToolParams>, theme: ThemeLike, context: unknown): Text {
+  const text = renderContextComponent(context) ?? new Text('', 0, 0);
+  const hasSingleShape = args.agent !== undefined || args.task !== undefined;
+  const hasParallelShape = args.tasks !== undefined;
+  const title = theme.fg('toolTitle', theme.bold('subagent '));
+
+  if ((hasSingleShape && hasParallelShape) || (!hasSingleShape && !hasParallelShape)) {
+    text.setText(title + theme.fg('error', 'invalid shape: use { agent, task } or { tasks: [...] }'));
+    return text;
+  }
+
+  if (hasParallelShape) {
+    const tasks = args.tasks ?? [];
+    const lines = [
+      title + theme.fg('accent', `parallel (${tasks.length})`),
+      ...tasks.slice(0, 3).map((task) => {
+        return `  ${theme.fg('accent', task.agent)} ${theme.fg('dim', previewText(task.task, 80))}`;
+      }),
+    ];
+    if (tasks.length > 3) lines.push(theme.fg('muted', `  ... +${tasks.length - 3} more`));
+    text.setText(lines.join('\n'));
+    return text;
+  }
+
+  text.setText(
+    title +
+      theme.fg('accent', args.agent ?? '(missing agent)') +
+      '\n  ' +
+      theme.fg('dim', previewText(args.task ?? '(missing task)', 100)),
+  );
+  return text;
+}
+
+function subagentResultDetails(details: unknown): readonly SubagentResult[] {
+  if (
+    !details ||
+    typeof details !== 'object' ||
+    !('results' in details) ||
+    !Array.isArray((details as { results?: unknown }).results)
+  ) {
+    return [];
+  }
+  return (details as { results: SubagentResult[] }).results;
+}
+
+function resultCounts(results: readonly SubagentResult[]): { ok: number; error: number } {
+  let ok = 0;
+  let error = 0;
+  for (const result of results) {
+    if (result.status === 'ok') {
+      ok += 1;
+    } else {
+      error += 1;
+    }
+  }
+  return { ok, error };
+}
+
+function renderSubagentResult(
+  result: TextToolResultLike,
+  options: { expanded: boolean; isPartial: boolean },
+  theme: ThemeLike,
+  context: unknown,
+): Text {
+  const text = renderContextComponent(context) ?? new Text('', 0, 0);
+  if (options.isPartial) {
+    text.setText(theme.fg('warning', 'Subagents running...'));
+    return text;
+  }
+  if (renderContextIsError(context)) {
+    text.setText(theme.fg('error', firstText(result) || 'Subagent failed'));
+    return text;
+  }
+
+  const results = subagentResultDetails(result.details);
+  if (results.length === 0) {
+    text.setText(theme.fg('muted', firstText(result) || 'No subagent output'));
+    return text;
+  }
+
+  const counts = resultCounts(results);
+  const summary =
+    results.length === 1
+      ? `${results[0]!.agent} ${results[0]!.status}`
+      : `${counts.ok} ok, ${counts.error} error`;
+  const lines = [
+    theme.fg(counts.error > 0 ? 'warning' : 'success', summary),
+    ...results.map((entry) => {
+      const statusKind = entry.status === 'ok' ? 'success' : 'error';
+      return `  ${theme.fg('accent', entry.agent)} ${theme.fg(statusKind, entry.status)}`;
+    }),
+  ];
+
+  if (options.expanded) {
+    for (const entry of results) {
+      lines.push(
+        '',
+        theme.fg('toolTitle', theme.bold(entry.agent)),
+        theme.fg('dim', previewText(entry.text, 800)),
+      );
+    }
+  }
+
+  text.setText(lines.join('\n'));
+  return text;
 }
 
 export function registerBrunchSubagents(pi: ExtensionAPI, deps: BrunchSubagentsDeps): void {
@@ -201,6 +353,12 @@ export function registerBrunchSubagents(pi: ExtensionAPI, deps: BrunchSubagentsD
         content: [{ type: 'text' as const, text: formatResults(results) }],
         details: { results },
       };
+    },
+    renderCall(args, theme, context) {
+      return renderSubagentCall(args, theme, context);
+    },
+    renderResult(result, options, theme, context) {
+      return renderSubagentResult(result, options, theme, context);
     },
   };
 
