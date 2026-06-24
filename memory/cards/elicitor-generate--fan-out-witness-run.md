@@ -1,7 +1,7 @@
 # generate fan-out witness — real-model A31-L proof (oracle plane)
 
 Frontier: elicitor-generate
-Status:   active
+Status:   S1 built; evidence-promotion tie-off active
 Mode:     slices
 Created:  2026-06-24
 
@@ -111,7 +111,8 @@ Durable-doc updates (planner #5 — promoted evidence only):
 
 ```
 - S1 implementation: done in src/dev/generate-fan-out-witness.ts with pure report/marker tests in src/dev/__tests__/generate-fan-out-witness.test.ts and topology note in src/dev/README.md.
-- S1 local outer-loop run: blocked before Brunch boot by local better-sqlite3 native ABI mismatch (installed binding NODE_MODULE_VERSION 137, current Node requires 147), so no scratch report was produced and no A31-L evidence was promoted.
+- S1 local outer-loop run: passed in scratch as .fixtures/scratch/generate-fan-out/2026-06-24T16-51-13-704Z/report.json with model openai-codex/gpt-5.5. Markers passed: oracle lens pin, generate-proposal SKILL.md read, references/oracle.md read after the skill, present_candidates emitted, no pre-prompt brunch.kick, graph unchanged, no mutate_graph result, and no approved review result.
+- Evidence state: not yet durable. Promote the reviewed scratch run to .fixtures/runs/generate-fan-out/2026-06-24T16-51-13-704Z/ before updating probes.md Observed lines or SPEC A31-L.
 - S2 anti-prompt: not started; remains a separate follow-up slice.
 ```
 
@@ -141,4 +142,4 @@ memory/SPEC.md                                        ?  A31-L evidence line —
 
 ## Routing
 
-Recommended next: **ln-build** `memory/cards/elicitor-generate--fan-out-witness-run.md` — but note this is an outer-loop evidence harness, not a gated test, so the "build" produces a runnable probe + a reviewed run, not a green CI assertion. Defer the `markers.ts` extraction until the first run shows which markers are actually needed (both planners). If a real model key is unavailable in this environment, build the harness + skip-path and hand the run command to the user.
+Recommended next: **ln-sync / evidence promotion** — S1 is built and has a passing scratch run. Promote the run if reviewed, update `probes.md` + SPEC A31-L from the promoted artifact only, then retire this scope file unless S2 is explicitly kept on this branch.
