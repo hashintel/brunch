@@ -68,6 +68,24 @@ describe('materializeArchitectedPlan', () => {
     }
   });
 
+  it('threads architect-emitted harnessNotes through to the materialized plan (FE-894 ①)', () => {
+    const notes = 'Code-split routes mount via the real router; React Flow needs a headless shim.';
+    const { plan } = materializeArchitectedPlan(projected, draft({ harnessNotes: notes }), toolchain);
+    expect(plan.harnessNotes).toBe(notes);
+    // architect emits none → undefined, not injected
+    expect(materializeArchitectedPlan(projected, draft(), toolchain).plan.harnessNotes).toBeUndefined();
+  });
+
+  it('normalizes blank architect-emitted harnessNotes away', () => {
+    expect(
+      materializeArchitectedPlan(projected, draft({ harnessNotes: '   \n\t' }), toolchain).plan.harnessNotes,
+    ).toBeUndefined();
+    expect(
+      materializeArchitectedPlan(projected, draft({ harnessNotes: '  Use the real router.  ' }), toolchain)
+        .plan.harnessNotes,
+    ).toBe('Use the real router.');
+  });
+
   it('computes coverage from derivedFrom (a req covered by many slices counts once)', () => {
     const d = draft();
     d.slices[2]!.derivedFrom = ['req-1']; // both a and b now cover req-1; req-2 uncovered

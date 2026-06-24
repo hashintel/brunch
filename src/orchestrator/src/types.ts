@@ -86,6 +86,13 @@ export type Plan = {
    * to a `Toolchain` via `resolveToolchain(plan.profile)`; absent → bun.
    */
   profile?: ProfileId;
+  /**
+   * Architect-supplied harness prior-art (FE-894 ①): concise project build/
+   * framework seams (code-split→router wiring, headless-render limits, etc.)
+   * injected into every slice/epic agent task so agents apply it instead of
+   * rediscovering it per slice. Absent → tasks are unchanged.
+   */
+  harnessNotes?: string;
   epics: Epic[];
   slices: Slice[];
 };

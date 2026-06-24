@@ -12,8 +12,10 @@ import {
   epicRemediateTask,
   epicVerifyTask,
   instrumentToolDefinition,
+  type PiUsage,
   runPi,
   sandboxScopedSkills,
+  sessionStatsToUsage,
   type SessionFactory,
   sliceTestTask,
   toolLabel,
@@ -25,6 +27,11 @@ import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, Epic, Plan, ProbeGrounder, Slice, TestResult, TestRunner } from './types.js';
 
 const promptsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'prompts');
+const fakeAnthropicApiKey = ['test', 'key', 'unused', 'fake', 'session'].join('-');
+
+function ensureFakeAnthropicApiKey(): void {
+  process.env.ANTHROPIC_API_KEY ??= fakeAnthropicApiKey;
+}
 
 describe('cook task builders carry the toolchain conventions, not a hardcoded stack', () => {
   const slice: Slice = {
@@ -56,6 +63,30 @@ describe('cook task builders carry the toolchain conventions, not a hardcoded st
   it('epic verify task carries the toolchain conventions', () => {
     expect(epicVerifyTask(epic, brunchProfile.toolchain)).toContain('vitest');
     expect(epicVerifyTask(epic, bunProfile.toolchain)).toContain('bun:test');
+  });
+
+  it('slice/epic/remediate tasks carry plan harness prior-art when supplied (FE-894 ①)', () => {
+    const notes = 'Code-split routes mount via the real router; React Flow needs a headless shim.';
+    expect(sliceTestTask(slice, brunchProfile.toolchain, notes)).toContain(notes);
+    expect(epicVerifyTask(epic, brunchProfile.toolchain, notes)).toContain(notes);
+    expect(epicRemediateTask(epic, notes)).toContain(notes);
+  });
+
+  it('task builders are byte-identical to the no-notes form when harness notes are absent or blank', () => {
+    expect(sliceTestTask(slice, brunchProfile.toolchain, undefined)).toBe(
+      sliceTestTask(slice, brunchProfile.toolchain),
+    );
+    expect(epicVerifyTask(epic, brunchProfile.toolchain, undefined)).toBe(
+      epicVerifyTask(epic, brunchProfile.toolchain),
+    );
+    expect(epicRemediateTask(epic, undefined)).toBe(epicRemediateTask(epic));
+    // empty-string notes omit cleanly (no dangling marker)
+    expect(sliceTestTask(slice, brunchProfile.toolchain, '')).toBe(
+      sliceTestTask(slice, brunchProfile.toolchain),
+    );
+    expect(sliceTestTask(slice, brunchProfile.toolchain, '   \n\t')).toBe(
+      sliceTestTask(slice, brunchProfile.toolchain),
+    );
   });
 
   it('the test-writer prompt no longer hardcodes a stack', () => {
@@ -113,7 +144,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
   });
 
   it('verify-epic surfaces an infra failureKind in the epic-verified report', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const reports = new InMemoryReportSink();
     // verify-epic first runs a pi session to author the integration test; stub
     // it so no real agent runs, then the injected runner reports the infra fail.
@@ -146,7 +177,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
   });
 
   it('closes the pi-session activity even when the session fails (finally)', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const events: CookEvent[] = [];
     const createSession = (async () => {
       throw new Error('session boom');
@@ -159,7 +190,7 @@ describe('evaluate-done / verify-epic share the runner seam — failureKind is v
   });
 
   it('marks writer slices failed when pi throws before reporting', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const createSession = (async () => {
       throw new Error('session boom');
     }) as unknown as SessionFactory;
@@ -226,7 +257,7 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
     actions: ReturnType<typeof createPiActions>;
     ctx: (reports: InMemoryReportSink) => ActionContext;
   } {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
     const epic = epicWithProbe();
@@ -270,7 +301,7 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
 
   it('failing tests short-circuit the probe — no boot, unchanged unit verdict', async () => {
     const reports = new InMemoryReportSink();
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
     const epic = epicWithProbe();
@@ -305,7 +336,7 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
 
   it('no probe target → unit-test verdict only (unchanged behavior)', async () => {
     const reports = new InMemoryReportSink();
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
     const epic: Epic = {
@@ -354,7 +385,7 @@ describe('verify-epic reachability grounding (FE-876) — intent resolves before
     epic: Epic;
     groundProbe?: ProbeGrounder;
   }): Promise<{ passed: boolean; failureKind?: string; reachability?: string }> {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const reports = new InMemoryReportSink();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
@@ -475,7 +506,7 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
     actions: ReturnType<typeof createPiActions>;
     ctx: (reports: InMemoryReportSink) => ActionContext;
   } {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
     const epic = epicWithProbe();
@@ -519,7 +550,7 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
 
   it('failing tests short-circuit the probe — no boot, unchanged unit verdict', async () => {
     const reports = new InMemoryReportSink();
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
     const epic = epicWithProbe();
@@ -554,7 +585,7 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
 
   it('no probe target → unit-test verdict only (unchanged behavior)', async () => {
     const reports = new InMemoryReportSink();
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
     const epic: Epic = {
@@ -603,7 +634,7 @@ describe('verify-epic integration oracle (FE-876) — reachability folds into th
     epic: Epic;
     groundProbe?: ProbeGrounder;
   }): Promise<{ passed: boolean; failureKind?: string; reachability?: string }> {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const reports = new InMemoryReportSink();
     const fake = makeFakeSession({ emit: 'wrote the integration test' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
@@ -766,6 +797,8 @@ function makeFakeSession(behavior: {
   hang?: boolean;
   finalStopReason?: 'stop' | 'error' | 'aborted';
   errorMessage?: string;
+  stats?: { tokens: PiUsage };
+  statsThrows?: boolean;
 }) {
   const calls = { prompt: [] as string[], aborted: false, disposed: false };
   let listener: ((event: unknown) => void) | undefined;
@@ -803,6 +836,10 @@ function makeFakeSession(behavior: {
     dispose() {
       calls.disposed = true;
     },
+    getSessionStats() {
+      if (behavior.statsThrows) throw new Error('stats unavailable');
+      return behavior.stats ?? { tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } };
+    },
     get state() {
       return { messages };
     },
@@ -824,7 +861,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('binds the session to the sandbox cwd, splits the tool string into the SDK allowlist, and returns captured output', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const fake = makeFakeSession({ emit: 'wrote the tests' });
@@ -839,14 +876,14 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
       expect(capturedOptions?.cwd).toBe(sandboxDir);
       expect(capturedOptions?.tools).toEqual(['read', 'write', 'edit', 'bash']);
       expect(fake.calls.prompt).toEqual(['do the thing']);
-      expect(out).toContain('wrote the tests');
+      expect(out.output).toContain('wrote the tests');
     } finally {
       rmSync(sandboxDir, { recursive: true, force: true });
     }
   });
 
   it('honors a read-only tool allowlist — no write/edit/bash reach the SDK (preserves I126-K)', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const fake = makeFakeSession({ emit: 'observed' });
@@ -868,7 +905,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('shadows the built-in file tools with sandbox-confined definitions (FE-853)', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const fake = makeFakeSession({ emit: 'ok' });
@@ -894,7 +931,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('omits confined custom tools when confinement is explicitly disabled', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const fake = makeFakeSession({ emit: 'ok' });
@@ -913,7 +950,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('captures agent output without writing it to process.stdout', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     const writes: string[] = [];
     const original = process.stdout.write.bind(process.stdout);
@@ -933,7 +970,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('caps activity heartbeat snippets including the ellipsis', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     const events: CookEvent[] = [];
     createPiActions({ emit: (e) => events.push(e) });
@@ -952,7 +989,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('aborts the session and rejects when the prompt exceeds the timeout', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const fake = makeFakeSession({ hang: true });
@@ -967,7 +1004,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('rejects when the SDK resolves prompt with a failed assistant turn', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const fake = makeFakeSession({
@@ -984,7 +1021,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('treats the timeout as an idle deadline — periodic activity keeps a long session alive (FE-864)', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       // Emit a non-text activity event every 15ms for ~90ms total — well past
@@ -1040,7 +1077,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('uses an isolated agent dir per call and removes it after the session ends', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const agentDirs: (string | undefined)[] = [];
@@ -1064,7 +1101,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('rejects on timeout even while session creation is still pending', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const createSession = (async () => new Promise(() => {})) as unknown as SessionFactory;
@@ -1083,7 +1120,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('removes the agent dir after setup timeout even if session creation never settles', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       let agentDir: string | undefined;
@@ -1104,7 +1141,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('aborts and rejects when captured output exceeds the size cap', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const fake = makeFakeSession({ emit: 'x'.repeat(50) });
@@ -1119,7 +1156,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('does not keep appending text deltas after the output cap aborts the session', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     let appendedAfterOverflow = false;
     try {
@@ -1148,7 +1185,7 @@ describe('runPi drives an in-process pi session (no subprocess)', () => {
   });
 
   it('counts the output cap in UTF-8 bytes rather than JavaScript code units', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
     try {
       const fake = makeFakeSession({ emit: 'ééé' });
@@ -1369,7 +1406,7 @@ describe('action handlers emit slice grid events', () => {
   });
 
   it('write-tests emits running(tests) keyed by the slice id', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const events: CookEvent[] = [];
     const fake = makeFakeSession({ emit: 'wrote tests' });
     const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
@@ -1516,7 +1553,7 @@ describe('remediate-epic action — FE-884 Slice A production wiring', () => {
   });
 
   it('drives a write-capable agent against the folded epic tree and reports the attempt', async () => {
-    process.env.ANTHROPIC_API_KEY ??= 'test-key-unused-fake-session';
+    ensureFakeAnthropicApiKey();
     const reports = new InMemoryReportSink();
     const fake = makeFakeSession({ emit: 'patched the product code' });
     let captured: { cwd?: string; tools?: string[] } | undefined;
@@ -1544,5 +1581,140 @@ describe('remediate-epic action — FE-884 Slice A production wiring', () => {
     expect(task).toContain('api');
     expect(task).toContain('tests/api.integration.test.ts');
     expect(task.toLowerCase()).toContain('do not');
+  });
+});
+
+describe('per-action telemetry surfaces usage + timing (FE-894 P0)', () => {
+  const slice: Slice = {
+    id: 'chunk',
+    epic_id: 'utils',
+    definition: 'Add chunk()',
+    depends_on: [],
+    verification: [{ kind: 'unit-test', target: 'tests/chunk.test.ts' }],
+  };
+  const epic: Epic = {
+    id: 'utils',
+    summary: 'Utilities',
+    depends_on: [],
+    verification: [{ kind: 'integration-test', target: 'tests/utils.integration.test.ts' }],
+  };
+  const plan: Plan = { mode: 'greenfield', epics: [epic], slices: [slice] };
+  // Real dir: main's sandbox-guard realpath-resolves sandboxDir, so '/tmp/unused'
+  // (a non-existent path) now throws ENOENT. tmpdir() exists and matches how
+  // main's other action tests provide a sandbox.
+  const ctx = (reports: InMemoryReportSink): ActionContext => ({
+    slice,
+    epic,
+    plan,
+    sandboxDir: tmpdir(),
+    reports,
+  });
+
+  it('sessionStatsToUsage normalizes tokens and defaults missing fields to 0', () => {
+    expect(
+      sessionStatsToUsage({ tokens: { input: 100, output: 50, cacheRead: 900, cacheWrite: 0, total: 1050 } }),
+    ).toEqual({ input: 100, output: 50, cacheRead: 900, cacheWrite: 0, total: 1050 });
+    // missing stats / partial tokens are defensively zeroed — never throws.
+    expect(sessionStatsToUsage(undefined)).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      total: 0,
+    });
+    expect(sessionStatsToUsage({ tokens: { cacheRead: 42 } }).cacheRead).toBe(42);
+    expect(sessionStatsToUsage({ tokens: { cacheRead: 42 } }).input).toBe(0);
+  });
+
+  it('runPi returns the prompt-turn usage and a wall-clock timing split', async () => {
+    ensureFakeAnthropicApiKey();
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const stats = { tokens: { input: 100, output: 50, cacheRead: 900, cacheWrite: 0, total: 1050 } };
+      const fake = makeFakeSession({ emit: 'wrote the tests', stats });
+      const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+
+      const result = await runPi(
+        {
+          label: 'tests slice-1',
+          model: 'claude-opus-4-8',
+          promptFile: join(promptsDir, 'test-writer.md'),
+          task: 'do the thing',
+          sandboxDir,
+          tools: 'read',
+        },
+        { createSession },
+      );
+
+      expect(result.usage).toEqual(stats.tokens);
+      expect(result.timingMs.coldStartMs).toBeGreaterThanOrEqual(0);
+      expect(result.timingMs.promptMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('runPi falls back to zero usage when the telemetry stats read fails', async () => {
+    ensureFakeAnthropicApiKey();
+    const sandboxDir = mkdtempSync(join(tmpdir(), 'brunch-runpi-'));
+    try {
+      const fake = makeFakeSession({ emit: 'wrote the tests', statsThrows: true });
+      const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+
+      const result = await runPi(
+        {
+          label: 'tests slice-1',
+          model: 'claude-opus-4-8',
+          promptFile: join(promptsDir, 'test-writer.md'),
+          task: 'do the thing',
+          sandboxDir,
+          tools: 'read',
+        },
+        { createSession },
+      );
+
+      expect(result.output).toContain('wrote the tests');
+      expect(result.usage).toEqual({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 });
+    } finally {
+      rmSync(sandboxDir, { recursive: true, force: true });
+    }
+  });
+
+  it('write-tests attaches usage + timing to the tests-written report', async () => {
+    ensureFakeAnthropicApiKey();
+    const reports = new InMemoryReportSink();
+    const stats = { tokens: { input: 200, output: 80, cacheRead: 1800, cacheWrite: 200, total: 2280 } };
+    const fake = makeFakeSession({ emit: 'wrote the tests', stats });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession });
+
+    const id = await actions['write-tests']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as {
+      usage: PiUsage;
+      timingMs: { coldStartMs: number; promptMs: number };
+    };
+
+    expect(payload.usage).toEqual(stats.tokens);
+    expect(payload.timingMs.coldStartMs).toBeGreaterThanOrEqual(0);
+    expect(payload.timingMs.promptMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('remediate-epic attaches usage + timing to the remediation-agent-done report', async () => {
+    ensureFakeAnthropicApiKey();
+    const reports = new InMemoryReportSink();
+    const stats = { tokens: { input: 150, output: 60, cacheRead: 1200, cacheWrite: 100, total: 1510 } };
+    const fake = makeFakeSession({ emit: 'patched the product code', stats });
+    const createSession = (async () => ({ session: fake.session })) as unknown as SessionFactory;
+    const actions = createPiActions({ createSession });
+
+    const id = await actions['remediate-epic']!(ctx(reports));
+    const payload = reports.getById(id)!.payload as {
+      usage: PiUsage;
+      timingMs: { coldStartMs: number; promptMs: number };
+    };
+
+    expect(payload.usage).toEqual(stats.tokens);
+    expect(payload.timingMs.coldStartMs).toBeGreaterThanOrEqual(0);
+    expect(payload.timingMs.promptMs).toBeGreaterThanOrEqual(0);
   });
 });

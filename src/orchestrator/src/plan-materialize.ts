@@ -42,6 +42,7 @@ export function materializeArchitectedPlan(
   toolchain: Toolchain = defaultToolchain,
 ): { plan: Plan; coverage: CoverageExpectations; warnings: MaterializeWarning[] } {
   const warnings: MaterializeWarning[] = [];
+  const harnessNotes = draft.harnessNotes?.trim() || undefined;
 
   const requirementIds = projected.slices.map((slice) => slice.id);
   const requirementIdSet = new Set(requirementIds);
@@ -207,7 +208,13 @@ export function materializeArchitectedPlan(
   );
 
   return {
-    plan: { mode: projected.mode, profile: projected.profile, epics: outputEpics, slices: outputSlices },
+    plan: {
+      mode: projected.mode,
+      profile: projected.profile,
+      harnessNotes,
+      epics: outputEpics,
+      slices: outputSlices,
+    },
     coverage: {
       requirementIds,
       coveredRequirementIds: [...coveredRequirementIds],
