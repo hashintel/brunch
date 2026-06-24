@@ -17,11 +17,11 @@ import {
 import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../extensions/commands/policy.js';
 import { registerBrunchContext as context } from '../extensions/context/index.js';
 import {
+  PRESENT_CANDIDATES_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange as structuredExchange,
-  PRESENT_CANDIDATES_TOOL,
 } from '../extensions/exchanges/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../extensions/mentions/index.js';
 import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../extensions/orchestrator-stub/index.js';
@@ -196,12 +196,17 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: 1,
         commandExecutor: {} as never,
         reads: {
-          queryGraph: () => ({ lsn: 0, nodes: [], edges: [] }) as never,
+          queryGraph: () =>
+            ({
+              lsn: graphLsn,
+              nodes: [{ id: 10, kind: 'goal', title: 'Live goal', updatedAtLsn: graphLsn }],
+              edges: [],
+            }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
           getElicitationGaps: () => [],
           getOpenReconciliationNeeds: () => [],
-          latestLsn: () => 0,
+          latestLsn: () => graphLsn,
         },
       },
     })(recordingApiWithEvents(events));
@@ -209,25 +214,43 @@ describe('Brunch explicit Pi extension registry', () => {
     await events.get('before_agent_start')?.[0]?.({}, { sessionManager });
 
     expect(appended).toEqual([
-      { type: 'message', message: { role: 'user', content: 'The web observer must be read-only.' } },
-      { type: 'message', message: { role: 'toolResult', toolName: 'bash', details: { ok: true } } },
       {
-        type: 'custom',
-        customType: 'brunch.capture_sweep_watermark',
-        data: expect.objectContaining({ customType: 'brunch.capture_sweep_watermark' }),
+        type: 'custom_message',
+        customType: 'worldUpdate',
+        content: expect.any(String),
+        details: expect.objectContaining({ specId: 1, currentLsn: 3, changedSinceLsn: 0 }),
       },
     ]);
 
     await expect(
       events.get('before_provider_request')?.[0]?.({}, { sessionManager }),
     ).resolves.toBeUndefined();
-    expect(appended).toHaveLength(3);
+    expect(appended).toHaveLength(1);
+
+    graphLsn = 4;
+    await expect(
+      events.get('before_provider_request')?.[0]?.({}, { sessionManager }),
+    ).resolves.toBeUndefined();
+    expect(appended).toEqual([
+      {
+        type: 'custom_message',
+        customType: 'worldUpdate',
+        content: expect.any(String),
+        details: expect.objectContaining({ specId: 1, currentLsn: 3, changedSinceLsn: 0 }),
+      },
+      {
+        type: 'custom_message',
+        customType: 'worldUpdate',
+        content: expect.any(String),
+        details: expect.objectContaining({ specId: 1, currentLsn: 4, changedSinceLsn: 3 }),
+      },
+    ]);
   });
 
-  it('threads transcript mentions and continuity drains into the live prepareNextTurn adapter', async () => {
+  it('advances the capture sweep watermark from the live before_agent_start boundary', async () => {
     const appended: Array<Record<string, unknown>> = [
-      { type: 'custom', customType: 'brunch.context_seed', data: { specId: 1, snapshotLsn: 1 } },
-      { type: 'custom', customType: 'brunch.mention', data: { entityId: '10', handle: 'G1', seenLsn: 1 } },
+      { type: 'message', message: { role: 'user', content: 'The web observer must be read-only.' } },
+      { type: 'message', message: { role: 'toolResult', toolName: 'bash', details: { ok: true } } },
     ];
     const events = new Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>();
     const sessionManager = {
