@@ -6,7 +6,8 @@ import type {
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
 } from '../../../session/agent-context-seed.js';
-import { AGENT_PROMPT_DEFINITIONS, manifestsForState, type PromptManifests } from '../runtime/state.js';
+import { manifestsForState } from '../runtime/state.js';
+import { renderBrunchSkills, type PromptManifests } from './prompt-skills.js';
 
 export interface AgentPromptContextBundle {
   contextHandles?: readonly string[];
@@ -36,7 +37,7 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
     );
   }
 
-  const definition = AGENT_PROMPT_DEFINITIONS[input.agentId];
+  const definition = input.sessionState.agentRoleDefinition;
   const manifests = manifestsForState(input.sessionState, input.gaps);
   const prompt = joinSections([
     input.agentBody ?? '',
@@ -53,7 +54,7 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
 
 function renderAgentControl(
   input: ComposeAgentPromptInput,
-  definition: (typeof AGENT_PROMPT_DEFINITIONS)[ComposeAgentPromptInput['agentId']],
+  definition: ResolvedBrunchAgentState['agentRoleDefinition'],
 ): string {
   const tools = input.activeTools?.join(', ') || 'none';
   return [
@@ -120,31 +121,6 @@ function indentBlock(value: string): string {
     .join('\n');
 }
 
-function renderBrunchSkills(manifests: PromptManifests): string {
-  const entries = [
-    ...manifests.strategies.map((entry) => ({ kind: 'strategy', entry })),
-    ...manifests.lenses.map((entry) => ({ kind: 'lens', entry })),
-    ...manifests.methods.map((entry) => ({ kind: 'method', entry })),
-  ] as const;
-  if (entries.length === 0) return '';
-  return [
-    'The following Brunch skills provide specialized instructions for prompt-resource posture.',
-    "Use the read tool to load a skill's file when the selected strategy, lens, or method matches its description.",
-    'When a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.',
-    '',
-    '<brunch-skills>',
-    ...entries.flatMap(({ kind, entry }) => [
-      '  <skill>',
-      `    <kind>${kind}</kind>`,
-      `    <name>${escapeXml(entry.name)}</name>`,
-      `    <description>${escapeXml(entry.description)}</description>`,
-      `    <location>${escapeXml(entry.location)}</location>`,
-      '  </skill>',
-    ]),
-    '</brunch-skills>',
-  ].join('\n');
-}
-
 function renderRouterRules(state: ResolvedBrunchAgentState): string {
   return [
     '[Brunch prompt-resource routing]',
@@ -161,12 +137,4 @@ function joinSections(sections: readonly string[]): string {
     .map((section) => section.trim())
     .filter(Boolean)
     .join('\n\n');
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
 }

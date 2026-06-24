@@ -16,14 +16,10 @@ import type {
   AgentStrategySelection,
   OperationalModeId,
 } from '../../session/schema/kinds.js';
-import {
-  AGENT_ROLE_DEFINITIONS,
-  OPERATIONAL_MODE_DEFINITIONS,
-  type ResolvedBrunchAgentState,
-} from './runtime-policy.js';
+import { FOREGROUND_AGENT_ROSTER, type ResolvedBrunchAgentState } from './runtime-policy.js';
 
 export type { ResolvedBrunchAgentState } from './runtime-policy.js';
-export { AGENT_ROLE_DEFINITIONS, OPERATIONAL_MODE_DEFINITIONS } from './runtime-policy.js';
+export { FOREGROUND_AGENT_ROSTER } from './runtime-policy.js';
 export { DEFAULT_BRUNCH_AGENT_STATE } from '../../session/runtime-state.js';
 
 export interface RuntimeStateProjection {
@@ -66,13 +62,13 @@ function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value
 }
 
 export function resolveBrunchAgentState(state: BrunchAgentState): ResolvedBrunchAgentState {
-  const operationalModeDefinition = OPERATIONAL_MODE_DEFINITIONS[state.operationalMode];
-  const agentRole = operationalModeDefinition.defaultRole;
+  const operationalModeDefinition = FOREGROUND_AGENT_ROSTER[state.operationalMode];
+  const agentRoleDefinition = operationalModeDefinition.foregroundAgent;
   return {
     ...state,
-    agentRole,
+    agentRole: agentRoleDefinition.id,
     operationalModeDefinition,
-    agentRoleDefinition: AGENT_ROLE_DEFINITIONS[agentRole],
+    agentRoleDefinition,
   };
 }
 

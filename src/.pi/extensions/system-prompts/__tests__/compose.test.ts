@@ -15,6 +15,7 @@ import {
 import type { WorkspacePostureState } from '../../../../session/workspace-session-coordinator.js';
 import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../runtime/state.js';
 import { composeAgentPrompt, type ComposeAgentPromptInput } from '../compose.js';
+import { renderBrunchSkills } from '../prompt-skills.js';
 
 const projectRoot = dirname(dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))))));
 
@@ -55,6 +56,26 @@ const context = {
 };
 
 describe('composeAgentPrompt', () => {
+  it('renders prompt-resource manifests from the shared prompt-skill core', () => {
+    const rendered = renderBrunchSkills({
+      strategies: [
+        {
+          name: 'step<wise',
+          description: 'choose & explain',
+          location: '/skills/"step".md',
+        },
+      ],
+      lenses: [],
+      methods: [],
+    });
+
+    expect(rendered).toContain('<brunch-skills>');
+    expect(rendered).toContain('<kind>strategy</kind>');
+    expect(rendered).toContain('<name>step&lt;wise</name>');
+    expect(rendered).toContain('<description>choose &amp; explain</description>');
+    expect(rendered).toContain('<location>/skills/&quot;step&quot;.md</location>');
+  });
+
   it('emits control, runtime, context handles, and manifest families for default AUTO axes', () => {
     const result = composeAgentPrompt({
       agentId: 'elicitor',

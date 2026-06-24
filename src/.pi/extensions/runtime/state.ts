@@ -1,7 +1,4 @@
-import { basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { loadSkills, type Skill } from '@earendil-works/pi-coding-agent';
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { CapabilityId } from '../../../projections/session/capability-readiness.js';
@@ -12,42 +9,22 @@ import {
   toolPolicyForRuntimeState,
   type ResolvedBrunchAgentState,
 } from '../../../projections/session/runtime-policy.js';
-import type { AgentLensId, AgentRoleId, AgentStrategyId } from '../../../session/schema/kinds.js';
-type PromptResourceFamily = 'strategies' | 'lenses' | 'methods';
-export type MethodId =
-  | 'run-structured-exchange'
-  | 'capture'
-  | 'commit-graph'
-  | 'elicit-by-question'
-  | 'ingest-paste'
-  | 'read-referenced-documents'
-  | 'explore-and-characterize'
-  | 'read-context'
-  | 'generate-proposal'
-  | 'review-for-gaps';
+import {
+  AGENT_LENS_IDS,
+  AGENT_METHOD_IDS,
+  AGENT_STRATEGY_IDS,
+  type AgentMethodId,
+  type AgentRoleId,
+} from '../../../session/schema/kinds.js';
+import {
+  loadPromptResourceManifestEntries,
+  type PromptManifests,
+  type PromptResourceManifestEntry,
+} from '../system-prompts/prompt-skills.js';
 
-export interface PromptResourceManifestEntry {
-  name: string;
-  description: string;
-  location: string;
-}
+export type { PromptManifests, PromptResourceManifestEntry } from '../system-prompts/prompt-skills.js';
 
-export interface AgentPromptDefinition {
-  id: AgentRoleId;
-  description: string;
-  model: string;
-  thinking: 'low' | 'medium' | 'high';
-  toolAuthority: string;
-  allowedStrategies: readonly AgentStrategyId[];
-  allowedLenses: readonly AgentLensId[];
-  allowedMethods: readonly MethodId[];
-}
-
-export interface PromptManifests {
-  strategies: readonly PromptResourceManifestEntry[];
-  lenses: readonly PromptResourceManifestEntry[];
-  methods: readonly PromptResourceManifestEntry[];
-}
+export type MethodId = AgentMethodId;
 
 export interface BrunchPostureToolPolicyInput {
   registeredToolNames: readonly string[];
@@ -79,64 +56,20 @@ const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
   'generate-proposal': ['present_review_set', 'request_response'],
 };
 
-export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition> = {
-  elicitor: {
-    id: 'elicitor',
-    description:
-      'Foreground Brunch session agent that elicits, disambiguates, and captures selected-spec intent.',
-    model: 'default',
-    thinking: 'medium',
-    toolAuthority:
-      'elicit read-only; graph writes only through Brunch graph tools when legal methods allow them',
-    allowedStrategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
-    allowedLenses: ['intent', 'design', 'oracle'],
-    allowedMethods: [
-      'run-structured-exchange',
-      'capture',
-      'commit-graph',
-      'elicit-by-question',
-      'ingest-paste',
-      'read-referenced-documents',
-      'explore-and-characterize',
-      'read-context',
-      'generate-proposal',
-      'review-for-gaps',
-    ],
-  },
-};
-
-const STRATEGY_IDS = [
-  'freestyle',
-  'step-wise-decision-tree',
-  'step-wise-disambiguate',
-] as const satisfies readonly AgentStrategyId[];
-const LENS_IDS = ['intent', 'design', 'oracle'] as const satisfies readonly AgentLensId[];
-const METHOD_IDS = [
-  'run-structured-exchange',
-  'capture',
-  'commit-graph',
-  'elicit-by-question',
-  'ingest-paste',
-  'read-referenced-documents',
-  'explore-and-characterize',
-  'read-context',
-  'generate-proposal',
-  'review-for-gaps',
-] as const satisfies readonly MethodId[];
-
-export const STRATEGY_RESOURCES = loadPromptResourceManifestEntries('strategies', STRATEGY_IDS);
-export const LENS_RESOURCES = loadPromptResourceManifestEntries('lenses', LENS_IDS);
-export const METHOD_RESOURCES = loadPromptResourceManifestEntries('methods', METHOD_IDS);
+export const STRATEGY_RESOURCES = loadPromptResourceManifestEntries('strategies', AGENT_STRATEGY_IDS);
+export const LENS_RESOURCES = loadPromptResourceManifestEntries('lenses', AGENT_LENS_IDS);
+export const METHOD_RESOURCES = loadPromptResourceManifestEntries('methods', AGENT_METHOD_IDS);
 
 export function manifestsForState(
   state: ResolvedBrunchAgentState,
   gaps: readonly ElicitationGap[],
 ): PromptManifests {
-  const definition = AGENT_PROMPT_DEFINITIONS[state.agentRole];
-  if (!definition) {
-    throw new Error(`Unknown Brunch agent "${state.agentRole}".`);
-  }
-  if (definition.id !== state.agentRole || state.operationalMode !== 'elicit') {
+  const definition = state.agentRoleDefinition;
+  if (
+    definition.kind !== 'foreground' ||
+    definition.id !== state.agentRole ||
+    definition.operationalMode !== state.operationalMode
+  ) {
     throw new Error(
       `Agent "${state.agentRole}" is not legal in operational mode "${state.operationalMode}".`,
     );
@@ -146,7 +79,7 @@ export function manifestsForState(
     strategies: selectAxisResources({
       label: 'strategy',
       selection: state.agentStrategy,
-      allowed: definition.allowedStrategies,
+      allowed: definition.skills.strategies,
       resources: STRATEGY_RESOURCES,
       legalIds: axisOptionsForRuntimeState('strategy', state, gaps),
       state,
@@ -155,7 +88,7 @@ export function manifestsForState(
     lenses: selectAxisResources({
       label: 'lens',
       selection: state.agentLens,
-      allowed: definition.allowedLenses,
+      allowed: definition.skills.lenses,
       resources: LENS_RESOURCES,
       legalIds: axisOptionsForRuntimeState('lens', state, gaps),
       state,
@@ -168,15 +101,15 @@ export function methodIdsForState(
   state: ResolvedBrunchAgentState,
   gaps: readonly ElicitationGap[],
 ): readonly MethodId[] {
-  const definition = AGENT_PROMPT_DEFINITIONS[state.agentRole];
+  const definition = state.agentRoleDefinition;
   if (
-    !definition ||
+    definition.kind !== 'foreground' ||
     definition.id !== state.agentRole ||
-    state.operationalMode !== 'elicit' ||
+    definition.operationalMode !== state.operationalMode ||
     gaps.length === 0
   )
     return [];
-  return definition.allowedMethods.filter((method) =>
+  return definition.skills.methods.filter((method) =>
     isCapabilityLegalForGaps(METHOD_CAPABILITY[method], gaps),
   );
 }
@@ -237,52 +170,4 @@ function selectAxisResources<TId extends string>({
 
 export function agentBodyResourceLocation(agentId: AgentRoleId): string {
   return fileURLToPath(new URL(`../../agents/${agentId}/SYSTEM.md`, import.meta.url));
-}
-
-function promptResourceLocation(family: PromptResourceFamily, id: string): string {
-  return fileURLToPath(new URL(`../../skills/${family}/${id}/SKILL.md`, import.meta.url));
-}
-
-function loadPromptResourceManifestEntries<TId extends string>(
-  family: PromptResourceFamily,
-  ids: readonly TId[],
-): Record<TId, PromptResourceManifestEntry> {
-  const skillPaths = ids.map((id) => promptResourceLocation(family, id));
-  const result = loadSkills({
-    cwd: process.cwd(),
-    agentDir: fileURLToPath(new URL('../../', import.meta.url)),
-    skillPaths,
-    includeDefaults: false,
-  });
-
-  const warnings = result.diagnostics.map((diagnostic) => `${diagnostic.path}: ${diagnostic.message}`);
-  if (warnings.length > 0) {
-    throw new Error(`Invalid Brunch prompt-resource skill metadata:\n${warnings.join('\n')}`);
-  }
-
-  const byName = new Map(result.skills.map((skill) => [skill.name, skill]));
-  return Object.fromEntries(
-    ids.map((id) => [id, skillToPromptResourceManifestEntry(family, id, byName.get(id))]),
-  ) as Record<TId, PromptResourceManifestEntry>;
-}
-
-function skillToPromptResourceManifestEntry(
-  family: PromptResourceFamily,
-  expectedId: string,
-  skill: Skill | undefined,
-): PromptResourceManifestEntry {
-  if (!skill) {
-    throw new Error(`Missing Brunch prompt-resource skill metadata for ${family}/${expectedId}.`);
-  }
-  const parentDir = basename(dirname(skill.filePath));
-  if (skill.name !== expectedId || parentDir !== expectedId) {
-    throw new Error(
-      `Brunch prompt-resource skill ${family}/${expectedId} must have name == parent directory; got name=${skill.name}, dir=${parentDir}.`,
-    );
-  }
-  return {
-    name: skill.name,
-    description: skill.description,
-    location: skill.filePath,
-  };
 }

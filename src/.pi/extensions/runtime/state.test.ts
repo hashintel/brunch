@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
+import { FOREGROUND_AGENT_ROSTER } from '../../../projections/session/runtime-policy.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import { activeToolNamesForPosture, agentBodyResourceLocation, manifestsForState } from './state.js';
 
@@ -210,6 +211,25 @@ describe('agent posture policy', () => {
     expect(location).toMatch(/src\/\.pi\/agents\/elicitor\/SYSTEM\.md$/);
     const body = readFileSync(location, 'utf8');
     expect(body).toContain('# Agent: elicitor');
+  });
+
+  it('carries the foreground manifest on the op-mode-keyed roster', () => {
+    const manifest = FOREGROUND_AGENT_ROSTER.elicit.foregroundAgent;
+
+    expect(manifest).toMatchObject({
+      kind: 'foreground',
+      id: 'elicitor',
+      operationalMode: 'elicit',
+      model: 'default',
+      thinking: 'medium',
+      canDelegate: [],
+    });
+    expect(manifest.skills.strategies).toEqual([
+      'freestyle',
+      'step-wise-decision-tree',
+      'step-wise-disambiguate',
+    ]);
+    expect(manifest.skills.lenses).toEqual(['intent', 'design', 'oracle']);
   });
 
   it('keeps state.ts free of grade-gate symbols', () => {

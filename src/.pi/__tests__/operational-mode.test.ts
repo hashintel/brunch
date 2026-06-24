@@ -55,11 +55,17 @@ describe('Brunch agent runtime-state projection', () => {
       agentRole: 'elicitor',
       operationalModeDefinition: {
         id: 'elicit',
-        defaultRole: 'elicitor',
-        toolPolicyId: 'elicit-read-only',
+        foregroundAgent: {
+          id: 'elicitor',
+          kind: 'foreground',
+        },
+        toolPolicy: {
+          id: 'elicit-read-only',
+        },
       },
       agentRoleDefinition: {
         id: 'elicitor',
+        kind: 'foreground',
         operationalMode: 'elicit',
         defaultStrategy: DEFAULT_BRUNCH_AGENT_STATE.agentStrategy,
         defaultLens: DEFAULT_BRUNCH_AGENT_STATE.agentLens,
