@@ -78,6 +78,7 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 ### Parallel / Low-conflict
 
 - `cook-partial-promotion` — **follow-on from FE-884 (not yet a Linear issue)**. Salvage path: on a halted run, `harvestCookRun` promotes the *passing* epics and returns the failing epic's diagnosis instead of the current all-or-nothing "nothing promoted" (cook-cli `cook-cli.ts:653/725`). Was `epic-verify-recovery` slice C — descoped when FE-884 closed on slices A + B. Builds on FE-884's commit-round-trip + FE-883's GC ref-set; substrate-free, low-conflict.
+- `spec-execution-observability` — **FE-885**; **active, building on `ka/fe-885-spec-execution-observability`** (stacked on FE-1082 Arc-2 groundwork). Project a cook run's execution back onto the spec's intent graph as a durable, spec-keyed `exec-progress.json` (per-requirement lifecycle status + per-criterion structural coverage), consumable by a later UI. v1 is the **orchestrator-side durable producer only** (no UI). Four slices: (1) provenance plumbing — preserve `derivedFrom`, add `Slice.derived_from` + `Plan.spec`, round-trip through emitter/loader, all inert to the net; (2) durable spec-scoped run store — `reports.jsonl` + artifact under `.brunch/cook/specs/<specId>/runs/<runId>/`, surviving brownfield GC; (3) pure projector + atomic snapshot writer — `exec-progress.json` from plan provenance + `reports.jsonl` + result; (4) `needs-review` semantic-verdict contract slot (wire-ready, inert until Phase-3 gates). Substrate-free, low-conflict. Spec baseline committed (Requirement 51, A102-K, D171/172/173-K, I139/140-K).
 - `cook-agent-confinement` — the sandbox is the agent's world: one `ConfinementPolicy` (derived readRoots/writeRoots, default-deny) compiled into file-tool guards, seatbelt/bwrap command wrapping, and the test-runner spawn; stacks on FE-841's in-process SDK seam, independent of semantic-stack work.
 - `first-run-provider-setup` — provider/key UX and runtime seam can progress independently of semantic-stack work.
 - `workspace-gitignore-assist` — small workspace hygiene surface with low overlap.
@@ -568,6 +569,26 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Design docs:** `docs/design/orchestrator.md`.
 - **Presentation seam (sub-slices, ride under FE-878 — no separate issue/branch):** the `serve`/`cook`/`plan` CLI grows a full-screen Ink TUI (brunch wordmark header in the brand gradient, kitchen-brigade phase tracker, live activity panel). Design (ln-design 2026-06-16): a thin `emit(CookEvent)` boundary → pure `reduce(events)→RunState` → PendingActivity-centric Ink presenter; `selectPresenter` picks `ink`/`plain`/`silent` by env; `reports.jsonl` stays the durable medium (CookEvent is ephemeral). The brigade names stay phase labels, not commands. Oracle per **SPEC I136-K**. **Slices 1a + 1b (done)** — seam foundation (`presenter.ts` + `presenter/`) + CLI wiring; both `plan` and `cook` surfaces migrated to `emit(CookEvent)`, elapsed timer moved to a presenter-owned **injected clock** (seeded by `cook-start`); `pi-actions` console-free; verified end-to-end. **Slice 2a (done)** — Ink presenter is real (brunch wordmark header, monotonic brigade tracker, bounded activity log, renders to stderr); shared `format.ts`/`clock.ts` + `RunStore` + pure `nextPhase`; verified via reduce/store units + ink-testing-library frames + the server build. **Slice 2b (done)** — the dead-air fix: `activity-start/progress/end` events bracket the four waits (pi sessions self-bracket in `runPi` with a KB heartbeat; test-run/probe via `withActivity`; promotion in `cook-cli`), a `pending` map in `RunStore`, and an Ink `PendingPanel` (live spinner + label + elapsed + detail). The presentation seam is complete. Residual: spinner freezes during the synchronous `spawnSync` test run; real-terminal walkthrough is outer-loop debt.
 
+### spec-execution-observability
+
+- **Name:** Spec execution observability v1 — durable execution-progress projection back onto the spec
+- **Linear:** FE-885 — https://linear.app/hash/issue/FE-885/spec-execution-observability-v1
+- **Kind:** bounded feature (orchestrator-side producer) + structural (establishes I139-K, I140-K)
+- **Status:** active — spec baseline committed (`63b63a6d`); branch `ka/fe-885-spec-execution-observability` stacked on FE-1082 (`ka/fe-1082-arc2-pre-harness-groundwork`).
+- **Objective:** Surface a cook run's execution progress back into brunch so a user sees, in the context of what the spec asked for, which requirements are completed / in progress / next, and which are blocked or need human review — without reading the code or raw agent output. v1 ships the **durable orchestrator-side contract only**: a spec-keyed `exec-progress.json` recording per-**requirement** lifecycle status (`pending | in-progress | completed | blocked | needs-review | not-executable` + a `next` readiness facet) and per-**acceptance-criterion** structural coverage (does a verification target exist) — never an unverified per-criterion pass/fail. The consuming UI (server read-endpoint + client query) is a **separate frontier**.
+- **Why now / unlocks:** The producer half of execution observability; turns the existing `reports.jsonl` event log into a spec-grounded, UI-ready projection. Independent of the semantic/Petri-Phase-3/4 substrate — `needs-review` is wired but inert until real semantic gates land.
+- **Slices:**
+  1. **Provenance plumbing** — reconnect the emitter→cook spec link that `materializeArchitectedPlan` severs (it computes per-slice `derivedFrom` then drops it): add optional `Slice.derived_from: string[]` + an optional top-level `Plan.spec` block (`spec_id` + normalized `requirements`/`criteria` with `item_id`/content/`verifies`); round-trip through `plan-emitter` + `loadPlan`. All fields inert to the net (D171-K, I139-K).
+  2. **Durable spec-scoped run store** — persist `reports.jsonl` (+ the artifact) under `<cwd>/.brunch/cook/specs/<specId>/runs/<runId>/` so they survive brownfield `gcCookRun` (which deletes only the ephemeral `runDir`).
+  3. **Pure projector + atomic snapshot writer** — `exec-progress.json` as a rebuildable projection over plan provenance + `reports.jsonl` + `OrchestratorResult`, written temp-then-`rename`; transitive blocking from depended-on halted slices; `not-executable` for non-buildable requirements; criteria structural only (D172-K, I140-K).
+  4. **`needs-review` semantic-verdict slot** — widen the `semantic-assessed` payload with `disposition: 'rework' | 'needs-human-review'` (+ note); wire-ready but inert in v1 because the assessor stub always returns `satisfied: true` (D173-K).
+- **Acceptance:** (1) a completed cook run produces a spec-keyed `exec-progress.json` mapping every requirement to a lifecycle status and every criterion to structural coverage; (2) a halted slice marks its requirement(s) `blocked`, transitively through dependents; (3) the artifact survives brownfield GC; (4) execution behavior is byte-identical — provenance fields are inert to the compiler/interpreter.
+- **Verification:** `plan-materialize`/`plan-emitter`/`plan-loader` round-trip units; engine-contract behavior-unchanged test; projector units (status fold incl. transitive blocking, not-executable, structural criteria); run-store durability test.
+- **Out of scope (v1):** the consuming UI (server endpoint + client query), DB writeback, per-criterion verification status, cross-run cumulative progress (artifact is per-run; UI shows the latest run).
+- **Depends on:** `plan-build-architect` (FE-829, `derivedFrom`/`writes` provenance), `cook-artifact-lifecycle` (FE-883, run GC), FE-1082 Arc-2 groundwork (stack parent).
+- **Traceability:** Requirement 51; A102-K; D171-K, D172-K, D173-K; establishes I139-K, I140-K; preserves D156-K, D161-K.
+- **Design docs:** `docs/design/orchestrator.md`.
+
 ### interactive-recovery
 
 - **Name:** Interactive recovery — halt into an answerable question that resumes the run
@@ -998,6 +1019,7 @@ agent-fixture-substrate + intent-graph-semantics
 
 TRACK E — Low-conflict parallel work
 cook-agent-confinement (hardening; attaches to FE-841's in-process SDK tool seam — stack atop PR #194)
+spec-execution-observability (FE-885; durable exec-progress.json producer; stacked on FE-1082 Arc-2 groundwork; uses FE-829 derivedFrom + FE-883 run GC; UI is a separate downstream frontier)
 first-run-provider-setup
 workspace-gitignore-assist
 productized-web-research
