@@ -33,9 +33,9 @@ extensions/
 ├── session-query/           dev-gated read-only brunch_session_query tool over current branch
 ├── shared/                  projection/truncation helpers + Zod→Pi schema adapter for dev query tools
 ├── mentions/                #graph mention prompt hint + autocomplete provider
-├── runtime/                 active-tool policy + tool/user_bash guards; prompt-resource manifest & method/tool legality (state.ts)
+├── runtime/                 active-tool policy + tool/user_bash guards; prompt-resource selection + method/tool legality (state.ts)
 ├── session/                 session lifecycle hooks
-├── system-prompts/          before_agent_start prompt append + gap-driven active-tool selection; prompt composition (compose.ts) + pushed seed contexts (seed/)
+├── system-prompts/          before_agent_start prompt append; prompt composition (compose.ts), prompt-skill manifest render/loader (prompt-skills.ts), pushed seed contexts (seed/)
 ├── web/                     web_fetch/web_search read tools for referenced-document acquisition
 ├── workspace/               spec/session picker command adapter
 └── subagents/               D44-L `subagent` tool — sealed SDK child sessions (default-off, opt-in)

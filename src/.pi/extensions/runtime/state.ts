@@ -1,7 +1,4 @@
-import { basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { loadSkills, type Skill } from '@earendil-works/pi-coding-agent';
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { CapabilityId } from '../../../projections/session/capability-readiness.js';
@@ -19,20 +16,15 @@ import {
   type AgentMethodId,
   type AgentRoleId,
 } from '../../../session/schema/kinds.js';
-type PromptResourceFamily = 'strategies' | 'lenses' | 'methods';
+import {
+  loadPromptResourceManifestEntries,
+  type PromptManifests,
+  type PromptResourceManifestEntry,
+} from '../system-prompts/prompt-skills.js';
+
+export type { PromptManifests, PromptResourceManifestEntry } from '../system-prompts/prompt-skills.js';
+
 export type MethodId = AgentMethodId;
-
-export interface PromptResourceManifestEntry {
-  name: string;
-  description: string;
-  location: string;
-}
-
-export interface PromptManifests {
-  strategies: readonly PromptResourceManifestEntry[];
-  lenses: readonly PromptResourceManifestEntry[];
-  methods: readonly PromptResourceManifestEntry[];
-}
 
 export interface BrunchPostureToolPolicyInput {
   registeredToolNames: readonly string[];
@@ -178,52 +170,4 @@ function selectAxisResources<TId extends string>({
 
 export function agentBodyResourceLocation(agentId: AgentRoleId): string {
   return fileURLToPath(new URL(`../../agents/${agentId}/SYSTEM.md`, import.meta.url));
-}
-
-function promptResourceLocation(family: PromptResourceFamily, id: string): string {
-  return fileURLToPath(new URL(`../../skills/${family}/${id}/SKILL.md`, import.meta.url));
-}
-
-function loadPromptResourceManifestEntries<TId extends string>(
-  family: PromptResourceFamily,
-  ids: readonly TId[],
-): Record<TId, PromptResourceManifestEntry> {
-  const skillPaths = ids.map((id) => promptResourceLocation(family, id));
-  const result = loadSkills({
-    cwd: process.cwd(),
-    agentDir: fileURLToPath(new URL('../../', import.meta.url)),
-    skillPaths,
-    includeDefaults: false,
-  });
-
-  const warnings = result.diagnostics.map((diagnostic) => `${diagnostic.path}: ${diagnostic.message}`);
-  if (warnings.length > 0) {
-    throw new Error(`Invalid Brunch prompt-resource skill metadata:\n${warnings.join('\n')}`);
-  }
-
-  const byName = new Map(result.skills.map((skill) => [skill.name, skill]));
-  return Object.fromEntries(
-    ids.map((id) => [id, skillToPromptResourceManifestEntry(family, id, byName.get(id))]),
-  ) as Record<TId, PromptResourceManifestEntry>;
-}
-
-function skillToPromptResourceManifestEntry(
-  family: PromptResourceFamily,
-  expectedId: string,
-  skill: Skill | undefined,
-): PromptResourceManifestEntry {
-  if (!skill) {
-    throw new Error(`Missing Brunch prompt-resource skill metadata for ${family}/${expectedId}.`);
-  }
-  const parentDir = basename(dirname(skill.filePath));
-  if (skill.name !== expectedId || parentDir !== expectedId) {
-    throw new Error(
-      `Brunch prompt-resource skill ${family}/${expectedId} must have name == parent directory; got name=${skill.name}, dir=${parentDir}.`,
-    );
-  }
-  return {
-    name: skill.name,
-    description: skill.description,
-    location: skill.filePath,
-  };
 }
