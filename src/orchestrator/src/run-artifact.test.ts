@@ -221,6 +221,51 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     expect(files).toEqual(['a.txt', 'b.txt', 'base.txt']);
   });
 
+  it('captures a brownfield dependency-delta (modified manifest + lockfile) in the promoted artifact', () => {
+    // FE-872 acceptance for brownfield (mirror of the greenfield promote-run test
+    // "captures the dependency manifest + lockfile in the promoted commit"): the
+    // repo already tracks a manifest + lockfile; the agent runs `npm install <dep>`
+    // — modifying both (tracked) and populating the gitignored node_modules. The
+    // dep-delta the run produced must ride into the promoted commit; node_modules
+    // must NOT. The merge-tree fold commits tracked changes, so this is the FE-883
+    // composition path doing the capture — pinned here so it can't silently regress.
+    writeFileSync(join(source, 'package.json'), '{"name":"app","dependencies":{}}\n');
+    writeFileSync(join(source, 'bun.lock'), '{"lockfileVersion":1,"packages":{}}\n');
+    writeFileSync(join(source, '.gitignore'), 'node_modules/\n');
+    gitC(source, 'add', '-A');
+    gitC(source, 'commit', '-q', '-m', 'app base with deps');
+    gitC(source, 'update-ref', `refs/heads/${brunchRef.run('r1')}`, 'HEAD');
+
+    seedSliceWorktree('feat', (d) => {
+      writeFileSync(join(d, 'package.json'), '{"name":"app","dependencies":{"left-pad":"^1"}}\n');
+      writeFileSync(join(d, 'bun.lock'), '{"lockfileVersion":1,"packages":{"left-pad":"1.3.0"}}\n');
+      mkdirSync(join(d, 'node_modules', 'left-pad'), { recursive: true });
+      writeFileSync(join(d, 'node_modules', 'left-pad', 'index.js'), 'module.exports = () => {};\n');
+    });
+
+    const plan: Plan = {
+      mode: 'brownfield',
+      epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+      slices: [slice('feat')],
+    };
+    const artifact = harvestCookRun({
+      sourceDir: source,
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['feat'],
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    const tracked = gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n');
+    expect(tracked).toContain('package.json');
+    expect(tracked).toContain('bun.lock');
+    expect(gitC(source, 'show', `${brunchRef.run('r1')}:package.json`)).toContain('left-pad');
+    expect(gitC(source, 'show', `${brunchRef.run('r1')}:bun.lock`)).toContain('left-pad');
+    // The gitignored node_modules dep tree did NOT land in the artifact.
+    expect(tracked.some((f) => f.startsWith('node_modules/'))).toBe(false);
+  });
+
   it('dependency-seeded: a dependent slice that extends a dep file folds clean (no false conflict)', () => {
     // The dep-seed interaction the composer was left unwired for (871ef087). In a
     // real run, slice B (depends on A) has A's completed output copied into its
