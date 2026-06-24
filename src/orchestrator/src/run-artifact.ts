@@ -20,7 +20,7 @@ import {
   SHAREABLE_TOP_LEVEL_ENTRIES,
 } from './epic-sandbox-merge.js';
 import { brunchRef } from './run-refs.js';
-import type { Plan, Slice } from './types.js';
+import type { EpicOutcome, Plan, Slice, SliceOutcome } from './types.js';
 
 export { brunchRef } from './run-refs.js';
 
@@ -407,6 +407,42 @@ function selectSharedEntrySource(
   });
   const winner = installers.at(-1);
   return winner ? resolveSliceWorktreeDir(parentSandboxDir, winner) : parentSandboxDir;
+}
+
+/** cook-partial-promotion (FE-1082): which slices to salvage from a halted run. */
+export type SalvageSelection = {
+  /** Slice ids of completed epics — a dependency-closed set safe to fold/promote. */
+  sliceIds: string[];
+  /** Epic ids that completed (the salvaged units). */
+  salvagedEpicIds: string[];
+  /** Epic ids that did not complete — the diagnosis of what still needs fixing. */
+  failedEpicIds: string[];
+};
+
+/**
+ * cook-partial-promotion (FE-1082): pick the slices safe to salvage from a
+ * halted run — those belonging to epics that **completed**. Epic dependencies
+ * gate epic execution, so a completed epic never depends on a failed one: the
+ * selected set is dependency-closed and `harvestCookRun` folds it cleanly.
+ * Slices of a halted epic are excluded even if the slice itself passed — the
+ * epic never integrated. Returns the failed epics too, so the caller can report
+ * what still needs fixing instead of the old all-or-nothing "nothing promoted".
+ */
+export function selectSalvageableSlices(
+  plan: Plan,
+  result: { epics: readonly EpicOutcome[]; slices: readonly SliceOutcome[] },
+): SalvageSelection {
+  const completedEpics = new Set(result.epics.filter((e) => e.status === 'completed').map((e) => e.epicId));
+  const completedSlices = new Set(
+    result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
+  );
+  return {
+    sliceIds: plan.slices
+      .filter((s) => completedEpics.has(s.epic_id) && completedSlices.has(s.id))
+      .map((s) => s.id),
+    salvagedEpicIds: plan.epics.filter((e) => completedEpics.has(e.id)).map((e) => e.id),
+    failedEpicIds: plan.epics.filter((e) => !completedEpics.has(e.id)).map((e) => e.id),
+  };
 }
 
 export function harvestCookRun(run: CompletedRun, opts?: { granularity?: CommitGranularity }): RunArtifact {

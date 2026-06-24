@@ -23,6 +23,7 @@ import {
   harvestCookRun,
   materializeEpicVerifyTree,
   materializeFoldedWorktree,
+  selectSalvageableSlices,
   type SliceCommit,
   transferFoldedFixToSlice,
 } from './run-artifact.js';
@@ -448,5 +449,68 @@ describe('transferFoldedFixToSlice (FE-884 remediation round-trip)', () => {
     });
     expect(outcome.accepted).toBe(false);
     expect(outcome.reason).toBe('no-op');
+  });
+});
+
+describe('selectSalvageableSlices (cook-partial-promotion)', () => {
+  // Two epics: epic-2's slice depends on epic-1's (cross-epic dep). Epic deps
+  // gate execution, so a completed epic never depends on a failed one.
+  const plan: Plan = {
+    mode: 'brownfield',
+    epics: [
+      { id: 'epic-1', summary: '', depends_on: [], verification: [] },
+      { id: 'epic-2', summary: '', depends_on: ['epic-1'], verification: [] },
+    ],
+    slices: [
+      { id: 's1', epic_id: 'epic-1', definition: '', depends_on: [], verification: [] },
+      { id: 's2', epic_id: 'epic-2', definition: '', depends_on: ['s1'], verification: [] },
+    ],
+  };
+
+  it('salvages only the slices of completed epics and reports the failed ones', () => {
+    const sel = selectSalvageableSlices(plan, {
+      epics: [
+        { epicId: 'epic-1', status: 'completed' },
+        { epicId: 'epic-2', status: 'halted' },
+      ],
+      slices: [
+        { sliceId: 's1', status: 'completed' },
+        { sliceId: 's2', status: 'halted' },
+      ],
+    });
+    expect(sel.sliceIds).toEqual(['s1']);
+    expect(sel.salvagedEpicIds).toEqual(['epic-1']);
+    expect(sel.failedEpicIds).toEqual(['epic-2']);
+  });
+
+  it('salvages everything when all epics completed', () => {
+    const sel = selectSalvageableSlices(plan, {
+      epics: [
+        { epicId: 'epic-1', status: 'completed' },
+        { epicId: 'epic-2', status: 'completed' },
+      ],
+      slices: [
+        { sliceId: 's1', status: 'completed' },
+        { sliceId: 's2', status: 'completed' },
+      ],
+    });
+    expect(sel.sliceIds).toEqual(['s1', 's2']);
+    expect(sel.failedEpicIds).toEqual([]);
+  });
+
+  it('salvages nothing when no epic completed', () => {
+    const sel = selectSalvageableSlices(plan, {
+      epics: [
+        { epicId: 'epic-1', status: 'halted' },
+        { epicId: 'epic-2', status: 'halted' },
+      ],
+      slices: [
+        { sliceId: 's1', status: 'completed' }, // slice passed but its epic did not integrate
+        { sliceId: 's2', status: 'halted' },
+      ],
+    });
+    expect(sel.sliceIds).toEqual([]);
+    expect(sel.salvagedEpicIds).toEqual([]);
+    expect(sel.failedEpicIds).toEqual(['epic-1', 'epic-2']);
   });
 });
