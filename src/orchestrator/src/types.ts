@@ -333,33 +333,16 @@ export type OrchestratorInput = {
     runId: string;
     sdcpnFile: import('./petrinaut-sdcpn.js').SdcpnFile;
   }) => Promise<((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined>;
-  /**
-   * durable-resume (FE-1082): re-enter a halted/paused run. When set, the
-   * engine seeds run bookkeeping (outcomes + reportIds) from the snapshot and
-   * `restoreMarking`s its net marking after `wireHandlers`, instead of starting
-   * from the initial marking — so a fresh process continues from where the run
-   * stopped. The plan/policy must match the run the snapshot came from
-   * (recompiling produces the same topology).
-   */
+  /** durable-resume: re-enter a halted/paused run — seed bookkeeping + `restoreMarking` after `wireHandlers`. Plan/policy must match the snapshot's run (same topology). */
   resume?: RunSnapshot;
-  /**
-   * durable-resume (FE-1082): optional external pause signal. When it returns
-   * true, the interpreter stops firing new transitions, drains any in-flight
-   * deferred completions, then stops at a quiescent point with pending work
-   * intact; if `runDir` is set the engine persists a `RunSnapshot` so the run
-   * can later resume. (Deciding *when* to pause — e.g. on an ambiguity that
-   * needs a human — belongs to `interactive-recovery`; this is just the
-   * mechanism.)
-   */
+  /** durable-resume: external pause signal — the interpreter drains in-flight deferred work then stops at a quiescent point (persisting a snapshot if `runDir` set). When to pause is `interactive-recovery`'s job. */
   shouldPause?: () => boolean;
 };
 
 /**
- * Everything needed to resume a stopped run: the net marking at the stop point
- * plus the outcome bookkeeping accumulated before it, so a resumed run's result
- * reflects the whole run (pre- and post-resume), not just the resumed tail.
- * `reportIds` index lines already durable in `reports.jsonl`. Captures a
- * quiescent marking only (no in-flight deferred work).
+ * Everything needed to resume a stopped run: the marking at the stop point plus
+ * the outcomes/reportIds accrued before it, so a resumed result reflects the
+ * whole run, not just the tail. Quiescent markings only.
  */
 export type RunSnapshot = {
   marking: MarkingSnapshot;
