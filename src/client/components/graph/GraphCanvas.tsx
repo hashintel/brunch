@@ -14,6 +14,7 @@ import { GraphNode } from '@/client/components/graph/GraphNode';
 import { GraphNodeActionsProvider } from '@/client/components/graph/graphNodeActions';
 import type { GraphEdgeRelationship, GraphNodeData } from '@/client/components/graph/types.js';
 import { useForceLayout } from '@/client/components/graph/useForceLayout.js';
+import { useSelection } from '@/client/components/graph/useSelection';
 import { ZoomControl } from '@/client/components/graph/ZoomControl';
 import { usePatchList } from '@/client/components/patch-list-host';
 import type { EntitiesData } from '@/shared/api-types.js';
@@ -74,17 +75,9 @@ function Canvas({
   hiddenKinds: ReadonlySet<KnowledgeKind>;
   highlight: KindHighlight | null;
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [highlightedKind, setHighlightedKind] = useState<KnowledgeKind | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
   const patchList = usePatchList();
-
-  const requestEdit = useCallback((nodeId: string) => {
-    setSelectedId(nodeId);
-    setEditingId(nodeId);
-  }, []);
-  const nodeActions = useMemo(() => ({ requestEdit }), [requestEdit]);
 
   useEffect(() => {
     if (highlight === null) return;
@@ -101,6 +94,10 @@ function Canvas({
     return { nodes, edges };
   }, [model, hiddenKinds]);
 
+  const nodeIds = useMemo(() => new Set(visibleModel.nodes.map((node) => node.id)), [visibleModel.nodes]);
+  const selection = useSelection(nodeIds);
+  const nodeActions = useMemo(() => ({ requestEdit: selection.edit }), [selection.edit]);
+
   const {
     nodes: liveNodes,
     onNodesChange,
@@ -109,19 +106,15 @@ function Canvas({
     onNodeDragStop,
   } = useForceLayout(visibleModel);
 
-  const nodeIds = useMemo(() => new Set(visibleModel.nodes.map((node) => node.id)), [visibleModel.nodes]);
-  const activeSelectedId = selectedId !== null && nodeIds.has(selectedId) ? selectedId : null;
   const activeHoveredId = hoveredId !== null && nodeIds.has(hoveredId) ? hoveredId : null;
 
   useEffect(() => {
-    setSelectedId((current) => (current !== null && !nodeIds.has(current) ? null : current));
     setHoveredId((current) => (current !== null && !nodeIds.has(current) ? null : current));
-    setEditingId((current) => (current !== null && !nodeIds.has(current) ? null : current));
   }, [nodeIds]);
 
   const neighbors = useMemo(
-    () => neighborIds(visibleModel.edges, activeSelectedId),
-    [visibleModel.edges, activeSelectedId],
+    () => neighborIds(visibleModel.edges, selection.selectedId),
+    [visibleModel.edges, selection.selectedId],
   );
 
   const flowNodes = useMemo<Node[]>(() => {
@@ -129,18 +122,18 @@ function Canvas({
       const base = node.data as unknown as GraphNodeData;
       const data: GraphNodeData = {
         ...base,
-        selected: node.id === activeSelectedId,
-        dimmed: activeSelectedId !== null && !neighbors.has(node.id),
+        selected: node.id === selection.selectedId,
+        dimmed: selection.selectedId !== null && !neighbors.has(node.id),
         highlighted: highlightedKind !== null && base.kind === highlightedKind,
       };
       return { ...node, data: data as unknown as Record<string, unknown> };
     });
-  }, [liveNodes, activeSelectedId, neighbors, highlightedKind]);
+  }, [liveNodes, selection.selectedId, neighbors, highlightedKind]);
 
   // Label/highlight/dim by incidence to the hovered or selected node; never re-runs layout.
   const flowEdges = useMemo<Edge<FlowEdgeData>[]>(() => {
     return visibleModel.edges.map((edge, index) => {
-      const incidentToSelected = isEdgeIncident(edge, activeSelectedId);
+      const incidentToSelected = isEdgeIncident(edge, selection.selectedId);
       const incidentToHovered = isEdgeIncident(edge, activeHoveredId);
       return {
         id: `${edge.source}->${edge.target}#${index}`,
@@ -151,11 +144,11 @@ function Canvas({
           relationship: edge.data.relationship,
           labelsVisible: incidentToSelected || incidentToHovered,
           selected: incidentToSelected,
-          dimmed: activeSelectedId !== null && !incidentToSelected,
+          dimmed: selection.selectedId !== null && !incidentToSelected,
         },
       };
     });
-  }, [visibleModel.edges, activeSelectedId, activeHoveredId]);
+  }, [visibleModel.edges, selection.selectedId, activeHoveredId]);
 
   const presentRelationships = useMemo(
     () => new Set<GraphEdgeRelationship>(visibleModel.edges.map((edge) => edge.data.relationship)),
@@ -163,16 +156,15 @@ function Canvas({
   );
 
   const detail = useMemo(
-    () => (activeSelectedId === null ? null : buildGraphDetail(activeSelectedId, visibleModel)),
-    [activeSelectedId, visibleModel],
+    () => (selection.selectedId === null ? null : buildGraphDetail(selection.selectedId, visibleModel)),
+    [selection.selectedId, visibleModel],
   );
 
-  const editing = editingId !== null && editingId === activeSelectedId;
   const saveEdit = useCallback(
     (newContent: string) => {
-      setEditingId(null);
-      if (patchList === null || detail === null || activeSelectedId === null) return;
-      const itemId = Number(activeSelectedId.split(':')[1]);
+      selection.cancelEdit();
+      if (patchList === null || detail === null || selection.selectedId === null) return;
+      const itemId = Number(selection.selectedId.split(':')[1]);
       patchList.stage({
         kind: 'edit',
         producerChatId: null,
@@ -183,7 +175,7 @@ function Canvas({
         newContent,
       });
     },
-    [patchList, detail, activeSelectedId],
+    [patchList, detail, selection],
   );
 
   // The detail panel floats as a right-edge overlay rather than a flex sibling, so
@@ -198,16 +190,10 @@ function Canvas({
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
-          onNodeClick={(_, node) => {
-            setEditingId(null);
-            setSelectedId((prev) => (prev === node.id ? null : node.id));
-          }}
+          onNodeClick={(_, node) => selection.toggle(node.id)}
           onNodeMouseEnter={(_, node) => setHoveredId(node.id)}
           onNodeMouseLeave={() => setHoveredId(null)}
-          onPaneClick={() => {
-            setEditingId(null);
-            setSelectedId(null);
-          }}
+          onPaneClick={selection.clear}
           onNodeDragStart={(_, node) => onNodeDragStart(node.id)}
           onNodeDrag={(_, node) => onNodeDrag(node.id, node.position)}
           onNodeDragStop={(_, node) => onNodeDragStop(node.id)}
@@ -227,19 +213,13 @@ function Canvas({
       {detail !== null ? (
         <div className="absolute inset-y-0 right-0 z-20">
           <GraphDetailPanel
-            key={activeSelectedId}
+            key={selection.selectedId}
             detail={detail}
-            editing={editing}
-            onClose={() => {
-              setEditingId(null);
-              setSelectedId(null);
-            }}
-            onSelect={(id) => {
-              setEditingId(null);
-              setSelectedId(id);
-            }}
-            onStartEdit={() => setEditingId(activeSelectedId)}
-            onCancelEdit={() => setEditingId(null)}
+            editing={selection.editing}
+            onClose={selection.clear}
+            onSelect={selection.select}
+            onStartEdit={() => selection.selectedId !== null && selection.edit(selection.selectedId)}
+            onCancelEdit={selection.cancelEdit}
             onSave={saveEdit}
           />
         </div>
