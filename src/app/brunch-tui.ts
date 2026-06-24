@@ -27,7 +27,10 @@ import {
   type ReadinessBand,
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
-import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
+import {
+  delegatableAgentsForRuntimeState,
+  projectBrunchAgentState,
+} from '../projections/session/runtime-state.js';
 import type { SessionTurnDriver } from '../rpc/methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from '../rpc/methods/session-exchange-answer.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
@@ -392,10 +395,12 @@ export function createBrunchAgentSessionRuntimeFactory(
     // shortcut contexts do not carry.
     const liveAgentSession = context.liveAgentSession ?? { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
+    const agentState = projectBrunchAgentState(sessionManager.getEntries());
     const subagents = context.dev
       ? await loadBrunchSubagents({
           cwd,
           agentDir: runtimeAgentDir,
+          delegatableAgents: delegatableAgentsForRuntimeState(agentState),
           world: {
             graph: {
               specId: currentWorkspace.spec.id,
@@ -454,10 +459,7 @@ export function createBrunchAgentSessionRuntimeFactory(
       entries: sessionManager.getEntries(),
       resumeOrigin: 'resume_debt',
       workspaceContext: await renderWorkspaceOverviewContext(cwd),
-      strategy:
-        projectBrunchAgentState(sessionManager.getEntries()).agentStrategy === 'freestyle'
-          ? 'freestyle'
-          : 'auto',
+      strategy: agentState.agentStrategy === 'freestyle' ? 'freestyle' : 'auto',
       manager: sessionManager,
     });
     if (context.dev) {

@@ -145,9 +145,9 @@ export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, '
   introspection?: BrunchPiIntrospectionOptions;
   continuityDrains?: () => readonly ContinuityDrain[];
   /**
-   * Optional subagent registry (D44-L). When provided, the `subagent` tool is
-   * registered and opted into the active-tool set; when omitted it is absent
-   * (default-off), so production foreground sessions are unchanged.
+   * Optional subagent registry (D44-L/D92-L). When provided with a non-empty
+   * code-owned delegatable set, the `subagent` tool is registered and opted
+   * into the active-tool set; when omitted or empty it is absent/default-off.
    */
   subagents?: BrunchSubagentsDeps;
 }
@@ -183,9 +183,10 @@ export function createBrunchPiExtensions(
     // Opt-in tool channel: tools registered but kept out of the base `elicit`
     // allowlist (D40-L) are made active only when explicitly opted in here —
     // dev introspection query tools (D69-L) and the `subagent` tool (D44-L).
+    const hasDelegatableSubagents = (options.subagents?.delegatableAgents.length ?? 0) > 0;
     const optInAllowedToolNames = [
       ...(introspectionOptions?.enabled ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL] : []),
-      ...(options.subagents ? [BRUNCH_SUBAGENT_TOOL] : []),
+      ...(hasDelegatableSubagents ? [BRUNCH_SUBAGENT_TOOL] : []),
     ];
     const devAllowedToolNames = optInAllowedToolNames.length > 0 ? optInAllowedToolNames : undefined;
     const entryDebugCache = introspectionOptions?.enabled ? introspectionOptions.debugCache : undefined;
@@ -219,7 +220,9 @@ export function createBrunchPiExtensions(
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
       registerBrunchWebTools,
-      ...(options.subagents ? [(api: ExtensionAPI) => registerBrunchSubagents(api, options.subagents!)] : []),
+      ...(hasDelegatableSubagents
+        ? [(api: ExtensionAPI) => registerBrunchSubagents(api, options.subagents!)]
+        : []),
       // Prompting registers immediately after operational-mode policy and
       // before mention autocomplete when prompt context is provided; its
       // position in this list is the registration order, not a splice index.

@@ -50,15 +50,19 @@ const runtimeRegistryExpectations = [
   {
     file: 'src/session/schema/kinds.ts',
     required: "export const AGENT_ROLE_IDS = ['elicitor'] as const;",
+    forbidden: ['reviewer', 'pi-coder'],
   },
   {
     file: 'src/projections/session/runtime-policy.ts',
     required:
       'export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeDefinition> = {',
+    // `reviewer` is a non-write background agent that legitimately appears in
+    // elicit's code-owned `canDelegate` set (D92-L delegatable-set lives beside
+    // the op_mode policy). Only `pi-coder` — an unwired planned foreground —
+    // must stay out of the foreground registry here.
+    forbidden: ['pi-coder'],
   },
 ];
-
-const unregisteredAgentNeedles = ['reviewer', 'pi-coder'];
 
 const resourceExpectations = [
   {
@@ -103,7 +107,7 @@ describe('agents topology', () => {
     for (const expectation of runtimeRegistryExpectations) {
       const content = await readFile(join(projectRoot, expectation.file), 'utf8');
       expect(content).toContain(expectation.required);
-      for (const needle of unregisteredAgentNeedles) {
+      for (const needle of expectation.forbidden) {
         expect(content, `${expectation.file} must not register ${needle}`).not.toContain(needle);
       }
     }

@@ -39,6 +39,7 @@ import {
   type BrunchSubagentsDeps,
 } from './index.js';
 import {
+  createSubagentToolCatalog,
   planSubagentTools,
   resolveSubagentModel,
   runSubagent,
@@ -78,6 +79,14 @@ describe('parseSubagentMarkdown', () => {
     expect(def.model).toBe('default');
     expect(def.thinking).toBe('low');
     expect(def.systemPrompt).toBe('You are an explorer.');
+  });
+
+  it('does not let background frontmatter author a delegatable set', () => {
+    const def = parseSubagentMarkdown(
+      '---\nname: worker\ndescription: Write-capable test worker\ntools: write\ncanDelegate: explorer\n---\nBody.',
+    );
+
+    expect(def.canDelegate).toEqual([]);
   });
 
   it('defaults tools to empty, model to default, and thinking to medium', () => {
@@ -218,6 +227,26 @@ describe('resolveSubagentModel', () => {
 });
 
 describe('planSubagentTools', () => {
+  it('exposes one shared catalog source for background tool grants', () => {
+    expect([...createSubagentToolCatalog('/tmp').keys()].sort()).toEqual([
+      'find',
+      'grep',
+      'ls',
+      'read',
+      'web_fetch',
+      'web_search',
+    ]);
+    expect([...createSubagentToolCatalog('/tmp', injectedWorld()).keys()].sort()).toEqual([
+      'find',
+      'grep',
+      'ls',
+      'read',
+      'read_graph',
+      'web_fetch',
+      'web_search',
+    ]);
+  });
+
   it('maps read-only filesystem tools to a cwd-bound custom-tool allowlist', () => {
     const def = { name: 'explorer', tools: ['read', 'grep', 'find', 'ls'] } as unknown as SubagentDefinition;
     const plan = planSubagentTools(def, { cwd: '/tmp' });
@@ -244,6 +273,15 @@ describe('planSubagentTools', () => {
     const def = { name: 'explorer', tools: ['read_graph'] } as unknown as SubagentDefinition;
     expect(() => planSubagentTools(def, { cwd: '/tmp' })).toThrow(/unknown tool/);
     const plan = planSubagentTools(def, { cwd: '/tmp' }, injectedWorld());
+    expect((plan.customTools ?? []).map((tool: ToolDefinition) => tool.name)).toEqual(['read_graph']);
+  });
+
+  it('resolves a sovereign child grant that is outside the parent base tool policy', () => {
+    const def = { name: 'explorer', tools: ['read_graph'] } as unknown as SubagentDefinition;
+
+    const plan = planSubagentTools(def, { cwd: '/tmp' }, injectedWorld());
+
+    expect(plan.tools).toEqual(['read_graph']);
     expect((plan.customTools ?? []).map((tool: ToolDefinition) => tool.name)).toEqual(['read_graph']);
   });
 
@@ -314,7 +352,7 @@ describe('createSemaphore', () => {
 });
 
 describe('registerBrunchSubagents', () => {
-  function harness(): {
+  function harness(options: { delegatableAgents?: readonly string[] } = {}): {
     pi: ExtensionAPI;
     getTool: () => ToolDefinition;
     calls: Array<{ agent: string; task: string }>;
@@ -327,6 +365,7 @@ describe('registerBrunchSubagents', () => {
         ['explorer', parseSubagentMarkdown(EXPLORER_MD)],
         ['projector', parseSubagentMarkdown('---\nname: projector\ndescription: One variant\n---\nBody.')],
       ]),
+      delegatableAgents: options.delegatableAgents ?? ['explorer', 'projector'],
       maxConcurrency: 2,
       agentDir: '/agent',
       createSettingsManager: () => SettingsManager.inMemory({ quietStartup: true }),
@@ -382,7 +421,71 @@ describe('registerBrunchSubagents', () => {
   it('returns an error result for an unknown agent', async () => {
     const { getTool } = harness();
     const result = await getTool().execute('id', { agent: 'ghost', task: 'x' }, undefined, undefined, ctx);
-    expect((result.content[0] as { text: string }).text).toContain('Unknown subagent "ghost"');
+    expect((result.content[0] as { text: string }).text).toContain(
+      'Subagent "ghost" is not available in this operational mode',
+    );
+  });
+
+  it('advertises only the injected delegatable set', () => {
+    const { getTool } = harness({ delegatableAgents: ['explorer'] });
+    const tool = getTool();
+    const serializedSchema = JSON.stringify(tool.parameters);
+
+    expect(tool.description).toContain('explorer — Read-only recon');
+    expect(tool.description).not.toContain('projector — One variant');
+    expect(serializedSchema).toContain('explorer');
+    expect(serializedSchema).not.toContain('projector');
+  });
+
+  it('refuses to execute a loaded definition outside the injected delegatable set', async () => {
+    const { getTool, calls } = harness({ delegatableAgents: ['explorer'] });
+
+    const result = await getTool().execute(
+      'id',
+      { agent: 'projector', task: 'should be refused' },
+      undefined,
+      undefined,
+      ctx,
+    );
+
+    expect(calls).toEqual([]);
+    expect((result.content[0] as { text: string }).text).toContain(
+      'Subagent "projector" is not available in this operational mode',
+    );
+  });
+
+  it('refuses a test-only write-capable background manifest not delegated by elicit', async () => {
+    const writeCapable = parseSubagentMarkdown(
+      '---\nname: worker\ndescription: Write-capable test worker\ntools: write, edit\n---\nDo one write task.',
+    );
+    const registered: ToolDefinition[] = [];
+    const pi = { registerTool: (tool: ToolDefinition) => registered.push(tool) } as unknown as ExtensionAPI;
+    const runSubagent = vi.fn(async ({ definition }): Promise<SubagentResult> => {
+      return { agent: definition.name, status: 'ok', text: 'should not run' };
+    });
+
+    registerBrunchSubagents(pi, {
+      definitions: new Map<string, SubagentDefinition>([
+        ['explorer', parseSubagentMarkdown(EXPLORER_MD)],
+        ['worker', writeCapable],
+      ]),
+      delegatableAgents: ['explorer'],
+      maxConcurrency: 2,
+      agentDir: '/agent',
+      createSettingsManager: () => SettingsManager.inMemory({ quietStartup: true }),
+      resourceLoaderOptions: sealedResourceLoaderOptions(),
+      runSubagent,
+    });
+
+    const tool = registered[0]!;
+    expect(tool.description).not.toContain('worker — Write-capable test worker');
+
+    const result = await tool.execute('id', { agent: 'worker', task: 'write' }, undefined, undefined, ctx);
+
+    expect(runSubagent).not.toHaveBeenCalled();
+    expect((result.content[0] as { text: string }).text).toContain(
+      'Subagent "worker" is not available in this operational mode',
+    );
   });
 
   it('explains usage when neither agent nor tasks is provided', async () => {

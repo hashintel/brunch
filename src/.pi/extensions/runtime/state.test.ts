@@ -4,7 +4,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
-import { FOREGROUND_AGENT_ROSTER } from '../../../projections/session/runtime-policy.js';
+import {
+  FOREGROUND_AGENT_ROSTER,
+  delegatableAgentsForRuntimeState,
+} from '../../../projections/session/runtime-policy.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import { activeToolNamesForPosture, agentBodyResourceLocation, manifestsForState } from './state.js';
 
@@ -222,7 +225,7 @@ describe('agent posture policy', () => {
       operationalMode: 'elicit',
       model: 'default',
       thinking: 'medium',
-      canDelegate: [],
+      canDelegate: ['explorer', 'researcher', 'projector', 'reviewer'],
     });
     expect(manifest.skills.strategies).toEqual([
       'freestyle',
@@ -230,6 +233,17 @@ describe('agent posture policy', () => {
       'step-wise-disambiguate',
     ]);
     expect(manifest.skills.lenses).toEqual(['intent', 'design', 'oracle']);
+  });
+
+  it('derives delegatable agents from the code-owned foreground roster', () => {
+    const state = projectBrunchAgentState([]);
+
+    expect(delegatableAgentsForRuntimeState(state)).toEqual([
+      'explorer',
+      'researcher',
+      'projector',
+      'reviewer',
+    ]);
   });
 
   it('keeps state.ts free of grade-gate symbols', () => {

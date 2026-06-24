@@ -22,6 +22,7 @@ import { brunchResourceLoaderOptions, createBrunchSettingsManager } from './pi-s
 export interface LoadBrunchSubagentsOptions {
   readonly cwd: string;
   readonly agentDir: string;
+  readonly delegatableAgents: readonly string[];
   readonly world?: LoadBrunchSubagentsWorld;
 }
 
@@ -50,6 +51,7 @@ export async function loadBrunchSubagents(options: LoadBrunchSubagentsOptions): 
 
   return {
     definitions,
+    delegatableAgents: options.delegatableAgents,
     maxConcurrency: config.maxConcurrency,
     agentDir: options.agentDir,
     createSettingsManager: () => createBrunchSettingsManager(options.cwd, options.agentDir),

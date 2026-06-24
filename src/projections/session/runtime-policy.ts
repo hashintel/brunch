@@ -31,6 +31,8 @@ export interface ResolvedBrunchAgentState extends BrunchAgentState {
   agentRoleDefinition: AgentRoleDefinition;
 }
 
+const ELICIT_DELEGATABLE_AGENTS = ['explorer', 'researcher', 'projector', 'reviewer'] as const;
+
 export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeDefinition> = {
   elicit: {
     id: 'elicit',
@@ -52,7 +54,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
         methods: AGENT_METHOD_IDS,
       },
       tools: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search'],
-      canDelegate: [],
+      canDelegate: ELICIT_DELEGATABLE_AGENTS,
       defaultStrategy: 'auto',
       defaultLens: 'auto',
       toolAuthority:
@@ -149,6 +151,10 @@ export function defaultLensForRuntimeState(state: ResolvedBrunchAgentState): Age
 
 export function toolPolicyForRuntimeState(state: ResolvedBrunchAgentState): ToolPolicyDefinition {
   return state.operationalModeDefinition.toolPolicy;
+}
+
+export function delegatableAgentsForRuntimeState(state: ResolvedBrunchAgentState): readonly string[] {
+  return state.agentRoleDefinition.canDelegate;
 }
 
 export function isToolBlockedForRuntimeState(state: ResolvedBrunchAgentState, toolName: string): boolean {

@@ -19,7 +19,7 @@ import type {
 import { FOREGROUND_AGENT_ROSTER, type ResolvedBrunchAgentState } from './runtime-policy.js';
 
 export type { ResolvedBrunchAgentState } from './runtime-policy.js';
-export { FOREGROUND_AGENT_ROSTER } from './runtime-policy.js';
+export { FOREGROUND_AGENT_ROSTER, delegatableAgentsForRuntimeState } from './runtime-policy.js';
 export { DEFAULT_BRUNCH_AGENT_STATE } from '../../session/runtime-state.js';
 
 export interface RuntimeStateProjection {

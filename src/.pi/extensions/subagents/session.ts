@@ -133,12 +133,17 @@ export interface SubagentToolPlan {
 }
 
 /**
- * Brunch-owned tool definitions a subagent may be granted. Read-only filesystem
+ * Brunch-owned tool definitions a subagent may be granted. This is the shared
+ * catalog source for manifest-authored background grants: read-only filesystem
  * tools come from the SDK (cwd-bound; they override the built-ins of the same
- * name); web tools come from Brunch's own factories. Write/shell built-ins
- * (`bash`/`edit`/`write`) are never offered.
+ * name); web tools come from Brunch's own factories; `read_graph` is present
+ * only when parent graph readers are injected. Write/shell built-ins
+ * (`bash`/`edit`/`write`) are intentionally absent.
  */
-function subagentToolPool(cwd: string, injectedWorld?: SubagentInjectedWorld): Map<string, ToolDefinition> {
+export function createSubagentToolCatalog(
+  cwd: string,
+  injectedWorld?: SubagentInjectedWorld,
+): Map<string, ToolDefinition> {
   const pool = new Map<string, ToolDefinition>();
   for (const definition of [
     createReadToolDefinition(cwd),
@@ -174,7 +179,7 @@ export function planSubagentTools(
 ): SubagentToolPlan {
   if (definition.tools.length === 0) return { noTools: 'all' };
 
-  const pool = subagentToolPool(ctx.cwd, injectedWorld);
+  const pool = createSubagentToolCatalog(ctx.cwd, injectedWorld);
   const customTools: ToolDefinition[] = [];
   const unknown: string[] = [];
   for (const name of definition.tools) {
