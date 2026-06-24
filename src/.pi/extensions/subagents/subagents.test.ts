@@ -1,4 +1,4 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -40,15 +40,15 @@ import {
   type SubagentSealedDeps,
 } from './session.js';
 
-const SCOUT_MD = `---
-name: scout
+const EXPLORER_MD = `---
+name: explorer
 description: Read-only recon
 tools: read, grep, find, ls
 model: default
 thinking: low
 ---
 
-You are a scout.
+You are an explorer.
 `;
 
 function sealedResourceLoaderOptions(): CreateAgentSessionServicesOptions['resourceLoaderOptions'] {
@@ -64,17 +64,17 @@ function sealedResourceLoaderOptions(): CreateAgentSessionServicesOptions['resou
 
 describe('parseSubagentMarkdown', () => {
   it('parses frontmatter, a comma-separated tool list, and the body', () => {
-    const def = parseSubagentMarkdown(SCOUT_MD);
-    expect(def.name).toBe('scout');
+    const def = parseSubagentMarkdown(EXPLORER_MD);
+    expect(def.name).toBe('explorer');
     expect(def.description).toBe('Read-only recon');
     expect(def.tools).toEqual(['read', 'grep', 'find', 'ls']);
     expect(def.model).toBe('default');
     expect(def.thinking).toBe('low');
-    expect(def.systemPrompt).toBe('You are a scout.');
+    expect(def.systemPrompt).toBe('You are an explorer.');
   });
 
   it('defaults tools to empty, model to default, and thinking to medium', () => {
-    const def = parseSubagentMarkdown('---\nname: proposer\ndescription: One variant\n---\nBody.');
+    const def = parseSubagentMarkdown('---\nname: projector\ndescription: One variant\n---\nBody.');
     expect(def.tools).toEqual([]);
     expect(def.model).toBe('default');
     expect(def.thinking).toBe('medium');
@@ -92,7 +92,7 @@ describe('parseSubagentMarkdown', () => {
 
   it('throws on duplicate frontmatter keys and reports the repeated key', () => {
     expect(() =>
-      parseSubagentMarkdown('---\nname: scout\ndescription: one\nname: duplicate\n---\nBody.'),
+      parseSubagentMarkdown('---\nname: explorer\ndescription: one\nname: duplicate\n---\nBody.'),
     ).toThrow(/duplicate frontmatter key "name"/);
   });
 
@@ -104,25 +104,28 @@ describe('parseSubagentMarkdown', () => {
 });
 
 describe('loadSubagentDefinitions (bundled agents)', () => {
-  it('loads the scout, researcher, and proposer starter agents', async () => {
+  it('loads the explorer, researcher, projector, and reviewer starter agents', async () => {
     const definitions = await loadSubagentDefinitions(subagentAgentsDir());
-    expect([...definitions.keys()].sort()).toEqual(['proposer', 'researcher', 'scout']);
-    expect(definitions.get('scout')?.tools).toEqual(['read', 'grep', 'find', 'ls']);
+    expect([...definitions.keys()].sort()).toEqual(['explorer', 'projector', 'researcher', 'reviewer']);
+    expect(definitions.get('explorer')?.tools).toEqual(['read', 'grep', 'find', 'ls']);
     expect(definitions.get('researcher')?.tools).toEqual(['web_search', 'web_fetch']);
-    expect(definitions.get('proposer')?.tools).toEqual([]);
+    expect(definitions.get('projector')?.tools).toEqual([]);
+    expect(definitions.get('reviewer')?.tools).toEqual([]);
   });
 
-  it('loads only the explicit registry ids and ignores planted unlisted markdown files', async () => {
+  it('loads only the explicit registry ids and ignores planted unlisted SYSTEM.md files', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-subagent-registry-'));
-    await writeFile(join(dir, 'scout.md'), SCOUT_MD);
+    await mkdir(join(dir, 'explorer'));
+    await writeFile(join(dir, 'explorer', 'SYSTEM.md'), EXPLORER_MD);
+    await mkdir(join(dir, 'ghost'));
     await writeFile(
-      join(dir, 'ghost.md'),
+      join(dir, 'ghost', 'SYSTEM.md'),
       '---\nname: ghost\ndescription: Should not load\ntools: bash\n---\nYou should not see me.',
     );
 
-    const definitions = await loadSubagentDefinitions(dir, ['scout']);
+    const definitions = await loadSubagentDefinitions(dir, ['explorer']);
 
-    expect([...definitions.keys()]).toEqual(['scout']);
+    expect([...definitions.keys()]).toEqual(['explorer']);
     expect(definitions.has('ghost')).toBe(false);
   });
 });
@@ -209,7 +212,7 @@ describe('resolveSubagentModel', () => {
 
 describe('planSubagentTools', () => {
   it('maps read-only filesystem tools to a cwd-bound custom-tool allowlist', () => {
-    const def = { name: 'scout', tools: ['read', 'grep', 'find', 'ls'] } as unknown as SubagentDefinition;
+    const def = { name: 'explorer', tools: ['read', 'grep', 'find', 'ls'] } as unknown as SubagentDefinition;
     const plan = planSubagentTools(def, { cwd: '/tmp' });
     expect(plan.tools).toEqual(['read', 'grep', 'find', 'ls']);
     expect((plan.customTools ?? []).map((tool: ToolDefinition) => tool.name).sort()).toEqual([
@@ -231,7 +234,7 @@ describe('planSubagentTools', () => {
   });
 
   it('uses noTools for a tool-less agent', () => {
-    const def = { name: 'proposer', tools: [] } as unknown as SubagentDefinition;
+    const def = { name: 'projector', tools: [] } as unknown as SubagentDefinition;
     expect(planSubagentTools(def, { cwd: '/tmp' })).toEqual({ noTools: 'all' });
   });
 
@@ -307,8 +310,8 @@ describe('registerBrunchSubagents', () => {
     const calls: Array<{ agent: string; task: string }> = [];
     const deps: BrunchSubagentsDeps = {
       definitions: new Map<string, SubagentDefinition>([
-        ['scout', parseSubagentMarkdown(SCOUT_MD)],
-        ['proposer', parseSubagentMarkdown('---\nname: proposer\ndescription: One variant\n---\nBody.')],
+        ['explorer', parseSubagentMarkdown(EXPLORER_MD)],
+        ['projector', parseSubagentMarkdown('---\nname: projector\ndescription: One variant\n---\nBody.')],
       ]),
       maxConcurrency: 2,
       agentDir: '/agent',
@@ -334,13 +337,13 @@ describe('registerBrunchSubagents', () => {
     const { getTool, calls } = harness();
     const result = await getTool().execute(
       'id',
-      { agent: 'scout', task: 'find X' },
+      { agent: 'explorer', task: 'find X' },
       undefined,
       undefined,
       ctx,
     );
-    expect(calls).toEqual([{ agent: 'scout', task: 'find X' }]);
-    expect(result.content[0]).toEqual({ type: 'text', text: 'ran scout: find X' });
+    expect(calls).toEqual([{ agent: 'explorer', task: 'find X' }]);
+    expect(result.content[0]).toEqual({ type: 'text', text: 'ran explorer: find X' });
   });
 
   it('fans out a { tasks: [...] } call', async () => {
@@ -349,8 +352,8 @@ describe('registerBrunchSubagents', () => {
       'id',
       {
         tasks: [
-          { agent: 'scout', task: 'a' },
-          { agent: 'proposer', task: 'b' },
+          { agent: 'explorer', task: 'a' },
+          { agent: 'projector', task: 'b' },
         ],
       },
       undefined,
@@ -358,8 +361,8 @@ describe('registerBrunchSubagents', () => {
       ctx,
     );
     const text = (result.content[0] as { text: string }).text;
-    expect(text).toContain('## scout');
-    expect(text).toContain('## proposer');
+    expect(text).toContain('## explorer');
+    expect(text).toContain('## projector');
   });
 
   it('returns an error result for an unknown agent', async () => {
@@ -378,7 +381,7 @@ describe('registerBrunchSubagents', () => {
     const { getTool, calls } = harness();
     const result = await getTool().execute(
       'id',
-      { agent: 'scout', task: 'single', tasks: [{ agent: 'proposer', task: 'parallel' }] },
+      { agent: 'explorer', task: 'single', tasks: [{ agent: 'projector', task: 'parallel' }] },
       undefined,
       undefined,
       ctx,
@@ -439,11 +442,11 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
     };
   }
 
-  it('runs a tool-less proposer, owning the system prompt and returning its output', async () => {
+  it('runs a tool-less projector, owning the system prompt and returning its output', async () => {
     const rig = await fauxRig('PROPOSED VARIANT');
     try {
       const definition = parseSubagentMarkdown(
-        '---\nname: proposer\ndescription: One variant\nthinking: medium\n---\nYou are a proposer. Emit one variant.',
+        '---\nname: projector\ndescription: One variant\nthinking: medium\n---\nYou are a projector. Emit one variant.',
       );
       const result = await runSubagent({
         definition,
@@ -451,11 +454,11 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
         ctx: rig.ctx,
         deps: rig.deps,
       });
-      expect(result).toEqual({ agent: 'proposer', status: 'ok', text: 'PROPOSED VARIANT' });
+      expect(result).toEqual({ agent: 'projector', status: 'ok', text: 'PROPOSED VARIANT' });
       // Sealing: the child system prompt IS the agent body (not pi's coding base).
-      expect(rig.captured.systemPrompt).toContain('You are a proposer. Emit one variant.');
+      expect(rig.captured.systemPrompt).toContain('You are a projector. Emit one variant.');
       expect(rig.captured.systemPrompt).not.toContain('coding agent');
-      // No tools for a proposer.
+      // No tools for a projector.
       expect(rig.captured.toolNames).toEqual([]);
       // The task is delivered as the (only) conversational input.
       expect(rig.captured.messages).toContain('Propose a name for the widget.');
@@ -464,11 +467,11 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
     }
   });
 
-  it('advertises exactly the scout tool allowlist to the model', async () => {
+  it('advertises exactly the explorer tool allowlist to the model', async () => {
     const rig = await fauxRig('done');
     try {
       const result = await runSubagent({
-        definition: parseSubagentMarkdown(SCOUT_MD),
+        definition: parseSubagentMarkdown(EXPLORER_MD),
         task: 'Where is the auth code?',
         ctx: rig.ctx,
         deps: rig.deps,
@@ -481,7 +484,7 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
   });
 
   it('does not prompt when the parent aborts during child setup', async () => {
-    const definition = parseSubagentMarkdown(SCOUT_MD);
+    const definition = parseSubagentMarkdown(EXPLORER_MD);
     const controller = new AbortController();
     const prompt = vi.fn(async () => undefined);
     const abort = vi.fn();
@@ -513,14 +516,14 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
       createSession,
     });
 
-    expect(result).toEqual({ agent: 'scout', status: 'error', text: 'Subagent "scout" was aborted.' });
+    expect(result).toEqual({ agent: 'explorer', status: 'error', text: 'Subagent "explorer" was aborted.' });
     expect(prompt).not.toHaveBeenCalled();
     expect(abort).toHaveBeenCalledOnce();
     expect(dispose).toHaveBeenCalledOnce();
   });
 
   it('aborts and disposes an already-created child session when the parent aborts', async () => {
-    const definition = parseSubagentMarkdown(SCOUT_MD);
+    const definition = parseSubagentMarkdown(EXPLORER_MD);
     const controller = new AbortController();
     const abort = vi.fn();
     const dispose = vi.fn();
@@ -557,7 +560,7 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
     await promptStartedPromise;
     controller.abort();
 
-    await expect(running).resolves.toEqual({ agent: 'scout', status: 'ok', text: 'done' });
+    await expect(running).resolves.toEqual({ agent: 'explorer', status: 'ok', text: 'done' });
     expect(abort).toHaveBeenCalledOnce();
     expect(dispose).toHaveBeenCalledOnce();
   });

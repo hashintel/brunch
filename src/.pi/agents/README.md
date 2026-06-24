@@ -1,41 +1,49 @@
 # .pi/agents/ — agent role definitions (markdown)
 
-SPEC decisions: D25-L, D40-L, D58-L, D85-L
+SPEC decisions: D25-L, D40-L, D58-L, D85-L, D90-L, D93-L
 
 ## Owns
 
-The keyed agent role prompt resources only — the markdown bodies an agent role
-contributes as its system-prompt persona. Live agent definitions use the
-`src/.pi/agents/{agent-name}/SYSTEM.md` convention so references can later sit
-beside the body without making filesystem discovery part of product behavior.
+The keyed agent body resources only — the markdown bodies a foreground or
+background agent contributes as its system-prompt persona. Live agent definitions
+use the `src/.pi/agents/{agent-name}/SYSTEM.md` convention so references can
+later sit beside the body without making filesystem discovery part of product
+behavior.
 
 ```text
 agents/
 ├── README.md
 ├── elicitor/
 │   └── SYSTEM.md     keyed foreground elicit-mode system-prompt resource
+├── explorer/
+│   └── SYSTEM.md     keyed background codebase recon body + frontmatter
 ├── pi-coder/
 │   └── SYSTEM.md     future unwired coding-agent augmentation baseline
+├── projector/
+│   └── SYSTEM.md     keyed background candidate-proposal variant body + frontmatter
+├── researcher/
+│   └── SYSTEM.md     keyed background web-research body + frontmatter
 └── reviewer/
-    └── SYSTEM.md     keyed future review-side system-prompt resource
+    └── SYSTEM.md     keyed background proposal/commitment review body + frontmatter
 ```
 
 This directory is **markdown-only**, like `.pi/skills/`. It carries no
-TypeScript and registers no Pi hooks. The `{name, description, location}`
-manifest metadata and agent-body location are code-owned in the op-mode-keyed
-foreground roster (`src/projections/session/runtime-policy.ts`) and shared
-manifest type (`src/session/schema/agent-manifest.ts`), not
-filesystem-discovered (D39-L/D93-L sealing).
+TypeScript and registers no Pi hooks. Foreground metadata and agent-body
+locations are code-owned in the op-mode-keyed foreground roster
+(`src/projections/session/runtime-policy.ts`); background metadata is authored as
+frontmatter but discovered only through the explicit
+`BACKGROUND_SUBAGENT_IDS` registry in `src/.pi/extensions/subagents/agents.ts`.
+Both project into the shared manifest type
+(`src/session/schema/agent-manifest.ts`), not filesystem discovery (D39-L/D90-L/D93-L).
 
 ## Prompt-shape decisions
 
-- **SYSTEM.md convention is adopted:** live and named future agent bodies use
+- **SYSTEM.md convention is adopted:** foreground and background agent bodies use
   `src/.pi/agents/<agent>/SYSTEM.md`; this is no longer an open prompt-shape
   residue.
-- **`[sub]` sub-agent convention:** deferred until the first sub-agent lands.
-  When a real delegated side-agent is built, mark its definition as `[sub]` in
-  the canonical agent roster/README and register it through the same code-owned
-  manifest path; do not add empty sub-agent stubs before a consumer exists.
+- **Background frontmatter is authoring DX:** background `SYSTEM.md` files carry
+  `name`/`description`/`tools`/`model`/`thinking`, but the code-owned registry
+  decides which ids exist. Unlisted directories are not spawnable.
 
 ## Does NOT own
 
@@ -50,7 +58,8 @@ extension that consumes it:
   `src/projections/session/runtime-policy.ts`.
 - **Strategy/lens/method prompt-resource skills** — `.pi/skills/`.
 - **Reusable lossy text/markdown rendering** — `renderers/`.
-- **Pi tool definitions, lifecycle hooks, UI** — `.pi/extensions/*`.
+- **Pi tool definitions, lifecycle hooks, UI, and background child-session
+  loading/running** — `.pi/extensions/*`.
 
 ## Migration note
 
@@ -61,8 +70,11 @@ tree answers "who owns prompt assembly?" by walking to `system-prompts/` and
 `read_context` pull tool. The seed renderers were renamed (`renderWorkspaceSeed`,
 `renderGraphSeed`) to de-conflate from `renderers/` and the pull tool.
 
-The D85-L agent-definition convention is enacted for the live foreground body and
-for named future bodies: `elicitor/SYSTEM.md`, `reviewer/SYSTEM.md`, and the
-unwired `pi-coder/SYSTEM.md` baseline all use `<agent>/SYSTEM.md`. `reviewer.md`
-flat legacy shape is retired. `pi-coder` records Pi's `buildSystemPrompt`
-worked-example baseline while D58-L's augment-vs-replace question stays open.
+The D85-L agent-definition convention is enacted for foreground bodies, and D90-L
+extends the same home to background bodies: `elicitor/SYSTEM.md`,
+`explorer/SYSTEM.md`, `researcher/SYSTEM.md`, `projector/SYSTEM.md`,
+`reviewer/SYSTEM.md`, and the unwired `pi-coder/SYSTEM.md` baseline all use
+`<agent>/SYSTEM.md`. The former `src/.pi/extensions/subagents/agents/*.md`
+background home and the flat legacy `reviewer.md` shape are retired. `pi-coder`
+records Pi's `buildSystemPrompt` worked-example baseline while D58-L's
+augment-vs-replace question stays open.

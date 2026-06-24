@@ -21,7 +21,7 @@ describe('prompt-shape decisions', () => {
     expect(skillsReadme).toContain('regenerated and drift-checked');
 
     expect(agentsReadme).toContain('SYSTEM.md convention is adopted');
-    expect(agentsReadme).toContain('[sub]');
-    expect(agentsReadme).toContain('deferred until the first sub-agent lands');
+    expect(agentsReadme).toContain('Background frontmatter is authoring DX');
+    expect(agentsReadme).toContain('Unlisted directories are not spawnable');
   });
 });

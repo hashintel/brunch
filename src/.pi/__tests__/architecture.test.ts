@@ -23,7 +23,19 @@ const agentDefinitionExpectations = [
   {
     system: 'src/.pi/agents/reviewer/SYSTEM.md',
     legacyFlat: 'src/.pi/agents/reviewer.md',
-    needles: ['# Agent: reviewer', 'future side agent'],
+    needles: ['name: reviewer', 'checking candidate'],
+  },
+  {
+    system: 'src/.pi/agents/explorer/SYSTEM.md',
+    needles: ['name: explorer', 'read-only reconnaissance agent'],
+  },
+  {
+    system: 'src/.pi/agents/researcher/SYSTEM.md',
+    needles: ['name: researcher', 'web-research agent'],
+  },
+  {
+    system: 'src/.pi/agents/projector/SYSTEM.md',
+    needles: ['name: projector', 'candidate-proposal'],
   },
   {
     system: 'src/.pi/agents/pi-coder/SYSTEM.md',
