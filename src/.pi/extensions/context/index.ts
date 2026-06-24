@@ -112,6 +112,8 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
   });
 }
 
+export default registerBrunchContext;
+
 function projectSessionContext(
   sessionManager: SessionManagerLike | undefined,
 ): RuntimeStateProjection | SessionRuntimeFrameRenderInput {

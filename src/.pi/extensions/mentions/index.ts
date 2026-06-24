@@ -78,6 +78,8 @@ export function registerBrunchMentionAutocomplete(
   });
 }
 
+export default registerBrunchMentionAutocomplete;
+
 export function extractHashPrefix(line: string, cursorCol: number): string | null {
   const before = line.slice(0, cursorCol);
   const match = before.match(/(?:^|\s)(#[\w-]*)$/);
