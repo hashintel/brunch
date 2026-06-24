@@ -3,6 +3,8 @@ import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { getAgentDir } from '@earendil-works/pi-coding-agent';
+
 import type { GraphSlice } from '../graph/index.js';
 import { openWorkspaceGraphRuntime, type CommandExecutor } from '../graph/index.js';
 import { assertPortableRunId, portableCwd } from '../probes/portable-report.js';
@@ -69,9 +71,11 @@ export interface GenerateFanOutWitnessReport {
     readonly edgeDelta: number;
   };
   readonly markers: {
+    readonly oracleBranchPinned: GenerateFanOutWitnessMarker;
     readonly generateSkillRead: GenerateFanOutWitnessMarker;
     readonly oracleReferenceReadAfterSkill: GenerateFanOutWitnessMarker;
     readonly presentCandidatesEmitted: GenerateFanOutWitnessMarker;
+    readonly noBrunchKickBeforePrompt: GenerateFanOutWitnessMarker;
     readonly noWriteBeforePick: GenerateFanOutWitnessNoWriteMarker;
   };
   readonly friction: readonly string[];
@@ -102,10 +106,14 @@ interface GenerateFanOutWitnessRunOptions {
   readonly fixtureRoot?: string;
 }
 
-interface ToolResultMessage {
+interface TranscriptEvidence {
   readonly index: number;
-  readonly toolName: string;
   readonly text: string;
+}
+
+interface ToolTranscriptEvent extends TranscriptEvidence {
+  readonly toolName: string;
+  readonly source: 'toolCall' | 'toolResult';
 }
 
 export async function runGenerateFanOutWitness(
@@ -119,6 +127,7 @@ export async function runGenerateFanOutWitness(
   const boot = await bootTier2RuntimeFromFixture({
     specTitle: 'Generate fan-out witness',
     fixtureEntries: idleFixtureEntries,
+    agentDir: getAgentDir(),
   });
   const graph = await openWorkspaceGraphRuntime(boot.cwd);
   seedOracleMeaningfulGraph(graph.commandExecutor, boot.specId);
@@ -193,16 +202,22 @@ export async function runGenerateFanOutWitness(
 export function summarizeGenerateFanOutWitness(
   input: GenerateFanOutWitnessSummaryInput,
 ): GenerateFanOutWitnessReport {
-  const toolResults = toolResultMessages(input.sessionText);
-  const skillReads = findToolResults(toolResults, 'read', 'generate-proposal/SKILL.md');
-  const oracleReads = findToolResults(toolResults, 'read', 'generate-proposal/references/oracle.md');
-  const presentCandidates = findToolResults(toolResults, 'present_candidates');
-  const mutateGraphResults = findToolResults(toolResults, 'mutate_graph');
+  const toolEvents = toolTranscriptEvents(input.sessionText);
+  const toolResults = toolEvents.filter((event) => event.source === 'toolResult');
+  const oracleBranchPins = entriesContaining(input.sessionText, '"agentLens":"oracle"');
+  const skillReads = findToolEvents(toolEvents, 'read', 'generate-proposal/SKILL.md');
+  const oracleReads = findToolEvents(toolEvents, 'read', 'generate-proposal/references/oracle.md');
+  const presentCandidates = findToolEvents(toolEvents, 'present_candidates');
+  const mutateGraphResults = findToolEvents(toolResults, 'mutate_graph');
   const approvedReviewResults = toolResults.filter((message) => hasApprovedReviewResult(message.text));
   const presentReviewSetBeforeCandidate = toolResults.filter(
     (message) =>
       message.toolName === 'present_review_set' &&
       (presentCandidates[0]?.index === undefined || message.index < presentCandidates[0].index),
+  );
+  const promptEntries = entriesContaining(input.sessionText, input.prompt);
+  const kickEntriesBeforePrompt = entriesContaining(input.sessionText, 'brunch.kick').filter(
+    (entry) => promptEntries[0]?.index === undefined || entry.index < promptEntries[0].index,
   );
   const graphDelta = {
     lsnDelta: input.finalGraph.lsn - input.baseGraph.lsn,
@@ -225,13 +240,21 @@ export function summarizeGenerateFanOutWitness(
     ),
   };
   const markers: GenerateFanOutWitnessReport['markers'] = {
+    oracleBranchPinned: marker(oracleBranchPins),
     generateSkillRead: marker(skillReads),
     oracleReferenceReadAfterSkill: marker(oracleReferenceReadAfterSkill),
     presentCandidatesEmitted: marker(presentCandidates),
+    noBrunchKickBeforePrompt: {
+      passed: kickEntriesBeforePrompt.length === 0,
+      evidence: kickEntriesBeforePrompt.map((entry) => entry.index),
+    },
     noWriteBeforePick,
   };
   const friction = [...(input.friction ?? [])];
 
+  if (!markers.oracleBranchPinned.passed) {
+    friction.push('The transcript did not show the oracle branch/lens pin.');
+  }
   if (!markers.generateSkillRead.passed) {
     friction.push('The transcript did not show a read of generate-proposal/SKILL.md.');
   }
@@ -240,6 +263,9 @@ export function summarizeGenerateFanOutWitness(
   }
   if (!markers.presentCandidatesEmitted.passed) {
     friction.push('The transcript did not show present_candidates.');
+  }
+  if (!markers.noBrunchKickBeforePrompt.passed) {
+    friction.push('brunch.kick appeared before the probe prompt; the run may be contaminated by auto-kick.');
   }
   if (!markers.noWriteBeforePick.passed) {
     friction.push('Graph changed or a commit-facing tool result appeared before any candidate pick.');
@@ -252,9 +278,11 @@ export function summarizeGenerateFanOutWitness(
 
   const success =
     input.status === 'ok' &&
+    markers.oracleBranchPinned.passed &&
     markers.generateSkillRead.passed &&
     markers.oracleReferenceReadAfterSkill.passed &&
     markers.presentCandidatesEmitted.passed &&
+    markers.noBrunchKickBeforePrompt.passed &&
     markers.noWriteBeforePick.passed;
 
   return {
@@ -373,7 +401,7 @@ function idleFixtureEntries(): readonly Tier2FixtureEntry[] {
   ];
 }
 
-function marker(messages: readonly ToolResultMessage[]): GenerateFanOutWitnessMarker {
+function marker(messages: readonly TranscriptEvidence[]): GenerateFanOutWitnessMarker {
   return { passed: messages.length > 0, evidence: messages.map((message) => message.index) };
 }
 
@@ -381,8 +409,8 @@ function graphSummary(graph: GraphSlice): GenerateFanOutWitnessReport['baseGraph
   return { lsn: graph.lsn, nodeCount: graph.nodes.length, edgeCount: graph.edges.length };
 }
 
-function toolResultMessages(sessionText: string): readonly ToolResultMessage[] {
-  const messages: ToolResultMessage[] = [];
+function toolTranscriptEvents(sessionText: string): readonly ToolTranscriptEvent[] {
+  const events: ToolTranscriptEvent[] = [];
   let index = 0;
   for (const line of sessionText.split('\n')) {
     const trimmed = line.trim();
@@ -393,24 +421,45 @@ function toolResultMessages(sessionText: string): readonly ToolResultMessage[] {
       continue;
     }
     const message = entry.message;
-    if (!isRecord(message) || message.role !== 'toolResult' || typeof message.toolName !== 'string') {
+    if (!isRecord(message)) {
       index += 1;
       continue;
     }
-    messages.push({ index, toolName: message.toolName, text: JSON.stringify(message) });
+    if (message.role === 'toolResult' && typeof message.toolName === 'string') {
+      events.push({ index, toolName: message.toolName, source: 'toolResult', text: JSON.stringify(message) });
+    }
+    if (Array.isArray(message.content)) {
+      for (const content of message.content) {
+        if (!isRecord(content) || content.type !== 'toolCall' || typeof content.name !== 'string') continue;
+        events.push({ index, toolName: content.name, source: 'toolCall', text: JSON.stringify(content) });
+      }
+    }
     index += 1;
   }
-  return messages;
+  return events;
 }
 
-function findToolResults(
-  messages: readonly ToolResultMessage[],
+function findToolEvents(
+  messages: readonly ToolTranscriptEvent[],
   toolName: string,
   contains?: string,
-): readonly ToolResultMessage[] {
+): readonly ToolTranscriptEvent[] {
   return messages.filter(
     (message) => message.toolName === toolName && (contains === undefined || message.text.includes(contains)),
   );
+}
+
+function entriesContaining(sessionText: string, contains: string): readonly TranscriptEvidence[] {
+  const entries: TranscriptEvidence[] = [];
+  let index = 0;
+  for (const line of sessionText.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.length > 0 && trimmed.includes(contains)) {
+      entries.push({ index, text: trimmed });
+    }
+    if (trimmed.length > 0) index += 1;
+  }
+  return entries;
 }
 
 function hasApprovedReviewResult(text: string): boolean {

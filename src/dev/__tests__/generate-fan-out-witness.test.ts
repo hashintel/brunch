@@ -52,8 +52,30 @@ function toolResultEntry(toolName: string, details: unknown): string {
   });
 }
 
+function toolCallEntry(toolName: string, args: unknown): string {
+  return JSON.stringify({
+    type: 'message',
+    message: {
+      role: 'assistant',
+      content: [{ type: 'toolCall', name: toolName, arguments: args }],
+    },
+  });
+}
+
 function readEntry(path: string): string {
-  return toolResultEntry('read', { path, content: 'loaded' });
+  return toolCallEntry('read', { path });
+}
+
+function oracleBranchEntry(): string {
+  return JSON.stringify({
+    type: 'custom',
+    customType: 'brunch.agent_runtime_state',
+    data: {
+      state: {
+        agentLens: 'oracle',
+      },
+    },
+  });
 }
 
 function presentCandidatesEntry(): string {
@@ -70,6 +92,7 @@ function presentCandidatesEntry(): string {
 describe('generate fan-out witness report', () => {
   it('passes only from transcript-observed oracle pointer, candidates, and no graph write', () => {
     const sessionText = [
+      oracleBranchEntry(),
       readEntry('src/.pi/skills/methods/generate-proposal/SKILL.md'),
       readEntry('src/.pi/skills/methods/generate-proposal/references/oracle.md'),
       presentCandidatesEntry(),
@@ -94,9 +117,11 @@ describe('generate fan-out witness report', () => {
     expect(report.success).toBe(true);
     expect(report.status).toBe('ok');
     expect(report.markers).toMatchObject({
+      oracleBranchPinned: { passed: true },
       generateSkillRead: { passed: true },
       oracleReferenceReadAfterSkill: { passed: true },
       presentCandidatesEmitted: { passed: true },
+      noBrunchKickBeforePrompt: { passed: true },
       noWriteBeforePick: { passed: true },
     });
     expect(report.graphDelta).toEqual({ lsnDelta: 0, nodeDelta: 0, edgeDelta: 0 });
@@ -105,6 +130,7 @@ describe('generate fan-out witness report', () => {
 
   it('fails closed when candidates appear after a graph write marker', () => {
     const sessionText = [
+      oracleBranchEntry(),
       readEntry('src/.pi/skills/methods/generate-proposal/SKILL.md'),
       readEntry('src/.pi/skills/methods/generate-proposal/references/oracle.md'),
       toolResultEntry('mutate_graph', { status: 'success', lsn: 4 }),
