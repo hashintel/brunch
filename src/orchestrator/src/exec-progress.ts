@@ -17,7 +17,7 @@
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { OrchestratorResult, Plan, ReportLine, SemanticDisposition } from './types.js';
+import type { OrchestratorResult, Plan, ReportLine } from './types.js';
 
 export const EXEC_PROGRESS_FILE = 'exec-progress.json';
 
@@ -166,18 +166,19 @@ function requirementStatus(dispositions: SliceDisposition[]): RequirementStatus 
  * stub emits no disposition), so this returns an empty set in practice.
  */
 function slicesNeedingReview(reports: ReportLine[]): Set<string> {
-  const latest = new Map<string, SemanticDisposition | undefined>();
+  // Last `semantic-assessed` write per slice wins, so a later non-review
+  // disposition (e.g. `rework`) clears an earlier `needs-human-review`. Only
+  // `needs-human-review` is the human-attention signal; `rework` routes the
+  // existing satisfied-falsy rework loop and is reserved for the Phase-3
+  // assessor (D173-K), so it is not surfaced here.
+  const needsReview = new Map<string, boolean>();
   for (const line of reports) {
     if (line.event !== SEMANTIC_ASSESSED_EVENT) continue;
-    const disposition = line.payload['disposition'];
-    latest.set(
-      line.sliceId,
-      disposition === 'needs-human-review' || disposition === 'rework' ? disposition : undefined,
-    );
+    needsReview.set(line.sliceId, line.payload['disposition'] === 'needs-human-review');
   }
   const out = new Set<string>();
-  for (const [sliceId, disposition] of latest) {
-    if (disposition === 'needs-human-review') out.add(sliceId);
+  for (const [sliceId, isReview] of needsReview) {
+    if (isReview) out.add(sliceId);
   }
   return out;
 }
