@@ -220,6 +220,7 @@ export const zPresentCandidatesDetails = zPresentDetailsHeader
     candidates: z.array(zPresentedCandidate).min(1),
   })
   .strict();
+export type PresentCandidatesDetails = z.infer<typeof zPresentCandidatesDetails>;
 export const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesDetails, {
   unrepresentable: 'throw',
 });

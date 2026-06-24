@@ -1,6 +1,7 @@
 import * as z from 'zod';
 
 import { zReviewSetProposalPayloadForBoundary } from '../../../../graph/review-set.js';
+import { zPresentedCandidate } from './present.js';
 
 export const zPresentedOptionParam = z
   .object({
@@ -63,6 +64,22 @@ export const zPresentReviewSetParams = z
   })
   .strict();
 export type PresentReviewSetParams = z.infer<typeof zPresentReviewSetParams>;
+
+export const zPresentCandidatesParams = z
+  .object({
+    exchangeId: z
+      .string()
+      .min(1)
+      .describe('Stable id tying this candidate presentation to the later request_response call.'),
+    heading: z.string().min(1).describe('Candidate comparison heading.'),
+    body: z.string().describe('Markdown body for context before the candidate list.').optional(),
+    candidates: z
+      .array(zPresentedCandidate)
+      .min(1)
+      .describe('Candidate expressions to compare and choose from.'),
+  })
+  .strict();
+export type PresentCandidatesParams = z.infer<typeof zPresentCandidatesParams>;
 
 export const zRequestResponseParams = z
   .object({

@@ -1,8 +1,9 @@
 # exchanges/ — structured-exchange Pi tools
 
 Owns Pi registration and live UI collection for the structured-exchange tool
-family (`present_question`, `present_review_set`, and `request_response`). Result
-details are constructed only through `projections/exchanges/*` and validated
+family (`present_question`, `present_review_set`, `present_candidates`, and
+`request_response`). Result details are constructed only through
+`projections/exchanges/*` and validated
 against the Zod schemas in `schemas/` (see `schemas/README.md` for the details
 contract).
 
@@ -45,8 +46,10 @@ tools rather than inventing a broker choice surface.
 
 `request_response` is the **only** terminal tool. It routes by the pending
 present's `tool_meta.curr`: `present_question` to the answer/choice/choices
-sources above, and `present_review_set` to `shared/review-source.ts`
-(approve / request-changes / reject, with a required change-request comment).
+sources above, `present_review_set` to `shared/review-source.ts`
+(approve / request-changes / reject, with a required change-request comment),
+and `present_candidates` to the single-choice UI source with candidate
+provenance preserved for later `capture_candidate`.
 The retired `request_answer` / `request_choice` / `request_choices` /
 `request_review` names survive only as transcript **result-detail discriminants**
 (`tool_meta.curr` on the request details, the `projectRequest*` / `formatRequest*`

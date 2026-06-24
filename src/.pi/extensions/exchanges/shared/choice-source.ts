@@ -24,16 +24,18 @@ export interface CollectChoiceParams {
   readonly exchangeId: string;
   readonly prompt: string;
   readonly choices: readonly StructuredExchangeChoice[];
+  readonly respondsToPresentTool?: 'present_question' | 'present_candidates';
   readonly allowOther?: boolean;
   readonly commentPrompt?: string;
   readonly ctx: StructuredExchangeUiContext;
 }
 
 export async function collectChoiceFromUi(params: CollectChoiceParams) {
+  const respondsToPresentTool = params.respondsToPresentTool ?? 'present_question';
   const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
     const details = projectRequestChoice({
       exchangeId: params.exchangeId,
-      respondsToPresentTool: 'present_question',
+      respondsToPresentTool,
       status,
       message,
     });
@@ -68,7 +70,7 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
 
   const details = projectRequestChoice({
     exchangeId: params.exchangeId,
-    respondsToPresentTool: 'present_question',
+    respondsToPresentTool,
     status: 'answered',
     choice,
     comment: normalizeOptionalText(comment),
