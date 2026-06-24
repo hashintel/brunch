@@ -85,6 +85,52 @@ slices:
     expect(loaded.slices[1]!.writes).toBeUndefined();
   });
 
+  it('round-trips a slice derived_from and the top-level spec block (FE-885)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cook-plan-'));
+    const yamlPath = join(dir, 'plan.yaml');
+    writeFileSync(
+      yamlPath,
+      [
+        'spec:',
+        '  spec_id: "49"',
+        '  requirements:',
+        '    - item_id: req-1',
+        '      content: "First req"',
+        '  criteria:',
+        '    - item_id: crit-10',
+        '      content: "renders fast"',
+        '      verifies: ["req-1"]',
+        'epics:',
+        '  - id: e',
+        '    summary: e',
+        '    depends_on: []',
+        '    verification: []',
+        'slices:',
+        '  - id: a',
+        '    epic_id: e',
+        '    definition: a',
+        '    depends_on: []',
+        '    verification: []',
+        '    derived_from: ["req-1"]',
+        '  - id: b',
+        '    epic_id: e',
+        '    definition: b',
+        '    depends_on: []',
+        '    verification: []',
+        '',
+      ].join('\n'),
+    );
+
+    const loaded = loadPlan(yamlPath);
+    expect(loaded.spec).toEqual({
+      spec_id: '49',
+      requirements: [{ item_id: 'req-1', content: 'First req' }],
+      criteria: [{ item_id: 'crit-10', content: 'renders fast', verifies: ['req-1'] }],
+    });
+    expect(loaded.slices[0]!.derived_from).toEqual(['req-1']);
+    expect(loaded.slices[1]!.derived_from).toBeUndefined();
+  });
+
   it('throws on missing file', () => {
     expect(() => loadPlan('/tmp/nonexistent-plan.yaml')).toThrow();
   });
