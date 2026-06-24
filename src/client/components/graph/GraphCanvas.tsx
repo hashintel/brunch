@@ -10,7 +10,7 @@ import { buildGraphDetail } from '@/client/components/graph/graphDetail.js';
 import { GraphDetailPanel } from '@/client/components/graph/GraphDetailPanel.js';
 import { GraphEdge } from '@/client/components/graph/GraphEdge.js';
 import { GraphEmptyState } from '@/client/components/graph/GraphEmptyState.js';
-import type { LayoutMode } from '@/client/components/graph/graphForces.js';
+import { useGraphLayoutMode } from '@/client/components/graph/graphLayoutMode.js';
 import { GraphLayoutToggle } from '@/client/components/graph/GraphLayoutToggle.js';
 import { GraphNode } from '@/client/components/graph/GraphNode';
 import { GraphNodeActionsProvider } from '@/client/components/graph/graphNodeActions';
@@ -83,7 +83,7 @@ function Canvas({
 }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [highlightedKind, setHighlightedKind] = useState<KnowledgeKind | null>(null);
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>('force');
+  const [layoutMode, setLayoutMode] = useGraphLayoutMode(persistKey);
   const positions = useGraphPositions(persistKey);
   const patchList = usePatchList();
 
