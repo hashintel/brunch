@@ -4,7 +4,14 @@ import { zReviewSetProposalPayloadForBoundary } from '../../../../graph/review-s
 
 export const zPresentedOptionParam = z
   .object({
-    id: z.string().min(1).describe('Stable option id for the later request_response result details.'),
+    id: z
+      .string()
+      .min(1)
+      // Option ids round-trip through a per-line `<!-- option-id: … -->` marker
+      // recovered by a regex that stops at `>`; ids with `>` or line breaks would
+      // silently fail to reconstruct (see structured-exchange-loop/pending-exchange.ts).
+      .regex(/^[^>\r\n]+$/, 'Option id must not contain ">" or line breaks.')
+      .describe('Stable option id for the later request_response result details.'),
     content: z.string().describe('Markdown-readable option content.'),
     rationale: z.string().describe('Why this option is plausible or recommended.').optional(),
   })

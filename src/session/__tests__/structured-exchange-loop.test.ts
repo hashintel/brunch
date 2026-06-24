@@ -201,7 +201,7 @@ describe('structured exchange loop helpers', () => {
       ok: true,
       answer: { review: { decision: 'reject', comment: 'Not this batch.' } },
       toolResultMessage: {
-        toolName: 'request_review',
+        toolName: 'request_response',
         details: {
           tool_meta: { prev: 'present_review_set', curr: 'request_review' },
           answered: { decision: 'reject', comment: 'Not this batch.' },

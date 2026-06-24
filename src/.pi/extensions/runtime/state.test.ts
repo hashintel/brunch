@@ -60,9 +60,7 @@ describe('agent posture policy', () => {
     expect(floorTools).toContain('read_reconciliation_needs');
     expect(floorTools).toContain('update_reconciliation_needs');
     expect(floorTools).not.toContain('bash');
-    expect(floorTools).toEqual(
-      expect.arrayContaining(['present_question', 'present_question', 'request_response']),
-    );
+    expect(floorTools).toEqual(expect.arrayContaining(['present_question', 'request_response']));
 
     expect(coveredMethods).toEqual([
       'run-structured-exchange',

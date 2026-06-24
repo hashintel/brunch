@@ -128,9 +128,9 @@ export function acceptedResponseFromParams(
           ...(comment !== undefined ? { comment } : {}),
         },
       },
-      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_review'),
+      toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
       toolResultMessage: {
-        ...toolResultMessageBase(pending, 'request_review'),
+        ...toolResultMessageBase(pending, 'request_response'),
         content: [{ type: 'text', text: reviewResponseMarkdown(review.decision, comment) }],
         details: projectRequestReview({
           exchangeId: pending.exchangeId,
