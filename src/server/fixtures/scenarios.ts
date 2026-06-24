@@ -32,6 +32,7 @@ import {
   serializeFixturePhaseProposalAssistantParts,
   serializeFixtureQuestionAssistantParts,
 } from './helpers.js';
+import { seedAcceptedBrunchMetaSpec } from './scenarios/brunch-meta-spec.js';
 import { seedAcceptedSpatialGraphLayoutSpec } from './scenarios/spatial-graph-layout.js';
 
 const code = createKnowledgeReferenceCode;
@@ -1118,6 +1119,11 @@ export const scenarios: Record<string, ScenarioFn> = {
   'spatial-graph-layout-all-phases-closed': (db, name = 'Spatial graph layout (all phases closed)') => {
     const project = createSpecification(db, name, { mode: 'brownfield' });
     seedAcceptedSpatialGraphLayoutSpec(db, project.id);
+    return project.id;
+  },
+  'brunch-meta-spec-all-phases-closed': (db, name = 'Brunch (self-spec — full product graph)') => {
+    const project = createSpecification(db, name, { mode: 'brownfield' });
+    seedAcceptedBrunchMetaSpec(db, project.id);
     return project.id;
   },
 };
