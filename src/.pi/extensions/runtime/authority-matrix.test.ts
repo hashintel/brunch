@@ -3,10 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CommandResult } from '../../../graph/command-executor.js';
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
-import {
-  isToolBlockedForRuntimeState,
-  TOOL_POLICY_DEFINITIONS,
-} from '../../../projections/session/runtime-policy.js';
+import { isToolBlockedForRuntimeState } from '../../../projections/session/runtime-policy.js';
 import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../session/runtime-state.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from './index.js';
 
@@ -71,7 +68,7 @@ describe('minimal authority matrix', () => {
 
   it('derives elicit tool authority from the shared runtime policy and blocks side-effecting POC tools', () => {
     const state = projectBrunchAgentState([{ data: { state: DEFAULT_BRUNCH_AGENT_STATE } }]);
-    const policy = TOOL_POLICY_DEFINITIONS[state.operationalModeDefinition.toolPolicyId];
+    const policy = state.operationalModeDefinition.toolPolicy;
 
     expect(policy.id).toBe('elicit-read-only');
     expect(policy.baseAllowedToolNames).toEqual(['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search']);

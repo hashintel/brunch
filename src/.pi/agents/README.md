@@ -22,8 +22,10 @@ agents/
 
 This directory is **markdown-only**, like `.pi/skills/`. It carries no
 TypeScript and registers no Pi hooks. The `{name, description, location}`
-manifest metadata and agent-body location are code-owned in
-`.pi/extensions/runtime/state.ts`, not filesystem-discovered (D39-L sealing).
+manifest metadata and agent-body location are code-owned in the op-mode-keyed
+foreground roster (`src/projections/session/runtime-policy.ts`) and shared
+manifest type (`src/session/schema/agent-manifest.ts`), not
+filesystem-discovered (D39-L/D93-L sealing).
 
 ## Prompt-shape decisions
 
@@ -43,8 +45,9 @@ extension that consumes it:
 - **Prompt composition + pushed seed contexts** — `.pi/extensions/system-prompts/`
   (`compose.ts` emits the runtime header + gated manifest; `seed/workspace.ts`
   and `seed/graph.ts` render the pushed context blocks).
-- **Prompt-resource manifest + tool/method legality** — `.pi/extensions/runtime/`
-  (`state.ts`).
+- **Prompt-resource manifest selection + tool/method legality** —
+  `.pi/extensions/runtime/` (`state.ts`), fed by the foreground roster in
+  `src/projections/session/runtime-policy.ts`.
 - **Strategy/lens/method prompt-resource skills** — `.pi/skills/`.
 - **Reusable lossy text/markdown rendering** — `renderers/`.
 - **Pi tool definitions, lifecycle hooks, UI** — `.pi/extensions/*`.

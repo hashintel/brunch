@@ -13,12 +13,17 @@
  * these files, so the parser only needs to handle the shapes Brunch authors.
  */
 
-import { readdir, readFile } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Type, type Static } from 'typebox';
+import { Type } from 'typebox';
 import { Value } from 'typebox/value';
+
+import type { BackgroundAgentManifest } from '../../../session/schema/agent-manifest.js';
+
+export const BACKGROUND_SUBAGENT_IDS = ['scout', 'researcher', 'proposer'] as const;
+export type BackgroundSubagentId = (typeof BACKGROUND_SUBAGENT_IDS)[number];
 
 export const SUBAGENT_THINKING_LEVELS = ['low', 'medium', 'high'] as const;
 
@@ -32,9 +37,21 @@ export const SubagentFrontmatterSchema = Type.Object({
   thinking: Type.Union(SUBAGENT_THINKING_LEVELS.map((level) => Type.Literal(level))),
 });
 
-export type SubagentFrontmatter = Static<typeof SubagentFrontmatterSchema>;
+export interface SubagentFrontmatter {
+  name: string;
+  description: string;
+  tools: string[];
+  model: string;
+  thinking: (typeof SUBAGENT_THINKING_LEVELS)[number];
+}
 
-export interface SubagentDefinition extends SubagentFrontmatter {
+export interface SubagentDefinition extends BackgroundAgentManifest {
+  /** Frontmatter authoring key retained for existing call sites and errors. */
+  readonly name: string;
+  readonly description: string;
+  readonly tools: readonly string[];
+  readonly model: SubagentFrontmatter['model'];
+  readonly thinking: SubagentFrontmatter['thinking'];
   /** The markdown body — used verbatim as the child session's system prompt. */
   readonly systemPrompt: string;
 }
@@ -110,7 +127,15 @@ export function parseSubagentMarkdown(
     throw new Error(`Invalid subagent definition${where}: empty system-prompt body`);
   }
 
-  return { ...candidate, systemPrompt: body };
+  return {
+    ...candidate,
+    id: candidate.name,
+    kind: 'background',
+    body: { source: 'markdown', systemPrompt: body },
+    skills: { strategies: [], lenses: [], methods: [] },
+    canDelegate: [],
+    systemPrompt: body,
+  };
 }
 
 /** Filesystem location of the bundled agent markdown resources. */
@@ -119,21 +144,22 @@ export function subagentAgentsDir(): string {
 }
 
 /**
- * Load every `*.md` agent definition from a directory, keyed by agent name.
- * Throws on a malformed definition or a duplicate name so misconfiguration is
- * caught at registration time.
+ * Load the code-owned registry ids from a directory, keyed by agent name. Throws
+ * on malformed definitions, duplicate names, or id/frontmatter drift so
+ * misconfiguration is caught at registration time.
  */
-export async function loadSubagentDefinitions(dir: string): Promise<Map<string, SubagentDefinition>> {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const files = entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith('.md') && entry.name !== 'README.md')
-    .map((entry) => entry.name)
-    .sort();
-
+export async function loadSubagentDefinitions(
+  dir: string,
+  ids: readonly string[] = BACKGROUND_SUBAGENT_IDS,
+): Promise<Map<string, SubagentDefinition>> {
   const definitions = new Map<string, SubagentDefinition>();
-  for (const file of files) {
+  for (const id of ids) {
+    const file = `${id}.md`;
     const source = await readFile(join(dir, file), 'utf8');
     const definition = parseSubagentMarkdown(source, { sourcePath: file });
+    if (definition.name !== id) {
+      throw new Error(`Subagent registry id "${id}" does not match frontmatter name "${definition.name}".`);
+    }
     if (definitions.has(definition.name)) {
       throw new Error(`Duplicate subagent name "${definition.name}" (from ${file})`);
     }

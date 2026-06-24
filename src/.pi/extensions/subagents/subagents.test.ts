@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -111,6 +111,20 @@ describe('loadSubagentDefinitions (bundled agents)', () => {
     expect(definitions.get('researcher')?.tools).toEqual(['web_search', 'web_fetch']);
     expect(definitions.get('proposer')?.tools).toEqual([]);
   });
+
+  it('loads only the explicit registry ids and ignores planted unlisted markdown files', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'brunch-subagent-registry-'));
+    await writeFile(join(dir, 'scout.md'), SCOUT_MD);
+    await writeFile(
+      join(dir, 'ghost.md'),
+      '---\nname: ghost\ndescription: Should not load\ntools: bash\n---\nYou should not see me.',
+    );
+
+    const definitions = await loadSubagentDefinitions(dir, ['scout']);
+
+    expect([...definitions.keys()]).toEqual(['scout']);
+    expect(definitions.has('ghost')).toBe(false);
+  });
 });
 
 describe('subagent config', () => {
@@ -186,7 +200,7 @@ describe('resolveSubagentModel', () => {
       getAvailable: () => [],
       find: () => undefined,
     } as unknown as SubagentRunContext['modelRegistry'];
-    const def = { name: 'x', model: 'bogus' } as SubagentDefinition;
+    const def = { name: 'x', model: 'bogus' } as unknown as SubagentDefinition;
     expect(resolveSubagentModel(def, { model: undefined, modelRegistry: registry }).status).toBe(
       'unresolved',
     );
@@ -195,7 +209,7 @@ describe('resolveSubagentModel', () => {
 
 describe('planSubagentTools', () => {
   it('maps read-only filesystem tools to a cwd-bound custom-tool allowlist', () => {
-    const def = { name: 'scout', tools: ['read', 'grep', 'find', 'ls'] } as SubagentDefinition;
+    const def = { name: 'scout', tools: ['read', 'grep', 'find', 'ls'] } as unknown as SubagentDefinition;
     const plan = planSubagentTools(def, { cwd: '/tmp' });
     expect(plan.tools).toEqual(['read', 'grep', 'find', 'ls']);
     expect((plan.customTools ?? []).map((tool: ToolDefinition) => tool.name).sort()).toEqual([
@@ -208,7 +222,7 @@ describe('planSubagentTools', () => {
   });
 
   it('maps web tools for the researcher', () => {
-    const def = { name: 'researcher', tools: ['web_search', 'web_fetch'] } as SubagentDefinition;
+    const def = { name: 'researcher', tools: ['web_search', 'web_fetch'] } as unknown as SubagentDefinition;
     const plan = planSubagentTools(def, { cwd: '/tmp' });
     expect((plan.customTools ?? []).map((tool: ToolDefinition) => tool.name).sort()).toEqual([
       'web_fetch',
@@ -222,7 +236,7 @@ describe('planSubagentTools', () => {
   });
 
   it('throws on an unknown tool name', () => {
-    const def = { name: 'rogue', tools: ['bash'] } as SubagentDefinition;
+    const def = { name: 'rogue', tools: ['bash'] } as unknown as SubagentDefinition;
     expect(() => planSubagentTools(def, { cwd: '/tmp' })).toThrow(/unknown tool/);
   });
 });

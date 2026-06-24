@@ -12,35 +12,20 @@ import {
   toolPolicyForRuntimeState,
   type ResolvedBrunchAgentState,
 } from '../../../projections/session/runtime-policy.js';
-import type { AgentLensId, AgentRoleId, AgentStrategyId } from '../../../session/schema/kinds.js';
+import {
+  AGENT_LENS_IDS,
+  AGENT_METHOD_IDS,
+  AGENT_STRATEGY_IDS,
+  type AgentMethodId,
+  type AgentRoleId,
+} from '../../../session/schema/kinds.js';
 type PromptResourceFamily = 'strategies' | 'lenses' | 'methods';
-export type MethodId =
-  | 'run-structured-exchange'
-  | 'capture'
-  | 'commit-graph'
-  | 'elicit-by-question'
-  | 'ingest-paste'
-  | 'read-referenced-documents'
-  | 'explore-and-characterize'
-  | 'read-context'
-  | 'generate-proposal'
-  | 'review-for-gaps';
+export type MethodId = AgentMethodId;
 
 export interface PromptResourceManifestEntry {
   name: string;
   description: string;
   location: string;
-}
-
-export interface AgentPromptDefinition {
-  id: AgentRoleId;
-  description: string;
-  model: string;
-  thinking: 'low' | 'medium' | 'high';
-  toolAuthority: string;
-  allowedStrategies: readonly AgentStrategyId[];
-  allowedLenses: readonly AgentLensId[];
-  allowedMethods: readonly MethodId[];
 }
 
 export interface PromptManifests {
@@ -79,64 +64,20 @@ const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
   'generate-proposal': ['present_review_set', 'request_response'],
 };
 
-export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition> = {
-  elicitor: {
-    id: 'elicitor',
-    description:
-      'Foreground Brunch session agent that elicits, disambiguates, and captures selected-spec intent.',
-    model: 'default',
-    thinking: 'medium',
-    toolAuthority:
-      'elicit read-only; graph writes only through Brunch graph tools when legal methods allow them',
-    allowedStrategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
-    allowedLenses: ['intent', 'design', 'oracle'],
-    allowedMethods: [
-      'run-structured-exchange',
-      'capture',
-      'commit-graph',
-      'elicit-by-question',
-      'ingest-paste',
-      'read-referenced-documents',
-      'explore-and-characterize',
-      'read-context',
-      'generate-proposal',
-      'review-for-gaps',
-    ],
-  },
-};
-
-const STRATEGY_IDS = [
-  'freestyle',
-  'step-wise-decision-tree',
-  'step-wise-disambiguate',
-] as const satisfies readonly AgentStrategyId[];
-const LENS_IDS = ['intent', 'design', 'oracle'] as const satisfies readonly AgentLensId[];
-const METHOD_IDS = [
-  'run-structured-exchange',
-  'capture',
-  'commit-graph',
-  'elicit-by-question',
-  'ingest-paste',
-  'read-referenced-documents',
-  'explore-and-characterize',
-  'read-context',
-  'generate-proposal',
-  'review-for-gaps',
-] as const satisfies readonly MethodId[];
-
-export const STRATEGY_RESOURCES = loadPromptResourceManifestEntries('strategies', STRATEGY_IDS);
-export const LENS_RESOURCES = loadPromptResourceManifestEntries('lenses', LENS_IDS);
-export const METHOD_RESOURCES = loadPromptResourceManifestEntries('methods', METHOD_IDS);
+export const STRATEGY_RESOURCES = loadPromptResourceManifestEntries('strategies', AGENT_STRATEGY_IDS);
+export const LENS_RESOURCES = loadPromptResourceManifestEntries('lenses', AGENT_LENS_IDS);
+export const METHOD_RESOURCES = loadPromptResourceManifestEntries('methods', AGENT_METHOD_IDS);
 
 export function manifestsForState(
   state: ResolvedBrunchAgentState,
   gaps: readonly ElicitationGap[],
 ): PromptManifests {
-  const definition = AGENT_PROMPT_DEFINITIONS[state.agentRole];
-  if (!definition) {
-    throw new Error(`Unknown Brunch agent "${state.agentRole}".`);
-  }
-  if (definition.id !== state.agentRole || state.operationalMode !== 'elicit') {
+  const definition = state.agentRoleDefinition;
+  if (
+    definition.kind !== 'foreground' ||
+    definition.id !== state.agentRole ||
+    definition.operationalMode !== state.operationalMode
+  ) {
     throw new Error(
       `Agent "${state.agentRole}" is not legal in operational mode "${state.operationalMode}".`,
     );
@@ -146,7 +87,7 @@ export function manifestsForState(
     strategies: selectAxisResources({
       label: 'strategy',
       selection: state.agentStrategy,
-      allowed: definition.allowedStrategies,
+      allowed: definition.skills.strategies,
       resources: STRATEGY_RESOURCES,
       legalIds: axisOptionsForRuntimeState('strategy', state, gaps),
       state,
@@ -155,7 +96,7 @@ export function manifestsForState(
     lenses: selectAxisResources({
       label: 'lens',
       selection: state.agentLens,
-      allowed: definition.allowedLenses,
+      allowed: definition.skills.lenses,
       resources: LENS_RESOURCES,
       legalIds: axisOptionsForRuntimeState('lens', state, gaps),
       state,
@@ -168,15 +109,15 @@ export function methodIdsForState(
   state: ResolvedBrunchAgentState,
   gaps: readonly ElicitationGap[],
 ): readonly MethodId[] {
-  const definition = AGENT_PROMPT_DEFINITIONS[state.agentRole];
+  const definition = state.agentRoleDefinition;
   if (
-    !definition ||
+    definition.kind !== 'foreground' ||
     definition.id !== state.agentRole ||
-    state.operationalMode !== 'elicit' ||
+    definition.operationalMode !== state.operationalMode ||
     gaps.length === 0
   )
     return [];
-  return definition.allowedMethods.filter((method) =>
+  return definition.skills.methods.filter((method) =>
     isCapabilityLegalForGaps(METHOD_CAPABILITY[method], gaps),
   );
 }

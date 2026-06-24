@@ -1,19 +1,14 @@
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type {
-  BrunchAgentState,
-  ModelPreference,
-  PromptPackId,
-  ThinkingLevel,
-  ToolPolicyId,
-} from '../../session/runtime-state.js';
+import type { BrunchAgentState, ToolPolicyId } from '../../session/runtime-state.js';
+import type { ForegroundAgentManifest } from '../../session/schema/agent-manifest.js';
 import type {
   AgentLensId,
   AgentLensSelection,
-  AgentRoleId,
   AgentStrategyId,
   AgentStrategySelection,
   OperationalModeId,
 } from '../../session/schema/kinds.js';
+import { AGENT_METHOD_IDS } from '../../session/schema/kinds.js';
 import { evaluateCapabilityReadiness, type CapabilityId } from './capability-readiness.js';
 
 export interface ToolPolicyDefinition {
@@ -24,57 +19,50 @@ export interface ToolPolicyDefinition {
 
 export interface OperationalModeDefinition {
   id: OperationalModeId;
-  defaultRole: AgentRoleId;
-  allowedRoles: readonly AgentRoleId[];
-  toolPolicyId: ToolPolicyId;
-  promptPackIds: readonly PromptPackId[];
+  foregroundAgent: ForegroundAgentManifest;
+  toolPolicy: ToolPolicyDefinition;
 }
 
-export interface AgentRoleDefinition {
-  id: AgentRoleId;
-  operationalMode: OperationalModeId;
-  defaultStrategy: AgentStrategySelection;
-  allowedStrategies: readonly AgentStrategyId[];
-  defaultLens: AgentLensSelection;
-  allowedLenses: readonly AgentLensId[];
-  promptPackIds: readonly PromptPackId[];
-  modelPreference?: ModelPreference;
-  thinkingLevel?: ThinkingLevel;
-}
+export type AgentRoleDefinition = ForegroundAgentManifest;
 
 export interface ResolvedBrunchAgentState extends BrunchAgentState {
-  agentRole: AgentRoleId;
+  agentRole: ForegroundAgentManifest['id'];
   operationalModeDefinition: OperationalModeDefinition;
   agentRoleDefinition: AgentRoleDefinition;
 }
 
-export const OPERATIONAL_MODE_DEFINITIONS: Record<OperationalModeId, OperationalModeDefinition> = {
+export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeDefinition> = {
   elicit: {
     id: 'elicit',
-    defaultRole: 'elicitor',
-    allowedRoles: ['elicitor'],
-    toolPolicyId: 'elicit-read-only',
-    promptPackIds: ['brunch-base', 'elicit'],
-  },
-};
-
-export const AGENT_ROLE_DEFINITIONS: Record<AgentRoleId, AgentRoleDefinition> = {
-  elicitor: {
-    id: 'elicitor',
-    operationalMode: 'elicit',
-    defaultStrategy: 'auto',
-    allowedStrategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
-    defaultLens: 'auto',
-    allowedLenses: ['intent', 'design', 'oracle'],
-    promptPackIds: ['elicitor'],
-  },
-};
-
-export const TOOL_POLICY_DEFINITIONS: Record<ToolPolicyId, ToolPolicyDefinition> = {
-  'elicit-read-only': {
-    id: 'elicit-read-only',
-    baseAllowedToolNames: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search'],
-    blockedToolNames: ['bash', 'edit', 'write'],
+    foregroundAgent: {
+      kind: 'foreground',
+      id: 'elicitor',
+      operationalMode: 'elicit',
+      description:
+        'Foreground Brunch session agent that elicits, disambiguates, and captures selected-spec intent.',
+      model: 'default',
+      thinking: 'medium',
+      body: {
+        source: 'file',
+        location: 'src/.pi/agents/elicitor/SYSTEM.md',
+      },
+      skills: {
+        strategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
+        lenses: ['intent', 'design', 'oracle'],
+        methods: AGENT_METHOD_IDS,
+      },
+      tools: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search'],
+      canDelegate: [],
+      defaultStrategy: 'auto',
+      defaultLens: 'auto',
+      toolAuthority:
+        'elicit read-only; graph writes only through Brunch graph tools when legal methods allow them',
+    },
+    toolPolicy: {
+      id: 'elicit-read-only',
+      baseAllowedToolNames: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search'],
+      blockedToolNames: ['bash', 'edit', 'write'],
+    },
   },
 };
 
@@ -144,9 +132,9 @@ export function pinnableAxisOptionsForRuntimeState(
   gaps: readonly ElicitationGap[],
 ): readonly (AgentStrategyId | AgentLensId)[] {
   if (axis === 'strategy') {
-    return state.agentRoleDefinition.allowedStrategies;
+    return state.agentRoleDefinition.skills.strategies;
   }
-  return state.agentRoleDefinition.allowedLenses.filter((id) =>
+  return state.agentRoleDefinition.skills.lenses.filter((id) =>
     isCapabilityLegalForGaps(LENS_CAPABILITY[id], gaps),
   );
 }
@@ -160,7 +148,7 @@ export function defaultLensForRuntimeState(state: ResolvedBrunchAgentState): Age
 }
 
 export function toolPolicyForRuntimeState(state: ResolvedBrunchAgentState): ToolPolicyDefinition {
-  return TOOL_POLICY_DEFINITIONS[state.operationalModeDefinition.toolPolicyId];
+  return state.operationalModeDefinition.toolPolicy;
 }
 
 export function isToolBlockedForRuntimeState(state: ResolvedBrunchAgentState, toolName: string): boolean {

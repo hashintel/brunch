@@ -6,7 +6,7 @@ import type {
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
 } from '../../../session/agent-context-seed.js';
-import { AGENT_PROMPT_DEFINITIONS, manifestsForState, type PromptManifests } from '../runtime/state.js';
+import { manifestsForState, type PromptManifests } from '../runtime/state.js';
 
 export interface AgentPromptContextBundle {
   contextHandles?: readonly string[];
@@ -36,7 +36,7 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
     );
   }
 
-  const definition = AGENT_PROMPT_DEFINITIONS[input.agentId];
+  const definition = input.sessionState.agentRoleDefinition;
   const manifests = manifestsForState(input.sessionState, input.gaps);
   const prompt = joinSections([
     input.agentBody ?? '',
@@ -53,7 +53,7 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
 
 function renderAgentControl(
   input: ComposeAgentPromptInput,
-  definition: (typeof AGENT_PROMPT_DEFINITIONS)[ComposeAgentPromptInput['agentId']],
+  definition: ResolvedBrunchAgentState['agentRoleDefinition'],
 ): string {
   const tools = input.activeTools?.join(', ') || 'none';
   return [

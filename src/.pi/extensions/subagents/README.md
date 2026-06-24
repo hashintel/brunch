@@ -8,7 +8,9 @@
 > convention (ownership + SPEC refs + layout).
 
 SPEC decisions: D44-L (subagent), D39-L (sealed profile), D40-L (registration ≠
-advertisement). Frontier: PLAN.md `subagent-adoption`.
+advertisement), D90-L (shared foreground/background manifest + code-owned
+background discovery), D93-L (op-mode↔foreground collapse). Frontier: PLAN.md
+`subagent-reconciliation`.
 
 ---
 
@@ -81,7 +83,7 @@ last assistant message is the only thing that crosses back to the parent.
 
 | File | Responsibility |
 | --- | --- |
-| [`agents.ts`](./agents.ts) | Markdown agent loader: tiny frontmatter parser (no YAML dep), TypeBox-validated schema (`name`, `description`, `tools`, `model`, `thinking`), `loadSubagentDefinitions(dir)` → `Map<name, def>`. Fails loud on malformed/duplicate agents. |
+| [`agents.ts`](./agents.ts) | Markdown agent loader: tiny frontmatter parser (no YAML dep), TypeBox-validated schema (`name`, `description`, `tools`, `model`, `thinking`), explicit `BACKGROUND_SUBAGENT_IDS` registry, `loadSubagentDefinitions(dir, ids?)` → `Map<name, def>`. Projects frontmatter into the shared `AgentManifest` background shape and fails loud on malformed/duplicate/id-drifted agents. |
 | [`config.ts`](./config.ts) | TypeBox loader for [`config.json`](./config.json) (`version`, `maxConcurrency`; tolerates `$comment`). |
 | [`session.ts`](./session.ts) | The sealed child-session runner. `resolveSubagentModel`, `planSubagentTools`, `runSubagent`. Never throws — failures return as error results. **Injectable SDK builders** (`createServices`/`createSession`) for testing. |
 | [`index.ts`](./index.ts) | `registerBrunchSubagents(pi, deps)` — registers the one `subagent` tool (single `{agent,task}` or parallel `{tasks:[…]}`), `createSemaphore` for bounded concurrency, result formatting. Re-exports the public surface. |
@@ -96,8 +98,10 @@ the sealed primitives.
 
 ## Agent definitions (`agents/*.md`)
 
-Frontmatter is the registry contract; the markdown body is the child's system
-prompt (used verbatim, replacing Pi's coding base).
+Frontmatter is the background-agent authoring contract; the code-owned
+`BACKGROUND_SUBAGENT_IDS` list is the registry. The markdown body is the child's
+system prompt (used verbatim for the current D44-L sealed child, replacing Pi's
+coding base).
 
 ```yaml
 ---
@@ -213,7 +217,7 @@ and carry a depth/allowlist bound; pairs naturally with the future write-capable
 
 | Aspect | Original | Brunch (this) |
 | --- | --- | --- |
-| Agent discovery | Bundled `agents/*.md` beside `index.ts` **+** `globalThis.__pi_subagents` runtime bridge for other extensions | Bundled `agents/*.md` via explicit `loadSubagentDefinitions(dir)`; **no** bridge, **no** ambient `~/.pi` scan |
+| Agent discovery | Bundled `agents/*.md` beside `index.ts` **+** `globalThis.__pi_subagents` runtime bridge for other extensions | Bundled `agents/*.md` via explicit `BACKGROUND_SUBAGENT_IDS` → `loadSubagentDefinitions(dir, ids?)`; **no** bridge, **no** ambient `~/.pi` scan, and no directory scan |
 | Frontmatter | Loose: string split + silent defaults; extra `subagent_agents` allowlist; `model` default `anthropic/claude-sonnet-4-6` | Strict TypeBox schema, **fails loud**; no `subagent_agents` (no nesting); `model: default` inherits parent |
 | Execution | `spawn()` a child `pi` process (`--mode json -p --no-session --no-skills --no-extensions`, re-adds `--extension` paths, `--append-system-prompt` temp file) | In-process SDK `AgentSession` with sealed services |
 | Isolation basis | OS process boundary + flags; depends on a resolvable `pi` binary on PATH | Sealed in-memory services; no binary, no ambient leakage |

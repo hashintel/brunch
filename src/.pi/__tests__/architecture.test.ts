@@ -40,8 +40,9 @@ const runtimeRegistryExpectations = [
     required: "export const AGENT_ROLE_IDS = ['elicitor'] as const;",
   },
   {
-    file: 'src/.pi/extensions/runtime/state.ts',
-    required: 'export const AGENT_PROMPT_DEFINITIONS: Record<AgentRoleId, AgentPromptDefinition> = {',
+    file: 'src/projections/session/runtime-policy.ts',
+    required:
+      'export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeDefinition> = {',
   },
 ];
 
