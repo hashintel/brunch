@@ -55,6 +55,13 @@ export function layerY(kind: GraphNodeKind): number {
 
 export const collisionRadius = Math.hypot(cardFootprint.width, cardFootprint.height) / 2;
 
+/**
+ * Repulsion per unit of card area (charge = -CHARGE_PER_AREA * collisionRadius²).
+ * Calibrated so the original 160×96 card reproduced a charge of ~-800; scaling with
+ * collisionRadius² keeps the layout shape invariant as the card footprint changes.
+ */
+const CHARGE_PER_AREA = 0.092;
+
 function radialBound(radius: number): (alpha: number) => void {
   let nodes: SimNode[] = [];
   const force = (alpha: number) => {
@@ -105,9 +112,10 @@ export function buildSimulation(model: SimModel): {
         .id((node) => node.id)
         .distance(collisionRadius * 2),
     )
-    // Charge scales with the card footprint (∝ collisionRadius²) so cluster
-    // separation and the overall layout shape stay the same as the card size changes.
-    .force('charge', forceManyBody<SimNode>().strength(-(collisionRadius * collisionRadius) * 0.092))
+    .force(
+      'charge',
+      forceManyBody<SimNode>().strength(-(collisionRadius * collisionRadius) * CHARGE_PER_AREA),
+    )
     .force('collide', forceCollide<SimNode>(collisionRadius).strength(1).iterations(4))
     .force('center', forceCenter(0, 0))
     .force('y', forceY<SimNode>((node) => layerY(node.data.kind)).strength(0.06))

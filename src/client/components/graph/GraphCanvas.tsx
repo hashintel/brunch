@@ -12,6 +12,7 @@ import { GraphEdge } from '@/client/components/graph/GraphEdge.js';
 import { GraphEmptyState } from '@/client/components/graph/GraphEmptyState.js';
 import { GraphNode } from '@/client/components/graph/GraphNode';
 import { GraphNodeActionsProvider } from '@/client/components/graph/graphNodeActions';
+import { parseNodeId } from '@/client/components/graph/nodeId';
 import type { GraphEdgeRelationship, GraphNodeData } from '@/client/components/graph/types.js';
 import { useForceLayout } from '@/client/components/graph/useForceLayout.js';
 import { useSelection } from '@/client/components/graph/useSelection';
@@ -164,7 +165,7 @@ function Canvas({
     (newContent: string) => {
       selection.cancelEdit();
       if (patchList === null || detail === null || selection.selectedId === null) return;
-      const itemId = Number(selection.selectedId.split(':')[1]);
+      const itemId = parseNodeId(selection.selectedId).id;
       patchList.stage({
         kind: 'edit',
         producerChatId: null,

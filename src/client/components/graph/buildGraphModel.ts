@@ -8,7 +8,8 @@
 import type { EntitiesData } from '@/shared/api-types.js';
 import { createKnowledgeReferenceCode, knowledgeKindRegistry } from '@/shared/knowledge.js';
 
-import type { GraphEdgeData, GraphNodeData, GraphNodeKind } from './types.js';
+import { encodeNodeId } from './nodeId.js';
+import type { GraphEdgeData, GraphNodeData } from './types.js';
 
 /** A node in the graph model, keyed by `${kind}:${id}`. */
 export interface GraphNode {
@@ -29,10 +30,6 @@ export interface GraphModel {
   edges: GraphEdge[];
 }
 
-function nodeId(kind: GraphNodeKind, id: number): string {
-  return `${kind}:${id}`;
-}
-
 export function buildGraphModel(entityState: EntitiesData): GraphModel {
   const nodesById = new Map<string, GraphNode>();
   const nodes: GraphNode[] = [];
@@ -40,7 +37,7 @@ export function buildGraphModel(entityState: EntitiesData): GraphModel {
   for (const entry of knowledgeKindRegistry) {
     for (const item of entityState[entry.collectionKey]) {
       const node: GraphNode = {
-        id: nodeId(entry.kind, item.id),
+        id: encodeNodeId(entry.kind, item.id),
         data: {
           kind: entry.kind,
           degree: 0,
@@ -59,8 +56,8 @@ export function buildGraphModel(entityState: EntitiesData): GraphModel {
   const edges: GraphEdge[] = [];
 
   for (const rel of entityState.relationships) {
-    const source = nodeId(rel.source.kind, rel.source.id);
-    const target = nodeId(rel.target.kind, rel.target.id);
+    const source = encodeNodeId(rel.source.kind, rel.source.id);
+    const target = encodeNodeId(rel.target.kind, rel.target.id);
     const sourceNode = nodesById.get(source);
     const targetNode = nodesById.get(target);
     if (sourceNode === undefined || targetNode === undefined) continue;

@@ -7,6 +7,7 @@ import type { CSSProperties } from 'react';
 import { cardFootprint } from '@/client/components/graph/cardFootprint';
 import { useGraphNodeActions } from '@/client/components/graph/graphNodeActions';
 import { nodeColor } from '@/client/components/graph/graphStyle';
+import { parseNodeId } from '@/client/components/graph/nodeId';
 import type { GraphNodeData } from '@/client/components/graph/types';
 import { KindBadge } from '@/client/components/knowledge-card';
 import { useSecondaryChatTrigger } from '@/client/components/secondary-chat-trigger';
@@ -16,7 +17,7 @@ import './graphNode.css';
 
 export function GraphNode({ id, data }: NodeProps & { data: GraphNodeData }) {
   const { kind, selected, dimmed, highlighted, referenceCode, content } = data;
-  const itemId = Number(id.split(':')[1]);
+  const itemId = parseNodeId(id).id;
   const { requestEdit } = useGraphNodeActions();
   const chatTrigger = useSecondaryChatTrigger();
 

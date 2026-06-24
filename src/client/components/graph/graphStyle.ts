@@ -1,20 +1,18 @@
-/** Graph view styling leaf: neutral edge stroke + arrowhead, and the per-kind accent color (shared with knowledge cards). */
+/** Graph view styling leaf: edge stroke width + arrowhead size, and the per-kind accent color (shared with knowledge cards). */
 
 import type { GraphEdgeRelationship } from '@/client/components/graph/types';
 import { kindAccentHex } from '@/client/components/knowledge-card';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
-/** Neutral edge baseline; the rendered stroke color comes from edgeColor by relationship. */
+/** Edge stroke width; the rendered stroke color comes from edgeColor by relationship. */
 export const edgeStyle = {
-  stroke: '#94a3b8',
   strokeWidth: 1,
 } as const;
 
-/** Directional arrowhead dimensions; a single shape, colored by relationship. */
+/** Directional arrowhead dimensions; the single shape is colored by relationship. */
 export const arrowheadConfig = {
   width: 8,
   height: 8,
-  color: '#94a3b8',
 } as const;
 
 /**
