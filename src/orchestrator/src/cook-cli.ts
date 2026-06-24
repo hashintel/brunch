@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { type CookFinishLand, cookBannerLines, cookFinishLines, cookSummaryLines } from './cook-report.js';
@@ -24,7 +24,13 @@ import { landCookBranch, promoteGreenfieldRun } from './promote-run.js';
 import { harvestCookRun, selectSalvageableSlices } from './run-artifact.js';
 import { brunchRef, gcCookRun } from './run-refs.js';
 import { type ConfineMode, createSandboxGuard, runConfinementPreflight } from './sandbox-guard.js';
-import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
+import {
+  parseSpecId,
+  resolveLatestSpecPlanPath,
+  specPlanPath,
+  specRunStoreDir,
+  specsRootDir,
+} from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
 import type { Plan, PlanMode } from './types.js';
 import { createSandbox } from './worktree.js';
@@ -307,6 +313,23 @@ function fmtDuration(ms: number): string {
   return `${m}m ${rem.toFixed(0)}s`;
 }
 
+/**
+ * Resolve the spec id that scopes a run's durable store (FE-885). The plan's
+ * own `spec.spec_id` (stamped by the emitter from the source spec) is the
+ * authoritative source — it is present whether cook was invoked with `--spec`
+ * or auto-picked the newest plan. The `--spec` flag is the fallback, and an
+ * authored/fixture plan with no spec block yields `undefined` (no spec
+ * identity → no durable store). A non-positive-integer `spec_id` is ignored.
+ */
+export function resolveRunStoreSpecId(plan: Plan, flagSpecId?: number): number | undefined {
+  const raw = plan.spec?.spec_id;
+  if (raw !== undefined) {
+    const parsed = Number(raw);
+    if (Number.isInteger(parsed) && parsed > 0) return parsed;
+  }
+  return flagSpecId;
+}
+
 export type ResolvedCookPlan =
   | { kind: 'resolved'; planPath: string; sourceDir: string }
   | { kind: 'error'; message: string };
@@ -530,7 +553,17 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
     sandbox.kind === 'codebase'
       ? createSandbox(launchCwd, undefined, { mode: 'codebase', sourceDir: sandbox.sourceDir })
       : createSandbox(launchCwd);
-  const reportsPath = join(runDir, 'reports.jsonl');
+
+  // Durable run store (FE-885): when the run is tied to a spec, persist
+  // `reports.jsonl` (and later `exec-progress.json`) under the spec-scoped run
+  // store so they survive brownfield `gcCookRun`, which deletes only the
+  // ephemeral `runDir`. The spec id is plan truth (`plan.spec.spec_id`, stamped
+  // by the emitter), falling back to the `--spec` flag; an authored/fixture run
+  // with no spec identity keeps reports in `runDir` (legacy behavior).
+  const specId = resolveRunStoreSpecId(plan, opts.specId);
+  const runStoreDir = specId !== undefined ? specRunStoreDir(launchCwd, specId, runId) : runDir;
+  mkdirSync(runStoreDir, { recursive: true });
+  const reportsPath = join(runStoreDir, 'reports.jsonl');
 
   const epicCount = plan.epics.length;
   const sliceCount = plan.slices.length;

@@ -9,7 +9,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath } from './spec-plan-paths.js';
+import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specRunStoreDir } from './spec-plan-paths.js';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -27,6 +27,20 @@ describe('specPlanPath', () => {
   it('joins .brunch/cook/specs/<id>/plan.yaml under dir', () => {
     expect(specPlanPath('/x', 23)).toBe(join('/x', '.brunch', 'cook', 'specs', '23', 'plan.yaml'));
     expect(specPlanPath('/x', 1)).toBe(join('/x', '.brunch', 'cook', 'specs', '1', 'plan.yaml'));
+  });
+});
+
+describe('specRunStoreDir (FE-885)', () => {
+  it('joins .brunch/cook/specs/<id>/runs/<runId> under dir', () => {
+    expect(specRunStoreDir('/x', 23, 'abc')).toBe(
+      join('/x', '.brunch', 'cook', 'specs', '23', 'runs', 'abc'),
+    );
+  });
+
+  it('sits beside, not inside, the ephemeral run dir so gcCookRun (which rms the run dir) cannot reach it', () => {
+    const store = specRunStoreDir('/x', 23, 'abc');
+    const ephemeralRunDir = join('/x', '.brunch', 'cook', 'runs', 'abc');
+    expect(store.startsWith(ephemeralRunDir)).toBe(false);
   });
 });
 
