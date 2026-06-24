@@ -64,7 +64,7 @@ export function projectPlanFromSpec(snapshot: CompletedSpecSnapshot): Plan {
   const slices = orderedRequirements.map((requirement) => {
     const verifiers = (verifiersByRequirementId.get(requirement.id) ?? []).sort(byKindOrdinal);
     return {
-      id: `req-${requirement.id}`,
+      id: requirementItemId(requirement.id),
       epic_id: DEFAULT_EPIC_ID,
       definition: requirement.content,
       depends_on: [],
