@@ -30,6 +30,7 @@ This directory is Brunch's sealed Pi-harness surface. It contains agent role def
 ├── agents/                        agent role prompt definitions (markdown only)
 │   ├── elicitor/SYSTEM.md
 │   ├── explorer/SYSTEM.md
+│   ├── orchestrator/SYSTEM.md
 │   ├── pi-coder/SYSTEM.md
 │   ├── projector/SYSTEM.md
 │   ├── researcher/SYSTEM.md

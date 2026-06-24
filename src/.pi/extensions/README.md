@@ -30,6 +30,7 @@ extensions/
 ├── reconciliation/          read_reconciliation_needs/update_reconciliation_needs Pi tools over the recon-need register
 ├── introspection/           dev-gated read-only provider-payload tap + /introspect command
 ├── introspect-query/        dev-gated read-only brunch_introspect_query tool over captured payloads
+├── orchestrator-stub/       code-owned execute-mode standup tool registered on the product path
 ├── session-query/           dev-gated read-only brunch_session_query tool over current branch
 ├── shared/                  projection/truncation helpers + Zod→Pi schema adapter for dev query tools
 ├── mentions/                #graph mention prompt hint + autocomplete provider

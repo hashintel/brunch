@@ -9,6 +9,7 @@ import {
   delegatableAgentsForRuntimeState,
 } from '../../../projections/session/runtime-policy.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
+import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../orchestrator-stub/index.js';
 import { activeToolNamesForPosture, agentBodyResourceLocation, manifestsForState } from './state.js';
 
 const registeredToolNames = [
@@ -29,6 +30,7 @@ const registeredToolNames = [
   'read_reconciliation_needs',
   'update_reconciliation_needs',
   'mutate_graph',
+  BRUNCH_ORCHESTRATOR_STUB_TOOL,
 ];
 
 describe('agent posture policy', () => {
@@ -244,6 +246,44 @@ describe('agent posture policy', () => {
       'projector',
       'reviewer',
     ]);
+  });
+
+  it('activates the orchestrator stub only in execute mode', () => {
+    const executeState = projectBrunchAgentState([
+      {
+        type: 'custom',
+        customType: 'brunch.agent_runtime_state',
+        data: {
+          schemaVersion: 1,
+          reason: 'switch',
+          source: 'user',
+          state: {
+            schemaVersion: 1,
+            operationalMode: 'execute',
+            agentStrategy: 'auto',
+            agentLens: 'auto',
+          },
+        },
+      },
+    ]);
+    const elicitState = projectBrunchAgentState([]);
+
+    const executeTools = activeToolNamesForPosture({
+      registeredToolNames,
+      state: executeState,
+      gaps: groundingFloorGaps({ defaultCoverage: 0 }),
+    });
+    const elicitTools = activeToolNamesForPosture({
+      registeredToolNames,
+      state: elicitState,
+      gaps: groundingFloorGaps({ defaultCoverage: 0 }),
+    });
+
+    expect(executeState.agentRole).toBe('orchestrator');
+    expect(delegatableAgentsForRuntimeState(executeState)).toEqual([]);
+    expect(executeTools).toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
+    expect(executeTools).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
+    expect(elicitTools).not.toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
   });
 
   it('keeps state.ts free of grade-gate symbols', () => {

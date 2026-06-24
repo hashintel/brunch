@@ -17,6 +17,8 @@ agents/
 │   └── SYSTEM.md     keyed foreground elicit-mode system-prompt resource
 ├── explorer/
 │   └── SYSTEM.md     keyed background codebase recon body + frontmatter
+├── orchestrator/
+│   └── SYSTEM.md     keyed foreground execute-mode system-prompt resource
 ├── pi-coder/
 │   └── SYSTEM.md     future unwired coding-agent augmentation baseline
 ├── projector/
@@ -77,9 +79,9 @@ tree answers "who owns prompt assembly?" by walking to `system-prompts/` and
 
 The D85-L agent-definition convention is enacted for foreground bodies, and D90-L
 extends the same home to background bodies: `elicitor/SYSTEM.md`,
-`explorer/SYSTEM.md`, `researcher/SYSTEM.md`, `projector/SYSTEM.md`,
-`reviewer/SYSTEM.md`, and the unwired `pi-coder/SYSTEM.md` baseline all use
-`<agent>/SYSTEM.md`. The former `src/.pi/extensions/subagents/agents/*.md`
-background home and the flat legacy `reviewer.md` shape are retired. `pi-coder`
-records Pi's `buildSystemPrompt` worked-example baseline while D58-L's
-augment-vs-replace question stays open.
+`orchestrator/SYSTEM.md`, `explorer/SYSTEM.md`, `researcher/SYSTEM.md`,
+`projector/SYSTEM.md`, `reviewer/SYSTEM.md`, and the unwired
+`pi-coder/SYSTEM.md` baseline all use `<agent>/SYSTEM.md`. The former
+`src/.pi/extensions/subagents/agents/*.md` background home and the flat legacy
+`reviewer.md` shape are retired. `pi-coder` records Pi's `buildSystemPrompt`
+worked-example baseline while D58-L's augment-vs-replace question stays open.

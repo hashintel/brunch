@@ -21,6 +21,10 @@ const agentDefinitionExpectations = [
     needles: ['# Agent: elicitor', 'multi-spec discipline'],
   },
   {
+    system: 'src/.pi/agents/orchestrator/SYSTEM.md',
+    needles: ['# Agent: orchestrator', 'execute mode'],
+  },
+  {
     system: 'src/.pi/agents/reviewer/SYSTEM.md',
     legacyFlat: 'src/.pi/agents/reviewer.md',
     needles: ['name: reviewer', 'checking candidate'],
@@ -49,7 +53,7 @@ const agentDefinitionExpectations = [
 const runtimeRegistryExpectations = [
   {
     file: 'src/session/schema/kinds.ts',
-    required: "export const AGENT_ROLE_IDS = ['elicitor'] as const;",
+    required: "export const AGENT_ROLE_IDS = ['elicitor', 'orchestrator'] as const;",
     forbidden: ['reviewer', 'pi-coder'],
   },
   {

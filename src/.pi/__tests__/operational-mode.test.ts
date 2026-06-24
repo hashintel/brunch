@@ -11,6 +11,7 @@ import {
   activeToolNamesForBrunchAgentState,
   appendBrunchAgentRuntimeInit,
   appendBrunchAgentRuntimeSwitch,
+  parseBrunchAgentState,
   projectBrunchAgentState,
   registerBrunchOperationalModePolicy,
   type BrunchAgentState,
@@ -99,6 +100,37 @@ describe('Brunch agent runtime-state projection', () => {
 
     expect(projectBrunchAgentState([first, latest])).toMatchObject(latestState);
     expect(first.data.state).toEqual(DEFAULT_BRUNCH_AGENT_STATE);
+  });
+
+  it('accepts execute mode and resolves it to the orchestrator foreground manifest', () => {
+    const executeState = {
+      schemaVersion: 1,
+      operationalMode: 'execute',
+      agentStrategy: 'auto',
+      agentLens: 'auto',
+    };
+
+    expect(parseBrunchAgentState(executeState)).toEqual(executeState);
+    expect(projectBrunchAgentState([runtimeEntry(executeState as BrunchAgentState)])).toMatchObject({
+      ...executeState,
+      agentRole: 'orchestrator',
+      operationalModeDefinition: {
+        id: 'execute',
+        foregroundAgent: {
+          id: 'orchestrator',
+          kind: 'foreground',
+          canDelegate: [],
+        },
+        toolPolicy: {
+          id: 'execute-orchestrator',
+        },
+      },
+      agentRoleDefinition: {
+        id: 'orchestrator',
+        kind: 'foreground',
+        operationalMode: 'execute',
+      },
+    });
   });
 
   it('ignores malformed and invalid runtime entries instead of guessing', () => {
@@ -251,12 +283,6 @@ describe('Brunch agent runtime-state projection', () => {
     for (const invalidState of [
       {
         schemaVersion: 1,
-        operationalMode: 'execute',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-      },
-      {
-        schemaVersion: 1,
         operationalMode: 'elicit',
         agentRole: 'elicitor',
         agentStrategy: 'step-wise-decision-tree',
@@ -284,12 +310,6 @@ describe('Brunch agent runtime-state projection', () => {
 
   it('does not project invalid runtime mode, legacy role, strategy, or lens entries', () => {
     for (const invalidState of [
-      {
-        schemaVersion: 1,
-        operationalMode: 'execute',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
-      },
       {
         schemaVersion: 1,
         operationalMode: 'elicit',

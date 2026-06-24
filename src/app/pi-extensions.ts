@@ -25,6 +25,7 @@ import {
 } from '../.pi/extensions/introspection/index.js';
 import { type GraphMentionSource } from '../.pi/extensions/mentions/index.js';
 import { registerBrunchMentionAutocomplete } from '../.pi/extensions/mentions/index.js';
+import { registerBrunchOrchestratorStub } from '../.pi/extensions/orchestrator-stub/index.js';
 import { registerBrunchReconciliation } from '../.pi/extensions/reconciliation/index.js';
 import {
   conservativeUncoveredFloorGaps,
@@ -106,6 +107,11 @@ export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from '../.pi/exte
 export { registerBrunchWebTools } from '../.pi/extensions/web/index.js';
 
 export { registerBrunchGraph } from '../.pi/extensions/graph/index.js';
+export {
+  BRUNCH_ORCHESTRATOR_STUB_TOOL,
+  createOrchestratorStubTool,
+  registerBrunchOrchestratorStub,
+} from '../.pi/extensions/orchestrator-stub/index.js';
 export { registerBrunchReconciliation } from '../.pi/extensions/reconciliation/index.js';
 export {
   BRUNCH_SUBAGENT_TOOL,
@@ -220,6 +226,7 @@ export function createBrunchPiExtensions(
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
       registerBrunchWebTools,
+      registerBrunchOrchestratorStub,
       ...(hasDelegatableSubagents
         ? [(api: ExtensionAPI) => registerBrunchSubagents(api, options.subagents!)]
         : []),

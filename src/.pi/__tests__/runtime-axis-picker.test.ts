@@ -137,16 +137,16 @@ describe('runtime posture picker overlays', () => {
 
     const text = component.render(200).join('\n');
     expect(text).toContain('Choose Brunch mode');
-    // elicit is current (success badge); execute and code are planned and grayed out (D93-L roster).
+    // elicit is current (success badge); execute is live; code remains planned and grayed out (D93-L roster).
     expect(text).toContain('\x1b[48;5;34m\x1b[30m elicit ');
-    expect(text).toContain('\x1b[38;5;240mexecute\x1b[39m');
+    expect(text).toContain('\x1b[38;5;33mexecute\x1b[39m');
     expect(text).toContain('\x1b[38;5;240mcode\x1b[39m');
-    expect(text).toContain('-- NOTE: execute and code are not yet enabled');
+    expect(text).toContain('-- NOTE: code is not yet enabled');
 
-    // Cycling cannot land on the disabled planned mode.
+    // Cycling can land on execute, while skipping the disabled planned code mode.
     component.handleInput?.('\x1b[C');
     component.handleInput?.('\r');
-    expect(selected).toEqual(['elicit']);
+    expect(selected).toEqual(['execute']);
   });
 
   it('snaps the initial selection to the first enabled choice when current is disabled', () => {
