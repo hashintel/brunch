@@ -1,0 +1,53 @@
+// @vitest-environment happy-dom
+
+import { cleanup, render } from '@testing-library/react';
+import { createElement as h } from 'react';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { GraphArrowLegend } from '@/client/components/graph/GraphArrowLegend';
+import { edgeColor } from '@/client/components/graph/graphStyle';
+import type { GraphEdgeRelationship } from '@/client/components/graph/types';
+
+afterEach(() => {
+  cleanup();
+});
+
+describe('GraphArrowLegend', () => {
+  it('renders nothing when no relationships are present', () => {
+    const { container } = render(h(GraphArrowLegend, { relationships: new Set<GraphEdgeRelationship>() }));
+    expect(container.querySelector('[data-graph-arrow-legend]')).toBeNull();
+  });
+
+  it('lists each present relationship with an arrow glyph', () => {
+    const present = new Set<GraphEdgeRelationship>(['depends_on', 'verifies']);
+    const { container } = render(h(GraphArrowLegend, { relationships: present }));
+
+    expect(container.querySelector('[data-graph-arrow-legend-item="depends_on"]')).not.toBeNull();
+    expect(container.querySelector('[data-graph-arrow-legend-item="verifies"]')).not.toBeNull();
+    expect(container.querySelector('[data-graph-arrow-legend-item="refines"]')).toBeNull();
+    expect(container.querySelector('[data-graph-arrow-legend-item="depends_on"] svg')).not.toBeNull();
+  });
+
+  it('shows dotted lines for derived_from and refines, solid otherwise', () => {
+    const all: GraphEdgeRelationship[] = ['depends_on', 'derived_from', 'constrains', 'verifies', 'refines'];
+    const { container } = render(h(GraphArrowLegend, { relationships: new Set(all) }));
+    const dashOf = (relationship: GraphEdgeRelationship) =>
+      container
+        .querySelector(`[data-graph-arrow-legend-item="${relationship}"] line`)
+        ?.getAttribute('stroke-dasharray') ?? null;
+    expect(dashOf('derived_from')).toBe('2 3');
+    expect(dashOf('refines')).toBe('2 3');
+    expect(dashOf('depends_on')).toBeNull();
+  });
+
+  it('uses a distinct color per relationship type', () => {
+    const all: GraphEdgeRelationship[] = ['depends_on', 'derived_from', 'constrains', 'verifies', 'refines'];
+    const { container } = render(h(GraphArrowLegend, { relationships: new Set(all) }));
+    const colors = all.map((relationship) => {
+      const glyph = container.querySelector(`[data-graph-arrow-legend-item="${relationship}"] polygon`);
+      expect(glyph?.getAttribute('fill')).toBe(edgeColor(relationship));
+      return glyph?.getAttribute('fill') ?? '';
+    });
+    expect(new Set(colors).size).toBe(all.length);
+  });
+});

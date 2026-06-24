@@ -1,0 +1,11 @@
+.graph-edge {
+  transition: opacity 150ms ease;
+}
+
+.graph-edge--dimmed {
+  opacity: 0.28;
+}
+
+.graph-edge--selected {
+  opacity: 1;
+}
