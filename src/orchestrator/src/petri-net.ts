@@ -392,20 +392,37 @@ export class PetriNet {
     });
   }
 
-  async run(policy: FiringPolicy, shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+  async run(
+    policy: FiringPolicy,
+    shouldHalt?: () => boolean,
+    eventSink?: NetEventSink,
+    shouldPause?: () => boolean,
+  ): Promise<void> {
     if (policy === 'serial') {
-      await this.runSerial(shouldHalt, eventSink);
+      await this.runSerial(shouldHalt, eventSink, shouldPause);
     } else {
-      await this.runParallel(shouldHalt, eventSink);
+      await this.runParallel(shouldHalt, eventSink, shouldPause);
     }
   }
 
   /** Serial policy — find first enabled transition, fire, repeat. */
-  private async runSerial(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+  private async runSerial(
+    shouldHalt?: () => boolean,
+    eventSink?: NetEventSink,
+    shouldPause?: () => boolean,
+  ): Promise<void> {
     this.deferredEventSink = eventSink;
     while (true) {
       if (this.deferredError) throw this.deferredError;
       if (shouldHalt?.()) {
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
+        break;
+      }
+      if (shouldPause?.()) {
+        if (this.pendingDeferred > 0) {
+          await this.waitForOneDeferred();
+          continue;
+        }
         eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
         break;
       }
@@ -455,11 +472,23 @@ export class PetriNet {
    * compensated here; if agent flakiness becomes common, per-claim rollback or
    * AggregateError collection should be designed as a follow-up.
    */
-  private async runParallel(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+  private async runParallel(
+    shouldHalt?: () => boolean,
+    eventSink?: NetEventSink,
+    shouldPause?: () => boolean,
+  ): Promise<void> {
     this.deferredEventSink = eventSink;
     while (true) {
       if (this.deferredError) throw this.deferredError;
       if (shouldHalt?.()) {
+        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
+        break;
+      }
+      if (shouldPause?.()) {
+        if (this.pendingDeferred > 0) {
+          await this.waitForOneDeferred();
+          continue;
+        }
         eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
         break;
       }

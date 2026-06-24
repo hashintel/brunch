@@ -1931,6 +1931,14 @@ describe('Adapter: sandbox-per-slice isolation', () => {
 // ---------------------------------------------------------------------------
 
 describe('durable-resume — persist at pause + resume to completion', () => {
+  async function waitUntil(predicate: () => boolean): Promise<void> {
+    for (let i = 0; i < 20; i++) {
+      if (predicate()) return;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    throw new Error('Timed out waiting for condition');
+  }
+
   it('persists a RunSnapshot when paused mid-run, then resumes it to completion', async () => {
     const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-'));
     try {
@@ -1969,6 +1977,94 @@ describe('durable-resume — persist at pause + resume to completion', () => {
       });
       expect(resumed.status).toBe('completed');
       expect(resumed.slices).toEqual([{ sliceId: 'slice-1', status: 'completed' }]);
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('removes a stale pause snapshot when a later runDir resume completes', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-clear-'));
+    try {
+      let checks = 0;
+      const first = createFakes();
+      await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: first.actions,
+        reports: first.reports,
+        testRunner: first.testRunner,
+        policy: { maxRetries: 3 },
+        runDir,
+        shouldPause: () => checks++ >= 1,
+      });
+      const stale = loadRunSnapshot(runDir);
+      expect(stale).not.toBeNull();
+
+      const second = createFakes({ evalSequence: [true] });
+      const resumed = await createOrchestrator('serial').run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: second.actions,
+        reports: second.reports,
+        testRunner: second.testRunner,
+        policy: { maxRetries: 3 },
+        runDir,
+        resume: stale!,
+      });
+
+      expect(resumed.status).toBe('completed');
+      expect(loadRunSnapshot(runDir)).toBeNull();
+    } finally {
+      rmSync(runDir, { recursive: true, force: true });
+    }
+  });
+
+  it('waits for in-flight deferred work before writing a pause snapshot', async () => {
+    const runDir = mkdtempSync(join(tmpdir(), 'cook-resume-quiescent-'));
+    try {
+      const fakes = createFakes({ evalSequence: [true] });
+      let releaseEvaluate: (() => void) | undefined;
+      let evaluateStarted = false;
+      let evaluateSettled = false;
+      let returned = false;
+      const actions: ActionHandlers = {
+        ...fakes.actions,
+        'evaluate-done': async (ctx) => {
+          evaluateStarted = true;
+          await new Promise<void>((resolve) => {
+            releaseEvaluate = resolve;
+          });
+          evaluateSettled = true;
+          return fakes.actions['evaluate-done']!(ctx);
+        },
+      };
+
+      const run = createOrchestrator('serial')
+        .run({
+          plan: simplePlan,
+          sandboxDir: '/tmp/fake',
+          actions,
+          reports: fakes.reports,
+          testRunner: fakes.testRunner,
+          policy: { maxRetries: 3 },
+          runDir,
+          shouldPause: () => evaluateStarted,
+        })
+        .finally(() => {
+          returned = true;
+        });
+
+      await waitUntil(() => evaluateStarted);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(returned).toBe(false);
+
+      releaseEvaluate!();
+      const paused = await run;
+      expect(paused.status).toBe('halted');
+      expect(evaluateSettled).toBe(true);
+      const snap = loadRunSnapshot(runDir);
+      expect(snap).not.toBeNull();
+      expect(snap!.reportIds).toContain('rpt-eval-slice-1-1');
     } finally {
       rmSync(runDir, { recursive: true, force: true });
     }

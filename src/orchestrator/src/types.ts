@@ -343,12 +343,13 @@ export type OrchestratorInput = {
    */
   resume?: RunSnapshot;
   /**
-   * durable-resume (FE-1082): optional external stop signal, checked each run
-   * loop turn alongside the structural halt. When it returns true the run stops
-   * at a quiescent point with its pending work intact; if `runDir` is set the
-   * engine persists a `RunSnapshot` so the run can later resume. (Deciding
-   * *when* to pause — e.g. on an ambiguity that needs a human — belongs to
-   * `interactive-recovery`; this is just the mechanism.)
+   * durable-resume (FE-1082): optional external pause signal. When it returns
+   * true, the interpreter stops firing new transitions, drains any in-flight
+   * deferred completions, then stops at a quiescent point with pending work
+   * intact; if `runDir` is set the engine persists a `RunSnapshot` so the run
+   * can later resume. (Deciding *when* to pause — e.g. on an ambiguity that
+   * needs a human — belongs to `interactive-recovery`; this is just the
+   * mechanism.)
    */
   shouldPause?: () => boolean;
 };

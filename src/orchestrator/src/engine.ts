@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { compileTopology, wireHandlers } from './net-compiler.js';
@@ -165,8 +165,9 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
         // durable-resume: re-enter from a persisted marking instead of the
         // initial one. restoreMarking clears every place then loads the snapshot.
         if (input.resume) net.restoreMarking(input.resume.marking);
-        // Stop on the structural halt OR an external pause request (FE-1082).
-        await net.run(firingPolicy, () => net.hasHaltToken() || (input.shouldPause?.() ?? false), eventSink);
+        // Structural halts stop immediately; external pauses wait for in-flight
+        // deferred completions so persisted snapshots are quiescent.
+        await net.run(firingPolicy, () => net.hasHaltToken(), eventSink, input.shouldPause);
 
         hasStructuralHalt = net.hasHaltToken();
         // Derive halt reason from any halt token deposited during the run.
@@ -230,6 +231,13 @@ export function createOrchestrator(firingPolicy: FiringPolicy): Orchestrator {
       }
 
       const halted = hasStructuralHalt || haltReason !== undefined;
+      if (input.runDir && !halted) {
+        try {
+          rmSync(join(input.runDir, RUN_SNAPSHOT_FILE), { force: true });
+        } catch (err) {
+          ctx.warnings?.push(`Resume snapshot not removed: ${errorMessage(err)}`);
+        }
+      }
 
       return {
         status: halted ? 'halted' : 'completed',
