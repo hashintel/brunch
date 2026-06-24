@@ -2,23 +2,19 @@
  * Shared TypeScript types for the graph view.
  *
  * Root type module for the graph feature: other graph modules import node and
- * edge data shapes from here. The literal unions mirror the knowledge schema's
- * `knowledge_item.kind` and `knowledge_edge.relation` enums.
+ * edge data shapes from here. Node/edge identities are aliased from the canonical
+ * knowledge schema so they can't drift from `knowledge_item.kind` / the edge
+ * relation enum.
  */
 
+import type { EdgeRelation } from '@/shared/api-types.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
+
 /** The kind of knowledge entity a graph node represents. */
-export type GraphNodeKind =
-  | 'goal'
-  | 'term'
-  | 'context'
-  | 'constraint'
-  | 'requirement'
-  | 'criterion'
-  | 'decision'
-  | 'assumption';
+export type GraphNodeKind = KnowledgeKind;
 
 /** The relationship type a graph edge represents. */
-export type GraphEdgeRelationship = 'depends_on' | 'derived_from' | 'constrains' | 'verifies' | 'refines';
+export type GraphEdgeRelationship = EdgeRelation;
 
 /** Render data carried by a graph node. */
 export interface GraphNodeData {

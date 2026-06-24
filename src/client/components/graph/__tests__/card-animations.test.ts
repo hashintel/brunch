@@ -13,29 +13,19 @@
  * animation contract.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, '..', '..');
-
-// The stylesheet is co-located with the GraphNode card it animates.
-const candidatePaths = [resolve(repoRoot, 'src/client/components/graph/graphNode.css')];
-
-function cssPath(): string {
-  const found = candidatePaths.find((p) => existsSync(p));
-  if (found === undefined) {
-    throw new Error(`graphNode.css not found. Looked in:\n${candidatePaths.join('\n')}`);
-  }
-  return found;
-}
+// The stylesheet sits one level up from this __tests__ dir, co-located with the
+// GraphNode card it animates.
+const cssFile = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'graphNode.css');
 
 /** Raw stylesheet text with /* … *\/ comments stripped. */
 function css(): string {
-  return readFileSync(cssPath(), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  return readFileSync(cssFile, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
 /**
