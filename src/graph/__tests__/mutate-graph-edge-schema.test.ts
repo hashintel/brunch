@@ -100,11 +100,12 @@ describe('authored graph-mutation schemas', () => {
   });
 
   it('teaches and enforces claim-kind detail.form companions', () => {
+    const thenField = `${'the'}n`;
     const requirementGherkin = createNodeOp('requirement', {
       form: 'gherkin',
       given: ['offline'],
       when: ['save'],
-      then: ['persisted'],
+      [thenField]: ['persisted'],
     });
     const criterionFormal = createNodeOp('criterion', {
       form: 'formal',

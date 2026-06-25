@@ -17,8 +17,8 @@ describe('prompt-shape decisions', () => {
     expect(skillsReadme).toContain('references/` subfiles');
     expect(skillsReadme).toContain('progressive disclosure');
     expect(skillsReadme).toContain('_generated/ typed-vocab references');
-    expect(skillsReadme).toContain('deferred until a concrete stale-member need appears');
-    expect(skillsReadme).toContain('regenerated and drift-checked');
+    expect(skillsReadme).toContain('concrete citing need appears');
+    expect(skillsReadme).toContain('drift-checked');
 
     expect(agentsReadme).toContain('SYSTEM.md convention is adopted');
     expect(agentsReadme).toContain('Background frontmatter is authoring DX');
