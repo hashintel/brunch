@@ -29,6 +29,8 @@ rules:
   renderers/       x> agents/contexts/                         [human/product renderers do not own model text]
 ```
 
+`src/.pi/__tests__/architecture.test.ts` guards the adapter half of this boundary for `brunch-data` and structured-exchange tools: Pi adapters may own schemas, labels, descriptions, prompt snippets, and TUI rendering, but provider-visible Brunch text must be imported from this subtree rather than formatted inline.
+
 ## Snapshot convention
 
 Context golden files live beside their tests under `__snapshots__/` and use stock Vitest file snapshots. There is no separate preview writer.

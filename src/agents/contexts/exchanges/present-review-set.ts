@@ -1,6 +1,16 @@
 import { roleNamedEdgeDraftEndpoints } from '../../../graph/command-executor/role-named-edge-draft.js';
 import type { PresentReviewSetProjection } from '../../../projections/exchanges/present-review-set.js';
 
+export function formatExchangeStructuralIllegal(result: {
+  readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
+}): string {
+  return [
+    '# STRUCTURAL_ILLEGAL',
+    '',
+    ...result.diagnostics.map((diagnostic) => `- ${diagnostic.field}: ${diagnostic.message}`),
+  ].join('\n');
+}
+
 export function formatPresentReviewSet(projection: PresentReviewSetProjection): string {
   const payload = projection.payload;
   const lines = [

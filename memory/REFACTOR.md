@@ -71,7 +71,7 @@ callers after refactor
 6. ✓ Move reusable LLM-facing context renderers into the new context home, keeping product-only/human-only renderers outside unless they are deliberately agent-visible.
 7. ✓ Promote adapter-local LLM text formatting into the new context home: graph mutation result text, related-node text, elicitation agenda/update text, and reconciliation agenda/update text.
 8. ✓ Consolidate golden/preview tests for prompt composition and agent context renderers under the new agent tree, preserving existing semantic invariants while making “what enters the model” reviewable in one place.
-9. Add a boundary guard that prevents Pi extension adapters from owning Brunch-authored tool/session/prompt content text, while explicitly allowing tool schemas, labels, descriptions, and prompt snippets to remain adapter-owned.
+9. ✓ Add a boundary guard that prevents Pi extension adapters from owning Brunch-authored tool/session/prompt content text, while explicitly allowing tool schemas, labels, descriptions, and prompt snippets to remain adapter-owned.
 10. Reconcile topology READMEs, SPEC/PLAN references, build scripts, and direct-import docs so the new owner is canonical and the old `.pi`/`renderers` ownership claims are retired.
 
 ## Decisions

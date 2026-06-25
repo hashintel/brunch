@@ -1,5 +1,6 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
+import { formatRequestResponseDiagnostic } from '../../../agents/contexts/exchanges/request-response.js';
 import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
 import { piSchema } from './pi-schema.js';
 import {
@@ -44,7 +45,7 @@ function diagnostic(
 }
 
 function diagnosticResult(details: RequestResponseDiagnosticDetails) {
-  return { content: [{ type: 'text' as const, text: `# Response\n\n_${details.message}_` }], details };
+  return { content: [{ type: 'text' as const, text: formatRequestResponseDiagnostic(details) }], details };
 }
 
 function assertNever(value: never): never {

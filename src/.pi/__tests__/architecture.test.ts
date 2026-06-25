@@ -32,6 +32,15 @@ const runtimeRegistryExpectations = [
   },
 ];
 
+const modelTextAdapterDirs = [
+  join(projectRoot, 'src/.pi/extensions/brunch-data'),
+  join(projectRoot, 'src/.pi/extensions/exchanges'),
+];
+
+const allowedModelTextAdapterFiles = new Set([
+  'src/.pi/extensions/exchanges/shared/markdown.ts', // TUI display adapter, not provider text ownership.
+]);
+
 describe('agents topology', () => {
   it('removes the legacy .pi context source', async () => {
     await expect(readdir(legacyContextPath)).rejects.toThrow();
@@ -57,6 +66,24 @@ describe('agents topology', () => {
       for (const needle of legacyImportNeedles) {
         expect(content, `${rel} must not reference ${needle}`).not.toContain(needle);
       }
+    }
+  });
+
+  it('keeps Pi tool adapters from owning Brunch-authored model text', async () => {
+    const files = (await Promise.all(modelTextAdapterDirs.map((dir) => listSourceFiles(dir)))).flat();
+
+    for (const file of files) {
+      const rel = relative(projectRoot, file);
+      if (rel.endsWith('.test.ts') || rel.includes('/__tests__/') || allowedModelTextAdapterFiles.has(rel)) {
+        continue;
+      }
+      const content = await readFile(file, 'utf8');
+      expect(content, `${rel} must import model-facing formatters from src/agents/contexts`).not.toMatch(
+        /function\s+format[A-Z]/,
+      );
+      expect(content, `${rel} must not inline provider text content`).not.toMatch(
+        /content:\s*\[\{\s*type:\s*'text'\s+as\s+const,\s*text:\s*`/,
+      );
     }
   });
 });
