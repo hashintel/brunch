@@ -5,11 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { openWorkspaceCommandExecutor } from '../../../graph/index.js';
-import { presenceGap } from '../../../graph/schema/elicitation-gap-fixtures.js';
-import { seedFixture, type SeedFixture } from '../../../graph/seed-fixtures.js';
-import { createSessionBindingData } from '../../../session/session-binding.js';
-import { inspectSpecificationOverview } from '../../../session/specification-overview-context.js';
+import { openWorkspaceCommandExecutor } from '../../../../graph/index.js';
+import { presenceGap } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import { seedFixture, type SeedFixture } from '../../../../graph/seed-fixtures.js';
+import { createSessionBindingData } from '../../../../session/session-binding.js';
+import { inspectSpecificationOverview } from '../../../../session/specification-overview-context.js';
 import { renderSpecificationContext } from '../specification-context.js';
 
 describe('renderSpecificationContext', () => {
@@ -26,7 +26,7 @@ describe('renderSpecificationContext', () => {
     const details = await inspectSpecificationOverview(cwd, seeded.specId);
     const rendered = renderSpecificationContext(details);
 
-    await expect(rendered).toMatchFileSnapshot('../__previews__/specification-context.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/specification-context.md');
     expect(rendered).toContain('<specification>');
     expect(rendered).toContain('Overview:');
     expect(rendered).toContain('Graph (LSN 2): 5 nodes, 3 edges');
@@ -64,7 +64,7 @@ describe('renderSpecificationContext', () => {
 
 async function loadFixture(slug: string, set = 'bilal-port'): Promise<SeedFixture> {
   const fixturePath = fileURLToPath(
-    new URL(`../../../../.fixtures/seeds/${set}/${slug}.json`, import.meta.url),
+    new URL(`../../../../../.fixtures/seeds/${set}/${slug}.json`, import.meta.url),
   );
   return JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(fixturePath, 'utf8')));
 }

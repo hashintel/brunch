@@ -175,8 +175,8 @@ context-pipeline/
 - **Branch:** tbd
 - **Kind:** refactor / earned cleanup
 - **Status:** next candidate, not capability-blocking.
-- **Objective:** Confirm each retained `projections/exchanges` and `renderers/exchanges` file earns its place; delete symmetry regrowth where single-owner reads were mirrored into shared layers only for shape symmetry.
-- **Acceptance:** Retained files have named multi-consumer/shared-semantics justification; unjustified mirrors are deleted; TUI presenters stay local and renderers stay durable markdown/text/TOON only.
+- **Objective:** Confirm each retained `projections/exchanges` and `agents/contexts/exchanges` file earns its place; delete symmetry regrowth where single-owner reads were mirrored into shared layers only for shape symmetry.
+- **Acceptance:** Retained files have named multi-consumer/shared-semantics justification; unjustified mirrors are deleted; TUI presenters stay local and exchange context renderers stay durable markdown/text/TOON only.
 - **Traceability:** D27-L, D65-L, D66-L.
 
 ## Dependencies

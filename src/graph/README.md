@@ -117,7 +117,7 @@ not compare bare LSN values across sibling specs.
 - `.pi/extensions/brunch-data/graph/` — Pi tool adapters for `mutate_graph` and `read_graph`.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
 - `projections/graph/` — topology stubs for deferred graph PROJECT seams; node-neighborhood consumers read `NodeNeighborhood` directly from `queries.ts`.
-- `renderers/graph/` — reusable lossy markdown/text rendering over projected graph DTOs.
+- `agents/contexts/graph/` — reusable model-facing graph context text over projected graph DTOs.
 - `.pi/extensions/agent-runtime/system-prompts/` — prompt composition consumes the read-only elicitation driver and the seed renderers consume graph reads.
 - `probes/` — graph proof drivers.
 

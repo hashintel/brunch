@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
 
-import { readGraphSliceFixture } from '../../../graph/__tests__/support/fixture-reads.js';
-import type { GraphSlice } from '../../../graph/index.js';
+import { readGraphSliceFixture } from '../../../../graph/__tests__/support/fixture-reads.js';
+import type { GraphSlice } from '../../../../graph/index.js';
 import { formatGraphOverview } from '../graph-slice.js';
 
 const slice: GraphSlice = {
@@ -100,7 +100,7 @@ test('overview: kind-band fixture golden stays uncapped and sectioned', async ()
   const rendered = formatGraphOverview(
     readGraphSliceFixture({ set: 'kind-band-spread', fixture: 'coverage-matrix' }),
   );
-  await expect(rendered).toMatchFileSnapshot('../__previews__/graph-overview-kind-band-spread.md');
+  await expect(rendered).toMatchFileSnapshot('../__snapshots__/graph-overview-kind-band-spread.md');
   expect(rendered).toContain('Graph overview (LSN 2): 24 nodes, 7 edges');
   expect(rendered).toContain('| S1 | 24 | Lock one neighborhood preview |');
 });

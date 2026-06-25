@@ -1,5 +1,5 @@
-import { roleNamedEdgeDraftEndpoints } from '../../graph/command-executor/role-named-edge-draft.js';
-import type { PresentReviewSetProjection } from '../../projections/exchanges/present-review-set.js';
+import { roleNamedEdgeDraftEndpoints } from '../../../graph/command-executor/role-named-edge-draft.js';
+import type { PresentReviewSetProjection } from '../../../projections/exchanges/present-review-set.js';
 
 export function formatPresentReviewSet(projection: PresentReviewSetProjection): string {
   const payload = projection.payload;

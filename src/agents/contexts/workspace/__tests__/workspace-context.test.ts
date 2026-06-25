@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { WorkspaceOverview } from '../../../session/workspace-overview-context.js';
-import type { WorkspaceCwdInventory } from '../../../workspace/cwd-inventory.js';
+import type { WorkspaceOverview } from '../../../../session/workspace-overview-context.js';
+import type { WorkspaceCwdInventory } from '../../../../workspace/cwd-inventory.js';
 import { renderWorkspaceContext } from '../workspace-context.js';
 
 const topology = {
@@ -32,7 +32,7 @@ describe('renderWorkspaceContext', () => {
       topology,
     } satisfies WorkspaceCwdInventory);
 
-    await expect(rendered).toMatchFileSnapshot('../__previews__/workspace-cwd-context.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/workspace-cwd-context.md');
     expect(rendered).toMatch(/^<workspace>\n/);
     expect(rendered).toContain('Project:\n- name: Brunch Project');
     expect(rendered).toContain('Specifications:\n| id | title | nodes | sessions |');
@@ -63,7 +63,7 @@ describe('renderWorkspaceContext', () => {
       topology,
     } satisfies WorkspaceOverview);
 
-    await expect(rendered).toMatchFileSnapshot('../__previews__/workspace-overview-context.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/workspace-overview-context.md');
     expect(rendered).toContain('| 1 | Context render house style | 42 | 3 |');
     expect(rendered).not.toContain('session-1.jsonl');
     expect(rendered).not.toMatch(/^#{1,6}\s/m);

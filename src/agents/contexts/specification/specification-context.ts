@@ -1,10 +1,10 @@
-import type { ElicitationGap, GraphSlice } from '../../graph/index.js';
-import type { WorkspaceSessionOverview } from '../../session/workspace-overview-context.js';
+import type { ElicitationGap, GraphSlice } from '../../../graph/index.js';
+import type { WorkspaceSessionOverview } from '../../../session/workspace-overview-context.js';
 import { formatGraphOverview } from '../graph/graph-slice.js';
-import { joinMarkdownBlocks, markdownTable, markdownUl } from '../markdown.js';
-import { section } from '../section.js';
+import { joinMarkdownBlocks, markdownTable, markdownUl } from '../primitives/markdown.js';
+import { section } from '../primitives/section.js';
+import { renderToonBlock, type ToonRecord } from '../primitives/toon.js';
 import { renderSoftReadinessEstimate } from '../session/readiness-estimate.js';
-import { renderToonBlock, type ToonRecord } from '../toon.js';
 
 export interface SpecificationContextRenderInput {
   readonly spec: {

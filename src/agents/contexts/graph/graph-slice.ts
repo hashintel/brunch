@@ -2,18 +2,18 @@
  * Formats selected-spec GraphSlice reads into model-facing text.
  */
 
-import type { EdgeEndpoint } from '../../graph/policy/category-policy.js';
-import { edgeImpact } from '../../graph/projection/direction.js';
-import { edgeLabel } from '../../graph/projection/labels.js';
-import type { GraphSlice } from '../../graph/queries.js';
-import { NODE_KINDS, NODE_PLANES, type ReadinessBand } from '../../graph/schema/kinds.js';
+import type { EdgeEndpoint } from '../../../graph/policy/category-policy.js';
+import { edgeImpact } from '../../../graph/projection/direction.js';
+import { edgeLabel } from '../../../graph/projection/labels.js';
+import type { GraphSlice } from '../../../graph/queries.js';
+import { NODE_KINDS, NODE_PLANES, type ReadinessBand } from '../../../graph/schema/kinds.js';
 import {
   NODE_KIND_METADATA,
   bandsForKind,
   formatGraphNodeCode,
   type NodeKind,
-} from '../../graph/schema/nodes.js';
-import { markdownTable, joinMarkdownBlocks } from '../markdown.js';
+} from '../../../graph/schema/nodes.js';
+import { markdownTable, joinMarkdownBlocks } from '../primitives/markdown.js';
 
 /**
  * The full, uncapped graph overview — node codes/planes/kinds/titles plus the

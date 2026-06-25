@@ -8,6 +8,7 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it, beforeEach } from 'vitest';
 
+import { formatGraphOverview } from '../../agents/contexts/graph/graph-slice.js';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import {
   changeLog,
@@ -19,7 +20,6 @@ import {
   reconciliationNeed,
   specs,
 } from '../../db/schema.js';
-import { formatGraphOverview } from '../../renderers/graph/graph-slice.js';
 import { CommandExecutor } from '../command-executor.js';
 import { queryGraph } from '../queries.js';
 import { runCreateOnlyMutation } from './support/create-only-mutation.js';

@@ -1,4 +1,4 @@
-import { renderSpecificationContext } from '../../../../renderers/specification/specification-context.js';
+import { renderSpecificationContext } from '../../../../agents/contexts/specification/specification-context.js';
 import { inspectSpecificationOverview } from '../../../../session/specification-overview-context.js';
 import { resolveWorkspaceCwd } from './get-cwd.js';
 import { resolveSelectedSpecBinding, type SessionManagerLike } from './session-binding.js';

@@ -1,6 +1,6 @@
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import { READINESS_BANDS } from '../../graph/schema/kinds.js';
-import { readinessEstimate } from '../../projections/session/readiness-estimate.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import { READINESS_BANDS } from '../../../graph/schema/kinds.js';
+import { readinessEstimate } from '../../../projections/session/readiness-estimate.js';
 
 export function renderSoftReadinessEstimate(gaps: readonly ElicitationGap[]): string {
   const estimate = readinessEstimate(gaps);

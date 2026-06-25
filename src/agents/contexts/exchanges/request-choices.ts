@@ -1,4 +1,4 @@
-import type { RequestChoicesDetails } from '../../projections/exchanges/request-choices.js';
+import type { RequestChoicesDetails } from '../../../projections/exchanges/request-choices.js';
 
 function markdownEscape(text: string): string {
   return text.replace(/([\\`*_{}[\]()#+\-.!|>])/g, '\\$1');

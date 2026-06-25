@@ -16,10 +16,10 @@
  * Used by: brunch-tui boot seeding, session.triggerExchange RPC origination
  */
 
+import { formatGraphOverview } from '../../../agents/contexts/graph/graph-slice.js';
 import { sortElicitationGapsForAsking } from '../../../graph/elicitation-driver.js';
 import type { GraphSlice } from '../../../graph/index.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import { formatGraphOverview } from '../../../renderers/graph/graph-slice.js';
 
 const TOP_GAP_COUNT = 5;
 

@@ -103,8 +103,8 @@ directly instead of growing a wrapper.
 
 | Shape | Canonical owner | Current consumers | Disposition / reason |
 | --- | --- | --- | --- |
-| `cwd_inventory` | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`) | `read_workspace_context`, `renderers/workspace/workspace-context.ts` | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
-| `workspace_overview` | `workspace-overview-context.ts` (`inspectWorkspaceOverview`) | `read_workspace_context`, origination seed context, `renderers/workspace/workspace-context.ts` | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape. |
+| `cwd_inventory` | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`) | `read_workspace_context`, `agents/contexts/workspace/workspace-context.ts` | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
+| `workspace_overview` | `workspace-overview-context.ts` (`inspectWorkspaceOverview`) | `read_workspace_context`, origination seed context, `agents/contexts/workspace/workspace-context.ts` | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape. |
 | `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`) | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set. |
 | `agent_runtime_vocab` | `schema/kinds.ts`, `schema/tool-names.ts` | `runtime-state.ts`, `projections/session/runtime-policy.ts`, `projections/session/affordances.ts`, `agents/runtime/state.ts`, `.pi/extensions/agent-runtime/orchestrator-stub/` | Pure vocabulary leaf for runtime axes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
 | `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `projections/session/affordances.ts`, `.pi/extensions/agent-runtime/runtime/` | Transcript-backed source read. Projection/policy layers derive from these facts rather than storing parallel hidden runtime memory. |
@@ -149,7 +149,7 @@ schema, and the product-state-gated rows must stay explicit deferred tripwires.
 - `projections/session/` — for reusable transcript-context DTO projection.
 - `projections/workspace/` — for reusable workspace-state DTO projection.
 - `renderers/session/` — for reusable transcript markdown rendering.
-- `renderers/workspace/` — for workspace inventory / overview text rendering over source session read shapes.
+- `agents/contexts/workspace/` — for workspace inventory / overview agent-context text over source session read shapes.
 - `rpc/` — for session.* and workspace.* RPC handlers.
 - `.pi/extensions/` — for session lifecycle hooks.
 

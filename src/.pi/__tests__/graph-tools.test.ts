@@ -1,6 +1,7 @@
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import { formatGraphOverview } from '../../agents/contexts/graph/graph-slice.js';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import {
@@ -14,7 +15,6 @@ import {
   type GraphVisibility,
 } from '../../graph/queries.js';
 import { READINESS_BANDS } from '../../graph/schema/kinds.js';
-import { formatGraphOverview } from '../../renderers/graph/graph-slice.js';
 import {
   translateMutateGraph,
   formatMutateGraphResult,

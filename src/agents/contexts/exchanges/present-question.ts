@@ -1,4 +1,4 @@
-import type { PresentQuestionProjection } from '../../projections/exchanges/present-question.js';
+import type { PresentQuestionProjection } from '../../../projections/exchanges/present-question.js';
 
 export function formatPresentQuestion(projection: PresentQuestionProjection): string {
   const lines = [`# ${projection.heading.trim()}`];

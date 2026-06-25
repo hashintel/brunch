@@ -9,7 +9,7 @@
  * - normalized target references and omission policy
  *
  * Future users:
- * - renderers/graph/reconciliation-needs.ts
+ * - agents/contexts/graph/reconciliation-needs.ts
  * - pushed prompt context and/or future read tools
  */
 

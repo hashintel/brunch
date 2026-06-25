@@ -1,7 +1,7 @@
 /**
  * node-neighborhood render coverage. Each case renders a fixture through
  * `formatNeighborhood` and locks the full output as a markdown preview under the
- * sibling `__previews__/`. The locked file IS the assertion: review the diff
+ * sibling `__snapshots__/`. The locked file IS the assertion: review the diff
  * when output changes, accept with `--update`.
  *
  * The one cross-cutting invariant kept inline is that anchored projections never
@@ -13,7 +13,7 @@
 
 import { expect, test } from 'vitest';
 
-import { readNodeNeighborhoodFixture } from '../../../graph/__tests__/support/fixture-reads.js';
+import { readNodeNeighborhoodFixture } from '../../../../graph/__tests__/support/fixture-reads.js';
 import { formatNeighborhood } from '../node-neighborhood.js';
 
 function expectNoStructuralLeak(rendered: string): void {
@@ -32,7 +32,7 @@ test('neighborhood: real-port anchor (code-health REQ1)', async () => {
   const rendered = formatNeighborhood(
     readNodeNeighborhoodFixture({ set: 'bilal-port', fixture: 'code-health', anchorCode: 'REQ1' }),
   );
-  await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-code-health-REQ1.md');
+  await expect(rendered).toMatchFileSnapshot('../__snapshots__/neighborhood-code-health-REQ1.md');
   expectNoStructuralLeak(rendered);
 });
 
@@ -43,7 +43,7 @@ test('neighborhood: every edge category projected from one anchor (hub REQ1)', a
   // is the full label + directional-grouping matrix; the per-cell mapping is
   // proven by the projection unit tests.
   const rendered = formatNeighborhood(readNodeNeighborhoodFixture(HUB), { maxExpandedEdges: 20 });
-  await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-hub-REQ1.md');
+  await expect(rendered).toMatchFileSnapshot('../__snapshots__/neighborhood-hub-REQ1.md');
   expectNoStructuralLeak(rendered);
 });
 
@@ -51,13 +51,13 @@ test('neighborhood: hops=2 collapses ambient edges to a count (hub REQ1)', async
   const rendered = formatNeighborhood(readNodeNeighborhoodFixture({ ...HUB, hops: 2 }), {
     maxExpandedEdges: 30,
   });
-  await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-hub-REQ1-hops2.md');
+  await expect(rendered).toMatchFileSnapshot('../__snapshots__/neighborhood-hub-REQ1-hops2.md');
   expectNoStructuralLeak(rendered);
 });
 
 test('neighborhood: maxExpandedEdges compacts oversized sections without omissions (hub REQ1)', async () => {
   const rendered = formatNeighborhood(readNodeNeighborhoodFixture(HUB), { maxExpandedEdges: 3 });
-  await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-hub-REQ1-compact.md');
+  await expect(rendered).toMatchFileSnapshot('../__snapshots__/neighborhood-hub-REQ1-compact.md');
   expect(rendered).not.toContain('omitted');
   expectNoStructuralLeak(rendered);
 });
@@ -66,7 +66,7 @@ test('brunch-self: requirement anchor neighborhood (REQ1 one-authority)', async 
   const rendered = formatNeighborhood(readNodeNeighborhoodFixture({ ...SELF, anchorCode: 'REQ1' }), {
     maxExpandedEdges: 20,
   });
-  await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-brunch-self-REQ1.md');
+  await expect(rendered).toMatchFileSnapshot('../__snapshots__/neighborhood-brunch-self-REQ1.md');
   expectNoStructuralLeak(rendered);
 });
 
@@ -74,7 +74,7 @@ test('brunch-self: module anchor neighborhood (MOD1 CommandExecutor)', async () 
   const rendered = formatNeighborhood(readNodeNeighborhoodFixture({ ...SELF, anchorCode: 'MOD1', hops: 2 }), {
     maxExpandedEdges: 20,
   });
-  await expect(rendered).toMatchFileSnapshot('../__previews__/neighborhood-brunch-self-MOD1-hops2.md');
+  await expect(rendered).toMatchFileSnapshot('../__snapshots__/neighborhood-brunch-self-MOD1-hops2.md');
   expectNoStructuralLeak(rendered);
 });
 

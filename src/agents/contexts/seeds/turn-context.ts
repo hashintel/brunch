@@ -17,10 +17,10 @@
  * Used by: `.pi/extensions/agent-runtime/system-prompts` (before_agent_start) via composeAgentContextSeed
  */
 
+import { renderSoftReadinessEstimate } from '../../../agents/contexts/session/readiness-estimate.js';
 import type { GraphSlice } from '../../../graph/queries.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import { formatGraphNodeCode, type GraphNode } from '../../../graph/schema/nodes.js';
-import { renderSoftReadinessEstimate } from '../../../renderers/session/readiness-estimate.js';
 import type { AgentLensSelection } from '../../../session/schema/kinds.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 

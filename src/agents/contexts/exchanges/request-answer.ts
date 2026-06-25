@@ -1,4 +1,4 @@
-import type { RequestAnswerDetails } from '../../projections/exchanges/request-answer.js';
+import type { RequestAnswerDetails } from '../../../projections/exchanges/request-answer.js';
 
 export function formatRequestAnswer(details: RequestAnswerDetails): string {
   if ('cancelled' in details) return '# Response\n\n_User cancelled the request._';

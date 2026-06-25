@@ -1,7 +1,7 @@
 import { basename, resolve } from 'node:path';
 
+import { renderWorkspaceContext } from '../agents/contexts/workspace/workspace-context.js';
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
-import { renderWorkspaceContext } from '../renderers/workspace/workspace-context.js';
 import { inspectWorkspaceCwdInventory, type WorkspaceTopologyEntry } from '../workspace/cwd-inventory.js';
 import type { ProjectIdentity } from '../workspace/project-identity.js';
 import { inspectCanonicalSessionFiles } from './workspace-session-coordinator/canonical-session-files.js';

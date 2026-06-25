@@ -2,6 +2,8 @@
 
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 
+import { formatGraphOverview } from '../../../../agents/contexts/graph/graph-slice.js';
+import { formatNeighborhood } from '../../../../agents/contexts/graph/node-neighborhood.js';
 import type { CommandExecutor } from '../../../../graph/command-executor.js';
 import type {
   EdgeCategory,
@@ -16,8 +18,6 @@ import type {
   NodeSelector,
   ReadinessBand,
 } from '../../../../graph/index.js';
-import { formatGraphOverview } from '../../../../renderers/graph/graph-slice.js';
-import { formatNeighborhood } from '../../../../renderers/graph/node-neighborhood.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
 import { stampOwnMutationWatermark } from '../../../../session/prepare-next-turn.js';
 import {

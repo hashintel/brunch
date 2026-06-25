@@ -1,13 +1,13 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import {
+  renderRuntimeFrame,
+  type SessionRuntimeFrameRenderInput,
+} from '../../../../agents/contexts/session/runtime-frame.js';
+import {
   projectSessionRuntimeState,
   type RuntimeStateProjection,
 } from '../../../../projections/session/runtime-state.js';
-import {
-  renderRuntimeFrame,
-  type SessionRuntimeFrameRenderInput,
-} from '../../../../renderers/session/runtime-frame.js';
 import { NonLinearTranscriptError } from '../../../../session/brunch-session-envelope.js';
 import { readWorkspaceContext } from './get-cwd.js';
 import { readSpecificationContext } from './get-specification.js';

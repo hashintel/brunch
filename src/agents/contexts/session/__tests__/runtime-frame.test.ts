@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { RuntimeStateProjection } from '../../../projections/session/runtime-state.js';
+import type { RuntimeStateProjection } from '../../../../projections/session/runtime-state.js';
 import { renderRuntimeFrame } from '../runtime-frame.js';
 
 function readyProjection(): RuntimeStateProjection {
@@ -36,7 +36,7 @@ describe('renderRuntimeFrame', () => {
   it('locks the ready runtime-frame preview and renders projected graph handles', async () => {
     const rendered = renderRuntimeFrame(readyProjection());
 
-    await expect(rendered).toMatchFileSnapshot('../__previews__/runtime-frame-ready.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/runtime-frame-ready.md');
     expect(rendered).toContain('#D12');
     expect(rendered).not.toContain('node-1');
     expect(rendered).toContain('mode=elicit; role=elicitor; strategy=step-wise-disambiguate; lens=oracle');

@@ -7,11 +7,11 @@
  * never reach context. See src/graph/projection/.
  */
 
-import type { GraphEdge, NodeNeighborhood } from '../../graph/index.js';
-import type { EdgeEndpoint } from '../../graph/policy/category-policy.js';
-import { relationFromAnchor, type EdgeRelation } from '../../graph/projection/direction.js';
-import { edgeLabel } from '../../graph/projection/labels.js';
-import { formatGraphNodeCode, type GraphNode } from '../../graph/schema/nodes.js';
+import type { GraphEdge, NodeNeighborhood } from '../../../graph/index.js';
+import type { EdgeEndpoint } from '../../../graph/policy/category-policy.js';
+import { relationFromAnchor, type EdgeRelation } from '../../../graph/projection/direction.js';
+import { edgeLabel } from '../../../graph/projection/labels.js';
+import { formatGraphNodeCode, type GraphNode } from '../../../graph/schema/nodes.js';
 
 export interface RenderNodeNeighborhoodOptions {
   readonly maxExpandedEdges?: number;

@@ -1,5 +1,5 @@
+import { formatRequestChoice } from '../../../../agents/contexts/exchanges/request-choice.js';
 import { projectRequestChoice } from '../../../../projections/exchanges/request-choice.js';
-import { formatRequestChoice } from '../../../../renderers/exchanges/request-choice.js';
 import type { SelectedChoice } from '../schemas/index.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';

@@ -1,4 +1,4 @@
-import type { RuntimeStateProjection } from '../../projections/session/runtime-state.js';
+import type { RuntimeStateProjection } from '../../../projections/session/runtime-state.js';
 
 export type SessionRuntimeFrameRenderInput =
   | RuntimeStateProjection
