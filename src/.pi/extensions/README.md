@@ -8,7 +8,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 
 ## Does NOT own
 
-- Agent role prompt definitions and skill resource bodies (markdown) — `agents/prompts/` and `agents/skills/`. Prompt composition and prompt-resource legality live in `agent-runtime/` until their move slice lands.
+- Agent role prompt definitions, skill resource bodies, prompt composition, and prompt-resource legality — `agents/`. `agent-runtime/` is now only the Pi hook/tool adapter for that central policy.
 - Graph truth, graph mutation policy, or graph readers — top-level `graph/`.
 - Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — top-level `session/`, `projections/`, and related domain seams.
 - Reusable DTO projection or reusable markdown/text rendering — top-level `projections/` and `renderers/`.
@@ -19,9 +19,9 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 ```text
 extensions/
 ├── README.md
-├── agent-runtime/          foreground prompt composition, active-tool policy, prompt-resource legality, execute-mode stub
-│   ├── runtime/
-│   ├── system-prompts/
+├── agent-runtime/          Pi adapter for central agent runtime policy plus execute-mode stub
+│   ├── runtime/            operational-mode Pi tool activation adapter
+│   ├── system-prompts/     before_agent_start hook adapter
 │   └── orchestrator-stub/
 ├── brunch-data/            Pi tools over selected Brunch graph/spec/workspace/session data
 │   ├── graph/              mutate_graph/read_graph tools + selected-spec graph read seam

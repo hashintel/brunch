@@ -1,27 +1,27 @@
-import { bundledAgentBodyLocation } from '../../../../agents/registry.js';
-import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
-import type { CapabilityId } from '../../../../projections/session/capability-readiness.js';
+import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
+import type { CapabilityId } from '../../projections/session/capability-readiness.js';
 import {
   AUTO_EXCLUDED_STRATEGIES,
   axisOptionsForRuntimeState,
   isCapabilityLegalForGaps,
   toolPolicyForRuntimeState,
   type ResolvedBrunchAgentState,
-} from '../../../../projections/session/runtime-policy.js';
+} from '../../projections/session/runtime-policy.js';
 import {
   AGENT_LENS_IDS,
   AGENT_METHOD_IDS,
   AGENT_STRATEGY_IDS,
   type AgentMethodId,
   type AgentRoleId,
-} from '../../../../session/schema/kinds.js';
+} from '../../session/schema/kinds.js';
+import { bundledAgentBodyLocation } from '../registry.js';
 import {
   loadPromptResourceManifestEntries,
   type PromptManifests,
   type PromptResourceManifestEntry,
-} from '../system-prompts/prompt-skills.js';
+} from './prompt-skills.js';
 
-export type { PromptManifests, PromptResourceManifestEntry } from '../system-prompts/prompt-skills.js';
+export type { PromptManifests, PromptResourceManifestEntry } from './prompt-skills.js';
 
 export type MethodId = AgentMethodId;
 

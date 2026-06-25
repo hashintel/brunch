@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { composeAgentPrompt } from '../../agents/runtime/compose.js';
 import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
 import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
@@ -17,7 +18,6 @@ import {
   type BrunchAgentStateEntryData,
   registerBrunchOperationalModePolicy,
 } from '../extensions/agent-runtime/runtime/index.js';
-import { composeAgentPrompt } from '../extensions/agent-runtime/system-prompts/compose.js';
 import { registerBrunchPrompting } from '../extensions/agent-runtime/system-prompts/index.js';
 import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/dev-mode/introspect-query/index.js';
 import { createInMemoryBrunchIntrospectionStore } from '../extensions/dev-mode/introspection/index.js';

@@ -5,7 +5,7 @@
  * Owns the per-turn pushed context blocks the agent receives each turn: the
  * selected-workspace seed and the selected-spec graph seed. This is session/
  * world state rendered for the agent, distinct from system-prompt assembly
- * (`.pi/extensions/agent-runtime/system-prompts/compose.ts`), which only splices these blocks
+ * (`agents/runtime/compose.ts`), which only splices these blocks
  * into the prompt frame. Keeping composition here means cycling operational
  * modes — which swaps the agent role and therefore the system prompt — does not
  * re-own context derivation: the prompt layer consumes a bundle it does not

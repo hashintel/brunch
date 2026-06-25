@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
+import { activeToolNamesForPosture } from '../../../../agents/runtime/state.js';
 import { createDb } from '../../../../db/connection.js';
 import * as schema from '../../../../db/schema.js';
 import {
@@ -10,7 +11,6 @@ import {
 } from '../../../../graph/index.js';
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
 import { projectBrunchAgentState } from '../../agent-runtime/runtime/index.js';
-import { activeToolNamesForPosture } from '../../agent-runtime/runtime/state.js';
 import {
   READ_RECONCILIATION_NEEDS_TOOL,
   registerBrunchReconciliation,

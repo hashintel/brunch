@@ -5,21 +5,19 @@ import { fileURLToPath } from 'node:url';
 import { parseFrontmatter } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../../../../graph/schema/elicitation-gap-fixtures.js';
-import type { ElicitationGap } from '../../../../../graph/schema/elicitation-gaps.js';
-import type { NodeKind } from '../../../../../graph/schema/nodes.js';
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { NodeKind } from '../../../graph/schema/nodes.js';
 import {
   DEFAULT_BRUNCH_AGENT_STATE,
   projectBrunchAgentState,
-} from '../../../../../projections/session/runtime-state.js';
-import type { WorkspacePostureState } from '../../../../../session/workspace-session-coordinator.js';
-import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../runtime/state.js';
+} from '../../../projections/session/runtime-state.js';
+import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 import { composeAgentPrompt, type ComposeAgentPromptInput } from '../compose.js';
 import { renderBrunchSkills } from '../prompt-skills.js';
+import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../state.js';
 
-const projectRoot = dirname(
-  dirname(dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))))),
-);
+const projectRoot = dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 
 const groundingSpec = {
   id: 1,

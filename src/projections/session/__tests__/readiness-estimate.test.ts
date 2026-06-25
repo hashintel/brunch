@@ -71,7 +71,7 @@ describe('readiness estimate projection', () => {
     for (const relativePath of [
       '../runtime-policy.ts',
       '../affordances.ts',
-      '../../../.pi/extensions/agent-runtime/runtime/state.ts',
+      '../../../agents/runtime/state.ts',
     ]) {
       const source = readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8');
       expect(source).not.toMatch(/readiness-estimate|readinessEstimate/);

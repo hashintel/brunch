@@ -3,15 +3,15 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { bundledAgentBodyLocation } from '../../../../agents/registry.js';
-import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../../../.pi/extensions/agent-runtime/orchestrator-stub/index.js';
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import {
   FOREGROUND_AGENT_ROSTER,
   delegatableAgentsForRuntimeState,
-} from '../../../../projections/session/runtime-policy.js';
-import { projectBrunchAgentState } from '../../../../projections/session/runtime-state.js';
-import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../orchestrator-stub/index.js';
-import { activeToolNamesForPosture, agentBodyResourceLocation, manifestsForState } from './state.js';
+} from '../../../projections/session/runtime-policy.js';
+import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
+import { bundledAgentBodyLocation } from '../../registry.js';
+import { activeToolNamesForPosture, agentBodyResourceLocation, manifestsForState } from '../state.js';
 
 const registeredToolNames = [
   'read',
@@ -295,7 +295,7 @@ describe('agent posture policy', () => {
   });
 
   it('keeps state.ts free of grade-gate symbols', () => {
-    const source = readFileSync(fileURLToPath(new URL('./state.ts', import.meta.url)), 'utf8');
+    const source = readFileSync(fileURLToPath(new URL('../state.ts', import.meta.url)), 'utf8');
     expect(source).not.toMatch(/ReadinessGrade|GRADE_RANK|MIN_GRADE|isGradeLegal/);
   });
 });

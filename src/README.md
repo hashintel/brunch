@@ -10,7 +10,8 @@ src/
 │
 ├── agents/              Pi-independent owner for Brunch-authored LLM context ingress
 │   ├── prompts/            agent role body markdown resources
-│   └── skills/             prompt-resource markdown resources
+│   ├── skills/             prompt-resource markdown resources
+│   └── runtime/            prompt composition and prompt-resource/tool legality
 │
 ├── .pi/                  Sealed Pi-harness runtime surface
 │   ├── components/         reusable Pi TUI/message components
@@ -59,7 +60,7 @@ Rules:
 
 - `workspace/` owns cwd-scoped identity, inventory, and workspace default-state persistence. It must not import Pi, session, graph, DB, projection, renderer, adapter, transport, app, or web modules.
 - `graph/` imports from `db/`. No other layer imports `db/` directly.
-- `agents/` owns the Brunch-authored LLM-context ingress seam. Today it hosts agent prompt bodies, prompt-resource skills, and their central file registry; later slices move runtime composition, seeds, and agent-visible rendering under this seam. The current `projections/session/runtime-policy.ts` import of this registry is a migration edge only: once runtime policy moves under `agents/runtime/`, projections should stop depending on `agents/`.
+- `agents/` owns the Brunch-authored LLM-context ingress seam. Today it hosts agent prompt bodies, prompt-resource skills, prompt composition, prompt-resource/tool legality, and their central file registry; later slices move seeds and agent-visible rendering under this seam. The current `projections/session/runtime-policy.ts` import of this registry is a migration edge only: once the foreground roster moves under `agents/runtime/`, projections should stop depending on `agents/`.
 - `.pi/` owns Pi-harness extensions/components and no longer hosts Brunch-authored prompt bodies or prompt-resource skills.
 - `.pi/extensions/` registers Pi tools/hooks/UI affordances and delegates product semantics outward.
 - `projections/` owns reusable structured output; `renderers/` owns reusable lossy text output.

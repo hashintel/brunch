@@ -2,11 +2,7 @@ import { basename, dirname } from 'node:path';
 
 import { loadSkills, type Skill } from '@earendil-works/pi-coding-agent';
 
-import {
-  promptResourceAgentDir,
-  promptResourceLocation,
-  type PromptResourceFamily,
-} from '../../../../agents/registry.js';
+import { promptResourceAgentDir, promptResourceLocation, type PromptResourceFamily } from '../registry.js';
 
 export interface PromptResourceManifestEntry {
   name: string;

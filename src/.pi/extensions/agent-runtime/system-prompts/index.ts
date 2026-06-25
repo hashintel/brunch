@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
+import { composeAgentPrompt, type AgentPromptContextBundle } from '../../../../agents/runtime/compose.js';
 import {
   composeAgentContextSeed,
   type AgentPromptSessionContext,
@@ -14,7 +15,6 @@ import {
   agentBodyResourceLocation,
   projectBrunchAgentState,
 } from '../runtime/index.js';
-import { composeAgentPrompt, type AgentPromptContextBundle } from './compose.js';
 import { createWorldReadCache, type WorldReads } from './world-reads.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];

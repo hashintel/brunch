@@ -11,6 +11,7 @@ agents/
 ├── README.md
 ├── prompts/           bundled foreground/background agent body markdown
 ├── skills/            strategy/lens/method prompt-resource markdown
+├── runtime/           prompt composition and prompt-resource/tool legality
 ├── registry.ts        path registry for bundled agent bodies and prompt-resource skills
 └── __tests__/         registry/topology tests
 ```
@@ -28,4 +29,4 @@ rules:
 
 ## Migration note
 
-This directory is intentionally mid-migration. Agent prompt bodies and prompt-resource skills have moved here byte-stably. Later slices move prompt composition, seed context, runtime policy, and agent-visible renderers here; Pi extensions remain runtime adapters that register hooks/tools and call this layer.
+This directory is intentionally mid-migration. Agent prompt bodies, prompt-resource skills, prompt composition, and prompt-resource/tool legality have moved here byte-stably. Later slices move seed context and agent-visible renderers here; Pi extensions remain runtime adapters that register hooks/tools and call this layer.
