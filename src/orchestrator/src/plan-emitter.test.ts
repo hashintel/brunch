@@ -383,12 +383,12 @@ describe('emitPlanFromSnapshot', () => {
         repoDir: '/repo',
         detect,
         detectProjectContext: () => ({
-          packages: [{ dir: 'libs/@hashintel/petrinaut-core', name: '@hashintel/petrinaut-core' }],
+          packages: [{ dir: 'packages/domain-core', name: '@example/domain-core' }],
         }),
       },
     );
 
-    expect(capturedPrompt).toContain('@hashintel/petrinaut-core at libs/@hashintel/petrinaut-core');
+    expect(capturedPrompt).toContain('@example/domain-core at packages/domain-core');
   });
 
   it('brownfield keeps the profile default when the repo has no tests to learn from', async () => {

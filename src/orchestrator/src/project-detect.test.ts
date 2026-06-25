@@ -191,17 +191,17 @@ describe('detectProfile resolves the runner from workspace packages in a monorep
 describe('detectProjectContext summarizes package anchors for brownfield planning', () => {
   it('lists workspace package dirs and names deterministically', () => {
     const dir = repo({
-      'package.json': JSON.stringify({ workspaces: ['libs/@hashintel/*', 'apps/web'] }),
-      'libs/@hashintel/petrinaut-core/package.json': JSON.stringify({ name: '@hashintel/petrinaut-core' }),
-      'libs/@hashintel/other/package.json': JSON.stringify({ name: '@hashintel/other' }),
-      'apps/web/package.json': JSON.stringify({ name: '@hashintel/web' }),
+      'package.json': JSON.stringify({ workspaces: ['packages/*', 'apps/web'] }),
+      'packages/domain-core/package.json': JSON.stringify({ name: '@example/domain-core' }),
+      'packages/shared-utils/package.json': JSON.stringify({ name: '@example/shared-utils' }),
+      'apps/web/package.json': JSON.stringify({ name: '@example/web' }),
     });
 
     expect(detectProjectContext(dir)).toEqual({
       packages: [
-        { dir: 'apps/web', name: '@hashintel/web' },
-        { dir: 'libs/@hashintel/other', name: '@hashintel/other' },
-        { dir: 'libs/@hashintel/petrinaut-core', name: '@hashintel/petrinaut-core' },
+        { dir: 'apps/web', name: '@example/web' },
+        { dir: 'packages/domain-core', name: '@example/domain-core' },
+        { dir: 'packages/shared-utils', name: '@example/shared-utils' },
       ],
     });
   });

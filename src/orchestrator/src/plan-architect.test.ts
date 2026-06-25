@@ -198,14 +198,14 @@ describe('architectPlan', () => {
         relations: [],
         project: {
           packages: [
-            { dir: 'libs/@hashintel/petrinaut-core', name: '@hashintel/petrinaut-core' },
-            { dir: 'tests/hash-backend-integration', name: '@hashintel/hash-backend-integration' },
+            { dir: 'packages/domain-core', name: '@example/domain-core' },
+            { dir: 'packages/integration-tests', name: '@example/integration-tests' },
           ],
         },
       },
     );
 
-    expect(prompt).toContain('@hashintel/petrinaut-core at libs/@hashintel/petrinaut-core');
+    expect(prompt).toContain('@example/domain-core at packages/domain-core');
     expect(prompt).toContain('Do not put product');
     expect(prompt).toContain('unrelated integration-test package');
   });
