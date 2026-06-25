@@ -89,6 +89,14 @@ describe('serveCookOptions', () => {
     // cook reads opts.dir raw (no launch-cwd default — that's parseCookArgs only),
     // so serve must thread the resolved dir the plan was written to, not ''.
     expect(cook.dir).toBe('/proj');
+    expect(cook.sourceDir).toBe('/proj');
+  });
+
+  it('can cook a child repo while reading plan state from the Brunch project root', () => {
+    const cook = serveCookOptions(parseServeArgs(['9', '--land']), '/repo', '/repo/packages/app');
+
+    expect(cook.dir).toBe('/repo');
+    expect(cook.sourceDir).toBe('/repo/packages/app');
   });
 
   it('leaves absolute --out paths absolute', () => {
@@ -125,6 +133,7 @@ describe('runServe', () => {
     expect(cookSaw?.outDir).toBe(resolve('/proj', 'dist'));
     // cook runs against the same dir the plan was written to.
     expect(cookSaw?.dir).toBe('/proj');
+    expect(cookSaw?.sourceDir).toBe('/proj');
   });
 
   it('does not cook if planning fails', async () => {

@@ -137,15 +137,19 @@ export function parseServeArgs(args: string[]): ServeOptions {
  * just emitted (not an auto-picked older one); serve's `--out` becomes cook's
  * greenfield promote target (brownfield promotes automatically regardless).
  *
- * `cookDir` is the resolved launch cwd the plan was written under. `runCook`
- * reads `opts.dir` raw — the launch-cwd default lives only in `parseCookArgs`,
- * which serve bypasses — so cook would otherwise resolve the plan path against
- * `process.cwd()` and clone `''` for brownfield. Threading the same dir the plan
- * used keeps the two stages pointed at one directory (SPEC R46).
+ * `cookDir` is the resolved Brunch project root where plan state was written.
+ * `sourceDir` is the brownfield repo/workspace target. They are usually the
+ * same, but differ when the UI was launched from a child below a parent
+ * `.brunch/` project root.
  */
-export function serveCookOptions(opts: ServeOptions, cookDir: string): CookOptions {
+export function serveCookOptions(
+  opts: ServeOptions,
+  cookDir: string,
+  sourceDir: string = cookDir,
+): CookOptions {
   return {
     dir: cookDir,
+    sourceDir,
     policy: opts.policy,
     maxRetries: opts.maxRetries,
     verbose: opts.verbose,
@@ -172,8 +176,8 @@ export function serveCookOptions(opts: ServeOptions, cookDir: string): CookOptio
 export async function runServe(
   opts: ServeOptions,
   cookDir: string,
-  deps: { plan: () => Promise<void>; cook: (cookOpts: CookOptions) => Promise<void> },
+  deps: { plan: () => Promise<void>; cook: (cookOpts: CookOptions) => Promise<void>; sourceDir?: string },
 ): Promise<void> {
   await deps.plan();
-  await deps.cook(serveCookOptions(opts, cookDir));
+  await deps.cook(serveCookOptions(opts, cookDir, deps.sourceDir ?? cookDir));
 }

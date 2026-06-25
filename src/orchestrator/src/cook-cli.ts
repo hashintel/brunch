@@ -46,7 +46,10 @@ export type PetrinautFoldMode = 'color' | 'identity';
 export type PetrinautLanesMode = 'both' | 'mechanical';
 
 export type CookOptions = {
+  /** Brunch project root: where .brunch/cook state is read and written. */
   dir: string;
+  /** Brownfield workspace/repo target. Defaults to dir for direct callers. */
+  sourceDir?: string;
   policy: FiringPolicy;
   maxRetries: number;
   verbose: boolean;
@@ -351,10 +354,10 @@ export type ResolvedCookPlan =
  *
  * Pure function — no process exits, no side effects beyond filesystem reads.
  */
-export function resolveCookPlan(dir: string, specId?: number): ResolvedCookPlan {
-  const fixturePath = join(dir, 'plan.yaml');
+export function resolveCookPlan(dir: string, specId?: number, sourceDir: string = dir): ResolvedCookPlan {
+  const fixturePath = join(sourceDir, 'plan.yaml');
   if (existsSync(fixturePath)) {
-    return { kind: 'resolved', planPath: fixturePath, sourceDir: dir };
+    return { kind: 'resolved', planPath: fixturePath, sourceDir };
   }
 
   const legacyPath = join(dir, '.brunch', 'cook', 'plan.yaml');
@@ -371,7 +374,7 @@ export function resolveCookPlan(dir: string, specId?: number): ResolvedCookPlan 
   }
 
   if (planPath) {
-    return { kind: 'resolved', planPath, sourceDir: dir };
+    return { kind: 'resolved', planPath, sourceDir };
   }
 
   return {
@@ -441,6 +444,8 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
     }
   };
   const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
+  const stateDir = opts.dir;
+  const sourceDir = opts.sourceDir ?? opts.dir;
 
   // Streaming pre-flight happens before any cook side effect (banner, plan
   // load, sandbox creation). Without --petrinaut-stream there is no .env read
@@ -460,7 +465,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
     streamPort = resolvePetrinautStreamPort({ PORT: process.env.PORT });
   }
 
-  const resolved = resolveCookPlan(opts.dir, opts.specId);
+  const resolved = resolveCookPlan(stateDir, opts.specId, sourceDir);
   if (resolved.kind === 'error') throw new Error(resolved.message);
 
   const plan = loadPlan(resolved.planPath);
@@ -475,8 +480,8 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
 
   const { sandboxDir, runDir, runId } =
     sandbox.kind === 'codebase'
-      ? createSandbox(launchCwd, undefined, { mode: 'codebase', sourceDir: sandbox.sourceDir })
-      : createSandbox(launchCwd);
+      ? createSandbox(stateDir, undefined, { mode: 'codebase', sourceDir: sandbox.sourceDir })
+      : createSandbox(stateDir);
 
   // Durable run store (FE-885): when the run is tied to a spec, persist
   // `reports.jsonl` (and later `exec-progress.json`) under the spec-scoped run
@@ -485,7 +490,7 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
   // by the emitter), falling back to the `--spec` flag; an authored/fixture run
   // with no spec identity keeps reports in `runDir` (legacy behavior).
   const specId = resolveRunStoreSpecId(plan, opts.specId);
-  const runStoreDir = specId !== undefined ? specRunStoreDir(launchCwd, specId, runId) : runDir;
+  const runStoreDir = specId !== undefined ? specRunStoreDir(stateDir, specId, runId) : runDir;
   mkdirSync(runStoreDir, { recursive: true });
   const reportsPath = join(runStoreDir, 'reports.jsonl');
 

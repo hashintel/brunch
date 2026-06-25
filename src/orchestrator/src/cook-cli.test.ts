@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -483,6 +483,24 @@ describe('resolveCookPlan', () => {
     expect(result.kind).toBe('resolved');
     if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(specDir, 'plan.yaml'));
+    }
+  });
+
+  it('resolves spec plans from the Brunch project root while keeping the launch child as source', () => {
+    const project = makeTmpDir();
+    const child = join(project, 'packages', 'app');
+    mkdirSync(child, { recursive: true });
+    const specDir = join(project, '.brunch', 'cook', 'specs', '7');
+    mkdirSync(specDir, { recursive: true });
+    writeFileSync(join(specDir, 'plan.yaml'), 'epics: []\nslices: []\n');
+
+    const result = resolveCookPlan(project, 7, child);
+
+    expect(result.kind).toBe('resolved');
+    if (result.kind === 'resolved') {
+      expect(result.planPath).toBe(join(specDir, 'plan.yaml'));
+      expect(result.sourceDir).toBe(child);
+      expect(existsSync(join(child, '.brunch'))).toBe(false);
     }
   });
 

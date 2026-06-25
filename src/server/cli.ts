@@ -127,7 +127,7 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('');
   console.log('Plan flags:');
   console.log(
-    '  --out=<dir>               Output directory (default: cwd); plan lands under .brunch/cook/specs/<specId>/',
+    '  --out=<dir>               Target dir (default: cwd); resolved to its Brunch project root, plan lands under .brunch/cook/specs/<specId>/',
   );
   console.log(
     '  --profile=<id>            Toolchain profile override (default: spec profile, else bun); persisted into plan.yaml',
@@ -145,7 +145,8 @@ if (rawArgs[0] === 'cook') {
     // Parse before mounting the TUI; withCookBus disposes (unmounts Ink) in
     // finally so a run error tears the TUI down before we print it.
     const opts = parseCookArgs(rawArgs.slice(1));
-    await withCookBus('cook', (bus) => runCook(opts, bus));
+    const project = resolveBrunchProject(opts.dir);
+    await withCookBus('cook', (bus) => runCook({ ...opts, dir: project.cwd, sourceDir: opts.dir }, bus));
   } catch (error) {
     console.error(`Failed to run brunch cook: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
@@ -161,16 +162,16 @@ if (rawArgs[0] === 'cook') {
   await withCompletedSpec(
     'serve',
     () => parseServeArgs(rawArgs.slice(1)),
-    async (opts, { snapshot }) => {
+    async (opts, { project, snapshot }) => {
       await withCookBus('serve', (bus) =>
-        // Cook runs against the same dir the plan was written to (launchCwd); see
-        // serveCookOptions — runCook reads opts.dir raw, so serve must thread it.
-        runServe(opts, launchCwd, {
+        // State lives at the resolved Brunch project root; brownfield source remains the launch cwd.
+        runServe(opts, project.cwd, {
+          sourceDir: launchCwd,
           plan: () =>
             runPlan({
               specificationId: opts.specificationId,
               snapshot,
-              outDir: launchCwd,
+              outDir: project.cwd,
               verbose: opts.verbose,
               profile: opts.profile,
               // Brownfield detection reads the same directory cook will clone; greenfield ignores it.
@@ -188,12 +189,15 @@ if (rawArgs[0] === 'cook') {
   await withCompletedSpec(
     'plan',
     () => parsePlanArgs(rawArgs.slice(1), launchCwd),
-    async (opts, { snapshot }) => {
+    async (opts, { project, snapshot }) => {
       await withCookBus('plan', (bus) =>
         runPlan({
           specificationId: opts.specificationId,
           snapshot,
-          outDir: opts.outDir,
+          // Resolve --out through the same project-root walk-up cook/serve use, so an
+          // explicit --out aimed at a child of a project still lands the plan at the
+          // root where `brunch cook` resolves it (not a stray child .brunch/).
+          outDir: opts.outDirExplicit ? resolveBrunchProject(opts.outDir).cwd : project.cwd,
           verbose: opts.verbose,
           profile: opts.profile,
           // Brownfield detection reads the command launch directory, not the .brunch project root.

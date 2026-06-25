@@ -50,6 +50,7 @@ describe('parsePlanArgs', () => {
     const opts = parsePlanArgs(['2'], launchDir);
 
     expect(opts.outDir).toBe(launchDir);
+    expect(opts.outDirExplicit).toBe(false);
   });
 
   it('lets --out override the caller-provided launch directory', () => {
@@ -59,6 +60,7 @@ describe('parsePlanArgs', () => {
     const opts = parsePlanArgs(['2', `--out=${explicitOut}`], launchDir);
 
     expect(opts.outDir).toBe(explicitOut);
+    expect(opts.outDirExplicit).toBe(true);
   });
 
   it('supports short -v alias for verbose', () => {
