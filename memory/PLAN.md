@@ -80,6 +80,7 @@ context-pipeline/
 
 ### Next
 
+- `orchestrator-tool-port` (FE-1087) — **scoped.** Port the external `brunch cook` orchestrator into execute-mode tools without granting the foreground orchestrator direct shell/file-write authority. First active scope: `memory/cards/orchestrator-tool-port--plan-check-tool.md`.
 - `elicitor-project` (FE-1085) — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
 - `data-model-legibility` — **active.** Single canonical home for data-model meta-guidance, with closed-vocabulary tables generated from the typed `graph/schema` sources (D97-L). Design verdict landed (Shape C); first tracer landed (generated kind→band table + `check:data-model` drift guard, cited by `methods/capture`). Remaining: edge-category + detail-form tables, the authored judgment layer, and the subtypes→`detail` remodel.
 - `renderer-golden-coverage` — **active parallel coverage track.** Remaining RENDER work: `<session>`, `renderGraphSeed`, `exchanges/*`, `formatRelatedNodesResult` relocation/repair, and the `brunch print` fork.
@@ -103,6 +104,22 @@ context-pipeline/
 - `geolog-and-petri-execution` — exploratory, parallel to Brunch proper.
 
 ## Frontier Definitions
+
+### orchestrator-tool-port
+
+- **Name:** Port cook orchestrator into execute-mode tools
+- **Linear:** [FE-1087](https://linear.app/hash/issue/FE-1087/port-cook-orchestrator-into-execute-mode-tools)
+- **Branch:** tbd
+- **Kind:** structural / execute-mode tool boundary
+- **Status:** scoped; first scope file active.
+- **Certainty:** proving.
+- **Current execution pointer:** `memory/cards/orchestrator-tool-port--plan-check-tool.md`.
+- **Objective:** Replace the execute-mode standup stub with real orchestrator tooling by porting reusable `brunch cook` core logic into product-owned modules and exposing it through thin `.pi/extensions` adapters, while preserving the orchestrator foreground agent's no-direct-`bash` / no-direct-`edit` / no-direct-`write` authority.
+- **Acceptance:**
+  - First tracer replaces `orchestrator_stub` with a read-only `cook_plan_check` tool that validates a cook plan and returns typed plan shape/findings without creating a run sandbox.
+  - Later `cook_run` tooling is bounded behind orchestrator-owned sandbox/worktree machinery; write-capable worker sessions, if any, are code-owned child execution boundaries, not foreground-agent direct tools.
+  - External `../brunch` CLI behavior is ported as reusable product core plus Pi adapter, not wrapped as a shell command.
+- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L / I49-L; `src/.pi/extensions/README.md`.
 
 ### elicitor-project
 
@@ -170,6 +187,11 @@ frontiers:
     none
 
   Next:
+    orchestrator-tool-port
+      status: scoped
+      depends_on: D39-L, D90-L, D91-L, D92-L, D93-L, I49-L
+      active_scope: memory/cards/orchestrator-tool-port--plan-check-tool.md
+
     elicitor-project
       status: design-gated
       depends_on: elicitor-generate, D95-L, D96-L, I51-L
