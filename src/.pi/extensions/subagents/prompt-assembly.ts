@@ -1,12 +1,12 @@
-import { renderBrunchSkills, type PromptManifests } from '../../../agents/runtime/prompt-skills.js';
-import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../../agents/runtime/state.js';
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type {
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
   AgentPromptSessionContext,
-} from '../../../session/agent-context-seed.js';
-import { renderWorkspaceSeed } from '../../../session/agent-context-seed.js';
+} from '../../../agents/contexts/seeds/turn-context.js';
+import { renderWorkspaceSeed } from '../../../agents/contexts/seeds/turn-context.js';
+import { renderBrunchSkills, type PromptManifests } from '../../../agents/runtime/prompt-skills.js';
+import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../../agents/runtime/state.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { SubagentDefinition } from './agents.js';
 
 export interface BackgroundWorldSnapshot {

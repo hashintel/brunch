@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GraphSlice } from '../../graph/queries.js';
-import { presenceGap } from '../../graph/schema/elicitation-gap-fixtures.js';
-import { composeAgentContextSeed, renderGraphSeed, renderWorkspaceSeed } from '../agent-context-seed.js';
+import type { GraphSlice } from '../../../../graph/queries.js';
+import { presenceGap } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import { composeAgentContextSeed, renderGraphSeed, renderWorkspaceSeed } from '../turn-context.js';
 
 describe('renderWorkspaceSeed', () => {
   it('renders selected-spec/session/posture facts without ambient resource discovery', () => {

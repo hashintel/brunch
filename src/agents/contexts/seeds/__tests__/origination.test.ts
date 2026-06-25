@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import { composeContextSeedContent } from '../context-seed.js';
+import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
+import { composeContextSeedContent } from '../origination.js';
 
 const specId = 7;
 

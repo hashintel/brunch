@@ -68,10 +68,10 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `prepare-next-turn.ts` owns the single pre-turn continuity writer; Pi lifecycle
   hooks adapt it through `.pi/extensions/session-hooks/session/lifecycle.ts`, and
   `before_provider_request` is a guard-only check. `start-assistant-turn.ts`
-  owns the origination decision and context seed entries; `context-seed.ts`
-  composes the seed's provider-visible payload (spec overview + top-ranked
-  open gaps) from spec-scoped reads; `originate-assistant-turn.ts` is the one
-  seed choreography every entry point (TUI boot, `session.triggerExchange`)
+  owns the origination decision and context seed entries;
+  `agents/contexts/seeds/origination.ts` composes the seed's provider-visible
+  payload (spec overview + top-ranked open gaps) from spec-scoped reads;
+  `originate-assistant-turn.ts` is the one seed choreography every entry point (TUI boot, `session.triggerExchange`)
   delegates to — origin derives from conversational-message presence in the
   projected transcript, never entry counts (I46-L). Origination only *decides
   and seeds* — it fabricates **no** `present_*` exchange (D78-L revised
@@ -139,12 +139,12 @@ schema, and the product-state-gated rows must stay explicit deferred tripwires.
 
 - Cwd project identity, pure cwd inventory, and `.brunch/workspace.json` persistence — those live in `workspace/`.
 - Graph state, CommandExecutor, graph queries — those live in `graph/`.
-- Prompt composition, pushed seed context building — those live in `.pi/extensions/agent-runtime/system-prompts/` (manifest/legality policy in `.pi/extensions/agent-runtime/runtime/`).
+- Prompt composition and pushed seed context building — those live in `agents/runtime/` and `agents/contexts/seeds/`, adapted by `.pi/extensions/agent-runtime/system-prompts/`.
 - Pi extension registration — those live in `.pi/extensions/`.
 
 ## Imported by
 
-- `.pi/extensions/agent-runtime/system-prompts/seed/` — for workspace/graph pushed-context reads.
+- `agents/contexts/seeds/` — for agent-visible per-turn and origination seed text.
 - `.pi/extensions/brunch-data/context/` — for direct workspace overview reads; pure cwd inventory comes from `workspace/`.
 - `projections/session/` — for reusable transcript-context DTO projection.
 - `projections/workspace/` — for reusable workspace-state DTO projection.

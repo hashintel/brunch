@@ -1,6 +1,6 @@
 /**
- * Agent context-seed composition — a session-context concern, not a
- * system-prompt concern.
+ * Agent context-seed composition — an agent-context concern, not a
+ * system-prompt or Pi-adapter concern.
  *
  * Owns the per-turn pushed context blocks the agent receives each turn: the
  * selected-workspace seed and the selected-spec graph seed. This is session/
@@ -9,7 +9,7 @@
  * into the prompt frame. Keeping composition here means cycling operational
  * modes — which swaps the agent role and therefore the system prompt — does not
  * re-own context derivation: the prompt layer consumes a bundle it does not
- * compose. Mirrors `context-seed.ts` (origination continuity entry); this is
+ * compose. Mirrors `origination.ts` (continuity seed entry); this is
  * its ephemeral per-turn sibling.
  *
  * Input:  selected spec/workspace/session + gaps + already-read graph slice + lens
@@ -17,12 +17,12 @@
  * Used by: `.pi/extensions/agent-runtime/system-prompts` (before_agent_start) via composeAgentContextSeed
  */
 
-import type { GraphSlice } from '../graph/queries.js';
-import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
-import { formatGraphNodeCode, type GraphNode } from '../graph/schema/nodes.js';
-import { renderSoftReadinessEstimate } from '../renderers/session/readiness-estimate.js';
-import type { AgentLensSelection } from './schema/kinds.js';
-import type { WorkspacePostureState } from './workspace-session-coordinator.js';
+import type { GraphSlice } from '../../../graph/queries.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import { formatGraphNodeCode, type GraphNode } from '../../../graph/schema/nodes.js';
+import { renderSoftReadinessEstimate } from '../../../renderers/session/readiness-estimate.js';
+import type { AgentLensSelection } from '../../../session/schema/kinds.js';
+import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 
 export interface AgentPromptSpecContext {
   id: number;

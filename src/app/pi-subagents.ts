@@ -16,7 +16,7 @@ import type {
   AgentPromptSessionContext,
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
-} from '../session/agent-context-seed.js';
+} from '../agents/contexts/seeds/turn-context.js';
 import { brunchResourceLoaderOptions, createBrunchSettingsManager } from './pi-settings.js';
 
 export interface LoadBrunchSubagentsOptions {

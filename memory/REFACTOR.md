@@ -67,7 +67,7 @@ callers after refactor
 2. ✓ Move agent prompt bodies into the new prompt home and update foreground/body loading, background subagent loading, build asset copying, and prompt-body tests without changing prompt bytes.
 3. ✓ Move Brunch prompt-resource skills into the new skills home and update manifest loading, build asset copying, resource-location snapshots, and skill topology docs without changing skill bytes.
 4. ✓ Move foreground prompt composition and prompt-resource legality code into the new runtime home; leave Pi extension code as a thin hook adapter that imports the central composer.
-5. Move per-turn pushed context composition and origination/session-entry seed composition into the new context seed home; update session and app callers to import from the central agent context layer.
+5. ✓ Move per-turn pushed context composition and origination/session-entry seed composition into the new context seed home; update session and app callers to import from the central agent context layer.
 6. Move reusable LLM-facing context renderers into the new context home, keeping product-only/human-only renderers outside unless they are deliberately agent-visible.
 7. Promote adapter-local LLM text formatting into the new context home: graph mutation result text, related-node text, elicitation agenda/update text, and reconciliation agenda/update text.
 8. Consolidate golden/preview tests for prompt composition and agent context renderers under the new agent tree, preserving existing semantic invariants while making “what enters the model” reviewable in one place.

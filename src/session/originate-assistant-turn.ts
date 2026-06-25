@@ -17,10 +17,10 @@
  * seed.
  */
 
+import { composeContextSeedContent } from '../agents/contexts/seeds/origination.js';
 import type { GraphSlice } from '../graph/index.js';
 import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
 import type { TranscriptEntryLike } from '../projections/session/continuity-entry-classifier.js';
-import { composeContextSeedContent } from './context-seed.js';
 import { appendPreparedContinuityEntry, type ContinuityEntryAppender } from './prepare-next-turn.js';
 import { startAssistantTurn, type StartAssistantTurnDecision } from './start-assistant-turn.js';
 

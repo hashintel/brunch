@@ -2,13 +2,13 @@ import { readFile } from 'node:fs/promises';
 
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
-import { composeAgentPrompt, type AgentPromptContextBundle } from '../../../../agents/runtime/compose.js';
 import {
   composeAgentContextSeed,
   type AgentPromptSessionContext,
   type AgentPromptSpecContext,
   type AgentPromptWorkspaceContext,
-} from '../../../../session/agent-context-seed.js';
+} from '../../../../agents/contexts/seeds/turn-context.js';
+import { composeAgentPrompt, type AgentPromptContextBundle } from '../../../../agents/runtime/compose.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import {
   activeToolNamesForBrunchAgentState,
