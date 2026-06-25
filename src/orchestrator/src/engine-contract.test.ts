@@ -302,6 +302,65 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 });
 
 // ---------------------------------------------------------------------------
+// Contract test #1b — FE-885 spec provenance is inert to execution
+//
+// Adding `Slice.derived_from` + a top-level `Plan.spec` block must not change
+// any engine-observable behavior (I139-K): same outcomes, same report events,
+// same compiled topology. The compiler/interpreter never read those fields.
+// ---------------------------------------------------------------------------
+
+describe('Engine contract test #1b — spec provenance is inert to execution (FE-885)', () => {
+  const planWithProvenance: Plan = {
+    ...simplePlan,
+    spec: {
+      spec_id: '49',
+      requirements: [{ item_id: 'req-1', content: 'Print hello world' }],
+      criteria: [{ item_id: 'crit-1', content: 'prints hello', verifies: ['req-1'] }],
+    },
+    slices: simplePlan.slices.map((s) => ({ ...s, derived_from: ['req-1'] })),
+  };
+
+  for (const { name, create } of engines) {
+    it(`${name}: outcomes + report events are identical with and without provenance`, async () => {
+      const bare = createFakes();
+      const bareResult = await create().run({
+        plan: simplePlan,
+        sandboxDir: '/tmp/fake',
+        actions: bare.actions,
+        reports: bare.reports,
+        testRunner: bare.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      const withProv = createFakes();
+      const provResult = await create().run({
+        plan: planWithProvenance,
+        sandboxDir: '/tmp/fake',
+        actions: withProv.actions,
+        reports: withProv.reports,
+        testRunner: withProv.testRunner,
+        policy: { maxRetries: 3 },
+      });
+
+      expect(provResult.status).toBe(bareResult.status);
+      expect(provResult.epics).toEqual(bareResult.epics);
+      expect(provResult.slices).toEqual(bareResult.slices);
+      expect(withProv.callOrder).toEqual(bare.callOrder);
+      expect(withProv.reports.getAll().map((r) => r.event)).toEqual(
+        bare.reports.getAll().map((r) => r.event),
+      );
+    });
+  }
+
+  it('compiles to an identical topology (place + transition ids) with and without provenance', () => {
+    const bare = compileTopology(simplePlan, { maxRetries: 3 });
+    const withProv = compileTopology(planWithProvenance, { maxRetries: 3 });
+    expect([...withProv.places].sort()).toEqual([...bare.places].sort());
+    expect(withProv.transitions.map((t) => t.id).sort()).toEqual(bare.transitions.map((t) => t.id).sort());
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Contract test #2 — intra-epic slice dependencies
 // ---------------------------------------------------------------------------
 

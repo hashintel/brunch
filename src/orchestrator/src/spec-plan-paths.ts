@@ -24,6 +24,18 @@ export function specsRootDir(dir: string): string {
 }
 
 /**
+ * Absolute path to the spec-scoped run store
+ * `<dir>/.brunch/cook/specs/<specId>/runs/<runId>` (FE-885). Holds a run's
+ * **durable** artifacts (`reports.jsonl`, `exec-progress.json`), kept apart
+ * from the ephemeral run directory `<dir>/.brunch/cook/runs/<runId>` that
+ * `gcCookRun` deletes after a promoted brownfield run — so execution progress
+ * survives GC and stays consumable by a later UI.
+ */
+export function specRunStoreDir(dir: string, specId: number, runId: string): string {
+  return join(specsRootDir(dir), String(specId), 'runs', runId);
+}
+
+/**
  * Walk `<dir>/.brunch/cook/specs/<n>/plan.yaml` and return the most
  * recently modified plan path by mtime, or `undefined` if none exist.
  * Subdirectory names that aren't positive integers are ignored (the

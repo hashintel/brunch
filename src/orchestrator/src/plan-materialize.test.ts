@@ -120,6 +120,15 @@ describe('materializeArchitectedPlan', () => {
     expect(plan.slices.find((s) => s.id === 'a')!.definition).toContain('renders fast');
   });
 
+  it('preserves filtered derived_from on the emitted slice (FE-885), omitting it when empty', () => {
+    const d = draft();
+    d.slices[1]!.derivedFrom = ['req-1', 'req-999']; // req-999 dropped as unknown
+    const { plan } = materializeArchitectedPlan(projected, d, toolchain);
+    expect(plan.slices.find((s) => s.id === 'a')!.derived_from).toEqual(['req-1']);
+    // scaffold authored no provenance → field omitted entirely.
+    expect(plan.slices.find((s) => s.id === 'scaffold')!.derived_from).toBeUndefined();
+  });
+
   it('drops self/dangling deps and assigns unknown-epic slices to the default epic', () => {
     const d = draft();
     d.slices[1]!.depends_on = ['a', 'ghost'];

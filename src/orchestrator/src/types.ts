@@ -69,6 +69,46 @@ export type Slice = {
    * `depends_on` the slices it joins — not an exception to single-writer.
    */
   writes?: string[];
+  /**
+   * Spec requirement refs this slice contributes to (slice-id space, e.g.
+   * `req-51`), matching `PlanSpec.requirements[].item_id`. The architect
+   * authors `derivedFrom`; materialization filters it to known requirement
+   * ids and preserves it here so a post-hoc projector can map execution back
+   * onto spec requirements without a DB read (FE-885 spec-execution
+   * observability). **Inert to execution** — the net compiler/interpreter
+   * ignore it; only the progress projector reads it. Optional: authored /
+   * legacy fixture plans omit it.
+   */
+  derived_from?: string[];
+};
+
+/**
+ * A normalized snapshot of the spec items a plan was emitted from, carried on
+ * `Plan.spec` so a cook run can be projected back onto the spec's intent graph
+ * without re-reading the DB (FE-885). The orchestrator package stays pure of
+ * `@/server/*`; the server-side builder supplies the snapshot at emit time.
+ *
+ * Item ids live in slice-id space (`req-<id>` / `crit-<id>`) so they line up
+ * with `Slice.derived_from`; the numeric DB id is the prefix-stripped suffix,
+ * which the consuming server uses to prefer live DB prose over the embedded
+ * `content` snapshot. **Inert to execution.**
+ */
+export type PlanSpecRequirement = {
+  item_id: string;
+  content: string;
+};
+
+export type PlanSpecCriterion = {
+  item_id: string;
+  content: string;
+  /** Requirement item ids this criterion verifies (`req-<id>` refs). */
+  verifies: string[];
+};
+
+export type PlanSpec = {
+  spec_id: string;
+  requirements: PlanSpecRequirement[];
+  criteria: PlanSpecCriterion[];
 };
 
 /**
@@ -94,6 +134,13 @@ export type Plan = {
    * rediscovering it per slice. Absent → tasks are unchanged.
    */
   harnessNotes?: string;
+  /**
+   * Normalized snapshot of the spec items this plan was emitted from, so a
+   * cook run can be projected back onto the spec's intent graph without a DB
+   * read (FE-885). **Inert to execution** — the compiler/interpreter ignore
+   * it. Optional: authored / legacy fixture plans omit it.
+   */
+  spec?: PlanSpec;
   epics: Epic[];
   slices: Slice[];
 };
@@ -110,6 +157,25 @@ export type ReportLine = {
   actor: string;
   event: string;
   payload: Record<string, unknown>;
+};
+
+/**
+ * Semantic-assessment disposition (FE-885 D173-K) — a wire-ready slot carried
+ * on the `semantic-assessed` report payload. `rework` routes the existing
+ * `satisfied`-falsy rework loop; `needs-human-review` is the human-attention
+ * signal the exec-progress projector maps to a `needs-review` requirement
+ * status. **Inert in v1** — the assessor is a stub that always returns
+ * `satisfied: true` and emits no disposition (real semantic gates are
+ * graph-derived, Phase 3). Recorded now so the durable contract and UI prompt
+ * need no reshaping when the assessor lands.
+ */
+export type SemanticDisposition = 'rework' | 'needs-human-review';
+
+/** Payload shape of a `semantic-assessed` report line. */
+export type SemanticAssessedPayload = {
+  satisfied: boolean;
+  disposition?: SemanticDisposition;
+  note?: string;
 };
 
 export interface ReportSink {

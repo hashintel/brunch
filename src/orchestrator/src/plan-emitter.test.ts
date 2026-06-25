@@ -86,6 +86,39 @@ describe('emitPlanFromSnapshot', () => {
     expect(featA.definition).toContain('A criterion');
   });
 
+  it('attaches the spec provenance block + slice derived_from when the snapshot has a specId (FE-885)', async () => {
+    const specSnapshot: CompletedSpecSnapshot = { ...snapshot, specId: 49 };
+    const result = await emitPlanFromSnapshot(specSnapshot, { runModel: draftModel(coveringDraft()) });
+
+    expect(result.plan.spec).toEqual({
+      spec_id: '49',
+      requirements: [
+        { item_id: 'req-10', content: 'First requirement' },
+        { item_id: 'req-11', content: 'Second requirement' },
+      ],
+      criteria: [{ item_id: 'crit-20', content: 'A criterion', verifies: ['req-10'] }],
+    });
+    expect(result.plan.slices.find((s) => s.id === 'feat-a')!.derived_from).toEqual(['req-10']);
+  });
+
+  it('omits the spec block when the snapshot has no specId', async () => {
+    const result = await emitPlanFromSnapshot(snapshot, { runModel: draftModel(coveringDraft()) });
+    expect(result.plan.spec).toBeUndefined();
+  });
+
+  it('still attaches the spec block on the deterministic fallback path (FE-885)', async () => {
+    const specSnapshot: CompletedSpecSnapshot = { ...snapshot, specId: 49 };
+    // A throwing architect forces the deterministic projection fallback.
+    const result = await emitPlanFromSnapshot(specSnapshot, {
+      runModel: async () => {
+        throw new Error('architect boom');
+      },
+    });
+
+    expect(result.architectResult.status).toBe('failed');
+    expect(result.plan.spec?.spec_id).toBe('49');
+  });
+
   it('threads snapshot-derived relation hints into the architect prompt (FE-829 slice 3)', async () => {
     const relationalSnapshot: CompletedSpecSnapshot = {
       requirements: [

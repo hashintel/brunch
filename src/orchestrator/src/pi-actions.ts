@@ -36,6 +36,7 @@ import type {
   ProbeGrounder,
   ProbeResult,
   ProbeTarget,
+  SemanticAssessedPayload,
   Slice,
   TestRunner,
 } from './types.js';
@@ -785,8 +786,13 @@ export function createPiActions(opts?: {
     'assess-semantic': async (ctx: ActionContext) => {
       const label = sliceLabel(ctx.slice);
       log('?', `semantic  ${label}`);
-      // POC: auto-satisfy — real semantic assessment requires graph-derived gates (Phase 3)
-      return report(ctx, 'semantic-assessor', 'semantic-assessed', { satisfied: true });
+      // POC: auto-satisfy — real semantic assessment requires graph-derived
+      // gates (Phase 3). The `semantic-assessed` payload carries a wire-ready
+      // `disposition` slot (`rework` | `needs-human-review`, FE-885 D173-K) that
+      // the exec-progress projector maps to a `needs-review` requirement status;
+      // the stub emits none, so `needs-review` is inert in v1.
+      const payload: SemanticAssessedPayload = { satisfied: true };
+      return report(ctx, 'semantic-assessor', 'semantic-assessed', payload);
     },
 
     'verify-epic': async (ctx: ActionContext) => {

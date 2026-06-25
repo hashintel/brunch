@@ -12,6 +12,7 @@ import {
   recordCookExitStatus,
   resolveCookPlan,
   resolvePetrinautStreamPort,
+  resolveRunStoreSpecId,
   resolveSandboxPlan,
 } from './cook-cli.js';
 import type { PetrinautEvent } from './petrinaut-events.js';
@@ -619,6 +620,33 @@ describe('promotionSourceDir', () => {
 
     expect(readFileSync(join(r.dir, 'feature.txt'), 'utf8')).toBe('verified\n');
     expect(readFileSync(join(r.dir, 'tests/integration.test.ts'), 'utf8')).toBe('it("works", () => {});\n');
+  });
+});
+
+describe('resolveRunStoreSpecId (FE-885)', () => {
+  const planWith = (spec?: Plan['spec']): Plan => ({
+    mode: 'greenfield',
+    epics: [],
+    slices: [],
+    ...(spec ? { spec } : {}),
+  });
+
+  it('prefers the plan\u2019s own spec.spec_id (plan truth) over the --spec flag', () => {
+    const plan = planWith({ spec_id: '49', requirements: [], criteria: [] });
+    expect(resolveRunStoreSpecId(plan, 7)).toBe(49);
+  });
+
+  it('falls back to the --spec flag when the plan carries no spec block', () => {
+    expect(resolveRunStoreSpecId(planWith(), 7)).toBe(7);
+  });
+
+  it('returns undefined when neither source has a spec identity (fixture run)', () => {
+    expect(resolveRunStoreSpecId(planWith(), undefined)).toBeUndefined();
+  });
+
+  it('ignores a non-positive-integer spec_id and falls back to the flag', () => {
+    const plan = planWith({ spec_id: 'not-a-number', requirements: [], criteria: [] });
+    expect(resolveRunStoreSpecId(plan, 7)).toBe(7);
   });
 });
 
