@@ -4,11 +4,7 @@ SPEC decisions: D25-L, D40-L, D58-L, D85-L, D90-L, D91-L, D93-L
 
 ## Owns
 
-The keyed agent body resources only — the markdown bodies a foreground or
-background agent contributes as its system-prompt persona. Live agent definitions
-use the `src/.pi/agents/{agent-name}/SYSTEM.md` convention so references can
-later sit beside the body without making filesystem discovery part of product
-behavior.
+The current markdown file home for keyed agent body resources — the bodies a foreground or background agent contributes as its system-prompt persona. Conceptual ownership is migrating to `src/agents/`; `src/agents/registry.ts` is now the central path registry while the files still use the `src/.pi/agents/{agent-name}/SYSTEM.md` convention.
 
 ```text
 agents/
@@ -29,12 +25,7 @@ agents/
     └── SYSTEM.md     keyed background proposal/commitment review body + frontmatter
 ```
 
-This directory is **markdown-only**, like `.pi/skills/`. It carries no
-TypeScript and registers no Pi hooks. Foreground metadata and agent-body
-locations are code-owned in the op-mode-keyed foreground roster
-(`src/projections/session/runtime-policy.ts`); background metadata is authored as
-frontmatter but discovered only through the explicit
-`BACKGROUND_SUBAGENT_IDS` registry in `src/.pi/extensions/subagents/agents.ts`.
+This directory is **markdown-only**, like `.pi/skills/`. It carries no TypeScript and registers no Pi hooks. Foreground metadata is code-owned in the op-mode-keyed foreground roster (`src/projections/session/runtime-policy.ts`), while agent-body file locations are centralized in `src/agents/registry.ts`. Background metadata is authored as frontmatter but discovered only through the explicit `BACKGROUND_SUBAGENT_IDS` registry in `src/.pi/extensions/subagents/agents.ts`.
 Both project into the shared manifest type
 (`src/session/schema/agent-manifest.ts`), not filesystem discovery (D39-L/D90-L/D93-L).
 
@@ -51,8 +42,7 @@ Both project into the shared manifest type
 
 ## Does NOT own
 
-The prompt-assembly machinery that *uses* these definitions now lives with the
-extension that consumes it:
+The prompt-assembly machinery that *uses* these definitions now lives with the extension that consumes it; the target owner for Brunch-authored model-facing context is `src/agents/`:
 
 - **Foreground prompt composition + pushed seed contexts** —
   `.pi/extensions/agent-runtime/system-prompts/` (`compose.ts` emits the runtime header + gated

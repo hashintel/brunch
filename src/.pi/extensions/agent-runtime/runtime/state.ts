@@ -1,5 +1,4 @@
-import { fileURLToPath } from 'node:url';
-
+import { bundledAgentBodyLocation } from '../../../../agents/registry.js';
 import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
 import type { CapabilityId } from '../../../../projections/session/capability-readiness.js';
 import {
@@ -169,5 +168,5 @@ function selectAxisResources<TId extends string>({
 }
 
 export function agentBodyResourceLocation(agentId: AgentRoleId): string {
-  return fileURLToPath(new URL(`../../../agents/${agentId}/SYSTEM.md`, import.meta.url));
+  return bundledAgentBodyLocation(agentId);
 }

@@ -4,9 +4,9 @@ SPEC decisions: D25-L, D39-L, D52-L, D58-L, D59-L, D85-L
 
 ## Owns
 
-Agent Skills-standard prompt resources the Brunch Pi session agent reads on demand after `.pi/extensions/agent-runtime/runtime/state.ts` advertises them in a runtime-filtered `<brunch-skills>` manifest.
+The current file home for Agent Skills-standard prompt resources the Brunch Pi session agent reads on demand after `.pi/extensions/agent-runtime/runtime/state.ts` advertises them in a runtime-filtered `<brunch-skills>` manifest.
 
-These are Pi-harness prompt resources, not product data models and not ambient filesystem discovery inputs.
+These are Brunch-authored model-facing prompt resources, not product data models and not ambient filesystem discovery inputs. Conceptual ownership is migrating to `src/agents/`; `src/agents/registry.ts` now owns the central path registry while files still live here.
 
 ## Layout
 
@@ -32,7 +32,7 @@ rules:
   .pi/skills/                     x> graph mutation     [guidance only]
 ```
 
-The legal set is sealed by the code-owned path list in `.pi/extensions/agent-runtime/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. Frontmatter owns `name` and `description`; code owns axis family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/.pi/agents/elicitor/SYSTEM.md`.
+The legal set is sealed by the code-owned path list in `.pi/extensions/agent-runtime/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns current file locations. Frontmatter owns `name` and `description`; code owns axis family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/.pi/agents/elicitor/SYSTEM.md`.
 
 ## Prompt-resource sub-shapes
 

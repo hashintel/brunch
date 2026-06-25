@@ -1,9 +1,12 @@
 import { basename, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { loadSkills, type Skill } from '@earendil-works/pi-coding-agent';
 
-type PromptResourceFamily = 'strategies' | 'lenses' | 'methods';
+import {
+  promptResourceAgentDir,
+  promptResourceLocation,
+  type PromptResourceFamily,
+} from '../../../../agents/registry.js';
 
 export interface PromptResourceManifestEntry {
   name: string;
@@ -49,7 +52,7 @@ export function loadPromptResourceManifestEntries<TId extends string>(
   const skillPaths = ids.map((id) => promptResourceLocation(family, id));
   const result = loadSkills({
     cwd: process.cwd(),
-    agentDir: fileURLToPath(new URL('../../', import.meta.url)),
+    agentDir: promptResourceAgentDir(),
     skillPaths,
     includeDefaults: false,
   });
@@ -84,10 +87,6 @@ export function skillToPromptResourceManifestEntry(
     description: skill.description,
     location: skill.filePath,
   };
-}
-
-function promptResourceLocation(family: PromptResourceFamily, id: string): string {
-  return fileURLToPath(new URL(`../../../skills/${family}/${id}/SKILL.md`, import.meta.url));
 }
 
 function escapeXml(value: string): string {

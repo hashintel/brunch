@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { bundledAgentBodyLocation } from '../../../../agents/registry.js';
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
 import {
   FOREGROUND_AGENT_ROSTER,
@@ -217,8 +218,9 @@ describe('agent posture policy', () => {
     expect(() => manifestsForState(state, [])).toThrow(/no presence gap/);
   });
 
-  it('resolves agent SYSTEM.md bodies through the code-owned runtime registry location', () => {
+  it('resolves agent SYSTEM.md bodies through the central agent context registry location', () => {
     const location = agentBodyResourceLocation('elicitor');
+    expect(location).toBe(bundledAgentBodyLocation('elicitor'));
     expect(location).toMatch(/src\/\.pi\/agents\/elicitor\/SYSTEM\.md$/);
     const body = readFileSync(location, 'utf8');
     expect(body).toContain('# Agent: elicitor');

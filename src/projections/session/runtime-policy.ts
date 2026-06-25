@@ -1,3 +1,4 @@
+import { bundledAgentBodyRepoPath } from '../../agents/registry.js';
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import type { BrunchAgentState, ToolPolicyId } from '../../session/runtime-state.js';
 import type { ForegroundAgentManifest } from '../../session/schema/agent-manifest.js';
@@ -47,7 +48,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
       thinking: 'medium',
       body: {
         source: 'file',
-        location: 'src/.pi/agents/elicitor/SYSTEM.md',
+        location: bundledAgentBodyRepoPath('elicitor'),
       },
       skills: {
         strategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
@@ -79,7 +80,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
       thinking: 'medium',
       body: {
         source: 'file',
-        location: 'src/.pi/agents/orchestrator/SYSTEM.md',
+        location: bundledAgentBodyRepoPath('orchestrator'),
       },
       skills: {
         strategies: [],

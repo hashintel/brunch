@@ -16,11 +16,11 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { Type } from 'typebox';
 import { Value } from 'typebox/value';
 
+import { bundledAgentBodyHome } from '../../../agents/registry.js';
 import type { BackgroundAgentManifest } from '../../../session/schema/agent-manifest.js';
 
 export const BACKGROUND_SUBAGENT_IDS = ['explorer', 'researcher', 'projector', 'reviewer'] as const;
@@ -141,7 +141,7 @@ export function parseSubagentMarkdown(
 
 /** Filesystem location of the unified bundled agent body home. */
 export function subagentAgentsDir(): string {
-  return fileURLToPath(new URL('../../agents', import.meta.url));
+  return bundledAgentBodyHome();
 }
 
 /**
