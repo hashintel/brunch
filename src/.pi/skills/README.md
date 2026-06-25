@@ -37,7 +37,7 @@ The legal set is sealed by the code-owned path list in `.pi/extensions/runtime/s
 ## Prompt-resource sub-shapes
 
 - **`references/` subfiles:** available under the Agent Skills standard when a concrete skill needs progressive disclosure. No empty reference directories are introduced. The first materialized instance is `methods/generate-proposal/references/`, where the shared `SKILL.md` points to plane-specific payloads without advertising those payloads as separate skills.
-- **_generated/ typed-vocab references:** deferred until a concrete stale-member need appears, such as an agent relying on a reference whose runtime axis or graph vocabulary members can drift from the TypeScript `kinds.ts` leaves. If built, these files are generated from typed sources, regenerated and drift-checked, and locked separately from the authored prompt-resource body lock below.
+- **_generated/ typed-vocab references:** materialized at `src/graph/schema/_generated/ontology.md` (kind→band table), the schema-owned home for vocabulary that prompt resources cite rather than restate (D97-L). Generated from the typed sources via `npm run generate:ontology` and drift-checked by `npm run check:data-model` (wired into `npm run check`); read-only and locked separately from the authored prompt-resource body lock below. Further vocabulary tables (edge categories, detail forms) are added to that file when a concrete citing need appears, not speculatively.
 
 ## Prompt-resource body lock ledger
 

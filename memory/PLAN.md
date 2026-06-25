@@ -81,6 +81,7 @@ context-pipeline/
 ### Next
 
 - `elicitor-project` (FE-1085) — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
+- `data-model-legibility` — **active.** Single canonical home for data-model meta-guidance, with closed-vocabulary tables generated from the typed `graph/schema` sources (D97-L). Design verdict landed (Shape C); first tracer landed (generated kind→band table + `check:data-model` drift guard, cited by `methods/capture`). Remaining: edge-category + detail-form tables, the authored judgment layer, and the subtypes→`detail` remodel.
 - `renderer-golden-coverage` — **active parallel coverage track.** Remaining RENDER work: `<session>`, `renderGraphSeed`, `exchanges/*`, `formatRelatedNodesResult` relocation/repair, and the `brunch print` fork.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 
@@ -119,6 +120,26 @@ context-pipeline/
   - D97-L provenance applies: cite ontology/render surfaces, do not copy vocabulary lists into the skill.
 - **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L; D60-L.
 
+### data-model-legibility
+
+- **Name:** Single canonical home for data-model meta-guidance + generation seam
+- **Linear:** tbd
+- **Branch:** tbd
+- **Kind:** structural / design + build
+- **Status:** active; design verdict landed (`ln-design`: Shape C — two layers behind one index). First tracer-bullet **landed**: generated kind→band table at `src/graph/schema/_generated/ontology.md` + `check:data-model` drift guard (wired into `npm run check`), cited by `methods/capture`. Load-bearing claim 1 (typed `graph/schema` sources are the closed, importable vocabulary set — D73-L) validated by the landed generator. Remaining: edge-category + detail-form tables, the authored judgment layer (heuristics / promotion / checkability ladder / subtypes verdict), and the subtypes→`detail` remodel review.
+- **Certainty:** proving.
+- **Current execution pointer:** none active — re-scope the next slice (authored judgment layer, or further generated tables).
+- **Objective:** Recover + reconcile the retired `INTENT_GRAPH_SEMANTICS` content into one canonical data-model meta-guidance home; generate the closed-vocabulary tables (planes / kinds / bands / edge-category policy / `detail` schemas) from the typed `graph/schema` sources (un-defers `_generated/`) so heuristics are **cited** (D97-L), not inlined and duplicated across skill bodies.
+- **Acceptance:**
+  - ✓ `ln-design` produced ≥3 module shapes for the home + generation seam with a recommendation (Shape C), before any doc/script.
+  - The canonical-truth boundary is decided: what is generated from `kinds.ts` / `nodes.ts` / `category-policy.ts` vs authored judgment. (Direction set by Shape C; kind→band table materialized, remaining tables pending.)
+  - Subtypes/`detail` modelling review: each retired subtype family sorted into `kind` (behavior-bearing), `detail` facet (inert classification), or already-covered; decide whether an inert `detail` facet dimension earns its carrying cost given the kind/band/form machinery already discriminates.
+  - The two capture gaps are explicitly ruled in or out: constraint/invariant subtype enums; the 8-rung checkability ladder + `strength`.
+  - Skill bodies cite the new home (D97-L); inlined heuristic copies collapse to one cite-target.
+  - ✓ A drift guard (`check:data-model`, mirroring `check:skills`, wired into `npm run check`) fails if the generated reference diverges from the typed sources.
+  - If `ln-design` splits this into recover-doc / build-generator / subtypes-remodel frontiers, create a `data-model-legibility` arc per §Initiatives.
+- **Traceability:** D73-L (domain owns vocabulary), D88-L (`detail` form union), D97-L (heuristic provenance); un-defers the `_generated/` deferral in [`src/.pi/skills/README.md`](src/.pi/skills/README.md); relates to `elicitor-project` (A33-L, shared D97-L rule).
+
 ### renderer-golden-coverage
 
 - **Name:** Adopt the D83-L context-render house style and lock remaining RENDER-stage surfaces
@@ -152,6 +173,11 @@ frontiers:
     elicitor-project
       status: design-gated
       depends_on: elicitor-generate, D95-L, D96-L, I51-L
+
+    data-model-legibility
+      status: active (design landed Shape C; first tracer landed)
+      depends_on: graph/schema typed sources (kinds.ts, nodes.ts, category-policy.ts), D73-L, D88-L, D97-L
+      materialized: _generated/ontology.md (src/graph/schema) + check:data-model
 
     renderer-golden-coverage
       status: active parallel coverage
