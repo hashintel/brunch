@@ -10,7 +10,7 @@ import {
 } from '../registry.js';
 
 describe('agent context registry', () => {
-  it('centralizes current bundled prompt and skill paths while the files still live under .pi', () => {
+  it('centralizes bundled prompt and current skill paths', () => {
     expect(BUNDLED_AGENT_BODY_IDS).toEqual([
       'elicitor',
       'orchestrator',
@@ -20,9 +20,9 @@ describe('agent context registry', () => {
       'reviewer',
       'pi-coder',
     ]);
-    expect(bundledAgentBodyRepoPath('elicitor')).toBe('src/.pi/agents/elicitor/SYSTEM.md');
-    expect(bundledAgentBodyLocation('reviewer')).toMatch(/src\/\.pi\/agents\/reviewer\/SYSTEM\.md$/);
-    expect(bundledAgentBodyHome()).toMatch(/src\/\.pi\/agents$/);
+    expect(bundledAgentBodyRepoPath('elicitor')).toBe('src/agents/prompts/elicitor/SYSTEM.md');
+    expect(bundledAgentBodyLocation('reviewer')).toMatch(/src\/agents\/prompts\/reviewer\/SYSTEM\.md$/);
+    expect(bundledAgentBodyHome()).toMatch(/src\/agents\/prompts$/);
     expect(promptResourceLocation('methods', 'generate-proposal')).toMatch(
       /src\/\.pi\/skills\/methods\/generate-proposal\/SKILL\.md$/,
     );

@@ -221,7 +221,7 @@ describe('agent posture policy', () => {
   it('resolves agent SYSTEM.md bodies through the central agent context registry location', () => {
     const location = agentBodyResourceLocation('elicitor');
     expect(location).toBe(bundledAgentBodyLocation('elicitor'));
-    expect(location).toMatch(/src\/\.pi\/agents\/elicitor\/SYSTEM\.md$/);
+    expect(location).toMatch(/src\/agents\/prompts\/elicitor\/SYSTEM\.md$/);
     const body = readFileSync(location, 'utf8');
     expect(body).toContain('# Agent: elicitor');
   });

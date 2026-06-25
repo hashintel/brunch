@@ -23,7 +23,7 @@ The execute-mode orchestrator can inspect a cook plan through a product-register
 - `memory/SPEC.md` — decisions / invariants: D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, I49-L.
 - `memory/PLAN.md` — frontier: `orchestrator-tool-port`.
 - `src/.pi/extensions/README.md` — adapter-only ownership and boundary rules.
-- `src/.pi/agents/orchestrator/SYSTEM.md` — current execute-mode foreground prompt and stub wording to retire.
+- `src/agents/prompts/orchestrator/SYSTEM.md` — current execute-mode foreground prompt and stub wording to retire.
 - `src/projections/session/runtime-policy.ts` — `execute` foreground roster and blocked direct tool policy.
 - `src/session/schema/tool-names.ts` — shared tool-name constants.
 - `/Users/lunelson/Code/hashintel/brunch/ORCHESTRATOR.md` — source CLI behavior and plan format.
@@ -61,7 +61,7 @@ No separate spike is cheaper than this slice: the useful proof is whether the pr
 ✓ Invalid or contract-failing plans return deterministic typed findings/errors without creating `.brunch/cook/runs`, git worktrees, Petrinaut artifacts, or child Pi sessions.
 ✓ `orchestrator_stub` is no longer advertised to the foreground orchestrator, and the old stub registration path is retired.
 ✓ `runtime-policy.ts` still blocks direct `bash`, `edit`, and `write` for `execute`, with tests or assertions covering the new tool grant.
-✓ `src/.pi/agents/orchestrator/SYSTEM.md` tells the foreground agent to use the real plan-check tool and preserves the no-direct-write instruction.
+✓ `src/agents/prompts/orchestrator/SYSTEM.md` tells the foreground agent to use the real plan-check tool and preserves the no-direct-write instruction.
 
 ## Verification Approach
 

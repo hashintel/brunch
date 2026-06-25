@@ -1,6 +1,6 @@
 # Agent: elicitor
 
-Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
+Preview role body from `src/agents/prompts/elicitor/SYSTEM.md`.
 
 [Brunch agent control]
 - agent: elicitor
@@ -11,16 +11,11 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 
 [Brunch runtime state]
 - op_mode: elicit
-- strategy: auto
-- lens: auto
-- spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=0.00, elicitation=0.00, projection=0.00, commitment=0.00
+- strategy: step-wise-disambiguate
+- lens: design
+- spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, projection=0.00, commitment=0.00
 - workspace: /work/brunch-preview
 - workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; dependencies=resist
-
-[Brunch elicitation recommendation]
-- next question: What should Brunch know about the constraint before proceeding?
-- refers to: constraint
-- rationale: Constraints bound the solution space; an unestablished constraint undermines proposal legality.
 
 [Brunch pushed context]
 - handles: none pushed
@@ -33,21 +28,15 @@ When a skill file references a relative path, resolve it against the skill direc
 <brunch-skills>
   <skill>
     <kind>strategy</kind>
-    <name>step-wise-decision-tree</name>
-    <description>Ask one structured question at a time and branch from the answer.</description>
-    <location><repo>/src/.pi/skills/strategies/step-wise-decision-tree/SKILL.md</location>
-  </skill>
-  <skill>
-    <kind>strategy</kind>
     <name>step-wise-disambiguate</name>
     <description>Use contrastive examples to collapse meaningful ambiguity.</description>
     <location><repo>/src/.pi/skills/strategies/step-wise-disambiguate/SKILL.md</location>
   </skill>
   <skill>
     <kind>lens</kind>
-    <name>intent</name>
-    <description>Focus on intent-plane claims: goals, terms, assumptions, constraints, and decisions.</description>
-    <location><repo>/src/.pi/skills/lenses/intent/SKILL.md</location>
+    <name>design</name>
+    <description>Focus on design implications and module/interface boundaries.</description>
+    <location><repo>/src/.pi/skills/lenses/design/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
@@ -103,6 +92,12 @@ When a skill file references a relative path, resolve it against the skill direc
     <description>Generate reviewable candidate graph material: intent-pick, design-synthesize, or oracle-compose. Not for extractive intent/design/oracle lenses that ask or interpret without proposing graph drafts.</description>
     <location><repo>/src/.pi/skills/methods/generate-proposal/SKILL.md</location>
   </skill>
+  <skill>
+    <kind>method</kind>
+    <name>review-for-gaps</name>
+    <description>Review commitments for gaps, conflicts, and verification debt.</description>
+    <location><repo>/src/.pi/skills/methods/review-for-gaps/SKILL.md</location>
+  </skill>
 </brunch-skills>
 
 [Brunch prompt-resource routing]
@@ -110,4 +105,4 @@ When a skill file references a relative path, resolve it against the skill direc
 - Strategy and lens are AUTO/pinnable axes: choose at most one advertised strategy and at most one advertised lens, then read the selected resource before applying detailed behavior.
 - Methods compose freely when advertised; read a method skill when that mechanism is relevant to the next turn.
 - For pinned axes, the singleton skill of that kind is the selected resource.
-- Current pins: strategy=auto; lens=auto.
+- Current pins: strategy=step-wise-disambiguate; lens=design.

@@ -8,7 +8,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 
 ## Does NOT own
 
-- Agent role prompt definitions and skill resource bodies (markdown) — `.pi/agents/` and `.pi/skills/`. Prompt composition and prompt-resource legality live in `agent-runtime/`.
+- Agent role prompt definitions and skill resource bodies (markdown) — `agents/prompts/` and `.pi/skills/`. Prompt composition and prompt-resource legality live in `agent-runtime/` until their move slice lands.
 - Graph truth, graph mutation policy, or graph readers — top-level `graph/`.
 - Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — top-level `session/`, `projections/`, and related domain seams.
 - Reusable DTO projection or reusable markdown/text rendering — top-level `projections/` and `renderers/`.
@@ -51,10 +51,10 @@ extensions/
 
 ```pseudo
 rules:
-  .pi/extensions/* -> .pi/agents/, .pi/components/, graph/, session/, projections/, renderers/ [adapter imports allowed]
+  .pi/extensions/* -> agents/, .pi/components/, graph/, session/, projections/, renderers/ [adapter imports allowed]
   .pi/extensions/* x> db/                                                            [no direct storage]
   graph/, session/    x> .pi/                                                        [domain layers never import adapters]
-  .pi/agents/         x> .pi/extensions/                                             [prompt assembly does not register Pi hooks]
+  agents/prompts/     x> .pi/extensions/                                             [prompt bodies do not register Pi hooks]
   projections/        x> .pi/, rpc/, app/, web/                                      [no transport/UI imports]
   renderers/          x> .pi/, rpc/, app/, web/                                      [no transport/UI imports]
 ```

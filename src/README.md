@@ -1,6 +1,6 @@
 # src/ — Brunch source topology
 
-Decision D52-L in `memory/SPEC.md` locks the target layout. The current LLM-context ingress refactor introduces `agents/` as the Pi-independent owner for Brunch-authored agent context; its registry still points at existing `.pi` prompt/skill files until the move slices land.
+Decision D52-L in `memory/SPEC.md` locks the target layout. The current LLM-context ingress refactor introduces `agents/` as the Pi-independent owner for Brunch-authored agent context; agent prompt bodies now live there, while prompt-resource skills still live under `.pi` until their move slice lands.
 
 ```text
 src/
@@ -9,10 +9,9 @@ src/
 ├── scripts/              Local executable utilities
 │
 ├── agents/              Pi-independent owner for Brunch-authored LLM context ingress
-│                           (currently central path registry; content moves later)
+│   └── prompts/            agent role body markdown resources
 │
 ├── .pi/                  Sealed Pi-harness runtime surface
-│   ├── agents/             current markdown body file home during migration
 │   ├── skills/             current prompt-resource file home during migration
 │   ├── components/         reusable Pi TUI/message components
 │   └── extensions/         Pi registrars: tools, hooks, commands, TUI affordances
@@ -46,7 +45,7 @@ rules:
   workspace/       -> constants/ or workspace-local files only
   projections/*   -> agents/, graph/, session/, workspace/ [read/domain imports allowed; agents/ is temporary registry edge]
   renderers/*     -> projections/, graph/, session/, workspace/ as needed for input types
-  agents/         -> .pi/agents/, .pi/skills/      [current migration registry only]
+  agents/         -> .pi/skills/                   [current prompt-resource registry only]
   .pi/            -> agents/, graph/, session/, projections/, renderers/ [Pi runtime adapters/resources]
   rpc/           -> graph/, session/, projections/, renderers/
   app/           -> graph/, session/, projections/, renderers/
@@ -60,10 +59,10 @@ Rules:
 
 - `workspace/` owns cwd-scoped identity, inventory, and workspace default-state persistence. It must not import Pi, session, graph, DB, projection, renderer, adapter, transport, app, or web modules.
 - `graph/` imports from `db/`. No other layer imports `db/` directly.
-- `agents/` owns the Brunch-authored LLM-context ingress seam. Today it centralizes the file registry for prompt bodies and prompt-resource skills; later slices move the content/rendering owners under this seam. The current `projections/session/runtime-policy.ts` import of this registry is a migration edge only: once runtime policy moves under `agents/runtime/`, projections should stop depending on `agents/`.
-- `.pi/` owns Pi-harness extensions/components and temporarily hosts the existing markdown prompt/skill files while the LLM-context ingress refactor proceeds.
+- `agents/` owns the Brunch-authored LLM-context ingress seam. Today it hosts agent prompt bodies and centralizes the file registry for prompt bodies and prompt-resource skills; later slices move prompt-resource skills, runtime composition, seeds, and agent-visible rendering under this seam. The current `projections/session/runtime-policy.ts` import of this registry is a migration edge only: once runtime policy moves under `agents/runtime/`, projections should stop depending on `agents/`.
+- `.pi/` owns Pi-harness extensions/components and temporarily hosts the existing prompt-resource skill files while the LLM-context ingress refactor proceeds.
 - `.pi/extensions/` registers Pi tools/hooks/UI affordances and delegates product semantics outward.
-- `.pi/agents/` and `.pi/skills/` are current file homes, not the long-term conceptual owner, for Brunch-authored prompt bodies and read-on-demand markdown resources.
+- `.pi/skills/` is the current file home, not the long-term conceptual owner, for Brunch-authored read-on-demand markdown resources.
 - `projections/` owns reusable structured output; `renderers/` owns reusable lossy text output.
 - `web/` is a separate Vite build target.
 
@@ -77,4 +76,4 @@ The old domain-local `src/{graph,session,structured-exchange}/format/` folders a
 
 Runtime-state transcript entry facts live in `session/runtime-state.ts`; reusable flattened runtime-state projection/policy now lives in `projections/session/runtime-state.ts` and `projections/session/runtime-policy.ts`.
 
-The earlier `src/agents/` top-level prompt subtree had moved under `src/.pi/{agents,skills}/`; the new `src/agents/` seam reclaims the name for Pi-independent LLM context ingress. It starts with a registry that points at the existing `.pi` files so the move can proceed byte-stably. The old `src/.pi/context/` prompt-pack subtree remains retired.
+The earlier `src/agents/` top-level prompt subtree had moved under `src/.pi/{agents,skills}/`; the new `src/agents/` seam reclaims the name for Pi-independent LLM context ingress. Agent bodies have moved to `src/agents/prompts/`; prompt-resource skills still move later. The old `src/.pi/context/` prompt-pack subtree remains retired.

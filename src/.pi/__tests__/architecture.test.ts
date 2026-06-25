@@ -1,4 +1,4 @@
-import { access, readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,42 +12,6 @@ const legacyImportNeedles = [
   'compose' + '-brunch-prompt',
   ['context', 'prompt-packs'].join('/'),
   ['context', 'builders'].join('/'),
-];
-
-const agentDefinitionExpectations = [
-  {
-    system: 'src/.pi/agents/elicitor/SYSTEM.md',
-    legacyFlat: 'src/.pi/agents/elicitor.md',
-    needles: ['# Agent: elicitor', 'multi-spec discipline'],
-  },
-  {
-    system: 'src/.pi/agents/orchestrator/SYSTEM.md',
-    needles: ['# Agent: orchestrator', 'execute mode'],
-  },
-  {
-    system: 'src/.pi/agents/reviewer/SYSTEM.md',
-    legacyFlat: 'src/.pi/agents/reviewer.md',
-    needles: ['name: reviewer', 'checking candidate'],
-  },
-  {
-    system: 'src/.pi/agents/explorer/SYSTEM.md',
-    needles: ['name: explorer', 'read-only reconnaissance agent'],
-  },
-  {
-    system: 'src/.pi/agents/researcher/SYSTEM.md',
-    needles: ['name: researcher', 'web-research agent'],
-  },
-  {
-    system: 'src/.pi/agents/projector/SYSTEM.md',
-    needles: ['name: projector', 'candidate-proposal'],
-  },
-  {
-    system: 'src/.pi/agents/pi-coder/SYSTEM.md',
-    needles: [
-      'expert coding assistant operating inside *brunch*',
-      'Show file paths clearly when working with files',
-    ],
-  },
 ];
 
 const runtimeRegistryExpectations = [
@@ -135,18 +99,6 @@ describe('agents topology', () => {
     expect(probes).toContain('design-synthesize');
     expect(probes).toContain('oracle-compose');
     expect(probes).toContain('should NOT fire');
-  });
-
-  it('keeps agent body resources under <agent>/SYSTEM.md', async () => {
-    for (const expectation of agentDefinitionExpectations) {
-      const content = await readFile(join(projectRoot, expectation.system), 'utf8');
-      for (const needle of expectation.needles) {
-        expect(content).toContain(needle);
-      }
-      if (expectation.legacyFlat) {
-        await expect(access(join(projectRoot, expectation.legacyFlat))).rejects.toThrow();
-      }
-    }
   });
 
   it('keeps named future agent bodies out of the runtime registry', async () => {

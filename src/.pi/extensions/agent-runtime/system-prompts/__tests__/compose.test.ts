@@ -373,7 +373,7 @@ describe('composeAgentPrompt', () => {
 // ── COMPOSE-stage prompt golden previews ──────────────────────────────────────
 // Each case composes a fixture runtime state, selected-spec gaps, workspace
 // posture, and optional rendered context strings, then locks the full
-// provider-facing prompt under the sibling `__previews__/`. The locked file IS
+// provider-facing prompt under the sibling `__snapshots__/`. The locked file IS
 // the wording assertion: review the diff when output changes, accept with
 // `--update` only after human approval. Inline asserts stay limited to
 // cross-cutting contract invariants a careless snapshot update could hide:
@@ -436,7 +436,7 @@ function composePreviewPrompt(input: Partial<ComposeAgentPromptInput> = {}): str
     workspace: previewWorkspace,
     activeTools: ['read', 'grep', 'find', 'ls', 'present_question', 'request_response'],
     gaps: previewFloorGaps(0),
-    agentBody: '# Agent: elicitor\n\nPreview role body from `src/.pi/agents/elicitor/SYSTEM.md`.',
+    agentBody: '# Agent: elicitor\n\nPreview role body from `src/agents/prompts/elicitor/SYSTEM.md`.',
     ...input,
   }).prompt;
 }
@@ -459,13 +459,13 @@ function expectPromptContracts(rendered: string): void {
 describe('composeAgentPrompt previews', () => {
   it('elicitor--auto-floor-gaps-open: all axes AUTO, floor gaps open', async () => {
     const rendered = normalizeRepoPaths(composePreviewPrompt());
-    await expect(rendered).toMatchFileSnapshot('../__previews__/elicitor--auto-floor-gaps-open.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/elicitor--auto-floor-gaps-open.md');
     expectPromptContracts(rendered);
   });
 
   it('elicitor--auto-high-coverage: all axes AUTO, gaps largely answered', async () => {
     const rendered = normalizeRepoPaths(composePreviewPrompt({ gaps: previewFloorGaps(1) }));
-    await expect(rendered).toMatchFileSnapshot('../__previews__/elicitor--auto-high-coverage.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/elicitor--auto-high-coverage.md');
     expectPromptContracts(rendered);
   });
 
@@ -492,7 +492,7 @@ describe('composeAgentPrompt previews', () => {
       }),
     );
 
-    await expect(rendered).toMatchFileSnapshot('../__previews__/elicitor--pinned-strategy-lens.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/elicitor--pinned-strategy-lens.md');
     expectPromptContracts(rendered);
     expect(rendered).toContain('<name>step-wise-disambiguate</name>');
     expect(rendered).toContain('<name>design</name>');
@@ -511,7 +511,7 @@ describe('composeAgentPrompt previews', () => {
       }),
     );
 
-    await expect(rendered).toMatchFileSnapshot('../__previews__/elicitor--pushed-context.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/elicitor--pushed-context.md');
     expectPromptContracts(rendered);
     expect(rendered).toContain('[fixture rendered context: selected-spec graph overview]');
     expect(rendered).toContain('[fixture rendered context: recent transcript]');

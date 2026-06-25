@@ -1,6 +1,6 @@
 # Agent: elicitor
 
-Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
+Preview role body from `src/agents/prompts/elicitor/SYSTEM.md`.
 
 [Brunch agent control]
 - agent: elicitor
@@ -13,9 +13,14 @@ Preview role body from `src/.pi/agents/elicitor/SYSTEM.md`.
 - op_mode: elicit
 - strategy: auto
 - lens: auto
-- spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, projection=0.00, commitment=0.00
+- spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=0.00, elicitation=0.00, projection=0.00, commitment=0.00
 - workspace: /work/brunch-preview
 - workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; dependencies=resist
+
+[Brunch elicitation recommendation]
+- next question: What should Brunch know about the constraint before proceeding?
+- refers to: constraint
+- rationale: Constraints bound the solution space; an unestablished constraint undermines proposal legality.
 
 [Brunch pushed context]
 - handles: none pushed
@@ -43,18 +48,6 @@ When a skill file references a relative path, resolve it against the skill direc
     <name>intent</name>
     <description>Focus on intent-plane claims: goals, terms, assumptions, constraints, and decisions.</description>
     <location><repo>/src/.pi/skills/lenses/intent/SKILL.md</location>
-  </skill>
-  <skill>
-    <kind>lens</kind>
-    <name>design</name>
-    <description>Focus on design implications and module/interface boundaries.</description>
-    <location><repo>/src/.pi/skills/lenses/design/SKILL.md</location>
-  </skill>
-  <skill>
-    <kind>lens</kind>
-    <name>oracle</name>
-    <description>Focus on verification obligations, checks, evidence, and blind spots.</description>
-    <location><repo>/src/.pi/skills/lenses/oracle/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
@@ -109,12 +102,6 @@ When a skill file references a relative path, resolve it against the skill direc
     <name>generate-proposal</name>
     <description>Generate reviewable candidate graph material: intent-pick, design-synthesize, or oracle-compose. Not for extractive intent/design/oracle lenses that ask or interpret without proposing graph drafts.</description>
     <location><repo>/src/.pi/skills/methods/generate-proposal/SKILL.md</location>
-  </skill>
-  <skill>
-    <kind>method</kind>
-    <name>review-for-gaps</name>
-    <description>Review commitments for gaps, conflicts, and verification debt.</description>
-    <location><repo>/src/.pi/skills/methods/review-for-gaps/SKILL.md</location>
   </skill>
 </brunch-skills>
 
