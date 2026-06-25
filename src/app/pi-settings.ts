@@ -4,7 +4,7 @@ import { SettingsManager, type ExtensionFactory } from '@earendil-works/pi-codin
 
 export const BRUNCH_SETTINGS_POLICY = {
   quietStartup: true,
-  defaultProjectTrust: 'never',
+  defaultProjectTrust: 'never', // TODO: change this?
   packages: [],
   extensions: [],
   skills: [],

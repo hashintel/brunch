@@ -50,6 +50,7 @@ export interface WorkspaceGraphRuntime {
 export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceGraphRuntime> {
   const db = await openWorkspaceDb(cwd);
   const commandExecutor = new CommandExecutor(db);
+  commandExecutor.repairLegacyEdgeCategories();
   commandExecutor.repairSeededElicitationGaps();
   return {
     commandExecutor,
