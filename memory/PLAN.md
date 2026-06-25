@@ -15,26 +15,55 @@
 
 Brunch-next has delivered the original composition spine: the host, sealed Pi profile, transcript substrate, SQLite graph plane, public RPC, TUI/web observer shape, generalized capture, review-set commitment path, and public-entry ship gate all have evidence. The live plan is no longer organized around the old delivery cut. Active work is now the elicitor capability spine and the remaining hardening frontiers that build on that substrate.
 
-**Elicitor capability spine (D95-L).** The elicitor build-out is organized as **`capture` / `generate` / `project`** over the frozen `strategy` / `lens` / `method` axes (A35-L).
+**Active arcs.** Work is organized into multi-frontier **initiatives (arcs)** — see [§Initiatives](#initiatives) for through-lines, member frontiers, and done-definitions: the completed **skill-substrate** arc (populate / weed / lock), the active **elicitor-capability-spine** arc (`capture` / `generate` done, `project` next), and the active **context-pipeline** arc (PULL / PROJECT / COMPOSE locked, RENDER open).
 
-- **`capture` is done** via generalized capture (D80-L-D82-L).
-- **`generate` is done through promoted real-model fan-out evidence** (FE-1059): one plane-parameterized `generate-proposal` method, `present_candidates` unstubbed, fan-in as method conduct (`pick` / `synthesize` / `compose`), and promoted I51-L no-write evidence.
-- **`project` is next and design-gated** (A33-L): cross-plane derivation may fold into `generate` or may need a distinct surface.
-- **`acquire` rides the completed subagent reconciliation substrate** (A34-L), not its own frontier.
+**Topology and evidence discipline.** Directory `README.md` files under `src/**` own current topology state. `memory/SPEC.md` owns product contract and architectural decisions; `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
-**Context-pipeline coverage (D60-L).** PULL and PROJECT are ledgered and locked; COMPOSE is locked except for its explicit full-stack renderer tripwire; **RENDER remains open** as `renderer-golden-coverage` (FE-870). That frontier is a parallel evidence/quality track, never a ship gate.
+## Initiatives
+
+<!-- Initiative (arc) = a multi-frontier architectural through-line. This is NOT a tracker/branch
+     altitude — frontiers stay flat (one Linear issue + branch each) per AGENTS.md. The arc index is
+     a legibility + completability layer only: it names the through-line so "was this captured
+     thoroughly?" is a lookup, not a reconstruction from scattered SPEC decisions.
+     Created/updated by ln-plan; closed and reconciled by ln-sync. Keep each arc thin (goals,
+     members, done-definition, anchors). An arc closes only when its done-definition holds —
+     including reconciliation of co-located topology READMEs and discharge of any standing-obligation
+     residue scoped to it. Arc completion is the trigger for residue that no future frontier touches. -->
+
+### skill-substrate — ✓ done (2026-06-25)
+
+- **Goals:** (1) populate the skills the elicitor needs; (2) weed dead-code / stub skills; (3) isolate + lock graph schema, descriptions, tips, and heuristics as context.
+- **Members:** FE-893, FE-861, FE-898, FE-1052 (all done).
+- **Done-definition:** legal skill set sealed by the `.pi/extensions/runtime/state.ts` path list; no dead stubs (the `__fixtures__` sealing fixture excepted); heuristics distilled + locked into `SKILL.md` bodies, not duplicated in topology READMEs. ✓ — final `strategies/` + `lenses/` README reconciliation discharged 2026-06-25 (dead `INTENT_GRAPH_SEMANTICS.md` pointer + stale "M5 input" tables removed).
+- **Anchors:** D85-L (axis populate / weed), D97-L (heuristic-provenance lock), A35-L (axes frozen under the capability spine).
+
+### elicitor-capability-spine — ◐ active
+
+- **Goal:** build `capture` / `generate` / `project` over the frozen `strategy` / `lens` / `method` axes (A35-L), on top of the skill-substrate arc.
+- **Members:**
+  - `capture` ✓ done via generalized capture (D80-L–D82-L).
+  - `generate` ✓ done through promoted real-model fan-out evidence (FE-1059): one plane-parameterized `generate-proposal` method, `present_candidates` unstubbed, fan-in as method conduct (`pick` / `synthesize` / `compose`), promoted I51-L no-write evidence.
+  - `project` → `elicitor-project` (FE-1085), **next, design-gated** (A33-L): cross-plane derivation may fold into `generate` or need a distinct surface.
+  - `acquire` rides the completed subagent-reconciliation substrate (A34-L), not its own frontier.
+- **Done-definition:** all three capabilities carry promoted real-model evidence; no capability remains a stub or a method-less axis member. Open follow-ups (A32-L fan-in completion, the A1 anti-prompt) are tracked on their assumptions, not as arc blockers.
+- **Anchors:** D95-L, D96-L; A31-L–A35-L; I51-L.
+
+### context-pipeline — ◐ active
+
+- **Goal:** lock the PULL → PROJECT → RENDER → COMPOSE context pipeline (D60-L).
 
 ```text
 context-pipeline/
 ├── PULL      graph + session reads       ✓ done
 ├── PROJECT   projections/                ✓ done
-├── RENDER    renderers/                  ◐ open: renderer-golden-coverage
+├── RENDER    renderers/                  ◐ open: renderer-golden-coverage (FE-870)
 └── COMPOSE   system-prompts + skills     ✓ done*
 
 *COMPOSE has one deferred full-stack real-rendered-context tripwire owned by RENDER.
 ```
 
-**Topology and evidence discipline.** Directory `README.md` files under `src/**` own current topology state. `memory/SPEC.md` owns product contract and architectural decisions; `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
+- **Done-definition:** every pipeline stage closed or owned by a live coverage frontier; the COMPOSE full-stack tripwire discharged by RENDER. `renderer-golden-coverage` is a parallel evidence/quality track, never a ship gate.
+- **Anchors:** D60-L; D83-L (RENDER house style).
 
 ## Sequencing
 
@@ -61,7 +90,7 @@ context-pipeline/
 - `elicitation-gap-guidance` — generative graph-shape analysis for "what next?" gaps; distinct from ranking already-registered gaps.
 - `structured-exchange-affordance` — recurring discriminant-companion contract lens; most lead fixes landed, but the systemic audit remains available when similar review findings recur.
 - `spec-structural-relief` — accepted ledger for future SPEC sharding only if a real context-budget/navigation failure trips it.
-- **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
+- **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them **or the completion of the arc they belong to** ([§Initiatives](#initiatives) done-definitions); they are not standalone cleanup buckets. When an arc's trailing residue falls outside any future frontier's blast radius, **arc completion is its trigger** — this is the hole that left the `strategies/` + `lenses/` README reconciliation orphaned until 2026-06-25.
 
 ### Horizon
 
@@ -158,4 +187,5 @@ rules:
   candidates never commit graph truth (I51-L)
   topology READMEs own current subtree state
   scratch evidence is not durable until promoted to .fixtures/runs/
+  an arc (§Initiatives) closes only when its done-definition holds, incl. topology-README reconciliation + residue discharge
 ```

@@ -8,7 +8,7 @@ argument-hint: "[feature or project area to plan]"
 
 Plan the **rolling frontier**, not the whole historical timeline.
 
-`memory/PLAN.md` is the canonical record of what's next. `docs/archive/PLAN_HISTORY.md` is the only sanctioned archive for retired plan history. `memory/cards/` is the sanctioned derivative location for prepared scope cards; one file per concern, named `<frontier-id>--<slug>.md` (or `dev--<slug>.md`, `tooling--<slug>.md`, `docs--<slug>.md` for non-frontier work). Scope files are not canonical planning state. Do not invent other sidecar plan docs, milestone ledgers, or alternate memory locations without explicit permission.
+`memory/PLAN.md` is the canonical record of what's next. `docs/archive/PLAN_HISTORY.md` is the only sanctioned archive for retired plan history. `memory/cards/` is the sanctioned derivative location for prepared scope cards; one file per concern, named `<frontier-id>--<slug>.md` (or `dev--<slug>.md`, `tooling--<slug>.md`, `docs--<slug>.md` for non-frontier work). Scope files are not canonical planning state. Do not invent other sidecar plan docs, milestone ledgers, or alternate memory locations without explicit permission. The one sanctioned exception is the in-`PLAN.md` `## Initiatives` section (see [§Initiatives (arcs)](#initiatives-arcs)) — it lives inside the canonical file, not as a sidecar, and is not a new tracker/branch altitude.
 
 ## Frontier vs slice vocabulary
 
@@ -25,6 +25,7 @@ The vertical-slicing instinct still applies at planning time: frontier items sho
 Prefer the conflict-resistant mature shape:
 
 - `Context` — short rolling narrative for re-entry
+- `Initiatives` — *optional*; thin arc index when an architectural through-line spans several frontiers (see [§Initiatives (arcs)](#initiatives-arcs))
 - `Sequencing` — small, frequently edited ordering/status references by stable frontier id
 - `Frontier Definitions` — relatively stable per-frontier definitions keyed by stable id
 - `Recently Completed` — last 2-3 completed frontier items only
@@ -106,6 +107,22 @@ Do not fragment the plan for minor action/status variants or ordinary follow-thr
 Do not split one frontier item into several new PLAN entries just because execution will require several scope cards or commits. Only split when the frontier itself changes shape, ownership, or dependency ordering.
 
 But do not let anti-fragmentation erase cross-cutting architecture. If a subsystem or mechanism spans multiple frontier items and is not getting its own frontier id, thread it explicitly through the affected frontier definitions as an obligation in Objective, Acceptance, Verification, or a dedicated cross-cutting note.
+
+### Initiatives (arcs)
+
+Anti-fragmentation keeps the frontier list flat, but a flat list loses the **through-line** of an architectural initiative that deliberately spans several frontiers (e.g. populate-then-weed-then-lock a skill substrate, or build a capability spine across planes). When that happens the initiative's "why" and its "done" survive only as a SPEC decision dependency chain — which records *events*, not a roster — so "was this captured thoroughly?" becomes a reconstruction job, and trailing cleanup can orphan when no future frontier's blast radius touches it.
+
+An **initiative (arc)** is the answer, and it is **not** a new tracking altitude: frontiers stay 1:1 with Linear issues and branches (`AGENTS.md`), Graphite stacks still mirror frontier dependencies, and arcs get no issue or branch of their own. An arc is a thin legibility + completability index living in the in-`PLAN.md` `## Initiatives` section. Reach for one only when a through-line genuinely spans ≥2 frontiers and would otherwise be invisible; a single-frontier effort does not need an arc.
+
+Each arc entry stays thin:
+
+- **id + status** (`✓ done` / `◐ active` / planned)
+- **Goals** — the through-line in 1–3 bullets (the user-facing "why")
+- **Members** — the frontier ids that compose it, with per-member status
+- **Done-definition** — the arc-level completion test, which **must** include reconciliation of co-located topology READMEs and discharge of any standing-obligation residue scoped to the arc
+- **Anchors** — the SPEC decision/assumption ids the arc rests on
+
+`ln-plan` creates and updates arcs (and the member roster as frontiers are added/retired); `ln-sync` closes them and verifies the done-definition actually holds; `ln-build` fires the arc-completion check when a build lands the last member frontier (see each skill). The done-definition is what closes the "standing obligation rides the triggering frontier = never" hole: arc completion is itself a trigger.
 
 ### Sequencing vs definition edits
 
