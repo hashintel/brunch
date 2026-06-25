@@ -28,6 +28,7 @@ import {
   type EdgeDirection,
   type GraphVisibility,
   type NodeKindWithFormDetail,
+  type RoleNamedEdgeDraftOf,
 } from '../../../../graph/index.js';
 
 const ALL_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;
@@ -52,72 +53,9 @@ export type ToolMutateCreateNodeOp = {
   readonly source?: string | undefined;
   readonly detail?: unknown;
 };
-export type ToolMutateCreateEdgeOp =
-  | {
-      readonly op: 'create_edge';
-      readonly category: 'dependency';
-      readonly dependency: ToolEdgeRef;
-      readonly dependent: ToolEdgeRef;
-      readonly rationale?: string | undefined;
-    }
-  | {
-      readonly op: 'create_edge';
-      readonly category: 'witness';
-      readonly oracle: ToolEdgeRef;
-      readonly claim: ToolEdgeRef;
-      readonly stance: 'for' | 'against';
-      readonly rationale?: string | undefined;
-    }
-  | {
-      readonly op: 'create_edge';
-      readonly category: 'rationale';
-      readonly support: ToolEdgeRef;
-      readonly claim: ToolEdgeRef;
-      readonly stance: 'for' | 'against';
-      readonly rationale?: string | undefined;
-    }
-  | {
-      readonly op: 'create_edge';
-      readonly category: 'realization';
-      readonly abstract: ToolEdgeRef;
-      readonly concrete: ToolEdgeRef;
-      readonly rationale?: string | undefined;
-    }
-  | {
-      readonly op: 'create_edge';
-      readonly category: 'refinement';
-      readonly abstract: ToolEdgeRef;
-      readonly concrete: ToolEdgeRef;
-      readonly rationale?: string | undefined;
-    }
-  | {
-      readonly op: 'create_edge';
-      readonly category: 'exclusion';
-      readonly boundary: ToolEdgeRef;
-      readonly subject: ToolEdgeRef;
-      readonly rationale?: string | undefined;
-    }
-  | {
-      readonly op: 'create_edge';
-      readonly category: 'composition';
-      readonly whole: ToolEdgeRef;
-      readonly part: ToolEdgeRef;
-      readonly rationale?: string | undefined;
-    }
-  | {
-      readonly op: 'create_edge';
-      readonly category: 'cross_reference';
-      readonly a: ToolEdgeRef;
-      readonly b: ToolEdgeRef;
-      readonly rationale?: string | undefined;
-    }
-  | {
-      readonly op: 'create_edge';
-      readonly category: 'supersession';
-      readonly successor: ToolEdgeRef;
-      readonly predecessor: ToolEdgeRef;
-      readonly rationale?: string | undefined;
-    };
+export type ToolMutateCreateEdgeOp = {
+  readonly op: 'create_edge';
+} & RoleNamedEdgeDraftOf<ToolEdgeRef>;
 export type ToolMutateGraphOp = ToolMutateCreateNodeOp | ToolMutateCreateEdgeOp;
 export interface ToolMutateGraphParams {
   readonly createBasis?: 'explicit' | 'implicit' | undefined;

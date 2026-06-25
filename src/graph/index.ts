@@ -95,6 +95,7 @@ export type {
   NodePatch,
   ResolveReconNeedResult,
   RoleNamedEdgeDraft,
+  RoleNamedEdgeDraftOf,
   SpecRecord,
   StructuralIllegal,
 } from './command-executor.js';
