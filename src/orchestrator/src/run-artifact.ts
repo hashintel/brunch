@@ -92,8 +92,9 @@ function stageAuthoredChanges(dir: string): void {
     const record = records[index]!;
     const statusCode = record.slice(0, 2);
     const path = record.slice(3);
-    if (statusCode.includes('R') || statusCode.includes('C')) index++;
+    const priorPath = statusCode.includes('R') || statusCode.includes('C') ? records[++index] : undefined;
     if (!isGeneratedArtifactPath(path)) paths.push(path);
+    if (priorPath && !isGeneratedArtifactPath(priorPath)) paths.push(priorPath);
   }
   for (let index = 0; index < paths.length; index += 100) {
     git(['add', '-A', '--', ...paths.slice(index, index + 100)], dir);

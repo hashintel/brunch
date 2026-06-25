@@ -295,6 +295,31 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     expect(tracked.some((f) => f.startsWith('.brunch-tmp/node-compile-cache/'))).toBe(false);
   });
 
+  it('stages both sides of a cook-time rename', () => {
+    seedSliceWorktree('rename', (d) => {
+      rmSync(join(d, 'base.txt'));
+      writeFileSync(join(d, 'renamed.txt'), 'base\n');
+    });
+
+    const plan: Plan = {
+      mode: 'brownfield',
+      epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+      slices: [slice('rename')],
+    };
+    const artifact = harvestCookRun({
+      sourceDir: source,
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['rename'],
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    const tracked = gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n');
+    expect(tracked).toContain('renamed.txt');
+    expect(tracked).not.toContain('base.txt');
+  });
+
   it('dependency-seeded: a dependent slice that extends a dep file folds clean (no false conflict)', () => {
     // The dep-seed interaction the composer was left unwired for (871ef087). In a
     // real run, slice B (depends on A) has A's completed output copied into its
