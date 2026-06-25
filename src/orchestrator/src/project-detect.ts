@@ -14,6 +14,7 @@
 import { type Dirent, existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { PlanningProjectContext } from './plan-planning-context.js';
 import { PROFILE_IDS, type ProfileId } from './project-profile.js';
 
 /** A successful detection names the profile and the evidence that selected it. */
@@ -39,6 +40,17 @@ function readPackageJsonDeps(dir: string): Set<string> | null {
     // A present-but-malformed package.json is evidence of a JS project we can't
     // read — treat it as a Node project with no detectable framework.
     return new Set();
+  }
+}
+
+function readPackageJsonName(dir: string): string | undefined {
+  const path = join(dir, 'package.json');
+  if (!existsSync(path)) return undefined;
+  try {
+    const pkg = JSON.parse(readFileSync(path, 'utf8')) as { name?: unknown };
+    return typeof pkg.name === 'string' && pkg.name.trim() ? pkg.name.trim() : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -110,6 +122,20 @@ function collectWorkspaceDeps(repoDir: string): Set<string> {
     }
   }
   return deps;
+}
+
+export function detectProjectContext(repoDir: string): PlanningProjectContext | undefined {
+  const workspaceDirs = readWorkspaceGlobs(repoDir).flatMap((glob) => resolveWorkspaceDirs(repoDir, glob));
+  const packageDirs =
+    workspaceDirs.length > 0 ? workspaceDirs : fileExists(repoDir, 'package.json') ? ['.'] : [];
+  const packages = packageDirs
+    .filter((dir) => fileExists(join(repoDir, dir), 'package.json'))
+    .map((dir) => {
+      const name = readPackageJsonName(join(repoDir, dir));
+      return name ? { dir, name } : { dir };
+    })
+    .sort((a, b) => a.dir.localeCompare(b.dir));
+  return packages.length > 0 ? { packages } : undefined;
 }
 
 /**

@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { detectProfile, detectTestDir } from './project-detect.js';
+import { detectProfile, detectProjectContext, detectTestDir } from './project-detect.js';
 
 function repo(files: Record<string, string>): string {
   const dir = mkdtempSync(join(tmpdir(), 'detect-'));
@@ -185,5 +185,29 @@ describe('detectProfile resolves the runner from workspace packages in a monorep
       'apps/web/package.json': pkg({ vitest: '^2.0.0' }),
     });
     expect(detectProfile(dir)).toMatchObject({ detected: true, profile: 'node-vitest' });
+  });
+});
+
+describe('detectProjectContext summarizes package anchors for brownfield planning', () => {
+  it('lists workspace package dirs and names deterministically', () => {
+    const dir = repo({
+      'package.json': JSON.stringify({ workspaces: ['libs/@hashintel/*', 'apps/web'] }),
+      'libs/@hashintel/petrinaut-core/package.json': JSON.stringify({ name: '@hashintel/petrinaut-core' }),
+      'libs/@hashintel/other/package.json': JSON.stringify({ name: '@hashintel/other' }),
+      'apps/web/package.json': JSON.stringify({ name: '@hashintel/web' }),
+    });
+
+    expect(detectProjectContext(dir)).toEqual({
+      packages: [
+        { dir: 'apps/web', name: '@hashintel/web' },
+        { dir: 'libs/@hashintel/other', name: '@hashintel/other' },
+        { dir: 'libs/@hashintel/petrinaut-core', name: '@hashintel/petrinaut-core' },
+      ],
+    });
+  });
+
+  it('falls back to the root package for non-workspace repos', () => {
+    const dir = repo({ 'package.json': JSON.stringify({ name: 'single-package' }) });
+    expect(detectProjectContext(dir)).toEqual({ packages: [{ dir: '.', name: 'single-package' }] });
   });
 });

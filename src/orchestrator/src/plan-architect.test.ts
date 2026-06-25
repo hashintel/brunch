@@ -185,4 +185,28 @@ describe('architectPlan', () => {
     // no test authoring
     expect(prompt).toContain('Do NOT author tests');
   });
+
+  it('includes brownfield package anchors when supplied', async () => {
+    let prompt = '';
+    await architectPlan(
+      projected,
+      async (p) => {
+        prompt = p;
+        return wellFormed;
+      },
+      {
+        relations: [],
+        project: {
+          packages: [
+            { dir: 'libs/@hashintel/petrinaut-core', name: '@hashintel/petrinaut-core' },
+            { dir: 'tests/hash-backend-integration', name: '@hashintel/hash-backend-integration' },
+          ],
+        },
+      },
+    );
+
+    expect(prompt).toContain('@hashintel/petrinaut-core at libs/@hashintel/petrinaut-core');
+    expect(prompt).toContain('Do not put product');
+    expect(prompt).toContain('unrelated integration-test package');
+  });
 });
