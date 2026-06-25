@@ -2,8 +2,13 @@
 
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 
+import {
+  formatMutateGraphResult,
+  formatStructuralIllegal,
+} from '../../../../agents/contexts/graph/commit-result.js';
 import { formatGraphOverview } from '../../../../agents/contexts/graph/graph-slice.js';
 import { formatNeighborhood } from '../../../../agents/contexts/graph/node-neighborhood.js';
+import { formatRelatedNodesResult } from '../../../../agents/contexts/graph/related-nodes.js';
 import type { CommandExecutor } from '../../../../graph/command-executor.js';
 import type {
   EdgeCategory,
@@ -20,12 +25,7 @@ import type {
 } from '../../../../graph/index.js';
 import { graphMutationProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
 import { stampOwnMutationWatermark } from '../../../../session/prepare-next-turn.js';
-import {
-  translateMutateGraph,
-  formatMutateGraphResult,
-  formatRelatedNodesResult,
-  formatStructuralIllegal,
-} from './command-adapter.js';
+import { translateMutateGraph } from './command-adapter.js';
 import { MutateGraphParams, ReadGraphParams } from './tool-schemas.js';
 
 export interface GraphReaders {

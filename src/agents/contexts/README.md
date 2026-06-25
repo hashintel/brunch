@@ -10,7 +10,8 @@ SPEC decisions: D52-L, D58-L, D60-L, D76-L, D78-L, D83-L, D91-L, D96-L
 contexts/
 ├── primitives/       markdown, TOON, tree, and section formatting helpers
 ├── seeds/            per-turn pushed context blocks and origination seed payloads
-├── graph/            graph overview/neighborhood and planned graph result text
+├── graph/            graph overview/neighborhood, related-node, mutation, reconciliation text
+├── elicitation.ts    elicitation agenda/update text
 ├── workspace/        <workspace> context text
 ├── specification/    <specification> context text
 ├── session/          <session> runtime-frame and readiness text
@@ -34,4 +35,4 @@ Context golden files live beside their tests under `__snapshots__/` and use stoc
 
 ## Migration note
 
-Reusable agent-visible renderers have moved here from `src/renderers/`. `src/renderers/` remains for human/product-only text such as print-mode workspace state and debug transcript output. Later refactor items promote adapter-local model text (for example related-node, mutation-result, elicitation, and reconciliation tool text) into this subtree.
+Reusable agent-visible renderers have moved here from `src/renderers/`, and formerly adapter-local model text for graph mutation/related reads plus elicitation/reconciliation register tools now lives here too. `src/renderers/` remains for human/product-only text such as print-mode workspace state and debug transcript output.

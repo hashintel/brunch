@@ -1,6 +1,7 @@
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import { formatMutateGraphResult } from '../../agents/contexts/graph/commit-result.js';
 import { formatGraphOverview } from '../../agents/contexts/graph/graph-slice.js';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
@@ -15,10 +16,7 @@ import {
   type GraphVisibility,
 } from '../../graph/queries.js';
 import { READINESS_BANDS } from '../../graph/schema/kinds.js';
-import {
-  translateMutateGraph,
-  formatMutateGraphResult,
-} from '../extensions/brunch-data/graph/command-adapter.js';
+import { translateMutateGraph } from '../extensions/brunch-data/graph/command-adapter.js';
 import { registerBrunchGraph, type GraphReaders } from '../extensions/brunch-data/graph/index.js';
 import { ReadGraphParams } from '../extensions/brunch-data/graph/tool-schemas.js';
 

@@ -19,6 +19,10 @@
 import type { Static } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
+import {
+  formatElicitationAgenda,
+  formatElicitationUpdateResult,
+} from '../../../../agents/contexts/elicitation.js';
 import { sortElicitationGapsForAsking } from '../../../../graph/elicitation-driver.js';
 import type {
   CommandExecutor,
@@ -156,12 +160,10 @@ export function registerBrunchElicitation(pi: ExtensionAPI, deps: BrunchElicitat
       const result: SpawnResult | DispositionResult =
         params.action === 'spawn' ? executeSpawn(deps, params) : executeSetDisposition(deps, params);
 
-      const text =
-        result.status === 'success'
-          ? `${params.action === 'spawn' ? 'Spawned gap' : 'Updated gap disposition'} (lsn ${result.lsn}).`
-          : `STRUCTURAL_ILLEGAL\n${result.diagnostics.map((d) => `- ${d.field}: ${d.message}`).join('\n')}`;
-
-      return { content: [{ type: 'text' as const, text }], details: result };
+      return {
+        content: [{ type: 'text' as const, text: formatElicitationUpdateResult(result, params.action) }],
+        details: result,
+      };
     },
   });
 }
@@ -235,34 +237,4 @@ function executeSetDisposition(
     disposition: params.disposition,
     resolvedByNodeId,
   });
-}
-
-function formatElicitationAgenda(
-  agenda: readonly ElicitationGap[],
-  others: readonly ElicitationGap[] | undefined,
-): string {
-  const lines: string[] = [];
-  if (agenda.length === 0) {
-    lines.push('[Elicitation agenda] No elicitation gaps are currently open for the selected spec.');
-  } else {
-    lines.push(`[Elicitation agenda] ${agenda.length} open question(s), ranked:`);
-    agenda.forEach((gap, index) => {
-      lines.push(
-        `${index + 1}. ${oneLine(gap.question)} (refers to: ${gap.refersTo} · band: ${gap.band} · importance: ${gap.importance} · coverage: ${gap.coverage})`,
-      );
-    });
-  }
-  if (others && others.length > 0) {
-    lines.push('');
-    lines.push(`[Not on the agenda] ${others.length} gap(s):`);
-    for (const gap of others) {
-      const state = gap.answered ? 'answered' : gap.disposition;
-      lines.push(`- ${oneLine(gap.question)} (${state})`);
-    }
-  }
-  return lines.join('\n');
-}
-
-function oneLine(value: string): string {
-  return value.trim().replaceAll(/\s+/g, ' ');
 }

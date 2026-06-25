@@ -11,6 +11,10 @@
 import type { Static } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
+import {
+  formatReconciliationNeeds,
+  formatReconciliationUpdateResult,
+} from '../../../../agents/contexts/graph/reconciliation-needs.js';
 import type {
   CommandExecutor,
   CreateReconNeedResult,
@@ -126,11 +130,10 @@ export function registerBrunchReconciliation(pi: ExtensionAPI, deps: BrunchRecon
 
     async execute(_toolCallId, params) {
       const result = executeUpdate(deps, params);
-      const text =
-        result.status === 'success'
-          ? `${params.action === 'create' ? 'Created reconciliation need' : 'Resolved reconciliation need'} (lsn ${result.lsn}).`
-          : `STRUCTURAL_ILLEGAL\n${result.diagnostics.map((d) => `- ${d.field}: ${d.message}`).join('\n')}`;
-      return { content: [{ type: 'text' as const, text }], details: result };
+      return {
+        content: [{ type: 'text' as const, text: formatReconciliationUpdateResult(result, params.action) }],
+        details: result,
+      };
     },
   });
 }
@@ -179,23 +182,4 @@ function executeResolve(
 
 function structuralIllegal(diagnostics: readonly Diagnostic[]): StructuralIllegal {
   return { status: 'structural_illegal', diagnostics };
-}
-
-function formatReconciliationNeeds(needs: readonly ReconciliationNeed[]): string {
-  if (needs.length === 0) return '[Reconciliation needs] No reconciliation needs are currently open.';
-  return [
-    `[Reconciliation needs] ${needs.length} open item(s):`,
-    ...needs.map(
-      (need, index) =>
-        `${index + 1}. ${need.kind} ${formatTarget(need.target)}${need.rationale ? ` — ${oneLine(need.rationale)}` : ''}`,
-    ),
-  ].join('\n');
-}
-
-function formatTarget(target: ReconciliationNeed['target']): string {
-  return target.kind === 'edge' ? `(edge ${target.edgeId})` : `(nodes ${target.aId} ↔ ${target.bId})`;
-}
-
-function oneLine(value: string): string {
-  return value.trim().replaceAll(/\s+/g, ' ');
 }

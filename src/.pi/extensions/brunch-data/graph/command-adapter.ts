@@ -14,14 +14,11 @@ import type {
   GraphMutationNodeRef,
   GraphMutationOp,
   MutateGraphInput,
-  MutateGraphResult,
-  MutateGraphSuccess,
   RoleNamedEdgeDraft,
   StructuralIllegal,
 } from '../../../../graph/command-executor.js';
 import { authoredEdgeEndpointFields } from '../../../../graph/index.js';
-import type { NodeNeighborhood } from '../../../../graph/queries.js';
-import { formatGraphNodeCode, parseGraphNodeCode } from '../../../../graph/schema/nodes.js';
+import { parseGraphNodeCode } from '../../../../graph/schema/nodes.js';
 import type { ToolMutateGraphParams } from './tool-schemas.js';
 
 export type ResolveGraphNodeCode = (code: string) => number | undefined;
@@ -119,112 +116,4 @@ function normalizeEdgeRef(
     return { status: 'invalid' };
   }
   return { status: 'valid', ref: { existing: nodeId } };
-}
-
-// ---------------------------------------------------------------------------
-// Result formatting
-// ---------------------------------------------------------------------------
-
-/**
- * Format a MutateGraphResult as Pi tool result text content.
- *
- * On success: human-readable summary with created ids.
- * On structural_illegal: diagnostic listing for agent self-correction.
- */
-export function formatMutateGraphResult(result: MutateGraphResult): string {
-  if (result.status === 'success') {
-    return formatCommitSuccess(result);
-  }
-  return formatStructuralIllegal(result);
-}
-
-function formatCommitSuccess(result: MutateGraphSuccess): string {
-  const nodeEntries = Object.entries(result.createdNodes);
-  const lines: string[] = [`Graph mutated successfully (LSN ${result.lsn}).`];
-
-  if (nodeEntries.length > 0) {
-    const createdNodes = nodeEntries.map(([ref, node]) => `${ref} → ${node.code}`);
-    lines.push(`Nodes created: ${createdNodes.join(', ')}`);
-  }
-  if (result.createdEdges.length > 0) {
-    lines.push(`Edges created: ${result.createdEdges.map((id) => `#${id}`).join(', ')}`);
-  }
-  if (result.updatedNodes.length > 0)
-    lines.push(`Nodes updated: ${result.updatedNodes.map((id) => `#${id}`).join(', ')}`);
-  if (result.updatedEdges.length > 0)
-    lines.push(`Edges updated: ${result.updatedEdges.map((id) => `#${id}`).join(', ')}`);
-  if (result.deletedNodes.length > 0)
-    lines.push(`Nodes deleted: ${result.deletedNodes.map((id) => `#${id}`).join(', ')}`);
-  if (result.deletedEdges.length > 0)
-    lines.push(`Edges deleted: ${result.deletedEdges.map((id) => `#${id}`).join(', ')}`);
-
-  return lines.join('\n');
-}
-
-export function formatStructuralIllegal(result: StructuralIllegal): string {
-  const lines: string[] = [
-    'STRUCTURAL_ILLEGAL: The batch was rejected. Fix the following issues and retry:',
-    '',
-  ];
-
-  for (const d of result.diagnostics) {
-    lines.push(`- ${d.field}: ${d.message}`);
-  }
-
-  return lines.join('\n');
-}
-
-export interface RelatedNodesResult {
-  readonly status: 'success' | 'not_found';
-  readonly anchors?: readonly NodeNeighborhood[];
-}
-
-export function formatRelatedNodesResult(result: RelatedNodesResult): string {
-  if (result.status === 'not_found') {
-    return 'One or more anchor nodes were not found in the selected spec.';
-  }
-
-  const anchors = result.anchors ?? [];
-  const found = anchors.filter(
-    (anchor): anchor is Extract<NodeNeighborhood, { status: 'found' }> => anchor.status === 'found',
-  );
-  const related = new Map(found.flatMap((anchor) => anchor.related.map((node) => [node.id, node] as const)));
-  const edges = found.flatMap((anchor) => anchor.edges);
-  const nodesById = new Map([...found.map((anchor) => [anchor.node.id, anchor.node] as const), ...related]);
-  const lines = [
-    `Related nodes: ${related.size} node(s), ${edges.length} edge(s).`,
-    `Anchors: ${found.map((anchor) => `[${formatGraphNodeCode(anchor.node.kind, anchor.node.kindOrdinal)}] ${anchor.node.title}`).join(', ')}`,
-  ];
-
-  if (related.size === 0) {
-    lines.push('Related: none');
-  } else {
-    lines.push('Related:');
-    for (const node of related.values()) {
-      lines.push(
-        `  - [${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: "${node.title}"`,
-      );
-    }
-  }
-
-  if (edges.length === 0) {
-    lines.push('Edges: none');
-  } else {
-    lines.push('Edges:');
-    const anchorIds = new Set(found.map((anchor) => anchor.node.id));
-    for (const edge of edges) {
-      const source = nodesById.get(edge.sourceId);
-      const target = nodesById.get(edge.targetId);
-      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
-      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
-      const direction = anchorIds.has(edge.sourceId)
-        ? 'outgoing'
-        : anchorIds.has(edge.targetId)
-          ? 'incoming'
-          : 'lateral';
-      lines.push(`  - ${sourceCode} -[${edge.category}/${direction}]-> ${targetCode}`);
-    }
-  }
-
-  return lines.join('\n');
 }
