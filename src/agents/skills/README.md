@@ -1,12 +1,12 @@
-# .pi/skills/ — Brunch prompt-resource skills
+# agents/skills/ — Brunch prompt-resource skills
 
 SPEC decisions: D25-L, D39-L, D52-L, D58-L, D59-L, D85-L
 
 ## Owns
 
-The current file home for Agent Skills-standard prompt resources the Brunch Pi session agent reads on demand after `.pi/extensions/agent-runtime/runtime/state.ts` advertises them in a runtime-filtered `<brunch-skills>` manifest.
+Agent Skills-standard prompt resources the Brunch Pi session agent reads on demand after `.pi/extensions/agent-runtime/runtime/state.ts` advertises them in a runtime-filtered `<brunch-skills>` manifest.
 
-These are Brunch-authored model-facing prompt resources, not product data models and not ambient filesystem discovery inputs. Conceptual ownership is migrating to `src/agents/`; `src/agents/registry.ts` now owns the central path registry while files still live here.
+These are Brunch-authored model-facing prompt resources, not product data models and not ambient filesystem discovery inputs.
 
 ## Layout
 
@@ -26,13 +26,13 @@ Each live resource is a directory whose `SKILL.md` has YAML frontmatter (`name`,
 
 ```pseudo
 rules:
-  .pi/extensions/agent-runtime/runtime/state.ts -> .pi/skills/*/*/SKILL.md  [explicit code-owned path list]
+  .pi/extensions/agent-runtime/runtime/state.ts -> agents/skills/*/*/SKILL.md [explicit code-owned path list via agents/registry.ts]
   .pi/extensions/agent-runtime/runtime/state.ts -> pi loadSkills(includeDefaults:false, skillPaths=[...])
-  .pi/skills/**/SKILL.md          x> TypeScript imports [read-only prompt resources]
-  .pi/skills/                     x> graph mutation     [guidance only]
+  agents/skills/**/SKILL.md      x> TypeScript imports [read-only prompt resources]
+  agents/skills/                 x> graph mutation     [guidance only]
 ```
 
-The legal set is sealed by the code-owned path list in `.pi/extensions/agent-runtime/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns current file locations. Frontmatter owns `name` and `description`; code owns axis family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/.pi/agents/elicitor/SYSTEM.md`.
+The legal set is sealed by the code-owned path list in `.pi/extensions/agent-runtime/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns file locations. Frontmatter owns `name` and `description`; code owns axis family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/agents/prompts/elicitor/SYSTEM.md`.
 
 ## Prompt-resource sub-shapes
 

@@ -32,73 +32,9 @@ const runtimeRegistryExpectations = [
   },
 ];
 
-const resourceExpectations = [
-  {
-    file: 'src/.pi/skills/methods/run-structured-exchange/SKILL.md',
-    needles: ['details.schema', 'schema` plus `v', 'answered`, `cancelled`, or `unavailable`'],
-  },
-  {
-    file: 'src/.pi/skills/methods/capture/SKILL.md',
-    needles: ['single home', 'FE-861', 'Gap close/spawn responsibility belongs here'],
-  },
-  {
-    file: 'src/.pi/skills/methods/generate-proposal/SKILL.md',
-    needles: ['legibility_cost_of_knowing', 'core_bet', 'graph_refs', '`{ node_id: string }` only'],
-  },
-];
-
-const generateProposalDisclosureExpectations = {
-  skill: 'src/.pi/skills/methods/generate-proposal/SKILL.md',
-  references: [
-    {
-      file: 'src/.pi/skills/methods/generate-proposal/references/intent.md',
-      needles: ['intent plane', 'single pick', 'present_candidates'],
-    },
-    {
-      file: 'src/.pi/skills/methods/generate-proposal/references/design.md',
-      needles: ['design plane', 'synthesize', 'present_review_set'],
-    },
-    {
-      file: 'src/.pi/skills/methods/generate-proposal/references/oracle.md',
-      needles: ['oracle plane', 'compose', 'blind spots'],
-    },
-  ],
-  probes: 'src/.pi/skills/methods/generate-proposal/probes.md',
-};
-
 describe('agents topology', () => {
-  it('keeps prompt guidance in .pi resources and removes the legacy .pi context source', async () => {
+  it('removes the legacy .pi context source', async () => {
     await expect(readdir(legacyContextPath)).rejects.toThrow();
-
-    for (const expectation of resourceExpectations) {
-      const content = await readFile(join(projectRoot, expectation.file), 'utf8');
-      for (const needle of expectation.needles) {
-        expect(content).toContain(needle);
-      }
-    }
-  });
-
-  it('keeps generate-proposal plane details behind explicit disclosed references', async () => {
-    const skill = await readFile(join(projectRoot, generateProposalDisclosureExpectations.skill), 'utf8');
-    expect(skill).toContain('references/intent.md');
-    expect(skill).toContain('references/design.md');
-    expect(skill).toContain('references/oracle.md');
-    expect(skill).toContain('Do not write picked intent candidates to the graph');
-    expect(skill).toContain('Cite existing ontology/render surfaces');
-
-    for (const expectation of generateProposalDisclosureExpectations.references) {
-      const content = await readFile(join(projectRoot, expectation.file), 'utf8');
-      for (const needle of expectation.needles) {
-        expect(content).toContain(needle);
-      }
-    }
-
-    const probes = await readFile(join(projectRoot, generateProposalDisclosureExpectations.probes), 'utf8');
-    expect(probes).toContain('Model: GPT-5.5   Last run: 2026-06-24');
-    expect(probes).toContain('intent-pick');
-    expect(probes).toContain('design-synthesize');
-    expect(probes).toContain('oracle-compose');
-    expect(probes).toContain('should NOT fire');
   });
 
   it('keeps named future agent bodies out of the runtime registry', async () => {

@@ -30,7 +30,7 @@ This directory is markdown-only. It carries no TypeScript and registers no Pi ho
 - Foreground prompt composition + pushed seed contexts — `.pi/extensions/agent-runtime/system-prompts/` until the runtime/context move slices land.
 - Background prompt assembly and injected-world child-session wiring — `.pi/extensions/subagents/`.
 - Prompt-resource manifest selection + tool/method legality — `.pi/extensions/agent-runtime/runtime/` and `src/projections/session/runtime-policy.ts` until the runtime move slice lands.
-- Strategy/lens/method prompt-resource skills — currently `.pi/skills/`, moving in a later slice.
+- Strategy/lens/method prompt-resource skills — `src/agents/skills/`.
 - Reusable lossy text/markdown rendering — `renderers/` until agent-visible renderers move.
 - Pi tool definitions, lifecycle hooks, UI, and background child-session loading/running — `.pi/extensions/*`.
 

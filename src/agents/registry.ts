@@ -29,9 +29,9 @@ export function bundledAgentBodyLocation(id: BundledAgentBodyId): string {
 
 /** Agent directory passed to Pi's Agent Skills loader for Brunch prompt resources. */
 export function promptResourceAgentDir(): string {
-  return fileURLToPath(new URL('../.pi', import.meta.url));
+  return fileURLToPath(new URL('.', import.meta.url));
 }
 
 export function promptResourceLocation(family: PromptResourceFamily, id: string): string {
-  return fileURLToPath(new URL(`../.pi/skills/${family}/${id}/SKILL.md`, import.meta.url));
+  return fileURLToPath(new URL(`./skills/${family}/${id}/SKILL.md`, import.meta.url));
 }

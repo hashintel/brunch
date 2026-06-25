@@ -155,7 +155,7 @@ context-pipeline/
   - Skill bodies cite the new home (D97-L); inlined heuristic copies collapse to one cite-target.
   - ✓ A drift guard (`check:data-model`, mirroring `check:skills`, wired into `npm run check`) fails if the generated reference diverges from the typed sources.
   - If `ln-design` splits this into recover-doc / build-generator / subtypes-remodel frontiers, create a `data-model-legibility` arc per §Initiatives.
-- **Traceability:** D73-L (domain owns vocabulary), D88-L (`detail` form union), D97-L (heuristic provenance); un-defers the `_generated/` deferral in [`src/.pi/skills/README.md`](src/.pi/skills/README.md); relates to `elicitor-project` (A33-L, shared D97-L rule).
+- **Traceability:** D73-L (domain owns vocabulary), D88-L (`detail` form union), D97-L (heuristic provenance); un-defers the `_generated/` deferral in [`src/agents/skills/README.md`](src/agents/skills/README.md); relates to `elicitor-project` (A33-L, shared D97-L rule).
 
 ### renderer-golden-coverage
 

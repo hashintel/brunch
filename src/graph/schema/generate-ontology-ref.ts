@@ -5,7 +5,7 @@
  * truth (D73-L); the emitted file is never hand-edited.
  *
  * First materialization of the `_generated/` mechanism deferred in
- * `src/.pi/skills/README.md`. This slice generates only the kind→band table;
+ * `src/agents/skills/README.md`. This slice generates only the kind→band table;
  * further vocabulary tables (edge categories, detail forms) are added when a
  * concrete citing need appears, not speculatively.
  *

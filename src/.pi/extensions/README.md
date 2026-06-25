@@ -8,7 +8,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 
 ## Does NOT own
 
-- Agent role prompt definitions and skill resource bodies (markdown) — `agents/prompts/` and `.pi/skills/`. Prompt composition and prompt-resource legality live in `agent-runtime/` until their move slice lands.
+- Agent role prompt definitions and skill resource bodies (markdown) — `agents/prompts/` and `agents/skills/`. Prompt composition and prompt-resource legality live in `agent-runtime/` until their move slice lands.
 - Graph truth, graph mutation policy, or graph readers — top-level `graph/`.
 - Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — top-level `session/`, `projections/`, and related domain seams.
 - Reusable DTO projection or reusable markdown/text rendering — top-level `projections/` and `renderers/`.

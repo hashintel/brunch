@@ -40,73 +40,73 @@ When a skill file references a relative path, resolve it against the skill direc
     <kind>strategy</kind>
     <name>step-wise-decision-tree</name>
     <description>Ask one structured question at a time and branch from the answer.</description>
-    <location><repo>/src/.pi/skills/strategies/step-wise-decision-tree/SKILL.md</location>
+    <location><repo>/src/agents/skills/strategies/step-wise-decision-tree/SKILL.md</location>
   </skill>
   <skill>
     <kind>strategy</kind>
     <name>step-wise-disambiguate</name>
     <description>Use contrastive examples to collapse meaningful ambiguity.</description>
-    <location><repo>/src/.pi/skills/strategies/step-wise-disambiguate/SKILL.md</location>
+    <location><repo>/src/agents/skills/strategies/step-wise-disambiguate/SKILL.md</location>
   </skill>
   <skill>
     <kind>lens</kind>
     <name>intent</name>
     <description>Focus on intent-plane claims: goals, terms, assumptions, constraints, and decisions.</description>
-    <location><repo>/src/.pi/skills/lenses/intent/SKILL.md</location>
+    <location><repo>/src/agents/skills/lenses/intent/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
     <name>run-structured-exchange</name>
     <description>Present typed Brunch exchanges and request typed responses.</description>
-    <location><repo>/src/.pi/skills/methods/run-structured-exchange/SKILL.md</location>
+    <location><repo>/src/agents/skills/methods/run-structured-exchange/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
     <name>capture</name>
     <description>Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct.</description>
-    <location><repo>/src/.pi/skills/methods/capture/SKILL.md</location>
+    <location><repo>/src/agents/skills/methods/capture/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
     <name>commit-graph</name>
     <description>Commit graph truth only through Brunch graph tools and CommandExecutor-backed results.</description>
-    <location><repo>/src/.pi/skills/methods/commit-graph/SKILL.md</location>
+    <location><repo>/src/agents/skills/methods/commit-graph/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
     <name>elicit-by-question</name>
     <description>Acquire missing material by asking the human one focused question.</description>
-    <location><repo>/src/.pi/skills/methods/elicit-by-question/SKILL.md</location>
+    <location><repo>/src/agents/skills/methods/elicit-by-question/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
     <name>ingest-paste</name>
     <description>Acquire user-provided pasted material as conversational transcript content.</description>
-    <location><repo>/src/.pi/skills/methods/ingest-paste/SKILL.md</location>
+    <location><repo>/src/agents/skills/methods/ingest-paste/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
     <name>read-referenced-documents</name>
     <description>Read bounded user-referenced documents and digest them before capture.</description>
-    <location><repo>/src/.pi/skills/methods/read-referenced-documents/SKILL.md</location>
+    <location><repo>/src/agents/skills/methods/read-referenced-documents/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
     <name>explore-and-characterize</name>
     <description>Explore a bounded brownfield area and write a characterization digest before capture.</description>
-    <location><repo>/src/.pi/skills/methods/explore-and-characterize/SKILL.md</location>
+    <location><repo>/src/agents/skills/methods/explore-and-characterize/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
     <name>read-context</name>
     <description>Use pushed context handles and read-only context tools for selected-spec context.</description>
-    <location><repo>/src/.pi/skills/methods/read-context/SKILL.md</location>
+    <location><repo>/src/agents/skills/methods/read-context/SKILL.md</location>
   </skill>
   <skill>
     <kind>method</kind>
     <name>generate-proposal</name>
     <description>Generate reviewable candidate graph material: intent-pick, design-synthesize, or oracle-compose. Not for extractive intent/design/oracle lenses that ask or interpret without proposing graph drafts.</description>
-    <location><repo>/src/.pi/skills/methods/generate-proposal/SKILL.md</location>
+    <location><repo>/src/agents/skills/methods/generate-proposal/SKILL.md</location>
   </skill>
 </brunch-skills>
 

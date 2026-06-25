@@ -2,13 +2,11 @@
 
 SPEC decisions: D25-L, D34-L, D35-L, D37-L, D39-L, D40-L, D52-L, D58-L, D59-L, D60-L, D69-L, D90-L, D91-L
 
-This directory is Brunch's sealed Pi-harness surface. It contains product extension registrars, reusable TUI components, and the current Brunch prompt-resource skill files that run inside the embedded Pi coding-agent harness. Agent role bodies have moved to `src/agents/prompts/`; this tree remains the Pi runtime adapter/file home during the migration.
+This directory is Brunch's sealed Pi-harness surface. It contains product extension registrars and reusable TUI components that run inside the embedded Pi coding-agent harness. Agent role bodies live in `src/agents/prompts/`, and Brunch prompt-resource skills live in `src/agents/skills/`; this tree remains the Pi runtime adapter home during the migration.
 
 ## Owns
 
-- The current Pi-facing file home for runtime prompt-resource skills during the `src/agents/` migration.
 - Pi extension registration: tools, lifecycle hooks, command handlers, autocomplete, TUI chrome, workspace dialogs, and dev-gated read-only introspection. `extensions/session/lifecycle.ts` adapts Pi session/turn hooks into one ordered Brunch session-boundary pipeline: workspace rebinding first, then continuity preparation steps. `extensions/graph/index.ts` stamps the live watermark carriers for own mutations and full graph-overview reads.
-- Brunch-owned strategy/lens/method skill files that the agent reads on demand after the runtime manifest advertises them; `src/agents/registry.ts` owns the central path registry.
 - Reusable Pi TUI components used by those extensions.
 
 ## Does NOT own
@@ -27,10 +25,6 @@ This directory is Brunch's sealed Pi-harness surface. It contains product extens
 ├── settings.json                 dev Pi settings for local `.pi` iteration
 ├── brunch-pi-settings.ts        sealed Pi settings/resource-loader policy
 ├── brunch-pi-extensions.ts      explicit Brunch extension factory; no ambient discovery
-├── skills/                        Agent Skills-standard prompt resources read by the agent
-│   ├── strategies/<name>/SKILL.md
-│   ├── lenses/<name>/SKILL.md
-│   └── methods/<name>/SKILL.md
 ├── components/                    reusable Pi TUI/message components
 └── extensions/                    Pi registrars and runtime adapters
 ```
@@ -39,7 +33,6 @@ This directory is Brunch's sealed Pi-harness surface. It contains product extens
 
 ```pseudo
 rules:
-  .pi/skills/      x> TypeScript imports                   [SKILL.md resources only]
   .pi/extensions/  -> agents/, .pi/components/, graph/, session/, rpc/ [adapter imports]
   .pi/extensions/  x> db/                                  [no direct storage]
   graph/, session/ x> .pi/                                 [domain layers never import Pi]

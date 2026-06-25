@@ -24,8 +24,8 @@ describe('agent context registry', () => {
     expect(bundledAgentBodyLocation('reviewer')).toMatch(/src\/agents\/prompts\/reviewer\/SYSTEM\.md$/);
     expect(bundledAgentBodyHome()).toMatch(/src\/agents\/prompts$/);
     expect(promptResourceLocation('methods', 'generate-proposal')).toMatch(
-      /src\/\.pi\/skills\/methods\/generate-proposal\/SKILL\.md$/,
+      /src\/agents\/skills\/methods\/generate-proposal\/SKILL\.md$/,
     );
-    expect(promptResourceAgentDir()).toMatch(/src\/\.pi$/);
+    expect(promptResourceAgentDir()).toMatch(/src\/agents\/?$/);
   });
 });

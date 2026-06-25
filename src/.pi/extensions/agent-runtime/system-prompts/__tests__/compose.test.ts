@@ -327,7 +327,7 @@ describe('composeAgentPrompt', () => {
     ]);
   });
 
-  it('advertises only readable code-owned .pi prompt resources without filesystem discovery', async () => {
+  it('advertises only readable code-owned prompt resources without filesystem discovery', async () => {
     const result = composeAgentPrompt({
       agentId: 'elicitor',
       sessionState: projectBrunchAgentState([]),
@@ -338,7 +338,7 @@ describe('composeAgentPrompt', () => {
     });
 
     for (const entry of Object.values(result.manifests).flat()) {
-      expect(relative(projectRoot, entry.location).startsWith('src/.pi/')).toBe(true);
+      expect(relative(projectRoot, entry.location).startsWith('src/agents/')).toBe(true);
       await expect(access(entry.location)).resolves.toBeUndefined();
     }
     expect(result.prompt).not.toContain('unlisted-fixture');
@@ -357,7 +357,7 @@ describe('composeAgentPrompt', () => {
     ];
 
     for (const entry of entries) {
-      expect(relative(projectRoot, entry.location).startsWith('src/.pi/skills/')).toBe(true);
+      expect(relative(projectRoot, entry.location).startsWith('src/agents/skills/')).toBe(true);
       expect(entry.location.endsWith(`/${entry.name}/SKILL.md`)).toBe(true);
       const raw = await readFile(entry.location, 'utf8');
       const { frontmatter, body } = parseFrontmatter(raw);

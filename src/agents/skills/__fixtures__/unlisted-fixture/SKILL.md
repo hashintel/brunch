@@ -5,4 +5,4 @@ description: "Fixture skill that proves Brunch does not advertise unlisted files
 
 # Unlisted fixture
 
-This fixture intentionally lives under `src/.pi/skills/` but is not in the code-owned prompt-resource path list. It must never appear in composed Brunch manifests.
+This fixture intentionally lives under `src/agents/skills/` but is not in the code-owned prompt-resource path list. It must never appear in composed Brunch manifests.
