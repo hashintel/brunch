@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "probeId": "generate-fan-out",
+  "runId": "2026-06-24T16-51-13-704Z",
+  "generatedAt": "2026-06-24T16:51:13.705Z",
+  "mission": "Witness the oracle-plane generate fan-out path through the real Brunch runtime and canonical session transcript.",
+  "evaluationFocus": "A31-L fan-out half: oracle branch/pointer, present_candidates, and I51-L no-write before candidate pick.",
+  "cwd": "<ephemeral-workspace>",
+  "specId": 1,
+  "sessionId": "2026-06-24T16-51-13-729Z_019efa8a-fec1-7c91-bc84-93e3ddde440f",
+  "prompt": "Generate oracle ensembles for this plan. I want a composed verification strategy, not just one test.",
+  "model": "openai-codex/gpt-5.5",
+  "status": "ok",
+  "success": true,
+  "turn": {
+    "timedOut": false,
+    "timeoutMs": 60000
+  },
+  "baseGraph": {
+    "lsn": 3,
+    "nodeCount": 2,
+    "edgeCount": 0
+  },
+  "finalGraph": {
+    "lsn": 3,
+    "nodeCount": 2,
+    "edgeCount": 0
+  },
+  "graphDelta": {
+    "lsnDelta": 0,
+    "nodeDelta": 0,
+    "edgeDelta": 0
+  },
+  "markers": {
+    "oracleBranchPinned": {
+      "passed": true,
+      "evidence": [
+        7
+      ]
+    },
+    "generateSkillRead": {
+      "passed": true,
+      "evidence": [
+        11
+      ]
+    },
+    "oracleReferenceReadAfterSkill": {
+      "passed": true,
+      "evidence": [
+        15
+      ]
+    },
+    "presentCandidatesEmitted": {
+      "passed": true,
+      "evidence": [
+        20,
+        21
+      ]
+    },
+    "noBrunchKickBeforePrompt": {
+      "passed": true,
+      "evidence": []
+    },
+    "noWriteBeforePick": {
+      "passed": true,
+      "graphUnchanged": true,
+      "mutateGraphToolResultCount": 0,
+      "approvedReviewResultCount": 0,
+      "presentReviewSetBeforeCandidateCount": 0,
+      "evidence": []
+    }
+  },
+  "friction": [],
+  "artifacts": {
+    "runDir": "runs/generate-fan-out/2026-06-24T16-51-13-704Z",
+    "sessionJsonl": "runs/generate-fan-out/2026-06-24T16-51-13-704Z/session.jsonl",
+    "reportJson": "runs/generate-fan-out/2026-06-24T16-51-13-704Z/report.json"
+  }
+}

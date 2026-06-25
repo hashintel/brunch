@@ -18,7 +18,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 **Elicitor capability spine (D95-L).** The elicitor build-out is organized as **`capture` / `generate` / `project`** over the frozen `strategy` / `lens` / `method` axes (A35-L).
 
 - **`capture` is done** via generalized capture (D80-L-D82-L).
-- **`generate` is implementation-complete through a real-model fan-out witness** on this branch (FE-1059): one plane-parameterized `generate-proposal` method, `present_candidates` unstubbed, fan-in as method conduct (`pick` / `synthesize` / `compose`), and I51-L no-write evidence.
+- **`generate` is done through promoted real-model fan-out evidence** (FE-1059): one plane-parameterized `generate-proposal` method, `present_candidates` unstubbed, fan-in as method conduct (`pick` / `synthesize` / `compose`), and promoted I51-L no-write evidence.
 - **`project` is next and design-gated** (A33-L): cross-plane derivation may fold into `generate` or may need a distinct surface.
 - **`acquire` rides the completed subagent reconciliation substrate** (A34-L), not its own frontier.
 
@@ -40,18 +40,18 @@ context-pipeline/
 
 ### Active
 
-- `elicitor-generate` (FE-1059, branch `ln/fe-1059-elicitor-generate`) — **tie-off / evidence sync.** Code slices are built: `present_candidates` is unstubbed; the shared `generate-proposal` method covers intent/design/oracle; and the real-model oracle fan-out witness passes in scratch (`.fixtures/scratch/generate-fan-out/2026-06-24T16-51-13-704Z/`). Remaining branch work is to review/promote that run, update canonical evidence lines, retire the exhausted scope card, and decide whether the optional A1 anti-prompt or manual-TUI fan-in witness belongs on this branch or a follow-up.
+- None. `elicitor-generate` is tied off pending branch submission; the next frontier is `elicitor-project`.
 
 ### Recently Completed
 
+- 2026-06-25 `elicitor-generate` (FE-1059) — **generate capability done through promoted A31-L fan-out evidence.** Built slices: `present_candidates` tool/projection/renderer + pick path; intent/design/oracle facets under one plane-parameterized `generate-proposal` method; progressive-disclosure references; real-boot activation check; and real-model fan-out witness harness. Promoted run `.fixtures/runs/generate-fan-out/2026-06-24T16-51-13-704Z/` passed with `openai-codex/gpt-5.5`: oracle lens pinned, `SKILL.md` and `references/oracle.md` read, `present_candidates` emitted, no pre-prompt kick, no graph delta, no `mutate_graph`, and no approved review result. A32-L fan-in completion and the A1 anti-prompt remain follow-ups, not branch debt.
 - 2026-06-24 `subagent-reconciliation` (FE-1054) — foreground/background reconciliation complete through the execute-mode readiness target (D90-L-D93-L/I49-L): shared `AgentManifest`, code-owned background discovery, semi-permeable injected-world child sessions, sovereign grants gated by code-owned `canDelegate`, return rendering, and live `execute` -> `orchestrator` mode with a product-registered stub tool. `code` -> `pi-coder` remains future work.
 - 2026-06-24 `readiness-bands-interrogation` (FE-1058) — D94-L/I50-L materialized: derived four-band ladder, two carriers (`gap.band` for asking agenda, plane-derived node bands for projection thresholds), per-kind table deleted, `projection` band added, and goldens/readers reconciled.
-- 2026-06-23 `ontology-revision` (FE-1052) — node/edge/detail/spec-kind ontology revision done and archived; forward constraints survive as dependencies for renderer relocking and future coherence/oracle/design/plan graph work.
 - Older completed frontiers: `docs/archive/PLAN_HISTORY.md`.
 
 ### Next
 
-- `elicitor-project` — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
+- `elicitor-project` (FE-1085) — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
 - `renderer-golden-coverage` — **active parallel coverage track.** Remaining RENDER work: `<session>`, `renderGraphSeed`, `exchanges/*`, `formatRelatedNodesResult` relocation/repair, and the `brunch print` fork.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 
@@ -74,34 +74,10 @@ context-pipeline/
 
 ## Frontier Definitions
 
-### elicitor-generate
-
-- **Name:** Elicitor `generate` capability — plane-parameterized generative proposal + `present_candidates` un-stub
-- **Linear:** [FE-1059](https://linear.app/hash/issue/FE-1059) — elicitor generate capability
-- **Branch:** `ln/fe-1059-elicitor-generate`
-- **Kind:** structural / capability
-- **Status:** active tie-off. Built slices: `present_candidates` tool/projection/renderer + pick path; intent/design/oracle facets under one `generate-proposal` method; progressive-disclosure `references/{intent,design,oracle}.md`; real-boot activation check; real-model fan-out witness harness. Latest scratch run `2026-06-24T16-51-13-704Z` passed on `openai-codex/gpt-5.5`.
-- **Certainty:** proving -> earned after evidence promotion. A31-L's fan-out half has a clean scratch witness; A32-L fan-in completion remains a separate manual-TUI proof unless this branch explicitly scopes it.
-- **Objective:** Tie off `generate` by promoting reviewed fan-out evidence, updating A31-L/probe observations, and retiring the exhausted scope card. Do not add `fan_in_mode` unless manual/live fan-in proof shows the UI/schema must carry it.
-- **Acceptance:**
-  - The reviewed run is promoted from `.fixtures/scratch/generate-fan-out/2026-06-24T16-51-13-704Z/` to `.fixtures/runs/generate-fan-out/2026-06-24T16-51-13-704Z/`.
-  - `src/.pi/skills/methods/generate-proposal/probes.md` records P3 as observed from the promoted run.
-  - `memory/SPEC.md` A31-L records the promoted fan-out evidence and keeps A32-L's fan-in completion honest.
-  - `memory/cards/elicitor-generate--fan-out-witness-run.md` is either updated to a completed record for the optional S2 decision or deleted once its state is reconciled.
-  - I51-L remains true: `present_candidates` never commits graph truth; commitment remains through review-set approval or the role-named `mutateGraph` grammar.
-- **Follow-ups (not required for tie-off):**
-  - Optional S2 A1 extractive-oracle anti-prompt no-fire witness.
-  - Manual-TUI fan-in completion witness for A32-L compose behavior.
-  - Optional subagent proposal diversity: parallel `projector` / reviewer-style fan-out is an enhancement to `generate`, not an independent horizon frontier.
-  - `generate-proposal` -> `generate` rename.
-  - `capture_candidate` -> review-set commit leg.
-  - D97-L refresh of `docs/design/ELICITATION_QUESTIONS.md` as a canonical heuristic-rendering surface.
-- **Traceability:** D95-L, D96-L, D97-L / A31-L, A32-L, A35-L / I51-L.
-
 ### elicitor-project
 
 - **Name:** Elicitor `project` capability — cross-plane derivation
-- **Linear:** unassigned
+- **Linear:** [FE-1085](https://linear.app/hash/issue/FE-1085) — elicitor project capability design
 - **Branch:** tbd
 - **Kind:** structural / capability
 - **Status:** next; design-gated by A33-L.
@@ -141,9 +117,7 @@ context-pipeline/
 ```text
 frontiers:
   Active:
-    elicitor-generate
-      status: tie-off / evidence sync
-      proof: scratch A31-L fan-out run passed; needs promotion + canonical evidence updates
+    none
 
   Next:
     elicitor-project
@@ -175,9 +149,10 @@ frontiers:
 
 done anchors:
   generalized-capture -> elicitor-generate, elicitor-project
+  elicitor-generate -> elicitor-project
   subagent-reconciliation -> acquisition arm + future subagent diversity
   readiness-bands-interrogation -> renderer-golden-coverage
-  ontology-revision -> renderer-golden-coverage, coherence-first-class, oracle-design-plan-graphs
+  ontology-revision -> renderer-golden-coverage, coherence-first-class, elicitor-project
 
 rules:
   candidates never commit graph truth (I51-L)

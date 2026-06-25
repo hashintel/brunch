@@ -4,7 +4,7 @@ Model: GPT-5.5   Last run: 2026-06-24
 
 These probes assert process markers, not golden wording. Run each in a fresh session or subagent with the Brunch elicitor manifest visible, then inspect whether the branch, reference pointer, and commit discipline fired.
 
-Static review 2026-06-24: branch/pointer/marker coverage is present in the skill pack. Behavioral observations remain pending until live Brunch-manifest runs witness the process markers.
+Static review 2026-06-24: branch/pointer/marker coverage is present in the skill pack. P3 has a promoted live Brunch-manifest observation; the other probes remain pending.
 
 ## P1 - intent-pick  (should fire)
 
@@ -28,7 +28,7 @@ Static review 2026-06-24: branch/pointer/marker coverage is present in the skill
 - Expect branch: oracle-compose.
 - Expect pointers: `SKILL.md`, then `references/oracle.md`.
 - Expect markers: diagnoses observability/reproducibility/controllability; proposes additive oracle ensembles; names loop tier, blind spots, false-positive shape, and fixture/probe commitments; uses `present_candidates -> request_response`; composes in reasoning; commits only through `present_review_set -> request_response -> acceptReviewSet`.
-- Observed: pending - probe file stood up with the slice; run in an uncontaminated outer loop before claiming behavioral pass.
+- Observed: passed in promoted run `.fixtures/runs/generate-fan-out/2026-06-24T16-51-13-704Z/` using `openai-codex/gpt-5.5`: oracle lens pinned, `generate-proposal/SKILL.md` read, `references/oracle.md` read after the skill, `present_candidates` emitted, no pre-prompt `brunch.kick`, graph unchanged, no `mutate_graph`, and no approved review result. This witnesses fan-out and I51-L no-write only; fan-in completion remains a separate manual-TUI proof.
 
 ## A1 - extractive oracle lens  (should NOT fire)
 
