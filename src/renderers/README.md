@@ -73,8 +73,8 @@ Ledger statuses:
 
 Tool-owned render targets are ledgered by their durable renderer row when they use `src/renderers/` directly:
 
-- Graph tools: `read_graph` overview/list modes are covered by `graph/graph-slice` (G-D) and neighborhood mode by `graph/node-neighborhood` (G-C); `mutate_graph` currently formats command outcomes in the graph extension adapter, not a reusable renderer row. **Gap:** `read_graph` `related` mode is rendered by `formatRelatedNodesResult` in `.pi/extensions/graph/command-adapter.ts` (not a `renderers/` row) and still emits structural leaks (`-[category/direction]->` arrows, raw `#id`, `plane/kind`) — it must migrate onto the prose vocabulary and relocate into `renderers/` (tracked under `renderer-golden-coverage` in `memory/PLAN.md`).
-- Elicitation-gap tools: `read_elicitation_gaps` and `update_elicitation_gaps` format in `src/.pi/extensions/elicitation`; no renderer row is admitted until a second consumer or drift-prone reusable surface appears.
+- Graph tools: `read_graph` overview/list modes are covered by `graph/graph-slice` (G-D) and neighborhood mode by `graph/node-neighborhood` (G-C); `mutate_graph` currently formats command outcomes in the graph extension adapter, not a reusable renderer row. **Gap:** `read_graph` `related` mode is rendered by `formatRelatedNodesResult` in `.pi/extensions/brunch-data/graph/command-adapter.ts` (not a `renderers/` row) and still emits structural leaks (`-[category/direction]->` arrows, raw `#id`, `plane/kind`) — it must migrate onto the prose vocabulary and relocate into `renderers/` (tracked under `renderer-golden-coverage` in `memory/PLAN.md`).
+- Elicitation-gap tools: `read_elicitation_gaps` and `update_elicitation_gaps` format in `src/.pi/extensions/brunch-data/elicitation`; no renderer row is admitted until a second consumer or drift-prone reusable surface appears.
 - Context tools: `read_workspace_context` is covered by `workspace/workspace-context`; `read_specification_context` is covered by `specification/specification-context`; `read_session_context` is covered by `session/runtime-frame`.
 - Structured-exchange tools: `present_*` and `request_*` rows are the exchange renderer family above; TUI presentation currently delegates to each tool's `renderResult` adapter over the same markdown text, so lock mechanism follows the renderer row unless a component-specific display diverges.
 - Base file floor (`read`, `grep`, `find`, `ls`) and dev-only tools (`brunch_session_query`, `brunch_introspect_query`) are Pi/dev tool surfaces, not renderer-frontier rows.
@@ -87,6 +87,6 @@ Provider-visible strings composed outside `src/renderers/` carry the same drift 
 | --- | --- | --- | --- |
 | `kickTurnMessage` | `src/session/originate-assistant-turn.ts` | ◐ partial | Origination follow-up Card 3 locks D78-L wording; not part of renderer coverage cards. |
 | Mention-staleness hints | `src/session/mention-ledger.ts` / turn-boundary reconciler | ○ review-only | No renderer row until copy changes or drift appears. |
-| Session lifecycle notices | `src/.pi/extensions/session/lifecycle.ts` | ○ review-only | Keep owner-local unless promoted by a wording bug. |
+| Session lifecycle notices | `src/.pi/extensions/session-hooks/session/lifecycle.ts` | ○ review-only | Keep owner-local unless promoted by a wording bug. |
 | Compaction copy / anchor rationale | `src/.pi/extensions/compaction/index.ts` | ○ review-only | Contract prose, not a renderer row. |
 | Seed framing | `src/session/context-seed.ts` | ◐ partial | Covered indirectly through origination/context tests today; promote only if wording churn continues. |

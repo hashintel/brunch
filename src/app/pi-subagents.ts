@@ -8,7 +8,7 @@
  * injection.
  */
 
-import type { GraphReaders } from '../.pi/extensions/graph/index.js';
+import type { GraphReaders } from '../.pi/extensions/brunch-data/index.js';
 import { loadSubagentDefinitions, subagentAgentsDir } from '../.pi/extensions/subagents/agents.js';
 import { loadSubagentConfig, subagentConfigPath } from '../.pi/extensions/subagents/config.js';
 import type { BrunchSubagentsDeps } from '../.pi/extensions/subagents/index.js';

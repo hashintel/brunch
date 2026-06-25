@@ -8,9 +8,9 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 
 ## Does NOT own
 
-- Agent role prompt definitions and skill resource bodies (markdown) — `.pi/agents/` and `.pi/skills/`. (Prompt composition and the prompt-resource manifest/legality policy are owned here, by `system-prompts/` and `runtime/`.)
-- Graph truth, graph mutation policy, or graph readers — `graph/`.
-- Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — `session/` until the runtime-state follow-up split lands.
+- Agent role prompt definitions and skill resource bodies (markdown) — `.pi/agents/` and `.pi/skills/`. Prompt composition and prompt-resource legality live in `agent-runtime/`.
+- Graph truth, graph mutation policy, or graph readers — top-level `graph/`.
+- Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — top-level `session/`, `projections/`, and related domain seams.
 - Reusable DTO projection or reusable markdown/text rendering — top-level `projections/` and `renderers/`.
 - Product transport handlers — `rpc/`, `app/`, and `web/`.
 
@@ -19,27 +19,32 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 ```text
 extensions/
 ├── README.md
-├── AUDIT.md                 temporary audit note; do not treat as topology source
-├── chrome/                  TUI header/title/footer/sidecar-widget chrome projection
-├── commands/                /brunch:* commands, shortcut, branch/tree policy
-├── compaction/              auto-compaction anchor contract and future hook
-├── context/                 snapshot/context Pi tools
-├── elicitation/             read_elicitation_gaps/update_elicitation_gaps Pi tools over the gap register
-├── exchanges/               structured-exchange present_* / request_* Pi tools
-├── graph/                   mutate_graph/read_graph Pi tools + selected-spec graph read seam
-├── reconciliation/          read_reconciliation_needs/update_reconciliation_needs Pi tools over the recon-need register
-├── introspection/           dev-gated read-only provider-payload tap + /introspect command
-├── introspect-query/        dev-gated read-only brunch_introspect_query tool over captured payloads
-├── orchestrator-stub/       code-owned execute-mode standup tool registered on the product path
-├── session-query/           dev-gated read-only brunch_session_query tool over current branch
-├── shared/                  projection/truncation helpers + Zod→Pi schema adapter for dev query tools
-├── mentions/                #graph mention prompt hint + autocomplete provider
-├── runtime/                 active-tool policy + tool/user_bash guards; prompt-resource selection + method/tool legality (state.ts)
-├── session/                 session lifecycle hooks
-├── system-prompts/          before_agent_start prompt append; prompt composition (compose.ts), prompt-skill manifest render/loader (prompt-skills.ts), pushed seed contexts (seed/)
-├── web/                     web_fetch/web_search read tools for referenced-document acquisition
-├── workspace/               spec/session picker command adapter
-└── subagents/               D44-L/D91-L `subagent` tool — sealed SDK child sessions, assembled background prompts, injected parent-world reads (default-off, dev-gated opt-in)
+├── agent-runtime/          foreground prompt composition, active-tool policy, prompt-resource legality, execute-mode stub
+│   ├── runtime/
+│   ├── system-prompts/
+│   └── orchestrator-stub/
+├── brunch-data/            Pi tools over selected Brunch graph/spec/workspace/session data
+│   ├── graph/              mutate_graph/read_graph tools + selected-spec graph read seam
+│   ├── context/            workspace/spec/session context tools
+│   ├── elicitation/        read/update elicitation-gap register tools
+│   └── reconciliation/     read/update reconciliation-need register tools
+├── session-hooks/          session lifecycle and boundary refresh hooks
+│   └── session/
+├── dev-mode/               dev-gated observability/query tools
+│   ├── introspection/      passive provider-payload tap + /introspect command
+│   ├── introspect-query/   brunch_introspect_query over captured payloads
+│   └── session-query/      brunch_session_query over the current branch
+├── web-tools/              web_fetch/web_search read tools for referenced-document acquisition
+│   └── web/
+├── subagents/              D44-L/D91-L sealed SDK child sessions and `subagent` tool
+├── chrome/                 TUI header/title/footer/sidecar-widget chrome projection
+├── commands/               /brunch:* commands, shortcut, branch/tree policy
+├── compaction/             auto-compaction anchor contract and future hook
+├── exchanges/              structured-exchange present_* / request_* Pi tools
+├── mentions/               #graph mention prompt hint + autocomplete provider
+├── shared/                 projection/truncation helpers + Zod→Pi schema adapter for dev query tools
+├── workspace/              spec/session picker command adapter
+└── tui-lab/                local TUI experiment registrar
 ```
 
 ## Boundary rules
@@ -57,35 +62,6 @@ rules:
 ## TUI launch chrome
 
 `chrome/` is the only product extension that should install Brunch's persistent TUI shell chrome. It receives launch facts from `src/app/brunch-tui.ts` through `BrunchChromeState`; it does not read web host, workspace, or activation state itself.
-
-```pseudo tree
-launch facts -> BrunchChromeState
-├── cwd/spec/session                 -> footer + terminal title
-├── webSidecarUrl?                   -> header + footer `web-ui:` line
-└── startupHeader? [continue|openSession|newSpec|newSession]
-    -> ctx.ui.setHeader(...)
-    -> .pi/components/chrome-header.ts
-```
-
-```pseudo chain
-runBrunchTui
-  -> chooseSpecSessionActivationDecision
-  -> activateWorkspace
-  -> start web sidecar
-  -> decide browser auto-open [BRUNCH_DEV defaults off, explicit option wins]
-  -> launchPiInteractive(context)
-  -> createBrunchPiExtensions(chromeStateForWorkspace(...))
-  -> registerBrunchChrome
-  -> session_start
-  -> renderBrunchChrome(ctx.ui, chrome)
-```
-
-Chrome-specific rules:
-
-- Keep raw `setHeader`, `setFooter`, and `setTitle` calls inside the chrome wrapper unless a later SPEC decision names another owner.
-- The web sidecar URL is chrome state rendered as a `web-ui:` line in the startup header and footer, not a `setStatus` contribution, upper widget, or transport concern for `.pi/extensions/`.
-- The startup header is TUI-only, non-transcript chrome shown on Brunch-activated TUI launches (`continue`, `openSession`, `newSpec`, or `newSession`) so the product shell does not fall back to Pi's quiet empty header.
-- `chrome/` may delegate reusable component rendering to `.pi/components/`, but `.pi/components/` must not register Pi hooks.
 
 ## Migration notes
 

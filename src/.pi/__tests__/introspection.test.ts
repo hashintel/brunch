@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
-import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
+import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/dev-mode/introspect-query/index.js';
 import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
@@ -13,8 +13,8 @@ import {
   createInMemoryBrunchIntrospectionStore,
   mirrorSystemPromptToDebugCache,
   registerBrunchIntrospection,
-} from '../extensions/introspection/index.js';
-import { BRUNCH_SESSION_QUERY_TOOL } from '../extensions/session-query/index.js';
+} from '../extensions/dev-mode/introspection/index.js';
+import { BRUNCH_SESSION_QUERY_TOOL } from '../extensions/dev-mode/session-query/index.js';
 
 interface FakeCommandContext {
   readonly ui: { notify(message: string, type?: 'info' | 'warning' | 'error'): void };

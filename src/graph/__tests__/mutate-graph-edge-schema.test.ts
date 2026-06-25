@@ -2,7 +2,10 @@ import type { TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
-import { MutateCreateEdgeSchema, MutateGraphParams } from '../../.pi/extensions/graph/tool-schemas.js';
+import {
+  MutateCreateEdgeSchema,
+  MutateGraphParams,
+} from '../../.pi/extensions/brunch-data/graph/tool-schemas.js';
 import { devGraphRpcMethods } from '../../rpc/methods/dev-graph.js';
 import { EDGE_CATEGORIES, EDGE_CATEGORY_METADATA, type EdgeCategory } from '../index.js';
 

@@ -10,7 +10,7 @@
  *
  * Used by:
  * - renderers/graph/commit-result.ts
- * - .pi/extensions/graph/index.ts via mutate_graph tool results
+ * - .pi/extensions/brunch-data/graph/index.ts via mutate_graph tool results
  */
 
 export {};

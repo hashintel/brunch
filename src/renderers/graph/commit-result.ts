@@ -8,7 +8,7 @@
  * - markdown summary for success or structural diagnostics
  *
  * Replaces/adapts:
- * - .pi/extensions/graph/command-adapter.ts commit result formatting
+ * - .pi/extensions/brunch-data/graph/command-adapter.ts commit result formatting
  */
 
 export {};

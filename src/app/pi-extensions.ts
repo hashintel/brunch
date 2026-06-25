@@ -5,51 +5,48 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
+import { registerBrunchOrchestratorStub } from '../.pi/extensions/agent-runtime/index.js';
+import {
+  conservativeUncoveredFloorGaps,
+  registerBrunchOperationalModePolicy,
+} from '../.pi/extensions/agent-runtime/index.js';
+import {
+  registerBrunchPrompting,
+  type BrunchPromptContextProvider,
+} from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchContext } from '../.pi/extensions/brunch-data/index.js';
+import { registerBrunchElicitation } from '../.pi/extensions/brunch-data/index.js';
+import { registerBrunchGraph, type BrunchGraphDeps } from '../.pi/extensions/brunch-data/index.js';
+import { registerBrunchReconciliation } from '../.pi/extensions/brunch-data/index.js';
 import { registerBrunchChrome } from '../.pi/extensions/chrome/index.js';
 import { type BrunchChromeState } from '../.pi/extensions/chrome/index.js';
 import { registerBrunchCommands, type BrunchCommandsOptions } from '../.pi/extensions/commands/index.js';
 import { registerBrunchBranchPolicyHandlers } from '../.pi/extensions/commands/policy.js';
-import { registerBrunchContext } from '../.pi/extensions/context/index.js';
-import { registerBrunchElicitation } from '../.pi/extensions/elicitation/index.js';
-import { registerStructuredExchange } from '../.pi/extensions/exchanges/index.js';
-import { registerBrunchGraph, type BrunchGraphDeps } from '../.pi/extensions/graph/index.js';
 import {
   BRUNCH_INTROSPECT_QUERY_TOOL,
   registerBrunchIntrospectQuery,
-} from '../.pi/extensions/introspect-query/index.js';
+} from '../.pi/extensions/dev-mode/index.js';
 import {
   appendEntryContentToDebugCache,
   registerBrunchIntrospection,
   type BrunchDebugCacheOptions,
   type BrunchIntrospectionOptions,
-} from '../.pi/extensions/introspection/index.js';
+} from '../.pi/extensions/dev-mode/index.js';
+import { BRUNCH_SESSION_QUERY_TOOL, registerBrunchSessionQuery } from '../.pi/extensions/dev-mode/index.js';
+import { registerStructuredExchange } from '../.pi/extensions/exchanges/index.js';
 import { type GraphMentionSource } from '../.pi/extensions/mentions/index.js';
 import { registerBrunchMentionAutocomplete } from '../.pi/extensions/mentions/index.js';
-import { registerBrunchOrchestratorStub } from '../.pi/extensions/orchestrator-stub/index.js';
-import { registerBrunchReconciliation } from '../.pi/extensions/reconciliation/index.js';
-import {
-  conservativeUncoveredFloorGaps,
-  registerBrunchOperationalModePolicy,
-} from '../.pi/extensions/runtime/index.js';
-import {
-  BRUNCH_SESSION_QUERY_TOOL,
-  registerBrunchSessionQuery,
-} from '../.pi/extensions/session-query/index.js';
-import { registerBrunchSessionBoundary } from '../.pi/extensions/session/lifecycle.js';
+import { registerBrunchSessionBoundary } from '../.pi/extensions/session-hooks/index.js';
 import {
   type BrunchSessionBoundaryHandler,
   type BrunchSessionBoundaryPipelineStep,
-} from '../.pi/extensions/session/lifecycle.js';
+} from '../.pi/extensions/session-hooks/index.js';
 import {
   BRUNCH_SUBAGENT_TOOL,
   registerBrunchSubagents,
   type BrunchSubagentsDeps,
 } from '../.pi/extensions/subagents/index.js';
-import {
-  registerBrunchPrompting,
-  type BrunchPromptContextProvider,
-} from '../.pi/extensions/system-prompts/index.js';
-import { registerBrunchWebTools } from '../.pi/extensions/web/index.js';
+import { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import {
   CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE,
@@ -77,9 +74,9 @@ export {
   appendBrunchAgentRuntimeSwitch,
   projectBrunchAgentState,
   registerBrunchOperationalModePolicy,
-} from '../.pi/extensions/runtime/index.js';
-export { registerBrunchPrompting } from '../.pi/extensions/system-prompts/index.js';
-export { registerBrunchContext } from '../.pi/extensions/context/index.js';
+} from '../.pi/extensions/agent-runtime/index.js';
+export { registerBrunchPrompting } from '../.pi/extensions/agent-runtime/index.js';
+export { registerBrunchContext } from '../.pi/extensions/brunch-data/index.js';
 export {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
@@ -92,7 +89,7 @@ export {
   registerBrunchSessionBoundary,
   registerBrunchSessionBoundaryRefreshHandlers,
   type BrunchSessionBoundaryHandler,
-} from '../.pi/extensions/session/lifecycle.js';
+} from '../.pi/extensions/session-hooks/index.js';
 export {
   BRUNCH_COMMAND_PREFIX,
   BRUNCH_CONTINUE_COMMAND,
@@ -104,15 +101,15 @@ export {
   registerBrunchCommands,
 } from '../.pi/extensions/commands/index.js';
 export { runBrunchWorkspaceAction, runBrunchWorkspaceCommand } from '../.pi/extensions/workspace/index.js';
-export { registerBrunchWebTools } from '../.pi/extensions/web/index.js';
+export { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 
-export { registerBrunchGraph } from '../.pi/extensions/graph/index.js';
+export { registerBrunchGraph } from '../.pi/extensions/brunch-data/index.js';
 export {
   BRUNCH_ORCHESTRATOR_STUB_TOOL,
   createOrchestratorStubTool,
   registerBrunchOrchestratorStub,
-} from '../.pi/extensions/orchestrator-stub/index.js';
-export { registerBrunchReconciliation } from '../.pi/extensions/reconciliation/index.js';
+} from '../.pi/extensions/agent-runtime/index.js';
+export { registerBrunchReconciliation } from '../.pi/extensions/brunch-data/index.js';
 export {
   BRUNCH_SUBAGENT_TOOL,
   registerBrunchSubagents,
@@ -125,17 +122,17 @@ export {
   type BrunchIntrospectionBaseReport,
   type BrunchIntrospectionStore,
   type BrunchIntrospectionTurnCapture,
-} from '../.pi/extensions/introspection/index.js';
+} from '../.pi/extensions/dev-mode/index.js';
 export {
   BRUNCH_SESSION_QUERY_TOOL,
   createBrunchSessionQueryTool,
   registerBrunchSessionQuery,
-} from '../.pi/extensions/session-query/index.js';
+} from '../.pi/extensions/dev-mode/index.js';
 export {
   BRUNCH_INTROSPECT_QUERY_TOOL,
   createBrunchIntrospectQueryTool,
   registerBrunchIntrospectQuery,
-} from '../.pi/extensions/introspect-query/index.js';
+} from '../.pi/extensions/dev-mode/index.js';
 
 export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, 'getElicitationGaps'> {
   /**

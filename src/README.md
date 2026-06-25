@@ -58,7 +58,7 @@ Rules:
 - `graph/` imports from `db/`. No other layer imports `db/` directly.
 - `.pi/` owns Pi-harness agents/resources/extensions/components. It is not just an adapter folder; it is the product's sealed Pi runtime surface.
 - `.pi/extensions/` registers Pi tools/hooks/UI affordances and delegates product semantics outward.
-- `.pi/agents/` owns agent role prompt definitions (markdown); runtime prompt assembly lives in `.pi/extensions/system-prompts/` and the legal resource manifest in `.pi/extensions/runtime/`; `.pi/skills/` owns read-on-demand markdown resources.
+- `.pi/agents/` owns agent role prompt definitions (markdown); runtime prompt assembly lives in `.pi/extensions/agent-runtime/system-prompts/` and the legal resource manifest in `.pi/extensions/agent-runtime/runtime/`; `.pi/skills/` owns read-on-demand markdown resources.
 - `projections/` owns reusable structured output; `renderers/` owns reusable lossy text output.
 - `web/` is a separate Vite build target.
 

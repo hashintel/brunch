@@ -55,13 +55,13 @@ The prompt-assembly machinery that *uses* these definitions now lives with the
 extension that consumes it:
 
 - **Foreground prompt composition + pushed seed contexts** —
-  `.pi/extensions/system-prompts/` (`compose.ts` emits the runtime header + gated
+  `.pi/extensions/agent-runtime/system-prompts/` (`compose.ts` emits the runtime header + gated
   manifest; `seed/workspace.ts` and `seed/graph.ts` render the pushed context
   blocks).
 - **Background prompt assembly and injected-world child-session wiring** —
   `.pi/extensions/subagents/`.
 - **Prompt-resource manifest selection + tool/method legality** —
-  `.pi/extensions/runtime/` (`state.ts`), fed by the foreground roster in
+  `.pi/extensions/agent-runtime/runtime/` (`state.ts`), fed by the foreground roster in
   `src/projections/session/runtime-policy.ts`.
 - **Strategy/lens/method prompt-resource skills** — `.pi/skills/`.
 - **Reusable lossy text/markdown rendering** — `renderers/`.

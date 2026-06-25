@@ -52,7 +52,10 @@ import {
   createRuntimeModePickerComponent,
   createRuntimeStrategyPickerComponent,
 } from '../../components/runtime-posture/axis-picker.js';
-import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
+import {
+  activeToolNamesForBrunchAgentState,
+  projectBrunchAgentState,
+} from '../agent-runtime/runtime/index.js';
 import {
   runBrunchWorkspaceAction,
   type BrunchSpecSessionPickerOptions,

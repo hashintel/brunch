@@ -13,11 +13,11 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
-import type { GraphReaders } from '../.pi/extensions/graph/index.js';
+import type { GraphReaders } from '../.pi/extensions/brunch-data/index.js';
 import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
-} from '../.pi/extensions/introspection/index.js';
+} from '../.pi/extensions/dev-mode/index.js';
 import { isBrunchDevEnabled } from '../dev/brunch-dev.js';
 import {
   openWorkspaceGraphRuntime,

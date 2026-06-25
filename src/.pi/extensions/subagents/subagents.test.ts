@@ -24,7 +24,7 @@ import {
   brunchFauxProviderConfig,
   defaultBrunchFauxModel,
 } from '../../../probes/faux-provider.js';
-import type { GraphReaders } from '../graph/index.js';
+import type { GraphReaders } from '../brunch-data/graph/index.js';
 import {
   loadSubagentDefinitions,
   parseSubagentMarkdown,

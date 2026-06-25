@@ -8,8 +8,6 @@ import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
 import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
-import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/introspect-query/index.js';
-import { createInMemoryBrunchIntrospectionStore } from '../extensions/introspection/index.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -18,10 +16,12 @@ import {
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
   registerBrunchOperationalModePolicy,
-} from '../extensions/runtime/index.js';
-import { BRUNCH_SESSION_QUERY_TOOL } from '../extensions/session-query/index.js';
-import { composeAgentPrompt } from '../extensions/system-prompts/compose.js';
-import { registerBrunchPrompting } from '../extensions/system-prompts/index.js';
+} from '../extensions/agent-runtime/runtime/index.js';
+import { composeAgentPrompt } from '../extensions/agent-runtime/system-prompts/compose.js';
+import { registerBrunchPrompting } from '../extensions/agent-runtime/system-prompts/index.js';
+import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/dev-mode/introspect-query/index.js';
+import { createInMemoryBrunchIntrospectionStore } from '../extensions/dev-mode/introspection/index.js';
+import { BRUNCH_SESSION_QUERY_TOOL } from '../extensions/dev-mode/session-query/index.js';
 
 function runtimeEntry(state: BrunchAgentState) {
   return {
@@ -662,7 +662,7 @@ describe('Brunch prompt-pack topology', () => {
 
   it('does not expose prompt manifests through Pi resource discovery or legacy context imports', async () => {
     const [promptingSource, shellSource] = await Promise.all([
-      readFile(join(projectRoot(), 'src/.pi/extensions/system-prompts/index.ts'), 'utf8'),
+      readFile(join(projectRoot(), 'src/.pi/extensions/agent-runtime/system-prompts/index.ts'), 'utf8'),
       readFile(join(projectRoot(), 'src/app/pi-extensions.ts'), 'utf8'),
     ]);
 

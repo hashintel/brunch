@@ -9,7 +9,7 @@ import { createBrunchFauxHarness } from '../../dev/index.js';
 import { openWorkspaceCommandExecutor } from '../../graph/index.js';
 import { seedFixture, type SeedFixture } from '../../graph/seed-fixtures.js';
 import { createSessionBindingData, SESSION_BINDING_TYPE } from '../../session/session-binding.js';
-import { registerBrunchContext } from '../extensions/context/index.js';
+import { registerBrunchContext } from '../extensions/brunch-data/context/index.js';
 
 function collectContextTools() {
   const tools = new Map<string, { execute: (...args: any[]) => Promise<unknown> }>();

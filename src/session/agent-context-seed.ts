@@ -5,7 +5,7 @@
  * Owns the per-turn pushed context blocks the agent receives each turn: the
  * selected-workspace seed and the selected-spec graph seed. This is session/
  * world state rendered for the agent, distinct from system-prompt assembly
- * (`.pi/extensions/system-prompts/compose.ts`), which only splices these blocks
+ * (`.pi/extensions/agent-runtime/system-prompts/compose.ts`), which only splices these blocks
  * into the prompt frame. Keeping composition here means cycling operational
  * modes — which swaps the agent role and therefore the system prompt — does not
  * re-own context derivation: the prompt layer consumes a bundle it does not
@@ -14,7 +14,7 @@
  *
  * Input:  selected spec/workspace/session + gaps + already-read graph slice + lens
  * Output: rendered context block strings (lossy, bounded)
- * Used by: `.pi/extensions/system-prompts` (before_agent_start) via composeAgentContextSeed
+ * Used by: `.pi/extensions/agent-runtime/system-prompts` (before_agent_start) via composeAgentContextSeed
  */
 
 import type { GraphSlice } from '../graph/queries.js';

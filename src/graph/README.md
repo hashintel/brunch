@@ -114,11 +114,11 @@ not compare bare LSN values across sibling specs.
 
 ## Imported by
 
-- `.pi/extensions/graph/` — Pi tool adapters for `mutate_graph` and `read_graph`.
+- `.pi/extensions/brunch-data/graph/` — Pi tool adapters for `mutate_graph` and `read_graph`.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
 - `projections/graph/` — topology stubs for deferred graph PROJECT seams; node-neighborhood consumers read `NodeNeighborhood` directly from `queries.ts`.
 - `renderers/graph/` — reusable lossy markdown/text rendering over projected graph DTOs.
-- `.pi/extensions/system-prompts/` — prompt composition consumes the read-only elicitation driver and the seed renderers consume graph reads.
+- `.pi/extensions/agent-runtime/system-prompts/` — prompt composition consumes the read-only elicitation driver and the seed renderers consume graph reads.
 - `probes/` — graph proof drivers.
 
 ## Current topology
@@ -236,14 +236,14 @@ CommandExecutor
   writes rows transactionally
   appends change_log
       │
-      ├─►.pi/extensions/graph
+      ├─► .pi/extensions/brunch-data/graph
       │     agent tool adapter
       │
       ├─► rpc/
       │     public product projections
       │     session.submitExchangeResponse capture wiring
       │
-      └─► .pi/extensions/system-prompts
+      └─► .pi/extensions/agent-runtime/system-prompts
             elicitation recommendation selection and pushed seed context render inputs
 ```
 

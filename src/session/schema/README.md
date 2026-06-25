@@ -12,7 +12,7 @@ Drizzle-free, Pi-free closed vocabulary for session-domain state.
 ## Does NOT own
 
 - Runtime-state transcript entry parsing or append helpers — those stay in `src/session/runtime-state.ts`.
-- Runtime policy, legal option derivation, or prompt-resource manifests — those stay in `src/projections/session/` and `src/.pi/extensions/runtime/`.
+- Runtime policy, legal option derivation, or prompt-resource manifests — those stay in `src/projections/session/` and `src/.pi/extensions/agent-runtime/runtime/`.
 - Graph vocabulary — that remains in `src/graph/schema/kinds.ts`.
 
 ## Dependency rule

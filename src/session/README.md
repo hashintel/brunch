@@ -66,7 +66,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Turn-boundary choreography** — write-side seam for the assistant-visible
   watermark, `worldUpdate`, mention staleness, and honest assistant origination.
   `prepare-next-turn.ts` owns the single pre-turn continuity writer; Pi lifecycle
-  hooks adapt it through `.pi/extensions/session/lifecycle.ts`, and
+  hooks adapt it through `.pi/extensions/session-hooks/session/lifecycle.ts`, and
   `before_provider_request` is a guard-only check. `start-assistant-turn.ts`
   owns the origination decision and context seed entries; `context-seed.ts`
   composes the seed's provider-visible payload (spec overview + top-ranked
@@ -106,8 +106,8 @@ directly instead of growing a wrapper.
 | `cwd_inventory` | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`) | `read_workspace_context`, `renderers/workspace/workspace-context.ts` | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
 | `workspace_overview` | `workspace-overview-context.ts` (`inspectWorkspaceOverview`) | `read_workspace_context`, origination seed context, `renderers/workspace/workspace-context.ts` | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape. |
 | `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`) | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set. |
-| `agent_runtime_vocab` | `schema/kinds.ts`, `schema/tool-names.ts` | `runtime-state.ts`, `projections/session/runtime-policy.ts`, `projections/session/affordances.ts`, `.pi/extensions/runtime/state.ts`, `.pi/extensions/orchestrator-stub/` | Pure vocabulary leaf for runtime axes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
-| `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `projections/session/affordances.ts`, `.pi/extensions/runtime/` | Transcript-backed source read. Projection/policy layers derive from these facts rather than storing parallel hidden runtime memory. |
+| `agent_runtime_vocab` | `schema/kinds.ts`, `schema/tool-names.ts` | `runtime-state.ts`, `projections/session/runtime-policy.ts`, `projections/session/affordances.ts`, `.pi/extensions/agent-runtime/runtime/state.ts`, `.pi/extensions/agent-runtime/orchestrator-stub/` | Pure vocabulary leaf for runtime axes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
+| `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `projections/session/affordances.ts`, `.pi/extensions/agent-runtime/runtime/` | Transcript-backed source read. Projection/policy layers derive from these facts rather than storing parallel hidden runtime memory. |
 
 ## Runtime affordance coverage ledger
 
@@ -139,13 +139,13 @@ schema, and the product-state-gated rows must stay explicit deferred tripwires.
 
 - Cwd project identity, pure cwd inventory, and `.brunch/workspace.json` persistence — those live in `workspace/`.
 - Graph state, CommandExecutor, graph queries — those live in `graph/`.
-- Prompt composition, pushed seed context building — those live in `.pi/extensions/system-prompts/` (manifest/legality policy in `.pi/extensions/runtime/`).
+- Prompt composition, pushed seed context building — those live in `.pi/extensions/agent-runtime/system-prompts/` (manifest/legality policy in `.pi/extensions/agent-runtime/runtime/`).
 - Pi extension registration — those live in `.pi/extensions/`.
 
 ## Imported by
 
-- `.pi/extensions/system-prompts/seed/` — for workspace/graph pushed-context reads.
-- `.pi/extensions/context/` — for direct workspace overview reads; pure cwd inventory comes from `workspace/`.
+- `.pi/extensions/agent-runtime/system-prompts/seed/` — for workspace/graph pushed-context reads.
+- `.pi/extensions/brunch-data/context/` — for direct workspace overview reads; pure cwd inventory comes from `workspace/`.
 - `projections/session/` — for reusable transcript-context DTO projection.
 - `projections/workspace/` — for reusable workspace-state DTO projection.
 - `renderers/session/` — for reusable transcript markdown rendering.

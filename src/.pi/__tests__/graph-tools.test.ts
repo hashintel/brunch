@@ -15,9 +15,12 @@ import {
 } from '../../graph/queries.js';
 import { READINESS_BANDS } from '../../graph/schema/kinds.js';
 import { formatGraphOverview } from '../../renderers/graph/graph-slice.js';
-import { translateMutateGraph, formatMutateGraphResult } from '../extensions/graph/command-adapter.js';
-import { registerBrunchGraph, type GraphReaders } from '../extensions/graph/index.js';
-import { ReadGraphParams } from '../extensions/graph/tool-schemas.js';
+import {
+  translateMutateGraph,
+  formatMutateGraphResult,
+} from '../extensions/brunch-data/graph/command-adapter.js';
+import { registerBrunchGraph, type GraphReaders } from '../extensions/brunch-data/graph/index.js';
+import { ReadGraphParams } from '../extensions/brunch-data/graph/tool-schemas.js';
 
 let nextSpecSlug = 0;
 

@@ -34,7 +34,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Goals:** (1) populate the skills the elicitor needs; (2) weed dead-code / stub skills; (3) isolate + lock graph schema, descriptions, tips, and heuristics as context.
 - **Members:** FE-893, FE-861, FE-898, FE-1052 (all done).
-- **Done-definition:** legal skill set sealed by the `.pi/extensions/runtime/state.ts` path list; no dead stubs (the `__fixtures__` sealing fixture excepted); heuristics distilled + locked into `SKILL.md` bodies, not duplicated in topology READMEs. ✓ — final `strategies/` + `lenses/` README reconciliation discharged 2026-06-25 (dead `INTENT_GRAPH_SEMANTICS.md` pointer + stale "M5 input" tables removed).
+- **Done-definition:** legal skill set sealed by the `.pi/extensions/agent-runtime/runtime/state.ts` path list; no dead stubs (the `__fixtures__` sealing fixture excepted); heuristics distilled + locked into `SKILL.md` bodies, not duplicated in topology READMEs. ✓ — final `strategies/` + `lenses/` README reconciliation discharged 2026-06-25 (dead `INTENT_GRAPH_SEMANTICS.md` pointer + stale "M5 input" tables removed).
 - **Anchors:** D85-L (axis populate / weed), D97-L (heuristic-provenance lock), A35-L (axes frozen under the capability spine).
 
 ### elicitor-capability-spine — ◐ active

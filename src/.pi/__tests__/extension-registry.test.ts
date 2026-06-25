@@ -6,6 +6,10 @@ import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../components/alternatives.js';
+import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../extensions/agent-runtime/orchestrator-stub/index.js';
+import { registerBrunchOperationalModePolicy as operationalMode } from '../extensions/agent-runtime/runtime/index.js';
+import { registerBrunchPrompting as prompting } from '../extensions/agent-runtime/system-prompts/index.js';
+import { registerBrunchContext as context } from '../extensions/brunch-data/context/index.js';
 import chrome from '../extensions/chrome/index.js';
 import {
   BRUNCH_LENS_COMMAND,
@@ -15,7 +19,6 @@ import {
   registerBrunchCommands as commands,
 } from '../extensions/commands/index.js';
 import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../extensions/commands/policy.js';
-import { registerBrunchContext as context } from '../extensions/context/index.js';
 import {
   PRESENT_CANDIDATES_TOOL,
   PRESENT_QUESTION_TOOL,
@@ -24,10 +27,7 @@ import {
   registerStructuredExchange as structuredExchange,
 } from '../extensions/exchanges/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../extensions/mentions/index.js';
-import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../extensions/orchestrator-stub/index.js';
-import { registerBrunchOperationalModePolicy as operationalMode } from '../extensions/runtime/index.js';
-import { registerBrunchSessionBoundary as sessionLifecycle } from '../extensions/session/lifecycle.js';
-import { registerBrunchPrompting as prompting } from '../extensions/system-prompts/index.js';
+import { registerBrunchSessionBoundary as sessionLifecycle } from '../extensions/session-hooks/session/lifecycle.js';
 
 const extensionDefaults = {
   'components/alternatives.ts': alternatives,
@@ -58,16 +58,20 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(settings.extensions).not.toContain('!extensions/**');
     expect(settings.extensions).toEqual(
       expect.arrayContaining([
+        '-extensions/agent-runtime/index.ts',
+        '-extensions/agent-runtime/runtime/index.ts',
+        '-extensions/agent-runtime/system-prompts/index.ts',
+        '-extensions/brunch-data/index.ts',
+        '-extensions/brunch-data/elicitation/index.ts',
+        '-extensions/brunch-data/graph/index.ts',
+        '-extensions/brunch-data/reconciliation/index.ts',
         '-extensions/commands/index.ts',
         '-extensions/compaction/index.ts',
-        '-extensions/elicitation/index.ts',
-        '-extensions/graph/index.ts',
-        '-extensions/introspect-query/index.ts',
-        '-extensions/reconciliation/index.ts',
-        '-extensions/runtime/index.ts',
+        '-extensions/dev-mode/index.ts',
+        '-extensions/dev-mode/introspect-query/index.ts',
+        '-extensions/session-hooks/index.ts',
         '-extensions/subagents/index.ts',
-        '-extensions/system-prompts/index.ts',
-        '-extensions/web/index.ts',
+        '-extensions/web-tools/index.ts',
         '-extensions/workspace/index.ts',
       ]),
     );

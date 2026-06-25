@@ -16,7 +16,7 @@ import {
   registerBrunchOperationalModePolicy,
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
-} from '../extensions/runtime/index.js';
+} from '../extensions/agent-runtime/runtime/index.js';
 
 function runtimeEntry(state: BrunchAgentState, data: Record<string, unknown> = {}) {
   return {

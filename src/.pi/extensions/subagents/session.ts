@@ -36,9 +36,9 @@ import {
   type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 
-import { createReadGraphTool, type GraphReaders } from '../graph/index.js';
-import { createWebFetchTool } from '../web/web-fetch.js';
-import { createWebSearchTool } from '../web/web-search.js';
+import { createReadGraphTool, type GraphReaders } from '../brunch-data/graph/index.js';
+import { createWebFetchTool } from '../web-tools/web/web-fetch.js';
+import { createWebSearchTool } from '../web-tools/web/web-search.js';
 import type { SubagentDefinition } from './agents.js';
 import { composeBackgroundSubagentPrompt, type BackgroundWorldSnapshot } from './prompt-assembly.js';
 
