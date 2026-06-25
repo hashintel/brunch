@@ -53,7 +53,7 @@ const METHOD_TOOL_NAMES: Partial<Record<MethodId, readonly string[]>> = {
     'read_reconciliation_needs',
   ],
   'commit-graph': ['mutate_graph'],
-  'generate-proposal': ['present_review_set', 'request_response'],
+  'generate-proposal': ['present_candidates', 'present_review_set', 'request_response'],
 };
 
 export const STRATEGY_RESOURCES = loadPromptResourceManifestEntries('strategies', AGENT_STRATEGY_IDS);

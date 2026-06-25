@@ -9,9 +9,20 @@ the *current* ontology as it stands in code (`src/graph/schema/`,
 
 - **Source thread:** `~/Downloads/brunch-ontology-review-RECONSTRUCTED.md`
   (ChatGPT export, 2026-06-23; 9 turns).
-- **Status:** working artifact, not yet canonical. The positions in §6–9 are
-  settled unless re-opened, but they become SPEC truth only via `ln-spec`
-  propagation into `memory/SPEC.md`.
+- **Status (updated 2026-06-24): CONSUMED — historical rationale companion, no
+  longer a pending proposal.** The resolved scope (§6–9) was propagated into
+  `memory/SPEC.md` as **D87-L** (closure rule + node/edge deltas), **D88-L**
+  (`detail.form` method payload), and **D89-L** (`spec.kind` ownership), and
+  implemented in the **FE-1052** frontier (schema enums changed;
+  `GRAPH_MODEL.md` retired). SPEC D87-L links here as the worked-validation
+  record (Gherkin §6.8, formal-verification routing §6.6), so this doc is kept
+  in place — but read §0/§2–3/§9 as **historical**, not current.
+  - **One reversal to note:** the §6.2 `thesis → claim` rename did **not** land.
+    D87-L keeps `thesis` (with `claim` as the D61-L umbrella for truth-bearing
+    nodes); only `thesis`'s definition sharpened. Treat every `thesis → claim`
+    line below as superseded.
+  - **§0 baseline is stale by construction:** it lists the *pre*-FE-1052 kind
+    set. The live kind set is `src/graph/schema/kinds.ts`.
 - **Motivating goal.** The main elicitation flow — general capture of software
   specifications — is the present necessity this ontology serves. Additional
   specification *styles/methods* (BDD, EDD, formal-spec / formal-verification)

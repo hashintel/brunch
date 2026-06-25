@@ -1,7 +1,17 @@
 {
   "extensions": [
     "extensions/chrome/index.ts",
+    "-extensions/commands/index.ts",
+    "-extensions/compaction/index.ts",
+    "-extensions/elicitation/index.ts",
+    "-extensions/graph/index.ts",
+    "-extensions/introspect-query/index.ts",
+    "-extensions/reconciliation/index.ts",
     "-extensions/runtime/index.ts",
+    "-extensions/subagents/index.ts",
+    "-extensions/system-prompts/index.ts",
+    "-extensions/web/index.ts",
+    "-extensions/workspace/index.ts",
     "-extensions/commands/policy.ts"
   ]
 }

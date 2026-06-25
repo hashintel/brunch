@@ -4,6 +4,7 @@ import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.
 import { piSchema } from './pi-schema.js';
 import {
   zRequestResponseParams,
+  type PresentCandidatesDetails,
   type PresentDetails,
   type PresentQuestionDetails,
   type RequestResponseParams,
@@ -18,7 +19,7 @@ import type { StructuredExchangeUiContext } from './shared/ui-context.js';
 
 export const REQUEST_RESPONSE_TOOL = 'request_response' as const;
 
-type RequestResponseDiagnosticStatus = 'unavailable' | 'not_supported';
+type RequestResponseDiagnosticStatus = 'unavailable';
 
 interface RequestResponseDiagnosticDetails {
   readonly schema: 'brunch.structured_exchange.request_response';
@@ -26,14 +27,12 @@ interface RequestResponseDiagnosticDetails {
   readonly exchange_id: string;
   readonly status: RequestResponseDiagnosticStatus;
   readonly message: string;
-  readonly presentTool?: string;
 }
 
 function diagnostic(
   exchangeId: string,
   status: RequestResponseDiagnosticStatus,
   message: string,
-  presentTool?: string,
 ): RequestResponseDiagnosticDetails {
   return {
     schema: 'brunch.structured_exchange.request_response',
@@ -41,7 +40,6 @@ function diagnostic(
     exchange_id: exchangeId,
     status,
     message,
-    ...(presentTool ? { presentTool } : {}),
   };
 }
 
@@ -156,15 +154,19 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
             exchangeId: params.exchangeId,
             prompt: present.display.heading,
           });
-        case 'present_candidates':
-          return diagnosticResult(
-            diagnostic(
-              params.exchangeId,
-              'not_supported',
-              'request_response does not yet support present_candidates',
-              'present_candidates',
-            ),
-          );
+        case 'present_candidates': {
+          const candidatesPresent = present as PresentCandidatesDetails;
+          return collectChoiceFromUi({
+            ctx: uiCtx,
+            exchangeId: params.exchangeId,
+            prompt: candidatesPresent.display.heading,
+            choices: candidatesPresent.candidates.map((candidate) => ({
+              id: candidate.id,
+              label: candidate.title,
+            })),
+            respondsToPresentTool: 'present_candidates',
+          });
+        }
         default:
           return assertNever(presentTool);
       }

@@ -3,6 +3,32 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-06-24 Sync archive
+
+Archived from `memory/PLAN.md` during the 2026-06-24 `ln-sync`, once `ontology-revision` (FE-1052) was done and its full frontier definition no longer carried live rationale for nearby work — its forward constraints survive as the Sequencing done-anchor (`-[unblocks]-> coherence-first-class, oracle-design-plan-graphs`). Durable architecture lives in `memory/SPEC.md` D87-L/D88-L/D89-L; this is the completion record plus the retired full definition.
+
+### ontology-revision (FE-1052) — retired full frontier definition
+
+- **Name:** Multi-method ontology revision (kinds, edges, `detail.form`, `spec.kind`) + GRAPH_MODEL retirement
+- **Linear:** [FE-1052](https://linear.app/hash/issue/FE-1052/ontology-revisions) · **Branch:** `ln/fe-1052-ontology-revisions` · **Kind:** data-model / ontology (schema + canonical-doc + policy)
+- **Done 2026-06-23** — all 5 cards landed; the single data-model/ontology frontier; absorbed `graph-model-doc-retirement` + `graph--edge-impact-remodel`; scope file `memory/cards/ontology-revision--schema-migration.md` exhausted and deleted.
+- **Scope principle:** FE-1052 owned the ontology *shape* — node/edge kinds, per-kind/per-category metadata, the `detail.form` union, the `spec.kind` field, and the canonical model doc. Frontiers that merely *consume* the settled ontology (`coherence-first-class`, `oracle-design-plan-graphs`) stay separate and depend on it; they were **not** absorbed.
+- **Delivered:**
+  - **Edges 8 → 9** (D87-L): `proof→witness`, `support→rationale`, `boundary→exclusion`, `association→cross_reference`; added `refinement`. Stance preserved on `witness`/`rationale`. `EDGE_CATEGORIES`/`EDGE_CATEGORY_METADATA`/policy/callers updated.
+  - **Nodes** (D87-L): `validation_method→vv_method`, `obligation→vv_obligation`; added `entity`/`sketch` (design), `story`/`unknown` (intent); `thesis` kept + sharpened (testable/refutable/refinable bet).
+  - **`detail.form` union** (D88-L): `requirement`/`criterion`/`invariant` as a `form`-discriminated union (`plain|gherkin|formal|given`); `kind` drives behavior, `form` is inert payload; axiom/given rides `context`+`form:"given"`.
+  - **`spec.kind = product|feature|function`** (D89-L, migration 0006); story/unknown wiring; `readiness_band` stays computed; project-graph + `role:main|alt` deferred.
+  - **GRAPH_MODEL.md retired:** taxonomy → code/READMEs, invariants → SPEC, prompting heuristics → `commit-graph` SKILL, ~16 SPEC + 10 src-header + doc citations re-pointed, doc deleted.
+  - **Edge-impact remodel** (absorbed `graph--edge-impact-remodel`): `EDGE_CATEGORY_METADATA.impactOnSourceChange`/`impactOnTargetChange` → declared `affected` + `impactKind` (+ `stanceRequired`); `edgeImpact()` a thin accessor; `refinement` impact settled advisory/target.
+  - Mid-frontier the reader-less `intentKindCategory` axis was stripped (D56-L).
+- **Deferred (named, not built):** nodes `actor`/`scenario`; edges `conflict`/`participation`/`coverage`; the `bench` plane; the inter-spec project graph + `role:main|alt`; the `source`/`target` vs `head`/`tail` storage-naming question. Named follow-on (separate frontier): the heuristics SoT (ONTOLOGY_REVIEW_PROTOCOL.md §7).
+- **Traceability:** D3-L, D51-L, D54-L, D56-L, D61-L, D62-L, D64-L, D73-L, D87-L, D88-L, D89-L / I36-L, I37-L, I39-L, I40-L, I41-L, I43-L, I44-L.
+- **Known residual (separate doc, out of card-5 scope):** `docs/design/ELICITATION_QUESTIONS.md` pre-card-2 vocabulary drift (`validation_method`/`obligation`, no `story`/`unknown`/`entity`/`sketch`, three-band model) — now carries a drift banner and is folded into the `elicitor-generate` design pass (FE-1059) as a D97-L canonical heuristic-rendering refresh.
+
+Also trimmed from the `Recently Completed` window (past the live 2–3):
+
+- 2026-06-22 `request_answer` TUI regression fix — restored TUI-editor precedence when an interactive editor and live exchange broker are both attached, preserving the broker as the headless/web-driver fallback; unblocked the FE-811 live runbook answer step without widening into the deferred web-as-driver race. Evidence: `src/.pi/__tests__/structured-exchange-present-request.test.ts`, `src/dev/__tests__/web-driver-streaming.exchange-convergence.test.ts`; durable invariant in SPEC I23-L / D84-L and `src/.pi/extensions/exchanges/README.md`.
+
 ## 2026-06-23 Sync archive
 
 Archived from `memory/PLAN.md` during the 2026-06-23 ln-sync, once the demo/alpha lower line (demo blocks 1–4) was fully delivered and `Recently Completed` had grown past the live 2–3 window. Durable architecture for each lives in `memory/SPEC.md` decision IDs; these are the completion summaries.

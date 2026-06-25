@@ -2,6 +2,8 @@
 
 This directory owns Brunch-only development feedback loops. These helpers are not product runtime configuration and must not weaken the sealed Pi profile (D39-L).
 
+This README is a topology-local contract, not a tutorial. It records what `src/dev/**` owns, which proof loops live here, and which runtime substitutions are allowed. Operational notes are included only when they prevent a topology mistake.
+
 ## Pi source alias (D67-L)
 
 Brunch tracks the latest published `@earendil-works/pi-*` line. Two resolution concerns are kept strictly separate:
@@ -32,6 +34,19 @@ Product probes may import `src/probes/faux-provider.ts` when they need determini
 ## Tier-2 real boot loop (FE-847)
 
 `runTier2RealBootFauxTurn()` is the real-boot harness for runtime choreography tests: it enters through `runBrunchTui`, drives one faux-provider turn, and exposes the captured provider context, active tool names, transcript entries, session file, and `.brunch/debug/transcript.md` path. The debug transcript is rendered from Pi's canonical context construction, then filtered to user, assistant, and Brunch-owned custom tool-result messages. `bootTier2RuntimeThroughRunBrunchTui()` owns real runtime boot proofs such as ready context and `BRUNCH_DEV`-gated query-tool registration. `resumeTier2Fixture()` writes a fixture JSONL transcript, reopens it through the workspace/session coordinator, and reports original vs resumed session-file state so restart/resume assertions do not need local fake boot helpers. `bootTier2RuntimeFromFixture()` is the resume-side real-boot chassis (pre-seed a fixture transcript, then boot the real runtime over it — the I46 resume-origination oracle), and `rebootTier2Runtime()` re-boots the real runtime over the same session file after flushing Pi's deferred JSONL (the I47 actual-restart idempotence oracle). The FE-847 coverage-first scaffold is fully live as of 2026-06-11 — no skipped/todo rows remain. Suites split across two files: kick/boot-path suites in `tier-2-harness.test.ts`, the coverage-first scaffold suites (I45/I46/I47) in `tier-2-scaffold.test.ts`, with shared transcript/assertion helpers in `tier-2-test-support.ts`.
+
+Tier-2 means "real Brunch/Pi runtime boot", not "always a live provider" and not "always faux". The provider/auth source is a separate axis:
+
+- No `agentServices` override: Brunch builds product services through `createBrunchAgentSessionRuntimeFactory()`. The model registry can see real configured auth only when the boot uses the real Pi agent dir and the run opts out of offline mode.
+- `agentServices` override: tests substitute only auth/model/provider services while keeping the Brunch runtime, extension registration, session manager, transcript, and origination choreography on the product path. This is still a real boot proof, but it is not a real-provider proof.
+- Temporary `agentDir`: useful for isolation, but it intentionally hides ambient model auth. Do not use it for a real-provider witness that expects product-configured models.
+- `PI_OFFLINE=1`: valid for deterministic/no-network loops; invalid for live-model evidence. Real-provider dev probes must set `PI_OFFLINE=0` explicitly.
+
+## Generate fan-out witness (FE-1059)
+
+`runGenerateFanOutWitness()` is the dev-only real-model probe for the `elicitor-generate` oracle plane. It enters through `bootTier2RuntimeFromFixture()` with no `agentServices` override, pins the real `brunch:lens` command to `oracle`, seeds explicit intent/design graph truth through `CommandExecutor`, sends the P3 `generate-proposal` prompt under a bounded timeout, and writes JSONL-backed scratch artifacts to `.fixtures/scratch/generate-fan-out/<run-id>/`. Its report reads only canonical `session.jsonl` markers: `generate-proposal/SKILL.md`, `references/oracle.md`, `present_candidates`, and the I51-L no-write evidence (unchanged graph counts/LSN, no `mutate_graph`, no approved review result). `skipped` and `blocked` reports are evidence of environment/turn state, not A31-L passes; promoted evidence belongs under `.fixtures/runs/` only after human review.
+
+Run it with `npm run probe:generate-fan-out -- --timeout-ms 60000`. The script sets `PI_OFFLINE=0`, prepends mise's Node LTS install to `PATH` so native modules such as `better-sqlite3` load against the ABI they were built with, and boots with the real Pi agent dir so the product model registry can see configured model auth.
 
 ## Proof ownership ledger
 

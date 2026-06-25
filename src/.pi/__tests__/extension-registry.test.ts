@@ -17,6 +17,7 @@ import {
 import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../extensions/commands/policy.js';
 import { registerBrunchContext as context } from '../extensions/context/index.js';
 import {
+  PRESENT_CANDIDATES_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
@@ -48,12 +49,46 @@ describe('Brunch explicit Pi extension registry', () => {
     }
   });
 
-  it('keeps the src/.pi chrome entrypoint activated for direct Pi iteration', async () => {
+  it('keeps product-dependency src/.pi extensions disabled for direct Pi iteration', async () => {
     const settings = JSON.parse(await readFile(join(projectRoot(), 'src/.pi/settings.json'), 'utf8')) as {
       extensions?: unknown;
     };
 
     expect(settings.extensions).toContain('extensions/chrome/index.ts');
+    expect(settings.extensions).not.toContain('!extensions/**');
+    expect(settings.extensions).toEqual(
+      expect.arrayContaining([
+        '-extensions/commands/index.ts',
+        '-extensions/compaction/index.ts',
+        '-extensions/elicitation/index.ts',
+        '-extensions/graph/index.ts',
+        '-extensions/introspect-query/index.ts',
+        '-extensions/reconciliation/index.ts',
+        '-extensions/runtime/index.ts',
+        '-extensions/subagents/index.ts',
+        '-extensions/system-prompts/index.ts',
+        '-extensions/web/index.ts',
+        '-extensions/workspace/index.ts',
+      ]),
+    );
+  });
+
+  it('keeps every enabled src/.pi ambient entrypoint default-loadable', async () => {
+    const settings = JSON.parse(await readFile(join(projectRoot(), 'src/.pi/settings.json'), 'utf8')) as {
+      extensions?: string[];
+    };
+    const disabledEntrypoints = new Set(
+      (settings.extensions ?? [])
+        .filter((entry) => entry.startsWith('-'))
+        .map((entry) => join(projectRoot(), 'src/.pi', entry.slice(1))),
+    );
+
+    const files = await listExtensionEntrypoints();
+    for (const file of files) {
+      if (disabledEntrypoints.has(file)) continue;
+      const source = await readFile(file, 'utf8');
+      expect(source, file).toContain('export default');
+    }
   });
 
   it('registers product extensions from the shell in explicit order', async () => {
@@ -78,6 +113,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'present_alternatives',
       PRESENT_QUESTION_TOOL,
       PRESENT_REVIEW_SET_TOOL,
+      PRESENT_CANDIDATES_TOOL,
       REQUEST_RESPONSE_TOOL,
     ]);
     expect(recording.commandNames).toEqual([

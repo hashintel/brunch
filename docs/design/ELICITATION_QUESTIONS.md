@@ -4,6 +4,22 @@ Companion to the node-kind taxonomy in [`src/graph/schema/nodes.ts`](../../src/g
 (SPEC D56-L) and [`ELICITATION_LENSES.md`](ELICITATION_LENSES.md). Rationale and texture, not
 authority — `memory/SPEC.md` remains the canonical register (D56-L, D65-L).
 
+> **Drift notice (2026-06-24) — content refresh deferred into `elicitor-generate` (FE-1059).**
+> The catalog's *thesis* is durable (the node kind is the closed ontology; questions are the
+> open, projectable layer inside a kind), and it is exactly the canonical heuristic-rendering the
+> generate/capture skills must cite under D97-L. But its surface has drifted against the
+> post-FE-1052 ontology and must not be read as current on these points:
+> - **Kind names:** `validation_method` → `vv_method`, `obligation` → `vv_obligation` (D87-L).
+> - **Missing kinds:** `story`, `unknown` (intent), `entity`, `sketch` (design) (D87-L).
+> - **Bands:** this doc uses three bands (grounding → elicitation → commitment); the live model
+>   is **four** — `grounding`, `elicitation`, `projection`, `commitment` — derived by
+>   `bandsForKind` (D64-L/D94-L), and the per-kind band table it implies was deleted.
+>
+> A full content refresh is intentionally **not** done here; it is folded into a further
+> `elicitor-generate` design pass so the catalog is reworked *as* a D97-L canonical-rendering
+> surface alongside the generate skill, not patched piecemeal. See `memory/PLAN.md` →
+> `elicitor-generate` deferred follow-ons.
+
 ## What this is — and what it is not
 
 This is a **priming catalog for the elicitor agent**, organized by graph node kind. Each row

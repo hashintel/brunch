@@ -22,6 +22,7 @@ const registeredToolNames = [
   'write',
   'present_question',
   'request_response',
+  'present_candidates',
   'present_review_set',
   'read_graph',
   'read_session_context',
@@ -57,6 +58,7 @@ describe('agent posture policy', () => {
     ]);
     // D86-L: graph-write tools are floor — present even at zero grounding coverage.
     expect(floorTools).toContain('mutate_graph');
+    expect(floorTools).toContain('present_candidates');
     expect(floorTools).toContain('present_review_set');
     expect(floorTools).toContain('request_response');
     expect(floorTools).toContain('read_graph');
@@ -81,7 +83,9 @@ describe('agent posture policy', () => {
       'review-for-gaps',
     ]);
     expect(coveredTools).toContain('mutate_graph');
-    expect(coveredTools).toEqual(expect.arrayContaining(['present_review_set', 'request_response']));
+    expect(coveredTools).toEqual(
+      expect.arrayContaining(['present_candidates', 'present_review_set', 'request_response']),
+    );
   });
 
   it('keeps graph-write tools floor even when graph-write readiness negotiates (D86-L)', () => {
@@ -96,7 +100,9 @@ describe('agent posture policy', () => {
 
     const tools = activeToolNamesForPosture({ registeredToolNames, state, gaps: negotiating });
     expect(tools).toContain('mutate_graph');
-    expect(tools).toEqual(expect.arrayContaining(['present_review_set', 'request_response']));
+    expect(tools).toEqual(
+      expect.arrayContaining(['present_candidates', 'present_review_set', 'request_response']),
+    );
   });
 
   it('allows registered dev tool names only through the injected dev allow-list', () => {

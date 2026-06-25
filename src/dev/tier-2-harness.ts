@@ -163,11 +163,12 @@ export async function bootTier2RuntimeFromFixture(options: {
   readonly fixtureEntries: (specId: number) => readonly Tier2FixtureEntry[];
   readonly specTitle?: string;
   readonly dev?: boolean;
+  readonly agentDir?: string;
   /** Faux backend so resume-kick decisions are observable as real turns. */
   readonly agentServices?: BrunchAgentServicesOverride;
 }) {
   const cwd = await mkdtemp(join(tmpdir(), 'brunch-tier-2-resume-boot-'));
-  const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+  const agentDir = options.agentDir ?? (await mkdtemp(join(tmpdir(), 'brunch-agent-dir-')));
 
   const restoreEnv = overrideBrunchDevEnv(options.dev ? '1' : undefined);
 

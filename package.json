@@ -30,6 +30,7 @@
   },
   "scripts": {
     "dev": "tsx src/app/brunch.ts",
+    "probe:generate-fan-out": "PI_OFFLINE=0 PATH=\"$HOME/.local/share/mise/installs/node/lts/bin:$PATH\" tsx src/dev/generate-fan-out-witness.ts",
     "build": "tsc -p tsconfig.build.json && npm run build:info && npm run build:pi-assets && npm run build:web",
     "build:info": "node scripts/write-build-info.mjs",
     "prepack": "RELEASE=true npm run build",
@@ -66,6 +67,7 @@
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-router": "^1.170.15",
     "@toon-format/toon": "^2.3.0",
+    "better-sqlite3": "^12.10.1",
     "linkedom": "^0.18.12",
     "md-pen": "^1.2.0",
     "react": "^19.2.7",
@@ -90,7 +92,6 @@
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^6.0.2",
     "@xterm/headless": "^6.0.0",
-    "better-sqlite3": "^12.10.1",
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
     "drizzle-typebox": "^0.3.3",
@@ -107,9 +108,16 @@
     "vitest": "^4.1.9"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24 <25"
   },
   "allowScripts": {
-    "better-sqlite3@12.10.1": true
+    "better-sqlite3@12.10.1": true,
+    "@google/genai@1.52.0": true,
+    "protobufjs@7.5.9": true,
+    "protobufjs@7.6.2": true,
+    "esbuild@0.18.20": true,
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.0": true,
+    "fsevents@2.3.3": true
   }
 }

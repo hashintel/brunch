@@ -749,6 +749,7 @@ describe('Brunch TUI boot', () => {
       'present_alternatives',
       'present_question',
       'present_review_set',
+      'present_candidates',
       'request_response',
     ]);
     expect(commands.get(BRUNCH_SWITCH_COMMAND)?.description).toBe('Open the Brunch spec/session picker');

@@ -89,7 +89,7 @@ When a skill file references a relative path, resolve it against the skill direc
   <skill>
     <kind>method</kind>
     <name>generate-proposal</name>
-    <description>Generate reviewable candidate graph material without committing it directly.</description>
+    <description>Generate reviewable candidate graph material: intent-pick, design-synthesize, or oracle-compose. Not for extractive intent/design/oracle lenses that ask or interpret without proposing graph drafts.</description>
     <location><repo>/src/.pi/skills/methods/generate-proposal/SKILL.md</location>
   </skill>
   <skill>

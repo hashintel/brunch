@@ -452,4 +452,49 @@ describe('FE-844/FE-847 live gap legality through real boot', () => {
       boot.restoreEnv();
     }
   });
+
+  it('registers and activates the generate triad through the real boot, under an oracle lens pin (FE-1059)', async () => {
+    // Walks-on-its-own-bones check for the elicitor `generate` capability:
+    // state.test.ts proves the tool-grant POLICY with a hand-maintained
+    // registeredToolNames array, but only the real product boot proves the
+    // FE-1059 present_candidates un-stub is actually REGISTERED and the triad
+    // (present_candidates / present_review_set / request_response) is active
+    // through the live registry — not merely listed in a test fixture.
+    const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
+    try {
+      const generateTriad = ['present_candidates', 'present_review_set', 'request_response'];
+
+      // The un-stubbed present_candidates is genuinely in the real registry,
+      // alongside the rest of the structured-exchange family.
+      const registeredNames = boot.runtime.session.getAllTools().map((tool) => tool.name);
+      expect(registeredNames).toEqual(expect.arrayContaining(generateTriad));
+
+      // Pin the oracle lens through the real registered command (the plane the
+      // generate skill's compose facet serves), then derive legality at the
+      // turn boundary as the product does.
+      const lensCommand = boot.runtime.session.extensionRunner.getCommand('brunch:lens');
+      expect(lensCommand).toBeDefined();
+      await lensCommand?.handler('oracle', boot.runtime.session.extensionRunner.createCommandContext());
+      expect(projectBrunchAgentState(boot.runtime.session.sessionManager.getEntries()).agentLens).toBe(
+        'oracle',
+      );
+
+      await boot.runtime.session.extensionRunner.emitBeforeAgentStart(
+        'Derive generate-activation legality',
+        undefined,
+        '',
+        {} as never,
+      );
+
+      // D86-L: the generate triad is floor — active even with the grounding
+      // floor uncovered (graph-write is never readiness-gated), while elicit
+      // mode still never advertises bash.
+      const activeTools = boot.runtime.session.getActiveToolNames();
+      expect(activeTools).toEqual(expect.arrayContaining(generateTriad));
+      expect(activeTools).not.toEqual(expect.arrayContaining(['bash']));
+    } finally {
+      await boot.runtime.dispose();
+      boot.restoreEnv();
+    }
+  });
 });

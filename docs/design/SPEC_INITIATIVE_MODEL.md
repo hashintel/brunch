@@ -4,16 +4,16 @@
 > Date: 2026-05-20.
 > Scope: the horizon model for how Brunch should represent specifications, claims, planning lifecycles, and collaboration over time.
 >
-> This note captures a design conclusion that emerged while pressure-testing the current `ln-*` workflow against the product direction in [`docs/architecture/prd.md`](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md), [`docs/architecture/pi-seam-extensions.md`](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/pi-seam-extensions.md), and [`memory/SPEC.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/SPEC.md): a **single start-to-finish spec for the whole product** is a naive and impractical model.
+> This note captures a design conclusion that emerged while pressure-testing the current `ln-*` workflow against the product direction in [`docs/architecture/prd.md`](../../docs/architecture/prd.md), [`docs/architecture/pi-seam-extensions.md`](../../docs/architecture/pi-seam-extensions.md), and [`memory/SPEC.md`](../../memory/SPEC.md): a **single start-to-finish spec for the whole product** is a naive and impractical model.
 >
-> The spec-as-initiative identity and the spec↔claim vocabulary are now locked in [`memory/SPEC.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/SPEC.md) (D61-L, plus Lexicon `Spec` / `Claim`). The richer model below — cross-spec claim survival/adoption, initiative-status lifecycle, spec-to-spec relationships, current-truth-as-projection — remains a deferred directional bet (SPEC §Future Direction → Spec initiative & claim model), not yet product contract.
+> The spec-as-initiative identity and the spec↔claim vocabulary are now locked in [`memory/SPEC.md`](../../memory/SPEC.md) (D61-L, plus Lexicon `Spec` / `Claim`). The richer model below — cross-spec claim survival/adoption, initiative-status lifecycle, spec-to-spec relationships, current-truth-as-projection — remains a deferred directional bet (SPEC §Future Direction → Spec initiative & claim model), not yet product contract.
 
 ## Why this note exists
 
 The current planning workflow still centers a pair of singleton project documents:
 
-- [`memory/SPEC.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/SPEC.md)
-- [`memory/PLAN.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/PLAN.md)
+- [`memory/SPEC.md`](../../memory/SPEC.md)
+- [`memory/PLAN.md`](../../memory/PLAN.md)
 
 That is useful for re-entry, but it is not a realistic long-horizon model for product development.
 
@@ -208,7 +208,7 @@ The following statuses seem sufficient for a first cut:
 
 Claims are the actual truth-bearing units. This is where conflicts, supersession, and current truth should primarily be resolved.
 
-The existing language in [`memory/SPEC.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/SPEC.md) already points toward claim-like units:
+The existing language in [`memory/SPEC.md`](../../memory/SPEC.md) already points toward claim-like units:
 
 - requirements
 - assumptions
@@ -528,8 +528,8 @@ That question is still open.
 
 Until the product model is ready to absorb this fully, the practical working posture should be:
 
-- keep [`memory/SPEC.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/SPEC.md) as the compact projection of project contract and active architecture
-- keep [`memory/PLAN.md`](file:///Users/lunelson/Code/hashintel/brunch-next/memory/PLAN.md) as the rolling frontier projection
+- keep [`memory/SPEC.md`](../../memory/SPEC.md) as the compact projection of project contract and active architecture
+- keep [`memory/PLAN.md`](../../memory/PLAN.md) as the rolling frontier projection
 - treat both as projections over a future richer model, not as the eternal final form
 - when design work refers to "specs," increasingly mean **initiative/problem-scoped records**, not territorial documents
 

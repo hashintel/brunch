@@ -10,3 +10,5 @@ export function registerBrunchWebTools(pi: ExtensionAPI): void {
   pi.registerTool(createWebFetchTool() as never);
   pi.registerTool(createWebSearchTool() as never);
 }
+
+export default registerBrunchWebTools;

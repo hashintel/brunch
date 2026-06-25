@@ -40,3 +40,5 @@ export function createOrchestratorStubTool(): ToolDefinition<
 export function registerBrunchOrchestratorStub(pi: ExtensionAPI): void {
   pi.registerTool(createOrchestratorStubTool() as never);
 }
+
+export default registerBrunchOrchestratorStub;

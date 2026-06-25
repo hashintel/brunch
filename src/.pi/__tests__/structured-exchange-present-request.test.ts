@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createDb } from '../../db/connection.js';
 import { CommandExecutor } from '../../graph/command-executor.js';
 import {
+  PRESENT_CANDIDATES_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
@@ -76,6 +77,23 @@ function reviewDeps() {
   return { specId: spec.specId, commandExecutor };
 }
 
+function candidateDetails(id: string, title: string) {
+  return {
+    id,
+    title,
+    user_rubric: {
+      core_bet: 'Make local graph work the thesis.',
+      best_fit: 'Keeps the POC focused.',
+      cost_complexity: 'Requires owning local state clearly.',
+      covers_well: 'Covers chrome, transcript, and graph coherence.',
+      main_risks: 'Does not solve cloud collaboration.',
+      lock_in_constraints: 'Commits to local-first semantics.',
+    },
+    meta_rubric: {},
+    graph_refs: [{ node_id: `${id}-node` }],
+  };
+}
+
 function validReviewPayload() {
   return {
     schemaVersion: 1,
@@ -140,13 +158,16 @@ describe('structured exchange present/request tools', () => {
     expect([...tools.keys()]).toEqual([
       PRESENT_QUESTION_TOOL,
       PRESENT_REVIEW_SET_TOOL,
+      PRESENT_CANDIDATES_TOOL,
       REQUEST_RESPONSE_TOOL,
     ]);
     expect(tools.get(PRESENT_QUESTION_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.executionMode).toBe('sequential');
+    expect(tools.get(PRESENT_CANDIDATES_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(REQUEST_RESPONSE_TOOL)?.executionMode).toBe('sequential');
     expect(tools.get(PRESENT_QUESTION_TOOL)?.renderShell).toBe('self');
     expect(tools.get(PRESENT_REVIEW_SET_TOOL)?.renderShell).toBe('self');
+    expect(tools.get(PRESENT_CANDIDATES_TOOL)?.renderShell).toBe('self');
     expect(tools.get(REQUEST_RESPONSE_TOOL)?.renderShell).toBe('self');
   });
 
@@ -459,6 +480,208 @@ describe('structured exchange present/request tools', () => {
       answered: {
         choice: { id: 'tui', label: 'Move under src/tui-client', kind: 'listed' },
         comment: 'Aligns ownership with /reload iteration.',
+      },
+    });
+  });
+
+  it('maps duplicate present_question option labels back to the selected stable id', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const select = vi.fn(async () => '2. Repeat label');
+    const result = await request_response.execute(
+      'request-response-duplicate-choice-call',
+      { exchangeId: 'duplicate-options' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'duplicate-options',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Select one option.' },
+                  options: [
+                    { id: 'first-option', content: 'Repeat label' },
+                    { id: 'second-option', content: 'Repeat label' },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(select).toHaveBeenCalledWith('Select one option.', ['1. Repeat label', '2. Repeat label']);
+    expect(result.details).toMatchObject({
+      exchange_id: 'duplicate-options',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
+      answered: {
+        choice: { id: 'second-option', label: 'Repeat label', kind: 'listed' },
+      },
+    });
+  });
+
+  it('presents candidates as durable markdown and recoverable details without graph dependencies', async () => {
+    const present = registeredTools().get(PRESENT_CANDIDATES_TOOL);
+    if (!present) throw new Error('present_candidates was not registered');
+
+    const result = await present.execute(
+      'present-candidates-call-1',
+      {
+        exchangeId: 'candidate-direction',
+        heading: 'Which direction should we take?',
+        body: 'Pick one candidate.',
+        candidates: [
+          {
+            id: 'local-workbench',
+            title: 'Local workbench',
+            user_rubric: {
+              core_bet: 'Make local graph work the thesis.',
+              best_fit: 'Keeps the POC focused.',
+              cost_complexity: 'Requires owning local state clearly.',
+              covers_well: 'Covers chrome, transcript, and graph coherence.',
+              main_risks: 'Does not solve cloud collaboration.',
+              lock_in_constraints: 'Commits to local-first semantics.',
+              recommendation: 'Choose this for the POC.',
+            },
+            meta_rubric: { commitment: 'Defers cloud concerns.' },
+            graph_refs: [{ node_id: 'node-1' }],
+          },
+        ],
+      },
+      undefined,
+      undefined,
+      {} as never,
+    );
+
+    expect(result.content[0]?.text).toContain('# Which direction should we take?');
+    expect(result.content[0]?.text).toContain('## 1. Local workbench');
+    expect(result.content[0]?.text).toContain('**Core bet:** Make local graph work the thesis.');
+    expect(result.content[0]?.text).not.toContain('Defers cloud concerns.');
+    expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
+    expect(result.details).toMatchObject({
+      exchange_id: 'candidate-direction',
+      tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: REQUEST_RESPONSE_TOOL },
+      candidates: [{ id: 'local-workbench', graph_refs: [{ node_id: 'node-1' }] }],
+    });
+    expect(result.details).not.toHaveProperty('review_set');
+  });
+
+  it('responds to pending present_candidates as a candidate pick, not a graph write', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-candidate-call-1',
+      { exchangeId: 'candidate-direction' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select: async () => 'Local workbench' },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'candidate-direction',
+                  tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  display: { heading: 'Which direction should we take?' },
+                  candidates: [
+                    {
+                      id: 'local-workbench',
+                      title: 'Local workbench',
+                      user_rubric: {
+                        core_bet: 'Make local graph work the thesis.',
+                        best_fit: 'Keeps the POC focused.',
+                        cost_complexity: 'Requires owning local state clearly.',
+                        covers_well: 'Covers chrome, transcript, and graph coherence.',
+                        main_risks: 'Does not solve cloud collaboration.',
+                        lock_in_constraints: 'Commits to local-first semantics.',
+                      },
+                      meta_rubric: {},
+                      graph_refs: [{ node_id: 'node-1' }],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(result.content[0]?.text).toContain('Selected: **Local workbench**');
+    expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
+    expect(result.details).toMatchObject({
+      exchange_id: 'candidate-direction',
+      tool_meta: { prev: PRESENT_CANDIDATES_TOOL, curr: 'request_choice', next: 'capture_candidate' },
+      answered: { choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' } },
+    });
+    expect(result.details).not.toHaveProperty('review_set');
+  });
+
+  it('maps duplicate candidate titles back to the selected candidate id', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const select = vi.fn(async () => '2. Same direction');
+    const result = await request_response.execute(
+      'request-response-duplicate-candidate-call',
+      { exchangeId: 'duplicate-candidates' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'duplicate-candidates',
+                  tool_meta: { curr: PRESENT_CANDIDATES_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  display: { heading: 'Which direction should we take?' },
+                  candidates: [
+                    candidateDetails('first-candidate', 'Same direction'),
+                    candidateDetails('second-candidate', 'Same direction'),
+                  ],
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(select).toHaveBeenCalledWith('Which direction should we take?', [
+      '1. Same direction',
+      '2. Same direction',
+    ]);
+    expect(result.details).toMatchObject({
+      exchange_id: 'duplicate-candidates',
+      tool_meta: { prev: PRESENT_CANDIDATES_TOOL, curr: 'request_choice', next: 'capture_candidate' },
+      answered: {
+        choice: { id: 'second-candidate', label: 'Same direction', kind: 'listed' },
       },
     });
   });
