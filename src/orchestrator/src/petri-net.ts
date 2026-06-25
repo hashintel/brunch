@@ -24,6 +24,11 @@ export type Token = {
   haltReason?: string;
 };
 
+/** JSON-serializable snapshot of a net's marking (durable-resume); quiescent markings only — in-flight deferred work isn't captured. */
+export type MarkingSnapshot = {
+  places: Record<string, Token[]>;
+};
+
 /**
  * Typed metadata per transition — describes what a transition represents
  * without affecting firing semantics. Enables the interpreter and event
@@ -222,6 +227,30 @@ export class PetriNet {
     this.transitions.push(def);
   }
 
+  /** Deep-copied snapshot of every place (empty ones too), so later mutation can't bleed in and a restore reproduces the exact distribution. */
+  snapshotMarking(): MarkingSnapshot {
+    const places: Record<string, Token[]> = {};
+    for (const [placeId, tokens] of this.places) {
+      places[placeId] = tokens.map((t) => ({ ...t }));
+    }
+    return { places };
+  }
+
+  /** Clear every place, then load the snapshot (deep-copied). A snapshot place absent from this net throws — the recompiled net must match the snapshot's topology. */
+  restoreMarking(snapshot: MarkingSnapshot): void {
+    for (const placeId of Object.keys(snapshot.places)) {
+      if (!this.places.has(placeId)) {
+        throw new Error(`Cannot restore marking: unknown place "${placeId}"`);
+      }
+    }
+    for (const placeId of this.places.keys()) {
+      this.places.set(
+        placeId,
+        (snapshot.places[placeId] ?? []).map((t) => ({ ...t })),
+      );
+    }
+  }
+
   /** Returns the number of registered places. */
   get placeCount(): number {
     return this.places.size;
@@ -292,6 +321,11 @@ export class PetriNet {
     return true;
   }
 
+  /** durable-resume: true when the net stopped with resumable work still on it — the engine's persist-a-snapshot signal. */
+  hasPendingWork(): boolean {
+    return this.hasWorkBearingTokens();
+  }
+
   /** True when any non-resource place still holds tokens (actual deadlock, not clean completion). */
   private hasWorkBearingTokens(): boolean {
     for (const [placeId, tokens] of this.places) {
@@ -337,23 +371,54 @@ export class PetriNet {
     });
   }
 
-  async run(policy: FiringPolicy, shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
-    if (policy === 'serial') {
-      await this.runSerial(shouldHalt, eventSink);
+  private async stopAfterDeferredDrains(
+    shouldStop: (() => boolean) | undefined,
+    eventSink?: NetEventSink,
+  ): Promise<boolean> {
+    if (!shouldStop?.()) return false;
+    while (this.pendingDeferred > 0) {
+      await this.waitForOneDeferred();
+      if (this.deferredError) throw this.deferredError;
+    }
+    eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
+    return true;
+  }
+
+  private emitTerminalWhenNoEnabled(eventSink?: NetEventSink): void {
+    if (this.deferredError) throw this.deferredError;
+    if (this.hasHaltToken()) {
+      eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
+    } else if (this.hasWorkBearingTokens()) {
+      eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
     } else {
-      await this.runParallel(shouldHalt, eventSink);
+      eventSink?.emit({ kind: 'net_completed', ts: new Date().toISOString() });
+    }
+  }
+
+  async run(
+    policy: FiringPolicy,
+    shouldHalt?: () => boolean,
+    eventSink?: NetEventSink,
+    shouldPause?: () => boolean,
+  ): Promise<void> {
+    if (policy === 'serial') {
+      await this.runSerial(shouldHalt, eventSink, shouldPause);
+    } else {
+      await this.runParallel(shouldHalt, eventSink, shouldPause);
     }
   }
 
   /** Serial policy — find first enabled transition, fire, repeat. */
-  private async runSerial(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+  private async runSerial(
+    shouldHalt?: () => boolean,
+    eventSink?: NetEventSink,
+    shouldPause?: () => boolean,
+  ): Promise<void> {
     this.deferredEventSink = eventSink;
     while (true) {
       if (this.deferredError) throw this.deferredError;
-      if (shouldHalt?.()) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
-        break;
-      }
+      if (await this.stopAfterDeferredDrains(shouldHalt, eventSink)) break;
+      if (await this.stopAfterDeferredDrains(shouldPause, eventSink)) break;
 
       const enabled = this.transitions.find((t) => this.isEnabled(t));
       if (!enabled) {
@@ -365,11 +430,7 @@ export class PetriNet {
           await this.waitForOneDeferred();
           continue;
         }
-        if (this.hasWorkBearingTokens()) {
-          eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
-        } else {
-          eventSink?.emit({ kind: 'net_completed', ts: new Date().toISOString() });
-        }
+        this.emitTerminalWhenNoEnabled(eventSink);
         break;
       }
 
@@ -400,14 +461,16 @@ export class PetriNet {
    * compensated here; if agent flakiness becomes common, per-claim rollback or
    * AggregateError collection should be designed as a follow-up.
    */
-  private async runParallel(shouldHalt?: () => boolean, eventSink?: NetEventSink): Promise<void> {
+  private async runParallel(
+    shouldHalt?: () => boolean,
+    eventSink?: NetEventSink,
+    shouldPause?: () => boolean,
+  ): Promise<void> {
     this.deferredEventSink = eventSink;
     while (true) {
       if (this.deferredError) throw this.deferredError;
-      if (shouldHalt?.()) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
-        break;
-      }
+      if (await this.stopAfterDeferredDrains(shouldHalt, eventSink)) break;
+      if (await this.stopAfterDeferredDrains(shouldPause, eventSink)) break;
 
       const allEnabled = this.transitions.filter((t) => this.isEnabled(t));
 
@@ -418,11 +481,7 @@ export class PetriNet {
           await this.waitForOneDeferred();
           continue;
         }
-        if (this.hasWorkBearingTokens()) {
-          eventSink?.emit({ kind: 'net_deadlocked', ts: new Date().toISOString() });
-        } else {
-          eventSink?.emit({ kind: 'net_completed', ts: new Date().toISOString() });
-        }
+        this.emitTerminalWhenNoEnabled(eventSink);
         break;
       }
 
@@ -438,10 +497,7 @@ export class PetriNet {
       }
 
       if (claims.length === 0) {
-        eventSink?.emit({
-          kind: this.hasWorkBearingTokens() ? 'net_deadlocked' : 'net_completed',
-          ts: new Date().toISOString(),
-        });
+        this.emitTerminalWhenNoEnabled(eventSink);
         break;
       }
 
@@ -475,10 +531,8 @@ export class PetriNet {
       for (const { claim, outputs } of fulfilled) {
         this.depositClaim(claim, outputs, eventSink);
       }
-      if (shouldHalt?.()) {
-        eventSink?.emit({ kind: 'net_halted', ts: new Date().toISOString(), reason: this.firstHaltReason() });
-        break;
-      }
+      if (await this.stopAfterDeferredDrains(shouldHalt, eventSink)) break;
+      if (await this.stopAfterDeferredDrains(shouldPause, eventSink)) break;
     }
   }
 }

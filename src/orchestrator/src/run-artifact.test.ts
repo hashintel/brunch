@@ -23,6 +23,7 @@ import {
   harvestCookRun,
   materializeEpicVerifyTree,
   materializeFoldedWorktree,
+  selectSalvageableSlices,
   type SliceCommit,
   transferFoldedFixToSlice,
 } from './run-artifact.js';
@@ -218,6 +219,51 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     expect(artifact.commits.map((c) => c.sliceId)).toEqual(['a', 'b']);
     const files = gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n').sort();
     expect(files).toEqual(['a.txt', 'b.txt', 'base.txt']);
+  });
+
+  it('captures a brownfield dependency-delta (modified manifest + lockfile) in the promoted artifact', () => {
+    // FE-872 acceptance for brownfield (mirror of the greenfield promote-run test
+    // "captures the dependency manifest + lockfile in the promoted commit"): the
+    // repo already tracks a manifest + lockfile; the agent runs `npm install <dep>`
+    // — modifying both (tracked) and populating the gitignored node_modules. The
+    // dep-delta the run produced must ride into the promoted commit; node_modules
+    // must NOT. The merge-tree fold commits tracked changes, so this is the FE-883
+    // composition path doing the capture — pinned here so it can't silently regress.
+    writeFileSync(join(source, 'package.json'), '{"name":"app","dependencies":{}}\n');
+    writeFileSync(join(source, 'bun.lock'), '{"lockfileVersion":1,"packages":{}}\n');
+    writeFileSync(join(source, '.gitignore'), 'node_modules/\n');
+    gitC(source, 'add', '-A');
+    gitC(source, 'commit', '-q', '-m', 'app base with deps');
+    gitC(source, 'update-ref', `refs/heads/${brunchRef.run('r1')}`, 'HEAD');
+
+    seedSliceWorktree('feat', (d) => {
+      writeFileSync(join(d, 'package.json'), '{"name":"app","dependencies":{"left-pad":"^1"}}\n');
+      writeFileSync(join(d, 'bun.lock'), '{"lockfileVersion":1,"packages":{"left-pad":"1.3.0"}}\n');
+      mkdirSync(join(d, 'node_modules', 'left-pad'), { recursive: true });
+      writeFileSync(join(d, 'node_modules', 'left-pad', 'index.js'), 'module.exports = () => {};\n');
+    });
+
+    const plan: Plan = {
+      mode: 'brownfield',
+      epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+      slices: [slice('feat')],
+    };
+    const artifact = harvestCookRun({
+      sourceDir: source,
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['feat'],
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    const tracked = gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n');
+    expect(tracked).toContain('package.json');
+    expect(tracked).toContain('bun.lock');
+    expect(gitC(source, 'show', `${brunchRef.run('r1')}:package.json`)).toContain('left-pad');
+    expect(gitC(source, 'show', `${brunchRef.run('r1')}:bun.lock`)).toContain('left-pad');
+    // The gitignored node_modules dep tree did NOT land in the artifact.
+    expect(tracked.some((f) => f.startsWith('node_modules/'))).toBe(false);
   });
 
   it('dependency-seeded: a dependent slice that extends a dep file folds clean (no false conflict)', () => {
@@ -448,5 +494,68 @@ describe('transferFoldedFixToSlice (FE-884 remediation round-trip)', () => {
     });
     expect(outcome.accepted).toBe(false);
     expect(outcome.reason).toBe('no-op');
+  });
+});
+
+describe('selectSalvageableSlices (cook-partial-promotion)', () => {
+  // Two epics: epic-2's slice depends on epic-1's (cross-epic dep). Epic deps
+  // gate execution, so a completed epic never depends on a failed one.
+  const plan: Plan = {
+    mode: 'brownfield',
+    epics: [
+      { id: 'epic-1', summary: '', depends_on: [], verification: [] },
+      { id: 'epic-2', summary: '', depends_on: ['epic-1'], verification: [] },
+    ],
+    slices: [
+      { id: 's1', epic_id: 'epic-1', definition: '', depends_on: [], verification: [] },
+      { id: 's2', epic_id: 'epic-2', definition: '', depends_on: ['s1'], verification: [] },
+    ],
+  };
+
+  it('salvages only the slices of completed epics and reports the failed ones', () => {
+    const sel = selectSalvageableSlices(plan, {
+      epics: [
+        { epicId: 'epic-1', status: 'completed' },
+        { epicId: 'epic-2', status: 'halted' },
+      ],
+      slices: [
+        { sliceId: 's1', status: 'completed' },
+        { sliceId: 's2', status: 'halted' },
+      ],
+    });
+    expect(sel.sliceIds).toEqual(['s1']);
+    expect(sel.salvagedEpicIds).toEqual(['epic-1']);
+    expect(sel.failedEpicIds).toEqual(['epic-2']);
+  });
+
+  it('salvages everything when all epics completed', () => {
+    const sel = selectSalvageableSlices(plan, {
+      epics: [
+        { epicId: 'epic-1', status: 'completed' },
+        { epicId: 'epic-2', status: 'completed' },
+      ],
+      slices: [
+        { sliceId: 's1', status: 'completed' },
+        { sliceId: 's2', status: 'completed' },
+      ],
+    });
+    expect(sel.sliceIds).toEqual(['s1', 's2']);
+    expect(sel.failedEpicIds).toEqual([]);
+  });
+
+  it('salvages nothing when no epic completed', () => {
+    const sel = selectSalvageableSlices(plan, {
+      epics: [
+        { epicId: 'epic-1', status: 'halted' },
+        { epicId: 'epic-2', status: 'halted' },
+      ],
+      slices: [
+        { sliceId: 's1', status: 'completed' }, // slice passed but its epic did not integrate
+        { sliceId: 's2', status: 'halted' },
+      ],
+    });
+    expect(sel.sliceIds).toEqual([]);
+    expect(sel.salvagedEpicIds).toEqual([]);
+    expect(sel.failedEpicIds).toEqual(['epic-1', 'epic-2']);
   });
 });

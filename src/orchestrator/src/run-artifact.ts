@@ -20,7 +20,7 @@ import {
   SHAREABLE_TOP_LEVEL_ENTRIES,
 } from './epic-sandbox-merge.js';
 import { brunchRef } from './run-refs.js';
-import type { Plan, Slice } from './types.js';
+import type { EpicOutcome, Plan, Slice, SliceOutcome } from './types.js';
 
 export { brunchRef } from './run-refs.js';
 
@@ -407,6 +407,39 @@ function selectSharedEntrySource(
   });
   const winner = installers.at(-1);
   return winner ? resolveSliceWorktreeDir(parentSandboxDir, winner) : parentSandboxDir;
+}
+
+/** cook-partial-promotion (FE-1082): which slices to salvage from a halted run. */
+export type SalvageSelection = {
+  /** Slice ids of completed epics — a dependency-closed set safe to fold/promote. */
+  sliceIds: string[];
+  /** Epic ids that completed (the salvaged units). */
+  salvagedEpicIds: string[];
+  /** Epic ids that did not complete — the diagnosis of what still needs fixing. */
+  failedEpicIds: string[];
+};
+
+/**
+ * cook-partial-promotion: slices to salvage from a halted run — those of epics that
+ * **completed**. Epic deps gate execution, so the set is dependency-closed and folds
+ * cleanly; slices of a halted epic are excluded (it never integrated). Failed epics
+ * are returned for the caller's diagnosis.
+ */
+export function selectSalvageableSlices(
+  plan: Plan,
+  result: { epics: readonly EpicOutcome[]; slices: readonly SliceOutcome[] },
+): SalvageSelection {
+  const completedEpics = new Set(result.epics.filter((e) => e.status === 'completed').map((e) => e.epicId));
+  const completedSlices = new Set(
+    result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
+  );
+  return {
+    sliceIds: plan.slices
+      .filter((s) => completedEpics.has(s.epic_id) && completedSlices.has(s.id))
+      .map((s) => s.id),
+    salvagedEpicIds: plan.epics.filter((e) => completedEpics.has(e.id)).map((e) => e.id),
+    failedEpicIds: plan.epics.filter((e) => !completedEpics.has(e.id)).map((e) => e.id),
+  };
 }
 
 export function harvestCookRun(run: CompletedRun, opts?: { granularity?: CommitGranularity }): RunArtifact {
