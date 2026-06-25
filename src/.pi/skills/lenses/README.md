@@ -15,29 +15,12 @@ agent is currently exploring or proposing into.
 
 Future execute-mode lenses (`plan`, `sync`, `scope`) are deferred.
 
-## Topology-driven question ranking (M5 input)
+## Heuristic provenance
 
-When `agents-composition-layer` authors the lens resources, each lens
-should include topology-driven heuristics for what to ask next.
-These heuristics read graph shape, not templates:
-
-| Signal                                       | Suggested question shape                          |
-|----------------------------------------------|---------------------------------------------------|
-| `assumption` with high fanout + low confidence | "We depend on X. Want to validate it?"           |
-| `requirement` with no incoming `proof` edge  | "How will we know this holds?"                    |
-| `criterion` with no outgoing `proof` target  | "What does this criterion check?"                 |
-| `decision` with empty `rejected`             | "What did we consider and rule out?"              |
-| Conflicting `boundary` edges into same target | "These constraints disagree. Which wins?"         |
-| `goal` with no derived requirements          | "Nothing ties to this goal. What would satisfy it?" |
-| `requirement` with no examples + high uncertainty | "What's a concrete case where this matters?"  |
-
-These complement behavioral-kernel signal-phrase routing: kernels
-suggest *what kind* of question; topology heuristics suggest *which
-item* to ask about next.
-
-## Source reference
-
-Rich topology-driven ranking heuristics from the earlier design
-are in the archived
-`/brunch/docs/design/INTENT_GRAPH_SEMANTICS.md` §Topology-driven
-question ranking. Treat as a prompt engineering input.
+Topology-driven next-question heuristics (look for goals with no derived
+requirements, requirements with no examples/proof, decisions with empty rejected
+alternatives, conflicting boundaries — ask about the most graph-shaping absence
+first) are authored and locked into each `<lens>/SKILL.md` body in distilled form
+(D97-L: cite/distill, do not copy vocabulary tables). Graph vocabulary itself is
+owned by `src/graph/schema/kinds.ts`. This README owns the current lens membership
+only — not a parallel copy of the per-lens ranking heuristics.

@@ -21,31 +21,12 @@ Each `<strategy>/SKILL.md` file in this directory is a prompt resource the agent
 - How to structure the turn
 - How to compose with graph-write methods when commitments are ready
 
-## Observer classification guide (M5 input)
+## Heuristic provenance
 
-When `agents-composition-layer` authors the strategy resources, seed each
-strategy's prompt with the observer classification rules from
-the earlier `INTENT_GRAPH_SEMANTICS.md` translation table:
-
-| User phrase pattern              | Most likely kind      |
-|----------------------------------|-----------------------|
-| "always true that…"             | `invariant`           |
-| "should never…"                 | `invariant`           |
-| "for example, when…"            | `example`             |
-| "we wouldn't want…"             | `example` (negative) or `constraint` |
-| "we don't care about X"         | `constraint`          |
-| "we picked Y over Z because…"   | `decision`            |
-| "we think" / "probably"          | `assumption`          |
-| "the system shall" / "must do"   | `requirement`         |
-| "what outcome are we after?"     | `goal`                |
-
-The observer should **abstain** rather than guess when
-classification support is weak.
-
-## Source reference
-
-Rich classification and translation tables from the earlier
-design are in the archived
-`/brunch/docs/design/INTENT_GRAPH_SEMANTICS.md` §Observer-prompt
-classification guide and §Translation table. Treat as a prompt
-engineering input, not a schema target.
+Phrase-classification and translation heuristics are authored and locked into each
+`<strategy>/SKILL.md` body in distilled form (D97-L: cite/distill, do not copy
+vocabulary tables). The canonical "abstain rather than guess on weak classification
+support" rule and the contrastive signal-phrase routing live in
+`step-wise-disambiguate/SKILL.md` and `step-wise-decision-tree/SKILL.md`; graph
+vocabulary itself is owned by `src/graph/schema/kinds.ts`. This README owns the
+current axis membership only — not a parallel copy of the per-strategy heuristics.
