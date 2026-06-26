@@ -107,21 +107,19 @@ The `src/` topology follows the current architecture decision in [`memory/SPEC.m
 
 ```text
 src/
-├── .pi/          # sealed Pi runtime surface: agents, skills, components, extensions
-│   ├── agents/      # Brunch foreground/background agent role prompts
+├── .pi/          # sealed Pi runtime surface: components, extensions, settings
 │   ├── components/  # reusable Pi TUI/message components
 │   ├── extensions/  # Brunch Pi registrars: tools, hooks, commands, UI affordances
-│   ├── skills/      # Brunch agent skills read on demand by the runtime
 │   └── settings.json # dev-only ambient Pi settings when launching from src/
-├── app/         # CLI mode dispatch and product host wiring
+├── agents/      # agent prompts, prompt-resource skills, runtime policy, model-facing context
+├── app/         # CLI mode dispatch, product host wiring, and print-mode text
 ├── db/          # Drizzle schema, migrations, and SQLite connection lifecycle
 ├── dev/         # dev-only harnesses and proof tests
 ├── graph/       # graph domain, schema, readers, policy, and CommandExecutor
 ├── probes/      # product/proof drivers and reportable oracle runs
 ├── projections/ # structured DTOs derived from domain/session/tool facts
-├── renderers/   # lossy text, markdown, and display renderers
 ├── rpc/         # Brunch JSON-RPC protocol, handlers, registry, and web host
-├── session/     # Pi JSONL transcript projection, exchanges, runtime state, coordination
+├── session/     # Pi JSONL transcript projection, exchanges, runtime state, transcript text
 ├── utils/       # small shared utilities
 ├── web/         # React browser sidecar over Brunch RPC
 ├── workspace/   # cwd/package identity and .brunch workspace state helpers
@@ -134,7 +132,7 @@ Important boundaries:
 - `graph/` is the only application layer that imports `db/` directly.
 - `rpc/` exposes named Brunch product methods, not a generic records API.
 - `web/` consumes Brunch RPC projections only; it must not read SQLite, Pi RPC, local JSONL, or `.brunch/workspace.json` directly.
-- `projections/` preserves reusable structure; `renderers/` may lose structure for human-readable output.
+- `projections/` preserves reusable structure; `agents/contexts/` owns model-facing text; human/product text lives beside its app/session owner.
 
 ## Architecture Docs
 
