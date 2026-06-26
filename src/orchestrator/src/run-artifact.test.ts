@@ -239,6 +239,42 @@ describe('harvestGreenfieldRun (D171-K greenfield promotion)', () => {
       'a.txt',
       'b.txt',
     ]);
+    expect(readFileSync(join(runWt, 'a.txt'), 'utf8')).toBe('a\n');
+    expect(readFileSync(join(runWt, 'b.txt'), 'utf8')).toBe('b\n');
+  });
+
+  it('per-slice: keeps verify-epic-authored files in the promoted run artifact', () => {
+    const d = join(runWt, 'a');
+    gitC(runWt, 'worktree', 'add', '-q', '-b', brunchRef.slice('r1', 'a'), d, brunchRef.run('r1'));
+    writeFileSync(join(d, 'app.ts'), 'export const ok = true;\n');
+    const epicDir = materializeEpicVerifyTree({
+      parentSandboxDir: runWt,
+      runId: 'r1',
+      plan,
+      sliceIds: ['a'],
+      epicId: 'e',
+    }).epicSandboxDir;
+    mkdirSync(join(epicDir, 'tests'), { recursive: true });
+    writeFileSync(
+      join(epicDir, 'tests/e.integration.test.ts'),
+      'it("checks the assembled app", () => {});\n',
+    );
+
+    const artifact = harvestGreenfieldRun({
+      sandboxDir: runWt,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['a'],
+      sliceLayout: 'per-slice',
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    expect(gitC(runWt, 'show', `${brunchRef.run('r1')}:tests/e.integration.test.ts`)).toContain(
+      'checks the assembled app',
+    );
+    expect(readFileSync(join(runWt, 'tests/e.integration.test.ts'), 'utf8')).toContain(
+      'checks the assembled app',
+    );
   });
 });
 

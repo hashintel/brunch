@@ -409,6 +409,70 @@ function selectSharedEntrySource(
   return winner ? resolveSliceWorktreeDir(parentSandboxDir, winner) : parentSandboxDir;
 }
 
+function stagedPatch(dir: string): string {
+  git(['add', '-A'], dir);
+  const patch = execFileSync('git', ['diff', '--cached', '--binary'], {
+    cwd: dir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  git(['reset'], dir);
+  return patch;
+}
+
+function removeWorktree(sourceDir: string, worktreeDir: string): void {
+  try {
+    git(['worktree', 'remove', '--force', worktreeDir], sourceDir);
+  } catch {
+    rmSync(worktreeDir, { recursive: true, force: true });
+  }
+}
+
+function foldEpicVerifyPatchesIntoRun(opts: {
+  sandboxDir: string;
+  runId: string;
+  plan: Plan;
+  artifact: RunArtifact;
+}): RunArtifact {
+  const branch = brunchRef.run(opts.runId);
+  let head = opts.artifact.head;
+  const patchDir = join(opts.sandboxDir, '__promotion_epic_verify__');
+  rmSync(patchDir, { recursive: true, force: true });
+  git(['worktree', 'prune'], opts.sandboxDir);
+  git(['worktree', 'add', '--quiet', '--detach', patchDir, head], opts.sandboxDir);
+  try {
+    for (const epic of opts.plan.epics) {
+      const epicDir = resolveEpicSandboxDir(opts.sandboxDir, epic.id);
+      if (!existsSync(epicDir)) continue;
+      const patch = stagedPatch(epicDir);
+      if (patch.trim() === '') continue;
+      const applied = spawnSync('git', ['apply', '--3way', '--whitespace=nowarn'], {
+        cwd: patchDir,
+        input: patch,
+        encoding: 'utf8',
+      });
+      if (applied.status !== 0) {
+        throw new Error(`failed to fold verify-epic files for ${epic.id}`);
+      }
+    }
+    git(['add', '-A'], patchDir);
+    if (git(['diff', '--cached', '--name-only'], patchDir) === '') return opts.artifact;
+    const tree = git(['write-tree'], patchDir);
+    head = git(
+      [...COMMIT_IDENTITY, 'commit-tree', tree, '-p', head, '-m', `cook: ${opts.runId} epic verify files`],
+      patchDir,
+    );
+    git(['update-ref', `refs/heads/${branch}`, head, opts.artifact.head], opts.sandboxDir);
+    return { ...opts.artifact, head };
+  } finally {
+    removeWorktree(opts.sandboxDir, patchDir);
+  }
+}
+
+function refreshRunWorktree(sandboxDir: string, head: string): void {
+  git(['reset', '--hard', head], sandboxDir);
+}
+
 export function harvestCookRun(run: CompletedRun, opts?: { granularity?: CommitGranularity }): RunArtifact {
   const slices = commitSlicesInDependencyOrder({
     parentSandboxDir: run.parentSandboxDir,
@@ -448,13 +512,22 @@ export function harvestGreenfieldRun(opts: {
     git([...COMMIT_IDENTITY, 'commit', '--allow-empty', '-q', '-m', `cook: ${opts.runId}`], opts.sandboxDir);
     return { branch, head: git(['rev-parse', 'HEAD'], opts.sandboxDir), commits: [], conflicts: [] };
   }
-  return harvestCookRun({
+  const artifact = harvestCookRun({
     sourceDir: opts.sandboxDir,
     parentSandboxDir: opts.sandboxDir,
     runId: opts.runId,
     plan: opts.plan,
     completedSliceIds: [...opts.completedSliceIds],
   });
+  if (artifact.conflicts.length > 0) return artifact;
+  const withEpicVerifyFiles = foldEpicVerifyPatchesIntoRun({
+    sandboxDir: opts.sandboxDir,
+    runId: opts.runId,
+    plan: opts.plan,
+    artifact,
+  });
+  refreshRunWorktree(opts.sandboxDir, withEpicVerifyFiles.head);
+  return withEpicVerifyFiles;
 }
 
 /**
