@@ -4,9 +4,8 @@
  * SPEC: D4-L, D20-L, D52-L, D53-L
  *
  * This module translates Pi tool parameters (flat JSON from LLM tool calls)
- * into CommandExecutor input types and formats CommandExecutor results into
- * Pi tool result content. It does NOT import from db/ — all graph access
- * routes through CommandExecutor and graph query readers.
+ * into CommandExecutor input types. It does NOT import from db/ — all graph
+ * access routes through CommandExecutor and graph query readers.
  */
 
 import type {
