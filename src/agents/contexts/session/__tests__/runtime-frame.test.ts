@@ -39,7 +39,11 @@ describe('renderRuntimeFrame', () => {
     await expect(rendered).toMatchFileSnapshot('../__snapshots__/runtime-frame-ready.md');
     expect(rendered).toContain('#D12');
     expect(rendered).not.toContain('node-1');
-    expect(rendered).toContain('mode=elicit; role=elicitor; strategy=step-wise-disambiguate; lens=oracle');
+    expect(rendered).toContain(
+      'mode=elicit; role=elicitor; prompt_strategy_resource=step-wise-disambiguate; prompt_lens_resource=oracle',
+    );
+    expect(rendered).not.toContain('strategy=');
+    expect(rendered).not.toContain('lens=');
     expect(rendered).not.toContain('goal=');
   });
 

@@ -22,7 +22,7 @@ export function renderRuntimeFrame(input: SessionRuntimeFrameRenderInput): strin
     '[Selected session runtime frame]',
     '- status: ready',
     `- binding: spec #${input.specId}; session ${input.sessionId}`,
-    `- agent: mode=${input.agent.operationalMode}; role=${input.agent.role}; strategy=${input.agent.strategy}; lens=${input.agent.lens}`,
+    `- agent: mode=${input.agent.operationalMode}; role=${input.agent.role}; prompt_strategy_resource=${input.agent.strategy}; prompt_lens_resource=${input.agent.lens}`,
     `- graph mentions: ${renderGraphMentions(input.mentions.graphNodes)}`,
     `- file mentions: ${renderFileMentions(input.mentions.files)}`,
     `- world: graph_lsn=${input.world.graph.latestLsn ?? 'unknown'}; git_head=${input.world.git.head ?? 'unknown'}`,
