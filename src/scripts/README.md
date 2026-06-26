@@ -7,7 +7,7 @@ SPEC decisions: D52-L
 Local executable utilities and script-facing helpers that are not product domain layers.
 
 No standing script utilities are currently owned here.
-Print-mode workspace-state projection/rendering moved to `projections/workspace/` and `renderers/workspace/`; `app/` now calls those shared seams directly.
+Print-mode workspace-state projection moved to `projections/workspace/`, and its terse human rendering is app-local in `app/print-workspace-state.ts`; `app/` calls those seams directly.
 
 ## Does not own
 

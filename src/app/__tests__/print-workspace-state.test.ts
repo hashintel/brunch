@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
-import { renderWorkspaceState } from '../../renderers/workspace/workspace-state.js';
+import { renderWorkspaceState } from '../print-workspace-state.js';
 
 const cwd = '/tmp/brunch-project';
 

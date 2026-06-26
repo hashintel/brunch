@@ -6,7 +6,6 @@ import { parseArgs } from 'node:util';
 
 import { isBrunchDevEnabled } from '../dev/brunch-dev.js';
 import { projectWorkspaceState } from '../projections/workspace/workspace-state.js';
-import { renderWorkspaceState } from '../renderers/workspace/workspace-state.js';
 import { createRpcHandlers, runJsonRpcLineServer } from '../rpc/handlers.js';
 import { createProductUpdatePublisher } from '../rpc/product-updates.js';
 import {
@@ -14,6 +13,7 @@ import {
   type WorkspaceSessionCoordinator,
 } from '../session/workspace-session-coordinator.js';
 import { runBrunchTui } from './brunch-tui.js';
+import { renderWorkspaceState } from './print-workspace-state.js';
 
 export interface BrunchCliOptions {
   argv?: string[];

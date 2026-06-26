@@ -11,6 +11,8 @@ Current entrypoints:
 - `brunch.ts` — CLI mode dispatch for TUI, RPC, and print. `--mode web` is
   reserved but deferred: the browser client is served only as the TUI sidecar
   (a standalone headless web host is a future feature).
+- `print-workspace-state.ts` — terse human/product print-mode rendering for
+  `brunch --mode print`.
 - `brunch-tui.ts` — TUI launch path, embedded Pi session runtime wiring, and the
   web sidecar (`startWebHost`; browser launch is opt-in via `--open-web`).
 

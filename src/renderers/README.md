@@ -4,11 +4,10 @@ SPEC decisions: D52-L, D60-L, D83-L
 
 ## Owns
 
-`src/renderers/` now owns reusable text that is **not** deliberately model-facing: product/human print output and debug/report text.
+`src/renderers/` now owns reusable text that is **not** deliberately model-facing. Print-mode workspace-state text moved to the app print owner; this directory only retains debug/report transcript markdown until the session move lands.
 
 ```text
 renderers/
-├── workspace/workspace-state.ts   print-mode workspace state text
 └── session/transcript.ts          debug/report transcript markdown
 ```
 

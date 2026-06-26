@@ -1,4 +1,4 @@
-import type { WorkspaceState } from '../../projections/workspace/workspace-state.js';
+import type { WorkspaceState } from '../projections/workspace/workspace-state.js';
 
 export function renderWorkspaceState(state: WorkspaceState): string {
   const lines = [

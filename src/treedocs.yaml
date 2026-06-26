@@ -291,6 +291,7 @@ tree:
     pi-extensions.ts: 'Implements pi extensions.'
     pi-settings.ts: 'Implements pi settings.'
     pi-subagents.ts: 'Implements pi subagents.'
+    print-workspace-state.ts: 'Implements print workspace state.'
   constants.ts: 'Implements constants.'
   db:
     README.md: 'Documents this source subtree.'
@@ -394,8 +395,6 @@ tree:
     README.md: 'Documents this source subtree.'
     session:
       transcript.ts: 'Implements transcript.'
-    workspace:
-      workspace-state.ts: 'Implements workspace state.'
   rpc:
     README.md: 'Documents this source subtree.'
     handlers.ts: 'Implements handlers.'
