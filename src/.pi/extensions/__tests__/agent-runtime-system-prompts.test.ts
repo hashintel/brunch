@@ -216,7 +216,7 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.not.stringContaining('<available_goals>'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('[Selected-spec graph context · design lens]'),
+      systemPrompt: expect.stringContaining('Selected-spec graph overview · design lens'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('design modules/interfaces'),
@@ -405,10 +405,10 @@ describe('Brunch prompt-pack topology', () => {
       ),
     });
     expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('[Selected-spec graph context · auto lens]'),
+      systemPrompt: expect.stringContaining('Selected-spec graph overview · auto lens'),
     });
     expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('[Selected-spec graph context · oracle lens]'),
+      systemPrompt: expect.stringContaining('Selected-spec graph overview · oracle lens'),
     });
   });
 
@@ -647,9 +647,9 @@ describe('Brunch prompt-pack topology', () => {
     expect(disambiguateIntentPrompt).not.toContain('<name>propose-graph</name>');
     expect(disambiguateDesignPrompt).toContain('<name>step-wise-disambiguate</name>');
     expect(disambiguateDesignPrompt).not.toContain('<name>step-wise-decision-tree</name>');
-    expect(disambiguateIntentPrompt).toContain('[Selected-spec graph context · intent lens]');
+    expect(disambiguateIntentPrompt).toContain('Selected-spec graph overview · intent lens');
     expect(disambiguateIntentPrompt).toContain('intent claims, terms, assumptions');
-    expect(disambiguateDesignPrompt).toContain('[Selected-spec graph context · design lens]');
+    expect(disambiguateDesignPrompt).toContain('Selected-spec graph overview · design lens');
     expect(disambiguateDesignPrompt).toContain('design modules/interfaces');
     expect(disambiguateIntentPrompt).toContain('Clarify Brunch prompt posture');
     expect(disambiguateDesignPrompt).toContain('Clarify Brunch prompt posture');

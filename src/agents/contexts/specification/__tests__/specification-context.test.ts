@@ -30,6 +30,7 @@ describe('renderSpecificationContext', () => {
     expect(rendered).toContain('<specification>');
     expect(rendered).toContain('Overview:');
     expect(rendered).toContain('Graph (LSN 2): 5 nodes, 3 edges');
+    expect(rendered).toContain('| id | upstream | relation | downstream |');
     expect(rendered).toContain('Gaps:');
     expect(rendered).toContain('Sessions:');
     expect(rendered.indexOf('Overview:')).toBeLessThan(rendered.indexOf('Graph (LSN 2):'));

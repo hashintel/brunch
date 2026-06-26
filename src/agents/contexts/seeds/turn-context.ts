@@ -20,9 +20,10 @@
 import { renderSoftReadinessEstimate } from '../../../agents/contexts/session/readiness-estimate.js';
 import type { GraphSlice } from '../../../graph/queries.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import { formatGraphNodeCode, type GraphNode } from '../../../graph/schema/nodes.js';
+import type { GraphNode } from '../../../graph/schema/nodes.js';
 import type { AgentLensSelection } from '../../../session/schema/kinds.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
+import { formatGraphOverview } from '../graph/graph-slice.js';
 
 export interface AgentPromptSpecContext {
   id: number;
@@ -120,43 +121,24 @@ export function renderGraphSeed(overview: GraphSlice, options: RenderGraphContex
     const byLens = lensScore(b, options.lens) - lensScore(a, options.lens);
     return byLens || a.id - b.id;
   });
-  const nodesById = new Map(overview.nodes.map((node) => [node.id, node]));
+  const selectedNodes = emphasizedNodes.slice(0, maxNodes);
+  const selectedEdges = overview.edges.slice(0, maxEdges);
+  const omittedNodes = Math.max(overview.nodes.length - selectedNodes.length, 0);
+  const omittedEdges = Math.max(overview.edges.length - selectedEdges.length, 0);
 
   const lines = [
-    `[Selected-spec graph context · ${options.lens} lens]`,
-    `- selected-spec lsn: ${overview.lsn}; nodes: ${overview.nodes.length}; edges: ${overview.edges.length}`,
-    `- emphasis: ${lensEmphasis(options.lens)}`,
+    `Emphasis: ${lensEmphasis(options.lens)}`,
+    formatGraphOverview(
+      { lsn: overview.lsn, nodes: selectedNodes, edges: selectedEdges },
+      `Selected-spec graph overview · ${options.lens} lens`,
+    ),
   ];
 
-  if (overview.nodes.length === 0) {
-    lines.push('- graph: empty');
-    return lines.join('\n');
+  if (omittedNodes > 0 || omittedEdges > 0) {
+    lines.push(`Omitted: ${omittedNodes} node(s), ${omittedEdges} edge(s).`);
   }
 
-  lines.push('- emphasized nodes:');
-  for (const node of emphasizedNodes.slice(0, maxNodes)) {
-    lines.push(`  - ${formatNode(node)}`);
-  }
-  if (overview.nodes.length > maxNodes) {
-    lines.push(`  - …${overview.nodes.length - maxNodes} more node(s) omitted`);
-  }
-
-  if (overview.edges.length > 0) {
-    lines.push('- edges:');
-    for (const edge of overview.edges.slice(0, maxEdges)) {
-      const stance = edge.stance ? `/${edge.stance}` : '';
-      const source = nodesById.get(edge.sourceId);
-      const target = nodesById.get(edge.targetId);
-      const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
-      const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
-      lines.push(`  - ${sourceCode} -[${edge.category}${stance}]-> ${targetCode}`);
-    }
-    if (overview.edges.length > maxEdges) {
-      lines.push(`  - …${overview.edges.length - maxEdges} more edge(s) omitted`);
-    }
-  }
-
-  return lines.join('\n');
+  return lines.join('\n\n');
 }
 
 function lensScore(node: GraphNode, lens: AgentLensSelection): number {
@@ -178,13 +160,4 @@ function lensEmphasis(lens: AgentLensSelection): string {
     case 'auto':
       return 'AUTO lens selection pending; keep intent, design, and oracle cues visible';
   }
-}
-
-function formatNode(node: GraphNode): string {
-  const body = node.body ? ` — ${truncate(node.body, 120)}` : '';
-  return `[${formatGraphNodeCode(node.kind, node.kindOrdinal)}] ${node.plane}/${node.kind}: ${node.title}${body}`;
-}
-
-function truncate(value: string, maxLength: number): string {
-  return value.length <= maxLength ? value : `${value.slice(0, maxLength - 1)}…`;
 }

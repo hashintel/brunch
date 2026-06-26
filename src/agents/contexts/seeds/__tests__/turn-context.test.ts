@@ -75,24 +75,26 @@ describe('renderGraphSeed', () => {
     const design = renderGraphSeed(overview, { lens: 'design' });
     const oracle = renderGraphSeed(overview, { lens: 'oracle' });
 
-    expect(intent).toContain('[Selected-spec graph context · intent lens]');
-    expect(design).toContain('[Selected-spec graph context · design lens]');
-    expect(oracle).toContain('[Selected-spec graph context · oracle lens]');
-    expect(intent).toContain('- selected-spec lsn: 7; nodes: 4; edges: 2');
-    expect(intent).toContain('intent claims, terms, assumptions');
-    expect(design).toContain('design modules/interfaces');
-    expect(oracle).toContain('verification checks, evidence');
-    expect(intent.indexOf('intent/goal')).toBeLessThan(intent.indexOf('design/module'));
-    expect(design.indexOf('design/module')).toBeLessThan(design.indexOf('intent/goal'));
-    expect(oracle.indexOf('oracle/check')).toBeLessThan(oracle.indexOf('intent/goal'));
+    expect(intent).toContain('Selected-spec graph overview · intent lens');
+    expect(design).toContain('Selected-spec graph overview · design lens');
+    expect(oracle).toContain('Selected-spec graph overview · oracle lens');
+    expect(intent).toContain('Selected-spec graph overview · intent lens (LSN 7): 4 nodes, 2 edges');
+    expect(intent).toContain('Emphasis: intent claims, terms, assumptions');
+    expect(design).toContain('Emphasis: design modules/interfaces');
+    expect(oracle).toContain('Emphasis: verification checks, evidence');
+    expect(intent).toContain('| G1 | 1 | Fast local specification |');
+    expect(design).toContain('| MOD2 | 2 | Prompt composer |');
+    expect(oracle).toContain('| CH3 | 3 | Prompt posture fixture |');
+    expect(intent).toContain('| id | upstream | relation | downstream |');
+    expect(intent).not.toContain('-[realization]->');
+    expect(intent).not.toContain('[G1] intent/goal');
     expect(overview.nodes[0]?.title).toBe('Fast local specification');
   });
 
   it('bounds rendered node and edge output', () => {
     const rendered = renderGraphSeed(overview, { lens: 'intent', maxNodes: 2, maxEdges: 1 });
 
-    expect(rendered).toContain('…2 more node(s) omitted');
-    expect(rendered).toContain('…1 more edge(s) omitted');
+    expect(rendered).toContain('Omitted: 2 node(s), 1 edge(s).');
   });
 });
 
@@ -109,7 +111,7 @@ describe('composeAgentContextSeed', () => {
 
     expect(blocks).toHaveLength(2);
     expect(blocks[0]).toContain('[Selected workspace context]');
-    expect(blocks[1]).toContain('[Selected-spec graph context · design lens]');
+    expect(blocks[1]).toContain('Selected-spec graph overview · design lens');
   });
 });
 
