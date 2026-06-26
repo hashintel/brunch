@@ -21,17 +21,17 @@ A source may carry more than one disposition class when it has separable uses. T
 
 | Source | Disposition labels | Candidate future reference | Reader / blocker | D98-sensitive notes | Next action |
 | - | - | - | - | - | - |
-| `/private/tmp/igs_recovered.md` (`INTENT_GRAPH_SEMANTICS`) | authored-runtime-reference input; backstage-only rationale; historical/archive candidate | `graph-authoring-heuristics.md`; `checkability-ladder.md`; generated edge-category/detail-form table scope is materialized from typed sources only | Reader: capture/commit/generate methods needing graph vocabulary and graph-authoring judgment. Blocker: reconcile every subtype/checkability claim against live `src/graph/schema/{kinds,nodes}.ts`, `src/graph/policy/category-policy.ts`, D87-L, D88-L, D94-L before accepting it. | Contains retired subtype proposals and old edge/ontology language; do not revive stale modality/subtype claims or create runtime `strategy` / `lens` / `method` session state. | Generated edge/detail/form tables now derive from current typed sources; separately review promotion rules, checkability ladder, and subtype material as authored judgment rows. |
+| `/private/tmp/igs_recovered.md` (`INTENT_GRAPH_SEMANTICS`) | skill-local-reference input; backstage-only rationale; historical/archive candidate | `graph-authoring-heuristics.md` materialized; generated edge-category/detail-form table materialized from typed sources; oracle checkability guidance accepted skill-local only | Reader: capture/commit methods already cite shared graph-authoring judgment. Oracle `generate-proposal` may use progressive-checkability language when designing verification ensembles. | Contains retired subtype proposals and old edge/ontology language; do not revive stale modality/subtype claims, claim metadata, `strength`, or runtime `strategy` / `lens` / `method` session state. | Verdict complete: promotion rules already accepted in `graph-authoring-heuristics.md`; the 8-rung ladder is narrowed to skill-local oracle prompting; `strength` and claim-level `checkability` fields are rejected carrying cost; subtype/detail candidates are rejected as parallel enums except for already-shipped `detail.form` from typed sources. |
 | `docs/design/ELICITATION_QUESTIONS.md` | authored-runtime-reference input | `elicitation-question-hints.md` | Reader: future elicitor question/gap guidance. Blocker: refresh against post-FE-1052 kind names, `story` / `unknown` / `entity` / `sketch`, and four-band D94-L model. | Uses older band framing and mentions strategy/lens as prompt-space terms; keep as prompt-resource vocabulary only, not runtime state. | Treat the durable thesis as: node kind is closed ontology; questions are open/projectable hints inside a kind. Rewrite examples before model-facing use. |
 | `docs/design/ONTOLOGY_REVIEW_PROTOCOL.md` | backstage-only rationale; authored-runtime-reference input | possible `graph-authoring-heuristics.md` citations; may motivate generated edge-category/detail-form table scope but typed code remains the generated-reference input | Reader: data-model maintainers and future generated-reference authors. Blocker: live code/SPEC are authoritative; §0/§2–3/§9 are historical and `thesis → claim` did not land. | Mentions methods as validation lenses; preserve only as prompt/resource vocabulary where useful, never as user-changeable runtime axes. | Use as design-validation record for D87-L/D88-L, not as prompt payload. Pull only claims that still match current SPEC/code. |
 | `docs/design/ELICITATION_LENSES.md` | authored-runtime-reference input; skill-local-reference input; historical/archive candidate | `proposal-meta-rubric.md`; `projection-guidance.md` | Reader: `generate-proposal` and future `project` capability. Blocker: D98-L retired `strategy` / `lens` / `method` as runtime state; A33-L still design-gates `project`. | Highly D98-sensitive: old lens catalogue must not reintroduce runtime lens/strategy/method axes. Fan-out/fan-in and D31 meta-rubric may survive as prompt conduct. | Harvest fan-out/fan-in, grounding-density, and meta-rubric ideas only into the relevant method/reference home after translating away runtime-axis assumptions. |
-| `docs/design/BEHAVIORAL_KERNELS.md` | authored-runtime-reference input; historical/archive candidate | `checkability-ladder.md`; possible `elicitation-question-hints.md` | Reader: future elicitation/gap guidance if kernel prompts prove useful. Blocker: no current runtime kernel ontology; must not create a parallel data model or prompt taxonomy without a concrete reader. | Kernel terminology is interviewer machinery at most, not graph state and not runtime session state. | Defer. Mine only specific checkability/question patterns if a later scope names a reader. |
+| `docs/design/BEHAVIORAL_KERNELS.md` | skill-local-reference input; backstage-only rationale; historical/archive candidate | oracle checkability phrasing in `generate-proposal/references/oracle.md`; possible future `elicitation-question-hints.md` | Reader: oracle generate guidance for weakest-sufficient verification artifacts; future elicitation/gap guidance only if a scoped reader appears. Blocker: no current runtime kernel ontology; must not create a parallel data model or prompt taxonomy without a concrete reader. | Kernel terminology is interviewer machinery at most, not graph state and not runtime session state. | Accepted only as skill-local oracle prompting for progressive verification artifacts; kernel labels/taxonomy remain rejected as runtime model and deferred for elicitation questions. |
 | `src/agents/skills/methods/capture/SKILL.md` | leave-as-is; authored-runtime-reference input; partially materialized | `graph-authoring-heuristics.md` materialized; `checkability-ladder.md` deferred | Reader: capture now cites the shared authoring reference for declarative graph claims, low-confidence routing, contradiction routing, relation-bearing confidence, and role-named mutation grammar. FE-861 sweep sequencing, gap conduct, and commitment-gradient table remain local. | Method is a prompt-resource id, not runtime state. No D98 issue while it stays code-owned prompt-resource conduct. | Materialized shared graph-authoring guidance; defer checkability-ladder extraction until a second concrete reader needs it. |
 | `src/agents/skills/methods/commit-graph/SKILL.md` | leave-as-is; authored-runtime-reference input; materialized | `graph-authoring-heuristics.md` | Reader: graph-write methods needing declarative-node, promotion, settled-commitment, confident-endpoint, and role-named mutation discipline. | Method remains prompt-resource conduct; do not make it a user-changeable runtime mode. | Materialized shared authoring reference and cite from this method; remaining direct-commit sequencing stays local. |
 | `src/agents/skills/methods/generate-proposal/SKILL.md` | leave-as-is; skill-local-reference input; authored-runtime-reference input | `proposal-meta-rubric.md`; `projection-guidance.md` | Reader: current generate method and future project design. Blocker: proposal meta-rubric might belong skill-local unless `project` becomes a second reader. | Names intent/design/oracle lenses/planes as prompt conduct; keep out of runtime state and schema fields. | Leave body unchanged now. Revisit after `elicitor-project` design chooses whether projection folds into generate or needs a distinct surface. |
 | `src/agents/skills/methods/generate-proposal/references/intent.md` | leave-as-is; skill-local-reference input | `proposal-meta-rubric.md` only if shared beyond generate | Reader: generate intent-plane fan-out. Blocker: no second reader yet. | Plane-specific prompt payload is okay; do not turn `pick` into a schema/runtime field. | Leave in skill-local home. |
 | `src/agents/skills/methods/generate-proposal/references/design.md` | leave-as-is; skill-local-reference input | `proposal-meta-rubric.md`; possible `projection-guidance.md` | Reader: generate design-plane fan-out and possible future project design. Blocker: A33-L design verdict. | `synthesize` is method conduct, not schema or runtime axis. | Leave in skill-local home; use as input to `project` design only if that frontier needs it. |
-| `src/agents/skills/methods/generate-proposal/references/oracle.md` | leave-as-is; skill-local-reference input | `proposal-meta-rubric.md`; `checkability-ladder.md` | Reader: generate oracle-plane fan-out; possible future oracle/checkability guidance. Blocker: avoid mixing verification-strategy guidance with graph ontology unless a concrete citing need appears. | `compose` is method conduct, not schema or runtime axis. | Leave in skill-local home; selectively mine oracle-family/checkability phrasing if a later shared reference has multiple readers. |
+| `src/agents/skills/methods/generate-proposal/references/oracle.md` | leave-as-is; skill-local-reference input; materialized | `proposal-meta-rubric.md`; skill-local progressive-checkability guidance | Reader: generate oracle-plane fan-out and fan-in. | `compose` and progressive-checkability language are method conduct, not schema fields, stored claim metadata, or runtime axes. | Materialized the accepted narrow verdict here: choose the weakest sufficient oracle artifact and name evidence breadth/blind spots without adding `checkability`, `strength`, kernel, or subtype schema. |
 
 ## Candidate reference queue
 
@@ -51,24 +51,22 @@ tree context-reference-candidates:
       - low-confidence and contradiction routing
       - relation-bearing endpoint confidence
       - role-named mutate_graph grammar
-    deferred:
-      - checkability ladder
-      - constraint/invariant subtype enums
+    rejected_or_deferred:
+      - claim-level checkability / strength fields (rejected carrying cost)
+      - constraint/invariant subtype enums (rejected parallel ontology)
       - generated edge-category/detail-form tables (materialized in graph-ontology.md)
     d98_guard: method vocabulary allowed only as prompt conduct
 
   checkability-ladder.md:
-    home: src/agents/contexts/references/ or skill-local oracle reference, depending on readers
-    readers:
-      - oracle generate/project guidance
-      - future elicitation question/gap guidance, if checkability becomes cross-method
-    likely inputs:
-      - recovered progressive checkability ladder
-      - BEHAVIORAL_KERNELS artifact shapes
-      - oracle reference's oracle-family / blind-spot guidance
-    blockers:
-      - decide whether the 8-rung ladder and strength field are ruled in or out by data-model-legibility acceptance
-      - keep criterion/check/vv_obligation vocabulary aligned with live schema
+    status: rejected as shared runtime reference for now
+    verdict:
+      - no new context reference: only `generate-proposal/references/oracle.md` has a concrete present reader
+      - no schema fields: do not add `checkability`, `strength`, `validTraces`, or `invalidTraces` to graph nodes
+      - accepted nucleus: oracle prompting should choose the weakest sufficient verification artifact and name evidence breadth plus blind spots
+    materialized_in:
+      - src/agents/skills/methods/generate-proposal/references/oracle.md
+    deferred:
+      - future elicitation question/gap guidance may reopen shared reference status only with a second concrete reader
     d98_guard: no new runtime lens/kernel state
 
   elicitation-question-hints.md:
@@ -107,6 +105,38 @@ tree context-reference-candidates:
       - A33-L project design verdict
       - decide whether projection is generate-with-upstream-input or distinct surface
     d98_guard: no revival of project strategy/lens/method as user-changeable state
+```
+
+## Closed verdict: checkability, subtypes, and inert detail facets
+
+```pseudo
+tree data-model-legibility-verdict:
+  accepted:
+    graph-authoring promotion rules:
+      home: src/agents/contexts/references/graph-authoring-heuristics.md
+      readers: [capture, commit-graph]
+    generated vocabulary tables:
+      home: src/agents/contexts/references/graph-ontology.md
+      source: typed graph schema and policy only
+    oracle progressive-checkability conduct:
+      home: src/agents/skills/methods/generate-proposal/references/oracle.md
+      reader: generate-proposal oracle plane
+      rule: choose the weakest sufficient oracle artifact and disclose evidence breadth/blind spots
+  rejected_carrying_cost:
+    graph node fields: [checkability, strength, validTraces, invalidTraces]
+    subtype enums: [constraint subtype, invariant subtype, criterion subtype, example subtype]
+    reason: no current reader needs a stored axis beyond kind, readiness band, edge policy, and detail.form
+  already_covered:
+    method-specific claim structure:
+      mechanism: detail.form
+      guard: kind drives behavior; form is inert payload plus renderer hook
+    negative/positive examples:
+      mechanism: example kind + edge stance/category policy where structurally legal
+  deferred:
+    elicitation question hints:
+      trigger: a future scoped reader needs reusable question patterns
+    project/projection guidance:
+      trigger: A33-L design verdict
 ```
 
 ## Runtime/backstage guardrails

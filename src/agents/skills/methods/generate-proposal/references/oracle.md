@@ -4,7 +4,9 @@ Use this reference when the active lens is `oracle` and the user needs alternati
 
 The oracle plane fan-in move is **compose**. Verification-design alternatives are additive: one family may catch semantic drift, another may catch schema breakage, and another may make human judgment repeatable. Redundancy across independent oracle families is a feature when it reduces bad degrees of freedom at acceptable cost.
 
-Fan out oracle ensembles, not isolated checks. Each candidate should name:
+Fan out oracle ensembles, not isolated checks. Choose the weakest sufficient oracle artifact for the claim at hand: human review, concrete example/counterexample, regression or golden, runtime contract, property/model-based rule, probe/transcript, or proof obligation. Treat that as verification conduct only — do not add graph node fields such as `checkability`, `strength`, or trace lists.
+
+Each candidate should name:
 
 - **Observability**: what the system exposes that lets the oracle see the behavior.
 - **Reproducibility**: whether the observation can be replayed or fixture-backed.
@@ -12,6 +14,7 @@ Fan out oracle ensembles, not isolated checks. Each candidate should name:
 - **Oracle family**: schema/static check, fixture/golden, property/model-based, probe/transcript, visual/manual review, or another locally justified family.
 - **Fixture/probe commitments**: what artifacts must be kept, refreshed, or run to make the oracle repeatable.
 - **Loop tier**: inner, middle, or outer, with verification economics named.
+- **Evidence breadth**: whether the claim is reviewed, example-backed, regression-covered, enforced, or proved, without storing that breadth as graph metadata.
 - **Blind spots**: what the oracle misses, its false-positive shape, and the trigger for revisiting it.
 
 Use the D31-L meta-rubric through the verification-design column:

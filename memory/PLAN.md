@@ -69,10 +69,11 @@ context-pipeline/
 
 ### Active
 
-- None. `elicitor-generate` is tied off pending branch submission; the next frontier is `elicitor-project`.
+- No active frontier is selected. Scope the next item from §Next.
 
 ### Recently Completed
 
+- 2026-06-26 `data-model-legibility` (FE-1090) — **reference substrate complete.** Generated ontology tables are materialized from typed graph sources with `check:data-model`; authored graph-authoring heuristics are cited by `capture` + `commit-graph`; the final checkability/subtype audit closed with no schema/runtime expansion: progressive checkability is accepted only as skill-local oracle conduct, `checkability`/`strength` fields are rejected carrying cost, subtype enums are rejected as parallel ontology, and `detail.form` remains inert payload plus renderer hook.
 - 2026-06-25 `elicitor-generate` (FE-1059) — **generate capability done through promoted A31-L fan-out evidence.** Built slices: `present_candidates` tool/projection/renderer + pick path; intent/design/oracle facets under one plane-parameterized `generate-proposal` method; progressive-disclosure references; real-boot activation check; and real-model fan-out witness harness. Promoted run `.fixtures/runs/generate-fan-out/2026-06-24T16-51-13-704Z/` passed with `openai-codex/gpt-5.5`: oracle lens pinned, `SKILL.md` and `references/oracle.md` read, `present_candidates` emitted, no pre-prompt kick, no graph delta, no `mutate_graph`, and no approved review result. A32-L fan-in completion and the A1 anti-prompt remain follow-ups, not branch debt.
 - 2026-06-24 `subagent-reconciliation` (FE-1054) — foreground/background reconciliation complete through the execute-mode readiness target (D90-L-D93-L/I49-L): shared `AgentManifest`, code-owned background discovery, semi-permeable injected-world child sessions, sovereign grants gated by code-owned `canDelegate`, return rendering, and live `execute` -> `orchestrator` mode with a product-registered stub tool. `code` -> `pi-coder` remains future work.
 - 2026-06-24 `readiness-bands-interrogation` (FE-1058) — D94-L/I50-L materialized: derived four-band ladder, two carriers (`gap.band` for asking agenda, plane-derived node bands for projection thresholds), per-kind table deleted, `projection` band added, and goldens/readers reconciled.
@@ -82,7 +83,6 @@ context-pipeline/
 
 - `orchestrator-tool-port` (FE-1087) — **scoped but D98-sensitive.** Port the external `brunch cook` orchestrator into the future CODE/executor tool surface rather than preserving a separate execute/orchestrator product mode. First active scope: `memory/cards/orchestrator-tool-port--plan-check-tool.md`; reconcile that scope against D98-L before build.
 - `elicitor-project` (FE-1085) — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
-- `data-model-legibility` — **active.** Single active frontier for the SPEC-mode data-model/reference substrate and pattern-establishment sweep (D97-L/D98-L): generated graph-ontology references, authored graph-authoring/checkability/projection guidance, skill citation/pruning, and stale-doc disposition under `src/agents/`. Design verdict landed (Shape C); first tracer landed and its topology correction moved the generated kind→band table + `check:data-model` drift guard into `src/agents/contexts/references/graph-ontology.md`, cited by `methods/capture`. The shared authored `graph-authoring-heuristics.md` reference is now materialized and cited by `capture` + `commit-graph`; generated edge-category + detail/form tables are now materialized from typed graph sources in `graph-ontology.md`. Remaining rows are evaluated one at a time: checkability guidance and subtypes/`detail` remodel review.
 - `renderer-golden-coverage` — **active parallel coverage track.** Remaining RENDER work lives by audience: model-facing context surfaces under `agents/contexts/`, human/product text beside its app/session owner. Remaining rows need fresh scoping against `src/agents/contexts/README.md`, `src/app/README.md`, and `src/session/README.md`.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 
@@ -140,19 +140,18 @@ context-pipeline/
 ### data-model-legibility
 
 - **Name:** Single canonical home for data-model meta-guidance + generation seam
-- **Linear:** tbd
-- **Branch:** tbd
+- **Linear:** [FE-1090](https://linear.app/hash/issue/FE-1090/data-model-legibility-reference-substrate)
+- **Branch:** `ln/fe-1090-data-model-legibility-reference-substrate`
 - **Kind:** structural / design + build
-- **Status:** active; design verdict landed (`ln-design`: Shape C — two layers behind one index). First tracer-bullet **landed and topology-corrected**: generated kind→band table at `src/agents/contexts/references/graph-ontology.md` + `check:data-model` drift guard (wired into `npm run check`), cited by `methods/capture`, with packaged runtime asset copy for `contexts/references/`. Load-bearing claim 1 (typed `graph/schema` sources are the closed, importable vocabulary set — D73-L) validated by the generator while `src/agents/contexts/references/` is now the runtime-eligible reference home. The authored graph-authoring heuristics row is materialized at `src/agents/contexts/references/graph-authoring-heuristics.md` and cited by `capture` + `commit-graph`; generated edge-category + detail/form tables are materialized in `graph-ontology.md` from `kinds.ts`, `nodes.ts`, and `category-policy.ts`. Remaining: checkability guidance verdict and the subtypes→`detail` remodel review.
+- **Status:** done. Design verdict landed (`ln-design`: Shape C — two layers behind one index). Generated kind→band, edge-category, and detail/form tables live at `src/agents/contexts/references/graph-ontology.md` with the `check:data-model` drift guard (wired into `npm run check`) and packaged runtime asset copy. The authored graph-authoring heuristics row lives at `src/agents/contexts/references/graph-authoring-heuristics.md` and is cited by `capture` + `commit-graph`. Final verdict: progressive checkability is accepted only as oracle skill conduct in `generate-proposal/references/oracle.md`; claim-level `checkability`/`strength` fields and subtype enums are rejected carrying cost; `detail.form` remains inert payload plus renderer hook.
 - **Certainty:** proving.
-- **Current execution pointer:** none active — re-scope the next slice (authored judgment layer, or further generated tables).
 - **Objective:** Recover + reconcile the retired `INTENT_GRAPH_SEMANTICS` content and adjacent heuristic docs into one SPEC-mode data-model reasoning substrate under `src/agents/`: runtime-eligible references in `src/agents/contexts/references/`, backstage curation notes in `src/agents/docs/`, and pruned/cited skill bodies. Generate the closed-vocabulary tables (planes / kinds / bands / edge-category policy / `detail` schemas) from typed graph sources so heuristics are **cited** (D97-L), not inlined and duplicated across skill bodies; align the result with D98-L's mode-only runtime posture.
 - **Acceptance:**
   - ✓ `ln-design` produced ≥3 module shapes for the home + generation seam with a recommendation (Shape C), before any doc/script.
   - ✓ The canonical-truth boundary is decided: what is generated from `kinds.ts` / `nodes.ts` / `category-policy.ts` vs authored judgment. Kind→band, edge-category policy, required detail, and `detail.form` tables are materialized in `src/agents/contexts/references/graph-ontology.md`.
-  - Subtypes/`detail` modelling review: each retired subtype family sorted into `kind` (behavior-bearing), `detail` facet (inert classification), or already-covered; decide whether an inert `detail` facet dimension earns its carrying cost given the kind/band/form machinery already discriminates.
-  - The two capture gaps are explicitly ruled in or out: constraint/invariant subtype enums; the 8-rung checkability ladder + `strength`.
-  - Skill bodies cite the new home (D97-L); inlined heuristic copies collapse to one cite-target. `capture` + `commit-graph` now cite `graph-authoring-heuristics.md` for shared graph-authoring judgment.
+  - ✓ Subtypes/`detail` modelling review: retired subtype families are rejected as parallel ontology; method-specific structure is already covered by inert `detail.form` from typed sources.
+  - ✓ The two capture gaps are explicitly ruled in or out: constraint/invariant subtype enums are rejected as parallel ontology; the 8-rung checkability ladder is narrowed to oracle skill conduct; `strength` / claim-level checkability fields are rejected carrying cost.
+  - ✓ Skill bodies cite the new home (D97-L); inlined heuristic copies collapse to one cite-target. `capture` + `commit-graph` now cite `graph-authoring-heuristics.md` for shared graph-authoring judgment; oracle checkability conduct stays skill-local in `generate-proposal/references/oracle.md`.
   - ✓ A drift guard (`check:data-model`, mirroring `check:skills`, wired into `npm run check`) fails if the generated reference diverges from the typed sources.
   - If `ln-design` splits this into recover-doc / build-generator / subtypes-remodel frontiers, create a `data-model-legibility` arc per §Initiatives.
 - **Traceability:** D73-L (domain owns vocabulary), D88-L (`detail` form union), D97-L (heuristic provenance), D98-L (SPEC/CODE mode-only runtime posture); un-defers and relocates the generated-reference pattern into `src/agents/contexts/references/`; relates to `elicitor-project` (A33-L, shared D97-L rule).
@@ -183,8 +182,7 @@ context-pipeline/
 
 ```text
 frontiers:
-  Active:
-    none
+  Active: {}
 
   Next:
     orchestrator-tool-port
@@ -195,11 +193,6 @@ frontiers:
     elicitor-project
       status: design-gated
       depends_on: elicitor-generate, D95-L, D96-L, I51-L
-
-    data-model-legibility
-      status: active (design landed Shape C; first tracer landed and topology-corrected)
-      depends_on: graph/schema typed sources (kinds.ts, nodes.ts, category-policy.ts), D73-L, D88-L, D97-L, D98-L
-      materialized: src/agents/contexts/references/graph-ontology.md + check:data-model
 
     renderer-golden-coverage
       status: active parallel coverage

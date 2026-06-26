@@ -58,13 +58,7 @@
           {
             "patterns": [
               {
-                "group": [
-                  "**/.pi/**",
-                  "**/app/**",
-                  "**/db/**",
-                  "**/rpc/**",
-                  "**/web/**"
-                ],
+                "group": ["**/.pi/**", "**/app/**", "**/db/**", "**/rpc/**", "**/web/**"],
                 "message": "D52-L/D83-L: agents/contexts/ is model-facing render code; it must not import adapters, app entrypoints, transports, web, or db."
               }
             ]
