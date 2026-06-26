@@ -18,7 +18,7 @@ import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
 } from '../.pi/extensions/dev-mode/index.js';
-import { isBrunchDevEnabled } from '../dev/brunch-dev.js';
+import { isBrunchDevelopmentRuntime } from '../build-info.js';
 import {
   openWorkspaceGraphRuntime,
   type EdgeCategory,
@@ -104,7 +104,8 @@ export interface BrunchTuiLaunchContext {
   };
   webSidecarUrl?: string;
   activationDecision?: SpecSessionActivationDecision;
-  dev?: BrunchTuiDevOptions;
+  introspection?: BrunchTuiIntrospectionOptions;
+  allowSubagents?: boolean;
   reportAsyncDiagnostic?: (diagnostic: { readonly type: 'warning'; readonly message: string }) => void;
   /**
    * Provider-backend substitution seam (faux provider in Tier-2 oracles).
@@ -122,12 +123,10 @@ export interface BrunchAgentServicesOverride extends Pick<
   readonly model?: CreateAgentSessionFromServicesOptions['model'];
 }
 
-export interface BrunchTuiDevOptions {
-  readonly introspection: {
-    readonly enabled: true;
-    readonly store: BrunchIntrospectionStore;
-    readonly debugCache: { readonly cwd: string };
-  };
+export interface BrunchTuiIntrospectionOptions {
+  readonly store: BrunchIntrospectionStore;
+  readonly queryTools: boolean;
+  readonly debugCache?: { readonly cwd: string };
 }
 
 export interface BrunchTuiOptions {
@@ -141,6 +140,10 @@ export interface BrunchTuiOptions {
   webSidecarRunner?: (options: BrunchWebSidecarRunnerOptions) => Promise<BrunchWebSidecar | null>;
   /** Opt-in (`--open-web`): launch the web sidecar URL in the default browser. */
   openWeb?: boolean;
+  /** Opt-in prompt-affecting developer tools such as query tools and subagents. */
+  developerTools?: boolean;
+  /** Override the automatic source/dev-build debug-cache default. */
+  debugMirror?: boolean;
   openBrowser?: (url: string) => Promise<void>;
   advertiseWebSidecar?: (url: string) => void;
 }
@@ -166,7 +169,11 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   const inventory = await coordinator.inspectWorkspace();
   const decision = await chooseSpecSessionActivationDecision(inventory, options);
   const workspaceState = await coordinator.activateWorkspace(decision);
-  const dev = createBrunchTuiDevOptions(cwd);
+  const developerTools = options.developerTools === true;
+  const introspection = createBrunchTuiIntrospection(cwd, {
+    debugMirror: options.debugMirror ?? isBrunchDevelopmentRuntime(),
+    queryTools: developerTools,
+  });
 
   if (workspaceState.status === 'cancelled') {
     return;
@@ -200,9 +207,10 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
       sessionEvents,
       sessionTurnDriver,
       liveExchange,
+      allowSubagents: developerTools,
+      ...(introspection ? { introspection } : {}),
       ...(webSidecarUrl ? { webSidecarUrl } : {}),
       activationDecision: decision,
-      ...(dev ? { dev } : {}),
       reportAsyncDiagnostic: (diagnostic) => {
         process.stderr.write(`[brunch] ${diagnostic.message}\n`);
       },
@@ -213,14 +221,15 @@ export async function runBrunchTui(options: BrunchTuiOptions = {}): Promise<void
   }
 }
 
-function createBrunchTuiDevOptions(cwd: string): BrunchTuiDevOptions | undefined {
-  if (!isBrunchDevEnabled()) return undefined;
+function createBrunchTuiIntrospection(
+  cwd: string,
+  options: { readonly debugMirror: boolean; readonly queryTools: boolean },
+): BrunchTuiIntrospectionOptions | undefined {
+  if (!options.debugMirror && !options.queryTools) return undefined;
   return {
-    introspection: {
-      enabled: true,
-      store: createInMemoryBrunchIntrospectionStore(),
-      debugCache: { cwd },
-    },
+    store: createInMemoryBrunchIntrospectionStore(),
+    queryTools: options.queryTools,
+    ...(options.debugMirror ? { debugCache: { cwd } } : {}),
   };
 }
 
@@ -398,7 +407,7 @@ export function createBrunchAgentSessionRuntimeFactory(
     const startupHeader = startupHeaderForActivation(context.activationDecision);
     const agentState = projectBrunchAgentState(sessionManager.getEntries());
     const foregroundAgent = agentState.agentRoleDefinition;
-    const subagents = context.dev
+    const subagents = context.allowSubagents
       ? await loadBrunchSubagents({
           cwd,
           agentDir: runtimeAgentDir,
@@ -434,7 +443,7 @@ export function createBrunchAgentSessionRuntimeFactory(
             ...(productUpdates ? { productUpdates } : {}),
             graph: graphDeps,
             ...(context.liveExchange ? { liveExchange: context.liveExchange.awaiter } : {}),
-            ...(context.dev ? { introspection: context.dev.introspection } : {}),
+            ...(context.introspection ? { introspection: context.introspection } : {}),
             ...(subagents ? { subagents } : {}),
             promptContext: () => {
               const specId = currentWorkspace.spec.id;
@@ -464,11 +473,11 @@ export function createBrunchAgentSessionRuntimeFactory(
       strategy: agentState.agentStrategy === 'freestyle' ? 'freestyle' : 'auto',
       manager: sessionManager,
     });
-    if (context.dev) {
+    if (context.introspection?.debugCache) {
       // Boot-time mirror is awaited (cheap, local fs) so a dev boot is
       // observable the moment the runtime exists; turn-time mirrors in the
       // reconciler/guard stay fire-and-forget.
-      const debugCache = context.dev.introspection.debugCache;
+      const debugCache = context.introspection.debugCache;
       for (const entry of origination.decision.seedEntries) {
         await appendEntryContentToDebugCache(debugCache, entry).catch(() => {});
       }
@@ -504,8 +513,8 @@ export function createBrunchAgentSessionRuntimeFactory(
       modelAvailable: services.modelRegistry.getAvailable().length > 0,
       sendCustomMessage: (message, options) => created.session.sendCustomMessage(message, options),
       onOutcome: (outcome) => {
-        if (context.dev) {
-          void appendOriginationRecordToDebugCache(context.dev.introspection.debugCache, {
+        if (context.introspection?.debugCache) {
+          void appendOriginationRecordToDebugCache(context.introspection.debugCache, {
             decision: origination.decision,
             outcome,
           }).catch(() => {});

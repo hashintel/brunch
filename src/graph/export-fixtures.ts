@@ -25,6 +25,14 @@ export interface ExportSeedFixtureInput {
   readonly show?: GraphVisibility;
 }
 
+export function exportSeedFixtureFromWorkspace(
+  workspace: string,
+  input: ExportSeedFixtureInput,
+): SeedFixture {
+  const db = createDb(join(resolve(workspace), '.brunch', 'data.db'));
+  return exportSeedFixture(db, input);
+}
+
 export function exportSeedFixture(db: BrunchDb, input: ExportSeedFixtureInput): SeedFixture {
   const spec = db.select().from(schema.specs).where(eq(schema.specs.id, input.specId)).get();
   if (!spec) throw new Error(`exportSeedFixture: spec ${input.specId} does not exist`);
@@ -151,8 +159,7 @@ function usage(): string {
 
 async function main(): Promise<void> {
   const args = parseCliArgs(process.argv.slice(2));
-  const db = createDb(join(resolve(args.workspace), '.brunch', 'data.db'));
-  const fixture = exportSeedFixture(db, {
+  const fixture = exportSeedFixtureFromWorkspace(args.workspace, {
     specId: args.specId,
     ...(args.show === undefined ? {} : { show: args.show }),
   });

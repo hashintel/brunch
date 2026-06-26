@@ -7,7 +7,6 @@ import type {
   DefaultWorkspaceCoordinator,
   SpecSessionActivationCoordinator,
 } from '../session/workspace-session-coordinator.js';
-import { devGraphRpcMethods } from './methods/dev-graph.js';
 import { graphRpcMethods } from './methods/graph.js';
 import {
   discoverRpcMethods,
@@ -65,12 +64,8 @@ export function createRpcHandlers(options: {
   coordinator: DefaultWorkspaceCoordinator & SpecSessionActivationCoordinator;
   cwd: string;
   productUpdates?: ProductUpdatePublisher;
-  devRpc?: boolean;
 }): RpcHandlers {
-  return createRpcHandlersForRegistry(
-    options,
-    options.devRpc ? [...FULL_RPC_METHOD_REGISTRY, ...devGraphRpcMethods] : FULL_RPC_METHOD_REGISTRY,
-  );
+  return createRpcHandlersForRegistry(options, FULL_RPC_METHOD_REGISTRY);
 }
 
 function createRpcHandlersForRegistry(

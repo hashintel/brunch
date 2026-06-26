@@ -20,7 +20,7 @@ this workbench cwd:
 npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding
 
 # Dev build, against TS source (no build step needed)
-npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode print
+npm run dev -- --workspace .fixtures/workbenches/live-graph-observer --mode print
 
 # Built bin (after `npm run build`)
 node bin/brunch.js --cwd .fixtures/workbenches/live-graph-observer --mode print
@@ -62,7 +62,7 @@ Launch the TUI sidecar against this workbench:
 
 ```sh
 # Terminal A: TUI writer plus web observer sidecar
-npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode tui
+npm run dev -- --workspace .fixtures/workbenches/live-graph-observer
 ```
 
 The host prints a localhost URL such as:

@@ -47,7 +47,7 @@ canonical stores:
     worldUpdate entries
 ```
 
-RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. The current graph read subset is deliberately limited to `graph.overview` and `graph.nodeNeighborhood`; `src/graph/README.md` owns the observed-shape ledger and decides which graph-owned shapes are required, deferred, or not applicable per consumer. Mutations route through the owning product seam: session transcript operations through `session.*`, review-set approval through `session.submitExchangeResponse` → `CommandExecutor.acceptReviewSet`, and other graph mutations through the agent/tool or `CommandExecutor` path that owns them. High-confidence capture is elicitor turn-boundary sweep conduct (D80-L), not a submit-path mutation. `dev.*` is the only exception family: methods in that namespace are explicitly gated local harnesses, absent from default discovery and absent from the read-only sidecar.
+RPC handlers must not become a generic records API, REST read model, or canonical view store. Reads are named projections over the store that owns the fact. The current graph read subset is deliberately limited to `graph.overview` and `graph.nodeNeighborhood`; `src/graph/README.md` owns the observed-shape ledger and decides which graph-owned shapes are required, deferred, or not applicable per consumer. Mutations route through the owning product seam: session transcript operations through `session.*`, review-set approval through `session.submitExchangeResponse` → `CommandExecutor.acceptReviewSet`, and other graph mutations through the agent/tool or `CommandExecutor` path that owns them. High-confidence capture is elicitor turn-boundary sweep conduct (D80-L), not a submit-path mutation. Local fixture curation now lives outside public RPC on the explicit dev CLI (`npm run dev -- mutate ...`).
 
 ## Method registry
 
@@ -57,8 +57,7 @@ Method discovery and dispatch come from the same registry. A method not present 
 rpc/
 ├── handlers.ts
 │   ├── createRpcHandlers(...)            -> default full registry
-│   ├── createRpcHandlers({devRpc})       -> full registry plus gated dev.* harnesses
-│   ├── createReadOnlyRpcHandlers(...)    -> read-only registry, never dev.*
+│   ├── createReadOnlyRpcHandlers(...)    -> read-only registry
 │   ├── createWebSidecarRpcHandlers(...)  -> driver registry; live methods only with handles
 │   └── rpc.discover                      -> discovery over active registry
 └── methods/
@@ -68,7 +67,6 @@ rpc/
     ├── session-driver.ts              -> live AgentSession driver method
     ├── session-exchange-answer.ts     -> live exchange answer method
     ├── graph.ts                       -> graph.* handlers
-    ├── dev-graph.ts                   -> gated dev.graph.* fixture-curation harness
     └── schemas.ts                     -> shared protocol schemas
 ```
 
@@ -90,15 +88,6 @@ full RPC host:
     session.triggerExchange
     session.submitExchangeResponse
     session.submitMessage
-
-dev-enabled full RPC host only:
-  writes:
-    dev.graph.mutateGraph
-  absent unless:
-    createRpcHandlers({devRpc: true}) or BRUNCH_DEV=1 in CLI rpc mode
-  still absent from:
-    default full RPC discovery
-    TUI-started web sidecar
 
 TUI-started web sidecar without live driver handle:
   reads:
@@ -265,24 +254,6 @@ graph.nodeNeighborhood
   params: {specId, nodeId, hops?}
   result: success(anchor, neighbors, edges) | not_found
   source: SQLite graph reader for the explicit spec
-
-dev.graph.mutateGraph
-  access: write
-  params:
-    specId
-    createBasis?: explicit | implicit
-    ops:
-      - {op: create_node, ref, plane, kind, title, body?, source?, detail?}
-      - {op: create_edge, category, <role-named-endpoints>, stance?, rationale?}
-        role-named endpoints: batch ref | {existingCode}
-      - {op: patch_node, node: {existingCode}, patch}
-      - {op: patch_edge, edgeId, patch}
-      - {op: delete_edge, edgeId}
-      - {op: delete_node, node: {existingCode}, deleteIncidentEdges?}
-  result: success(lsn, createdNodes, createdEdges, updatedNodes, updatedEdges, deletedNodes, deletedEdges) | structural_illegal(diagnostics)
-  effects: resolves projected node codes / selected-spec edge ids at the boundary, commits atomically through `CommandExecutor.mutateGraph`, and publishes graph projection invalidations
-  gate: explicit local harness only; absent from default public RPC and read-only sidecars
-  caveat: local curation harness only; product-path proof still comes from transcript-backed `mutate_graph` tool runs
 ```
 
 ## Product update notifications

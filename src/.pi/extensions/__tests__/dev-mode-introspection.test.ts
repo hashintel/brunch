@@ -237,7 +237,7 @@ describe('Brunch introspection extension', () => {
     const devApi = createFakeExtensionApi();
     await createBrunchPiExtensions(brunchChromeFixture, undefined, {
       coordinator: {} as never,
-      introspection: { enabled: true, store: createInMemoryBrunchIntrospectionStore() },
+      introspection: { queryTools: true, store: createInMemoryBrunchIntrospectionStore() },
     })(devApi.api as never);
 
     expect(devApi.commandNames.at(-1)).toBe(BRUNCH_INTROSPECTION_COMMAND);
@@ -257,7 +257,7 @@ describe('Brunch introspection extension', () => {
     const devApi = createFakeExtensionApi();
     await createBrunchPiExtensions(brunchChromeFixture, undefined, {
       coordinator: {} as never,
-      introspection: { enabled: true, store: createInMemoryBrunchIntrospectionStore() },
+      introspection: { queryTools: true, store: createInMemoryBrunchIntrospectionStore() },
     })(devApi.api as never);
     await devApi.emitBeforeAgentStart({ systemPrompt: 'base' });
 

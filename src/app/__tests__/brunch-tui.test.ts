@@ -206,72 +206,63 @@ describe('Brunch TUI boot', () => {
     ]);
   });
 
-  it('threads BRUNCH_DEV introspection state into the interactive launch context', async () => {
-    const previous = process.env.BRUNCH_DEV;
+  it('mirrors debug cache by default in source runs and gates query tools behind developerTools', async () => {
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
     const observed: unknown[] = [];
 
-    try {
-      process.env.BRUNCH_DEV = '1';
-      await runBrunchTui({
-        cwd: '/tmp/project',
-        coordinator: {
-          inspectWorkspace: async () => ({
-            cwd: '/tmp/project',
-            currentSpec: workspace.spec,
-            currentSessionFile: workspace.session.file,
-            needsNewSpec: false,
-            specs: [],
-            unavailableSessions: [],
-          }),
-          activateWorkspace: async () => workspace,
-          bindCurrentSpecToReplacementSession: async () => workspace,
-        },
-        runWorkspaceDialogPreflight: async () => ({
-          action: 'continue',
-          specId: workspace.spec.id,
-          sessionFile: workspace.session.file,
+    await runBrunchTui({
+      cwd: '/tmp/project',
+      coordinator: {
+        inspectWorkspace: async () => ({
+          cwd: '/tmp/project',
+          currentSpec: workspace.spec,
+          currentSessionFile: workspace.session.file,
+          needsNewSpec: false,
+          specs: [],
+          unavailableSessions: [],
         }),
-        webSidecarRunner: async () => null,
-        launchInteractive: async ({ dev }) => {
-          observed.push(dev?.introspection.enabled);
-          expect(dev?.introspection.store).toBeDefined();
-          expect(dev?.introspection.debugCache).toEqual({ cwd: '/tmp/project' });
-        },
-      });
+        activateWorkspace: async () => workspace,
+        bindCurrentSpecToReplacementSession: async () => workspace,
+      },
+      developerTools: true,
+      runWorkspaceDialogPreflight: async () => ({
+        action: 'continue',
+        specId: workspace.spec.id,
+        sessionFile: workspace.session.file,
+      }),
+      webSidecarRunner: async () => null,
+      launchInteractive: async ({ introspection }) => {
+        observed.push(introspection?.queryTools);
+        expect(introspection?.store).toBeDefined();
+        expect(introspection?.debugCache).toEqual({ cwd: '/tmp/project' });
+      },
+    });
 
-      delete process.env.BRUNCH_DEV;
-      await runBrunchTui({
-        cwd: '/tmp/project',
-        coordinator: {
-          inspectWorkspace: async () => ({
-            cwd: '/tmp/project',
-            currentSpec: workspace.spec,
-            currentSessionFile: workspace.session.file,
-            needsNewSpec: false,
-            specs: [],
-            unavailableSessions: [],
-          }),
-          activateWorkspace: async () => workspace,
-          bindCurrentSpecToReplacementSession: async () => workspace,
-        },
-        runWorkspaceDialogPreflight: async () => ({
-          action: 'continue',
-          specId: workspace.spec.id,
-          sessionFile: workspace.session.file,
+    await runBrunchTui({
+      cwd: '/tmp/project',
+      coordinator: {
+        inspectWorkspace: async () => ({
+          cwd: '/tmp/project',
+          currentSpec: workspace.spec,
+          currentSessionFile: workspace.session.file,
+          needsNewSpec: false,
+          specs: [],
+          unavailableSessions: [],
         }),
-        webSidecarRunner: async () => null,
-        launchInteractive: async ({ dev }) => {
-          observed.push(dev);
-        },
-      });
-    } finally {
-      if (previous === undefined) {
-        delete process.env.BRUNCH_DEV;
-      } else {
-        process.env.BRUNCH_DEV = previous;
-      }
-    }
+        activateWorkspace: async () => workspace,
+        bindCurrentSpecToReplacementSession: async () => workspace,
+      },
+      debugMirror: false,
+      runWorkspaceDialogPreflight: async () => ({
+        action: 'continue',
+        specId: workspace.spec.id,
+        sessionFile: workspace.session.file,
+      }),
+      webSidecarRunner: async () => null,
+      launchInteractive: async ({ introspection }) => {
+        observed.push(introspection);
+      },
+    });
 
     expect(observed).toEqual([true, undefined]);
   });
@@ -286,7 +277,7 @@ describe('Brunch TUI boot', () => {
       undefined,
       {
         coordinator: noOpWorkspaceCoordinator('/tmp/project'),
-        introspection: { enabled: true, store },
+        introspection: { store },
       },
     )({
       on: (event: string) => events.push(event),
@@ -1220,7 +1211,6 @@ describe('Brunch TUI boot', () => {
     expect(settingsManager.getImageAutoResize()).toBe(true);
     expect(settingsManager.getBlockImages()).toBe(false);
     expect(settingsManager.getTransport()).toBe('auto');
-    expect(settingsManager.getThemeSetting()).toBeUndefined();
     expect(settingsManager.getTheme()).toBeUndefined();
     expect(settingsManager.getLastChangelogVersion()).toBeUndefined();
     expect(settingsManager.getCollapseChangelog()).toBe(false);

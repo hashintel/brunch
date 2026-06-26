@@ -285,29 +285,19 @@ describe('Brunch CLI dispatch', () => {
     });
   });
 
-  it('gates dev RPC methods in CLI rpc mode behind BRUNCH_DEV=1', async () => {
-    const previous = process.env.BRUNCH_DEV;
+  it('keeps CLI rpc mode on the public method registry', async () => {
     const stdout = new PassThrough();
     const chunks = collectStream(stdout);
-    process.env.BRUNCH_DEV = '1';
-    try {
-      const code = await runBrunchCli({
-        argv: ['--mode=rpc'],
-        cwd: '/tmp/brunch-project',
-        coordinator: coordinator(),
-        stdin: rpcRequest('rpc.discover'),
-        stdout,
-      });
+    const code = await runBrunchCli({
+      argv: ['--mode=rpc'],
+      cwd: '/tmp/brunch-project',
+      coordinator: coordinator(),
+      stdin: rpcRequest('rpc.discover'),
+      stdout,
+    });
 
-      expect(code).toBe(0);
-      expect(JSON.stringify(JSON.parse(chunks.join('')))).toContain('dev.graph.mutateGraph');
-    } finally {
-      if (previous === undefined) {
-        delete process.env.BRUNCH_DEV;
-      } else {
-        process.env.BRUNCH_DEV = previous;
-      }
-    }
+    expect(code).toBe(0);
+    expect(JSON.stringify(JSON.parse(chunks.join('')))).not.toContain('dev.graph.mutateGraph');
   });
   it('uses --cwd product RPC to inspect the named workspace rather than the shell cwd', async () => {
     const shellCwd = await mkdtemp(join(tmpdir(), 'brunch-shell-'));

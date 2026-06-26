@@ -156,7 +156,7 @@ export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, '
 }
 
 export interface BrunchPiIntrospectionOptions extends BrunchIntrospectionOptions {
-  readonly enabled: boolean;
+  readonly queryTools?: boolean;
 }
 
 type BrunchProductExtensionRegistrar = (pi: ExtensionAPI) => void | Promise<void>;
@@ -188,11 +188,11 @@ export function createBrunchPiExtensions(
     // dev introspection query tools (D69-L) and the `subagent` tool (D44-L).
     const hasDelegatableSubagents = (options.subagents?.delegatableAgents.length ?? 0) > 0;
     const optInAllowedToolNames = [
-      ...(introspectionOptions?.enabled ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL] : []),
+      ...(introspectionOptions?.queryTools ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL] : []),
       ...(hasDelegatableSubagents ? [BRUNCH_SUBAGENT_TOOL] : []),
     ];
     const devAllowedToolNames = optInAllowedToolNames.length > 0 ? optInAllowedToolNames : undefined;
-    const entryDebugCache = introspectionOptions?.enabled ? introspectionOptions.debugCache : undefined;
+    const entryDebugCache = introspectionOptions?.debugCache;
     const continuitySteps = options.graph
       ? [
           createPrepareNextTurnContinuityStep(options.graph, options.continuityDrains, entryDebugCache),
@@ -253,17 +253,19 @@ export function createBrunchPiExtensions(
       // graph register, but they read through the same workspace graph runtime deps.
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchElicitation(api, options.graph!)] : []),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchReconciliation(api, options.graph!)] : []),
-      ...(introspectionOptions?.enabled
+      ...(introspectionOptions
         ? [
             (api: ExtensionAPI) => {
-              const { store, clock, debugCache } = introspectionOptions;
+              const { store, clock, debugCache, queryTools } = introspectionOptions;
               const introspectionStore = registerBrunchIntrospection(api, {
                 ...(store ? { store } : {}),
                 ...(clock ? { clock } : {}),
                 ...(debugCache ? { debugCache } : {}),
               });
-              registerBrunchSessionQuery(api);
-              registerBrunchIntrospectQuery(api, { store: introspectionStore });
+              if (queryTools) {
+                registerBrunchSessionQuery(api);
+                registerBrunchIntrospectQuery(api, { store: introspectionStore });
+              }
             },
           ]
         : []),
