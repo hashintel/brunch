@@ -13,7 +13,7 @@ import {
   formatGraphNodeCode,
   type NodeKind,
 } from '../../../graph/schema/nodes.js';
-import { markdownTable, joinMarkdownBlocks } from '../primitives/markdown.js';
+import { markdownTable, joinMarkdownBlocks } from '../../shared/markdown.js';
 
 /**
  * The full, uncapped graph overview — node codes/planes/kinds/titles plus the

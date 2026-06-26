@@ -17,11 +17,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  joinMarkdownBlocks,
-  markdownHeading,
-  markdownTable,
-} from '../../agents/contexts/primitives/markdown.js';
+import { joinMarkdownBlocks, markdownHeading, markdownTable } from '../../agents/shared/markdown.js';
 import { NODE_KINDS } from './kinds.js';
 import { bandsForKind, NODE_KIND_METADATA } from './nodes.js';
 

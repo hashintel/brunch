@@ -1,9 +1,9 @@
 import type { WorkspaceOverview } from '../../../session/workspace-overview-context.js';
 import type { WorkspaceCwdInventory, WorkspaceTopologyEntry } from '../../../workspace/cwd-inventory.js';
-import { inlineCode, joinMarkdownBlocks, markdownTable, markdownUl } from '../primitives/markdown.js';
-import { section } from '../primitives/section.js';
-import type { RenderTreeNode } from '../primitives/tree.js';
-import { renderTreeBlock } from '../primitives/tree.js';
+import { inlineCode, joinMarkdownBlocks, markdownTable, markdownUl } from '../../shared/markdown.js';
+import { section } from '../../shared/section.js';
+import type { RenderTreeNode } from '../../shared/tree.js';
+import { renderTreeBlock } from '../../shared/tree.js';
 
 export function renderWorkspaceContext(context: WorkspaceCwdInventory | WorkspaceOverview): string {
   return section(
