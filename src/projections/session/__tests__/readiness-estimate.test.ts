@@ -69,7 +69,7 @@ describe('readiness estimate projection', () => {
     expect(driverSource).not.toMatch(/NODE_KIND_METADATA|bandsForKind|schema\/nodes/);
 
     for (const relativePath of [
-      '../runtime-policy.ts',
+      '../../../agents/runtime/policy.ts',
       '../affordances.ts',
       '../../../agents/runtime/state.ts',
     ]) {

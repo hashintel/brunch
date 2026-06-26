@@ -36,8 +36,8 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
+import { pinnableAxisOptionsForRuntimeState } from '../../../agents/runtime/policy.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import { pinnableAxisOptionsForRuntimeState } from '../../../projections/session/runtime-policy.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import {
   AGENT_LENS_IDS,

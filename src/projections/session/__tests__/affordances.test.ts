@@ -3,10 +3,13 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import {
+  axisOptionsForRuntimeState,
+  pinnableAxisOptionsForRuntimeState,
+} from '../../../agents/runtime/policy.js';
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../session/runtime-state.js';
 import { affordances } from '../affordances.js';
-import { axisOptionsForRuntimeState, pinnableAxisOptionsForRuntimeState } from '../runtime-policy.js';
 import { resolveBrunchAgentState } from '../runtime-state.js';
 
 function resolved(overrides: Partial<typeof DEFAULT_BRUNCH_AGENT_STATE> = {}) {

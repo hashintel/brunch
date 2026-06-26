@@ -21,7 +21,7 @@ const runtimeRegistryExpectations = [
     forbidden: ['reviewer', 'pi-coder'],
   },
   {
-    file: 'src/projections/session/runtime-policy.ts',
+    file: 'src/agents/runtime/policy.ts',
     required:
       'export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeDefinition> = {',
     // `reviewer` is a non-write background agent that legitimately appears in

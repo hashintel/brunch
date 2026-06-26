@@ -1,9 +1,9 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { isToolBlockedForRuntimeState } from '../../../../agents/runtime/policy.js';
 import type { CommandResult } from '../../../../graph/command-executor.js';
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
-import { isToolBlockedForRuntimeState } from '../../../../projections/session/runtime-policy.js';
 import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../../session/runtime-state.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from './index.js';
 

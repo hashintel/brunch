@@ -1,3 +1,9 @@
+import {
+  axisOptionsForRuntimeState,
+  defaultLensForRuntimeState,
+  defaultStrategyForRuntimeState,
+  type ResolvedBrunchAgentState,
+} from '../../agents/runtime/policy.js';
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import type {
   AgentLensId,
@@ -5,12 +11,6 @@ import type {
   AgentStrategyId,
   AgentStrategySelection,
 } from '../../session/schema/kinds.js';
-import {
-  axisOptionsForRuntimeState,
-  defaultLensForRuntimeState,
-  defaultStrategyForRuntimeState,
-  type ResolvedBrunchAgentState,
-} from './runtime-policy.js';
 
 interface AxisAffordance<TId extends string, TSelection extends 'auto' | TId> {
   readonly selection: TSelection;

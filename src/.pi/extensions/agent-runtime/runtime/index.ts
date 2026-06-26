@@ -17,13 +17,13 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 
-import { activeToolNamesForPosture } from '../../../../agents/runtime/state.js';
-import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
-import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
 import {
   isToolBlockedForRuntimeState,
   toolPolicyForRuntimeState,
-} from '../../../../projections/session/runtime-policy.js';
+} from '../../../../agents/runtime/policy.js';
+import { activeToolNamesForPosture } from '../../../../agents/runtime/state.js';
+import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
 
 export { agentBodyResourceLocation } from '../../../../agents/runtime/state.js';
 
