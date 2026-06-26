@@ -236,4 +236,69 @@ describe('runCook brownfield promotion failures', () => {
     );
     expect(process.exitCode).toBe(0);
   });
+
+  it('reports the --out target branch and commit when greenfield export succeeds', async () => {
+    const { runCook } = await import('./cook-cli.js');
+    const sourceDir = makeDir('cook-run-greenfield-source-');
+    const runDir = makeDir('cook-run-greenfield-dir-');
+    const sandboxDir = join(runDir, 'worktree');
+    const outDir = join(sourceDir, 'out');
+    mkdirSync(sandboxDir, { recursive: true });
+    writeGreenfieldPlan(sourceDir);
+    mocks.createSandbox.mockReturnValue({ sandboxDir, runDir, runId: 'r1' });
+    mocks.engineRun.mockResolvedValue({
+      status: 'completed',
+      warnings: [],
+      reports: [],
+      epics: [{ epicId: 'e', status: 'completed' }],
+      slices: [{ sliceId: 'a', status: 'completed' }],
+    });
+    mocks.harvestGreenfieldRun.mockReturnValue({
+      branch: 'brunch/run/r1',
+      head: '1111111111111111',
+      commits: [],
+      conflicts: [],
+    });
+    mocks.checkoutRunBranchTree.mockImplementation(() => {});
+    mocks.promoteGreenfieldRun.mockReturnValue({
+      target: outDir,
+      branch: 'main',
+      commit: '2222222222222222',
+    });
+    const events: CookEvent[] = [];
+    const bus = new CookBus();
+    bus.subscribe({
+      onEvent(event) {
+        events.push(event);
+      },
+      async dispose() {},
+    });
+
+    await runCook(
+      {
+        dir: sourceDir,
+        outDir,
+        policy: 'serial',
+        maxRetries: 3,
+        verbose: false,
+        petrinautFold: 'identity',
+        petrinautLanes: 'both',
+        petrinautStream: false,
+        petrinautOpen: true,
+        force: false,
+        confine: 'off',
+      },
+      bus,
+    );
+
+    const lines = events.filter(
+      (event): event is Extract<CookEvent, { kind: 'line' }> => event.kind === 'line',
+    );
+    expect(lines).toContainEqual({ kind: 'line', text: '  dir     ' + outDir });
+    expect(lines).toContainEqual({ kind: 'line', text: '  branch  main' });
+    expect(lines).toContainEqual({ kind: 'line', text: '  commit  22222222' });
+    expect(lines).not.toContainEqual({ kind: 'line', text: '  commit  11111111' });
+    expect(events).toContainEqual({ kind: 'cook-done', ok: true });
+    expect(process.exitCode).toBe(0);
+  });
 });

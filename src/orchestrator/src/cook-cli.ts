@@ -671,6 +671,8 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           // run worktree's now-stale checkout left by the fold), so the export is
           // layout-independent.
           let finishDir = sandboxDir;
+          let finishBranch = artifact.branch;
+          let finishCommit = artifact.head;
           if (opts.outDir) {
             const exportSrc = join(runDir, '__export__');
             rmSync(exportSrc, { recursive: true, force: true });
@@ -678,14 +680,17 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
             try {
               checkoutRunBranchTree(sandboxDir, runId, exportSrc);
               exportWorktreeCreated = true;
-              finishDir = promoting(`promoting → ${opts.outDir}`, () =>
+              const exported = promoting(`promoting → ${opts.outDir}`, () =>
                 promoteGreenfieldRun({
                   sandboxDir: exportSrc,
                   target: opts.outDir!,
                   runId,
                   force: opts.force,
                 }),
-              ).target;
+              );
+              finishDir = exported.target;
+              finishBranch = exported.branch;
+              finishCommit = exported.commit;
             } catch (err) {
               line(`  !  optional --out export failed: ${err instanceof Error ? err.message : String(err)}`);
               line(`     artifact remains on ${artifact.branch} @ ${artifact.head.slice(0, 8)}`);
@@ -699,8 +704,8 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           for (const l of cookFinishLines({
             shape: 'greenfield',
             dir: finishDir,
-            branch: artifact.branch,
-            commit: artifact.head,
+            branch: finishBranch,
+            commit: finishCommit,
           })) {
             line(l);
           }
