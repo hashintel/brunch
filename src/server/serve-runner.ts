@@ -158,7 +158,7 @@ export function serveCookOptions(
     petrinautStream: opts.petrinautStream,
     ...(opts.petrinautUrl ? { petrinautUrl: opts.petrinautUrl } : {}),
     petrinautOpen: opts.petrinautOpen,
-    ...(opts.outDir ? { outDir: resolve(cookDir, opts.outDir) } : {}),
+    ...(opts.outDir ? { outDir: resolve(sourceDir, opts.outDir) } : {}),
     landBranch: opts.land,
     force: opts.force,
     confine: 'on',

@@ -99,6 +99,12 @@ describe('serveCookOptions', () => {
     expect(cook.sourceDir).toBe('/repo/packages/app');
   });
 
+  it('resolves relative --out against the launch source dir, not the project root', () => {
+    const cook = serveCookOptions(parseServeArgs(['9', '--out=dist']), '/repo', '/repo/packages/app');
+
+    expect(cook.outDir).toBe(resolve('/repo/packages/app', 'dist'));
+  });
+
   it('leaves absolute --out paths absolute', () => {
     const cook = serveCookOptions(parseServeArgs(['9', '--out=/tmp/out']), '/proj');
     expect(cook.outDir).toBe('/tmp/out');
