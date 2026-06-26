@@ -58,6 +58,7 @@ import {
   createInMemoryBrunchIntrospectionStore,
   type BrunchIntrospectionStore,
 } from './pi-extensions.js';
+import { projectBrunchPiSessionOptions } from './pi-session-options.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from './pi-settings.js';
 import { loadBrunchSubagents } from './pi-subagents.js';
 export {
@@ -484,11 +485,11 @@ export function createBrunchAgentSessionRuntimeFactory(
     const created = await createAgentSessionFromServices({
       services,
       sessionManager,
-      ...(sessionStartEvent ? { sessionStartEvent } : {}),
-      noTools: 'builtin',
-      excludeTools: ['bash', 'edit', 'write'],
-      thinkingLevel: foregroundAgent.thinking,
-      ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
+      ...projectBrunchPiSessionOptions({
+        ...(sessionStartEvent ? { sessionStartEvent } : {}),
+        thinkingLevel: foregroundAgent.thinking,
+        ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
+      }),
     });
     liveAgentSession.current = created.session;
     context.sessionEvents?.attachSession(created.session);
