@@ -674,8 +674,10 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           if (opts.outDir) {
             const exportSrc = join(runDir, '__export__');
             rmSync(exportSrc, { recursive: true, force: true });
-            checkoutRunBranchTree(sandboxDir, runId, exportSrc);
+            let exportWorktreeCreated = false;
             try {
+              checkoutRunBranchTree(sandboxDir, runId, exportSrc);
+              exportWorktreeCreated = true;
               finishDir = promoting(`promoting → ${opts.outDir}`, () =>
                 promoteGreenfieldRun({
                   sandboxDir: exportSrc,
@@ -684,8 +686,14 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
                   force: opts.force,
                 }),
               ).target;
+            } catch (err) {
+              line(`  !  optional --out export failed: ${err instanceof Error ? err.message : String(err)}`);
+              line(`     artifact remains on ${artifact.branch} @ ${artifact.head.slice(0, 8)}`);
             } finally {
-              spawnSync('git', ['worktree', 'remove', '--force', exportSrc], { cwd: sandboxDir });
+              if (exportWorktreeCreated) {
+                spawnSync('git', ['worktree', 'remove', '--force', exportSrc], { cwd: sandboxDir });
+              }
+              if (existsSync(exportSrc)) rmSync(exportSrc, { recursive: true, force: true });
             }
           }
           for (const l of cookFinishLines({
