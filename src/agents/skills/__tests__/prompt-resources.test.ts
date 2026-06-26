@@ -13,7 +13,20 @@ const resourceExpectations = [
   },
   {
     file: 'src/agents/skills/methods/capture/SKILL.md',
-    needles: ['single home', 'FE-861', 'Gap close/spawn responsibility belongs here'],
+    needles: [
+      'single home',
+      'FE-861',
+      'Gap close/spawn responsibility belongs here',
+      'graph-authoring-heuristics.md',
+    ],
+  },
+  {
+    file: 'src/agents/skills/methods/commit-graph/SKILL.md',
+    needles: ['graph-authoring-heuristics.md', 'role-named mutation grammar'],
+  },
+  {
+    file: 'src/agents/contexts/references/graph-authoring-heuristics.md',
+    needles: ['Graph authoring heuristics', 'graph-ontology.md', 'low-confidence', 'mutate_graph'],
   },
   {
     file: 'src/agents/skills/methods/generate-proposal/SKILL.md',
@@ -84,12 +97,15 @@ describe('prompt-resource skills', () => {
     expect(readme).toContain('src/agents/contexts/references/graph-ontology.md');
     expect(readme).toContain('concrete citing need appears');
     expect(readme).toContain('drift-checked');
+    expect(readme).toContain('Shared authored context references');
+    expect(readme).toContain('src/agents/contexts/references/graph-authoring-heuristics.md');
   });
 
   it('records the shared context-reference and backstage curation homes', async () => {
     const contextsReadme = await readFile(join(projectRoot, 'src/agents/contexts/README.md'), 'utf8');
     expect(contextsReadme).toContain('references/       runtime-eligible shared context references');
     expect(contextsReadme).toContain('references/graph-ontology.md');
+    expect(contextsReadme).toContain('references/graph-authoring-heuristics.md');
 
     const docsReadme = await readFile(join(projectRoot, 'src/agents/docs/README.md'), 'utf8');
     expect(docsReadme).toContain('backstage notes for curating Brunch-authored agent resources');

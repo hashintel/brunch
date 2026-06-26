@@ -21,7 +21,7 @@ chain capture-then-ask:
 
 ## Sweep frame
 
-Walk the un-swept material once by readiness band and likely node kind. The canonical band order and per-kind band membership are the generated kind→band table in `src/agents/contexts/references/graph-ontology.md` (projected from the typed schema — cite it, do not restate it; D97-L). Conversational answers, ordinary user text, and acquisition digests are all sweep inputs. Large raw reads or tool results should be digested first; capture from the digest plus the conversation, not from unbounded raw bulk.
+Walk the un-swept material once by readiness band and likely node kind. The canonical band order and per-kind band membership are the generated kind→band table in `src/agents/contexts/references/graph-ontology.md` (projected from the typed schema — cite it, do not restate it; D97-L). Shared graph-authoring judgment — declarative claims, low-confidence routing, contradiction routing, confident endpoints, and role-named mutation grammar — lives in `src/agents/contexts/references/graph-authoring-heuristics.md`. Conversational answers, ordinary user text, and acquisition digests are all sweep inputs. Large raw reads or tool results should be digested first; capture from the digest plus the conversation, not from unbounded raw bulk.
 
 Use the graph, gap, and reconciliation tools as the mutation boundary:
 
@@ -32,7 +32,7 @@ Use the graph, gap, and reconciliation tools as the mutation boundary:
 | Manual gap disposition | `update_elicitation_gaps` `set_disposition` | one disposition write on the graph clock |
 | Contradiction with existing graph truth | `update_reconciliation_needs` `create` | one reconciliation need; records the impasse, never overwrites the conflicting node |
 
-Do not invent graph payload fields, LSNs, result shapes, or capture-local edge syntax. Relation-bearing capture uses `mutate_graph` role fields such as `dependency/dependent`, `support/claim`, `abstract/concrete`, `boundary/subject`, and sibling category roles.
+Do not invent graph payload fields, LSNs, result shapes, or capture-local edge syntax. Follow the role-named mutation grammar in `graph-authoring-heuristics.md`.
 
 ## Commitment gradient
 
@@ -72,18 +72,7 @@ Structural gaps become answered from graph truth. Do not hand-set `answered` for
 
 ## Relation-bearing capture
 
-Review captured nodes before adding edges:
-
-```pseudo
-chain relation-capture:
-  candidate relation
-    -> check previous-band nodes
-    -> check likely upstream kinds
-    -> commit missing high-confidence nodes first
-    -> commit edge with role-named endpoints
-```
-
-If either endpoint is low-confidence, do not create the edge. Spawn or reuse a gap for the missing endpoint/relationship instead.
+Review captured nodes before adding edges. Use `graph-authoring-heuristics.md` for the shared relation-bearing rule: commit missing high-confidence endpoints first, use role-named endpoints, and skip the edge when either endpoint is low-confidence. Spawn or reuse a gap for the missing endpoint/relationship instead.
 
 ## Anti-goals
 
