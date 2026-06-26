@@ -69,7 +69,7 @@ context-pipeline/
 
 ### Active
 
-- No active frontier is selected. Scope the next item from §Next.
+- `renderer-golden-coverage` (FE-1091) — active context-pipeline RENDER closure plus prompt-assembly lock. Golden the remaining model-facing context surfaces and system-prompt assembly while reshaping `src/agents/` prompts/subagents topology only as needed for that lock.
 
 ### Recently Completed
 
@@ -83,7 +83,6 @@ context-pipeline/
 
 - `orchestrator-tool-port` (FE-1087) — **scoped but D98-sensitive.** Port the external `brunch cook` orchestrator into the future CODE/executor tool surface rather than preserving a separate execute/orchestrator product mode. First active scope: `memory/cards/orchestrator-tool-port--plan-check-tool.md`; reconcile that scope against D98-L before build.
 - `elicitor-project` (FE-1085) — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
-- `renderer-golden-coverage` — **active parallel coverage track.** Remaining RENDER work lives by audience: model-facing context surfaces under `agents/contexts/`, human/product text beside its app/session owner. Remaining rows need fresh scoping against `src/agents/contexts/README.md`, `src/app/README.md`, and `src/session/README.md`.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 
 ### Parallel / Low-Conflict
@@ -159,13 +158,16 @@ context-pipeline/
 ### renderer-golden-coverage
 
 - **Name:** Adopt the D83-L context-render house style and lock remaining RENDER-stage surfaces
-- **Linear:** [FE-870](https://linear.app/hash/issue/FE-870)
-- **Branch:** `ln/fe-870-renderer-golden-context-tools`
+- **Linear:** [FE-1091](https://linear.app/hash/issue/FE-1091/renderer-golden-coverage-and-prompt-assembly-lock)
+- **Branch:** `ln/fe-1091-renderer-golden-coverage-and-prompt-assembly-lock`
 - **Kind:** coverage + build / hardening
-- **Status:** next / active parallel. Substrate, `<workspace>`, `<specification>`, graph overview/neighborhood renders, and band-filtered graph slice hardening are done. Remaining work needs a fresh `ln-scope` pass.
-- **Objective:** Finish the RENDER stage: `<session>`, `renderGraphSeed`, `exchanges/*`, `formatRelatedNodesResult` structural-leak repair, and the `brunch print` house-style-vs-status fork.
-- **Acceptance:** `src/agents/contexts/README.md`, `src/app/README.md`, and `src/session/README.md` carry the audience split; required model-facing rows are built in the house style and locked with focused goldens/semantic invariants; no adapter/transport imports enter `agents/contexts/`.
-- **Traceability:** D19-L, D52-L, D60-L, D62-L, D83-L.
+- **Status:** active; needs fresh `ln-scope` pass.
+- **Certainty:** earned — RENDER topology is now established; this frontier closes coverage, prompt assembly evidence, and stale topology ambiguity rather than proving a new seam.
+- **Closes:** context-pipeline RENDER stage plus the COMPOSE full-stack real-rendered-context tripwire.
+- **Locks in:** D83-L house style for model-facing context surfaces and prompt assembly as a golden/semantic-invariant surface.
+- **Objective:** Finish the RENDER stage and lock system-prompt assembly as a golden surface. Remaining work lives by audience: model-facing context and prompt text under `src/agents/`, human/product text beside its app/session owner. Incidental prompt remodelling belongs here only when needed to make prompt assembly lockable: foreground prompts should collapse toward `elicitor` / `executor`, subagent prompt bodies should live as subagent resources, and `src/agents/` topology should make `contexts`, `prompts`, `runtime`, `shared`, `skills`, and `subagents` roles legible.
+- **Acceptance:** `src/agents/contexts/README.md`, `src/agents/prompts/README.md`, `src/agents/runtime/README.md`, `src/app/README.md`, and `src/session/README.md` carry the audience/topology split; required model-facing renderer rows are built in the house style and locked with focused goldens/semantic invariants; system prompt assembly is locked with goldens/semantic invariants; no adapter/transport imports enter `agents/contexts/`; prompt topology remodel deletes obsolete role/body aliases rather than preserving compatibility shims.
+- **Traceability:** D19-L, D40-L, D52-L, D58-L, D60-L, D62-L, D83-L, D98-L.
 
 ### exchange-symmetry-audit
 
@@ -182,7 +184,11 @@ context-pipeline/
 
 ```text
 frontiers:
-  Active: {}
+  Active:
+    renderer-golden-coverage
+      status: active (RENDER coverage + prompt assembly lock)
+      depends_on: context-pipeline PULL+PROJECT, D83-L, D52-L, D58-L, D98-L
+      coordinates_with: data-model-legibility (references substrate), elicitor-generate (present_candidates render already landed in house style)
 
   Next:
     orchestrator-tool-port
@@ -193,11 +199,6 @@ frontiers:
     elicitor-project
       status: design-gated
       depends_on: elicitor-generate, D95-L, D96-L, I51-L
-
-    renderer-golden-coverage
-      status: active parallel coverage
-      depends_on: context-pipeline PULL+PROJECT, D83-L, D52-L
-      coordinates_with: elicitor-generate (present_candidates render already landed in house style)
 
     exchange-symmetry-audit
       status: earned cleanup
