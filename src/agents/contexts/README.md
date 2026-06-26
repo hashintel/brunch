@@ -14,7 +14,7 @@ contexts/
 ├── graph/            graph overview/neighborhood, related-node, mutation, reconciliation text
 ├── elicitation.ts    elicitation agenda/update text
 ├── workspace/        <workspace> context text
-├── specification/    <specification> context text
+├── spec/             <specification> context text
 ├── session/          <session> runtime-frame and readiness text
 └── exchanges/        present_* / request_* structured-exchange result text
 ```

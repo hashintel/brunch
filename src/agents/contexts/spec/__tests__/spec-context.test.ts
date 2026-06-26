@@ -10,7 +10,7 @@ import { presenceGap } from '../../../../graph/schema/elicitation-gap-fixtures.j
 import { seedFixture, type SeedFixture } from '../../../../graph/seed-fixtures.js';
 import { createSessionBindingData } from '../../../../session/session-binding.js';
 import { inspectSpecificationOverview } from '../../../../session/specification-overview-context.js';
-import { renderSpecificationContext } from '../specification-context.js';
+import { renderSpecificationContext } from '../spec-context.js';
 
 describe('renderSpecificationContext', () => {
   it('renders the approved specification house style', async () => {
@@ -26,7 +26,7 @@ describe('renderSpecificationContext', () => {
     const details = await inspectSpecificationOverview(cwd, seeded.specId);
     const rendered = renderSpecificationContext(details);
 
-    await expect(rendered).toMatchFileSnapshot('../__snapshots__/specification-context.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/spec-context.md');
     expect(rendered).toContain('<specification>');
     expect(rendered).toContain('Overview:');
     expect(rendered).toContain('Graph (LSN 2): 5 nodes, 3 edges');

@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 
-import { type SpecificationContextRenderInput } from '../agents/contexts/specification/specification-context.js';
+import { type SpecificationContextRenderInput } from '../agents/contexts/spec/spec-context.js';
 import { sortElicitationGapsForAsking } from '../graph/elicitation-driver.js';
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
 import { inspectWorkspaceOverview } from './workspace-overview-context.js';

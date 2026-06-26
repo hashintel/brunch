@@ -1,4 +1,4 @@
-# agents/contexts/specification/ — selected-spec context text
+# agents/contexts/spec/ — selected-spec context text
 
 SPEC decisions: D19-L, D60-L, D83-L
 

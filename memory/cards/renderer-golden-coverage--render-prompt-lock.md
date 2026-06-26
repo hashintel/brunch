@@ -48,7 +48,7 @@ Aggregate DoD: every `●` row is `have` or `built`, and every `partial` row is 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Workspace context renderer | `have` | ● | earned | `src/agents/contexts/workspace/` | Snapshot coverage exists for cwd + overview context; preserve D83-L audience split. |
-| Specification context renderer | `partial` | ● | earned | `src/agents/contexts/spec/` | Move `specification/specification-context.ts` to `spec/spec-context.ts`; closure oracle: imports, README, and snapshot tests name the short `spec/` home while the rendered tag remains `<specification>`. |
+| Specification context renderer | `built` | ● | earned | `src/agents/contexts/spec/` | Closed: selected-spec renderer now lives at `src/agents/contexts/spec/spec-context.ts`; imports, README, and snapshot test use the short `spec/` home while rendered output remains `<specification>`. |
 | Spec markdown document output | `new` | ● | earned | `src/agents/contexts/spec/spec-output.ts` | Thin graph-derived flattened markdown output using md-pen; not a copy of `memory/SPEC.md`. Future web/download routes are consumers, not owners. |
 | Plan markdown document output | `new` | ● | earned | `src/agents/contexts/plan/plan-output.ts` | Thin graph-derived flattened markdown output over plan-plane nodes (`milestone`, `frontier`, `slice`) using md-pen; not a copy of `memory/PLAN.md`. |
 | Graph overview / neighborhood / related-node renderers | `have` | ● | earned | `src/agents/contexts/graph/` | Snapshot coverage exists for overview, neighborhoods, and related nodes; preserve code handles and no structural-leak assertions. |
