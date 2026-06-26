@@ -1322,6 +1322,7 @@ describe('Brunch TUI boot', () => {
     expect(settingsManager.getImageAutoResize()).toBe(true);
     expect(settingsManager.getBlockImages()).toBe(false);
     expect(settingsManager.getTransport()).toBe('auto');
+    expect(settingsManager.getThemeSetting()).toBeUndefined();
     expect(settingsManager.getTheme()).toBeUndefined();
     expect(settingsManager.getLastChangelogVersion()).toBeUndefined();
     expect(settingsManager.getCollapseChangelog()).toBe(false);
