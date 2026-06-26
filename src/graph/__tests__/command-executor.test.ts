@@ -233,7 +233,6 @@ describe('CommandExecutor', () => {
   });
 
   it('creates a criterion node with a gherkin form detail', () => {
-    const thenField = `${'the'}n`;
     const result = executor.createNode({
       specId,
       plane: 'intent',
@@ -243,7 +242,7 @@ describe('CommandExecutor', () => {
         form: 'gherkin',
         given: ['the app is offline'],
         when: ['the user saves'],
-        [thenField]: ['the change is persisted locally'],
+        then: ['the change is persisted locally'],
       },
     });
 
