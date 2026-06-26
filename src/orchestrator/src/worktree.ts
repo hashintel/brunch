@@ -27,7 +27,12 @@ export type CreateSandboxOptions =
  * compatibility with existing cook artifacts; rename the artifact only when the
  * run-directory lifecycle is revisited.
  *
- * - **fixture mode (default):** the sandbox worktree is an empty directory.
+ * Both modes run on one git-backed substrate (D171-K): `mode` selects only the
+ * initial HEAD, never a separate sandbox code path.
+ *
+ * - **fixture mode (default):** the sandbox worktree is a freshly `git init`'d
+ *   repo with an empty root commit on `brunch/run/<runId>` — an empty-slate
+ *   greenfield start that still composes/promotes through the shared git machinery.
  * - **codebase mode:** the sandbox worktree is a `git worktree add` of
  *   `opts.sourceDir` on a fresh branch `brunch/run/<runId>`. The source branch in
  *   `sourceDir` is left untouched; agent commits land on the run branch.
@@ -65,7 +70,32 @@ export function createSandbox(
     // slower and larger on disk, but semantically equivalent.
     copyMissingTopLevelEntries(opts.sourceDir, sandboxDir);
   } else {
+    // Greenfield: empty-slate worktree, but git-backed (D171-K) so the run
+    // worktree has a HEAD on `brunch/run/<runId>` like codebase mode — the only
+    // difference is the initial commit is empty rather than the cloned source.
+    // Downstream merge/promotion/CoW paths already skip `.git` by name, so this
+    // run repo never leaks into composed or promoted trees.
     mkdirSync(sandboxDir, { recursive: true });
+    const branch = brunchRef.run(id);
+    execFileSync('git', ['init', '-q', '-b', branch], {
+      cwd: sandboxDir,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'user.name=brunch',
+        '-c',
+        'user.email=cook@brunch',
+        'commit',
+        '--allow-empty',
+        '-q',
+        '-m',
+        'brunch: cook run base',
+      ],
+      { cwd: sandboxDir, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
   }
 
   return { runId: id, runDir, sandboxDir };

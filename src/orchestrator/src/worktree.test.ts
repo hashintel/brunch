@@ -48,6 +48,66 @@ describe('createSandbox', () => {
   });
 });
 
+describe('createSandbox — fixture mode is git-backed (D171-K / I139-K)', () => {
+  const dirs: string[] = [];
+  afterEach(() => {
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+    dirs.length = 0;
+  });
+
+  // The empty git tree object — HEAD's tree equals this iff the root commit
+  // tracks no files (a true empty-slate greenfield start).
+  const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
+  function git(args: string[], cwd: string): string {
+    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
+  }
+
+  it('fixture sandbox is a git worktree with an empty root commit', () => {
+    const baseDir = mkdtempSync(join(tmpdir(), 'cook-wt-'));
+    dirs.push(baseDir);
+
+    const info = createSandbox(baseDir, 'gf-run-1');
+
+    expect(existsSync(join(info.sandboxDir, '.git'))).toBe(true);
+    expect(git(['rev-parse', '--is-inside-work-tree'], info.sandboxDir)).toBe('true');
+    // Exactly one commit, tracking no files (empty-slate root).
+    expect(git(['rev-list', '--count', 'HEAD'], info.sandboxDir)).toBe('1');
+    expect(git(['rev-parse', 'HEAD^{tree}'], info.sandboxDir)).toBe(EMPTY_TREE);
+  });
+
+  it('fixture worktree is checked out on branch brunch/run/<runId>', () => {
+    const baseDir = mkdtempSync(join(tmpdir(), 'cook-wt-'));
+    dirs.push(baseDir);
+
+    const info = createSandbox(baseDir, 'gf-branch');
+
+    expect(git(['rev-parse', '--abbrev-ref', 'HEAD'], info.sandboxDir)).toBe('brunch/run/gf-branch');
+  });
+
+  it('both modes yield a git worktree (mode selects only the initial HEAD)', () => {
+    const baseDir = mkdtempSync(join(tmpdir(), 'cook-base-'));
+    const sourceDir = mkdtempSync(join(tmpdir(), 'cook-src-'));
+    dirs.push(baseDir, sourceDir);
+    execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: sourceDir });
+    execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: sourceDir });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: sourceDir });
+    writeFileSync(join(sourceDir, 'README.md'), '# seed\n');
+    execFileSync('git', ['add', '.'], { cwd: sourceDir });
+    execFileSync('git', ['commit', '-q', '-m', 'initial'], { cwd: sourceDir });
+
+    const greenfield = createSandbox(baseDir, 'gf-uniform');
+    const brownfield = createSandbox(baseDir, 'bf-uniform', { mode: 'codebase', sourceDir });
+
+    for (const info of [greenfield, brownfield]) {
+      expect(git(['rev-parse', '--is-inside-work-tree'], info.sandboxDir)).toBe('true');
+    }
+    // Greenfield starts empty; brownfield starts from the cloned HEAD.
+    expect(git(['rev-parse', 'HEAD^{tree}'], greenfield.sandboxDir)).toBe(EMPTY_TREE);
+    expect(existsSync(join(brownfield.sandboxDir, 'README.md'))).toBe(true);
+  });
+});
+
 describe('createSandbox — codebase mode', () => {
   const dirs: string[] = [];
   afterEach(() => {
