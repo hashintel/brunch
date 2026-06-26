@@ -38,6 +38,7 @@ import {
   registerBrunchSubagents,
   type BrunchSubagentsDeps,
 } from '../subagents/index.js';
+import { composeBackgroundSubagentPrompt } from '../subagents/prompt-assembly.js';
 import {
   createSubagentToolCatalog,
   planSubagentTools,
@@ -674,6 +675,23 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
       dispose: () => provider.unregister(),
     };
   }
+
+  it('locks the assembled explorer background prompt shape', async () => {
+    const def = parseSubagentMarkdown(EXPLORER_MD);
+    const rendered = composeBackgroundSubagentPrompt({
+      definition: def,
+      world: injectedWorld({ cwd: '/work/brunch-subagent' }).snapshot,
+    }).prompt;
+
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/subagent-explorer-prompt.md');
+    expect(rendered).toContain('You are an explorer.');
+    expect(rendered).toContain('[Brunch background subagent control]');
+    expect(rendered).toContain('[Brunch injected world snapshot]');
+    expect(rendered).toContain('[Brunch background routing]');
+    expect(rendered).not.toContain('[Brunch elicitation recommendation]');
+    expect(rendered).not.toContain('Current prompt-resource selection');
+    expect(rendered).toContain('ambient Pi resources: sealed out');
+  });
 
   it('runs a tool-less projector, owning the system prompt and returning its output', async () => {
     const rig = await fauxRig('PROPOSED VARIANT');
