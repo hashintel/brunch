@@ -165,8 +165,8 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       'Use mutate_graph to persist specification elements (goals, requirements, decisions, etc.) after the user has accepted the concept.',
       'Each create_node op must have a unique batch `ref` string. create_edge ops reference nodes by role-named fields using that `ref` or `{existingCode: "G1"}` for nodes already in the selected spec.',
       'If mutate_graph returns STRUCTURAL_ILLEGAL, read the diagnostics, fix the issues, and retry. Do not show intermediate failures to the user.',
-      'The `stance` field is required on `proof` and `support` create_edge ops, and invalid on all other categories.',
-      'Node kinds `decision` and `term` require a `detail` object; all other kinds must omit `detail`.',
+      'The `stance` field is required on `witness` and `rationale` create_edge ops, and invalid on all other categories.',
+      'Detail rules: `decision` and `term` require detail; `requirement`, `criterion`, and `invariant` may use `plain`/`gherkin`/`formal`; `context` may use `given`; other kinds omit detail.',
     ],
     parameters: MutateGraphParams,
 
