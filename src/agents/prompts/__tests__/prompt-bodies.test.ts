@@ -13,8 +13,8 @@ const agentDefinitionExpectations = [
     needles: ['# Agent: elicitor', 'multi-spec discipline'],
   },
   {
-    system: 'src/agents/prompts/orchestrator/SYSTEM.md',
-    needles: ['# Agent: orchestrator', 'execute mode'],
+    system: 'src/agents/prompts/executor/SYSTEM.md',
+    needles: ['# Agent: executor', 'execute mode'],
   },
   {
     system: 'src/agents/prompts/reviewer/SYSTEM.md',

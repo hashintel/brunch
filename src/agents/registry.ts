@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 
 export const BUNDLED_AGENT_BODY_IDS = [
   'elicitor',
-  'orchestrator',
+  'executor',
   'explorer',
   'researcher',
   'projector',

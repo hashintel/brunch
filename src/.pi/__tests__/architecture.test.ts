@@ -17,7 +17,7 @@ const legacyImportNeedles = [
 const runtimeRegistryExpectations = [
   {
     file: 'src/session/schema/kinds.ts',
-    required: "export const AGENT_ROLE_IDS = ['elicitor', 'orchestrator'] as const;",
+    required: "export const AGENT_ROLE_IDS = ['elicitor', 'executor'] as const;",
     forbidden: ['reviewer', 'pi-coder'],
   },
   {

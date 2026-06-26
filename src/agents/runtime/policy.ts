@@ -72,7 +72,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
     id: 'execute',
     foregroundAgent: {
       kind: 'foreground',
-      id: 'orchestrator',
+      id: 'executor',
       operationalMode: 'execute',
       description:
         'Foreground Brunch execute-mode agent that coordinates task execution through code-owned tools.',
@@ -80,7 +80,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
       thinking: 'medium',
       body: {
         source: 'file',
-        location: bundledAgentBodyRepoPath('orchestrator'),
+        location: bundledAgentBodyRepoPath('executor'),
       },
       skills: {
         strategies: [],
@@ -92,10 +92,10 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
       defaultStrategy: 'auto',
       defaultLens: 'auto',
       toolAuthority:
-        'execute orchestrator read-only plus a code-owned stub tool; direct shell and file writes are blocked',
+        'execute executor read-only plus a code-owned stub tool; direct shell and file writes are blocked',
     },
     toolPolicy: {
-      id: 'execute-orchestrator',
+      id: 'execute-executor',
       baseAllowedToolNames: [
         'read',
         'grep',

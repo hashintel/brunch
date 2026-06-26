@@ -10,7 +10,7 @@ Keyed foreground and background agent body resources — the markdown persona te
 prompts/
 ├── README.md
 ├── elicitor/SYSTEM.md       foreground elicit-mode body
-├── orchestrator/SYSTEM.md   foreground execute-mode body
+├── executor/SYSTEM.md   foreground execute-mode body
 ├── explorer/SYSTEM.md       background codebase recon body + frontmatter
 ├── researcher/SYSTEM.md     background web-research body + frontmatter
 ├── projector/SYSTEM.md      background candidate-proposal body + frontmatter

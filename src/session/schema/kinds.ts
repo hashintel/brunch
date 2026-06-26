@@ -1,6 +1,6 @@
 export const OPERATIONAL_MODE_IDS = ['elicit', 'execute'] as const;
 
-export const AGENT_ROLE_IDS = ['elicitor', 'orchestrator'] as const;
+export const AGENT_ROLE_IDS = ['elicitor', 'executor'] as const;
 
 export const AGENT_KINDS = ['foreground', 'background'] as const;
 

@@ -253,7 +253,7 @@ describe('agent posture policy', () => {
     ]);
   });
 
-  it('activates the orchestrator stub only in execute mode', () => {
+  it('activates the executor stub only in execute mode', () => {
     const executeState = projectBrunchAgentState([
       {
         type: 'custom',
@@ -284,7 +284,7 @@ describe('agent posture policy', () => {
       gaps: groundingFloorGaps({ defaultCoverage: 0 }),
     });
 
-    expect(executeState.agentRole).toBe('orchestrator');
+    expect(executeState.agentRole).toBe('executor');
     expect(delegatableAgentsForRuntimeState(executeState)).toEqual([]);
     expect(executeTools).toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
     expect(executeTools).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));

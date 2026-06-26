@@ -13,7 +13,7 @@ describe('agent context registry', () => {
   it('centralizes bundled prompt and current skill paths', () => {
     expect(BUNDLED_AGENT_BODY_IDS).toEqual([
       'elicitor',
-      'orchestrator',
+      'executor',
       'explorer',
       'researcher',
       'projector',
