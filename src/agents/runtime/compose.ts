@@ -40,10 +40,10 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
     input.agentBody ?? '',
     renderAgentControl(input, definition),
     renderRuntimeState(input),
-    renderElicitationRecommendation(input),
+    renderElicitorOnlySection(input, renderElicitationRecommendation(input)),
     renderPushedContext(input.context),
-    renderBrunchSkills(manifests),
-    renderRouterRules(input.sessionState),
+    renderElicitorOnlySection(input, renderBrunchSkills(manifests)),
+    renderElicitorOnlySection(input, renderRouterRules(input.sessionState)),
   ]);
 
   return { prompt, manifests };
@@ -82,6 +82,10 @@ function renderPosture(posture: AgentPromptWorkspaceContext['posture']): string 
     Boolean(entry[1]?.trim()),
   );
   return entries.length > 0 ? entries.map(([key, value]) => `${key}=${value}`).join('; ') : 'unrecorded';
+}
+
+function renderElicitorOnlySection(input: ComposeAgentPromptInput, section: string): string {
+  return input.sessionState.agentRole === 'elicitor' ? section : '';
 }
 
 function renderElicitationRecommendation(input: ComposeAgentPromptInput): string {
