@@ -82,17 +82,6 @@ interface RepairSeededElicitationGapsSuccess {
   readonly repairedSpecs: readonly RepairSeededElicitationGapsSpecResult[];
 }
 
-export interface RepairLegacyEdgeCategoriesSpecResult {
-  readonly specId: number;
-  readonly renamedCounts: Readonly<Record<string, number>>;
-  readonly lsn: number;
-}
-
-interface RepairLegacyEdgeCategoriesSuccess {
-  readonly status: 'success';
-  readonly repairedSpecs: readonly RepairLegacyEdgeCategoriesSpecResult[];
-}
-
 /** Spec row returned by CommandExecutor reads. */
 export interface SpecRecord {
   readonly id: number;
@@ -112,7 +101,6 @@ export type CommandResult =
   | ElicitationGapSuccess
   | ElicitationGapDispositionSuccess
   | RepairSeededElicitationGapsSuccess
-  | RepairLegacyEdgeCategoriesSuccess
   | StructuralIllegal
   | NeedsHuman
   | PolicyBlocked
@@ -138,9 +126,6 @@ export type SetElicitationGapDispositionResult = ElicitationGapDispositionSucces
 
 /** Result of repairing legacy specs missing the current seeded gap floor. */
 export type RepairSeededElicitationGapsResult = RepairSeededElicitationGapsSuccess;
-
-/** Result of repairing local graph rows that predate D87-L edge-category renames. */
-export type RepairLegacyEdgeCategoriesResult = RepairLegacyEdgeCategoriesSuccess;
 
 /** Successful accepted review-set graph batch execution. */
 interface AcceptReviewSetSuccess extends MutateGraphSuccess {}

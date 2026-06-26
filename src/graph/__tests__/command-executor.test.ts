@@ -8,11 +8,9 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it, beforeEach } from 'vitest';
 
-import { formatGraphOverview } from '../../agents/contexts/graph/graph-slice.js';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import {
   changeLog,
-  edges,
   elicitationGaps,
   graphClock,
   nodeKindCounters,
@@ -21,7 +19,6 @@ import {
   specs,
 } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
-import { queryGraph } from '../queries.js';
 import { runCreateOnlyMutation } from './support/create-only-mutation.js';
 
 function createTestDb(): BrunchDb {
@@ -740,78 +737,6 @@ describe('CommandExecutor', () => {
         slug: 'spec-a',
         kind: 'product',
       });
-    });
-
-    it('repairs retired edge categories before graph renderers project impact direction', () => {
-      const source = executor.createNode({
-        specId,
-        plane: 'intent',
-        kind: 'requirement',
-        title: 'Requirement',
-      });
-      const target = executor.createNode({
-        specId,
-        plane: 'intent',
-        kind: 'constraint',
-        title: 'Constraint',
-      });
-      if (source.status !== 'success' || target.status !== 'success') throw new Error('unreachable');
-
-      db.insert(edges)
-        .values([
-          {
-            spec_id: specId,
-            category: 'support' as never,
-            source_id: source.nodeId,
-            target_id: target.nodeId,
-            stance: 'for',
-            basis: 'explicit',
-            created_at_lsn: 0,
-            updated_at_lsn: 0,
-          },
-          {
-            spec_id: specId,
-            category: 'boundary' as never,
-            source_id: target.nodeId,
-            target_id: source.nodeId,
-            basis: 'explicit',
-            created_at_lsn: 0,
-            updated_at_lsn: 0,
-          },
-        ])
-        .run();
-
-      expect(() => formatGraphOverview(queryGraph(db, specId, undefined, { visibility: 'all' }))).toThrow(
-        /affected/u,
-      );
-
-      const repair = executor.repairLegacyEdgeCategories();
-
-      expect(repair).toMatchObject({
-        status: 'success',
-        repairedSpecs: [
-          {
-            specId,
-            renamedCounts: {
-              boundary: 1,
-              support: 1,
-            },
-          },
-        ],
-      });
-      expect(
-        db
-          .select({ category: edges.category, stance: edges.stance })
-          .from(edges)
-          .all()
-          .sort((left, right) => left.category.localeCompare(right.category)),
-      ).toEqual([
-        { category: 'exclusion', stance: null },
-        { category: 'rationale', stance: 'for' },
-      ]);
-      expect(formatGraphOverview(queryGraph(db, specId, undefined, { visibility: 'all' }))).toContain(
-        'edges (sorted by upstream)',
-      );
     });
 
     it('repairs a floor-predating spec with the missing manual situating gap', () => {

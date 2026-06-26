@@ -33,8 +33,6 @@ import type {
   CreateReconNeedResult,
   CreateSpecInput,
   CreateSpecResult,
-  RepairLegacyEdgeCategoriesResult,
-  RepairLegacyEdgeCategoriesSpecResult,
   RepairSeededElicitationGapsResult,
   RepairSeededElicitationGapsSpecResult,
   ResolveReconNeedInput,
@@ -59,7 +57,6 @@ import type {
 } from './command-executor/graph-mutation-types.js';
 import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
 import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
-import type { EdgeCategory } from './schema/edges.js';
 import type { ElicitationGapLensAffinity, GapPredicate } from './schema/elicitation-gaps.js';
 import type { ReadinessBand } from './schema/kinds.js';
 import { type NodeBasis, type NodeKind, type NodePlane } from './schema/nodes.js';
@@ -91,8 +88,6 @@ export type {
   CreateReconNeedResult,
   CreateSpecInput,
   CreateSpecResult,
-  RepairLegacyEdgeCategoriesResult,
-  RepairLegacyEdgeCategoriesSpecResult,
   RepairSeededElicitationGapsResult,
   RepairSeededElicitationGapsSpecResult,
   ResolveReconNeedInput,
@@ -199,16 +194,6 @@ const SEEDED_ELICITATION_GAPS: readonly {
     lensAffinity: 'intent',
   },
 ] as const;
-
-const LEGACY_EDGE_CATEGORY_RENAMES: readonly {
-  readonly from: string;
-  readonly to: EdgeCategory;
-}[] = [
-  { from: 'proof', to: 'witness' },
-  { from: 'support', to: 'rationale' },
-  { from: 'boundary', to: 'exclusion' },
-  { from: 'association', to: 'cross_reference' },
-];
 
 function seededElicitationGapKey(seed: {
   readonly refersTo: string;
@@ -399,63 +384,6 @@ export class CommandExecutor {
           })
           .run();
         repairedSpecs.push({ specId: spec.id, insertedCount: missing.length, lsn });
-      }
-
-      return { status: 'success' as const, repairedSpecs };
-    });
-  }
-
-  /** Repair local rows written before the D87-L edge-category rename batch. */
-  repairLegacyEdgeCategories(): RepairLegacyEdgeCategoriesResult {
-    return this.db.transaction((tx) => {
-      const renamedCountsBySpec = new Map<number, Map<string, number>>();
-      const legacyCategories = new Set(LEGACY_EDGE_CATEGORY_RENAMES.map((rename) => rename.from));
-      const edgeRows = tx
-        .select({
-          specId: schema.edges.spec_id,
-          category: schema.edges.category,
-        })
-        .from(schema.edges)
-        .all();
-
-      for (const row of edgeRows) {
-        const category = String(row.category);
-        if (!legacyCategories.has(category)) continue;
-        const counts = renamedCountsBySpec.get(row.specId) ?? new Map<string, number>();
-        counts.set(category, (counts.get(category) ?? 0) + 1);
-        renamedCountsBySpec.set(row.specId, counts);
-      }
-
-      if (renamedCountsBySpec.size === 0) {
-        return { status: 'success' as const, repairedSpecs: [] };
-      }
-
-      for (const rename of LEGACY_EDGE_CATEGORY_RENAMES) {
-        tx.update(schema.edges)
-          .set({ category: rename.to })
-          // The left side is typed as the current enum, but local SQLite rows may
-          // still contain retired literals from before D87-L.
-          .where(eq(schema.edges.category, rename.from as EdgeCategory))
-          .run();
-      }
-
-      const repairedSpecs: RepairLegacyEdgeCategoriesSpecResult[] = [];
-      for (const [specId, counts] of renamedCountsBySpec) {
-        const lsn = this.bumpExistingSpecLsn(tx, specId);
-        const renamedCounts = Object.fromEntries(counts.entries());
-        tx.insert(schema.changeLog)
-          .values({
-            spec_id: specId,
-            lsn,
-            operation: 'repair_legacy_edge_categories',
-            payload: JSON.stringify({
-              specId,
-              renamedCounts,
-              renames: LEGACY_EDGE_CATEGORY_RENAMES,
-            }),
-          })
-          .run();
-        repairedSpecs.push({ specId, renamedCounts, lsn });
       }
 
       return { status: 'success' as const, repairedSpecs };
