@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { stringify as stringifyYaml } from 'yaml';
 
 import { loadPlan } from './plan-loader.js';
-import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
+import { buildPlanSpec, projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 
 describe('projectPlanFromSpec', () => {
   it('defaults the plan mode to greenfield when the snapshot omits a mode', () => {
@@ -208,5 +208,42 @@ describe('projectPlanFromSpec', () => {
         expect(verification.kind).toBe('criterion');
       }
     }
+  });
+});
+
+describe('buildPlanSpec (FE-885)', () => {
+  it('returns undefined when the snapshot has no specId', () => {
+    expect(buildPlanSpec({ requirements: [], criteria: [], edges: [] })).toBeUndefined();
+  });
+
+  it('normalizes requirements + criteria into slice-id space with verifies edges', () => {
+    const snapshot: CompletedSpecSnapshot = {
+      specId: 49,
+      requirements: [
+        { id: 2, content: 'Second req', kindOrdinal: 1 },
+        { id: 1, content: 'First req', kindOrdinal: 0 },
+      ],
+      criteria: [{ id: 10, content: 'renders fast', kindOrdinal: 0 }],
+      edges: [{ fromItemId: 10, toItemId: 1, relation: 'verifies' }],
+    };
+
+    const spec = buildPlanSpec(snapshot)!;
+    expect(spec.spec_id).toBe('49');
+    // requirements sorted by kindOrdinal → req-1 before req-2.
+    expect(spec.requirements).toEqual([
+      { item_id: 'req-1', content: 'First req' },
+      { item_id: 'req-2', content: 'Second req' },
+    ]);
+    expect(spec.criteria).toEqual([{ item_id: 'crit-10', content: 'renders fast', verifies: ['req-1'] }]);
+  });
+
+  it('gives a criterion with no verifies edge an empty verifies list', () => {
+    const spec = buildPlanSpec({
+      specId: 7,
+      requirements: [],
+      criteria: [{ id: 5, content: 'orphan criterion', kindOrdinal: 0 }],
+      edges: [],
+    })!;
+    expect(spec.criteria[0]!.verifies).toEqual([]);
   });
 });

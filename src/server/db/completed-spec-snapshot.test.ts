@@ -172,7 +172,13 @@ describe('buildCompletedSpecSnapshot', () => {
 
     const snapshot = buildCompletedSpecSnapshot(db, specification.id);
 
-    expect(snapshot).toEqual({ mode: 'greenfield', requirements: [], criteria: [], edges: [] });
+    expect(snapshot).toEqual({
+      specId: specification.id,
+      mode: 'greenfield',
+      requirements: [],
+      criteria: [],
+      edges: [],
+    });
   });
 
   it('carries the specification mode onto the snapshot (greenfield by default)', () => {

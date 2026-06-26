@@ -11,12 +11,14 @@ import {
   recordCookExitStatus,
   resolveCookPlan,
   resolvePetrinautStreamPort,
+  resolveRunStoreSpecId,
   resolveSandboxPlan,
 } from './cook-cli.js';
 import type { PetrinautEvent } from './petrinaut-events.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
 import type { PetrinautStreamBus } from './petrinaut-stream-bus.js';
 import type { PetrinautStreamServer } from './petrinaut-stream-server.js';
+import type { Plan } from './types.js';
 
 const GIT_TEST_TIMEOUT_MS = 20_000;
 
@@ -541,6 +543,32 @@ describe('resolveCookPlan', () => {
   });
 });
 
+describe('resolveRunStoreSpecId (FE-885)', () => {
+  const planWith = (spec?: Plan['spec']): Plan => ({
+    mode: 'greenfield',
+    epics: [],
+    slices: [],
+    ...(spec ? { spec } : {}),
+  });
+
+  it('prefers the plan\u2019s own spec.spec_id (plan truth) over the --spec flag', () => {
+    const plan = planWith({ spec_id: '49', requirements: [], criteria: [] });
+    expect(resolveRunStoreSpecId(plan, 7)).toBe(49);
+  });
+
+  it('falls back to the --spec flag when the plan carries no spec block', () => {
+    expect(resolveRunStoreSpecId(planWith(), 7)).toBe(7);
+  });
+
+  it('returns undefined when neither source has a spec identity (fixture run)', () => {
+    expect(resolveRunStoreSpecId(planWith(), undefined)).toBeUndefined();
+  });
+
+  it('ignores a non-positive-integer spec_id and falls back to the flag', () => {
+    const plan = planWith({ spec_id: 'not-a-number', requirements: [], criteria: [] });
+    expect(resolveRunStoreSpecId(plan, 7)).toBe(7);
+  });
+});
 describe('resolveSandboxPlan', () => {
   afterEach(() => {
     for (const d of dirs) rmSync(d, { recursive: true, force: true });

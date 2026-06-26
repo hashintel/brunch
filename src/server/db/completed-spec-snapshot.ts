@@ -34,6 +34,9 @@ export function buildCompletedSpecSnapshot(db: DB, specificationId: number): Com
   const { relationships } = getEntitiesForSpecificationOnActivePath(db, specificationId);
 
   return {
+    // Spec identity carried through to the plan's `spec` block so a cook run
+    // can be projected back onto the spec without a DB read (FE-885).
+    specId: specificationId,
     // Grounding mode carried through to the plan so cook resolves the
     // worktree strategy from spec truth. Missing spec → greenfield default.
     mode: getSpecification(db, specificationId)?.mode ?? 'greenfield',

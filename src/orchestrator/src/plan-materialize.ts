@@ -132,6 +132,12 @@ export function materializeArchitectedPlan(
       verification: [{ kind: 'unit-test', target }],
     };
     if (slice.writes.length > 0) slice_.writes = slice.writes;
+    // Preserve the (filtered) requirement provenance on the emitted slice so a
+    // post-hoc projector can map execution back onto spec requirements without
+    // a DB read (FE-885). Inert to the net. Folded into prose above + the
+    // coverage sidecar below; this keeps it machine-readable too.
+    const kept = derivedFromBySliceId.get(slice.id) ?? [];
+    if (kept.length > 0) slice_.derived_from = kept;
     return slice_;
   });
 

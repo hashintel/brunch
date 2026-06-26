@@ -25,7 +25,7 @@ import {
 import { checkPlan, repairPlan, type ContractResult } from './plan-contract.js';
 import { materializeArchitectedPlan, type MaterializeWarning } from './plan-materialize.js';
 import { projectPlanningContext } from './plan-planning-context.js';
-import { projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
+import { buildPlanSpec, projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 import {
   explainReconciliationWarning,
   formatReconciliationWarning,
@@ -36,7 +36,7 @@ import {
 } from './plan-reconciliation.js';
 import { detectProfile, detectTestDir, type ProfileDetection } from './project-detect.js';
 import { resolveToolchain, withTestDir, type ProfileId, type Toolchain } from './project-profile.js';
-import type { Plan, PlanMode } from './types.js';
+import type { Plan, PlanMode, PlanSpec } from './types.js';
 
 const EMPTY_ENRICHMENT: PlanningEnrichment = {
   sliceDependencies: [],
@@ -143,6 +143,9 @@ export async function emitPlanFromSnapshot(
 
   const projected = projectPlanFromSpec(snapshot);
   const planningContext = projectPlanningContext(snapshot);
+  // Spec provenance block (FE-885) — built once from the snapshot and attached
+  // to whichever plan ships (architected or fallback). Inert to execution.
+  const spec = buildPlanSpec(snapshot);
 
   const architectResult = await architectPlan(projected, runModel, planningContext);
 
@@ -173,7 +176,7 @@ export async function emitPlanFromSnapshot(
   }
 
   if (architectResult.status === 'failed') {
-    return fallback(projected, profile, toolchain, architectResult, architectResult.reason);
+    return fallback(projected, profile, toolchain, architectResult, architectResult.reason, spec);
   }
 
   const {
@@ -190,7 +193,7 @@ export async function emitPlanFromSnapshot(
   });
 
   if (!check.ok) {
-    return fallback(projected, profile, toolchain, architectResult, describeCheckFailure(check));
+    return fallback(projected, profile, toolchain, architectResult, describeCheckFailure(check), spec);
   }
 
   // A degenerate architect draft — zero authored slices while the projected
@@ -207,6 +210,7 @@ export async function emitPlanFromSnapshot(
       toolchain,
       architectResult,
       'authored plan has no buildable slices for a non-empty requirement universe',
+      spec,
     );
   }
 
@@ -223,7 +227,7 @@ export async function emitPlanFromSnapshot(
       });
     }
   }
-  return { plan: repaired, warnings, architectResult };
+  return { plan: spec ? { ...repaired, spec } : repaired, warnings, architectResult };
 }
 
 /**
@@ -237,6 +241,7 @@ function fallback(
   toolchain: Toolchain,
   architectResult: ArchitectResult,
   reason: string,
+  spec: PlanSpec | undefined,
 ): EmitPlanResult {
   const { plan: candidate, warnings: reconciliationWarnings } = reconcilePlan(
     { ...projected, profile },
@@ -249,7 +254,7 @@ function fallback(
     ...reconciliationWarnings,
     ...repairs,
   ];
-  return { plan, warnings, architectResult };
+  return { plan: spec ? { ...plan, spec } : plan, warnings, architectResult };
 }
 
 function describeCheckFailure(check: ContractResult): string {
