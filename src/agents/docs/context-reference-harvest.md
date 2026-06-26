@@ -21,7 +21,7 @@ A source may carry more than one disposition class when it has separable uses. T
 
 | Source | Disposition labels | Candidate future reference | Reader / blocker | D98-sensitive notes | Next action |
 | - | - | - | - | - | - |
-| `/private/tmp/igs_recovered.md` (`INTENT_GRAPH_SEMANTICS`) | authored-runtime-reference input; backstage-only rationale; historical/archive candidate | `graph-authoring-heuristics.md`; `checkability-ladder.md`; may motivate generated edge-category/detail-form table scope but is not their generated-reference input | Reader: capture/commit/generate methods needing graph vocabulary and graph-authoring judgment. Blocker: reconcile every subtype/checkability claim against live `src/graph/schema/{kinds,nodes}.ts`, `src/graph/policy/category-policy.ts`, D87-L, D88-L, D94-L before accepting it. | Contains retired subtype proposals and old edge/ontology language; do not revive stale modality/subtype claims or create runtime `strategy` / `lens` / `method` session state. | Derive generated tables only from current typed sources; separately review promotion rules, checkability ladder, and subtype material as authored judgment rows. |
+| `/private/tmp/igs_recovered.md` (`INTENT_GRAPH_SEMANTICS`) | authored-runtime-reference input; backstage-only rationale; historical/archive candidate | `graph-authoring-heuristics.md`; `checkability-ladder.md`; generated edge-category/detail-form table scope is materialized from typed sources only | Reader: capture/commit/generate methods needing graph vocabulary and graph-authoring judgment. Blocker: reconcile every subtype/checkability claim against live `src/graph/schema/{kinds,nodes}.ts`, `src/graph/policy/category-policy.ts`, D87-L, D88-L, D94-L before accepting it. | Contains retired subtype proposals and old edge/ontology language; do not revive stale modality/subtype claims or create runtime `strategy` / `lens` / `method` session state. | Generated edge/detail/form tables now derive from current typed sources; separately review promotion rules, checkability ladder, and subtype material as authored judgment rows. |
 | `docs/design/ELICITATION_QUESTIONS.md` | authored-runtime-reference input | `elicitation-question-hints.md` | Reader: future elicitor question/gap guidance. Blocker: refresh against post-FE-1052 kind names, `story` / `unknown` / `entity` / `sketch`, and four-band D94-L model. | Uses older band framing and mentions strategy/lens as prompt-space terms; keep as prompt-resource vocabulary only, not runtime state. | Treat the durable thesis as: node kind is closed ontology; questions are open/projectable hints inside a kind. Rewrite examples before model-facing use. |
 | `docs/design/ONTOLOGY_REVIEW_PROTOCOL.md` | backstage-only rationale; authored-runtime-reference input | possible `graph-authoring-heuristics.md` citations; may motivate generated edge-category/detail-form table scope but typed code remains the generated-reference input | Reader: data-model maintainers and future generated-reference authors. Blocker: live code/SPEC are authoritative; §0/§2–3/§9 are historical and `thesis → claim` did not land. | Mentions methods as validation lenses; preserve only as prompt/resource vocabulary where useful, never as user-changeable runtime axes. | Use as design-validation record for D87-L/D88-L, not as prompt payload. Pull only claims that still match current SPEC/code. |
 | `docs/design/ELICITATION_LENSES.md` | authored-runtime-reference input; skill-local-reference input; historical/archive candidate | `proposal-meta-rubric.md`; `projection-guidance.md` | Reader: `generate-proposal` and future `project` capability. Blocker: D98-L retired `strategy` / `lens` / `method` as runtime state; A33-L still design-gates `project`. | Highly D98-sensitive: old lens catalogue must not reintroduce runtime lens/strategy/method axes. Fan-out/fan-in and D31 meta-rubric may survive as prompt conduct. | Harvest fan-out/fan-in, grounding-density, and meta-rubric ideas only into the relevant method/reference home after translating away runtime-axis assumptions. |
@@ -54,7 +54,7 @@ tree context-reference-candidates:
     deferred:
       - checkability ladder
       - constraint/invariant subtype enums
-      - generated edge-category/detail-form tables
+      - generated edge-category/detail-form tables (materialized in graph-ontology.md)
     d98_guard: method vocabulary allowed only as prompt conduct
 
   checkability-ladder.md:
@@ -112,7 +112,7 @@ tree context-reference-candidates:
 ## Runtime/backstage guardrails
 
 - This ledger is a pointer and disposition table, not a canonical ontology or prompt body.
-- Generated tables must come from typed graph sources, not recovered prose or design docs.
+- Generated kind/band, edge-category, and detail/form tables must come from typed graph sources, not recovered prose or design docs.
 - Authored references need concrete readers; otherwise leave material in the current skill-local or backstage home.
 - D98-sensitive vocabulary is allowed only when it describes prompt-resource organization or internal conduct. It must not become session-agent state beyond SPEC/CODE operational mode.
 - Rows are harvested one at a time. Do not bulk-import old design docs into runtime references.

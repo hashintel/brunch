@@ -2,7 +2,7 @@
 
 # Graph ontology reference
 
-Projected from `src/graph/schema/kinds.ts` and `nodes.ts` — the source of truth for graph vocabulary (D73-L). Regenerate with `npm run generate:ontology`; drift is caught by `npm run check:data-model`. Do not hand-edit.
+Projected from `src/graph/schema/kinds.ts`, `nodes.ts`, and `graph/policy/category-policy.ts` — the source of truth for graph vocabulary and edge policy (D73-L). Regenerate with `npm run generate:ontology`; drift is caught by `npm run check:data-model`. Do not hand-edit.
 
 ### Node kind → readiness band
 
@@ -34,3 +34,46 @@ Kinds appear in canonical plane order (intent, oracle, design, plan). A band cel
 | milestone | M | commitment |
 | frontier | F | commitment |
 | slice | S | commitment |
+
+### Edge category policy
+
+Role-named endpoints are the fields authors use in `mutate_graph`; impact and projection flags come from edge-category metadata, not storage direction (D51-L/D87-L).
+
+| Category | Endpoint roles | Affected endpoint | Impact strength | Stance | Criteria help? | Projection effect |
+| - | - | - | - | - | - | - |
+| dependency | dependency → dependent | target | cascade | — | no | none |
+| witness | oracle → claim | source | advisory | required | yes | none |
+| rationale | support → claim | source | advisory | required | no | none |
+| realization | abstract → concrete | target | advisory | — | no | none |
+| refinement | abstract → concrete | target | advisory | — | no | none |
+| exclusion | boundary → subject | target | advisory | — | no | none |
+| composition | whole → part | source | advisory | — | no | none |
+| cross_reference | peer → peer | — | none | — | no | none |
+| supersession | successor → predecessor | source | advisory | — | no | hide_predecessor_from_active_context |
+
+### Node detail payloads
+
+Only these node kinds require non-form detail payloads. Other per-kind behavior comes from `kind`, not detail shape (D54-L/D88-L).
+
+| Kind | Payload | Fields |
+| - | - | - |
+| decision | Detail required for decision nodes. | chosen_option, rejected, rationale |
+| term | Detail required for term nodes. | definition, aliases |
+
+### Claim detail.form payloads
+
+`kind` drives graph behavior; `detail.form` is inert method payload plus a renderer hook (D88-L).
+
+| Kind | Allowed forms |
+| - | - |
+| requirement | plain, gherkin, formal |
+| criterion | plain, gherkin, formal |
+| invariant | plain, gherkin, formal |
+| context | given |
+
+| Form | Payload | Fields |
+| - | - | - |
+| plain | Plain claim form. | form |
+| gherkin | Gherkin Given/When/Then payload. | form, given, when, then |
+| formal | Formal verification payload. | form, language, statement |
+| given | Axiom/given payload on a context node. | form, statement |

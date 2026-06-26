@@ -1,6 +1,6 @@
 # Graph authoring heuristics
 
-Runtime-eligible shared reference for graph-writing judgment (D97-L/D98-L). Use this for authoring discipline that is shared by `capture` and `commit-graph`; use `graph-ontology.md` for generated kind/band vocabulary instead of restating kind tables here.
+Runtime-eligible shared reference for graph-writing judgment (D97-L/D98-L). Use this for authoring discipline that is shared by `capture` and `commit-graph`; use `graph-ontology.md` for generated kind/band, edge-category, and detail/form vocabulary instead of restating tables here.
 
 ## Author declarative graph claims
 
@@ -32,8 +32,12 @@ chain relation-bearing-authoring:
     -> use role-named mutate_graph endpoints
 ```
 
-Do not use capture-local or prose-local edge dialects. `mutate_graph` edges use role fields such as `dependency/dependent`, `support/claim`, `abstract/concrete`, and `boundary/subject`; diagnostics from `structural_illegal` are the repair path.
+Do not use capture-local or prose-local edge dialects. `graph-ontology.md` lists the generated edge-category policy table; `mutate_graph` edges use role fields such as `dependency/dependent`, `support/claim`, `abstract/concrete`, and `boundary/subject`; diagnostics from `structural_illegal` are the repair path.
 
 ## Keep mutation grammar role-named
 
 Prepare one coherent `mutate_graph` batch when the user-facing commitment is already settled. Prefer create-only direct commits in the current product posture: `create_node` ops plus role-named `create_edge` ops. Do not invent graph payload fields, LSNs, edge categories, result shapes, or partial-write recovery paths.
+
+## Treat detail.form as inert payload
+
+Use `graph-ontology.md` for the generated required-detail and allowed-form tables. Node `kind` drives graph behavior; `detail.form` is only method payload plus a renderer hook. Do not infer edge legality, readiness, commitment strength, or runtime method state from `form`.
