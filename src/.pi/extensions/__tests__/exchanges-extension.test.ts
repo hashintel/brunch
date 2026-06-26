@@ -5,7 +5,7 @@ import {
   PRESENT_QUESTION_TOOL,
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
-} from '../extensions/exchanges/index.js';
+} from '../exchanges/index.js';
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
 

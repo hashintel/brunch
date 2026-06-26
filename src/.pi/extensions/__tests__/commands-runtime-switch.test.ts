@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
-import { projectBrunchAgentState } from '../../projections/session/runtime-state.js';
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
+import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   type BrunchAgentStateEntryData,
-} from '../../session/runtime-state.js';
+} from '../../../session/runtime-state.js';
+import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
 import {
   BRUNCH_LENS_COMMAND,
   BRUNCH_MODE_COMMAND,
   BRUNCH_STRATEGY_COMMAND,
   registerBrunchCommands,
-} from '../extensions/commands/index.js';
-import { createTestLabTheme } from './support/tui-theme.js';
+} from '../commands/index.js';
 
 interface RegisteredCommand {
   description?: string;

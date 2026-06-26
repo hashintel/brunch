@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { TuiStyleLabComponent } from '../../extensions/tui-lab/index.js';
 import {
   DEMO_MODEL_SEGMENTS,
   nextSegmentIndex,
@@ -8,8 +9,7 @@ import {
   renderSegmentTrack,
   trackVisibleWidth,
   type LabTheme,
-} from '../components/tui-lab/index.js';
-import { TuiStyleLabComponent } from '../extensions/tui-lab/index.js';
+} from '../tui-lab/index.js';
 
 const theme = createTheme();
 

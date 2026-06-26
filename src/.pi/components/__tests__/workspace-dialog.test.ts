@@ -3,14 +3,14 @@ import { readFile } from 'node:fs/promises';
 import { type Terminal } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
-import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
-import { formatBrunchProductIdentity, readBrunchAnsiLogo } from '../components/brunch-identity.js';
+import type { WorkspaceLaunchInventory } from '../../../session/workspace-session-coordinator.js';
+import { formatBrunchProductIdentity, readBrunchAnsiLogo } from '../brunch-identity.js';
 import {
   buildWorkspaceSelectionView,
   createWorkspaceDialogComponent,
   selectWorkspaceSelectionOption,
   runWorkspaceDialogPreflight,
-} from '../components/workspace-dialog/index.js';
+} from '../workspace-dialog/index.js';
 
 describe('spec/session picker', () => {
   it('builds a hierarchical spec/session selection home without per-spec top-level actions', () => {
@@ -300,7 +300,7 @@ describe('spec/session picker', () => {
   });
 
   it('provides deterministic shared Brunch identity primitives', async () => {
-    const assetUrl = new URL('../components/workspace-dialog/assets/', import.meta.url);
+    const assetUrl = new URL('../workspace-dialog/assets/', import.meta.url);
 
     expect(readBrunchAnsiLogo({ assetUrl, truecolor: false }).join('\n')).toContain('\x1B[');
     expect(
@@ -339,7 +339,7 @@ describe('spec/session picker', () => {
 
   it('keeps logo assets colocated with the private picker component', async () => {
     const source = await readFile(
-      new URL('../components/workspace-dialog/assets/brunch-logo-quad-56x18.ansi', import.meta.url),
+      new URL('../workspace-dialog/assets/brunch-logo-quad-56x18.ansi', import.meta.url),
       'utf8',
     );
 
@@ -348,7 +348,7 @@ describe('spec/session picker', () => {
 
   it('declares pi-tui as a direct dependency', async () => {
     const manifest = JSON.parse(
-      await readFile(new URL('../../../package.json', import.meta.url), 'utf8'),
+      await readFile(new URL('../../../../package.json', import.meta.url), 'utf8'),
     ) as { dependencies?: Record<string, string> };
 
     expect(manifest.dependencies).toHaveProperty('@earendil-works/pi-tui');

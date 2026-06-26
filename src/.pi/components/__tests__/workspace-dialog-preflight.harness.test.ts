@@ -3,9 +3,9 @@ import { describe, expect, it } from 'vitest';
 import type {
   WorkspaceLaunchInventory,
   SpecSessionActivationDecision,
-} from '../../session/workspace-session-coordinator.js';
-import { runWorkspaceDialogPreflight } from '../components/workspace-dialog/preflight.js';
-import { VirtualTerminal } from './support/virtual-terminal.js';
+} from '../../../session/workspace-session-coordinator.js';
+import { VirtualTerminal } from '../../__tests__/support/virtual-terminal.js';
+import { runWorkspaceDialogPreflight } from '../workspace-dialog/preflight.js';
 
 describe('workspace dialog preflight harness', () => {
   it('renders the spec/session picker home screen and resolves on Enter', async () => {

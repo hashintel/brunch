@@ -1,11 +1,14 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { isToolBlockedForRuntimeState } from '../../../../agents/runtime/policy.js';
-import type { CommandResult } from '../../../../graph/command-executor.js';
-import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
-import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../../session/runtime-state.js';
-import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from './index.js';
+import { isToolBlockedForRuntimeState } from '../../../agents/runtime/policy.js';
+import type { CommandResult } from '../../../graph/command-executor.js';
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
+import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../session/runtime-state.js';
+import {
+  activeToolNamesForBrunchAgentState,
+  projectBrunchAgentState,
+} from '../agent-runtime/runtime/index.js';
 
 const SIDE_EFFECTING_POC_TOOLS = ['bash', 'edit', 'write'] as const;
 const REGISTERED_POC_TOOLS = [

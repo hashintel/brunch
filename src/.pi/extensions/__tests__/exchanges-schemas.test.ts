@@ -30,7 +30,7 @@ import {
   zRequestReviewDetails,
   zRequestToolMeta,
   zRequestResponseParams,
-} from '../extensions/exchanges/schemas/index.js';
+} from '../exchanges/schemas/index.js';
 
 function expectJsonSchemaExport(schema: z.ZodType) {
   expect(() => z.toJSONSchema(schema, { unrepresentable: 'throw' })).not.toThrow();

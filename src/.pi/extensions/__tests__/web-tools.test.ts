@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { registerBrunchWebTools } from './index.js';
+import { registerBrunchWebTools } from '../web-tools/web/index.js';
 
 interface RegisteredTool {
   name: string;

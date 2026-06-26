@@ -4,11 +4,11 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { composeAgentPrompt } from '../../agents/runtime/compose.js';
-import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
-import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type { WorkspacePostureState } from '../../session/workspace-session-coordinator.js';
+import { composeAgentPrompt } from '../../../agents/runtime/compose.js';
+import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
+import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -17,11 +17,11 @@ import {
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
   registerBrunchOperationalModePolicy,
-} from '../extensions/agent-runtime/runtime/index.js';
-import { registerBrunchPrompting } from '../extensions/agent-runtime/system-prompts/index.js';
-import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../extensions/dev-mode/introspect-query/index.js';
-import { createInMemoryBrunchIntrospectionStore } from '../extensions/dev-mode/introspection/index.js';
-import { BRUNCH_SESSION_QUERY_TOOL } from '../extensions/dev-mode/session-query/index.js';
+} from '../agent-runtime/runtime/index.js';
+import { registerBrunchPrompting } from '../agent-runtime/system-prompts/index.js';
+import { BRUNCH_INTROSPECT_QUERY_TOOL } from '../dev-mode/introspect-query/index.js';
+import { createInMemoryBrunchIntrospectionStore } from '../dev-mode/introspection/index.js';
+import { BRUNCH_SESSION_QUERY_TOOL } from '../dev-mode/session-query/index.js';
 
 function runtimeEntry(state: BrunchAgentState) {
   return {
@@ -674,5 +674,5 @@ describe('Brunch prompt-pack topology', () => {
 });
 
 function projectRoot(): string {
-  return dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
+  return dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 }

@@ -1,16 +1,16 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { createDb } from '../../../../db/connection.js';
-import * as schema from '../../../../db/schema.js';
-import { sortElicitationGapsForAsking } from '../../../../graph/elicitation-driver.js';
-import type { ElicitationGap } from '../../../../graph/index.js';
-import { CommandExecutor, getElicitationGaps } from '../../../../graph/index.js';
+import { createDb } from '../../../db/connection.js';
+import * as schema from '../../../db/schema.js';
+import { sortElicitationGapsForAsking } from '../../../graph/elicitation-driver.js';
+import type { ElicitationGap } from '../../../graph/index.js';
+import { CommandExecutor, getElicitationGaps } from '../../../graph/index.js';
 import {
   READ_ELICITATION_GAPS_TOOL,
   registerBrunchElicitation,
   UPDATE_ELICITATION_GAPS_TOOL,
-} from './index.js';
+} from '../brunch-data/elicitation/index.js';
 
 function gap(overrides: Partial<ElicitationGap> & { id: string }): ElicitationGap {
   return {

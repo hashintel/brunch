@@ -5,7 +5,7 @@ import {
   registerBrunchSessionBoundary,
   runBrunchSessionBoundaryPipeline,
   type BrunchSessionBoundaryPipelineStep,
-} from './lifecycle.js';
+} from '../session-hooks/session/lifecycle.js';
 
 describe('Brunch session-boundary lifecycle', () => {
   it('runs workspace rebinding and continuity steps through one ordered boundary pipeline', async () => {

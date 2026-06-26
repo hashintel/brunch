@@ -2,13 +2,13 @@ import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent';
 import { visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
-import type { WorkspaceSessionReadyState } from '../../session/workspace-session-coordinator.js';
-import { BrunchStartupHeader } from '../components/chrome-header.js';
+import type { WorkspaceSessionReadyState } from '../../../session/workspace-session-coordinator.js';
+import { BrunchStartupHeader } from '../../components/chrome-header.js';
 import chromeExtension, {
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
-} from '../extensions/chrome/index.js';
+} from '../chrome/index.js';
 
 describe('Brunch chrome projection', () => {
   it('uses activated session state instead of fabricating unbound', async () => {

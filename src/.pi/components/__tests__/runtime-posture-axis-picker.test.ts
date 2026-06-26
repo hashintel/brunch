@@ -5,13 +5,13 @@ import {
   AGENT_STRATEGY_IDS,
   type AgentLensSelection,
   type AgentStrategySelection,
-} from '../../session/schema/kinds.js';
+} from '../../../session/schema/kinds.js';
+import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
 import {
   createRuntimeLensPickerComponent,
   createRuntimeModePickerComponent,
   createRuntimeStrategyPickerComponent,
-} from '../components/runtime-posture/axis-picker.js';
-import { createTestLabTheme } from './support/tui-theme.js';
+} from '../runtime-posture/axis-picker.js';
 
 const theme = createTestLabTheme();
 

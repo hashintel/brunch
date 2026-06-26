@@ -5,11 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchFauxHarness } from '../../dev/index.js';
-import { openWorkspaceCommandExecutor } from '../../graph/index.js';
-import { seedFixture, type SeedFixture } from '../../graph/seed-fixtures.js';
-import { createSessionBindingData, SESSION_BINDING_TYPE } from '../../session/session-binding.js';
-import { registerBrunchContext } from '../extensions/brunch-data/context/index.js';
+import { createBrunchFauxHarness } from '../../../dev/index.js';
+import { openWorkspaceCommandExecutor } from '../../../graph/index.js';
+import { seedFixture, type SeedFixture } from '../../../graph/seed-fixtures.js';
+import { createSessionBindingData, SESSION_BINDING_TYPE } from '../../../session/session-binding.js';
+import { registerBrunchContext } from '../brunch-data/context/index.js';
 
 function collectContextTools() {
   const tools = new Map<string, { execute: (...args: any[]) => Promise<unknown> }>();
@@ -347,7 +347,9 @@ describe('context tools', () => {
 });
 
 async function loadFixture(slug: string, set = 'bilal-port'): Promise<SeedFixture> {
-  const fixturePath = fileURLToPath(new URL(`../../../.fixtures/seeds/${set}/${slug}.json`, import.meta.url));
+  const fixturePath = fileURLToPath(
+    new URL(`../../../../.fixtures/seeds/${set}/${slug}.json`, import.meta.url),
+  );
   return JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(fixturePath, 'utf8')));
 }
 

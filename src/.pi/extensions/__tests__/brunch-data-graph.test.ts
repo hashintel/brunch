@@ -1,10 +1,10 @@
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
-import { formatMutateGraphResult } from '../../agents/contexts/graph/commit-result.js';
-import { formatGraphOverview } from '../../agents/contexts/graph/graph-slice.js';
-import { createDb, type BrunchDb } from '../../db/connection.js';
-import { CommandExecutor } from '../../graph/command-executor.js';
+import { formatMutateGraphResult } from '../../../agents/contexts/graph/commit-result.js';
+import { formatGraphOverview } from '../../../agents/contexts/graph/graph-slice.js';
+import { createDb, type BrunchDb } from '../../../db/connection.js';
+import { CommandExecutor } from '../../../graph/command-executor.js';
 import {
   getElicitationGaps,
   getNodes,
@@ -14,11 +14,11 @@ import {
   resolveGraphNodeCode,
   type GraphFilter,
   type GraphVisibility,
-} from '../../graph/queries.js';
-import { READINESS_BANDS } from '../../graph/schema/kinds.js';
-import { translateMutateGraph } from '../extensions/brunch-data/graph/command-adapter.js';
-import { registerBrunchGraph, type GraphReaders } from '../extensions/brunch-data/graph/index.js';
-import { ReadGraphParams } from '../extensions/brunch-data/graph/tool-schemas.js';
+} from '../../../graph/queries.js';
+import { READINESS_BANDS } from '../../../graph/schema/kinds.js';
+import { translateMutateGraph } from '../brunch-data/graph/command-adapter.js';
+import { registerBrunchGraph, type GraphReaders } from '../brunch-data/graph/index.js';
+import { ReadGraphParams } from '../brunch-data/graph/tool-schemas.js';
 
 let nextSpecSlug = 0;
 

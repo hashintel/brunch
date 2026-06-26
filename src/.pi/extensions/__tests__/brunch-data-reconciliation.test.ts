@@ -1,21 +1,21 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { activeToolNamesForPosture } from '../../../../agents/runtime/state.js';
-import { createDb } from '../../../../db/connection.js';
-import * as schema from '../../../../db/schema.js';
+import { activeToolNamesForPosture } from '../../../agents/runtime/state.js';
+import { createDb } from '../../../db/connection.js';
+import * as schema from '../../../db/schema.js';
 import {
   CommandExecutor,
   getOpenReconciliationNeeds,
   type ReconciliationNeed,
-} from '../../../../graph/index.js';
-import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
-import { projectBrunchAgentState } from '../../agent-runtime/runtime/index.js';
+} from '../../../graph/index.js';
+import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
+import { projectBrunchAgentState } from '../agent-runtime/runtime/index.js';
 import {
   READ_RECONCILIATION_NEEDS_TOOL,
   registerBrunchReconciliation,
   UPDATE_RECONCILIATION_NEEDS_TOOL,
-} from './index.js';
+} from '../brunch-data/reconciliation/index.js';
 
 interface ToolResult {
   content: Array<{ type: 'text'; text: string }>;

@@ -3,16 +3,16 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 
 import {
-  type BrunchIntrospectionStore,
-  createInMemoryBrunchIntrospectionStore,
-  registerBrunchIntrospection,
-} from '../introspection/index.js';
-import {
   BRUNCH_INTROSPECT_QUERY_TOOL,
   createBrunchIntrospectQueryTool,
   queryIntrospectionCaptures,
   registerBrunchIntrospectQuery,
-} from './index.js';
+} from '../dev-mode/introspect-query/index.js';
+import {
+  type BrunchIntrospectionStore,
+  createInMemoryBrunchIntrospectionStore,
+  registerBrunchIntrospection,
+} from '../dev-mode/introspection/index.js';
 
 describe('brunch_introspect_query', () => {
   it('returns the latest capture and projects payload and baseOptions paths', () => {

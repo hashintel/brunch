@@ -4,13 +4,13 @@ import { fauxAssistantMessage, fauxToolCall } from '@earendil-works/pi-ai';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchFauxHarness } from '../../../../dev/index.js';
+import { createBrunchFauxHarness } from '../../../dev/index.js';
 import {
   BRUNCH_SESSION_QUERY_TOOL,
   createBrunchSessionQueryTool,
   querySessionBranch,
   registerBrunchSessionQuery,
-} from './index.js';
+} from '../dev-mode/session-query/index.js';
 
 const branch = [
   messageEntry('u1', { role: 'user', content: 'show me the graph summary' }),

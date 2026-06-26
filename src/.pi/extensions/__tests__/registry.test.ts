@@ -4,30 +4,30 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
-import { registerBrunchAlternatives as alternatives } from '../components/alternatives.js';
-import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../extensions/agent-runtime/orchestrator-stub/index.js';
-import { registerBrunchOperationalModePolicy as operationalMode } from '../extensions/agent-runtime/runtime/index.js';
-import { registerBrunchPrompting as prompting } from '../extensions/agent-runtime/system-prompts/index.js';
-import { registerBrunchContext as context } from '../extensions/brunch-data/context/index.js';
-import chrome from '../extensions/chrome/index.js';
+import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
+import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
+import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../agent-runtime/orchestrator-stub/index.js';
+import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
+import { registerBrunchPrompting as prompting } from '../agent-runtime/system-prompts/index.js';
+import { registerBrunchContext as context } from '../brunch-data/context/index.js';
+import chrome from '../chrome/index.js';
 import {
   BRUNCH_LENS_COMMAND,
   BRUNCH_MODE_COMMAND,
   BRUNCH_STRATEGY_COMMAND,
   BRUNCH_SWITCH_COMMAND,
   registerBrunchCommands as commands,
-} from '../extensions/commands/index.js';
-import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../extensions/commands/policy.js';
+} from '../commands/index.js';
+import { registerBrunchBranchPolicyHandlers as commandPolicy } from '../commands/policy.js';
 import {
   PRESENT_CANDIDATES_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange as structuredExchange,
-} from '../extensions/exchanges/index.js';
-import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../extensions/mentions/index.js';
-import { registerBrunchSessionBoundary as sessionLifecycle } from '../extensions/session-hooks/session/lifecycle.js';
+} from '../exchanges/index.js';
+import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../mentions/index.js';
+import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-hooks/session/lifecycle.js';
 
 const extensionDefaults = {
   'components/alternatives.ts': alternatives,
@@ -531,5 +531,5 @@ async function fileExists(file: string): Promise<boolean> {
 }
 
 function projectRoot(): string {
-  return dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url)))));
+  return dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 }

@@ -1,14 +1,14 @@
 import { visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchPiExtensions } from '../../app/pi-extensions.js';
+import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
   lineVisibleWidths,
   makeSolidBadge,
   renderStylePalettePreview,
   type LabTheme,
-} from '../components/tui-lab/index.js';
-import { BRUNCH_TUI_STYLE_LAB_COMMAND, registerBrunchTuiLab } from '../extensions/tui-lab/index.js';
+} from '../../components/tui-lab/index.js';
+import { BRUNCH_TUI_STYLE_LAB_COMMAND, registerBrunchTuiLab } from '../tui-lab/index.js';
 
 const theme = createTheme();
 

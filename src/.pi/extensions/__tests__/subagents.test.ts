@@ -30,14 +30,14 @@ import {
   parseSubagentMarkdown,
   subagentAgentsDir,
   type SubagentDefinition,
-} from './agents.js';
-import { loadSubagentConfig, parseSubagentConfig, subagentConfigPath } from './config.js';
+} from '../subagents/agents.js';
+import { loadSubagentConfig, parseSubagentConfig, subagentConfigPath } from '../subagents/config.js';
 import {
   BRUNCH_SUBAGENT_TOOL,
   createSemaphore,
   registerBrunchSubagents,
   type BrunchSubagentsDeps,
-} from './index.js';
+} from '../subagents/index.js';
 import {
   createSubagentToolCatalog,
   planSubagentTools,
@@ -46,7 +46,7 @@ import {
   type SubagentResult,
   type SubagentRunContext,
   type SubagentSealedDeps,
-} from './session.js';
+} from '../subagents/session.js';
 
 const EXPLORER_MD = `---
 name: explorer
