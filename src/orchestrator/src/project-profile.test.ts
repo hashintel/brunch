@@ -42,6 +42,19 @@ describe('toolchain confinement probe', () => {
   });
 });
 
+describe('toolchain runner diagnostics', () => {
+  it('package-backed profiles name the runner packages they load', () => {
+    expect(brunchProfile.toolchain.diagnostics.runnerPackages).toContain('vitest');
+    expect(resolveToolchain('node-vitest').diagnostics.runnerPackages).toContain('vitest');
+    expect(resolveToolchain('node-jest').diagnostics.runnerPackages).toContain('jest');
+  });
+
+  it('built-in runner profiles do not invent node_modules package facts', () => {
+    expect(resolveToolchain('node-test').diagnostics.runnerPackages).toEqual([]);
+    expect(resolveToolchain('deno').diagnostics.runnerPackages).toEqual([]);
+  });
+});
+
 describe('toolchain test conventions are framework-specific', () => {
   it('bun conventions mention bun:test', () => {
     expect(bunProfile.toolchain.testConventions).toContain('bun:test');

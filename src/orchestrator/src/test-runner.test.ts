@@ -91,6 +91,7 @@ describe('ToolchainTestRunner honors the toolchain test command', () => {
       epicTarget: (id) => id,
       testCommand,
       probeCommand: () => ['node', '--version'],
+      diagnostics: { runnerName: 'fake', runnerPackages: [], noTestsPatterns: [/No test files found/i] },
       testConventions: 'fake',
     };
   }
@@ -132,25 +133,51 @@ describe('ToolchainTestRunner honors the toolchain test command', () => {
 });
 
 describe('classifyTestFailure (infra vs test)', () => {
+  const vitestDiagnostics = {
+    runnerName: 'vitest',
+    runnerPackages: ['vitest'],
+    noTestsPatterns: [/No test files found/i],
+  };
+
   it('a spawn failure (missing runner binary) is infra', () => {
-    expect(classifyTestFailure('', true)).toBe('infra');
+    expect(classifyTestFailure('', true, vitestDiagnostics)).toBe('infra');
   });
 
   it('a shell "command not found" is infra even with a normal exit', () => {
-    expect(classifyTestFailure('sh: 1: vitest: command not found', false)).toBe('infra');
-    expect(classifyTestFailure("'jest' is not recognized as an internal or external command", false)).toBe(
-      'infra',
-    );
+    expect(classifyTestFailure('sh: 1: vitest: command not found', false, vitestDiagnostics)).toBe('infra');
+    expect(
+      classifyTestFailure(
+        "'jest' is not recognized as an internal or external command",
+        false,
+        vitestDiagnostics,
+      ),
+    ).toBe('infra');
+  });
+
+  it('a profile-owned runner package EPERM is infra', () => {
+    const output = "Error: EPERM: operation not permitted, open '/sandbox/node_modules/vitest/vitest.mjs'";
+
+    expect(classifyTestFailure(output, false, vitestDiagnostics)).toBe('infra');
+  });
+
+  it('a package EPERM outside the selected runner diagnostics stays a test failure', () => {
+    const output = "Error: EPERM: operation not permitted, open '/sandbox/node_modules/playwright/index.js'";
+
+    expect(classifyTestFailure(output, false, vitestDiagnostics)).toBe('test');
   });
 
   it('an assertion failure with no toolchain signal is a test failure', () => {
-    expect(classifyTestFailure('expect(received).toBe(expected)\n\n1 fail', false)).toBe('test');
+    expect(classifyTestFailure('expect(received).toBe(expected)\n\n1 fail', false, vitestDiagnostics)).toBe(
+      'test',
+    );
   });
 
   it('a missing *module* stays a test failure (ambiguous with TDD red), not infra', () => {
     // A red test importing source that does not exist yet must not be mislabeled
     // infra and skipped.
-    expect(classifyTestFailure("Cannot find module './widget' from 'widget.test.ts'", false)).toBe('test');
+    expect(
+      classifyTestFailure("Cannot find module './widget' from 'widget.test.ts'", false, vitestDiagnostics),
+    ).toBe('test');
   });
 
   it('"No test files found" is absent (nothing built yet), not a test red', () => {
@@ -158,7 +185,19 @@ describe('classifyTestFailure (infra vs test)', () => {
     // the runner matches zero files. That is "not started", not a failure — it
     // must not be conflated with a genuine assertion red (which keeps a slice's
     // attempt counter clean and avoids a phantom ✗ NEEDS WORK on the grid).
-    expect(classifyTestFailure('No test files found, exiting with code 1', false)).toBe('absent');
+    expect(classifyTestFailure('No test files found, exiting with code 1', false, vitestDiagnostics)).toBe(
+      'absent',
+    );
+  });
+
+  it('no-test wording is profile-owned', () => {
+    const customDiagnostics = {
+      runnerName: 'custom',
+      runnerPackages: [],
+      noTestsPatterns: [/Nothing matched/i],
+    };
+
+    expect(classifyTestFailure('Nothing matched target filter', false, customDiagnostics)).toBe('absent');
   });
 });
 
@@ -188,6 +227,7 @@ describe('ToolchainTestRunner stamps failureKind', () => {
       epicTarget: (id) => id,
       testCommand,
       probeCommand: () => ['node', '--version'],
+      diagnostics: { runnerName: 'fake', runnerPackages: [], noTestsPatterns: [/No test files found/i] },
       testConventions: 'fake',
     };
   }
