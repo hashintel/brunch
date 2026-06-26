@@ -51,6 +51,28 @@
       }
     },
     {
+      "files": ["src/agents/contexts/**/*.ts", "src/agents/contexts/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/.pi/**",
+                  "**/app/**",
+                  "**/db/**",
+                  "**/rpc/**",
+                  "**/web/**"
+                ],
+                "message": "D52-L/D83-L: agents/contexts/ is model-facing render code; it must not import adapters, app entrypoints, transports, web, or db."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["src/graph/**", "src/db/**"],
       "rules": { "no-restricted-imports": "off" }
     },
