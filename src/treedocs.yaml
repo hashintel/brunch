@@ -188,6 +188,8 @@ tree:
         section.ts: 'Implements section.'
         toon.ts: 'Implements toon.'
         tree.ts: 'Implements tree.'
+      references:
+        graph-ontology.md: 'Markdown resource.'
       seeds:
         README.md: 'Documents this source subtree.'
         origination.ts: 'Implements origination.'
@@ -209,6 +211,8 @@ tree:
           workspace-cwd-context.md: 'Markdown resource.'
           workspace-overview-context.md: 'Markdown resource.'
         workspace-context.ts: 'Implements workspace context.'
+    docs:
+      README.md: 'Documents this source subtree.'
     prompts:
       README.md: 'Documents this source subtree.'
       elicitor:
@@ -334,8 +338,6 @@ tree:
     queries.ts: 'Implements queries.'
     review-set.ts: 'Implements review set.'
     schema:
-      _generated:
-        ontology.md: 'Markdown resource.'
       edges.ts: 'Implements edges.'
       elicitation-gap-fixtures.ts: 'Implements elicitation gap fixtures.'
       elicitation-gaps.ts: 'Implements elicitation gaps.'

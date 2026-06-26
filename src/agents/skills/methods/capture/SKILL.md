@@ -21,7 +21,7 @@ chain capture-then-ask:
 
 ## Sweep frame
 
-Walk the un-swept material once by readiness band and likely node kind. The canonical band order and per-kind band membership are the generated kind→band table in `src/graph/schema/_generated/ontology.md` (projected from the typed schema — cite it, do not restate it; D97-L). Conversational answers, ordinary user text, and acquisition digests are all sweep inputs. Large raw reads or tool results should be digested first; capture from the digest plus the conversation, not from unbounded raw bulk.
+Walk the un-swept material once by readiness band and likely node kind. The canonical band order and per-kind band membership are the generated kind→band table in `src/agents/contexts/references/graph-ontology.md` (projected from the typed schema — cite it, do not restate it; D97-L). Conversational answers, ordinary user text, and acquisition digests are all sweep inputs. Large raw reads or tool results should be digested first; capture from the digest plus the conversation, not from unbounded raw bulk.
 
 Use the graph, gap, and reconciliation tools as the mutation boundary:
 

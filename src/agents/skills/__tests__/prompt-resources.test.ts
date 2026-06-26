@@ -80,8 +80,19 @@ describe('prompt-resource skills', () => {
     expect(readme).toContain('<name>/SKILL.md');
     expect(readme).toContain('references/` subfiles');
     expect(readme).toContain('progressive disclosure');
-    expect(readme).toContain('_generated/ typed-vocab references');
+    expect(readme).toContain('Shared typed-vocab context references');
+    expect(readme).toContain('src/agents/contexts/references/graph-ontology.md');
     expect(readme).toContain('concrete citing need appears');
     expect(readme).toContain('drift-checked');
+  });
+
+  it('records the shared context-reference and backstage curation homes', async () => {
+    const contextsReadme = await readFile(join(projectRoot, 'src/agents/contexts/README.md'), 'utf8');
+    expect(contextsReadme).toContain('references/       runtime-eligible shared context references');
+    expect(contextsReadme).toContain('references/graph-ontology.md');
+
+    const docsReadme = await readFile(join(projectRoot, 'src/agents/docs/README.md'), 'utf8');
+    expect(docsReadme).toContain('backstage notes for curating Brunch-authored agent resources');
+    expect(docsReadme).toContain('not copied into packaged runtime assets');
   });
 });

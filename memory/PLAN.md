@@ -80,9 +80,9 @@ context-pipeline/
 
 ### Next
 
-- `orchestrator-tool-port` (FE-1087) — **scoped.** Port the external `brunch cook` orchestrator into execute-mode tools without granting the foreground orchestrator direct shell/file-write authority. First active scope: `memory/cards/orchestrator-tool-port--plan-check-tool.md`.
+- `orchestrator-tool-port` (FE-1087) — **scoped but D98-sensitive.** Port the external `brunch cook` orchestrator into the future CODE/executor tool surface rather than preserving a separate execute/orchestrator product mode. First active scope: `memory/cards/orchestrator-tool-port--plan-check-tool.md`; reconcile that scope against D98-L before build.
 - `elicitor-project` (FE-1085) — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
-- `data-model-legibility` — **active.** Single canonical home for data-model meta-guidance, with closed-vocabulary tables generated from the typed `graph/schema` sources (D97-L). Design verdict landed (Shape C); first tracer landed (generated kind→band table + `check:data-model` drift guard, cited by `methods/capture`). Remaining: edge-category + detail-form tables, the authored judgment layer, and the subtypes→`detail` remodel.
+- `data-model-legibility` — **active.** Single active frontier for the SPEC-mode data-model/reference substrate and pattern-establishment sweep (D97-L/D98-L): generated graph-ontology references, authored graph-authoring/checkability/projection guidance, skill citation/pruning, and stale-doc disposition under `src/agents/`. Design verdict landed (Shape C); first tracer landed and its topology correction moved the generated kind→band table + `check:data-model` drift guard into `src/agents/contexts/references/graph-ontology.md`, cited by `methods/capture`. Remaining rows are evaluated one at a time: generated edge-category + detail-form tables, authored judgment layer, and subtypes/checkability guidance.
 - `renderer-golden-coverage` — **active parallel coverage track.** Remaining RENDER work lives by audience: model-facing context surfaces under `agents/contexts/`, human/product text beside its app/session owner. Remaining rows need fresh scoping against `src/agents/contexts/README.md`, `src/app/README.md`, and `src/session/README.md`.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 
@@ -107,19 +107,19 @@ context-pipeline/
 
 ### orchestrator-tool-port
 
-- **Name:** Port cook orchestrator into execute-mode tools
+- **Name:** Port cook orchestration into CODE/executor tools
 - **Linear:** [FE-1087](https://linear.app/hash/issue/FE-1087/port-cook-orchestrator-into-execute-mode-tools)
 - **Branch:** tbd
 - **Kind:** structural / execute-mode tool boundary
 - **Status:** scoped; first scope file active.
 - **Certainty:** proving.
 - **Current execution pointer:** `memory/cards/orchestrator-tool-port--plan-check-tool.md`.
-- **Objective:** Replace the execute-mode standup stub with real orchestrator tooling by porting reusable `brunch cook` core logic into product-owned modules and exposing it through thin `.pi/extensions` adapters, while preserving the orchestrator foreground agent's no-direct-`bash` / no-direct-`edit` / no-direct-`write` authority.
+- **Objective:** Replace the old execute-mode standup stub direction with CODE/executor tooling by porting reusable `brunch cook` core logic into product-owned modules and exposing it through thin `.pi/extensions` adapters. D98-L changes the target agent from a separate no-write orchestrator to the Brunch-aware executor; the first read-only plan-check tool can still establish the tool seam, but the frontier must not preserve the old orchestrator/pi-coder split as product architecture.
 - **Acceptance:**
-  - First tracer replaces `orchestrator_stub` with a read-only `cook_plan_check` tool that validates a cook plan and returns typed plan shape/findings without creating a run sandbox.
-  - Later `cook_run` tooling is bounded behind orchestrator-owned sandbox/worktree machinery; write-capable worker sessions, if any, are code-owned child execution boundaries, not foreground-agent direct tools.
+  - First tracer replaces the old standup stub with a read-only `cook_plan_check` tool that validates a cook plan and returns typed plan shape/findings without creating a run sandbox.
+  - Later `cook_run` tooling is bounded behind executor-owned sandbox/worktree machinery; write-capable worker sessions, if any, are code-owned child execution boundaries.
   - External `../brunch` CLI behavior is ported as reusable product core plus Pi adapter, not wrapped as a shell command.
-- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L / I49-L; `src/.pi/extensions/README.md`.
+- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L / I49-L; `src/.pi/extensions/README.md`.
 
 ### elicitor-project
 
@@ -143,19 +143,19 @@ context-pipeline/
 - **Linear:** tbd
 - **Branch:** tbd
 - **Kind:** structural / design + build
-- **Status:** active; design verdict landed (`ln-design`: Shape C — two layers behind one index). First tracer-bullet **landed**: generated kind→band table at `src/graph/schema/_generated/ontology.md` + `check:data-model` drift guard (wired into `npm run check`), cited by `methods/capture`. Load-bearing claim 1 (typed `graph/schema` sources are the closed, importable vocabulary set — D73-L) validated by the landed generator. Remaining: edge-category + detail-form tables, the authored judgment layer (heuristics / promotion / checkability ladder / subtypes verdict), and the subtypes→`detail` remodel review.
+- **Status:** active; design verdict landed (`ln-design`: Shape C — two layers behind one index). First tracer-bullet **landed and topology-corrected**: generated kind→band table at `src/agents/contexts/references/graph-ontology.md` + `check:data-model` drift guard (wired into `npm run check`), cited by `methods/capture`, with packaged runtime asset copy for `contexts/references/`. Load-bearing claim 1 (typed `graph/schema` sources are the closed, importable vocabulary set — D73-L) validated by the generator while `src/agents/contexts/references/` is now the runtime-eligible reference home. Remaining: edge-category + detail-form tables, the authored judgment layer (heuristics / promotion / checkability ladder / subtypes verdict), and the subtypes→`detail` remodel review.
 - **Certainty:** proving.
 - **Current execution pointer:** none active — re-scope the next slice (authored judgment layer, or further generated tables).
-- **Objective:** Recover + reconcile the retired `INTENT_GRAPH_SEMANTICS` content into one canonical data-model meta-guidance home; generate the closed-vocabulary tables (planes / kinds / bands / edge-category policy / `detail` schemas) from the typed `graph/schema` sources (un-defers `_generated/`) so heuristics are **cited** (D97-L), not inlined and duplicated across skill bodies.
+- **Objective:** Recover + reconcile the retired `INTENT_GRAPH_SEMANTICS` content and adjacent heuristic docs into one SPEC-mode data-model reasoning substrate under `src/agents/`: runtime-eligible references in `src/agents/contexts/references/`, backstage curation notes in `src/agents/docs/`, and pruned/cited skill bodies. Generate the closed-vocabulary tables (planes / kinds / bands / edge-category policy / `detail` schemas) from typed graph sources so heuristics are **cited** (D97-L), not inlined and duplicated across skill bodies; align the result with D98-L's mode-only runtime posture.
 - **Acceptance:**
   - ✓ `ln-design` produced ≥3 module shapes for the home + generation seam with a recommendation (Shape C), before any doc/script.
-  - The canonical-truth boundary is decided: what is generated from `kinds.ts` / `nodes.ts` / `category-policy.ts` vs authored judgment. (Direction set by Shape C; kind→band table materialized, remaining tables pending.)
+  - The canonical-truth boundary is decided: what is generated from `kinds.ts` / `nodes.ts` / `category-policy.ts` vs authored judgment. (Direction set by Shape C; kind→band table materialized in `src/agents/contexts/references/graph-ontology.md`, remaining tables pending.)
   - Subtypes/`detail` modelling review: each retired subtype family sorted into `kind` (behavior-bearing), `detail` facet (inert classification), or already-covered; decide whether an inert `detail` facet dimension earns its carrying cost given the kind/band/form machinery already discriminates.
   - The two capture gaps are explicitly ruled in or out: constraint/invariant subtype enums; the 8-rung checkability ladder + `strength`.
   - Skill bodies cite the new home (D97-L); inlined heuristic copies collapse to one cite-target.
   - ✓ A drift guard (`check:data-model`, mirroring `check:skills`, wired into `npm run check`) fails if the generated reference diverges from the typed sources.
   - If `ln-design` splits this into recover-doc / build-generator / subtypes-remodel frontiers, create a `data-model-legibility` arc per §Initiatives.
-- **Traceability:** D73-L (domain owns vocabulary), D88-L (`detail` form union), D97-L (heuristic provenance); un-defers the `_generated/` deferral in [`src/agents/skills/README.md`](src/agents/skills/README.md); relates to `elicitor-project` (A33-L, shared D97-L rule).
+- **Traceability:** D73-L (domain owns vocabulary), D88-L (`detail` form union), D97-L (heuristic provenance), D98-L (SPEC/CODE mode-only runtime posture); un-defers and relocates the generated-reference pattern into `src/agents/contexts/references/`; relates to `elicitor-project` (A33-L, shared D97-L rule).
 
 ### renderer-golden-coverage
 
@@ -197,9 +197,9 @@ frontiers:
       depends_on: elicitor-generate, D95-L, D96-L, I51-L
 
     data-model-legibility
-      status: active (design landed Shape C; first tracer landed)
-      depends_on: graph/schema typed sources (kinds.ts, nodes.ts, category-policy.ts), D73-L, D88-L, D97-L
-      materialized: _generated/ontology.md (src/graph/schema) + check:data-model
+      status: active (design landed Shape C; first tracer landed and topology-corrected)
+      depends_on: graph/schema typed sources (kinds.ts, nodes.ts, category-policy.ts), D73-L, D88-L, D97-L, D98-L
+      materialized: src/agents/contexts/references/graph-ontology.md + check:data-model
 
     renderer-golden-coverage
       status: active parallel coverage
