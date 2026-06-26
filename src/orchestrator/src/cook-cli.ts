@@ -4,12 +4,6 @@ import { join, resolve } from 'node:path';
 
 import { type CookFinishLand, cookBannerLines, cookFinishLines, cookSummaryLines } from './cook-report.js';
 import { createOrchestrator } from './engine.js';
-import {
-  epicIdsForEpicVerifyMerge,
-  type MergeConflict,
-  mergeCompletedSlicesIntoTree,
-  mergeSourceDirsIntoTree,
-} from './epic-sandbox-merge.js';
 import { FileReportSink } from './file-report-sink.js';
 import { loadLocalEnvFile } from './local-env.js';
 import type { FiringPolicy } from './petri-net.js';
@@ -26,7 +20,7 @@ import { brunchRef, gcCookRun } from './run-refs.js';
 import { type ConfineMode, createSandboxGuard, runConfinementPreflight } from './sandbox-guard.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
 import { ToolchainTestRunner } from './test-runner.js';
-import type { Plan, PlanMode } from './types.js';
+import type { PlanMode } from './types.js';
 import { createSandbox } from './worktree.js';
 
 /**
@@ -386,73 +380,6 @@ export function resolveSandboxPlan(planMode: PlanMode, dir: string): ResolvedSan
     };
   }
   return { kind: 'codebase', sourceDir: dir };
-}
-
-/**
- * The tree to promote after a completed greenfield run. The shared layout
- * promotes the run sandbox directly; the per-slice (parallel) layout merges all
- * completed slices into one whole-plan tree (declaration-order-wins, collisions
- * reported) under `<runDir>/__promote__`.
- */
-export function promotionSourceDir(opts: {
-  sliceLayout: 'shared' | 'per-slice';
-  sandboxDir: string;
-  runDir: string;
-  plan: Plan;
-  completedSliceIds: string[];
-  verifiedEpicSandboxes?: readonly VerifiedEpicSandbox[];
-}): { dir: string; conflicts: MergeConflict[] } {
-  if (opts.sliceLayout === 'shared') return { dir: opts.sandboxDir, conflicts: [] };
-  const completed = new Set(opts.completedSliceIds);
-  const ordered = opts.plan.slices.map((s) => s.id).filter((id) => completed.has(id));
-  const verified = maximalVerifiedEpicSandboxes(opts.plan, opts.verifiedEpicSandboxes ?? []);
-  if (verified.length > 0) {
-    const coveredEpics = new Set<string>();
-    for (const sandbox of verified) {
-      for (const epicId of epicIdsForEpicVerifyMerge(opts.plan, sandbox.epicId)) coveredEpics.add(epicId);
-    }
-    const fallbackSlices = opts.plan.slices
-      .filter((slice) => completed.has(slice.id) && !coveredEpics.has(slice.epic_id))
-      .map((slice) => ({ id: slice.id, dir: join(opts.sandboxDir, slice.id) }));
-    const verifiedSources = verified.map((sandbox) => ({
-      id: `__epic__/${sandbox.epicId}`,
-      dir: sandbox.dir,
-    }));
-    const merge = mergeSourceDirsIntoTree({
-      sources: [...fallbackSlices, ...verifiedSources],
-      destDir: join(opts.runDir, '__promote__'),
-    });
-    return { dir: merge.mergeDir, conflicts: merge.conflicts };
-  }
-  const merge = mergeCompletedSlicesIntoTree({
-    parentSandboxDir: opts.sandboxDir,
-    sliceIds: ordered,
-    destDir: join(opts.runDir, '__promote__'),
-  });
-  return { dir: merge.mergeDir, conflicts: merge.conflicts };
-}
-
-export type VerifiedEpicSandbox = {
-  epicId: string;
-  dir: string;
-};
-
-function maximalVerifiedEpicSandboxes(
-  plan: Plan,
-  verifiedEpicSandboxes: readonly VerifiedEpicSandbox[],
-): VerifiedEpicSandbox[] {
-  const byEpic = new Map(verifiedEpicSandboxes.map((sandbox) => [sandbox.epicId, sandbox]));
-  const verifiedEpicIds = new Set(byEpic.keys());
-  return plan.epics
-    .map((epic) => byEpic.get(epic.id))
-    .filter((sandbox): sandbox is VerifiedEpicSandbox => {
-      if (!sandbox) return false;
-      return ![...verifiedEpicIds].some(
-        (otherEpicId) =>
-          otherEpicId !== sandbox.epicId &&
-          epicIdsForEpicVerifyMerge(plan, otherEpicId).includes(sandbox.epicId),
-      );
-    });
 }
 
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };

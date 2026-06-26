@@ -1,8 +1,6 @@
-// Materialize `<parentSandboxDir>/__epic__/<epicId>/` as the union of completed
-// slice worktrees at `<parentSandboxDir>/<sliceId>/`. Sources apply in plan
-// declaration order among included slices; later slices overwrite earlier ones
-// on the same path and the collision is reported. Source worktrees are not
-// mutated. The verify dir is rebuilt fresh on every call.
+// Provision per-slice git worktrees under `<parentSandboxDir>/<sliceId>/` and
+// seed each from its completed dependency slice roots. Source worktrees are not
+// mutated.
 //
 // Parallel-safety contract:
 // - slice sandboxes are the only mutable roots during action/test/assess fires;
@@ -18,34 +16,15 @@
 // owned by other epics. It never walks filesystem state to discover more scope.
 
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
-import { copyMissingTopLevelEntries, linkSharedTopLevelEntries } from './cow-copy.js';
+import { copyMissingTopLevelEntries } from './cow-copy.js';
 import { brunchRef, pruneWorktrees } from './run-refs.js';
 import type { Plan, Slice } from './types.js';
 
-export type MergeConflict = {
-  path: string;
-  slices: string[];
-  winner: string;
-};
-
-export type MergeResult = {
-  epicSandboxDir: string;
-  conflicts: MergeConflict[];
-};
-
-export type MergeOptions = {
-  /** Parent worktree dir holding slice sandboxes at `<parentSandboxDir>/<sliceId>`. */
-  parentSandboxDir: string;
-  epicId: string;
-  /** Slice ids to merge in plan declaration order. */
-  sliceIds: string[];
-};
-
 /** Epic ids whose slice worktrees participate in verify-epic for `epicId`. */
-export function epicIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[] {
+function epicIdsForEpicVerifyMerge(plan: Plan, epicId: string): string[] {
   const epicIds = new Set<string>();
 
   const visitEpic = (id: string) => {
@@ -222,14 +201,6 @@ function assertSliceWorktreePathAvailable(parentSandboxDir: string, sliceId: str
  * Returns the slice sandbox path. NOT safe to re-invoke against an existing
  * slice worktree — `git worktree add` would fail with "already exists." The
  * caller must remove the prior worktree first if re-seeding.
- *
- * Brownfield slice branches are now committed and folded by `run-artifact.ts`
- * (`commitSliceWorktree` + the `merge-tree` fold), wired into both verify-epic
- * and promotion (FE-883) — real conflicts surface fail-closed instead of the old
- * silent last-slice-wins. `mergeSlicesIntoEpicSandbox` below is the **greenfield**
- * composer only: greenfield slices share no common ancestor, so a 3-way merge has
- * no base to merge against and the file-copy union (declaration-order-wins,
- * collisions reported) is the right tool there.
  */
 export function seedSliceFromParentWorktree(
   parentSandboxDir: string,
@@ -342,151 +313,13 @@ export function seedSliceSandboxFromDeps(
   return sliceDir;
 }
 
-// Union the given slice dirs into destDir in list order (later wins on path
-// collisions). Returns the per-path collision report. Shared by per-epic and
-// whole-plan merges.
-function mergeSliceDirsInto(parentSandboxDir: string, sliceIds: string[], destDir: string): MergeConflict[] {
-  if (existsSync(destDir)) {
-    rmSync(destDir, { recursive: true, force: true });
-  }
-  mkdirSync(destDir, { recursive: true });
-  linkShareableTopLevelEntries(parentSandboxDir, destDir);
-
-  const writers = new Map<string, string[]>();
-  const epicRoot = resolve(resolve(parentSandboxDir), EPIC_MERGE_SEGMENT);
-
-  for (const sliceId of sliceIds) {
-    const sliceDir = resolveSliceWorktreeDir(parentSandboxDir, sliceId);
-    if (sliceDir === epicRoot || sliceDir.startsWith(epicRoot + sep)) continue;
-    if (!existsSync(sliceDir)) continue;
-
-    for (const file of walkFiles(sliceDir)) {
-      const rel = relativePathWithin(sliceDir, file);
-      const list = writers.get(rel) ?? [];
-      list.push(sliceId);
-      writers.set(rel, list);
-      copyIntoTree(file, join(destDir, rel), destDir);
-    }
-  }
-
-  const conflicts: MergeConflict[] = [];
-  for (const [path, slices] of writers) {
-    if (slices.length > 1) conflicts.push({ path, slices, winner: slices[slices.length - 1]! });
-  }
-  conflicts.sort((a, b) => a.path.localeCompare(b.path));
-  return conflicts;
-}
-
-/**
- * Pick where the merged tree's shared entry (`node_modules`) is linked from. A
- * completed slice that materialized a REAL install — its shared symlink was
- * clobbered by an in-slice `npm install`, so it holds the manifest-reconciled
- * tree including any slice-added deps — supersedes the parent's install, which
- * predates the run and lacks those deps. Last installer in plan order wins;
- * divergent installs across slices are reported like path collisions (full union
- * is the deferred lockfile-reinstall remodel). With no slice installer, the
- * parent install is the source (the steady-state case).
- */
-function selectSharedEntrySource(
-  parentSandboxDir: string,
-  sliceIds: string[],
-  name: string,
-): { sourceDir: string; conflict?: MergeConflict } {
-  const installers = sliceIds.filter((id) => {
-    const entry = join(resolveSliceWorktreeDir(parentSandboxDir, id), name);
-    if (!existsSync(entry)) return false;
-    const st = lstatSync(entry);
-    return st.isDirectory() && !st.isSymbolicLink();
-  });
-  if (installers.length === 0) return { sourceDir: resolve(parentSandboxDir) };
-  const winner = installers[installers.length - 1]!;
-  return {
-    sourceDir: resolveSliceWorktreeDir(parentSandboxDir, winner),
-    conflict: installers.length > 1 ? { path: name, slices: installers, winner } : undefined,
-  };
-}
-
-export function mergeSlicesIntoEpicSandbox(opts: MergeOptions): MergeResult {
-  const epicSandboxDir = resolveEpicSandboxDir(opts.parentSandboxDir, opts.epicId);
-  const conflicts = mergeSliceDirsInto(opts.parentSandboxDir, opts.sliceIds, epicSandboxDir);
-  // `walkFiles` skips `node_modules`, so the merged tree has no resolvable deps
-  // until re-linked. verify-epic and probes run in this cwd, so link each shared
-  // entry from the slice that installed it (if any) over the parent's install.
-  for (const name of SHAREABLE_TOP_LEVEL_ENTRIES) {
-    const { sourceDir, conflict } = selectSharedEntrySource(opts.parentSandboxDir, opts.sliceIds, name);
-    const existing = join(epicSandboxDir, name);
-    if (existsSync(existing) && resolve(sourceDir) !== resolve(opts.parentSandboxDir)) {
-      rmSync(existing, { recursive: true, force: true });
-    }
-    linkSharedTopLevelEntries(sourceDir, epicSandboxDir, new Set([name]));
-    if (conflict) conflicts.push(conflict);
-  }
-  return { epicSandboxDir, conflicts };
-}
-
-export type WholePlanMergeResult = { mergeDir: string; conflicts: MergeConflict[] };
-
-export type MergeSourceDir = {
-  id: string;
-  dir: string;
-};
-
-function linkShareableTopLevelEntries(parentSandboxDir: string, destDir: string): void {
-  for (const entry of SHAREABLE_TOP_LEVEL_ENTRIES) {
-    const sourcePath = join(parentSandboxDir, entry);
-    const destPath = join(destDir, entry);
-    if (!existsSync(sourcePath) || existsSync(destPath)) continue;
-    symlinkSync(sourcePath, destPath);
-  }
-}
-
-// Union all completed slice dirs into one tree (the whole-plan promotion source
-// for parallel greenfield). `sliceIds` should be in plan declaration order.
-export function mergeCompletedSlicesIntoTree(opts: {
-  parentSandboxDir: string;
-  sliceIds: string[];
-  destDir: string;
-}): WholePlanMergeResult {
-  const conflicts = mergeSliceDirsInto(opts.parentSandboxDir, opts.sliceIds, opts.destDir);
-  return { mergeDir: opts.destDir, conflicts };
-}
-
-export function mergeSourceDirsIntoTree(opts: {
-  sources: readonly MergeSourceDir[];
-  destDir: string;
-}): WholePlanMergeResult {
-  if (existsSync(opts.destDir)) {
-    rmSync(opts.destDir, { recursive: true, force: true });
-  }
-  mkdirSync(opts.destDir, { recursive: true });
-
-  const writers = new Map<string, string[]>();
-  for (const source of opts.sources) {
-    if (!existsSync(source.dir)) continue;
-    for (const file of walkFiles(source.dir)) {
-      const rel = relativePathWithin(source.dir, file);
-      const list = writers.get(rel) ?? [];
-      list.push(source.id);
-      writers.set(rel, list);
-      copyIntoTree(file, join(opts.destDir, rel), opts.destDir);
-    }
-  }
-
-  const conflicts: MergeConflict[] = [];
-  for (const [path, sources] of writers) {
-    if (sources.length > 1) conflicts.push({ path, slices: sources, winner: sources[sources.length - 1]! });
-  }
-  conflicts.sort((a, b) => a.path.localeCompare(b.path));
-  return { mergeDir: opts.destDir, conflicts };
-}
-
 function* walkFiles(rootDir: string, dir: string = rootDir): Iterable<string> {
   for (const entry of readdirSync(dir)) {
     if (WALK_SKIP_ENTRIES.has(entry)) continue;
     // Shareable entries (node_modules) are skipped by NAME, not just when they
     // are symlinks: an in-slice `npm install` clobbers the shared symlink into a
-    // real tree, and deep-copying that during merge/seed exhausts the disk
-    // (ENOSPC). They are re-linked into merged trees via linkSharedTopLevelEntries.
+    // real tree, and deep-copying that during seed exhausts the disk (ENOSPC).
+    // Slice sandboxes get them re-linked via SHAREABLE_TOP_LEVEL_ENTRIES seeding.
     if (SHAREABLE_TOP_LEVEL_ENTRIES.has(entry)) continue;
     const abs = join(dir, entry);
     const st = lstatSync(abs);

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -8,7 +8,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   createPetrinautStreamSetup,
   parseCookArgs,
-  promotionSourceDir,
   recordCookExitStatus,
   resolveCookPlan,
   resolvePetrinautStreamPort,
@@ -18,7 +17,6 @@ import type { PetrinautEvent } from './petrinaut-events.js';
 import type { SdcpnFile } from './petrinaut-sdcpn.js';
 import type { PetrinautStreamBus } from './petrinaut-stream-bus.js';
 import type { PetrinautStreamServer } from './petrinaut-stream-server.js';
-import type { Plan } from './types.js';
 
 const GIT_TEST_TIMEOUT_MS = 20_000;
 
@@ -540,85 +538,6 @@ describe('resolveCookPlan', () => {
     if (result.kind === 'resolved') {
       expect(result.planPath).toBe(join(specDir, 'plan.yaml'));
     }
-  });
-});
-
-describe('promotionSourceDir', () => {
-  const psDirs: string[] = [];
-  afterEach(() => {
-    for (const d of psDirs) rmSync(d, { recursive: true, force: true });
-    psDirs.length = 0;
-  });
-
-  const plan: Plan = {
-    mode: 'greenfield',
-    epics: [{ id: 'e1', summary: '', depends_on: [], verification: [] }],
-    slices: [
-      { id: 'a', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
-      { id: 'b', epic_id: 'e1', definition: '', depends_on: [], verification: [] },
-    ],
-  };
-
-  it('returns the run sandbox unchanged for the shared layout (no merge)', () => {
-    const sandbox = mkdtempSync(join(tmpdir(), 'ps-shared-'));
-    const runDir = mkdtempSync(join(tmpdir(), 'ps-run-'));
-    psDirs.push(sandbox, runDir);
-
-    const r = promotionSourceDir({
-      sliceLayout: 'shared',
-      sandboxDir: sandbox,
-      runDir,
-      plan,
-      completedSliceIds: ['a', 'b'],
-    });
-    expect(r.dir).toBe(sandbox);
-    expect(r.conflicts).toEqual([]);
-    expect(existsSync(join(runDir, '__promote__'))).toBe(false);
-  });
-
-  it('merges completed slices in declaration order for the per-slice layout', () => {
-    const sandbox = mkdtempSync(join(tmpdir(), 'ps-perslice-'));
-    const runDir = mkdtempSync(join(tmpdir(), 'ps-run-'));
-    psDirs.push(sandbox, runDir);
-    mkdirSync(join(sandbox, 'a'));
-    writeFileSync(join(sandbox, 'a', 'a.txt'), 'A');
-    mkdirSync(join(sandbox, 'b'));
-    writeFileSync(join(sandbox, 'b', 'b.txt'), 'B');
-
-    const r = promotionSourceDir({
-      sliceLayout: 'per-slice',
-      sandboxDir: sandbox,
-      runDir,
-      plan,
-      completedSliceIds: ['b', 'a'],
-    });
-    expect(existsSync(join(r.dir, 'a.txt'))).toBe(true);
-    expect(existsSync(join(r.dir, 'b.txt'))).toBe(true);
-    expect(r.dir).not.toBe(sandbox);
-  });
-
-  it('promotes the verified epic sandbox when verify-epic authored integration files there', () => {
-    const sandbox = mkdtempSync(join(tmpdir(), 'ps-perslice-'));
-    const runDir = mkdtempSync(join(tmpdir(), 'ps-run-'));
-    psDirs.push(sandbox, runDir);
-    mkdirSync(join(sandbox, 'a'));
-    writeFileSync(join(sandbox, 'a', 'feature.txt'), 'slice-only\n');
-    const epicDir = join(sandbox, '__epic__', 'e1');
-    mkdirSync(join(epicDir, 'tests'), { recursive: true });
-    writeFileSync(join(epicDir, 'feature.txt'), 'verified\n');
-    writeFileSync(join(epicDir, 'tests/integration.test.ts'), 'it("works", () => {});\n');
-
-    const r = promotionSourceDir({
-      sliceLayout: 'per-slice',
-      sandboxDir: sandbox,
-      runDir,
-      plan,
-      completedSliceIds: ['a', 'b'],
-      verifiedEpicSandboxes: [{ epicId: 'e1', dir: epicDir }],
-    });
-
-    expect(readFileSync(join(r.dir, 'feature.txt'), 'utf8')).toBe('verified\n');
-    expect(readFileSync(join(r.dir, 'tests/integration.test.ts'), 'utf8')).toBe('it("works", () => {});\n');
   });
 });
 
