@@ -48,7 +48,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Done-definition:** all three capabilities carry promoted real-model evidence; no capability remains a stub or a method-less axis member. Open follow-ups (A32-L fan-in completion, the A1 anti-prompt) are tracked on their assumptions, not as arc blockers.
 - **Anchors:** D95-L, D96-L; A31-L–A35-L; I51-L.
 
-### context-pipeline — ◐ active
+### context-pipeline — ✓ done (2026-06-26)
 
 - **Goal:** lock the PULL → PROJECT → RENDER → COMPOSE context pipeline (D60-L).
 
@@ -56,23 +56,24 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 context-pipeline/
 ├── PULL      graph + session reads       ✓ done
 ├── PROJECT   projections/                ✓ done
-├── RENDER    agents/contexts + local human outputs ◐ open: renderer-golden-coverage (FE-870)
-└── COMPOSE   system-prompts + skills     ✓ done*
+├── RENDER    agents/contexts + local human outputs ✓ done
+└── COMPOSE   system-prompts + skills     ✓ done
 
-*COMPOSE has one deferred full-stack real-rendered-context tripwire owned by RENDER.
+COMPOSE's deferred full-stack real-rendered-context tripwire was discharged by `renderer-golden-coverage`.
 ```
 
-- **Done-definition:** every pipeline stage closed or owned by a live coverage frontier; the COMPOSE full-stack tripwire discharged by RENDER. `renderer-golden-coverage` is a parallel evidence/quality track, never a ship gate.
+- **Done-definition:** ✓ every pipeline stage closed; the COMPOSE full-stack tripwire was discharged by RENDER. `renderer-golden-coverage` remains a parallel evidence/quality track, never a ship gate.
 - **Anchors:** D60-L; D83-L (RENDER house style).
 
 ## Sequencing
 
 ### Active
 
-- `renderer-golden-coverage` (FE-1091) — active context-pipeline RENDER closure plus prompt-assembly lock. Golden the remaining model-facing context surfaces and system-prompt assembly while reshaping `src/agents/` prompts/subagents topology only as needed for that lock.
+- None.
 
 ### Recently Completed
 
+- 2026-06-26 `renderer-golden-coverage` (FE-1091) — **context-pipeline RENDER + COMPOSE tripwire complete.** Closed the render/prompt sweep ledger: context-reference harvest disposition, foreground `elicitor`/`executor` prompt-body topology, background subagent body topology, foreground and adapter prompt assembly goldens, background subagent assembly snapshot, `specification/` → `spec/` renderer home, graph-derived spec/plan markdown outputs, session runtime frame D98 wording, seed renderer oracle note, elicitation text coverage, and structured-exchange renderer inventory coverage. `npm run verify` passed after the asset-copy fix.
 - 2026-06-26 `data-model-legibility` (FE-1090) — **reference substrate complete.** Generated ontology tables are materialized from typed graph sources with `check:data-model`; authored graph-authoring heuristics are cited by `capture` + `commit-graph`; the final checkability/subtype audit closed with no schema/runtime expansion: progressive checkability is accepted only as skill-local oracle conduct, `checkability`/`strength` fields are rejected carrying cost, subtype enums are rejected as parallel ontology, and `detail.form` remains inert payload plus renderer hook.
 - 2026-06-25 `elicitor-generate` (FE-1059) — **generate capability done through promoted A31-L fan-out evidence.** Built slices: `present_candidates` tool/projection/renderer + pick path; intent/design/oracle facets under one plane-parameterized `generate-proposal` method; progressive-disclosure references; real-boot activation check; and real-model fan-out witness harness. Promoted run `.fixtures/runs/generate-fan-out/2026-06-24T16-51-13-704Z/` passed with `openai-codex/gpt-5.5`: oracle lens pinned, `SKILL.md` and `references/oracle.md` read, `present_candidates` emitted, no pre-prompt kick, no graph delta, no `mutate_graph`, and no approved review result. A32-L fan-in completion and the A1 anti-prompt remain follow-ups, not branch debt.
 - 2026-06-24 `subagent-reconciliation` (FE-1054) — foreground/background reconciliation complete through the execute-mode readiness target (D90-L-D93-L/I49-L): shared `AgentManifest`, code-owned background discovery, semi-permeable injected-world child sessions, sovereign grants gated by code-owned `canDelegate`, return rendering, and live `execute` -> `orchestrator` mode with a product-registered stub tool. `code` -> `pi-coder` remains future work.
@@ -161,9 +162,8 @@ context-pipeline/
 - **Linear:** [FE-1091](https://linear.app/hash/issue/FE-1091/renderer-golden-coverage-and-prompt-assembly-lock)
 - **Branch:** `ln/fe-1091-renderer-golden-coverage-and-prompt-assembly-lock`
 - **Kind:** coverage + build / hardening
-- **Status:** scoped; first sweep ledger active.
-- **Certainty:** earned — RENDER topology is now established; this frontier closes coverage, prompt assembly evidence, and stale topology ambiguity rather than proving a new seam.
-- **Current execution pointer:** `memory/cards/renderer-golden-coverage--render-prompt-lock.md`.
+- **Status:** done. Sweep ledger exhausted and retired. Foreground prompt bodies use `elicitor` / `executor`; background bodies are locked as subagent resources under the shared body-file convention; prompt assembly paths are golden/semantically locked; selected-spec context lives under `src/agents/contexts/spec/`; graph-derived spec/plan markdown outputs are covered; remaining renderer partials have focused goldens, semantic invariants, or an explicit README oracle note.
+- **Certainty:** earned — RENDER topology is now established; this frontier closed coverage, prompt assembly evidence, and stale topology ambiguity rather than proving a new seam.
 - **Closes:** context-pipeline RENDER stage plus the COMPOSE full-stack real-rendered-context tripwire.
 - **Locks in:** D83-L house style for model-facing context surfaces and prompt assembly as a golden/semantic-invariant surface.
 - **Objective:** Finish the RENDER stage and lock system-prompt assembly as a golden surface. Remaining work lives by audience: model-facing context and prompt text under `src/agents/`, human/product text beside its app/session owner. Incidental prompt remodelling belongs here only when needed to make prompt assembly lockable: foreground prompts should collapse toward `elicitor` / `executor`, subagent prompt bodies should live as subagent resources, and `src/agents/` topology should make `contexts`, `prompts`, `runtime`, `shared`, `skills`, and `subagents` roles legible. This frontier also extends D83-L to thin graph-derived markdown document outputs for selected-spec and plan-plane material, as future web/download response sources.
