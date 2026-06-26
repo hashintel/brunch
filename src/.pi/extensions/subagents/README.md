@@ -103,7 +103,7 @@ context that crosses back to the parent; structured `details` remain render-only
 | [`subagents.test.ts`](./subagents.test.ts) | Tests parsing, config, model resolution, tool planning, semaphore fairness, registrar usage errors, abort lifecycle, and **two end-to-end faux-provider child-session runs** asserting the sealing invariants. |
 | [`../../../app/pi-subagents.ts`](../../../app/pi-subagents.ts) | **App composition root.** `loadBrunchSubagents({cwd, agentDir, delegatableAgents, world})` assembles `BrunchSubagentsDeps` using the sealed `pi-settings` helpers plus explicit parent-world handles and the code-owned op-mode delegatable set. Keeps `.pi/` free of `src/app` imports (deps are injected). |
 
-Boundary rule: `.pi/extensions/subagents/*` may import the SDK and `../web/`
+Boundary rule: `.pi/extensions/subagents/*` may import the SDK and `../web-tools/web/`
 (for `web_search`/`web_fetch`), but **never** `src/app/*`. The app layer injects
 the sealed primitives.
 
@@ -138,7 +138,7 @@ Starter agents (read-only / no-write):
 
 Tool resolution (`planSubagentTools`): read-only filesystem tools come from the
 SDK (`createReadToolDefinition(cwd)` etc., cwd-bound, override built-ins of the
-same name); web tools come from Brunch's own `../web/` factories; `read_graph`
+same name); web tools come from Brunch's own `../web-tools/web/` factories; `read_graph`
 comes from the graph extension's reusable read-tool factory and is available only
 when parent graph readers are injected. The child grant is sovereign: it resolves
 against this catalog, not against the parent op-mode's active tool list. Write/shell
