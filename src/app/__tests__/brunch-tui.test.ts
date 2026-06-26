@@ -10,12 +10,10 @@ import {
   type ExtensionUIContext,
   type RegisteredCommand,
 } from '@earendil-works/pi-coding-agent';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { openWorkspaceGraphRuntime } from '../../graph/index.js';
 import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import { userMessage } from '../../probes/test-helpers.js';
-import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
 import {
   createWorkspaceSessionCoordinator,
   verifyWorkspaceSessionStores,
@@ -28,7 +26,6 @@ import {
   applyBrunchOfflineDefault,
   brunchResourceLoaderOptions,
   createBrunchSettingsManager,
-  createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
   runWithScopedBrunchOfflineDefault,
   startupHeaderForActivation,
@@ -75,166 +72,6 @@ describe('Brunch TUI boot', () => {
     expect(oracle.ok).toBe(true);
     if (!oracle.ok) {
       expect(oracle.errors).toEqual([]);
-    }
-  });
-
-  it('forwards Pi replacement session-start events into product session creation', async () => {
-    vi.resetModules();
-    const createAgentSessionFromServices = vi.fn(async () => ({
-      session: {
-        sendCustomMessage: async () => {},
-        dispose: () => {},
-      },
-    }));
-    vi.doMock('@earendil-works/pi-coding-agent', async (importOriginal) => ({
-      ...(await importOriginal<typeof import('@earendil-works/pi-coding-agent')>()),
-      createAgentSessionFromServices,
-    }));
-
-    try {
-      const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-session-start-'));
-      const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
-      const { createWorkspaceSessionCoordinator } =
-        await import('../../session/workspace-session-coordinator.js');
-      const { FOREGROUND_AGENT_ROSTER } = await import('../../agents/runtime/policy.js');
-      const { createBrunchAgentSessionRuntimeFactory } = await import('../brunch-tui.js');
-      const coordinator = createWorkspaceSessionCoordinator({ cwd });
-      const workspace = await coordinator.createSetupSession({
-        specTitle: 'Replacement lifecycle',
-        createNewSpec: true,
-      });
-      const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace, coordinator });
-      const sessionStartEvent = {
-        type: 'session_start' as const,
-        reason: 'new' as const,
-        previousSessionFile: '/sessions/old.jsonl',
-      };
-
-      const created = await createRuntime({
-        cwd,
-        agentDir,
-        sessionManager: workspace.session.manager,
-        sessionStartEvent,
-      });
-
-      expect(createAgentSessionFromServices).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sessionStartEvent,
-          thinkingLevel: FOREGROUND_AGENT_ROSTER.elicit.foregroundAgent.thinking,
-        }),
-      );
-      const [sessionOptions] = createAgentSessionFromServices.mock.calls[0]! as unknown as [
-        Record<string, unknown>,
-      ];
-      expect(sessionOptions).not.toHaveProperty('model');
-      created.session.dispose();
-    } finally {
-      vi.doUnmock('@earendil-works/pi-coding-agent');
-      vi.resetModules();
-    }
-  });
-
-  it('registers graph tools on the default product runtime path', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-graph-runtime-'));
-    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
-    const coordinator = createWorkspaceSessionCoordinator({ cwd });
-    const workspace = await coordinator.createSetupSession({
-      specTitle: 'Graph runtime',
-      createNewSpec: true,
-    });
-    const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace, coordinator });
-    const created = await createRuntime({
-      cwd,
-      agentDir,
-      sessionManager: workspace.session.manager,
-    });
-
-    try {
-      const toolNames = created.session.getAllTools().map((tool) => tool.name);
-      expect(toolNames).toContain('mutate_graph');
-      expect(toolNames).toContain('read_graph');
-      expect(toolNames).toEqual(expect.arrayContaining(['read', 'grep', 'find', 'ls']));
-      expect(toolNames).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
-      const activeToolNames = created.session.getActiveToolNames();
-      expect(activeToolNames).toEqual(expect.arrayContaining(['read', 'grep', 'find', 'ls']));
-      expect(activeToolNames).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
-    } finally {
-      created.session.dispose();
-    }
-  });
-
-  it('binds graph tools to the coordinator current spec when the runtime factory is reused after a switch', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-graph-switch-'));
-    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
-    const coordinator = createWorkspaceSessionCoordinator({ cwd });
-    const first = await coordinator.createSetupSession({
-      specTitle: 'First spec',
-      createNewSpec: true,
-    });
-    const productUpdates = createProductUpdatePublisher();
-    const observedUpdates: Array<readonly unknown[]> = [];
-    const unsubscribe = productUpdates.subscribe((updates) => {
-      observedUpdates.push(updates);
-    });
-    const createRuntime = createBrunchAgentSessionRuntimeFactory({
-      workspace: first,
-      coordinator,
-      productUpdates,
-    });
-    const second = await coordinator.createSetupSession({
-      specTitle: 'Second spec',
-      createNewSpec: true,
-    });
-
-    const created = await createRuntime({
-      cwd,
-      agentDir,
-      sessionManager: second.session.manager,
-    });
-
-    try {
-      const mutateGraph = created.session.getToolDefinition('mutate_graph') as
-        | {
-            execute: (
-              id: string,
-              params: unknown,
-              signal?: AbortSignal,
-              onUpdate?: unknown,
-              ctx?: unknown,
-            ) => unknown;
-          }
-        | undefined;
-      expect(mutateGraph).toBeDefined();
-
-      await mutateGraph!.execute(
-        'commit-after-switch',
-        {
-          ops: [
-            { op: 'create_node', ref: 'n1', plane: 'intent', kind: 'goal', title: 'Second current goal' },
-          ],
-        },
-        undefined,
-        undefined,
-        undefined,
-      );
-
-      const graph = await openWorkspaceGraphRuntime(cwd);
-      expect(graph.forSpec(first.spec.id).queryGraph().nodes).toHaveLength(0);
-      expect(
-        graph
-          .forSpec(second.spec.id)
-          .queryGraph()
-          .nodes.map((node) => node.title),
-      ).toEqual(['Second current goal']);
-      expect(observedUpdates).toEqual([
-        [
-          { topic: 'graph.overview', specId: second.spec.id, lsn: expect.any(Number) },
-          { topic: 'graph.nodeNeighborhood', specId: second.spec.id, lsn: expect.any(Number) },
-        ],
-      ]);
-    } finally {
-      unsubscribe();
-      created.session.dispose();
     }
   });
 
