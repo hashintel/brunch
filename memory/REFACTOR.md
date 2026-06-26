@@ -45,7 +45,7 @@ The judo move is deletion: remove the affordance wrapper instead of relocating i
 
 - [x] Restore the verification gate by acknowledging the new audited Pi settings getter in the Brunch settings boundary test/policy, without broadening any ambient settings behavior.
 - [x] Move capability-readiness into the agent runtime owner and update direct consumers/tests so agent posture policy no longer imports capability policy from the projection layer.
-- [ ] Delete the runtime-affordance projection wrapper and point its remaining test obligations at the canonical agent-runtime policy functions. Keep the required/deferred affordance ledger but make it cite the runtime owner, not a projection module.
+- [x] Delete the runtime-affordance projection wrapper and point its remaining test obligations at the canonical agent-runtime policy functions. Keep the required/deferred affordance ledger but make it cite the runtime owner, not a projection module.
 - [ ] Reconcile projection topology docs and boundary tests so session projections no longer claim capability-readiness or affordances as projection-owned modules.
 - [ ] Reconcile durable SPEC and README path fossils from the retired prompt-body home to the current prompt home.
 - [ ] Rename the renderer test scripts to match the current context/text-surface topology, preserving backwards compatibility only if there is a real user-facing reason; otherwise delete the old renderer names.
