@@ -110,7 +110,7 @@ Do not use local `mutate` commands as proof that the product `mutate_graph` tool
 ## 5. Export curated truth back to a seed fixture
 
 ```bash
-npm run dev -- export --workspace "$DEV_WORKSPACE" --spec-id 1 --out "$REPO/.fixtures/seeds/<set>/<slug>.json"
+npm run dev -- export --workspace "$DEV_WORKSPACE" --spec-id 1 --out "$REPO/.fixtures/seeds/<name>/<variant>.json"
 ```
 
 For inspection without writing:
@@ -140,4 +140,4 @@ If another coding agent needs to inspect or curate the same workbench, have it c
 
 - `graph node code "G1" does not resolve`: inspect `graph.overview` for the selected `specId`; codes are spec-scoped.
 - Empty `workspace.selectionState`: check that you seeded and read from the same workbench directory.
-- Stale or surprising graph state: re-run `npm run seed -- --workspace "$DEV_WORKSPACE" --seed <set/slug> --reset`.
+- Stale or surprising graph state: re-run `npm run seed -- --workspace "$DEV_WORKSPACE" --seed <name/variant> --reset`.

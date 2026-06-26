@@ -591,7 +591,7 @@ function devCliUsage(): string {
     'Usage:',
     '  npm run dev',
     '  npm run dev -- --workspace <dir> [--mode tui|print|rpc] [--open-web] [--dev-tools]',
-    '  npm run dev -- --workspace <dir> --seed <set/slug> --reset [--open-web] [--dev-tools]',
+    '  npm run dev -- --workspace <dir> --seed <name/variant> --reset [--open-web] [--dev-tools]',
     '  npm run dev -- rpc <method> [params-json] --workspace <dir>',
     '  npm run dev -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
     '  npm run dev -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',

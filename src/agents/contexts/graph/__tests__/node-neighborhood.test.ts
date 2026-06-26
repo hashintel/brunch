@@ -26,7 +26,7 @@ function expectNoStructuralLeak(rendered: string): void {
 }
 
 const HUB = { set: 'edge-spread', fixture: 'hub-neighborhood', anchorCode: 'REQ1' } as const;
-const SELF = { set: 'brunch-self', fixture: 'spec-graph' } as const;
+const SELF = { set: 'brunch-self', fixture: 'base' } as const;
 
 test('neighborhood: real-port anchor (code-health REQ1)', async () => {
   const rendered = formatNeighborhood(

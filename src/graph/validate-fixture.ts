@@ -1,10 +1,10 @@
 /**
  * Dev CLI: validate one seed fixture against the real propose-graph validator.
  *
- * Seeds `.fixtures/seeds/<set>/<slug>.json` into an in-memory database through
- * the same `CommandExecutor` mutation boundary the live product uses, so a
- * fixture that loads here is structurally legal (valid plane/kind, per-kind
- * detail rules, edge category/stance rules, no self-loops, acyclic
+ * Seeds `.fixtures/seeds/<name>/<variant>.json` into an in-memory database
+ * through the same `CommandExecutor` mutation boundary the live product uses,
+ * so a fixture that loads here is structurally legal (valid plane/kind,
+ * per-kind detail rules, edge category/stance rules, no self-loops, acyclic
  * supersession). On rejection it prints the command-layer diagnostics; on
  * success it prints stored totals plus the active-context projection totals
  * (which hide superseded predecessors and their dangling edges).
@@ -13,8 +13,8 @@
  * fixtures — it touches no shared test file, so multiple fixtures can be
  * authored and validated independently.
  *
- *   npx tsx src/graph/validate-fixture.ts <set>/<slug>
- *   npx tsx src/graph/validate-fixture.ts brunch-self/spec-graph
+ *   npx tsx src/graph/validate-fixture.ts <name>/<variant>
+ *   npx tsx src/graph/validate-fixture.ts brunch-self/base
  */
 
 import { readFileSync } from 'node:fs';
@@ -45,7 +45,7 @@ function validateFixture(ref: string): void {
 if (import.meta.url === `file://${process.argv[1]}`) {
   const ref = process.argv[2];
   if (!ref) {
-    console.error('usage: tsx src/graph/validate-fixture.ts <set>/<slug>');
+    console.error('usage: tsx src/graph/validate-fixture.ts <name>/<variant>');
     process.exit(2);
   }
   try {

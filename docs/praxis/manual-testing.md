@@ -37,14 +37,14 @@ For non-interactive smoke, `npm run dev -- --workspace <workbench> --mode print`
 
 ## Choosing a seed
 
-Tracked seeds live under `.fixtures/seeds/<set>/<slug>.json`; each set has a README describing its intent. Current sets:
+Tracked seeds live under `.fixtures/seeds/<name>/<variant>.json`; each family has a README describing its intent. Current sets:
 
 - `workspace-spread` — small multi-spec workspace states (`alpha-grounding`, `beta-commitments`); good default for workbench smoke
 - `bilal-port` / `bilal-port-variants` — large real-world spec-elicitation graphs (hundreds of nodes); good for rendering and scale checks
 - `edge-spread`, `kind-band-spread` — coverage matrices over edge categories / node kinds and readiness bands
-- `brunch-self`, `dumpchat`, `fable`, `rd-loop`, `yamlbase` — captured spec graphs awaiting a disposition catalog (see the `dev-seed-fixtures` frontier in `memory/PLAN.md`)
+- `brunch-self`, `dumpchat`, `fable`, `rd-loop`, `yamlbase` — faithful project ports whose canonical full graph now lives at the `base` variant (`brunch-self/base`, `yamlbase/base`, etc.)
 
-Validate a seed against the current command layer with `npx tsx src/graph/validate-fixture.ts <set>/<slug>`.
+Validate a seed against the current command layer with `npx tsx src/graph/validate-fixture.ts <name>/<variant>`.
 
 ## Capturing evidence from a manual session
 

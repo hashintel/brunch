@@ -2,7 +2,7 @@
  * Seed loader for consolidated fixture specs.
  *
  * Reads the brunch-shaped seed contract produced under
- * `.fixtures/seeds/<set>/<slug>.json` and commits each spec into a brunch
+ * `.fixtures/seeds/<name>/<variant>.json` and commits each spec into a brunch
  * SQLite database through the normal `CommandExecutor` mutation boundary, so
  * the graph clock, change log, and `*_lsn` columns stay coherent — seeded
  * data is indistinguishable from data an agent would have committed live.
@@ -15,11 +15,11 @@
  * The fixture-prep step that *produces* these files (porting Bilal's
  * spec-elicitation graphs) is a separate throwaway script vendored next to
  * the data at `.fixtures/seeds/bilal-port/_port-script.ts`; this loader only
- * consumes the consolidated `<slug>.json` output and is unaware of any
+ * consumes the consolidated `<variant>.json` output and is unaware of any
  * upstream format.
  *
  * CLI (dev only, run via tsx):
- *   npm run seed -- --workspace <dir> --seed <set>/<slug> [--reset]
+ *   npm run seed -- --workspace <dir> --seed <name>/<variant> [--reset]
  *   npm run seed -- --workspace <dir> --all-seeds [--reset]
  *
  * `--reset` deletes the target workspace's **runtime state** before seeding
@@ -442,7 +442,7 @@ function safeSeedPart(value: string | undefined): value is string {
 
 function seedUsage(): string {
   return (
-    'Usage: npm run seed -- --workspace <dir> (--seed <set>/<slug> | --all-seeds) [--reset]\n' +
+    'Usage: npm run seed -- --workspace <dir> (--seed <name>/<variant> | --all-seeds) [--reset]\n' +
     '  --all-seeds  opt in to seed every tracked fixture as its own spec\n' +
     '  --reset      delete the target workspace runtime state before seeding:\n' +
     '           .brunch/data.db (+ -wal/-shm), sessions/, debug/, and workspace.json\n'

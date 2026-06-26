@@ -68,15 +68,15 @@ describe('seed fixture CLI', () => {
         '--seed',
         'workspace-spread/alpha-grounding',
         '--seed',
-        'yamlbase/spec-graph',
+        'yamlbase/base',
       ],
     },
     {
-      name: 'parent seed set',
+      name: 'parent seed family',
       argv: ['--workspace', 'target', '--seed', '../workspace-spread/alpha-grounding'],
     },
     {
-      name: 'parent seed slug',
+      name: 'parent seed variant',
       argv: ['--workspace', 'target', '--seed', 'workspace-spread/../alpha-grounding'],
     },
     {
@@ -256,14 +256,14 @@ describe('seed fixture CLI', () => {
     let stdout = '';
 
     const code = await runSeedFixturesCli({
-      argv: ['--workspace', targetWorkspace, '--seed', 'yamlbase/spec-graph'],
+      argv: ['--workspace', targetWorkspace, '--seed', 'yamlbase/base'],
       stdout: (chunk) => {
         stdout += chunk;
       },
     });
 
     expect(code).toBe(0);
-    expect(stdout).toContain('seeded yamlbase/spec-graph → spec');
+    expect(stdout).toContain('seeded yamlbase/base → spec');
     expect(stdout).not.toContain('seeded yamlbase/yamlbase → spec');
   });
 
@@ -306,7 +306,7 @@ describe('seed fixture CLI', () => {
 });
 
 describe('all tracked seeds remain structurally legal', () => {
-  // One-level <set>/<slug>.json discovery: prep scripts (_*.ts), READMEs, and
+  // One-level <name>/<variant>.json discovery: prep scripts (_*.ts), READMEs, and
   // raw-material subdirectories (e.g. bilal-port/_originals/) are excluded by
   // construction. No hand-maintained list to drift.
   const seedRefs = trackedSeedRefs();
@@ -340,7 +340,7 @@ describe('all tracked seeds remain structurally legal', () => {
     }
   });
 
-  it('documents every tracked seed set in the disposition catalog', () => {
+  it('documents every tracked seed family in the disposition catalog', () => {
     const catalogPath = resolve(HERE, '../../../.fixtures/seeds/README.md');
     const catalog = readFileSync(catalogPath, 'utf8');
     const allowedDispositions = new Set(['test', 'preview', 'manual workbench', 'probe input', 'parked']);

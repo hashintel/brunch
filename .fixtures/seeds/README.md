@@ -1,7 +1,15 @@
 # `.fixtures/seeds/`
 
-Tracked reusable graph seeds. Each seed set owns one or more explicit-basis spec
-fixtures consumed by `src/graph/seed-fixtures.ts` through `CommandExecutor`.
+Tracked reusable graph seeds. Each seed family owns one or more explicit-basis
+spec fixtures consumed by `src/graph/seed-fixtures.ts` through
+`CommandExecutor`.
+
+Seed refs are always `name/variant`:
+
+- use a semantic variant like `workspace-spread/alpha-grounding` when the
+  family exists to compare scenarios
+- use `base` for the canonical full variant of a faithful project port, such as
+  `brunch-self/base` or `yamlbase/base`
 
 Use a single named seed for normal workbench setup, or opt in to the whole
 catalog when building a broad manual workbench / probe-input database:
