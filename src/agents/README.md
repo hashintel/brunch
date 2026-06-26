@@ -9,11 +9,12 @@ SPEC decisions: D39-L, D40-L, D52-L, D60-L, D85-L, D90-L, D91-L, D93-L
 ```text
 agents/
 ├── README.md
-├── prompts/           bundled foreground/background agent body markdown
+├── prompts/           flat foreground elicit/execute body markdown
+├── subagents/         flat background subagent body markdown
 ├── skills/            strategy/lens/method prompt-resource markdown
 ├── runtime/           prompt composition and prompt-resource/tool legality
 ├── contexts/          agent-visible seed, context-tool, graph, and exchange text
-├── registry.ts        path registry for bundled agent bodies and prompt-resource skills
+├── registry.ts        path registry for foreground bodies and prompt-resource skills
 └── __tests__/         registry/topology tests
 ```
 
@@ -21,7 +22,8 @@ agents/
 
 ```pseudo
 rules:
-  agents/registry.ts -> agents/prompts/*/SYSTEM.md [body file locations]
+  agents/registry.ts -> agents/prompts/{elicitor,executor}.md [foreground body file locations]
+  .pi/extensions/subagents/agents.ts -> agents/subagents/*.md [background body file locations]
   agents/registry.ts -> agents/skills/*/*/SKILL.md [prompt-resource locations]
   agents/contexts/   -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
   agents/runtime/    -> agents/registry, agents/prompts, agents/skills, session/schema
@@ -33,4 +35,4 @@ rules:
 
 ## Migration note
 
-Agent prompt bodies, prompt-resource skills, foreground roster/tool policy, capability-readiness policy, prompt composition, prompt-resource/tool legality, seed context composition, reusable agent-visible context renderers, and formerly adapter-local model-facing text live here. Pi extensions remain runtime adapters that register hooks/tools, gather data, and call this layer for Brunch-authored text.
+Foreground prompt bodies, background subagent bodies, prompt-resource skills, foreground roster/tool policy, capability-readiness policy, prompt composition, prompt-resource/tool legality, seed context composition, reusable agent-visible context renderers, and formerly adapter-local model-facing text live here. Pi extensions remain runtime adapters that register hooks/tools, gather data, and call this layer for Brunch-authored text.
