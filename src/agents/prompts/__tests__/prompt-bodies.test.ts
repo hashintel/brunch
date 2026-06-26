@@ -59,6 +59,8 @@ describe('agent prompt bodies', () => {
     const readme = await readFile(join(projectRoot, 'src/agents/prompts/README.md'), 'utf8');
 
     expect(readme).toContain('SYSTEM.md convention is adopted');
+    expect(readme).toContain('Background bodies are subagent resources, not foreground prompts');
+    expect(readme).toContain('BACKGROUND_SUBAGENT_IDS');
     expect(readme).toContain('Background frontmatter is authoring DX');
     expect(readme).toContain('Unlisted directories are not spawnable');
   });
