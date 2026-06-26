@@ -307,7 +307,7 @@ describe('composeAgentPrompt', () => {
     });
 
     expect(result.prompt).not.toMatch(/- goal:/);
-    expect(result.prompt).toContain('- strategy: step-wise-disambiguate');
+    expect(result.prompt).toContain('- prompt strategy resource: step-wise-disambiguate');
     expect(Object.keys(result.manifests)).toEqual(['strategies', 'lenses', 'methods']);
     expect(result.manifests.strategies.map((entry) => entry.name)).toEqual(['step-wise-disambiguate']);
     // D86-L: commit-graph + generate-proposal are floor (graph-write is never readiness-gated);
@@ -452,6 +452,9 @@ function expectPromptContracts(rendered: string): void {
   expect(rendered).toContain('<brunch-skills>');
   expect(rendered).not.toMatch(/\bgoal=/);
   expect(rendered).not.toMatch(/- goal:/);
+  expect(rendered).not.toContain('- strategy:');
+  expect(rendered).not.toContain('- lens:');
+  expect(rendered).toContain('prompt-resource routing hints, not user-changeable session identity');
 }
 
 describe('composeAgentPrompt previews', () => {
