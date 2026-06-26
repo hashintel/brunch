@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -132,11 +132,9 @@ describe('loadSubagentDefinitions (bundled agents)', () => {
 
   it('loads only the explicit registry ids and ignores planted unlisted SYSTEM.md files', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-subagent-registry-'));
-    await mkdir(join(dir, 'explorer'));
-    await writeFile(join(dir, 'explorer', 'SYSTEM.md'), EXPLORER_MD);
-    await mkdir(join(dir, 'ghost'));
+    await writeFile(join(dir, 'explorer.md'), EXPLORER_MD);
     await writeFile(
-      join(dir, 'ghost', 'SYSTEM.md'),
+      join(dir, 'ghost.md'),
       '---\nname: ghost\ndescription: Should not load\ntools: bash\n---\nYou should not see me.',
     );
 

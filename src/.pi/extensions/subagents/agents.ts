@@ -1,8 +1,8 @@
 /**
  * Subagent agent definitions (D44-L / D90-L).
  *
- * Background agents are declarative SYSTEM.md files under the shared
- * `src/agents/prompts/<id>/` body home. Each file carries a small frontmatter block
+ * Background agents are declarative markdown files under `src/agents/subagents/`.
+ * Each file carries a small frontmatter block
  * plus a system-prompt body. The frontmatter is the registry contract; the body
  * is the subagent's standing instructions and the first section of the assembled
  * child prompt. Frontmatter is validated through a TypeBox schema (D41-L) so a
@@ -16,11 +16,11 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { Type } from 'typebox';
 import { Value } from 'typebox/value';
 
-import { bundledAgentBodyHome } from '../../../agents/registry.js';
 import type { BackgroundAgentManifest } from '../../../session/schema/agent-manifest.js';
 
 export const BACKGROUND_SUBAGENT_IDS = ['explorer', 'researcher', 'projector', 'reviewer'] as const;
@@ -139,9 +139,9 @@ export function parseSubagentMarkdown(
   };
 }
 
-/** Filesystem location of the unified bundled agent body home. */
+/** Filesystem location of the bundled background subagent body home. */
 export function subagentAgentsDir(): string {
-  return bundledAgentBodyHome();
+  return fileURLToPath(new URL('../../../agents/subagents', import.meta.url));
 }
 
 /**
@@ -155,7 +155,7 @@ export async function loadSubagentDefinitions(
 ): Promise<Map<string, SubagentDefinition>> {
   const definitions = new Map<string, SubagentDefinition>();
   for (const id of ids) {
-    const file = join(id, 'SYSTEM.md');
+    const file = `${id}.md`;
     const source = await readFile(join(dir, file), 'utf8');
     const definition = parseSubagentMarkdown(source, { sourcePath: file });
     if (definition.name !== id) {

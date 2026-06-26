@@ -215,20 +215,14 @@ tree:
       README.md: 'Documents this source subtree.'
     prompts:
       README.md: 'Documents this source subtree.'
-      elicitor:
-        SYSTEM.md: 'Defines the elicitor agent system prompt.'
-      explorer:
-        SYSTEM.md: 'Defines the explorer agent system prompt.'
-      orchestrator:
-        SYSTEM.md: 'Defines the orchestrator agent system prompt.'
-      pi-coder:
-        SYSTEM.md: 'Defines the pi-coder agent system prompt.'
-      projector:
-        SYSTEM.md: 'Defines the projector agent system prompt.'
-      researcher:
-        SYSTEM.md: 'Defines the researcher agent system prompt.'
-      reviewer:
-        SYSTEM.md: 'Defines the reviewer agent system prompt.'
+      elicitor.md: 'Defines the elicitor agent system prompt.'
+      executor.md: 'Defines the executor agent system prompt.'
+    subagents:
+      README.md: 'Documents this source subtree.'
+      explorer.md: 'Defines the explorer background agent system prompt.'
+      projector.md: 'Defines the projector background agent system prompt.'
+      researcher.md: 'Defines the researcher background agent system prompt.'
+      reviewer.md: 'Defines the reviewer background agent system prompt.'
     registry.ts: 'Implements registry.'
     runtime:
       README.md: 'Documents this source subtree.'

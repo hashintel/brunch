@@ -32,7 +32,7 @@ rules:
   agents/skills/                 x> graph mutation     [guidance only]
 ```
 
-The legal set is sealed by the code-owned path list in `agents/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns file locations. Frontmatter owns `name` and `description`; code owns axis family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/agents/prompts/elicitor/SYSTEM.md`.
+The legal set is sealed by the code-owned path list in `agents/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns file locations. Frontmatter owns `name` and `description`; code owns axis family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/agents/prompts/elicitor.md`.
 
 ## Prompt-resource sub-shapes
 

@@ -48,7 +48,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Done-definition:** all three capabilities carry promoted real-model evidence; no capability remains a stub or a method-less axis member. Open follow-ups (A32-L fan-in completion, the A1 anti-prompt) are tracked on their assumptions, not as arc blockers.
 - **Anchors:** D95-L, D96-L; A31-L–A35-L; I51-L.
 
-### context-pipeline — ◐ active
+### context-pipeline — ✓ done (2026-06-26)
 
 - **Goal:** lock the PULL → PROJECT → RENDER → COMPOSE context pipeline (D60-L).
 
@@ -56,10 +56,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 context-pipeline/
 ├── PULL      graph + session reads       ✓ done
 ├── PROJECT   projections/                ✓ done
-├── RENDER    agents/contexts + local human outputs ◐ open: prompt/subagent topology flattening
-└── COMPOSE   system-prompts + skills     ✓ done*
+├── RENDER    agents/contexts + local human outputs ✓ done
+└── COMPOSE   system-prompts + skills     ✓ done
 
-*COMPOSE's deferred full-stack real-rendered-context tripwire is discharged, but RENDER remains open until prompt/subagent resource topology matches the accepted `src/agents/` shape.
+Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.md`; background subagent bodies are flat under `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`; the old nested prompt-body convention is retired from loaders, docs, tests, and package asset copying.
 ```
 
 - **Done-definition:** every pipeline stage closed; COMPOSE's full-stack tripwire discharged by RENDER; foreground prompt bodies flattened under `src/agents/prompts/{elicitor,executor}.md`; background subagent bodies flattened under `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`; no stale `prompts/<agent>/SYSTEM.md` convention remains in docs, tests, or packaged asset copying.
@@ -69,10 +69,11 @@ context-pipeline/
 
 ### Active
 
-- `renderer-golden-coverage` (FE-1091) — active continuation for prompt/subagent topology flattening after the render/prompt lock sweep. Prior sweep rows closed renderer and assembly evidence, but the accepted topology still requires flat foreground prompt files and a separate flat subagent resource home.
+- _None._
 
 ### Recently Completed
 
+- 2026-06-26 `renderer-golden-coverage` (FE-1091) — **context pipeline done.** The final topology slice flattened foreground prompt bodies to `src/agents/prompts/{elicitor,executor}.md`, moved background bodies to `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`, retired nested prompt-body directories and the unwired `pi-coder` body, updated explicit registries/loaders and packaged asset copying, and reconciled `src/agents/` / prompt / subagent topology READMEs.
 - 2026-06-26 `data-model-legibility` (FE-1090) — **reference substrate complete.** Generated ontology tables are materialized from typed graph sources with `check:data-model`; authored graph-authoring heuristics are cited by `capture` + `commit-graph`; the final checkability/subtype audit closed with no schema/runtime expansion: progressive checkability is accepted only as skill-local oracle conduct, `checkability`/`strength` fields are rejected carrying cost, subtype enums are rejected as parallel ontology, and `detail.form` remains inert payload plus renderer hook.
 - 2026-06-25 `elicitor-generate` (FE-1059) — **generate capability done through promoted A31-L fan-out evidence.** Built slices: `present_candidates` tool/projection/renderer + pick path; intent/design/oracle facets under one plane-parameterized `generate-proposal` method; progressive-disclosure references; real-boot activation check; and real-model fan-out witness harness. Promoted run `.fixtures/runs/generate-fan-out/2026-06-24T16-51-13-704Z/` passed with `openai-codex/gpt-5.5`: oracle lens pinned, `SKILL.md` and `references/oracle.md` read, `present_candidates` emitted, no pre-prompt kick, no graph delta, no `mutate_graph`, and no approved review result. A32-L fan-in completion and the A1 anti-prompt remain follow-ups, not branch debt.
 - 2026-06-24 `subagent-reconciliation` (FE-1054) — foreground/background reconciliation complete through the execute-mode readiness target (D90-L-D93-L/I49-L): shared `AgentManifest`, code-owned background discovery, semi-permeable injected-world child sessions, sovereign grants gated by code-owned `canDelegate`, return rendering, and live `execute` -> `orchestrator` mode with a product-registered stub tool. `code` -> `pi-coder` remains future work.
@@ -161,8 +162,8 @@ context-pipeline/
 - **Linear:** [FE-1091](https://linear.app/hash/issue/FE-1091/renderer-golden-coverage-and-prompt-assembly-lock)
 - **Branch:** `ln/fe-1091-renderer-golden-coverage-and-prompt-assembly-lock`
 - **Kind:** coverage + build / hardening
-- **Status:** active. The render/prompt sweep ledger was exhausted for renderer and assembly evidence, but topology closure remains: foreground prompt bodies must flatten to `src/agents/prompts/{elicitor,executor}.md`, and background subagent bodies must flatten to `src/agents/subagents/{explorer,researcher,projector,reviewer}.md` rather than remaining under nested `prompts/<agent>/SYSTEM.md` directories.
-- **Current execution pointer:** `memory/cards/renderer-golden-coverage--prompt-subagent-topology.md`.
+- **Status:** done. The render/prompt sweep ledger closed renderer and assembly evidence, and the final topology slice flattened foreground prompt bodies to `src/agents/prompts/{elicitor,executor}.md` and background subagent bodies to `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`.
+- **Current execution pointer:** none; scope file consumed and retired.
 - **Certainty:** earned — RENDER topology is now established; this frontier closed coverage, prompt assembly evidence, and stale topology ambiguity rather than proving a new seam.
 - **Closes:** context-pipeline RENDER stage plus the COMPOSE full-stack real-rendered-context tripwire.
 - **Locks in:** D83-L house style for model-facing context surfaces and prompt assembly as a golden/semantic-invariant surface.
@@ -187,7 +188,7 @@ context-pipeline/
 frontiers:
   Active:
     renderer-golden-coverage
-      status: active (RENDER coverage + prompt assembly lock)
+      status: done (RENDER coverage + prompt assembly lock + prompt/subagent topology flattening)
       depends_on: context-pipeline PULL+PROJECT, D83-L, D52-L, D58-L, D98-L
       coordinates_with: data-model-legibility (references substrate), elicitor-generate (present_candidates render already landed in house style)
 

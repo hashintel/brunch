@@ -1,6 +1,6 @@
 # Agent: elicitor
 
-Preview role body from `src/agents/prompts/elicitor/SYSTEM.md`.
+Preview role body from `src/agents/prompts/elicitor.md`.
 
 [Brunch agent control]
 - agent: elicitor
