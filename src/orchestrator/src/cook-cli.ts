@@ -15,7 +15,12 @@ import { loadPlan } from './plan-loader.js';
 import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
 import { landCookBranch, promoteGreenfieldRun } from './promote-run.js';
-import { checkoutRunBranchTree, harvestCookRun, harvestGreenfieldRun } from './run-artifact.js';
+import {
+  checkoutRunBranchTree,
+  harvestCookRun,
+  harvestGreenfieldRun,
+  selectSalvageableSlices,
+} from './run-artifact.js';
 import { brunchRef, gcCookRun } from './run-refs.js';
 import { type ConfineMode, createSandboxGuard, runConfinementPreflight } from './sandbox-guard.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
@@ -568,8 +573,46 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
         line('');
       }
       if (!ok) {
-        line(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
-        line('');
+        // cook-partial-promotion: salvage completed epics instead of discarding the
+        // whole run; nothing to salvage → the old all-or-nothing message.
+        const salvage = selectSalvageableSlices(plan, result);
+        if (salvage.sliceIds.length === 0) {
+          line(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
+          line('');
+        } else {
+          try {
+            const artifact = promoting(
+              `salvaging ${salvage.salvagedEpicIds.length} passing epic(s) → ${brunchRef.run(runId)}`,
+              () =>
+                harvestCookRun({
+                  sourceDir: sandbox.sourceDir,
+                  parentSandboxDir: sandboxDir,
+                  runId,
+                  plan,
+                  completedSliceIds: salvage.sliceIds,
+                }),
+            );
+            if (artifact.conflicts.length > 0) {
+              for (const c of artifact.conflicts) {
+                line(`  ✗  merge conflict in slice ${c.sliceId} on ${c.paths.join(', ')}`);
+              }
+              line(`  ✗  partial promotion halted at ${artifact.branch} @ ${artifact.head.slice(0, 8)}`);
+            } else {
+              line(
+                `  ⚑  run halted — salvaged ${salvage.salvagedEpicIds.length} passing epic(s) to ${artifact.branch} @ ${artifact.head.slice(0, 8)}`,
+              );
+              line(
+                `  ✗  unfinished epic(s): ${salvage.failedEpicIds.join(', ')}${result.reason ? ` — ${result.reason}` : ''}`,
+              );
+            }
+            line(`     Full run worktree (for inspection): ${sandboxDir}`);
+            line('');
+          } catch (err) {
+            const reason = err instanceof Error ? err.message : String(err);
+            line(`  !  partial promotion failed: ${reason}; nothing promoted. Artifact: ${sandboxDir}`);
+            line('');
+          }
+        }
       } else {
         try {
           const completedSliceIds = result.slices

@@ -2,6 +2,7 @@
 // Plan model — epics → slices (YAML-derived)
 // ---------------------------------------------------------------------------
 
+import type { MarkingSnapshot } from './petri-net.js';
 import type { ProfileId } from './project-profile.js';
 
 export type Verification = {
@@ -332,6 +333,22 @@ export type OrchestratorInput = {
     runId: string;
     sdcpnFile: import('./petrinaut-sdcpn.js').SdcpnFile;
   }) => Promise<((event: import('./petrinaut-events.js').PetrinautEvent) => void) | undefined>;
+  /** durable-resume: re-enter a halted/paused run — seed bookkeeping + `restoreMarking` after `wireHandlers`. Plan/policy must match the snapshot's run (same topology). */
+  resume?: RunSnapshot;
+  /** durable-resume: external pause signal — the interpreter drains in-flight deferred work then stops at a quiescent point (persisting a snapshot if `runDir` set). When to pause is `interactive-recovery`'s job. */
+  shouldPause?: () => boolean;
+};
+
+/**
+ * Everything needed to resume a stopped run: the marking at the stop point plus
+ * the outcomes/reportIds accrued before it, so a resumed result reflects the
+ * whole run, not just the tail. Quiescent markings only.
+ */
+export type RunSnapshot = {
+  marking: MarkingSnapshot;
+  slices: SliceOutcome[];
+  epics: EpicOutcome[];
+  reportIds: string[];
 };
 
 export type EpicOutcome = {
