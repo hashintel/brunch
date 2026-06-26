@@ -48,7 +48,9 @@ Aggregate DoD: every `●` row is `have` or `built`, and every `partial` row is 
 | Capability | Status | Req | Fill | Owner / next | Notes |
 | --- | --- | --- | --- | --- | --- |
 | Workspace context renderer | `have` | ● | earned | `src/agents/contexts/workspace/` | Snapshot coverage exists for cwd + overview context; preserve D83-L audience split. |
-| Specification context renderer | `have` | ● | earned | `src/agents/contexts/specification/` | Snapshot coverage exists for selected-spec context. |
+| Specification context renderer | `partial` | ● | earned | `src/agents/contexts/spec/` | Move `specification/specification-context.ts` to `spec/spec-context.ts`; closure oracle: imports, README, and snapshot tests name the short `spec/` home while the rendered tag remains `<specification>`. |
+| Spec markdown document output | `new` | ● | earned | `src/agents/contexts/spec/spec-output.ts` | Thin graph-derived flattened markdown output using md-pen; not a copy of `memory/SPEC.md`. Future web/download routes are consumers, not owners. |
+| Plan markdown document output | `new` | ● | earned | `src/agents/contexts/plan/plan-output.ts` | Thin graph-derived flattened markdown output over plan-plane nodes (`milestone`, `frontier`, `slice`) using md-pen; not a copy of `memory/PLAN.md`. |
 | Graph overview / neighborhood / related-node renderers | `have` | ● | earned | `src/agents/contexts/graph/` | Snapshot coverage exists for overview, neighborhoods, and related nodes; preserve code handles and no structural-leak assertions. |
 | Session runtime frame renderer | `partial` | ● | earned | `src/agents/contexts/session/` | Existing snapshot still displays D98-sensitive strategy/lens runtime wording. Closure oracle: runtime frame wording either removes that state or frames it strictly as prompt-resource/internal conduct, then updates the golden. |
 | Turn/origination seed renderers | `partial` | ● | earned | `src/agents/contexts/seeds/` | Existing tests are semantic asserts. Closure oracle: stable seed text is snapshot-locked or intentionally reduced to invariant asserts with a README note explaining why wording is not a golden contract. |
@@ -89,8 +91,11 @@ src/agents/
 │   ├── README.md ?
 │   ├── elicitation.ts ~
 │   ├── references/ ?
+│   ├── plan/ ?
 │   ├── seeds/ ?
 │   ├── session/ ?
+│   ├── spec/ ?
+│   ├── specification/ -
 │   └── exchanges/ ?
 ├── prompts/ ?
 ├── runtime/
