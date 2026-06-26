@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ProjectedTranscriptContext } from '../../projections/session/transcript-context.js';
-import { formatTranscript } from '../../renderers/session/transcript.js';
+import { formatTranscript } from '../transcript-markdown.js';
 
 describe('debug transcript markdown', () => {
   it('renders projected transcript messages without non-text assistant blocks', () => {

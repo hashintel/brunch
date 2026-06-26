@@ -393,8 +393,6 @@ tree:
       workspace-state.ts: 'Implements workspace state.'
   renderers:
     README.md: 'Documents this source subtree.'
-    session:
-      transcript.ts: 'Implements transcript.'
   rpc:
     README.md: 'Documents this source subtree.'
     handlers.ts: 'Implements handlers.'
@@ -440,6 +438,7 @@ tree:
       pending-exchange.ts: 'Implements pending exchange.'
       synthetic-tool-call.ts: 'Implements synthetic tool call.'
     structured-exchange-loop.ts: 'Implements structured exchange loop.'
+    transcript-markdown.ts: 'Implements transcript markdown.'
     workspace-overview-context.ts: 'Implements workspace overview context.'
     workspace-session-coordinator:
       canonical-session-files.ts: 'Implements canonical session files.'

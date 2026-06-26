@@ -148,7 +148,7 @@ schema, and the product-state-gated rows must stay explicit deferred tripwires.
 - `.pi/extensions/brunch-data/context/` — for direct workspace overview reads; pure cwd inventory comes from `workspace/`.
 - `projections/session/` — for reusable transcript-context DTO projection.
 - `projections/workspace/` — for reusable workspace-state DTO projection.
-- `renderers/session/` — for reusable transcript markdown rendering.
+- `transcript-markdown.ts` — for debug transcript markdown rendering beside the session transcript utilities.
 - `agents/contexts/workspace/` — for workspace inventory / overview agent-context text over source session read shapes.
 - `rpc/` — for session.* and workspace.* RPC handlers.
 - `.pi/extensions/` — for session lifecycle hooks.
@@ -164,6 +164,7 @@ These files migrated here on 2026-06-02:
 | `brunch-session-envelope.ts`      | session envelope reader            |
 | `session-projection-reader.ts`    | JSONL projection target resolution |
 | `session-transcript.ts`           | transcript row projection          |
+| `transcript-markdown.ts`          | debug transcript markdown text     |
 | `exchange-projection.ts`          | exchange extraction                |
 | `runtime-state.ts`                | runtime-state transcript entries   |
 | `structured-exchange.ts`          | structured exchange schemas/types  |

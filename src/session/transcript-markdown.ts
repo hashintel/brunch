@@ -21,7 +21,7 @@ import type {
   UserMessage,
 } from '@earendil-works/pi-ai';
 
-import type { ProjectedTranscriptContext } from '../../projections/session/transcript-context.js';
+import type { ProjectedTranscriptContext } from '../projections/session/transcript-context.js';
 
 export function formatTranscript(
   context: ProjectedTranscriptContext,
