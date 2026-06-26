@@ -90,8 +90,6 @@ describe('projection topology boundaries', () => {
     expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain(
       'src/projections/session/runtime-state.ts',
     );
-    expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain(
-      'src/projections/session/runtime-policy.ts',
-    );
+    expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain('src/agents/runtime/policy.ts');
   });
 });

@@ -45,7 +45,7 @@ src/
 rules:
   graph/          -> db/                         [allowed]
   workspace/       -> constants/ or workspace-local files only
-  projections/*   -> agents/, graph/, session/, workspace/ [read/domain imports allowed; agents/ is temporary registry edge]
+  projections/*   -> graph/, session/, workspace/ [read/domain imports allowed]
   renderers/*     -> projections/, session/, workspace/ as needed for human/product input types
   agents/         -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
   .pi/            -> agents/, graph/, session/, projections/ [Pi runtime adapters/resources]
@@ -61,7 +61,7 @@ Rules:
 
 - `workspace/` owns cwd-scoped identity, inventory, and workspace default-state persistence. It must not import Pi, session, graph, DB, projection, renderer, adapter, transport, app, or web modules.
 - `graph/` imports from `db/`. No other layer imports `db/` directly.
-- `agents/` owns the Brunch-authored LLM-context ingress seam. Today it hosts agent prompt bodies, prompt-resource skills, prompt composition, prompt-resource/tool legality, context seed composition, reusable agent-visible context renderers, and the central file registry. The current `projections/session/runtime-policy.ts` import of this registry is a migration edge only: once the foreground roster moves under `agents/runtime/`, projections should stop depending on `agents/`.
+- `agents/` owns the Brunch-authored LLM-context ingress seam. Today it hosts agent prompt bodies, prompt-resource skills, foreground roster policy, prompt composition, prompt-resource/tool legality, context seed composition, reusable agent-visible context renderers, and the central file registry.
 - `.pi/` owns Pi-harness extensions/components and no longer hosts Brunch-authored prompt bodies, prompt-resource skills, prompt composition, or provider-visible tool/session text.
 - `.pi/extensions/` registers Pi tools/hooks/UI affordances and delegates product semantics outward.
 - `projections/` owns reusable structured output; `agents/contexts/` owns reusable model-facing text; `renderers/` owns human/product-only lossy text output.
@@ -75,6 +75,6 @@ The old domain-local `src/{graph,session,structured-exchange}/project/` folders 
 
 The old domain-local `src/{graph,session,structured-exchange}/format/` folders and `src/render/` first moved under `renderers/`; reusable model-facing renderers now live under `agents/contexts/`, while `renderers/` retains human/product-only text.
 
-Runtime-state transcript entry facts live in `session/runtime-state.ts`; reusable flattened runtime-state projection/policy now lives in `projections/session/runtime-state.ts` and `projections/session/runtime-policy.ts`.
+Runtime-state transcript entry facts live in `session/runtime-state.ts`; reusable flattened runtime-state projection lives in `projections/session/runtime-state.ts`, while foreground roster/tool policy lives in `agents/runtime/policy.ts`.
 
 The earlier `src/agents/` top-level prompt subtree had moved under `src/.pi/{agents,skills}/`; the new `src/agents/` seam reclaims the name for Pi-independent LLM context ingress. Agent bodies have moved to `src/agents/prompts/`; prompt-resource skills have moved to `src/agents/skills/`. The old `src/.pi/context/` prompt-pack subtree remains retired.

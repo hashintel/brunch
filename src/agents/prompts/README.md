@@ -18,7 +18,7 @@ prompts/
 └── pi-coder/SYSTEM.md       future unwired coding-agent augmentation baseline
 ```
 
-This directory is markdown-only. It carries no TypeScript and registers no Pi hooks. Foreground metadata is code-owned in the op-mode-keyed foreground roster (`src/projections/session/runtime-policy.ts`), while body file locations are centralized in `src/agents/registry.ts`. Background metadata is authored as frontmatter but discovered only through the explicit `BACKGROUND_SUBAGENT_IDS` registry in `src/.pi/extensions/subagents/agents.ts`.
+This directory is markdown-only. It carries no TypeScript and registers no Pi hooks. Foreground metadata is code-owned in the op-mode-keyed foreground roster (`src/agents/runtime/policy.ts`), while body file locations are centralized in `src/agents/registry.ts`. Background metadata is authored as frontmatter but discovered only through the explicit `BACKGROUND_SUBAGENT_IDS` registry in `src/.pi/extensions/subagents/agents.ts`.
 
 ## Prompt-shape decisions
 

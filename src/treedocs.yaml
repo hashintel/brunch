@@ -234,6 +234,7 @@ tree:
         elicitor--pinned-strategy-lens.md: 'Markdown resource.'
         elicitor--pushed-context.md: 'Markdown resource.'
       compose.ts: 'Implements compose.'
+      policy.ts: 'Implements runtime policy.'
       prompt-skills.ts: 'Implements prompt skills.'
       state.ts: 'Implements state.'
     skills:
@@ -383,7 +384,6 @@ tree:
       capability-readiness.ts: 'Implements capability readiness.'
       continuity-entry-classifier.ts: 'Implements continuity entry classifier.'
       readiness-estimate.ts: 'Implements readiness estimate.'
-      runtime-policy.ts: 'Implements runtime policy.'
       runtime-state.ts: 'Implements runtime state.'
       sweep-watermark.test.ts: 'Tests sweep watermark behavior.'
       sweep-watermark.ts: 'Implements sweep watermark.'

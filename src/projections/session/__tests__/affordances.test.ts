@@ -113,8 +113,10 @@ describe('runtime affordances derivation', () => {
       axisOptionsForRuntimeState('lens', resolved(), groundingFloorGaps({ coverage: { thesis: 0 } })),
     ).toEqual(['intent']);
 
-    for (const fileName of ['affordances.ts', 'runtime-policy.ts']) {
-      const sourcePath = fileURLToPath(new URL(`../${fileName}`, import.meta.url));
+    for (const sourcePath of [
+      fileURLToPath(new URL('../affordances.ts', import.meta.url)),
+      fileURLToPath(new URL('../../../agents/runtime/policy.ts', import.meta.url)),
+    ]) {
       const source = readFileSync(sourcePath, 'utf8');
       expect(source).not.toMatch(/ReadinessGrade|GRADE_RANK|MIN_GRADE/);
     }
