@@ -7,7 +7,6 @@
 
 import {
   ensureSliceWorktree,
-  mergeSlicesIntoEpicSandbox,
   resolveEpicSandboxDir,
   seedSliceSandboxFromDeps,
   sliceIdsForEpicVerifyMerge,
@@ -641,18 +640,18 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
   // Fail fast on the missing-runId precondition rather than at first fire.
   const sliceLayout = input.sliceLayout ?? 'per-slice';
   const { runId } = input;
-  if (input.sandboxMode === 'codebase' && !runId) {
-    throw new Error('codebase mode requires input.runId (used to name slice-level git branches)');
+  if (sliceLayout !== 'shared' && !runId) {
+    throw new Error('per-slice layout requires input.runId (used to name slice-level git branches)');
   }
 
   const resolveSliceCwd = (slice: Slice): string => {
     if (sliceLayout === 'shared') return input.sandboxDir;
-    // Codebase mode: materialize the slice's git worktree (HEAD checkout +
-    // symlinked node_modules) on first touch so pi-actions modify existing code
-    // rather than an empty dir; greenfield per-slice gets a plain dir below.
-    if (input.sandboxMode === 'codebase') {
-      ensureSliceWorktree(input.sandboxDir, slice.id, plan, runId!);
-    }
+    // Per-slice (D171-K): both modes run on the git-backed substrate, so each
+    // slice gets its own git worktree (HEAD checkout + symlinked node_modules)
+    // branched off the run worktree — greenfield off the empty root commit,
+    // codebase off the cloned HEAD — so verify-epic folds the slice branches
+    // rather than file-copying them.
+    ensureSliceWorktree(input.sandboxDir, slice.id, plan, runId!);
     return seedSliceSandboxFromDeps(input.sandboxDir, plan, slice, { preserveExisting: true });
   };
 
@@ -1027,65 +1026,44 @@ export function wireHandlers(blueprint: NetBlueprint, input: OrchestratorInput, 
               const mergeSliceIds = sliceIdsInMergeOrder.filter(
                 (sid) => ctx.sliceOutcomes.get(sid)?.status === 'completed',
               );
-              if (input.sandboxMode === 'codebase') {
-                // Brownfield: compose by git merge-tree fold so verify-epic runs
-                // against the same tree promotion will ship — not a file-copy union
-                // that silently last-slice-wins on same-file edits (FE-883).
-                const folded = materializeEpicVerifyTree({
-                  parentSandboxDir: input.sandboxDir,
-                  runId: runId!,
-                  plan,
-                  sliceIds: mergeSliceIds,
+              // Both modes compose by git merge-tree fold (D171-K): verify-epic
+              // runs against the same tree promotion will ship — not a file-copy
+              // union that silently last-slice-wins on same-file edits (FE-883).
+              // Greenfield folds off the empty root commit; codebase off the clone.
+              const folded = materializeEpicVerifyTree({
+                parentSandboxDir: input.sandboxDir,
+                runId: runId!,
+                plan,
+                sliceIds: mergeSliceIds,
+                epicId,
+              });
+              ctx.reportIds.push(
+                createReport(reports, {
                   epicId,
-                });
-                ctx.reportIds.push(
-                  createReport(reports, {
-                    epicId,
-                    sliceId: '',
-                    actor: 'orchestrator',
-                    event: 'epic-sandbox-merged',
-                    payload: {
-                      epicSandboxDir: folded.epicSandboxDir,
-                      sliceIds: mergeSliceIds,
-                      conflicts: folded.conflicts,
-                    },
-                  }),
-                );
-                // Fail-closed: a real cross-slice conflict leaves a partial tree;
-                // fail the epic rather than verify it. Routes via the fail sibling.
-                if (folded.conflicts.length > 0) {
-                  const failId = createReport(reports, {
-                    epicId,
-                    sliceId: '',
-                    actor: 'orchestrator',
-                    event: 'epic-verified',
-                    payload: { passed: false, reason: 'merge-conflict', conflicts: folded.conflicts },
-                  });
-                  ctx.reportIds.push(failId);
-                  return routeVerdict(inputToken, failId, false);
-                }
-                epicSandboxDir = folded.epicSandboxDir;
-              } else {
-                const merge = mergeSlicesIntoEpicSandbox({
-                  parentSandboxDir: input.sandboxDir,
+                  sliceId: '',
+                  actor: 'orchestrator',
+                  event: 'epic-sandbox-merged',
+                  payload: {
+                    epicSandboxDir: folded.epicSandboxDir,
+                    sliceIds: mergeSliceIds,
+                    conflicts: folded.conflicts,
+                  },
+                }),
+              );
+              // Fail-closed: a real cross-slice conflict leaves a partial tree;
+              // fail the epic rather than verify it. Routes via the fail sibling.
+              if (folded.conflicts.length > 0) {
+                const failId = createReport(reports, {
                   epicId,
-                  sliceIds: mergeSliceIds,
+                  sliceId: '',
+                  actor: 'orchestrator',
+                  event: 'epic-verified',
+                  payload: { passed: false, reason: 'merge-conflict', conflicts: folded.conflicts },
                 });
-                ctx.reportIds.push(
-                  createReport(reports, {
-                    epicId,
-                    sliceId: '',
-                    actor: 'orchestrator',
-                    event: 'epic-sandbox-merged',
-                    payload: {
-                      epicSandboxDir: merge.epicSandboxDir,
-                      sliceIds: mergeSliceIds,
-                      conflicts: merge.conflicts,
-                    },
-                  }),
-                );
-                epicSandboxDir = merge.epicSandboxDir;
+                ctx.reportIds.push(failId);
+                return routeVerdict(inputToken, failId, false);
               }
+              epicSandboxDir = folded.epicSandboxDir;
             } else {
               epicSandboxDir = input.sandboxDir;
             }

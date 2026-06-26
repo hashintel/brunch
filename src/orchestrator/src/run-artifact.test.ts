@@ -118,6 +118,19 @@ describe('foldSliceBranches (git merge-tree plumbing)', () => {
     expect(folded).not.toContain('B1');
   });
 
+  it('fails closed on an add/add conflict — two slices create the same new file (greenfield collision)', () => {
+    // Greenfield generate-from-scratch: independent slices both author the same
+    // new path with different content. No common-ancestor copy → add/add. The
+    // fold must fail closed (parity with brownfield I124-K), not silently pick one.
+    const a = sliceBranch('a', (d) => writeFileSync(join(d, 'shared.txt'), 'A\n'));
+    const b = sliceBranch('b', (d) => writeFileSync(join(d, 'shared.txt'), 'B\n'));
+
+    const artifact = foldSliceBranches({ sourceDir: repo, runId: 'r1', slices: [a, b] });
+
+    expect(artifact.commits.map((c) => c.sliceId)).toEqual(['a']);
+    expect(artifact.conflicts).toEqual([{ sliceId: 'b', paths: ['shared.txt'] }]);
+  });
+
   it('3-way merges different-hunk edits to the same file (the file-copy union would drop one)', () => {
     // The headline correctness win over the file-copy union: two independent
     // slices edit different lines of the same pre-existing file. A whole-file

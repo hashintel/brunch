@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { createOrchestrator } from './engine.js';
 import { compilePlan, compileTopology, wireHandlers } from './net-compiler.js';
@@ -20,6 +20,26 @@ import { reduceBrunchExecutionExport } from './petrinaut-stream-export.js';
 import type { CookEvent } from './presenter/events.js';
 import { InMemoryReportSink } from './report-sink.js';
 import type { ActionContext, ActionHandlers, OrchestratorInput, Plan, RunCtx, TestRunner } from './types.js';
+import { createSandbox } from './worktree.js';
+
+// ---------------------------------------------------------------------------
+// Git-backed sandbox helper — the default per-slice layout requires the parent
+// sandboxDir to be a real git repo on `brunch/run/<runId>`, so faked string
+// sandboxDirs no longer work. Each test gets a real createSandbox worktree.
+// ---------------------------------------------------------------------------
+
+const _tmpDirs: string[] = [];
+
+function gitSandbox(runId: string) {
+  const base = mkdtempSync(join(tmpdir(), 'cc-'));
+  _tmpDirs.push(base);
+  return createSandbox(base, runId); // git-backed worktree on brunch/run/<runId>
+}
+
+afterEach(() => {
+  for (const d of _tmpDirs) rmSync(d, { recursive: true, force: true });
+  _tmpDirs.length = 0;
+});
 
 // ---------------------------------------------------------------------------
 // Shared engine list for parameterized tests
@@ -218,9 +238,11 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
     describe(name, () => {
       it("completes with status 'completed'", async () => {
         const fakes = createFakes();
+        const sb = gitSandbox('run-c1-completed');
         const result = await create().run({
           plan: simplePlan,
-          sandboxDir: '/tmp/fake',
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
           actions: fakes.actions,
           reports: fakes.reports,
           testRunner: fakes.testRunner,
@@ -231,9 +253,11 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 
       it('produces correct epic and slice outcomes', async () => {
         const fakes = createFakes();
+        const sb = gitSandbox('run-c1-outcomes');
         const result = await create().run({
           plan: simplePlan,
-          sandboxDir: '/tmp/fake',
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
           actions: fakes.actions,
           reports: fakes.reports,
           testRunner: fakes.testRunner,
@@ -245,9 +269,11 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 
       it('calls actions in correct TDD cycle order', async () => {
         const fakes = createFakes();
+        const sb = gitSandbox('run-c1-order');
         await create().run({
           plan: simplePlan,
-          sandboxDir: '/tmp/fake',
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
           actions: fakes.actions,
           reports: fakes.reports,
           testRunner: fakes.testRunner,
@@ -265,10 +291,12 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 
       it('emits slice grid events around net-level test runs', async () => {
         const fakes = createFakes();
+        const sb = gitSandbox('run-c1-grid');
         const events: CookEvent[] = [];
         await create().run({
           plan: simplePlan,
-          sandboxDir: '/tmp/fake',
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
           actions: fakes.actions,
           reports: fakes.reports,
           testRunner: fakes.testRunner,
@@ -283,9 +311,11 @@ describe('Engine contract test #1 — single epic, single slice, happy path', ()
 
       it('report sink contains expected lines', async () => {
         const fakes = createFakes();
+        const sb = gitSandbox('run-c1-reports');
         await create().run({
           plan: simplePlan,
-          sandboxDir: '/tmp/fake',
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
           actions: fakes.actions,
           reports: fakes.reports,
           testRunner: fakes.testRunner,
@@ -425,9 +455,11 @@ describe('Engine contract test #2 — intra-epic slice dependencies', () => {
         };
 
         const engine = create();
+        const sb = gitSandbox('run-c2-dep');
         const result = await engine.run({
           plan: depPlan,
-          sandboxDir: '/tmp/fake',
+          sandboxDir: sb.sandboxDir,
+          runId: sb.runId,
           actions: depActions,
           reports,
           testRunner: depTestRunner,
@@ -481,9 +513,11 @@ describe('Engine contract test #3 — epic dependencies', () => {
   for (const { name, create } of engines) {
     it(`${name}: epic-2 slices run after epic-1 completes`, async () => {
       const fakes = createFakes();
+      const sb = gitSandbox(`run-c3-${name}`);
       const result = await create().run({
         plan: epicDepPlan,
-        sandboxDir: '/tmp/f',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -532,9 +566,11 @@ describe('Engine contract test #4 — epic verification passes', () => {
   for (const { name, create } of engines) {
     it(`${name}: epic with passing verification → completed`, async () => {
       const fakes = createFakes({ verifyEpicResult: true });
+      const sb = gitSandbox(`run-c4-${name}`);
       const result = await create().run({
         plan: verifyPlan,
-        sandboxDir: '/tmp/f',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -573,9 +609,11 @@ describe('Engine contract test #5 — epic verification fails', () => {
   for (const { name, create } of engines) {
     it(`${name}: epic with failing verification → halted`, async () => {
       const fakes = createFakes({ verifyEpicResult: false });
+      const sb = gitSandbox(`run-c5-${name}`);
       const result = await create().run({
         plan: verifyFailPlan,
-        sandboxDir: '/tmp/f',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -597,9 +635,11 @@ describe('Engine contract test #6 — retry loop', () => {
   for (const { name, create } of engines) {
     it(`${name}: test fails once then passes → slice completed`, async () => {
       const fakes = createFakes({ testRunResults: [false, true] });
+      const sb = gitSandbox(`run-c6-${name}`);
       const result = await create().run({
         plan: simplePlan,
-        sandboxDir: '/tmp/f',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -623,9 +663,11 @@ describe('Engine contract test #7 — retry exhaustion', () => {
   for (const { name, create } of engines) {
     it(`${name}: tests always fail → halted after maxRetries`, async () => {
       const fakes = createFakes({ testRunResults: [false] });
+      const sb = gitSandbox(`run-c7-${name}`);
       const result = await create().run({
         plan: simplePlan,
-        sandboxDir: '/tmp/f',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -646,9 +688,11 @@ describe('Engine contract test #8 — multi-cycle needs more', () => {
   for (const { name, create } of engines) {
     it(`${name}: evaluator says NO twice then YES → 2 TDD cycles`, async () => {
       const fakes = createFakes({ evalSequence: [false, false, true] });
+      const sb = gitSandbox(`run-c8-${name}`);
       const result = await create().run({
         plan: simplePlan,
-        sandboxDir: '/tmp/f',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -676,9 +720,11 @@ describe('Engine contract test #9 — action handler throws', () => {
   for (const { name, create } of engines) {
     it(`${name}: write-tests throws → halted with reason`, async () => {
       const fakes = createFakes({ throwOnAction: 'write-tests' });
+      const sb = gitSandbox(`run-c9-${name}`);
       const result = await create().run({
         plan: simplePlan,
-        sandboxDir: '/tmp/f',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -706,9 +752,11 @@ describe('Engine contract test #10 — semantic gate rejects then accepts', () =
         evalSequence: [false, true, true],
         semanticResults: [false, true],
       });
+      const sb = gitSandbox(`run-c10-${name}`);
       const result = await create().run({
         plan: simplePlan,
-        sandboxDir: '/tmp/f',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -737,9 +785,11 @@ describe('Engine contract test #11 — semantic rework exhaustion halts', () => 
         evalSequence: [false, true], // NO then YES (repeated)
         semanticResults: [false], // always rejects
       });
+      const sb = gitSandbox(`run-c11-${name}`);
       const result = await create().run({
         plan: simplePlan,
-        sandboxDir: '/tmp/f',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -873,9 +923,11 @@ describe('Adapter: §7 event vocabulary', () => {
       sliceOutcomes: new Map(),
       epicOutcomes: new Map(),
     };
+    const sb = gitSandbox('run-v7-happy');
     const input: OrchestratorInput = {
       plan: simplePlan,
-      sandboxDir: '/tmp/fake',
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
       actions: fakes.actions,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -922,9 +974,11 @@ describe('Adapter: §7 event vocabulary', () => {
       sliceOutcomes: new Map(),
       epicOutcomes: new Map(),
     };
+    const sb = gitSandbox('run-v7-retry');
     const input: OrchestratorInput = {
       plan: simplePlan,
-      sandboxDir: '/tmp/fake',
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
       actions: fakes.actions,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -956,9 +1010,11 @@ describe('Adapter: §7 event vocabulary', () => {
       sliceOutcomes: new Map(),
       epicOutcomes: new Map(),
     };
+    const sb = gitSandbox('run-v7-infra');
     const input: OrchestratorInput = {
       plan: simplePlan,
-      sandboxDir: '/tmp/fake',
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
       actions: fakes.actions,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -986,9 +1042,11 @@ describe('Adapter: §7 event vocabulary', () => {
       const fakes = createFakes({ testRunResults: [false], testFailureKind: failureKind });
       const ctx: RunCtx = { reportIds: [], sliceOutcomes: new Map(), epicOutcomes: new Map() };
       const cookEvents: CookEvent[] = [];
+      const sb = gitSandbox(`run-v7-grid-${failureKind}`);
       const input: OrchestratorInput = {
         plan: simplePlan,
-        sandboxDir: '/tmp/fake',
+        sandboxDir: sb.sandboxDir,
+        runId: sb.runId,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
@@ -1019,9 +1077,11 @@ describe('Petrinaut event stream on a real run', () => {
       sliceOutcomes: new Map(),
       epicOutcomes: new Map(),
     };
+    const sb = gitSandbox('run-e2e');
     const input: OrchestratorInput = {
       plan: simplePlan,
-      sandboxDir: '/tmp/fake',
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
       actions: fakes.actions,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -1080,14 +1140,15 @@ describe('Petrinaut event stream on a real run', () => {
 
   it('surfaces Petrinaut integration failures as warnings without halting the run', async () => {
     const fakes = createFakes();
+    const sb = gitSandbox('run-warnings');
     const result = await createOrchestrator('serial').run({
       plan: simplePlan,
-      sandboxDir: '/tmp/fake',
+      sandboxDir: sb.sandboxDir,
       actions: fakes.actions,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
       policy: { maxRetries: 3 },
-      runId: 'run-warnings',
+      runId: sb.runId,
       runDir: join(tmpdir(), 'brunch-missing-run-dir', 'child'),
     });
 
@@ -1113,15 +1174,16 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
   it("emits transition_fired events under concrete per-slice ids when petrinautFold='identity'", async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-identity-'));
+    const sb = gitSandbox('run-id-fold');
     try {
       const result = await createOrchestrator('serial').run({
         plan: simplePlan,
-        sandboxDir: '/tmp/fake',
+        sandboxDir: sb.sandboxDir,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
         policy: { maxRetries: 3 },
-        runId: 'run-id-fold',
+        runId: sb.runId,
         runDir,
         petrinautFold: 'identity',
       });
@@ -1180,6 +1242,7 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
   it('streams BrunchExecutionExportFrames through the bus when onPetrinautEvent is wired', async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-bus-'));
+    const sb = gitSandbox('run-bus-e2e');
     try {
       // Bus reads its definition from the SDCPN file the engine writes; we
       // load it post-hoc. For the streaming case we attach a deferred-init
@@ -1189,12 +1252,12 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
       const collectedEvents: PetrinautEvent[] = [];
       const result = await createOrchestrator('serial').run({
         plan: simplePlan,
-        sandboxDir: '/tmp/fake',
+        sandboxDir: sb.sandboxDir,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
         policy: { maxRetries: 3 },
-        runId: 'run-bus-e2e',
+        runId: sb.runId,
         runDir,
         petrinautFold: 'identity',
         onPetrinautEvent: (event) => collectedEvents.push(event),
@@ -1240,6 +1303,7 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
   it('awaits setupPetrinautStream before emitting initial_marking; returned callback receives full event sequence', async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-setup-'));
+    const sb = gitSandbox('run-setup-hook');
     try {
       // Two-phase ordering witness:
       //  1. Setup hook does async work (microtask) and only resolves after
@@ -1255,12 +1319,12 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
 
       const result = await createOrchestrator('serial').run({
         plan: simplePlan,
-        sandboxDir: '/tmp/fake',
+        sandboxDir: sb.sandboxDir,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
         policy: { maxRetries: 3 },
-        runId: 'run-setup-hook',
+        runId: sb.runId,
         runDir,
         petrinautFold: 'identity',
         setupPetrinautStream: async ({ runId, sdcpnFile }) => {
@@ -1294,17 +1358,18 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
   it('emits a terminal live-stream event when net execution throws', async () => {
     const fakes = createFakes({ throwOnAction: 'write-tests' });
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-throw-terminal-'));
+    const sb = gitSandbox('run-throw-terminal');
     try {
       const receivedEvents: PetrinautEvent[] = [];
 
       const result = await createOrchestrator('serial').run({
         plan: simplePlan,
-        sandboxDir: '/tmp/fake',
+        sandboxDir: sb.sandboxDir,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
         policy: { maxRetries: 3 },
-        runId: 'run-throw-terminal',
+        runId: sb.runId,
         runDir,
         petrinautFold: 'identity',
         setupPetrinautStream: async () => (event) => receivedEvents.push(event),
@@ -1322,17 +1387,18 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
   it('keeps the live-stream sink wired when initial_marking fan-out fails', async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-initial-warning-'));
+    const sb = gitSandbox('run-initial-warning');
     try {
       const receivedAfterInitialFailure: PetrinautEvent[] = [];
 
       const result = await createOrchestrator('serial').run({
         plan: simplePlan,
-        sandboxDir: '/tmp/fake',
+        sandboxDir: sb.sandboxDir,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
         policy: { maxRetries: 3 },
-        runId: 'run-initial-warning',
+        runId: sb.runId,
         runDir,
         petrinautFold: 'identity',
         setupPetrinautStream: async () => (event) => {
@@ -1357,6 +1423,7 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
   it('does not start live-stream setup when the event stream cannot initialize', async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-stream-init-'));
+    const sb = gitSandbox('run-stream-init-failure');
     try {
       // Make the JSONL event stream path unwritable while leaving runDir valid
       // for net.json and net.sdcpn.json.
@@ -1365,12 +1432,12 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
 
       const result = await createOrchestrator('serial').run({
         plan: simplePlan,
-        sandboxDir: '/tmp/fake',
+        sandboxDir: sb.sandboxDir,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
         policy: { maxRetries: 3 },
-        runId: 'run-stream-init-failure',
+        runId: sb.runId,
         runDir,
         petrinautFold: 'identity',
         setupPetrinautStream: async () => {
@@ -1390,15 +1457,16 @@ describe('identity-fold engine wiring + delta-replay oracle', () => {
   it("collapses slice place ids when petrinautFold='color'", async () => {
     const fakes = createFakes();
     const runDir = mkdtempSync(join(tmpdir(), 'brunch-fe764-color-'));
+    const sb = gitSandbox('run-color-fold');
     try {
       const result = await createOrchestrator('serial').run({
         plan: simplePlan,
-        sandboxDir: '/tmp/fake',
+        sandboxDir: sb.sandboxDir,
         actions: fakes.actions,
         reports: fakes.reports,
         testRunner: fakes.testRunner,
         policy: { maxRetries: 3 },
-        runId: 'run-color-fold',
+        runId: sb.runId,
         runDir,
         petrinautFold: 'color',
       });
@@ -1454,9 +1522,11 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
 
     const engine = createOrchestrator('parallel');
+    const sb = gitSandbox('run-c12-parallel');
     const result = await engine.run({
       plan: threeSlicePlan,
-      sandboxDir: '/tmp/f',
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
       actions: tracked,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -1477,9 +1547,11 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
     const { tracked, tracker } = withConcurrencyTracking(fakes.actions);
 
     const engine = createOrchestrator('serial');
+    const sb = gitSandbox('run-c12-serial');
     const result = await engine.run({
       plan: threeSlicePlan,
-      sandboxDir: '/tmp/f',
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
       actions: tracked,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -1514,10 +1586,12 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
 
     // Serial run
     const serialFakes = createDelayedFakes();
+    const serialSb = gitSandbox('run-c12-wall-serial');
     const t0 = Date.now();
     await createOrchestrator('serial').run({
       plan: threeSlicePlan,
-      sandboxDir: '/tmp/f',
+      sandboxDir: serialSb.sandboxDir,
+      runId: serialSb.runId,
       actions: serialFakes.actions,
       reports: serialFakes.reports,
       testRunner: serialFakes.testRunner,
@@ -1527,10 +1601,12 @@ describe('Engine contract test #12 — parallel fires concurrently', () => {
 
     // Parallel run
     const parallelFakes = createDelayedFakes();
+    const parallelSb = gitSandbox('run-c12-wall-parallel');
     const t1 = Date.now();
     await createOrchestrator('parallel').run({
       plan: threeSlicePlan,
-      sandboxDir: '/tmp/f',
+      sandboxDir: parallelSb.sandboxDir,
+      runId: parallelSb.runId,
       actions: parallelFakes.actions,
       reports: parallelFakes.reports,
       testRunner: parallelFakes.testRunner,
@@ -1589,9 +1665,11 @@ describe('Engine contract test #13 — resource pool bounds concurrency', () => 
     const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
     const { tracked, tracker } = withConcurrencyTracking(fakes.actions, agentActions);
 
+    const sb = gitSandbox('run-c13-pool1');
     const result = await createOrchestrator('parallel').run({
       plan: threeSlicePlan,
-      sandboxDir: '/tmp/f',
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
       actions: tracked,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -1606,9 +1684,11 @@ describe('Engine contract test #13 — resource pool bounds concurrency', () => 
     const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
     const { tracked, tracker } = withConcurrencyTracking(fakes.actions, agentActions);
 
+    const sb = gitSandbox('run-c13-pool2');
     const result = await createOrchestrator('parallel').run({
       plan: threeSlicePlan,
-      sandboxDir: '/tmp/f',
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
       actions: tracked,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -1623,9 +1703,11 @@ describe('Engine contract test #13 — resource pool bounds concurrency', () => 
     const fakes = createFakes({ evalSequence: [true], semanticResults: [true] });
     const { tracked, tracker } = withConcurrencyTracking(fakes.actions, agentActions);
 
+    const sb = gitSandbox('run-c13-unbounded');
     const result = await createOrchestrator('parallel').run({
       plan: threeSlicePlan,
-      sandboxDir: '/tmp/f',
+      sandboxDir: sb.sandboxDir,
+      runId: sb.runId,
       actions: tracked,
       reports: fakes.reports,
       testRunner: fakes.testRunner,
@@ -1890,38 +1972,94 @@ describe('Adapter: sandbox-per-slice isolation', () => {
       ],
     };
 
-    const parent = mkdtempSync(join(tmpdir(), 'cook-ec-ps-'));
-    try {
-      let verifyEpicSandboxDir = '';
-      const fakes = createFakes();
-      const trackingActions: ActionHandlers = {};
-      for (const [key, handler] of Object.entries(fakes.actions)) {
-        trackingActions[key] = async (ctx: ActionContext) => {
-          if (key === 'write-code') writeFileSync(join(ctx.sandboxDir, 'slice-marker.txt'), 'sv');
-          if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
-          return handler!(ctx);
-        };
-      }
-
-      const result = await createOrchestrator('parallel').run({
-        plan: verifyPlan,
-        sandboxDir: parent,
-        actions: trackingActions,
-        reports: fakes.reports,
-        testRunner: fakes.testRunner,
-        policy: { maxRetries: 3 },
-        sliceLayout: 'per-slice',
-      });
-
-      expect(result.status).toBe('completed');
-      // slice ran in its own per-slice dir...
-      expect(existsSync(join(parent, 'sv'))).toBe(true);
-      // ...and verify-epic ran against the merged __epic__/<epicId>/ tree.
-      expect(verifyEpicSandboxDir).toBe(join(parent, '__epic__', 'ev'));
-      expect(existsSync(join(verifyEpicSandboxDir, 'slice-marker.txt'))).toBe(true);
-      expect(fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged')).toBeDefined();
-    } finally {
-      rmSync(parent, { recursive: true, force: true });
+    const sb = gitSandbox('run-ps-existing');
+    const parent = sb.sandboxDir;
+    let verifyEpicSandboxDir = '';
+    const fakes = createFakes();
+    const trackingActions: ActionHandlers = {};
+    for (const [key, handler] of Object.entries(fakes.actions)) {
+      trackingActions[key] = async (ctx: ActionContext) => {
+        if (key === 'write-code') writeFileSync(join(ctx.sandboxDir, 'slice-marker.txt'), 'sv');
+        if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
+        return handler!(ctx);
+      };
     }
+
+    const result = await createOrchestrator('parallel').run({
+      plan: verifyPlan,
+      sandboxDir: parent,
+      runId: sb.runId,
+      actions: trackingActions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+      sliceLayout: 'per-slice',
+    });
+
+    expect(result.status).toBe('completed');
+    // slice ran in its own per-slice dir...
+    expect(existsSync(join(parent, 'sv'))).toBe(true);
+    // ...and verify-epic ran against the merged __epic__/<epicId>/ tree.
+    expect(verifyEpicSandboxDir).toBe(join(parent, '__epic__', 'ev'));
+    expect(existsSync(join(verifyEpicSandboxDir, 'slice-marker.txt'))).toBe(true);
+    expect(fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged')).toBeDefined();
+  });
+
+  it('greenfield per-slice on a git-backed sandbox folds slice worktrees into __epic__', async () => {
+    // FE-1055 slice 2: the default per-slice layout is now git-backed. A
+    // greenfield run on a real createSandbox worktree isolates the slice in its
+    // own git worktree, then folds it into the merged __epic__/<epicId>/ tree
+    // that verify-epic runs against.
+    const verifyPlan: Plan = {
+      mode: 'greenfield',
+      epics: [
+        {
+          id: 'ev',
+          summary: 'Verified',
+          depends_on: [],
+          verification: [{ kind: 'integration-test', target: 't' }],
+        },
+      ],
+      slices: [
+        {
+          id: 'sv',
+          epic_id: 'ev',
+          definition: 'S',
+          depends_on: [],
+          verification: [{ kind: 'unit-test', target: 't' }],
+        },
+      ],
+    };
+
+    const sandbox = gitSandbox('run-greenfield-per-slice');
+    let verifyEpicSandboxDir = '';
+    const fakes = createFakes();
+    const trackingActions: ActionHandlers = {};
+    for (const [key, handler] of Object.entries(fakes.actions)) {
+      trackingActions[key] = async (ctx: ActionContext) => {
+        if (key === 'write-code') writeFileSync(join(ctx.sandboxDir, 'slice-marker.txt'), 'sv');
+        if (key === 'verify-epic') verifyEpicSandboxDir = ctx.sandboxDir;
+        return handler!(ctx);
+      };
+    }
+
+    const result = await createOrchestrator('parallel').run({
+      plan: verifyPlan,
+      sandboxDir: sandbox.sandboxDir,
+      runId: sandbox.runId,
+      actions: trackingActions,
+      reports: fakes.reports,
+      testRunner: fakes.testRunner,
+      policy: { maxRetries: 3 },
+      sliceLayout: 'per-slice',
+    });
+
+    expect(result.status).toBe('completed');
+    // The slice ran in its own git worktree under the run sandbox.
+    expect(existsSync(join(sandbox.sandboxDir, 'sv', '.git'))).toBe(true);
+    // verify-epic ran against the merged __epic__/<epicId>/ tree.
+    expect(verifyEpicSandboxDir).toBe(join(sandbox.sandboxDir, '__epic__', 'ev'));
+    // The fold produced an epic-sandbox-merged report.
+    expect(fakes.reports.getAll().find((r) => r.event === 'epic-sandbox-merged')).toBeDefined();
   });
 });
