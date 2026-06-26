@@ -95,7 +95,7 @@ describe('prompt-resource skills', () => {
     expect(readme).toContain('progressive disclosure');
     expect(readme).toContain('Shared typed-vocab context references');
     expect(readme).toContain('src/agents/contexts/references/graph-ontology.md');
-    expect(readme).toContain('concrete citing need appears');
+    expect(readme).toContain('edge-policy, detail-payload, and `detail.form` vocabulary');
     expect(readme).toContain('drift-checked');
     expect(readme).toContain('Shared authored context references');
     expect(readme).toContain('src/agents/contexts/references/graph-authoring-heuristics.md');
