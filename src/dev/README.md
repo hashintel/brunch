@@ -27,10 +27,10 @@ Current subcommands:
 
 ```text
 npm run dev
-npm run dev -- --workspace .fixtures/workbenches/live-graph-observer --open-web
-npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/live-graph-observer
-npm run dev -- mutate --workspace .fixtures/workbenches/live-graph-observer --params-file /tmp/mutate.json
-npm run dev -- export --workspace .fixtures/workbenches/live-graph-observer --spec-id 1 --out .fixtures/seeds/custom/example.json
+npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web
+npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding
+npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
+npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
 ```
 
 ## Debug Mirrors And Dev Tools

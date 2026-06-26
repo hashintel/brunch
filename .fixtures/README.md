@@ -46,8 +46,8 @@ Seed workbench state explicitly; `npm run dev` never seeds by implication. See
 catalog. From the repo root, load one tracked seed into one named workspace with:
 
 ```sh
-npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding
-npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
+npm run seed -- --seed workspace-alpha-grounding/base --reset
+npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding
 ```
 
 The seed command writes only the target workspace's `.brunch/data.db` and reports

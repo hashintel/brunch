@@ -1,6 +1,6 @@
 {
   "spec": {
-    "slug": "resilient-pipeline-spec",
+    "slug": "cook-resilient-pipeline",
     "name": "resilient-pipeline (reversed cook fixture)"
   },
   "nodes": [

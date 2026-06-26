@@ -19,10 +19,10 @@ Manual testing happens in a **workbench** — a launchable cwd under `.fixtures/
 #    sessions/, debug/, workspace.json — so the relaunch starts a fresh session
 #    (seed + kick) instead of resuming a stale one. Unknown files in .brunch/
 #    and the directory itself survive.
-npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding --reset
+npm run seed -- --seed workspace-alpha-grounding/base --reset
 
 # 2. Launch the TUI (plus web observer sidecar) against that workbench.
-npm run dev -- --workspace .fixtures/workbenches/live-graph-observer
+npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding
 ```
 
 Then:
@@ -39,10 +39,12 @@ For non-interactive smoke, `npm run dev -- --workspace <workbench> --mode print`
 
 Tracked seeds live under `.fixtures/seeds/<name>/<variant>.json`; each family has a README describing its intent. Current sets:
 
-- `workspace-spread` — small multi-spec workspace states (`alpha-grounding`, `beta-commitments`); good default for workbench smoke
-- `bilal-port` / `bilal-port-variants` — large real-world spec-elicitation graphs (hundreds of nodes); good for rendering and scale checks
-- `edge-spread`, `kind-band-spread` — coverage matrices over edge categories / node kinds and readiness bands
-- `brunch-self`, `dumpchat`, `fable`, `rd-loop`, `yamlbase` — faithful project ports whose canonical full graph now lives at the `base` variant (`brunch-self/base`, `yamlbase/base`, etc.)
+- `workspace-alpha-grounding/base`, `workspace-beta-commitments/base` — small workspace-oriented smoke fixtures
+- `bilal-code-health/base`, `bilal-explorer-ui/base`, `bilal-macro-view/base` — rich Bilal-derived workbench seeds
+- `bilal-macro-view/grounded-intent` — the curated Bilal probe starting state
+- `edge-category-directions/base`, `edge-hub-neighborhood/base`, `kind-coverage-matrix/base` — synthetic coverage fixtures
+- `cook-parallel-utils/base`, `cook-layered-todo/base`, `cook-resilient-pipeline/base` — compact shape-focused intent fixtures
+- `brunch-self/base`, `dumpchat/base`, `fable/base`, `rd-loop/base`, `yamlbase/base` — faithful project ports used for realistic preview coverage
 
 Validate a seed against the current command layer with `npx tsx src/graph/validate-fixture.ts <name>/<variant>`.
 

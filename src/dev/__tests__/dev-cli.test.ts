@@ -7,22 +7,15 @@ import type { BrunchCliOptions } from '../../app/brunch.js';
 import { runDevCli, type DevCliPrompts } from '../dev-cli.js';
 
 const REPO_ROOT = process.cwd();
-const WORKBENCH = resolve(REPO_ROOT, '.fixtures/workbenches/live-graph-observer');
+const WORKBENCH = resolve(REPO_ROOT, '.fixtures/workbenches/workspace-alpha-grounding');
 
 describe('runDevCli', () => {
-  it('seeds explicitly before launching the default TUI flow', async () => {
+  it('derives the seed workbench before launching the default TUI flow', async () => {
     const events: string[] = [];
     const launchCalls: BrunchCliOptions[] = [];
 
     const code = await runDevCli({
-      argv: [
-        '--workspace',
-        '.fixtures/workbenches/live-graph-observer',
-        '--seed',
-        'workspace-spread/alpha-grounding',
-        '--reset',
-        '--open-web',
-      ],
+      argv: ['--seed', 'workspace-alpha-grounding/base', '--reset', '--open-web'],
       cwd: REPO_ROOT,
       seedWorkspace: async (options) => {
         events.push('seed');
@@ -31,7 +24,7 @@ describe('runDevCli', () => {
           '--workspace',
           WORKBENCH,
           '--seed',
-          'workspace-spread/alpha-grounding',
+          'workspace-alpha-grounding/base',
           '--reset',
         ]);
         return 0;
@@ -54,7 +47,7 @@ describe('runDevCli', () => {
   });
 
   it('uses the prompt flow when no workbench flag is provided', async () => {
-    const chooseWorkbench = vi.fn<DevCliPrompts['chooseWorkbench']>();
+    const chooseWorkbench = vi.fn<DevCliPrompts['chooseWorkbench']>().mockResolvedValue(WORKBENCH);
     const chooseSeed = vi.fn<DevCliPrompts['chooseSeed']>().mockResolvedValue('__current__');
     const confirmSeedReset = vi.fn<DevCliPrompts['confirmSeedReset']>();
     const confirmOpenWeb = vi.fn<DevCliPrompts['confirmOpenWeb']>().mockResolvedValue(false);
@@ -88,12 +81,15 @@ describe('runDevCli', () => {
     });
 
     expect(code).toBe(0);
-    expect(chooseWorkbench).not.toHaveBeenCalled();
-    expect(chooseSeed).toHaveBeenCalledWith(expect.any(Array), '.fixtures/workbenches/live-graph-observer');
+    expect(chooseWorkbench).toHaveBeenCalled();
+    expect(chooseSeed).toHaveBeenCalledWith(
+      ['workspace-alpha-grounding/base'],
+      '.fixtures/workbenches/workspace-alpha-grounding',
+    );
     expect(confirmSeedReset).not.toHaveBeenCalled();
-    expect(confirmOpenWeb).toHaveBeenCalledWith('.fixtures/workbenches/live-graph-observer');
+    expect(confirmOpenWeb).toHaveBeenCalledWith('.fixtures/workbenches/workspace-alpha-grounding');
     expect(intro).toHaveBeenCalledWith('Brunch dev launcher');
-    expect(outro).toHaveBeenCalledWith('Launching .fixtures/workbenches/live-graph-observer.');
+    expect(outro).toHaveBeenCalledWith('Launching .fixtures/workbenches/workspace-alpha-grounding.');
     expect(cancel).not.toHaveBeenCalled();
     expect(launches).toEqual([
       expect.objectContaining({

@@ -25,8 +25,9 @@ import { createWorkspaceSessionCoordinator } from '../session/workspace-session-
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'fixture-curation' as const;
-const DEFAULT_SEED_SET = 'bilal-port-variants';
-const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
+const DEFAULT_SEED_SET = 'bilal-macro-view';
+const DEFAULT_SEED_SLUG = 'grounded-intent';
+const DEFAULT_SEED_REF = `${DEFAULT_SEED_SET}/${DEFAULT_SEED_SLUG}`;
 
 type FixtureCurationCommitStatus =
   | MutateGraphSuccess['status']
@@ -360,7 +361,7 @@ function mutateGraphStatus(value: unknown): FixtureCurationCommitStatus {
 }
 
 function defaultCurationPrompt(): string {
-  return `Brunch fixture-curation tracer: the selected spec is a Bilal-derived explicit base seed named "${DEFAULT_SEED_SLUG}".
+  return `Brunch fixture-curation tracer: the selected spec is a Bilal-derived explicit base seed named "${DEFAULT_SEED_REF}".
 
 Use read_graph once in overview mode. Then use mutate_graph exactly once to add a small intent-plane expansion that improves launch/usefulness of this existing spec without duplicating base nodes. Create one to three new intent-plane nodes, connect them legally to existing graph truth when possible, use basis implicit through the propose-graph tool path, and stop after a successful mutate_graph result.`;
 }

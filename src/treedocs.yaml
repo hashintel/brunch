@@ -170,7 +170,7 @@ tree:
       graph:
         README.md: 'Documents this source subtree.'
         __snapshots__:
-          graph-overview-kind-band-spread.md: 'Markdown resource.'
+          graph-overview-kind-coverage-matrix.md: 'Markdown resource.'
           neighborhood-brunch-self-MOD1-hops2.md: 'Markdown resource.'
           neighborhood-brunch-self-REQ1.md: 'Markdown resource.'
           neighborhood-code-health-REQ1.md: 'Markdown resource.'

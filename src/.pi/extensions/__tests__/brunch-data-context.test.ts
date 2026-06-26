@@ -209,8 +209,8 @@ describe('context tools', () => {
   it('read_workspace_context returns a workspace overview for bound specs and sessions', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-context-overview-'));
     const executor = await openWorkspaceCommandExecutor(cwd);
-    const alpha = seedFixture(executor, await loadFixture('alpha-grounding', 'workspace-spread'));
-    const beta = seedFixture(executor, await loadFixture('beta-commitments', 'workspace-spread'));
+    const alpha = seedFixture(executor, await loadFixture('workspace-alpha-grounding'));
+    const beta = seedFixture(executor, await loadFixture('workspace-beta-commitments'));
 
     await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
     await writeBoundSession(cwd, 'alpha-session', alpha.specId, [messageEntry('u1', 'user')]);
@@ -251,8 +251,8 @@ describe('context tools', () => {
   it('read_specification_context returns the selected spec render through the registered tool', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-specification-tool-'));
     const executor = await openWorkspaceCommandExecutor(cwd);
-    const alpha = seedFixture(executor, await loadFixture('alpha-grounding', 'workspace-spread'));
-    const beta = seedFixture(executor, await loadFixture('beta-commitments', 'workspace-spread'));
+    const alpha = seedFixture(executor, await loadFixture('workspace-alpha-grounding'));
+    const beta = seedFixture(executor, await loadFixture('workspace-beta-commitments'));
 
     await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
     await writeBoundSession(cwd, 'alpha-session', alpha.specId, [messageEntry('u1', 'user')]);
@@ -346,9 +346,9 @@ describe('context tools', () => {
   });
 });
 
-async function loadFixture(slug: string, set = 'bilal-port'): Promise<SeedFixture> {
+async function loadFixture(name: string, variant = 'base'): Promise<SeedFixture> {
   const fixturePath = fileURLToPath(
-    new URL(`../../../../.fixtures/seeds/${set}/${slug}.json`, import.meta.url),
+    new URL(`../../../../.fixtures/seeds/${name}/${variant}.json`, import.meta.url),
   );
   return JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(fixturePath, 'utf8')));
 }

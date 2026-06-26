@@ -77,7 +77,7 @@ describe('fixture curation loop report', () => {
       runId: 'fixture-curation-test',
       generatedAt: '2026-06-05T00:00:00.000Z',
       cwd: '/tmp/brunch-fixture-curation-test',
-      seedSlug: 'macro-view-grounded-intent',
+      seedSlug: 'grounded-intent',
       selectedBaseProfile: 'grounded-intent',
       specId: 7,
       sessionId: 'session-1',
@@ -125,7 +125,7 @@ describe('fixture curation loop report', () => {
       runId: 'fixture-curation-test',
       generatedAt: '2026-06-05T00:00:00.000Z',
       cwd: '/tmp/brunch-fixture-curation-test',
-      seedSlug: 'macro-view-grounded-intent',
+      seedSlug: 'grounded-intent',
       selectedBaseProfile: 'grounded-intent',
       specId: 7,
       sessionId: 'session-1',
@@ -155,7 +155,7 @@ describe('fixture curation loop report', () => {
       runId: 'fixture-curation-test',
       generatedAt: '2026-06-05T00:00:00.000Z',
       cwd: fixtureRoot,
-      seedSlug: 'macro-view-grounded-intent',
+      seedSlug: 'grounded-intent',
       selectedBaseProfile: 'grounded-intent',
       specId: 7,
       sessionId: 'session-1',
@@ -182,7 +182,7 @@ describe('fixture curation loop report', () => {
       '"toolName":"mutate_graph"',
     );
     await expect(readFile(join(fixtureRoot, artifacts.reportJson), 'utf8')).resolves.toContain(
-      '"seedSlug": "macro-view-grounded-intent"',
+      '"seedSlug": "grounded-intent"',
     );
     await expect(readFile(join(fixtureRoot, artifacts.graphOverviewJson), 'utf8')).resolves.toContain(
       '"basis": "implicit"',
@@ -205,7 +205,7 @@ describe('fixture curation loop report', () => {
       runId: 'portable-run',
       generatedAt: '2026-06-05T00:00:00.000Z',
       cwd: fixtureRoot,
-      seedSlug: 'macro-view-grounded-intent',
+      seedSlug: 'grounded-intent',
       selectedBaseProfile: 'grounded-intent',
       specId: 7,
       sessionId: 'session-1',

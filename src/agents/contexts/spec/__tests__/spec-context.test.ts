@@ -16,7 +16,7 @@ describe('renderSpecificationContext', () => {
   it('renders the approved specification house style', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-specification-context-'));
     const executor = await openWorkspaceCommandExecutor(cwd);
-    const seeded = seedFixture(executor, await loadFixture('alpha-grounding', 'workspace-spread'));
+    const seeded = seedFixture(executor, await loadFixture('workspace-alpha-grounding'));
     await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
     await writeBoundSession(cwd, 'alpha-session', seeded.specId, [
       messageEntry('u1', 'user'),
@@ -63,9 +63,9 @@ describe('renderSpecificationContext', () => {
   });
 });
 
-async function loadFixture(slug: string, set = 'bilal-port'): Promise<SeedFixture> {
+async function loadFixture(name: string, variant = 'base'): Promise<SeedFixture> {
   const fixturePath = fileURLToPath(
-    new URL(`../../../../../.fixtures/seeds/${set}/${slug}.json`, import.meta.url),
+    new URL(`../../../../../.fixtures/seeds/${name}/${variant}.json`, import.meta.url),
   );
   return JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(fixturePath, 'utf8')));
 }

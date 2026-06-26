@@ -304,7 +304,7 @@ describe('Brunch CLI dispatch', () => {
     const seededWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seeded-'));
     const emptySibling = await mkdtemp(join(tmpdir(), 'brunch-empty-'));
     await runSeedFixturesCli({
-      argv: ['--workspace', seededWorkspace, '--seed', 'workspace-spread/alpha-grounding'],
+      argv: ['--workspace', seededWorkspace, '--seed', 'workspace-alpha-grounding/base'],
       cwd: shellCwd,
       stdout: () => {},
     });

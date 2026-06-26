@@ -14,8 +14,8 @@ describe('inspectWorkspaceOverview', () => {
   it('returns a workspace overview with spec node counts and session turn counts', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-workspace-overview-'));
     const executor = await openWorkspaceCommandExecutor(cwd);
-    const alpha = seedFixture(executor, await loadFixture('alpha-grounding', 'workspace-spread'));
-    const beta = seedFixture(executor, await loadFixture('beta-commitments', 'workspace-spread'));
+    const alpha = seedFixture(executor, await loadFixture('workspace-alpha-grounding'));
+    const beta = seedFixture(executor, await loadFixture('workspace-beta-commitments'));
 
     await mkdir(join(cwd, '.brunch', 'sessions'), { recursive: true });
     await writeBoundSession(cwd, 'alpha-session', alpha.specId, [messageEntry('u1', 'user')]);
@@ -57,8 +57,10 @@ describe('inspectWorkspaceOverview', () => {
   });
 });
 
-async function loadFixture(slug: string, set = 'bilal-port'): Promise<SeedFixture> {
-  const fixturePath = fileURLToPath(new URL(`../../../.fixtures/seeds/${set}/${slug}.json`, import.meta.url));
+async function loadFixture(name: string, variant = 'base'): Promise<SeedFixture> {
+  const fixturePath = fileURLToPath(
+    new URL(`../../../.fixtures/seeds/${name}/${variant}.json`, import.meta.url),
+  );
   return JSON.parse(await import('node:fs/promises').then(({ readFile }) => readFile(fixturePath, 'utf8')));
 }
 

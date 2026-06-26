@@ -8,7 +8,7 @@ import { assertPortableRunId, portableCwd } from './portable-report.js';
 import { launchPublicBrunchRpc } from './ship-gate-rpc-client.js';
 
 const PROBE_ID = 'ship-gate-composition';
-const SEEDS = ['workspace-spread/alpha-grounding', 'workspace-spread/beta-commitments'] as const;
+const SEEDS = ['workspace-alpha-grounding/base', 'workspace-beta-commitments/base'] as const;
 
 interface WorkspaceActivationResult {
   readonly status: 'ready';

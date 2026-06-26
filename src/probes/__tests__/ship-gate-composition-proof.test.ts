@@ -35,7 +35,7 @@ describe('ship gate composition proof contract', () => {
         cwd: '<ephemeral-workspace>',
         setup: {
           publicSeedCli: 'node dist/graph/seed-fixtures.js',
-          seeds: ['workspace-spread/alpha-grounding', 'workspace-spread/beta-commitments'],
+          seeds: ['workspace-alpha-grounding/base', 'workspace-beta-commitments/base'],
         },
         betaTitlesAbsentFromAlpha: true,
         runtimeStateObservable: true,

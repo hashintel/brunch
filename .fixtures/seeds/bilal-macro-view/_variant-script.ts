@@ -27,13 +27,14 @@ interface SeedFixture {
   }>;
 }
 
-const VARIANT_SLUG = 'macro-view-grounded-intent';
-const SOURCE_SLUG = 'macro-view';
+const VARIANT_SPEC_SLUG = 'bilal-macro-view';
+const VARIANT_FILENAME = 'grounded-intent.json';
+const SOURCE_SEED_NAME = 'bilal-macro-view';
 const GROUNDED_SOURCE = /^(stakeholder|external-observed|technical-observed)\b/;
 
 async function main(): Promise<void> {
   const here = dirname(fileURLToPath(import.meta.url));
-  const sourcePath = join(here, '..', 'bilal-port', `${SOURCE_SLUG}.json`);
+  const sourcePath = join(here, '..', SOURCE_SEED_NAME, 'base.json');
   const source = JSON.parse(await readFile(sourcePath, 'utf8')) as SeedFixture;
   const kept = source.nodes.filter(
     (node) =>
@@ -64,15 +65,15 @@ async function main(): Promise<void> {
   });
   const variant = {
     spec: {
-      slug: VARIANT_SLUG,
-      name: 'Macro View — grounded intent base',
+      slug: VARIANT_SPEC_SLUG,
+      name: 'Macro View — grounded intent',
     },
     nodes,
     edges,
   } satisfies SeedFixture;
 
   await mkdir(here, { recursive: true });
-  await writeFile(join(here, `${VARIANT_SLUG}.json`), `${JSON.stringify(variant, null, 2)}\n`, 'utf8');
+  await writeFile(join(here, VARIANT_FILENAME), `${JSON.stringify(variant, null, 2)}\n`, 'utf8');
 }
 
 main().catch((error: unknown) => {

@@ -19,13 +19,19 @@ import { CommandExecutor } from '../command-executor.js';
 import { GROUNDING_FLOOR_KINDS } from '../schema/elicitation-gap-fixtures.js';
 import { EDGE_CATEGORIES, type ReadinessBand } from '../schema/kinds.js';
 import { NODE_KIND_METADATA, bandsForKind } from '../schema/nodes.js';
-import { runSeedFixturesCli, seedFixture, type SeedFixture } from '../seed-fixtures.js';
+import {
+  parseSeedRef,
+  runSeedFixturesCli,
+  seedFixture,
+  type SeedFixture,
+  workbenchPathForSeed,
+} from '../seed-fixtures.js';
 import { openWorkspaceCommandExecutor } from '../workspace-store.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-function loadFixture(slug: string, set = 'bilal-port'): SeedFixture {
-  const path = resolve(HERE, `../../../.fixtures/seeds/${set}/${slug}.json`);
+function loadFixture(name: string, variant = 'base'): SeedFixture {
+  const path = resolve(HERE, `../../../.fixtures/seeds/${name}/${variant}.json`);
   return JSON.parse(readFileSync(path, 'utf8')) as SeedFixture;
 }
 
@@ -39,10 +45,10 @@ function trackedSeedRefs(): string[] {
   const seedsRoot = resolve(HERE, '../../../.fixtures/seeds');
   return readdirSync(seedsRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .flatMap((set) =>
-      readdirSync(join(seedsRoot, set.name))
+    .flatMap((name) =>
+      readdirSync(join(seedsRoot, name.name))
         .filter((file) => file.endsWith('.json'))
-        .map((file) => `${set.name}/${file.slice(0, -'.json'.length)}`),
+        .map((file) => `${name.name}/${file.slice(0, -'.json'.length)}`),
     )
     .sort();
 }
@@ -50,38 +56,31 @@ function trackedSeedRefs(): string[] {
 describe('seed fixture CLI', () => {
   it.each([
     { name: 'missing args', argv: [] },
-    { name: 'missing workspace value', argv: ['--workspace', '--seed', 'workspace-spread/alpha-grounding'] },
+    { name: 'missing workspace value', argv: ['--workspace', '--seed', 'workspace-alpha-grounding/base'] },
     { name: 'missing seed value', argv: ['--workspace', 'target', '--seed'] },
     {
       name: 'unknown arg',
-      argv: ['--workspace', 'target', '--seed', 'workspace-spread/alpha-grounding', '--extra'],
+      argv: ['--workspace', 'target', '--seed', 'workspace-alpha-grounding/base', '--extra'],
     },
     {
       name: 'duplicate workspace flag',
-      argv: ['--workspace', 'one', '--workspace', 'two', '--seed', 'workspace-spread/alpha-grounding'],
+      argv: ['--workspace', 'one', '--workspace', 'two', '--seed', 'workspace-alpha-grounding/base'],
     },
     {
       name: 'duplicate seed flag',
-      argv: [
-        '--workspace',
-        'target',
-        '--seed',
-        'workspace-spread/alpha-grounding',
-        '--seed',
-        'yamlbase/base',
-      ],
+      argv: ['--workspace', 'target', '--seed', 'workspace-alpha-grounding/base', '--seed', 'yamlbase/base'],
     },
     {
       name: 'parent seed family',
-      argv: ['--workspace', 'target', '--seed', '../workspace-spread/alpha-grounding'],
+      argv: ['--workspace', 'target', '--seed', '../workspace-alpha-grounding/base'],
     },
     {
       name: 'parent seed variant',
-      argv: ['--workspace', 'target', '--seed', 'workspace-spread/../alpha-grounding'],
+      argv: ['--workspace', 'target', '--seed', 'workspace-alpha-grounding/../base'],
     },
     {
       name: 'absolute seed ref',
-      argv: ['--workspace', 'target', '--seed', '/workspace-spread/alpha-grounding'],
+      argv: ['--workspace', 'target', '--seed', '/workspace-alpha-grounding/base'],
     },
   ])('rejects malformed input without creating a cwd DB: $name', async ({ argv }) => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-seed-cwd-'));
@@ -96,7 +95,7 @@ describe('seed fixture CLI', () => {
     });
 
     expect(code).toBe(1);
-    expect(stderr).toContain('Usage: npm run seed -- --workspace <dir>');
+    expect(stderr).toContain('Usage: npm run seed -- (--seed <name>/<variant>');
     expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
   });
 
@@ -122,7 +121,7 @@ describe('seed fixture CLI', () => {
     let stderr = '';
 
     const code = await runSeedFixturesCli({
-      argv: ['--workspace', cwd, '--seed', 'workspace-spread/alpha-grounding', '--all-seeds'],
+      argv: ['--workspace', cwd, '--seed', 'workspace-alpha-grounding/base', '--all-seeds'],
       cwd,
       stderr: (chunk) => {
         stderr += chunk;
@@ -130,7 +129,7 @@ describe('seed fixture CLI', () => {
     });
 
     expect(code).toBe(1);
-    expect(stderr).toContain('Usage: npm run seed -- --workspace <dir>');
+    expect(stderr).toContain('Usage: npm run seed -- (--seed <name>/<variant>');
     expect(existsSync(join(cwd, '.brunch', 'data.db'))).toBe(false);
   });
 
@@ -156,14 +155,14 @@ describe('seed fixture CLI', () => {
     let stdout = '';
 
     const code = await runSeedFixturesCli({
-      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/alpha-grounding', '--reset'],
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-alpha-grounding/base', '--reset'],
       stdout: (chunk) => {
         stdout += chunk;
       },
     });
 
     expect(code).toBe(0);
-    expect(stdout).toContain('seeded workspace-spread/alpha-grounding → spec');
+    expect(stdout).toContain('seeded workspace-alpha-grounding/base → spec');
     expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
   });
 
@@ -171,7 +170,7 @@ describe('seed fixture CLI', () => {
     const targetWorkspace = await mkdtemp(join(tmpdir(), 'brunch-seed-target-'));
 
     const first = await runSeedFixturesCli({
-      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/alpha-grounding'],
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-alpha-grounding/base'],
       stdout: () => {},
     });
     expect(first).toBe(0);
@@ -191,17 +190,26 @@ describe('seed fixture CLI', () => {
     await writeFile(join(brunchDir, 'notes.md'), 'keep me', 'utf8');
 
     const second = await runSeedFixturesCli({
-      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/beta-commitments', '--reset'],
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-beta-commitments/base', '--reset'],
       stdout: () => {},
     });
     expect(second).toBe(0);
 
     const executor = await openWorkspaceCommandExecutor(targetWorkspace);
-    expect(executor.listSpecs().map((spec) => spec.slug)).toEqual(['beta-commitments']);
+    expect(executor.listSpecs().map((spec) => spec.slug)).toEqual(['workspace-beta-commitments']);
     expect(existsSync(sessionsDir)).toBe(false);
     expect(existsSync(join(brunchDir, 'workspace.json'))).toBe(false);
     expect(existsSync(debugDir)).toBe(false);
     expect(readFileSync(join(brunchDir, 'notes.md'), 'utf8')).toBe('keep me');
+  });
+
+  it('maps a seed ref to its derived workbench path under .fixtures/workbenches', () => {
+    const seed = parseSeedRef('workspace-alpha-grounding/base');
+
+    expect(seed).not.toBeNull();
+    expect(workbenchPathForSeed(seed!)).toBe(
+      resolve(HERE, '../../../.fixtures/workbenches/workspace-alpha-grounding'),
+    );
   });
 
   it('accepts equals-form flags when values are unambiguous and safe', async () => {
@@ -210,7 +218,7 @@ describe('seed fixture CLI', () => {
     let stdout = '';
 
     const code = await runSeedFixturesCli({
-      argv: [`--workspace=${targetWorkspace}`, '--seed=workspace-spread/alpha-grounding'],
+      argv: [`--workspace=${targetWorkspace}`, '--seed=workspace-alpha-grounding/base'],
       cwd: shellCwd,
       stdout: (chunk) => {
         stdout += chunk;
@@ -218,7 +226,7 @@ describe('seed fixture CLI', () => {
     });
 
     expect(code).toBe(0);
-    expect(stdout).toContain('seeded workspace-spread/alpha-grounding → spec');
+    expect(stdout).toContain('seeded workspace-alpha-grounding/base → spec');
     expect(existsSync(join(shellCwd, '.brunch', 'data.db'))).toBe(false);
     expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
   });
@@ -273,7 +281,7 @@ describe('seed fixture CLI', () => {
     let stdout = '';
 
     const code = await runSeedFixturesCli({
-      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-spread/alpha-grounding'],
+      argv: ['--workspace', targetWorkspace, '--seed', 'workspace-alpha-grounding/base'],
       cwd: shellCwd,
       stdout: (chunk) => {
         stdout += chunk;
@@ -281,18 +289,18 @@ describe('seed fixture CLI', () => {
     });
 
     expect(code).toBe(0);
-    expect(stdout).toContain('seeded workspace-spread/alpha-grounding → spec');
+    expect(stdout).toContain('seeded workspace-alpha-grounding/base → spec');
     expect(stdout).toContain(`Destination: ${join(targetWorkspace, '.brunch', 'data.db')}`);
     expect(existsSync(join(shellCwd, '.brunch', 'data.db'))).toBe(false);
     expect(existsSync(join(targetWorkspace, '.brunch', 'data.db'))).toBe(true);
 
     const executor = await openWorkspaceCommandExecutor(targetWorkspace);
     const specRows = executor.listSpecs();
-    expect(specRows.map((spec) => spec.slug)).toEqual(['alpha-grounding']);
+    expect(specRows.map((spec) => spec.slug)).toEqual(['workspace-alpha-grounding']);
     const alpha = specRows[0]!;
     const db = createDb(join(targetWorkspace, '.brunch', 'data.db'));
     expect(db.select().from(nodes).where(eq(nodes.spec_id, alpha.id)).all()).toHaveLength(
-      loadFixture('alpha-grounding', 'workspace-spread').nodes.length,
+      loadFixture('workspace-alpha-grounding').nodes.length,
     );
     expect(
       db
@@ -313,13 +321,13 @@ describe('all tracked seeds remain structurally legal', () => {
 
   it('discovers the tracked seed catalog', () => {
     expect(seedRefs.length).toBeGreaterThan(0);
-    expect(seedRefs).toContain('workspace-spread/alpha-grounding');
+    expect(seedRefs).toContain('workspace-alpha-grounding/base');
     expect(seedRefs.some((ref) => ref.includes('_originals'))).toBe(false);
   });
 
   it.each(seedRefs.map((ref) => ({ ref })))('seeds $ref through the command layer', ({ ref }) => {
-    const [set, slug] = ref.split('/') as [string, string];
-    const fixture = loadFixture(slug, set);
+    const [name, variant] = ref.split('/') as [string, string];
+    const fixture = loadFixture(name, variant);
     const db = createDb(':memory:');
 
     const result = seedFixture(new CommandExecutor(db), fixture);
@@ -375,7 +383,7 @@ describe('seedFixture', () => {
   it('seeds the code-health fixture into a real DB via the command layer', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);
-    const fixture = loadFixture('code-health');
+    const fixture = loadFixture('bilal-code-health');
 
     const result = seedFixture(executor, fixture);
 
@@ -387,7 +395,7 @@ describe('seedFixture', () => {
     const specRows = db.select().from(specs).all();
     expect(specRows).toHaveLength(1);
     expect(specRows[0]!.id).toBe(result.specId);
-    expect(specRows[0]!.slug).toBe('code-health');
+    expect(specRows[0]!.slug).toBe('bilal-code-health');
 
     // Node / edge rows persisted, all scoped to the seeded spec.
     const nodeRows = db.select().from(nodes).where(eq(nodes.spec_id, result.specId)).all();
@@ -410,7 +418,7 @@ describe('seedFixture', () => {
   it('loads the macro-view grounded-intent variant as explicit intent-only seed truth', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);
-    const fixture = loadFixture('macro-view-grounded-intent', 'bilal-port-variants');
+    const fixture = loadFixture('bilal-macro-view', 'grounded-intent');
 
     expect(fixture.nodes.length).toBeGreaterThan(0);
     expect(fixture.nodes.every((node) => node.plane === 'intent')).toBe(true);
@@ -426,10 +434,10 @@ describe('seedFixture', () => {
     expect(nodeRows.every((row) => row.plane === 'intent' && row.basis === 'explicit')).toBe(true);
   });
 
-  it('loads the kind-band spread fixture with every node kind and all readiness bands represented', () => {
+  it('loads the kind-coverage matrix fixture with every node kind and all readiness bands represented', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);
-    const fixture = loadFixture('coverage-matrix', 'kind-band-spread');
+    const fixture = loadFixture('kind-coverage-matrix');
 
     const result = seedFixture(executor, fixture);
     const nodeRows = db.select().from(nodes).where(eq(nodes.spec_id, result.specId)).all();
@@ -440,10 +448,10 @@ describe('seedFixture', () => {
     );
   });
 
-  it('loads the edge-spread fixture with every edge category and a thesis absence case', () => {
+  it('loads the edge-category-directions fixture with every edge category and a thesis absence case', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);
-    const fixture = loadFixture('category-directions', 'edge-spread');
+    const fixture = loadFixture('edge-category-directions');
 
     const result = seedFixture(executor, fixture);
     const specEdges = db.select().from(edges).where(eq(edges.spec_id, result.specId)).all();
@@ -455,15 +463,15 @@ describe('seedFixture', () => {
     expect(specEdges.some((row) => row.category === 'witness' && row.target_id === thesisId)).toBe(false);
   });
 
-  it('loads the workspace-spread fixtures into one DB with distinct slugs', () => {
+  it('loads the workspace family fixtures into one DB with distinct slugs', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);
-    const alpha = seedFixture(executor, loadFixture('alpha-grounding', 'workspace-spread'));
-    const beta = seedFixture(executor, loadFixture('beta-commitments', 'workspace-spread'));
+    const alpha = seedFixture(executor, loadFixture('workspace-alpha-grounding'));
+    const beta = seedFixture(executor, loadFixture('workspace-beta-commitments'));
 
     const specRows = db.select({ slug: specs.slug }).from(specs).all();
 
-    expect(specRows).toEqual([{ slug: 'alpha-grounding' }, { slug: 'beta-commitments' }]);
+    expect(specRows).toEqual([{ slug: 'workspace-alpha-grounding' }, { slug: 'workspace-beta-commitments' }]);
     expect(graphClockLsn(db, alpha.specId)).toBe(2);
     expect(graphClockLsn(db, beta.specId)).toBe(2);
   });
@@ -471,8 +479,8 @@ describe('seedFixture', () => {
   it('keeps seeded spec LSNs coherent independent of seed order', () => {
     const db: BrunchDb = createDb(':memory:');
     const executor = new CommandExecutor(db);
-    const first = seedFixture(executor, loadFixture('code-health'));
-    const second = seedFixture(executor, loadFixture('macro-view-grounded-intent', 'bilal-port-variants'));
+    const first = seedFixture(executor, loadFixture('bilal-code-health'));
+    const second = seedFixture(executor, loadFixture('bilal-macro-view', 'grounded-intent'));
 
     expect(graphClockLsn(db, first.specId)).toBe(2);
     expect(graphClockLsn(db, second.specId)).toBe(2);

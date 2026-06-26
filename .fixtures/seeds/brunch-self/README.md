@@ -2,7 +2,8 @@
 
 A **faithful** spec graph hand-derived from this repository's own planning prose
 (`memory/SPEC.md` + `memory/PLAN.md`), as opposed to the synthetic
-coverage/edge-spread fixtures.
+coverage fixtures such as `kind-coverage-matrix/base` and
+`edge-category-directions/base`.
 
 Purpose:
 

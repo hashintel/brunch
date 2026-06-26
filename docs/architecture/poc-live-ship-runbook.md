@@ -24,8 +24,8 @@ mkdir -p "$WORKSPACE" "$RUN_DIR"
 
 # Seed two specs so selection/scope is visible before the live turn.
 # --reset is scoped to Brunch runtime state in this workbench.
-npm run seed -- --workspace "$WORKSPACE" --seed workspace-spread/alpha-grounding --reset
-npm run seed -- --workspace "$WORKSPACE" --seed workspace-spread/beta-commitments
+npm run seed -- --workspace "$WORKSPACE" --seed workspace-alpha-grounding/base --reset
+npm run seed -- --workspace "$WORKSPACE" --seed workspace-beta-commitments/base
 ```
 
 Launch the real product; source/dev runs mirror prompt/posture artifacts into `.brunch/debug/` automatically:

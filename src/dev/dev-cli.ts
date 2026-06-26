@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import type { Readable, Writable } from 'node:stream';
@@ -16,14 +16,18 @@ import {
 
 import { runBrunchCli, type BrunchCliOptions } from '../app/brunch.js';
 import { exportSeedFixtureFromWorkspace, formatSeedFixture } from '../graph/export-fixtures.js';
-import { runSeedFixturesCli } from '../graph/seed-fixtures.js';
+import {
+  listTrackedSeedRefs,
+  parseSeedRef,
+  runSeedFixturesCli,
+  workbenchPathForSeed,
+} from '../graph/seed-fixtures.js';
 import { createRpcHandlers } from '../rpc/handlers.js';
 import { createWorkspaceSessionCoordinator } from '../session/workspace-session-coordinator.js';
 import { applyDevGraphMutation, parseDevMutateGraphParams } from './graph-curation.js';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const WORKBENCHES_ROOT = resolve(REPO_ROOT, '.fixtures', 'workbenches');
-const SEEDS_ROOT = resolve(REPO_ROOT, '.fixtures', 'seeds');
 
 type TopLevelCommand = 'launch' | 'rpc' | 'mutate' | 'export' | 'help';
 type GraphVisibility = 'all' | 'active';
@@ -31,6 +35,7 @@ type GraphVisibility = 'all' | 'active';
 interface WorkbenchChoice {
   readonly label: string;
   readonly workspace: string;
+  readonly seedRefs: readonly string[];
 }
 
 interface LaunchPromptPlan {
@@ -107,7 +112,7 @@ const defaultPrompts: DevCliPrompts = {
   },
   chooseWorkbench: async (options) =>
     clackSelect({
-      message: 'Which workbench should Brunch use?',
+      message: 'Which seed-derived workbench should Brunch use?',
       options: options.map((option) => ({ value: option.workspace, label: option.label })),
       maxItems: 8,
     }),
@@ -179,9 +184,14 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
     return 0;
   }
 
-  const currentWorkbench = await currentWorkbenchForCwd(flags.workspace ?? options.cwd);
+  const seedRef = flags.seed ? parseSeedRef(flags.seed) : null;
+  if (flags.seed && !seedRef) {
+    throw new DevCliUsageError('--seed must be a tracked seed ref in the form <name>/<variant>.');
+  }
+
+  const currentWorkbench = currentWorkbenchForCwd(options.cwd);
   const prompts = options.prompts ?? defaultPrompts;
-  let workspace = flags.workspace ?? currentWorkbench;
+  let workspace = flags.workspace ?? (seedRef ? workbenchPathForSeed(seedRef) : currentWorkbench);
   let seed = flags.seed;
   let openWeb = flags.openWeb;
 
@@ -216,6 +226,8 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
     if (code !== 0) return code;
   }
 
+  await mkdir(workspace, { recursive: true });
+
   return await (options.launchBrunch ?? runBrunchCli)({
     argv: [
       '--mode',
@@ -231,9 +243,9 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
 }
 
 async function promptForLaunchPlan(prompts: DevCliPrompts): Promise<LaunchPromptPlan | null> {
-  const workbenches = await listWorkbenches();
+  const workbenches = await listTrackedWorkbenches();
   if (workbenches.length === 0) {
-    throw new DevCliUsageError('No workbenches are available under .fixtures/workbenches/.');
+    throw new DevCliUsageError('No tracked seeds are available to derive workbenches from.');
   }
 
   prompts.intro('Brunch dev launcher');
@@ -245,7 +257,12 @@ async function promptForLaunchPlan(prompts: DevCliPrompts): Promise<LaunchPrompt
   }
 
   const workspaceLabel = labelForWorkspace(workspace);
-  const seedChoice = await prompts.chooseSeed(await listTrackedSeeds(), workspaceLabel);
+  const selectedWorkbench = workbenches.find((choice) => choice.workspace === workspace);
+  if (!selectedWorkbench) {
+    throw new DevCliUsageError(`Unknown tracked workbench selected: ${workspaceLabel}`);
+  }
+
+  const seedChoice = await prompts.chooseSeed(selectedWorkbench.seedRefs, workspaceLabel);
   if (isCancel(seedChoice)) {
     prompts.cancel('Launch cancelled.');
     return null;
@@ -497,40 +514,30 @@ function parseJson(text: string, label: string): unknown {
   }
 }
 
-async function currentWorkbenchForCwd(cwd: string): Promise<string | undefined> {
+function currentWorkbenchForCwd(cwd: string): string | undefined {
   const resolvedCwd = resolve(cwd);
-  const workbenches = await listWorkbenches();
-  return workbenches.find((workbench) => isWithinWorkspace(resolvedCwd, workbench.workspace))?.workspace;
+  const relativePath = relative(WORKBENCHES_ROOT, resolvedCwd);
+  if (relativePath === '' || relativePath.startsWith('..') || isAbsolute(relativePath)) return undefined;
+  const [workbenchName] = relativePath.split(sep);
+  return workbenchName ? resolve(WORKBENCHES_ROOT, workbenchName) : undefined;
 }
 
-function isWithinWorkspace(path: string, workspace: string): boolean {
-  return path === workspace || path.startsWith(`${workspace}${sep}`);
-}
+async function listTrackedWorkbenches(): Promise<readonly WorkbenchChoice[]> {
+  const grouped = new Map<string, string[]>();
+  for (const seed of await listTrackedSeedRefs()) {
+    const workspace = workbenchPathForSeed(seed);
+    const seedRefs = grouped.get(workspace) ?? [];
+    seedRefs.push(seed.ref);
+    grouped.set(workspace, seedRefs);
+  }
 
-async function listWorkbenches(): Promise<readonly WorkbenchChoice[]> {
-  const entries = await readdir(WORKBENCHES_ROOT, { withFileTypes: true });
-  return entries
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => {
-      const workspace = resolve(WORKBENCHES_ROOT, entry.name);
-      return { workspace, label: labelForWorkspace(workspace) } satisfies WorkbenchChoice;
-    })
+  return [...grouped.entries()]
+    .map(([workspace, seedRefs]) => ({
+      workspace,
+      label: labelForWorkspace(workspace),
+      seedRefs: seedRefs.sort((left, right) => left.localeCompare(right)),
+    }))
     .sort((left, right) => left.label.localeCompare(right.label));
-}
-
-async function listTrackedSeeds(): Promise<readonly string[]> {
-  const sets = await readdir(SEEDS_ROOT, { withFileTypes: true });
-  const seedRefs = await Promise.all(
-    sets
-      .filter((entry) => entry.isDirectory())
-      .map(async (entry) => {
-        const files = await readdir(resolve(SEEDS_ROOT, entry.name));
-        return files
-          .filter((file) => file.endsWith('.json'))
-          .map((file) => `${entry.name}/${file.slice(0, -'.json'.length)}`);
-      }),
-  );
-  return seedRefs.flat().sort((left, right) => left.localeCompare(right));
 }
 
 function labelForWorkspace(workspace: string): string {
@@ -590,6 +597,7 @@ function devCliUsage(): string {
   return [
     'Usage:',
     '  npm run dev',
+    '  npm run dev -- --seed <name>/<variant> --reset [--open-web] [--dev-tools]',
     '  npm run dev -- --workspace <dir> [--mode tui|print|rpc] [--open-web] [--dev-tools]',
     '  npm run dev -- --workspace <dir> --seed <name/variant> --reset [--open-web] [--dev-tools]',
     '  npm run dev -- rpc <method> [params-json] --workspace <dir>',
@@ -598,6 +606,7 @@ function devCliUsage(): string {
     '',
     'Notes:',
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',
+    '  - With --seed and no --workspace, the launcher derives .fixtures/workbenches/<name>/.',
     '  - Source/dev builds mirror debug artifacts automatically into <workspace>/.brunch/debug/.',
     '  - --dev-tools opt into query tools and subagents; it is separate from debug mirroring.',
     '  - For direct raw app access, use npm run dev:raw -- ...',
@@ -609,8 +618,8 @@ function launchUsage(): string {
     '',
     'Launch examples:',
     '  npm run dev',
-    '  npm run dev -- --workspace .fixtures/workbenches/live-graph-observer --open-web',
-    '  npm run dev -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding --reset',
+    '  npm run dev -- --seed workspace-alpha-grounding/base --reset --open-web',
+    '  npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding --open-web',
   ].join('\n');
 }
 
@@ -618,8 +627,8 @@ function rpcUsage(): string {
   return [
     '',
     'RPC examples:',
-    '  npm run dev -- rpc workspace.selectionState --workspace .fixtures/workbenches/live-graph-observer',
-    `  npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/live-graph-observer`,
+    '  npm run dev -- rpc workspace.selectionState --workspace .fixtures/workbenches/workspace-alpha-grounding',
+    `  npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbenches/workspace-alpha-grounding`,
   ].join('\n');
 }
 
@@ -627,8 +636,8 @@ function mutateUsage(): string {
   return [
     '',
     'Mutate examples:',
-    '  npm run dev -- mutate --workspace .fixtures/workbenches/live-graph-observer --params-file /tmp/mutate.json',
-    '  cat /tmp/mutate.json | npm run dev -- mutate --workspace .fixtures/workbenches/live-graph-observer',
+    '  npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json',
+    '  cat /tmp/mutate.json | npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding',
     '',
     'The mutate payload is the shared local graph-curation params object:',
     '  {"specId":1,"createBasis":"explicit","ops":[...]}',
@@ -639,7 +648,7 @@ function exportUsage(): string {
   return [
     '',
     'Export examples:',
-    '  npm run dev -- export --workspace .fixtures/workbenches/live-graph-observer --spec-id 1',
-    '  npm run dev -- export --workspace .fixtures/workbenches/live-graph-observer --spec-id 1 --out .fixtures/seeds/custom/example.json',
+    '  npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1',
+    '  npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json',
   ].join('\n');
 }

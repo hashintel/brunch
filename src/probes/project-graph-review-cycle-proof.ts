@@ -21,8 +21,9 @@ import { createWorkspaceSessionCoordinator } from '../session/workspace-session-
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'project-graph-review-cycle' as const;
-const DEFAULT_SEED_SET = 'bilal-port-variants';
-const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
+const DEFAULT_SEED_SET = 'bilal-macro-view';
+const DEFAULT_SEED_SLUG = 'grounded-intent';
+const DEFAULT_SEED_REF = `${DEFAULT_SEED_SET}/${DEFAULT_SEED_SLUG}`;
 
 interface ProjectGraphReviewRuntimeStateReport {
   readonly operationalMode: 'elicit';
@@ -531,7 +532,7 @@ async function selectSpecForSetupSession(cwd: string, specId: number): Promise<v
 }
 
 function defaultProjectGraphPrompt(): string {
-  return `Brunch FE-809 project-graph proof. The selected spec is seeded from "${DEFAULT_SEED_SLUG}" and already has explicit intent-plane graph truth.
+  return `Brunch FE-809 project-graph proof. The selected spec is seeded from "${DEFAULT_SEED_REF}" and already has explicit intent-plane graph truth.
 
 Use read_graph in overview mode to inspect existing node codes. Then use present_review_set exactly once to propose a small exact review set derived from the existing macro-view intent graph.
 

@@ -6,7 +6,7 @@
  * The source data (items + edges per spec, plus the grounding/design
  * interview strings) is vendored inline below, verbatim from the sibling
  * file, so this script is re-runnable from this directory alone. Each run
- * overwrites the `<slug>.json` files next to it.
+ * overwrites the sibling `cook-*/base.json` files.
  *
  *   npx tsx .fixtures/seeds/cook-port/_port-script.ts
  *
@@ -53,7 +53,7 @@
  *   captures. Nothing here adds such edges.
  */
 
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -131,7 +131,7 @@ interface OutEdge {
 // ---------------------------------------------------------------------------
 
 const parallelUtils: SourceSpec = {
-  slug: 'parallel-utils-spec',
+  slug: 'cook-parallel-utils',
   name: 'parallel-utils (reversed cook fixture)',
   grounding: {
     question:
@@ -326,7 +326,7 @@ const parallelUtils: SourceSpec = {
 };
 
 const layeredTodo: SourceSpec = {
-  slug: 'layered-todo-spec',
+  slug: 'cook-layered-todo',
   name: 'layered-todo (reversed cook fixture)',
   grounding: {
     question:
@@ -520,7 +520,7 @@ const layeredTodo: SourceSpec = {
 };
 
 const resilientPipeline: SourceSpec = {
-  slug: 'resilient-pipeline-spec',
+  slug: 'cook-resilient-pipeline',
   name: 'resilient-pipeline (reversed cook fixture)',
   grounding: {
     question:
@@ -866,7 +866,9 @@ function portSpec(spec: SourceSpec): { spec: { slug: string; name: string }; nod
 
 for (const source of [parallelUtils, layeredTodo, resilientPipeline]) {
   const fixture = portSpec(source);
-  const path = resolve(OUT_DIR, `${source.slug}.json`);
+  const outputDir = resolve(OUT_DIR, '..', source.slug);
+  mkdirSync(outputDir, { recursive: true });
+  const path = resolve(outputDir, 'base.json');
   writeFileSync(path, `${JSON.stringify(fixture, null, 2)}\n`);
   console.log(`wrote ${path} (${fixture.nodes.length} nodes, ${fixture.edges.length} edges)`);
 }

@@ -14,13 +14,13 @@ Prefer a workbench directory so seeded `.brunch/` state does not mix with the re
 
 ```bash
 REPO="$(git rev-parse --show-toplevel)"
-DEV_WORKSPACE="$REPO/.fixtures/workbenches/live-graph-observer"
+DEV_WORKSPACE="$REPO/.fixtures/workbenches/bilal-macro-view"
 ```
 
 ## 1. Seed explicit starting truth
 
 ```bash
-npm run seed -- --workspace "$DEV_WORKSPACE" --seed workspace-spread/alpha-grounding --reset
+npm run seed -- --workspace "$DEV_WORKSPACE" --seed bilal-macro-view/grounded-intent --reset
 ```
 
 `--reset` only clears Brunch runtime state in that workbench: `data.db`, WAL/SHM siblings, `sessions/`, `debug/`, and `workspace.json`.
@@ -126,8 +126,8 @@ When you need proof that the agent/tool path can expand a seeded fixture, run th
 ```bash
 "$REPO/node_modules/.bin/tsx" "$REPO/src/probes/fixture-curation-loop.ts" \
   --fixture-root "$REPO/.fixtures" \
-  --seed-set bilal-port-variants \
-  --seed-slug macro-view-grounded-intent
+  --seed-set bilal-macro-view \
+  --seed-slug grounded-intent
 ```
 
 ## 7. Browser and sidecar notes

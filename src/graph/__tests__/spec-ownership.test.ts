@@ -4,7 +4,7 @@
  * SPEC: D61-L (each spec owns its own intent graph; no workspace-global graph),
  * D52-L (graph/ owns the readers), D4-L/D20-L (CommandExecutor authority).
  *
- * This is the card 1 tracer for live-graph-observer--graph-rpc-spine: every
+ * This is the card 1 tracer for the graph-rpc spine: every
  * graph projection and graph mutation targets exactly one spec.
  */
 
