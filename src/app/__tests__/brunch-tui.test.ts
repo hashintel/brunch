@@ -10,7 +10,7 @@ import {
   type ExtensionUIContext,
   type RegisteredCommand,
 } from '@earendil-works/pi-coding-agent';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { openWorkspaceGraphRuntime } from '../../graph/index.js';
 import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
@@ -78,6 +78,62 @@ describe('Brunch TUI boot', () => {
     }
   });
 
+  it('forwards Pi replacement session-start events into product session creation', async () => {
+    vi.resetModules();
+    const createAgentSessionFromServices = vi.fn(async () => ({
+      session: {
+        sendCustomMessage: async () => {},
+        dispose: () => {},
+      },
+    }));
+    vi.doMock('@earendil-works/pi-coding-agent', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('@earendil-works/pi-coding-agent')>()),
+      createAgentSessionFromServices,
+    }));
+
+    try {
+      const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-session-start-'));
+      const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+      const { createWorkspaceSessionCoordinator } =
+        await import('../../session/workspace-session-coordinator.js');
+      const { FOREGROUND_AGENT_ROSTER } = await import('../../agents/runtime/policy.js');
+      const { createBrunchAgentSessionRuntimeFactory } = await import('../brunch-tui.js');
+      const coordinator = createWorkspaceSessionCoordinator({ cwd });
+      const workspace = await coordinator.createSetupSession({
+        specTitle: 'Replacement lifecycle',
+        createNewSpec: true,
+      });
+      const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace, coordinator });
+      const sessionStartEvent = {
+        type: 'session_start' as const,
+        reason: 'new' as const,
+        previousSessionFile: '/sessions/old.jsonl',
+      };
+
+      const created = await createRuntime({
+        cwd,
+        agentDir,
+        sessionManager: workspace.session.manager,
+        sessionStartEvent,
+      });
+
+      expect(createAgentSessionFromServices).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionStartEvent,
+          thinkingLevel: FOREGROUND_AGENT_ROSTER.elicit.foregroundAgent.thinking,
+        }),
+      );
+      const [sessionOptions] = createAgentSessionFromServices.mock.calls[0]! as unknown as [
+        Record<string, unknown>,
+      ];
+      expect(sessionOptions).not.toHaveProperty('model');
+      created.session.dispose();
+    } finally {
+      vi.doUnmock('@earendil-works/pi-coding-agent');
+      vi.resetModules();
+    }
+  });
+
   it('registers graph tools on the default product runtime path', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-tui-graph-runtime-'));
     const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
@@ -97,6 +153,11 @@ describe('Brunch TUI boot', () => {
       const toolNames = created.session.getAllTools().map((tool) => tool.name);
       expect(toolNames).toContain('mutate_graph');
       expect(toolNames).toContain('read_graph');
+      expect(toolNames).toEqual(expect.arrayContaining(['read', 'grep', 'find', 'ls']));
+      expect(toolNames).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
+      const activeToolNames = created.session.getActiveToolNames();
+      expect(activeToolNames).toEqual(expect.arrayContaining(['read', 'grep', 'find', 'ls']));
+      expect(activeToolNames).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
     } finally {
       created.session.dispose();
     }

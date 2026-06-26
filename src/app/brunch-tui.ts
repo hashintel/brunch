@@ -314,7 +314,7 @@ export function createBrunchAgentSessionRuntimeFactory(
   context: BrunchTuiLaunchContext,
 ): CreateAgentSessionRuntimeFactory {
   const { coordinator, productUpdates } = context;
-  return async ({ cwd, agentDir: runtimeAgentDir, sessionManager }) => {
+  return async ({ cwd, agentDir: runtimeAgentDir, sessionManager, sessionStartEvent }) => {
     let currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
     const graph = await openWorkspaceGraphRuntime(cwd);
     const graphDeps = {
@@ -396,6 +396,7 @@ export function createBrunchAgentSessionRuntimeFactory(
     const liveAgentSession = context.liveAgentSession ?? { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
     const agentState = projectBrunchAgentState(sessionManager.getEntries());
+    const foregroundAgent = agentState.agentRoleDefinition;
     const subagents = context.dev
       ? await loadBrunchSubagents({
           cwd,
@@ -483,6 +484,10 @@ export function createBrunchAgentSessionRuntimeFactory(
     const created = await createAgentSessionFromServices({
       services,
       sessionManager,
+      ...(sessionStartEvent ? { sessionStartEvent } : {}),
+      noTools: 'builtin',
+      excludeTools: ['bash', 'edit', 'write'],
+      thinkingLevel: foregroundAgent.thinking,
       ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
     });
     liveAgentSession.current = created.session;
