@@ -31,7 +31,7 @@ This directory is markdown-only. It carries no TypeScript and registers no Pi ho
 - Background prompt assembly and injected-world child-session wiring — `src/.pi/extensions/subagents/`.
 - Strategy/lens/method prompt-resource skills — `src/agents/skills/`.
 - Reusable model-facing context text — `src/agents/contexts/`.
-- Human/product-only text rendering — `src/renderers/`.
+- Human/product-only text rendering — owned beside its product/session caller.
 - Pi tool definitions, lifecycle hooks, UI, and background child-session loading/running — `src/.pi/extensions/*`.
 
 ## Migration note

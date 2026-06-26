@@ -14,7 +14,7 @@ Print-mode workspace-state projection moved to `projections/workspace/`, and its
 - Durable graph or session semantics.
 - Product host lifecycle and mode dispatch — `app/`.
 - Reusable DTO projection — `projections/`.
-- Reusable text renderers intended for multiple layers — `renderers/`.
+- Model-facing text renderers — `agents/contexts/`; product/session-local human text stays beside its caller.
 ## Dependency direction
 
 `scripts/` may import domain/session types needed to produce utility output. Domain layers, adapters, RPC, and web must not import `scripts/`.

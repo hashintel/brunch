@@ -26,22 +26,6 @@
       }
     },
     {
-      "files": ["src/renderers/**/*.ts", "src/renderers/**/*.tsx"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["**/.pi/**", "**/app/**", "**/rpc/**", "**/web/**", "**/db/**"],
-                "message": "D52-L: renderers/ must not import adapter, transport, or db layers."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
       "files": ["src/workspace/**/*.ts", "src/workspace/**/*.tsx"],
       "rules": {
         "no-restricted-imports": [
@@ -55,7 +39,6 @@
                   "**/db/**",
                   "**/graph/**",
                   "**/projections/**",
-                  "**/renderers/**",
                   "**/rpc/**",
                   "**/session/**",
                   "**/web/**"

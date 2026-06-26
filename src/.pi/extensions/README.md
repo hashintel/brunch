@@ -11,7 +11,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 - Agent role prompt definitions, skill resource bodies, prompt composition, and prompt-resource legality — `agents/`. `agent-runtime/` is now only the Pi hook/tool adapter for that central policy.
 - Graph truth, graph mutation policy, or graph readers — top-level `graph/`.
 - Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — top-level `session/`, `projections/`, and related domain seams.
-- Reusable DTO projection or reusable markdown/text rendering — top-level `projections/`, `agents/contexts/` for model-facing text, and `renderers/` for human/product text.
+- Reusable DTO projection or reusable markdown/text rendering — top-level `projections/`, `agents/contexts/` for model-facing text, and local product/session owners for human/product text.
 - Product transport handlers — `rpc/`, `app/`, and `web/`.
 
 ## Directory layout
@@ -56,7 +56,6 @@ rules:
   graph/, session/    x> .pi/                                                        [domain layers never import adapters]
   agents/prompts/     x> .pi/extensions/                                             [prompt bodies do not register Pi hooks]
   projections/        x> .pi/, rpc/, app/, web/                                      [no transport/UI imports]
-  renderers/          x> .pi/, rpc/, app/, web/                                      [no transport/UI imports]
 ```
 
 ## TUI launch chrome

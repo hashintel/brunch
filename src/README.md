@@ -30,7 +30,6 @@ src/
 │                           workspace coordination, session binding, LSN staleness
 │
 ├── projections/          Structured DTOs derived from domain/session/tool facts
-├── renderers/            Human/product-only lossy text rendering
 │
 ├── rpc/                  Brunch JSON-RPC handlers
 │                           protocol, method handlers, WebSocket adapter
@@ -46,14 +45,12 @@ rules:
   graph/          -> db/                         [allowed]
   workspace/       -> constants/ or workspace-local files only
   projections/*   -> graph/, session/, workspace/ [read/domain imports allowed]
-  renderers/*     -> projections/, session/, workspace/ as needed for human/product input types
   agents/         -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
   .pi/            -> agents/, graph/, session/, projections/ [Pi runtime adapters/resources]
   rpc/           -> graph/, session/, projections/
-  app/           -> agents/, graph/, session/, projections/, renderers/
+  app/           -> agents/, graph/, session/, projections/
   graph/, session/ x> .pi/, rpc/, app/, web/
   projections/    x> .pi/, rpc/, app/, web/
-  renderers/      x> .pi/, rpc/, app/, web/
   web/            -> rpc/ types only
 ```
 
@@ -64,7 +61,7 @@ Rules:
 - `agents/` owns the Brunch-authored LLM-context ingress seam. Today it hosts agent prompt bodies, prompt-resource skills, foreground roster policy, prompt composition, prompt-resource/tool legality, context seed composition, reusable agent-visible context renderers, and the central file registry.
 - `.pi/` owns Pi-harness extensions/components and no longer hosts Brunch-authored prompt bodies, prompt-resource skills, prompt composition, or provider-visible tool/session text.
 - `.pi/extensions/` registers Pi tools/hooks/UI affordances and delegates product semantics outward.
-- `projections/` owns reusable structured output; `agents/contexts/` owns reusable model-facing text; `renderers/` owns human/product-only lossy text output.
+- `projections/` owns reusable structured output; `agents/contexts/` owns reusable model-facing text. Human/product text now lives beside its single product owner (`app/print-workspace-state.ts`, `session/transcript-markdown.ts`) instead of a shallow shared renderer layer.
 - `web/` is a separate Vite build target.
 
 ## Migration notes
@@ -73,7 +70,7 @@ Product entrypoints now live in `app/`; package/project identity helpers and `.b
 
 The old domain-local `src/{graph,session,structured-exchange}/project/` folders now live under `projections/{graph,session,exchanges}/`.
 
-The old domain-local `src/{graph,session,structured-exchange}/format/` folders and `src/render/` first moved under `renderers/`; reusable model-facing renderers now live under `agents/contexts/`, while `renderers/` retains human/product-only text.
+The old domain-local `src/{graph,session,structured-exchange}/format/` folders and `src/render/` first moved under `renderers/`; reusable model-facing renderers now live under `agents/contexts/`, and the shallow human/product renderer layer is retired.
 
 Runtime-state transcript entry facts live in `session/runtime-state.ts`; reusable flattened runtime-state projection lives in `projections/session/runtime-state.ts`, while foreground roster/tool policy lives in `agents/runtime/policy.ts`.
 

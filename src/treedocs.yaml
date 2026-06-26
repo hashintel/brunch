@@ -391,8 +391,6 @@ tree:
       transcript-context.ts: 'Implements transcript context.'
     workspace:
       workspace-state.ts: 'Implements workspace state.'
-  renderers:
-    README.md: 'Documents this source subtree.'
   rpc:
     README.md: 'Documents this source subtree.'
     handlers.ts: 'Implements handlers.'

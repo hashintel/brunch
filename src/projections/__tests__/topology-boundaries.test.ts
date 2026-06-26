@@ -50,7 +50,7 @@ function sourceImportersOf(target: string): string[] {
   return sourceFilesUnder(SOURCE_ROOT).filter((file) => importedSourcePaths(file).includes(target));
 }
 
-// Layer-wide import boundaries (renderers/, workspace/) are enforced statically
+// Layer-wide import boundaries (workspace/) are enforced statically
 // in `.oxlintrc.json` via no-restricted-imports. The tests below cover the
 // projection-specific invariants that lint cannot express: the `.pi` schema
 // carve-out for exchanges, and the two seam guards (neighborhood has no

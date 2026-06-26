@@ -26,7 +26,6 @@ rules:
   .pi/extensions/* -> agents/contexts/                         [adapters gather data, then ask for text]
   session/         -> agents/contexts/seeds/                   [origination asks for seed payload text]
   agents/contexts/ x> .pi/, app/, rpc/, web/                   [no host, adapter, or transport effects]
-  renderers/       x> agents/contexts/                         [human/product renderers do not own model text]
 ```
 
 `src/.pi/__tests__/architecture.test.ts` guards the adapter half of this boundary for `brunch-data` and structured-exchange tools: Pi adapters may own schemas, labels, descriptions, prompt snippets, and TUI rendering, but provider-visible Brunch text must be imported from this subtree rather than formatted inline.
@@ -37,4 +36,4 @@ Context golden files live beside their tests under `__snapshots__/` and use stoc
 
 ## Migration note
 
-Reusable agent-visible renderers have moved here from `src/renderers/`, and formerly adapter-local model text for graph mutation/related reads plus elicitation/reconciliation register tools now lives here too. `src/renderers/` remains for human/product-only text such as print-mode workspace state and debug transcript output.
+Reusable agent-visible renderers have moved here from the retired `src/renderers/` layer, and formerly adapter-local model text for graph mutation/related reads plus elicitation/reconciliation register tools now lives here too. Human/product-only text now lives beside the single owner that emits it (`app/print-workspace-state.ts`, `session/transcript-markdown.ts`).
