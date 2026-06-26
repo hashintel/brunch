@@ -66,6 +66,10 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 7. `brownfield-promotion` — **(landed — FE-877, `promoteBrownfieldRun`)** commit a completed brownfield cook result onto the repo's own `cook/<runId>` branch as one reviewable commit; extends FE-827's greenfield promotion to brownfield and closes the cook-codebase-mode follow-on (the result no longer sits uncommitted in the worktree). Git plumbing only (`commit-tree` + CAS `update-ref`, parent = the existing `cook/<runId>` base, throwaway index + external work-tree), so the user's active branch, working tree, and index are never touched; gitignored deps don't land. Reuses `promotionSourceDir` to compose the tree across slice layouts. Auto-runs on a completed brownfield cook (no `--out` needed); merging into the working branch stays the **user's** call. Unblocks FE-872's brownfield dep-delta capture. **Follow-on (FE-864, `landCookBranch`):** `brunch serve --land` opt-in softens that default — after promotion it merges `cook/<runId>` into the repo's active branch as serve's final step, but refuses on a dirty tree / detached HEAD and aborts on conflict (cook branch always left intact). Plain `cook` and default `serve` are unchanged, so the "never freelance into the working branch" invariant holds unless the user explicitly asks.
 8. `brunch-ship` — **(landed — FE-878, `brunch serve`)** one-shot `brunch serve <specId>` = `plan <specId>` then `cook --spec=<specId>` (cook reads the plan just emitted), no manual steps. Pure glue, no new orchestration: serve's `--out` is the *promote* target → cook (brownfield auto-promotes via FE-877 regardless), `--profile` stamps the plan, petrinaut/policy/retry flags forward to cook, `--verbose` to both; a failed plan short-circuits (nothing cooked). Testable units `parseServeArgs` + `runServe` (stages injected); db/snapshot wiring stays in `cli.ts`. Cook's `dir` is threaded from the resolved launch cwd (the dir the plan was written to) — `runCook` reads `opts.dir` raw, so serve must supply it rather than rely on the `parseCookArgs`-only default (R46). **Closes Arc 1.**
 
+**Orchestrator convergence (post-Arc-1; stacks on the FE-883/FE-884 cook-substrate cluster):**
+
+1. `cook-greenfield-git-substrate` — converge greenfield onto one git-backed cook sandbox substrate (D171-K): `createSandbox` always yields a git worktree, `mode` selects only the initial HEAD (greenfield = `git init` + empty root commit; brownfield = cloned HEAD). Staged by value — the substrate seam (slice 1) is independent + low-risk; the per-slice-isolation convergence (slice 2) rides FE-883's git-merge composer (a git-init'd greenfield finally has a common ancestor for the 3-way fold); promotion convergence (slice 3) extends FE-877's plumbing branch commit to greenfield. Retires bespoke greenfield-only machinery (`mergeCompletedSlicesIntoTree`, plain-dir parallel layout, `--out` copy). New frontier (Linear id pending). See Frontier Definitions.
+
 **Runtime umbrella + semantic substrate:**
 
 1. `intent-graph-semantics` — highest-coordination semantic substrate after FE-705 reconciliation.
@@ -549,8 +553,25 @@ The May 2026 intent-spec, multi-chat, changeset-ledger, prompt/context, and agen
 - **Kind:** structural (establishes I138-K, amends the verify-epic topology) / hardening
 - **Shipped:** a failed epic verification routes to a bounded remediation loop (`epic-retry-budget`) on the folded `__epic__` tree instead of halting — detect-and-reject (no editing the epic test) + dual re-verify (epic test AND slice suites) + `transferFoldedFixToSlice` diff-transfer round-trip so the fix promotes (Slice A; production action registered in `createPiActions` per `79376fe0` after the injected-only-action gap crashed real runs). Infra/timeout fail-path split under a separate `infraRetryCount`/`maxInfraRetries` budget, `ETIMEDOUT`→infra, ceiling 60s→180s (Slice B). Substrate-free — distinct from Arc-2 `interactive-recovery`/`adaptive-replan`. Real-agent dogfood of run 59100820 is outer-loop, deferred.
 - **Slice C (partial promotion) descoped** — FE-884 closed on A + B; cook-cli still emits the all-or-nothing "nothing promoted". Re-homed → `cook-partial-promotion` (Parallel / Low-conflict).
-- **Traceability:** Requirement 49; establishes I138-K, D170-K; builds on I124-K, D159-K.
-- **Design docs:** `docs/design/orchestrator.md`.
+
+### cook-greenfield-git-substrate
+
+- **Name:** Greenfield git-backed substrate — converge greenfield onto brownfield's cook machinery
+- **Linear:** unassigned (create on start)
+- **Kind:** structural (slice 1 supersedes D164-K's empty-worktree clause + establishes I139-K; reverses the PLAN-level fork-on-`mode` posture)
+- **Status:** not-started (drafted 2026-06-23) — post-Arc-1; spec landed (D171-K, I139-K). Stacks on the FE-883/FE-884 cook-substrate cluster.
+- **Objective:** Make `createSandbox` mode-uniform and git-backed so `plan.mode` selects only the initial HEAD, not a separate code path. Greenfield seeds a fresh `git init` + empty root commit (instead of a bare `mkdir`); brownfield's `git worktree`-off-clone is unchanged. This retires the standing "greenfield-mode behavior must not change; fork on `plan.mode`" invariant in favor of a uniform substrate, making brownfield's robustness (per-slice git worktrees, branch-based reviewable promotion, `git merge-tree` plumbing composition) reachable for greenfield without parallel machinery.
+- **Why now / unlocks:** Arc 1 is closed and the active cook-substrate cluster (FE-883 git-merge composer, FE-884 epic recovery) is moving brownfield onto git-plumbing composition while greenfield stays on the bespoke file-copy union + plain-dir layout + `--out` copy. A git-init'd greenfield gives the 3-way fold a common ancestor, so FE-883's composer extends to greenfield "for free" — the convergence rides the cluster instead of fighting it. The longer the fork persists, the more greenfield-only code (`mergeCompletedSlicesIntoTree`, parallel plain-dir layout) accretes.
+- **Slices (value-ranked; queue to `memory/CARDS.md` at ln-scope):**
+  - **Slice 1 — substrate (high value / low risk, independent):** `createSandbox` greenfield branch does `git init` + empty root commit + branch off it; everything downstream sees a git worktree. Amend Req 50 / D164-K behavior; establish I139-K. The brownfield-only clean-tree gate is untouched. **Regression oracle:** greenfield smoke + 3 reference fixtures score identically (the retired fork invariant's promise).
+  - **Slice 2 — per-slice isolation convergence (depends on FE-883):** retire parallel-greenfield's plain per-slice dirs + `mergeCompletedSlicesIntoTree` in favor of per-slice git worktrees + FE-883's `git merge-tree` fold (I124-K). Decide the `'shared'` serial fast-path's fate (keep as optimization vs collapse). Realizes the D165-K convergence note.
+  - **Slice 3 — promotion convergence:** retire greenfield `--out` tree copy in favor of FE-877's automatic plumbing branch commit onto `cook/<runId>` (reviewable, like brownfield); `--out`/`--land` semantics reconciled across modes. Realizes the D166-K convergence note.
+- **Acceptance:** (1) `createSandbox` yields a git worktree in both modes; greenfield run worktree has an empty-root-commit HEAD; fixture dir + source repo untouched (I123-K holds). (2) Greenfield smoke + 3 reference fixtures score identically pre/post slice 1 (I139-K regression oracle). (3) Slice 2: a parallel-greenfield multi-slice plan composes via the git-merge fold; same-file/different-hunk edits both survive; real conflicts fail-closed (parity with brownfield I124-K). (4) Slice 3: a completed greenfield run promotes as a reviewable `cook/<runId>` commit; never silent, completed-gated.
+- **Verification:** `worktree.test.ts` (greenfield git-init + empty-root-commit; both modes yield a worktree); greenfield/brownfield smoke parity (I139-K); slice 2 reuses `epic-sandbox-merge`/`run-artifact` fold tests extended to greenfield; slice 3 reuses `promote-run.test.ts`. Route slice 2 through `ln-oracles` (compositional merge correctness).
+- **Depends on:** `cook-artifact-lifecycle` (FE-883, the git-merge composer — slice 2 only); `brownfield-promotion` (FE-877, done — slice 3 reuses its plumbing); `cook-greenfield-single-tree` (FE-827, done — the layout/promotion it converges). Slice 1 is independent of FE-883/884.
+- **Traceability:** Requirements 46, 49, 50; D171-K (supersedes D164-K empty-worktree clause; gates D165-K/D166-K convergence); establishes I139-K; refines I123-K. Reverses the PLAN-level fork-on-`plan.mode` protecting invariant.
+- **Design docs:** `docs/design/orchestrator.md` (fixture/codebase mode); SPEC §D171-K, §I139-K.
+- **Acceptance / verification:** see `memory/CARDS.md`; oracle strategy folded into SPEC §Verification Design.
 
 ### brunch-ship
 
@@ -1014,6 +1035,11 @@ orchestrator-poc (Phase 0: compiler extraction — done)
                     ├──→ spec-to-cook-plan (demo front-half: completed intent graph → cook plan.yaml; projection + LLM planning pass + reconciliation; spikes done; feeds FE-764 stream; NOT blocked by FE-700)
                     ├──→ petri-graph-compilation (Phase 3: compile from plan-graph + relation policy; needs FE-700; premise weakened — partially subsumed by spec-to-cook-plan; residual value = Phase 4 sim oracle)
                     └──→ petri-simulation-oracle (Phase 4: reachability, deadlock, resume; declarative-routing structural prerequisite now satisfied; Phase 3 still needed for graph-derived gates)
+
+TRACK G — Cook substrate convergence (post-Arc-1)
+cook-artifact-lifecycle (FE-883: git-merge composer + GC — in progress)
+  └──→ cook-greenfield-git-substrate (slice 1 git-init greenfield is independent; slice 2 per-slice-isolation convergence rides the composer; slice 3 reuses FE-877 plumbing promotion)
+        └──→ realizes the D165-K / D166-K convergence notes (retire greenfield-only file-copy union + --out copy)
 
 LOWER-PRIORITY / DEFERRED
 side-chat-v4b-item-versioning (depends on changeset-ledger)
