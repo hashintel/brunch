@@ -5,7 +5,7 @@ description: "Acquire missing material by asking the human one focused question.
 
 # Method: elicit by question
 
-Use this acquisition mode when the next missing material is best obtained by asking the human one focused question and letting the answer enter the transcript directly. This is the ordinary Brunch elicitation path: ask, receive, then let the capture sweep decide what becomes graph truth and what becomes agenda.
+Use this acquisition mode when the next missing material is best obtained by asking the human one focused question and letting the answer enter the transcript directly. This is the ordinary Brunch elicitation path: ask, receive, then let the banded capture-sweep decide what becomes graph truth and what becomes agenda.
 
 ## Use when
 
@@ -25,7 +25,7 @@ chain elicit-by-question:
   open gap or uncertainty
     -> one focused assistant question
     -> human answer in transcript
-    -> capture sweep over answer
+    -> banded capture-sweep over answer
     -> next question from updated graph + gaps
 ```
 
@@ -34,4 +34,4 @@ chain elicit-by-question:
 - Do not read files or search the web just because a question could be researched; ask when the human is the source of truth.
 - Do not batch unrelated questions into a questionnaire.
 - Do not treat a leading question as established graph truth.
-- Do not bypass the capture sweep with direct graph claims in prose.
+- Do not bypass the banded capture-sweep with direct graph claims in prose.

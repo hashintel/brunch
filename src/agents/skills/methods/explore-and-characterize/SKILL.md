@@ -12,20 +12,20 @@ Use this acquisition mode when the session needs an initial map of a brownfield 
 - The situating gap or user says this is a brownfield codebase or existing system.
 - The user asks Brunch to understand an area before asking detailed questions.
 - The current gap cannot be answered until you know the shape of files, docs, routes, APIs, or tests.
-- A digest of the territory would let the capture sweep produce grounded graph truth or better gaps.
+- A digest of the territory would let the banded capture-sweep produce grounded graph truth or better gaps.
 
 ## Conduct
 
 Start with the smallest useful reconnaissance: list or search only the named area, read nearby README or topology notes first, then inspect a few files that answer the current orientation question. Keep exploration bounded by the user's stated area and the current gap. Use `web_search` / `web_fetch` only for external references that are actually needed; local brownfield reading should prefer local read/search tools.
 
-After exploring, write an assistant-authored characterization digest in the transcript. The digest is the handoff artifact to capture: it should name the area inspected, the observed topology, high-confidence facts, and open uncertainties. The capture sweep then commits high-confidence material or spawns gaps. Raw file listings, search hits, and tool outputs stay background.
+After exploring, write an assistant-authored characterization digest in the transcript. The digest is the handoff artifact to capture: it should name the area inspected, the observed topology, high-confidence facts, and open uncertainties. The banded capture-sweep then commits high-confidence material or spawns gaps. Raw file listings, search hits, and tool outputs stay background.
 
 ```pseudo
 chain explore-and-characterize:
   brownfield orientation need
     -> bounded local/web reads
     -> assistant characterization digest
-    -> capture sweep over digest
+    -> banded capture-sweep over digest
     -> next question from updated graph + gaps
 ```
 
