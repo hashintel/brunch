@@ -21,6 +21,7 @@ import {
   dependencyOrder,
   foldSliceBranches,
   harvestCookRun,
+  harvestGreenfieldRun,
   materializeEpicVerifyTree,
   materializeFoldedWorktree,
   selectSalvageableSlices,
@@ -119,6 +120,19 @@ describe('foldSliceBranches (git merge-tree plumbing)', () => {
     expect(folded).not.toContain('B1');
   });
 
+  it('fails closed on an add/add conflict — two slices create the same new file (greenfield collision)', () => {
+    // Greenfield generate-from-scratch: independent slices both author the same
+    // new path with different content. No common-ancestor copy → add/add. The
+    // fold must fail closed (parity with brownfield I124-K), not silently pick one.
+    const a = sliceBranch('a', (d) => writeFileSync(join(d, 'shared.txt'), 'A\n'));
+    const b = sliceBranch('b', (d) => writeFileSync(join(d, 'shared.txt'), 'B\n'));
+
+    const artifact = foldSliceBranches({ sourceDir: repo, runId: 'r1', slices: [a, b] });
+
+    expect(artifact.commits.map((c) => c.sliceId)).toEqual(['a']);
+    expect(artifact.conflicts).toEqual([{ sliceId: 'b', paths: ['shared.txt'] }]);
+  });
+
   it('3-way merges different-hunk edits to the same file (the file-copy union would drop one)', () => {
     // The headline correctness win over the file-copy union: two independent
     // slices edit different lines of the same pre-existing file. A whole-file
@@ -170,6 +184,98 @@ describe('foldSliceBranches (git merge-tree plumbing)', () => {
     // All slice content still present.
     const files = gitC(repo, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n').sort();
     expect(files).toEqual(['a.txt', 'b.txt', 'base.txt']);
+  });
+});
+
+describe('harvestGreenfieldRun (D171-K greenfield promotion)', () => {
+  let runWt: string; // git-backed run worktree, checked out on brunch/run/r1 (slice 1)
+  beforeEach(() => {
+    runWt = mkdtempSync(join(tmpdir(), 'brunch-gf-harvest-'));
+    gitC(runWt, 'init', '-q', '-b', brunchRef.run('r1'));
+    gitC(runWt, 'commit', '-q', '--allow-empty', '-m', 'brunch: cook run base');
+  });
+  afterEach(() => rmSync(runWt, { recursive: true, force: true }));
+
+  const plan: Plan = {
+    mode: 'greenfield',
+    epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+    slices: [slice('a'), slice('b')],
+  };
+
+  it('shared: commits the accreted run worktree tree onto brunch/run/<runId>', () => {
+    writeFileSync(join(runWt, 'app.ts'), 'export const x = 1;\n');
+
+    const artifact = harvestGreenfieldRun({
+      sandboxDir: runWt,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['a'],
+      sliceLayout: 'shared',
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    expect(artifact.branch).toBe(brunchRef.run('r1'));
+    expect(gitC(runWt, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n').sort()).toEqual([
+      'app.ts',
+    ]);
+  });
+
+  it('per-slice: folds the slice worktrees onto brunch/run/<runId> (update-ref on the checked-out branch)', () => {
+    for (const id of ['a', 'b']) {
+      const d = join(runWt, id);
+      gitC(runWt, 'worktree', 'add', '-q', '-b', brunchRef.slice('r1', id), d, brunchRef.run('r1'));
+      writeFileSync(join(d, `${id}.txt`), `${id}\n`);
+    }
+
+    const artifact = harvestGreenfieldRun({
+      sandboxDir: runWt,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['a', 'b'],
+      sliceLayout: 'per-slice',
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    expect(gitC(runWt, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n').sort()).toEqual([
+      'a.txt',
+      'b.txt',
+    ]);
+    expect(readFileSync(join(runWt, 'a.txt'), 'utf8')).toBe('a\n');
+    expect(readFileSync(join(runWt, 'b.txt'), 'utf8')).toBe('b\n');
+  });
+
+  it('per-slice: keeps verify-epic-authored files in the promoted run artifact', () => {
+    const d = join(runWt, 'a');
+    gitC(runWt, 'worktree', 'add', '-q', '-b', brunchRef.slice('r1', 'a'), d, brunchRef.run('r1'));
+    writeFileSync(join(d, 'app.ts'), 'export const ok = true;\n');
+    const epicDir = materializeEpicVerifyTree({
+      parentSandboxDir: runWt,
+      runId: 'r1',
+      plan,
+      sliceIds: ['a'],
+      epicId: 'e',
+    }).epicSandboxDir;
+    mkdirSync(join(epicDir, 'tests'), { recursive: true });
+    writeFileSync(
+      join(epicDir, 'tests/e.integration.test.ts'),
+      'it("checks the assembled app", () => {});\n',
+    );
+
+    const artifact = harvestGreenfieldRun({
+      sandboxDir: runWt,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['a'],
+      sliceLayout: 'per-slice',
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    expect(gitC(runWt, 'show', `${brunchRef.run('r1')}:tests/e.integration.test.ts`)).toContain(
+      'checks the assembled app',
+    );
+    expect(readFileSync(join(runWt, 'tests/e.integration.test.ts'), 'utf8')).toContain(
+      'checks the assembled app',
+    );
   });
 });
 

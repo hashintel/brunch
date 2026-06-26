@@ -1,15 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { type CookFinishLand, cookBannerLines, cookFinishLines, cookSummaryLines } from './cook-report.js';
 import { createOrchestrator } from './engine.js';
-import {
-  epicIdsForEpicVerifyMerge,
-  type MergeConflict,
-  mergeCompletedSlicesIntoTree,
-  mergeSourceDirsIntoTree,
-} from './epic-sandbox-merge.js';
 import { projectExecProgress, writeExecProgress } from './exec-progress.js';
 import { FileReportSink } from './file-report-sink.js';
 import { loadLocalEnvFile } from './local-env.js';
@@ -22,7 +16,12 @@ import { loadPlan } from './plan-loader.js';
 import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
 import { landCookBranch, promoteGreenfieldRun } from './promote-run.js';
-import { harvestCookRun, selectSalvageableSlices } from './run-artifact.js';
+import {
+  checkoutRunBranchTree,
+  harvestCookRun,
+  harvestGreenfieldRun,
+  selectSalvageableSlices,
+} from './run-artifact.js';
 import { brunchRef, gcCookRun } from './run-refs.js';
 import { type ConfineMode, createSandboxGuard, runConfinementPreflight } from './sandbox-guard.js';
 import {
@@ -412,82 +411,6 @@ export function resolveSandboxPlan(planMode: PlanMode, dir: string): ResolvedSan
   return { kind: 'codebase', sourceDir: dir };
 }
 
-/**
- * The tree to promote after a completed greenfield run. The shared layout
- * promotes the run sandbox directly; the per-slice (parallel) layout merges all
- * completed slices into one whole-plan tree (declaration-order-wins, collisions
- * reported) under `<runDir>/__promote__`.
- */
-export function promotionSourceDir(opts: {
-  sliceLayout: 'shared' | 'per-slice';
-  sandboxDir: string;
-  runDir: string;
-  plan: Plan;
-  completedSliceIds: string[];
-  verifiedEpicSandboxes?: readonly VerifiedEpicSandbox[];
-}): { dir: string; conflicts: MergeConflict[] } {
-  if (opts.sliceLayout === 'shared') return { dir: opts.sandboxDir, conflicts: [] };
-  const completed = new Set(opts.completedSliceIds);
-  const ordered = opts.plan.slices.map((s) => s.id).filter((id) => completed.has(id));
-  const verified = maximalVerifiedEpicSandboxes(opts.plan, opts.verifiedEpicSandboxes ?? []);
-  if (verified.length > 0) {
-    const coveredEpics = new Set<string>();
-    for (const sandbox of verified) {
-      for (const epicId of epicIdsForEpicVerifyMerge(opts.plan, sandbox.epicId)) coveredEpics.add(epicId);
-    }
-    const fallbackSlices = opts.plan.slices
-      .filter((slice) => completed.has(slice.id) && !coveredEpics.has(slice.epic_id))
-      .map((slice) => ({ id: slice.id, dir: join(opts.sandboxDir, slice.id) }));
-    const verifiedSources = verified.map((sandbox) => ({
-      id: `__epic__/${sandbox.epicId}`,
-      dir: sandbox.dir,
-    }));
-    const merge = mergeSourceDirsIntoTree({
-      sources: [...fallbackSlices, ...verifiedSources],
-      destDir: join(opts.runDir, '__promote__'),
-    });
-    return { dir: merge.mergeDir, conflicts: merge.conflicts };
-  }
-  const merge = mergeCompletedSlicesIntoTree({
-    parentSandboxDir: opts.sandboxDir,
-    sliceIds: ordered,
-    destDir: join(opts.runDir, '__promote__'),
-  });
-  return { dir: merge.mergeDir, conflicts: merge.conflicts };
-}
-
-export type VerifiedEpicSandbox = {
-  epicId: string;
-  dir: string;
-};
-
-function maximalVerifiedEpicSandboxes(
-  plan: Plan,
-  verifiedEpicSandboxes: readonly VerifiedEpicSandbox[],
-): VerifiedEpicSandbox[] {
-  const byEpic = new Map(verifiedEpicSandboxes.map((sandbox) => [sandbox.epicId, sandbox]));
-  const verifiedEpicIds = new Set(byEpic.keys());
-  return plan.epics
-    .map((epic) => byEpic.get(epic.id))
-    .filter((sandbox): sandbox is VerifiedEpicSandbox => {
-      if (!sandbox) return false;
-      return ![...verifiedEpicIds].some(
-        (otherEpicId) =>
-          otherEpicId !== sandbox.epicId &&
-          epicIdsForEpicVerifyMerge(plan, otherEpicId).includes(sandbox.epicId),
-      );
-    });
-}
-
-function verifiedEpicSandboxesFromReports(reports: FileReportSink): VerifiedEpicSandbox[] {
-  return reports.getAll().flatMap((line) => {
-    if (line.event !== 'epic-sandbox-merged') return [];
-    const { epicSandboxDir } = line.payload;
-    if (typeof epicSandboxDir !== 'string') return [];
-    return [{ epicId: line.epicId, dir: epicSandboxDir }];
-  });
-}
-
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };
 
 function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
@@ -807,38 +730,80 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           return;
         }
       }
-    } else if (opts.outDir) {
+    } else {
+      // Greenfield auto-promotes onto its own `brunch/run/<runId>` branch via git
+      // plumbing (D171-K): the run worktree is git-backed (slice 1), so the result
+      // is a reviewable branch by default — parity with brownfield, not opt-in via
+      // --out. `--out`, when given, additionally exports the artifact tree.
       if (!ok) {
         line(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
         line('');
       } else {
         try {
-          const source = promotionSourceDir({
-            sliceLayout,
-            sandboxDir,
-            runDir,
-            plan,
-            completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
-            verifiedEpicSandboxes: verifiedEpicSandboxesFromReports(reports),
-          });
-          for (const c of source.conflicts) {
-            line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
-          }
-          const promoted = promoting(`promoting → ${opts.outDir}`, () =>
-            promoteGreenfieldRun({
-              sandboxDir: source.dir,
-              target: opts.outDir!,
-              runId,
-              force: opts.force,
-            }),
+          const completedSliceIds = result.slices
+            .filter((s) => s.status === 'completed')
+            .map((s) => s.sliceId);
+          const artifact = promoting(`promoting → ${brunchRef.run(runId)}`, () =>
+            harvestGreenfieldRun({ sandboxDir, runId, plan, completedSliceIds, sliceLayout }),
           );
+          if (artifact.conflicts.length > 0) {
+            for (const c of artifact.conflicts) {
+              line(`  ✗  merge conflict in slice ${c.sliceId} on ${c.paths.join(', ')}`);
+            }
+            line(
+              `  ✗  promotion halted at ${artifact.branch} @ ${artifact.head.slice(0, 8)} — resolve the conflict and re-run`,
+            );
+            line('');
+            bus.emit({ kind: 'cook-done', ok: false, reason: 'promotion conflict' });
+            recordCookExitStatus(false);
+            return;
+          }
+          // --out export: copy the committed artifact tree into the target as its
+          // own git commit. Source a *detached* checkout of the run branch (not the
+          // run worktree's now-stale checkout left by the fold), so the export is
+          // layout-independent.
+          let finishDir = sandboxDir;
+          let finishBranch = artifact.branch;
+          let finishCommit = artifact.head;
+          if (opts.outDir) {
+            const exportSrc = join(runDir, '__export__');
+            rmSync(exportSrc, { recursive: true, force: true });
+            let exportWorktreeCreated = false;
+            try {
+              checkoutRunBranchTree(sandboxDir, runId, exportSrc);
+              exportWorktreeCreated = true;
+              const exported = promoting(`promoting → ${opts.outDir}`, () =>
+                promoteGreenfieldRun({
+                  sandboxDir: exportSrc,
+                  target: opts.outDir!,
+                  runId,
+                  force: opts.force,
+                }),
+              );
+              finishDir = exported.target;
+              finishBranch = exported.branch;
+              finishCommit = exported.commit;
+            } catch (err) {
+              line(`  !  optional --out export failed: ${err instanceof Error ? err.message : String(err)}`);
+              line(`     artifact remains on ${artifact.branch} @ ${artifact.head.slice(0, 8)}`);
+            } finally {
+              if (exportWorktreeCreated) {
+                spawnSync('git', ['worktree', 'remove', '--force', exportSrc], { cwd: sandboxDir });
+              }
+              if (existsSync(exportSrc)) rmSync(exportSrc, { recursive: true, force: true });
+            }
+          }
           for (const l of cookFinishLines({
             shape: 'greenfield',
-            dir: promoted.target,
-            branch: promoted.branch,
-            commit: promoted.commit,
+            dir: finishDir,
+            branch: finishBranch,
+            commit: finishCommit,
           })) {
             line(l);
+          }
+          if (opts.landBranch) {
+            line(`  !  --land is ignored for greenfield (the result is already on ${brunchRef.run(runId)})`);
+            line('');
           }
         } catch (err) {
           const reason = `promotion failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -849,13 +814,6 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           return;
         }
       }
-    } else if (opts.landBranch) {
-      // --land merges the cook branch into a repo's active branch; greenfield has
-      // no such branch (it promotes to --out instead), so the flag is a no-op here.
-      line(
-        '  !  --land is ignored for greenfield runs (no repo branch to land onto; pass --out to promote the result)',
-      );
-      line('');
     }
 
     // Run complete (after promotion) — lights the brigade's `serve` phase, or
