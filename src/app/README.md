@@ -16,6 +16,12 @@ Current entrypoints:
 - `brunch-tui.ts` — TUI launch path, embedded Pi session runtime wiring, and the
   web sidecar (`startWebHost`; browser launch is opt-in via `--open-web`).
 
+Current runtime support modules:
+
+- `pi-session-options.ts` — internal Brunch-to-Pi session option projection for
+  lifecycle forwarding, tool hardening, thinking preset, and optional concrete
+  model override.
+
 ## Does not own
 
 - Graph truth, command execution, or persistence — `graph/` and `db/`.
