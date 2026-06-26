@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { type CookFinishLand, cookBannerLines, cookFinishLines, cookSummaryLines } from './cook-report.js';
@@ -21,7 +21,7 @@ import { loadPlan } from './plan-loader.js';
 import type { CookBus } from './presenter.js';
 import { resolveToolchain } from './project-profile.js';
 import { landCookBranch, promoteGreenfieldRun } from './promote-run.js';
-import { harvestCookRun } from './run-artifact.js';
+import { checkoutRunBranchTree, harvestCookRun, harvestGreenfieldRun } from './run-artifact.js';
 import { brunchRef, gcCookRun } from './run-refs.js';
 import { type ConfineMode, createSandboxGuard, runConfinementPreflight } from './sandbox-guard.js';
 import { parseSpecId, resolveLatestSpecPlanPath, specPlanPath, specsRootDir } from './spec-plan-paths.js';
@@ -455,15 +455,6 @@ function maximalVerifiedEpicSandboxes(
     });
 }
 
-function verifiedEpicSandboxesFromReports(reports: FileReportSink): VerifiedEpicSandbox[] {
-  return reports.getAll().flatMap((line) => {
-    if (line.event !== 'epic-sandbox-merged') return [];
-    const { epicSandboxDir } = line.payload;
-    if (typeof epicSandboxDir !== 'string') return [];
-    return [{ epicId: line.epicId, dir: epicSandboxDir }];
-  });
-}
-
 type GitWorkingTreeCheck = { kind: 'clean' } | { kind: 'dirty'; status: string } | { kind: 'not-git' };
 
 function isCleanGitWorkingTree(dir: string): GitWorkingTreeCheck {
@@ -720,38 +711,67 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           return;
         }
       }
-    } else if (opts.outDir) {
+    } else {
+      // Greenfield auto-promotes onto its own `brunch/run/<runId>` branch via git
+      // plumbing (D171-K): the run worktree is git-backed (slice 1), so the result
+      // is a reviewable branch by default — parity with brownfield, not opt-in via
+      // --out. `--out`, when given, additionally exports the artifact tree.
       if (!ok) {
         line(`  !  run did not complete — nothing promoted. Artifact: ${sandboxDir}`);
         line('');
       } else {
         try {
-          const source = promotionSourceDir({
-            sliceLayout,
-            sandboxDir,
-            runDir,
-            plan,
-            completedSliceIds: result.slices.filter((s) => s.status === 'completed').map((s) => s.sliceId),
-            verifiedEpicSandboxes: verifiedEpicSandboxesFromReports(reports),
-          });
-          for (const c of source.conflicts) {
-            line(`  !  merge conflict on ${c.path} (slices ${c.slices.join(', ')}; kept ${c.winner})`);
-          }
-          const promoted = promoting(`promoting → ${opts.outDir}`, () =>
-            promoteGreenfieldRun({
-              sandboxDir: source.dir,
-              target: opts.outDir!,
-              runId,
-              force: opts.force,
-            }),
+          const completedSliceIds = result.slices
+            .filter((s) => s.status === 'completed')
+            .map((s) => s.sliceId);
+          const artifact = promoting(`promoting → ${brunchRef.run(runId)}`, () =>
+            harvestGreenfieldRun({ sandboxDir, runId, plan, completedSliceIds, sliceLayout }),
           );
+          if (artifact.conflicts.length > 0) {
+            for (const c of artifact.conflicts) {
+              line(`  ✗  merge conflict in slice ${c.sliceId} on ${c.paths.join(', ')}`);
+            }
+            line(
+              `  ✗  promotion halted at ${artifact.branch} @ ${artifact.head.slice(0, 8)} — resolve the conflict and re-run`,
+            );
+            line('');
+            bus.emit({ kind: 'cook-done', ok: false, reason: 'promotion conflict' });
+            recordCookExitStatus(false);
+            return;
+          }
+          // --out export: copy the committed artifact tree into the target as its
+          // own git commit. Source a *detached* checkout of the run branch (not the
+          // run worktree's now-stale checkout left by the fold), so the export is
+          // layout-independent.
+          let finishDir = sandboxDir;
+          if (opts.outDir) {
+            const exportSrc = join(runDir, '__export__');
+            rmSync(exportSrc, { recursive: true, force: true });
+            checkoutRunBranchTree(sandboxDir, runId, exportSrc);
+            try {
+              finishDir = promoting(`promoting → ${opts.outDir}`, () =>
+                promoteGreenfieldRun({
+                  sandboxDir: exportSrc,
+                  target: opts.outDir!,
+                  runId,
+                  force: opts.force,
+                }),
+              ).target;
+            } finally {
+              spawnSync('git', ['worktree', 'remove', '--force', exportSrc], { cwd: sandboxDir });
+            }
+          }
           for (const l of cookFinishLines({
             shape: 'greenfield',
-            dir: promoted.target,
-            branch: promoted.branch,
-            commit: promoted.commit,
+            dir: finishDir,
+            branch: artifact.branch,
+            commit: artifact.head,
           })) {
             line(l);
+          }
+          if (opts.landBranch) {
+            line(`  !  --land is ignored for greenfield (the result is already on ${brunchRef.run(runId)})`);
+            line('');
           }
         } catch (err) {
           const reason = `promotion failed: ${err instanceof Error ? err.message : String(err)}`;
@@ -762,13 +782,6 @@ export async function runCook(opts: CookOptions, bus: CookBus): Promise<void> {
           return;
         }
       }
-    } else if (opts.landBranch) {
-      // --land merges the cook branch into a repo's active branch; greenfield has
-      // no such branch (it promotes to --out instead), so the flag is a no-op here.
-      line(
-        '  !  --land is ignored for greenfield runs (no repo branch to land onto; pass --out to promote the result)',
-      );
-      line('');
     }
 
     // Run complete (after promotion) — lights the brigade's `serve` phase, or

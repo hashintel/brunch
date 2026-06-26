@@ -424,6 +424,52 @@ export function harvestCookRun(run: CompletedRun, opts?: { granularity?: CommitG
 }
 
 /**
+ * Greenfield promotion harvest (D171-K): produce the run's reviewable artifact on
+ * `brunch/run/<runId>` in the git-backed run worktree itself — greenfield has no
+ * separate source repo (unlike brownfield), so `sourceDir === parentSandboxDir ===
+ * the run worktree`, which is checked out on `brunch/run/<runId>`.
+ *   - **per-slice (parallel):** fold the slice branches with the same plumbing as
+ *     brownfield (`harvestCookRun`); `update-ref` advances the (checked-out) run
+ *     branch — the now-stale working tree is GC'd after promotion.
+ *   - **shared (serial):** the run worktree's working tree IS the accreted result
+ *     on `brunch/run/<runId>`; commit it directly.
+ * This converges greenfield onto plumbing promotion, replacing the file-copy union.
+ */
+export function harvestGreenfieldRun(opts: {
+  sandboxDir: string;
+  runId: string;
+  plan: Plan;
+  completedSliceIds: readonly string[];
+  sliceLayout: 'shared' | 'per-slice';
+}): RunArtifact {
+  const branch = brunchRef.run(opts.runId);
+  if (opts.sliceLayout === 'shared') {
+    git(['add', '-A'], opts.sandboxDir);
+    git([...COMMIT_IDENTITY, 'commit', '--allow-empty', '-q', '-m', `cook: ${opts.runId}`], opts.sandboxDir);
+    return { branch, head: git(['rev-parse', 'HEAD'], opts.sandboxDir), commits: [], conflicts: [] };
+  }
+  return harvestCookRun({
+    sourceDir: opts.sandboxDir,
+    parentSandboxDir: opts.sandboxDir,
+    runId: opts.runId,
+    plan: opts.plan,
+    completedSliceIds: [...opts.completedSliceIds],
+  });
+}
+
+/**
+ * Materialize a promoted run branch's tree into `destDir` without disturbing the
+ * run worktree's checkout of that branch — a detached `git worktree add` of the
+ * branch tip. Used to export a greenfield artifact to `--out` (the run branch is
+ * already checked out in the run worktree, so a plain `worktree add <branch>` would
+ * be refused). Caller owns `destDir` cleanup.
+ */
+export function checkoutRunBranchTree(sandboxDir: string, runId: string, destDir: string): void {
+  const commit = git(['rev-parse', '--verify', `refs/heads/${brunchRef.run(runId)}`], sandboxDir);
+  git(['worktree', 'add', '--detach', '-q', destDir, commit], sandboxDir);
+}
+
+/**
  * Verify-epic composition (brownfield): commit the epic's completed slices and
  * materialize their fold as a detached worktree at `__epic__/<epicId>/`, so
  * verify-epic runs tests against the *same* merged tree promotion will ship —

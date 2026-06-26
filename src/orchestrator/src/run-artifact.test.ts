@@ -21,6 +21,7 @@ import {
   dependencyOrder,
   foldSliceBranches,
   harvestCookRun,
+  harvestGreenfieldRun,
   materializeEpicVerifyTree,
   materializeFoldedWorktree,
   type SliceCommit,
@@ -182,6 +183,62 @@ describe('foldSliceBranches (git merge-tree plumbing)', () => {
     // All slice content still present.
     const files = gitC(repo, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n').sort();
     expect(files).toEqual(['a.txt', 'b.txt', 'base.txt']);
+  });
+});
+
+describe('harvestGreenfieldRun (D171-K greenfield promotion)', () => {
+  let runWt: string; // git-backed run worktree, checked out on brunch/run/r1 (slice 1)
+  beforeEach(() => {
+    runWt = mkdtempSync(join(tmpdir(), 'brunch-gf-harvest-'));
+    gitC(runWt, 'init', '-q', '-b', brunchRef.run('r1'));
+    gitC(runWt, 'commit', '-q', '--allow-empty', '-m', 'brunch: cook run base');
+  });
+  afterEach(() => rmSync(runWt, { recursive: true, force: true }));
+
+  const plan: Plan = {
+    mode: 'greenfield',
+    epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+    slices: [slice('a'), slice('b')],
+  };
+
+  it('shared: commits the accreted run worktree tree onto brunch/run/<runId>', () => {
+    writeFileSync(join(runWt, 'app.ts'), 'export const x = 1;\n');
+
+    const artifact = harvestGreenfieldRun({
+      sandboxDir: runWt,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['a'],
+      sliceLayout: 'shared',
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    expect(artifact.branch).toBe(brunchRef.run('r1'));
+    expect(gitC(runWt, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n').sort()).toEqual([
+      'app.ts',
+    ]);
+  });
+
+  it('per-slice: folds the slice worktrees onto brunch/run/<runId> (update-ref on the checked-out branch)', () => {
+    for (const id of ['a', 'b']) {
+      const d = join(runWt, id);
+      gitC(runWt, 'worktree', 'add', '-q', '-b', brunchRef.slice('r1', id), d, brunchRef.run('r1'));
+      writeFileSync(join(d, `${id}.txt`), `${id}\n`);
+    }
+
+    const artifact = harvestGreenfieldRun({
+      sandboxDir: runWt,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['a', 'b'],
+      sliceLayout: 'per-slice',
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    expect(gitC(runWt, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n').sort()).toEqual([
+      'a.txt',
+      'b.txt',
+    ]);
   });
 });
 
