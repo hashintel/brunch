@@ -233,6 +233,7 @@ tree:
         elicitor--auto-high-coverage.md: 'Markdown resource.'
         elicitor--pinned-strategy-lens.md: 'Markdown resource.'
         elicitor--pushed-context.md: 'Markdown resource.'
+      capability-readiness.ts: 'Implements capability readiness.'
       compose.ts: 'Implements compose.'
       policy.ts: 'Implements runtime policy.'
       prompt-skills.ts: 'Implements prompt skills.'
@@ -380,9 +381,7 @@ tree:
       overview.ts: 'Implements overview.'
       reconciliation-needs.ts: 'Implements reconciliation needs.'
     session:
-      affordances.ts: 'Implements affordances.'
       assistant-visible-watermark.ts: 'Implements assistant visible watermark.'
-      capability-readiness.ts: 'Implements capability readiness.'
       continuity-entry-classifier.ts: 'Implements continuity entry classifier.'
       readiness-estimate.ts: 'Implements readiness estimate.'
       runtime-state.ts: 'Implements runtime state.'

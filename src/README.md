@@ -58,7 +58,7 @@ Rules:
 
 - `workspace/` owns cwd-scoped identity, inventory, and workspace default-state persistence. It must not import Pi, session, graph, DB, projection, renderer, adapter, transport, app, or web modules.
 - `graph/` imports from `db/`. No other layer imports `db/` directly.
-- `agents/` owns the Brunch-authored LLM-context ingress seam. Today it hosts agent prompt bodies, prompt-resource skills, foreground roster policy, prompt composition, prompt-resource/tool legality, context seed composition, reusable agent-visible context renderers, and the central file registry.
+- `agents/` owns the Brunch-authored LLM-context ingress seam. Today it hosts agent prompt bodies, prompt-resource skills, foreground roster policy, capability-readiness policy, prompt composition, prompt-resource/tool legality, context seed composition, reusable agent-visible context renderers, and the central file registry.
 - `.pi/` owns Pi-harness extensions/components and no longer hosts Brunch-authored prompt bodies, prompt-resource skills, prompt composition, or provider-visible tool/session text.
 - `.pi/extensions/` registers Pi tools/hooks/UI affordances and delegates product semantics outward.
 - `projections/` owns reusable structured output; `agents/contexts/` owns reusable model-facing text. Human/product text now lives beside its single product owner (`app/print-workspace-state.ts`, `session/transcript-markdown.ts`) instead of a shallow shared renderer layer.
