@@ -187,8 +187,8 @@ function buildArchitectPrompt(projected: Plan, context: PlanningContext): string
     '5. `nonBuildableRequirementIds`: requirement ids whose text is a CONSTRAINT or',
     '   policy rather than a buildable unit of work.',
     '6. Do NOT author tests or verification entries, and do NOT inspect the target',
-    '   repository — reason only from the spec, conventions, and the exemplars. The',
-    '   cook agent writes the tests at run time.',
+    '   repository yourself — use only the repository context supplied below, the',
+    '   spec, conventions, and the exemplars. The cook agent writes tests at run time.',
     '7. `profile`: if the requirement/criteria prose names a tech stack, classify it',
     `   as one of: ${PROFILE_IDS.join(', ')}. Set null when the spec is silent or`,
     '   names a stack outside that list — never guess.',
@@ -207,6 +207,15 @@ function buildArchitectPrompt(projected: Plan, context: PlanningContext): string
     'Spec relation hints (epistemic, NOT automatic build dependencies):',
     relationLines,
     '',
+    'Brownfield repository context (package anchors, if supplied):',
+    formatProjectContext(context),
+    '',
+    'When package anchors are supplied, anchor product `writes` under the matching',
+    'workspace package named or implied by the requirement. Do not put product',
+    'implementation work in an unrelated integration-test package; integration-test',
+    'paths are oracle targets, not product-write anchors, unless the requirement is',
+    'explicitly test-only.',
+    '',
     'Reference exemplars — the target dependency/epic/file-ownership shape',
     '(scaffold → file-disjoint behaviours → join owning the shared file). Use them',
     'as STRUCTURAL guidance only; do not copy their ids, paths, or domain terms:',
@@ -215,6 +224,12 @@ function buildArchitectPrompt(projected: Plan, context: PlanningContext): string
     'Output the authored `epics`, `slices` (each with `writes` + `derivedFrom`),',
     '`nonBuildableRequirementIds`, `profile`, and (optionally) `harnessNotes`.',
   ].join('\n');
+}
+
+function formatProjectContext(context: PlanningContext): string {
+  const packages = context.project?.packages ?? [];
+  if (packages.length === 0) return '(none)';
+  return packages.map((pkg) => `- ${pkg.name ? `${pkg.name} at ` : ''}${pkg.dir}`).join('\n');
 }
 
 function errorMessage(error: unknown): string {

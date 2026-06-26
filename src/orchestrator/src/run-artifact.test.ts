@@ -266,6 +266,60 @@ describe('harvestCookRun (commit slice worktrees + fold)', () => {
     expect(tracked.some((f) => f.startsWith('node_modules/'))).toBe(false);
   });
 
+  it('does not stage generated dependency and compile-cache artifacts even when unignored', () => {
+    seedSliceWorktree('feat', (d) => {
+      writeFileSync(join(d, 'src.ts'), 'export const feature = true;\n');
+      mkdirSync(join(d, 'node_modules', 'dep'), { recursive: true });
+      writeFileSync(join(d, 'node_modules', 'dep', 'index.js'), 'module.exports = {};\n');
+      mkdirSync(join(d, '.brunch-tmp', 'node-compile-cache', 'v1'), { recursive: true });
+      writeFileSync(join(d, '.brunch-tmp', 'node-compile-cache', 'v1', 'cache.blob'), 'cache\n');
+    });
+
+    const plan: Plan = {
+      mode: 'brownfield',
+      epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+      slices: [slice('feat')],
+    };
+    const artifact = harvestCookRun({
+      sourceDir: source,
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['feat'],
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    const tracked = gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n');
+    expect(tracked).toContain('src.ts');
+    expect(tracked.some((f) => f.startsWith('node_modules/'))).toBe(false);
+    expect(tracked.some((f) => f.startsWith('.brunch-tmp/node-compile-cache/'))).toBe(false);
+  });
+
+  it('stages both sides of a cook-time rename', () => {
+    seedSliceWorktree('rename', (d) => {
+      rmSync(join(d, 'base.txt'));
+      writeFileSync(join(d, 'renamed.txt'), 'base\n');
+    });
+
+    const plan: Plan = {
+      mode: 'brownfield',
+      epics: [{ id: 'e', summary: 'E', depends_on: [], verification: [] }],
+      slices: [slice('rename')],
+    };
+    const artifact = harvestCookRun({
+      sourceDir: source,
+      parentSandboxDir: parent,
+      runId: 'r1',
+      plan,
+      completedSliceIds: ['rename'],
+    });
+
+    expect(artifact.conflicts).toEqual([]);
+    const tracked = gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.run('r1')).split('\n');
+    expect(tracked).toContain('renamed.txt');
+    expect(tracked).not.toContain('base.txt');
+  });
+
   it('dependency-seeded: a dependent slice that extends a dep file folds clean (no false conflict)', () => {
     // The dep-seed interaction the composer was left unwired for (871ef087). In a
     // real run, slice B (depends on A) has A's completed output copied into its
@@ -465,6 +519,32 @@ describe('transferFoldedFixToSlice (FE-884 remediation round-trip)', () => {
     expect(gitC(source, 'show', `${brunchRef.slice('r1', 'a')}:lib.ts`)).toContain('fixed');
     expect(gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.slice('r1', 'a'))).not.toContain(
       'it.test.ts',
+    );
+  });
+
+  it('ignores generated artifacts while detecting folded remediation changes', () => {
+    mkdirSync(join(foldedDir, 'node_modules', 'dep'), { recursive: true });
+    writeFileSync(join(foldedDir, 'node_modules', 'dep', 'index.js'), 'module.exports = {};\n');
+    mkdirSync(join(foldedDir, '.brunch-tmp', 'node-compile-cache', 'v1'), { recursive: true });
+    writeFileSync(join(foldedDir, '.brunch-tmp', 'node-compile-cache', 'v1', 'cache.blob'), 'cache\n');
+    const baseline = captureFoldedChangeBaseline(foldedDir);
+
+    writeFileSync(join(foldedDir, 'lib.ts'), 'export const view = "fixed";\n');
+
+    const outcome = transferFoldedFixToSlice({
+      parentSandboxDir: parent,
+      foldedDir,
+      slice: slice('a'),
+      epicTestTargets: ['it.test.ts'],
+      baseline,
+    });
+
+    expect(outcome).toMatchObject({ accepted: true, touched: ['lib.ts'] });
+    expect(gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.slice('r1', 'a'))).not.toContain(
+      'node_modules/dep/index.js',
+    );
+    expect(gitC(source, 'ls-tree', '-r', '--name-only', brunchRef.slice('r1', 'a'))).not.toContain(
+      '.brunch-tmp/node-compile-cache/v1/cache.blob',
     );
   });
 

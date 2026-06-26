@@ -25,6 +25,7 @@ import {
 import { checkPlan, repairPlan, type ContractResult } from './plan-contract.js';
 import { materializeArchitectedPlan, type MaterializeWarning } from './plan-materialize.js';
 import { projectPlanningContext } from './plan-planning-context.js';
+import type { PlanningProjectContext } from './plan-planning-context.js';
 import { buildPlanSpec, projectPlanFromSpec, type CompletedSpecSnapshot } from './plan-projection.js';
 import {
   explainReconciliationWarning,
@@ -34,7 +35,12 @@ import {
   type PlanningEnrichment,
   type ReconciliationWarning,
 } from './plan-reconciliation.js';
-import { detectProfile, detectTestDir, type ProfileDetection } from './project-detect.js';
+import {
+  detectProfile,
+  detectProjectContext,
+  detectTestDir,
+  type ProfileDetection,
+} from './project-detect.js';
 import { resolveToolchain, withTestDir, type ProfileId, type Toolchain } from './project-profile.js';
 import type { Plan, PlanMode, PlanSpec } from './types.js';
 
@@ -98,6 +104,8 @@ export type EmitPlanOptions = {
    * discovers them.
    */
   detectTestDir?: (repoDir: string) => string | null;
+  /** Injectable brownfield package-context detector seam (tests). Defaults to `detectProjectContext`. */
+  detectProjectContext?: (repoDir: string) => PlanningProjectContext | undefined;
 };
 
 /**
@@ -143,6 +151,10 @@ export async function emitPlanFromSnapshot(
 
   const projected = projectPlanFromSpec(snapshot);
   const planningContext = projectPlanningContext(snapshot);
+  if (projected.mode === 'brownfield' && options.repoDir !== undefined) {
+    const project = (options.detectProjectContext ?? detectProjectContext)(options.repoDir);
+    if (project) planningContext.project = project;
+  }
   // Spec provenance block (FE-885) — built once from the snapshot and attached
   // to whichever plan ships (architected or fallback). Inert to execution.
   const spec = buildPlanSpec(snapshot);

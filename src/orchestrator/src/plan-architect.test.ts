@@ -185,4 +185,28 @@ describe('architectPlan', () => {
     // no test authoring
     expect(prompt).toContain('Do NOT author tests');
   });
+
+  it('includes brownfield package anchors when supplied', async () => {
+    let prompt = '';
+    await architectPlan(
+      projected,
+      async (p) => {
+        prompt = p;
+        return wellFormed;
+      },
+      {
+        relations: [],
+        project: {
+          packages: [
+            { dir: 'packages/domain-core', name: '@example/domain-core' },
+            { dir: 'packages/integration-tests', name: '@example/integration-tests' },
+          ],
+        },
+      },
+    );
+
+    expect(prompt).toContain('@example/domain-core at packages/domain-core');
+    expect(prompt).toContain('Do not put product');
+    expect(prompt).toContain('unrelated integration-test package');
+  });
 });

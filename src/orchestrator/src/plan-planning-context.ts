@@ -27,8 +27,18 @@ export type PlanningRelation = {
   toSliceId: string;
 };
 
+export type PlanningPackageContext = {
+  dir: string;
+  name?: string;
+};
+
+export type PlanningProjectContext = {
+  packages: PlanningPackageContext[];
+};
+
 export type PlanningContext = {
   relations: PlanningRelation[];
+  project?: PlanningProjectContext;
 };
 
 export const EMPTY_PLANNING_CONTEXT: PlanningContext = { relations: [] };

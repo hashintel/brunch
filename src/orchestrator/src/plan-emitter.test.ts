@@ -368,6 +368,29 @@ describe('emitPlanFromSnapshot', () => {
     }
   });
 
+  it('threads brownfield package anchors into the architect prompt', async () => {
+    let capturedPrompt = '';
+    const runModel: RunModel = async (prompt) => {
+      capturedPrompt = prompt;
+      return coveringDraft();
+    };
+    const detect = (): ProfileDetection => ({ detected: true, profile: 'node-vitest', evidence: 'stub' });
+
+    await emitPlanFromSnapshot(
+      { ...snapshot, mode: 'brownfield' },
+      {
+        runModel,
+        repoDir: '/repo',
+        detect,
+        detectProjectContext: () => ({
+          packages: [{ dir: 'packages/domain-core', name: '@example/domain-core' }],
+        }),
+      },
+    );
+
+    expect(capturedPrompt).toContain('@example/domain-core at packages/domain-core');
+  });
+
   it('brownfield keeps the profile default when the repo has no tests to learn from', async () => {
     const detect = (): ProfileDetection => ({ detected: true, profile: 'node-vitest', evidence: 'stub' });
     const result = await emitPlanFromSnapshot(

@@ -70,6 +70,37 @@ function git(args: string[], cwd: string): string {
   return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 }
 
+function gitRaw(args: string[], cwd: string): string {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+}
+
+function isGeneratedArtifactPath(path: string): boolean {
+  return (
+    path === 'node_modules' ||
+    path.startsWith('node_modules/') ||
+    path.includes('/node_modules/') ||
+    path === '.brunch-tmp/node-compile-cache' ||
+    path.startsWith('.brunch-tmp/node-compile-cache/')
+  );
+}
+
+function stageAuthoredChanges(dir: string): void {
+  const status = gitRaw(['status', '--porcelain=v1', '-z', '--untracked-files=all'], dir);
+  const records = status.split('\0').filter(Boolean);
+  const paths: string[] = [];
+  for (let index = 0; index < records.length; index++) {
+    const record = records[index]!;
+    const statusCode = record.slice(0, 2);
+    const path = record.slice(3);
+    const priorPath = statusCode.includes('R') || statusCode.includes('C') ? records[++index] : undefined;
+    if (!isGeneratedArtifactPath(path)) paths.push(path);
+    if (priorPath && !isGeneratedArtifactPath(priorPath)) paths.push(priorPath);
+  }
+  for (let index = 0; index < paths.length; index += 100) {
+    git(['add', '-A', '--', ...paths.slice(index, index + 100)], dir);
+  }
+}
+
 /**
  * A 3-way merge of two commits via plumbing — writes the merged tree to the
  * object store and reports conflicts without a working tree. `git merge-tree
@@ -143,7 +174,7 @@ export function commitSliceWorktree(opts: {
 }): SliceCommit | null {
   const sliceDir = resolveSliceWorktreeDir(opts.parentSandboxDir, opts.slice.id);
   const title = sliceTitle(opts.slice);
-  git(['add', '-A'], sliceDir);
+  stageAuthoredChanges(sliceDir);
   if (git(['diff', '--cached', '--name-only'], sliceDir) === '') {
     // Nothing new to stage. If a prior verify-epic already committed this slice
     // (its tip is our `brunch(<id>):` commit), reuse it — verify and promotion
@@ -181,7 +212,7 @@ function worktreeObjectId(dir: string, path: string): string | null {
 
 /** Capture already-dirty folded-tree files before the remediation agent runs. */
 export function captureFoldedChangeBaseline(foldedDir: string): FoldedChangeBaseline {
-  git(['add', '-A'], foldedDir);
+  stageAuthoredChanges(foldedDir);
   const paths = git(['diff', '--cached', '--name-only'], foldedDir).split('\n').filter(Boolean);
   const baseline = new Map(paths.map((path) => [path, worktreeObjectId(foldedDir, path)]));
   git(['reset'], foldedDir);
@@ -217,7 +248,7 @@ export function transferFoldedFixToSlice(opts: {
   const { foldedDir } = opts;
   const sliceDir = resolveSliceWorktreeDir(opts.parentSandboxDir, opts.slice.id);
   // Stage everything so new files are enumerated too, then list touched paths.
-  git(['add', '-A'], foldedDir);
+  stageAuthoredChanges(foldedDir);
   for (const [path, objectId] of opts.baseline ?? []) {
     if (worktreeObjectId(foldedDir, path) === objectId) {
       git(['reset', '--', path], foldedDir);
