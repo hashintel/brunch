@@ -11,7 +11,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 - Agent role prompt definitions, skill resource bodies, prompt composition, and prompt-resource legality — `agents/`. `agent-runtime/` is now only the Pi hook/tool adapter for that central policy.
 - Graph truth, graph mutation policy, or graph readers — top-level `graph/`.
 - Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — top-level `session/`, `projections/`, and related domain seams.
-- Reusable DTO projection or reusable markdown/text rendering — top-level `projections/` and `renderers/`.
+- Reusable DTO projection or reusable markdown/text rendering — top-level `projections/`, `agents/contexts/` for model-facing text, and `renderers/` for human/product text.
 - Product transport handlers — `rpc/`, `app/`, and `web/`.
 
 ## Directory layout
@@ -51,7 +51,7 @@ extensions/
 
 ```pseudo
 rules:
-  .pi/extensions/* -> agents/, .pi/components/, graph/, session/, projections/, renderers/ [adapter imports allowed]
+  .pi/extensions/* -> agents/, .pi/components/, graph/, session/, projections/ [adapter imports allowed]
   .pi/extensions/* x> db/                                                            [no direct storage]
   graph/, session/    x> .pi/                                                        [domain layers never import adapters]
   agents/prompts/     x> .pi/extensions/                                             [prompt bodies do not register Pi hooks]
@@ -67,4 +67,4 @@ rules:
 
 `exchanges/schemas/` is the intentional current exception to "adapter-only": it owns the Zod-authored structured-exchange details schema per D37-L/D41-L until a separate schema-ownership slice moves or names that seam. Zod-to-Pi `TSchema` conversion is confined to two per-plane adapters: `exchanges/pi-schema.ts` (structured-exchange) and `shared/pi-tool-schema.ts` (dev-gated query tools). Both export JSON Schema draft 2020-12 (`z.toJSONSchema`), which strict provider validators require.
 
-`exchanges/shared/markdown.ts` contains Pi-rendering helpers. Move only reusable product markdown/text rendering into the future renderer seam; keep Pi `renderCall` / `renderResult` widgets and UI-only message components local to `.pi/`.
+`exchanges/shared/markdown.ts` contains Pi-rendering helpers. Keep Pi `renderCall` / `renderResult` widgets and UI-only message components local to `.pi/`; reusable provider-visible exchange result text belongs in `agents/contexts/exchanges/`.

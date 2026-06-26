@@ -15,7 +15,8 @@ This directory is Brunch's sealed Pi-harness surface. It contains product extens
 - Pi JSONL/session semantics and workspace/session coordination — `session/`.
 - Product JSON-RPC handlers — `rpc/`.
 - React client UI — `web/`.
-- Reusable product projection/rendering once hoisted — target `projections/` and `renderers/` seams.
+- Brunch-authored model-facing prompt/context text — `agents/`.
+- Reusable product projection/rendering — `projections/`, `agents/contexts/`, and `renderers/` by audience.
 
 ## Layout
 

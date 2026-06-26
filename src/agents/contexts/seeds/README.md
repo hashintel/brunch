@@ -15,7 +15,7 @@ Both modules are pure over already-read data. Callers own PULL: graph reads, gap
 
 ```pseudo
 rules:
-  seeds/*          -> graph/, renderers/, session/schema [format already-read facts]
+  seeds/*          -> agents/contexts/*, graph/, session/schema [format already-read facts]
   .pi/extensions/ -> seeds/                            [foreground/background prompt adapters]
   session/        -> seeds/origination.ts              [append choreography uses seed text]
   seeds/          x> .pi/, app/, rpc/                  [no host, adapter, or transport effects]

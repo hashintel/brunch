@@ -413,7 +413,7 @@ Routing:
 
 Heuristics are the **method-differentiation layer** (§6.1), not ancillary. They
 are currently scattered (the kind-discrimination rules in
-`src/.pi/skills/methods/commit-graph/SKILL.md`, `ELICITATION_QUESTIONS.md`,
+`src/agents/skills/methods/commit-graph/SKILL.md`, `ELICITATION_QUESTIONS.md`,
 `ELICITATION_LENSES.md`, this doc); collating them into one inlinable source is a
 named follow-on (§9).
 

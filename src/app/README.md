@@ -17,11 +17,12 @@ Current entrypoints:
 ## Does not own
 
 - Graph truth, command execution, or persistence — `graph/` and `db/`.
-- Pi registrars, prompt resources, and reusable Pi UI components — `.pi/`.
+- Pi registrars and reusable Pi UI components — `.pi/`.
+- Agent prompt resources and model-facing context text — `agents/`.
 - Session transcript semantics, binding, and workspace/session coordination — `session/`.
 - JSON-RPC method semantics — `rpc/`.
 - React client code — `web/`.
 
 ## Dependency direction
 
-`app/` may import from `.pi/`, `graph/`, `session/`, `rpc/`, `projections/`, and `renderers/` to compose product modes. Domain layers must not import `app/`.
+`app/` may import from `.pi/`, `agents/`, `graph/`, `session/`, `rpc/`, `projections/`, and `renderers/` to compose product modes. Domain layers must not import `app/`.

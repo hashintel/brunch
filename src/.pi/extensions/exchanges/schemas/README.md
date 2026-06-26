@@ -44,14 +44,14 @@ chain active Pi tool / session trigger / RPC editor relay
   -> parse params or relay payload at the entry boundary
   -> projections/exchanges/* constructs details
   -> relevant details Zod schema parses result
-  -> renderers/exchanges/* renders durable markdown
+  -> agents/contexts/exchanges/* renders provider-visible durable markdown
 ```
 
 - Active `.pi/extensions/exchanges/*.ts` files own Pi registration and UI collection only.
 - `../pi-schema.ts` is the only Zod JSON Schema to Pi `TSchema` adapter.
 - `present_review_set.payload` is a **graph-owned boundary-teaching schema** (`zReviewSetProposalPayloadForBoundary` in `graph/review-set.ts`), not `z.unknown()`: the param boundary rejects a JSON string, the wrong tool's shape (e.g. `mutate_graph`'s `{createBasis, ops}`), and malformed nested companions such as `grounding: string`. The full requiredness/field-diagnostic contract stays owned by `validateReviewSetPayloadShape` in the same graph module; the boundary schema advertises `lens`, `epistemicStatus`, `grounding {summary, support[]}`, `pitch {title, narrative}`, `entityDrafts[]`, and role-named `edgeDrafts[]` so the model sees the nested structure before the deep validator runs.
 - `projections/exchanges/*` is the only construction boundary for active present/request `toolResult.details`.
-- `renderers/exchanges/*` owns durable markdown for active present/request emissions.
+- `agents/contexts/exchanges/*` owns durable provider-visible markdown for active present/request emissions.
 - Session pending exchange recovery projects from canonical present/request details; it does not author a TypeBox semantic schema.
 - The RPC/editor relay is an intentional current product fallback and must still emit canonical details through projectors.
 - The proof-era `brunch.structured_exchange.result` details model is retired.

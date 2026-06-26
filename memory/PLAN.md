@@ -56,7 +56,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 context-pipeline/
 ├── PULL      graph + session reads       ✓ done
 ├── PROJECT   projections/                ✓ done
-├── RENDER    renderers/                  ◐ open: renderer-golden-coverage (FE-870)
+├── RENDER    agents/contexts + renderers/ ◐ open: renderer-golden-coverage (FE-870)
 └── COMPOSE   system-prompts + skills     ✓ done*
 
 *COMPOSE has one deferred full-stack real-rendered-context tripwire owned by RENDER.
@@ -83,7 +83,7 @@ context-pipeline/
 - `orchestrator-tool-port` (FE-1087) — **scoped.** Port the external `brunch cook` orchestrator into execute-mode tools without granting the foreground orchestrator direct shell/file-write authority. First active scope: `memory/cards/orchestrator-tool-port--plan-check-tool.md`.
 - `elicitor-project` (FE-1085) — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
 - `data-model-legibility` — **active.** Single canonical home for data-model meta-guidance, with closed-vocabulary tables generated from the typed `graph/schema` sources (D97-L). Design verdict landed (Shape C); first tracer landed (generated kind→band table + `check:data-model` drift guard, cited by `methods/capture`). Remaining: edge-category + detail-form tables, the authored judgment layer, and the subtypes→`detail` remodel.
-- `renderer-golden-coverage` — **active parallel coverage track.** Remaining RENDER work: `<session>`, `renderGraphSeed`, `exchanges/*`, `formatRelatedNodesResult` relocation/repair, and the `brunch print` fork.
+- `renderer-golden-coverage` — **active parallel coverage track.** Remaining RENDER work lives by audience: model-facing context surfaces under `agents/contexts/`, human/product text under `renderers/`. Remaining rows need fresh scoping against `src/agents/contexts/README.md` and `src/renderers/README.md`.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 
 ### Parallel / Low-Conflict
@@ -165,7 +165,7 @@ context-pipeline/
 - **Kind:** coverage + build / hardening
 - **Status:** next / active parallel. Substrate, `<workspace>`, `<specification>`, graph overview/neighborhood renders, and band-filtered graph slice hardening are done. Remaining work needs a fresh `ln-scope` pass.
 - **Objective:** Finish the RENDER stage: `<session>`, `renderGraphSeed`, `exchanges/*`, `formatRelatedNodesResult` structural-leak repair + relocation into `renderers/`, and the `brunch print` house-style-vs-status fork.
-- **Acceptance:** `src/renderers/README.md` carries the closed ledger; required rows are built in the house style and locked with focused goldens/semantic invariants; no adapter/transport imports enter `renderers/`.
+- **Acceptance:** `src/agents/contexts/README.md` and `src/renderers/README.md` carry the audience split; required model-facing rows are built in the house style and locked with focused goldens/semantic invariants; no adapter/transport imports enter `agents/contexts/` or `renderers/`.
 - **Traceability:** D19-L, D52-L, D60-L, D62-L, D83-L.
 
 ### exchange-symmetry-audit

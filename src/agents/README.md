@@ -23,7 +23,7 @@ agents/
 rules:
   agents/registry.ts -> agents/prompts/*/SYSTEM.md [body file locations]
   agents/registry.ts -> agents/skills/*/*/SKILL.md [prompt-resource locations]
-  agents/contexts/   -> graph/, session/, renderers/ [agent-visible text over already-read facts]
+  agents/contexts/   -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
   .pi/extensions/*   -> agents/                   [adapters ask for Brunch-authored context]
   session/           -> agents/contexts/seeds/    [origination asks for seed payload text]
   projections/session/runtime-policy.ts -> agents/registry.ts [temporary roster-location edge]
@@ -32,4 +32,4 @@ rules:
 
 ## Migration note
 
-This directory is intentionally mid-migration. Agent prompt bodies, prompt-resource skills, prompt composition, prompt-resource/tool legality, seed context composition, and reusable agent-visible context renderers have moved here byte-stably. Later slices promote remaining adapter-local model text here; Pi extensions remain runtime adapters that register hooks/tools and call this layer.
+Agent prompt bodies, prompt-resource skills, prompt composition, prompt-resource/tool legality, seed context composition, reusable agent-visible context renderers, and formerly adapter-local model-facing text live here. Pi extensions remain runtime adapters that register hooks/tools, gather data, and call this layer for Brunch-authored text.

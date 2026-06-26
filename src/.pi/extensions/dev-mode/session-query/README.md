@@ -9,7 +9,7 @@ Dev-gated, read-only Pi tool registration for `brunch_session_query`: predicate 
 ## Does NOT own
 
 - Provider-payload capture or `/introspect` reporting — sibling `../introspection/` owns the payload plane.
-- Prompt-resource manifests or product prompt behavior — `.pi/extensions/agent-runtime/runtime/` (manifest/legality), `.pi/extensions/agent-runtime/system-prompts/` (composition), and the `.pi/agents/` + `.pi/skills/` markdown bodies.
+- Prompt-resource manifests or product prompt behavior — `src/agents/runtime/` (manifest/legality + composition), `src/agents/prompts/`, and `src/agents/skills/`, with `.pi/extensions/agent-runtime/` only adapting those seams into Pi hooks.
 - Product transcript/domain projection — top-level `session/` and `projections/` seams.
 
 ## Boundary rules

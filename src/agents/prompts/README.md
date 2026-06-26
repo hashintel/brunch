@@ -27,13 +27,13 @@ This directory is markdown-only. It carries no TypeScript and registers no Pi ho
 
 ## Does NOT own
 
-- Foreground prompt composition + pushed seed contexts — `.pi/extensions/agent-runtime/system-prompts/` until the runtime/context move slices land.
-- Background prompt assembly and injected-world child-session wiring — `.pi/extensions/subagents/`.
-- Prompt-resource manifest selection + tool/method legality — `.pi/extensions/agent-runtime/runtime/` and `src/projections/session/runtime-policy.ts` until the runtime move slice lands.
+- Foreground prompt composition, pushed seed contexts, prompt-resource manifest selection, or tool/method legality — `src/agents/runtime/` and `src/agents/contexts/seeds/`.
+- Background prompt assembly and injected-world child-session wiring — `src/.pi/extensions/subagents/`.
 - Strategy/lens/method prompt-resource skills — `src/agents/skills/`.
-- Reusable lossy text/markdown rendering — `renderers/` until agent-visible renderers move.
-- Pi tool definitions, lifecycle hooks, UI, and background child-session loading/running — `.pi/extensions/*`.
+- Reusable model-facing context text — `src/agents/contexts/`.
+- Human/product-only text rendering — `src/renderers/`.
+- Pi tool definitions, lifecycle hooks, UI, and background child-session loading/running — `src/.pi/extensions/*`.
 
 ## Migration note
 
-This directory is the first moved content home under `src/agents/`. Pi extension code remains a runtime adapter: it loads foreground bodies and background agent definitions through `src/agents/registry.ts`, not through extension-local paths or directory discovery. `pi-coder` records Pi's `buildSystemPrompt` worked-example baseline while D58-L's augment-vs-replace question stays open.
+Pi extension code remains a runtime adapter: it loads foreground bodies and background agent definitions through `src/agents/registry.ts`, not through extension-local paths or directory discovery. `pi-coder` records Pi's `buildSystemPrompt` worked-example baseline while D58-L's augment-vs-replace question stays open.

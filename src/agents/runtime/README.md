@@ -21,7 +21,7 @@ runtime/
 ```pseudo
 rules:
   agents/runtime -> agents/registry, agents/prompts, agents/skills
-  agents/runtime -> graph/, projections/, renderers/, session/ [read/projection types and helpers]
+  agents/runtime -> agents/contexts, graph/, projections/, session/ [read/projection types and helpers]
   .pi/extensions/agent-runtime/* -> agents/runtime [adapter calls central policy]
   agents/runtime x> .pi extension hooks/tools       [no Pi registration side effects]
 ```

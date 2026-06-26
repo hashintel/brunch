@@ -47,10 +47,10 @@ rules:
   workspace/       -> constants/ or workspace-local files only
   projections/*   -> agents/, graph/, session/, workspace/ [read/domain imports allowed; agents/ is temporary registry edge]
   renderers/*     -> projections/, session/, workspace/ as needed for human/product input types
-  agents/         -> graph/, session/, renderers/  [agent-visible text over already-read facts]
-  .pi/            -> agents/, graph/, session/, projections/, renderers/ [Pi runtime adapters/resources]
-  rpc/           -> graph/, session/, projections/, renderers/
-  app/           -> graph/, session/, projections/, renderers/
+  agents/         -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
+  .pi/            -> agents/, graph/, session/, projections/ [Pi runtime adapters/resources]
+  rpc/           -> graph/, session/, projections/
+  app/           -> agents/, graph/, session/, projections/, renderers/
   graph/, session/ x> .pi/, rpc/, app/, web/
   projections/    x> .pi/, rpc/, app/, web/
   renderers/      x> .pi/, rpc/, app/, web/
@@ -62,9 +62,9 @@ Rules:
 - `workspace/` owns cwd-scoped identity, inventory, and workspace default-state persistence. It must not import Pi, session, graph, DB, projection, renderer, adapter, transport, app, or web modules.
 - `graph/` imports from `db/`. No other layer imports `db/` directly.
 - `agents/` owns the Brunch-authored LLM-context ingress seam. Today it hosts agent prompt bodies, prompt-resource skills, prompt composition, prompt-resource/tool legality, context seed composition, reusable agent-visible context renderers, and the central file registry. The current `projections/session/runtime-policy.ts` import of this registry is a migration edge only: once the foreground roster moves under `agents/runtime/`, projections should stop depending on `agents/`.
-- `.pi/` owns Pi-harness extensions/components and no longer hosts Brunch-authored prompt bodies or prompt-resource skills.
+- `.pi/` owns Pi-harness extensions/components and no longer hosts Brunch-authored prompt bodies, prompt-resource skills, prompt composition, or provider-visible tool/session text.
 - `.pi/extensions/` registers Pi tools/hooks/UI affordances and delegates product semantics outward.
-- `projections/` owns reusable structured output; `renderers/` owns reusable lossy text output.
+- `projections/` owns reusable structured output; `agents/contexts/` owns reusable model-facing text; `renderers/` owns human/product-only lossy text output.
 - `web/` is a separate Vite build target.
 
 ## Migration notes
