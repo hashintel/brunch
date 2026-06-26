@@ -1,8 +1,4 @@
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import {
-  evaluateCapabilityReadiness,
-  type CapabilityId,
-} from '../../projections/session/capability-readiness.js';
 import type { BrunchAgentState, ToolPolicyId } from '../../session/runtime-state.js';
 import type { ForegroundAgentManifest } from '../../session/schema/agent-manifest.js';
 import type {
@@ -15,6 +11,7 @@ import type {
 import { AGENT_METHOD_IDS } from '../../session/schema/kinds.js';
 import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../../session/schema/tool-names.js';
 import { bundledAgentBodyRepoPath } from '../registry.js';
+import { evaluateCapabilityReadiness, type CapabilityId } from './capability-readiness.js';
 
 export interface ToolPolicyDefinition {
   id: ToolPolicyId;

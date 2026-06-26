@@ -1,5 +1,4 @@
 import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
-import type { CapabilityId } from '../../projections/session/capability-readiness.js';
 import {
   AGENT_LENS_IDS,
   AGENT_METHOD_IDS,
@@ -8,6 +7,7 @@ import {
   type AgentRoleId,
 } from '../../session/schema/kinds.js';
 import { bundledAgentBodyLocation } from '../registry.js';
+import type { CapabilityId } from './capability-readiness.js';
 import {
   AUTO_EXCLUDED_STRATEGIES,
   axisOptionsForRuntimeState,

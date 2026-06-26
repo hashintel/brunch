@@ -4,11 +4,12 @@ SPEC decisions: D40-L, D52-L, D58-L, D85-L, D90-L, D93-L
 
 ## Owns
 
-Runtime prompt policy that is Pi-independent: foreground roster definitions, foreground prompt composition, prompt-resource manifest rendering/loading, active method/tool derivation, and agent body location lookup.
+Runtime prompt policy that is Pi-independent: foreground roster definitions, capability-readiness over selected-spec gaps, foreground prompt composition, prompt-resource manifest rendering/loading, active method/tool derivation, and agent body location lookup.
 
 ```text
 runtime/
 ├── README.md
+├── capability-readiness.ts  capability → gap policy and negotiate/proceed outcomes
 ├── compose.ts          pure prompt composer: agent body + runtime header + context + manifest
 ├── policy.ts           foreground roster, tool policy, delegatable set, axis legality
 ├── prompt-skills.ts    prompt-resource manifest loader/renderer
