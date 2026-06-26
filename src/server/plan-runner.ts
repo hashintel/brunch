@@ -30,6 +30,7 @@ import { parseSpecId, specPlanPath } from '../orchestrator/src/spec-plan-paths.j
 export type PlanOptions = {
   specificationId: number;
   outDir: string;
+  outDirExplicit: boolean;
   verbose: boolean;
   /** Toolchain profile override; wins over the spec's profile. */
   profile?: ProfileId;
@@ -40,12 +41,14 @@ const USAGE = 'Usage: brunch plan <specId> [--out=<dir>] [--profile=<id>] [--ver
 export function parsePlanArgs(args: string[], defaultOutDir: string = process.cwd()): PlanOptions {
   let specIdRaw: string | undefined;
   let outDir = resolve(defaultOutDir);
+  let outDirExplicit = false;
   let verbose = false;
   let profile: ProfileId | undefined;
 
   for (const arg of args) {
     if (arg.startsWith('--out=')) {
       outDir = resolve(arg.slice('--out='.length));
+      outDirExplicit = true;
     } else if (arg.startsWith('--profile=')) {
       profile = parseProfileId(arg.slice('--profile='.length));
     } else if (arg === '--verbose' || arg === '-v') {
@@ -65,7 +68,7 @@ export function parsePlanArgs(args: string[], defaultOutDir: string = process.cw
 
   const specificationId = parseSpecId(specIdRaw, 'spec id');
 
-  return { specificationId, outDir, verbose, profile };
+  return { specificationId, outDir, outDirExplicit, verbose, profile };
 }
 
 export function planRepoDirForLaunch(launchCwd: string): string {
