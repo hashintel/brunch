@@ -98,4 +98,73 @@ describe('runDevCli', () => {
       }),
     ]);
   });
+
+  it('treats prompt-selected seeding as an explicit reset before launch', async () => {
+    const chooseWorkbench = vi.fn<DevCliPrompts['chooseWorkbench']>().mockResolvedValue(WORKBENCH);
+    const chooseSeed = vi
+      .fn<DevCliPrompts['chooseSeed']>()
+      .mockResolvedValue('workspace-alpha-grounding/base');
+    const confirmSeedReset = vi.fn<DevCliPrompts['confirmSeedReset']>().mockResolvedValue(true);
+    const confirmOpenWeb = vi.fn<DevCliPrompts['confirmOpenWeb']>().mockResolvedValue(true);
+    const intro = vi.fn<DevCliPrompts['intro']>();
+    const outro = vi.fn<DevCliPrompts['outro']>();
+    const cancel = vi.fn<DevCliPrompts['cancel']>();
+    const stdin = new PassThrough() as PassThrough & { isTTY: boolean };
+    const stdout = new PassThrough() as PassThrough & { isTTY: boolean };
+    const events: string[] = [];
+    const launches: BrunchCliOptions[] = [];
+    stdin.isTTY = true;
+    stdout.isTTY = true;
+
+    const code = await runDevCli({
+      argv: [],
+      cwd: REPO_ROOT,
+      stdin,
+      stdout,
+      prompts: {
+        intro,
+        outro,
+        cancel,
+        chooseWorkbench,
+        chooseSeed,
+        confirmSeedReset,
+        confirmOpenWeb,
+      },
+      seedWorkspace: async (options) => {
+        events.push('seed');
+        if (!options) throw new Error('expected seed cli options');
+        expect(options.argv).toEqual([
+          '--workspace',
+          WORKBENCH,
+          '--seed',
+          'workspace-alpha-grounding/base',
+          '--reset',
+        ]);
+        return 0;
+      },
+      launchBrunch: async (options) => {
+        events.push('launch');
+        launches.push(options);
+        return 0;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(events).toEqual(['seed', 'launch']);
+    expect(confirmSeedReset).toHaveBeenCalledWith(
+      'workspace-alpha-grounding/base',
+      '.fixtures/workbenches/workspace-alpha-grounding',
+    );
+    expect(confirmOpenWeb).toHaveBeenCalledWith('.fixtures/workbenches/workspace-alpha-grounding');
+    expect(outro).toHaveBeenCalledWith(
+      'Launching .fixtures/workbenches/workspace-alpha-grounding from workspace-alpha-grounding/base.',
+    );
+    expect(cancel).not.toHaveBeenCalled();
+    expect(launches).toEqual([
+      expect.objectContaining({
+        cwd: WORKBENCH,
+        argv: ['--mode', 'tui', '--open-web'],
+      }),
+    ]);
+  });
 });

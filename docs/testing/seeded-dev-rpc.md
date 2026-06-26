@@ -126,8 +126,8 @@ When you need proof that the agent/tool path can expand a seeded fixture, run th
 ```bash
 "$REPO/node_modules/.bin/tsx" "$REPO/src/probes/fixture-curation-loop.ts" \
   --fixture-root "$REPO/.fixtures" \
-  --seed-set bilal-macro-view \
-  --seed-slug grounded-intent
+  --seed-name bilal-macro-view \
+  --seed-variant grounded-intent
 ```
 
 ## 7. Browser and sidecar notes

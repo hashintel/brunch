@@ -41,6 +41,7 @@ interface WorkbenchChoice {
 interface LaunchPromptPlan {
   readonly workspace: string;
   readonly seed?: string;
+  readonly reset: boolean;
   readonly openWeb: boolean;
 }
 
@@ -193,6 +194,7 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
   const prompts = options.prompts ?? defaultPrompts;
   let workspace = flags.workspace ?? (seedRef ? workbenchPathForSeed(seedRef) : currentWorkbench);
   let seed = flags.seed;
+  let reset = flags.reset;
   let openWeb = flags.openWeb;
 
   if (!workspace) {
@@ -206,13 +208,14 @@ async function runLaunchCommand(args: readonly string[], options: DevCliOptions 
     if (!plan) return 0;
     workspace = plan.workspace;
     seed = plan.seed;
+    reset = plan.reset;
     openWeb = plan.openWeb;
   }
 
-  if (seed && !flags.reset) {
+  if (seed && !reset) {
     throw new DevCliUsageError('Launch-time seeding requires --reset so the workspace state stays explicit.');
   }
-  if (!seed && flags.reset) {
+  if (!seed && reset) {
     throw new DevCliUsageError('--reset only applies when paired with --seed.');
   }
 
@@ -285,7 +288,7 @@ async function promptForLaunchPlan(prompts: DevCliPrompts): Promise<LaunchPrompt
   }
 
   prompts.outro(`Launching ${workspaceLabel}${seed ? ` from ${seed}` : ''}.`);
-  return { workspace, ...(seed ? { seed } : {}), openWeb };
+  return { workspace, ...(seed ? { seed } : {}), reset: seed !== undefined, openWeb };
 }
 
 async function runRpcCommand(args: readonly string[], options: DevCliOptions & { readonly cwd: string }) {
