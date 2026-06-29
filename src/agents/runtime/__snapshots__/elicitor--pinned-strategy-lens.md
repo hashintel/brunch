@@ -1,6 +1,6 @@
 # Agent: elicitor
 
-Preview role body from `src/agents/prompts/elicitor/SYSTEM.md`.
+Preview role body from `src/agents/prompts/elicitor.md`.
 
 [Brunch agent control]
 - agent: elicitor
@@ -11,8 +11,8 @@ Preview role body from `src/agents/prompts/elicitor/SYSTEM.md`.
 
 [Brunch runtime state]
 - op_mode: elicit
-- strategy: step-wise-disambiguate
-- lens: design
+- prompt strategy resource: step-wise-disambiguate
+- prompt lens resource: design
 - spec: COMPOSE Preview Spec (#101), readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, projection=0.00, commitment=0.00
 - workspace: /work/brunch-preview
 - workspace posture: certainty=proving; stakes=high; audience=internal; horizon=current-milestone; migration=free-rewrite; dependencies=resist
@@ -102,7 +102,8 @@ When a skill file references a relative path, resolve it against the skill direc
 
 [Brunch prompt-resource routing]
 - Use only resources advertised in <brunch-skills>; do not infer availability from the filesystem.
-- Strategy and lens are AUTO/pinnable axes: choose at most one advertised strategy and at most one advertised lens, then read the selected resource before applying detailed behavior.
+- Strategy and lens names are prompt-resource routing hints, not user-changeable session identity or stored foreground-agent roles.
+- When AUTO exposes several strategy or lens resources, choose at most one advertised resource of each kind, then read the selected resource before applying detailed behavior.
 - Methods compose freely when advertised; read a method skill when that mechanism is relevant to the next turn.
-- For pinned axes, the singleton skill of that kind is the selected resource.
-- Current pins: strategy=step-wise-disambiguate; lens=design.
+- For code-selected singleton resources, that singleton is the selected resource.
+- Current prompt-resource selection: strategy=step-wise-disambiguate; lens=design.

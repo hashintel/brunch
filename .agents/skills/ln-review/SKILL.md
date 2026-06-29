@@ -65,6 +65,8 @@ If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent 
 
 Collect gaps as numbered findings (category: `oracle-coverage`).
 
+**Test-oracle hygiene for topology/prose sentinels.** Source/doc/resource substring tests are suspicious unless they either cross the production consumer that uses the resource (loader, prompt composition, package asset build, public API) or name a live topology contract from SPEC / a co-located README. Brunch intentionally materializes architecture into topology, so do not ban topology tests; distinguish named architecture sentinels from arbitrary path/prose locks. Route repairs to consumer-level tests, named boundary sentinels with decision citations, or deletion of completed-migration residue.
+
 **Notation aid.** Map test artifacts against acceptance leaves with `pseudo matrix` (coverage variant): rows = obligation leaves from a `pseudo tree` decomposition of the frontier acceptance, columns = test artifacts. Gaps surface as `.` cells; partial coverage as `~`. Compact, scannable, and the matrix itself becomes a coverage artifact reviewers can re-run.
 
 ### Load-bearing layer coverage (category: `coverage-candidacy`)

@@ -151,7 +151,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(sessionStartIndexes[0]).toBeLessThan(sessionStartIndexes[1] ?? -1);
   });
 
-  it('registers the orchestrator stub tool on the default product extension path', async () => {
+  it('registers the executor stub tool on the default product extension path', async () => {
     const registeredTools: Array<{
       name: string;
       execute: (toolCallId: string, params: unknown) => Promise<{ content: readonly { text: string }[] }>;
@@ -176,7 +176,7 @@ describe('Brunch explicit Pi extension registry', () => {
     const stub = registeredTools.find((tool) => tool.name === BRUNCH_ORCHESTRATOR_STUB_TOOL);
     expect(stub).toBeDefined();
     await expect(stub!.execute('call-1', { message: 'standup' })).resolves.toMatchObject({
-      content: [{ type: 'text', text: 'orchestrator stub ran: standup' }],
+      content: [{ type: 'text', text: 'executor stub ran: standup' }],
     });
   });
 

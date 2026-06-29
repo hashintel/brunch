@@ -113,20 +113,20 @@ describe('Brunch agent runtime-state projection', () => {
     expect(parseBrunchAgentState(executeState)).toEqual(executeState);
     expect(projectBrunchAgentState([runtimeEntry(executeState as BrunchAgentState)])).toMatchObject({
       ...executeState,
-      agentRole: 'orchestrator',
+      agentRole: 'executor',
       operationalModeDefinition: {
         id: 'execute',
         foregroundAgent: {
-          id: 'orchestrator',
+          id: 'executor',
           kind: 'foreground',
           canDelegate: [],
         },
         toolPolicy: {
-          id: 'execute-orchestrator',
+          id: 'execute-executor',
         },
       },
       agentRoleDefinition: {
-        id: 'orchestrator',
+        id: 'executor',
         kind: 'foreground',
         operationalMode: 'execute',
       },

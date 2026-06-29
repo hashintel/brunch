@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -38,6 +38,7 @@ import {
   registerBrunchSubagents,
   type BrunchSubagentsDeps,
 } from '../subagents/index.js';
+import { composeBackgroundSubagentPrompt } from '../subagents/prompt-assembly.js';
 import {
   createSubagentToolCatalog,
   planSubagentTools,
@@ -131,11 +132,9 @@ describe('loadSubagentDefinitions (bundled agents)', () => {
 
   it('loads only the explicit registry ids and ignores planted unlisted SYSTEM.md files', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-subagent-registry-'));
-    await mkdir(join(dir, 'explorer'));
-    await writeFile(join(dir, 'explorer', 'SYSTEM.md'), EXPLORER_MD);
-    await mkdir(join(dir, 'ghost'));
+    await writeFile(join(dir, 'explorer.md'), EXPLORER_MD);
     await writeFile(
-      join(dir, 'ghost', 'SYSTEM.md'),
+      join(dir, 'ghost.md'),
       '---\nname: ghost\ndescription: Should not load\ntools: bash\n---\nYou should not see me.',
     );
 
@@ -674,6 +673,23 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
       dispose: () => provider.unregister(),
     };
   }
+
+  it('locks the assembled explorer background prompt shape', async () => {
+    const def = parseSubagentMarkdown(EXPLORER_MD);
+    const rendered = composeBackgroundSubagentPrompt({
+      definition: def,
+      world: injectedWorld({ cwd: '/work/brunch-subagent' }).snapshot,
+    }).prompt;
+
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/subagent-explorer-prompt.md');
+    expect(rendered).toContain('You are an explorer.');
+    expect(rendered).toContain('[Brunch background subagent control]');
+    expect(rendered).toContain('[Brunch injected world snapshot]');
+    expect(rendered).toContain('[Brunch background routing]');
+    expect(rendered).not.toContain('[Brunch elicitation recommendation]');
+    expect(rendered).not.toContain('Current prompt-resource selection');
+    expect(rendered).toContain('ambient Pi resources: sealed out');
+  });
 
   it('runs a tool-less projector, owning the system prompt and returning its output', async () => {
     const rig = await fauxRig('PROPOSED VARIANT');

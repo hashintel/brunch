@@ -5,7 +5,7 @@ description: "Acquire user-provided pasted material as conversational transcript
 
 # Method: ingest paste
 
-Use this acquisition mode when the human provides a block of text, notes, requirements, logs, transcript excerpts, or other pasted material as the ground material for the selected spec. The paste enters the conversation directly; capture stays uniform and happens through the next capture sweep.
+Use this acquisition mode when the human provides a block of text, notes, requirements, logs, transcript excerpts, or other pasted material as the ground material for the selected spec. The paste enters the conversation directly; this method stays thin and capture stays uniform through the next banded capture-sweep.
 
 ## Use when
 
@@ -24,7 +24,7 @@ For large pasted material, compress before committing: name the sections, preser
 chain ingest-paste:
   user paste
     -> brief assistant orientation if useful
-    -> capture sweep over paste/conversation
+    -> banded capture-sweep over paste/conversation
     -> explicit or implicit graph commits only when confidence is high
     -> gaps for unresolved or ambiguous implications
 ```

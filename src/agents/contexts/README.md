@@ -14,7 +14,7 @@ contexts/
 ├── graph/            graph overview/neighborhood, related-node, mutation, reconciliation text
 ├── elicitation.ts    elicitation agenda/update text
 ├── workspace/        <workspace> context text
-├── specification/    <specification> context text
+├── spec/             <specification> context text
 ├── session/          <session> runtime-frame and readiness text
 └── exchanges/        present_* / request_* structured-exchange result text
 ```
@@ -31,7 +31,7 @@ rules:
 
 `src/.pi/__tests__/architecture.test.ts` guards the adapter half of this boundary for `brunch-data` and structured-exchange tools: Pi adapters may own schemas, labels, descriptions, prompt snippets, and TUI rendering, but provider-visible Brunch text must be imported from this subtree rather than formatted inline.
 
-`references/` files are runtime-eligible agent-readable context references. They are shared cite targets for prompt resources when vocabulary or judgment content should be loaded on demand without copying tables into skill bodies. Generated references, such as `references/graph-ontology.md`, are committed artifacts with their source-of-truth and drift-check command named in the file. Authored references, such as `references/graph-authoring-heuristics.md`, carry shared judgment with concrete skill readers and must point to generated references for vocabulary rather than restating tables. The packaged CLI copies this subtree into `dist/agents/contexts/references/` because skills may cite these files at runtime.
+`references/` files are runtime-eligible agent-readable context references. They are shared cite targets for prompt resources when vocabulary or judgment content should be loaded on demand without copying tables into skill bodies. Generated references, such as `references/graph-ontology.md`, are committed artifacts with their source-of-truth and drift-check command named in the file. Authored references, such as `references/graph-authoring-heuristics.md`, carry shared judgment with concrete skill readers and must point to generated references for vocabulary rather than restating tables. Draft injectable slice candidates may live here while being evaluated when they self-label as drafts and are not treated as required prompt-resource payload until a skill or prompt cites them. The packaged CLI copies this subtree into `dist/agents/contexts/references/` because skills may cite these files at runtime.
 
 ## Snapshot convention
 

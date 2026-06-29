@@ -307,7 +307,7 @@ describe('composeAgentPrompt', () => {
     });
 
     expect(result.prompt).not.toMatch(/- goal:/);
-    expect(result.prompt).toContain('- strategy: step-wise-disambiguate');
+    expect(result.prompt).toContain('- prompt strategy resource: step-wise-disambiguate');
     expect(Object.keys(result.manifests)).toEqual(['strategies', 'lenses', 'methods']);
     expect(result.manifests.strategies.map((entry) => entry.name)).toEqual(['step-wise-disambiguate']);
     // D86-L: commit-graph + generate-proposal are floor (graph-write is never readiness-gated);
@@ -434,7 +434,7 @@ function composePreviewPrompt(input: Partial<ComposeAgentPromptInput> = {}): str
     workspace: previewWorkspace,
     activeTools: ['read', 'grep', 'find', 'ls', 'present_question', 'request_response'],
     gaps: previewFloorGaps(0),
-    agentBody: '# Agent: elicitor\n\nPreview role body from `src/agents/prompts/elicitor/SYSTEM.md`.',
+    agentBody: '# Agent: elicitor\n\nPreview role body from `src/agents/prompts/elicitor.md`.',
     ...input,
   }).prompt;
 }
@@ -452,6 +452,9 @@ function expectPromptContracts(rendered: string): void {
   expect(rendered).toContain('<brunch-skills>');
   expect(rendered).not.toMatch(/\bgoal=/);
   expect(rendered).not.toMatch(/- goal:/);
+  expect(rendered).not.toContain('- strategy:');
+  expect(rendered).not.toContain('- lens:');
+  expect(rendered).toContain('prompt-resource routing hints, not user-changeable session identity');
 }
 
 describe('composeAgentPrompt previews', () => {
@@ -494,6 +497,39 @@ describe('composeAgentPrompt previews', () => {
     expectPromptContracts(rendered);
     expect(rendered).toContain('<name>step-wise-disambiguate</name>');
     expect(rendered).toContain('<name>design</name>');
+  });
+
+  it('executor--execute-default: executor prompt omits elicitor-only guidance', async () => {
+    const rendered = normalizeRepoPaths(
+      composePreviewPrompt({
+        agentId: 'executor',
+        sessionState: projectBrunchAgentState([
+          {
+            type: 'custom',
+            customType: 'brunch.agent_runtime_state',
+            data: {
+              schemaVersion: 1,
+              reason: 'switch',
+              source: 'user',
+              state: {
+                ...DEFAULT_BRUNCH_AGENT_STATE,
+                operationalMode: 'execute',
+              },
+            },
+          },
+        ]),
+        activeTools: ['read', 'grep', 'find', 'ls', 'orchestrator_stub'],
+        agentBody: '# Agent: executor\n\nPreview role body from `src/agents/prompts/executor.md`.',
+      }),
+    );
+
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/executor--execute-default.md');
+    expect(rendered).toContain('# Agent: executor');
+    expect(rendered).toContain('- op_mode: execute');
+    expect(rendered).not.toContain('[Brunch elicitation recommendation]');
+    expect(rendered).not.toContain('[Brunch prompt-resource routing]');
+    expect(rendered).not.toContain('<brunch-skills>');
+    expect(rendered).not.toContain('Current prompt-resource selection');
   });
 
   it('elicitor--pushed-context: fixture handles and rendered contexts present', async () => {

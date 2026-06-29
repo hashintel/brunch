@@ -15,7 +15,7 @@
 
 Brunch-next has delivered the original composition spine: the host, sealed Pi profile, transcript substrate, SQLite graph plane, public RPC, TUI/web observer shape, generalized capture, review-set commitment path, and public-entry ship gate all have evidence. The live plan is no longer organized around the old delivery cut. Active work is now the elicitor capability spine and the remaining hardening frontiers that build on that substrate.
 
-**Active arcs.** Work is organized into multi-frontier **initiatives (arcs)** — see [§Initiatives](#initiatives) for through-lines, member frontiers, and done-definitions: the completed **skill-substrate** arc (populate / weed / lock), the active **elicitor-capability-spine** arc (`capture` / `generate` done, `project` next), and the active **context-pipeline** arc (PULL / PROJECT / COMPOSE locked, RENDER open).
+**Active arcs.** Work is organized into multi-frontier **initiatives (arcs)** — see [§Initiatives](#initiatives) for through-lines, member frontiers, and done-definitions: the completed **skill-substrate** arc (populate / weed / lock), the active **elicitor-capability-spine** arc (`capture` / `generate` done, `project` next), and the active **context-pipeline** arc (PULL / PROJECT / COMPOSE locked, RENDER still open for final prompt/subagent topology closure).
 
 **Topology and evidence discipline.** Directory `README.md` files under `src/**` own current topology state. `memory/SPEC.md` owns product contract and architectural decisions; `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -48,7 +48,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Done-definition:** all three capabilities carry promoted real-model evidence; no capability remains a stub or a method-less axis member. Open follow-ups (A32-L fan-in completion, the A1 anti-prompt) are tracked on their assumptions, not as arc blockers.
 - **Anchors:** D95-L, D96-L; A31-L–A35-L; I51-L.
 
-### context-pipeline — ◐ active
+### context-pipeline — ✓ done (2026-06-26)
 
 - **Goal:** lock the PULL → PROJECT → RENDER → COMPOSE context pipeline (D60-L).
 
@@ -56,23 +56,24 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 context-pipeline/
 ├── PULL      graph + session reads       ✓ done
 ├── PROJECT   projections/                ✓ done
-├── RENDER    agents/contexts + local human outputs ◐ open: renderer-golden-coverage (FE-870)
-└── COMPOSE   system-prompts + skills     ✓ done*
+├── RENDER    agents/contexts + local human outputs ✓ done
+└── COMPOSE   system-prompts + skills     ✓ done
 
-*COMPOSE has one deferred full-stack real-rendered-context tripwire owned by RENDER.
+Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.md`; background subagent bodies are flat under `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`; the old nested prompt-body convention is retired from loaders, docs, tests, and package asset copying.
 ```
 
-- **Done-definition:** every pipeline stage closed or owned by a live coverage frontier; the COMPOSE full-stack tripwire discharged by RENDER. `renderer-golden-coverage` is a parallel evidence/quality track, never a ship gate.
+- **Done-definition:** every pipeline stage closed; COMPOSE's full-stack tripwire discharged by RENDER; foreground prompt bodies flattened under `src/agents/prompts/{elicitor,executor}.md`; background subagent bodies flattened under `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`; no stale `prompts/<agent>/SYSTEM.md` convention remains in docs, tests, or packaged asset copying.
 - **Anchors:** D60-L; D83-L (RENDER house style).
 
 ## Sequencing
 
 ### Active
 
-- No active frontier is selected. Scope the next item from §Next.
+- _None._
 
 ### Recently Completed
 
+- 2026-06-26 `renderer-golden-coverage` (FE-1091) — **context pipeline done.** The final topology slice flattened foreground prompt bodies to `src/agents/prompts/{elicitor,executor}.md`, moved background bodies to `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`, retired nested prompt-body directories and the unwired `pi-coder` body, updated explicit registries/loaders and packaged asset copying, and reconciled `src/agents/` / prompt / subagent topology READMEs.
 - 2026-06-26 `data-model-legibility` (FE-1090) — **reference substrate complete.** Generated ontology tables are materialized from typed graph sources with `check:data-model`; authored graph-authoring heuristics are cited by `capture` + `commit-graph`; the final checkability/subtype audit closed with no schema/runtime expansion: progressive checkability is accepted only as skill-local oracle conduct, `checkability`/`strength` fields are rejected carrying cost, subtype enums are rejected as parallel ontology, and `detail.form` remains inert payload plus renderer hook.
 - 2026-06-25 `elicitor-generate` (FE-1059) — **generate capability done through promoted A31-L fan-out evidence.** Built slices: `present_candidates` tool/projection/renderer + pick path; intent/design/oracle facets under one plane-parameterized `generate-proposal` method; progressive-disclosure references; real-boot activation check; and real-model fan-out witness harness. Promoted run `.fixtures/runs/generate-fan-out/2026-06-24T16-51-13-704Z/` passed with `openai-codex/gpt-5.5`: oracle lens pinned, `SKILL.md` and `references/oracle.md` read, `present_candidates` emitted, no pre-prompt kick, no graph delta, no `mutate_graph`, and no approved review result. A32-L fan-in completion and the A1 anti-prompt remain follow-ups, not branch debt.
 - 2026-06-24 `subagent-reconciliation` (FE-1054) — foreground/background reconciliation complete through the execute-mode readiness target (D90-L-D93-L/I49-L): shared `AgentManifest`, code-owned background discovery, semi-permeable injected-world child sessions, sovereign grants gated by code-owned `canDelegate`, return rendering, and live `execute` -> `orchestrator` mode with a product-registered stub tool. `code` -> `pi-coder` remains future work.
@@ -83,7 +84,6 @@ context-pipeline/
 
 - `orchestrator-tool-port` (FE-1087) — **scoped but D98-sensitive.** Port the external `brunch cook` orchestrator into the future CODE/executor tool surface rather than preserving a separate execute/orchestrator product mode. First active scope: `memory/cards/orchestrator-tool-port--plan-check-tool.md`; reconcile that scope against D98-L before build.
 - `elicitor-project` (FE-1085) — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
-- `renderer-golden-coverage` — **active parallel coverage track.** Remaining RENDER work lives by audience: model-facing context surfaces under `agents/contexts/`, human/product text beside its app/session owner. Remaining rows need fresh scoping against `src/agents/contexts/README.md`, `src/app/README.md`, and `src/session/README.md`.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 
 ### Parallel / Low-Conflict
@@ -159,13 +159,17 @@ context-pipeline/
 ### renderer-golden-coverage
 
 - **Name:** Adopt the D83-L context-render house style and lock remaining RENDER-stage surfaces
-- **Linear:** [FE-870](https://linear.app/hash/issue/FE-870)
-- **Branch:** `ln/fe-870-renderer-golden-context-tools`
+- **Linear:** [FE-1091](https://linear.app/hash/issue/FE-1091/renderer-golden-coverage-and-prompt-assembly-lock)
+- **Branch:** `ln/fe-1091-renderer-golden-coverage-and-prompt-assembly-lock`
 - **Kind:** coverage + build / hardening
-- **Status:** next / active parallel. Substrate, `<workspace>`, `<specification>`, graph overview/neighborhood renders, and band-filtered graph slice hardening are done. Remaining work needs a fresh `ln-scope` pass.
-- **Objective:** Finish the RENDER stage: `<session>`, `renderGraphSeed`, `exchanges/*`, `formatRelatedNodesResult` structural-leak repair, and the `brunch print` house-style-vs-status fork.
-- **Acceptance:** `src/agents/contexts/README.md`, `src/app/README.md`, and `src/session/README.md` carry the audience split; required model-facing rows are built in the house style and locked with focused goldens/semantic invariants; no adapter/transport imports enter `agents/contexts/`.
-- **Traceability:** D19-L, D52-L, D60-L, D62-L, D83-L.
+- **Status:** done. The render/prompt sweep ledger closed renderer and assembly evidence, and the final topology slice flattened foreground prompt bodies to `src/agents/prompts/{elicitor,executor}.md` and background subagent bodies to `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`.
+- **Current execution pointer:** none; scope file consumed and retired.
+- **Certainty:** earned — RENDER topology is now established; this frontier closed coverage, prompt assembly evidence, and stale topology ambiguity rather than proving a new seam.
+- **Closes:** context-pipeline RENDER stage plus the COMPOSE full-stack real-rendered-context tripwire.
+- **Locks in:** D83-L house style for model-facing context surfaces and prompt assembly as a golden/semantic-invariant surface.
+- **Objective:** Finish the RENDER stage and lock system-prompt assembly as a golden surface. Remaining work lives by audience: model-facing context and prompt text under `src/agents/`, human/product text beside its app/session owner. Incidental prompt remodelling belongs here only when needed to make prompt assembly lockable: foreground prompts flatten to `src/agents/prompts/elicitor.md` and `src/agents/prompts/executor.md`; subagent prompt bodies flatten to `src/agents/subagents/{explorer,reviewer,researcher,projector}.md`; `src/agents/` topology must make `contexts`, `prompts`, `runtime`, `shared`, `skills`, and `subagents` roles legible. This frontier also extends D83-L to thin graph-derived markdown document outputs for selected-spec and plan-plane material, as future web/download response sources.
+- **Acceptance:** `src/agents/contexts/README.md`, `src/agents/prompts/README.md`, `src/agents/runtime/README.md`, `src/agents/subagents/README.md`, `src/app/README.md`, and `src/session/README.md` carry the audience/topology split; required model-facing renderer rows are built in the house style and locked with focused goldens/semantic invariants; system prompt assembly is locked with goldens/semantic invariants; selected-spec context moves from `contexts/specification/specification-context.ts` to `contexts/spec/spec-context.ts`; `contexts/spec/spec-output.ts` and `contexts/plan/plan-output.ts` use md-pen to render thin markdown-flattened outputs from graph/projection input rather than from `memory/SPEC.md` / `memory/PLAN.md`; foreground prompt files are flat (`prompts/elicitor.md`, `prompts/executor.md`); subagent files are flat under `subagents/`; no adapter/transport imports enter `agents/contexts/`; prompt topology remodel deletes obsolete role/body aliases rather than preserving compatibility shims.
+- **Traceability:** D19-L, D40-L, D52-L, D58-L, D60-L, D62-L, D83-L, D98-L.
 
 ### exchange-symmetry-audit
 
@@ -182,7 +186,11 @@ context-pipeline/
 
 ```text
 frontiers:
-  Active: {}
+  Active:
+    renderer-golden-coverage
+      status: done (RENDER coverage + prompt assembly lock + prompt/subagent topology flattening)
+      depends_on: context-pipeline PULL+PROJECT, D83-L, D52-L, D58-L, D98-L
+      coordinates_with: data-model-legibility (references substrate), elicitor-generate (present_candidates render already landed in house style)
 
   Next:
     orchestrator-tool-port
@@ -193,11 +201,6 @@ frontiers:
     elicitor-project
       status: design-gated
       depends_on: elicitor-generate, D95-L, D96-L, I51-L
-
-    renderer-golden-coverage
-      status: active parallel coverage
-      depends_on: context-pipeline PULL+PROJECT, D83-L, D52-L
-      coordinates_with: elicitor-generate (present_candidates render already landed in house style)
 
     exchange-symmetry-audit
       status: earned cleanup

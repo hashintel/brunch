@@ -37,6 +37,6 @@ present_candidates({ heading, candidates: [oracle ensembles] })
 
 Do not add an oracle-specific tool, schema field, multi-select affordance, or bespoke commit path. The user may recognize one ensemble as the base direction and ask for pieces from another; the composition happens in your reasoning and is made concrete only in the review-set batch. If the ensemble cannot be expressed without a multi-select affordance, stop and surface that as the fan-in falsifier instead of inventing `fan_in_mode` here.
 
-When producing the review set, express oracle commitments as graph vocabulary learned from the active context/rendered ontology surfaces. Prefer checks, criteria, evidence obligations, proof/support edges, fixture/probe commitments, and named blind spots. Do not present an implementation task as an oracle unless it names the observation that discriminates success from failure.
+When producing the review set, express oracle commitments as graph vocabulary learned from the active context/rendered ontology surfaces. Prefer checks, criteria, evidence obligations, `witness` / `rationale` edges, fixture/probe commitments, and named blind spots. Do not present an implementation task as an oracle unless it names the observation that discriminates success from failure.
 
 Keep epistemic status honest. With thin grounding, offer low-resolution oracle ensembles and name what evidence would make them safer. With richer graph context, attach the ensemble to specific claims, invariants, criteria, and known failure modes.

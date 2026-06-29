@@ -30,7 +30,7 @@ export function createOrchestratorStubTool(): ToolDefinition<
     parameters: OrchestratorStubParams,
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       return {
-        content: [{ type: 'text' as const, text: `orchestrator stub ran: ${params.message}` }],
+        content: [{ type: 'text' as const, text: `executor stub ran: ${params.message}` }],
         details: { message: params.message },
       };
     },

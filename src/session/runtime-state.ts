@@ -10,7 +10,7 @@ import {
 
 export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE = 'brunch.agent_runtime_state';
 
-export type ToolPolicyId = 'elicit-read-only' | 'execute-orchestrator';
+export type ToolPolicyId = 'elicit-read-only' | 'execute-executor';
 export type PromptPackId = 'brunch-base' | 'elicit' | 'elicitor';
 export type ModelPreference = 'default';
 export type ThinkingLevel = 'low' | 'medium' | 'high';

@@ -1,65 +1,57 @@
-import { access, readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { access, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 import { describe, expect, it } from 'vitest';
 
+import {
+  BACKGROUND_SUBAGENT_IDS,
+  loadSubagentDefinitions,
+  subagentAgentsDir,
+} from '../../../.pi/extensions/subagents/agents.js';
+import { BUNDLED_AGENT_BODY_IDS, bundledAgentBodyLocation } from '../../registry.js';
+
+const execFileAsync = promisify(execFile);
+
 const projectRoot = dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 
-const agentDefinitionExpectations = [
-  {
-    system: 'src/agents/prompts/elicitor/SYSTEM.md',
-    legacyFlat: 'src/.pi/agents/elicitor.md',
-    needles: ['# Agent: elicitor', 'multi-spec discipline'],
-  },
-  {
-    system: 'src/agents/prompts/orchestrator/SYSTEM.md',
-    needles: ['# Agent: orchestrator', 'execute mode'],
-  },
-  {
-    system: 'src/agents/prompts/reviewer/SYSTEM.md',
-    legacyFlat: 'src/.pi/agents/reviewer.md',
-    needles: ['name: reviewer', 'checking candidate'],
-  },
-  {
-    system: 'src/agents/prompts/explorer/SYSTEM.md',
-    needles: ['name: explorer', 'read-only reconnaissance agent'],
-  },
-  {
-    system: 'src/agents/prompts/researcher/SYSTEM.md',
-    needles: ['name: researcher', 'web-research agent'],
-  },
-  {
-    system: 'src/agents/prompts/projector/SYSTEM.md',
-    needles: ['name: projector', 'candidate-proposal'],
-  },
-  {
-    system: 'src/agents/prompts/pi-coder/SYSTEM.md',
-    needles: [
-      'expert coding assistant operating inside *brunch*',
-      'Show file paths clearly when working with files',
-    ],
-  },
-];
+async function expectMissing(path: string): Promise<void> {
+  await expect(access(join(projectRoot, path))).rejects.toThrow();
+}
 
 describe('agent prompt bodies', () => {
-  it('keeps agent body resources under src/agents/prompts/<agent>/SYSTEM.md', async () => {
-    for (const expectation of agentDefinitionExpectations) {
-      const content = await readFile(join(projectRoot, expectation.system), 'utf8');
-      for (const needle of expectation.needles) {
-        expect(content).toContain(needle);
-      }
-      if (expectation.legacyFlat) {
-        await expect(access(join(projectRoot, expectation.legacyFlat))).rejects.toThrow();
-      }
+  it('loads foreground bodies through the code-owned registry', async () => {
+    for (const id of BUNDLED_AGENT_BODY_IDS) {
+      await expect(access(bundledAgentBodyLocation(id))).resolves.toBeUndefined();
     }
   });
 
-  it('records the adopted body topology in the local README', async () => {
-    const readme = await readFile(join(projectRoot, 'src/agents/prompts/README.md'), 'utf8');
+  it('loads background subagents through their explicit registry', async () => {
+    const definitions = await loadSubagentDefinitions(subagentAgentsDir());
+    expect([...definitions.keys()].sort()).toEqual([...BACKGROUND_SUBAGENT_IDS].sort());
+  });
 
-    expect(readme).toContain('SYSTEM.md convention is adopted');
-    expect(readme).toContain('Background frontmatter is authoring DX');
-    expect(readme).toContain('Unlisted directories are not spawnable');
+  it('builds generated agent assets without retired nested prompt-body directories', async () => {
+    await execFileAsync('npm', ['run', 'build:pi-assets'], { cwd: projectRoot });
+
+    await expectMissing('dist/agents/prompts/elicitor/SYSTEM.md');
+    await expectMissing('dist/agents/prompts/executor/SYSTEM.md');
+    await expectMissing('dist/agents/prompts/explorer/SYSTEM.md');
+    await expectMissing('dist/agents/prompts/pi-coder/SYSTEM.md');
+    await expectMissing('dist/agents/prompts/projector/SYSTEM.md');
+    await expectMissing('dist/agents/prompts/researcher/SYSTEM.md');
+    await expectMissing('dist/agents/prompts/reviewer/SYSTEM.md');
+    expect((await readdir(join(projectRoot, 'dist/agents/prompts'))).sort()).toEqual([
+      'elicitor.md',
+      'executor.md',
+    ]);
+    expect((await readdir(join(projectRoot, 'dist/agents/subagents'))).sort()).toEqual([
+      'explorer.md',
+      'projector.md',
+      'researcher.md',
+      'reviewer.md',
+    ]);
   });
 });

@@ -1,3 +1,6 @@
+import { access } from 'node:fs/promises';
+import { relative } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -10,22 +13,18 @@ import {
 } from '../registry.js';
 
 describe('agent context registry', () => {
-  it('centralizes bundled prompt and current skill paths', () => {
-    expect(BUNDLED_AGENT_BODY_IDS).toEqual([
-      'elicitor',
-      'orchestrator',
-      'explorer',
-      'researcher',
-      'projector',
-      'reviewer',
-      'pi-coder',
-    ]);
-    expect(bundledAgentBodyRepoPath('elicitor')).toBe('src/agents/prompts/elicitor/SYSTEM.md');
-    expect(bundledAgentBodyLocation('reviewer')).toMatch(/src\/agents\/prompts\/reviewer\/SYSTEM\.md$/);
-    expect(bundledAgentBodyHome()).toMatch(/src\/agents\/prompts$/);
-    expect(promptResourceLocation('methods', 'generate-proposal')).toMatch(
-      /src\/agents\/skills\/methods\/generate-proposal\/SKILL\.md$/,
-    );
-    expect(promptResourceAgentDir()).toMatch(/src\/agents\/?$/);
+  it('owns the foreground body registry contract', async () => {
+    expect(BUNDLED_AGENT_BODY_IDS).toEqual(['elicitor', 'executor']);
+    expect(bundledAgentBodyRepoPath('elicitor')).toBe('src/agents/prompts/elicitor.md');
+
+    for (const id of BUNDLED_AGENT_BODY_IDS) {
+      await expect(access(bundledAgentBodyLocation(id))).resolves.toBeUndefined();
+      expect(relative(bundledAgentBodyHome(), bundledAgentBodyLocation(id))).toBe(`${id}.md`);
+    }
+  });
+
+  it('resolves prompt-resource skills under the Brunch agent resource home', () => {
+    const location = promptResourceLocation('methods', 'generate-proposal');
+    expect(relative(promptResourceAgentDir(), location)).toBe('skills/methods/generate-proposal/SKILL.md');
   });
 });

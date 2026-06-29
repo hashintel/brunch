@@ -40,10 +40,10 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
     input.agentBody ?? '',
     renderAgentControl(input, definition),
     renderRuntimeState(input),
-    renderElicitationRecommendation(input),
+    renderElicitorOnlySection(input, renderElicitationRecommendation(input)),
     renderPushedContext(input.context),
-    renderBrunchSkills(manifests),
-    renderRouterRules(input.sessionState),
+    renderElicitorOnlySection(input, renderBrunchSkills(manifests)),
+    renderElicitorOnlySection(input, renderRouterRules(input.sessionState)),
   ]);
 
   return { prompt, manifests };
@@ -68,8 +68,8 @@ function renderRuntimeState(input: ComposeAgentPromptInput): string {
   return [
     '[Brunch runtime state]',
     `- op_mode: ${input.sessionState.operationalMode}`,
-    `- strategy: ${input.sessionState.agentStrategy}`,
-    `- lens: ${input.sessionState.agentLens}`,
+    `- prompt strategy resource: ${input.sessionState.agentStrategy}`,
+    `- prompt lens resource: ${input.sessionState.agentLens}`,
     `- spec: ${input.spec.name} (#${input.spec.id}), ${renderSoftReadinessEstimate(input.gaps)}`,
     `- workspace: ${input.workspace.cwd}`,
     `- workspace posture: ${renderPosture(input.workspace.posture)}`,
@@ -82,6 +82,10 @@ function renderPosture(posture: AgentPromptWorkspaceContext['posture']): string 
     Boolean(entry[1]?.trim()),
   );
   return entries.length > 0 ? entries.map(([key, value]) => `${key}=${value}`).join('; ') : 'unrecorded';
+}
+
+function renderElicitorOnlySection(input: ComposeAgentPromptInput, section: string): string {
+  return input.sessionState.agentRole === 'elicitor' ? section : '';
 }
 
 function renderElicitationRecommendation(input: ComposeAgentPromptInput): string {
@@ -122,10 +126,11 @@ function renderRouterRules(state: ResolvedBrunchAgentState): string {
   return [
     '[Brunch prompt-resource routing]',
     '- Use only resources advertised in <brunch-skills>; do not infer availability from the filesystem.',
-    '- Strategy and lens are AUTO/pinnable axes: choose at most one advertised strategy and at most one advertised lens, then read the selected resource before applying detailed behavior.',
+    '- Strategy and lens names are prompt-resource routing hints, not user-changeable session identity or stored foreground-agent roles.',
+    '- When AUTO exposes several strategy or lens resources, choose at most one advertised resource of each kind, then read the selected resource before applying detailed behavior.',
     '- Methods compose freely when advertised; read a method skill when that mechanism is relevant to the next turn.',
-    '- For pinned axes, the singleton skill of that kind is the selected resource.',
-    `- Current pins: strategy=${state.agentStrategy}; lens=${state.agentLens}.`,
+    '- For code-selected singleton resources, that singleton is the selected resource.',
+    `- Current prompt-resource selection: strategy=${state.agentStrategy}; lens=${state.agentLens}.`,
   ].join('\n');
 }
 

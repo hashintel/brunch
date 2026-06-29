@@ -139,8 +139,8 @@ describe('Brunch prompt-pack topology', () => {
     expect(result.prompt).toContain('[Brunch agent control]');
     expect(result.prompt).toContain('- op_mode: elicit');
     expect(result.prompt).not.toMatch(/- goal:/);
-    expect(result.prompt).toContain('- strategy: step-wise-decision-tree');
-    expect(result.prompt).toContain('- lens: intent');
+    expect(result.prompt).toContain('- prompt strategy resource: step-wise-decision-tree');
+    expect(result.prompt).toContain('- prompt lens resource: intent');
     expect(result.prompt).not.toContain('<available_goals>');
     expect(result.prompt).toContain('<brunch-skills>');
     expect(result.prompt).toContain('<kind>strategy</kind>');
@@ -196,7 +196,7 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.stringContaining('[Brunch agent control]'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('- strategy: step-wise-disambiguate'),
+      systemPrompt: expect.stringContaining('- prompt strategy resource: step-wise-disambiguate'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('- active tools: read, grep, present_question, request_response'),
@@ -394,10 +394,10 @@ describe('Brunch prompt-pack topology', () => {
       elicitFloorTools,
     ]);
     expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('- strategy: auto'),
+      systemPrompt: expect.stringContaining('- prompt strategy resource: auto'),
     });
     expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('- strategy: step-wise-decision-tree'),
+      systemPrompt: expect.stringContaining('- prompt strategy resource: step-wise-decision-tree'),
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
