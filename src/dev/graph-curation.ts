@@ -9,9 +9,10 @@ import type {
   GraphMutationNodeRef,
   GraphMutationOp,
   MutateGraphInput,
+  MutateGraphResult,
   NodePatch,
   StructuralIllegal,
-} from '../../graph/command-executor/graph-mutation-types.js';
+} from '../graph/command-executor/graph-mutation-types.js';
 import {
   authoredEdgeEndpointFields,
   CLAIM_FORM_JSON_SCHEMAS,
@@ -23,13 +24,10 @@ import {
   NODE_KINDS,
   NODE_KINDS_REQUIRING_DETAIL,
   NODE_KINDS_WITH_FORM_DETAIL,
+  openWorkspaceGraphRuntime,
   parseGraphNodeCode,
   type NodeKindWithFormDetail,
-} from '../../graph/index.js';
-import { graphMutationProductUpdates } from '../product-updates.js';
-import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
-import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
-import { PositiveIntegerSchema } from './schemas.js';
+} from '../graph/index.js';
 
 const BasisSchema = Type.Union([Type.Literal('explicit'), Type.Literal('implicit')]);
 const NodePlaneSchema = Type.Union([
@@ -160,7 +158,7 @@ const DevPatchNodeOpSchema = Type.Object(
 const DevPatchEdgeOpSchema = Type.Object(
   {
     op: Type.Literal('patch_edge'),
-    edgeId: PositiveIntegerSchema,
+    edgeId: Type.Integer({ minimum: 1 }),
     patch: DevEdgePatchSchema,
   },
   { additionalProperties: false },
@@ -169,7 +167,7 @@ const DevPatchEdgeOpSchema = Type.Object(
 const DevDeleteEdgeOpSchema = Type.Object(
   {
     op: Type.Literal('delete_edge'),
-    edgeId: PositiveIntegerSchema,
+    edgeId: Type.Integer({ minimum: 1 }),
   },
   { additionalProperties: false },
 );
@@ -192,9 +190,9 @@ const DevMutateGraphOpSchema = Type.Union([
   DevDeleteNodeOpSchema,
 ]);
 
-const DevMutateGraphParamsSchema = Type.Object(
+export const DevMutateGraphParamsSchema = Type.Object(
   {
-    specId: PositiveIntegerSchema,
+    specId: Type.Integer({ minimum: 1 }),
     createBasis: Type.Optional(BasisSchema),
     ops: Type.Array(DevMutateGraphOpSchema),
   },
@@ -262,118 +260,28 @@ type DevMutateGraphOp =
   | DevDeleteEdgeOp
   | DevDeleteNodeOp;
 
-interface DevMutateGraphParams {
+export interface DevMutateGraphParams {
   readonly specId: number;
   readonly createBasis?: DevBasis | undefined;
   readonly ops: readonly DevMutateGraphOp[];
 }
 
-const DiagnosticSchema = Type.Object(
-  {
-    field: Type.String(),
-    message: Type.String(),
-  },
-  { additionalProperties: false },
-);
+export function parseDevMutateGraphParams(value: unknown): DevMutateGraphParams | null {
+  if (!Value.Check(DevMutateGraphParamsSchema, value)) return null;
+  return Value.Parse(DevMutateGraphParamsSchema, value);
+}
 
-const DevMutateGraphResultSchema = Type.Union([
-  Type.Object(
-    {
-      status: Type.Literal('success'),
-      lsn: Type.Number(),
-      createdNodes: Type.Record(
-        Type.String(),
-        Type.Object(
-          {
-            id: Type.Number(),
-            code: Type.String(),
-          },
-          { additionalProperties: false },
-        ),
-      ),
-      createdEdges: Type.Array(Type.Number()),
-      updatedNodes: Type.Array(Type.Number()),
-      updatedEdges: Type.Array(Type.Number()),
-      deletedNodes: Type.Array(Type.Number()),
-      deletedEdges: Type.Array(Type.Number()),
-    },
-    { additionalProperties: false },
-  ),
-  Type.Object(
-    {
-      status: Type.Literal('structural_illegal'),
-      diagnostics: Type.Array(DiagnosticSchema),
-    },
-    { additionalProperties: false },
-  ),
-]);
-
-export const devGraphRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[] = [
-  {
-    method: 'dev.graph.mutateGraph',
-    access: 'write',
-    description:
-      'Dev-only local curation harness: apply projected-code mutateGraph ops to one selected spec through CommandExecutor.',
-    paramsSchema: DevMutateGraphParamsSchema,
-    resultSchema: DevMutateGraphResultSchema,
-    examples: [
-      {
-        jsonrpc: '2.0',
-        id: 90,
-        method: 'dev.graph.mutateGraph',
-        params: {
-          specId: 1,
-          createBasis: 'explicit',
-          ops: [
-            { op: 'create_node', ref: 'n1', plane: 'intent', kind: 'thesis', title: 'Curated thesis' },
-            {
-              op: 'create_edge',
-              category: 'rationale',
-              support: { existingCode: 'G1' },
-              claim: 'n1',
-              stance: 'for',
-            },
-            { op: 'patch_node', node: { existingCode: 'REQ1' }, patch: { body: 'Clarified body' } },
-            { op: 'delete_edge', edgeId: 12 },
-          ],
-        },
-      },
-    ],
-    async handle(context, request) {
-      const requestId = jsonRpcRequestId(request);
-      const params = parseDevMutateGraphParams(request.params);
-      if (!params.ok) {
-        return createJsonRpcFailure(requestId, -32602, 'Invalid params');
-      }
-
-      const graph = await context.getGraphRuntime();
-      const scopedGraph = graph.forSpec(params.value.specId);
-      const input = translateDevMutateGraph(params.value, {
-        resolveNodeCode: scopedGraph.resolveNodeCode,
-        resolveEdgeId: scopedGraph.resolveEdgeId,
-      });
-      const result = 'status' in input ? input : graph.commandExecutor.mutateGraph(input);
-
-      if (result.status === 'success') {
-        context.productUpdates?.publish(
-          graphMutationProductUpdates({ specId: params.value.specId, lsn: result.lsn }),
-        );
-      }
-      return createJsonRpcSuccess(requestId, result);
-    },
-  },
-];
-
-type DevMutateGraphParamsParseResult =
-  | {
-      ok: true;
-      value: DevMutateGraphParams;
-    }
-  | { ok: false };
-
-function parseDevMutateGraphParams(value: unknown): DevMutateGraphParamsParseResult {
-  if (!Value.Check(DevMutateGraphParamsSchema, value)) return { ok: false };
-  return { ok: true, value: Value.Parse(DevMutateGraphParamsSchema, value) };
+export async function applyDevGraphMutation(
+  cwd: string,
+  params: DevMutateGraphParams,
+): Promise<MutateGraphResult> {
+  const graph = await openWorkspaceGraphRuntime(cwd);
+  const scopedGraph = graph.forSpec(params.specId);
+  const input = translateDevMutateGraph(params, {
+    resolveNodeCode: scopedGraph.resolveNodeCode,
+    resolveEdgeId: scopedGraph.resolveEdgeId,
+  });
+  return 'status' in input ? input : graph.commandExecutor.mutateGraph(input);
 }
 
 function translateDevMutateGraph(

@@ -7,6 +7,7 @@ import { GENERATED_ONTOLOGY_PATH, renderOntologyReference } from '../generate-on
 
 const projectRoot = new URL('../../../../', import.meta.url).pathname;
 const expectedReferencePath = `${projectRoot}src/agents/contexts/references/graph-ontology.md`;
+const nodesSourcePath = `${projectRoot}src/graph/schema/nodes.ts`;
 import { EDGE_CATEGORIES, NODE_KINDS } from '../kinds.js';
 import {
   bandsForKind,
@@ -78,6 +79,18 @@ describe('ontology reference generator', () => {
       const row = rows.find((line) => line.startsWith(`| ${form} |`) && line.includes(expectedFields));
       expect(row, `form row for ${form}`).toBeDefined();
     }
+  });
+
+  it('keeps the Gherkin then field owned by one plain schema constant', () => {
+    const source = readFileSync(nodesSourcePath, 'utf8');
+    const gherkinSchema = CLAIM_FORM_JSON_SCHEMAS.gherkin;
+
+    expect(gherkinSchema.required).toEqual([
+      'form',
+      ...Object.keys(gherkinSchema.properties).filter((key) => key === 'then'),
+    ]);
+    expect(source).toContain("const GHERKIN_THEN_FIELD = 'then';");
+    expect(source).toContain("required: ['form', GHERKIN_THEN_FIELD]");
   });
 
   it('keeps the committed generated file in sync with the typed source (drift guard)', () => {

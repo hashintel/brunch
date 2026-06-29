@@ -25,12 +25,12 @@ function expectNoStructuralLeak(rendered: string): void {
   expect(rendered).not.toContain('[Selected-spec node context]'); // old bracket header dialect
 }
 
-const HUB = { set: 'edge-spread', fixture: 'hub-neighborhood', anchorCode: 'REQ1' } as const;
-const SELF = { set: 'brunch-self', fixture: 'spec-graph' } as const;
+const HUB = { name: 'edge-hub-neighborhood', variant: 'base', anchorCode: 'REQ1' } as const;
+const SELF = { name: 'brunch-self', variant: 'base' } as const;
 
 test('neighborhood: real-port anchor (code-health REQ1)', async () => {
   const rendered = formatNeighborhood(
-    readNodeNeighborhoodFixture({ set: 'bilal-port', fixture: 'code-health', anchorCode: 'REQ1' }),
+    readNodeNeighborhoodFixture({ name: 'bilal-code-health', variant: 'base', anchorCode: 'REQ1' }),
   );
   await expect(rendered).toMatchFileSnapshot('../__snapshots__/neighborhood-code-health-REQ1.md');
   expectNoStructuralLeak(rendered);

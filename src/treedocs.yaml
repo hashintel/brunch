@@ -170,7 +170,7 @@ tree:
       graph:
         README.md: 'Documents this source subtree.'
         __snapshots__:
-          graph-overview-kind-band-spread.md: 'Markdown resource.'
+          graph-overview-kind-coverage-matrix.md: 'Markdown resource.'
           neighborhood-brunch-self-MOD1-hops2.md: 'Markdown resource.'
           neighborhood-brunch-self-REQ1.md: 'Markdown resource.'
           neighborhood-code-health-REQ1.md: 'Markdown resource.'
@@ -300,15 +300,14 @@ tree:
   dev:
     README.md: 'Documents this source subtree.'
     agent-messages.ts: 'Implements agent messages.'
-    brunch-dev.ts: 'Implements brunch dev.'
+    dev-cli.ts: 'Implements the dev launcher and curation CLI.'
     faux-harness.ts: 'Implements faux harness.'
     faux-launcher.ts: 'Implements faux launcher.'
     generate-fan-out-witness.ts: 'Implements generate fan out witness.'
+    graph-curation.ts: 'Implements local graph curation over the shared mutation seam.'
     index.ts: 'Exports the public module surface.'
     introspection-launcher.ts: 'Implements introspection launcher.'
-    pi-source-alias.ts: 'Implements pi source alias.'
     tier-2-harness.ts: 'Implements tier 2 harness.'
-    workspace-rpc.ts: 'Implements workspace rpc.'
   graph:
     README.md: 'Documents this source subtree.'
     atoms.ts: 'Implements atoms.'
@@ -390,7 +389,6 @@ tree:
     README.md: 'Documents this source subtree.'
     handlers.ts: 'Implements handlers.'
     methods:
-      dev-graph.ts: 'Implements dev graph.'
       graph.ts: 'Implements graph.'
       registry.ts: 'Implements registry.'
       schemas.ts: 'Implements schemas.'

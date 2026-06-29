@@ -2,7 +2,7 @@
  * Seed loader for consolidated fixture specs.
  *
  * Reads the brunch-shaped seed contract produced under
- * `.fixtures/seeds/<set>/<slug>.json` and commits each spec into a brunch
+ * `.fixtures/seeds/<name>/<variant>.json` and commits each spec into a brunch
  * SQLite database through the normal `CommandExecutor` mutation boundary, so
  * the graph clock, change log, and `*_lsn` columns stay coherent — seeded
  * data is indistinguishable from data an agent would have committed live.
@@ -15,11 +15,12 @@
  * The fixture-prep step that *produces* these files (porting Bilal's
  * spec-elicitation graphs) is a separate throwaway script vendored next to
  * the data at `.fixtures/seeds/bilal-port/_port-script.ts`; this loader only
- * consumes the consolidated `<slug>.json` output and is unaware of any
+ * consumes the consolidated `<variant>.json` output and is unaware of any
  * upstream format.
  *
  * CLI (dev only, run via tsx):
- *   npm run seed -- --workspace <dir> --seed <set>/<slug> [--reset]
+ *   npm run seed -- --seed <name>/<variant> [--reset]
+ *   npm run seed -- --workspace <dir> --seed <name>/<variant> [--reset]
  *   npm run seed -- --workspace <dir> --all-seeds [--reset]
  *
  * `--reset` deletes the target workspace's **runtime state** before seeding
@@ -32,7 +33,7 @@
  * inside it.
  */
 
-import { readFile, readdir, rm } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -44,7 +45,7 @@ import type { NodeBasis, NodePlane } from './schema/nodes.js';
 import { openWorkspaceCommandExecutor } from './workspace-store.js';
 
 // ---------------------------------------------------------------------------
-// Seed contract — shape of a consolidated `<slug>.json` fixture
+// Seed contract — shape of a consolidated `<variant>.json` fixture
 // ---------------------------------------------------------------------------
 
 /** Spec header of a consolidated fixture. */
@@ -248,6 +249,7 @@ function roleNamedSeedEdgeDraft(
 // ---------------------------------------------------------------------------
 
 const SEEDS_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../.fixtures/seeds');
+const WORKBENCHES_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../.fixtures/workbenches');
 
 interface SeedCliOptions {
   readonly argv?: readonly string[];
@@ -269,10 +271,20 @@ interface ParsedSeedCliArgs {
       };
 }
 
-interface SeedRef {
+export interface SeedRef {
   readonly ref: string;
-  readonly set: string;
-  readonly slug: string;
+  readonly name: string;
+  readonly variant: string;
+}
+
+export function parseSeedRef(ref: string): SeedRef | null {
+  const [name, variant, extra] = ref.split('/');
+  if (!safeSeedPart(name) || !safeSeedPart(variant) || extra) return null;
+  return { ref, name, variant };
+}
+
+export function workbenchPathForSeed(seed: SeedRef): string {
+  return join(WORKBENCHES_ROOT, seed.name);
 }
 
 /**
@@ -293,24 +305,26 @@ function workspaceRuntimeState(workspace: string): {
   };
 }
 
-/** Read one `<slug>.json` fixture under a seed-set dir. */
-async function readSelectedSeed(set: string, slug: string): Promise<SeedFixture> {
-  const raw = await readFile(join(SEEDS_ROOT, set, `${slug}.json`), 'utf8');
+/** Read one `<variant>.json` fixture under a seed family dir. */
+async function readSelectedSeed(name: string, variant: string): Promise<SeedFixture> {
+  const raw = await readFile(join(SEEDS_ROOT, name, `${variant}.json`), 'utf8');
   return JSON.parse(raw) as SeedFixture;
 }
 
-async function trackedSeedRefs(): Promise<readonly SeedRef[]> {
-  const sets = await readdir(SEEDS_ROOT, { withFileTypes: true });
+export async function listTrackedSeedRefs(): Promise<readonly SeedRef[]> {
+  const names = await readdir(SEEDS_ROOT, { withFileTypes: true });
   const refs = await Promise.all(
-    sets
+    names
       .filter((entry) => entry.isDirectory())
-      .map(async (set) => {
-        const files = await readdir(join(SEEDS_ROOT, set.name));
+      .map(async (name) => {
+        const files = await readdir(join(SEEDS_ROOT, name.name));
         return files
           .filter((file) => file.endsWith('.json'))
           .map((file) => {
-            const slug = file.slice(0, -'.json'.length);
-            return { ref: `${set.name}/${slug}`, set: set.name, slug } satisfies SeedRef;
+            const variant = file.slice(0, -'.json'.length);
+            const seed = parseSeedRef(`${name.name}/${variant}`);
+            if (!seed) throw new Error(`Tracked seed has illegal ref shape: ${name.name}/${variant}`);
+            return seed;
           });
       }),
   );
@@ -348,11 +362,12 @@ export async function runSeedFixturesCli(options: SeedCliOptions = {}): Promise<
         await rm(directory, { recursive: true, force: true });
       }
     }
+    await mkdir(parsed.workspace, { recursive: true });
     const executor = await openWorkspaceCommandExecutor(parsed.workspace);
 
-    const seeds = parsed.selection.kind === 'single' ? [parsed.selection.seed] : await trackedSeedRefs();
+    const seeds = parsed.selection.kind === 'single' ? [parsed.selection.seed] : await listTrackedSeedRefs();
     for (const seed of seeds) {
-      let fixture = await readSelectedSeed(seed.set, seed.slug);
+      let fixture = await readSelectedSeed(seed.name, seed.variant);
       if (parsed.selection.kind === 'all') fixture = fixtureForAllSeeds(seed, fixture);
       const result = seedFixture(executor, fixture);
       stdout(
@@ -409,26 +424,33 @@ function parseSeedCliArgs(argv: readonly string[], cwd: string): ParsedSeedCliAr
     return null;
   }
 
-  const workspace = values.get('--workspace');
-  const seed = values.get('--seed');
+  const workspaceValue = values.get('--workspace');
+  const seedValue = values.get('--seed');
   const allSeeds = values.has('--all-seeds');
-  if (!workspace || (!seed && !allSeeds) || (seed && allSeeds)) return null;
+  if ((!seedValue && !allSeeds) || (seedValue && allSeeds)) return null;
+
+  const workspace = workspaceValue
+    ? isAbsolute(workspaceValue)
+      ? workspaceValue
+      : resolve(cwd, workspaceValue)
+    : undefined;
 
   if (allSeeds) {
+    if (!workspace) return null;
     return {
-      workspace: isAbsolute(workspace) ? workspace : resolve(cwd, workspace),
+      workspace,
       reset,
       selection: { kind: 'all' },
     };
   }
 
-  const [set, slug, extra] = seed!.split('/');
-  if (!safeSeedPart(set) || !safeSeedPart(slug) || extra) return null;
+  const seed = parseSeedRef(seedValue!);
+  if (!seed) return null;
 
   return {
-    workspace: isAbsolute(workspace) ? workspace : resolve(cwd, workspace),
+    workspace: workspace ?? workbenchPathForSeed(seed),
     reset,
-    selection: { kind: 'single', seed: { ref: seed!, set, slug } },
+    selection: { kind: 'single', seed },
   };
 }
 
@@ -442,8 +464,9 @@ function safeSeedPart(value: string | undefined): value is string {
 
 function seedUsage(): string {
   return (
-    'Usage: npm run seed -- --workspace <dir> (--seed <set>/<slug> | --all-seeds) [--reset]\n' +
-    '  --all-seeds  opt in to seed every tracked fixture as its own spec\n' +
+    'Usage: npm run seed -- (--seed <name>/<variant> [--workspace <dir>] | --workspace <dir> --all-seeds) [--reset]\n' +
+    '  --seed       when --workspace is omitted, derive .fixtures/workbenches/<name>/\n' +
+    '  --all-seeds  opt in to seed every tracked fixture as its own spec (requires --workspace)\n' +
     '  --reset      delete the target workspace runtime state before seeding:\n' +
     '           .brunch/data.db (+ -wal/-shm), sessions/, debug/, and workspace.json\n'
   );

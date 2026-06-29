@@ -131,7 +131,7 @@ describe('createBrunchFauxHarness', () => {
                 latestLsn: () => 1,
               },
             }),
-            introspection: { enabled: true, store },
+            introspection: { queryTools: true, store },
           },
         ),
       ],

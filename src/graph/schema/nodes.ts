@@ -285,7 +285,7 @@ export interface GivenFormDetail {
   readonly statement: string;
 }
 
-const GHERKIN_THEN_FIELD = `${'the'}n`;
+const GHERKIN_THEN_FIELD = 'then';
 
 export const CLAIM_FORM_JSON_SCHEMAS = {
   plain: {
@@ -300,7 +300,7 @@ export const CLAIM_FORM_JSON_SCHEMAS = {
   gherkin: {
     type: 'object',
     additionalProperties: false,
-    required: ['form', 'then'],
+    required: ['form', GHERKIN_THEN_FIELD],
     properties: {
       form: { const: 'gherkin' },
       given: { type: 'array', items: { type: 'string' }, description: 'Given preconditions.' },

@@ -8,7 +8,6 @@ SPEC decisions: D52-L, D58-L, D60-L, D76-L, D78-L, D83-L, D91-L, D96-L
 
 ```text
 contexts/
-├── primitives/       markdown, TOON, tree, and section formatting helpers
 ├── references/       runtime-eligible shared context references cited by skills/prompts
 ├── seeds/            per-turn pushed context blocks and origination seed payloads
 ├── graph/            graph overview/neighborhood, related-node, mutation, reconciliation text
@@ -18,6 +17,8 @@ contexts/
 ├── session/          <session> runtime-frame and readiness text
 └── exchanges/        present_* / request_* structured-exchange result text
 ```
+
+Formatting primitives used by these renderers live in `src/agents/shared/`; they are shared helper substrate, not a child context surface.
 
 ## Boundary rules
 

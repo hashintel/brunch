@@ -151,7 +151,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(sessionStartIndexes[0]).toBeLessThan(sessionStartIndexes[1] ?? -1);
   });
 
-  it('registers the executor stub tool on the default product extension path', async () => {
+  it('keeps the default stub tool output aligned with its registered identity', async () => {
     const registeredTools: Array<{
       name: string;
       execute: (toolCallId: string, params: unknown) => Promise<{ content: readonly { text: string }[] }>;
@@ -175,9 +175,9 @@ describe('Brunch explicit Pi extension registry', () => {
 
     const stub = registeredTools.find((tool) => tool.name === BRUNCH_ORCHESTRATOR_STUB_TOOL);
     expect(stub).toBeDefined();
-    await expect(stub!.execute('call-1', { message: 'standup' })).resolves.toMatchObject({
-      content: [{ type: 'text', text: 'executor stub ran: standup' }],
-    });
+    const result = await stub!.execute('call-1', { message: 'standup' });
+    const toolLabel = BRUNCH_ORCHESTRATOR_STUB_TOOL.replaceAll('_', ' ');
+    expect(result.content[0]?.text).toBe(`${toolLabel} ran: standup`);
   });
 
   it('registers both graph-register and elicitation-register tools when graph deps are provided', async () => {

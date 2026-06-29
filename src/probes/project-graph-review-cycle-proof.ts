@@ -21,8 +21,9 @@ import { createWorkspaceSessionCoordinator } from '../session/workspace-session-
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'project-graph-review-cycle' as const;
-const DEFAULT_SEED_SET = 'bilal-port-variants';
-const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
+const DEFAULT_SEED_NAME = 'bilal-macro-view';
+const DEFAULT_SEED_VARIANT = 'grounded-intent';
+const DEFAULT_SEED_REF = `${DEFAULT_SEED_NAME}/${DEFAULT_SEED_VARIANT}`;
 
 interface ProjectGraphReviewRuntimeStateReport {
   readonly operationalMode: 'elicit';
@@ -33,8 +34,8 @@ interface ProjectGraphReviewRuntimeStateReport {
 interface ProjectGraphReviewCycleProofOptions {
   readonly cwd?: string;
   readonly fixtureRoot?: string;
-  readonly seedSet?: string;
-  readonly seedSlug?: string;
+  readonly seedName?: string;
+  readonly seedVariant?: string;
   readonly runId?: string;
   readonly prompt?: string;
   readonly agentDir?: string;
@@ -85,8 +86,8 @@ export interface ProjectGraphReviewCycleReport {
   readonly generatedAt: string;
   readonly mission: string;
   readonly evaluationFocus: string;
-  readonly seedSet: string;
-  readonly seedSlug: string;
+  readonly seedName: string;
+  readonly seedVariant: string;
   readonly cwd: string;
   readonly specId: number;
   readonly sessionId: string;
@@ -131,8 +132,8 @@ export interface ProjectGraphReviewCycleSummaryInput {
   readonly runId: string;
   readonly generatedAt: string;
   readonly cwd: string;
-  readonly seedSet?: string;
-  readonly seedSlug: string;
+  readonly seedName?: string;
+  readonly seedVariant: string;
   readonly specId: number;
   readonly sessionId: string;
   readonly prompt: string;
@@ -173,12 +174,12 @@ export async function runProjectGraphReviewCycleProof(
   const fixtureRoot = resolve(
     options.fixtureRoot ?? join(dirname(fileURLToPath(import.meta.url)), '../../.fixtures'),
   );
-  const seedSet = options.seedSet ?? DEFAULT_SEED_SET;
-  const seedSlug = options.seedSlug ?? DEFAULT_SEED_SLUG;
+  const seedName = options.seedName ?? DEFAULT_SEED_NAME;
+  const seedVariant = options.seedVariant ?? DEFAULT_SEED_VARIANT;
   const runId = assertPortableRunId(options.runId ?? defaultRunId());
   const prompt = options.prompt ?? defaultProjectGraphPrompt();
   const generatedAt = new Date().toISOString();
-  const fixture = await readSeedFixture(join(fixtureRoot, 'seeds', seedSet, `${seedSlug}.json`));
+  const fixture = await readSeedFixture(join(fixtureRoot, 'seeds', seedName, `${seedVariant}.json`));
   const graph = await openWorkspaceGraphRuntime(cwd);
   const seedResult = seedFixture(graph.commandExecutor, fixture);
   const baseOverview = graph.forSpec(seedResult.specId).queryGraph();
@@ -247,8 +248,8 @@ export async function runProjectGraphReviewCycleProof(
       runId,
       generatedAt,
       cwd,
-      seedSet,
-      seedSlug,
+      seedName,
+      seedVariant,
       specId: seedResult.specId,
       sessionId: activated.session.id,
       prompt,
@@ -351,8 +352,8 @@ export function summarizeProjectGraphReviewCycleProof(
       'Prove the project-graph capability path can present an exact review set and approve it through public RPC.',
     evaluationFocus:
       'FE-809 real agent proposal → present_review_set → session.submitExchangeResponse approval → explicit graph readback.',
-    seedSet: input.seedSet ?? DEFAULT_SEED_SET,
-    seedSlug: input.seedSlug,
+    seedName: input.seedName ?? DEFAULT_SEED_NAME,
+    seedVariant: input.seedVariant,
     cwd: input.cwd,
     specId: input.specId,
     sessionId: input.sessionId,
@@ -531,7 +532,7 @@ async function selectSpecForSetupSession(cwd: string, specId: number): Promise<v
 }
 
 function defaultProjectGraphPrompt(): string {
-  return `Brunch FE-809 project-graph proof. The selected spec is seeded from "${DEFAULT_SEED_SLUG}" and already has explicit intent-plane graph truth.
+  return `Brunch FE-809 project-graph proof. The selected spec is seeded from "${DEFAULT_SEED_REF}" and already has explicit intent-plane graph truth.
 
 Use read_graph in overview mode to inspect existing node codes. Then use present_review_set exactly once to propose a small exact review set derived from the existing macro-view intent graph.
 
@@ -575,8 +576,8 @@ function parseCliArgs(argv: readonly string[]): ProjectGraphReviewCycleProofOpti
   return {
     ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
     ...(options['fixture-root'] !== undefined ? { fixtureRoot: options['fixture-root'] } : {}),
-    ...(options['seed-set'] !== undefined ? { seedSet: options['seed-set'] } : {}),
-    ...(options['seed-slug'] !== undefined ? { seedSlug: options['seed-slug'] } : {}),
+    ...(options['seed-name'] !== undefined ? { seedName: options['seed-name'] } : {}),
+    ...(options['seed-variant'] !== undefined ? { seedVariant: options['seed-variant'] } : {}),
     ...(options['run-id'] !== undefined ? { runId: options['run-id'] } : {}),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
     ...(options['agent-dir'] !== undefined ? { agentDir: options['agent-dir'] } : {}),

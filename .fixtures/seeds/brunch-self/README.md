@@ -2,7 +2,8 @@
 
 A **faithful** spec graph hand-derived from this repository's own planning prose
 (`memory/SPEC.md` + `memory/PLAN.md`), as opposed to the synthetic
-coverage/edge-spread fixtures.
+coverage fixtures such as `kind-coverage-matrix/base` and
+`edge-category-directions/base`.
 
 Purpose:
 
@@ -23,8 +24,9 @@ Coverage (a by-product of being faithful, not the goal):
 
 Contents:
 
-- `spec-graph.json` — one `planning_ready` spec describing Brunch itself.
+- `base.json` — the canonical faithful Brunch graph; one `planning_ready` spec
+  describing Brunch itself.
 
-Structural legality is enforced by the seed loader: `spec-graph` is committed
-through `CommandExecutor` by `src/renderers/graph/previews.test.ts`, which fails
-if any node/edge is structurally illegal.
+Structural legality is enforced by the seed loader: `base` is committed through
+`CommandExecutor` by `src/renderers/graph/previews.test.ts`, which fails if any
+node/edge is structurally illegal.

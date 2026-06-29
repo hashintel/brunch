@@ -18,7 +18,7 @@ test('related nodes uses semantic relation labels instead of raw graph internals
   const rendered = formatRelatedNodesResult({
     status: 'success',
     anchors: [
-      readNodeNeighborhoodFixture({ set: 'edge-spread', fixture: 'hub-neighborhood', anchorCode: 'REQ1' }),
+      readNodeNeighborhoodFixture({ name: 'edge-hub-neighborhood', variant: 'base', anchorCode: 'REQ1' }),
     ],
   });
 

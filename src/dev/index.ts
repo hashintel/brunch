@@ -1,4 +1,10 @@
-export { piSourceAlias } from './pi-source-alias.js';
+export { runDevCli, type DevCliOptions, type DevCliPrompts } from './dev-cli.js';
+export {
+  DevMutateGraphParamsSchema,
+  applyDevGraphMutation,
+  parseDevMutateGraphParams,
+  type DevMutateGraphParams,
+} from './graph-curation.js';
 export {
   BRUNCH_FAUX_HARNESS_API_KEY,
   BRUNCH_FAUX_HARNESS_ENV_API_KEY,
@@ -34,4 +40,3 @@ export {
   runTier2RealBootFauxTurn,
   type Tier2RealBootTurnResult,
 } from './tier-2-harness.js';
-export * as workspaceRpc from './workspace-rpc.js';

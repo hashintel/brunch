@@ -156,7 +156,7 @@ describe('origination-kick-live — the product originates the opening turn on i
     }
   });
 
-  it('without BRUNCH_DEV no entry mirror is written', async () => {
+  it('without debug mirroring no entry mirror is written', async () => {
     const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {
       await expect(readFile(`${boot.cwd}/.brunch/debug/entry-contents.md`, 'utf8')).rejects.toMatchObject({
@@ -278,7 +278,7 @@ describe('origination-kick-live — the product originates the opening turn on i
 });
 
 describe('FE-847 Tier-2 real boot harness', () => {
-  it('owns real runtime boot proof for ready context and BRUNCH_DEV-gated query tools', async () => {
+  it('owns real runtime boot proof for ready context and developerTools-gated query tools', async () => {
     const productBoot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {
       expect(productBoot.runtime.session.sessionManager.getHeader()).toMatchObject({

@@ -25,8 +25,9 @@ import { createWorkspaceSessionCoordinator } from '../session/workspace-session-
 import { assertPortableRunId, portableCwd } from './portable-report.js';
 
 const PROBE_ID = 'fixture-curation' as const;
-const DEFAULT_SEED_SET = 'bilal-port-variants';
-const DEFAULT_SEED_SLUG = 'macro-view-grounded-intent';
+const DEFAULT_SEED_NAME = 'bilal-macro-view';
+const DEFAULT_SEED_VARIANT = 'grounded-intent';
+const DEFAULT_SEED_REF = `${DEFAULT_SEED_NAME}/${DEFAULT_SEED_VARIANT}`;
 
 type FixtureCurationCommitStatus =
   | MutateGraphSuccess['status']
@@ -45,8 +46,8 @@ interface FixtureCurationRuntimeStateReport {
 interface FixtureCurationRunOptions {
   readonly cwd?: string;
   readonly fixtureRoot?: string;
-  readonly seedSet?: string;
-  readonly seedSlug?: string;
+  readonly seedName?: string;
+  readonly seedVariant?: string;
   readonly selectedBaseProfile?: string;
   readonly runId?: string;
   readonly prompt?: string;
@@ -84,8 +85,8 @@ export interface FixtureCurationReport {
   readonly probeId: typeof PROBE_ID;
   readonly runId: string;
   readonly generatedAt: string;
-  readonly seedSet: string;
-  readonly seedSlug: string;
+  readonly seedName: string;
+  readonly seedVariant: string;
   readonly selectedBaseProfile: string;
   readonly cwd: string;
   readonly specId: number;
@@ -114,8 +115,8 @@ export interface FixtureCurationSummaryInput {
   readonly runId: string;
   readonly generatedAt: string;
   readonly cwd: string;
-  readonly seedSet?: string;
-  readonly seedSlug: string;
+  readonly seedName?: string;
+  readonly seedVariant: string;
   readonly selectedBaseProfile: string;
   readonly specId: number;
   readonly sessionId: string;
@@ -134,13 +135,13 @@ export async function runFixtureCurationLoop(
   const fixtureRoot = resolve(
     options.fixtureRoot ?? join(dirname(fileURLToPath(import.meta.url)), '../../.fixtures'),
   );
-  const seedSet = options.seedSet ?? DEFAULT_SEED_SET;
-  const seedSlug = options.seedSlug ?? DEFAULT_SEED_SLUG;
+  const seedName = options.seedName ?? DEFAULT_SEED_NAME;
+  const seedVariant = options.seedVariant ?? DEFAULT_SEED_VARIANT;
   const selectedBaseProfile = options.selectedBaseProfile ?? 'grounded-intent';
   const runId = assertPortableRunId(options.runId ?? defaultRunId());
   const prompt = options.prompt ?? defaultCurationPrompt();
   const generatedAt = new Date().toISOString();
-  const fixture = await readSeedFixture(join(fixtureRoot, 'seeds', seedSet, `${seedSlug}.json`));
+  const fixture = await readSeedFixture(join(fixtureRoot, 'seeds', seedName, `${seedVariant}.json`));
   const graph = await openWorkspaceGraphRuntime(cwd);
   const seedResult = seedFixture(graph.commandExecutor, fixture);
   const coordinator = createWorkspaceSessionCoordinator({ cwd });
@@ -181,8 +182,8 @@ export async function runFixtureCurationLoop(
       runId,
       generatedAt,
       cwd,
-      seedSet,
-      seedSlug,
+      seedName,
+      seedVariant,
       selectedBaseProfile,
       specId: seedResult.specId,
       sessionId: activated.session.id,
@@ -249,8 +250,8 @@ export function summarizeFixtureCurationRun(input: FixtureCurationSummaryInput):
     probeId: PROBE_ID,
     runId: input.runId,
     generatedAt: input.generatedAt,
-    seedSet: input.seedSet ?? DEFAULT_SEED_SET,
-    seedSlug: input.seedSlug,
+    seedName: input.seedName ?? DEFAULT_SEED_NAME,
+    seedVariant: input.seedVariant,
     selectedBaseProfile: input.selectedBaseProfile,
     cwd: input.cwd,
     specId: input.specId,
@@ -360,7 +361,7 @@ function mutateGraphStatus(value: unknown): FixtureCurationCommitStatus {
 }
 
 function defaultCurationPrompt(): string {
-  return `Brunch fixture-curation tracer: the selected spec is a Bilal-derived explicit base seed named "${DEFAULT_SEED_SLUG}".
+  return `Brunch fixture-curation tracer: the selected spec is a Bilal-derived explicit base seed named "${DEFAULT_SEED_REF}".
 
 Use read_graph once in overview mode. Then use mutate_graph exactly once to add a small intent-plane expansion that improves launch/usefulness of this existing spec without duplicating base nodes. Create one to three new intent-plane nodes, connect them legally to existing graph truth when possible, use basis implicit through the propose-graph tool path, and stop after a successful mutate_graph result.`;
 }
@@ -424,8 +425,8 @@ function parseCliArgs(argv: readonly string[]): FixtureCurationRunOptions {
   return {
     ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
     ...(options['fixture-root'] !== undefined ? { fixtureRoot: options['fixture-root'] } : {}),
-    ...(options['seed-set'] !== undefined ? { seedSet: options['seed-set'] } : {}),
-    ...(options['seed-slug'] !== undefined ? { seedSlug: options['seed-slug'] } : {}),
+    ...(options['seed-name'] !== undefined ? { seedName: options['seed-name'] } : {}),
+    ...(options['seed-variant'] !== undefined ? { seedVariant: options['seed-variant'] } : {}),
     ...(options['selected-base-profile'] !== undefined
       ? { selectedBaseProfile: options['selected-base-profile'] }
       : {}),

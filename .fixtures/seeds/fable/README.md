@@ -37,11 +37,11 @@ Coverage (a by-product of being faithful, not the goal):
 
 Contents:
 
-- `spec-graph.json` — 67 nodes / 37 edges (66 / 36 in active context after the
-  superseded predecessor is hidden).
+- `base.json` — the canonical faithful Fable graph; 67 nodes / 37 edges
+  (66 / 36 in active context after the superseded predecessor is hidden).
 
 Validate with:
 
 ```
-npx tsx src/graph/validate-fixture.ts fable/spec-graph
+npx tsx src/graph/validate-fixture.ts fable/base
 ```

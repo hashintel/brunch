@@ -96,11 +96,11 @@ test('overview includes LSN on empty selected-spec graph', () => {
   );
 });
 
-test('overview: kind-band fixture golden stays uncapped and sectioned', async () => {
+test('overview: kind-coverage fixture golden stays uncapped and sectioned', async () => {
   const rendered = formatGraphOverview(
-    readGraphSliceFixture({ set: 'kind-band-spread', fixture: 'coverage-matrix' }),
+    readGraphSliceFixture({ name: 'kind-coverage-matrix', variant: 'base' }),
   );
-  await expect(rendered).toMatchFileSnapshot('../__snapshots__/graph-overview-kind-band-spread.md');
+  await expect(rendered).toMatchFileSnapshot('../__snapshots__/graph-overview-kind-coverage-matrix.md');
   expect(rendered).toContain('Graph overview (LSN 2): 24 nodes, 7 edges');
   expect(rendered).toContain('| S1 | 24 | Lock one neighborhood preview |');
 });

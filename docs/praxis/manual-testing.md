@@ -19,10 +19,10 @@ Manual testing happens in a **workbench** — a launchable cwd under `.fixtures/
 #    sessions/, debug/, workspace.json — so the relaunch starts a fresh session
 #    (seed + kick) instead of resuming a stale one. Unknown files in .brunch/
 #    and the directory itself survive.
-npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding --reset
+npm run seed -- --seed workspace-alpha-grounding/base --reset
 
 # 2. Launch the TUI (plus web observer sidecar) against that workbench.
-npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --mode tui
+npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding
 ```
 
 Then:
@@ -33,18 +33,20 @@ Then:
 4. To test resume, quit and relaunch against the same workbench — state is per-cwd in `.brunch/data.db`.
 5. To switch scenarios, stop the process and re-run step 1 with a different `--seed` (keep `--reset`).
 
-For non-interactive smoke, `--mode print` projects the workspace and exits; `tsx src/dev/workspace-rpc.ts -w <workbench> <method>` gives one-shot RPC reads (and dev-gated writes via `dev.graph.mutateGraph`).
+For non-interactive smoke, `npm run dev -- --workspace <workbench> --mode print` projects the workspace and exits; `npm run dev -- rpc <method> [params-json] --workspace <workbench>` gives one-shot RPC reads; `npm run dev -- mutate --workspace <workbench> --params-file <file>` is the explicit local curation seam.
 
 ## Choosing a seed
 
-Tracked seeds live under `.fixtures/seeds/<set>/<slug>.json`; each set has a README describing its intent. Current sets:
+Tracked seeds live under `.fixtures/seeds/<name>/<variant>.json`; each family has a README describing its intent. Current sets:
 
-- `workspace-spread` — small multi-spec workspace states (`alpha-grounding`, `beta-commitments`); good default for workbench smoke
-- `bilal-port` / `bilal-port-variants` — large real-world spec-elicitation graphs (hundreds of nodes); good for rendering and scale checks
-- `edge-spread`, `kind-band-spread` — coverage matrices over edge categories / node kinds and readiness bands
-- `brunch-self`, `dumpchat`, `fable`, `rd-loop`, `yamlbase` — captured spec graphs awaiting a disposition catalog (see the `dev-seed-fixtures` frontier in `memory/PLAN.md`)
+- `workspace-alpha-grounding/base`, `workspace-beta-commitments/base` — small workspace-oriented smoke fixtures
+- `bilal-code-health/base`, `bilal-explorer-ui/base`, `bilal-macro-view/base` — rich Bilal-derived workbench seeds
+- `bilal-macro-view/grounded-intent` — the curated Bilal probe starting state
+- `edge-category-directions/base`, `edge-hub-neighborhood/base`, `kind-coverage-matrix/base` — synthetic coverage fixtures
+- `cook-parallel-utils/base`, `cook-layered-todo/base`, `cook-resilient-pipeline/base` — compact shape-focused intent fixtures
+- `brunch-self/base`, `dumpchat/base`, `fable/base`, `rd-loop/base`, `yamlbase/base` — faithful project ports used for realistic preview coverage
 
-Validate a seed against the current command layer with `npx tsx src/graph/validate-fixture.ts <set>/<slug>`.
+Validate a seed against the current command layer with `npx tsx src/graph/validate-fixture.ts <name>/<variant>`.
 
 ## Capturing evidence from a manual session
 
@@ -52,7 +54,7 @@ Durable evidence follows the harness/probe-first, JSONL-backed model (`docs/arch
 
 - Live dev-loop output lands in gitignored `.fixtures/scratch/<loop>/<run-id>/`.
 - Promote a reviewed run deliberately: move it under `.fixtures/runs/<probe-id>/<run-id>/`, add the probe report and source `session.jsonl` artifacts, then track it.
-- In `BRUNCH_DEV` / faux-harness launches, the workspace's `.brunch/debug/` mirrors the latest system prompt, Brunch tool contents, and optional `transcript.md` debug rendering — an ephemeral inspection cache, not committed evidence.
+- In source/dev launches and faux-harness boots, the workspace's `.brunch/debug/` mirrors the latest system prompt, Brunch tool contents, origination records, and optional `transcript.md` debug rendering — an ephemeral inspection cache, not committed evidence.
 
 Do not hand-author golden JSON or copy rows out of a workbench DB; workbench `.brunch/` state is local runtime, never canonical fixture truth.
 

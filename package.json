@@ -29,7 +29,8 @@
     "tag": "alpha"
   },
   "scripts": {
-    "dev": "tsx src/app/brunch.ts",
+    "dev": "tsx scripts/dev.ts",
+    "dev:raw": "tsx src/app/brunch.ts",
     "probe:generate-fan-out": "PI_OFFLINE=0 PATH=\"$HOME/.local/share/mise/installs/node/lts/bin:$PATH\" tsx src/dev/generate-fan-out-witness.ts",
     "build": "tsc -p tsconfig.build.json && npm run build:info && npm run build:pi-assets && npm run build:web",
     "build:info": "node scripts/write-build-info.mjs",
@@ -82,6 +83,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@clack/prompts": "^1.6.0",
     "@sinclair/typebox": "^0.34.49",
     "@tailwindcss/vite": "^4.3.1",
     "@testing-library/dom": "^10.4.1",

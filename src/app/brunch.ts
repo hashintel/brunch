@@ -4,7 +4,6 @@ import type { Readable, Writable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { isBrunchDevEnabled } from '../dev/brunch-dev.js';
 import { projectWorkspaceState } from '../projections/workspace/workspace-state.js';
 import { createRpcHandlers, runJsonRpcLineServer } from '../rpc/handlers.js';
 import { createProductUpdatePublisher } from '../rpc/product-updates.js';
@@ -21,13 +20,16 @@ export interface BrunchCliOptions {
   coordinator?: WorkspaceSessionCoordinator;
   stdin?: Readable;
   stdout?: Writable | ((chunk: string) => void);
+  developerTools?: boolean;
+  debugMirror?: boolean;
   launchTui?: typeof runBrunchTui;
 }
 
 export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<number> {
   const argv = options.argv ?? process.argv.slice(2);
-  const { cwd: cwdFlag, mode, openWeb } = parseCliArgs(argv);
+  const { cwd: cwdFlag, mode, openWeb, developerTools: developerToolsFlag } = parseCliArgs(argv);
   const cwd = cwdFlag ?? options.cwd ?? process.cwd();
+  const developerTools = developerToolsFlag ?? options.developerTools ?? false;
   const coordinator = options.coordinator ?? createWorkspaceSessionCoordinator({ cwd });
 
   if (mode === 'print') {
@@ -46,7 +48,6 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
         coordinator,
         cwd,
         productUpdates,
-        devRpc: isBrunchDevEnabled(),
       }),
       productUpdates,
     });
@@ -67,6 +68,8 @@ export async function runBrunchCli(options: BrunchCliOptions = {}): Promise<numb
       cwd,
       coordinator,
       openWeb,
+      developerTools,
+      ...(options.debugMirror === undefined ? {} : { debugMirror: options.debugMirror }),
     });
     return 0;
   }
@@ -99,22 +102,30 @@ function stdoutStream(stdout: Writable | ((chunk: string) => void) | undefined):
   } as Writable;
 }
 
-function parseCliArgs(argv: string[]): { cwd: string | undefined; mode: string; openWeb: boolean } {
+function parseCliArgs(argv: string[]): {
+  cwd: string | undefined;
+  mode: string;
+  openWeb: boolean;
+  developerTools: boolean | undefined;
+} {
   // node:util parseArgs accepts both `--flag value` and `--flag=value` forms and
   // fails loud on unknown or malformed flags. --open-web is a plain boolean whose
   // default is false, so there is no `=false` form to model: omit it to opt out.
+  // --dev-tools is optional so programmatic callers can supply the fallback.
   const { values } = parseArgs({
     args: argv,
     options: {
       cwd: { type: 'string' },
       mode: { type: 'string', default: 'tui' },
       'open-web': { type: 'boolean', default: false },
+      'dev-tools': { type: 'boolean' },
     },
   });
   return {
     cwd: resolveCwdFlag(values.cwd),
     mode: values.mode,
     openWeb: values['open-web'],
+    developerTools: values['dev-tools'],
   };
 }
 

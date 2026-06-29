@@ -36,11 +36,11 @@ Coverage (a by-product of being faithful, not the goal):
 
 Contents:
 
-- `spec-graph.json` — 41 nodes / 33 edges (40 / 31 in active context after the
-  superseded predecessor is hidden).
+- `base.json` — the canonical faithful Dumpchat graph; 41 nodes / 33 edges
+  (40 / 31 in active context after the superseded predecessor is hidden).
 
 Validate with:
 
 ```
-npx tsx src/graph/validate-fixture.ts dumpchat/spec-graph
+npx tsx src/graph/validate-fixture.ts dumpchat/base
 ```

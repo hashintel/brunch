@@ -35,7 +35,7 @@ nodes carry `source: "projected"`.
 Validate:
 
 ```
-npx tsx src/graph/validate-fixture.ts yamlbase/spec-graph
+npx tsx src/graph/validate-fixture.ts yamlbase/base
 ```
 
 This seeds the fixture through the real `CommandExecutor` mutation boundary, so

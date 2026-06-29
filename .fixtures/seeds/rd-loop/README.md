@@ -27,9 +27,10 @@ Coverage (a by-product of being faithful):
 
 Contents:
 
-- `spec-graph.json` — one `planning_ready` spec describing `rd-loop`.
+- `base.json` — the canonical faithful `rd-loop` graph; one `planning_ready`
+  spec describing `rd-loop`.
 
 Most nodes map directly to doc prose; the two plan-plane **frontier** nodes are
 `source: "projected"` because the planning decomposition is synthesized from
 the docs' forward-looking POC/evolution path. Validate with
-`npx tsx src/graph/validate-fixture.ts rd-loop/spec-graph`.
+`npx tsx src/graph/validate-fixture.ts rd-loop/base`.

@@ -6,12 +6,10 @@ import {
   MutateCreateEdgeSchema,
   MutateGraphParams,
 } from '../../.pi/extensions/brunch-data/graph/tool-schemas.js';
-import { devGraphRpcMethods } from '../../rpc/methods/dev-graph.js';
+import { DevMutateGraphParamsSchema } from '../../dev/graph-curation.js';
 import { EDGE_CATEGORIES, EDGE_CATEGORY_METADATA, type EdgeCategory } from '../index.js';
 
-const devMutateGraphParamsSchema = devGraphRpcMethods.find(
-  (definition) => definition.method === 'dev.graph.mutateGraph',
-)!.paramsSchema as TSchema;
+const devMutateGraphParamsSchema = DevMutateGraphParamsSchema as TSchema;
 
 function roleNamedEdgeOp(category: EdgeCategory): Record<string, unknown> {
   if (category === 'cross_reference') {

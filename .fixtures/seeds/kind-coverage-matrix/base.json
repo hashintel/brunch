@@ -1,6 +1,6 @@
 {
   "spec": {
-    "slug": "coverage-matrix",
+    "slug": "kind-coverage-matrix",
     "name": "Coverage Matrix"
   },
   "nodes": [

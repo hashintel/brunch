@@ -24,14 +24,14 @@ mkdir -p "$WORKSPACE" "$RUN_DIR"
 
 # Seed two specs so selection/scope is visible before the live turn.
 # --reset is scoped to Brunch runtime state in this workbench.
-npm run seed -- --workspace "$WORKSPACE" --seed workspace-spread/alpha-grounding --reset
-npm run seed -- --workspace "$WORKSPACE" --seed workspace-spread/beta-commitments
+npm run seed -- --workspace "$WORKSPACE" --seed workspace-alpha-grounding/base --reset
+npm run seed -- --workspace "$WORKSPACE" --seed workspace-beta-commitments/base
 ```
 
-Launch the real product with dev mirrors enabled so prompt/posture artifacts are durable:
+Launch the real product; source/dev runs mirror prompt/posture artifacts into `.brunch/debug/` automatically:
 
 ```bash
-BRUNCH_DEV=1 npm run dev -- --cwd "$WORKSPACE" --mode tui --open-web
+npm run dev -- --workspace "$WORKSPACE" --open-web
 ```
 
 Record the sidecar URL printed by the TUI in `report.json` and open it in the browser. The launch path must be the product TUI sidecar, not a test harness or imported handler.
@@ -137,8 +137,8 @@ cp "$WORKSPACE/.brunch/sessions/"*.jsonl "$RUN_DIR/session.jsonl"
 Use public RPC/read projections for JSON summaries; do not read SQLite directly:
 
 ```bash
-npx tsx src/dev/workspace-rpc.ts --workspace "$WORKSPACE" graph.overview '{"specId":1}' > "$RUN_DIR/graph-summary-after.json"
-npx tsx src/dev/workspace-rpc.ts --workspace "$WORKSPACE" session.runtimeState '{"specId":1,"sessionId":"<session id>"}' > "$RUN_DIR/runtime-state-after.json"
+npm run dev -- rpc graph.overview '{"specId":1}' --workspace "$WORKSPACE" > "$RUN_DIR/graph-summary-after.json"
+npm run dev -- rpc session.runtimeState '{"specId":1,"sessionId":"<session id>"}' --workspace "$WORKSPACE" > "$RUN_DIR/runtime-state-after.json"
 ```
 
 If a human-readable transcript is useful during the run, use the workspace-local `.brunch/debug/transcript.md` emitted by the faux-harness/debug renderer. Do not add `transcript.md` as a default committed probe artifact; keep `session.jsonl` as the source evidence.

@@ -18,9 +18,9 @@ for the current architecture.
 ```
 .fixtures/
 ├── seeds/                      # Tracked reusable explicit-basis inputs
-│   └── <seed-set>/
+│   └── <seed-family>/
 │       ├── README.md
-│       ├── <seed>.json
+│       ├── <variant>.json
 │       └── _*.ts               # Reproducible data-prep scripts, not product code
 ├── workbenches/                # Launchable local workspaces; .brunch/ is gitignored
 │   └── <name>/
@@ -46,13 +46,14 @@ Seed workbench state explicitly; `npm run dev` never seeds by implication. See
 catalog. From the repo root, load one tracked seed into one named workspace with:
 
 ```sh
-npm run seed -- --workspace .fixtures/workbenches/live-graph-observer --seed workspace-spread/alpha-grounding
-npm run dev -- --cwd .fixtures/workbenches/live-graph-observer
+npm run seed -- --seed workspace-alpha-grounding/base --reset
+npm run dev -- --workspace .fixtures/workbenches/workspace-alpha-grounding
 ```
 
 The seed command writes only the target workspace's `.brunch/data.db` and reports
-that destination path plus the `set/slug → specId` mapping. Add `--reset` to wipe
-the target workspace's runtime state before seeding — `data.db` (+ `-wal`/`-shm`),
+that destination path plus the `name/variant → specId` mapping. Add `--reset` to
+wipe the target workspace's runtime state before seeding — `data.db`
+(+ `-wal`/`-shm`),
 `sessions/`, `debug/`, and `workspace.json` — so a relaunch starts a fresh session
 instead of resuming a stale one; unknown files in `.brunch/` and the directory
 itself survive. Use `--all-seeds` only as an explicit opt-in when a manual

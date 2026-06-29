@@ -11,8 +11,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SEEDS_ROOT = resolve(HERE, '../../../../.fixtures/seeds');
 
 export interface SeedFixtureRef {
-  readonly set: string;
-  readonly fixture: string;
+  readonly name: string;
+  readonly variant: string;
 }
 
 export function readGraphSliceFixture(ref: SeedFixtureRef): GraphSlice {
@@ -29,14 +29,14 @@ export function readNodeNeighborhoodFixture(
   })[0];
 
   if (!result || result.status === 'not_found') {
-    throw new Error(`Node code "${ref.anchorCode}" not found in ${ref.set}/${ref.fixture}`);
+    throw new Error(`Node code "${ref.anchorCode}" not found in ${ref.name}/${ref.variant}`);
   }
 
   return result;
 }
 
 function seedSelectedSpec(ref: SeedFixtureRef) {
-  const fixturePath = resolve(SEEDS_ROOT, ref.set, `${ref.fixture}.json`);
+  const fixturePath = resolve(SEEDS_ROOT, ref.name, `${ref.variant}.json`);
   const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as SeedFixture;
   const db = createDb(':memory:');
   const executor = new CommandExecutor(db);

@@ -428,7 +428,7 @@ describe('Brunch prompt-pack topology', () => {
         coordinator: {} as never,
         graphMentionSource: { listMentionCandidates: () => [] },
         promptContext,
-        introspection: { enabled: true, store: createInMemoryBrunchIntrospectionStore() },
+        introspection: { queryTools: true, store: createInMemoryBrunchIntrospectionStore() },
       },
     )({
       on: (eventName: string, handler: (event: never, ctx?: never) => unknown) => {

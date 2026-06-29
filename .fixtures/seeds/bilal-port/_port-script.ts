@@ -83,7 +83,7 @@
  * checkout. Anyone can regenerate the seed contracts from this directory alone.
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -98,12 +98,11 @@ import { dedupeSeedEdgesByPrecedence, type OriginTaggedEdge } from './duplicate-
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const ORIGINALS_ROOT = resolve(SCRIPT_DIR, '_originals');
-const OUTPUT_ROOT = SCRIPT_DIR;
 
-const SPECS: { source: string; slug: string; displayName: string }[] = [
-  { source: 'code-health', slug: 'code-health', displayName: 'Code Health' },
-  { source: 'explorer-ui', slug: 'explorer-ui', displayName: 'Explorer UI' },
-  { source: 'macro-view', slug: 'macro-view', displayName: 'Macro View' },
+const SPECS: { source: string; seedName: string; specSlug: string; displayName: string }[] = [
+  { source: 'code-health', seedName: 'bilal-code-health', specSlug: 'bilal-code-health', displayName: 'Code Health' },
+  { source: 'explorer-ui', seedName: 'bilal-explorer-ui', specSlug: 'bilal-explorer-ui', displayName: 'Explorer UI' },
+  { source: 'macro-view', seedName: 'bilal-macro-view', specSlug: 'bilal-macro-view', displayName: 'Macro View' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -720,11 +719,13 @@ function validateSeed(seed: SeedFixture): void {
   seedFixture(executor, seed);
 }
 
-function writeSpec(seed: SeedFixture): void {
-  writeFileSync(resolve(OUTPUT_ROOT, `${seed.spec.slug}.json`), JSON.stringify(seed, null, 2) + '\n');
+function writeSpec(seedName: string, seed: SeedFixture): void {
+  const outputDir = resolve(SCRIPT_DIR, '..', seedName);
+  mkdirSync(outputDir, { recursive: true });
+  writeFileSync(resolve(outputDir, 'base.json'), JSON.stringify(seed, null, 2) + '\n');
 }
 
-function writeReadme(results: { slug: string; displayName: string; stats: Record<string, number> }[]): void {
+function writeReadme(results: { seedName: string; specSlug: string; displayName: string; stats: Record<string, number> }[]): void {
   const lines: string[] = [
     '# `.fixtures/seeds/bilal-port/`',
     '',
@@ -740,10 +741,10 @@ function writeReadme(results: { slug: string; displayName: string; stats: Record
     'Source: vendored under [`_originals/`](./_originals/) — copied from',
     "Bilal's spec-elicitation prototype `spec/<slug>/graph/{nodes,edges}.json`.",
     '',
-    'Each `<slug>.json` is generated from `_originals/` by',
+    'Each sibling `bilal-*/base.json` is generated from `_originals/` by',
     '[`_port-script.ts`](./_port-script.ts) (a throwaway data-prep step,',
     'not product code). Re-runnable from this directory alone; each run',
-    'overwrites the `<slug>.json` files.',
+    'overwrites the sibling base fixtures.',
     '',
     '## Transformation rules',
     '',
@@ -773,13 +774,15 @@ function writeReadme(results: { slug: string; displayName: string; stats: Record
     '```',
     'bilal-port/',
     '├── README.md         # this file (generated)',
-    '├── _port-script.ts   # throwaway prep: _originals/ → <slug>.json',
+    '├── _port-script.ts   # throwaway prep: _originals/ → sibling bilal-*/base.json',
     '├── _originals/       # vendored Bilal source (reproducibility)',
     '│   └── <slug>/{nodes,edges}.json',
-    '└── <slug>.json       # consolidated seed contract (× 3)',
+    '├── ../bilal-code-health/base.json',
+    '├── ../bilal-explorer-ui/base.json',
+    '└── ../bilal-macro-view/base.json',
     '```',
     '',
-    'Each `<slug>.json` is the seed contract consumed by the loader:',
+    'Each sibling `base.json` is the seed contract consumed by the loader:',
     '',
     '```',
     '{',
@@ -798,17 +801,17 @@ function writeReadme(results: { slug: string; displayName: string; stats: Record
     '',
     '## Stats',
     '',
-    '| Spec | nodes in | edges in | nodes emitted | edges emitted | edges absorbed | self-after-collapse drops | unresolved-endpoint drops | duplicate-after-collapse drops |',
+    '| Seed family | spec slug | nodes in | edges in | nodes emitted | edges emitted | edges absorbed | self-after-collapse drops | unresolved-endpoint drops | duplicate-after-collapse drops |',
     '| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |',
   ];
   for (const r of results) {
     const s = r.stats;
     lines.push(
-      `| ${r.slug} | ${s.nodes_in} | ${s.edges_in} | ${s.nodes_emitted} | ${s.edges_emitted} | ${s.edges_absorbed} | ${s.edges_dropped_self_after_collapse} | ${s.edges_dropped_unresolved_endpoint} | ${s.edges_dropped_duplicate_after_collapse} |`,
+      `| ${r.seedName} | ${r.specSlug} | ${s.nodes_in} | ${s.edges_in} | ${s.nodes_emitted} | ${s.edges_emitted} | ${s.edges_absorbed} | ${s.edges_dropped_self_after_collapse} | ${s.edges_dropped_unresolved_endpoint} | ${s.edges_dropped_duplicate_after_collapse} |`,
     );
   }
   lines.push('');
-  writeFileSync(resolve(OUTPUT_ROOT, 'README.md'), lines.join('\n'));
+  writeFileSync(resolve(SCRIPT_DIR, 'README.md'), lines.join('\n'));
 }
 
 // ---------------------------------------------------------------------------
@@ -821,18 +824,23 @@ function main(): void {
     process.exit(1);
   }
 
-  const summaries: { slug: string; displayName: string; stats: Record<string, number> }[] = [];
+  const summaries: { seedName: string; specSlug: string; displayName: string; stats: Record<string, number> }[] = [];
   for (const spec of SPECS) {
-    console.log(`Porting ${spec.source} → ${spec.slug}.json...`);
-    const result = portSpec(spec.source, spec.slug, spec.displayName);
+    console.log(`Porting ${spec.source} → ../${spec.seedName}/base.json...`);
+    const result = portSpec(spec.source, spec.specSlug, spec.displayName);
     const seed = buildSeed(result, spec.displayName);
     validateSeed(seed); // throws if the seed would not commit cleanly
-    writeSpec(seed);
-    summaries.push({ slug: spec.slug, displayName: spec.displayName, stats: result.stats });
+    writeSpec(spec.seedName, seed);
+    summaries.push({
+      seedName: spec.seedName,
+      specSlug: spec.specSlug,
+      displayName: spec.displayName,
+      stats: result.stats,
+    });
     console.log(`  ${JSON.stringify(result.stats)}`);
   }
   writeReadme(summaries);
-  console.log(`\nDone. Output at ${OUTPUT_ROOT}`);
+  console.log(`\nDone. Output at ${resolve(SCRIPT_DIR, '..')}`);
 }
 
 main();
