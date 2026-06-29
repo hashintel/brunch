@@ -62,15 +62,17 @@ function includesErrorCode(output: string, code: string): boolean {
 }
 
 function isRunnerPackageDenied(output: string, diagnostics: RunnerDiagnostics): boolean {
-  const lowerOutput = output.toLowerCase();
-  const denied =
-    includesErrorCode(output, 'EACCES') ||
-    includesErrorCode(output, 'EPERM') ||
-    lowerOutput.includes('operation not permitted') ||
-    lowerOutput.includes('permission denied');
-  if (!denied) return false;
-  const normalized = output.replaceAll('\\', '/');
-  return diagnostics.runnerPackages.some((pkg) => normalized.includes(`/node_modules/${pkg}/`));
+  return output.split('\n').some((line) => {
+    const lowerLine = line.toLowerCase();
+    const denied =
+      includesErrorCode(line, 'EACCES') ||
+      includesErrorCode(line, 'EPERM') ||
+      lowerLine.includes('operation not permitted') ||
+      lowerLine.includes('permission denied');
+    if (!denied) return false;
+    const normalized = line.replaceAll('\\', '/');
+    return diagnostics.runnerPackages.some((pkg) => normalized.includes(`/node_modules/${pkg}/`));
+  });
 }
 
 /**

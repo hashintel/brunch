@@ -167,6 +167,16 @@ describe('classifyTestFailure (infra vs test)', () => {
     expect(classifyTestFailure(output, false, vitestDiagnostics)).toBe('test');
   });
 
+  it('does not combine assertion permission text with runner stack frames', () => {
+    const output = [
+      "AssertionError: expected 'permission denied' to equal 'allowed'",
+      '    at assertAllowed (/sandbox/src/auth.test.ts:3:1)',
+      '    at runTest (/sandbox/node_modules/vitest/dist/runner.js:10:1)',
+    ].join('\n');
+
+    expect(classifyTestFailure(output, false, vitestDiagnostics)).toBe('test');
+  });
+
   it('a package EPERM outside the selected runner diagnostics stays a test failure', () => {
     const output = "Error: EPERM: operation not permitted, open '/sandbox/node_modules/playwright/index.js'";
 
