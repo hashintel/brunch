@@ -106,18 +106,19 @@ function parseCliArgs(argv: string[]): {
   cwd: string | undefined;
   mode: string;
   openWeb: boolean;
-  developerTools: boolean;
+  developerTools: boolean | undefined;
 } {
   // node:util parseArgs accepts both `--flag value` and `--flag=value` forms and
   // fails loud on unknown or malformed flags. --open-web is a plain boolean whose
   // default is false, so there is no `=false` form to model: omit it to opt out.
+  // --dev-tools is optional so programmatic callers can supply the fallback.
   const { values } = parseArgs({
     args: argv,
     options: {
       cwd: { type: 'string' },
       mode: { type: 'string', default: 'tui' },
       'open-web': { type: 'boolean', default: false },
-      'dev-tools': { type: 'boolean', default: false },
+      'dev-tools': { type: 'boolean' },
     },
   });
   return {

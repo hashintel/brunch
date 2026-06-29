@@ -140,4 +140,4 @@ If another coding agent needs to inspect or curate the same workbench, have it c
 
 - `graph node code "G1" does not resolve`: inspect `graph.overview` for the selected `specId`; codes are spec-scoped.
 - Empty `workspace.selectionState`: check that you seeded and read from the same workbench directory.
-- Stale or surprising graph state: re-run `npm run seed -- --workspace "$DEV_WORKSPACE" --seed <name/variant> --reset`.
+- Stale or surprising graph state: re-run `npm run seed -- --workspace "$DEV_WORKSPACE" --seed <name>/<variant> --reset`.

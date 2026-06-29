@@ -501,10 +501,22 @@ function resolveWorkspaceOption(
 }
 
 function parsePositiveInteger(value: string, flag: string): number {
-  if (!/^[1-9]\d*$/u.test(value)) {
+  if (value.length === 0 || value[0] === '0') {
     throw new DevCliUsageError(`${flag} must be a positive integer.`);
   }
-  return Number(value);
+
+  let parsed = 0;
+  for (const char of value) {
+    const digit = char.charCodeAt(0) - 48;
+    if (digit < 0 || digit > 9) {
+      throw new DevCliUsageError(`${flag} must be a positive integer.`);
+    }
+    parsed = parsed * 10 + digit;
+    if (!Number.isSafeInteger(parsed)) {
+      throw new DevCliUsageError(`${flag} must be a positive integer.`);
+    }
+  }
+  return parsed;
 }
 
 function parseJson(text: string, label: string): unknown {
@@ -602,7 +614,7 @@ function devCliUsage(): string {
     '  npm run dev',
     '  npm run dev -- --seed <name>/<variant> --reset [--open-web] [--dev-tools]',
     '  npm run dev -- --workspace <dir> [--mode tui|print|rpc] [--open-web] [--dev-tools]',
-    '  npm run dev -- --workspace <dir> --seed <name/variant> --reset [--open-web] [--dev-tools]',
+    '  npm run dev -- --workspace <dir> --seed <name>/<variant> --reset [--open-web] [--dev-tools]',
     '  npm run dev -- rpc <method> [params-json] --workspace <dir>',
     '  npm run dev -- mutate --workspace <dir> (--params <json> | --params-file <file>)',
     '  npm run dev -- export --workspace <dir> --spec-id <id> [--out <file>] [--show all|active]',

@@ -19,7 +19,7 @@ It does not own published CLI behavior, public RPC contracts, or database import
 
 - With no args, it prompts for a workbench, whether to start from current state or a reset seed, and whether to open the web sidecar.
 - TUI is the default mode.
-- Seeding is always explicit: the launcher only seeds when `--seed <name/variant> --reset` is present or chosen in the prompt flow.
+- Seeding is always explicit: the launcher only seeds when `--seed <name>/<variant> --reset` is present or chosen in the prompt flow.
 - `rpc`, `mutate`, and `export` are explicit subcommands for scripted reads, graph curation, and fixture export.
 - `npm run dev:raw -- ...` remains the escape hatch to the underlying app entrypoint.
 
