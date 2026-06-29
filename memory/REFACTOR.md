@@ -90,7 +90,7 @@ suspended control system
 1. ✓ Establish the new live-vs-suspended topology and co-located documentation so the simplified elicitor path has an obvious home before behavior changes.
 2. ✓ Introduce a new live elicitor prompt/context assembly path that produces a plain prompt and plain selected-spec/workspace context without consulting prompt-resource routing or elicitation-gap logic.
 3. ✓ Rewire the Pi prompt adapter to consume the new live elicitor assembly path while leaving the suspended control system uncalled.
-4. Replace method- and readiness-derived tool activation for the live elicitor with one explicit fixed tool policy.
+4. ✓ Replace method- and readiness-derived tool activation for the live elicitor with one explicit fixed tool policy.
 5. Remove live prompt/context reads of readiness estimates, elicitation recommendations, lens emphasis, and runtime axis selections from the elicitor path.
 6. Quarantine the old runtime control modules, prompt-resource manifests, and gap-driven helpers under suspended topology with compatibility shims only where needed to keep non-elicitor surfaces working.
 7. Simplify session/runtime reporting so operational mode remains meaningful but strategy/lens-specific live surfaces no longer claim authority over the elicitor.

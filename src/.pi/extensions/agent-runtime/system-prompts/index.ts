@@ -73,33 +73,28 @@ export function registerBrunchPrompting(
     const resolvedPromptContext = await resolvePromptContext(promptContext);
 
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
-    const world = worldReadCache.read(resolvedPromptContext.graphReads, resolvedPromptContext.spec.id);
+    const usesLiveElicitorPrompt = state.operationalMode === 'elicit' && state.agentRole === 'elicitor';
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
-        ? activeToolNamesForBrunchAgentState(pi, state, world.gaps, options.devAllowedToolNames)
+        ? activeToolNamesForBrunchAgentState(pi, state, undefined, options.devAllowedToolNames)
         : [];
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);
     }
-    const prompt =
-      state.operationalMode === 'elicit' && state.agentRole === 'elicitor'
-        ? composeLiveElicitorPrompt({
-            sessionState: state,
-            spec: resolvedPromptContext.spec,
-            workspace: resolvedPromptContext.workspace,
-            context: resolvedPromptContext.context,
-            activeTools,
-          }).prompt
-        : composeAgentPrompt({
-            agentId: state.agentRole,
-            sessionState: state,
-            spec: resolvedPromptContext.spec,
-            workspace: resolvedPromptContext.workspace,
-            context: contextForPrompt(resolvedPromptContext, state, world),
-            activeTools,
-            gaps: world.gaps,
-            agentBody: await readAgentBody(state.agentRole),
-          }).prompt;
+    const prompt = usesLiveElicitorPrompt
+      ? composeLiveElicitorPrompt({
+          sessionState: state,
+          spec: resolvedPromptContext.spec,
+          workspace: resolvedPromptContext.workspace,
+          context: resolvedPromptContext.context,
+          activeTools,
+        }).prompt
+      : await composeLegacyAgentPrompt({
+          promptContext: resolvedPromptContext,
+          state,
+          activeTools,
+          world: worldReadCache.read(resolvedPromptContext.graphReads, resolvedPromptContext.spec.id),
+        });
 
     if (prompt.trim().length === 0) return undefined;
 
@@ -108,6 +103,29 @@ export function registerBrunchPrompting(
       systemPrompt: `${basePrompt}\n\n${prompt}`,
     };
   });
+}
+
+async function composeLegacyAgentPrompt({
+  promptContext,
+  state,
+  activeTools,
+  world,
+}: {
+  readonly promptContext: BrunchPromptContext;
+  readonly state: ReturnType<typeof projectState>;
+  readonly activeTools: readonly string[];
+  readonly world: WorldReads;
+}): Promise<string> {
+  return composeAgentPrompt({
+    agentId: state.agentRole,
+    sessionState: state,
+    spec: promptContext.spec,
+    workspace: promptContext.workspace,
+    context: contextForPrompt(promptContext, state, world),
+    activeTools,
+    gaps: world.gaps,
+    agentBody: await readAgentBody(state.agentRole),
+  }).prompt;
 }
 
 async function readAgentBody(agentId: ReturnType<typeof projectState>['agentRole']): Promise<string> {

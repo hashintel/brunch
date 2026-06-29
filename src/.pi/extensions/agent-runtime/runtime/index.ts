@@ -17,6 +17,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 
+import { activeToolNamesForLiveElicitor } from '../../../../agents/runtime/elicitor/active-tools.js';
 import {
   isToolBlockedForRuntimeState,
   toolPolicyForRuntimeState,
@@ -88,6 +89,12 @@ export function activeToolNamesForBrunchAgentState(
   gaps?: readonly ElicitationGap[],
   devAllowedToolNames?: readonly string[],
 ): string[] {
+  if (state.operationalMode === 'elicit' && state.agentRole === 'elicitor') {
+    return activeToolNamesForLiveElicitor({
+      registeredToolNames: pi.getAllTools().map((tool) => tool.name),
+      devAllowedToolNames,
+    });
+  }
   return activeToolNamesForPosture({
     registeredToolNames: pi.getAllTools().map((tool) => tool.name),
     state,

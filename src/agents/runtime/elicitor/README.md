@@ -9,6 +9,7 @@ SPEC decisions: D40-L, D52-L, D85-L, D98-L
 ```text
 elicitor/
 ├── README.md
+├── active-tools.ts         fixed live elicitor active-tool policy
 ├── compose-live-prompt.ts  fixed body + plain context assembly
 └── __tests__/              live-path assembly tests
 ```

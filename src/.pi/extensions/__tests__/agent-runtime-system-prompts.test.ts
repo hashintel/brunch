@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest';
 import { composeAgentPrompt } from '../../../agents/runtime/compose.js';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
@@ -466,54 +465,57 @@ describe('Brunch prompt-pack topology', () => {
     expect(promptResult?.systemPrompt).toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
   });
 
-  it('keeps mutate_graph floor regardless of selected-spec gap coverage (D86-L)', async () => {
-    async function activeToolsForGaps(gaps: readonly ElicitationGap[]) {
-      const events: Record<string, (event: never, ctx?: never) => unknown> = {};
-      const activeTools: string[][] = [];
-      registerBrunchPrompting(
-        {
-          on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
-            events[event] = handler;
-          },
-          getAllTools: () =>
-            [
-              'read',
-              'grep',
-              'read_graph',
-              'read_session_context',
-              'read_elicitation_gaps',
-              'mutate_graph',
-              'present_review_set',
-            ].map((name) => ({ name })),
-          setActiveTools: (tools: string[]) => activeTools.push(tools),
-        } as never,
-        {
-          ...promptContext,
-          graphReads: { ...promptContext.graphReads, getElicitationGaps: () => gaps },
+  it('activates live elicitor tools from the fixed policy without selected-spec gap reads', async () => {
+    const events: Record<string, (event: never, ctx?: never) => unknown> = {};
+    const activeTools: string[][] = [];
+    registerBrunchPrompting(
+      {
+        on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+          events[event] = handler;
         },
-      );
-
-      await Promise.resolve(
-        events.before_agent_start?.(
-          { systemPrompt: 'base' } as never,
-          { sessionManager: { getEntries: () => [] } } as never,
-        ),
-      );
-      return activeTools.at(-1) ?? [];
-    }
-
-    // D86-L: graph-write tools are floor in elicit mode — present even at zero grounding
-    // coverage, not gap-activated. Readiness is advisory, never a graph-write tool gate.
-    await expect(activeToolsForGaps(groundingFloorGaps({ defaultCoverage: 0 }))).resolves.toContain(
-      'mutate_graph',
+        getAllTools: () =>
+          [
+            'read',
+            'grep',
+            'read_graph',
+            'read_session_context',
+            'read_elicitation_gaps',
+            'mutate_graph',
+            'present_review_set',
+            'bash',
+          ].map((name) => ({ name })),
+        setActiveTools: (tools: string[]) => activeTools.push(tools),
+      } as never,
+      {
+        ...promptContext,
+        graphReads: {
+          ...promptContext.graphReads,
+          latestLsn: () => {
+            throw new Error('live elicitor tool policy must not read graph clocks');
+          },
+          getElicitationGaps: () => {
+            throw new Error('live elicitor tool policy must not read selected-spec gaps');
+          },
+        },
+      },
     );
-    await expect(activeToolsForGaps(groundingFloorGaps({ defaultCoverage: 0 }))).resolves.toContain(
-      'present_review_set',
+
+    await Promise.resolve(
+      events.before_agent_start?.(
+        { systemPrompt: 'base' } as never,
+        { sessionManager: { getEntries: () => [] } } as never,
+      ),
     );
-    // the elicitation read tool rides the ungated read-context method
-    await expect(activeToolsForGaps(groundingFloorGaps({ defaultCoverage: 0 }))).resolves.toContain(
+
+    expect(activeTools.at(-1)).toEqual([
+      'read',
+      'grep',
+      'read_graph',
+      'read_session_context',
       'read_elicitation_gaps',
-    );
+      'mutate_graph',
+      'present_review_set',
+    ]);
   });
 
   it('is registered by the explicit shell after operational-mode policy and appends the live elicitor prompt', async () => {
