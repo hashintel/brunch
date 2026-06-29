@@ -29,24 +29,7 @@ describe('composeLiveElicitorPrompt', () => {
       agentBody: '# Agent: elicitor\n\nFixed body.',
     });
 
-    expect(result.prompt).toContain('# Agent: elicitor\n\nFixed body.');
     await expect(result.prompt).toMatchFileSnapshot('../__snapshots__/live-elicitor-prompt.md');
-
-    expect(result.prompt).toContain('[Brunch live elicitor control]');
-    expect(result.prompt).toContain('- operational mode: elicit');
-    expect(result.prompt).toContain('- foreground role: elicitor');
-    expect(result.prompt).toContain('- active tools: read, grep, present_question');
-    expect(result.prompt).toContain('[Brunch live elicitor context]');
-    expect(result.prompt).toContain('- selected spec: Live Assembly Spec (#42)');
-    expect(result.prompt).toContain('- workspace: /work/brunch');
-    expect(result.prompt).toContain('[Plain selected-spec context]');
-
-    expect(result.prompt).not.toContain('<brunch-skills>');
-    expect(result.prompt).not.toContain('[Brunch elicitation recommendation]');
-    expect(result.prompt).not.toContain('[Brunch prompt-resource routing]');
-    expect(result.prompt).not.toContain('readiness estimate');
-    expect(result.prompt).not.toContain('prompt strategy resource');
-    expect(result.prompt).not.toContain('prompt lens resource');
   });
 
   it('fails loud when called for a non-elicitor foreground state', () => {

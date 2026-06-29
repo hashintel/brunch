@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../../../../db/connection.js';
@@ -130,7 +127,7 @@ describe('capability readiness over elicitation gaps', () => {
     ]);
   });
 
-  it('never returns a refusal outcome and does not import grade-gate symbols', () => {
+  it('never returns a refusal outcome', () => {
     const outcomes = [
       evaluateCapabilityReadiness('propose-graph', groundingFloorGaps({ coverage: { context: 0 } })),
       evaluateCapabilityReadiness('propose-graph', groundingFloorGaps({ coverage: { context: 0.25 } })),
@@ -143,9 +140,5 @@ describe('capability readiness over elicitation gaps', () => {
       'proceed',
     ]);
     expect(outcomes.map((outcome) => outcome.status)).not.toContain('refuse');
-
-    const sourcePath = fileURLToPath(new URL('../capability-readiness.ts', import.meta.url));
-    const source = readFileSync(sourcePath, 'utf8');
-    expect(source).not.toMatch(/ReadinessGrade|GRADE_RANK|MIN_GRADE/);
   });
 });

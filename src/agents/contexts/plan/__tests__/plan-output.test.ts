@@ -53,11 +53,5 @@ describe('renderPlanMarkdownOutput', () => {
     const rendered = renderPlanMarkdownOutput({ title: 'Widget Plan', nodes });
 
     await expect(rendered).toMatchFileSnapshot('../__snapshots__/plan-output.md');
-    expect(rendered).toContain('# Widget Plan');
-    expect(rendered).toContain('## Milestone');
-    expect(rendered).toContain('### M1 Renderer coverage');
-    expect(rendered).toContain('## Frontier');
-    expect(rendered).toContain('## Slice');
-    expect(rendered).not.toContain('Do not include spec nodes');
   });
 });

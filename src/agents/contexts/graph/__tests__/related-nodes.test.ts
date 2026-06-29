@@ -23,9 +23,6 @@ test('related nodes uses semantic relation labels instead of raw graph internals
   });
 
   await expect(rendered).toMatchFileSnapshot('../__snapshots__/related-hub-REQ1.md');
-  expect(rendered).toContain('upstream nodes');
-  expect(rendered).toContain('downstream nodes');
-  expect(rendered).toContain('cross-check');
   expectNoStructuralLeak(rendered);
 });
 

@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
@@ -215,12 +212,10 @@ describe('agent posture policy', () => {
     expect(() => manifestsForState(state, [])).toThrow(/no presence gap/);
   });
 
-  it('resolves agent SYSTEM.md bodies through the central agent context registry location', () => {
+  it('resolves agent body paths through the central agent context registry location', () => {
     const location = agentBodyResourceLocation('elicitor');
     expect(location).toBe(bundledAgentBodyLocation('elicitor'));
     expect(location).toMatch(/src\/agents\/prompts\/elicitor\.md$/);
-    const body = readFileSync(location, 'utf8');
-    expect(body).toContain('# Agent: elicitor');
   });
 
   it('carries the foreground manifest on the op-mode-keyed roster', () => {
@@ -289,10 +284,5 @@ describe('agent posture policy', () => {
     expect(executeTools).toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
     expect(executeTools).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
     expect(elicitTools).not.toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
-  });
-
-  it('keeps state.ts free of grade-gate symbols', () => {
-    const source = readFileSync(fileURLToPath(new URL('../state.ts', import.meta.url)), 'utf8');
-    expect(source).not.toMatch(/ReadinessGrade|GRADE_RANK|MIN_GRADE|isGradeLegal/);
   });
 });

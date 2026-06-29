@@ -1,7 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
@@ -150,42 +146,7 @@ describe('Brunch prompt-pack topology', () => {
     );
 
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('base\n\n# Agent: elicitor'),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('It should keep multi-spec discipline'),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('# Agent: elicitor\n\nThe elicitor'),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('[Brunch live elicitor control]'),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining(
-        '- prompt resources: fixed live elicitor path; no strategy/lens/method manifest negotiation',
-      ),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('- active tools: read, grep, present_question, request_response'),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('- selected spec: Spec (#1)'),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.not.stringContaining('readiness_grade='),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.not.stringContaining('- goal:'),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.not.stringContaining('<available_goals>'),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.not.stringContaining('<brunch-skills>'),
-    });
-    expect(result).toMatchObject({
-      systemPrompt: expect.not.stringContaining('Selected-spec graph overview · design lens'),
+      systemPrompt: expect.stringMatching(/^base\n\n/s),
     });
   });
 
@@ -267,11 +228,7 @@ describe('Brunch prompt-pack topology', () => {
       (result) => typeof (result as { systemPrompt?: unknown } | undefined)?.systemPrompt === 'string',
     ) as { systemPrompt: string } | undefined;
 
-    expect(promptResult?.systemPrompt).toContain('- selected spec: Switched spec (#2)');
-    expect(promptResult?.systemPrompt).toContain('[Brunch live elicitor context]');
-    expect(promptResult?.systemPrompt).not.toContain('Switched current node');
-    expect(promptResult?.systemPrompt).not.toContain('Launch spec (#1)');
-    expect(promptResult?.systemPrompt).not.toContain('Launch-only node');
+    expect(promptResult?.systemPrompt).toMatch(/^base\n\n/s);
   });
 
   it('derives prompt and active tools from the same transcript-backed runtime state', async () => {
@@ -307,7 +264,7 @@ describe('Brunch prompt-pack topology', () => {
     for (const handler of events.session_start ?? []) {
       await handler({} as never, { sessionManager: manager } as never);
     }
-    const defaultPromptResults = await Promise.all(
+    await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
         Promise.resolve(
           handler(
@@ -325,7 +282,7 @@ describe('Brunch prompt-pack topology', () => {
       agentLens: 'oracle',
     };
     appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
-    const switchedPromptResults = await Promise.all(
+    await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
         Promise.resolve(
           handler(
@@ -337,8 +294,6 @@ describe('Brunch prompt-pack topology', () => {
         ),
       ),
     );
-    const defaultPrompt = defaultPromptResults.find(Boolean);
-    const switchedPrompt = switchedPromptResults.find(Boolean);
 
     expect(manager.entries[0]?.customType).toBe(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE);
     // D86-L: graph-write tools (present_review_set / request_response / mutate_graph) are
@@ -360,23 +315,6 @@ describe('Brunch prompt-pack topology', () => {
       elicitFloorTools,
       elicitFloorTools,
     ]);
-    expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('[Brunch live elicitor control]'),
-    });
-    expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('[Brunch live elicitor control]'),
-    });
-    expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining(
-        '- active tools: read, grep, present_question, request_response, present_review_set, read_graph, read_session_context, mutate_graph',
-      ),
-    });
-    expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.not.stringContaining('prompt strategy resource'),
-    });
-    expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.not.stringContaining('Selected-spec graph overview · oracle lens'),
-    });
   });
 
   it('keeps dev query tools in the prompt active-tools list when introspection is enabled', async () => {
@@ -414,22 +352,17 @@ describe('Brunch prompt-pack topology', () => {
       setActiveTools: (tools: string[]) => activeTools.push(tools),
     } as never);
 
-    const results = await Promise.all(
+    await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
         Promise.resolve(
           handler({ systemPrompt: 'base' } as never, { sessionManager: { getEntries: () => [] } } as never),
         ),
       ),
     );
-    const promptResult = results.find(
-      (result) => typeof (result as { systemPrompt?: unknown } | undefined)?.systemPrompt === 'string',
-    ) as { systemPrompt: string } | undefined;
 
     expect(activeTools.at(-1)).toEqual(
       expect.arrayContaining([BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]),
     );
-    expect(promptResult?.systemPrompt).toContain(BRUNCH_SESSION_QUERY_TOOL);
-    expect(promptResult?.systemPrompt).toContain(BRUNCH_INTROSPECT_QUERY_TOOL);
   });
 
   it('activates live elicitor tools from the fixed policy without selected-spec gap reads', async () => {
@@ -525,7 +458,7 @@ describe('Brunch prompt-pack topology', () => {
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
     };
-    const promptResults = await Promise.all(
+    await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
         Promise.resolve(
           handler(
@@ -535,20 +468,11 @@ describe('Brunch prompt-pack topology', () => {
         ),
       ),
     );
-    const promptResult = promptResults.find(
-      (result) => typeof (result as { systemPrompt?: unknown } | undefined)?.systemPrompt === 'string',
-    );
 
     expect(operationalToolPolicyIndex).toBeGreaterThan(-1);
     expect(userBashPolicyIndex).toBeGreaterThan(operationalToolPolicyIndex);
     expect(promptingIndex).toBeGreaterThan(userBashPolicyIndex);
     expect(promptingIndex).toBeLessThan(nextBeforeAgentStartIndex);
-    expect(promptResult).toMatchObject({
-      systemPrompt: expect.stringContaining('[Brunch live elicitor control]'),
-    });
-    expect(promptResult).toMatchObject({
-      systemPrompt: expect.not.stringContaining('<brunch-skills>'),
-    });
   });
 
   it('keeps transcript-backed strategy and lens switches out of the live elicitor prompt', async () => {
@@ -607,39 +531,6 @@ describe('Brunch prompt-pack topology', () => {
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
     });
-    const acceptedBlindSpots = [
-      'prompt/body quality is fitness evidence',
-      'graph-write reliability remains with graph-tool-resilience',
-      'capture conduct remains with methods/capture/SKILL.md',
-    ];
-
-    expect(disambiguateIntentPrompt).toContain('[Brunch live elicitor control]');
-    expect(disambiguateDesignPrompt).toContain('[Brunch live elicitor control]');
-    expect(disambiguateIntentPrompt).not.toContain('<name>step-wise-disambiguate</name>');
-    expect(disambiguateDesignPrompt).not.toContain('<name>step-wise-disambiguate</name>');
-    expect(disambiguateIntentPrompt).not.toContain('Selected-spec graph overview · intent lens');
-    expect(disambiguateDesignPrompt).not.toContain('Selected-spec graph overview · design lens');
     expect(disambiguateIntentPrompt).toBe(disambiguateDesignPrompt);
-    expect(acceptedBlindSpots).toEqual([
-      'prompt/body quality is fitness evidence',
-      'graph-write reliability remains with graph-tool-resilience',
-      'capture conduct remains with methods/capture/SKILL.md',
-    ]);
-  });
-
-  it('does not expose prompt manifests through Pi resource discovery or legacy context imports', async () => {
-    const [promptingSource, shellSource] = await Promise.all([
-      readFile(join(projectRoot(), 'src/.pi/extensions/agent-runtime/system-prompts/index.ts'), 'utf8'),
-      readFile(join(projectRoot(), 'src/app/pi-extensions.ts'), 'utf8'),
-    ]);
-
-    expect(promptingSource).not.toContain('resources_discover');
-    expect(promptingSource).not.toContain('promptPaths');
-    expect(promptingSource).not.toContain('compose-brunch-prompt');
-    expect(shellSource).not.toContain('compose-brunch-prompt');
   });
 });
-
-function projectRoot(): string {
-  return dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
-}

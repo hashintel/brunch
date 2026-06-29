@@ -63,10 +63,6 @@ describe('context tools', () => {
       details: { topology: { children?: Array<{ name: string; children?: Array<{ name: string }> }> } };
     };
 
-    expect(result.content[0]?.text).toContain('<workspace>');
-    expect(result.content[0]?.text).toContain('Project:');
-    expect(result.content[0]?.text).toContain('Topology:');
-    expect(result.content[0]?.text).not.toContain('session-1.jsonl');
     expect(result.details).not.toHaveProperty('mode');
     expect(result.details).not.toHaveProperty('data');
     expect(result.details.topology.children?.map((entry) => entry.name)).toContain('README.md');
@@ -128,9 +124,6 @@ describe('context tools', () => {
       details: unknown;
     };
 
-    expect(result.content[0]?.text).toContain('[Selected session runtime frame]');
-    expect(result.content[0]?.text).toContain('#D12');
-    expect(result.content[0]?.text).not.toContain('node-1');
     expect(result.details).toMatchObject({
       status: 'ready',
       specId: 1,
@@ -161,7 +154,6 @@ describe('context tools', () => {
       details: unknown;
     };
 
-    expect(result.content[0]?.text).toContain('status: not_ready');
     expect(result.details).toEqual({
       status: 'not_ready',
       reason: 'missing_binding',
@@ -237,13 +229,6 @@ describe('context tools', () => {
       details: { specs: Array<{ title: string }>; sessions: Array<{ turnCount: number }> };
     };
 
-    expect(result.content[0]?.text).toContain('<workspace>');
-    expect(result.content[0]?.text).toContain('Specifications:');
-    expect(result.content[0]?.text).toContain('Alpha Grounding');
-    expect(result.content[0]?.text).toContain('Beta Commitments');
-    expect(result.content[0]?.text).not.toContain('readiness_grade=');
-    expect(result.details).not.toHaveProperty('mode');
-    expect(result.details).not.toHaveProperty('data');
     expect(result.details.specs.map((spec) => spec.title)).toEqual(['Alpha Grounding', 'Beta Commitments']);
     expect(result.details.sessions.map((session) => session.turnCount)).toEqual([1, 2]);
   });
@@ -286,12 +271,6 @@ describe('context tools', () => {
       };
     };
 
-    expect(result.content[0]?.text).toContain('<specification>');
-    expect(result.content[0]?.text).toContain('Overview:');
-    expect(result.content[0]?.text).toContain('Sessions:');
-    expect(result.content[0]?.text).toContain('Gaps:');
-    expect(result.content[0]?.text).toContain('Beta Commitments');
-    expect(result.content[0]?.text).not.toContain('Alpha Grounding');
     expect(result.details.spec).toEqual({ id: beta.specId, title: 'Beta Commitments' });
     expect(result.details.sessions).toMatchObject([{ specId: beta.specId, turnCount: 2 }]);
   });

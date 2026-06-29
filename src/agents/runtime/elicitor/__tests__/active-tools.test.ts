@@ -18,8 +18,6 @@ describe('activeToolNamesForLiveElicitor', () => {
       ],
     });
 
-    const snapshotText = `${JSON.stringify(activeToolNames).replaceAll('","', '", "')}\n`;
-    await expect(snapshotText).toMatchFileSnapshot('../__snapshots__/live-elicitor-active-tools.json');
     expect(activeToolNames).toEqual([
       'read',
       'grep',

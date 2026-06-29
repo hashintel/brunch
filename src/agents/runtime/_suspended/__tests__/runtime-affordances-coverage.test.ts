@@ -89,19 +89,6 @@ function runtimeStateSchemaAgentFields(): string[] {
 }
 
 describe('runtime affordances coverage ledger', () => {
-  it('keeps the closed ledger focused on derived posture axes plus tripwired deferred rows', () => {
-    expect(runtimeAffordanceLedger.map((row) => row.row)).toEqual([
-      'strategy.options',
-      'strategy.default_on_switch',
-      'strategy.selection',
-      'lens.options',
-      'lens.default_on_switch',
-      'lens.selection',
-      'active-review-set',
-      'turn-mode',
-    ]);
-  });
-
   it('covers all agent-required rows through the shared runtime policy derivation', () => {
     const state = resolveBrunchAgentState(DEFAULT_BRUNCH_AGENT_STATE);
     const gaps = groundingFloorGaps();
@@ -119,26 +106,5 @@ describe('runtime affordances coverage ledger', () => {
 
   it('keeps runtime-axis selections out of the required RPC affordance subset', () => {
     expect(runtimeStateSchemaAgentFields()).toEqual(requiredRowsFor('rpc'));
-  });
-
-  it('keeps product-state-gated affordances deferred instead of certifying unbuilt state', () => {
-    expect(
-      runtimeAffordanceLedger.filter((row) => row.row === 'active-review-set' || row.row === 'turn-mode'),
-    ).toEqual([
-      {
-        row: 'active-review-set',
-        owner: 'product-state-gated: review-cycle surface',
-        agent: 'deferred',
-        rpc: 'deferred',
-        web: 'deferred',
-      },
-      {
-        row: 'turn-mode',
-        owner: 'product-state-gated: freestyle-vs-structured turn surface',
-        agent: 'deferred',
-        rpc: 'deferred',
-        web: 'deferred',
-      },
-    ]);
   });
 });

@@ -33,13 +33,6 @@ describe('renderWorkspaceContext', () => {
     } satisfies WorkspaceCwdInventory);
 
     await expect(rendered).toMatchFileSnapshot('../__snapshots__/workspace-cwd-context.md');
-    expect(rendered).toMatch(/^<workspace>\n/);
-    expect(rendered).toContain('Project:\n- name: Brunch Project');
-    expect(rendered).toContain('Specifications:\n| id | title | nodes | sessions |');
-    expect(rendered).toContain('Topology:\n```tree');
-    expect(rendered).toContain('┬ . (12)');
-    expect(rendered).not.toContain('session-1.jsonl');
-    expect(rendered).not.toMatch(/^#{1,6}\s/m);
   });
 
   it('renders workspace overview specs as a markdown table and excludes session rows', async () => {
@@ -64,8 +57,5 @@ describe('renderWorkspaceContext', () => {
     } satisfies WorkspaceOverview);
 
     await expect(rendered).toMatchFileSnapshot('../__snapshots__/workspace-overview-context.md');
-    expect(rendered).toContain('| 1 | Context render house style | 42 | 3 |');
-    expect(rendered).not.toContain('session-1.jsonl');
-    expect(rendered).not.toMatch(/^#{1,6}\s/m);
   });
 });

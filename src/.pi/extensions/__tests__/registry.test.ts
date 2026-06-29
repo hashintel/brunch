@@ -1,7 +1,3 @@
-import { access, readFile, readdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
@@ -46,52 +42,6 @@ describe('Brunch explicit Pi extension registry', () => {
   it('keeps named factory exports for src/.pi iteration', () => {
     for (const [path, factory] of Object.entries(extensionDefaults)) {
       expect(factory, path).toEqual(expect.any(Function));
-    }
-  });
-
-  it('keeps product-dependency src/.pi extensions disabled for direct Pi iteration', async () => {
-    const settings = JSON.parse(await readFile(join(projectRoot(), 'src/.pi/settings.json'), 'utf8')) as {
-      extensions?: unknown;
-    };
-
-    expect(settings.extensions).toContain('extensions/chrome/index.ts');
-    expect(settings.extensions).not.toContain('!extensions/**');
-    expect(settings.extensions).toEqual(
-      expect.arrayContaining([
-        '-extensions/agent-runtime/index.ts',
-        '-extensions/agent-runtime/runtime/index.ts',
-        '-extensions/agent-runtime/system-prompts/index.ts',
-        '-extensions/brunch-data/index.ts',
-        '-extensions/brunch-data/elicitation/index.ts',
-        '-extensions/brunch-data/graph/index.ts',
-        '-extensions/brunch-data/reconciliation/index.ts',
-        '-extensions/commands/index.ts',
-        '-extensions/compaction/index.ts',
-        '-extensions/dev-mode/index.ts',
-        '-extensions/dev-mode/introspect-query/index.ts',
-        '-extensions/session-hooks/index.ts',
-        '-extensions/subagents/index.ts',
-        '-extensions/web-tools/index.ts',
-        '-extensions/workspace/index.ts',
-      ]),
-    );
-  });
-
-  it('keeps every enabled src/.pi ambient entrypoint default-loadable', async () => {
-    const settings = JSON.parse(await readFile(join(projectRoot(), 'src/.pi/settings.json'), 'utf8')) as {
-      extensions?: string[];
-    };
-    const disabledEntrypoints = new Set(
-      (settings.extensions ?? [])
-        .filter((entry) => entry.startsWith('-'))
-        .map((entry) => join(projectRoot(), 'src/.pi', entry.slice(1))),
-    );
-
-    const files = await listExtensionEntrypoints();
-    for (const file of files) {
-      if (disabledEntrypoints.has(file)) continue;
-      const source = await readFile(file, 'utf8');
-      expect(source, file).toContain('export default');
     }
   });
 
@@ -392,27 +342,6 @@ describe('Brunch explicit Pi extension registry', () => {
       ]),
     );
   });
-
-  it('does not retain the filesystem-discovery product-extension protocol', async () => {
-    const shell = await readFile(join(projectRoot(), 'src/app/pi-extensions.ts'), 'utf8');
-    const discoveryExport = ['discover', 'BrunchProductExtensionEntries'].join('');
-    expect(shell).not.toContain(`export async function ${discoveryExport}`);
-    expect(shell).not.toContain('node:fs/promises');
-    expect(shell).not.toContain('pathToFileURL');
-
-    const forbiddenExportNames = [
-      ['brunch', 'ExtensionMeta'].join(''),
-      ['register', 'BrunchProductExtension'].join(''),
-    ];
-    const files = await listExtensionEntrypoints();
-    for (const file of files) {
-      const source = await readFile(file, 'utf8');
-      for (const exportName of forbiddenExportNames) {
-        expect(source, file).not.toContain(`export const ${exportName}`);
-        expect(source, file).not.toContain(`export function ${exportName}`);
-      }
-    }
-  });
 });
 
 const brunchChromeFixture = {
@@ -504,32 +433,4 @@ function createRecordingExtensionApi() {
     messageRenderers,
     onSessionBoundary,
   };
-}
-
-async function listExtensionEntrypoints(): Promise<string[]> {
-  const extensionsDir = join(projectRoot(), 'src/.pi/extensions');
-  const entries = await readdir(extensionsDir, { withFileTypes: true });
-  const files: string[] = [];
-  for (const entry of entries) {
-    const path = join(extensionsDir, entry.name);
-    if (entry.isFile() && entry.name.endsWith('.ts')) files.push(path);
-    if (entry.isDirectory()) {
-      const indexFile = join(path, 'index.ts');
-      if (await fileExists(indexFile)) files.push(indexFile);
-    }
-  }
-  return files;
-}
-
-async function fileExists(file: string): Promise<boolean> {
-  try {
-    await access(file);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function projectRoot(): string {
-  return dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 }

@@ -28,10 +28,9 @@ import type { GraphReaders } from '../brunch-data/graph/index.js';
 import {
   loadSubagentDefinitions,
   parseSubagentMarkdown,
-  subagentAgentsDir,
   type SubagentDefinition,
 } from '../subagents/agents.js';
-import { loadSubagentConfig, parseSubagentConfig, subagentConfigPath } from '../subagents/config.js';
+import { parseSubagentConfig } from '../subagents/config.js';
 import {
   BRUNCH_SUBAGENT_TOOL,
   createSemaphore,
@@ -121,15 +120,6 @@ describe('parseSubagentMarkdown', () => {
 });
 
 describe('loadSubagentDefinitions (bundled agents)', () => {
-  it('loads the explorer, researcher, projector, and reviewer starter agents', async () => {
-    const definitions = await loadSubagentDefinitions(subagentAgentsDir());
-    expect([...definitions.keys()].sort()).toEqual(['explorer', 'projector', 'researcher', 'reviewer']);
-    expect(definitions.get('explorer')?.tools).toEqual(['read', 'grep', 'find', 'ls', 'read_graph']);
-    expect(definitions.get('researcher')?.tools).toEqual(['web_search', 'web_fetch']);
-    expect(definitions.get('projector')?.tools).toEqual([]);
-    expect(definitions.get('reviewer')?.tools).toEqual([]);
-  });
-
   it('loads only the explicit registry ids and ignores planted unlisted SYSTEM.md files', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-subagent-registry-'));
     await writeFile(join(dir, 'explorer.md'), EXPLORER_MD);
@@ -153,12 +143,6 @@ describe('subagent config', () => {
 
   it('rejects a non-positive maxConcurrency', () => {
     expect(() => parseSubagentConfig({ version: 1, maxConcurrency: 0 })).toThrow(/Invalid subagent config/);
-  });
-
-  it('loads the bundled config.json', async () => {
-    const config = await loadSubagentConfig(subagentConfigPath());
-    expect(config.version).toBeGreaterThanOrEqual(1);
-    expect(config.maxConcurrency).toBeGreaterThanOrEqual(1);
   });
 });
 

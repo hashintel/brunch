@@ -45,10 +45,5 @@ describe('renderSpecMarkdownOutput', () => {
     const rendered = renderSpecMarkdownOutput({ title: 'Widget Spec', nodes });
 
     await expect(rendered).toMatchFileSnapshot('../__snapshots__/spec-output.md');
-    expect(rendered).toContain('# Widget Spec');
-    expect(rendered).toContain('## Intent');
-    expect(rendered).toContain('### G1 Capture decisions');
-    expect(rendered).toContain('## Design');
-    expect(rendered).not.toContain('Do not include planning nodes');
   });
 });

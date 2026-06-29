@@ -30,19 +30,15 @@ function readyProjection(): RuntimeStateProjection {
   };
 }
 
+/**
+ * Renderer-contract snapshot: structured RuntimeStateProjection input drives Markdown
+ * output. The snapshot is the assertion; do not read static prompt/markdown files.
+ */
 describe('renderRuntimeFrame', () => {
   it('locks the ready runtime-frame preview and renders projected graph handles', async () => {
     const rendered = renderRuntimeFrame(readyProjection());
 
     await expect(rendered).toMatchFileSnapshot('../__snapshots__/runtime-frame-ready.md');
-    expect(rendered).toContain('#D12');
-    expect(rendered).not.toContain('node-1');
-    expect(rendered).toContain('mode=elicit; role=elicitor');
-    expect(rendered).not.toContain('prompt_strategy_resource');
-    expect(rendered).not.toContain('prompt_lens_resource');
-    expect(rendered).not.toContain('strategy=');
-    expect(rendered).not.toContain('lens=');
-    expect(rendered).not.toContain('goal=');
   });
 
   it('renders not-ready state without throwing', () => {

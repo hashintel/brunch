@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
@@ -118,12 +115,9 @@ describe('agent runtime policy posture affordances', () => {
     expect(() => axisOptionsForRuntimeState('lens', resolved(), [])).toThrow(/no presence gap/);
   });
 
-  it('derives per-axis legal options without grade-gate symbols', () => {
+  it('derives per-axis legal options from gap coverage', () => {
     expect(
       axisOptionsForRuntimeState('lens', resolved(), groundingFloorGaps({ coverage: { thesis: 0 } })),
     ).toEqual(['intent']);
-
-    const source = readFileSync(fileURLToPath(new URL('../policy.ts', import.meta.url)), 'utf8');
-    expect(source).not.toMatch(/ReadinessGrade|GRADE_RANK|MIN_GRADE/);
   });
 });

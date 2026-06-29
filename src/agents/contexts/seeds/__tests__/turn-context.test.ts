@@ -5,7 +5,7 @@ import { presenceGap } from '../../../../graph/schema/elicitation-gap-fixtures.j
 import { composeAgentContextSeed, renderGraphSeed, renderWorkspaceSeed } from '../turn-context.js';
 
 describe('renderWorkspaceSeed', () => {
-  it('renders selected-spec/session/posture facts without ambient resource discovery', () => {
+  it('renders selected-spec/session/posture facts without ambient resource discovery', async () => {
     const rendered = renderWorkspaceSeed({
       spec: { id: 42, name: 'Payments Spec' },
       workspace: {
@@ -23,15 +23,8 @@ describe('renderWorkspaceSeed', () => {
       ],
     });
 
-    expect(rendered).toContain('- cwd: /repo/product');
-    expect(rendered).toContain(
-      '- selected spec: Payments Spec (#42); readiness estimate (soft; gates nothing): grounding=0.50, elicitation=1.00, projection=0.00, commitment=0.00',
-    );
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/turn-context-workspace-seed.md');
     expect(rendered).not.toContain('readiness_grade=');
-    expect(rendered).toContain('- selected session: Grounding (session-7)');
-    expect(rendered).toContain('certainty=proving; stakes=high; migration=free-rewrite');
-    expect(rendered).toContain('ambient Pi resources: not scanned');
-    expect(rendered).toContain('graph scope: selected spec only');
     expect(rendered).not.toContain('.pi/context');
   });
 });
@@ -70,25 +63,16 @@ const overview: GraphSlice = {
 };
 
 describe('renderGraphSeed', () => {
-  it('renders the same selected-spec overview with lens-specific emphasis', () => {
+  it('renders the same selected-spec overview with lens-specific emphasis', async () => {
     const intent = renderGraphSeed(overview, { lens: 'intent' });
     const design = renderGraphSeed(overview, { lens: 'design' });
     const oracle = renderGraphSeed(overview, { lens: 'oracle' });
 
-    expect(intent).toContain('Selected-spec graph overview · intent lens');
-    expect(design).toContain('Selected-spec graph overview · design lens');
-    expect(oracle).toContain('Selected-spec graph overview · oracle lens');
-    expect(intent).toContain('Selected-spec graph overview · intent lens (LSN 7): 4 nodes, 2 edges');
-    expect(intent).toContain('Emphasis: intent claims, terms, assumptions');
-    expect(design).toContain('Emphasis: design modules/interfaces');
-    expect(oracle).toContain('Emphasis: verification checks, evidence');
-    expect(intent).toContain('| G1 | 1 | Fast local specification |');
-    expect(design).toContain('| MOD2 | 2 | Prompt composer |');
-    expect(oracle).toContain('| CH3 | 3 | Prompt posture fixture |');
-    expect(intent).toContain('| id | upstream | relation | downstream |');
+    await expect(intent).toMatchFileSnapshot('../__snapshots__/turn-context-graph-intent.md');
+    await expect(design).toMatchFileSnapshot('../__snapshots__/turn-context-graph-design.md');
+    await expect(oracle).toMatchFileSnapshot('../__snapshots__/turn-context-graph-oracle.md');
     expect(intent).not.toContain('-[realization]->');
     expect(intent).not.toContain('[G1] intent/goal');
-    expect(overview.nodes[0]?.title).toBe('Fast local specification');
   });
 
   it('bounds rendered node and edge output', () => {
