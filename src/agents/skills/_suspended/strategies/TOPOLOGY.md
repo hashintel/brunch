@@ -28,5 +28,5 @@ Phrase-classification and translation heuristics are authored and locked into ea
 vocabulary tables). The canonical "abstain rather than guess on weak classification
 support" rule and the contrastive signal-phrase routing live in
 `step-wise-disambiguate/SKILL.md` and `step-wise-decision-tree/SKILL.md`; graph
-vocabulary itself is owned by `src/graph/schema/kinds.ts`. This README owns the
+vocabulary itself is owned by `src/graph/schema/kinds.ts`. This topology file owns the
 current axis membership only — not a parallel copy of the per-strategy heuristics.

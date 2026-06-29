@@ -112,7 +112,7 @@ After the build lands and verification passes, ask:
 - [ ] Did this establish a new seam-level invariant?
 - [ ] Did this change a frontier-level cross-cutting obligation or verification architecture layer?
 - [ ] Did this complete the **last member frontier of an initiative (arc)** in `memory/PLAN.md` §Initiatives?
-- [ ] Did this change the topology of a directory that owns a `README.md` (moved/renamed/retired files, changed dependency direction, completed or invalidated a migration note, or shipped a state previously described as pending)?
+- [ ] Did this change the topology of a directory that owns a `TOPOLOGY.md` (moved/renamed/retired files, changed dependency direction, completed or invalidated a migration note, or shipped a state previously described as pending)?
 
 ### If all answers are no
 
@@ -157,9 +157,9 @@ Update only the touched traceability items.
    - genuinely independent seam/rule/proof → add
 
 5. **Topology files** (when the topology question is `yes`)
-   - update the `README.md` of every touched directory that owns one — ownership statement, layout sketch, dependency-direction assertion, and migration notes
-   - if a SPEC decision cited by the README was renumbered or retired during reconciliation, repair the citation in the same commit
-   - if a directory the build retires owned a README, delete the README with the directory
+   - update the `TOPOLOGY.md` of every touched directory that owns one — ownership statement, layout sketch, dependency-direction assertion, and migration notes
+   - if a SPEC decision cited by the topology file was renumbered or retired during reconciliation, repair the citation in the same commit
+   - if a directory the build retires owned a `TOPOLOGY.md`, delete the topology file with the directory
    - if a new directory introduced by this slice will be a long-lived seam (multiple files, named in SPEC, or imported by other layers), draft a minimal topology file following the shape in `AGENTS.md` §topology files — do not speculate; describe what exists
 
 When uncertain between merge and add, add. When uncertain between update and no-op, update.

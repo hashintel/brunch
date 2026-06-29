@@ -136,7 +136,7 @@ Rules:
 - keep dependency diagrams limited to active / next frontier ids
 - keep enough `Why now / unlocks` context that a fresh thread can understand frontier ordering without reading the full archive
 - do not archive handoffs, refactor plans, or sync reports
-- reconcile the `## Initiatives` (arc) index if present: refresh each arc's member roster and per-member status against `Sequencing`, and **close an arc only when its done-definition actually holds** — including reconciliation of co-located topology files and discharge of any standing-obligation residue scoped to the arc. An arc whose members are all done but whose trailing README/residue cleanup is outstanding is **not** done; keep it `◐ active` with the residue named. Retire a fully-closed arc to a one-line `Recently Completed`-style note (or drop it) rather than carrying its full block indefinitely.
+- reconcile the `## Initiatives` (arc) index if present: refresh each arc's member roster and per-member status against `Sequencing`, and **close an arc only when its done-definition actually holds** — including reconciliation of co-located topology files and discharge of any standing-obligation residue scoped to the arc. An arc whose members are all done but whose trailing topology/residue cleanup is outstanding is **not** done; keep it `◐ active` with the residue named. Retire a fully-closed arc to a one-line `Recently Completed`-style note (or drop it) rather than carrying its full block indefinitely.
 
 ### 5. Drift and ontology check
 

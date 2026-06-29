@@ -411,17 +411,17 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 ```text
 src/agents/
   prompts/
-    README.md          [md]  foreground prompt ownership + migration note
+    TOPOLOGY.md        [md]  foreground prompt ownership + migration note
     elicitor.md        [md+] live foreground SPEC-mode body
     executor.md        [md]  foreground CODE-mode Brunch-aware coding/execution body
   subagents/
-    README.md          [md]  background subagent ownership + frontmatter contract
+    TOPOLOGY.md        [md]  background subagent ownership + frontmatter contract
     explorer.md        [md]  codebase/graph reconnaissance body + frontmatter
     researcher.md      [md]  web-research body + frontmatter
     projector.md       [md]  candidate-proposal body + frontmatter
     reviewer.md        [md]  proposal/commitment review body + frontmatter
   skills/
-    README.md          [md]  ownership + body-lock ledger
+    TOPOLOGY.md        [md]  ownership + body-lock ledger
     strategies/*/SKILL.md [md] legacy/suspended interaction-shape resources; prune or fold as evidence dictates
     lenses/*/SKILL.md     [md] legacy/suspended topical resources; prune or fold as evidence dictates
     methods/*/SKILL.md    [md] capture/generate/project/read/write/acquisition guidance resources

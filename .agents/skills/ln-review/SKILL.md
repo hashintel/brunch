@@ -123,7 +123,7 @@ Collect findings as numbered items (category: `topography`). Frame each as: what
 Directory `TOPOLOGY.md` files under `src/**/` are canonical topology documentation (see `AGENTS.md` §topology files). For each touched area, open the nearest `TOPOLOGY.md` and check:
 
 - **Ownership statement** still matches what the directory actually owns and does not own
-- **SPEC decision IDs** cited (e.g. `D52-L`) still exist in `memory/SPEC.md` and still mean what the README implies they mean
+- **SPEC decision IDs** cited (e.g. `D52-L`) still exist in `memory/SPEC.md` and still mean what the topology file implies they mean
 - **Dependency-direction assertions** ("`graph/` imports from `db/`; no other layer imports `db/` directly") match the actual import graph in the touched files
 - **Layout sketches** still match the directory's contents — no retired files still listed, no new files unmentioned
 - **Migration notes** describe state that is still pending; shipped or abandoned migrations are stale and should retire
