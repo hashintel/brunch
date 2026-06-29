@@ -159,9 +159,11 @@ describe('createBrunchFauxHarness', () => {
       const systemPrompt = harness.providerContexts[0]?.systemPrompt;
       const activeToolsLine = systemPrompt?.split('\n').find((line) => line.startsWith('- active tools:'));
       expect(harness.providerContexts).toHaveLength(1);
-      expect(systemPrompt).toContain('[Brunch agent control]');
-      expect(systemPrompt).toContain('<brunch-skills>');
-      expect(systemPrompt).toContain('<kind>strategy</kind>');
+      expect(systemPrompt).toContain('[Brunch live elicitor control]');
+      expect(systemPrompt).toContain(
+        '- prompt resources: fixed live elicitor path; no strategy/lens/method manifest negotiation',
+      );
+      expect(systemPrompt).not.toContain('<brunch-skills>');
       expect(activeToolsLine).toContain('read');
       expect(activeToolsLine).toContain('grep');
       expect(activeToolsLine).toContain('find');

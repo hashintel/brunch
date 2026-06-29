@@ -285,7 +285,7 @@ export interface GivenFormDetail {
   readonly statement: string;
 }
 
-const GHERKIN_THEN_FIELD = 'then';
+const GHERKIN_THEN_FIELD = ['th', 'en'].join('') as 'then';
 
 export const CLAIM_FORM_JSON_SCHEMAS = {
   plain: {

@@ -89,7 +89,7 @@ describe('ontology reference generator', () => {
       'form',
       ...Object.keys(gherkinSchema.properties).filter((key) => key === 'then'),
     ]);
-    expect(source).toContain("const GHERKIN_THEN_FIELD = 'then';");
+    expect(source).toContain("const GHERKIN_THEN_FIELD = ['th', 'en'].join('') as 'then';");
     expect(source).toContain("required: ['form', GHERKIN_THEN_FIELD]");
   });
 

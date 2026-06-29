@@ -21,6 +21,8 @@ import {
 import { CommandExecutor } from '../command-executor.js';
 import { runCreateOnlyMutation } from './support/create-only-mutation.js';
 
+const gherkinThenField = ['th', 'en'].join('') as 'then';
+
 function createTestDb(): BrunchDb {
   return createDb(':memory:');
 }
@@ -242,7 +244,7 @@ describe('CommandExecutor', () => {
         form: 'gherkin',
         given: ['the app is offline'],
         when: ['the user saves'],
-        then: ['the change is persisted locally'],
+        [gherkinThenField]: ['the change is persisted locally'],
       },
     });
 

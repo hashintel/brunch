@@ -20,5 +20,4 @@ describe('agent context registry', () => {
       expect(relative(bundledAgentBodyHome(), bundledAgentBodyLocation(id))).toBe(`${id}.md`);
     }
   });
-
 });

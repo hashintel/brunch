@@ -4,12 +4,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GraphSlice } from '../../../../graph/index.js';
 import {
   summarizeGenerateFanOutWitness,
   writeGenerateFanOutWitnessArtifacts,
   type GenerateFanOutWitnessReport,
 } from '../../../../dev/generate-fan-out-witness.js';
+import type { GraphSlice } from '../../../../graph/index.js';
 
 const baseGraph: GraphSlice = {
   nodes: [

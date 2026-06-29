@@ -136,8 +136,8 @@ describe('context tools', () => {
       specId: 1,
       sessionId: 'session-1',
       agent: {
-        strategy: 'step-wise-disambiguate',
-        lens: 'oracle',
+        operationalMode: 'elicit',
+        role: 'elicitor',
       },
     });
   });

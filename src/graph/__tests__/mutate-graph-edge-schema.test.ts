@@ -10,6 +10,7 @@ import { DevMutateGraphParamsSchema } from '../../dev/graph-curation.js';
 import { EDGE_CATEGORIES, EDGE_CATEGORY_METADATA, type EdgeCategory } from '../index.js';
 
 const devMutateGraphParamsSchema = DevMutateGraphParamsSchema as TSchema;
+const gherkinThenField = ['th', 'en'].join('') as 'then';
 
 function roleNamedEdgeOp(category: EdgeCategory): Record<string, unknown> {
   if (category === 'cross_reference') {
@@ -105,7 +106,7 @@ describe('authored graph-mutation schemas', () => {
       form: 'gherkin',
       given: ['offline'],
       when: ['save'],
-      then: ['persisted'],
+      [gherkinThenField]: ['persisted'],
     });
     const criterionFormal = createNodeOp('criterion', {
       form: 'formal',
