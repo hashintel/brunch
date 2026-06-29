@@ -11,6 +11,7 @@ elicitor/
 ├── TOPOLOGY.md
 ├── active-tools.ts         fixed live elicitor active-tool policy
 ├── compose-live-prompt.ts  fixed body + plain context assembly
+├── context.ts              plain selected-spec/workspace context for the live elicitor
 ├── __tests__/              live-path assembly tests
 └── __snapshots__/          live prompt/tool-policy goldens
 ```
@@ -20,7 +21,7 @@ elicitor/
 ```pseudo
 rules:
   agents/runtime/elicitor/ -> agents/prompts/elicitor.md [fixed body]
-  agents/runtime/elicitor/ -> agents/contexts/live/ [plain context]
+  agents/runtime/elicitor/context.ts -> agents/contexts/seeds/ [prompt context input types]
   agents/runtime/elicitor/ -> agents/runtime/shared/ [shared runtime helpers]
   .pi/extensions/agent-runtime/* -> agents/runtime/elicitor/ [adapter wiring]
   agents/runtime/elicitor/ x> agents/runtime/_suspended/ [no legacy control reads]
@@ -28,4 +29,4 @@ rules:
 
 ## Migration Note
 
-This directory becomes the source of truth for "what prompt and context does the elicitor run with right now?" The parent `agents/runtime/` modules keep their current behavior until the live path is introduced and adapters are rewired.
+This directory is the source of truth for "what prompt and context does the elicitor run with right now?" Live prompt-frame context lives here with the prompt runtime; reusable model-state context renderers stay under `agents/contexts/data-model/`.

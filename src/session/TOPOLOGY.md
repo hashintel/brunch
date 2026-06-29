@@ -101,13 +101,13 @@ projection seams; consumers should expose only the subset they need, and a
 consumer that merely tags an existing source shape should read the source
 directly instead of growing a wrapper.
 
-| Shape | Canonical owner | Current consumers | Disposition / reason |
-| --- | --- | --- | --- |
-| `cwd_inventory` | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`) | `read_workspace_context`, `agents/contexts/workspace/workspace-context.ts` | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
-| `workspace_overview` | `workspace-overview-context.ts` (`inspectWorkspaceOverview`) | `read_workspace_context`, origination seed context, `agents/contexts/workspace/workspace-context.ts` | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape. |
-| `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`) | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set. |
-| `agent_runtime_vocab` | `schema/kinds.ts`, `schema/tool-names.ts` | `runtime-state.ts`, `agents/runtime/_suspended/`, `.pi/extensions/agent-runtime/` | Pure vocabulary leaf for legacy runtime axes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
-| `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `agents/runtime/elicitor/`, `agents/runtime/_suspended/`, `.pi/extensions/agent-runtime/` | Transcript-backed source read. Public projections report operational mode and role; legacy strategy/lens facts remain parseable only for quarantined compatibility paths. |
+| Shape                     | Canonical owner                                                                                                | Current consumers                                                                                                                 | Disposition / reason                                                                                                                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cwd_inventory`           | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`)                                                  | `read_workspace_context`, `agents/contexts/data-model/workspace/workspace-context.ts`                                             | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives.                        |
+| `workspace_overview`      | `workspace-overview-context.ts` (`inspectWorkspaceOverview`)                                                   | `read_workspace_context`, origination seed context, `agents/contexts/data-model/workspace/workspace-context.ts`                   | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape.                   |
+| `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`)                                                        | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows                                | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set.          |
+| `agent_runtime_vocab`     | `schema/kinds.ts`, `schema/tool-names.ts`                                                                      | `runtime-state.ts`, `agents/runtime/_suspended/`, `.pi/extensions/agent-runtime/`                                                 | Pure vocabulary leaf for legacy runtime axes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
+| `agent_runtime_state`     | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `agents/runtime/elicitor/`, `agents/runtime/_suspended/`, `.pi/extensions/agent-runtime/` | Transcript-backed source read. Public projections report operational mode and role; legacy strategy/lens facts remain parseable only for quarantined compatibility paths.              |
 
 ## Runtime affordance coverage ledger
 
@@ -116,16 +116,16 @@ behavior is operational-mode keyed; `session.runtimeState` reports only mode and
 role, plus mention/world/lifecycle facts. Deferred means eligible or known but
 not currently transported for that consumer.
 
-| Row | Canonical owner | Agent | RPC | Web | Reason for deferred |
-| --- | --- | --- | --- | --- | --- |
-| `strategy.options` | `agents/runtime/_suspended/policy.axisOptionsForRuntimeState(strategy)` | required | deferred | deferred | Quarantined compatibility only. |
-| `strategy.default_on_switch` | `agents/runtime/_suspended/policy.defaultStrategyForRuntimeState` | required | deferred | deferred | Quarantined compatibility only. |
-| `strategy.selection` | suspended runtime axis state | required | deferred | deferred | Strategy is no longer public runtime authority; compatibility state remains parseable for legacy paths only. |
-| `lens.options` | `agents/runtime/_suspended/policy.axisOptionsForRuntimeState(lens)` | required | deferred | deferred | Quarantined compatibility only. |
-| `lens.default_on_switch` | `agents/runtime/_suspended/policy.defaultLensForRuntimeState` | required | deferred | deferred | Quarantined compatibility only. |
-| `lens.selection` | suspended runtime axis state | required | deferred | deferred | Lens is no longer public runtime authority; compatibility state remains parseable for legacy paths only. |
-| `active-review-set` | product-state-gated review-cycle surface | deferred | deferred | deferred | Needs current review-set product state; not derivable from runtime policy alone. |
-| `turn-mode` | product-state-gated freestyle-vs-structured turn surface | deferred | deferred | deferred | Needs current turn/exchange mode state; not derivable from runtime policy alone. |
+| Row                          | Canonical owner                                                         | Agent    | RPC      | Web      | Reason for deferred                                                                                          |
+| ---------------------------- | ----------------------------------------------------------------------- | -------- | -------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `strategy.options`           | `agents/runtime/_suspended/policy.axisOptionsForRuntimeState(strategy)` | required | deferred | deferred | Quarantined compatibility only.                                                                              |
+| `strategy.default_on_switch` | `agents/runtime/_suspended/policy.defaultStrategyForRuntimeState`       | required | deferred | deferred | Quarantined compatibility only.                                                                              |
+| `strategy.selection`         | suspended runtime axis state                                            | required | deferred | deferred | Strategy is no longer public runtime authority; compatibility state remains parseable for legacy paths only. |
+| `lens.options`               | `agents/runtime/_suspended/policy.axisOptionsForRuntimeState(lens)`     | required | deferred | deferred | Quarantined compatibility only.                                                                              |
+| `lens.default_on_switch`     | `agents/runtime/_suspended/policy.defaultLensForRuntimeState`           | required | deferred | deferred | Quarantined compatibility only.                                                                              |
+| `lens.selection`             | suspended runtime axis state                                            | required | deferred | deferred | Lens is no longer public runtime authority; compatibility state remains parseable for legacy paths only.     |
+| `active-review-set`          | product-state-gated review-cycle surface                                | deferred | deferred | deferred | Needs current review-set product state; not derivable from runtime policy alone.                             |
+| `turn-mode`                  | product-state-gated freestyle-vs-structured turn surface                | deferred | deferred | deferred | Needs current turn/exchange mode state; not derivable from runtime policy alone.                             |
 
 `runtime-affordances-coverage.test.ts` guards the required subsets: agent rows
 must remain covered by the shared runtime policy derivation, RPC rows by the
@@ -147,7 +147,7 @@ selections by design.
 - `projections/session/` — for reusable transcript-context DTO projection.
 - `projections/workspace/` — for reusable workspace-state DTO projection.
 - `transcript-markdown.ts` — for debug transcript markdown rendering beside the session transcript utilities.
-- `agents/contexts/workspace/` — for workspace inventory / overview agent-context text over source session read shapes.
+- `agents/contexts/data-model/workspace/` — for workspace inventory / overview agent-context text over source session read shapes.
 - `rpc/` — for session.* and workspace.* RPC handlers.
 - `.pi/extensions/` — for session lifecycle hooks.
 
@@ -155,17 +155,16 @@ selections by design.
 
 These files migrated here on 2026-06-02:
 
-| File                              | Session concern                    |
-|-----------------------------------|------------------------------------|
-| `workspace-session-coordinator.ts`| boot, spec/session selection       |
-| `session-binding.ts`              | session↔spec binding               |
-| `brunch-session-envelope.ts`      | session envelope reader            |
-| `session-projection-reader.ts`    | JSONL projection target resolution |
-| `session-transcript.ts`           | transcript row projection          |
-| `transcript-markdown.ts`          | debug transcript markdown text     |
-| `exchange-projection.ts`          | exchange extraction                |
-| `runtime-state.ts`                | runtime-state transcript entries   |
-| `structured-exchange.ts`          | structured exchange schemas/types  |
-| `structured-exchange-loop.ts`     | pending-exchange read path + response-side synthetic pairs |
-| `flush-session-manager.ts`        | the one named reliance on pi's private session-file rewrite |
-
+| File                               | Session concern                                             |
+| ---------------------------------- | ----------------------------------------------------------- |
+| `workspace-session-coordinator.ts` | boot, spec/session selection                                |
+| `session-binding.ts`               | session↔spec binding                                        |
+| `brunch-session-envelope.ts`       | session envelope reader                                     |
+| `session-projection-reader.ts`     | JSONL projection target resolution                          |
+| `session-transcript.ts`            | transcript row projection                                   |
+| `transcript-markdown.ts`           | debug transcript markdown text                              |
+| `exchange-projection.ts`           | exchange extraction                                         |
+| `runtime-state.ts`                 | runtime-state transcript entries                            |
+| `structured-exchange.ts`           | structured exchange schemas/types                           |
+| `structured-exchange-loop.ts`      | pending-exchange read path + response-side synthetic pairs  |
+| `flush-session-manager.ts`         | the one named reliance on pi's private session-file rewrite |

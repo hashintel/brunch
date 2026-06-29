@@ -20,7 +20,7 @@ runtime/
 
 ```pseudo
 rules:
-  agents/runtime/elicitor -> agents/prompts/elicitor.md, agents/contexts/live/
+  agents/runtime/elicitor -> agents/prompts/elicitor.md, agents/runtime/elicitor/context.ts
   agents/runtime/_suspended -> agents/skills/_suspended/, agents/contexts/_suspended/
   agents/runtime -> agents/prompts/registry, agents/prompts, agents/skills
   agents/runtime -> agents/contexts, graph/, projections/, session/ [read/projection types and helpers]

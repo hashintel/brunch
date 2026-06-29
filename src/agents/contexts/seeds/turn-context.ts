@@ -17,13 +17,13 @@
  * Used by: `.pi/extensions/agent-runtime/system-prompts` (before_agent_start) via composeAgentContextSeed
  */
 
-import { renderSoftReadinessEstimate } from '../../../agents/contexts/session/readiness-estimate.js';
+import { renderSoftReadinessEstimate } from '../../../agents/contexts/data-model/session/readiness-estimate.js';
 import type { GraphSlice } from '../../../graph/queries.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
 import type { AgentLensSelection } from '../../../session/schema/kinds.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
-import { formatGraphOverview } from '../graph/graph-slice.js';
+import { formatGraphOverview } from '../data-model/graph/graph-slice.js';
 
 export interface AgentPromptSpecContext {
   id: number;

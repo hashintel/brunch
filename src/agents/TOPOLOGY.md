@@ -13,7 +13,7 @@ agents/
 ├── subagents/         flat background subagent body markdown
 ├── skills/            activity prompt resources plus suspended legacy taxonomy
 ├── runtime/           live elicitor runtime, shared helpers, and suspended controls
-└── contexts/          live elicitor context plus reusable seed/graph/exchange text
+└── contexts/          reusable seed/data-model/exchange/reference text
 ```
 
 ## Boundary rules
@@ -24,7 +24,7 @@ rules:
   .pi/extensions/subagents/agents.ts -> agents/subagents/*.md [background body file locations]
   agents/prompts/registry.ts x> agents/skills/_suspended/*/*/SKILL.md [no live prompt-resource registry]
   agents/contexts/   -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
-  agents/runtime/elicitor -> agents/prompts, agents/contexts/live [live SPEC-mode source of truth]
+  agents/runtime/elicitor -> agents/prompts, agents/runtime/elicitor/context.ts [live SPEC-mode source of truth]
   agents/runtime/    -> agents/prompts/registry, agents/prompts, agents/skills, session/schema
   .pi/extensions/*   -> agents/                   [adapters ask for Brunch-authored context]
   session/           -> agents/contexts/seeds/    [origination asks for seed payload text]
@@ -36,4 +36,4 @@ rules:
 
 Foreground prompt bodies, background subagent bodies, prompt-resource skills, foreground roster/tool policy, live elicitor prompt/context assembly, prompt composition, prompt-resource/tool legality, seed context composition, reusable agent-visible context renderers, and formerly adapter-local model-facing text live here. Pi extensions remain runtime adapters that register hooks/tools, gather data, and call this layer for Brunch-authored text.
 
-The simplified elicitor lives under `runtime/elicitor/` and `contexts/live/`. The pre-D98 strategy/lens/method control system is quarantined under `runtime/_suspended/`, `contexts/_suspended/`, and `skills/_suspended/`; normal live topology should not import it.
+The simplified elicitor lives under `runtime/elicitor/`, including its prompt-frame context renderer. The pre-D98 strategy/lens/method control system is quarantined under `runtime/_suspended/`, `contexts/_suspended/`, and `skills/_suspended/`; normal live topology should not import it.

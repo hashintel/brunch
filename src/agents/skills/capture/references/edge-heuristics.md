@@ -46,7 +46,7 @@ interface GraphNode {
 - **`projection/labels.ts`** — anchor-relative phrasing. A two-tier table keyed on `(category, anchorRole, stance)` (≈18 base cells) plus a small tier-2 refinement keyed on `(category, sourceKind, targetKind)`. Renderers never leak the structural vocabulary.
 - **`projection/direction.ts`** — upstream / downstream / lateral, read from the `affected` endpoint in the policy table, **not** from storage geometry. "Downstream" is the endpoint that needs reconciliation when the other changes.
 
-Base anchor-relative labels (from [`labels.ts`](../../../graph/projection/labels.ts)):
+Base anchor-relative labels (from [`labels.ts`](../../../../graph/projection/labels.ts)):
 
 | Category          | Anchor = source           | Anchor = target              |
 | ----------------- | ------------------------- | ---------------------------- |

@@ -2,11 +2,11 @@
 
 This is reasoning prose, not authority. The canonical artifacts:
 
-- **Generated vocabulary tables** — [`src/agents/contexts/references/graph-ontology.md`](../references/graph-ontology.md), projected by `src/graph/schema/generate-ontology-ref.ts` from [`kinds.ts`](../../../graph/schema/kinds.ts), [`nodes.ts`](../../../graph/schema/nodes.ts), and [`category-policy.ts`](../../../graph/policy/category-policy.ts) (D73-L). Regenerate with `npm run generate:ontology`; drift is caught by `npm run check:data-model`.
-- **Authored authoring judgment** — [`src/agents/contexts/references/graph-authoring-heuristics.md`](../references/graph-authoring-heuristics.md): the runtime-eligible shared reference cited by `capture` and `commit-graph` (D97-L).
+- **Generated vocabulary tables** — [`src/agents/contexts/references/graph-ontology.md`](../../../contexts/references/graph-ontology.md), projected by `src/graph/schema/generate-ontology-ref.ts` from [`kinds.ts`](../../../../graph/schema/kinds.ts), [`nodes.ts`](../../../../graph/schema/nodes.ts), and [`category-policy.ts`](../../../../graph/policy/category-policy.ts) (D73-L). Regenerate with `npm run generate:ontology`; drift is caught by `npm run check:data-model`.
+- **Authored authoring judgment** — [`src/agents/skills/capture/references/graph-heuristics.md`](graph-heuristics.md): the runtime-eligible shared reference cited by `capture` and `commit-graph` (D97-L).
 - **Schema leaves** — `src/graph/schema/kinds.ts` (closed enums), `nodes.ts` (`GraphNode`, detail schemas), `edges.ts` (`GraphEdge`), `reconciliation-need.ts`, `elicitation-gaps.ts`; `src/graph/policy/category-policy.ts` (edge-category metadata); `src/graph/projection/labels.ts` + `direction.ts` (anchor-relative phrasing + impact direction).
 - **SPEC decisions** — D51-L (closed edge categories + ReconciliationNeed), D54-L (node shape), D55-L (provenance retired → `change_log`), D56-L (13 intent kinds, per-kind rubric, no derived category axis), D57-L (LLM-judged readiness), D61-L (spec = initiative; "claim" is an umbrella over truth-bearing kinds), D62-L (projected codes), D63-L (`basis` = approval directness), D64-L/D94-L (derived readiness bands), D65-L (elicitation_gaps), D73-L (domain owns vocabulary), D87-L/D88-L/D89-L (closure rule, `detail.form`, `spec.kind`), D97-L (cite-don't-inline), D98-L (SPEC/CODE mode-only runtime), D8-L/D29-L (reconciliation substrate).
-- **Worked rationale companion** — [`ONTOLOGY_REVIEW_PROTOCOL.md`](../../../../docs/design/ONTOLOGY_REVIEW_PROTOCOL.md) §6–9 records exactly how the older ontology narrowed into the current one (the closure rule, node/edge deltas, the epistemic triad, the Gherkin validation).
+- **Worked rationale companion** — [`ONTOLOGY_REVIEW_PROTOCOL.md`](../../../../../docs/design/ONTOLOGY_REVIEW_PROTOCOL.md) §6–9 records exactly how the older ontology narrowed into the current one (the closure rule, node/edge deltas, the epistemic triad, the Gherkin validation).
 
 When this draft and a generated table disagree, the generated table wins; this prose is stale and should be fixed.
 
@@ -26,7 +26,7 @@ spec graph
 
 > **`kind` drives behavior** — readiness evaluation, edge legality, and the elicitor's questioning strategy
 
-Twenty-four kinds across four planes, in canonical plane order. Codes and bands are generated in [`graph-ontology.md`](../references/graph-ontology.md) (reproduced here for legibility; that file is the source of truth). A band of `—` means the kind carries no readiness band (D94-L); band-less kinds are `example`, `sketch`, `term`.
+Twenty-four kinds across four planes, in canonical plane order. Codes and bands are generated in [`graph-ontology.md`](../../../contexts/references/graph-ontology.md) (reproduced here for legibility; that file is the source of truth). A band of `—` means the kind carries no readiness band (D94-L); band-less kinds are `example`, `sketch`, `term`.
 
 ### Intent plane — what and why (13 kinds)
 

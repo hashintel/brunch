@@ -1,14 +1,11 @@
 import { readFileSync } from 'node:fs';
 
-import {
-  renderLiveElicitorContext,
-  type LiveElicitorPushedContext,
-} from '../../contexts/live/elicitor-context.js';
 import type {
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
 } from '../../contexts/seeds/turn-context.js';
 import { bundledAgentBodyLocation } from '../../prompts/registry.js';
+import { renderLiveElicitorContext, type LiveElicitorPushedContext } from './context.js';
 
 export interface LiveElicitorSessionState {
   readonly operationalMode: string;

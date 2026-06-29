@@ -1,6 +1,6 @@
 # Slice: promotion & capture routing
 
-> Draft injectable context slice (scratch; not wired). Inject during the capture sweep — turning an answered turn into graph truth, gaps, or reconciliation needs. Source of truth is [`graph-authoring-heuristics.md`](../references/graph-authoring-heuristics.md).
+> Draft injectable context slice (scratch; not wired). Inject during the capture sweep — turning an answered turn into graph truth, gaps, or reconciliation needs. Source of truth is [`graph-heuristics.md`](references/graph-heuristics.md).
 
 Two disciplines: **promote** descriptive material to its sharpest kind before filing, and **route** each span to the substrate that matches its confidence and conflict state. Capture first, then ask from the updated world.
 

@@ -1,6 +1,6 @@
 # Slice: authoring by plane
 
-> Draft injectable context slice (scratch; not wired). Inject the whole, or excerpt one section by anchor (`#intent`, `#oracle`, `#design`, `#plan`), when an agent is generating coherent content on that plane. Source of truth: [`graph-ontology.md`](../references/graph-ontology.md) + [`graph-authoring-heuristics.md`](../references/graph-authoring-heuristics.md). Pairs with `slice-kind-selection.md`, `slice-edge-authoring.md`, and `slice-detail-payloads.md`.
+> Draft injectable context slice (scratch; not wired). Inject the whole, or excerpt one section by anchor (`#intent`, `#oracle`, `#design`, `#plan`), when an agent is generating coherent content on that plane. Source of truth: [`graph-ontology.md`](../../contexts/references/graph-ontology.md) + [`graph-heuristics.md`](references/graph-heuristics.md). Pairs with `slice-kind-selection.md`, `slice-edge-authoring.md`, and `slice-detail-payloads.md`.
 
 Each plane answers a different concern. Stay on the plane the active work is on; cross-plane links are edges, not kind changes. Promote across planes only when the material genuinely hardens.
 

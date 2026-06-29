@@ -1,12 +1,12 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
-import type { LiveElicitorPushedContext } from '../../../../agents/contexts/live/elicitor-context.js';
 import type {
   AgentPromptSessionContext,
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
 } from '../../../../agents/contexts/seeds/turn-context.js';
 import { composeLiveElicitorPrompt } from '../../../../agents/runtime/elicitor/compose-live-prompt.js';
+import type { LiveElicitorPushedContext } from '../../../../agents/runtime/elicitor/context.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 

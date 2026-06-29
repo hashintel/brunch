@@ -3,7 +3,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import {
   renderRuntimeFrame,
   type SessionRuntimeFrameRenderInput,
-} from '../../../../agents/contexts/session/runtime-frame.js';
+} from '../../../../agents/contexts/data-model/session/runtime-frame.js';
 import {
   projectSessionRuntimeState,
   type RuntimeStateProjection,

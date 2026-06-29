@@ -1,6 +1,6 @@
 # Slice: edge authoring
 
-> Draft injectable context slice (scratch; not wired). Inject when an agent is about to relate two nodes. Source of truth for edge-category policy is [`graph-ontology.md`](../references/graph-ontology.md) (projected from `src/graph/policy/category-policy.ts`); authoring judgment is [`graph-authoring-heuristics.md`](../references/graph-authoring-heuristics.md).
+> Draft injectable context slice (scratch; not wired). Inject when an agent is about to relate two nodes. Source of truth for edge-category policy is [`graph-ontology.md`](../../contexts/references/graph-ontology.md) (projected from `src/graph/policy/category-policy.ts`); authoring judgment is [`graph-heuristics.md`](references/graph-heuristics.md).
 
 Edges are a **closed set of nine structural categories** with role-named endpoints. Do not use retired named-relation dialects (`derived_from`, `motivated_by`, `rules_out`, `counterexample_for`, `tested_by`) as categories — they map onto the nine below. Endpoint storage order carries no meaning; category metadata owns direction.
 

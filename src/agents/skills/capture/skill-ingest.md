@@ -7,7 +7,7 @@ description: "Ingest source material into the selected spec — a human answer, 
 
 > Draft skill (scratch; not wired). This file demonstrates the consolidated shape for generalized-content ingestion. It is **not** enumerated in a live runtime registry, so it is inert and advertises nothing. It collapses the four current acquisition modes (`elicit-by-question`, `ingest-paste`, `read-referenced-documents`, `explore-and-characterize`) into one deep procedure with *source* as the only shallow branch.
 >
-> Source of truth: the band-walk [`slice-band-walk.md`](slice-band-walk.md), kind selection [`slice-kind-selection.md`](slice-kind-selection.md), confidence/conflict routing [`slice-promotion-capture.md`](slice-promotion-capture.md), edges [`slice-edge-authoring.md`](slice-edge-authoring.md); generated vocabulary [`graph-ontology.md`](../references/graph-ontology.md). Cite these; do not restate their tables (D97-L).
+> Source of truth: the band-walk [`slice-band-walk.md`](slice-band-walk.md), kind selection [`slice-kind-selection.md`](slice-kind-selection.md), confidence/conflict routing [`slice-promotion-capture.md`](slice-promotion-capture.md), edges [`slice-edge-authoring.md`](slice-edge-authoring.md); generated vocabulary [`graph-ontology.md`](../../contexts/references/graph-ontology.md). Cite these; do not restate their tables (D97-L).
 
 Ingest is one procedure: whatever the source, material enters the transcript, a banded capture sweep turns it into graph truth or agenda, then you ask from the updated world. The source only changes how the material arrives and whether it needs a digest first.
 

@@ -1,6 +1,6 @@
 # Slice: node-kind selection
 
-> Draft injectable context slice (scratch; not wired). Inject when an agent is about to write graph truth and must pick a node `kind`. Source of truth for the exact kind list/codes/bands is [`graph-ontology.md`](../references/graph-ontology.md); authoring judgment is [`graph-authoring-heuristics.md`](../references/graph-authoring-heuristics.md). This slice is a compact decision aid, not authority.
+> Draft injectable context slice (scratch; not wired). Inject when an agent is about to write graph truth and must pick a node `kind`. Source of truth for the exact kind list/codes/bands is [`graph-ontology.md`](../../contexts/references/graph-ontology.md); authoring judgment is [`graph-heuristics.md`](references/graph-heuristics.md). This slice is a compact decision aid, not authority.
 
 Pick the `kind` by the **role the material plays**, not the words the user used. `kind` drives behavior (readiness band, edge legality, the source-question you answer next). When support is weak, do not guess a kind — route to an elicitation gap (see `slice-promotion-capture.md`).
 

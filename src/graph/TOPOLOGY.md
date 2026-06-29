@@ -77,16 +77,16 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 
 D60-L read-shape ownership is explicit: every durable graph read shape has one canonical owner in `queries.ts`; adapters may expose only the subset they need. Deferred means eligible or known but not currently exposed for that consumer; `n/a` means deliberately outside that consumer's product role.
 
-| Shape | Canonical owner | `read_graph` tool | RPC | Web | Reason for deferred / n/a |
-| --- | --- | --- | --- | --- | --- |
-| `overview` | `getGraphOverview` | required | required | required | — |
-| `neighborhood` | `getNodeNeighborhood` | required | required | required | — |
-| `list_by_kind` | `getGraphSliceByKinds` | required | deferred | deferred | Web-eligible bounded graph slice; RPC follows a concrete web/client need. |
-| `list_by_band` | `getGraphSliceByReadinessBands` | required | deferred | deferred | Web-eligible D94-L derived-band evidence slice; RPC follows a concrete web/client need. |
-| `gaps` | `getGraphGaps` | required | n/a | n/a | Agent/RPC-only diagnostic shape; not a web observer projection. |
-| `related` | `getRelatedNodes` | required | n/a | n/a | Agent/RPC-only traversal helper; not a web observer projection. |
-| `reconciliation_needs` | `getOpenReconciliationNeeds` | dedicated register tool | deferred | deferred | Exposed to agents through `read_reconciliation_needs`, not as a `read_graph` mode; no RPC/web projection yet. |
-| `elicitation_gaps` | `getElicitationGaps` | deferred | deferred | deferred | Consumed by prompt readiness and the read-only elicitation driver through the selected-spec graph-read seam; still not a `read_graph`/RPC/web projection. |
+| Shape                  | Canonical owner                 | `read_graph` tool       | RPC      | Web      | Reason for deferred / n/a                                                                                                                                 |
+| ---------------------- | ------------------------------- | ----------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `overview`             | `getGraphOverview`              | required                | required | required | —                                                                                                                                                         |
+| `neighborhood`         | `getNodeNeighborhood`           | required                | required | required | —                                                                                                                                                         |
+| `list_by_kind`         | `getGraphSliceByKinds`          | required                | deferred | deferred | Web-eligible bounded graph slice; RPC follows a concrete web/client need.                                                                                 |
+| `list_by_band`         | `getGraphSliceByReadinessBands` | required                | deferred | deferred | Web-eligible D94-L derived-band evidence slice; RPC follows a concrete web/client need.                                                                   |
+| `gaps`                 | `getGraphGaps`                  | required                | n/a      | n/a      | Agent/RPC-only diagnostic shape; not a web observer projection.                                                                                           |
+| `related`              | `getRelatedNodes`               | required                | n/a      | n/a      | Agent/RPC-only traversal helper; not a web observer projection.                                                                                           |
+| `reconciliation_needs` | `getOpenReconciliationNeeds`    | dedicated register tool | deferred | deferred | Exposed to agents through `read_reconciliation_needs`, not as a `read_graph` mode; no RPC/web projection yet.                                             |
+| `elicitation_gaps`     | `getElicitationGaps`            | deferred                | deferred | deferred | Consumed by prompt readiness and the read-only elicitation driver through the selected-spec graph-read seam; still not a `read_graph`/RPC/web projection. |
 
 `observed-shapes-coverage.test.ts` guards the required subsets against accidental drift: the tool mode union must stay at the six required agent shapes, while RPC and web stay at `overview` + `neighborhood` until a scoped feature deliberately promotes another row.
 
@@ -117,7 +117,7 @@ not compare bare LSN values across sibling specs.
 - `.pi/extensions/brunch-data/graph/` — Pi tool adapters for `mutate_graph` and `read_graph`.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
 - `projections/graph/` — topology stubs for deferred graph PROJECT seams; node-neighborhood consumers read `NodeNeighborhood` directly from `queries.ts`.
-- `agents/contexts/graph/` — reusable model-facing graph context text over projected graph DTOs.
+- `agents/contexts/data-model/graph/` — reusable model-facing graph context text over projected graph DTOs.
 - `.pi/extensions/agent-runtime/system-prompts/` — prompt composition consumes the read-only elicitation driver and the seed renderers consume graph reads.
 - `probes/` — graph proof drivers.
 

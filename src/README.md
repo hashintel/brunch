@@ -12,7 +12,7 @@ src/
 │   ├── prompts/            agent role body markdown resources
 │   ├── skills/             prompt-resource markdown resources plus suspended taxonomy
 │   ├── runtime/            live elicitor assembly, shared helpers, suspended controls
-│   └── contexts/           live elicitor, seed, context-tool, graph, exchange text
+│   └── contexts/           seed, data-model, context-tool, reference, exchange text
 │
 ├── .pi/                  Sealed Pi-harness runtime surface
 │   ├── components/         reusable Pi TUI/message components
@@ -74,4 +74,4 @@ The old domain-local `src/{graph,session,structured-exchange}/format/` folders a
 
 Runtime-state transcript entry facts live in `session/runtime-state.ts`; reusable flattened runtime-state projection lives in `projections/session/runtime-state.ts`, while live elicitor prompt/tool policy lives in `agents/runtime/elicitor/`.
 
-The current `src/agents/` seam owns Pi-independent LLM context ingress. Agent bodies live in `src/agents/prompts/`; prompt-resource skills live in `src/agents/skills/`; live SPEC-mode elicitor assembly is materializing in `src/agents/runtime/elicitor/` + `src/agents/contexts/live/`; suspended pre-D98 controls are isolated under the sibling `suspended/` homes. The old `src/.pi/context/` prompt-pack subtree remains retired.
+The current `src/agents/` seam owns Pi-independent LLM context ingress. Agent bodies live in `src/agents/prompts/`; prompt-resource skills live in `src/agents/skills/`; live SPEC-mode elicitor assembly, including its prompt-frame context renderer, lives in `src/agents/runtime/elicitor/`; reusable model-state context renderers live in `src/agents/contexts/data-model/`; suspended pre-D98 controls are isolated under the sibling `suspended/` homes. The old `src/.pi/context/` prompt-pack subtree remains retired.

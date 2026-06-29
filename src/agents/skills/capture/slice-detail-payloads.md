@@ -1,6 +1,6 @@
 # Slice: node detail payloads
 
-> Draft injectable context slice (scratch; not wired). Inject when an agent creates a `decision` or `term` node, or attaches a `detail.form` to a claim/`context` node. Source of truth is [`graph-ontology.md`](../references/graph-ontology.md) (projected from `src/graph/schema/nodes.ts`).
+> Draft injectable context slice (scratch; not wired). Inject when an agent creates a `decision` or `term` node, or attaches a `detail.form` to a claim/`context` node. Source of truth is [`graph-ontology.md`](../../contexts/references/graph-ontology.md) (projected from `src/graph/schema/nodes.ts`).
 
 Two kinds require a non-form `detail` payload. Four kinds accept the inert `detail.form` method payload. **`kind` drives behavior; `detail.form` is inert** — it changes how a node renders or round-trips, never its readiness band, edge legality, or commitment strength.
 
