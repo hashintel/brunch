@@ -11,7 +11,8 @@ elicitor/
 ├── README.md
 ├── active-tools.ts         fixed live elicitor active-tool policy
 ├── compose-live-prompt.ts  fixed body + plain context assembly
-└── __tests__/              live-path assembly tests
+├── __tests__/              live-path assembly tests
+└── __snapshots__/          live prompt/tool-policy goldens
 ```
 
 ## Boundary Rules

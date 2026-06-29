@@ -16,7 +16,7 @@ const workspace = {
 };
 
 describe('composeLiveElicitorPrompt', () => {
-  it('assembles the live elicitor prompt without old prompt-resource or gap controls', () => {
+  it('assembles the live elicitor prompt without old prompt-resource or gap controls', async () => {
     const result = composeLiveElicitorPrompt({
       sessionState: projectBrunchAgentState([]),
       spec: { id: 42, name: 'Live Assembly Spec' },
@@ -30,6 +30,8 @@ describe('composeLiveElicitorPrompt', () => {
     });
 
     expect(result.prompt).toContain('# Agent: elicitor\n\nFixed body.');
+    await expect(result.prompt).toMatchFileSnapshot('../__snapshots__/live-elicitor-prompt.md');
+
     expect(result.prompt).toContain('[Brunch live elicitor control]');
     expect(result.prompt).toContain('- operational mode: elicit');
     expect(result.prompt).toContain('- foreground role: elicitor');
