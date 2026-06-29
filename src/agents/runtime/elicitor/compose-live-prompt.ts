@@ -9,10 +9,14 @@ import type {
   AgentPromptWorkspaceContext,
 } from '../../contexts/seeds/turn-context.js';
 import { bundledAgentBodyLocation } from '../../registry.js';
-import type { ResolvedBrunchAgentState } from '../policy.js';
+
+export interface LiveElicitorSessionState {
+  readonly operationalMode: string;
+  readonly agentRole: string;
+}
 
 export interface ComposeLiveElicitorPromptInput {
-  readonly sessionState: ResolvedBrunchAgentState;
+  readonly sessionState: LiveElicitorSessionState;
   readonly spec: AgentPromptSpecContext;
   readonly workspace: AgentPromptWorkspaceContext;
   readonly context?: LiveElicitorPushedContext;
@@ -40,7 +44,7 @@ function readLiveElicitorBody(): string {
   return readFileSync(bundledAgentBodyLocation('elicitor'), 'utf8');
 }
 
-function assertLiveElicitorState(state: ResolvedBrunchAgentState): void {
+function assertLiveElicitorState(state: LiveElicitorSessionState): void {
   if (state.operationalMode !== 'elicit' || state.agentRole !== 'elicitor') {
     throw new Error(
       `Live elicitor prompt requires elicit/elicitor state, received ${state.operationalMode}/${state.agentRole}.`,

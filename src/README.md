@@ -72,6 +72,6 @@ The old domain-local `src/{graph,session,structured-exchange}/project/` folders 
 
 The old domain-local `src/{graph,session,structured-exchange}/format/` folders and `src/render/` first moved under `renderers/`; reusable model-facing renderers now live under `agents/contexts/`, and the shallow human/product renderer layer is retired.
 
-Runtime-state transcript entry facts live in `session/runtime-state.ts`; reusable flattened runtime-state projection lives in `projections/session/runtime-state.ts`, while foreground roster/tool policy lives in `agents/runtime/policy.ts`.
+Runtime-state transcript entry facts live in `session/runtime-state.ts`; reusable flattened runtime-state projection lives in `projections/session/runtime-state.ts`, while live elicitor prompt/tool policy lives in `agents/runtime/elicitor/`.
 
 The current `src/agents/` seam owns Pi-independent LLM context ingress. Agent bodies live in `src/agents/prompts/`; prompt-resource skills live in `src/agents/skills/`; live SPEC-mode elicitor assembly is materializing in `src/agents/runtime/elicitor/` + `src/agents/contexts/live/`; suspended pre-D98 controls are isolated under the sibling `suspended/` homes. The old `src/.pi/context/` prompt-pack subtree remains retired.

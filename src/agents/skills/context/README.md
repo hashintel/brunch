@@ -11,6 +11,6 @@ SPEC decisions: D40-L, D52-L, D60-L, D98-L
 ```pseudo
 rules:
   agents/contexts/live/  -> projections/, session/, workspace/ [current context rendering]
-  agents/skills/context/ x> agents/runtime/suspended/ [no legacy axis dependency]
+  agents/skills/context/ x> agents/runtime/_suspended/ [no legacy axis dependency]
   agents/skills/context/ x> TypeScript imports [read-only prompt resources when present]
 ```

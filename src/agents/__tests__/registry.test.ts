@@ -8,8 +8,6 @@ import {
   bundledAgentBodyRepoPath,
   bundledAgentBodyLocation,
   bundledAgentBodyHome,
-  promptResourceAgentDir,
-  promptResourceLocation,
 } from '../registry.js';
 
 describe('agent context registry', () => {
@@ -23,10 +21,4 @@ describe('agent context registry', () => {
     }
   });
 
-  it('resolves prompt-resource skills under the Brunch agent resource home', () => {
-    const location = promptResourceLocation('methods', 'generate-proposal');
-    expect(relative(promptResourceAgentDir(), location)).toBe(
-      'skills/suspended/methods/generate-proposal/SKILL.md',
-    );
-  });
 });

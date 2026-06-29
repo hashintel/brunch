@@ -4,11 +4,11 @@ import {
   axisOptionsForRuntimeState,
   defaultLensForRuntimeState,
   defaultStrategyForRuntimeState,
-} from '../../agents/runtime/policy.js';
-import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
-import { resolveBrunchAgentState } from '../../projections/session/runtime-state.js';
-import { sessionRpcMethods } from '../../rpc/methods/session.js';
-import { DEFAULT_BRUNCH_AGENT_STATE } from '../runtime-state.js';
+} from '../policy.js';
+import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import { resolveBrunchAgentState } from '../../../../projections/session/runtime-state.js';
+import { sessionRpcMethods } from '../../../../rpc/methods/session.js';
+import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../../session/runtime-state.js';
 
 const runtimeAffordanceLedger = [
   {

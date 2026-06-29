@@ -1,8 +1,9 @@
 import { basename, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { loadSkills, type Skill } from '@earendil-works/pi-coding-agent';
 
-import { promptResourceAgentDir, promptResourceLocation, type PromptResourceFamily } from '../../registry.js';
+export type PromptResourceFamily = 'strategies' | 'lenses' | 'methods';
 
 export interface PromptResourceManifestEntry {
   name: string;
@@ -62,6 +63,14 @@ export function loadPromptResourceManifestEntries<TId extends string>(
   return Object.fromEntries(
     ids.map((id) => [id, skillToPromptResourceManifestEntry(family, id, byName.get(id))]),
   ) as Record<TId, PromptResourceManifestEntry>;
+}
+
+function promptResourceAgentDir(): string {
+  return fileURLToPath(new URL('../..', import.meta.url));
+}
+
+function promptResourceLocation(family: PromptResourceFamily, id: string): string {
+  return fileURLToPath(new URL(`../../skills/_suspended/${family}/${id}/SKILL.md`, import.meta.url));
 }
 
 export function skillToPromptResourceManifestEntry(

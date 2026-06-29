@@ -11,6 +11,6 @@ SPEC decisions: D66-L, D81-L, D82-L, D98-L
 ```pseudo
 rules:
   agents/runtime/elicitor/ -> agents/prompts/elicitor.md [current live conduct]
-  agents/skills/capture/  x> agents/runtime/suspended/ [no legacy axis dependency]
+  agents/skills/capture/  x> agents/runtime/_suspended/ [no legacy axis dependency]
   agents/skills/capture/  x> TypeScript imports [read-only prompt resources when present]
 ```

@@ -3,9 +3,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
-import { resolveBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../session/runtime-state.js';
+import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import { resolveBrunchAgentState } from '../../../../projections/session/runtime-state.js';
+import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../../session/runtime-state.js';
 import {
   axisOptionsForRuntimeState,
   defaultLensForRuntimeState,

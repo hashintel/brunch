@@ -36,7 +36,6 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
-import { pinnableAxisOptionsForRuntimeState } from '../../../agents/runtime/policy.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import {
@@ -135,10 +134,6 @@ async function openLensPicker(
   options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
 ): Promise<void> {
   const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-  // Capability-readiness (D74-L) marks readiness-thin lenses as caution in
-  // the picker, but never bars pinning them — the agent negotiates and
-  // gated methods/tools stay withheld downstream.
-  const readinessLegal = pinnableAxisOptionsForRuntimeState('lens', current, options.getElicitationGaps());
   if (typeof ctx.ui.custom !== 'function') {
     ctx.ui.notify(lensUsage(), 'info');
     return;
@@ -146,7 +141,7 @@ async function openLensPicker(
   const picked = await ctx.ui.custom<AgentLensSelection | undefined>((_tui, theme, _keybindings, done) =>
     createRuntimeLensPickerComponent({
       current: current.agentLens,
-      caution: AGENT_LENS_IDS.filter((id) => !readinessLegal.includes(id)),
+      caution: [],
       theme,
       onDone: done,
     }),
@@ -166,14 +161,6 @@ async function openStrategyPicker(
   options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
 ): Promise<void> {
   const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-  // Capability-readiness (D74-L) marks readiness-thin strategies as caution
-  // in the picker, but never bars pinning them; freestyle is always an
-  // explicit user pin (D66-L).
-  const readinessLegal = pinnableAxisOptionsForRuntimeState(
-    'strategy',
-    current,
-    options.getElicitationGaps(),
-  );
   if (typeof ctx.ui.custom !== 'function') {
     ctx.ui.notify(strategyUsage(), 'info');
     return;
@@ -181,7 +168,7 @@ async function openStrategyPicker(
   const picked = await ctx.ui.custom<AgentStrategySelection | undefined>((_tui, theme, _keybindings, done) =>
     createRuntimeStrategyPickerComponent({
       current: current.agentStrategy,
-      caution: AGENT_STRATEGY_IDS.filter((id) => !readinessLegal.includes(id)),
+      caution: [],
       theme,
       onDone: done,
     }),

@@ -9,5 +9,14 @@
     "sourceMap": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "archive", "src/**/*.test.ts", "src/**/*.test.tsx", ".pi", "src/dev"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "archive",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx",
+    "src/**/_suspended/**",
+    ".pi",
+    "src/dev"
+  ]
 }

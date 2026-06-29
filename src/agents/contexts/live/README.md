@@ -18,9 +18,9 @@ live/
 rules:
   agents/contexts/live/ -> agents/contexts/spec, agents/contexts/workspace, agents/contexts/session [plain context blocks]
   agents/runtime/elicitor/ -> agents/contexts/live/ [live prompt assembly]
-  agents/contexts/live/ x> agents/runtime/suspended/ [no legacy control reads]
+  agents/contexts/live/ x> agents/runtime/_suspended/ [no legacy control reads]
 ```
 
 ## Migration Note
 
-This directory starts as a topology home. The next refactor slices move live elicitor context assembly here before the old context/control system is quarantined under `agents/contexts/suspended/` and `agents/runtime/suspended/`.
+This directory owns live elicitor context assembly. Retired context/control code is quarantined under `agents/contexts/_suspended/` and `agents/runtime/_suspended/`.

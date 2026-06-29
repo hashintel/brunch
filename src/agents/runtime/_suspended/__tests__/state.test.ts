@@ -3,10 +3,10 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
-import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
-import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../../../session/schema/tool-names.js';
-import { bundledAgentBodyLocation } from '../../registry.js';
+import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import { projectBrunchAgentState } from '../../../../projections/session/runtime-state.js';
+import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../../../../session/schema/tool-names.js';
+import { bundledAgentBodyLocation } from '../../../registry.js';
 import { FOREGROUND_AGENT_ROSTER, delegatableAgentsForRuntimeState } from '../policy.js';
 import { activeToolNamesForPosture, agentBodyResourceLocation, manifestsForState } from '../state.js';
 

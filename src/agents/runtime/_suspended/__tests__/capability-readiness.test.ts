@@ -3,10 +3,10 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { createDb, type BrunchDb } from '../../../db/connection.js';
-import { CommandExecutor } from '../../../graph/command-executor.js';
-import { getElicitationGaps } from '../../../graph/queries.js';
-import { groundingFloorGaps, presenceGap } from '../../../graph/schema/elicitation-gap-fixtures.js';
+import { createDb, type BrunchDb } from '../../../../db/connection.js';
+import { CommandExecutor } from '../../../../graph/command-executor.js';
+import { getElicitationGaps } from '../../../../graph/queries.js';
+import { groundingFloorGaps, presenceGap } from '../../../../graph/schema/elicitation-gap-fixtures.js';
 import {
   CAPABILITY_RELEVANT_GAPS,
   evaluateCapabilityReadiness,

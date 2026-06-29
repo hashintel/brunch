@@ -90,19 +90,18 @@ describe('projection topology boundaries', () => {
     expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain(
       'src/projections/session/runtime-state.ts',
     );
-    expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain('src/agents/runtime/policy.ts');
   });
 
-  it('keeps agent runtime policy out of session projection ownership except runtime-state resolution', () => {
+  it('keeps suspended runtime policy out of session projection ownership', () => {
     const sessionProjectionFiles = sourceFilesUnder('src/projections/session').filter(
       (file) => !file.includes('/__tests__/') && !file.endsWith('.test.ts'),
     );
     expect(sessionProjectionFiles).not.toContain('src/projections/session/affordances.ts');
     expect(sessionProjectionFiles).not.toContain('src/projections/session/capability-readiness.ts');
 
-    const runtimePolicyImporters = sessionProjectionFiles.filter((file) =>
-      importedSourcePaths(file).includes('src/agents/runtime/policy.ts'),
+    const suspendedRuntimeImporters = sessionProjectionFiles.filter((file) =>
+      importedSourcePaths(file).some((path) => path.includes('/_suspended/')),
     );
-    expect(runtimePolicyImporters).toEqual(['src/projections/session/runtime-state.ts']);
+    expect(suspendedRuntimeImporters).toEqual([]);
   });
 });

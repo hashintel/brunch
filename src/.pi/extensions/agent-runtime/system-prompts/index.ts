@@ -1,22 +1,14 @@
-import { readFile } from 'node:fs/promises';
-
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
-import {
-  composeAgentContextSeed,
-  type AgentPromptSessionContext,
-  type AgentPromptSpecContext,
-  type AgentPromptWorkspaceContext,
+import type { LiveElicitorPushedContext } from '../../../../agents/contexts/live/elicitor-context.js';
+import type {
+  AgentPromptSessionContext,
+  AgentPromptSpecContext,
+  AgentPromptWorkspaceContext,
 } from '../../../../agents/contexts/seeds/turn-context.js';
-import { composeAgentPrompt, type AgentPromptContextBundle } from '../../../../agents/runtime/compose.js';
 import { composeLiveElicitorPrompt } from '../../../../agents/runtime/elicitor/compose-live-prompt.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
-import {
-  activeToolNamesForBrunchAgentState,
-  agentBodyResourceLocation,
-  projectBrunchAgentState,
-} from '../runtime/index.js';
-import { createWorldReadCache, type WorldReads } from './world-reads.js';
+import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
 
@@ -38,7 +30,7 @@ interface BrunchPromptContext {
   /** Intended-optional: display label only; prompts render without a session label. */
   session?: AgentPromptSessionContext;
   /** Intended-optional: extra caller-supplied handles/contexts merged into the bundle. */
-  context?: AgentPromptContextBundle;
+  context?: LiveElicitorPushedContext;
   /**
    * Must-wire: legality (gaps), tool posture, and graph context all derive from
    * these reads. Required so a composition root that forgets them is a type
@@ -67,13 +59,10 @@ export function registerBrunchPrompting(
 ): void {
   if (!supportsPrompting(pi)) return;
 
-  const worldReadCache = createWorldReadCache();
-
   pi.on('before_agent_start', async (event, ctx) => {
     const resolvedPromptContext = await resolvePromptContext(promptContext);
 
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
-    const usesLiveElicitorPrompt = state.operationalMode === 'elicit' && state.agentRole === 'elicitor';
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
         ? activeToolNamesForBrunchAgentState(pi, state, undefined, options.devAllowedToolNames)
@@ -81,20 +70,13 @@ export function registerBrunchPrompting(
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);
     }
-    const prompt = usesLiveElicitorPrompt
-      ? composeLiveElicitorPrompt({
-          sessionState: state,
-          spec: resolvedPromptContext.spec,
-          workspace: resolvedPromptContext.workspace,
-          context: resolvedPromptContext.context,
-          activeTools,
-        }).prompt
-      : await composeLegacyAgentPrompt({
-          promptContext: resolvedPromptContext,
-          state,
-          activeTools,
-          world: worldReadCache.read(resolvedPromptContext.graphReads, resolvedPromptContext.spec.id),
-        });
+    const prompt = composeLiveElicitorPrompt({
+      sessionState: state,
+      spec: resolvedPromptContext.spec,
+      workspace: resolvedPromptContext.workspace,
+      context: resolvedPromptContext.context,
+      activeTools,
+    }).prompt;
 
     if (prompt.trim().length === 0) return undefined;
 
@@ -103,53 +85,6 @@ export function registerBrunchPrompting(
       systemPrompt: `${basePrompt}\n\n${prompt}`,
     };
   });
-}
-
-async function composeLegacyAgentPrompt({
-  promptContext,
-  state,
-  activeTools,
-  world,
-}: {
-  readonly promptContext: BrunchPromptContext;
-  readonly state: ReturnType<typeof projectState>;
-  readonly activeTools: readonly string[];
-  readonly world: WorldReads;
-}): Promise<string> {
-  return composeAgentPrompt({
-    agentId: state.agentRole,
-    sessionState: state,
-    spec: promptContext.spec,
-    workspace: promptContext.workspace,
-    context: contextForPrompt(promptContext, state, world),
-    activeTools,
-    gaps: world.gaps,
-    agentBody: await readAgentBody(state.agentRole),
-  }).prompt;
-}
-
-async function readAgentBody(agentId: ReturnType<typeof projectState>['agentRole']): Promise<string> {
-  return readFile(agentBodyResourceLocation(agentId), 'utf8');
-}
-
-function contextForPrompt(
-  context: BrunchPromptContext,
-  state: ReturnType<typeof projectState>,
-  world: WorldReads,
-): AgentPromptContextBundle {
-  const renderedContexts = composeAgentContextSeed({
-    spec: context.spec,
-    workspace: context.workspace,
-    ...(context.session ? { session: context.session } : {}),
-    gaps: world.gaps,
-    graph: world.graph,
-    lens: state.agentLens,
-  });
-
-  return {
-    ...(context.context?.contextHandles ? { contextHandles: context.context.contextHandles } : {}),
-    renderedContexts: [...(context.context?.renderedContexts ?? []), ...renderedContexts],
-  };
 }
 
 async function resolvePromptContext(

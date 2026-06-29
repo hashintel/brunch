@@ -4,12 +4,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GraphSlice } from '../../graph/index.js';
+import type { GraphSlice } from '../../../../graph/index.js';
 import {
   summarizeGenerateFanOutWitness,
   writeGenerateFanOutWitnessArtifacts,
   type GenerateFanOutWitnessReport,
-} from '../generate-fan-out-witness.js';
+} from '../../../../dev/generate-fan-out-witness.js';
 
 const baseGraph: GraphSlice = {
   nodes: [
@@ -93,8 +93,8 @@ describe('generate fan-out witness report', () => {
   it('passes only from transcript-observed oracle pointer, candidates, and no graph write', () => {
     const sessionText = [
       oracleBranchEntry(),
-      readEntry('src/agents/skills/suspended/methods/generate-proposal/SKILL.md'),
-      readEntry('src/agents/skills/suspended/methods/generate-proposal/references/oracle.md'),
+      readEntry('src/agents/skills/_suspended/methods/generate-proposal/SKILL.md'),
+      readEntry('src/agents/skills/_suspended/methods/generate-proposal/references/oracle.md'),
       presentCandidatesEntry(),
     ].join('\n');
 
@@ -131,8 +131,8 @@ describe('generate fan-out witness report', () => {
   it('fails closed when candidates appear after a graph write marker', () => {
     const sessionText = [
       oracleBranchEntry(),
-      readEntry('src/agents/skills/suspended/methods/generate-proposal/SKILL.md'),
-      readEntry('src/agents/skills/suspended/methods/generate-proposal/references/oracle.md'),
+      readEntry('src/agents/skills/_suspended/methods/generate-proposal/SKILL.md'),
+      readEntry('src/agents/skills/_suspended/methods/generate-proposal/references/oracle.md'),
       toolResultEntry('mutate_graph', { status: 'success', lsn: 4 }),
       presentCandidatesEntry(),
     ].join('\n');
@@ -183,7 +183,7 @@ describe('generate fan-out witness report', () => {
 
   it('writes scratch artifact references portably', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-generate-fan-out-artifacts-'));
-    const sessionText = [readEntry('src/agents/skills/suspended/methods/generate-proposal/SKILL.md')].join(
+    const sessionText = [readEntry('src/agents/skills/_suspended/methods/generate-proposal/SKILL.md')].join(
       '\n',
     );
     const report: GenerateFanOutWitnessReport = summarizeGenerateFanOutWitness({

@@ -420,7 +420,7 @@ The bridge between user vocabulary and the ontology. Treat these as **strong pri
 
 ## Progressive checkability is conduct, not schema
 
-The old doc proposed a stored `checkability` ladder and a `ClaimMetadata` record (`checkability`, `oracle`, `strength`, `validTraces`, `invalidTraces`). FE-1090 **rejected these as carrying cost**: claim-level `checkability` / `strength` / trace-list fields are not added to the schema. The *discipline* survives as **oracle conduct**, documented in the suspended proposal resource at [`generate-proposal/references/oracle.md`](../../skills/suspended/methods/generate-proposal/references/oracle.md).
+The old doc proposed a stored `checkability` ladder and a `ClaimMetadata` record (`checkability`, `oracle`, `strength`, `validTraces`, `invalidTraces`). FE-1090 **rejected these as carrying cost**: claim-level `checkability` / `strength` / trace-list fields are not added to the schema. The *discipline* survives as **oracle conduct**, currently quarantined in the retired proposal resource at [`generate-proposal/references/oracle.md`](../../skills/_suspended/methods/generate-proposal/references/oracle.md).
 
 The ladder is a reasoning tool, weakest sufficient artifact first:
 

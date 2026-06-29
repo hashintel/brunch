@@ -18,15 +18,8 @@ import {
 import { Text } from '@earendil-works/pi-tui';
 
 import { activeToolNamesForLiveElicitor } from '../../../../agents/runtime/elicitor/active-tools.js';
-import {
-  isToolBlockedForRuntimeState,
-  toolPolicyForRuntimeState,
-} from '../../../../agents/runtime/policy.js';
-import { activeToolNamesForPosture } from '../../../../agents/runtime/state.js';
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
-
-export { agentBodyResourceLocation } from '../../../../agents/runtime/state.js';
 
 export {
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -68,6 +61,8 @@ interface SessionManagerLike {
   getEntries(): readonly CustomEntryLike[];
 }
 
+const BLOCKED_TOOL_NAMES = ['bash', 'edit', 'write'] as const;
+
 function projectBrunchAgentStateFromSessionManager(
   sessionManager: SessionManagerLike | undefined,
 ): ResolvedBrunchAgentState {
@@ -86,7 +81,7 @@ function supportsBrunchAgentStateEntries(
 export function activeToolNamesForBrunchAgentState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
-  gaps?: readonly ElicitationGap[],
+  _gaps?: readonly ElicitationGap[],
   devAllowedToolNames?: readonly string[],
 ): string[] {
   if (state.operationalMode === 'elicit' && state.agentRole === 'elicitor') {
@@ -95,12 +90,7 @@ export function activeToolNamesForBrunchAgentState(
       devAllowedToolNames,
     });
   }
-  return activeToolNamesForPosture({
-    registeredToolNames: pi.getAllTools().map((tool) => tool.name),
-    state,
-    gaps: gaps ?? conservativeUncoveredFloorGaps(),
-    devAllowedToolNames,
-  });
+  return [];
 }
 
 function applyBrunchToolPolicy(
@@ -309,8 +299,8 @@ export function registerBrunchOperationalModePolicy(
 
   pi.on('tool_call', async (event, ctx) => {
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
-    if (!isToolBlockedForRuntimeState(state, event.toolName)) return;
-    const blockedToolNames = toolPolicyForRuntimeState(state).blockedToolNames.join(', ');
+    if (!BLOCKED_TOOL_NAMES.includes(event.toolName as (typeof BLOCKED_TOOL_NAMES)[number])) return;
+    const blockedToolNames = BLOCKED_TOOL_NAMES.join(', ');
 
     return {
       block: true,
@@ -322,7 +312,7 @@ export function registerBrunchOperationalModePolicy(
 
   pi.on('user_bash', (event, ctx) => {
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
-    const blockedToolNames = toolPolicyForRuntimeState(state).blockedToolNames.join(', ');
+    const blockedToolNames = BLOCKED_TOOL_NAMES.join(', ');
     return {
       result: {
         output:

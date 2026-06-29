@@ -5,16 +5,16 @@ import { fileURLToPath } from 'node:url';
 import { parseFrontmatter } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../runtime/state.js';
+import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../../runtime/_suspended/state.js';
 
 const projectRoot = dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 
 const generateProposalDisclosureExpectations = {
-  skill: 'src/agents/skills/suspended/methods/generate-proposal/SKILL.md',
+  skill: 'src/agents/skills/_suspended/methods/generate-proposal/SKILL.md',
   references: [
-    'src/agents/skills/suspended/methods/generate-proposal/references/intent.md',
-    'src/agents/skills/suspended/methods/generate-proposal/references/design.md',
-    'src/agents/skills/suspended/methods/generate-proposal/references/oracle.md',
+    'src/agents/skills/_suspended/methods/generate-proposal/references/intent.md',
+    'src/agents/skills/_suspended/methods/generate-proposal/references/design.md',
+    'src/agents/skills/_suspended/methods/generate-proposal/references/oracle.md',
   ],
 };
 

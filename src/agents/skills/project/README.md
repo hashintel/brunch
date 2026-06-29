@@ -11,6 +11,6 @@ SPEC decisions: D52-L, D73-L, D82-L, D98-L
 ```pseudo
 rules:
   graph/                  -> graph/schema/ [typed projection vocabulary]
-  agents/skills/project/  x> agents/runtime/suspended/ [no legacy axis dependency]
+  agents/skills/project/  x> agents/runtime/_suspended/ [no legacy axis dependency]
   agents/skills/project/  x> TypeScript imports [read-only prompt resources when present]
 ```

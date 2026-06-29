@@ -4,10 +4,14 @@ import type {
   AgentPromptSessionContext,
 } from '../../../agents/contexts/seeds/turn-context.js';
 import { renderWorkspaceSeed } from '../../../agents/contexts/seeds/turn-context.js';
-import { renderBrunchSkills, type PromptManifests } from '../../../agents/runtime/prompt-skills.js';
-import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../../agents/runtime/state.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { SubagentDefinition } from './agents.js';
+
+interface PromptManifests {
+  readonly strategies: readonly [];
+  readonly lenses: readonly [];
+  readonly methods: readonly [];
+}
 
 export interface BackgroundWorldSnapshot {
   readonly spec: AgentPromptSpecContext;
@@ -35,7 +39,6 @@ export function composeBackgroundSubagentPrompt(
     input.definition.systemPrompt,
     renderBackgroundControl(input.definition),
     renderWorldSnapshot(input.world),
-    renderBrunchSkills(manifests),
     renderBackgroundRouterRules(input.definition),
   ]);
 
@@ -43,10 +46,17 @@ export function composeBackgroundSubagentPrompt(
 }
 
 function manifestsForBackgroundSubagent(definition: SubagentDefinition): PromptManifests {
+  if (
+    definition.skills.strategies.length > 0 ||
+    definition.skills.lenses.length > 0 ||
+    definition.skills.methods.length > 0
+  ) {
+    throw new Error('Background subagent prompt resources are suspended and must not be advertised.');
+  }
   return {
-    strategies: definition.skills.strategies.map((id) => STRATEGY_RESOURCES[id]),
-    lenses: definition.skills.lenses.map((id) => LENS_RESOURCES[id]),
-    methods: definition.skills.methods.map((id) => METHOD_RESOURCES[id]),
+    strategies: [],
+    lenses: [],
+    methods: [],
   };
 }
 

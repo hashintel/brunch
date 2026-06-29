@@ -106,8 +106,8 @@ directly instead of growing a wrapper.
 | `cwd_inventory` | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`) | `read_workspace_context`, `agents/contexts/workspace/workspace-context.ts` | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
 | `workspace_overview` | `workspace-overview-context.ts` (`inspectWorkspaceOverview`) | `read_workspace_context`, origination seed context, `agents/contexts/workspace/workspace-context.ts` | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape. |
 | `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`) | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set. |
-| `agent_runtime_vocab` | `schema/kinds.ts`, `schema/tool-names.ts` | `runtime-state.ts`, `agents/runtime/suspended/`, `.pi/extensions/agent-runtime/` | Pure vocabulary leaf for legacy runtime axes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
-| `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `agents/runtime/elicitor/`, `agents/runtime/suspended/`, `.pi/extensions/agent-runtime/` | Transcript-backed source read. Public projections report operational mode and role; legacy strategy/lens facts remain parseable only for suspended compatibility paths. |
+| `agent_runtime_vocab` | `schema/kinds.ts`, `schema/tool-names.ts` | `runtime-state.ts`, `agents/runtime/_suspended/`, `.pi/extensions/agent-runtime/` | Pure vocabulary leaf for legacy runtime axes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
+| `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `agents/runtime/elicitor/`, `agents/runtime/_suspended/`, `.pi/extensions/agent-runtime/` | Transcript-backed source read. Public projections report operational mode and role; legacy strategy/lens facts remain parseable only for quarantined compatibility paths. |
 
 ## Runtime affordance coverage ledger
 
@@ -118,11 +118,11 @@ not currently transported for that consumer.
 
 | Row | Canonical owner | Agent | RPC | Web | Reason for deferred |
 | --- | --- | --- | --- | --- | --- |
-| `strategy.options` | `agents/runtime/policy.axisOptionsForRuntimeState(strategy)` | required | deferred | deferred | Transport follows a concrete UI/client need; AUTO excludes `freestyle`. |
-| `strategy.default_on_switch` | `agents/runtime/policy.defaultStrategyForRuntimeState` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
+| `strategy.options` | `agents/runtime/_suspended/policy.axisOptionsForRuntimeState(strategy)` | required | deferred | deferred | Quarantined compatibility only. |
+| `strategy.default_on_switch` | `agents/runtime/_suspended/policy.defaultStrategyForRuntimeState` | required | deferred | deferred | Quarantined compatibility only. |
 | `strategy.selection` | suspended runtime axis state | required | deferred | deferred | Strategy is no longer public runtime authority; compatibility state remains parseable for legacy paths only. |
-| `lens.options` | `agents/runtime/policy.axisOptionsForRuntimeState(lens)` | required | deferred | deferred | Transport follows a concrete UI/client need. |
-| `lens.default_on_switch` | `agents/runtime/policy.defaultLensForRuntimeState` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
+| `lens.options` | `agents/runtime/_suspended/policy.axisOptionsForRuntimeState(lens)` | required | deferred | deferred | Quarantined compatibility only. |
+| `lens.default_on_switch` | `agents/runtime/_suspended/policy.defaultLensForRuntimeState` | required | deferred | deferred | Quarantined compatibility only. |
 | `lens.selection` | suspended runtime axis state | required | deferred | deferred | Lens is no longer public runtime authority; compatibility state remains parseable for legacy paths only. |
 | `active-review-set` | product-state-gated review-cycle surface | deferred | deferred | deferred | Needs current review-set product state; not derivable from runtime policy alone. |
 | `turn-mode` | product-state-gated freestyle-vs-structured turn surface | deferred | deferred | deferred | Needs current turn/exchange mode state; not derivable from runtime policy alone. |

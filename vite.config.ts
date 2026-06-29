@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 const { version } = createRequire(import.meta.url)('./package.json') as { version: string };
 
@@ -21,5 +21,8 @@ export default defineConfig(() => ({
         assetFileNames: 'assets/[name][extname]',
       },
     },
+  },
+  test: {
+    exclude: ['**/node_modules/**', '**/dist/**', '**/dist-web/**', '**/_suspended/**'],
   },
 }));

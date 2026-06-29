@@ -5,7 +5,7 @@ description: "Ingest source material into the selected spec — a human answer, 
 
 # Method: ingest (draft)
 
-> Draft skill (scratch; not wired). This file demonstrates the consolidated shape for generalized-content ingestion. It is **not** enumerated in `agents/runtime/state.ts` / `agents/registry.ts`, so it is inert and advertises nothing. It collapses the four current acquisition modes (`elicit-by-question`, `ingest-paste`, `read-referenced-documents`, `explore-and-characterize`) into one deep procedure with *source* as the only shallow branch.
+> Draft skill (scratch; not wired). This file demonstrates the consolidated shape for generalized-content ingestion. It is **not** enumerated in a live runtime registry, so it is inert and advertises nothing. It collapses the four current acquisition modes (`elicit-by-question`, `ingest-paste`, `read-referenced-documents`, `explore-and-characterize`) into one deep procedure with *source* as the only shallow branch.
 >
 > Source of truth: the band-walk [`slice-band-walk.md`](slice-band-walk.md), kind selection [`slice-kind-selection.md`](slice-kind-selection.md), confidence/conflict routing [`slice-promotion-capture.md`](slice-promotion-capture.md), edges [`slice-edge-authoring.md`](slice-edge-authoring.md); generated vocabulary [`graph-ontology.md`](../references/graph-ontology.md). Cite these; do not restate their tables (D97-L).
 
@@ -61,4 +61,4 @@ brownfield | an existing codebase/area needs a map     | yes      | "from <area>
 
 ## If promoted (not in scope now)
 
-To wire this as a suspended compatibility resource, it would become `src/agents/skills/suspended/methods/ingest/SKILL.md` enumerated in `agents/runtime/suspended/state.ts` + `agents/registry.ts`. A live version should instead land under an activity home such as `src/agents/skills/capture/` or `src/agents/skills/elicit/` once the elicitor needs advertised prompt resources again. The four current acquisition modes either collapse into the source branch here or shrink to thin trigger-shells that delegate to it; `capture` keeps the banded sweep (this skill cites it rather than duplicating it). That restructuring touches the sealed skills tree and is out of scope for this drafting pass.
+To wire this as a quarantined compatibility resource, it would become `src/agents/skills/_suspended/methods/ingest/SKILL.md` enumerated inside `agents/runtime/_suspended/`. A live version should instead land under an activity home such as `src/agents/skills/capture/` or `src/agents/skills/elicit/` once the elicitor needs advertised prompt resources again. The four current acquisition modes either collapse into the source branch here or shrink to thin trigger-shells that delegate to it; `capture` keeps the banded sweep (this skill cites it rather than duplicating it). That restructuring touches the sealed skills tree and is out of scope for this drafting pass.

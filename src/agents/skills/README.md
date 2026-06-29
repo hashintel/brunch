@@ -4,7 +4,7 @@ SPEC decisions: D25-L, D39-L, D52-L, D58-L, D59-L, D85-L, D95-L, D98-L
 
 ## Owns
 
-Activity-named homes for Brunch-authored model-facing guidance. The live elicitor does not negotiate prompt-resource manifests; active conduct currently lives in the fixed prompt body and code-owned tool/context policy. The pre-D98 strategy/lens/method taxonomy is suspended as live elicitor authority under `suspended/`.
+Activity-named homes for Brunch-authored model-facing guidance. The live elicitor does not negotiate prompt-resource manifests; active conduct currently lives in the fixed prompt body and code-owned tool/context policy. The pre-D98 strategy/lens/method taxonomy is quarantined under `_suspended/`.
 
 These are Brunch-authored model-facing prompt resources, not product data models and not ambient filesystem discovery inputs.
 
@@ -19,7 +19,7 @@ skills/
 ├── elicit/README.md                        live elicitation conduct home
 ├── project/README.md                       live graph projection conduct home
 ├── review/README.md                        live review conduct home
-└── suspended/                              retired prompt-resource taxonomy
+└── _suspended/                             quarantined prompt-resource taxonomy
     ├── README.md
     ├── strategies/<name>/SKILL.md          reusable interaction shapes
     ├── lenses/<name>/SKILL.md              topical focus lenses
@@ -27,26 +27,24 @@ skills/
         └── references/*.md                 optional disclosed reference payloads
 ```
 
-Each suspended prompt-resource directory has a `SKILL.md` with YAML frontmatter (`name`, `description`) plus the instruction body. `name` must equal the parent directory and the code-owned id in `agents/runtime/suspended/state.ts`.
+Each quarantined prompt-resource directory has a `SKILL.md` with YAML frontmatter (`name`, `description`) plus the instruction body. These resources are excluded from normal discovery and testing.
 
 ## Boundary rules
 
 ```pseudo
 rules:
-  agents/runtime/suspended/state.ts -> agents/skills/suspended/*/*/SKILL.md [explicit code-owned legacy path list via agents/registry.ts]
-  agents/runtime/suspended/state.ts -> pi loadSkills(includeDefaults:false, skillPaths=[...])
-  agents/runtime/elicitor/      x> agents/skills/suspended/ [no live prompt-resource negotiation]
+  agents/runtime/elicitor/      x> agents/skills/_suspended/ [no live prompt-resource negotiation]
   agents/skills/**/SKILL.md      x> TypeScript imports      [read-only prompt resources]
   agents/skills/                 x> graph mutation          [guidance only]
 ```
 
-The legacy legal set is sealed by the code-owned path list in `agents/runtime/suspended/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns file locations. Frontmatter owns `name` and `description`; code owns family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are retired from the live elicitor prompt.
+The legacy legal set is quarantined and no longer part of live registry or runtime discovery. The former `goals` family is retired by D85-L; the elicitor objective postures are retired from the live elicitor prompt.
 
-`suspended/` is the quarantine target for strategy/lens/method resources now that the live elicitor manifest no longer consults them. It is not a discovery directory and does not make resources live by filesystem presence.
+`_suspended/` is the quarantine target for strategy/lens/method resources now that the live elicitor manifest no longer consults them. It is not a discovery directory and does not make resources live by filesystem presence.
 
 ## Prompt-resource sub-shapes
 
-- **`references/` subfiles:** available under the Agent Skills standard when a concrete skill needs progressive disclosure. No empty reference directories are introduced. The first materialized instance is `suspended/methods/generate-proposal/references/`, where the shared `SKILL.md` points to plane-specific payloads without advertising those payloads as separate skills.
+- **`references/` subfiles:** available under the Agent Skills standard when a concrete live skill needs progressive disclosure. The quarantined legacy instance is `_suspended/methods/generate-proposal/references/`.
 - **Shared typed-vocab context references:** materialized at `src/agents/contexts/references/graph-ontology.md`, the runtime-eligible shared context-reference home for generated node-kind/band, edge-policy, detail-payload, and `detail.form` vocabulary that prompt resources cite rather than restate (D97-L). Generated from the typed graph schema sources via `npm run generate:ontology` and drift-checked by `npm run check:data-model` (wired into `npm run check`); read-only and locked separately from the authored prompt-resource body lock below.
 - **Shared authored context references:** materialized at `src/agents/contexts/references/graph-authoring-heuristics.md` when two or more prompt resources need the same judgment rules. These files cite generated vocabulary references for kind/band tables and carry only shared conduct; skill-specific sequencing stays in the owning `SKILL.md`.
 

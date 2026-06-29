@@ -23,7 +23,7 @@ rules:
   agents/runtime/elicitor/ -> agents/contexts/live/ [plain context]
   agents/runtime/elicitor/ -> agents/runtime/shared/ [shared runtime helpers]
   .pi/extensions/agent-runtime/* -> agents/runtime/elicitor/ [adapter wiring]
-  agents/runtime/elicitor/ x> agents/runtime/suspended/ [no legacy control reads]
+  agents/runtime/elicitor/ x> agents/runtime/_suspended/ [no legacy control reads]
 ```
 
 ## Migration Note

@@ -4,7 +4,7 @@ SPEC decisions: D25-L, D40-L, D58-L, D85-L, D90-L, D91-L, D93-L, D98-L
 
 ## Owns
 
-Flat markdown persona text for Brunch foreground operational modes. The foreground roster is code-owned in `src/agents/runtime/policy.ts`; body file locations are centralized in `src/agents/registry.ts`.
+Flat markdown persona text for Brunch foreground operational modes. Live elicitor assembly is code-owned in `src/agents/runtime/elicitor/`; body file locations are centralized in `src/agents/registry.ts`.
 
 ```text
 prompts/

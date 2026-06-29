@@ -22,5 +22,5 @@
     "verbatimModuleSyntax": true
   },
   "include": ["src/**/*", ".pi/extensions/**/*.ts"],
-  "exclude": ["node_modules", "dist", "archive"]
+  "exclude": ["node_modules", "dist", "archive", "src/**/_suspended/**"]
 }

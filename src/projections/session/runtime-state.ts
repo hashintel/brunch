@@ -1,6 +1,5 @@
 import type { FileEntry } from '@earendil-works/pi-coding-agent';
 
-import { FOREGROUND_AGENT_ROSTER, type ResolvedBrunchAgentState } from '../../agents/runtime/policy.js';
 import {
   assertLinearBrunchSessionEnvelope,
   type BrunchSessionEnvelope,
@@ -14,9 +13,13 @@ import {
 } from '../../session/runtime-state.js';
 import type { OperationalModeId } from '../../session/schema/kinds.js';
 
-export type { ResolvedBrunchAgentState } from '../../agents/runtime/policy.js';
-export { FOREGROUND_AGENT_ROSTER, delegatableAgentsForRuntimeState } from '../../agents/runtime/policy.js';
 export { DEFAULT_BRUNCH_AGENT_STATE } from '../../session/runtime-state.js';
+
+export type ForegroundAgentRoleId = 'elicitor' | 'executor';
+
+export interface ResolvedBrunchAgentState extends BrunchAgentState {
+  readonly agentRole: ForegroundAgentRoleId;
+}
 
 export interface RuntimeStateProjection {
   status: 'ready';
@@ -56,14 +59,23 @@ function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value
 }
 
 export function resolveBrunchAgentState(state: BrunchAgentState): ResolvedBrunchAgentState {
-  const operationalModeDefinition = FOREGROUND_AGENT_ROSTER[state.operationalMode];
-  const agentRoleDefinition = operationalModeDefinition.foregroundAgent;
   return {
     ...state,
-    agentRole: agentRoleDefinition.id,
-    operationalModeDefinition,
-    agentRoleDefinition,
+    agentRole: foregroundAgentRoleForMode(state.operationalMode),
   };
+}
+
+function foregroundAgentRoleForMode(mode: OperationalModeId): ForegroundAgentRoleId {
+  switch (mode) {
+    case 'elicit':
+      return 'elicitor';
+    case 'execute':
+      return 'executor';
+    default: {
+      const exhaustive: never = mode;
+      return exhaustive;
+    }
+  }
 }
 
 export function projectBrunchAgentState(

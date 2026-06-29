@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { FOREGROUND_AGENT_ROSTER } from '../../agents/runtime/policy.js';
 import { projectBrunchPiSessionOptions } from '../pi-session-options.js';
 
 describe('Brunch Pi session options', () => {
   it('projects the Brunch runtime hardening policy into Pi SDK session options', () => {
+    const thinkingLevel = 'medium';
     const sessionStartEvent = {
       type: 'session_start' as const,
       reason: 'new' as const,
@@ -14,20 +14,21 @@ describe('Brunch Pi session options', () => {
     expect(
       projectBrunchPiSessionOptions({
         sessionStartEvent,
-        thinkingLevel: FOREGROUND_AGENT_ROSTER.elicit.foregroundAgent.thinking,
+        thinkingLevel,
       }),
     ).toEqual({
       sessionStartEvent,
       noTools: 'builtin',
       excludeTools: ['bash', 'edit', 'write'],
-      thinkingLevel: FOREGROUND_AGENT_ROSTER.elicit.foregroundAgent.thinking,
+      thinkingLevel,
     });
   });
 
   it('keeps the default model sentinel non-owning unless a concrete override is supplied', () => {
+    const thinkingLevel = 'medium';
     expect(
       projectBrunchPiSessionOptions({
-        thinkingLevel: FOREGROUND_AGENT_ROSTER.elicit.foregroundAgent.thinking,
+        thinkingLevel,
       }),
     ).not.toHaveProperty('model');
 
@@ -35,7 +36,7 @@ describe('Brunch Pi session options', () => {
 
     expect(
       projectBrunchPiSessionOptions({
-        thinkingLevel: FOREGROUND_AGENT_ROSTER.elicit.foregroundAgent.thinking,
+        thinkingLevel,
         model,
       }),
     ).toMatchObject({ model });

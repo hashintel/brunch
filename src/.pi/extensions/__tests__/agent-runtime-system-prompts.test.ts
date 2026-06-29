@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { composeAgentPrompt } from '../../../agents/runtime/compose.js';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
@@ -12,7 +11,6 @@ import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
   DEFAULT_BRUNCH_AGENT_STATE,
   appendBrunchAgentRuntimeSwitch,
-  projectBrunchAgentState,
   type BrunchAgentState,
   type BrunchAgentStateEntryData,
   registerBrunchOperationalModePolicy,
@@ -119,37 +117,6 @@ function workspacePosture(posture: WorkspacePostureState): WorkspacePostureState
 }
 
 describe('Brunch prompt-pack topology', () => {
-  it('composes gated Brunch resource manifests instead of eager private prompt packs', () => {
-    const result = composeAgentPrompt({
-      agentId: 'elicitor',
-      sessionState: projectBrunchAgentState([
-        runtimeEntry({
-          ...DEFAULT_BRUNCH_AGENT_STATE,
-          agentStrategy: 'step-wise-decision-tree',
-          agentLens: 'intent',
-        }),
-      ]),
-      spec: promptContext.spec,
-      workspace: promptContext.workspace,
-      activeTools: ['read', 'grep', 'present_question'],
-      gaps: groundingFloorGaps(),
-    });
-
-    expect(result.prompt).toContain('[Brunch agent control]');
-    expect(result.prompt).toContain('- op_mode: elicit');
-    expect(result.prompt).not.toMatch(/- goal:/);
-    expect(result.prompt).toContain('- prompt strategy resource: step-wise-decision-tree');
-    expect(result.prompt).toContain('- prompt lens resource: intent');
-    expect(result.prompt).not.toContain('<available_goals>');
-    expect(result.prompt).toContain('<brunch-skills>');
-    expect(result.prompt).toContain('<kind>strategy</kind>');
-    expect(result.prompt).toContain('<kind>lens</kind>');
-    expect(result.prompt).toContain('<kind>method</kind>');
-    expect(result.prompt).toContain('<name>step-wise-decision-tree</name>');
-    expect(result.prompt).not.toContain('# Brunch base');
-    expect(result.prompt).not.toContain('Request outcomes are an exactly-one property-presence union');
-  });
-
   it('appends composed Brunch prompting from runtime-state projection', async () => {
     const latestState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,

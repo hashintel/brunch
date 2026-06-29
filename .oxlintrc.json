@@ -85,6 +85,7 @@
     ".fixtures/**",
     "@types/**",
     "tmp/**",
+    "src/**/_suspended/**",
     "dist-web/**",
     "bin/**",
     "dist/**",
