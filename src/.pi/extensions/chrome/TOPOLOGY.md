@@ -23,7 +23,7 @@ Projection of canonical workspace/session facts into Pi's TUI shell surfaces —
 
 ## Render surfaces
 
-- **Footer** (`projectBrunchChromeFooterLines`): (1) `spec / session` keyed part, with an `ui: <sidecarUrl>` right column when a sidecar URL is present; (2) the Brunch status line — `mode` / `strategy` / `lens` from the projected agent state (telemetry) or `chrome.runtime` fallback; (3) model label + a context-usage gauge; (4) other extensions' statuses, then a trailing blank line.
+- **Footer** (`projectBrunchChromeFooterLines`): (1) `spec / session` keyed part, with an `ui: <sidecarUrl>` right column when a sidecar URL is present; (2) the Brunch status line — live `mode` from the projected agent state (telemetry) or `chrome.runtime` fallback; legacy `strategy` / `lens` values may render only when supplied by quarantined compatibility projections and are not a live D98 runtime contract; (3) model label + a context-usage gauge; (4) other extensions' statuses, then a trailing blank line.
 - **Title** (`formatChromeTitle`): `brunch — <project>` or `brunch — <project> · <spec>`.
 - **Startup header**: rendered via `BrunchStartupHeader` only when `startupHeader` is set; installed for every non-cancel launch activation so the shell never falls back to Pi's quiet empty header.
 

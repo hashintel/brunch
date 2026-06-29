@@ -11,8 +11,9 @@ agents/
 ├── TOPOLOGY.md
 ├── prompts/           flat foreground elicit/execute body markdown
 ├── subagents/         flat background subagent body markdown
-├── skills/            activity prompt resources plus suspended legacy taxonomy
+├── skills/            live activity resources plus suspended legacy taxonomy
 ├── runtime/           live elicitor runtime, shared helpers, and suspended controls
+├── shared/            formatting helpers for agent-visible text
 └── contexts/          reusable seed/data-model/exchange/reference text
 ```
 
@@ -23,7 +24,7 @@ rules:
   agents/prompts/registry.ts -> agents/prompts/{elicitor,executor}.md [foreground body file locations]
   .pi/extensions/subagents/agents.ts -> agents/subagents/*.md [background body file locations]
   agents/prompts/registry.ts x> agents/skills/_suspended/*/*/SKILL.md [no live prompt-resource registry]
-  agents/contexts/   -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
+  agents/contexts/data-model/ -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
   agents/runtime/elicitor -> agents/prompts, agents/runtime/elicitor/context.ts [live SPEC-mode source of truth]
   agents/runtime/    -> agents/prompts/registry, agents/prompts, agents/skills, session/schema
   .pi/extensions/*   -> agents/                   [adapters ask for Brunch-authored context]

@@ -17,7 +17,7 @@ Seed wording is intentionally protected with semantic invariant tests rather tha
 
 ```pseudo
 rules:
-  seeds/*          -> agents/contexts/*, graph/, session/schema [format already-read facts]
+  seeds/*          -> agents/contexts/data-model/, agents/contexts/exchanges/, graph/, session/schema [format already-read facts]
   .pi/extensions/ -> seeds/                            [foreground/background prompt adapters]
   session/        -> seeds/origination.ts              [append choreography uses seed text]
   seeds/          x> .pi/, app/, rpc/                  [no host, adapter, or transport effects]
