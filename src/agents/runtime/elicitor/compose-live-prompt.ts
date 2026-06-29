@@ -8,7 +8,7 @@ import type {
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
 } from '../../contexts/seeds/turn-context.js';
-import { bundledAgentBodyLocation } from '../../registry.js';
+import { bundledAgentBodyLocation } from '../../prompts/registry.js';
 
 export interface LiveElicitorSessionState {
   readonly operationalMode: string;

@@ -8,7 +8,7 @@ Projection of canonical workspace/session facts into Pi's TUI shell surfaces —
 
 ## Does NOT own
 
-- Launch/activation choreography and how `BrunchChromeState` is assembled — parent [`.pi/extensions/README.md`](../README.md) §TUI launch chrome.
+- Launch/activation choreography and how `BrunchChromeState` is assembled — parent [`.pi/extensions/TOPOLOGY.md`](../TOPOLOGY.md#tui-launch-chrome).
 - Session display-name minting (`sessionDisplayName` = `` `${specTitle} — session ${ordinal}` ``) — `session/` (`workspace-session-coordinator.ts`). Chrome only renders whatever label it is given.
 - The reusable header widget — [`.pi/components/chrome-header.ts`](../../components/chrome-header.ts).
 - Web host, workspace, or activation state — received via `BrunchChromeState`, never read here.

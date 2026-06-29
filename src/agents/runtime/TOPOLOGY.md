@@ -22,7 +22,7 @@ runtime/
 rules:
   agents/runtime/elicitor -> agents/prompts/elicitor.md, agents/contexts/live/
   agents/runtime/_suspended -> agents/skills/_suspended/, agents/contexts/_suspended/
-  agents/runtime -> agents/registry, agents/prompts, agents/skills
+  agents/runtime -> agents/prompts/registry, agents/prompts, agents/skills
   agents/runtime -> agents/contexts, graph/, projections/, session/ [read/projection types and helpers]
   .pi/extensions/agent-runtime/* -> agents/runtime [adapter calls central policy]
   agents/runtime x> .pi extension hooks/tools       [no Pi registration side effects]

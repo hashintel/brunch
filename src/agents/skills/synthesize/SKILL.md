@@ -1,9 +1,9 @@
 ---
-name: context
+name: synthesize
 description: Read and synthesize the selected spec and workspace context needed for the next elicitor move. Use when the agent needs orientation, relevant graph facts, or session/workspace state before asking, capturing, projecting, or reviewing.
 ---
 
-# context
+# synthesize
 
 Use this skill when you need to understand the current selected-spec situation before acting.
 

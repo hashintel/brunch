@@ -3,7 +3,7 @@ name: elicit
 description: Ask focused questions and run the next human-facing exchange needed to move the selected spec forward. Use when the agent should acquire missing information, resolve ambiguity, or tighten the user's intent before capture or review.
 ---
 
-# elicit
+# Elicit
 
 Use this skill when the best next move is to ask the user for the missing piece that would improve the selected spec.
 
@@ -30,3 +30,23 @@ Use this skill when the best next move is to ask the user for the missing piece 
 
 - This skill is the durable home for live elicitation guidance.
 - It does not reintroduce the suspended strategy/lens/method control system.
+
+### Lens vs Operational Mode
+
+D23-L distinguishes:
+
+- **Operational Mode** — coarse operational strategy: `elicitor`, `observer`, `reviewer`, `reconciler` (and future `generalist`).
+- **Lens** — a narrower interpretive perspective applied within an Operational Mode.
+
+The strategies described here (`step-by-step`, `disambiguate-via-examples`, `propose-scenarios-with-tradeoffs`, `propose-design-shapes`, `propose-oracle-ensembles`, `project-requirements-from-upstream`) are all **lenses within the `elicitor` Operational Mode**. `observer` and `reviewer` are Operational Modes in their own right (async background roles), not lenses.
+
+## Lens catalogue (starter set)
+
+Lenses split into two families by capture mechanism. The **family distinction** is the durable architectural commitment (D26-L); the specific lens list is expected to evolve.
+
+### Extractive lenses
+
+Produce single-exchange interactions; the `observer` Operational Mode extracts implicit info post-exchange.
+
+- **`step-by-step`** — agent asks one focused question at a time
+- **`disambiguate-via-examples`** — agent surfaces contrastive examples to force a discriminating user response (see [Behavioral Kernels](../../../../docs/design/BEHAVIORAL_KERNELS.md))

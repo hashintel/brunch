@@ -4,16 +4,18 @@ SPEC decisions: D25-L, D40-L, D58-L, D85-L, D90-L, D91-L, D93-L, D98-L
 
 ## Owns
 
-Flat markdown persona text for Brunch foreground operational modes. Live elicitor assembly is code-owned in `src/agents/runtime/elicitor/`; body file locations are centralized in `src/agents/registry.ts`.
+Flat markdown persona text for Brunch foreground operational modes. Live elicitor assembly is code-owned in `src/agents/runtime/elicitor/`; body file locations are centralized in `src/agents/prompts/registry.ts`.
 
 ```text
 prompts/
 ├── TOPOLOGY.md
+├── registry.ts       path registry for foreground body files
+├── __tests__/        foreground body registry tests
 ├── elicitor.md       elicit runtime / target-SPEC foreground body
 └── executor.md       execute runtime / target-CODE foreground body
 ```
 
-This directory is markdown-only. It carries no TypeScript and registers no Pi hooks.
+This directory carries foreground body markdown and the small body-location registry. It registers no Pi hooks.
 
 ## Prompt-shape decisions
 

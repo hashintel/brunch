@@ -91,17 +91,17 @@ context that crosses back to the parent; structured `details` remain render-only
 
 ## File map
 
-| File | Responsibility |
-| --- | --- |
-| [`agents.ts`](./agents.ts) | Markdown agent loader: tiny frontmatter parser (no YAML dep), TypeBox-validated schema (`name`, `description`, `tools`, `model`, `thinking`), explicit `BACKGROUND_SUBAGENT_IDS` registry, `loadSubagentDefinitions(dir, ids?)` over `src/agents/subagents/<id>.md` → `Map<name, def>`. Projects frontmatter into the shared `AgentManifest` background shape and fails loud on malformed/duplicate/id-drifted agents. |
-| [`config.ts`](./config.ts) | TypeBox loader for [`config.json`](./config.json) (`version`, `maxConcurrency`; tolerates `$comment`). |
-| [`prompt-assembly.ts`](./prompt-assembly.ts) | Background prompt assembler: agent body + child-control header + injected world snapshot + `<brunch-skills>` + background router rules. Reuses the shared prompt-skill manifest renderer; deliberately omits the foreground elicitation recommendation block. |
-| [`session.ts`](./session.ts) | The sealed child-session runner. `resolveSubagentModel`, `createSubagentToolCatalog`, `planSubagentTools`, `runSubagent`. The catalog is the shared source that resolves sovereign manifest-authored grants. Never throws — failures return as error results. **Injectable SDK builders** (`createServices`/`createSession`) for testing. |
-| [`index.ts`](./index.ts) | `registerBrunchSubagents(pi, deps)` — registers the one `subagent` tool (single `{agent,task}` or parallel `{tasks:[…]}`), filters advertisement/execution to `definitions ∩ deps.delegatableAgents`, `createSemaphore` for bounded concurrency, result formatting. Re-exports the public surface. |
-| [`../../../agents/subagents/<id>.md`](../../../agents/subagents) | Declarative background agent body home. Background bodies carry frontmatter; `agents.ts` loads only registry-listed ids. |
-| [`config.json`](./config.json) | Externalized concurrency cap (`maxConcurrency: 4`). |
-| [`subagents.test.ts`](./subagents.test.ts) | Tests parsing, config, model resolution, tool planning, semaphore fairness, registrar usage errors, abort lifecycle, and **two end-to-end faux-provider child-session runs** asserting the sealing invariants. |
-| [`../../../app/pi-subagents.ts`](../../../app/pi-subagents.ts) | **App composition root.** `loadBrunchSubagents({cwd, agentDir, delegatableAgents, world})` assembles `BrunchSubagentsDeps` using the sealed `pi-settings` helpers plus explicit parent-world handles and the code-owned op-mode delegatable set. Keeps `.pi/` free of `src/app` imports (deps are injected). |
+| File                                                             | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`agents.ts`](./agents.ts)                                       | Markdown agent loader: tiny frontmatter parser (no YAML dep), TypeBox-validated schema (`name`, `description`, `tools`, `model`, `thinking`), explicit `BACKGROUND_SUBAGENT_IDS` registry, `loadSubagentDefinitions(dir, ids?)` over `src/agents/subagents/<id>.md` → `Map<name, def>`. Projects frontmatter into the shared `AgentManifest` background shape and fails loud on malformed/duplicate/id-drifted agents. |
+| [`config.ts`](./config.ts)                                       | TypeBox loader for [`config.json`](./config.json) (`version`, `maxConcurrency`; tolerates `$comment`).                                                                                                                                                                                                                                                                                                                 |
+| [`prompt-assembly.ts`](./prompt-assembly.ts)                     | Background prompt assembler: agent body + child-control header + injected world snapshot + `<brunch-skills>` + background router rules. Reuses the shared prompt-skill manifest renderer; deliberately omits the foreground elicitation recommendation block.                                                                                                                                                          |
+| [`session.ts`](./session.ts)                                     | The sealed child-session runner. `resolveSubagentModel`, `createSubagentToolCatalog`, `planSubagentTools`, `runSubagent`. The catalog is the shared source that resolves sovereign manifest-authored grants. Never throws — failures return as error results. **Injectable SDK builders** (`createServices`/`createSession`) for testing.                                                                              |
+| [`index.ts`](./index.ts)                                         | `registerBrunchSubagents(pi, deps)` — registers the one `subagent` tool (single `{agent,task}` or parallel `{tasks:[…]}`), filters advertisement/execution to `definitions ∩ deps.delegatableAgents`, `createSemaphore` for bounded concurrency, result formatting. Re-exports the public surface.                                                                                                                     |
+| [`../../../agents/subagents/<id>.md`](../../../agents/subagents) | Declarative background agent body home. Background bodies carry frontmatter; `agents.ts` loads only registry-listed ids.                                                                                                                                                                                                                                                                                               |
+| [`config.json`](./config.json)                                   | Externalized concurrency cap (`maxConcurrency: 4`).                                                                                                                                                                                                                                                                                                                                                                    |
+| [`__tests__/agents.test.ts`](./__tests__/agents.test.ts)         | Tests parsing, config, model resolution, tool planning, semaphore fairness, registrar usage errors, abort lifecycle, and **two end-to-end faux-provider child-session runs** asserting the sealing invariants.                                                                                                                                                                                                         |
+| [`../../../app/pi-subagents.ts`](../../../app/pi-subagents.ts)   | **App composition root.** `loadBrunchSubagents({cwd, agentDir, delegatableAgents, world})` assembles `BrunchSubagentsDeps` using the sealed `pi-settings` helpers plus explicit parent-world handles and the code-owned op-mode delegatable set. Keeps `.pi/` free of `src/app` imports (deps are injected).                                                                                                           |
 
 Boundary rule: `.pi/extensions/subagents/*` may import the SDK and `../web-tools/web/`
 (for `web_search`/`web_fetch`), but **never** `src/app/*`. The app layer injects
@@ -129,12 +129,12 @@ thinking: low               # low | medium | high
 
 Starter agents (read-only / no-write):
 
-| agent | tools | role |
-| --- | --- | --- |
-| `explorer` | `read, grep, find, ls, read_graph` | read-only codebase + selected-spec graph recon |
-| `researcher` | `web_search, web_fetch` | external web research |
-| `projector` | _(none)_ | one candidate-proposal variant per call; fan out for diversity |
-| `reviewer` | _(none)_ | proposal/commitment review from supplied context |
+| agent        | tools                              | role                                                           |
+| ------------ | ---------------------------------- | -------------------------------------------------------------- |
+| `explorer`   | `read, grep, find, ls, read_graph` | read-only codebase + selected-spec graph recon                 |
+| `researcher` | `web_search, web_fetch`            | external web research                                          |
+| `projector`  | _(none)_                           | one candidate-proposal variant per call; fan out for diversity |
+| `reviewer`   | _(none)_                           | proposal/commitment review from supplied context               |
 
 Tool resolution (`planSubagentTools`): read-only filesystem tools come from the
 SDK (`createReadToolDefinition(cwd)` etc., cwd-bound, override built-ins of the
@@ -191,13 +191,13 @@ and carry a depth/allowlist bound; pairs naturally with the future write-capable
 
 ## Comparison to the original (`amosblomqvist/pi-subagents`)
 
-| Aspect | Original | Brunch (this) |
-| --- | --- | --- |
-| Agent discovery | Bundled `agents/*.md` beside `index.ts` **+** `globalThis.__pi_subagents` runtime bridge for other extensions | Flat `src/agents/subagents/<id>.md` home via explicit `BACKGROUND_SUBAGENT_IDS` → `loadSubagentDefinitions(dir, ids?)`; **no** bridge, **no** ambient `~/.pi` scan, and no directory scan |
-| Frontmatter | Loose: string split + silent defaults; extra `subagent_agents` allowlist; `model` default `anthropic/claude-sonnet-4-6` | Strict TypeBox schema, **fails loud**; no `subagent_agents` (no nesting); `model: default` inherits parent |
-| Execution | `spawn()` a child `pi` process (`--mode json -p --no-session --no-skills --no-extensions`, re-adds `--extension` paths, `--append-system-prompt` temp file) | In-process SDK `AgentSession` with sealed services |
-| Isolation basis | OS process boundary + flags; depends on a resolvable `pi` binary on PATH | Sealed in-memory services; no binary, no ambient leakage |
-| Nesting | Supported via `subagent`-as-tool + `PI_SUBAGENT_ALLOWED` | Not supported (children lack the tool) |
+| Aspect          | Original                                                                                                                                                    | Brunch (this)                                                                                                                                                                             |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent discovery | Bundled `agents/*.md` beside `index.ts` **+** `globalThis.__pi_subagents` runtime bridge for other extensions                                               | Flat `src/agents/subagents/<id>.md` home via explicit `BACKGROUND_SUBAGENT_IDS` → `loadSubagentDefinitions(dir, ids?)`; **no** bridge, **no** ambient `~/.pi` scan, and no directory scan |
+| Frontmatter     | Loose: string split + silent defaults; extra `subagent_agents` allowlist; `model` default `anthropic/claude-sonnet-4-6`                                     | Strict TypeBox schema, **fails loud**; no `subagent_agents` (no nesting); `model: default` inherits parent                                                                                |
+| Execution       | `spawn()` a child `pi` process (`--mode json -p --no-session --no-skills --no-extensions`, re-adds `--extension` paths, `--append-system-prompt` temp file) | In-process SDK `AgentSession` with sealed services                                                                                                                                        |
+| Isolation basis | OS process boundary + flags; depends on a resolvable `pi` binary on PATH                                                                                    | Sealed in-memory services; no binary, no ambient leakage                                                                                                                                  |
+| Nesting         | Supported via `subagent`-as-tool + `PI_SUBAGENT_ALLOWED`                                                                                                    | Not supported (children lack the tool)                                                                                                                                                    |
 
 The file-based bundled layout you liked is preserved; the parts that fight
 sealing (the `globalThis` bridge and the `pi` subprocess) are what changed.

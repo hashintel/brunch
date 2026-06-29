@@ -6,7 +6,7 @@ export type BundledAgentBodyId = (typeof BUNDLED_AGENT_BODY_IDS)[number];
 
 /** Filesystem home for bundled Brunch agent markdown bodies. */
 export function bundledAgentBodyHome(): string {
-  return fileURLToPath(new URL('./prompts', import.meta.url));
+  return fileURLToPath(new URL('.', import.meta.url));
 }
 
 /** Repo-relative path used by manifest bodies that are read later by the Pi runtime. */
@@ -15,5 +15,5 @@ export function bundledAgentBodyRepoPath(id: BundledAgentBodyId): string {
 }
 
 export function bundledAgentBodyLocation(id: BundledAgentBodyId): string {
-  return fileURLToPath(new URL(`./prompts/${id}.md`, import.meta.url));
+  return fileURLToPath(new URL(`./${id}.md`, import.meta.url));
 }
