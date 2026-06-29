@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { access, readdir } from 'node:fs/promises';
+import { access, readFile, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -26,6 +26,16 @@ describe('agent prompt bodies', () => {
     for (const id of BUNDLED_AGENT_BODY_IDS) {
       await expect(access(bundledAgentBodyLocation(id))).resolves.toBeUndefined();
     }
+  });
+
+  it('keeps the live elicitor body free of suspended prompt-resource controls', async () => {
+    const body = await readFile(bundledAgentBodyLocation('elicitor'), 'utf8');
+
+    expect(body).not.toContain('current prompt manifest');
+    expect(body).not.toContain('runtime manifest');
+    expect(body).not.toContain('strategy and lens');
+    expect(body).not.toContain('readiness bands');
+    expect(body).not.toContain('open elicitation gaps');
   });
 
   it('loads background subagents through their explicit registry', async () => {
