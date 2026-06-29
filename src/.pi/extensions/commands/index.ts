@@ -36,8 +36,8 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
+import { pinnableAxisOptionsForRuntimeState } from '../../../agents/runtime/policy.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-import { pinnableAxisOptionsForRuntimeState } from '../../../projections/session/runtime-policy.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import {
   AGENT_LENS_IDS,
@@ -52,7 +52,10 @@ import {
   createRuntimeModePickerComponent,
   createRuntimeStrategyPickerComponent,
 } from '../../components/runtime-posture/axis-picker.js';
-import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
+import {
+  activeToolNamesForBrunchAgentState,
+  projectBrunchAgentState,
+} from '../agent-runtime/runtime/index.js';
 import {
   runBrunchWorkspaceAction,
   type BrunchSpecSessionPickerOptions,

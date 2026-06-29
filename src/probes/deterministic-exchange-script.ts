@@ -16,8 +16,8 @@
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 
 import type { PresentDetails } from '../.pi/extensions/exchanges/schemas/index.js';
+import { formatPresentQuestion } from '../agents/contexts/exchanges/present-question.js';
 import { projectPresentQuestion } from '../projections/exchanges/present-question.js';
-import { formatPresentQuestion } from '../renderers/exchanges/present-question.js';
 import { flushSessionManagerToFile } from '../session/flush-session-manager.js';
 import {
   syntheticExchangeToolCallMessage,

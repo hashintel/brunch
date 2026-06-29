@@ -203,7 +203,7 @@ describe('graph items are owned by spec', () => {
 
 describe('tool guard: agent-facing graph tool schemas do not expose specId', () => {
   it('MutateGraphParams has no top-level specId field', async () => {
-    const mod = await import('../../.pi/extensions/graph/tool-schemas.js');
+    const mod = await import('../../.pi/extensions/brunch-data/graph/tool-schemas.js');
     // Sinclair TypeBox object schemas store fields under `properties`
     const schema = mod.MutateGraphParams as unknown as {
       properties: Record<string, unknown>;
@@ -213,7 +213,7 @@ describe('tool guard: agent-facing graph tool schemas do not expose specId', () 
   });
 
   it('ReadGraphParams has no top-level specId field', async () => {
-    const mod = await import('../../.pi/extensions/graph/tool-schemas.js');
+    const mod = await import('../../.pi/extensions/brunch-data/graph/tool-schemas.js');
     const { Value } = await import('typebox/value');
     expect(Value.Check(mod.ReadGraphParams, { mode: 'overview', specId: 1 })).toBe(false);
     expect(Value.Check(mod.ReadGraphParams, { mode: 'overview', spec_id: 1 })).toBe(false);

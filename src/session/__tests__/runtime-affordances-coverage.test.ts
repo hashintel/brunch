@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import {
+  axisOptionsForRuntimeState,
+  defaultLensForRuntimeState,
+  defaultStrategyForRuntimeState,
+} from '../../agents/runtime/policy.js';
 import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
-import { affordances } from '../../projections/session/affordances.js';
 import { resolveBrunchAgentState } from '../../projections/session/runtime-state.js';
 import { sessionRpcMethods } from '../../rpc/methods/session.js';
 import { DEFAULT_BRUNCH_AGENT_STATE } from '../runtime-state.js';
@@ -9,14 +13,14 @@ import { DEFAULT_BRUNCH_AGENT_STATE } from '../runtime-state.js';
 const runtimeAffordanceLedger = [
   {
     row: 'strategy.options',
-    owner: 'affordances.strategy.legalOptions',
+    owner: 'agents/runtime/policy.axisOptionsForRuntimeState(strategy)',
     agent: 'required',
     rpc: 'deferred',
     web: 'deferred',
   },
   {
     row: 'strategy.default_on_switch',
-    owner: 'affordances.strategy.defaultOnSwitch',
+    owner: 'agents/runtime/policy.defaultStrategyForRuntimeState',
     agent: 'required',
     rpc: 'deferred',
     web: 'deferred',
@@ -30,14 +34,14 @@ const runtimeAffordanceLedger = [
   },
   {
     row: 'lens.options',
-    owner: 'affordances.lens.legalOptions',
+    owner: 'agents/runtime/policy.axisOptionsForRuntimeState(lens)',
     agent: 'required',
     rpc: 'deferred',
     web: 'deferred',
   },
   {
     row: 'lens.default_on_switch',
-    owner: 'affordances.lens.defaultOnSwitch',
+    owner: 'agents/runtime/policy.defaultLensForRuntimeState',
     agent: 'required',
     rpc: 'deferred',
     web: 'deferred',
@@ -98,13 +102,15 @@ describe('runtime affordances coverage ledger', () => {
     ]);
   });
 
-  it('covers all agent-required rows through the shared affordances derivation', () => {
-    const derived = affordances(resolveBrunchAgentState(DEFAULT_BRUNCH_AGENT_STATE), groundingFloorGaps());
-    const derivedRows = Object.entries(derived).flatMap(([axis, axisAffordance]) => {
-      const { selection: _selection, ...derivedFields } = axisAffordance;
-      expect(Object.keys(derivedFields).sort()).toEqual(['defaultOnSwitch', 'legalOptions']);
-      return [`${axis}.options`, `${axis}.default_on_switch`];
-    });
+  it('covers all agent-required rows through the shared runtime policy derivation', () => {
+    const state = resolveBrunchAgentState(DEFAULT_BRUNCH_AGENT_STATE);
+    const gaps = groundingFloorGaps();
+    const derivedRows = [
+      axisOptionsForRuntimeState('strategy', state, gaps).length > 0 && 'strategy.options',
+      defaultStrategyForRuntimeState(state) && 'strategy.default_on_switch',
+      axisOptionsForRuntimeState('lens', state, gaps).length > 0 && 'lens.options',
+      defaultLensForRuntimeState(state) && 'lens.default_on_switch',
+    ].filter((row): row is string => typeof row === 'string');
 
     expect(new Set(derivedRows)).toEqual(
       new Set(requiredRowsFor('agent').filter((row) => !row.endsWith('.selection'))),

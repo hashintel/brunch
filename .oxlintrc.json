@@ -26,22 +26,6 @@
       }
     },
     {
-      "files": ["src/renderers/**/*.ts", "src/renderers/**/*.tsx"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["**/.pi/**", "**/app/**", "**/rpc/**", "**/web/**", "**/db/**"],
-                "message": "D52-L: renderers/ must not import adapter, transport, or db layers."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
       "files": ["src/workspace/**/*.ts", "src/workspace/**/*.tsx"],
       "rules": {
         "no-restricted-imports": [
@@ -55,12 +39,27 @@
                   "**/db/**",
                   "**/graph/**",
                   "**/projections/**",
-                  "**/renderers/**",
                   "**/rpc/**",
                   "**/session/**",
                   "**/web/**"
                 ],
                 "message": "D52-L: workspace/ is a cwd-owned leaf; it must not import domain or adapter layers."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/agents/contexts/**/*.ts", "src/agents/contexts/**/*.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/.pi/**", "**/app/**", "**/db/**", "**/rpc/**", "**/web/**"],
+                "message": "D52-L/D83-L: agents/contexts/ is model-facing render code; it must not import adapters, app entrypoints, transports, web, or db."
               }
             ]
           }

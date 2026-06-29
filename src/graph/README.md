@@ -32,7 +32,7 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 
 - **Capture** — the submit-time `capture/` structured-response translator was
   deleted 2026-06-19 (D80-L fossil retirement). Capture is now elicitor
-  turn-boundary sweep conduct in `src/.pi/skills/methods/capture.md`; the graph
+  turn-boundary sweep conduct in `src/agents/skills/methods/capture.md`; the graph
   layer owns only the `mutate_graph` / `update_elicitation_gaps` mutation/gap
   boundary that sweep conduct routes through, not a product-side extraction pass.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
@@ -51,7 +51,12 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   kind/category types, per-kind node ordinals, per-kind node `detail` schemas,
   derived readiness-band membership (`bandsForKind`), and derived intent-kind
   grouping. Raw domain enum taxonomy lives in the zero-import `schema/kinds.ts`
-  leaf so web-facing graph imports do not pull in Drizzle.
+  leaf so web-facing graph imports do not pull in Drizzle. The kind→readiness-band
+  ontology is projected from this typed source to a committed runtime context
+  reference at `src/agents/contexts/references/graph-ontology.md` by
+  `schema/generate-ontology-ref.ts`; the `check:data-model` script fails if the
+  committed file drifts from the schema (D87-L(d), D97-L). Skills cite that
+  generated reference instead of restating bands.
 
 - **Policy** (`policy/category-policy.ts`) — the single per-category
   metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact
@@ -109,11 +114,11 @@ not compare bare LSN values across sibling specs.
 
 ## Imported by
 
-- `.pi/extensions/graph/` — Pi tool adapters for `mutate_graph` and `read_graph`.
+- `.pi/extensions/brunch-data/graph/` — Pi tool adapters for `mutate_graph` and `read_graph`.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
 - `projections/graph/` — topology stubs for deferred graph PROJECT seams; node-neighborhood consumers read `NodeNeighborhood` directly from `queries.ts`.
-- `renderers/graph/` — reusable lossy markdown/text rendering over projected graph DTOs.
-- `.pi/extensions/system-prompts/` — prompt composition consumes the read-only elicitation driver and the seed renderers consume graph reads.
+- `agents/contexts/graph/` — reusable model-facing graph context text over projected graph DTOs.
+- `.pi/extensions/agent-runtime/system-prompts/` — prompt composition consumes the read-only elicitation driver and the seed renderers consume graph reads.
 - `probes/` — graph proof drivers.
 
 ## Current topology
@@ -197,6 +202,10 @@ graph/
       per-kind detail schema owner consumed by validation + mutation boundary schemas
     edges.ts
     reconciliation-need.ts
+    generate-ontology-ref.ts
+      projects the typed kind→readiness-band ontology to
+      src/agents/contexts/references/graph-ontology.md
+      --check mode (check:data-model) guards the committed file against drift
 
   policy/
     category-policy.ts
@@ -225,14 +234,14 @@ CommandExecutor
   writes rows transactionally
   appends change_log
       │
-      ├─►.pi/extensions/graph
+      ├─► .pi/extensions/brunch-data/graph
       │     agent tool adapter
       │
       ├─► rpc/
       │     public product projections
       │     session.submitExchangeResponse capture wiring
       │
-      └─► .pi/extensions/system-prompts
+      └─► .pi/extensions/agent-runtime/system-prompts
             elicitation recommendation selection and pushed seed context render inputs
 ```
 

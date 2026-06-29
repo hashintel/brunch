@@ -1,9 +1,12 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
+import {
+  formatExchangeStructuralIllegal,
+  formatPresentReviewSet,
+} from '../../../agents/contexts/exchanges/present-review-set.js';
 import type { CommandExecutor, StructuralIllegal } from '../../../graph/command-executor.js';
 import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
 import { projectPresentReviewSet } from '../../../projections/exchanges/present-review-set.js';
-import { formatPresentReviewSet } from '../../../renderers/exchanges/present-review-set.js';
 import { piSchema } from './pi-schema.js';
 import {
   zPresentReviewSetParams,
@@ -47,7 +50,10 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
             { field: 'present_review_set', message: 'review-set graph dependencies unavailable' },
           ],
         };
-        return { content: [{ type: 'text' as const, text: formatStructuralIllegal(details) }], details };
+        return {
+          content: [{ type: 'text' as const, text: formatExchangeStructuralIllegal(details) }],
+          details,
+        };
       }
 
       const dryRun = deps.commandExecutor.dryRunAcceptReviewSet({
@@ -57,7 +63,7 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
       });
       if (dryRun.status === 'structural_illegal') {
         return {
-          content: [{ type: 'text' as const, text: formatStructuralIllegal(dryRun) }],
+          content: [{ type: 'text' as const, text: formatExchangeStructuralIllegal(dryRun) }],
           details: dryRun,
         };
       }
@@ -86,11 +92,3 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
 }
 
 export const presentReviewSetTool = createPresentReviewSetTool();
-
-function formatStructuralIllegal(result: {
-  readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
-}): string {
-  return ['# STRUCTURAL_ILLEGAL', '', ...result.diagnostics.map((d) => `- ${d.field}: ${d.message}`)].join(
-    '\n',
-  );
-}

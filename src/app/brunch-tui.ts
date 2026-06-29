@@ -13,11 +13,11 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { runWorkspaceDialogPreflight } from '../.pi/components/workspace-dialog.js';
-import type { GraphReaders } from '../.pi/extensions/graph/index.js';
+import type { GraphReaders } from '../.pi/extensions/brunch-data/index.js';
 import {
   appendEntryContentToDebugCache,
   appendOriginationRecordToDebugCache,
-} from '../.pi/extensions/introspection/index.js';
+} from '../.pi/extensions/dev-mode/index.js';
 import { isBrunchDevEnabled } from '../dev/brunch-dev.js';
 import {
   openWorkspaceGraphRuntime,
@@ -58,6 +58,7 @@ import {
   createInMemoryBrunchIntrospectionStore,
   type BrunchIntrospectionStore,
 } from './pi-extensions.js';
+import { projectBrunchPiSessionOptions } from './pi-session-options.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from './pi-settings.js';
 import { loadBrunchSubagents } from './pi-subagents.js';
 export {
@@ -314,7 +315,7 @@ export function createBrunchAgentSessionRuntimeFactory(
   context: BrunchTuiLaunchContext,
 ): CreateAgentSessionRuntimeFactory {
   const { coordinator, productUpdates } = context;
-  return async ({ cwd, agentDir: runtimeAgentDir, sessionManager }) => {
+  return async ({ cwd, agentDir: runtimeAgentDir, sessionManager, sessionStartEvent }) => {
     let currentWorkspace = await coordinator.bindCurrentSpecToReplacementSession(sessionManager);
     const graph = await openWorkspaceGraphRuntime(cwd);
     const graphDeps = {
@@ -396,6 +397,7 @@ export function createBrunchAgentSessionRuntimeFactory(
     const liveAgentSession = context.liveAgentSession ?? { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
     const agentState = projectBrunchAgentState(sessionManager.getEntries());
+    const foregroundAgent = agentState.agentRoleDefinition;
     const subagents = context.dev
       ? await loadBrunchSubagents({
           cwd,
@@ -483,7 +485,11 @@ export function createBrunchAgentSessionRuntimeFactory(
     const created = await createAgentSessionFromServices({
       services,
       sessionManager,
-      ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
+      ...projectBrunchPiSessionOptions({
+        ...(sessionStartEvent ? { sessionStartEvent } : {}),
+        thinkingLevel: foregroundAgent.thinking,
+        ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
+      }),
     });
     liveAgentSession.current = created.session;
     context.sessionEvents?.attachSession(created.session);

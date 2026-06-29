@@ -93,8 +93,8 @@ describe('generate fan-out witness report', () => {
   it('passes only from transcript-observed oracle pointer, candidates, and no graph write', () => {
     const sessionText = [
       oracleBranchEntry(),
-      readEntry('src/.pi/skills/methods/generate-proposal/SKILL.md'),
-      readEntry('src/.pi/skills/methods/generate-proposal/references/oracle.md'),
+      readEntry('src/agents/skills/methods/generate-proposal/SKILL.md'),
+      readEntry('src/agents/skills/methods/generate-proposal/references/oracle.md'),
       presentCandidatesEntry(),
     ].join('\n');
 
@@ -131,8 +131,8 @@ describe('generate fan-out witness report', () => {
   it('fails closed when candidates appear after a graph write marker', () => {
     const sessionText = [
       oracleBranchEntry(),
-      readEntry('src/.pi/skills/methods/generate-proposal/SKILL.md'),
-      readEntry('src/.pi/skills/methods/generate-proposal/references/oracle.md'),
+      readEntry('src/agents/skills/methods/generate-proposal/SKILL.md'),
+      readEntry('src/agents/skills/methods/generate-proposal/references/oracle.md'),
       toolResultEntry('mutate_graph', { status: 'success', lsn: 4 }),
       presentCandidatesEntry(),
     ].join('\n');
@@ -183,7 +183,7 @@ describe('generate fan-out witness report', () => {
 
   it('writes scratch artifact references portably', async () => {
     const fixtureRoot = await mkdtemp(join(tmpdir(), 'brunch-generate-fan-out-artifacts-'));
-    const sessionText = [readEntry('src/.pi/skills/methods/generate-proposal/SKILL.md')].join('\n');
+    const sessionText = [readEntry('src/agents/skills/methods/generate-proposal/SKILL.md')].join('\n');
     const report: GenerateFanOutWitnessReport = summarizeGenerateFanOutWitness({
       runId: 'artifact-run',
       generatedAt: '2026-06-24T00:00:00.000Z',

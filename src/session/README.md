@@ -66,12 +66,12 @@ plus the coordination logic for workspace/spec/session lifecycle.
 - **Turn-boundary choreography** — write-side seam for the assistant-visible
   watermark, `worldUpdate`, mention staleness, and honest assistant origination.
   `prepare-next-turn.ts` owns the single pre-turn continuity writer; Pi lifecycle
-  hooks adapt it through `.pi/extensions/session/lifecycle.ts`, and
+  hooks adapt it through `.pi/extensions/session-hooks/session/lifecycle.ts`, and
   `before_provider_request` is a guard-only check. `start-assistant-turn.ts`
-  owns the origination decision and context seed entries; `context-seed.ts`
-  composes the seed's provider-visible payload (spec overview + top-ranked
-  open gaps) from spec-scoped reads; `originate-assistant-turn.ts` is the one
-  seed choreography every entry point (TUI boot, `session.triggerExchange`)
+  owns the origination decision and context seed entries;
+  `agents/contexts/seeds/origination.ts` composes the seed's provider-visible
+  payload (spec overview + top-ranked open gaps) from spec-scoped reads;
+  `originate-assistant-turn.ts` is the one seed choreography every entry point (TUI boot, `session.triggerExchange`)
   delegates to — origin derives from conversational-message presence in the
   projected transcript, never entry counts (I46-L). Origination only *decides
   and seeds* — it fabricates **no** `present_*` exchange (D78-L revised
@@ -103,53 +103,51 @@ directly instead of growing a wrapper.
 
 | Shape | Canonical owner | Current consumers | Disposition / reason |
 | --- | --- | --- | --- |
-| `cwd_inventory` | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`) | `read_workspace_context`, `renderers/workspace/workspace-context.ts` | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
-| `workspace_overview` | `workspace-overview-context.ts` (`inspectWorkspaceOverview`) | `read_workspace_context`, origination seed context, `renderers/workspace/workspace-context.ts` | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape. |
+| `cwd_inventory` | `workspace/cwd-inventory.ts` (`inspectWorkspaceCwdInventory`) | `read_workspace_context`, `agents/contexts/workspace/workspace-context.ts` | Workspace-owned direct PULL read. The typed inventory already matches the tool/renderer seam, so no `projections/workspace/workspace-context` wrapper survives. |
+| `workspace_overview` | `workspace-overview-context.ts` (`inspectWorkspaceOverview`) | `read_workspace_context`, origination seed context, `agents/contexts/workspace/workspace-context.ts` | Session-side composition over graph specs and canonical session files. Same no-wrapper rationale as `cwd_inventory`: the source shape is already the consumer shape. |
 | `workspace_session_state` | `WorkspaceSessionCoordinator` (`WorkspaceSessionState`) | `projections/workspace/workspace-state.ts`, `chromeStateForWorkspace`, app/rpc/web workspace flows | Source union owned by the coordinator. Downstream code may flatten it, but the coordinator remains the authority for the narrow chrome snapshot and status-variant field set. |
-| `agent_runtime_vocab` | `schema/kinds.ts`, `schema/tool-names.ts` | `runtime-state.ts`, `projections/session/runtime-policy.ts`, `projections/session/affordances.ts`, `.pi/extensions/runtime/state.ts`, `.pi/extensions/orchestrator-stub/` | Pure vocabulary leaf for runtime axes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
-| `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `projections/session/affordances.ts`, `.pi/extensions/runtime/` | Transcript-backed source read. Projection/policy layers derive from these facts rather than storing parallel hidden runtime memory. |
+| `agent_runtime_vocab` | `schema/kinds.ts`, `schema/tool-names.ts` | `runtime-state.ts`, `agents/runtime/policy.ts`, `agents/runtime/state.ts`, `.pi/extensions/agent-runtime/` | Pure vocabulary leaf for runtime axes, agent-role ids, and shared Brunch tool-name constants; imports nothing and mirrors D73-L's graph taxonomy direction on the session side. |
+| `agent_runtime_state` | `latestValidBrunchAgentStateEntryData` and transcript-backed runtime-state facts in `session/runtime-state.ts` | `projections/session/runtime-state.ts`, `agents/runtime/policy.ts`, `.pi/extensions/agent-runtime/` | Transcript-backed source read. Projection/policy layers derive from these facts rather than storing parallel hidden runtime memory. |
 
 ## Runtime affordance coverage ledger
 
 Runtime posture affordances are pure derivations over projected runtime state plus
-capability-readiness over selected-spec gaps. `projections/session/affordances.ts`
-owns legal option sets and default-on-switch values; `session.runtimeState`
-currently exposes only the selected value per axis. Deferred means eligible or
-known but not currently transported for that consumer.
+capability-readiness over selected-spec gaps. `agents/runtime/policy.ts` owns
+legal option sets and default-on-switch values; `session.runtimeState` currently
+exposes only the selected value per axis. Deferred means eligible or known but
+not currently transported for that consumer.
 
 | Row | Canonical owner | Agent | RPC | Web | Reason for deferred |
 | --- | --- | --- | --- | --- | --- |
-| `goal.options` | `affordances.goal.legalOptions` | required | deferred | deferred | Transport follows a concrete UI/client need; agent already needs legality. |
-| `goal.default_on_switch` | `affordances.goal.defaultOnSwitch` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
-| `goal.selection` | `session.runtimeState.agent.goal` | required | required | deferred | RPC already reports current posture; web has no posture UI yet. |
-| `strategy.options` | `affordances.strategy.legalOptions` | required | deferred | deferred | Transport follows a concrete UI/client need; AUTO excludes `freestyle`. |
-| `strategy.default_on_switch` | `affordances.strategy.defaultOnSwitch` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
+| `strategy.options` | `agents/runtime/policy.axisOptionsForRuntimeState(strategy)` | required | deferred | deferred | Transport follows a concrete UI/client need; AUTO excludes `freestyle`. |
+| `strategy.default_on_switch` | `agents/runtime/policy.defaultStrategyForRuntimeState` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
 | `strategy.selection` | `session.runtimeState.agent.strategy` | required | required | deferred | RPC already reports current posture; web has no posture UI yet. |
-| `lens.options` | `affordances.lens.legalOptions` | required | deferred | deferred | Transport follows a concrete UI/client need. |
-| `lens.default_on_switch` | `affordances.lens.defaultOnSwitch` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
+| `lens.options` | `agents/runtime/policy.axisOptionsForRuntimeState(lens)` | required | deferred | deferred | Transport follows a concrete UI/client need. |
+| `lens.default_on_switch` | `agents/runtime/policy.defaultLensForRuntimeState` | required | deferred | deferred | Transport follows a concrete posture-switch surface. |
 | `lens.selection` | `session.runtimeState.agent.lens` | required | required | deferred | RPC already reports current posture; web has no posture UI yet. |
 | `active-review-set` | product-state-gated review-cycle surface | deferred | deferred | deferred | Needs current review-set product state; not derivable from runtime policy alone. |
 | `turn-mode` | product-state-gated freestyle-vs-structured turn surface | deferred | deferred | deferred | Needs current turn/exchange mode state; not derivable from runtime policy alone. |
 
 `runtime-affordances-coverage.test.ts` guards the required subsets: agent rows
-must remain covered by the shared derivation, RPC rows by the public session
-schema, and the product-state-gated rows must stay explicit deferred tripwires.
+must remain covered by the shared runtime policy derivation, RPC rows by the
+public session schema, and the product-state-gated rows must stay explicit
+deferred tripwires.
 
 ## Does NOT own
 
 - Cwd project identity, pure cwd inventory, and `.brunch/workspace.json` persistence — those live in `workspace/`.
 - Graph state, CommandExecutor, graph queries — those live in `graph/`.
-- Prompt composition, pushed seed context building — those live in `.pi/extensions/system-prompts/` (manifest/legality policy in `.pi/extensions/runtime/`).
+- Prompt composition and pushed seed context building — those live in `agents/runtime/` and `agents/contexts/seeds/`, adapted by `.pi/extensions/agent-runtime/system-prompts/`.
 - Pi extension registration — those live in `.pi/extensions/`.
 
 ## Imported by
 
-- `.pi/extensions/system-prompts/seed/` — for workspace/graph pushed-context reads.
-- `.pi/extensions/context/` — for direct workspace overview reads; pure cwd inventory comes from `workspace/`.
+- `agents/contexts/seeds/` — for agent-visible per-turn and origination seed text.
+- `.pi/extensions/brunch-data/context/` — for direct workspace overview reads; pure cwd inventory comes from `workspace/`.
 - `projections/session/` — for reusable transcript-context DTO projection.
 - `projections/workspace/` — for reusable workspace-state DTO projection.
-- `renderers/session/` — for reusable transcript markdown rendering.
-- `renderers/workspace/` — for workspace inventory / overview text rendering over source session read shapes.
+- `transcript-markdown.ts` — for debug transcript markdown rendering beside the session transcript utilities.
+- `agents/contexts/workspace/` — for workspace inventory / overview agent-context text over source session read shapes.
 - `rpc/` — for session.* and workspace.* RPC handlers.
 - `.pi/extensions/` — for session lifecycle hooks.
 
@@ -164,6 +162,7 @@ These files migrated here on 2026-06-02:
 | `brunch-session-envelope.ts`      | session envelope reader            |
 | `session-projection-reader.ts`    | JSONL projection target resolution |
 | `session-transcript.ts`           | transcript row projection          |
+| `transcript-markdown.ts`          | debug transcript markdown text     |
 | `exchange-projection.ts`          | exchange extraction                |
 | `runtime-state.ts`                | runtime-state transcript entries   |
 | `structured-exchange.ts`          | structured exchange schemas/types  |

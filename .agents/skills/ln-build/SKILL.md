@@ -111,6 +111,7 @@ After the build lands and verification passes, ask:
 - [ ] Did this retire or create an assumption?
 - [ ] Did this establish a new seam-level invariant?
 - [ ] Did this change a frontier-level cross-cutting obligation or verification architecture layer?
+- [ ] Did this complete the **last member frontier of an initiative (arc)** in `memory/PLAN.md` §Initiatives?
 - [ ] Did this change the topology of a directory that owns a `README.md` (moved/renamed/retired files, changed dependency direction, completed or invalidated a migration note, or shipped a state previously described as pending)?
 
 ### If all answers are no
@@ -138,6 +139,7 @@ Update only the touched traceability items.
    - If the change closes, blocks, or unblocks a frontier item, reflect that in `Sequencing`, the affected `Frontier Definitions` entry, or `Recently Completed`
    - If the build changed a frontier-level cross-cutting obligation, update the affected frontier definition explicitly; do not hide the change behind bare traceability IDs
    - Do not mirror detailed slice/card history into `memory/PLAN.md`; cards live in the scope file under `memory/cards/`. At most, the frontier definition may carry a lightweight `Current execution pointer` listing active scope file path(s).
+   - **Arc completion:** if this build completed the **last member frontier of an initiative (arc)** in `§Initiatives`, run that arc's **done-definition before** marking the arc done — including reconciling co-located topology READMEs and discharging any standing-obligation residue scoped to the arc (the residue that no future frontier would otherwise touch). Mark the arc `✓ done` only once the done-definition actually holds; if residue remains, the arc stays `◐ active` with the residue named.
 
 2. **Assumptions**
    - evidence answered it → update to `validated` or `invalidated`

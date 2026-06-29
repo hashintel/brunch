@@ -50,7 +50,7 @@ function sourceImportersOf(target: string): string[] {
   return sourceFilesUnder(SOURCE_ROOT).filter((file) => importedSourcePaths(file).includes(target));
 }
 
-// Layer-wide import boundaries (renderers/, workspace/) are enforced statically
+// Layer-wide import boundaries (workspace/) are enforced statically
 // in `.oxlintrc.json` via no-restricted-imports. The tests below cover the
 // projection-specific invariants that lint cannot express: the `.pi` schema
 // carve-out for exchanges, and the two seam guards (neighborhood has no
@@ -90,8 +90,19 @@ describe('projection topology boundaries', () => {
     expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain(
       'src/projections/session/runtime-state.ts',
     );
-    expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain(
-      'src/projections/session/runtime-policy.ts',
+    expect(importedSourcePaths('src/session/runtime-state.ts')).not.toContain('src/agents/runtime/policy.ts');
+  });
+
+  it('keeps agent runtime policy out of session projection ownership except runtime-state resolution', () => {
+    const sessionProjectionFiles = sourceFilesUnder('src/projections/session').filter(
+      (file) => !file.includes('/__tests__/') && !file.endsWith('.test.ts'),
     );
+    expect(sessionProjectionFiles).not.toContain('src/projections/session/affordances.ts');
+    expect(sessionProjectionFiles).not.toContain('src/projections/session/capability-readiness.ts');
+
+    const runtimePolicyImporters = sessionProjectionFiles.filter((file) =>
+      importedSourcePaths(file).includes('src/agents/runtime/policy.ts'),
+    );
+    expect(runtimePolicyImporters).toEqual(['src/projections/session/runtime-state.ts']);
   });
 });

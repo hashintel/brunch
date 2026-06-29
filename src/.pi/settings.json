@@ -1,17 +1,26 @@
 {
   "extensions": [
     "extensions/chrome/index.ts",
+    "-extensions/agent-runtime/index.ts",
+    "-extensions/agent-runtime/orchestrator-stub/index.ts",
+    "-extensions/agent-runtime/runtime/index.ts",
+    "-extensions/agent-runtime/system-prompts/index.ts",
+    "-extensions/brunch-data/index.ts",
+    "-extensions/brunch-data/context/index.ts",
+    "-extensions/brunch-data/elicitation/index.ts",
+    "-extensions/brunch-data/graph/index.ts",
+    "-extensions/brunch-data/reconciliation/index.ts",
     "-extensions/commands/index.ts",
+    "-extensions/commands/policy.ts",
     "-extensions/compaction/index.ts",
-    "-extensions/elicitation/index.ts",
-    "-extensions/graph/index.ts",
-    "-extensions/introspect-query/index.ts",
-    "-extensions/reconciliation/index.ts",
-    "-extensions/runtime/index.ts",
+    "-extensions/dev-mode/index.ts",
+    "-extensions/dev-mode/introspect-query/index.ts",
+    "-extensions/dev-mode/introspection/index.ts",
+    "-extensions/dev-mode/session-query/index.ts",
+    "-extensions/session-hooks/index.ts",
     "-extensions/subagents/index.ts",
-    "-extensions/system-prompts/index.ts",
-    "-extensions/web/index.ts",
-    "-extensions/workspace/index.ts",
-    "-extensions/commands/policy.ts"
+    "-extensions/web-tools/index.ts",
+    "-extensions/web-tools/web/index.ts",
+    "-extensions/workspace/index.ts"
   ]
 }

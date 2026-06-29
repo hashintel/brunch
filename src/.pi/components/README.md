@@ -14,7 +14,7 @@ This directory owns reusable components rendered inside the embedded Pi coding-a
 
 - Product wiring, session/runtime state, or graph mutation logic — those live in `session/`, `graph/`, and `.pi/extensions/`.
 - React/web UI — `web/`.
-- Generic project/render projections — `projections/` and `renderers/`.
+- Generic projections and model-facing renders — `projections/` and `agents/contexts/`; human/product text stays beside its caller.
 - A component playground or workbench shell (deferred; see below).
 
 ## Layout

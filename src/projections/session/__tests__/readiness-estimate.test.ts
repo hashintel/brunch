@@ -68,11 +68,7 @@ describe('readiness estimate projection', () => {
     );
     expect(driverSource).not.toMatch(/NODE_KIND_METADATA|bandsForKind|schema\/nodes/);
 
-    for (const relativePath of [
-      '../runtime-policy.ts',
-      '../affordances.ts',
-      '../../../.pi/extensions/runtime/state.ts',
-    ]) {
+    for (const relativePath of ['../../../agents/runtime/policy.ts', '../../../agents/runtime/state.ts']) {
       const source = readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8');
       expect(source).not.toMatch(/readiness-estimate|readinessEstimate/);
     }

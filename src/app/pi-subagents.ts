@@ -8,7 +8,7 @@
  * injection.
  */
 
-import type { GraphReaders } from '../.pi/extensions/graph/index.js';
+import type { GraphReaders } from '../.pi/extensions/brunch-data/index.js';
 import { loadSubagentDefinitions, subagentAgentsDir } from '../.pi/extensions/subagents/agents.js';
 import { loadSubagentConfig, subagentConfigPath } from '../.pi/extensions/subagents/config.js';
 import type { BrunchSubagentsDeps } from '../.pi/extensions/subagents/index.js';
@@ -16,7 +16,7 @@ import type {
   AgentPromptSessionContext,
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
-} from '../session/agent-context-seed.js';
+} from '../agents/contexts/seeds/turn-context.js';
 import { brunchResourceLoaderOptions, createBrunchSettingsManager } from './pi-settings.js';
 
 export interface LoadBrunchSubagentsOptions {

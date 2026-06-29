@@ -9,7 +9,7 @@
  * - debug filtering policy: user, assistant, and Brunch-owned custom tool results
  *
  * Used by:
- * - renderers/session/transcript.ts
+ * - session/transcript-markdown.ts
  * - `.brunch/debug/transcript.md` writers
  */
 

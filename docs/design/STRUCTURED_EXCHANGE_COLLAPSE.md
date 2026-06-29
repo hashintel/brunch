@@ -112,7 +112,7 @@ Borrow **C's derive-from-pending mechanism as the migration path**: during trans
 
 - **`src/.pi/extensions/exchanges/`** — the four `request_*.ts` tools collapse into one `request-response.ts`; `present_*.ts` tools gain a server-owned `responseKind` on their result; `respondsToPresentTool` removed from params.
 - **`src/projections/exchanges/`** — request projections collapse behind a normalized pending-exchange record (`{ presentToolName, exchangeId, responseKind, consumedAt? }`); recovery maps unmatched presents → `request_response`.
-- **`src/renderers/exchanges/`** — present renderers unchanged; the four request renderers collapse behind one dispatcher keyed by `responseKind`.
+- **`src/agents/contexts/exchanges/`** — present renderers unchanged; the four request renderers collapse behind one dispatcher keyed by `responseKind`.
 - **`schemas/`** — delete `respondsToPresentTool` and model-facing `tool_meta.next`; add a `request_response` params schema (`{ exchangeId }` + small shared options); `tool_meta.curr/next` becomes internal/derivation-only, no longer a model contract.
 
 ### Interaction with the broker / web-driver path (D84-L/D86-L)

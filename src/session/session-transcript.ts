@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { FileEntry } from '@earendil-works/pi-coding-agent';
 
 import { projectTranscriptContext } from '../projections/session/transcript-context.js';
-import { formatTranscript } from '../renderers/session/transcript.js';
+import { formatTranscript } from './transcript-markdown.js';
 
 type TranscriptEntry = FileEntry;
 

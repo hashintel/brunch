@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { registerBrunchElicitation } from '../../.pi/extensions/elicitation/index.js';
-import { registerBrunchGraph } from '../../.pi/extensions/graph/index.js';
-import { registerBrunchReconciliation } from '../../.pi/extensions/reconciliation/index.js';
+import { registerBrunchElicitation } from '../../.pi/extensions/brunch-data/elicitation/index.js';
+import { registerBrunchGraph } from '../../.pi/extensions/brunch-data/graph/index.js';
+import { registerBrunchReconciliation } from '../../.pi/extensions/brunch-data/reconciliation/index.js';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import { changeLog } from '../../db/schema.js';
 import {

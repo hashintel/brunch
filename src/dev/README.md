@@ -29,7 +29,7 @@ Product probes may import `src/probes/faux-provider.ts` when they need determini
 
 ## Introspection loop (D69-L)
 
-`runBrunchIntrospectionTurn()` is the paired-run artifact writer for the dev-only introspection loop. The Pi side is the explicit, read-only `src/.pi/extensions/introspection/` registrar, included only when `createBrunchPiExtensions(..., { introspection: { enabled: true } })` is passed. Product Brunch sessions omit it by default and keep the D39-L offline default. The launcher does not mutate `process.env`; any future online real-provider lift belongs at session construction with save/restore scoping.
+`runBrunchIntrospectionTurn()` is the paired-run artifact writer for the dev-only introspection loop. The Pi side is the explicit, read-only `src/.pi/extensions/dev-mode/introspection/` registrar, included only when `createBrunchPiExtensions(..., { introspection: { enabled: true } })` is passed. Product Brunch sessions omit it by default and keep the D39-L offline default. The launcher does not mutate `process.env`; any future online real-provider lift belongs at session construction with save/restore scoping.
 
 ## Tier-2 real boot loop (FE-847)
 

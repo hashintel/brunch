@@ -4,7 +4,7 @@ import { SettingsManager, type ExtensionFactory } from '@earendil-works/pi-codin
 
 export const BRUNCH_SETTINGS_POLICY = {
   quietStartup: true,
-  defaultProjectTrust: 'never',
+  defaultProjectTrust: 'never', // TODO: change this?
   packages: [],
   extensions: [],
   skills: [],
@@ -61,6 +61,7 @@ export const BRUNCH_SETTINGS_AUDITED_GETTERS = [
   'getDefaultModel',
   'getSteeringMode',
   'getFollowUpMode',
+  'getThemeSetting',
   'getTheme',
   'getDefaultThinkingLevel',
   'getTransport',

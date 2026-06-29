@@ -61,7 +61,7 @@ so the tool casts the runtime `ctx` once at the boundary.
 ## Dependency rules
 
 ```pseudo
-exchanges/*        -> schemas/, projections/exchanges/, renderers/exchanges/
+exchanges/*        -> schemas/, projections/exchanges/, agents/contexts/exchanges/
 exchanges/shared/  -> shared UI dispatch only; no tool-result detail literals
 exchanges/schemas/ -> zod only (pi-schema.ts is the lone TSchema adapter)
 ```

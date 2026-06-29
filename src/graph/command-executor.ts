@@ -74,7 +74,7 @@ export type {
   StructuralIllegal,
 } from './command-executor/graph-mutation-types.js';
 export { normalizeRoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
-export type { RoleNamedEdgeDraft } from './command-executor/role-named-edge-draft.js';
+export type { RoleNamedEdgeDraft, RoleNamedEdgeDraftOf } from './command-executor/role-named-edge-draft.js';
 export type {
   AcceptReviewSetDryRunResult,
   AcceptReviewSetInput,

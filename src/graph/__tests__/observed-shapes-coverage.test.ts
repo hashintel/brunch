@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   READ_ELICITATION_GAPS_SHAPE,
   READ_ELICITATION_GAPS_TOOL,
-} from '../../.pi/extensions/elicitation/index.js';
-import { ReadGraphParams } from '../../.pi/extensions/graph/tool-schemas.js';
+} from '../../.pi/extensions/brunch-data/elicitation/index.js';
+import { ReadGraphParams } from '../../.pi/extensions/brunch-data/graph/tool-schemas.js';
 import { graphRpcMethods } from '../../rpc/methods/graph.js';
 import { queryKeys } from '../../web/query-keys.js';
 

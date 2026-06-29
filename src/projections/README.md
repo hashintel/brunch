@@ -26,15 +26,12 @@ Disposition: `✓` resolved (direct lock or accepted transitive proof) · `●` 
 | `graph/commit-result` | — | ○ | `export {}` topology stub. |
 | `graph/reconciliation-needs` | — | ○ | `export {}` topology stub. |
 | `session/transcript-context` | 2 | ✓ | `transcript-context.test.ts` — no non-empty markdown-bearing message disappears across the Pi `buildSessionContext()` + `convertToLlm()` seam; non-renderable entries drop at the projection boundary. |
-| `session/runtime-state` | 13 | ✓ | `runtime-state.test.ts` — direct flattened-shape invariant for defaults, last-writer-wins runtime posture, mentions/world/lifecycle slots, and non-linear transcript rejection. |
-| `session/affordances` | 1 | ✓ | `affordances.test.ts` — gap-driven legality + default-on-switch derivation tested directly. Legal options are a menu projection over capability-readiness; omitted options are not capability refusals (I31-L). |
-| `session/capability-readiness` | 1 | ✓ | D74-L/D75-L tracer gate, not a reusable DTO. `capability-readiness.test.ts` locks the explicit capability→node-kind map, proceed / low-epistemic / negotiate outcomes, no-refusal invariant, loud failure when the gap register lacks a required kind, same-kind discrimination through `question`, and live presence-coverage flip. `session/affordances` now consumes it for axis-option legality. **D86-L: capability-readiness gates AUTO axis menus (`strategy`/`lens`) and the non-graph-write `review-for-gaps` method only — it never withholds a graph-write tool. `mutate_graph` and the review-set tools (`present_review_set`/`request_response`) are floor in elicit mode (their `commit-graph`/`generate-proposal` methods are absent from `METHOD_CAPABILITY` in `.pi/extensions/runtime/state.ts`); `negotiate` is advisory (establishment offer + epistemic scaling), proven by `state.test.ts` + the tier-2 live-boot legality test.** |
-| `session/readiness-estimate` | — | ✓ | D45-L soft per-band coverage rollup over `ElicitationGap[]`; UI-only and gates nothing. `readiness-estimate.test.ts` locks every-band shape, empty-band zero, importance-weighted mean, honest regression, no grade imports, and no legality-path imports. |
-| `session/runtime-policy` | 4 | ○ | Policy/definitions data, not a DTO transform. Gap-driven legality is guarded via `affordances.test.ts`; no runtime grade table remains. |
+| `session/runtime-state` | 13 | ✓ | `runtime-state.test.ts` — direct flattened-shape invariant for defaults, last-writer-wins runtime posture, mentions/world/lifecycle slots, and non-linear transcript rejection. This is the only session projection that consumes `agents/runtime/policy.ts`, because it resolves transcript facts against the code-owned foreground roster. |
+| `session/readiness-estimate` | — | ✓ | D45-L soft per-band coverage rollup over `ElicitationGap[]`; UI-only and gates nothing. `readiness-estimate.test.ts` locks every-band shape, empty-band zero, importance-weighted mean, honest regression, no grade imports, and no legality-path imports. Capability-readiness and runtime affordance menus are runtime policy, not projection-owned DTOs. |
 | `session/assistant-visible-watermark` | 2 | ✓ | Carrier projection over the authoritative `continuity-entry-classifier` watermark set. Unit tests guard seed/overview/own-mutation/`worldUpdate` carriers, narrow-read exclusion, and cross-spec failure. |
 | `session/continuity-entry-classifier` | 2 | ✓ | Shared FE-847 taxonomy for watermark-carrier vs continuity-only-non-debt vs debt-bearing entries; consumed by watermark projection and origination tail classification. |
 | `session/sweep-watermark` | 1 | ✓ | FE-861 D80-L sweep-window projection. `sweep-watermark.test.ts` locks the transcript-backed marker, conversational/digest tail classification, raw-background exclusion, monotonic idempotent advance, and graph-LSN watermark separation. |
-| `workspace/workspace-context` | — | ✗ | Deleted/inlined. `read_workspace_context` and `renderers/workspace/workspace-context.ts` now consume `workspace/cwd-inventory.ts` and `session/workspace-overview-context.ts` source shapes directly; no replacement wrapper survives. |
+| `workspace/workspace-context` | — | ✗ | Deleted/inlined. `read_workspace_context` and `agents/contexts/workspace/workspace-context.ts` now consume `workspace/cwd-inventory.ts` and `session/workspace-overview-context.ts` source shapes directly; no replacement wrapper survives. |
 | `workspace/workspace-state` | 4 | ✓ | `workspace-state.test.ts` — direct variant-shape invariant over `ready`, `needs_human`, and base `select_spec`; chrome/session-manager internals and retired phase/chat fields stay out of the DTO. |
 | `exchanges/request-choice` | 6 | ✓ | `request-choice.test.ts` (direct). |
 | `exchanges/present-question` | 6 | ✓ | Keep-transitive — `.pi/__tests__/structured-exchange-present-request.test.ts` proves question/body/options projection, and `session/exchange-projection.test.ts` proves the same details survive session reconstruction. |
@@ -54,7 +51,7 @@ Upstream note (PULL): `●` projections lock against their read sources, so thos
 ```pseudo
 projections/
   graph/                 graph read/command DTO projection
-  session/               transcript-context and runtime-state DTO projection
+  session/               transcript-context, runtime-state, watermarks, and readiness-estimate DTO projections
   exchanges/             canonical toolResult.details construction and transcript details → domain DTO adapters
   workspace/             workspace/session state DTO projection
 ```
@@ -69,4 +66,4 @@ projections/  x> .pi/, rpc/, app/, web/
 Current migration notes:
 
 - `projections/exchanges/*` imports Zod schemas from `.pi/extensions/exchanges/schemas/` because D37-L/D41-L currently place the structured-exchange schema lock at that Pi transcript seam. That is an explicit temporary exception, not a general adapter dependency permission.
-- `projections/session/runtime-state.ts` owns flattened runtime-state DTO projection while `session/runtime-state.ts` owns transcript entry facts and append helpers.
+- `projections/session/runtime-state.ts` owns flattened runtime-state DTO projection while `session/runtime-state.ts` owns transcript entry facts and append helpers. It consumes the code-owned foreground roster/tool policy from `agents/runtime/policy.ts`; projections do not own agent body locations, foreground roster definitions, capability-readiness, runtime affordance menus, or tool policy.

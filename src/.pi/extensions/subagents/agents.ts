@@ -2,7 +2,7 @@
  * Subagent agent definitions (D44-L / D90-L).
  *
  * Background agents are declarative SYSTEM.md files under the shared
- * `src/.pi/agents/<id>/` body home. Each file carries a small frontmatter block
+ * `src/agents/prompts/<id>/` body home. Each file carries a small frontmatter block
  * plus a system-prompt body. The frontmatter is the registry contract; the body
  * is the subagent's standing instructions and the first section of the assembled
  * child prompt. Frontmatter is validated through a TypeBox schema (D41-L) so a
@@ -16,11 +16,11 @@
 
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import { Type } from 'typebox';
 import { Value } from 'typebox/value';
 
+import { bundledAgentBodyHome } from '../../../agents/registry.js';
 import type { BackgroundAgentManifest } from '../../../session/schema/agent-manifest.js';
 
 export const BACKGROUND_SUBAGENT_IDS = ['explorer', 'researcher', 'projector', 'reviewer'] as const;
@@ -141,7 +141,7 @@ export function parseSubagentMarkdown(
 
 /** Filesystem location of the unified bundled agent body home. */
 export function subagentAgentsDir(): string {
-  return fileURLToPath(new URL('../../agents', import.meta.url));
+  return bundledAgentBodyHome();
 }
 
 /**
