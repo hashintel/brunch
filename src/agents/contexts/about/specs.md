@@ -1,4 +1,4 @@
-## Landed positions
+# Specifications
 
 The following are the design conclusions this note treats as already landed.
 
