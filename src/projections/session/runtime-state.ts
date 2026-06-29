@@ -12,11 +12,7 @@ import {
   type FileMention,
   type GraphNodeMention,
 } from '../../session/runtime-state.js';
-import type {
-  AgentLensSelection,
-  AgentStrategySelection,
-  OperationalModeId,
-} from '../../session/schema/kinds.js';
+import type { OperationalModeId } from '../../session/schema/kinds.js';
 
 export type { ResolvedBrunchAgentState } from '../../agents/runtime/policy.js';
 export { FOREGROUND_AGENT_ROSTER, delegatableAgentsForRuntimeState } from '../../agents/runtime/policy.js';
@@ -29,8 +25,6 @@ export interface RuntimeStateProjection {
   agent: {
     operationalMode: OperationalModeId;
     role: ResolvedBrunchAgentState['agentRole'];
-    strategy: AgentStrategySelection;
-    lens: AgentLensSelection;
   };
   mentions: {
     graphNodes: GraphNodeMention[];
@@ -91,8 +85,6 @@ export function projectSessionRuntimeState(envelope: BrunchSessionEnvelope): Run
     agent: {
       operationalMode: agentState.operationalMode,
       role: agentState.agentRole,
-      strategy: agentState.agentStrategy,
-      lens: agentState.agentLens,
     },
     mentions: projectMentions(envelope.entries),
     world: projectWorld(envelope.entries),

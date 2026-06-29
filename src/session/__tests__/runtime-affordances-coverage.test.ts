@@ -27,9 +27,9 @@ const runtimeAffordanceLedger = [
   },
   {
     row: 'strategy.selection',
-    owner: 'session.runtimeState.agent.strategy',
+    owner: 'suspended runtime axis state',
     agent: 'required',
-    rpc: 'required',
+    rpc: 'deferred',
     web: 'deferred',
   },
   {
@@ -48,9 +48,9 @@ const runtimeAffordanceLedger = [
   },
   {
     row: 'lens.selection',
-    owner: 'session.runtimeState.agent.lens',
+    owner: 'suspended runtime axis state',
     agent: 'required',
-    rpc: 'required',
+    rpc: 'deferred',
     web: 'deferred',
   },
   {
@@ -117,7 +117,7 @@ describe('runtime affordances coverage ledger', () => {
     );
   });
 
-  it('keeps the required RPC affordance subset to current posture selections', () => {
+  it('keeps runtime-axis selections out of the required RPC affordance subset', () => {
     expect(runtimeStateSchemaAgentFields()).toEqual(requiredRowsFor('rpc'));
   });
 

@@ -1937,8 +1937,6 @@ describe('JSON-RPC handlers', () => {
         agent: {
           operationalMode: 'elicit',
           role: 'elicitor',
-          strategy: 'step-wise-decision-tree',
-          lens: 'design',
         },
         mentions: { graphNodes: [], files: [] },
         world: { graph: { latestLsn: null }, git: { head: null } },

@@ -93,7 +93,7 @@ suspended control system
 4. ✓ Replace method- and readiness-derived tool activation for the live elicitor with one explicit fixed tool policy.
 5. ✓ Remove live prompt/context reads of readiness estimates, elicitation recommendations, lens emphasis, and runtime axis selections from the elicitor path.
 6. ✓ Quarantine the old runtime control modules, prompt-resource manifests, and gap-driven helpers under suspended topology with compatibility shims only where needed to keep non-elicitor surfaces working.
-7. Simplify session/runtime reporting so operational mode remains meaningful but strategy/lens-specific live surfaces no longer claim authority over the elicitor.
+7. ✓ Simplify session/runtime reporting so operational mode remains meaningful but strategy/lens-specific live surfaces no longer claim authority over the elicitor.
 8. Rename and regroup surviving skill directories into the new simpler conceptual set, with the old strategy/lens/method taxonomy retired or moved under suspended topology.
 9. Prune obsolete tests and snapshots, then add focused live-path snapshots proving that the elicitor prompt and active tools now come from the centralized simplified path.
 

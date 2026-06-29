@@ -87,18 +87,6 @@ const RuntimeStateResultSchema = Type.Object(
       {
         operationalMode: Type.Literal('elicit'),
         role: Type.Literal('elicitor'),
-        strategy: Type.Union([
-          Type.Literal('auto'),
-          Type.Literal('freestyle'),
-          Type.Literal('step-wise-decision-tree'),
-          Type.Literal('step-wise-disambiguate'),
-        ]),
-        lens: Type.Union([
-          Type.Literal('auto'),
-          Type.Literal('intent'),
-          Type.Literal('design'),
-          Type.Literal('oracle'),
-        ]),
       },
       { additionalProperties: false },
     ),
