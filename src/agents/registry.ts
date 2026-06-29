@@ -25,5 +25,5 @@ export function promptResourceAgentDir(): string {
 }
 
 export function promptResourceLocation(family: PromptResourceFamily, id: string): string {
-  return fileURLToPath(new URL(`./skills/${family}/${id}/SKILL.md`, import.meta.url));
+  return fileURLToPath(new URL(`./skills/suspended/${family}/${id}/SKILL.md`, import.meta.url));
 }

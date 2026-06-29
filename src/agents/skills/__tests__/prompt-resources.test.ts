@@ -10,11 +10,11 @@ import { LENS_RESOURCES, METHOD_RESOURCES, STRATEGY_RESOURCES } from '../../runt
 const projectRoot = dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 
 const generateProposalDisclosureExpectations = {
-  skill: 'src/agents/skills/methods/generate-proposal/SKILL.md',
+  skill: 'src/agents/skills/suspended/methods/generate-proposal/SKILL.md',
   references: [
-    'src/agents/skills/methods/generate-proposal/references/intent.md',
-    'src/agents/skills/methods/generate-proposal/references/design.md',
-    'src/agents/skills/methods/generate-proposal/references/oracle.md',
+    'src/agents/skills/suspended/methods/generate-proposal/references/intent.md',
+    'src/agents/skills/suspended/methods/generate-proposal/references/design.md',
+    'src/agents/skills/suspended/methods/generate-proposal/references/oracle.md',
   ],
 };
 

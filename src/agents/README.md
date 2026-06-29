@@ -24,7 +24,7 @@ agents/
 rules:
   agents/registry.ts -> agents/prompts/{elicitor,executor}.md [foreground body file locations]
   .pi/extensions/subagents/agents.ts -> agents/subagents/*.md [background body file locations]
-  agents/registry.ts -> agents/skills/*/*/SKILL.md [prompt-resource locations]
+  agents/registry.ts -> agents/skills/suspended/*/*/SKILL.md [legacy prompt-resource locations]
   agents/contexts/   -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
   agents/runtime/elicitor -> agents/prompts, agents/contexts/live [live SPEC-mode source of truth]
   agents/runtime/    -> agents/registry, agents/prompts, agents/skills, session/schema
