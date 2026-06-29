@@ -46,6 +46,7 @@ import {
   runBrunchWorkspaceCommand,
   runBrunchWorkspaceAction,
 } from '../pi-extensions.js';
+import { runBrunchCli } from '../brunch.js';
 import { createBrunchPiSettings } from '../pi-settings.js';
 
 describe('Brunch TUI boot', () => {
@@ -265,6 +266,23 @@ describe('Brunch TUI boot', () => {
     });
 
     expect(observed).toEqual([true, undefined]);
+  });
+
+  it('lets programmatic callers enable developer tools when argv omits the flag', async () => {
+    let observedDeveloperTools: boolean | undefined;
+
+    const code = await runBrunchCli({
+      argv: [],
+      cwd: '/tmp/project',
+      coordinator: noOpWorkspaceCoordinator('/tmp/project') as never,
+      developerTools: true,
+      launchTui: async ({ developerTools }) => {
+        observedDeveloperTools = developerTools;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(observedDeveloperTools).toBe(true);
   });
 
   it('registers TUI-gated introspection last when the launch context enables it', async () => {

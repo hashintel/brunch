@@ -167,4 +167,35 @@ describe('runDevCli', () => {
       }),
     ]);
   });
+
+  it('documents canonical seed refs in usage text', async () => {
+    let stdout = '';
+
+    const code = await runDevCli({
+      argv: ['help'],
+      cwd: REPO_ROOT,
+      stdout: (chunk) => {
+        stdout += chunk;
+      },
+    });
+
+    expect(code).toBe(0);
+    expect(stdout).toContain('--seed <name>/<variant>');
+    expect(stdout).not.toContain('<name/variant>');
+  });
+
+  it('rejects non-positive export spec ids loudly', async () => {
+    let stderr = '';
+
+    const code = await runDevCli({
+      argv: ['export', '--workspace', WORKBENCH, '--spec-id', '0'],
+      cwd: REPO_ROOT,
+      stderr: (chunk) => {
+        stderr += chunk;
+      },
+    });
+
+    expect(code).toBe(1);
+    expect(stderr).toContain('--spec-id must be a positive integer.');
+  });
 });
