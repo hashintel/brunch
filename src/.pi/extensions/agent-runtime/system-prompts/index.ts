@@ -9,6 +9,7 @@ import {
   type AgentPromptWorkspaceContext,
 } from '../../../../agents/contexts/seeds/turn-context.js';
 import { composeAgentPrompt, type AgentPromptContextBundle } from '../../../../agents/runtime/compose.js';
+import { composeLiveElicitorPrompt } from '../../../../agents/runtime/elicitor/compose-live-prompt.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 import {
   activeToolNamesForBrunchAgentState,
@@ -72,7 +73,6 @@ export function registerBrunchPrompting(
     const resolvedPromptContext = await resolvePromptContext(promptContext);
 
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
-    const agentBody = await readAgentBody(state.agentRole);
     const world = worldReadCache.read(resolvedPromptContext.graphReads, resolvedPromptContext.spec.id);
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
@@ -81,17 +81,25 @@ export function registerBrunchPrompting(
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);
     }
-    const context = contextForPrompt(resolvedPromptContext, state, world);
-    const { prompt } = composeAgentPrompt({
-      agentId: state.agentRole,
-      sessionState: state,
-      spec: resolvedPromptContext.spec,
-      workspace: resolvedPromptContext.workspace,
-      context,
-      activeTools,
-      gaps: world.gaps,
-      agentBody,
-    });
+    const prompt =
+      state.operationalMode === 'elicit' && state.agentRole === 'elicitor'
+        ? composeLiveElicitorPrompt({
+            sessionState: state,
+            spec: resolvedPromptContext.spec,
+            workspace: resolvedPromptContext.workspace,
+            context: resolvedPromptContext.context,
+            activeTools,
+          }).prompt
+        : composeAgentPrompt({
+            agentId: state.agentRole,
+            sessionState: state,
+            spec: resolvedPromptContext.spec,
+            workspace: resolvedPromptContext.workspace,
+            context: contextForPrompt(resolvedPromptContext, state, world),
+            activeTools,
+            gaps: world.gaps,
+            agentBody: await readAgentBody(state.agentRole),
+          }).prompt;
 
     if (prompt.trim().length === 0) return undefined;
 

@@ -21,7 +21,7 @@ extensions/
 ├── README.md
 ├── agent-runtime/          Pi adapter for central agent runtime policy plus execute-mode stub
 │   ├── runtime/            operational-mode Pi tool activation adapter
-│   ├── system-prompts/     before_agent_start hook adapter
+│   ├── system-prompts/     before_agent_start hook adapter into agents/runtime/elicitor
 │   └── orchestrator-stub/
 ├── brunch-data/            Pi tools over selected Brunch graph/spec/workspace/session data
 │   ├── graph/              mutate_graph/read_graph tools + selected-spec graph read seam
@@ -52,6 +52,7 @@ extensions/
 ```pseudo
 rules:
   .pi/extensions/* -> agents/, .pi/components/, graph/, session/, projections/ [adapter imports allowed]
+  .pi/extensions/agent-runtime/system-prompts -> agents/runtime/elicitor/ [SPEC-mode prompt assembly]
   .pi/extensions/* x> db/                                                            [no direct storage]
   graph/, session/    x> .pi/                                                        [domain layers never import adapters]
   agents/prompts/     x> .pi/extensions/                                             [prompt bodies do not register Pi hooks]

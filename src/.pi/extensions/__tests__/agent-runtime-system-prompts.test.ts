@@ -193,18 +193,18 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.stringContaining('# Agent: elicitor\n\nThe elicitor'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('[Brunch agent control]'),
+      systemPrompt: expect.stringContaining('[Brunch live elicitor control]'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('- prompt strategy resource: step-wise-disambiguate'),
+      systemPrompt: expect.stringContaining(
+        '- prompt resources: fixed live elicitor path; no strategy/lens/method manifest negotiation',
+      ),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.stringContaining('- active tools: read, grep, present_question, request_response'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining(
-        '- selected spec: Spec (#1); readiness estimate (soft; gates nothing): grounding=1.00, elicitation=0.00, projection=0.00, commitment=0.00',
-      ),
+      systemPrompt: expect.stringContaining('- selected spec: Spec (#1)'),
     });
     expect(result).toMatchObject({
       systemPrompt: expect.not.stringContaining('readiness_grade='),
@@ -216,10 +216,10 @@ describe('Brunch prompt-pack topology', () => {
       systemPrompt: expect.not.stringContaining('<available_goals>'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('Selected-spec graph overview · design lens'),
+      systemPrompt: expect.not.stringContaining('<brunch-skills>'),
     });
     expect(result).toMatchObject({
-      systemPrompt: expect.stringContaining('design modules/interfaces'),
+      systemPrompt: expect.not.stringContaining('Selected-spec graph overview · design lens'),
     });
   });
 
@@ -301,8 +301,9 @@ describe('Brunch prompt-pack topology', () => {
       (result) => typeof (result as { systemPrompt?: unknown } | undefined)?.systemPrompt === 'string',
     ) as { systemPrompt: string } | undefined;
 
-    expect(promptResult?.systemPrompt).toContain('- spec: Switched spec (#2)');
-    expect(promptResult?.systemPrompt).toContain('Switched current node');
+    expect(promptResult?.systemPrompt).toContain('- selected spec: Switched spec (#2)');
+    expect(promptResult?.systemPrompt).toContain('[Brunch live elicitor context]');
+    expect(promptResult?.systemPrompt).not.toContain('Switched current node');
     expect(promptResult?.systemPrompt).not.toContain('Launch spec (#1)');
     expect(promptResult?.systemPrompt).not.toContain('Launch-only node');
   });
@@ -394,10 +395,10 @@ describe('Brunch prompt-pack topology', () => {
       elicitFloorTools,
     ]);
     expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('- prompt strategy resource: auto'),
+      systemPrompt: expect.stringContaining('[Brunch live elicitor control]'),
     });
     expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('- prompt strategy resource: step-wise-decision-tree'),
+      systemPrompt: expect.stringContaining('[Brunch live elicitor control]'),
     });
     expect(defaultPrompt).toMatchObject({
       systemPrompt: expect.stringContaining(
@@ -405,10 +406,10 @@ describe('Brunch prompt-pack topology', () => {
       ),
     });
     expect(defaultPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('Selected-spec graph overview · auto lens'),
+      systemPrompt: expect.not.stringContaining('prompt strategy resource'),
     });
     expect(switchedPrompt).toMatchObject({
-      systemPrompt: expect.stringContaining('Selected-spec graph overview · oracle lens'),
+      systemPrompt: expect.not.stringContaining('Selected-spec graph overview · oracle lens'),
     });
   });
 
@@ -515,7 +516,7 @@ describe('Brunch prompt-pack topology', () => {
     );
   });
 
-  it('is registered by the explicit shell after operational-mode policy and appends composed manifests', async () => {
+  it('is registered by the explicit shell after operational-mode policy and appends the live elicitor prompt', async () => {
     const eventNames: string[] = [];
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
 
@@ -574,14 +575,14 @@ describe('Brunch prompt-pack topology', () => {
     expect(promptingIndex).toBeGreaterThan(userBashPolicyIndex);
     expect(promptingIndex).toBeLessThan(nextBeforeAgentStartIndex);
     expect(promptResult).toMatchObject({
-      systemPrompt: expect.stringContaining('<brunch-skills>'),
+      systemPrompt: expect.stringContaining('[Brunch live elicitor control]'),
     });
     expect(promptResult).toMatchObject({
-      systemPrompt: expect.stringContaining('<name>step-wise-disambiguate</name>'),
+      systemPrompt: expect.not.stringContaining('<brunch-skills>'),
     });
   });
 
-  it('proves transcript-backed strategy and lens switches change product prompt posture', async () => {
+  it('keeps transcript-backed strategy and lens switches out of the live elicitor prompt', async () => {
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
 
     await createBrunchPiExtensions(
@@ -643,16 +644,13 @@ describe('Brunch prompt-pack topology', () => {
       'capture conduct remains with methods/capture/SKILL.md',
     ];
 
-    expect(disambiguateIntentPrompt).toContain('<name>step-wise-disambiguate</name>');
-    expect(disambiguateIntentPrompt).not.toContain('<name>propose-graph</name>');
-    expect(disambiguateDesignPrompt).toContain('<name>step-wise-disambiguate</name>');
-    expect(disambiguateDesignPrompt).not.toContain('<name>step-wise-decision-tree</name>');
-    expect(disambiguateIntentPrompt).toContain('Selected-spec graph overview · intent lens');
-    expect(disambiguateIntentPrompt).toContain('intent claims, terms, assumptions');
-    expect(disambiguateDesignPrompt).toContain('Selected-spec graph overview · design lens');
-    expect(disambiguateDesignPrompt).toContain('design modules/interfaces');
-    expect(disambiguateIntentPrompt).toContain('Clarify Brunch prompt posture');
-    expect(disambiguateDesignPrompt).toContain('Clarify Brunch prompt posture');
+    expect(disambiguateIntentPrompt).toContain('[Brunch live elicitor control]');
+    expect(disambiguateDesignPrompt).toContain('[Brunch live elicitor control]');
+    expect(disambiguateIntentPrompt).not.toContain('<name>step-wise-disambiguate</name>');
+    expect(disambiguateDesignPrompt).not.toContain('<name>step-wise-disambiguate</name>');
+    expect(disambiguateIntentPrompt).not.toContain('Selected-spec graph overview · intent lens');
+    expect(disambiguateDesignPrompt).not.toContain('Selected-spec graph overview · design lens');
+    expect(disambiguateIntentPrompt).toBe(disambiguateDesignPrompt);
     expect(acceptedBlindSpots).toEqual([
       'prompt/body quality is fitness evidence',
       'graph-write reliability remains with graph-tool-resilience',
