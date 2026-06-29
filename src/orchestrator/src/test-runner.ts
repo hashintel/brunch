@@ -41,8 +41,34 @@ export function isInfraSpawnError(error: unknown): boolean {
   return code === 'ENOENT' || code === 'ETIMEDOUT' || code === 'EACCES' || code === 'EPERM';
 }
 
+function isIdentifierChar(ch: string | undefined): boolean {
+  if (!ch) return false;
+  const code = ch.codePointAt(0);
+  if (code === undefined) return false;
+  return (
+    (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || ch === '_'
+  );
+}
+
+function includesErrorCode(output: string, code: string): boolean {
+  let index = output.indexOf(code);
+  while (index !== -1) {
+    const before = output[index - 1];
+    const after = output[index + code.length];
+    if (!isIdentifierChar(before) && !isIdentifierChar(after)) return true;
+    index = output.indexOf(code, index + code.length);
+  }
+  return false;
+}
+
 function isRunnerPackageDenied(output: string, diagnostics: RunnerDiagnostics): boolean {
-  if (!/\b(?:EACCES|EPERM)\b|operation not permitted|permission denied/i.test(output)) return false;
+  const lowerOutput = output.toLowerCase();
+  const denied =
+    includesErrorCode(output, 'EACCES') ||
+    includesErrorCode(output, 'EPERM') ||
+    lowerOutput.includes('operation not permitted') ||
+    lowerOutput.includes('permission denied');
+  if (!denied) return false;
   const normalized = output.replaceAll('\\', '/');
   return diagnostics.runnerPackages.some((pkg) => normalized.includes(`/node_modules/${pkg}/`));
 }

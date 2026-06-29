@@ -160,6 +160,13 @@ describe('classifyTestFailure (infra vs test)', () => {
     expect(classifyTestFailure(output, false, vitestDiagnostics)).toBe('infra');
   });
 
+  it('does not treat embedded error-code text as runner denial', () => {
+    const output =
+      "AssertionError: expected message 'NOT_EPERM_CASE' from /sandbox/node_modules/vitest/vitest.mjs";
+
+    expect(classifyTestFailure(output, false, vitestDiagnostics)).toBe('test');
+  });
+
   it('a package EPERM outside the selected runner diagnostics stays a test failure', () => {
     const output = "Error: EPERM: operation not permitted, open '/sandbox/node_modules/playwright/index.js'";
 
