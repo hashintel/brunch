@@ -30,6 +30,7 @@ import {
   runWithScopedBrunchOfflineDefault,
   startupHeaderForActivation,
 } from '../brunch-tui.js';
+import { runBrunchCli } from '../brunch.js';
 import {
   BRUNCH_CONTINUE_COMMAND,
   BRUNCH_INTROSPECTION_COMMAND,
@@ -46,7 +47,6 @@ import {
   runBrunchWorkspaceCommand,
   runBrunchWorkspaceAction,
 } from '../pi-extensions.js';
-import { runBrunchCli } from '../brunch.js';
 import { createBrunchPiSettings } from '../pi-settings.js';
 
 describe('Brunch TUI boot', () => {
@@ -276,8 +276,8 @@ describe('Brunch TUI boot', () => {
       cwd: '/tmp/project',
       coordinator: noOpWorkspaceCoordinator('/tmp/project') as never,
       developerTools: true,
-      launchTui: async ({ developerTools }) => {
-        observedDeveloperTools = developerTools;
+      launchTui: async (options) => {
+        observedDeveloperTools = options?.developerTools;
       },
     });
 
