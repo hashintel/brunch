@@ -4,7 +4,7 @@ SPEC decisions: D40-L, D52-L, D82-L, D98-L
 
 ## Owns
 
-`src/agents/skills/elicit/` is the activity-named home for durable question and exchange guidance once it is no longer expressed as a suspended method resource. It currently has no advertised `SKILL.md`; the live elicitor prompt owns active elicitation conduct directly.
+`src/agents/skills/elicit/` is the activity-named home for durable question and exchange guidance once it is no longer expressed as a suspended method resource. `SKILL.md` now provides the durable Agent Skills–compliant guidance stub for this activity home, while the live elicitor prompt still owns the currently active elicitation conduct directly.
 
 ## Boundary Rules
 

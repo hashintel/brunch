@@ -4,7 +4,7 @@ SPEC decisions: D52-L, D85-L, D95-L, D98-L
 
 ## Owns
 
-`src/agents/skills/review/` is the activity-named home for durable review guidance once it is no longer expressed as a suspended lens or method resource. It currently has no advertised `SKILL.md`; live review conduct is expressed through the elicitor prompt and graph review tools.
+`src/agents/skills/review/` is the activity-named home for durable review guidance once it is no longer expressed as a suspended lens or method resource. `SKILL.md` now provides the durable Agent Skills–compliant guidance stub for this activity home, while live review conduct is still expressed through the elicitor prompt and graph review tools.
 
 ## Boundary Rules
 

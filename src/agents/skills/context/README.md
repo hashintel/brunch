@@ -4,7 +4,7 @@ SPEC decisions: D40-L, D52-L, D60-L, D98-L
 
 ## Owns
 
-`src/agents/skills/context/` is the activity-named home for durable context-reading guidance once it is no longer expressed as a suspended method resource. It currently has no advertised `SKILL.md`; live context shape is owned by `agents/contexts/live/`.
+`src/agents/skills/context/` is the activity-named home for durable context-reading guidance once it is no longer expressed as a suspended method resource. `SKILL.md` now carries the durable Agent Skills–compliant guidance stub for this activity home, while live context shape remains owned by `agents/contexts/live/`.
 
 ## Boundary Rules
 

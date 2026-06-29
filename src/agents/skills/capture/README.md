@@ -4,7 +4,7 @@ SPEC decisions: D66-L, D81-L, D82-L, D98-L
 
 ## Owns
 
-`src/agents/skills/capture/` is the activity-named home for live capture guidance once durable conduct is lifted out of the suspended method taxonomy. It currently has no advertised `SKILL.md`; the live elicitor prompt owns active capture conduct directly.
+`src/agents/skills/capture/` is the activity-named home for live capture guidance once durable conduct is lifted out of the suspended method taxonomy. `SKILL.md` now provides the durable Agent Skills–compliant guidance stub for this activity home, while the live elicitor prompt still owns the currently active capture conduct directly.
 
 ## Boundary Rules
 

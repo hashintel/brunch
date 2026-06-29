@@ -4,7 +4,7 @@ SPEC decisions: D52-L, D73-L, D82-L, D98-L
 
 ## Owns
 
-`src/agents/skills/project/` is the activity-named home for durable graph projection guidance once it is no longer expressed as a suspended method resource. It currently has no advertised `SKILL.md`; graph projection authority remains code-owned through `graph/` and active tools.
+`src/agents/skills/project/` is the activity-named home for durable graph projection guidance once it is no longer expressed as a suspended method resource. `SKILL.md` now provides the durable Agent Skills–compliant guidance stub for this activity home, while graph projection authority remains code-owned through `graph/` and active tools.
 
 ## Boundary Rules
 

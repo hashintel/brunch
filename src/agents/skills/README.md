@@ -14,11 +14,11 @@ These are Brunch-authored model-facing prompt resources, not product data models
 skills/
 ├── README.md
 ├── __fixtures__/unlisted-fixture/SKILL.md  test-only sealing fixture
-├── capture/README.md                       live capture conduct home
-├── context/README.md                       live context-reading conduct home
-├── elicit/README.md                        live elicitation conduct home
-├── project/README.md                       live graph projection conduct home
-├── review/README.md                        live review conduct home
+├── capture/{README,SKILL}.md               live capture conduct home
+├── context/{README,SKILL}.md               live context-reading conduct home
+├── elicit/{README,SKILL}.md                live elicitation conduct home
+├── project/{README,SKILL}.md               live graph projection conduct home
+├── review/{README,SKILL}.md                live review conduct home
 └── _suspended/                             quarantined prompt-resource taxonomy
     ├── README.md
     ├── strategies/<name>/SKILL.md          reusable interaction shapes
@@ -26,6 +26,8 @@ skills/
     └── methods/<name>/SKILL.md             tool-routing and sequencing guidance
         └── references/*.md                 optional disclosed reference payloads
 ```
+
+The live activity homes now each carry a lightweight Agent Skills–compliant `SKILL.md` so the activity topology is explicit and ready for future activation, even though the live elicitor does not currently negotiate prompt-resource manifests from them.
 
 Each quarantined prompt-resource directory has a `SKILL.md` with YAML frontmatter (`name`, `description`) plus the instruction body. These resources are excluded from normal discovery and testing.
 
