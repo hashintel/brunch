@@ -25,9 +25,10 @@ planning state:
 
 [`.fixtures/`](../.fixtures/) holds current probe-run artifacts and transcript evidence. See the directory README for layout and conventions.
 
-## Testing guides
+## Working conventions
 
-- [`docs/testing/seeded-dev-rpc.md`](./testing/seeded-dev-rpc.md) — set up a seeded local Brunch workspace, inspect it over launcher-backed RPC reads, curate fixture truth through the explicit local mutate seam, and run the product-path fixture curation tracer.
+- [`docs/praxis/manual-testing.md`](./praxis/manual-testing.md) — outer-loop manual testing protocol for seeded workbenches, TUI + web sidecar observation, evidence capture, and slice-specific checks.
+- [`docs/praxis/seeded-dev-rpc.md`](./praxis/seeded-dev-rpc.md) — set up a seeded local Brunch workspace, inspect it over launcher-backed RPC reads, curate fixture truth through the explicit local mutate seam, and run the product-path fixture curation tracer.
 
 ## Behavioral kernels
 
@@ -39,8 +40,6 @@ Older brief-library examples were retired; future behavioral-kernel evidence sho
 
 - [`docs/design/SPEC_INITIATIVE_MODEL.md`](../design/SPEC_INITIATIVE_MODEL.md) — working design proposal for spec as initiative/problem lifecycle, claim as truth-bearing unit, projected current truth, and repo-native branching/merge implications for planning data.
 - [`docs/design/ELICITATION_QUESTIONS.md`](../design/ELICITATION_QUESTIONS.md) — priming catalog of elicitation questions organized by graph node kind; the questions are projectable examples that feed the elicitor agent, anchoring gaps on the node-kind ontology rather than a parallel typology vocabulary.
-
-## Working conventions
 
 See [`AGENTS.md`](../../AGENTS.md) at the project root for the verification
 harness (`npm run fix` inner loop / `npm run verify` gate), the `ln-*` skill
