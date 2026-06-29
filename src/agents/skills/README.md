@@ -1,10 +1,10 @@
 # agents/skills/ — Brunch prompt-resource skills
 
-SPEC decisions: D25-L, D39-L, D52-L, D58-L, D59-L, D85-L
+SPEC decisions: D25-L, D39-L, D52-L, D58-L, D59-L, D85-L, D95-L, D98-L
 
 ## Owns
 
-Agent Skills-standard prompt resources the Brunch Pi session agent reads on demand after `agents/runtime/state.ts` advertises them in a runtime-filtered `<brunch-skills>` manifest.
+Agent Skills-standard prompt resources the Brunch Pi session agent reads on demand after Brunch runtime policy advertises them. The pre-D98 strategy/lens/method taxonomy is suspended as live elicitor authority; useful prompt guidance may be regrouped around durable activities as later slices prove the new shape.
 
 These are Brunch-authored model-facing prompt resources, not product data models and not ambient filesystem discovery inputs.
 
@@ -16,8 +16,9 @@ skills/
 ├── __fixtures__/unlisted-fixture/SKILL.md  test-only sealing fixture
 ├── strategies/<name>/SKILL.md              reusable interaction shapes
 ├── lenses/<name>/SKILL.md                  topical focus lenses
-└── methods/<name>/SKILL.md                 tool-routing and sequencing guidance
-    └── references/*.md                     optional disclosed reference payloads
+├── methods/<name>/SKILL.md                 tool-routing and sequencing guidance
+│   └── references/*.md                     optional disclosed reference payloads
+└── suspended/README.md                     quarantine home for retired taxonomy resources
 ```
 
 Each live resource is a directory whose `SKILL.md` has YAML frontmatter (`name`, `description`) plus the instruction body. `name` must equal the parent directory and the code-owned id in `agents/runtime/state.ts`.
@@ -32,7 +33,9 @@ rules:
   agents/skills/                 x> graph mutation     [guidance only]
 ```
 
-The legal set is sealed by the code-owned path list in `agents/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns file locations. Frontmatter owns `name` and `description`; code owns axis family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/agents/prompts/elicitor.md`.
+The legal set is sealed by the code-owned path list in `agents/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns file locations. Frontmatter owns `name` and `description`; code owns family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/agents/prompts/elicitor.md`.
+
+`suspended/` is the quarantine target for strategy/lens/method resources once the live elicitor manifest stops consulting them. It is not a discovery directory and does not make resources live by filesystem presence.
 
 ## Prompt-resource sub-shapes
 
