@@ -21,19 +21,19 @@ skills/
 └── suspended/README.md                     quarantine home for retired taxonomy resources
 ```
 
-Each live resource is a directory whose `SKILL.md` has YAML frontmatter (`name`, `description`) plus the instruction body. `name` must equal the parent directory and the code-owned id in `agents/runtime/state.ts`.
+Each legacy prompt-resource directory has a `SKILL.md` with YAML frontmatter (`name`, `description`) plus the instruction body. `name` must equal the parent directory and the code-owned id in `agents/runtime/suspended/state.ts`.
 
 ## Boundary rules
 
 ```pseudo
 rules:
-  agents/runtime/state.ts -> agents/skills/*/*/SKILL.md [explicit code-owned path list via agents/registry.ts]
-  agents/runtime/state.ts -> pi loadSkills(includeDefaults:false, skillPaths=[...])
+  agents/runtime/suspended/state.ts -> agents/skills/*/*/SKILL.md [explicit code-owned legacy path list via agents/registry.ts]
+  agents/runtime/suspended/state.ts -> pi loadSkills(includeDefaults:false, skillPaths=[...])
   agents/skills/**/SKILL.md      x> TypeScript imports [read-only prompt resources]
   agents/skills/                 x> graph mutation     [guidance only]
 ```
 
-The legal set is sealed by the code-owned path list in `agents/runtime/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns file locations. Frontmatter owns `name` and `description`; code owns family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are inline in `src/agents/prompts/elicitor.md`.
+The legacy legal set is sealed by the code-owned path list in `agents/runtime/suspended/state.ts`; adding a `SKILL.md` does not make it available until that table enumerates it. `src/agents/registry.ts` owns file locations. Frontmatter owns `name` and `description`; code owns family, legality, and location enumeration. The former `goals/` family is retired by D85-L; the elicitor objective postures are retired from the live elicitor prompt.
 
 `suspended/` is the quarantine target for strategy/lens/method resources once the live elicitor manifest stops consulting them. It is not a discovery directory and does not make resources live by filesystem presence.
 
