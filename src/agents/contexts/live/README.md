@@ -6,6 +6,12 @@ SPEC decisions: D40-L, D52-L, D60-L, D83-L, D98-L
 
 `src/agents/contexts/live/` is the home for plain context blocks used by the live SPEC-mode elicitor. It assembles selected-spec, workspace, and session orientation for the foreground elicitor without consulting suspended strategy, lens, method, readiness-estimate, or elicitation-gap recommendation controls.
 
+```text
+live/
+├── README.md
+└── elicitor-context.ts  plain selected-spec/workspace context for the live elicitor
+```
+
 ## Boundary Rules
 
 ```pseudo
