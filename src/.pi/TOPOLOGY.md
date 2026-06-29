@@ -22,7 +22,7 @@ This directory is Brunch's sealed Pi-harness surface. It contains product extens
 
 ```text
 .pi/
-├── README.md
+├── TOPOLOGY.md
 ├── settings.json                 dev Pi settings for local `.pi` iteration
 ├── brunch-pi-settings.ts        sealed Pi settings/resource-loader policy
 ├── brunch-pi-extensions.ts      explicit Brunch extension factory; no ambient discovery

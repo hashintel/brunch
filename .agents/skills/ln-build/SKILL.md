@@ -139,7 +139,7 @@ Update only the touched traceability items.
    - If the change closes, blocks, or unblocks a frontier item, reflect that in `Sequencing`, the affected `Frontier Definitions` entry, or `Recently Completed`
    - If the build changed a frontier-level cross-cutting obligation, update the affected frontier definition explicitly; do not hide the change behind bare traceability IDs
    - Do not mirror detailed slice/card history into `memory/PLAN.md`; cards live in the scope file under `memory/cards/`. At most, the frontier definition may carry a lightweight `Current execution pointer` listing active scope file path(s).
-   - **Arc completion:** if this build completed the **last member frontier of an initiative (arc)** in `§Initiatives`, run that arc's **done-definition before** marking the arc done — including reconciling co-located topology READMEs and discharging any standing-obligation residue scoped to the arc (the residue that no future frontier would otherwise touch). Mark the arc `✓ done` only once the done-definition actually holds; if residue remains, the arc stays `◐ active` with the residue named.
+   - **Arc completion:** if this build completed the **last member frontier of an initiative (arc)** in `§Initiatives`, run that arc's **done-definition before** marking the arc done — including reconciling co-located topology files and discharging any standing-obligation residue scoped to the arc (the residue that no future frontier would otherwise touch). Mark the arc `✓ done` only once the done-definition actually holds; if residue remains, the arc stays `◐ active` with the residue named.
 
 2. **Assumptions**
    - evidence answered it → update to `validated` or `invalidated`
@@ -156,11 +156,11 @@ Update only the touched traceability items.
    - same seam-level invariant gained coverage → update
    - genuinely independent seam/rule/proof → add
 
-5. **Topology READMEs** (when the topology question is `yes`)
+5. **Topology files** (when the topology question is `yes`)
    - update the `README.md` of every touched directory that owns one — ownership statement, layout sketch, dependency-direction assertion, and migration notes
    - if a SPEC decision cited by the README was renumbered or retired during reconciliation, repair the citation in the same commit
    - if a directory the build retires owned a README, delete the README with the directory
-   - if a new directory introduced by this slice will be a long-lived seam (multiple files, named in SPEC, or imported by other layers), draft a minimal topology README following the shape in `AGENTS.md` §topology READMEs — do not speculate; describe what exists
+   - if a new directory introduced by this slice will be a long-lived seam (multiple files, named in SPEC, or imported by other layers), draft a minimal topology file following the shape in `AGENTS.md` §topology files — do not speculate; describe what exists
 
 When uncertain between merge and add, add. When uncertain between update and no-op, update.
 

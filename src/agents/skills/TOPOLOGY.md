@@ -12,7 +12,7 @@ These are Brunch-authored model-facing prompt resources, not product data models
 
 ```text
 skills/
-├── README.md
+├── TOPOLOGY.md
 ├── __fixtures__/unlisted-fixture/SKILL.md  test-only sealing fixture
 ├── capture/{README,SKILL}.md               live capture conduct home
 ├── context/{README,SKILL}.md               live context-reading conduct home
@@ -20,7 +20,7 @@ skills/
 ├── project/{README,SKILL}.md               live graph projection conduct home
 ├── review/{README,SKILL}.md                live review conduct home
 └── _suspended/                             quarantined prompt-resource taxonomy
-    ├── README.md
+    ├── TOPOLOGY.md
     ├── strategies/<name>/SKILL.md          reusable interaction shapes
     ├── lenses/<name>/SKILL.md              topical focus lenses
     └── methods/<name>/SKILL.md             tool-routing and sequencing guidance

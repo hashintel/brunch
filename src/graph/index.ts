@@ -1,7 +1,7 @@
 /**
  * Public exports for the Brunch graph layer.
  *
- * Canonical reference: src/graph/README.md
+ * Canonical reference: src/graph/TOPOLOGY.md
  *
  * Phase 1: edges, edge policy, reconciliation-need.
  * Phase 2: node type definitions.

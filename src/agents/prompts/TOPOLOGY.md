@@ -8,7 +8,7 @@ Flat markdown persona text for Brunch foreground operational modes. Live elicito
 
 ```text
 prompts/
-├── README.md
+├── TOPOLOGY.md
 ├── elicitor.md       elicit runtime / target-SPEC foreground body
 └── executor.md       execute runtime / target-CODE foreground body
 ```

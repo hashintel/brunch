@@ -119,7 +119,7 @@ Each arc entry stays thin:
 - **id + status** (`✓ done` / `◐ active` / planned)
 - **Goals** — the through-line in 1–3 bullets (the user-facing "why")
 - **Members** — the frontier ids that compose it, with per-member status
-- **Done-definition** — the arc-level completion test, which **must** include reconciliation of co-located topology READMEs and discharge of any standing-obligation residue scoped to the arc
+- **Done-definition** — the arc-level completion test, which **must** include reconciliation of co-located topology files and discharge of any standing-obligation residue scoped to the arc
 - **Anchors** — the SPEC decision/assumption ids the arc rests on
 
 `ln-plan` creates and updates arcs (and the member roster as frontiers are added/retired); `ln-sync` closes them and verifies the done-definition actually holds; `ln-build` fires the arc-completion check when a build lands the last member frontier (see each skill). The done-definition is what closes the "standing obligation rides the triggering frontier = never" hole: arc completion is itself a trigger.

@@ -52,7 +52,7 @@ Ordered list of tiny commits. Each described in plain English — no file paths 
 - Interface changes
 - Architectural decisions
 - Schema changes, API contracts
-- Topology READMEs touched (which directory READMEs the refactor will update or retire)
+- Topology files touched (which directory READMEs the refactor will update or retire)
 
 No file paths or code snippets — they go stale. Record in `memory/SPEC.md` §Decisions when finalized.
 

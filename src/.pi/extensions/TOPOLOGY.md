@@ -18,7 +18,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 
 ```text
 extensions/
-├── README.md
+├── TOPOLOGY.md
 ├── agent-runtime/          Pi adapter for central agent runtime policy plus execute-mode stub
 │   ├── runtime/            operational-mode Pi tool activation adapter
 │   ├── system-prompts/     before_agent_start hook adapter into agents/runtime/elicitor

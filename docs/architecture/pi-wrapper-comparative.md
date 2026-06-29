@@ -174,7 +174,7 @@ Brunch currently depends on private-ish Pi behavior — `_rewriteFile()`, `setSe
 
 ### R2. Public RPC vocabulary drift (resolved)
 
-`src/rpc/README.md` is now the canonical method contract, and dispatch/discovery are generated from one registry. The active public session names are `session.triggerExchange`, `session.pendingExchange`, `session.submitExchangeResponse`, `session.exchanges`, and `session.runtimeState`; removed names are quarantined in the RPC README's absent-name list and are not compatibility aliases.
+`src/rpc/TOPOLOGY.md` is now the canonical method contract, and dispatch/discovery are generated from one registry. The active public session names are `session.triggerExchange`, `session.pendingExchange`, `session.submitExchangeResponse`, `session.exchanges`, and `session.runtimeState`; removed names are quarantined in the RPC README's absent-name list and are not compatibility aliases.
 
 - **Why it mattered**: every external client and probe written against stale names would have become a constraint on future renames.
 - **Owning SPEC items**: D5-L (single public protocol), D19-L (named method families), R11 (JSON-RPC primary), R27 (Brunch-owned discovery).
@@ -248,11 +248,11 @@ In recommended order; each links back to risks above.
 
 1. **Pay down R1 — private `SessionManager` flush dependency.** Centralize the call sites behind a single Brunch-side adapter; add a contract test that exercises pre-assistant flush ordering against the installed Pi version. If the seam is genuinely necessary, open the upstream conversation. This is the single most fragile point of contact with Pi.
 
-2. **Keep R2 resolved — do not reopen RPC compatibility aliases.** The canonical vocabulary now lives in `src/rpc/README.md`, dispatch/discovery share one registry, and retired names are absent rather than aliased. Future client work should use the discovered canonical names and keep retired names only in the RPC README's absent-name list.
+2. **Keep R2 resolved — do not reopen RPC compatibility aliases.** The canonical vocabulary now lives in `src/rpc/TOPOLOGY.md`, dispatch/discovery share one registry, and retired names are absent rather than aliased. Future client work should use the discovered canonical names and keep retired names only in the RPC README's absent-name list.
 
 3. **Pay down R3 — make Pi lifecycle dependencies legible.** Enumerate every Pi behavior we depend on (timing, ordering, hook semantics) in `docs/architecture/pi-seam-extensions.md` and back each with a probe under `src/probes/*`. This turns a class of silent breakage into a class of loud breakage.
 
-4. **Fence R4 — write the read-model discipline down as a code-level rule.** Add a short `src/rpc/READ_MODEL_DISCIPLINE.md` (or expand `src/rpc/README.md`) with: no mirror tables; projections live next to their owning store; caching is request-scoped and disposable; `brunch.updated` is a hint, never a fact. Reference it from PR templates.
+4. **Fence R4 — write the read-model discipline down as a code-level rule.** Add a short `src/rpc/READ_MODEL_DISCIPLINE.md` (or expand `src/rpc/TOPOLOGY.md`) with: no mirror tables; projections live next to their owning store; caching is request-scoped and disposable; `brunch.updated` is a hint, never a fact. Reference it from PR templates.
 
 5. **Tag R5 in code, not just in docs.** Add narrow `// linear-transcript: see SPEC R8` markers at the projection and persistence sites that assume linearity. The goal is to make the assumption visible to anyone reading the seam, so that "small additions" do not accidentally branch us.
 
@@ -276,6 +276,6 @@ These are not new rules. They are the things this comparison reaffirmed; pinning
 - `memory/SPEC.md` — canonical specification; particularly Capability Requirements R8, R11, R12, R27 and Active Decisions D1-L, D2-L, D3-L, D4-L, D5-L, D17-L, D19-L, D20-L, D23-L, D33-L, D39-L, D40-L, D51-L.
 - `docs/architecture/prd.md` — product requirements.
 - `docs/architecture/pi-seam-extensions.md` — Pi seam inventory and Brunch-owned extensions.
-- `src/rpc/README.md` — current RPC surface, discovery contract, and absent-name list.
-- `src/.pi/README.md` — extension/profile sealing notes.
+- `src/rpc/TOPOLOGY.md` — current RPC surface, discovery contract, and absent-name list.
+- `src/.pi/TOPOLOGY.md` — extension/profile sealing notes.
 - howcode source ([github.com/IgorWarzocha/howcode](https://github.com/IgorWarzocha/howcode)) — comparative reference, especially `desktop/pi-module.ts`, `desktop/runtime-host/live-runtime-service.ts`, `desktop/runtime/composer-state.ts`, `src/electron/preload/create-desktop-api.ts`.

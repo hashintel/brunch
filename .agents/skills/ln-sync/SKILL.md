@@ -30,7 +30,7 @@ Prefer `ln-sync` at these moments:
 | `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
 | `memory/cards/<frontier-id>--<slug>.md` | derivative scope files | only unfinished prepared scope cards; one file per concern; multiple files per frontier permitted for independent concerns |
 | `memory/REFACTOR.md` | derivative temporary execution plan | only unfinished refactor steps |
-| `src/**/README.md` | canonical current-state for its subtree; SPEC decisions cite it as event+pointer, not a duplicate | ownership statement, SPEC decision references, dependency rules, layout sketch, live migration notes (see `AGENTS.md` §topology READMEs) |
+| `src/**/TOPOLOGY.md` | canonical current-state for its subtree; SPEC decisions cite it as event+pointer, not a duplicate | ownership statement, SPEC decision references, dependency rules, layout sketch, live migration notes (see `AGENTS.md` §topology files) |
 
 **Notation aid.** When refreshing SPEC or PLAN:
 
@@ -70,7 +70,7 @@ For each item in `memory/SPEC.md`, choose one:
 - **compress / merge** — overlaps another live row or carries too much rationale
 - **retire embedded** — fully shipped and now protected by code/tests/design docs
 - **move rationale** — valuable context, but too detailed for SPEC; keep a short guardrail and link to a design doc
-- **migrate to co-located home** — the decision's current-state body (topology, layout, dependency direction, concrete surface) is owned by a co-located `src/**/README.md` (see `AGENTS.md` §topology READMEs). Ensure that README holds the state, then thin the SPEC decision to event + pointer (chosen seam, rationale, supersession, → README). A decision is archivable once its current state lives in a co-located README or invariant.
+- **migrate to co-located home** — the decision's current-state body (topology, layout, dependency direction, concrete surface) is owned by a co-located `src/**/TOPOLOGY.md` (see `AGENTS.md` §topology files). Ensure that `TOPOLOGY.md` holds the state, then thin the SPEC decision to event + pointer (chosen seam, rationale, supersession, → `TOPOLOGY.md`). A decision is archivable once its current state lives in a co-located `TOPOLOGY.md` or invariant.
 - **future direction** — not current product contract; move under Future Direction Register or ensure PLAN owns it
 - **remove** — moot, superseded, redundant, or implementation diary
 
@@ -136,7 +136,7 @@ Rules:
 - keep dependency diagrams limited to active / next frontier ids
 - keep enough `Why now / unlocks` context that a fresh thread can understand frontier ordering without reading the full archive
 - do not archive handoffs, refactor plans, or sync reports
-- reconcile the `## Initiatives` (arc) index if present: refresh each arc's member roster and per-member status against `Sequencing`, and **close an arc only when its done-definition actually holds** — including reconciliation of co-located topology READMEs and discharge of any standing-obligation residue scoped to the arc. An arc whose members are all done but whose trailing README/residue cleanup is outstanding is **not** done; keep it `◐ active` with the residue named. Retire a fully-closed arc to a one-line `Recently Completed`-style note (or drop it) rather than carrying its full block indefinitely.
+- reconcile the `## Initiatives` (arc) index if present: refresh each arc's member roster and per-member status against `Sequencing`, and **close an arc only when its done-definition actually holds** — including reconciliation of co-located topology files and discharge of any standing-obligation residue scoped to the arc. An arc whose members are all done but whose trailing README/residue cleanup is outstanding is **not** done; keep it `◐ active` with the residue named. Retire a fully-closed arc to a one-line `Recently Completed`-style note (or drop it) rather than carrying its full block indefinitely.
 
 ### 5. Drift and ontology check
 
@@ -158,7 +158,7 @@ Scan recent code / commits for:
 - cross-cutting subsystems that appear only in glossary/design-doc links but are required by multiple active/next frontiers
 - verification strategy that is present in canonical docs or frontier definitions but absent from `memory/SPEC.md` §Verification Design
 - chosen module/API shapes or seam obligations from `ln-design` output that active frontier work still depends on
-- **topology READMEs under `src/**/` out of sync with reality**: SPEC decision IDs cited in a README that this sync just renumbered or retired; named files/modules that have moved, been renamed, or been retired; dependency-direction assertions that no longer match actual imports; layout sketches whose entries no longer match the directory's contents; migration notes describing state that has since shipped or been abandoned (see `AGENTS.md` §topology READMEs)
+- **topology files under `src/**/` out of sync with reality**: SPEC decision IDs cited in a README that this sync just renumbered or retired; named files/modules that have moved, been renamed, or been retired; dependency-direction assertions that no longer match actual imports; layout sketches whose entries no longer match the directory's contents; migration notes describing state that has since shipped or been abandoned (see `AGENTS.md` §topology files)
 - **arcs (`## Initiatives`) out of sync**: an arc marked done whose done-definition does not actually hold (outstanding topology-README reconciliation or undischarged residue); an arc roster missing a member frontier that clearly belongs to the through-line; an active multi-frontier through-line visible in the SPEC decision chain but absent from the arc index; a completed arc still carrying a full block long after closure
 
 ### 6. Garbage-collect derivative artifacts
@@ -205,7 +205,7 @@ Before finishing, perform a cross-skill preservation check:
 - What verification architecture or loop-tier strategy from `ln-oracles` or canonical docs would they miss?
 - What cross-cutting obligations would disappear because they are carried only by links, not by live rows or frontier definitions?
 - Would they know which temporary sweep ledgers are still live, which promoted rows still keep those ledgers open, and why those rows sequence where they do?
-- Do any topology READMEs under `src/**/` still cite SPEC IDs or describe topology this sync just changed? Reconcile those READMEs as part of the sync, not as a follow-up.
+- Do any topology files under `src/**/` still cite SPEC IDs or describe topology this sync just changed? Reconcile those READMEs as part of the sync, not as a follow-up.
 - If a multi-frontier through-line exists, would they see it as an arc in `§Initiatives` with an honest done-definition, or would they have to reconstruct it from the SPEC decision chain?
 
 If any answer is non-empty, sync is incomplete.

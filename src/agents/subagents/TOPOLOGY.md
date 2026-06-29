@@ -8,7 +8,7 @@ Flat markdown body resources for background subagents. These are not foreground 
 
 ```text
 subagents/
-├── README.md
+├── TOPOLOGY.md
 ├── explorer.md       background codebase recon body + frontmatter
 ├── researcher.md     background web-research body + frontmatter
 ├── projector.md      background candidate-proposal body + frontmatter

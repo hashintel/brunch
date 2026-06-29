@@ -22,9 +22,9 @@ The execute-mode executor can inspect a cook plan through a product-registered, 
 
 - `memory/SPEC.md` — decisions / invariants: D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, I49-L.
 - `memory/PLAN.md` — frontier: `orchestrator-tool-port`.
-- `src/.pi/extensions/README.md` — adapter-only ownership and boundary rules.
+- `src/.pi/extensions/TOPOLOGY.md` — adapter-only ownership and boundary rules.
 - `src/agents/prompts/executor.md` — current execute-mode foreground prompt and stub wording to retire.
-- `src/agents/runtime/elicitor/README.md` and `src/agents/runtime/_suspended/README.md` — current runtime split; execute policy is not a live top-level runtime module yet.
+- `src/agents/runtime/elicitor/TOPOLOGY.md` and `src/agents/runtime/_suspended/TOPOLOGY.md` — current runtime split; execute policy is not a live top-level runtime module yet.
 - `src/session/schema/tool-names.ts` — shared tool-name constants.
 - `/Users/lunelson/Code/hashintel/brunch/ORCHESTRATOR.md` — source CLI behavior and plan format.
 - `/Users/lunelson/Code/hashintel/brunch/src/orchestrator/src/{types.ts,plan-loader.ts,plan-contract.ts,cook-cli.ts}` — portable plan model, loader, contract, and plan-resolution behavior to adapt.

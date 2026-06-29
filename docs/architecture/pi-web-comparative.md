@@ -252,7 +252,7 @@ Reaffirmed by this comparison; pinned so they stay legible.
 - [pi-wrapper-comparative.md](pi-wrapper-comparative.md) — sibling comparison (howcode vs Brunch); the shared risk register (R1–R8) and rabbit-hole list this document builds on.
 - [prd.md](prd.md) — product requirements.
 - [pi-seam-extensions.md](pi-seam-extensions.md) — Pi seam inventory and Brunch-owned extensions.
-- [../../src/rpc/README.md](../../src/rpc/README.md) — current RPC surface, discovery contract, and absent-name list.
-- [../../src/.pi/README.md](../../src/.pi/README.md) — extension/profile sealing notes.
+- [../../src/rpc/TOPOLOGY.md](../../src/rpc/TOPOLOGY.md) — current RPC surface, discovery contract, and absent-name list.
+- [../../src/.pi/TOPOLOGY.md](../../src/.pi/TOPOLOGY.md) — extension/profile sealing notes.
 - [../../src/app/brunch.ts](../../src/app/brunch.ts), [../../src/rpc/web-host.ts](../../src/rpc/web-host.ts), [../../src/rpc/handlers.ts](../../src/rpc/handlers.ts) — Brunch mode dispatch, web host, and read-only / sidecar handler boundary.
 - pi-web source ([github.com/jmfederico/pi-web](https://github.com/jmfederico/pi-web)) — comparative reference, especially `src/server/sessiond.ts`, `src/server/sessions/piSessionService.ts`, `src/server/sessiond/sessionProxyRoutes.ts`, `src/shared/federatedRoutes.ts`, `src/client/src/components/PiWebApp.ts`, `src/client/src/appState.ts`, and `docs/plugins.md`.

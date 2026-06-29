@@ -8,7 +8,7 @@ Runtime prompt policy that is Pi-independent: live elicitor prompt/context assem
 
 ```text
 runtime/
-├── README.md
+├── TOPOLOGY.md
 ├── elicitor/         live SPEC-mode elicitor prompt/context/tool source of truth
 ├── shared/           pure helpers shared by current runtime readers
 ├── _suspended/       quarantined legacy strategy/lens/method/readiness controls

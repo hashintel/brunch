@@ -8,7 +8,7 @@ SPEC decisions: D39-L, D40-L, D52-L, D60-L, D85-L, D90-L, D91-L, D93-L, D98-L
 
 ```text
 agents/
-├── README.md
+├── TOPOLOGY.md
 ├── prompts/           flat foreground elicit/execute body markdown
 ├── subagents/         flat background subagent body markdown
 ├── skills/            activity prompt resources plus suspended legacy taxonomy

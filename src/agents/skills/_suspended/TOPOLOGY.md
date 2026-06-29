@@ -8,7 +8,7 @@ SPEC decisions: D25-L, D52-L, D85-L, D95-L, D98-L
 
 ```text
 suspended/
-├── README.md
+├── TOPOLOGY.md
 ├── strategies/<name>/SKILL.md   retired interaction-shape resources
 ├── lenses/<name>/SKILL.md       retired focus-lens resources
 └── methods/<name>/SKILL.md      retired workflow/tool-routing resources

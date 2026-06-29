@@ -17,7 +17,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Active arcs.** Work is organized into multi-frontier **initiatives (arcs)** — see [§Initiatives](#initiatives) for through-lines, member frontiers, and done-definitions: the completed **skill-substrate** arc (populate / weed / lock), the active **elicitor-capability-spine** arc (`capture` / `generate` done, `project` next), and the active **context-pipeline** arc (PULL / PROJECT / COMPOSE locked, RENDER still open for final prompt/subagent topology closure).
 
-**Topology and evidence discipline.** Directory `README.md` files under `src/**` own current topology state. `memory/SPEC.md` owns product contract and architectural decisions; `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
+**Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns product contract and architectural decisions; `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
 ## Initiatives
 
@@ -27,14 +27,14 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
      thoroughly?" is a lookup, not a reconstruction from scattered SPEC decisions.
      Created/updated by ln-plan; closed and reconciled by ln-sync. Keep each arc thin (goals,
      members, done-definition, anchors). An arc closes only when its done-definition holds —
-     including reconciliation of co-located topology READMEs and discharge of any standing-obligation
+     including reconciliation of co-located topology files and discharge of any standing-obligation
      residue scoped to it. Arc completion is the trigger for residue that no future frontier touches. -->
 
 ### skill-substrate — ✓ done (2026-06-25)
 
 - **Goals:** (1) populate the skills the elicitor needs; (2) weed dead-code / stub skills; (3) isolate + lock graph schema, descriptions, tips, and heuristics as context.
 - **Members:** FE-893, FE-861, FE-898, FE-1052 (all done).
-- **Done-definition:** legal skill set sealed by an explicit runtime-owned path list; no dead stubs (the `__fixtures__` sealing fixture excepted); heuristics distilled + locked into `SKILL.md` bodies, not duplicated in topology READMEs. ✓ — final `strategies/` + `lenses/` README reconciliation discharged 2026-06-25 (dead `INTENT_GRAPH_SEMANTICS.md` pointer + stale "M5 input" tables removed).
+- **Done-definition:** legal skill set sealed by an explicit runtime-owned path list; no dead stubs (the `__fixtures__` sealing fixture excepted); heuristics distilled + locked into `SKILL.md` bodies, not duplicated in topology files. ✓ — final `strategies/` + `lenses/` README reconciliation discharged 2026-06-25 (dead `INTENT_GRAPH_SEMANTICS.md` pointer + stale "M5 input" tables removed).
 - **Anchors:** D85-L (axis populate / weed), D97-L (heuristic-provenance lock), A35-L (axes frozen under the capability spine).
 
 ### elicitor-capability-spine — ◐ active
@@ -73,7 +73,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 
 ### Recently Completed
 
-- 2026-06-26 `renderer-golden-coverage` (FE-1091) — **context pipeline done.** The final topology slice flattened foreground prompt bodies to `src/agents/prompts/{elicitor,executor}.md`, moved background bodies to `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`, retired nested prompt-body directories and the unwired `pi-coder` body, updated explicit registries/loaders and packaged asset copying, and reconciled `src/agents/` / prompt / subagent topology READMEs.
+- 2026-06-26 `renderer-golden-coverage` (FE-1091) — **context pipeline done.** The final topology slice flattened foreground prompt bodies to `src/agents/prompts/{elicitor,executor}.md`, moved background bodies to `src/agents/subagents/{explorer,researcher,projector,reviewer}.md`, retired nested prompt-body directories and the unwired `pi-coder` body, updated explicit registries/loaders and packaged asset copying, and reconciled `src/agents/` / prompt / subagent topology files.
 - 2026-06-26 `data-model-legibility` (FE-1090) — **reference substrate complete.** Generated ontology tables are materialized from typed graph sources with `check:data-model`; authored graph-authoring heuristics are cited by `capture` + `commit-graph`; the final checkability/subtype audit closed with no schema/runtime expansion: progressive checkability is accepted only as skill-local oracle conduct, `checkability`/`strength` fields are rejected carrying cost, subtype enums are rejected as parallel ontology, and `detail.form` remains inert payload plus renderer hook.
 - 2026-06-25 `elicitor-generate` (FE-1059) — **generate capability done through promoted A31-L fan-out evidence.** Built slices: `present_candidates` tool/projection/renderer + pick path; intent/design/oracle facets under one plane-parameterized `generate-proposal` method; progressive-disclosure references; real-boot activation check; and real-model fan-out witness harness. Promoted run `.fixtures/runs/generate-fan-out/2026-06-24T16-51-13-704Z/` passed with `openai-codex/gpt-5.5`: oracle lens pinned, `SKILL.md` and `references/oracle.md` read, `present_candidates` emitted, no pre-prompt kick, no graph delta, no `mutate_graph`, and no approved review result. A32-L fan-in completion and the A1 anti-prompt remain follow-ups, not branch debt.
 - 2026-06-24 `subagent-reconciliation` (FE-1054) — foreground/background reconciliation complete through the execute-mode readiness target (D90-L-D93-L/I49-L): shared `AgentManifest`, code-owned background discovery, semi-permeable injected-world child sessions, sovereign grants gated by code-owned `canDelegate`, return rendering, and live `execute` -> `orchestrator` mode with a product-registered stub tool. `code` -> `pi-coder` remains future work.
@@ -119,7 +119,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
   - First tracer replaces the old standup stub with a read-only `cook_plan_check` tool that validates a cook plan and returns typed plan shape/findings without creating a run sandbox.
   - Later `cook_run` tooling is bounded behind executor-owned sandbox/worktree machinery; write-capable worker sessions, if any, are code-owned child execution boundaries.
   - External `../brunch` CLI behavior is ported as reusable product core plus Pi adapter, not wrapped as a shell command.
-- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L / I49-L; `src/.pi/extensions/README.md`.
+- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L / I49-L; `src/.pi/extensions/TOPOLOGY.md`.
 
 ### elicitor-project
 
@@ -168,7 +168,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 - **Closes:** context-pipeline RENDER stage plus the COMPOSE full-stack real-rendered-context tripwire.
 - **Locks in:** D83-L house style for model-facing context surfaces and prompt assembly as a golden/semantic-invariant surface.
 - **Objective:** Finish the RENDER stage and lock system-prompt assembly as a golden surface. Remaining work lives by audience: model-facing context and prompt text under `src/agents/`, human/product text beside its app/session owner. Incidental prompt remodelling belongs here only when needed to make prompt assembly lockable: foreground prompts flatten to `src/agents/prompts/elicitor.md` and `src/agents/prompts/executor.md`; subagent prompt bodies flatten to `src/agents/subagents/{explorer,reviewer,researcher,projector}.md`; `src/agents/` topology must make `contexts`, `prompts`, `runtime`, `shared`, `skills`, and `subagents` roles legible. This frontier also extends D83-L to thin graph-derived markdown document outputs for selected-spec and plan-plane material, as future web/download response sources.
-- **Acceptance:** `src/agents/contexts/README.md`, `src/agents/prompts/README.md`, `src/agents/runtime/README.md`, `src/agents/subagents/README.md`, `src/app/README.md`, and `src/session/README.md` carry the audience/topology split; required model-facing renderer rows are built in the house style and locked with focused goldens/semantic invariants; system prompt assembly is locked with goldens/semantic invariants; selected-spec context moves from `contexts/specification/specification-context.ts` to `contexts/spec/spec-context.ts`; `contexts/spec/spec-output.ts` and `contexts/plan/plan-output.ts` use md-pen to render thin markdown-flattened outputs from graph/projection input rather than from `memory/SPEC.md` / `memory/PLAN.md`; foreground prompt files are flat (`prompts/elicitor.md`, `prompts/executor.md`); subagent files are flat under `subagents/`; no adapter/transport imports enter `agents/contexts/`; prompt topology remodel deletes obsolete role/body aliases rather than preserving compatibility shims.
+- **Acceptance:** `src/agents/contexts/TOPOLOGY.md`, `src/agents/prompts/TOPOLOGY.md`, `src/agents/runtime/TOPOLOGY.md`, `src/agents/subagents/TOPOLOGY.md`, `src/app/TOPOLOGY.md`, and `src/session/TOPOLOGY.md` carry the audience/topology split; required model-facing renderer rows are built in the house style and locked with focused goldens/semantic invariants; system prompt assembly is locked with goldens/semantic invariants; selected-spec context moves from `contexts/specification/specification-context.ts` to `contexts/spec/spec-context.ts`; `contexts/spec/spec-output.ts` and `contexts/plan/plan-output.ts` use md-pen to render thin markdown-flattened outputs from graph/projection input rather than from `memory/SPEC.md` / `memory/PLAN.md`; foreground prompt files are flat (`prompts/elicitor.md`, `prompts/executor.md`); subagent files are flat under `subagents/`; no adapter/transport imports enter `agents/contexts/`; prompt topology remodel deletes obsolete role/body aliases rather than preserving compatibility shims.
 - **Traceability:** D19-L, D40-L, D52-L, D58-L, D60-L, D62-L, D83-L, D98-L.
 
 ### exchange-symmetry-audit
@@ -229,7 +229,7 @@ done anchors:
 
 rules:
   candidates never commit graph truth (I51-L)
-  topology READMEs own current subtree state
+  topology files own current subtree state
   scratch evidence is not durable until promoted to .fixtures/runs/
   an arc (§Initiatives) closes only when its done-definition holds, incl. topology-README reconciliation + residue discharge
 ```
