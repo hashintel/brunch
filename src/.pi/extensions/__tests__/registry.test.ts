@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
+import { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../agent-runtime/execute-snapshot/index.js';
 import { BRUNCH_EXECUTE_STATUS_TOOL } from '../agent-runtime/execute-status/index.js';
 import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../agent-runtime/orchestrator-stub/index.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
@@ -60,6 +61,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(settings.extensions).toEqual(
       expect.arrayContaining([
         '-extensions/agent-runtime/index.ts',
+        '-extensions/agent-runtime/execute-snapshot/index.ts',
         '-extensions/agent-runtime/execute-status/index.ts',
         '-extensions/agent-runtime/runtime/index.ts',
         '-extensions/agent-runtime/system-prompts/index.ts',
@@ -152,6 +154,104 @@ describe('Brunch explicit Pi extension registry', () => {
       event === 'session_start' ? [index] : [],
     );
     expect(sessionStartIndexes[0]).toBeLessThan(sessionStartIndexes[1] ?? -1);
+  });
+
+  it('registers execute_snapshot only with selected graph deps and returns a side-effect-free projection', async () => {
+    const registeredTools: Array<{
+      name: string;
+      execute: (
+        toolCallId: string,
+        params: unknown,
+      ) => Promise<{
+        content: readonly { text: string }[];
+        details: Record<string, unknown>;
+      }>;
+    }> = [];
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+      graph: {
+        specId: 42,
+        commandExecutor: {} as never,
+        reads: {
+          queryGraph: () =>
+            ({
+              lsn: 11,
+              nodes: [
+                {
+                  id: 1,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'requirement',
+                  kindOrdinal: 1,
+                  title: 'Run the cooked feature',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+                {
+                  id: 2,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'criterion',
+                  kindOrdinal: 1,
+                  title: 'Feature answers the probe',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [
+                {
+                  id: 1,
+                  specId: 42,
+                  category: 'witness',
+                  sourceId: 2,
+                  targetId: 1,
+                  stance: 'for',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+            }) as never,
+          getNodes: () => [],
+          resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
+          getOpenReconciliationNeeds: () => [],
+          latestLsn: () => 11,
+        },
+      },
+    })({
+      on() {},
+      registerTool(tool: (typeof registeredTools)[number]) {
+        registeredTools.push(tool);
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => [],
+      setActiveTools() {},
+    } as never);
+
+    const snapshot = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SNAPSHOT_TOOL);
+    expect(snapshot).toBeDefined();
+    const result = await snapshot!.execute('call-1', { mode: 'brownfield' });
+
+    expect(result.content[0]?.text).toContain('execute_snapshot: spec 42 (brownfield)');
+    expect(result.details).toMatchObject({
+      source: { graphLsn: 11, visibility: 'active' },
+      sideEffects: [],
+      snapshot: {
+        schemaVersion: 1,
+        specId: '42',
+        mode: 'brownfield',
+        requirements: [expect.objectContaining({ itemId: 'requirement-1' })],
+        criteria: [expect.objectContaining({ itemId: 'criterion-2', verifies: ['requirement-1'] })],
+      },
+    });
   });
 
   it('keeps execute_status side-effect free while plan/cook/land are pending', async () => {
@@ -250,6 +350,7 @@ describe('Brunch explicit Pi extension registry', () => {
       expect.arrayContaining([
         'mutate_graph',
         'read_graph',
+        BRUNCH_EXECUTE_SNAPSHOT_TOOL,
         'read_elicitation_gaps',
         'read_reconciliation_needs',
         'update_reconciliation_needs',

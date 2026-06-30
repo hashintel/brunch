@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import {
+  BRUNCH_EXECUTE_SNAPSHOT_TOOL,
   BRUNCH_EXECUTE_STATUS_TOOL,
   BRUNCH_ORCHESTRATOR_STUB_TOOL,
 } from '../../../session/schema/tool-names.js';
@@ -32,6 +33,7 @@ const registeredToolNames = [
   'read_reconciliation_needs',
   'update_reconciliation_needs',
   'mutate_graph',
+  BRUNCH_EXECUTE_SNAPSHOT_TOOL,
   BRUNCH_EXECUTE_STATUS_TOOL,
   BRUNCH_ORCHESTRATOR_STUB_TOOL,
 ];
@@ -303,9 +305,11 @@ describe('agent posture policy', () => {
         (entry) => entry.name,
       ),
     ).toEqual(['scope-execution-task', 'build-with-tests']);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_SNAPSHOT_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_STATUS_TOOL);
     expect(executeTools).toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
     expect(executeTools).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_SNAPSHOT_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_STATUS_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
   });
