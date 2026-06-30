@@ -9,6 +9,7 @@ Pure contracts and projection helpers that turn `next` graph facts into execute-
 ```text
 orchestration/
 ├── README.md
+├── cook-plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO
 ├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
+import { BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL } from '../agent-runtime/execute-cook-plan-preview/index.js';
 import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../agent-runtime/execute-plan-check/index.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-draft-artifact/index.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_TOOL } from '../agent-runtime/execute-plan-draft/index.js';
@@ -67,6 +68,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(settings.extensions).toEqual(
       expect.arrayContaining([
         '-extensions/agent-runtime/index.ts',
+        '-extensions/agent-runtime/execute-cook-plan-preview/index.ts',
         '-extensions/agent-runtime/execute-plan-check/index.ts',
         '-extensions/agent-runtime/execute-plan-draft-artifact/index.ts',
         '-extensions/agent-runtime/execute-plan-draft/index.ts',
@@ -235,6 +237,82 @@ describe('Brunch explicit Pi extension registry', () => {
         status: 'ok',
         counts: { requirements: 1, criteria: 0, verifiedRequirements: 0, criteriaWithRequirement: 0 },
         findings: [expect.objectContaining({ code: 'requirement_without_criterion' })],
+        sideEffects: [],
+      },
+    });
+  });
+
+  it('registers execute_cook_plan_preview only with selected graph deps and returns old cook DTO shape', async () => {
+    const registeredTools: Array<{
+      name: string;
+      execute: (
+        toolCallId: string,
+        params: unknown,
+      ) => Promise<{
+        content: readonly { text: string }[];
+        details: Record<string, unknown>;
+      }>;
+    }> = [];
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+      graph: {
+        specId: 42,
+        commandExecutor: {} as never,
+        reads: {
+          queryGraph: () =>
+            ({
+              lsn: 17,
+              nodes: [
+                {
+                  id: 1,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'requirement',
+                  kindOrdinal: 1,
+                  title: 'Run the cooked feature',
+                  body: 'Feature runs through the alpha executor.',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [],
+            }) as never,
+          getNodes: () => [],
+          resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
+          getOpenReconciliationNeeds: () => [],
+          latestLsn: () => 17,
+        },
+      },
+    })({
+      on() {},
+      registerTool(tool: (typeof registeredTools)[number]) {
+        registeredTools.push(tool);
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => [],
+      setActiveTools() {},
+    } as never);
+
+    const preview = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL);
+    expect(preview).toBeDefined();
+    const result = await preview!.execute('call-1', { mode: 'brownfield' });
+
+    expect(result.content[0]?.text).toContain('execute_cook_plan_preview: brownfield');
+    expect(result.details).toMatchObject({
+      source: { graphLsn: 17, visibility: 'active' },
+      sideEffects: [],
+      preview: {
+        schemaVersion: 1,
+        mode: 'brownfield',
+        epics: [expect.objectContaining({ id: 'frontier-1', summary: 'Implement projected requirements' })],
+        slices: [expect.objectContaining({ id: 'task-1', epic_id: 'frontier-1' })],
         sideEffects: [],
       },
     });
@@ -687,7 +765,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
+      'ported tools: execute_status, execute_snapshot, execute_cook_plan_preview, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
     );
     expect(result.content[0]?.text).toContain('pending tools: plan, cook, land');
     expect(result.details).toMatchObject({
@@ -696,6 +774,7 @@ describe('Brunch explicit Pi extension registry', () => {
       portedTools: [
         'execute_status',
         'execute_snapshot',
+        'execute_cook_plan_preview',
         'execute_plan_check',
         'execute_plan_draft',
         'execute_plan_draft_artifact',
@@ -760,6 +839,7 @@ describe('Brunch explicit Pi extension registry', () => {
       expect.arrayContaining([
         'mutate_graph',
         'read_graph',
+        BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,
         BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
         BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
         BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,

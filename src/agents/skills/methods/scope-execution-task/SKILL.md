@@ -17,6 +17,8 @@ Call `execute_plan_outline` when it is active and you need a reviewable plan-sha
 
 Call `execute_plan_draft` when it is active and you need executable-plan-shaped data for review or downstream tooling. Treat the draft as schema-shaped data, not as a written `plan.yaml` or a cook run.
 
+Call `execute_cook_plan_preview` when it is active and you need to inspect the old-cook-compatible DTO shape. It previews compatibility only; it does not write `plan.yaml`, compile a Petri net, or start a cook run.
+
 Call `execute_plan_draft_artifact` only when the user asks to persist executable-plan-shaped data for review. It writes an artifact under `.brunch/execution-reports`; it still does not create an executable `plan.yaml`, cook run, worktree, Petri net, or promotion branch.
 
 Call `execute_plan_outline_artifact` only when the user asks to persist that outline for review. It writes an artifact under `.brunch/execution-reports`; it still does not create a cook run, worktree, Petri net, or promotion branch.

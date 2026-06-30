@@ -2,6 +2,7 @@
   "extensions": [
     "extensions/chrome/index.ts",
     "-extensions/agent-runtime/index.ts",
+    "-extensions/agent-runtime/execute-cook-plan-preview/index.ts",
     "-extensions/agent-runtime/execute-plan-check/index.ts",
     "-extensions/agent-runtime/execute-plan-draft-artifact/index.ts",
     "-extensions/agent-runtime/execute-plan-draft/index.ts",
