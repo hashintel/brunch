@@ -1,14 +1,16 @@
 ---
 name: intent
-description: "Focus on intent-plane claims: goals, terms, assumptions, constraints, and decisions."
+description: "Suspended historical intent-plane source; not a live lens."
 ---
 
-# intent
+# intent — suspended
 
-Use this lens when the conversation is about what the product/spec means: goals, thesis/context, terms, requirements, assumptions, constraints, invariants, decisions, criteria, and examples. The plane focus is intent; design and oracle material may appear only as support or downstream consequence.
+This file is historical source material from the retired lens axis. It is not a live prompt resource, not model-routable, and not an active topical mode.
 
-Favor graph kinds and edges that clarify claim shape. Goals should derive requirements; assumptions with high fanout should be validated or downgraded; decisions should name rejected alternatives and rationale; constraints should bind a target through boundary edges; examples should illustrate or challenge requirements. Proof/support edges may be noted when evidence is already present, but do not turn verification planning into the center of this lens.
+Surviving guidance was distributed into live activity homes:
 
-Interpretation rule: translate user language into the smallest honest intent claim. "Must" often points to requirement, "probably" to assumption, "we picked" to decision, "always true" to invariant, and concrete cases to examples. If the category support is weak, ask a disambiguating question rather than guessing.
+- `src/agents/skills/elicit/SKILL.md` owns intent-question selection: translate user language into the smallest honest claim and ask rather than guess when category support is weak.
+- `src/agents/skills/review/SKILL.md` owns intent critique: goals without requirements, requirements without examples/criteria, high-fanout assumptions, decisions without rejected alternatives or rationale, conflicting boundaries, and weak category support.
+- Proposal-specific intent guidance remains in `src/agents/skills/propose/references/intent.md`.
 
-Topology-driven next questions: look for goals with no derived requirements, requirements with no examples, decisions with empty rejected alternatives, and conflicting boundaries. Ask about the most graph-shaping absence first.
+Do not reactivate this as a peer lens unless a future SPEC/PLAN decision restores a live lens surface.

@@ -28,6 +28,8 @@ For branching elicitation, ask one structured question at a time. Choose the hig
 
 For ambiguity, prefer contrastive examples over abstract definition requests. Name the ambiguity, offer two or three concrete interpretations that differ on one graph-relevant axis, and ask which is closer or what distinction is missing. A chosen contrast becomes explicit graph truth only when the user states or approves the exact claim; otherwise it just refines the next question.
 
+Choose question content by the plane of uncertainty. For intent, translate user language into the smallest honest claim and ask rather than guess when category support is weak. For design, ask what owns a responsibility, what information crosses the boundary, what should be hidden, or which side owns mutation/projection. For oracle, ask what observation would discriminate success from failure, what counterexample would break the claim, or what evidence would witness it.
+
 ## Do's and Don'ts
 
 ### Use It For

@@ -1,14 +1,16 @@
 ---
 name: oracle
-description: "Focus on verification obligations, checks, evidence, and blind spots."
+description: "Suspended historical oracle-plane source; not a live lens."
 ---
 
-# oracle
+# oracle — suspended
 
-Use this lens when the conversation is about how claims will be checked, witnessed, or kept honest. The plane focus is oracle: checks, validation methods, evidence, obligations, criteria, and blind spots.
+This file is historical source material from the retired lens axis. It is not a live prompt resource, not model-routable, and not an active topical mode.
 
-Favor oracle-plane checks and validation methods, criteria/examples in intent when they express expected behavior, and `witness` edges from evidence to claims. Ask what would convince the user, what counterexample would break the claim, what fixture or probe would reveal failure, and which obligation remains unwitnessed.
+Surviving guidance was distributed into live activity homes:
 
-Interpretation rule: do not confuse an implementation task with an oracle. A good oracle says what observation would discriminate success from failure. If the user gives a metric, ask what claim it validates; if they give a requirement, ask what evidence would witness it. Treat absence honestly as verification debt, not as a passed check.
+- `src/agents/skills/elicit/SKILL.md` owns oracle-question selection: ask what observation would discriminate success from failure, what counterexample would break the claim, and what evidence would witness it.
+- `src/agents/skills/review/SKILL.md` owns oracle critique: claims without observation, criteria without target behavior, obligations without evidence, fixtures/probes without replay commitment, one-family blind spots, and metrics with no claim they validate.
+- Proposal-specific oracle guidance remains in `src/agents/skills/propose/references/oracle.md`.
 
-Topology-driven next questions: prioritize requirements with no incoming witness, criteria with no outgoing witness target, high-fanout assumptions with low confidence, and review/proposal material that lacks evidence. Ask the smallest question that turns an unwitnessed claim into a checkable obligation.
+Do not reactivate this as a peer lens unless a future SPEC/PLAN decision restores a live lens surface.

@@ -1,14 +1,16 @@
 ---
 name: design
-description: "Focus on design implications and module/interface boundaries."
+description: "Suspended historical design-plane source; not a live lens."
 ---
 
-# design
+# design — suspended
 
-Use this lens when the spec pressure is about modules, interfaces, ownership, boundaries, or architecture. The plane focus is design: how accepted intent could be realized without prematurely treating implementation detail as product truth.
+This file is historical source material from the retired lens axis. It is not a live prompt resource, not model-routable, and not an active topical mode.
 
-Favor design-plane modules and interfaces, plus realization or boundary edges back to intent claims. Useful questions ask what owns a responsibility, what information crosses a boundary, what should be hidden, what depends on what, and where invalid states should be made unrepresentable. When design uncovers a missing requirement, capture or ask through the intent lens rather than smuggling it in as architecture.
+Surviving guidance was distributed into live activity homes:
 
-Interpretation rule: design statements are commitments about shape, dependency direction, and information hiding. Separate a user preference for an implementation from a requirement the implementation serves. If two modules seem to own the same fact, ask which boundary should own mutation or projection.
+- `src/agents/skills/elicit/SKILL.md` owns design-question selection: ask what owns a responsibility, what information crosses the boundary, what should be hidden, and which side owns mutation or projection.
+- `src/agents/skills/review/SKILL.md` owns design critique: unclear ownership, leaky interfaces, unbacked realization edges, dependency-direction drift, duplicated fact ownership, and implementation preference posing as requirement.
+- Proposal-specific design guidance remains in `src/agents/skills/propose/references/design.md`.
 
-Topology-driven next questions: inspect requirements with no realization, modules with unclear interfaces, conflicting boundary edges into the same target, or assumptions that many design nodes depend on. Prefer the question that makes dependency direction or ownership legible.
+Do not reactivate this as a peer lens unless a future SPEC/PLAN decision restores a live lens surface.

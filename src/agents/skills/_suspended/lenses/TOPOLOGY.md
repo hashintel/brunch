@@ -1,26 +1,23 @@
-# lenses/ — Topical-focus prompt resources
+# _suspended/lenses/ — suspended historical plane sources
 
-SPEC decisions: D25-L, D56-L
+SPEC decisions: D25-L, D56-L, D98-L
 
-Each lens describes a topical focus — what domain of the spec the
-agent is currently exploring or proposing into.
+This directory contains historical lens-axis prompt resources only. Under D98-L they are not active prompt resources, not user-changeable runtime axes, and not model-routable skills.
 
-## Lenses
+## Current disposition
 
-| Lens      | Plane focus | Notes                                   |
-|-----------|-------------|-----------------------------------------|
-| `intent`  | intent      | Requirements, goals, constraints, etc.  |
-| `design`  | design      | Modules, interfaces, architecture       |
-| `oracle`  | oracle      | Checks, criteria, evidence, obligations |
+| Suspended source | Surviving guidance | Current live home |
+| --- | --- | --- |
+| `intent` | claim-shape interpretation, weak-support abstention, and intent-plane gaps | `elicit`, `review`, `propose/references/intent.md` |
+| `design` | ownership, boundary, dependency-direction, and information-hiding questions/critiques | `elicit`, `review`, `propose/references/design.md` |
+| `oracle` | unwitnessed-claim, checkability, evidence, and blind-spot questions/critiques | `elicit`, `review`, `propose/references/oracle.md` |
 
-Future execute-mode lenses (`plan`, `sync`, `scope`) are deferred.
+## Boundary rules
 
-## Heuristic provenance
+```pseudo
+rules:
+  agents/runtime/elicitor/ x> _suspended/lenses/ [live elicitor does not load lens-axis resources]
+  _suspended/lenses/ -> agents/skills/{elicit,review,propose}/ [historical source only]
+```
 
-Topology-driven next-question heuristics (look for goals with no derived
-requirements, requirements with no examples/witnesses, decisions with empty
-rejected alternatives, conflicting boundaries — ask about the most graph-shaping
-absence first) are authored and locked into each `<lens>/SKILL.md` body in distilled
-form (D97-L: cite/distill, do not copy vocabulary tables). Graph vocabulary itself is owned by
-`src/graph/schema/kinds.ts`. This topology file owns the current lens membership
-only — not a parallel copy of the per-lens ranking heuristics.
+Do not add new active lens members here. Plane heuristics now belong to the live move that uses them: questioning in `elicit`, critique in `review`, and candidate generation in `propose`.
