@@ -20,7 +20,8 @@ export interface CookRunMetadata {
     | 'agent_result_ingested'
     | 'test_result_ingested'
     | 'slice_completed'
-    | 'run_completed';
+    | 'run_completed'
+    | 'petri_exported';
   readonly worktreeDir?: string;
   readonly populatedPlanPath?: string;
   readonly sourcePolicy?: string;
@@ -34,6 +35,7 @@ export interface CookRunMetadata {
   readonly agentResultPath?: string;
   readonly testResultPath?: string;
   readonly completedSliceIds?: readonly string[];
+  readonly petriPath?: string;
 }
 
 export type CookRunCreateResult =

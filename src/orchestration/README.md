@@ -13,6 +13,7 @@ orchestration/
 ├── cook-plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml
 ├── cook-launch.ts             spec-scoped plan.yaml -> non-running launch readiness
 ├── cook-plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
+├── cook-petri.ts              completed run -> minimal Petrinaut net.json
 ├── cook-populate.ts           worktree -> plan-only worktree population
 ├── cook-report.ts             source-copied run -> reports.jsonl initialization
 ├── cook-run-complete.ts       completed slices -> run completion marker
@@ -84,3 +85,5 @@ rules:
 `cook-slice-complete.ts` appends `slice_completed` after test result ingestion and records the completed slice id in `run.json`. Petri artifacts, promotion refs, and land branches remain deferred.
 
 `cook-run-complete.ts` appends `run_completed` once every plan slice is completed and records `status:"run_completed"`. Petri artifacts, promotion refs, and land branches remain deferred.
+
+`cook-petri.ts` writes the first minimal Petrinaut artifact at `.brunch/cook/runs/<runId>/petrinaut/net.json` for a completed run and records `status:"petri_exported"`. Promotion refs and land branches remain deferred.

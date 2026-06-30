@@ -9,6 +9,7 @@ import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { BRUNCH_EXECUTE_COOK_AGENT_RESULT_TOOL } from '../agent-runtime/execute-cook-agent-result/index.js';
 import { BRUNCH_EXECUTE_COOK_LAUNCH_TOOL } from '../agent-runtime/execute-cook-launch/index.js';
+import { BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL } from '../agent-runtime/execute-cook-petri-export/index.js';
 import { BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL } from '../agent-runtime/execute-cook-plan-file/index.js';
 import { BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL } from '../agent-runtime/execute-cook-plan-preview/index.js';
 import { BRUNCH_EXECUTE_COOK_POPULATE_TOOL } from '../agent-runtime/execute-cook-populate/index.js';
@@ -148,6 +149,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'web_search',
       BRUNCH_EXECUTE_STATUS_TOOL,
       BRUNCH_EXECUTE_COOK_AGENT_RESULT_TOOL,
+      BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL,
       BRUNCH_EXECUTE_COOK_POPULATE_TOOL,
       BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL,
       BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL,
@@ -1436,10 +1438,10 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_cook_agent_result, execute_cook_launch, execute_cook_plan_file, execute_cook_plan_preview, execute_cook_populate, execute_cook_report_init, execute_cook_run_complete, execute_cook_run_create, execute_cook_source_policy, execute_cook_source_copy, execute_cook_slice_complete, execute_cook_slice_start, execute_cook_slice_execute, execute_cook_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
+      'ported tools: execute_status, execute_snapshot, execute_cook_agent_result, execute_cook_launch, execute_cook_plan_file, execute_cook_plan_preview, execute_cook_petri_export, execute_cook_populate, execute_cook_report_init, execute_cook_run_complete, execute_cook_run_create, execute_cook_source_policy, execute_cook_source_copy, execute_cook_slice_complete, execute_cook_slice_start, execute_cook_slice_execute, execute_cook_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
     );
-    expect(result.content[0]?.text).toContain('pending tools: cook_petri, land');
-    expect(result.content[0]?.text).toContain('cook execution: slice completion only; Petri not ported');
+    expect(result.content[0]?.text).toContain('pending tools: land');
+    expect(result.content[0]?.text).toContain('cook execution: Petri artifact export only; land not ported');
     expect(result.details).toMatchObject({
       discipline: 'interpretive',
       availableDisciplines: ['strict', 'interpretive'],
@@ -1450,6 +1452,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_cook_launch',
         'execute_cook_plan_file',
         'execute_cook_plan_preview',
+        'execute_cook_petri_export',
         'execute_cook_populate',
         'execute_cook_report_init',
         'execute_cook_run_complete',
@@ -1466,7 +1469,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_plan_outline',
         'execute_plan_outline_artifact',
       ],
-      pendingTools: ['cook_petri', 'land'],
+      pendingTools: ['land'],
       sideEffects: [],
     });
   });
