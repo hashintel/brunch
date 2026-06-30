@@ -71,7 +71,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 
 ### Active
 
-- `orchestrator-alpha-cutover` (FE-1089) — active on `ka/fe-1089-orchestrator-alpha-cutover`. Native CODE/executor footholds landed: execute-mode method guidance, side-effect-free `execute_status`, `ExecutionSpecSnapshot v1`, `execute_snapshot`, `execute_plan_check`, `execute_plan_outline` (now embeds criterion content), `execute_plan_outline_artifact`, `ExecutablePlanDraft`, `execute_plan_draft`, `execute_plan_draft_artifact`, `execute_cook_plan_preview`, and method guidance routing through those foothold tools. Next slice should harden cook-plan compatibility (for example schema parity with the old plan model) before any plan file writer or runner; no cook runs/worktrees yet.
+- `orchestrator-alpha-cutover` (FE-1089) — active on `ka/fe-1089-orchestrator-alpha-cutover`. Native CODE/executor footholds landed: execute-mode method guidance, side-effect-free `execute_status`, `ExecutionSpecSnapshot v1`, `execute_snapshot`, `execute_plan_check`, `execute_plan_outline` (now embeds criterion content), `execute_plan_outline_artifact`, `ExecutablePlanDraft`, `execute_plan_draft`, `execute_plan_draft_artifact`, `execute_cook_plan_preview`, old cook `Plan` compatibility hardening (`spec` provenance mapped; non-derivable `profile`/`harnessNotes`/`writes`/reachability fields explicitly deferred), `execute_cook_plan_file` bounded writer to `.brunch/cook/specs/<specId>/plan.yaml`, non-running `execute_cook_launch` readiness validation, metadata-only `execute_cook_run_create`, empty-worktree `execute_cook_worktree_create`, plan-only `execute_cook_populate`, source-policy-only `execute_cook_source_policy`, bounded `execute_cook_source_copy`, report-log `execute_cook_report_init`, marker-only `execute_cook_slice_start`, and method guidance routing through those foothold tools. Next slice may scope agent/test execution for the active slice; no Petri execution yet.
 
 ### Recently Completed
 
@@ -114,7 +114,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 - **Kind:** structural / execute-mode orchestration cutover
 - **Status:** active; foothold slices landed.
 - **Certainty:** proving.
-- **Current execution pointer:** next slice should harden cook-plan compatibility (for example schema parity with the old plan model) before any plan file writer or runner; do not create cook runs/worktrees yet.
+- **Current execution pointer:** cook-plan compatibility hardening, bounded plan-file writing, non-running launch readiness, metadata-only run creation, empty worktree creation, plan-only worktree population, source policy selection, bounded host source copying, report-log initialization, and marker-only slice start are done; next slice may scope agent/test execution for the active slice, while preserving the no-Petri/promotion boundary until that seam is explicitly accepted.
 - **Objective:** Cut the old `main` cook orchestrator off the divergent stable branch and re-grow it natively on alpha's CODE/executor substrate. The near-term bridge is `ExecutionSpecSnapshot v1` plus side-effect-free executor tools; data-model harmonization and adaptive replan are deferred.
 - **Acceptance:**
   - ✓ CODE/executor prompt resources can scope and build from a plan hypothesis without granting raw write/shell authority.
@@ -127,7 +127,17 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
   - ✓ `ExecutablePlanDraft` / `execute_plan_draft` produces executable-plan-shaped epics/slices/criterion verification data without writing a plan file.
   - ✓ `execute_plan_draft_artifact` writes the executable-plan draft under `.brunch/execution-reports/<specId>/executable-plan-draft.json` without creating a cook run/worktree.
   - ✓ `execute_cook_plan_preview` maps the draft into an old-cook-compatible DTO preview without writing `plan.yaml`.
-  - Next: compatibility hardening toward the old plan model before any plan file writer or runner.
+  - ✓ Cook-plan compatibility is field-classified against the old `Plan` model: `spec` provenance is mapped; `profile`, `harnessNotes`, `writes`, and reachability/probe fields remain explicitly deferred/absent until alpha has truthful sources.
+  - ✓ `execute_cook_plan_file` writes the old-cook `Plan` payload to `.brunch/cook/specs/<specId>/plan.yaml` as one explicit `write_file` side effect, stripping preview-only fields and creating no run/worktree/Petri/promotion artifacts.
+  - ✓ `execute_cook_launch` validates the selected spec's plan path as `missing_plan` or `ready`, returns `runStatus: not_started`, and creates no run/worktree/Petri/report/promotion artifacts.
+  - ✓ `execute_cook_run_create` creates `.brunch/cook/runs/<runId>/run.json` metadata for a ready plan and creates no worktree/Petri/report/promotion artifacts.
+  - ✓ `execute_cook_worktree_create` creates an empty `.brunch/cook/runs/<runId>/worktree/` for an existing run and updates run metadata; it does not populate source, run agents, write reports, compile Petri artifacts, promote, or land.
+  - ✓ `execute_cook_populate` copies the selected plan into the worktree and updates run metadata; it does not copy host source, run agents, write reports, compile Petri artifacts, promote, or land.
+  - ✓ `execute_cook_source_policy` records the host-source policy and updates run metadata; it does not copy host source, run agents, write reports, compile Petri artifacts, promote, or land.
+  - ✓ `execute_cook_source_copy` copies bounded host source into the worktree, excluding `.brunch`, `.git`, `node_modules`, `dist`, and `build`; it does not run agents, write reports, compile Petri artifacts, promote, or land.
+  - ✓ `execute_cook_report_init` initializes `reports.jsonl` with a single `run_ready` event and updates run metadata; it does not execute slices, compile Petri artifacts, promote, or land.
+  - ✓ `execute_cook_slice_start` appends a `slice_started` marker for one plan slice and updates run metadata; it does not run agents, tests, Petri transitions, promote, or land.
+  - Next: scope agent/test execution for the active slice.
   - Later: cook execution, Petri/net artifacts, worktrees, promotion/land, and adaptive replan arrive as separate slices; topology mutation remains out of interpretive execution.
 - **Traceability:** R26; D39-L, D40-L, D58-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L; `src/orchestration/README.md`, `src/.pi/extensions/README.md`.
 

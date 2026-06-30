@@ -330,6 +330,26 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 
 ### Critical Invariants
 
+> D99-L compatibility refinement (2026-06-30, FE-1089): `execute_cook_plan_preview` maps old cook `Plan.spec` provenance from draft requirement/criterion data and explicitly defers absent old-runner fields (`profile`, `harnessNotes`, `writes`, `probe`, `reachability`) until alpha has truthful sources for them. The preview remains non-writing and non-running under I52-L.
+
+> D99-L writer refinement (2026-06-30, FE-1089): `execute_cook_plan_file` is the first accepted executable plan-file side effect. It writes only `.brunch/cook/specs/<specId>/plan.yaml` from the compatibility preview after stripping preview-only fields, returns an explicit `write_file` effect, and still creates no cook run, worktree, Petri artifact, graph mutation, promotion ref, or land branch under I52-L.
+
+> D99-L runner-launch refinement (2026-06-30, FE-1089): `execute_cook_launch` is a runner-facing readiness boundary, not cook execution. It checks the selected spec's bounded `plan.yaml`, reports `missing_plan` or `ready`, always returns `runStatus: not_started`, and creates no cook run, worktree, Petri artifact, report log, graph mutation, promotion ref, or land branch under I52-L.
+
+> D99-L run-metadata refinement (2026-06-30, FE-1089): `execute_cook_run_create` creates only `.brunch/cook/runs/<runId>/run.json` metadata for a ready selected-spec plan. The accepted side effects are `mkdir` for the run directory and `write_file` for `run.json`; worktrees, Petri artifacts, report logs, graph mutations, promotion refs, and land branches remain deferred under I52-L.
+
+> D99-L empty-worktree refinement (2026-06-30, FE-1089): `execute_cook_worktree_create` creates only an empty `.brunch/cook/runs/<runId>/worktree/` for an existing run and updates `run.json` to `status:"worktree_created"`. Source population, sandbox strategy, agent execution, Petri artifacts, report logs, graph mutations, promotion refs, and land branches remain deferred under I52-L.
+
+> D99-L plan-population refinement (2026-06-30, FE-1089): `execute_cook_populate` copies only the selected plan into `.brunch/cook/runs/<runId>/worktree/.brunch/cook/plan.yaml` and updates `run.json` to `status:"worktree_populated"`. Host source population, sandbox policy, agent execution, Petri artifacts, report logs, graph mutations, promotion refs, and land branches remain deferred under I52-L.
+
+> D99-L source-policy refinement (2026-06-30, FE-1089): `execute_cook_source_policy` records source policy only (`plan_only` or `host_source_deferred`) in `source-policy.json` and updates `run.json` to `status:"source_policy_selected"`; it never copies host source files. Actual host source copying, sandbox policy, agent execution, Petri artifacts, report logs, graph mutations, promotion refs, and land branches remain deferred under I52-L.
+
+> D99-L source-copy refinement (2026-06-30, FE-1089): `execute_cook_source_copy` copies bounded host source entries for `host_source_deferred` runs into the worktree, excluding `.brunch`, `.git`, `node_modules`, `dist`, and `build`, then updates `source-policy.json` and `run.json` to `status:"source_copied"`. Agent execution, Petri artifacts, report logs, graph mutations, promotion refs, and land branches remain deferred under I52-L.
+
+> D99-L report-init refinement (2026-06-30, FE-1089): `execute_cook_report_init` initializes `reports.jsonl` for a source-copied run with a single `run_ready` event and updates `run.json` to `status:"reports_initialized"`. Slice execution, Petri artifacts, graph mutations, promotion refs, and land branches remain deferred under I52-L.
+
+> D99-L slice-start refinement (2026-06-30, FE-1089): `execute_cook_slice_start` appends a `slice_started` marker for one plan slice and updates `run.json` with `activeSliceId` / `activeEpicId`. This is marker-only: no agent, test, Petri transition, graph mutation, promotion ref, or land branch is created under I52-L.
+
 | # | Invariant | Protected by | Proves |
 | --- | --- | --- | --- |
 | I1-L | One spec-local LSN per selected-spec commit; every persisted spec has exactly one `graph_clock` row; every change-log entry, graph-node version, and reconciliation-need in that spec carries an LSN strictly monotonic with that spec's graph clock. Bare LSNs are not comparable across sibling specs. | partially covered (`CommandExecutor`, migration, `mutateGraph`, graph queries, RPC, prompt-context, and seed-fixture tests prove local allocation, one-row clock ownership, sibling isolation, and missing-clock invariant failure) | D4-L, D6-L, D8-L |

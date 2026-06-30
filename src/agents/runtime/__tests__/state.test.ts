@@ -6,7 +6,16 @@ import { describe, expect, it } from 'vitest';
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import {
+  BRUNCH_EXECUTE_COOK_LAUNCH_TOOL,
+  BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL,
   BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,
+  BRUNCH_EXECUTE_COOK_POPULATE_TOOL,
+  BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL,
+  BRUNCH_EXECUTE_COOK_RUN_CREATE_TOOL,
+  BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL,
+  BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL,
+  BRUNCH_EXECUTE_COOK_SLICE_START_TOOL,
+  BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL,
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
   BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
   BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
@@ -39,7 +48,16 @@ const registeredToolNames = [
   'read_reconciliation_needs',
   'update_reconciliation_needs',
   'mutate_graph',
+  BRUNCH_EXECUTE_COOK_LAUNCH_TOOL,
+  BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL,
   BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,
+  BRUNCH_EXECUTE_COOK_POPULATE_TOOL,
+  BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL,
+  BRUNCH_EXECUTE_COOK_RUN_CREATE_TOOL,
+  BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL,
+  BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL,
+  BRUNCH_EXECUTE_COOK_SLICE_START_TOOL,
+  BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL,
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
   BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
   BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
@@ -317,7 +335,16 @@ describe('agent posture policy', () => {
         (entry) => entry.name,
       ),
     ).toEqual(['scope-execution-task', 'build-with-tests']);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_LAUNCH_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_POPULATE_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_RUN_CREATE_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_SLICE_START_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_PLAN_CHECK_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_PLAN_DRAFT_TOOL);
@@ -327,7 +354,16 @@ describe('agent posture policy', () => {
     expect(executeTools).toContain(BRUNCH_EXECUTE_STATUS_TOOL);
     expect(executeTools).toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
     expect(executeTools).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_LAUNCH_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_POPULATE_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_RUN_CREATE_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_SLICE_START_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_PLAN_CHECK_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_PLAN_DRAFT_TOOL);

@@ -523,7 +523,16 @@ describe('composeAgentPrompt previews', () => {
           'grep',
           'find',
           'ls',
+          'execute_cook_launch',
+          'execute_cook_plan_file',
           'execute_cook_plan_preview',
+          'execute_cook_populate',
+          'execute_cook_report_init',
+          'execute_cook_run_create',
+          'execute_cook_source_policy',
+          'execute_cook_source_copy',
+          'execute_cook_slice_start',
+          'execute_cook_worktree_create',
           'execute_plan_check',
           'execute_plan_draft_artifact',
           'execute_plan_draft',
@@ -547,7 +556,7 @@ describe('composeAgentPrompt previews', () => {
     expect(rendered).toContain('<name>build-with-tests</name>');
     expect(rendered).toContain('Current prompt-resource selection');
     expect(rendered).toContain(
-      '- active tools: read, grep, find, ls, execute_cook_plan_preview, execute_plan_check, execute_plan_draft_artifact, execute_plan_draft, execute_plan_outline_artifact, execute_plan_outline, execute_snapshot, execute_status, orchestrator_stub',
+      '- active tools: read, grep, find, ls, execute_cook_launch, execute_cook_plan_file, execute_cook_plan_preview, execute_cook_populate, execute_cook_report_init, execute_cook_run_create, execute_cook_source_policy, execute_cook_source_copy, execute_cook_slice_start, execute_cook_worktree_create, execute_plan_check, execute_plan_draft_artifact, execute_plan_draft, execute_plan_outline_artifact, execute_plan_outline, execute_snapshot, execute_status, orchestrator_stub',
     );
   });
 

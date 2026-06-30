@@ -25,10 +25,15 @@ const draft: ExecutablePlanDraft = {
 };
 
 describe('previewCookPlan', () => {
-  it('maps executable draft data into the old cook plan shape without side effects', () => {
-    expect(previewCookPlan(draft)).toEqual({
+  it('maps executable draft data into the old cook Plan shape without side effects', () => {
+    expect(previewCookPlan(draft)).toMatchObject({
       schemaVersion: 1,
       mode: 'brownfield',
+      spec: {
+        spec_id: '7',
+        requirements: [{ item_id: 'REQ1', content: 'Build the feature.' }],
+        criteria: [{ item_id: 'AC1', content: 'Feature is visible.', verifies: ['REQ1'] }],
+      },
       epics: [
         { id: 'frontier-1', summary: 'Implement projected requirements', depends_on: [], verification: [] },
       ],
@@ -44,5 +49,15 @@ describe('previewCookPlan', () => {
       ],
       sideEffects: [],
     });
+  });
+
+  it('leaves old runner fields absent when the executable draft cannot derive them truthfully', () => {
+    const preview = previewCookPlan(draft);
+
+    expect(preview).not.toHaveProperty('profile');
+    expect(preview).not.toHaveProperty('harnessNotes');
+    expect(preview.epics[0]).not.toHaveProperty('probe');
+    expect(preview.epics[0]).not.toHaveProperty('reachability');
+    expect(preview.slices[0]).not.toHaveProperty('writes');
   });
 });
