@@ -71,7 +71,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 
 ### Active
 
-- `orchestrator-alpha-cutover` (FE-1089) — active on `ka/fe-1089-orchestrator-alpha-cutover`. Native CODE/executor footholds landed: execute-mode method guidance, side-effect-free `execute_status`, `ExecutionSpecSnapshot v1`, `execute_snapshot`, `execute_plan_check`, `execute_plan_outline` (now embeds criterion content), `execute_plan_outline_artifact`, `ExecutablePlanDraft`, `execute_plan_draft`, and method guidance routing through those foothold tools. Next slice should either write the executable draft as a bounded artifact or start schema hardening toward old cook plan compatibility; no cook runs/worktrees yet.
+- `orchestrator-alpha-cutover` (FE-1089) — active on `ka/fe-1089-orchestrator-alpha-cutover`. Native CODE/executor footholds landed: execute-mode method guidance, side-effect-free `execute_status`, `ExecutionSpecSnapshot v1`, `execute_snapshot`, `execute_plan_check`, `execute_plan_outline` (now embeds criterion content), `execute_plan_outline_artifact`, `ExecutablePlanDraft`, `execute_plan_draft`, `execute_plan_draft_artifact`, and method guidance routing through those foothold tools. Next slice should start schema hardening toward old cook plan compatibility; no cook runs/worktrees yet.
 
 ### Recently Completed
 
@@ -114,7 +114,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 - **Kind:** structural / execute-mode orchestration cutover
 - **Status:** active; foothold slices landed.
 - **Certainty:** proving.
-- **Current execution pointer:** next slice should either write the executable draft as a bounded artifact or start schema hardening toward old cook plan compatibility; do not create cook runs/worktrees yet.
+- **Current execution pointer:** next slice should start schema hardening toward old cook plan compatibility; do not create cook runs/worktrees yet.
 - **Objective:** Cut the old `main` cook orchestrator off the divergent stable branch and re-grow it natively on alpha's CODE/executor substrate. The near-term bridge is `ExecutionSpecSnapshot v1` plus side-effect-free executor tools; data-model harmonization and adaptive replan are deferred.
 - **Acceptance:**
   - ✓ CODE/executor prompt resources can scope and build from a plan hypothesis without granting raw write/shell authority.
@@ -125,7 +125,8 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
   - ✓ `execute_plan_outline` turns the snapshot into reviewable plan-shaped data with embedded criterion content, without creating a run sandbox or plan file.
   - ✓ `execute_plan_outline_artifact` writes the reviewable outline under `.brunch/execution-reports/<specId>/plan-outline.json` without creating a cook run/worktree.
   - ✓ `ExecutablePlanDraft` / `execute_plan_draft` produces executable-plan-shaped epics/slices/criterion verification data without writing a plan file.
-  - Next: bounded executable-draft artifact writer or schema hardening toward old cook plan compatibility.
+  - ✓ `execute_plan_draft_artifact` writes the executable-plan draft under `.brunch/execution-reports/<specId>/executable-plan-draft.json` without creating a cook run/worktree.
+  - Next: schema hardening toward old cook plan compatibility.
   - Later: cook execution, Petri/net artifacts, worktrees, promotion/land, and adaptive replan arrive as separate slices; topology mutation remains out of interpretive execution.
 - **Traceability:** R26; D39-L, D40-L, D58-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I50-L; `src/orchestration/README.md`, `src/.pi/extensions/README.md`.
 
