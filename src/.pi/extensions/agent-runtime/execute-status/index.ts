@@ -21,6 +21,7 @@ interface ExecuteStatusDetails {
   readonly portedTools: readonly [
     'execute_status',
     'execute_snapshot',
+    'execute_cook_agent_result',
     'execute_cook_launch',
     'execute_cook_plan_file',
     'execute_cook_plan_preview',
@@ -38,7 +39,7 @@ interface ExecuteStatusDetails {
     'execute_plan_outline',
     'execute_plan_outline_artifact',
   ];
-  readonly pendingTools: readonly ['cook_agent_result', 'land'];
+  readonly pendingTools: readonly ['cook_test_result', 'land'];
   readonly sideEffects: readonly [];
 }
 
@@ -58,9 +59,9 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
             text: [
               `execute_status: ${discipline}`,
               'available disciplines: strict, interpretive',
-              'ported tools: execute_status, execute_snapshot, execute_cook_launch, execute_cook_plan_file, execute_cook_plan_preview, execute_cook_populate, execute_cook_report_init, execute_cook_run_create, execute_cook_source_policy, execute_cook_source_copy, execute_cook_slice_start, execute_cook_slice_execute, execute_cook_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
-              'pending tools: cook_agent_result, land',
-              'cook execution: request artifact only; agent process not ported',
+              'ported tools: execute_status, execute_snapshot, execute_cook_agent_result, execute_cook_launch, execute_cook_plan_file, execute_cook_plan_preview, execute_cook_populate, execute_cook_report_init, execute_cook_run_create, execute_cook_source_policy, execute_cook_source_copy, execute_cook_slice_start, execute_cook_slice_execute, execute_cook_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
+              'pending tools: cook_test_result, land',
+              'cook execution: agent result ingestion only; tests not ported',
               'side effects: none',
             ].join('\n'),
           },
@@ -71,6 +72,7 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
           portedTools: [
             'execute_status',
             'execute_snapshot',
+            'execute_cook_agent_result',
             'execute_cook_launch',
             'execute_cook_plan_file',
             'execute_cook_plan_preview',
@@ -88,7 +90,7 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
             'execute_plan_outline',
             'execute_plan_outline_artifact',
           ],
-          pendingTools: ['cook_agent_result', 'land'],
+          pendingTools: ['cook_test_result', 'land'],
           sideEffects: [],
         },
       };

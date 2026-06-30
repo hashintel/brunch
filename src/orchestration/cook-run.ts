@@ -16,7 +16,8 @@ export interface CookRunMetadata {
     | 'source_copied'
     | 'reports_initialized'
     | 'slice_started'
-    | 'slice_execution_requested';
+    | 'slice_execution_requested'
+    | 'agent_result_ingested';
   readonly worktreeDir?: string;
   readonly populatedPlanPath?: string;
   readonly sourcePolicy?: string;
@@ -27,6 +28,7 @@ export interface CookRunMetadata {
   readonly activeSliceId?: string;
   readonly activeEpicId?: string;
   readonly sliceExecutionRequestPath?: string;
+  readonly agentResultPath?: string;
 }
 
 export type CookRunCreateResult =

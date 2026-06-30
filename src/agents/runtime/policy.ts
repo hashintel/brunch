@@ -10,6 +10,7 @@ import type {
 } from '../../session/schema/kinds.js';
 import { AGENT_METHOD_IDS, type AgentMethodId } from '../../session/schema/kinds.js';
 import {
+  BRUNCH_EXECUTE_COOK_AGENT_RESULT_TOOL,
   BRUNCH_EXECUTE_COOK_LAUNCH_TOOL,
   BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL,
   BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,
@@ -123,6 +124,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
         'ls',
         'web_fetch',
         'web_search',
+        BRUNCH_EXECUTE_COOK_AGENT_RESULT_TOOL,
         BRUNCH_EXECUTE_COOK_LAUNCH_TOOL,
         BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL,
         BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,
@@ -158,6 +160,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
         'ls',
         'web_fetch',
         'web_search',
+        BRUNCH_EXECUTE_COOK_AGENT_RESULT_TOOL,
         BRUNCH_EXECUTE_COOK_LAUNCH_TOOL,
         BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL,
         BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,

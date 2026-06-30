@@ -22,6 +22,7 @@ const executeMethodToolExpectations = {
   'scope-execution-task': [
     'execute_status',
     'execute_snapshot',
+    'execute_cook_agent_result',
     'execute_cook_launch',
     'execute_cook_plan_file',
     'execute_cook_plan_preview',
@@ -42,6 +43,7 @@ const executeMethodToolExpectations = {
   'build-with-tests': [
     'execute_status',
     'execute_snapshot',
+    'execute_cook_agent_result',
     'execute_cook_launch',
     'execute_cook_plan_file',
     'execute_cook_plan_preview',
