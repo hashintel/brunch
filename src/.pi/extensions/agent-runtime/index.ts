@@ -3,6 +3,7 @@ export * from './execute-cook-launch/index.js';
 export * from './execute-cook-plan-file/index.js';
 export * from './execute-cook-plan-preview/index.js';
 export * from './execute-cook-petri-export/index.js';
+export * from './execute-cook-promotion-prepare/index.js';
 export * from './execute-cook-populate/index.js';
 export * from './execute-cook-report-init/index.js';
 export * from './execute-cook-run-complete/index.js';

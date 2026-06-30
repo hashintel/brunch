@@ -21,7 +21,8 @@ export interface CookRunMetadata {
     | 'test_result_ingested'
     | 'slice_completed'
     | 'run_completed'
-    | 'petri_exported';
+    | 'petri_exported'
+    | 'promotion_prepared';
   readonly worktreeDir?: string;
   readonly populatedPlanPath?: string;
   readonly sourcePolicy?: string;
@@ -36,6 +37,7 @@ export interface CookRunMetadata {
   readonly testResultPath?: string;
   readonly completedSliceIds?: readonly string[];
   readonly petriPath?: string;
+  readonly promotionPath?: string;
 }
 
 export type CookRunCreateResult =
