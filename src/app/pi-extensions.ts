@@ -5,6 +5,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
+import { registerBrunchExecuteStatus } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchOrchestratorStub } from '../.pi/extensions/agent-runtime/index.js';
 import {
   conservativeUncoveredFloorGaps,
@@ -105,6 +106,9 @@ export { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 
 export { registerBrunchGraph } from '../.pi/extensions/brunch-data/index.js';
 export {
+  BRUNCH_EXECUTE_STATUS_TOOL,
+  createExecuteStatusTool,
+  registerBrunchExecuteStatus,
   BRUNCH_ORCHESTRATOR_STUB_TOOL,
   createOrchestratorStubTool,
   registerBrunchOrchestratorStub,
@@ -223,6 +227,7 @@ export function createBrunchPiExtensions(
       (api) => registerBrunchOperationalModePolicy(api, { devAllowedToolNames }),
       registerBrunchContext,
       registerBrunchWebTools,
+      registerBrunchExecuteStatus,
       registerBrunchOrchestratorStub,
       ...(hasDelegatableSubagents
         ? [(api: ExtensionAPI) => registerBrunchSubagents(api, options.subagents!)]

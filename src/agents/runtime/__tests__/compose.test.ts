@@ -518,7 +518,7 @@ describe('composeAgentPrompt previews', () => {
             },
           },
         ]),
-        activeTools: ['read', 'grep', 'find', 'ls', 'orchestrator_stub'],
+        activeTools: ['read', 'grep', 'find', 'ls', 'execute_status', 'orchestrator_stub'],
         agentBody: '# Agent: executor\n\nPreview role body from `src/agents/prompts/executor.md`.',
       }),
     );
@@ -532,6 +532,7 @@ describe('composeAgentPrompt previews', () => {
     expect(rendered).toContain('<name>scope-execution-task</name>');
     expect(rendered).toContain('<name>build-with-tests</name>');
     expect(rendered).toContain('Current prompt-resource selection');
+    expect(rendered).toContain('- active tools: read, grep, find, ls, execute_status, orchestrator_stub');
   });
 
   it('elicitor--pushed-context: fixture handles and rendered contexts present', async () => {

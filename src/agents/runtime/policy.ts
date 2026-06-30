@@ -9,7 +9,10 @@ import type {
   OperationalModeId,
 } from '../../session/schema/kinds.js';
 import { AGENT_METHOD_IDS, type AgentMethodId } from '../../session/schema/kinds.js';
-import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../../session/schema/tool-names.js';
+import {
+  BRUNCH_EXECUTE_STATUS_TOOL,
+  BRUNCH_ORCHESTRATOR_STUB_TOOL,
+} from '../../session/schema/tool-names.js';
 import { bundledAgentBodyRepoPath } from '../registry.js';
 import { evaluateCapabilityReadiness, type CapabilityId } from './capability-readiness.js';
 
@@ -103,13 +106,14 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
         'ls',
         'web_fetch',
         'web_search',
+        BRUNCH_EXECUTE_STATUS_TOOL,
         BRUNCH_ORCHESTRATOR_STUB_TOOL,
       ],
       canDelegate: [],
       defaultStrategy: 'auto',
       defaultLens: 'auto',
       toolAuthority:
-        'execute executor read-only plus a code-owned stub tool; direct shell and file writes are blocked',
+        'execute executor read-only plus code-owned execute tools; direct shell and file writes are blocked',
     },
     toolPolicy: {
       id: 'execute-executor',
@@ -120,6 +124,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
         'ls',
         'web_fetch',
         'web_search',
+        BRUNCH_EXECUTE_STATUS_TOOL,
         BRUNCH_ORCHESTRATOR_STUB_TOOL,
       ],
       blockedToolNames: ['bash', 'edit', 'write'],

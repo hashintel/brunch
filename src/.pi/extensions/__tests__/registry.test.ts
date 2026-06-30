@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
+import { BRUNCH_EXECUTE_STATUS_TOOL } from '../agent-runtime/execute-status/index.js';
 import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../agent-runtime/orchestrator-stub/index.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
 import { registerBrunchPrompting as prompting } from '../agent-runtime/system-prompts/index.js';
@@ -59,6 +60,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(settings.extensions).toEqual(
       expect.arrayContaining([
         '-extensions/agent-runtime/index.ts',
+        '-extensions/agent-runtime/execute-status/index.ts',
         '-extensions/agent-runtime/runtime/index.ts',
         '-extensions/agent-runtime/system-prompts/index.ts',
         '-extensions/brunch-data/index.ts',
@@ -113,6 +115,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'read_session_context',
       'web_fetch',
       'web_search',
+      BRUNCH_EXECUTE_STATUS_TOOL,
       BRUNCH_ORCHESTRATOR_STUB_TOOL,
       'present_alternatives',
       PRESENT_QUESTION_TOOL,
@@ -149,6 +152,49 @@ describe('Brunch explicit Pi extension registry', () => {
       event === 'session_start' ? [index] : [],
     );
     expect(sessionStartIndexes[0]).toBeLessThan(sessionStartIndexes[1] ?? -1);
+  });
+
+  it('keeps execute_status side-effect free while plan/cook/land are pending', async () => {
+    const registeredTools: Array<{
+      name: string;
+      execute: (
+        toolCallId: string,
+        params: unknown,
+      ) => Promise<{
+        content: readonly { text: string }[];
+        details: Record<string, unknown>;
+      }>;
+    }> = [];
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+    })({
+      on() {},
+      registerTool(tool: (typeof registeredTools)[number]) {
+        registeredTools.push(tool);
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => [],
+      setActiveTools() {},
+    } as never);
+
+    const status = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_STATUS_TOOL);
+    expect(status).toBeDefined();
+    const result = await status!.execute('call-1', { discipline: 'interpretive' });
+
+    expect(result.content[0]?.text).toContain('execute_status: interpretive');
+    expect(result.content[0]?.text).toContain('pending tools: plan, cook, land');
+    expect(result.details).toMatchObject({
+      discipline: 'interpretive',
+      availableDisciplines: ['strict', 'interpretive'],
+      portedTools: ['execute_status'],
+      pendingTools: ['plan', 'cook', 'land'],
+      sideEffects: [],
+    });
   });
 
   it('keeps the default stub tool output aligned with its registered identity', async () => {
