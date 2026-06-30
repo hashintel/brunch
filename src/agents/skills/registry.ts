@@ -8,6 +8,7 @@ export const LIVE_BRUNCH_SKILL_IDS = [
   'elicit',
   'ingest',
   'map',
+  'project',
   'propose',
   'review',
   'tutorial',

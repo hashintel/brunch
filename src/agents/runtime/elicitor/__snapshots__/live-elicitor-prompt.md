@@ -35,6 +35,11 @@ Fixed body.
     <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/map/SKILL.md</location>
   </skill>
   <skill>
+    <name>project</name>
+    <description>Derive downstream graph-plane material from accepted upstream graph anchors; use for intent-to-design or design-to-oracle projection without adding a new tool, schema family, or commit path.</description>
+    <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/project/SKILL.md</location>
+  </skill>
+  <skill>
     <name>propose</name>
     <description>Generate candidate source material for human recognition and review; use when the elicitor should fan out alternatives, compare them, and fan in without treating proposals as accepted graph truth.</description>
     <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/propose/SKILL.md</location>
