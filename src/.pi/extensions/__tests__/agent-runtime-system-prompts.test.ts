@@ -150,6 +150,43 @@ describe('Brunch prompt-pack topology', () => {
     });
   });
 
+  it('composes the execute-mode executor prompt without calling the elicitor composer', async () => {
+    const executeState: BrunchAgentState = {
+      schemaVersion: 1,
+      operationalMode: 'execute',
+      agentStrategy: 'auto',
+      agentLens: 'auto',
+    };
+    const events: Record<string, (event: never, ctx?: never) => unknown> = {};
+
+    registerBrunchPrompting(
+      {
+        on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+          events[event] = handler;
+        },
+        getAllTools: () =>
+          ['read', 'grep', 'find', 'ls', 'bash', 'write', 'orchestrator_stub'].map((name) => ({ name })),
+        setActiveTools() {},
+      } as never,
+      promptContext,
+    );
+
+    await expect(
+      Promise.resolve(
+        events.before_agent_start?.(
+          { systemPrompt: 'base' } as never,
+          {
+            sessionManager: {
+              getEntries: () => [runtimeEntry(executeState)],
+            },
+          } as never,
+        ),
+      ),
+    ).resolves.toMatchObject({
+      systemPrompt: expect.stringContaining('# Executor'),
+    });
+  });
+
   it('refreshes selected-spec prompt context through the shell session-boundary path before composing', async () => {
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
     let selected = {

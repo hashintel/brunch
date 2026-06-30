@@ -208,6 +208,27 @@ describe('Brunch agent runtime-state projection', () => {
     });
   });
 
+  it('activates an explicit non-empty execute-mode tool set from registered tools', () => {
+    const executeState: BrunchAgentState = {
+      schemaVersion: 1,
+      operationalMode: 'execute',
+      agentStrategy: 'auto',
+      agentLens: 'auto',
+    };
+
+    expect(
+      activeToolNamesForBrunchAgentState(
+        {
+          getAllTools: () =>
+            ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write', 'orchestrator_stub'].map((name) => ({
+              name,
+            })),
+        } as never,
+        projectBrunchAgentState([runtimeEntry(executeState)]),
+      ),
+    ).toEqual(['read', 'grep', 'find', 'ls', 'orchestrator_stub']);
+  });
+
   it('appends init only when the transcript has no valid runtime state', () => {
     const manager = new FakeRuntimeStateSessionManager();
 

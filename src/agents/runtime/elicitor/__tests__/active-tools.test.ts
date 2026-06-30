@@ -36,4 +36,13 @@ describe('activeToolNamesForLiveElicitor', () => {
       }),
     ).toEqual(['read', 'subagent', 'brunch_session_query']);
   });
+
+  it('does not let dev opt-ins advertise blocked tool names', () => {
+    expect(
+      activeToolNamesForLiveElicitor({
+        registeredToolNames: ['read', 'bash', 'edit', 'write', 'brunch_session_query'],
+        devAllowedToolNames: ['bash', 'edit', 'write', 'brunch_session_query'],
+      }),
+    ).toEqual(['read', 'brunch_session_query']);
+  });
 });
