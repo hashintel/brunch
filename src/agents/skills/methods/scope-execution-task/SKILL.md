@@ -37,6 +37,8 @@ Call `execute_cook_report_init` only to initialize `reports.jsonl` after source 
 
 Call `execute_cook_slice_start` only to append a slice-start marker after reports are initialized. It appends a `slice_started` report and updates `run.json`; it still does not run agents, run tests, compile Petri nets, promote, or land.
 
+Call `execute_cook_slice_execute` only to create an execution request artifact for the active slice. It writes `agent-output/<sliceId>/request.json`, appends a `slice_execution_requested` report, and updates `run.json`; it still does not run agents, run tests, compile Petri nets, promote, or land.
+
 Call `execute_plan_draft_artifact` only when the user asks to persist executable-plan-shaped data for review. It writes an artifact under `.brunch/execution-reports`; it still does not create an executable `plan.yaml`, cook run, worktree, Petri net, or promotion branch.
 
 Call `execute_plan_outline_artifact` only when the user asks to persist that outline for review. It writes an artifact under `.brunch/execution-reports`; it still does not create a cook run, worktree, Petri net, or promotion branch.

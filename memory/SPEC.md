@@ -350,6 +350,8 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 
 > D99-L slice-start refinement (2026-06-30, FE-1089): `execute_cook_slice_start` appends a `slice_started` marker for one plan slice and updates `run.json` with `activeSliceId` / `activeEpicId`. This is marker-only: no agent, test, Petri transition, graph mutation, promotion ref, or land branch is created under I52-L.
 
+> D99-L slice-execution-request refinement (2026-06-30, FE-1089): `execute_cook_slice_execute` writes `agent-output/<sliceId>/request.json`, appends `slice_execution_requested` to `reports.jsonl`, and updates `run.json` to `status:"slice_execution_requested"`. It does not invoke an agent process, run tests, create Petri artifacts, mutate graph state, promote, or land under I52-L.
+
 | # | Invariant | Protected by | Proves |
 | --- | --- | --- | --- |
 | I1-L | One spec-local LSN per selected-spec commit; every persisted spec has exactly one `graph_clock` row; every change-log entry, graph-node version, and reconciliation-need in that spec carries an LSN strictly monotonic with that spec's graph clock. Bare LSNs are not comparable across sibling specs. | partially covered (`CommandExecutor`, migration, `mutateGraph`, graph queries, RPC, prompt-context, and seed-fixture tests prove local allocation, one-row clock ownership, sibling isolation, and missing-clock invariant failure) | D4-L, D6-L, D8-L |

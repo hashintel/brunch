@@ -13,6 +13,7 @@ import { registerBrunchExecuteCookReportInit } from '../.pi/extensions/agent-run
 import { registerBrunchExecuteCookRunCreate } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookSourceCopy } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookSourcePolicy } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookSliceExecute } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookSliceStart } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookWorktreeCreate } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanCheck } from '../.pi/extensions/agent-runtime/index.js';
@@ -146,6 +147,9 @@ export {
   BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL,
   createExecuteCookSourcePolicyTool,
   registerBrunchExecuteCookSourcePolicy,
+  BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL,
+  createExecuteCookSliceExecuteTool,
+  registerBrunchExecuteCookSliceExecute,
   BRUNCH_EXECUTE_COOK_SLICE_START_TOOL,
   createExecuteCookSliceStartTool,
   registerBrunchExecuteCookSliceStart,
@@ -300,6 +304,7 @@ export function createBrunchPiExtensions(
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookRunCreate(api, graph)] : []),
       registerBrunchExecuteCookSourcePolicy,
       registerBrunchExecuteCookSourceCopy,
+      registerBrunchExecuteCookSliceExecute,
       registerBrunchExecuteCookSliceStart,
       registerBrunchExecuteCookWorktreeCreate,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),

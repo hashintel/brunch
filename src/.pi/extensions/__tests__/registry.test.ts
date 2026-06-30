@@ -13,6 +13,7 @@ import { BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL } from '../agent-runtime/execute-
 import { BRUNCH_EXECUTE_COOK_POPULATE_TOOL } from '../agent-runtime/execute-cook-populate/index.js';
 import { BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL } from '../agent-runtime/execute-cook-report-init/index.js';
 import { BRUNCH_EXECUTE_COOK_RUN_CREATE_TOOL } from '../agent-runtime/execute-cook-run-create/index.js';
+import { BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL } from '../agent-runtime/execute-cook-slice-execute/index.js';
 import { BRUNCH_EXECUTE_COOK_SLICE_START_TOOL } from '../agent-runtime/execute-cook-slice-start/index.js';
 import { BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL } from '../agent-runtime/execute-cook-source-copy/index.js';
 import { BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL } from '../agent-runtime/execute-cook-source-policy/index.js';
@@ -143,6 +144,7 @@ describe('Brunch explicit Pi extension registry', () => {
       BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL,
       BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL,
       BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL,
+      BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL,
       BRUNCH_EXECUTE_COOK_SLICE_START_TOOL,
       BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL,
       BRUNCH_ORCHESTRATOR_STUB_TOOL,
@@ -982,6 +984,54 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'agent-output'))).rejects.toThrow();
   });
 
+  it('registers execute_cook_slice_execute as execution request only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-slice-execute-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    const reportPath = join(runDir, 'reports.jsonl');
+    await mkdir(runDir, { recursive: true });
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/tmp/plan.yaml',
+        status: 'slice_started',
+        reportsPath: reportPath,
+        activeSliceId: 'task-1',
+        activeEpicId: 'frontier-1',
+      }),
+      'utf8',
+    );
+    await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 27, nodes: [], edges: [] },
+    });
+
+    const sliceExecute = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL);
+    expect(sliceExecute).toBeDefined();
+    const result = await sliceExecute!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
+    expect(result.content[0]?.text).toContain('execute_cook_slice_execute: slice_execution_requested');
+    expect(result.details).toMatchObject({
+      result: {
+        status: 'slice_execution_requested',
+        runStatus: 'slice_execution_requested',
+        runId: 'run-1',
+        requestPath,
+      },
+      sideEffects: [
+        { kind: 'mkdir', path: dirname(requestPath) },
+        { kind: 'write_file', path: requestPath, ifExists: 'overwrite' },
+        { kind: 'append_file', path: reportPath },
+        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      ],
+    });
+    await expect(readFile(requestPath, 'utf8')).resolves.toContain('execute_slice');
+    await expect(access(join(runDir, 'agent-output', 'task-1', 'result.json'))).rejects.toThrow();
+  });
+
   it('registers execute_plan_outline only with selected graph deps and returns a side-effect-free outline', async () => {
     const registeredTools: Array<{
       name: string;
@@ -1249,11 +1299,11 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_cook_launch, execute_cook_plan_file, execute_cook_plan_preview, execute_cook_populate, execute_cook_report_init, execute_cook_run_create, execute_cook_source_policy, execute_cook_source_copy, execute_cook_slice_start, execute_cook_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
+      'ported tools: execute_status, execute_snapshot, execute_cook_launch, execute_cook_plan_file, execute_cook_plan_preview, execute_cook_populate, execute_cook_report_init, execute_cook_run_create, execute_cook_source_policy, execute_cook_source_copy, execute_cook_slice_start, execute_cook_slice_execute, execute_cook_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
     );
-    expect(result.content[0]?.text).toContain('pending tools: cook_agent_execute, land');
+    expect(result.content[0]?.text).toContain('pending tools: cook_agent_result, land');
     expect(result.content[0]?.text).toContain(
-      'cook execution: slice marker only; agent execution not ported',
+      'cook execution: request artifact only; agent process not ported',
     );
     expect(result.details).toMatchObject({
       discipline: 'interpretive',
@@ -1270,6 +1320,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_cook_source_policy',
         'execute_cook_source_copy',
         'execute_cook_slice_start',
+        'execute_cook_slice_execute',
         'execute_cook_worktree_create',
         'execute_plan_check',
         'execute_plan_draft',
@@ -1277,7 +1328,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_plan_outline',
         'execute_plan_outline_artifact',
       ],
-      pendingTools: ['cook_agent_execute', 'land'],
+      pendingTools: ['cook_agent_result', 'land'],
       sideEffects: [],
     });
   });
