@@ -1,4 +1,4 @@
-# Projecting Plans
+# Mapping Plans
 
 ## Job
 
@@ -74,7 +74,7 @@ notes:
   - #R2 can contain several slices through `composition`.
   - #R3 should have a plausible verification route.
 
-## Plan projection matrix
+## Plan mapping matrix
 
 | Upstream pressure                 | Plan response                           | Edge hint                                              |
 | --------------------------------- | --------------------------------------- | ------------------------------------------------------ |

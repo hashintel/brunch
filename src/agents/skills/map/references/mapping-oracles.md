@@ -1,4 +1,4 @@
-# Oracle and Witness design
+# Mapping Oracles
 
 For agents designing verification, criteria, checks, evidence, and proof obligations. Use when the task is “how will we know this holds?”
 

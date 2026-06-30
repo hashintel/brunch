@@ -1,8 +1,8 @@
-# Projecting Edges
+# Mapping Edges
 
 Accepted edges use the closed structural categories owned by `src/graph/policy/category-policy.ts`. Do not use retired named-relation dialects such as `derived_from`, `motivated_by`, `rules_out`, `counterexample_for`, or `tested_by` as edge categories.
 
-Use the role-named `mutate_graph` grammar. Endpoint storage order does not carry impact meaning; category metadata owns endpoint roles, affected endpoint, impact strength, criteria-help signal, and projection effect.
+Use the role-named `mutate_graph` grammar. Endpoint storage order does not carry impact meaning; category metadata owns endpoint roles, affected endpoint, impact strength, criteria-help signal, and mapping effect.
 
 | If you mean...                                                             | Use current edge category                           |
 | -------------------------------------------------------------------------- | --------------------------------------------------- |

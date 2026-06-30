@@ -1,6 +1,6 @@
-# Technical design
+# Mapping Design
 
-Draft injectable reference for agents projecting accepted intent into coherent design-plane content. Use when generating, reviewing, or explaining `module`, `interface`, `entity`, or `sketch` nodes.
+Reference for agents mapping accepted intent into coherent design-plane content. Use when generating, reviewing, or explaining `module`, `interface`, `entity`, or `sketch` nodes.
 
 ## Job
 
@@ -24,7 +24,7 @@ accepted intent neighborhood
 | domain or data object                        | `entity`    | identity, lifecycle, relationships, or storage shape matter           | modelling every noun as an entity         |
 | tentative diagram, option, or advisory shape | `sketch`    | design helps thinking but should not yet constrain work               | hardening speculative architecture        |
 
-## Projection graph
+## Mapping graph
 
 ```pseudo
 nodes:
@@ -63,7 +63,7 @@ A design node is coherent when it names:
 - whether it is settled design (`module`/`interface`/`entity`) or advisory design (`sketch`);
 - at least one useful edge back to intent unless the node is explicitly a `sketch`.
 
-## Design projection matrix
+## Design mapping matrix
 
 | Intent pressure                       | Likely design response                    | Edge to create when settled                                                                  |
 | ------------------------------------- | ----------------------------------------- | -------------------------------------------------------------------------------------------- |

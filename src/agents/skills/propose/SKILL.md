@@ -1,11 +1,11 @@
 ---
-name: projection
-description: TBD
+name: propose
+description: Generate candidate graph material or alternative framings for human recognition and review without treating the proposal as settled graph truth.
 ---
 
-# Spec Projection
+# Propose
 
-Projection is a skill primarily for the `elicitor` agent, which corresponds to the stages of the elicitation process beyond grounding and elaboration
+Propose is a skill primarily for the `elicitor` agent when the next move is to generate candidate material for user recognition rather than ask for a missing answer.
 
 
 

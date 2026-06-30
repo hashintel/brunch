@@ -22,7 +22,7 @@ spec graph material:
 
 > **`kind` drives behavior** — readiness evaluation, edge legality, and the elicitor's questioning strategy
 
-Twenty-four kinds across four planes, in canonical plane order. Codes are schema-owned in [`nodes.ts`](../../../../graph/schema/nodes.ts); readiness-band terminology is owned by [`readiness-bands.md`](../../../contexts/about/readiness-bands.md). A band of `—` means the kind carries no readiness band (D94-L); band-less kinds are `example`, `sketch`, `term`.
+Twenty-four kinds across four planes, in canonical plane order. Codes are schema-owned in [`nodes.ts`](../../../graph/schema/nodes.ts); readiness-band terminology is owned by [`readiness-bands.md`](readiness-bands.md). A band of `—` means the kind carries no readiness band (D94-L); band-less kinds are `example`, `sketch`, `term`.
 
 ### Intent plane — what and why (13 kinds)
 

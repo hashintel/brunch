@@ -1,13 +1,24 @@
 ---
-name: projection
-description: Draft or organize candidate graph material for the selected spec without confusing proposal with committed truth. Use when the agent should turn grounded understanding into a small reviewable structure or next-step graph shape.
+name: map
+description: Map grounded material into graph-shaped intent, design, oracle, plan, and edge candidates without confusing proposal with committed truth.
 ---
 
-# Projection
+# Map
+
+Map owns source-independent graph ontology guidance: what kind a span becomes, which edge category relates two items, and how intent, design, oracle, and plan planes stay distinct. Source intake belongs to `ingest`; proposal generation belongs to `propose`; approval gates belong to `review`.
+
+Read the focused references when detail matters:
+
+- [`references/mapping-kinds.md`](references/mapping-kinds.md) — kind selection, promotion, nearby-kind distinctions, and decision criteria.
+- [`references/mapping-edges.md`](references/mapping-edges.md) — the closed edge categories and role-named grammar.
+- [`references/mapping-design.md`](references/mapping-design.md) — `module`, `interface`, `entity`, and `sketch` routing.
+- [`references/mapping-oracles.md`](references/mapping-oracles.md) — criteria, checks, evidence, methods, obligations, and witnesses.
+- [`references/mapping-plans.md`](references/mapping-plans.md) — `milestone`, `frontier`, and `slice` routing.
+- [`references/routing.md`](references/routing.md) — confidence/conflict routing into settled graph truth, advisory graph signal, gaps, reconciliation, or review.
 
 Each plane answers a different concern. Stay on the plane the active work is on; cross-plane links are edges, not kind changes. Promote across planes only when the material genuinely hardens.
 
-## Projection / Intent
+## Map / Intent
 
 > what and why  #intent
 
@@ -37,11 +48,11 @@ coherence checks (intent)
 
 Typical edges: `rationale` (goal→requirement), `dependency` (claim→claim), `exclusion` (constraint→subject), `refinement` (general→specific), `witness` (example→claim, with stance).
 
-## Projection / Design
+## Map / Design
 
 > how it's shaped  
 
-Name the implementation shape that realizes the intent. Keep weak design hints as `sketch`; if a source clearly implies `module`, `interface`, or `entity` before harmonization, capture the sharper kind as advisory graph material.
+Name the implementation shape that realizes the intent. Keep weak design hints as `sketch`; if a source clearly implies `module`, `interface`, or `entity` before harmonization, map the sharper kind as advisory graph material.
 
 ```
 kinds: module (MOD) | interface (API) | entity (ENT) | sketch (SKT)
@@ -62,7 +73,7 @@ coherence checks (design)
 
 Typical edges: `realization` (requirement→module, renders "implemented by"), `refinement` (model→specialization), `composition` (whole→part), `dependency` (module→module).
 
-## Projection / Oracle
+## Map / Oracle
 
 > how we know  
 
@@ -86,7 +97,7 @@ coherence checks (oracle)
 
 Typical edges: `witness` (oracle→claim, `stance: for|against`), `realization` (criterion→check). Express evidence breadth (reviewed / example-backed / regression-covered / enforced / proved) as prose, never as graph metadata.
 
-## Projection / Plan
+## Map / Plan
 
 how it's sequenced  #plan
 

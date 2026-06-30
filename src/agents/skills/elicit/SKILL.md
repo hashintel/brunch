@@ -1,9 +1,9 @@
 ---
-name: elicitation
-description: Ask focused questions and run the next human-facing exchange needed to move the selected spec forward. Use when the agent should acquire missing information, resolve ambiguity, or tighten the user's intent before capture or review.
+name: elicit
+description: Ask focused questions and run the next human-facing exchange needed to move the selected spec forward. Use when the agent should acquire missing information, resolve ambiguity, or tighten the user's intent before ingest, map, or review.
 ---
 
-# Elicitation
+# Elicit
 
 Use this skill when the best next move is to ask the user for the missing piece that would improve the selected spec.
 
@@ -17,7 +17,7 @@ chain elicitation:
     -> identify the smallest meaningful absence
     -> choose the node kind or relation the answer would clarify
     -> ask one focused question
-    -> let capture handle graph persistence after the answer
+    -> let ingest/map/routing guidance handle graph persistence after the answer
 ```
 
 Use readiness bands as signal for the next question. They do not make earlier capture illegal and they do not make later-band material self-settling.

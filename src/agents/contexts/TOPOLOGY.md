@@ -31,7 +31,7 @@ rules:
 
 Targeted `.pi/extensions` tests guard the adapter half of this boundary for `brunch-data`, `agent-runtime`, and structured-exchange tools: Pi adapters may own schemas, labels, descriptions, prompt snippets, and TUI rendering, but provider-visible Brunch text must be imported from this subtree rather than formatted inline.
 
-`references/` and `about/` files are runtime-eligible agent-readable context references. They are shared cite targets when concepts should be loaded on demand without copying tables into skill bodies. Schema-owned graph vocabulary lives in `src/graph/schema/**` and `src/graph/policy/**`; authored graph-writing judgment lives with the live capture activity at `src/agents/skills/capture/references/graph-heuristics.md`; readiness-band terminology lives at `src/agents/contexts/about/readiness-bands.md`. Draft injectable slice candidates may live under their owning skill while being evaluated when they self-label as drafts and are not treated as required prompt-resource payload until a skill or prompt cites them.
+`references/` and `about/` files are runtime-eligible agent-readable context references. They are shared cite targets when concepts should be loaded on demand without copying tables into skill bodies. Schema-owned graph vocabulary lives in `src/graph/schema/**` and `src/graph/policy/**`; authored graph-mapping judgment lives under `src/agents/skills/map/references/`; readiness-band terminology lives at `src/agents/contexts/about/readiness-bands.md`. Draft injectable slice candidates may live under their owning skill while being evaluated when they self-label as drafts and are not treated as required prompt-resource payload until a skill or prompt cites them.
 
 ## Snapshot convention
 

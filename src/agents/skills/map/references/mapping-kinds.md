@@ -1,4 +1,4 @@
-# Projecting Intents
+# Mapping Kinds
 
 ## Classify by modality, then by plane
 
@@ -22,13 +22,13 @@ Start from the role the material plays, not the words the user happened to use.
 
 ### Oracle, design, and plan planes
 
-Use these when the material is no longer only intent capture.
+Use these when the material is no longer only intent-plane mapping.
 
 - Oracle plane (`check`, `vv_method`, `evidence`, `vv_obligation`) — concrete verification checks, verification methods, observed evidence, or proof/verification obligations.
 - Design plane (`module`, `interface`, `entity`, `sketch`) — implementation shape, seams, data/domain entities, or intentionally lightweight design sketches.
 - Plan plane (`milestone`, `frontier`, `slice`) — sequencing units. A `frontier` is the plan/tracker/branch unit; a `slice` is the buildable implementation unit inside it.
 
-Readiness bands guide questioning and projection; they do not gate graph capture. If the user or a reviewed source clearly supplies a later-band item early, capture it honestly with the right kind and basis, then mark settlement according to whether it has been harmonized.
+Readiness bands guide questioning and mapping; they do not gate graph truth. If the user or a reviewed source clearly supplies a later-band item early, map it honestly with the right kind and basis, then mark settlement according to whether it has been harmonized.
 
 ## Promote before filing as context
 
@@ -95,7 +95,7 @@ A story groups related behavior inside a spec. An example is a concrete witness.
 
 ### `sketch` vs committed design nodes
 
-Use `sketch` for lightweight design material that should not yet harden into module/interface/entity shape. When a source implies `module`, `interface`, or `entity` before projection has harmonized it, capture the sharper design kind as advisory rather than hiding it as a sketch.
+Use `sketch` for lightweight design material that should not yet harden into module/interface/entity shape. When a source implies `module`, `interface`, or `entity` before mapping has harmonized it, keep the sharper design kind as advisory rather than hiding it as a sketch.
 
 ## Decision capture criteria
 
@@ -136,3 +136,12 @@ out-of-scope disambiguator:
 ```
 
 Intent is often clarified by what has been ruled out. Prefer a concrete `example` plus `witness:against` or an `exclusion` edge over vague prose such as “not that.”
+
+## Coherent intent content checklist
+
+- Each node can be read aloud as a stable claim or named item.
+- `context` nodes are not carrying obligations, choices, boundaries, or uncertainty in disguise.
+- Requirements say what must hold; criteria say how we judge; examples make interpretation concrete.
+- Invariants protect preservation; constraints narrow solution space.
+- Decisions name rejected alternatives and rationale, not just "the user answered yes."
+- Negative knowledge is preserved as `example` plus `witness:against` or as `constraint`/`exclusion`, not as vague prose.

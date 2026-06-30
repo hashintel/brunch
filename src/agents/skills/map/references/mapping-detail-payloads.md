@@ -1,6 +1,6 @@
-# Slice: node detail payloads
+# Mapping Detail Payloads
 
-> Draft injectable context slice (scratch; not wired). Inject when an agent creates a `decision` or `term` node, or attaches a `detail.form` to a claim/`context` node. Source of truth is [`nodes.ts`](../../../graph/schema/nodes.ts).
+Inject when an agent creates a `decision` or `term` node, or attaches a `detail.form` to a claim/`context` node. Source of truth is [`nodes.ts`](../../../../graph/schema/nodes.ts).
 
 Two kinds require a non-form `detail` payload. Four kinds accept the inert `detail.form` method payload. **`kind` drives behavior; `detail.form` is inert** — it changes how a node renders or round-trips, never its readiness band, edge legality, or commitment strength.
 
@@ -20,7 +20,7 @@ term:
   aliases: string[]?           # optional alternate names
 ```
 
-A `decision` without a named rejected alternative is just a description — capture it as `context` or `decision` only once an alternative can be named (see `slice-kind-selection.md`).
+A `decision` without a named rejected alternative is just a description; map it as `context` or wait to create a `decision` until an alternative can be named.
 
 ## Claim detail.form
 
