@@ -11,6 +11,8 @@ Start by calling `execute_status` when the active tools expose it. Use its resul
 
 Then call `execute_snapshot` when it is active and the task depends on selected-spec truth. Treat the returned `ExecutionSpecSnapshot` as the handoff contract for scoping: requirements, criteria, verifies links, mode, and design/oracle context. If `execute_snapshot` is unavailable, say so and fall back to pushed graph context or read-only graph tools; do not invent a snapshot.
 
+Call `execute_plan_check` when it is active and you need to know whether the snapshot is ready to become plan input. Treat warnings as scoping facts, not blockers, and treat blocked status as a reason to ask for more spec work before plan/cook/land claims.
+
 Read the selected spec, pushed graph context, current session notes, and any run/report context available through Brunch tools. Identify the user-facing behavior, the requirement or criterion it serves, and the smallest codebase boundary that can prove progress. Prefer one vertical task brief over a grab bag. Name assumptions and missing context explicitly; do not invent product intent to fill gaps.
 
 The task brief should answer:
