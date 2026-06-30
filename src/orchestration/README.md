@@ -20,6 +20,7 @@ orchestration/
 ├── cook-slice-start.ts        reports-ready run -> slice-start marker
 ├── cook-source-copy.ts        source policy -> bounded host source copy
 ├── cook-source-policy.ts      plan-populated worktree -> source policy selection
+├── cook-test-result.ts        prewritten test result -> slice test report
 ├── cook-worktree.ts           run metadata -> empty worktree directory
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO
@@ -75,3 +76,5 @@ rules:
 `cook-slice-execute.ts` creates the first execution request artifact for the active slice under `agent-output/<sliceId>/request.json`, appends `slice_execution_requested`, and records `status:"slice_execution_requested"`. It still does not invoke an agent process, run tests, compile Petri artifacts, promote, or land.
 
 `cook-agent-result.ts` ingests an already-written `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and records `status:"agent_result_ingested"`. It is still not an agent launcher and does not run tests, compile Petri artifacts, promote, or land.
+
+`cook-test-result.ts` ingests an already-written `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and records `status:"test_result_ingested"`. It is still not a test runner and does not compile Petri artifacts, promote, or land.

@@ -18,6 +18,7 @@ import { BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL } from '../agent-runtime/execute
 import { BRUNCH_EXECUTE_COOK_SLICE_START_TOOL } from '../agent-runtime/execute-cook-slice-start/index.js';
 import { BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL } from '../agent-runtime/execute-cook-source-copy/index.js';
 import { BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL } from '../agent-runtime/execute-cook-source-policy/index.js';
+import { BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL } from '../agent-runtime/execute-cook-test-result/index.js';
 import { BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL } from '../agent-runtime/execute-cook-worktree-create/index.js';
 import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../agent-runtime/execute-plan-check/index.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-draft-artifact/index.js';
@@ -151,6 +152,7 @@ describe('Brunch explicit Pi extension registry', () => {
       BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL,
       BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL,
       BRUNCH_EXECUTE_COOK_SLICE_START_TOOL,
+      BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL,
       BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL,
       BRUNCH_ORCHESTRATOR_STUB_TOOL,
       'present_alternatives',
@@ -1078,6 +1080,48 @@ describe('Brunch explicit Pi extension registry', () => {
       ],
     });
     await expect(readFile(reportPath, 'utf8')).resolves.toContain('slice_agent_result');
+    await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
+  });
+
+  it('registers execute_cook_test_result as prewritten test result ingestion only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-test-result-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    const reportPath = join(runDir, 'reports.jsonl');
+    const resultPath = join(runDir, 'agent-output', 'task-1', 'test-result.json');
+    await mkdir(dirname(resultPath), { recursive: true });
+    await writeFile(resultPath, JSON.stringify({ status: 'passed', target: 'tests/task-1.test.ts' }), 'utf8');
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/tmp/plan.yaml',
+        status: 'agent_result_ingested',
+        reportsPath: reportPath,
+        activeSliceId: 'task-1',
+        activeEpicId: 'frontier-1',
+      }),
+      'utf8',
+    );
+    await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 29, nodes: [], edges: [] },
+    });
+
+    const testResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL);
+    expect(testResult).toBeDefined();
+    const result = await testResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_cook_test_result: test_result_ingested');
+    expect(result.details).toMatchObject({
+      result: { status: 'test_result_ingested', runStatus: 'test_result_ingested', resultPath },
+      sideEffects: [
+        { kind: 'append_file', path: reportPath },
+        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      ],
+    });
+    await expect(readFile(reportPath, 'utf8')).resolves.toContain('slice_test_result');
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
