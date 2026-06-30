@@ -287,11 +287,12 @@ describe('Brunch explicit Pi extension registry', () => {
     const result = await status!.execute('call-1', { discipline: 'interpretive' });
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
+    expect(result.content[0]?.text).toContain('ported tools: execute_status, execute_snapshot');
     expect(result.content[0]?.text).toContain('pending tools: plan, cook, land');
     expect(result.details).toMatchObject({
       discipline: 'interpretive',
       availableDisciplines: ['strict', 'interpretive'],
-      portedTools: ['execute_status'],
+      portedTools: ['execute_status', 'execute_snapshot'],
       pendingTools: ['plan', 'cook', 'land'],
       sideEffects: [],
     });
