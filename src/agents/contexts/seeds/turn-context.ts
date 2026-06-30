@@ -5,7 +5,7 @@
  * Owns the per-turn pushed context blocks the agent receives each turn: the
  * selected-workspace seed and the selected-spec graph seed. This is session/
  * world state rendered for the agent, distinct from system-prompt assembly
- * (`agents/runtime/compose.ts`), which only splices these blocks
+ * (`agents/runtime/elicitor/compose-live-prompt.ts`), which only splices these blocks
  * into the prompt frame. Keeping composition here means cycling operational
  * modes — which swaps the agent role and therefore the system prompt — does not
  * re-own context derivation: the prompt layer consumes a bundle it does not
@@ -17,13 +17,13 @@
  * Used by: `.pi/extensions/agent-runtime/system-prompts` (before_agent_start) via composeAgentContextSeed
  */
 
-import { renderSoftReadinessEstimate } from '../../../agents/contexts/session/readiness-estimate.js';
+import { renderSoftReadinessEstimate } from '../../../agents/contexts/data-model/session/readiness-estimate.js';
 import type { GraphSlice } from '../../../graph/queries.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
 import type { AgentLensSelection } from '../../../session/schema/kinds.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
-import { formatGraphOverview } from '../graph/graph-slice.js';
+import { formatGraphOverview } from '../data-model/graph/graph-slice.js';
 
 export interface AgentPromptSpecContext {
   id: number;

@@ -35,7 +35,7 @@
     "build": "tsc -p tsconfig.build.json && npm run build:info && npm run build:pi-assets && npm run build:web",
     "build:info": "node scripts/write-build-info.mjs",
     "prepack": "RELEASE=true npm run build",
-    "build:pi-assets": "rm -rf dist/agents/prompts dist/agents/subagents && mkdir -p dist/.pi/components/workspace-dialog dist/.pi/extensions/subagents dist/agents/prompts dist/agents/subagents dist/agents/skills dist/agents/contexts && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp src/agents/prompts/elicitor.md src/agents/prompts/executor.md dist/agents/prompts/ && cp src/agents/subagents/explorer.md src/agents/subagents/projector.md src/agents/subagents/researcher.md src/agents/subagents/reviewer.md dist/agents/subagents/ && cp -R src/agents/skills/strategies src/agents/skills/lenses src/agents/skills/methods dist/agents/skills/ && cp -R src/agents/contexts/references dist/agents/contexts/ && cp src/.pi/extensions/subagents/config.json dist/.pi/extensions/subagents/",
+    "build:pi-assets": "rm -rf dist/agents/prompts dist/agents/subagents && mkdir -p dist/.pi/components/workspace-dialog dist/.pi/extensions/subagents dist/agents/prompts dist/agents/subagents dist/agents/skills dist/agents/contexts && cp -R src/.pi/components/workspace-dialog/assets dist/.pi/components/workspace-dialog/ && cp src/agents/prompts/elicitor.md src/agents/prompts/executor.md dist/agents/prompts/ && cp src/agents/subagents/explorer.md src/agents/subagents/projector.md src/agents/subagents/researcher.md src/agents/subagents/reviewer.md dist/agents/subagents/ && cp -R src/agents/contexts/references dist/agents/contexts/ && cp src/.pi/extensions/subagents/config.json dist/.pi/extensions/subagents/",
     "build:web": "vite build",
     "seed": "tsx src/graph/seed-fixtures.ts",
     "generate:ontology": "tsx src/graph/schema/generate-ontology-ref.ts",
@@ -54,16 +54,17 @@
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "fix": "npm run lint:fix && npm run fmt",
-    "check": "npm run lint && npm run fmt:check && npm run check:skills && npm run check:data-model",
+    "fix": "npm run lint:fix && npm run fmt && npm run check:markdown-links",
+    "check": "npm run lint && npm run fmt:check && npm run check:markdown-links && npm run check:skills && npm run check:data-model",
     "check:skills": "node scripts/check-ln-skills.mjs",
+    "check:markdown-links": "remark AGENTS.md src --quiet --frail",
     "release": "release-it",
     "verify": "npm run fix && npm run test && npm run build"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "^0.79.4",
-    "@earendil-works/pi-coding-agent": "^0.79.4",
-    "@earendil-works/pi-tui": "^0.79.4",
+    "@earendil-works/pi-ai": "^0.79.10",
+    "@earendil-works/pi-coding-agent": "^0.79.10",
+    "@earendil-works/pi-tui": "^0.79.10",
     "@fontsource-variable/geist-mono": "^5.2.8",
     "@fontsource-variable/inter": "^5.2.8",
     "@mozilla/readability": "^0.6.0",
@@ -104,12 +105,19 @@
     "oxlint": "^1.69.0",
     "oxlint-tsgolint": "^0.23.0",
     "release-it": "^20.2.0",
+    "remark-cli": "^12.0.1",
+    "remark-validate-links": "^13.1.0",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "typescript-language-server": "^5.3.0",
     "vite": "^8.0.16",
     "vitest": "^4.1.9"
+  },
+  "remarkConfig": {
+    "plugins": [
+      "remark-validate-links"
+    ]
   },
   "engines": {
     "node": ">=24 <25"

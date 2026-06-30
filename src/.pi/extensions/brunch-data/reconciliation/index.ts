@@ -14,7 +14,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import {
   formatReconciliationNeeds,
   formatReconciliationUpdateResult,
-} from '../../../../agents/contexts/graph/reconciliation-needs.js';
+} from '../../../../agents/contexts/data-model/graph/reconciliation-needs.js';
 import type {
   CommandExecutor,
   CreateReconNeedResult,

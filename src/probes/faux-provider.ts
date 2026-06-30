@@ -20,20 +20,10 @@ export function brunchFauxProviderConfig(
   provider?: FauxProviderRegistration,
   apiKey: string = BRUNCH_FAUX_HARNESS_API_KEY,
 ): ProviderConfig {
-  return {
+  const baseConfig: ProviderConfig = {
     api: model.api as never,
     baseUrl: 'https://example.invalid',
     apiKey,
-    ...(provider === undefined
-      ? {}
-      : {
-          streamSimple: (requestModel, context, streamOptions) =>
-            streamSimple(
-              provider.getModel(requestModel.id) ?? provider.getModel(),
-              context as never,
-              streamOptions as never,
-            ),
-        }),
     models: [
       {
         id: model.modelId,
@@ -47,6 +37,18 @@ export function brunchFauxProviderConfig(
       },
     ],
   };
+  if (provider === undefined) return baseConfig;
+  const configWithStream: ProviderConfig = {
+    ...baseConfig,
+    streamSimple(requestModel, context, streamOptions?) {
+      return streamSimple(
+        provider.getModel(requestModel.id) ?? provider.getModel(),
+        context as never,
+        streamOptions as never,
+      );
+    },
+  };
+  return configWithStream;
 }
 
 export function defaultBrunchFauxModel(options: BrunchFauxModelContainer = {}): BrunchFauxModelOptions {

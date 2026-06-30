@@ -58,7 +58,7 @@ Use the mature SPEC shape unless the existing project clearly predates it and th
 
 SPEC is a live register, not an archive. Keep stable product contract separate from live architectural uncertainty and future direction. Prefer short guardrails plus links to PLAN/design docs over long design-doc-scale prose.
 
-A decision row is an **event** (chosen seam, rationale, supersession), not a state essay. When a decision materializes into topology, its current-state body belongs in the co-located home that owns it — for this project, the `src/**/README.md` for that subtree — and the decision keeps a one-line pointer. Do not duplicate a README's current-state prose into the decision; cross-cutting decisions keep one thin event record plus pointers into each home they touch. Ownership direction is defined in `AGENTS.md` §topology READMEs.
+A decision row is an **event** (chosen seam, rationale, supersession), not a state essay. When a decision materializes into topology, its current-state body belongs in the co-located home that owns it — for this project, the `src/**/TOPOLOGY.md` for that subtree — and the decision keeps a one-line pointer. Do not duplicate a topology file's current-state prose into the decision; cross-cutting decisions keep one thin event record plus pointers into each home they touch. Ownership direction is defined in `AGENTS.md` §topology files.
 
 ### Canonical-source ingestion
 
@@ -127,7 +127,7 @@ Every amendment must close its reference chain as far as the current lifecycle s
 - **New future direction** → has: PLAN frontier/horizon pointer or design-doc pointer; not full acceptance detail unless already active
 - **New constraint** → has: rationale for exclusion
 - **New inner-loop oracle item** → names the invariant(s) it protects
-- **Retired, renumbered, or materially rewritten ID** → grep topology READMEs under `src/**/` for the affected ID (`rg -l 'D52-L|A47-L|I12-L' src`); repair stale citations in this pass, do not leave them for `ln-sync`. See `AGENTS.md` §topology READMEs.
+- **Retired, renumbered, or materially rewritten ID** → grep topology files under `src/**/` for the affected ID (`rg -l 'D52-L|A47-L|I12-L' src`); repair stale citations in this pass, do not leave them for `ln-sync`. See `AGENTS.md` §topology files.
 
 ### Cross-skill preservation check
 

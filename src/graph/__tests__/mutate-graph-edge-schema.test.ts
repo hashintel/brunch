@@ -10,7 +10,6 @@ import { DevMutateGraphParamsSchema } from '../../dev/graph-curation.js';
 import { EDGE_CATEGORIES, EDGE_CATEGORY_METADATA, type EdgeCategory } from '../index.js';
 
 const devMutateGraphParamsSchema = DevMutateGraphParamsSchema as TSchema;
-
 function roleNamedEdgeOp(category: EdgeCategory): Record<string, unknown> {
   if (category === 'cross_reference') {
     return {

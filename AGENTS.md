@@ -49,11 +49,11 @@ Use a lightweight fractal sub-tree pattern when a file outgrows its current mini
 
 ## intentional topology stubs
 
-Some source files intentionally contain only a design comment plus `export {}`. Treat these as topology contracts / planned public seams when the comment names ownership, input/output shape, future callers, migration state, or a SPEC/PLAN/README decision. The comment is the payload; the empty export only keeps the file a TypeScript module.
+Some source files intentionally contain only a design comment plus `export {}`. Treat these as topology contracts / planned public seams when the comment names ownership, input/output shape, future callers, migration state, or a SPEC/PLAN/TOPOLOGY decision. The comment is the payload; the empty export only keeps the file a TypeScript module.
 
 `export {}` plus zero imports/usages is not evidence that the file is false topology. Import/build checks prove only that deletion is mechanically safe today; they do not prove the documented topology intent is wrong.
 
-Delete or retire an intentional topology stub only when the active scope, SPEC, PLAN, or nearest topology README says the seam is obsolete, or when the same slice implements/absorbs the documented intent elsewhere and updates the canonical references. If uncertain, ask the user and name the exact path.
+Delete or retire an intentional topology stub only when the active scope, SPEC, PLAN, or nearest `TOPOLOGY.md` says the seam is obsolete, or when the same slice implements/absorbs the documented intent elsewhere and updates the canonical references. If uncertain, ask the user and name the exact path.
 
 This is not permission to add speculative scaffolding. New stubs must be current-milestone topology, concise, and tied to an active seam; prefer `Owns` / `Input` / `Output` / `Used by` or `Future callers` bullets plus a decision/frontier id when available.
 
@@ -63,21 +63,21 @@ When you deliberately take a shortcut that has a known limit — a global lock, 
 
 This is a marker convention, not a license to cut corners. The floor is never simplified away: trust-boundary validation, error handling that prevents data loss, security, accessibility, and anything explicitly requested are not ceilings. A `ceiling:` comment is also not a TODO dumping ground — use it only where the shortcut is real and the upgrade trigger is nameable. Review skills (`ln-review`, `ln-judo-review`) treat a `ceiling:`-marked simplification as declared intent and flag it only when its named ceiling has actually been reached. There is no ceiling ledger yet; introduce one only when the comments reach a volume that warrants harvesting.
 
-## topology READMEs
+## topology files
 
-Directory-level `README.md` files under `src/**/` are **canonical documentation co-located with the code they describe**. They materialize architectural intent into the file topology: what the directory owns and does not own, its dependency direction, the SPEC decision IDs (`D52-L`, `D40-L`, …) that lock its layout, the resource taxonomy or layout sketch, and any in-flight migration state. Treat them as drift-prone canonical artifacts alongside `memory/SPEC.md` and `memory/PLAN.md` — not as ambient prose.
+Directory-level `TOPOLOGY.md` files under `src/**/` are **canonical documentation co-located with the code they describe**. They materialize architectural intent into the file topology: what the directory owns and does not own, its dependency direction, the SPEC decision IDs (`D52-L`, `D40-L`, …) that lock its layout, the resource taxonomy or layout sketch, and any in-flight migration state. Treat them as drift-prone canonical artifacts alongside `memory/SPEC.md` and `memory/PLAN.md` — not as ambient prose.
 
-**Ownership direction — README owns current state, the SPEC decision owns the event.** A co-located README owns the *current materialized state*: what its subtree owns, its layout, dependency direction, and concrete public surface. A `memory/SPEC.md` decision owns the *event* — the chosen seam, its rationale, and its supersession. A decision **points to** the README that holds its current state and must not keep a second copy of it; once a decision has materialized into topology, thin it to event + pointer. A decision is archivable once its current state lives in a co-located README or a Critical Invariant (this is `ln-sync`'s migrate-to-co-located-home disposition). [`src/rpc/README.md`](src/rpc/README.md) already states the direction: "`memory/SPEC.md` records the architectural decision; this file names the concrete surface." Cross-cutting decisions that span several subtrees keep one thin event record in SPEC plus a pointer into each co-located home they touch.
+**Ownership direction — topology file owns current state, the SPEC decision owns the event.** A co-located `TOPOLOGY.md` owns the *current materialized state*: what its subtree owns, its layout, dependency direction, and concrete public surface. A `memory/SPEC.md` decision owns the *event* — the chosen seam, its rationale, and its supersession. A decision **points to** the topology file that holds its current state and must not keep a second copy of it; once a decision has materialized into topology, thin it to event + pointer. A decision is archivable once its current state lives in a co-located `TOPOLOGY.md` or a Critical Invariant (this is `ln-sync`'s migrate-to-co-located-home disposition). [`src/rpc/TOPOLOGY.md`](src/rpc/TOPOLOGY.md) states the direction: "`memory/SPEC.md` records the architectural decision; this file names the concrete surface." Cross-cutting decisions that span several subtrees keep one thin event record in SPEC plus a pointer into each co-located home they touch.
 
 Common drift sources:
 
-- a SPEC decision cited by the README is renumbered, retired, or rewritten
-- a file or module the README names is moved, renamed, retired, or replaced
-- the dependency direction the README asserts no longer matches actual imports
+- a SPEC decision cited by the topology file is renumbered, retired, or rewritten
+- a file or module the topology file names is moved, renamed, retired, or replaced
+- the dependency direction the topology file asserts no longer matches actual imports
 - migration notes describe state that has since shipped or been abandoned
 - the directory layout sketch no longer matches the directory's contents
 
-Skills that touch canonical state (`/ln-sync`, `/ln-build`, `/ln-spec`, `/ln-review`, `/ln-refactor`) include topology READMEs in their drift checks and reconciliation. New topology READMEs should follow the established shape: short ownership statement, SPEC decision references, dependency rules, layout sketch when useful, and migration notes when relevant. Keep them short — they are an orientation surface, not a design doc; deep rationale belongs in `memory/SPEC.md` or `docs/`.
+Skills that touch canonical state (`/ln-sync`, `/ln-build`, `/ln-spec`, `/ln-review`, `/ln-refactor`) include topology files in their drift checks and reconciliation. New `TOPOLOGY.md` files should follow the established shape: short ownership statement, SPEC decision references, dependency rules, layout sketch when useful, and migration notes when relevant. Keep them short — they are an orientation surface, not a design doc; deep rationale belongs in `memory/SPEC.md` or `docs/`.
 
 ## planning & skills
 
@@ -94,18 +94,21 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 
 **Inner loop** (run after every meaningful edit): `npm run fix` — lint:fix then format.
 
-**Gate** (run before committing): `npm run verify` — fix → test → build. The gate auto-applies inner-loop fixes; if anything else fails, stop and fix it.
+**Gate** (run before committing): `npm run verify` — fix → test → build → check:markdown-links. The gate auto-applies inner-loop fixes; if anything else fails, stop and fix it.
 
-**CI / read-only check**: `npm run check` — lint then fmt:check then check:skills, no writes. Use this where the gate must not mutate the worktree.
+**CI / read-only check**: `npm run check` — lint then fmt:check then check:markdown-links then check:skills then check:data-model, no writes. Use this where the gate must not mutate the worktree.
 
 **Skill-system check**: `npm run check:skills` — verifies the `ln-*` skill set against the working guide, cross-skill links, and required guardrails (e.g. the topology-stub carve-out). Read-only; runs as the last step of `check`.
+
+**Markdown link check**: `npm run check:markdown-links` — validates local Markdown links and headings through `remark-validate-links`. Read-only.
 
 | Script | Steps | Writes? |
 | --- | --- | --- |
 | `npm run fix` | lint:fix → fmt | yes |
-| `npm run check` | lint → fmt:check → check:skills | no |
+| `npm run check` | lint → fmt:check → check:markdown-links → check:skills → check:data-model | no |
+| `npm run check:markdown-links` | remark-validate-links over Markdown files | no |
 | `npm run check:skills` | ln-* skill consistency | no |
-| `npm run verify` | fix → test → build | yes (via fix) |
+| `npm run verify` | fix → test → build → check:markdown-links | yes (via fix) |
 
 Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting. `check` mirrors that order (lint before fmt:check) so both scripts read as the same recipe in different modes.
 

@@ -13,11 +13,7 @@ import {
   projectBrunchAgentState,
   type ResolvedBrunchAgentState,
 } from '../../../projections/session/runtime-state.js';
-import type {
-  AgentLensSelection,
-  AgentStrategySelection,
-  OperationalModeId,
-} from '../../../session/schema/kinds.js';
+import type { OperationalModeId } from '../../../session/schema/kinds.js';
 import type {
   WorkspaceProjectState,
   WorkspaceSessionChromeState,
@@ -40,8 +36,6 @@ interface BrunchChromeRuntimeState {
   model?: string;
   thinking?: string;
   mode?: OperationalModeId;
-  strategy?: AgentStrategySelection;
-  lens?: AgentLensSelection;
 }
 
 interface BrunchChromeBuildState {
@@ -323,13 +317,7 @@ function renderBrunchStatusLine(
       'opt-m',
       runtime?.operationalMode ?? chrome.runtime?.mode ?? 'not reported',
     ),
-    keyedStatusPart(
-      theme,
-      'strategy',
-      'opt-s',
-      runtime?.agentStrategy ?? chrome.runtime?.strategy ?? 'not reported',
-    ),
-    keyedStatusPart(theme, 'lens', 'opt-l', runtime?.agentLens ?? chrome.runtime?.lens ?? 'not reported'),
+    keyedStatusPart(theme, 'role', 'opt-r', runtime?.agentRole ?? chrome.runtime?.role ?? 'not reported'),
   ];
   return parts.join(style(theme, 'dim', ' | '));
 }

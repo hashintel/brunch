@@ -135,7 +135,7 @@ The canonical context a fresh builder thread must resolve **before** building th
 - memory/SPEC.md   — decisions / invariants / assumptions: <ids>  (e.g. D53-L, A4-L)
 - memory/PLAN.md    — frontier: <frontier-id>
 - HANDOFF.md        — <live state this card depends on>            (omit if none)
-- <topology README / other canonical doc> — <what to read there>  (omit if none)
+- <`TOPOLOGY.md` / other canonical doc> — <what to read there>  (omit if none)
 ```
 
 This block is the answer to "could a separate builder thread work this card cold?" If you cannot enumerate the reads that make the card resolvable, the card is under-scoped — not the reader under-briefed.
@@ -178,7 +178,7 @@ A tracer bullet should *tell you something*. Build it.
 **Earned posture.** A good closure slice answers at least one of:
 
 - What dual shape, ambiguity, or open decision does landing this **close**?
-- What settled decision does it **materialize** into topology (file/directory placement, sub-tree split, topology README)?
+- What settled decision does it **materialize** into topology (file/directory placement, sub-tree split, topology file)?
 - What term, API, or location does it **canonicalize**?
 - What obsolete code path, fixture, doc, or bridge does it **delete / retire**?
 - What invariant, contract, or shape does it **lock in** as the completion test?

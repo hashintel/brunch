@@ -51,26 +51,9 @@ class FakeRuntimeStateSessionManager {
 
 describe('Brunch agent runtime-state projection', () => {
   it('projects the deterministic elicit/elicitor default when no runtime entries exist', () => {
-    expect(projectBrunchAgentState([])).toMatchObject({
+    expect(projectBrunchAgentState([])).toEqual({
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentRole: 'elicitor',
-      operationalModeDefinition: {
-        id: 'elicit',
-        foregroundAgent: {
-          id: 'elicitor',
-          kind: 'foreground',
-        },
-        toolPolicy: {
-          id: 'elicit-read-only',
-        },
-      },
-      agentRoleDefinition: {
-        id: 'elicitor',
-        kind: 'foreground',
-        operationalMode: 'elicit',
-        defaultStrategy: DEFAULT_BRUNCH_AGENT_STATE.agentStrategy,
-        defaultLens: DEFAULT_BRUNCH_AGENT_STATE.agentLens,
-      },
     });
   });
 
@@ -102,7 +85,7 @@ describe('Brunch agent runtime-state projection', () => {
     expect(first.data.state).toEqual(DEFAULT_BRUNCH_AGENT_STATE);
   });
 
-  it('accepts execute mode and resolves it to the orchestrator foreground manifest', () => {
+  it('accepts execute mode and resolves it to the executor role', () => {
     const executeState = {
       schemaVersion: 1,
       operationalMode: 'execute',
@@ -111,25 +94,9 @@ describe('Brunch agent runtime-state projection', () => {
     };
 
     expect(parseBrunchAgentState(executeState)).toEqual(executeState);
-    expect(projectBrunchAgentState([runtimeEntry(executeState as BrunchAgentState)])).toMatchObject({
+    expect(projectBrunchAgentState([runtimeEntry(executeState as BrunchAgentState)])).toEqual({
       ...executeState,
       agentRole: 'executor',
-      operationalModeDefinition: {
-        id: 'execute',
-        foregroundAgent: {
-          id: 'executor',
-          kind: 'foreground',
-          canDelegate: [],
-        },
-        toolPolicy: {
-          id: 'execute-executor',
-        },
-      },
-      agentRoleDefinition: {
-        id: 'executor',
-        kind: 'foreground',
-        operationalMode: 'execute',
-      },
     });
   });
 
@@ -239,6 +206,27 @@ describe('Brunch agent runtime-state projection', () => {
         output: 'Brunch tool policy blocks shell commands in elicit mode (bash, edit, write): rm -rf .',
       },
     });
+  });
+
+  it('activates an explicit non-empty execute-mode tool set from registered tools', () => {
+    const executeState: BrunchAgentState = {
+      schemaVersion: 1,
+      operationalMode: 'execute',
+      agentStrategy: 'auto',
+      agentLens: 'auto',
+    };
+
+    expect(
+      activeToolNamesForBrunchAgentState(
+        {
+          getAllTools: () =>
+            ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write', 'orchestrator_stub'].map((name) => ({
+              name,
+            })),
+        } as never,
+        projectBrunchAgentState([runtimeEntry(executeState)]),
+      ),
+    ).toEqual(['read', 'grep', 'find', 'ls', 'orchestrator_stub']);
   });
 
   it('appends init only when the transcript has no valid runtime state', () => {

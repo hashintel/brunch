@@ -48,7 +48,7 @@ describe('Brunch chrome projection', () => {
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
       'spec / session [ctrl-shift-b]: Spec One / Interview #1  ui: http://127.0.0.1:49152/spec/1',
-      'mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: not reported',
+      'mode [opt-m]: not reported | role [opt-r]: not reported',
       'no model  ctx ──────────── ?% ?/0',
       '',
     ]);
@@ -63,8 +63,7 @@ describe('Brunch chrome projection', () => {
       chatMode: 'responding-to-elicitation' as const,
       runtime: {
         mode: 'elicit' as const,
-        strategy: 'auto' as const,
-        lens: 'auto' as const,
+        role: 'elicitor',
       },
     };
 
@@ -75,15 +74,12 @@ describe('Brunch chrome projection', () => {
         agentStrategy: 'step-wise-decision-tree',
         agentLens: 'intent',
         agentRole: 'elicitor',
-        operationalModeDefinition: {} as never,
-        agentRoleDefinition: {} as never,
       },
     })[1];
 
-    expect(footerLine).toBe(
-      'mode [opt-m]: elicit | strategy [opt-s]: step-wise-decision-tree | lens [opt-l]: intent',
-    );
+    expect(footerLine).toBe('mode [opt-m]: elicit | role [opt-r]: elicitor');
     expect(footerLine).not.toContain('strategy: auto');
+    expect(footerLine).not.toContain('lens');
   });
 
   it('formats rich optional runtime and context metadata without fabricating missing fields', () => {
@@ -96,7 +92,6 @@ describe('Brunch chrome projection', () => {
         role: 'elicitor',
         model: 'claude-sonnet',
         thinking: 'medium',
-        lens: 'intent' as const,
       },
       build: { version: 'v0.0.0', dev: 'dev abc123' },
       contextUsage: { usedTokens: 1024, maxTokens: 2048 },
@@ -106,7 +101,7 @@ describe('Brunch chrome projection', () => {
 
     expect(projectBrunchChromeFooterLines(state)).toEqual([
       'spec / session [ctrl-shift-b]: Spec One / Interview #1',
-      'mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: intent',
+      'mode [opt-m]: not reported | role [opt-r]: elicitor',
       'claude-sonnet • medium  ctx ━━━━━━────── 50% 1.0k/2.0k',
       '',
     ]);
@@ -139,9 +134,7 @@ describe('Brunch chrome projection', () => {
     expect(footer).toContain('claude-sonnet');
     expect(footer).toContain('medium');
     expect(footer).toContain('ctx ━━━━━━────── 50% 1.0k/2.0k');
-    expect(footer).toContain(
-      'mode [opt-m]: not reported | strategy [opt-s]: not reported | lens [opt-l]: not reported',
-    );
+    expect(footer).toContain('mode [opt-m]: not reported | role [opt-r]: elicitor');
     expect(footer).toContain('reviewer queued');
     expect(footer).not.toContain('should not echo');
   });

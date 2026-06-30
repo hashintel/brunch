@@ -17,9 +17,9 @@ schema_version: 0.2.0
 signature: sha256:396f29ef335a810829849d13163bf80bf75f19be8db7441923527b3815908c87
 tree:
   .pi:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     components:
-      README.md: 'Documents this source subtree.'
+      TOPOLOGY.md: 'Documents this source subtree.'
       alternatives.ts: 'Implements alternatives.'
       brunch-identity.ts: 'Implements brunch identity.'
       brunch-version.ts: 'Implements brunch version.'
@@ -45,7 +45,7 @@ tree:
         preflight.ts: 'Implements preflight.'
       workspace-dialog.ts: 'Implements workspace dialog.'
     extensions:
-      README.md: 'Documents this source subtree.'
+      TOPOLOGY.md: 'Documents this source subtree.'
       agent-runtime:
         index.ts: 'Exports the public module surface.'
         orchestrator-stub:
@@ -74,7 +74,7 @@ tree:
           index.test.ts: 'Tests index behavior.'
           index.ts: 'Exports the public module surface.'
       chrome:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         index.ts: 'Exports the public module surface.'
       commands:
         index.ts: 'Exports the public module surface.'
@@ -84,19 +84,19 @@ tree:
       dev-mode:
         index.ts: 'Exports the public module surface.'
         introspect-query:
-          README.md: 'Documents this source subtree.'
+          TOPOLOGY.md: 'Documents this source subtree.'
           index.test.ts: 'Tests index behavior.'
           index.ts: 'Exports the public module surface.'
         introspection:
-          README.md: 'Documents this source subtree.'
+          TOPOLOGY.md: 'Documents this source subtree.'
           debug-cache.ts: 'Implements debug cache.'
           index.ts: 'Exports the public module surface.'
         session-query:
-          README.md: 'Documents this source subtree.'
+          TOPOLOGY.md: 'Documents this source subtree.'
           index.test.ts: 'Tests index behavior.'
           index.ts: 'Exports the public module surface.'
       exchanges:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         index.ts: 'Exports the public module surface.'
         pi-schema.ts: 'Implements pi schema.'
         present-candidates.ts: 'Implements present candidates.'
@@ -104,7 +104,7 @@ tree:
         present-review-set.ts: 'Implements present review set.'
         request-response.ts: 'Implements request response.'
         schemas:
-          README.md: 'Documents this source subtree.'
+          TOPOLOGY.md: 'Documents this source subtree.'
           capture.ts: 'Implements capture.'
           editor.ts: 'Implements editor.'
           index.ts: 'Exports the public module surface.'
@@ -131,7 +131,7 @@ tree:
         pi-tool-schema.ts: 'Implements pi tool schema.'
         query-projection.ts: 'Implements query projection.'
       subagents:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         agents.ts: 'Implements agents.'
         config.json: 'Configuration data.'
         config.ts: 'Implements config.'
@@ -151,14 +151,14 @@ tree:
       workspace:
         index.ts: 'Exports the public module surface.'
     settings.json: 'Configuration data.'
-  README.md: 'Documents this source subtree.'
+  TOPOLOGY.md: 'Documents this source subtree.'
   agents:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     contexts:
-      README.md: 'Documents this source subtree.'
+      TOPOLOGY.md: 'Documents this source subtree.'
       elicitation.ts: 'Implements elicitation.'
       exchanges:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         present-candidates.ts: 'Implements present candidates.'
         present-question.ts: 'Implements present question.'
         present-review-set.ts: 'Implements present review set.'
@@ -168,7 +168,7 @@ tree:
         request-response.ts: 'Implements request response.'
         request-review.ts: 'Implements request review.'
       graph:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         __snapshots__:
           graph-overview-kind-coverage-matrix.md: 'Markdown resource.'
           neighborhood-brunch-self-MOD1-hops2.md: 'Markdown resource.'
@@ -183,7 +183,7 @@ tree:
         reconciliation-needs.ts: 'Implements reconciliation needs.'
         related-nodes.ts: 'Implements related nodes.'
       primitives:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         markdown.ts: 'Implements markdown.'
         section.ts: 'Implements section.'
         toon.ts: 'Implements toon.'
@@ -191,41 +191,41 @@ tree:
       references:
         graph-ontology.md: 'Markdown resource.'
       seeds:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         origination.ts: 'Implements origination.'
         turn-context.ts: 'Implements turn context.'
       session:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         __snapshots__:
           runtime-frame-ready.md: 'Markdown resource.'
         readiness-estimate.ts: 'Implements readiness estimate.'
         runtime-frame.ts: 'Implements runtime frame.'
       specification:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         __snapshots__:
           specification-context.md: 'Markdown resource.'
         specification-context.ts: 'Implements specification context.'
       workspace:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         __snapshots__:
           workspace-cwd-context.md: 'Markdown resource.'
           workspace-overview-context.md: 'Markdown resource.'
         workspace-context.ts: 'Implements workspace context.'
     docs:
-      README.md: 'Documents this source subtree.'
+      TOPOLOGY.md: 'Documents this source subtree.'
     prompts:
-      README.md: 'Documents this source subtree.'
+      TOPOLOGY.md: 'Documents this source subtree.'
       elicitor.md: 'Defines the elicitor agent system prompt.'
       executor.md: 'Defines the executor agent system prompt.'
     subagents:
-      README.md: 'Documents this source subtree.'
+      TOPOLOGY.md: 'Documents this source subtree.'
       explorer.md: 'Defines the explorer background agent system prompt.'
       projector.md: 'Defines the projector background agent system prompt.'
       researcher.md: 'Defines the researcher background agent system prompt.'
       reviewer.md: 'Defines the reviewer background agent system prompt.'
     registry.ts: 'Implements registry.'
     runtime:
-      README.md: 'Documents this source subtree.'
+      TOPOLOGY.md: 'Documents this source subtree.'
       __snapshots__:
         elicitor--auto-floor-gaps-open.md: 'Markdown resource.'
         elicitor--auto-high-coverage.md: 'Markdown resource.'
@@ -237,12 +237,12 @@ tree:
       prompt-skills.ts: 'Implements prompt skills.'
       state.ts: 'Implements state.'
     skills:
-      README.md: 'Documents this source subtree.'
+      TOPOLOGY.md: 'Documents this source subtree.'
       __fixtures__:
         unlisted-fixture:
           SKILL.md: 'Defines the unlisted-fixture prompt-resource skill.'
       lenses:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         design:
           SKILL.md: 'Defines the design prompt-resource skill.'
         intent:
@@ -276,7 +276,7 @@ tree:
         run-structured-exchange:
           SKILL.md: 'Defines the run-structured-exchange prompt-resource skill.'
       strategies:
-        README.md: 'Documents this source subtree.'
+        TOPOLOGY.md: 'Documents this source subtree.'
         freestyle:
           SKILL.md: 'Defines the freestyle prompt-resource skill.'
         step-wise-decision-tree:
@@ -284,7 +284,7 @@ tree:
         step-wise-disambiguate:
           SKILL.md: 'Defines the step-wise-disambiguate prompt-resource skill.'
   app:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     brunch-tui.ts: 'Implements brunch tui.'
     brunch.ts: 'Implements brunch.'
     pi-extensions.ts: 'Implements pi extensions.'
@@ -293,12 +293,12 @@ tree:
     print-workspace-state.ts: 'Implements print workspace state.'
   constants.ts: 'Implements constants.'
   db:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     connection.ts: 'Implements connection.'
     row-schemas.ts: 'Implements row schemas.'
     schema.ts: 'Implements schema.'
   dev:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     agent-messages.ts: 'Implements agent messages.'
     dev-cli.ts: 'Implements the dev launcher and curation CLI.'
     faux-harness.ts: 'Implements faux harness.'
@@ -309,7 +309,7 @@ tree:
     introspection-launcher.ts: 'Implements introspection launcher.'
     tier-2-harness.ts: 'Implements tier 2 harness.'
   graph:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     atoms.ts: 'Implements atoms.'
     command-executor:
       command-types.ts: 'Implements command types.'
@@ -360,7 +360,7 @@ tree:
     structured-exchange-rpc-proof.ts: 'Implements structured exchange rpc proof.'
     test-helpers.ts: 'Implements test helpers.'
   projections:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     exchanges:
       present-candidates.ts: 'Implements present candidates.'
       present-question.ts: 'Implements present question.'
@@ -386,7 +386,7 @@ tree:
     workspace:
       workspace-state.ts: 'Implements workspace state.'
   rpc:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     handlers.ts: 'Implements handlers.'
     methods:
       graph.ts: 'Implements graph.'
@@ -403,9 +403,9 @@ tree:
     web-host.ts: 'Implements web host.'
     websocket.ts: 'Implements websocket.'
   scripts:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
   session:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     brunch-session-envelope.ts: 'Implements brunch session envelope.'
     exchange-projection.ts: 'Implements exchange projection.'
     flush-session-manager.ts: 'Implements flush session manager.'
@@ -415,7 +415,7 @@ tree:
     prepare-next-turn.ts: 'Implements prepare next turn.'
     runtime-state.ts: 'Implements runtime state.'
     schema:
-      README.md: 'Documents this source subtree.'
+      TOPOLOGY.md: 'Documents this source subtree.'
       agent-manifest.ts: 'Implements agent manifest.'
       kinds.ts: 'Implements kinds.'
       tool-names.ts: 'Implements tool names.'
@@ -438,7 +438,7 @@ tree:
   utils:
     strings.ts: 'Implements strings.'
   web:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     app-meta.ts: 'Implements app meta.'
     app.tsx: 'Source asset.'
     assets:
@@ -470,7 +470,7 @@ tree:
       follow-workspace-spec.ts: 'Implements follow workspace spec.'
     vite-env.d.ts: 'Implements vite env.d.'
   workspace:
-    README.md: 'Documents this source subtree.'
+    TOPOLOGY.md: 'Documents this source subtree.'
     cwd-inventory.ts: 'Implements cwd inventory.'
     project-identity.ts: 'Implements project identity.'
     workspace-state-store.ts: 'Implements workspace state store.'

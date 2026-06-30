@@ -5,13 +5,12 @@ import { projectPresentReviewSet } from '../../../../projections/exchanges/prese
 import { formatPresentReviewSet } from '../present-review-set.js';
 
 describe('formatPresentReviewSet', () => {
-  it('renders role-named edge drafts as readable relations, not raw draft arrows', () => {
+  it('renders role-named edge drafts as readable relations, not raw draft arrows', async () => {
     const rendered = formatPresentReviewSet(
       projectPresentReviewSet({ exchangeId: 'review-launch', payload: reviewSetPayload }),
     );
 
-    expect(rendered).toContain('- req-rollback bounds goal-launch');
-    expect(rendered).toContain('- check-observable witnesses goal-launch');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/present-review-set.md');
     expect(rendered).not.toContain('—exclusion→');
     expect(rendered).not.toContain('—witness [for]→');
   });

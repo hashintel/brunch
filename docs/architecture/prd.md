@@ -45,7 +45,7 @@ The POC should therefore optimize for coherence within the new line rather than 
 
 ### Spec Workspace Graphs
 
-Brunch should not harden around generic "structured records" language. The long-term durable product model should follow the graph-plane direction in [archive/docs/design/SPEC_WORKSPACE_GRAPHS.md](file:///Users/lunelson/Code/hashintel/brunch-next/archive/docs/design/SPEC_WORKSPACE_GRAPHS.md):
+Brunch should not harden around generic "structured records" language. The long-term durable product model should follow the graph-plane direction in the archived `SPEC_WORKSPACE_GRAPHS.md` design doc (from the pre-`-omega` `brunch-next` repo; not present in this tree):
 
 - `intent` graph as canonical specification meaning
 - `oracle` graph as verification strategy and checks accountable to intent
@@ -118,15 +118,15 @@ Brunch should explicitly separate capabilities that can run unattended from capa
 
 Not every capability is symmetric across modes. The asymmetry follows from the medium, not from a split architecture. The Web column describes the **planned** web surface (a future mode); today the browser appears only as the read-only TUI sidecar.
 
-| Capability | TUI | Web (planned) | Print | RPC |
-| --- | --- | --- | --- | --- |
-| Read graph state / queries | yes | yes | yes | yes |
-| Write agent-owned graph fields | yes | yes | yes | yes |
-| Subscribe to live updates | yes | yes | n/a | yes |
-| Confirmation-gated writes | yes | yes | policy only | driver-mediated |
-| Human-only writes | yes | yes | cannot service | only if driver provides UI |
-| Direct user graph editing without the agent | awkward | natural | n/a | n/a |
-| Tool execution attribution | yes | yes | yes | yes |
+| Capability                                  | TUI     | Web (planned) | Print          | RPC                        |
+| ------------------------------------------- | ------- | ------------- | -------------- | -------------------------- |
+| Read graph state / queries                  | yes     | yes           | yes            | yes                        |
+| Write agent-owned graph fields              | yes     | yes           | yes            | yes                        |
+| Subscribe to live updates                   | yes     | yes           | n/a            | yes                        |
+| Confirmation-gated writes                   | yes     | yes           | policy only    | driver-mediated            |
+| Human-only writes                           | yes     | yes           | cannot service | only if driver provides UI |
+| Direct user graph editing without the agent | awkward | natural       | n/a            | n/a                        |
+| Tool execution attribution                  | yes     | yes           | yes            | yes                        |
 
 ## Architecture Summary
 
@@ -302,7 +302,7 @@ The graph subsystem should be a deep module with a small public surface:
 - structural and semantic validators
 - graph clock and change-log services for cross-session detection
 
-The subsystem should be forward-compatible with the spec workspace graph model in [archive/docs/design/SPEC_WORKSPACE_GRAPHS.md](file:///Users/lunelson/Code/hashintel/brunch-next/archive/docs/design/SPEC_WORKSPACE_GRAPHS.md): intent as canonical meaning, with oracle, design, and plan as accountable downstream planes. The semantic API should prefer domain verbs and explicit transitions over raw table patches.
+The subsystem should be forward-compatible with the spec workspace graph model in the archived `SPEC_WORKSPACE_GRAPHS.md` design doc (from the pre-`-omega` `brunch-next` repo; not present in this tree): intent as canonical meaning, with oracle, design, and plan as accountable downstream planes. The semantic API should prefer domain verbs and explicit transitions over raw table patches.
 
 ### Session transcript subsystem
 
@@ -524,7 +524,7 @@ Prove the mode dispatcher.
 
 - `--mode print` and `--mode rpc` run from the same Brunch-owned host setup.
 - all three pi-backed modes share one coherent local authority model.
-- the JSON-RPC stdio surface is exercised end-to-end by probe drivers that leave transcript artifacts; see [probes-and-transcripts.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/probes-and-transcripts.md). Older curated-brief fixture captures have been retired in favor of current probe runs.
+- the JSON-RPC stdio surface is exercised end-to-end by probe drivers that leave transcript artifacts; see [probes-and-transcripts.md](./probes-and-transcripts.md). Older curated-brief fixture captures have been retired in favor of current probe runs.
 
 ### M2 — JSONL session viability
 

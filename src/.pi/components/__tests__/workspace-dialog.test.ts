@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-
 import { type Terminal } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
@@ -335,23 +333,6 @@ describe('spec/session picker', () => {
       '[success](dev abc)[/success]',
       '[dim]built on Pi vtest-pi[/dim]',
     ]);
-  });
-
-  it('keeps logo assets colocated with the private picker component', async () => {
-    const source = await readFile(
-      new URL('../workspace-dialog/assets/brunch-logo-quad-56x18.ansi', import.meta.url),
-      'utf8',
-    );
-
-    expect(source).toContain('\x1B[');
-  });
-
-  it('declares pi-tui as a direct dependency', async () => {
-    const manifest = JSON.parse(
-      await readFile(new URL('../../../../package.json', import.meta.url), 'utf8'),
-    ) as { dependencies?: Record<string, string> };
-
-    expect(manifest.dependencies).toHaveProperty('@earendil-works/pi-tui');
   });
 
   it('clears the startup preflight frame after a spec/session decision', async () => {

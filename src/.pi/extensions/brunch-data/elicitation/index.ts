@@ -22,7 +22,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import {
   formatElicitationAgenda,
   formatElicitationUpdateResult,
-} from '../../../../agents/contexts/elicitation.js';
+} from '../../../../agents/contexts/data-model/elicitation-gaps.js';
 import { sortElicitationGapsForAsking } from '../../../../graph/elicitation-driver.js';
 import type {
   CommandExecutor,

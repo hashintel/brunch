@@ -9,7 +9,7 @@
  *
  * Lives in `graph/` (not `db/`) because it orchestrates the graph command
  * layer: `db/` is imported only by `graph/`, never the reverse (see
- * `src/db/README.md`). This mirrors `workspace-store.ts`, which likewise
+ * `src/db/TOPOLOGY.md`). This mirrors `workspace-store.ts`, which likewise
  * wires `createDb` + `CommandExecutor`.
  *
  * The fixture-prep step that *produces* these files (porting Bilal's

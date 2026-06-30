@@ -22,9 +22,9 @@ The execute-mode executor can inspect a cook plan through a product-registered, 
 
 - `memory/SPEC.md` — decisions / invariants: D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, I49-L.
 - `memory/PLAN.md` — frontier: `orchestrator-tool-port`.
-- `src/.pi/extensions/README.md` — adapter-only ownership and boundary rules.
+- `src/.pi/extensions/TOPOLOGY.md` — adapter-only ownership and boundary rules.
 - `src/agents/prompts/executor.md` — current execute-mode foreground prompt and stub wording to retire.
-- `src/agents/runtime/policy.ts` — `execute` foreground roster and blocked direct tool policy.
+- `src/agents/runtime/elicitor/TOPOLOGY.md`, `src/agents/runtime/TOPOLOGY.md`, and `src/agents/runtime/_suspended/TOPOLOGY.md` — current runtime split; execute tool policy is not a live top-level runtime module yet, and `_suspended/policy.ts` is legacy compatibility only.
 - `src/session/schema/tool-names.ts` — shared tool-name constants.
 - `/Users/lunelson/Code/hashintel/brunch/ORCHESTRATOR.md` — source CLI behavior and plan format.
 - `/Users/lunelson/Code/hashintel/brunch/src/orchestrator/src/{types.ts,plan-loader.ts,plan-contract.ts,cook-cli.ts}` — portable plan model, loader, contract, and plan-resolution behavior to adapt.
@@ -33,7 +33,7 @@ The execute-mode executor can inspect a cook plan through a product-registered, 
 
 ```text
 → execute-mode foreground `executor` prompt
-→ runtime policy tool grant / block list
+→ execute-mode tool grant / block list (new live seam; do not reuse `_suspended/policy.ts` as product architecture)
 → `.pi/extensions/agent-runtime` Pi tool adapter
 → product-owned `src/orchestrator` plan loader + contract core
 → workspace cook plan path
@@ -43,7 +43,7 @@ The execute-mode executor can inspect a cook plan through a product-registered, 
 ## Risks and Assumptions
 
 - RISK: CLI code pulls in process exits, git worktree creation, model auth, or child Pi sessions too early → MITIGATION: port only pure/read-only plan loading and contract checking in this slice; no sandbox, engine, Petrinaut stream, or worker session imports.
-- RISK: The foreground `executor` gains accidental write authority while replacing the stub → MITIGATION: keep `bash`, `edit`, and `write` blocked in `agents/runtime/policy.ts`; register only the read-only `cook_plan_check` tool for this card.
+- RISK: The foreground `executor` gains accidental write authority while replacing the stub → MITIGATION: keep `bash`, `edit`, and `write` blocked in the Pi runtime tool-call guard; register only the read-only `cook_plan_check` tool for this card.
 - RISK: External source names leak as temporary compatibility aliases → MITIGATION: canonicalize the product-facing tool name now; delete the `orchestrator_stub` tool path when the real tool is registered.
 - ASSUMPTION: The external cook plan contract is the right first tracer boundary for the port.
     → IMPACT IF FALSE: the later `cook_run` surface may need a different plan source/result model, but this slice's blast radius is limited to read-only validation and prompt/tool naming.
@@ -60,7 +60,7 @@ No separate spike is cheaper than this slice: the useful proof is whether the pr
 ✓ `cook_plan_check` is product-registered for execute mode and returns a typed result for a valid plan path containing mode, epic count, slice count, policy-relevant findings, and source path.
 ✓ Invalid or contract-failing plans return deterministic typed findings/errors without creating `.brunch/cook/runs`, git worktrees, Petrinaut artifacts, or child Pi sessions.
 ✓ The branch-local executor stub is no longer advertised to the foreground executor, and the old stub registration path is retired.
-✓ `agents/runtime/policy.ts` still blocks direct `bash`, `edit`, and `write` for `execute`, with tests or assertions covering the new tool grant.
+✓ The Pi runtime tool-call guard still blocks direct `bash`, `edit`, and `write` for `execute`, with tests or assertions covering the new tool grant.
 ✓ `src/agents/prompts/executor.md` tells the foreground agent to use the real plan-check tool and preserves the no-direct-write instruction.
 
 ## Verification Approach
@@ -94,11 +94,10 @@ src/
 │   ├── prompts/
 │   │   └── executor.md                                    ~
 │   └── runtime/
-│       ├── policy.ts                                      ~
-│       └── __tests__/                                     ?
+│       ├── TOPOLOGY.md                                    ~
+│       └── shared/ or executor/                           ?  (new live execute policy seam if earned)
 ├── .pi/
 │   ├── extensions/
-│   │   ├── README.md                                      ~
 │   │   ├── agent-runtime/                                 ~
 │   │   └── agent-runtime/orchestrator-stub/                -
 │   └── __tests__/                                         ?

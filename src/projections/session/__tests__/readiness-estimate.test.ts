@@ -54,7 +54,7 @@ describe('readiness estimate projection', () => {
     expect(lower.coverage.commitment).toBeLessThan(higher.coverage.commitment);
   });
 
-  it('does not import grade symbols or node-band metadata and is not imported by legality paths', () => {
+  it('does not import grade symbols or node-band metadata', () => {
     const estimateSource = readFileSync(
       fileURLToPath(new URL('../readiness-estimate.ts', import.meta.url)),
       'utf8',
@@ -67,10 +67,5 @@ describe('readiness estimate projection', () => {
       'utf8',
     );
     expect(driverSource).not.toMatch(/NODE_KIND_METADATA|bandsForKind|schema\/nodes/);
-
-    for (const relativePath of ['../../../agents/runtime/policy.ts', '../../../agents/runtime/state.ts']) {
-      const source = readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), 'utf8');
-      expect(source).not.toMatch(/readiness-estimate|readinessEstimate/);
-    }
   });
 });

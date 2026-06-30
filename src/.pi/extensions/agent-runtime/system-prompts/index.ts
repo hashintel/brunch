@@ -1,21 +1,14 @@
-import { readFile } from 'node:fs/promises';
-
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
-import {
-  composeAgentContextSeed,
-  type AgentPromptSessionContext,
-  type AgentPromptSpecContext,
-  type AgentPromptWorkspaceContext,
+import type {
+  AgentPromptSessionContext,
+  AgentPromptSpecContext,
+  AgentPromptWorkspaceContext,
 } from '../../../../agents/contexts/seeds/turn-context.js';
-import { composeAgentPrompt, type AgentPromptContextBundle } from '../../../../agents/runtime/compose.js';
+import type { LiveElicitorPushedContext } from '../../../../agents/runtime/elicitor/context.js';
+import { composeForegroundRuntimePrompt } from '../../../../agents/runtime/foreground-policy.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
-import {
-  activeToolNamesForBrunchAgentState,
-  agentBodyResourceLocation,
-  projectBrunchAgentState,
-} from '../runtime/index.js';
-import { createWorldReadCache, type WorldReads } from './world-reads.js';
+import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
 
@@ -37,7 +30,7 @@ interface BrunchPromptContext {
   /** Intended-optional: display label only; prompts render without a session label. */
   session?: AgentPromptSessionContext;
   /** Intended-optional: extra caller-supplied handles/contexts merged into the bundle. */
-  context?: AgentPromptContextBundle;
+  context?: LiveElicitorPushedContext;
   /**
    * Must-wire: legality (gaps), tool posture, and graph context all derive from
    * these reads. Required so a composition root that forgets them is a type
@@ -66,32 +59,24 @@ export function registerBrunchPrompting(
 ): void {
   if (!supportsPrompting(pi)) return;
 
-  const worldReadCache = createWorldReadCache();
-
   pi.on('before_agent_start', async (event, ctx) => {
     const resolvedPromptContext = await resolvePromptContext(promptContext);
 
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
-    const agentBody = await readAgentBody(state.agentRole);
-    const world = worldReadCache.read(resolvedPromptContext.graphReads, resolvedPromptContext.spec.id);
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
-        ? activeToolNamesForBrunchAgentState(pi, state, world.gaps, options.devAllowedToolNames)
+        ? activeToolNamesForBrunchAgentState(pi, state, undefined, options.devAllowedToolNames)
         : [];
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);
     }
-    const context = contextForPrompt(resolvedPromptContext, state, world);
-    const { prompt } = composeAgentPrompt({
-      agentId: state.agentRole,
+    const prompt = composeForegroundRuntimePrompt({
       sessionState: state,
       spec: resolvedPromptContext.spec,
       workspace: resolvedPromptContext.workspace,
-      context,
+      ...(resolvedPromptContext.context ? { context: resolvedPromptContext.context } : {}),
       activeTools,
-      gaps: world.gaps,
-      agentBody,
-    });
+    }).prompt;
 
     if (prompt.trim().length === 0) return undefined;
 
@@ -100,30 +85,6 @@ export function registerBrunchPrompting(
       systemPrompt: `${basePrompt}\n\n${prompt}`,
     };
   });
-}
-
-async function readAgentBody(agentId: ReturnType<typeof projectState>['agentRole']): Promise<string> {
-  return readFile(agentBodyResourceLocation(agentId), 'utf8');
-}
-
-function contextForPrompt(
-  context: BrunchPromptContext,
-  state: ReturnType<typeof projectState>,
-  world: WorldReads,
-): AgentPromptContextBundle {
-  const renderedContexts = composeAgentContextSeed({
-    spec: context.spec,
-    workspace: context.workspace,
-    ...(context.session ? { session: context.session } : {}),
-    gaps: world.gaps,
-    graph: world.graph,
-    lens: state.agentLens,
-  });
-
-  return {
-    ...(context.context?.contextHandles ? { contextHandles: context.context.contextHandles } : {}),
-    renderedContexts: [...(context.context?.renderedContexts ?? []), ...renderedContexts],
-  };
 }
 
 async function resolvePromptContext(
