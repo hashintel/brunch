@@ -40,6 +40,7 @@ describe('outlineExecutionPlan', () => {
               requirementId: 'requirement-1',
               summary: 'Build feature',
               acceptanceCriterionIds: [],
+              acceptanceCriteria: [],
             },
             {
               id: 'task-2',
@@ -47,6 +48,13 @@ describe('outlineExecutionPlan', () => {
               requirementId: 'requirement-2',
               summary: 'Wire feature',
               acceptanceCriterionIds: ['criterion-3'],
+              acceptanceCriteria: [
+                {
+                  criterionId: 'criterion-3',
+                  title: 'Feature is visible',
+                  content: 'Feature is visible',
+                },
+              ],
             },
           ],
         },
