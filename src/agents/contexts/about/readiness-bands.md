@@ -64,6 +64,16 @@ The digest and discussion make the material eligible for graph persistence. They
 
 ## Latest Expected Bands
 
+Bands guide questioning and projection; **they do not gate graph truth.** If the user states a later-band item early, capture it honestly with the right kind and basis.
+
+| Band            | What it gathers        |
+| --------------- | ---------------------- |
+| `grounding`     | the starting frame     |
+| `elicitation`   | the working middle     |
+| `projection`    | materialized structure |
+| `commitment`    | hardened obligations   |
+| `-` (band-less) | always-available       |
+
 This table is guidance for elicitor orientation and capability-readiness. Closed node-kind legality remains owned by the graph schema.
 
 | Kind            | Code | Latest expected band |

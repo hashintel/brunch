@@ -1,9 +1,4 @@
----
-name: planning
-description: For creating or reviewing plan-plane content: `milestone`, `frontier`, and `slice` nodes. Use when the question is “what work should happen, in what unit, and why now?”
----
-
-# Planning
+# Projecting Plans
 
 ## Job
 

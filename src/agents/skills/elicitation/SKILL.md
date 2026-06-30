@@ -44,3 +44,22 @@ Use readiness bands as signal for the next question. They do not make earlier ca
 2. Prefer crisp distinctions over broad open-ended drift when a concrete contrast is available.
 3. Keep the question anchored to the selected spec.
 4. Let the user's answer become the new evidence; do not pre-interpret it as settled truth.
+
+## Topology-driven question ranking
+
+Once the graph carries kinds and typed edges, the interviewer ranks the next question by topology rather than template. These are ranking heuristics, not automatic writes; low-confidence material routes to an `elicitation_gap`, never to a speculative node. 
+
+They complement the band-driven qeustion routing suggest *what kind* of question to ask; topology heuristics suggest *which item* to ask about next.
+
+| Signal                                                          | Suggested question shape                                     |
+| --------------------------------------------------------------- | ------------------------------------------------------------ |
+| High-fanout `assumption` with thin evidence                     | "Many claims depend on X. Validate it, or mark the risk?"    |
+| `requirement` / `invariant` with no `witness` path              | "How will we know this holds?"                               |
+| `criterion` not linked to the claim it judges                   | "Which requirement or invariant does this criterion check?"  |
+| Candidate `decision` lacking rejected alternatives or rationale | "What did we consider and rule out before choosing this?"    |
+| `exclusion`/constraints disagreeing about one subject           | "These boundaries conflict. Which one wins?"                 |
+| `goal`/`thesis` with no path into requirements, design, or plan | "What would satisfy this in the actual system?"              |
+| Requirement with no example and high ambiguity                  | "What concrete case would settle this interpretation?"       |
+| `unknown` blocking a design or plan edge                        | "Accommodate it, investigate it, or narrow scope around it?" |
+
+This substrate is the `elicitation_gaps` register (D65-L): a flat table of prospective coverage obligations, each with a `predicate` (`presence` is structurally derivable; `field` and `coverage` are not yet supported; `manual` rides disposition), a `band`, an `importance`, and a `disposition` (`open` / `answered` / `not_applicable` / `irrelevant` / `reopened`). Structural coverage is derived from the graph at read time, not stored.

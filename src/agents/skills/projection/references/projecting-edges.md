@@ -1,3 +1,38 @@
+# Projecting Edges
+
+Accepted edges use the closed structural categories owned by `src/graph/policy/category-policy.ts`. Do not use retired named-relation dialects such as `derived_from`, `motivated_by`, `rules_out`, `counterexample_for`, or `tested_by` as edge categories.
+
+Use the role-named `mutate_graph` grammar. Endpoint storage order does not carry impact meaning; category metadata owns endpoint roles, affected endpoint, impact strength, criteria-help signal, and projection effect.
+
+| If you mean...                                                             | Use current edge category                           |
+| -------------------------------------------------------------------------- | --------------------------------------------------- |
+| one claim relies on another remaining true                                 | `dependency` (`dependency` -> `dependent`)          |
+| an oracle, example, check, evidence, or criterion supports/refutes a claim | `witness` with `stance: for` or `stance: against`   |
+| a goal, thesis, rationale, or argument motivates/opposes a claim           | `rationale` with `stance: for` or `stance: against` |
+| an abstract claim is implemented or expressed by a concrete artifact       | `realization`                                       |
+| a general claim/model is specialized by a more specific one                | `refinement`                                        |
+| a boundary, non-goal, or constraint limits a subject                       | `exclusion`                                         |
+| a whole contains a part                                                    | `composition`                                       |
+| two items are related but no stronger relation is justified                | `cross_reference`                                   |
+| one item replaces an older item                                            | `supersession`                                      |
+
+Stance is required only for `witness` and `rationale`; omit it everywhere else.
+
+## Relation-bearing batches need confident endpoints
+
+Create edges only after both endpoints are confident enough for the intended settlement. Advisory edges are allowed when a reviewed source implies the relation but it is not yet globally harmonized; settled edges require settled endpoints.
+
+```pseudo
+chain relation-bearing-authoring:
+  candidate relation
+    -> confirm or create confident endpoint nodes
+    -> choose advisory vs settled settlement
+    -> skip edge if either endpoint remains low-confidence
+    -> use role-named mutate_graph endpoints
+```
+
+If an endpoint is uncertain, spawn or reuse an elicitation gap for the missing claim. If a relation contradicts existing settled graph truth, create a reconciliation need instead of overwriting or adding a competing settled edge.
+
 # Edge Heuristics
 
 Edges are a **closed set of nine structural categories** with role-named endpoints. Do not use retired named-relation dialects (`derived_from`, `motivated_by`, `rules_out`, `counterexample_for`, `tested_by`) as categories — they map onto the nine below. Endpoint storage order carries no meaning; category metadata owns direction.
