@@ -9,7 +9,8 @@ Map owns source-independent graph ontology guidance: what kind a span becomes, w
 
 Read the focused references when detail matters:
 
-- [`references/map-nodes.md`](references/map-nodes.md) — kind selection, promotion, nearby-kind distinctions, and decision criteria.
+- [`references/map-nodes.md`](references/map-nodes.md) — cross-plane node selection and quick routing.
+- [`references/map-intents.md`](references/map-intents.md) — intent-plane promotion, nearby-kind distinctions, examples, and decision criteria.
 - [`references/map-edges.md`](references/map-edges.md) — the closed edge categories and role-named grammar.
 - [`references/map-design.md`](references/map-design.md) — `module`, `interface`, `entity`, and `sketch` routing.
 - [`references/map-oracles.md`](references/map-oracles.md) — criteria, checks, evidence, methods, obligations, and witnesses.
