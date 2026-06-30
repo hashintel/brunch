@@ -11,6 +11,7 @@ import type {
 import { AGENT_METHOD_IDS, type AgentMethodId } from '../../session/schema/kinds.js';
 import {
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
+  BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
   BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
   BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
   BRUNCH_EXECUTE_SNAPSHOT_TOOL,
@@ -111,6 +112,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
         'web_fetch',
         'web_search',
         BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
+        BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
         BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
         BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
         BRUNCH_EXECUTE_SNAPSHOT_TOOL,
@@ -133,6 +135,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
         'web_fetch',
         'web_search',
         BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
+        BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
         BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
         BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
         BRUNCH_EXECUTE_SNAPSHOT_TOOL,

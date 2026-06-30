@@ -7,6 +7,7 @@ import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtur
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import {
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
+  BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
   BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
   BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
   BRUNCH_EXECUTE_SNAPSHOT_TOOL,
@@ -37,6 +38,7 @@ const registeredToolNames = [
   'update_reconciliation_needs',
   'mutate_graph',
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
+  BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
   BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
   BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
   BRUNCH_EXECUTE_SNAPSHOT_TOOL,
@@ -312,6 +314,7 @@ describe('agent posture policy', () => {
       ),
     ).toEqual(['scope-execution-task', 'build-with-tests']);
     expect(executeTools).toContain(BRUNCH_EXECUTE_PLAN_CHECK_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_PLAN_DRAFT_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_SNAPSHOT_TOOL);
@@ -319,6 +322,7 @@ describe('agent posture policy', () => {
     expect(executeTools).toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
     expect(executeTools).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_PLAN_CHECK_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_PLAN_DRAFT_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_SNAPSHOT_TOOL);
