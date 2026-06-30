@@ -63,7 +63,7 @@ Status: done — tightened the present-side response-selection guidance and sche
 
 ### Slice 2 — Review-set nested companion teaching
 
-Status: next
+Status: done — the review-set payload param boundary now advertises and rejects malformed nested companions (`grounding`, `pitch`, `epistemicStatus`, role-named edge discriminants) before the deep graph validator handles requiredness/field diagnostics.
 
 - Tighten the model-visible shape for `present_review_set` nested companions (`grounding`, `pitch`, `epistemicStatus`, related discriminants) at the authoring boundary.
 - Keep the deep graph validator as the ultimate contract, but stop relying on deep failures as the first teaching surface.
