@@ -49,6 +49,8 @@ Call `execute_cook_run_complete` only when all plan slices are complete. It appe
 
 Call `execute_cook_petri_export` only after run completion. It writes the minimal Petrinaut `net.json` artifact and updates `run.json`; it still does not promote or land.
 
+Call `execute_cook_promotion_prepare` only after Petri export. It writes a descriptive `promotion/promotion.json` report and updates `run.json` to `status:"promotion_prepared"`; it creates no git branch, promotion ref, or worktree mutation, and still does not land.
+
 Call `execute_plan_draft_artifact` only when the user asks to persist executable-plan-shaped data for review. It writes an artifact under `.brunch/execution-reports`; it still does not create an executable `plan.yaml`, cook run, worktree, Petri net, or promotion branch.
 
 Call `execute_plan_outline_artifact` only when the user asks to persist that outline for review. It writes an artifact under `.brunch/execution-reports`; it still does not create a cook run, worktree, Petri net, or promotion branch.

@@ -14,6 +14,7 @@ orchestration/
 ├── cook-launch.ts             spec-scoped plan.yaml -> non-running launch readiness
 ├── cook-plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
 ├── cook-petri.ts              completed run -> minimal Petrinaut net.json
+├── cook-promotion.ts          petri-exported run -> descriptive promotion report
 ├── cook-populate.ts           worktree -> plan-only worktree population
 ├── cook-report.ts             source-copied run -> reports.jsonl initialization
 ├── cook-run-complete.ts       completed slices -> run completion marker
@@ -87,3 +88,5 @@ rules:
 `cook-run-complete.ts` appends `run_completed` once every plan slice is completed and records `status:"run_completed"`. Petri artifacts, promotion refs, and land branches remain deferred.
 
 `cook-petri.ts` writes the first minimal Petrinaut artifact at `.brunch/cook/runs/<runId>/petrinaut/net.json` for a completed run and records `status:"petri_exported"`. Promotion refs and land branches remain deferred.
+
+`cook-promotion.ts` is the first land/promotion boundary, but it is intentionally descriptive: for a `petri_exported` run it writes a single promotion report at `.brunch/cook/runs/<runId>/promotion/promotion.json` (runId, specId, petriPath, reportsPath, completedSliceIds) and records `status:"promotion_prepared"`. It creates no git branch, promotion ref, or worktree/topology mutation, and does not land. Actual branch-level land remains the still-pending boundary in `execute_status`.
