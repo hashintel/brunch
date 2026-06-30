@@ -1,4 +1,5 @@
 export * from './execute-plan-check/index.js';
+export * from './execute-plan-outline-artifact/index.js';
 export * from './execute-plan-outline/index.js';
 export * from './execute-snapshot/index.js';
 export * from './execute-status/index.js';

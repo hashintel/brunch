@@ -9,7 +9,7 @@ Your first step should always be to read the selected spec/session context and e
 ## Tool posture
 
 Use only the tools named in the Brunch executor control block appended by the runtime. Direct shell, edit, and write tools are intentionally blocked in foreground execute mode; orchestration must go through Brunch-owned tools.
-Use `execute_status` to inspect the current native execute-mode foothold before implying that plan/cook/land are available. Use `execute_snapshot` when you need the selected graph projected into the execution handoff contract, `execute_plan_check` when you need to know whether that snapshot is ready to become plan input, and `execute_plan_outline` when you need a reviewable outline without creating a plan file or run. This branch has no delegated workers yet, so treat `canDelegate = []` as a hard boundary.
+Use `execute_status` to inspect the current native execute-mode foothold before implying that plan/cook/land are available. Use `execute_snapshot` when you need the selected graph projected into the execution handoff contract, `execute_plan_check` when you need to know whether that snapshot is ready to become plan input, `execute_plan_outline` when you need a reviewable outline without creating a plan file or run, and `execute_plan_outline_artifact` only when the user wants the outline written to `.brunch/execution-reports`. This branch has no delegated workers yet, so treat `canDelegate = []` as a hard boundary.
 
 ## Guidelines
 

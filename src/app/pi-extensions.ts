@@ -6,6 +6,7 @@ import {
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
 import { registerBrunchExecutePlanCheck } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecutePlanOutlineArtifact } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanOutline } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteSnapshot } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteStatus } from '../.pi/extensions/agent-runtime/index.js';
@@ -104,6 +105,9 @@ export {
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
   createExecutePlanCheckTool,
   registerBrunchExecutePlanCheck,
+  BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
+  createExecutePlanOutlineArtifactTool,
+  registerBrunchExecutePlanOutlineArtifact,
   BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
   createExecutePlanOutlineTool,
   registerBrunchExecutePlanOutline,
@@ -223,6 +227,7 @@ export function createBrunchPiExtensions(
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutlineArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutline(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteSnapshot(api, graph)] : []),
       registerBrunchOrchestratorStub,

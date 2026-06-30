@@ -1,4 +1,5 @@
-import { access, readdir, readFile } from 'node:fs/promises';
+import { access, mkdtemp, readFile, readdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -7,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../agent-runtime/execute-plan-check/index.js';
+import { BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-outline-artifact/index.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../agent-runtime/execute-plan-outline/index.js';
 import { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../agent-runtime/execute-snapshot/index.js';
 import { BRUNCH_EXECUTE_STATUS_TOOL } from '../agent-runtime/execute-status/index.js';
@@ -316,6 +318,81 @@ describe('Brunch explicit Pi extension registry', () => {
     });
   });
 
+  it('registers execute_plan_outline_artifact only with selected graph deps and writes the review artifact', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-outline-'));
+    const registeredTools: Array<{
+      name: string;
+      execute: (
+        toolCallId: string,
+        params: unknown,
+        signal?: AbortSignal,
+        onUpdate?: unknown,
+        ctx?: { cwd: string },
+      ) => Promise<{
+        content: readonly { text: string }[];
+        details: Record<string, unknown>;
+      }>;
+    }> = [];
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+      graph: {
+        specId: 42,
+        commandExecutor: {} as never,
+        reads: {
+          queryGraph: () =>
+            ({
+              lsn: 14,
+              nodes: [
+                {
+                  id: 1,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'requirement',
+                  kindOrdinal: 1,
+                  title: 'Run the cooked feature',
+                  body: 'Feature runs through the alpha executor.',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [],
+            }) as never,
+          getNodes: () => [],
+          resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
+          getOpenReconciliationNeeds: () => [],
+          latestLsn: () => 14,
+        },
+      },
+    })({
+      on() {},
+      registerTool(tool: (typeof registeredTools)[number]) {
+        registeredTools.push(tool);
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => [],
+      setActiveTools() {},
+    } as never);
+
+    const artifact = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
+    expect(artifact).toBeDefined();
+    const result = await artifact!.execute('call-1', { mode: 'brownfield' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_plan_outline_artifact:');
+    expect(result.details.sideEffects).toEqual([
+      { kind: 'write_file', path: join(cwd, '.brunch', 'execution-reports', '42', 'plan-outline.json') },
+    ]);
+    await expect(
+      readFile(join(cwd, '.brunch', 'execution-reports', '42', 'plan-outline.json'), 'utf8'),
+    ).resolves.toContain('Run the cooked feature');
+  });
+
   it('registers execute_snapshot only with selected graph deps and returns a side-effect-free projection', async () => {
     const registeredTools: Array<{
       name: string;
@@ -448,13 +525,19 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline',
+      'ported tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_outline_artifact',
     );
     expect(result.content[0]?.text).toContain('pending tools: plan, cook, land');
     expect(result.details).toMatchObject({
       discipline: 'interpretive',
       availableDisciplines: ['strict', 'interpretive'],
-      portedTools: ['execute_status', 'execute_snapshot', 'execute_plan_check', 'execute_plan_outline'],
+      portedTools: [
+        'execute_status',
+        'execute_snapshot',
+        'execute_plan_check',
+        'execute_plan_outline',
+        'execute_plan_outline_artifact',
+      ],
       pendingTools: ['plan', 'cook', 'land'],
       sideEffects: [],
     });
