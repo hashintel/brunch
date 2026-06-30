@@ -55,11 +55,15 @@ The live exchange surface teaches the model the right shape where it authors exc
 
 ### Slice 1 — Present/response contract teaching
 
+Status: done — tightened the present-side response-selection guidance and schema descriptions for `present_question` / `present_candidates`, removed legacy request-tool selection wording from `request_response`, and locked the guidance with `exchanges-extension.test.ts`.
+
 - Tighten prompt-guideline and schema-description language for `present_question`, `present_candidates`, and `request_response`.
 - Remove stale legacy request-tool wording where the model still appears to choose `request_answer` / `request_choice` / `request_choices` directly.
 - Keep I51-L explicit for the candidates path: recognition now, commitment later.
 
 ### Slice 2 — Review-set nested companion teaching
+
+Status: next
 
 - Tighten the model-visible shape for `present_review_set` nested companions (`grounding`, `pitch`, `epistemicStatus`, related discriminants) at the authoring boundary.
 - Keep the deep graph validator as the ultimate contract, but stop relying on deep failures as the first teaching surface.
