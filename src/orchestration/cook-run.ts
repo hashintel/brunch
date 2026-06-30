@@ -19,7 +19,8 @@ export interface CookRunMetadata {
     | 'slice_execution_requested'
     | 'agent_result_ingested'
     | 'test_result_ingested'
-    | 'slice_completed';
+    | 'slice_completed'
+    | 'run_completed';
   readonly worktreeDir?: string;
   readonly populatedPlanPath?: string;
   readonly sourcePolicy?: string;

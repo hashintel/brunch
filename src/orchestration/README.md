@@ -15,6 +15,7 @@ orchestration/
 ├── cook-plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
 ├── cook-populate.ts           worktree -> plan-only worktree population
 ├── cook-report.ts             source-copied run -> reports.jsonl initialization
+├── cook-run-complete.ts       completed slices -> run completion marker
 ├── cook-run.ts                ready plan.yaml -> metadata-only run creation
 ├── cook-slice-execute.ts      active slice -> execution request artifact
 ├── cook-slice-complete.ts     test-ingested slice -> completion marker
@@ -81,3 +82,5 @@ rules:
 `cook-test-result.ts` ingests an already-written `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and records `status:"test_result_ingested"`. It is still not a test runner and does not compile Petri artifacts, promote, or land.
 
 `cook-slice-complete.ts` appends `slice_completed` after test result ingestion and records the completed slice id in `run.json`. Petri artifacts, promotion refs, and land branches remain deferred.
+
+`cook-run-complete.ts` appends `run_completed` once every plan slice is completed and records `status:"run_completed"`. Petri artifacts, promotion refs, and land branches remain deferred.
