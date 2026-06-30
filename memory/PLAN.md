@@ -36,7 +36,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Members:**
   - `capture` ✓ done via generalized capture (D80-L–D82-L).
   - `generate` ✓ done through promoted real-model fan-out evidence (FE-1059): one plane-parameterized `generate-proposal` method, `present_candidates` unstubbed, fan-in as method conduct (`pick` / `synthesize` / `compose`), promoted I51-L no-write evidence.
-  - `project` → `elicitor-project` (FE-1085), **active, design-gated** (A33-L): cross-plane derivation may fold into `generate` or need a distinct surface.
+  - `project` → `elicitor-project` (FE-1085), **active closeout** (A33-L validated): cross-plane derivation is a distinct first-level live `project` move over existing exchange and review-set seams.
   - `acquire` rides the completed subagent-reconciliation substrate (A34-L), not its own frontier.
 - **Done-definition:** all three capabilities carry promoted real-model evidence; no capability remains a stub or a method-less axis member.
 - **Anchors:** D95-L, D96-L; A31-L–A35-L; I51-L.
@@ -45,7 +45,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `elicitor-project` (FE-1085) — **design-gated proving frontier.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before scope/build.
+- `elicitor-project` (FE-1085) — **proving closeout frontier.** Cross-plane derivation (requirements -> design, design -> oracles) is now the distinct first-level `project` move; materialize canon, live skill guidance, and prompt evidence without adding a new product tool/schema seam.
 - `orchestrator-tool-port` (FE-1087) — **D98-sensitive proving frontier.** Port the external `brunch cook` orchestrator into CODE/executor tooling, not a separate execute/orchestrator product mode.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 - `structured-exchange-affordance` — **earned hardening.** Collapse recurring discriminant-companion and nested-payload affordance failures into clearer schema/tool contracts.
@@ -106,15 +106,16 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1085](https://linear.app/hash/issue/FE-1085) — elicitor project capability design
 - **Branch:** `ln/fe-1085-elicitor-project-prep`
 - **Kind:** structural / capability
-- **Status:** active; design-gated by A33-L.
-- **Certainty:** proving; the first deliverable is a design verdict, not code.
-- **Retires:** A33-L by deciding whether cross-plane derivation is a `generate` extension or a distinct `project` surface.
+- **Status:** active; canonical shape settled, live skill home still in progress.
+- **Certainty:** proving.
+- **Current execution pointer:** `memory/cards/elicitor-project--closeout.md`.
+- **Retires:** A33-L by materializing the branch-implied distinct `project` surface into canon and the live skill manifest.
 - **Lights up:** requirements/design/oracle cross-plane derivation over the frozen elicitor capability axes.
-- **Objective:** Decide whether cross-plane derivation folds into `generate` with an upstream-graph input or needs a distinct surface for target-plane nodes + connecting cross-plane edges.
+- **Objective:** Materialize cross-plane derivation as a distinct first-level live `project` move over the existing exchange triad and review-set commitment path, without introducing a new tool, schema family, or direct graph-write seam.
 - **Acceptance:**
-  - Run `ln-design` with at least three module shapes and a recommendation.
-  - If distinct, subsequent scope/build uses the review-set path for commitment (I51-L) and role-named `mutateGraph` grammar for edges.
-  - The old `oracle-design-plan-graphs` horizon concern is resolved here: lifting oracle/design/plan planes beyond stubs is either `project` itself or a direct consequence of the chosen `project` shape, not a separate frontier until design proves otherwise.
+  - `memory/SPEC.md`, `memory/PLAN.md`, and the touched parent topology homes state one consistent shape: `project` is a distinct first-level live skill home, not a `generate` branch.
+  - The live skill manifest includes `project`, and its guidance covers accepted-graph derivation lanes such as intent → design and design → oracle.
+  - `project` reuses `present_candidates`, `request_response`, `present_review_set`, and the existing `map` / review-set commitment boundary; it does not add a new product tool or exchange schema family.
   - D97-L provenance applies: cite ontology/render surfaces, do not copy vocabulary lists into the skill.
 - **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L; D60-L.
 
@@ -166,7 +167,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 frontiers:
   Active:
     elicitor-project
-      status: design-gated
+      status: closeout
       depends_on: elicitor-generate, D95-L, D96-L, I51-L
       retires: A33-L
 
