@@ -1,4 +1,14 @@
-import type { ExecutionSpecItemSnapshot, ExecutionSpecSnapshot } from './execution-spec-snapshot.js';
+import type {
+  ExecutionSpecCriterionSnapshot,
+  ExecutionSpecItemSnapshot,
+  ExecutionSpecSnapshot,
+} from './execution-spec-snapshot.js';
+
+export interface ExecutionPlanOutlineCriterion {
+  readonly criterionId: string;
+  readonly title: string;
+  readonly content: string;
+}
 
 export interface ExecutionPlanOutlineTask {
   readonly id: string;
@@ -6,6 +16,7 @@ export interface ExecutionPlanOutlineTask {
   readonly requirementId: string;
   readonly summary: string;
   readonly acceptanceCriterionIds: readonly string[];
+  readonly acceptanceCriteria: readonly ExecutionPlanOutlineCriterion[];
 }
 
 export interface ExecutionPlanOutlineFrontier {
@@ -47,14 +58,23 @@ function taskForRequirement(
   requirement: ExecutionSpecItemSnapshot,
   index: number,
 ): ExecutionPlanOutlineTask {
-  const acceptanceCriterionIds = snapshot.criteria
+  const acceptanceCriteria = snapshot.criteria
     .filter((criterion) => criterion.verifies.includes(requirement.itemId))
-    .map((criterion) => criterion.itemId);
+    .map(outlineCriterion);
   return {
     id: `task-${index + 1}`,
     title: requirement.title,
     requirementId: requirement.itemId,
     summary: requirement.content,
-    acceptanceCriterionIds,
+    acceptanceCriterionIds: acceptanceCriteria.map((criterion) => criterion.criterionId),
+    acceptanceCriteria,
+  };
+}
+
+function outlineCriterion(criterion: ExecutionSpecCriterionSnapshot): ExecutionPlanOutlineCriterion {
+  return {
+    criterionId: criterion.itemId,
+    title: criterion.title,
+    content: criterion.content,
   };
 }
