@@ -1,0 +1,67 @@
+import { readFileSync } from 'node:fs';
+
+import type {
+  AgentPromptSpecContext,
+  AgentPromptWorkspaceContext,
+} from '../contexts/seeds/turn-context.js';
+import { bundledAgentBodyLocation } from '../prompts/registry.js';
+import type { ResolvedBrunchAgentState } from '../../projections/session/runtime-state.js';
+import {
+  activeToolNamesForLiveElicitor,
+  type LiveElicitorToolPolicyInput,
+} from './elicitor/active-tools.js';
+import { composeLiveElicitorPrompt } from './elicitor/compose-live-prompt.js';
+import type { LiveElicitorPushedContext } from './elicitor/context.js';
+
+export interface ForegroundRuntimePromptInput {
+  readonly sessionState: ResolvedBrunchAgentState;
+  readonly spec: AgentPromptSpecContext;
+  readonly workspace: AgentPromptWorkspaceContext;
+  readonly context?: LiveElicitorPushedContext;
+  readonly activeTools?: readonly string[];
+  readonly agentBody?: string;
+}
+
+export interface ForegroundRuntimePromptResult {
+  readonly prompt: string;
+}
+
+export interface ForegroundRuntimeToolPolicyInput extends LiveElicitorToolPolicyInput {
+  readonly sessionState: ResolvedBrunchAgentState;
+}
+
+export function composeForegroundRuntimePrompt(
+  input: ForegroundRuntimePromptInput,
+): ForegroundRuntimePromptResult {
+  switch (input.sessionState.agentRole) {
+    case 'elicitor':
+      return composeLiveElicitorPrompt(input);
+    case 'executor':
+      return { prompt: input.agentBody ?? readExecutorBody() };
+    default: {
+      const exhaustive: never = input.sessionState.agentRole;
+      return exhaustive;
+    }
+  }
+}
+
+export function activeToolNamesForForegroundState({
+  sessionState,
+  registeredToolNames,
+  devAllowedToolNames,
+}: ForegroundRuntimeToolPolicyInput): string[] {
+  switch (sessionState.agentRole) {
+    case 'elicitor':
+      return activeToolNamesForLiveElicitor({ registeredToolNames, devAllowedToolNames });
+    case 'executor':
+      return [];
+    default: {
+      const exhaustive: never = sessionState.agentRole;
+      return exhaustive;
+    }
+  }
+}
+
+function readExecutorBody(): string {
+  return readFileSync(bundledAgentBodyLocation('executor'), 'utf8');
+}

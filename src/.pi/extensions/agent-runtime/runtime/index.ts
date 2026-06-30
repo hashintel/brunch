@@ -17,7 +17,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 
-import { activeToolNamesForLiveElicitor } from '../../../../agents/runtime/elicitor/active-tools.js';
+import { activeToolNamesForForegroundState } from '../../../../agents/runtime/foreground-policy.js';
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
 
@@ -84,13 +84,11 @@ export function activeToolNamesForBrunchAgentState(
   _gaps?: readonly ElicitationGap[],
   devAllowedToolNames?: readonly string[],
 ): string[] {
-  if (state.operationalMode === 'elicit' && state.agentRole === 'elicitor') {
-    return activeToolNamesForLiveElicitor({
-      registeredToolNames: pi.getAllTools().map((tool) => tool.name),
-      devAllowedToolNames,
-    });
-  }
-  return [];
+  return activeToolNamesForForegroundState({
+    sessionState: state,
+    registeredToolNames: pi.getAllTools().map((tool) => tool.name),
+    devAllowedToolNames,
+  });
 }
 
 function applyBrunchToolPolicy(
