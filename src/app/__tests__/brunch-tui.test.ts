@@ -33,6 +33,7 @@ import { runBrunchCli } from '../brunch.js';
 import {
   BRUNCH_CONTINUE_COMMAND,
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
+  BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
   BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
   BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
   BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
@@ -669,6 +670,7 @@ describe('Brunch TUI boot', () => {
       'update_elicitation_scratchpad',
     ]);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_CHECK_TOOL);
+    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_DRAFT_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL);
