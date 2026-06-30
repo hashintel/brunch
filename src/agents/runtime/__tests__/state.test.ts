@@ -10,6 +10,7 @@ import {
   BRUNCH_EXECUTE_COOK_LAUNCH_TOOL,
   BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL,
   BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,
+  BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL,
   BRUNCH_EXECUTE_COOK_POPULATE_TOOL,
   BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL,
   BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL,
@@ -56,6 +57,7 @@ const registeredToolNames = [
   BRUNCH_EXECUTE_COOK_LAUNCH_TOOL,
   BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL,
   BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,
+  BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL,
   BRUNCH_EXECUTE_COOK_POPULATE_TOOL,
   BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL,
   BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL,
@@ -347,6 +349,7 @@ describe('agent posture policy', () => {
     expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_LAUNCH_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL);
+    expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_POPULATE_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL);
     expect(executeTools).toContain(BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL);
@@ -370,6 +373,7 @@ describe('agent posture policy', () => {
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_LAUNCH_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL);
+    expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_POPULATE_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL);
     expect(elicitTools).not.toContain(BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL);

@@ -360,6 +360,8 @@ The POC's purpose is to prove three things: (a) that pi's coding-agent harness c
 
 > D99-L run-completion refinement (2026-06-30, FE-1089): `execute_cook_run_complete` appends `run_completed` once every plan slice is complete and updates `run.json` to `status:"run_completed"`. Petri artifacts, graph mutations, promotion refs, and land branches remain deferred under I52-L.
 
+> D99-L Petri-export refinement (2026-06-30, FE-1089): `execute_cook_petri_export` writes the first minimal Petrinaut `net.json` under `.brunch/cook/runs/<runId>/petrinaut/` and updates `run.json` to `status:"petri_exported"`. Promotion refs and land branches remain deferred under I52-L.
+
 | # | Invariant | Protected by | Proves |
 | --- | --- | --- | --- |
 | I1-L | One spec-local LSN per selected-spec commit; every persisted spec has exactly one `graph_clock` row; every change-log entry, graph-node version, and reconciliation-need in that spec carries an LSN strictly monotonic with that spec's graph clock. Bare LSNs are not comparable across sibling specs. | partially covered (`CommandExecutor`, migration, `mutateGraph`, graph queries, RPC, prompt-context, and seed-fixture tests prove local allocation, one-row clock ownership, sibling isolation, and missing-clock invariant failure) | D4-L, D6-L, D8-L |
