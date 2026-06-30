@@ -1,8 +1,8 @@
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
-import { formatMutateGraphResult } from '../../../agents/contexts/graph/commit-result.js';
-import { formatGraphOverview } from '../../../agents/contexts/graph/graph-slice.js';
+import { formatMutateGraphResult } from '../../../agents/contexts/data-model/graph/commit-result.js';
+import { formatGraphOverview } from '../../../agents/contexts/data-model/graph/graph-slice.js';
 import { createDb, type BrunchDb } from '../../../db/connection.js';
 import { CommandExecutor } from '../../../graph/command-executor.js';
 import {

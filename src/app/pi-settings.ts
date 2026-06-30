@@ -62,6 +62,7 @@ export const BRUNCH_SETTINGS_AUDITED_GETTERS = [
   'getSteeringMode',
   'getFollowUpMode',
   'getTheme',
+  'getThemeSetting',
   'getDefaultThinkingLevel',
   'getTransport',
   'getCompactionEnabled',

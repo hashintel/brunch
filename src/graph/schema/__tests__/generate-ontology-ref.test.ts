@@ -81,7 +81,7 @@ describe('ontology reference generator', () => {
     }
   });
 
-  it('keeps the Gherkin then field owned by one plain schema constant', () => {
+  it('keeps the Gherkin then field as a direct schema literal', () => {
     const source = readFileSync(nodesSourcePath, 'utf8');
     const gherkinSchema = CLAIM_FORM_JSON_SCHEMAS.gherkin;
 
@@ -89,8 +89,7 @@ describe('ontology reference generator', () => {
       'form',
       ...Object.keys(gherkinSchema.properties).filter((key) => key === 'then'),
     ]);
-    expect(source).toContain("const GHERKIN_THEN_FIELD = 'then';");
-    expect(source).toContain("required: ['form', GHERKIN_THEN_FIELD]");
+    expect(source).toContain("required: ['form', 'then']");
   });
 
   it('keeps the committed generated file in sync with the typed source (drift guard)', () => {

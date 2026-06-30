@@ -264,7 +264,7 @@ describe('Brunch runtime switch commands', () => {
     });
   });
 
-  it('marks readiness-thin options as caution in the pickers without disabling them', async () => {
+  it('keeps runtime-axis pickers free of suspended readiness cautions', async () => {
     const theme = createTestLabTheme();
     const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
 
@@ -282,7 +282,10 @@ describe('Brunch runtime switch commands', () => {
     expect(strategyText).not.toContain('-- NOTE:');
     expect(strategyText).toContain('step-wise-decision-tree');
 
-    expect(renderPicker(harness.customCalls[1])).toContain('-- NOTE: design and oracle need more grounding');
+    const lensText = renderPicker(harness.customCalls[1]);
+    expect(lensText).not.toContain('-- NOTE:');
+    expect(lensText).toContain('design');
+    expect(lensText).toContain('oracle');
   });
 
   it('opens the mode picker for no-arg mode commands and never appends a runtime switch', async () => {

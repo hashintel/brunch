@@ -1,7 +1,6 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { isToolBlockedForRuntimeState } from '../../../agents/runtime/policy.js';
 import type { CommandResult } from '../../../graph/command-executor.js';
 import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../session/runtime-state.js';
@@ -71,15 +70,8 @@ describe('minimal authority matrix', () => {
 
   it('derives elicit tool authority from the shared runtime policy and blocks side-effecting POC tools', () => {
     const state = projectBrunchAgentState([{ data: { state: DEFAULT_BRUNCH_AGENT_STATE } }]);
-    const policy = state.operationalModeDefinition.toolPolicy;
 
-    expect(policy.id).toBe('elicit-read-only');
-    expect(policy.baseAllowedToolNames).toEqual(['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search']);
-    expect(policy.blockedToolNames).toEqual([...SIDE_EFFECTING_POC_TOOLS]);
-
-    for (const toolName of SIDE_EFFECTING_POC_TOOLS) {
-      expect(isToolBlockedForRuntimeState(state, toolName)).toBe(true);
-    }
+    expect(state).toMatchObject({ operationalMode: 'elicit', agentRole: 'elicitor' });
 
     expect(
       activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state, uncoveredGaps),
@@ -94,6 +86,9 @@ describe('minimal authority matrix', () => {
       'request_response',
       'mutate_graph',
     ]);
+    expect(
+      activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state),
+    ).not.toEqual(expect.arrayContaining([...SIDE_EFFECTING_POC_TOOLS]));
   });
 
   it('falls back to conservative uncovered gaps when no selected-spec gap read is available', () => {

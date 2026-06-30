@@ -28,7 +28,7 @@ function gap(question: string, overrides: Partial<ElicitationGap> = {}): Elicita
 }
 
 describe('composeContextSeedContent', () => {
-  it('renders the full graph overview (codes, titles, edges) and the top-ranked open gaps', () => {
+  it('renders the full graph overview (codes, titles, edges) and the top-ranked open gaps', async () => {
     const goal = node('goal', 'Ship tracker', 1);
     const requirement = node('requirement', 'Fast search', 1);
     const content = composeContextSeedContent({
@@ -53,14 +53,7 @@ describe('composeContextSeedContent', () => {
       workspaceContext: 'Workspace overview\n- specs: 1',
     });
 
-    expect(content).toContain('Issue tracker');
-    expect(content).toContain('LSN 9');
-    // Full overview — the same render read_graph emits: node codes + titles + edges,
-    // never a counts-only summary (D78-L revised: first question needs no tool call).
-    expect(content).toContain('| G1 | 14 | Ship tracker |');
-    expect(content).toContain('| REQ1 | 21 | Fast search |');
-    expect(content).toContain('| 1 | REQ1 | required by | G1 |');
-    // Ranked order: higher importance first within the same band.
+    await expect(content).toMatchFileSnapshot('../__snapshots__/origination-full-overview.md');
     expect(content.indexOf('What is the primary goal?')).toBeLessThan(content.indexOf('Who are the users?'));
   });
 
@@ -72,8 +65,7 @@ describe('composeContextSeedContent', () => {
       gaps: [],
       workspaceContext: 'Workspace overview\n- specs: 2\n- sessions: 1',
     });
-    expect(content).toContain('Workspace overview');
-    // Workspace section precedes the graph section.
+
     expect(content.indexOf('Workspace overview')).toBeLessThan(content.indexOf('Graph'));
   });
 

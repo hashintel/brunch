@@ -27,10 +27,7 @@ import {
   type ReadinessBand,
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
-import {
-  delegatableAgentsForRuntimeState,
-  projectBrunchAgentState,
-} from '../projections/session/runtime-state.js';
+import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
 import type { SessionTurnDriver } from '../rpc/methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from '../rpc/methods/session-exchange-answer.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
@@ -406,12 +403,14 @@ export function createBrunchAgentSessionRuntimeFactory(
     const liveAgentSession = context.liveAgentSession ?? { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
     const agentState = projectBrunchAgentState(sessionManager.getEntries());
-    const foregroundAgent = agentState.agentRoleDefinition;
     const subagents = context.allowSubagents
       ? await loadBrunchSubagents({
           cwd,
           agentDir: runtimeAgentDir,
-          delegatableAgents: delegatableAgentsForRuntimeState(agentState),
+          delegatableAgents:
+            agentState.operationalMode === 'elicit'
+              ? ['explorer', 'researcher', 'projector', 'reviewer']
+              : [],
           world: {
             graph: {
               specId: currentWorkspace.spec.id,
@@ -496,7 +495,7 @@ export function createBrunchAgentSessionRuntimeFactory(
       sessionManager,
       ...projectBrunchPiSessionOptions({
         ...(sessionStartEvent ? { sessionStartEvent } : {}),
-        thinkingLevel: foregroundAgent.thinking,
+        thinkingLevel: 'medium',
         ...(context.agentServices?.model ? { model: context.agentServices.model } : {}),
       }),
     });

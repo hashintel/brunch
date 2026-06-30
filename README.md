@@ -36,14 +36,14 @@ Brunch does not own a provider/model/port configuration surface. Provider auth a
 
 Brunch's own environment surface is operational (offline/dev/source flags), not product config:
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `PI_OFFLINE` | `1` | Brunch defaults this to `1` (offline) around the interactive run. Set `0` only when deliberately exercising live provider calls through configured Pi auth. |
-| `PI_SKIP_VERSION_CHECK` | `1` | Defaulted to `1` by Brunch to skip Pi's runtime version check. |
-| `BRUNCH_DEV` | — | Set `1` to expose the dev-only `dev.graph.mutateGraph` method in the JSON-RPC dev surface. Absent from discovery otherwise. |
-| `BRUNCH_DB` | `./.brunch/data.db` | SQLite path used by `drizzle-kit` tooling only (`db:generate`, `db:studio`). Does not affect the runtime workspace DB, which is resolved per-cwd. |
-| `PI_SOURCE` / `PI_SOURCE_ROOT` | — | Dev-only: set `PI_SOURCE=1` to alias the `@earendil-works/pi-*` packages to a local `pi-mono` checkout (default `~/.pi/pi-mono`, overridable via `PI_SOURCE_ROOT`) so source edits apply without rebuilding. Inert unless the checkout exists. |
-| `BRAVE_API_KEY` | — | Optional. Enables the Brave-backed web-search extension; absent, web search throws. |
+| Variable                       | Default             | Description                                                                                                                                                                                                                                    |
+| ------------------------------ | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PI_OFFLINE`                   | `1`                 | Brunch defaults this to `1` (offline) around the interactive run. Set `0` only when deliberately exercising live provider calls through configured Pi auth.                                                                                    |
+| `PI_SKIP_VERSION_CHECK`        | `1`                 | Defaulted to `1` by Brunch to skip Pi's runtime version check.                                                                                                                                                                                 |
+| `BRUNCH_DEV`                   | —                   | Set `1` to expose the dev-only `dev.graph.mutateGraph` method in the JSON-RPC dev surface. Absent from discovery otherwise.                                                                                                                    |
+| `BRUNCH_DB`                    | `./.brunch/data.db` | SQLite path used by `drizzle-kit` tooling only (`db:generate`, `db:studio`). Does not affect the runtime workspace DB, which is resolved per-cwd.                                                                                              |
+| `PI_SOURCE` / `PI_SOURCE_ROOT` | —                   | Dev-only: set `PI_SOURCE=1` to alias the `@earendil-works/pi-*` packages to a local `pi-mono` checkout (default `~/.pi/pi-mono`, overridable via `PI_SOURCE_ROOT`) so source edits apply without rebuilding. Inert unless the checkout exists. |
+| `BRAVE_API_KEY`                | —                   | Optional. Enables the Brave-backed web-search extension; absent, web search throws.                                                                                                                                                            |
 
 ## Product Shape
 
@@ -67,14 +67,14 @@ npm run dev
 
 Common development commands:
 
-| Command | Purpose |
-| --- | --- |
-| `npm run dev` | Run the Brunch CLI from source. Defaults to TUI mode. |
-| `npm run test` | Run Vitest once. |
-| `npm run fix` | Apply lint fixes, then format. |
-| `npm run check` | Read-only lint, format, and skill consistency checks. |
-| `npm run verify` | Full local gate: fix, test, and build. |
-| `npm run build` | Build TypeScript, packaged Pi assets, and the web bundle. |
+| Command          | Purpose                                                   |
+| ---------------- | --------------------------------------------------------- |
+| `npm run dev`    | Run the Brunch CLI from source. Defaults to TUI mode.     |
+| `npm run test`   | Run Vitest once.                                          |
+| `npm run fix`    | Apply lint fixes, then format.                            |
+| `npm run check`  | Read-only lint, format, and skill consistency checks.     |
+| `npm run verify` | Full local gate: fix, test, and build.                    |
+| `npm run build`  | Build TypeScript, packaged Pi assets, and the web bundle. |
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for release flow, fixture workflow, and the current internal source-of-truth documents.
 
@@ -97,7 +97,7 @@ npm run dev -- --cwd .fixtures/workbenches/live-graph-observer --open-web
 
 Seed selection is `<set>/<slug>` from `.fixtures/seeds/` (see [`.fixtures/seeds/README.md`](./.fixtures/seeds/README.md) for the disposition catalog). Use `--all-seeds` instead of `--seed` only when you deliberately want every tracked fixture loaded as its own spec; a bare `npm run seed` fails with usage rather than seeding the shell cwd.
 
-For agent-addressable inspection or curation over JSON-RPC, use the seeded-RPC walkthrough in [`docs/testing/seeded-dev-rpc.md`](./docs/testing/seeded-dev-rpc.md). Keep one writer per workspace: do not run concurrent dev RPC writes and a TUI/agent session against the same cwd unless you are deliberately testing concurrency.
+For agent-addressable inspection or curation over JSON-RPC, use the seeded-RPC walkthrough in [`docs/praxis/seeded-dev-rpc.md`](./docs/praxis/seeded-dev-rpc.md). Keep one writer per workspace: do not run concurrent dev RPC writes and a TUI/agent session against the same cwd unless you are deliberately testing concurrency.
 
 Live provider runs require `PI_OFFLINE=0` plus configured Pi auth; otherwise the default offline launch exercises the workspace, graph, and UI paths without reaching a provider.
 

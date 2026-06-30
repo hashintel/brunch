@@ -47,7 +47,7 @@ function runtimeEntry(id: string, state: BrunchAgentState, parentId = 'binding-1
 }
 
 describe('runtime-state projection', () => {
-  it('accepts only interaction-shape strategy ids in runtime state parsing', () => {
+  it('accepts legacy strategy ids in runtime state parsing without projecting them as public posture', () => {
     expect(AGENT_STRATEGY_IDS).toEqual(['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate']);
 
     const freestyle: BrunchAgentState = {
@@ -61,9 +61,13 @@ describe('runtime-state projection', () => {
       projectSessionRuntimeState(envelope([runtimeEntry('runtime-freestyle', freestyle)])),
     ).toMatchObject({
       agent: {
-        strategy: 'freestyle',
+        operationalMode: 'elicit',
+        role: 'elicitor',
       },
     });
+    expect(
+      projectSessionRuntimeState(envelope([runtimeEntry('runtime-freestyle', freestyle)])).agent,
+    ).not.toHaveProperty('strategy');
   });
 
   it('returns flattened defaults for an explicit linear session with no runtime entries', () => {
@@ -74,8 +78,6 @@ describe('runtime-state projection', () => {
       agent: {
         operationalMode: DEFAULT_BRUNCH_AGENT_STATE.operationalMode,
         role: 'elicitor',
-        strategy: DEFAULT_BRUNCH_AGENT_STATE.agentStrategy,
-        lens: DEFAULT_BRUNCH_AGENT_STATE.agentLens,
       },
       mentions: { graphNodes: [], files: [] },
       world: { graph: { latestLsn: null }, git: { head: null } },
@@ -147,8 +149,6 @@ describe('runtime-state projection', () => {
       agent: {
         operationalMode: 'elicit',
         role: 'elicitor',
-        strategy: 'step-wise-disambiguate',
-        lens: 'oracle',
       },
       mentions: {
         graphNodes: [{ id: 'node-1', handle: 'D12', title: 'Decision seam', seenLsn: 7 }],

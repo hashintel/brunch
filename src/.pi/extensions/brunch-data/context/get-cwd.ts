@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 
-import { renderWorkspaceContext } from '../../../../agents/contexts/workspace/workspace-context.js';
+import { renderWorkspaceContext } from '../../../../agents/contexts/data-model/workspace/workspace-context.js';
 import {
   inspectWorkspaceOverview,
   type WorkspaceOverview,

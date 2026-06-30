@@ -9,7 +9,7 @@
  * - created refs, diagnostic ordering, and omission policy
  *
  * Used by:
- * - agents/contexts/graph/commit-result.ts
+ * - agents/contexts/data-model/graph/commit-result.ts
  * - .pi/extensions/brunch-data/graph/index.ts via mutate_graph tool results
  */
 

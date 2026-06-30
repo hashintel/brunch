@@ -5,10 +5,10 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import {
   formatMutateGraphResult,
   formatStructuralIllegal,
-} from '../../../../agents/contexts/graph/commit-result.js';
-import { formatGraphOverview } from '../../../../agents/contexts/graph/graph-slice.js';
-import { formatNeighborhood } from '../../../../agents/contexts/graph/node-neighborhood.js';
-import { formatRelatedNodesResult } from '../../../../agents/contexts/graph/related-nodes.js';
+} from '../../../../agents/contexts/data-model/graph/commit-result.js';
+import { formatGraphOverview } from '../../../../agents/contexts/data-model/graph/graph-slice.js';
+import { formatNeighborhood } from '../../../../agents/contexts/data-model/graph/node-neighborhood.js';
+import { formatRelatedNodesResult } from '../../../../agents/contexts/data-model/graph/related-nodes.js';
 import type { CommandExecutor } from '../../../../graph/command-executor.js';
 import type {
   EdgeCategory,

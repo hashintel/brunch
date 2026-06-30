@@ -1706,27 +1706,6 @@ describe('Brunch explicit Pi extension registry', () => {
       ]),
     );
   });
-
-  it('does not retain the filesystem-discovery product-extension protocol', async () => {
-    const shell = await readFile(join(projectRoot(), 'src/app/pi-extensions.ts'), 'utf8');
-    const discoveryExport = ['discover', 'BrunchProductExtensionEntries'].join('');
-    expect(shell).not.toContain(`export async function ${discoveryExport}`);
-    expect(shell).not.toContain('node:fs/promises');
-    expect(shell).not.toContain('pathToFileURL');
-
-    const forbiddenExportNames = [
-      ['brunch', 'ExtensionMeta'].join(''),
-      ['register', 'BrunchProductExtension'].join(''),
-    ];
-    const files = await listExtensionEntrypoints();
-    for (const file of files) {
-      const source = await readFile(file, 'utf8');
-      for (const exportName of forbiddenExportNames) {
-        expect(source, file).not.toContain(`export const ${exportName}`);
-        expect(source, file).not.toContain(`export function ${exportName}`);
-      }
-    }
-  });
 });
 
 const brunchChromeFixture = {

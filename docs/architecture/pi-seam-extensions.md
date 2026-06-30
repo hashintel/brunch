@@ -1,6 +1,6 @@
 # Brunch POC — Pi Seam Extensions
 
-This is a sibling document to [prd.md](file:///Users/lunelson/Code/hashintel/brunch-next/docs/architecture/prd.md). It captures four architectural extensions to the POC that drill into how specific Brunch product affordances land on pi's existing seams. The PRD asserts that pi can be used as an internal harness without forcing Brunch to become a pi distribution; this document checks that claim against four concrete affordances and records where Brunch owns work that pi does not provide.
+This is a sibling document to [prd.md](./prd.md). It captures four architectural extensions to the POC that drill into how specific Brunch product affordances land on pi's existing seams. The PRD asserts that pi can be used as an internal harness without forcing Brunch to become a pi distribution; this document checks that claim against four concrete affordances and records where Brunch owns work that pi does not provide.
 
 The four affordances:
 
@@ -407,18 +407,18 @@ The mechanism itself is small: schema is ~30 lines, the `applyMutation` helper i
 
 ## Reconciliation-need substrate
 
-The PRD commits to coherence as a first-class queryable product state and to a per-commit change log with attribution. Working through the [comparative-architecture-notes review](file:///Users/lunelson/Code/hashintel/bilal-spec-elicitation-proto/LN_REVIEW/comparative-architecture-notes.md) surfaced a third orthogonal substrate that neither the change log nor coherence state should be made to carry alone: **process debt**. Possible observations, possible relations, possible duplicates, stale context, proposal-pending reviews, graph-quality findings, coverage gaps, authority conflicts, and unresolved impasses are all assertions that *judgment is required* — not truth claims and not coherence verdicts. This section pins down the substrate.
+The PRD commits to coherence as a first-class queryable product state and to a per-commit change log with attribution. Working through the comparative-architecture-notes review (a sibling spec-elicitation prototype's `LN_REVIEW/comparative-architecture-notes.md`, external to this repo) surfaced a third orthogonal substrate that neither the change log nor coherence state should be made to carry alone: **process debt**. Possible observations, possible relations, possible duplicates, stale context, proposal-pending reviews, graph-quality findings, coverage gaps, authority conflicts, and unresolved impasses are all assertions that *judgment is required* — not truth claims and not coherence verdicts. This section pins down the substrate.
 
 ### The four-substrate model
 
 The POC's durable state divides into four substrates with strict responsibilities and one shared command layer:
 
-| Substrate | What it owns |
-| --- | --- |
-| Graph nodes + edges | **Truth** — semantic content and relations across the four planes |
-| `change_log` | **Audit / history** — every commit, attribution, before/after |
-| `coherence_state` | **Verdict** — per-plane status and machine-readable violations |
-| `reconciliation_need` | **Actionable queue** — process debt with independent lifecycle |
+| Substrate             | What it owns                                                      |
+| --------------------- | ----------------------------------------------------------------- |
+| Graph nodes + edges   | **Truth** — semantic content and relations across the four planes |
+| `change_log`          | **Audit / history** — every commit, attribution, before/after     |
+| `coherence_state`     | **Verdict** — per-plane status and machine-readable violations    |
+| `reconciliation_need` | **Actionable queue** — process debt with independent lifecycle    |
 
 Each has a single responsibility. Coherence violations may reference need IDs; needs may reference causing LSNs or violation IDs; **neither subsumes the other**. The actionable queue UI reads from `reconciliation_need` only.
 
@@ -568,7 +568,7 @@ Both items should be tracked in `memory/PLAN.md` as deferred frontier items rath
 
 The programme's AI R&D framework — which this POC ultimately serves — anticipates an end-to-end specification → plan → execution → validation workflow with explicit governance, orchestration, and action layers; durable spec/plan/execution state stored in Geolog (TA1.2) with theories enforcing relationships; per-task context routing with access audit; per-task least-privilege sandboxing; multiple candidate specs/plans with trade-off analysis; and first-class validation gates including proof obligations and assurance strategies. The POC explicitly does not deliver all of that. This section catalogues the framework concerns it defers, the minimum hedges adopted to preserve compatibility, and the one place where typed structure is worth landing in the POC even though execution is deferred.
 
-Three substantive resolutions in this section — the reasoning-records storage shape, the typed oracle-plane stub, and the product-framing modality — were arrived at by pressure-testing the POC against the [comparative-architecture review](file:///Users/lunelson/Code/hashintel/bilal-spec-elicitation-proto/LN_REVIEW/comparative-architecture-notes.md) of a sibling spec-elicitation prototype, with the oracle as third party. The reconciliation-need substrate above is the fourth resolution from the same review; it lives in its own top-level section because it is a substrate, not a deferred concern.
+Three substantive resolutions in this section — the reasoning-records storage shape, the typed oracle-plane stub, and the product-framing modality — were arrived at by pressure-testing the POC against the comparative-architecture review (a sibling spec-elicitation prototype's `LN_REVIEW/comparative-architecture-notes.md`, external to this repo), with the oracle as third party. The reconciliation-need substrate above is the fourth resolution from the same review; it lives in its own top-level section because it is a substrate, not a deferred concern.
 
 ### Explicitly deferred subsystems
 
@@ -599,7 +599,7 @@ Multiple candidate specs or plans with trade-off summaries are anticipated by th
 The oracle plane is the one place where typed structure is worth landing in the POC even though no execution component consumes it yet. Three forces converge:
 
 1. The framework anticipates validation methods, proof obligations, assurance levels, and assumption-invalidation cascade as a core part of the long-term spec → plan → execution → validation loop.
-2. The behavioral-kernel design at [`docs/design/BEHAVIORAL_KERNELS.md`](file:///Users/lunelson/Code/hashintel/brunch-next/docs/design/BEHAVIORAL_KERNELS.md) makes these entity types *near-term*, not far-future. Every kernel card emits typed artefacts that include invariants, criteria, examples, decisions, and proof obligations; the interviewer workflow's Step 6 already wants to write `Obligation` nodes when a kernel surfaces a `proof_candidate`. The oracle plane is therefore on the kernel emission path from the day kernels are wired into the agent — around M5.
+2. The behavioral-kernel design at [`docs/design/BEHAVIORAL_KERNELS.md`](../design/BEHAVIORAL_KERNELS.md) makes these entity types *near-term*, not far-future. Every kernel card emits typed artefacts that include invariants, criteria, examples, decisions, and proof obligations; the interviewer workflow's Step 6 already wants to write `Obligation` nodes when a kernel surfaces a `proof_candidate`. The oracle plane is therefore on the kernel emission path from the day kernels are wired into the agent — around M5.
 3. The cost of typing the plane now (without runners) is small and additive to M4.
 
 #### Intent-plane subtypes (informed by the kernel artefact taxonomy)
@@ -634,12 +634,12 @@ Good deterministic uses: group/filter/render nodes by coarse label; prioritise `
 
 The intent ontology covers engineering-spec shapes well but is thin on product-framing concepts (problem, persona, JTBD, value proposition, product concept, precedent, market wedge, non-goal). Rather than introduce eight new top-level node kinds — which would balloon the command surface, complicate relation-policy legality, and risk an "intent ontology committee" — the POC adopts a queryable secondary classification via `framing_as`, with a tight allowed matrix:
 
-| Base kind | `framing_as` allowed values |
-| --- | --- |
-| `goal` | `product_concept`, `value_proposition`, `market_wedge`, `jtbd` (goal-shaped) |
-| `context` | `problem`, `persona`, `jtbd` (situation-shaped), `precedent` |
-| `constraint` | `non_goal` |
-| (other kinds) | none in POC |
+| Base kind     | `framing_as` allowed values                                                  |
+| ------------- | ---------------------------------------------------------------------------- |
+| `goal`        | `product_concept`, `value_proposition`, `market_wedge`, `jtbd` (goal-shaped) |
+| `context`     | `problem`, `persona`, `jtbd` (situation-shaped), `precedent`                 |
+| `constraint`  | `non_goal`                                                                   |
+| (other kinds) | none in POC                                                                  |
 
 `non_goal` is intentionally kept as a `constraint` framing rather than a top-level kind because the current intent-graph semantics already wants it there.
 
@@ -762,11 +762,11 @@ All three are out of scope and should remain so.
 
 The comparative review surfaced three plausible storage shapes for reasoning records — decisions, justifications, impasses — emphasising the prototype's "hub node" framing. After pressure-testing, the POC adopts a deliberately non-uniform resolution that distinguishes truth from process debt.
 
-| Reasoning artefact | Where it lives in the POC |
-| --- | --- |
-| `decision` | Ordinary intent-plane graph node (already in the ontology). Independent lifecycle, ordinary semantic edges (`selected`, `rejected`), kernel-emitted, visible to `worldUpdate`. |
-| `justification` | Compact rationale text on the produced node, **plus** explicit `supports` / `depends_on` semantic edges where any dependency is load-bearing for assumption-invalidation cascade or coherence. Not a separate graph kind in the POC. |
-| `impasse` | A `reconciliation_need` of `kind: 'impasse'` (see §Reconciliation-need substrate). Not graph truth; process debt referencing the conflicting nodes via `target_refs`. |
+| Reasoning artefact | Where it lives in the POC                                                                                                                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `decision`         | Ordinary intent-plane graph node (already in the ontology). Independent lifecycle, ordinary semantic edges (`selected`, `rejected`), kernel-emitted, visible to `worldUpdate`.                                                       |
+| `justification`    | Compact rationale text on the produced node, **plus** explicit `supports` / `depends_on` semantic edges where any dependency is load-bearing for assumption-invalidation cascade or coherence. Not a separate graph kind in the POC. |
+| `impasse`          | A `reconciliation_need` of `kind: 'impasse'` (see §Reconciliation-need substrate). Not graph truth; process debt referencing the conflicting nodes via `target_refs`.                                                                |
 
 The principle: **if it is truth, it goes in the graph; if it is process debt, it goes in `reconciliation_need`.**
 

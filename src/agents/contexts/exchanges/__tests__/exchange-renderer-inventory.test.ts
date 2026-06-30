@@ -13,8 +13,8 @@ import { formatRequestResponseDiagnostic } from '../request-response.js';
 import { formatRequestReview } from '../request-review.js';
 
 describe('structured-exchange renderer inventory', () => {
-  it('covers the request/present result renderers not snapshot-locked elsewhere', () => {
-    expect(
+  it('covers the request/present result renderers not snapshot-locked elsewhere', async () => {
+    await expect(
       formatPresentQuestion(
         projectPresentQuestion({
           exchangeId: 'ex-1',
@@ -23,14 +23,15 @@ describe('structured-exchange renderer inventory', () => {
           options: [{ id: 'a', content: 'Alpha', rationale: 'Fastest path.' }],
         }),
       ),
-    ).toContain('## 1. Alpha');
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-present.md');
 
-    expect(
+    await expect(
       formatRequestAnswer(
         projectRequestAnswer({ exchangeId: 'ex-1', status: 'answered', answer: 'Freeform answer' }),
       ),
-    ).toContain('Freeform answer');
-    expect(
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-answer.md');
+
+    await expect(
       formatRequestChoice(
         projectRequestChoice({
           exchangeId: 'ex-1',
@@ -40,8 +41,9 @@ describe('structured-exchange renderer inventory', () => {
           comment: 'Because.',
         }),
       ),
-    ).toContain('Selected: **Alpha**');
-    expect(
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-choice.md');
+
+    await expect(
       formatRequestChoices(
         projectRequestChoices({
           exchangeId: 'ex-1',
@@ -50,11 +52,13 @@ describe('structured-exchange renderer inventory', () => {
           comment: 'Both.',
         }),
       ),
-    ).toContain('Alpha\\*');
-    expect(formatRequestResponseDiagnostic({ message: 'Waiting for a structured response.' })).toContain(
-      'Waiting for a structured response.',
-    );
-    expect(
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-choices.md');
+
+    await expect(
+      formatRequestResponseDiagnostic({ message: 'Waiting for a structured response.' }),
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-diagnostic.md');
+
+    await expect(
       formatRequestReview(
         projectRequestReview({
           exchangeId: 'ex-1',
@@ -63,14 +67,15 @@ describe('structured-exchange renderer inventory', () => {
           comment: 'Tighten scope.',
         }),
       ),
-    ).toContain('Changes requested');
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-review.md');
   });
 
-  it('keeps unavailable/cancelled branches model-facing and explicit', () => {
-    expect(formatRequestAnswer(projectRequestAnswer({ exchangeId: 'ex-1', status: 'cancelled' }))).toContain(
-      'User cancelled',
-    );
-    expect(
+  it('keeps unavailable/cancelled branches model-facing and explicit', async () => {
+    await expect(
+      formatRequestAnswer(projectRequestAnswer({ exchangeId: 'ex-1', status: 'cancelled' })),
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-cancelled-answer.md');
+
+    await expect(
       formatRequestChoice(
         projectRequestChoice({
           exchangeId: 'ex-1',
@@ -79,8 +84,9 @@ describe('structured-exchange renderer inventory', () => {
           message: 'choice unavailable',
         }),
       ),
-    ).toContain('choice unavailable');
-    expect(
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-unavailable-choice.md');
+
+    await expect(
       formatRequestChoices(
         projectRequestChoices({
           exchangeId: 'ex-1',
@@ -88,9 +94,10 @@ describe('structured-exchange renderer inventory', () => {
           message: 'choices unavailable',
         }),
       ),
-    ).toContain('choices unavailable');
-    expect(formatRequestReview(projectRequestReview({ exchangeId: 'ex-1', status: 'cancelled' }))).toContain(
-      'User cancelled',
-    );
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-unavailable-choices.md');
+
+    await expect(
+      formatRequestReview(projectRequestReview({ exchangeId: 'ex-1', status: 'cancelled' })),
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-cancelled-review.md');
   });
 });

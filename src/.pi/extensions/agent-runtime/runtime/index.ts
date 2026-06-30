@@ -17,15 +17,13 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { Text } from '@earendil-works/pi-tui';
 
+import { activeToolNamesForForegroundState } from '../../../../agents/runtime/foreground-policy.js';
 import {
-  isToolBlockedForRuntimeState,
-  toolPolicyForRuntimeState,
-} from '../../../../agents/runtime/policy.js';
-import { activeToolNamesForPosture } from '../../../../agents/runtime/state.js';
+  BRUNCH_BLOCKED_TOOL_NAMES,
+  isBrunchBlockedToolName,
+} from '../../../../agents/runtime/shared/blocked-tools.js';
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
-
-export { agentBodyResourceLocation } from '../../../../agents/runtime/state.js';
 
 export {
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -85,13 +83,12 @@ function supportsBrunchAgentStateEntries(
 export function activeToolNamesForBrunchAgentState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
-  gaps?: readonly ElicitationGap[],
+  _gaps?: readonly ElicitationGap[],
   devAllowedToolNames?: readonly string[],
 ): string[] {
-  return activeToolNamesForPosture({
+  return activeToolNamesForForegroundState({
+    sessionState: state,
     registeredToolNames: pi.getAllTools().map((tool) => tool.name),
-    state,
-    gaps: gaps ?? conservativeUncoveredFloorGaps(),
     devAllowedToolNames,
   });
 }
@@ -302,8 +299,8 @@ export function registerBrunchOperationalModePolicy(
 
   pi.on('tool_call', async (event, ctx) => {
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
-    if (!isToolBlockedForRuntimeState(state, event.toolName)) return;
-    const blockedToolNames = toolPolicyForRuntimeState(state).blockedToolNames.join(', ');
+    if (!isBrunchBlockedToolName(event.toolName)) return;
+    const blockedToolNames = BRUNCH_BLOCKED_TOOL_NAMES.join(', ');
 
     return {
       block: true,
@@ -315,7 +312,7 @@ export function registerBrunchOperationalModePolicy(
 
   pi.on('user_bash', (event, ctx) => {
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
-    const blockedToolNames = toolPolicyForRuntimeState(state).blockedToolNames.join(', ');
+    const blockedToolNames = BRUNCH_BLOCKED_TOOL_NAMES.join(', ');
     return {
       result: {
         output:

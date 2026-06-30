@@ -4,7 +4,7 @@
 > Date: 2026-06-22; updated 2026-06-23.
 > Scope: the structured-exchange **tool surface** — the `present_*` / `request_*` two-call grammar. This document records a Design-It-Twice (`ln-design`) exploration of three module shapes, the comparison, the chosen design, its load-bearing claims, and the tracer bullets that have now started landing.
 >
-> Governs / refines: `memory/SPEC.md` **I23-L** (structured-exchange tuple grammar), **D37-L/D38-L** (structured-exchange contract), **D84-L/D86-L** (live-exchange broker / TUI editor response surface). Companion: [REVIEW_SETS.md](REVIEW_SETS.md) (the review-set proposal payload), `src/.pi/extensions/exchanges/schemas/README.md` (the schema source boundaries).
+> Governs / refines: `memory/SPEC.md` **I23-L** (structured-exchange tuple grammar), **D37-L/D38-L** (structured-exchange contract), **D84-L/D86-L** (live-exchange broker / TUI editor response surface). Companion: [REVIEW_SETS.md](REVIEW_SETS.md) (the review-set proposal payload), `src/.pi/extensions/exchanges/schemas/TOPOLOGY.md` (the schema source boundaries).
 >
 > SPEC is the authoritative register; this document is rationale and texture for a not-yet-active frontier. When the design is built, its durable residue reconciles into SPEC (I23-L + a new/updated assumption) and this doc becomes the long-form companion.
 
