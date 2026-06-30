@@ -104,7 +104,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Name:** Elicitor `project` capability — cross-plane derivation
 - **Linear:** [FE-1085](https://linear.app/hash/issue/FE-1085) — elicitor project capability design
-- **Branch:** tbd
+- **Branch:** `ln/fe-1085-elicitor-project-prep`
 - **Kind:** structural / capability
 - **Status:** active; design-gated by A33-L.
 - **Certainty:** proving; the first deliverable is a design verdict, not code.

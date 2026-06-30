@@ -13,10 +13,13 @@ skills/
 ├── propose/       proposal generation conduct
 ├── analyze/       orientation and selected-spec synthesis conduct
 ├── map/           graph-mapping ontology and relation guidance
-├── review/        review and review-set conduct
+├── review/        selected-spec evaluation conduct
+├── tutorial/      product walkthrough and operator help
 ├── _suspended/    legacy strategy/lens/method resources
 └── __fixtures__/  registry guard fixtures only
 ```
+
+Only directories with a routable `SKILL.md` are live prompt-resource homes. Empty staging folders are not part of the live routing surface.
 
 ## Skill Routing
 
@@ -30,6 +33,7 @@ The live elicitor should choose skill guidance by the work move it is making, no
 | `propose` | the agent should generate candidate material for user recognition or review | `present_*` flows, `map`, or `review`  |
 | `map`     | response, source, or proposal material needs graph expression               | graph mutation, gap, or reconciliation |
 | `review`  | existing or proposed material needs critique before further commitment      | `elicit`, `propose`, or `map`          |
+| `tutorial`| the user wants a walkthrough of Brunch itself, current capabilities, or how to get started | concrete next step in the product |
 
 If this table is rendered into a future `<brunch-skills>` manifest, keep it compact and operational: it should help the model pick the next prompt resource, not restate each `SKILL.md`.
 
