@@ -45,12 +45,12 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `structured-exchange-affordance` (FE-1108) — **next earned hardening.** Stabilize the live model-authored exchange contract after the `request_response` collapse and the new `generate` / `project` loops.
 - `elicitation-gap-guidance` — **next proving frontier after exchange hardening.** Derive "what next?" guidance from graph shape, settlement, and readiness rather than only sorting the existing gap register.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
 ### Recently Completed
 
+- 2026-06-30 `structured-exchange-affordance` (FE-1108) — exchange authoring guidance now teaches present-side response rules and review-set nested companions at the boundary; one unearned exchange projection adapter was inlined into its RPC consumer, and topology inventories name the retained model-facing/projection homes.
 - 2026-06-30 `elicitor-project` (FE-1085) — project canonicalized as a first-level live skill home over existing exchange/review-set seams; A33-L validated, D100-L added, and the prompt manifest witnesses `project`.
 - 2026-06-29 `spec-structural-relief` — SPEC slimmed from long-form register to compact live index; pre-slim snapshot archived in `docs/archive/SPEC_HISTORY.md`.
 - 2026-06-26 `renderer-golden-coverage` (FE-1091) — context pipeline done; prompt/subagent topology flattened and locked.
@@ -59,8 +59,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-1. `structured-exchange-affordance`
-2. `elicitation-gap-guidance`
+1. `elicitation-gap-guidance`
 
 ### Parallel / Low-Conflict
 
@@ -124,14 +123,13 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1108](https://linear.app/hash/issue/FE-1108/harden-structured-exchange-affordances)
 - **Branch:** `ln/fe-1108-structured-exchange-affordance`
 - **Kind:** hardening / earned contract cleanup
-- **Status:** active; scoped on the current branch.
+- **Status:** done.
 - **Certainty:** earned.
-- **Current execution pointer:** `memory/cards/structured-exchange-affordance--contract-tightening.md`.
 - **Absorbs:** the former `exchange-symmetry-audit` cleanup; the remaining delete pass is residue of exchange hardening, not a separate dependency boundary.
 - **Closes:** recurring "enforced but untaught" failures where the model sees legal schemas but not the intended present-vs-response, discriminant-companion, or nested review-set payload contract.
 - **Canonicalizes:** structured-exchange schema descriptions, prompt guidelines, renderer/context language, and the final kept-vs-deleted exchange projection/render inventory around `present_question`, `present_candidates`, `present_review_set`, `request_response`, and their companion detail shapes.
 - **Objective:** Tighten the live structured-exchange authoring contract after the `request_response` collapse so the model-facing surface teaches the legal shape directly instead of relying on deep validator failures or legacy pairing prose, then delete any exchange-layer mirrors that no longer earn a shared home.
-- **Acceptance:**
+- **Acceptance:** done.
   - Present-side choice vs freeform vs candidate selection rules are explicit where the model authors them; stale legacy request-tool pairing language is removed.
   - Review-set nested payload companions (`grounding`, `pitch`, `epistemicStatus`, related discriminants) are described or re-shaped at the authoring boundary, not only rejected deep in graph validation.
   - `present_candidates` / `request_response` wording stays aligned with I51-L: recognition only until a later review-set or graph-mutation commitment path.
@@ -163,11 +161,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ```text
 frontiers:
   Active:
-    structured-exchange-affordance
-      status: next / earned hardening
-      active_scope: memory/cards/structured-exchange-affordance--contract-tightening.md
-      depends_on: request_response collapse, review-set proposal payload shape, and remaining exchange-symmetry residue
-
     elicitation-gap-guidance
       status: second / proving
       depends_on: readiness bands, data-model legibility, elicitor-generate, and a stable exchange affordance surface for asking/proposal loops
@@ -178,10 +171,10 @@ frontiers:
       active_scope: memory/cards/orchestrator-tool-port--plan-check-tool.md
 
   Recently Completed:
-    elicitor-project, spec-structural-relief, renderer-golden-coverage, data-model-legibility
+    structured-exchange-affordance, elicitor-project, spec-structural-relief, renderer-golden-coverage, data-model-legibility
 
   Next:
-    none
+    elicitation-gap-guidance
 
   Parallel / Low-Conflict:
     none

@@ -341,7 +341,6 @@ tree:
       request-choice.ts: "Implements request choice."
       request-choices.ts: "Implements request choices."
       request-review.ts: "Implements request review."
-      review-set-payload.ts: "Implements review set payload."
     graph:
       commit-result.ts: "Implements commit result."
       neighborhood.ts: "Implements neighborhood."
