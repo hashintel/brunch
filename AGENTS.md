@@ -87,3 +87,12 @@ Read these before the relevant activity:
 - **`docs/praxis/worktree-agents.md`** — before spawning parallel agent builds with `isolation: "worktree"`
 - **`docs/praxis/manual-testing.md`** — before outer-loop UI testing or fixture capture
 - **`docs/praxis/dev-server-logs.md`** — before reading runtime logs from the dev server or browser
+
+## Cursor Cloud specific instructions
+
+Setup notes for cloud agents. Dependency install (`npm install`) is handled by the startup update script; this section covers non-obvious runtime caveats.
+
+- **Node version**: the app requires Node `>=22.19.0`, but the default `node` on PATH (`/exec-daemon/node`) is `v22.14.0`. The agent's `~/.bashrc` prepends nvm's `v22.22.2` so fresh login shells already satisfy this — verify with `node --version` and run `nvm use 22.22.2` if a shell ever falls back to the daemon node.
+- **Anthropic API key**: `ANTHROPIC_API_KEY` is provided as an environment variable, so the interview/observer flows work without creating a `.env` file. The preflight in `npm run dev` reads `process.env`, so no extra step is needed.
+- **Run the app**: standard `npm run dev` (Vite UI on `:5173`, Express API on `:3000`; see `CONTRIBUTING.md`). It auto-creates SQLite at `.brunch/brunch.db`. Logs stream to `tmp/logs/latest/` (`vite.log`, `api.log`, `combined.log`). Optionally `npm run seed <scenario>` preloads fixture states (see `CONTRIBUTING.md`).
+- **Tests**: `npm run test` is reliable except for the optional `cook` orchestrator suite under `src/orchestrator/`. Those tests are git/process-heavy and exceed the default 5s/10s vitest timeouts under full parallel load on the cloud VM (they pass when run per-file with raised timeouts, e.g. `npx vitest run <file> --testTimeout=120000 --hookTimeout=120000 --no-file-parallelism`). Additionally `src/orchestrator/src/test-runner.test.ts` needs `bun` and `src/orchestrator/src/sandbox-guard.test.ts` needs `bwrap`; neither is installed, so those two files fail by design. The core product suite (everything outside `src/orchestrator/`) passes.
