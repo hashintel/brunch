@@ -16,6 +16,7 @@ import { registerBrunchExecuteCookSourceCopy } from '../.pi/extensions/agent-run
 import { registerBrunchExecuteCookSourcePolicy } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookSliceExecute } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookSliceStart } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookTestResult } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookWorktreeCreate } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanCheck } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanDraftArtifact } from '../.pi/extensions/agent-runtime/index.js';
@@ -157,6 +158,9 @@ export {
   BRUNCH_EXECUTE_COOK_SLICE_START_TOOL,
   createExecuteCookSliceStartTool,
   registerBrunchExecuteCookSliceStart,
+  BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL,
+  createExecuteCookTestResultTool,
+  registerBrunchExecuteCookTestResult,
   BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL,
   createExecuteCookWorktreeCreateTool,
   registerBrunchExecuteCookWorktreeCreate,
@@ -311,6 +315,7 @@ export function createBrunchPiExtensions(
       registerBrunchExecuteCookSourceCopy,
       registerBrunchExecuteCookSliceExecute,
       registerBrunchExecuteCookSliceStart,
+      registerBrunchExecuteCookTestResult,
       registerBrunchExecuteCookWorktreeCreate,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraftArtifact(api, graph)] : []),

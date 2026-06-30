@@ -10,6 +10,7 @@ export const BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL = 'execute_cook_source_copy';
 export const BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL = 'execute_cook_source_policy';
 export const BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL = 'execute_cook_slice_execute';
 export const BRUNCH_EXECUTE_COOK_SLICE_START_TOOL = 'execute_cook_slice_start';
+export const BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL = 'execute_cook_test_result';
 export const BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL = 'execute_cook_worktree_create';
 export const BRUNCH_EXECUTE_PLAN_CHECK_TOOL = 'execute_plan_check';
 export const BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL = 'execute_plan_draft_artifact';
