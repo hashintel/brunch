@@ -18,7 +18,7 @@ type ExecuteStatusParams = Static<typeof ExecuteStatusParams>;
 interface ExecuteStatusDetails {
   readonly discipline: 'strict' | 'interpretive';
   readonly availableDisciplines: readonly ['strict', 'interpretive'];
-  readonly portedTools: readonly ['execute_status', 'execute_snapshot'];
+  readonly portedTools: readonly ['execute_status', 'execute_snapshot', 'execute_plan_check'];
   readonly pendingTools: readonly ['plan', 'cook', 'land'];
   readonly sideEffects: readonly [];
 }
@@ -39,7 +39,7 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
             text: [
               `execute_status: ${discipline}`,
               'available disciplines: strict, interpretive',
-              'ported tools: execute_status, execute_snapshot',
+              'ported tools: execute_status, execute_snapshot, execute_plan_check',
               'pending tools: plan, cook, land',
               'side effects: none',
             ].join('\n'),
@@ -48,7 +48,7 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
         details: {
           discipline,
           availableDisciplines: ['strict', 'interpretive'],
-          portedTools: ['execute_status', 'execute_snapshot'],
+          portedTools: ['execute_status', 'execute_snapshot', 'execute_plan_check'],
           pendingTools: ['plan', 'cook', 'land'],
           sideEffects: [],
         },

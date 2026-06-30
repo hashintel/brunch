@@ -10,6 +10,7 @@ Pure contracts and projection helpers that turn `next` graph facts into execute-
 orchestration/
 ├── README.md
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
+├── execute-plan-check.ts        ExecutionSpecSnapshot -> read-only plan-input findings
 └── __tests__/
 ```
 
