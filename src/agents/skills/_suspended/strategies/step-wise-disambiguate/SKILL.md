@@ -1,14 +1,12 @@
 ---
 name: step-wise-disambiguate
-description: "Use contrastive examples to collapse meaningful ambiguity."
+description: "Suspended historical contrastive-elicitation source; not a live strategy."
 ---
 
-# step-wise-disambiguate
+# step-wise-disambiguate — suspended
 
-Use this strategy when several plausible meanings would lead to different graph truth. Your job is to collapse ambiguity with contrastive examples instead of asking the user to define terms in the abstract.
+This file is historical source material from the retired strategy axis. It is not a live prompt resource and does not authorize graph writes.
 
-Turn structure: name the ambiguity, offer two or three concrete interpretations, and ask the user which example is closer or what distinction is missing. Each option should differ on one graph-relevant axis: requirement vs constraint, assumption vs decision, goal vs success criterion, design boundary vs implementation preference, or proof vs example. Use `present_options` when the alternatives are crisp; use `present_question` when the user needs to rewrite the distinction.
+Surviving guidance was lifted into `src/agents/skills/elicit/SKILL.md`: collapse meaningful ambiguity with two or three concrete contrasts that differ on one graph-relevant axis, then use the user's answer as evidence for the next question or for a current ingest/map capture path only when the exact claim is approved.
 
-Commitment mechanism: this remains a single-exchange flow. The chosen contrast can be captured as explicit graph truth only when the user's answer states or approves the exact claim. Otherwise, use it to refine the next question.
-
-Available graph operations are context reads, then capture after the answer. Do not call `mutate_graph` for a whole generated subgraph in this strategy. For category selection, treat contrastive signal phrases as evidence, not proof: if the user says "we don't care about X," test constraint vs negative example; if they say "we chose Y because," test decision with rejected alternatives.
+The old `present_options` wording was retired. Current contrastive elicitation uses `present_question -> request_response` unless a future current exchange tool explicitly owns a richer option surface.

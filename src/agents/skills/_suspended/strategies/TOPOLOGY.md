@@ -1,32 +1,24 @@
-# strategies/ — Interaction-shape prompt resources
+# _suspended/strategies/ — suspended historical interaction sources
 
-SPEC decisions: D25-L, D26-L, D53-L, D85-L
+SPEC decisions: D25-L, D26-L, D53-L, D85-L, D98-L
 
-Each strategy describes an interaction shape — how the agent structures its turns and what the user experiences. Graph-write commitment mechanisms are method-routed by D85-L, not strategy-axis members.
+This directory contains historical strategy-axis prompt resources only. Under D98-L they are not active prompt resources, not user-changeable runtime axes, and not model-routable skills.
 
-## Strategies
+## Current disposition
 
-| Strategy | Interaction path | Notes |
+| Suspended source | Surviving guidance | Current live home |
 | --- | --- | --- |
-| `freestyle` | ordinary turns | user-pinned free chat; AUTO never selects it |
-| `step-wise-decision-tree` | single-exchange Q&A | one claim at a time |
-| `step-wise-disambiguate` | contrastive examples | collapse meaningful ambiguity |
+| `freestyle` | ordinary user-driven turns remain valid; structured exchange is optional when useful | `src/agents/prompts/elicitor.md` |
+| `step-wise-decision-tree` | ask one focused structured question, branch from the answer, abstain on weak classification support | `src/agents/skills/elicit/SKILL.md` |
+| `step-wise-disambiguate` | use contrastive examples to collapse graph-relevant ambiguity | `src/agents/skills/elicit/SKILL.md` |
 
-## Prompt resource contents
+## Boundary rules
 
-Each `<strategy>/SKILL.md` file in this directory is a prompt resource the agent reads
-(advertised via the D58-L `<brunch-skills>` manifest with `<kind>strategy</kind>`) when the strategy is active. It should contain:
+```pseudo
+rules:
+  agents/runtime/elicitor/ x> _suspended/strategies/ [live elicitor does not load strategy-axis resources]
+  _suspended/strategies/ -> agents/skills/{elicit}/SKILL.md [historical source only]
+  _suspended/strategies/ -> agents/prompts/elicitor.md [historical source only]
+```
 
-- What the agent is doing in this strategy
-- How to structure the turn
-- How to compose with graph-write methods when commitments are ready
-
-## Heuristic provenance
-
-Phrase-classification and translation heuristics are authored and locked into each
-`<strategy>/SKILL.md` body in distilled form (D97-L: cite/distill, do not copy
-vocabulary tables). The canonical "abstain rather than guess on weak classification
-support" rule and the contrastive signal-phrase routing live in
-`step-wise-disambiguate/SKILL.md` and `step-wise-decision-tree/SKILL.md`; graph
-vocabulary itself is owned by `src/graph/schema/kinds.ts`. This topology file owns the
-current axis membership only — not a parallel copy of the per-strategy heuristics.
+Do not add new active strategy members here. If future work needs interaction-shape guidance, add it to a live activity-owned home or create a new SPEC/PLAN decision that reopens prompt-resource organization.
