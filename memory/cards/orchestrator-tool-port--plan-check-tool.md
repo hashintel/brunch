@@ -7,8 +7,8 @@ Created:  2026-06-25
 
 ## Orientation
 
-- Containing seam: `execute` mode's foreground `executor` agent and the `.pi/extensions` adapter boundary; this slice replaces the branch-local standup stub with the first real cook-plan inspection tool.
-- Relevant frontier item: `orchestrator-tool-port` / FE-1087, inherited as the Linear issue and branch boundary from `memory/PLAN.md`.
+- Containing seam: the foreground `executor` agent in target-CODE / current-`execute` mode and the `.pi/extensions` adapter boundary; this slice replaces the branch-local standup stub with the first real cook-plan inspection tool.
+- Relevant frontier item: `orchestrator-tool-port` / FE-1107, inherited as the Linear issue and branch boundary from `memory/PLAN.md`.
 - Volatile handoff state: none in `HANDOFF.md` (absent); source context comes from the prior port analysis and the external `../brunch` orchestrator docs/source.
 - Main open risk: accidentally importing the CLI's execution side effects before the read-only tool boundary is proved; preserve the D39-L sealed profile and D90-L-D93-L/I49-L code-owned authority model.
 
@@ -16,7 +16,7 @@ Posture: proving (inherited from `orchestrator-tool-port`)
 
 ## Target Behavior
 
-The execute-mode executor can inspect a cook plan through a product-registered, read-only `cook_plan_check` tool whose result contains plan shape plus contract findings.
+The foreground executor can inspect a cook plan through a product-registered, read-only `cook_plan_check` tool whose result contains plan shape plus contract findings.
 
 ## Full-card cold-start reads
 
@@ -32,8 +32,8 @@ The execute-mode executor can inspect a cook plan through a product-registered, 
 ## Boundary Crossings
 
 ```text
-→ execute-mode foreground `executor` prompt
-→ execute-mode tool grant / block list (new live seam; do not reintroduce a second legacy runtime-policy tree)
+→ foreground `executor` prompt/control assembly
+→ executor active-tool allowlist + blocked-tool guard (do not reintroduce a second legacy runtime-policy tree)
 → `.pi/extensions/agent-runtime` Pi tool adapter
 → product-owned `src/orchestrator` plan loader + contract core
 → workspace cook plan path
@@ -60,7 +60,7 @@ No separate spike is cheaper than this slice: the useful proof is whether the pr
 ✓ `cook_plan_check` is product-registered for execute mode and returns a typed result for a valid plan path containing mode, epic count, slice count, policy-relevant findings, and source path.
 ✓ Invalid or contract-failing plans return deterministic typed findings/errors without creating `.brunch/cook/runs`, git worktrees, Petrinaut artifacts, or child Pi sessions.
 ✓ The branch-local executor stub is no longer advertised to the foreground executor, and the old stub registration path is retired.
-✓ The Pi runtime tool-call guard still blocks direct `bash`, `edit`, and `write` for `execute`, with tests or assertions covering the new tool grant.
+✓ The Pi runtime tool-call guard still blocks direct `bash`, `edit`, and `write` for the foreground executor, with tests or assertions covering the new tool grant.
 ✓ `src/agents/prompts/executor.md` tells the foreground agent to use the real plan-check tool and preserves the no-direct-write instruction.
 
 ## Verification Approach
