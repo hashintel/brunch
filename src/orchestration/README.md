@@ -12,6 +12,7 @@ orchestration/
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
 ├── execute-plan-check.ts        ExecutionSpecSnapshot -> read-only plan-input findings
 ├── execute-plan-outline.ts      ExecutionSpecSnapshot -> side-effect-free plan outline
+├── plan-outline-artifact.ts     plan outline -> .brunch/execution-reports artifact
 └── __tests__/
 ```
 
@@ -23,4 +24,4 @@ rules:
   orchestration/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
 ```
 
-`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve.
+`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Artifact writers in this subtree may write only explicit execution artifacts under `.brunch/execution-reports`; they must not create cook runs, worktrees, promotion refs, or graph mutations.

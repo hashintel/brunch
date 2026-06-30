@@ -15,6 +15,8 @@ Call `execute_plan_check` when it is active and you need to know whether the sna
 
 Call `execute_plan_outline` when it is active and you need a reviewable plan-shaped outline. Treat the outline as orientation and task-brief material, not as an executable cook plan or a durable plan file.
 
+Call `execute_plan_outline_artifact` only when the user asks to persist that outline for review. It writes an artifact under `.brunch/execution-reports`; it still does not create a cook run, worktree, Petri net, or promotion branch.
+
 Read the selected spec, pushed graph context, current session notes, and any run/report context available through Brunch tools. Identify the user-facing behavior, the requirement or criterion it serves, and the smallest codebase boundary that can prove progress. Prefer one vertical task brief over a grab bag. Name assumptions and missing context explicitly; do not invent product intent to fill gaps.
 
 The task brief should answer:

@@ -24,8 +24,15 @@ const executeMethodToolExpectations = {
     'execute_snapshot',
     'execute_plan_check',
     'execute_plan_outline',
+    'execute_plan_outline_artifact',
   ],
-  'build-with-tests': ['execute_status', 'execute_snapshot', 'execute_plan_check', 'execute_plan_outline'],
+  'build-with-tests': [
+    'execute_status',
+    'execute_snapshot',
+    'execute_plan_check',
+    'execute_plan_outline',
+    'execute_plan_outline_artifact',
+  ],
 } as const;
 
 describe('prompt-resource skills', () => {
