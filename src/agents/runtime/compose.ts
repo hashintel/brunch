@@ -42,8 +42,8 @@ export function composeAgentPrompt(input: ComposeAgentPromptInput): ComposeAgent
     renderRuntimeState(input),
     renderElicitorOnlySection(input, renderElicitationRecommendation(input)),
     renderPushedContext(input.context),
-    renderElicitorOnlySection(input, renderBrunchSkills(manifests)),
-    renderElicitorOnlySection(input, renderRouterRules(input.sessionState)),
+    renderBrunchSkills(manifests),
+    renderPromptResourceRules(input.sessionState, manifests),
   ]);
 
   return { prompt, manifests };
@@ -122,7 +122,8 @@ function indentBlock(value: string): string {
     .join('\n');
 }
 
-function renderRouterRules(state: ResolvedBrunchAgentState): string {
+function renderPromptResourceRules(state: ResolvedBrunchAgentState, manifests: PromptManifests): string {
+  if (manifests.strategies.length + manifests.lenses.length + manifests.methods.length === 0) return '';
   return [
     '[Brunch prompt-resource routing]',
     '- Use only resources advertised in <brunch-skills>; do not infer availability from the filesystem.',

@@ -527,9 +527,11 @@ describe('composeAgentPrompt previews', () => {
     expect(rendered).toContain('# Agent: executor');
     expect(rendered).toContain('- op_mode: execute');
     expect(rendered).not.toContain('[Brunch elicitation recommendation]');
-    expect(rendered).not.toContain('[Brunch prompt-resource routing]');
-    expect(rendered).not.toContain('<brunch-skills>');
-    expect(rendered).not.toContain('Current prompt-resource selection');
+    expect(rendered).toContain('[Brunch prompt-resource routing]');
+    expect(rendered).toContain('<brunch-skills>');
+    expect(rendered).toContain('<name>scope-execution-task</name>');
+    expect(rendered).toContain('<name>build-with-tests</name>');
+    expect(rendered).toContain('Current prompt-resource selection');
   });
 
   it('elicitor--pushed-context: fixture handles and rendered contexts present', async () => {

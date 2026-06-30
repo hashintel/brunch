@@ -8,7 +8,7 @@ import type {
   AgentStrategySelection,
   OperationalModeId,
 } from '../../session/schema/kinds.js';
-import { AGENT_METHOD_IDS } from '../../session/schema/kinds.js';
+import { AGENT_METHOD_IDS, type AgentMethodId } from '../../session/schema/kinds.js';
 import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../../session/schema/tool-names.js';
 import { bundledAgentBodyRepoPath } from '../registry.js';
 import { evaluateCapabilityReadiness, type CapabilityId } from './capability-readiness.js';
@@ -35,6 +35,15 @@ export interface ResolvedBrunchAgentState extends BrunchAgentState {
 
 const ELICIT_DELEGATABLE_AGENTS = ['explorer', 'researcher', 'projector', 'reviewer'] as const;
 
+const EXECUTE_METHOD_IDS = [
+  'scope-execution-task',
+  'build-with-tests',
+] as const satisfies readonly AgentMethodId[];
+const ELICIT_METHOD_IDS = AGENT_METHOD_IDS.filter(
+  (id): id is Exclude<AgentMethodId, (typeof EXECUTE_METHOD_IDS)[number]> =>
+    !EXECUTE_METHOD_IDS.includes(id as (typeof EXECUTE_METHOD_IDS)[number]),
+);
+
 export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeDefinition> = {
   elicit: {
     id: 'elicit',
@@ -53,7 +62,7 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
       skills: {
         strategies: ['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate'],
         lenses: ['intent', 'design', 'oracle'],
-        methods: AGENT_METHOD_IDS,
+        methods: ELICIT_METHOD_IDS,
       },
       tools: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search'],
       canDelegate: ELICIT_DELEGATABLE_AGENTS,
@@ -85,9 +94,17 @@ export const FOREGROUND_AGENT_ROSTER: Record<OperationalModeId, OperationalModeD
       skills: {
         strategies: [],
         lenses: [],
-        methods: [],
+        methods: EXECUTE_METHOD_IDS,
       },
-      tools: ['read', 'grep', 'find', 'ls', 'web_fetch', 'web_search', BRUNCH_ORCHESTRATOR_STUB_TOOL],
+      tools: [
+        'read',
+        'grep',
+        'find',
+        'ls',
+        'web_fetch',
+        'web_search',
+        BRUNCH_ORCHESTRATOR_STUB_TOOL,
+      ],
       canDelegate: [],
       defaultStrategy: 'auto',
       defaultLens: 'auto',

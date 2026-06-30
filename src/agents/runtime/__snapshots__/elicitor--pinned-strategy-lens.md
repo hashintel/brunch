@@ -47,7 +47,7 @@ When a skill file references a relative path, resolve it against the skill direc
   <skill>
     <kind>method</kind>
     <name>capture</name>
-    <description>Capture selected-spec facts and gap noticings through the deferred FE-861 sweep conduct.</description>
+    <description>Capture selected-spec facts and gap noticings through the banded capture-sweep conduct.</description>
     <location><repo>/src/agents/skills/methods/capture/SKILL.md</location>
   </skill>
   <skill>

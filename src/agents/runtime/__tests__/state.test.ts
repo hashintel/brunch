@@ -54,6 +54,8 @@ describe('agent posture policy', () => {
       'read-context',
       'generate-proposal',
     ]);
+    expect(floorMethods).not.toContain('scope-execution-task');
+    expect(floorMethods).not.toContain('build-with-tests');
     // D86-L: graph-write tools are floor — present even at zero grounding coverage.
     expect(floorTools).toContain('mutate_graph');
     expect(floorTools).toContain('present_candidates');
@@ -240,6 +242,8 @@ describe('agent posture policy', () => {
       'step-wise-disambiguate',
     ]);
     expect(manifest.skills.lenses).toEqual(['intent', 'design', 'oracle']);
+    expect(manifest.skills.methods).not.toContain('scope-execution-task');
+    expect(manifest.skills.methods).not.toContain('build-with-tests');
   });
 
   it('derives delegatable agents from the code-owned foreground roster', () => {
@@ -286,6 +290,15 @@ describe('agent posture policy', () => {
 
     expect(executeState.agentRole).toBe('executor');
     expect(delegatableAgentsForRuntimeState(executeState)).toEqual([]);
+    expect(executeState.agentRoleDefinition.skills.methods).toEqual([
+      'scope-execution-task',
+      'build-with-tests',
+    ]);
+    expect(
+      manifestsForState(executeState, groundingFloorGaps({ defaultCoverage: 0 })).methods.map(
+        (entry) => entry.name,
+      ),
+    ).toEqual(['scope-execution-task', 'build-with-tests']);
     expect(executeTools).toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);
     expect(executeTools).not.toEqual(expect.arrayContaining(['bash', 'edit', 'write']));
     expect(elicitTools).not.toContain(BRUNCH_ORCHESTRATOR_STUB_TOOL);

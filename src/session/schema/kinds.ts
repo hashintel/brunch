@@ -19,6 +19,8 @@ export const AGENT_METHOD_IDS = [
   'read-context',
   'generate-proposal',
   'review-for-gaps',
+  'scope-execution-task',
+  'build-with-tests',
 ] as const;
 
 export const AGENT_THINKING_LEVELS = ['low', 'medium', 'high'] as const;
