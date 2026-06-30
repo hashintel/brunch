@@ -11,6 +11,7 @@ orchestration/
 ├── README.md
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
 ├── execute-plan-check.ts        ExecutionSpecSnapshot -> read-only plan-input findings
+├── execute-plan-outline.ts      ExecutionSpecSnapshot -> side-effect-free plan outline
 └── __tests__/
 ```
 
