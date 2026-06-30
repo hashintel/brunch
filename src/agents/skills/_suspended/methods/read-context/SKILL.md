@@ -1,28 +1,16 @@
 ---
 name: read-context
-description: "Use pushed context handles and read-only context tools for selected-spec context."
+description: "Suspended legacy method. Current selected-spec reading conduct lives in the live analyze skill."
 ---
 
-# read-context
+# read-context — suspended
 
-Use this method when pushed prompt context is insufficient for the next elicitation move. It tells you how to sequence selected-spec reads without turning context gathering into a separate research project.
+Disposition: **lifted into `src/agents/skills/analyze/`**.
 
-Start from the handles in the runtime prompt: selected spec, soft readiness estimate, active strategy/lens, workspace posture, and any graph overview. Pull more context only when it will change the next question, proposal, capture decision, or graph write. Prefer compact overview for orientation, then edge-local neighborhoods for the claim, design seam, oracle, or plan item under discussion.
+The useful edge-local reading discipline from this legacy method now lives in the activity-named `analyze` home and its `references/neighborhoods.md` reference. Keep this file suspended only as a historical marker for the retired strategy/lens/method taxonomy; do not route the live elicitor here.
 
-## Edge-local preference
+Retired residue:
 
-When a move is centered on an existing graph item, read the anchor and its neighborhood before asking or proposing. Use `src/agents/references/node-neighbourhoods.md` as the conduct reference: bucket neighbors as dependencies, dependents, evidence, refinements, lateral context, open gaps, and reconciliation needs. This is usually more useful than loading all nodes of a kind, because it shows why the anchor stands and what downstream material changes if it moves.
-
-```pseudo
-context read:
-  selected-spec overview
-    -> anchor node / node code when present
-    -> edge-local neighborhood buckets
-    -> topical slice only if the next move needs projection or capture guidance
-```
-
-Use global kind lists only for orientation, coverage scans, or when no anchor exists yet. Do not infer relation direction from raw storage coordinates; rely on rendered labels, role names, and impact buckets. If the user mentions a node code, resolve it through the product read path rather than guessing from memory.
-
-Use read-only context tools such as `read_graph`, `read_session_context`, `web_fetch`, and `web_search` where available. Reach for `web_fetch` when a specific URL is already in hand; use `web_search` only when current external context or alternate sources would change the next elicitation move. Keep graph truth distinct from active-context projections: accepted records are truth, while rendered summaries and web extracts are orientation until captured through Brunch's graph path.
-
-Compose this before `generate-proposal`, `commit-graph`, and topology-driven lens questions. Out of scope: filesystem exploration unrelated to the selected spec, direct DB inspection, or treating stale prompt context as proof when a fresh graph read is needed.
+- old runtime-axis language such as active strategy/lens/method as a context handle
+- generic method composition guidance for `generate-proposal` / `commit-graph`
+- direct tool-name suggestions that are now owned by live activity skills and product context surfaces
