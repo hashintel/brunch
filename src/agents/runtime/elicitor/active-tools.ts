@@ -1,3 +1,5 @@
+import { withoutBrunchBlockedToolNames } from '../shared/blocked-tools.js';
+
 export interface LiveElicitorToolPolicyInput {
   readonly registeredToolNames: readonly string[];
   readonly devAllowedToolNames?: readonly string[] | undefined;
@@ -33,5 +35,5 @@ export function activeToolNamesForLiveElicitor({
   for (const toolName of devAllowedToolNames) {
     allowed.add(toolName);
   }
-  return registeredToolNames.filter((toolName) => allowed.has(toolName));
+  return withoutBrunchBlockedToolNames(registeredToolNames.filter((toolName) => allowed.has(toolName)));
 }

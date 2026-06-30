@@ -18,6 +18,10 @@ import {
 import { Text } from '@earendil-works/pi-tui';
 
 import { activeToolNamesForForegroundState } from '../../../../agents/runtime/foreground-policy.js';
+import {
+  BRUNCH_BLOCKED_TOOL_NAMES,
+  isBrunchBlockedToolName,
+} from '../../../../agents/runtime/shared/blocked-tools.js';
 import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
 import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
 
@@ -60,8 +64,6 @@ function shortenPath(path: string): string {
 interface SessionManagerLike {
   getEntries(): readonly CustomEntryLike[];
 }
-
-const BLOCKED_TOOL_NAMES = ['bash', 'edit', 'write'] as const;
 
 function projectBrunchAgentStateFromSessionManager(
   sessionManager: SessionManagerLike | undefined,
@@ -297,8 +299,8 @@ export function registerBrunchOperationalModePolicy(
 
   pi.on('tool_call', async (event, ctx) => {
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
-    if (!BLOCKED_TOOL_NAMES.includes(event.toolName as (typeof BLOCKED_TOOL_NAMES)[number])) return;
-    const blockedToolNames = BLOCKED_TOOL_NAMES.join(', ');
+    if (!isBrunchBlockedToolName(event.toolName)) return;
+    const blockedToolNames = BRUNCH_BLOCKED_TOOL_NAMES.join(', ');
 
     return {
       block: true,
@@ -310,7 +312,7 @@ export function registerBrunchOperationalModePolicy(
 
   pi.on('user_bash', (event, ctx) => {
     const state = projectBrunchAgentStateFromSessionManager(ctx?.sessionManager);
-    const blockedToolNames = BLOCKED_TOOL_NAMES.join(', ');
+    const blockedToolNames = BRUNCH_BLOCKED_TOOL_NAMES.join(', ');
     return {
       result: {
         output:
