@@ -5,6 +5,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
+import { registerBrunchExecuteCookAgentResult } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookLaunch } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookPlanFile } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookPlanPreview } from '../.pi/extensions/agent-runtime/index.js';
@@ -115,6 +116,9 @@ export { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 
 export { registerBrunchGraph } from '../.pi/extensions/brunch-data/index.js';
 export {
+  BRUNCH_EXECUTE_COOK_AGENT_RESULT_TOOL,
+  createExecuteCookAgentResultTool,
+  registerBrunchExecuteCookAgentResult,
   BRUNCH_EXECUTE_COOK_LAUNCH_TOOL,
   createExecuteCookLaunchTool,
   registerBrunchExecuteCookLaunch,
@@ -278,6 +282,7 @@ export function createBrunchPiExtensions(
       registerBrunchContext,
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
+      registerBrunchExecuteCookAgentResult,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookLaunch(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookPlanFile(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookPlanPreview(api, graph)] : []),

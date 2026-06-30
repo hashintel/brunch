@@ -9,6 +9,7 @@ Pure contracts and projection helpers that turn `next` graph facts into execute-
 ```text
 orchestration/
 ├── README.md
+├── cook-agent-result.ts       prewritten result -> slice result report
 ├── cook-plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml
 ├── cook-launch.ts             spec-scoped plan.yaml -> non-running launch readiness
 ├── cook-plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
@@ -72,3 +73,5 @@ rules:
 `cook-slice-start.ts` appends a `slice_started` marker for one plan slice and records the active slice/epic in `run.json`. It is not agent execution: no tools/tests run and no Petri transitions or promotion artifacts are created.
 
 `cook-slice-execute.ts` creates the first execution request artifact for the active slice under `agent-output/<sliceId>/request.json`, appends `slice_execution_requested`, and records `status:"slice_execution_requested"`. It still does not invoke an agent process, run tests, compile Petri artifacts, promote, or land.
+
+`cook-agent-result.ts` ingests an already-written `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and records `status:"agent_result_ingested"`. It is still not an agent launcher and does not run tests, compile Petri artifacts, promote, or land.
