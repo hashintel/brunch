@@ -27,7 +27,7 @@ This directory carries foreground body markdown and the small body-location regi
 
 - Background prompt bodies, frontmatter, or spawnability — `src/agents/subagents/` plus `src/.pi/extensions/subagents/`.
 - Foreground prompt composition, pushed seed contexts, prompt-resource manifest selection, or tool/method legality — `src/agents/runtime/` and `src/agents/contexts/seeds/`.
-- Strategy/lens/method prompt-resource skills — `src/agents/skills/`.
+- Activity-named prompt-resource skill homes and runtime-eligible references — `src/agents/skills/` and `src/agents/references/`.
 - Reusable model-facing context text — `src/agents/contexts/`.
 - Human/product-only text rendering — owned beside its product/session caller.
 - Pi tool definitions, lifecycle hooks, UI, and background child-session loading/running — `src/.pi/extensions/*`.

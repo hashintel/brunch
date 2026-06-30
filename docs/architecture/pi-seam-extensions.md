@@ -1,5 +1,7 @@
 # Brunch POC — Pi Seam Extensions
 
+> Status (2026-06-30): This note is mixed-status historical architecture. The graph clock/change-log, mention/staleness, and general Pi-seam rationale remain useful background, but the lens/strategy/runtime-mode and spec-switcher sections predate D98-L and the later prompt-axis retirement. Current canonical runtime/product truth lives in `memory/SPEC.md` plus co-located `src/**/TOPOLOGY.md` files; read this document as rationale, not as the live contract.
+
 This is a sibling document to [prd.md](./prd.md). It captures four architectural extensions to the POC that drill into how specific Brunch product affordances land on pi's existing seams. The PRD asserts that pi can be used as an internal harness without forcing Brunch to become a pi distribution; this document checks that claim against four concrete affordances and records where Brunch owns work that pi does not provide.
 
 The four affordances:

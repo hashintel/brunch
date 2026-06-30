@@ -15,7 +15,7 @@
 
 Brunch-next has delivered the original composition spine: the host, sealed Pi profile, transcript substrate, SQLite graph plane, public RPC, TUI/web observer shape, generalized capture, review-set commitment path, and public-entry ship gate all have evidence. The live plan is no longer organized around the old delivery cut. Active work is now the elicitor capability spine and the remaining hardening frontiers that build on that substrate.
 
-**Live arc.** The remaining active initiative is the **elicitor-capability-spine** arc (`capture` / `generate` done, `project` next). Closed arc detail no longer lives in the rolling plan.
+**Live arc.** The remaining active initiative is the **elicitor-capability-spine** arc (`capture` / `generate` done, `project` next). The retired strategy/lens/method runtime trees are no longer part of live product topology; current capability work routes through the code-owned first-level skill manifest and activity-named skill homes. Closed arc detail no longer lives in the rolling plan.
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -32,7 +32,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### elicitor-capability-spine — ◐ active
 
-- **Goal:** build `capture` / `generate` / `project` over the frozen `strategy` / `lens` / `method` axes (A35-L), on top of the skill-substrate arc.
+- **Goal:** build `capture` / `generate` / `project` over the elicitor capability spine without reviving the retired `strategy` / `lens` / `method` runtime axes (A35-L), on top of the skill-substrate arc.
 - **Members:**
   - `capture` ✓ done via generalized capture (D80-L–D82-L).
   - `generate` ✓ done through promoted real-model fan-out evidence (FE-1059): one plane-parameterized `generate-proposal` method, `present_candidates` unstubbed, fan-in as method conduct (`pick` / `synthesize` / `compose`), promoted I51-L no-write evidence.

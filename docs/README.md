@@ -10,7 +10,7 @@ The three POC architecture docs are the source of authority for everything
 downstream:
 
 1. [prd.md](./architecture/prd.md) — product thesis, delivery posture, requirements, milestone ladder M0–M9, success criteria.
-2. [pi-seam-extensions.md](./architecture/pi-seam-extensions.md) — the five Brunch-owned subsystems on top of pi (side-tasks, lenses, spec selector, offer-first interaction, mentions + staleness), the graph clock + change log, the reconciliation-need substrate, the oracle plane stub, the Flue evaluation, and framework-alignment / deferred subsystems.
+2. [pi-seam-extensions.md](./architecture/pi-seam-extensions.md) — mixed-status Pi-seam rationale: graph clock/change-log, mentions + staleness, and broader seam analysis remain useful, while the lens/strategy and spec-switcher sections are historical pre-D98 context rather than current runtime contract.
 3. [probes-and-transcripts.md](./architecture/probes-and-transcripts.md) — current probe-run artifact convention, transcript evidence, report shape, and the future path for any brief-based agent-as-user probes.
 
 POC architecture docs whose plans are now embedded in the product (Pi UI/command containment findings, the trust/resume-exit finding, the faux-provider pattern, and the two external-baseline comparatives) have been archived under [`archive/architecture/`](./archive/architecture/README.md); the live authority for that material is `memory/SPEC.md` plus co-located `src/**/TOPOLOGY.md` files. `pi-system-prompt-architecture.md` stays in `architecture/` until the open D58-L augment-vs-replace question resolves. `poc-live-ship-runbook.md` stays as an active outer-loop runbook.
