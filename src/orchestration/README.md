@@ -15,6 +15,7 @@ orchestration/
 ├── cook-populate.ts           worktree -> plan-only worktree population
 ├── cook-report.ts             source-copied run -> reports.jsonl initialization
 ├── cook-run.ts                ready plan.yaml -> metadata-only run creation
+├── cook-slice-execute.ts      active slice -> execution request artifact
 ├── cook-slice-start.ts        reports-ready run -> slice-start marker
 ├── cook-source-copy.ts        source policy -> bounded host source copy
 ├── cook-source-policy.ts      plan-populated worktree -> source policy selection
@@ -69,3 +70,5 @@ rules:
 `cook-report.ts` initializes `reports.jsonl` for a source-copied run with a single `run_ready` event and records `status:"reports_initialized"`. It creates the report log carrier but still does not execute slices or produce Petri artifacts.
 
 `cook-slice-start.ts` appends a `slice_started` marker for one plan slice and records the active slice/epic in `run.json`. It is not agent execution: no tools/tests run and no Petri transitions or promotion artifacts are created.
+
+`cook-slice-execute.ts` creates the first execution request artifact for the active slice under `agent-output/<sliceId>/request.json`, appends `slice_execution_requested`, and records `status:"slice_execution_requested"`. It still does not invoke an agent process, run tests, compile Petri artifacts, promote, or land.
