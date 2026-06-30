@@ -5,6 +5,7 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
+import { registerBrunchExecuteSnapshot } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteStatus } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchOrchestratorStub } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchOperationalModePolicy } from '../.pi/extensions/agent-runtime/index.js';
@@ -98,6 +99,9 @@ export { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 
 export { registerBrunchGraph } from '../.pi/extensions/brunch-data/index.js';
 export {
+  BRUNCH_EXECUTE_SNAPSHOT_TOOL,
+  createExecuteSnapshotTool,
+  registerBrunchExecuteSnapshot,
   BRUNCH_EXECUTE_STATUS_TOOL,
   createExecuteStatusTool,
   registerBrunchExecuteStatus,
@@ -210,6 +214,7 @@ export function createBrunchPiExtensions(
       registerBrunchContext,
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteSnapshot(api, graph)] : []),
       registerBrunchOrchestratorStub,
       ...(hasDelegatableSubagents
         ? [(api: ExtensionAPI) => registerBrunchSubagents(api, options.subagents!)]

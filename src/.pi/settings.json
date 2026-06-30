@@ -2,6 +2,7 @@
   "extensions": [
     "extensions/chrome/index.ts",
     "-extensions/agent-runtime/index.ts",
+    "-extensions/agent-runtime/execute-snapshot/index.ts",
     "-extensions/agent-runtime/execute-status/index.ts",
     "-extensions/agent-runtime/orchestrator-stub/index.ts",
     "-extensions/agent-runtime/runtime/index.ts",

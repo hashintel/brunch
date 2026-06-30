@@ -1,4 +1,5 @@
 import {
+  BRUNCH_EXECUTE_SNAPSHOT_TOOL,
   BRUNCH_EXECUTE_STATUS_TOOL,
   BRUNCH_ORCHESTRATOR_STUB_TOOL,
 } from '../../../session/schema/tool-names.js';
@@ -16,6 +17,7 @@ export const EXECUTOR_ALLOWED_TOOL_NAMES = [
   'read_specification_context',
   'read_session_context',
   'read_graph',
+  BRUNCH_EXECUTE_SNAPSHOT_TOOL,
   BRUNCH_EXECUTE_STATUS_TOOL,
   BRUNCH_ORCHESTRATOR_STUB_TOOL,
 ] as const;
