@@ -1,10 +1,8 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { previewCookPlan, type CookPlanPreview } from '../../../../orchestration/cook-plan-preview.js';
-import { draftExecutablePlan } from '../../../../orchestration/executable-plan-draft.js';
-import { outlineExecutionPlan } from '../../../../orchestration/execute-plan-outline.js';
-import { projectExecutionSpecSnapshot } from '../../../../orchestration/execution-spec-snapshot.js';
+import type { CookPlanPreview } from '../../../../orchestration/cook-plan-preview.js';
+import { projectExecuteGraph } from '../../../../orchestration/execute-projection.js';
 import { BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
@@ -43,13 +41,14 @@ export function createExecuteCookPlanPreviewTool(
     parameters: ExecuteCookPlanPreviewParams,
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
-      const snapshot = projectExecutionSpecSnapshot({
+      const projection = projectExecuteGraph({
         specId: deps.specId,
         mode: params.mode ?? 'greenfield',
+        graphLsn: graph.lsn,
         nodes: graph.nodes,
         edges: graph.edges,
       });
-      const preview = previewCookPlan(draftExecutablePlan(outlineExecutionPlan(snapshot)));
+      const preview = projection.cookPlanPreview;
       return {
         content: [
           {
@@ -63,7 +62,7 @@ export function createExecuteCookPlanPreviewTool(
             ].join('\n'),
           },
         ],
-        details: { preview, source: { graphLsn: graph.lsn, visibility: 'active' }, sideEffects: [] },
+        details: { preview, source: projection.source, sideEffects: [] },
       };
     },
   };

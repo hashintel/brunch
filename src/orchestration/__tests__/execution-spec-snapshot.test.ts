@@ -133,22 +133,22 @@ describe('projectExecutionSpecSnapshot', () => {
     expect(snapshot.schemaVersion).toBe(1);
     expect(snapshot.specId).toBe('7');
     expect(snapshot.mode).toBe('brownfield');
-    expect(snapshot.requirements.map((item) => item.itemId)).toEqual(['requirement-11', 'requirement-10']);
+    expect(snapshot.requirements.map((item) => item.itemId)).toEqual(['REQ1', 'REQ2']);
     expect(snapshot.requirements[0]).toMatchObject({
       title: 'Persist layout choice',
       content: 'Persist layout choice',
     });
     expect(snapshot.criteria).toEqual([
       expect.objectContaining({
-        itemId: 'criterion-20',
+        itemId: 'AC1',
         content: 'A browser-level check proves the canvas is reachable after toggling.',
-        verifies: ['requirement-10', 'requirement-11'],
+        verifies: ['REQ1', 'REQ2'],
       }),
-      expect.objectContaining({ itemId: 'criterion-21', verifies: [] }),
+      expect.objectContaining({ itemId: 'AC2', verifies: [] }),
     ]);
-    expect(snapshot.context.constraints.map((item) => item.itemId)).toEqual(['constraint-30']);
-    expect(snapshot.context.decisions.map((item) => item.itemId)).toEqual(['decision-31']);
-    expect(snapshot.context.design.map((item) => item.itemId)).toEqual(['sketch-40']);
-    expect(snapshot.context.oracle.map((item) => item.itemId)).toEqual(['check-50']);
+    expect(snapshot.context.constraints.map((item) => item.itemId)).toEqual(['CON1']);
+    expect(snapshot.context.decisions.map((item) => item.itemId)).toEqual(['D1']);
+    expect(snapshot.context.design.map((item) => item.itemId)).toEqual(['SKT1']);
+    expect(snapshot.context.oracle.map((item) => item.itemId)).toEqual(['CH1']);
   });
 });

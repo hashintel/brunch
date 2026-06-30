@@ -1,12 +1,8 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import {
-  draftExecutablePlan,
-  type ExecutablePlanDraft,
-} from '../../../../orchestration/executable-plan-draft.js';
-import { outlineExecutionPlan } from '../../../../orchestration/execute-plan-outline.js';
-import { projectExecutionSpecSnapshot } from '../../../../orchestration/execution-spec-snapshot.js';
+import type { ExecutablePlanDraft } from '../../../../orchestration/executable-plan-draft.js';
+import { projectExecuteGraph } from '../../../../orchestration/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
@@ -48,14 +44,14 @@ export function createExecutePlanDraftTool(
     parameters: ExecutePlanDraftParams,
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
-      const snapshot = projectExecutionSpecSnapshot({
+      const projection = projectExecuteGraph({
         specId: deps.specId,
         mode: params.mode ?? 'greenfield',
+        graphLsn: graph.lsn,
         nodes: graph.nodes,
         edges: graph.edges,
       });
-      const outline = outlineExecutionPlan(snapshot);
-      const draft = draftExecutablePlan(outline);
+      const draft = projection.draft;
       return {
         content: [
           {
@@ -71,7 +67,7 @@ export function createExecutePlanDraftTool(
         ],
         details: {
           draft,
-          source: { graphLsn: graph.lsn, visibility: 'active' },
+          source: projection.source,
           sideEffects: [],
         },
       };

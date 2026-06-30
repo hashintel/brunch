@@ -389,7 +389,7 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: '42',
         mode: 'brownfield',
         epics: [expect.objectContaining({ id: 'frontier-1', sliceIds: ['task-1'] })],
-        slices: [expect.objectContaining({ id: 'task-1', requirementId: 'requirement-1' })],
+        slices: [expect.objectContaining({ id: 'task-1', requirementId: 'REQ1' })],
         sideEffects: [],
       },
     });
@@ -470,6 +470,7 @@ describe('Brunch explicit Pi extension registry', () => {
       {
         kind: 'write_file',
         path: join(cwd, '.brunch', 'execution-reports', '42', 'executable-plan-draft.json'),
+        ifExists: 'overwrite',
       },
     ]);
     await expect(
@@ -550,7 +551,7 @@ describe('Brunch explicit Pi extension registry', () => {
         frontiers: [
           expect.objectContaining({
             id: 'frontier-1',
-            tasks: [expect.objectContaining({ requirementId: 'requirement-1' })],
+            tasks: [expect.objectContaining({ requirementId: 'REQ1' })],
           }),
         ],
         sideEffects: [],
@@ -626,7 +627,11 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_plan_outline_artifact:');
     expect(result.details.sideEffects).toEqual([
-      { kind: 'write_file', path: join(cwd, '.brunch', 'execution-reports', '42', 'plan-outline.json') },
+      {
+        kind: 'write_file',
+        path: join(cwd, '.brunch', 'execution-reports', '42', 'plan-outline.json'),
+        ifExists: 'overwrite',
+      },
     ]);
     await expect(
       readFile(join(cwd, '.brunch', 'execution-reports', '42', 'plan-outline.json'), 'utf8'),
@@ -725,39 +730,14 @@ describe('Brunch explicit Pi extension registry', () => {
         schemaVersion: 1,
         specId: '42',
         mode: 'brownfield',
-        requirements: [expect.objectContaining({ itemId: 'requirement-1' })],
-        criteria: [expect.objectContaining({ itemId: 'criterion-2', verifies: ['requirement-1'] })],
+        requirements: [expect.objectContaining({ itemId: 'REQ1' })],
+        criteria: [expect.objectContaining({ itemId: 'AC1', verifies: ['REQ1'] })],
       },
     });
   });
 
   it('keeps execute_status side-effect free while plan/cook/land are pending', async () => {
-    const registeredTools: Array<{
-      name: string;
-      execute: (
-        toolCallId: string,
-        params: unknown,
-      ) => Promise<{
-        content: readonly { text: string }[];
-        details: Record<string, unknown>;
-      }>;
-    }> = [];
-
-    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
-      coordinator: {} as never,
-      graphMentionSource: { listMentionCandidates: () => [] },
-    })({
-      on() {},
-      registerTool(tool: (typeof registeredTools)[number]) {
-        registeredTools.push(tool);
-      },
-      registerCommand() {},
-      registerShortcut() {},
-      registerMessageRenderer() {},
-      sendMessage() {},
-      getAllTools: () => [],
-      setActiveTools() {},
-    } as never);
+    const registeredTools = await collectProductTools();
 
     const status = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_STATUS_TOOL);
     expect(status).toBeDefined();
@@ -787,26 +767,7 @@ describe('Brunch explicit Pi extension registry', () => {
   });
 
   it('keeps the default stub tool output aligned with its registered identity', async () => {
-    const registeredTools: Array<{
-      name: string;
-      execute: (toolCallId: string, params: unknown) => Promise<{ content: readonly { text: string }[] }>;
-    }> = [];
-
-    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
-      coordinator: {} as never,
-      graphMentionSource: { listMentionCandidates: () => [] },
-    })({
-      on() {},
-      registerTool(tool: (typeof registeredTools)[number]) {
-        registeredTools.push(tool);
-      },
-      registerCommand() {},
-      registerShortcut() {},
-      registerMessageRenderer() {},
-      sendMessage() {},
-      getAllTools: () => [],
-      setActiveTools() {},
-    } as never);
+    const registeredTools = await collectProductTools();
 
     const stub = registeredTools.find((tool) => tool.name === BRUNCH_ORCHESTRATOR_STUB_TOOL);
     expect(stub).toBeDefined();
@@ -1069,6 +1030,68 @@ const brunchChromeFixture = {
     label: 'Fixture session',
   },
 };
+
+type RegisteredTestTool = {
+  name: string;
+  execute: (
+    toolCallId: string,
+    params: unknown,
+    signal?: AbortSignal,
+    onUpdate?: unknown,
+    ctx?: { cwd: string },
+  ) => Promise<{
+    content: readonly { text: string }[];
+    details: Record<string, unknown>;
+  }>;
+};
+
+interface TestGraphSlice {
+  readonly specId?: number;
+  readonly lsn: number;
+  readonly nodes: readonly unknown[];
+  readonly edges: readonly unknown[];
+}
+
+async function collectProductTools(options: { graph?: TestGraphSlice } = {}): Promise<RegisteredTestTool[]> {
+  const registeredTools: RegisteredTestTool[] = [];
+  await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+    coordinator: {} as never,
+    graphMentionSource: { listMentionCandidates: () => [] },
+    ...(options.graph
+      ? {
+          graph: {
+            specId: options.graph.specId ?? 42,
+            commandExecutor: {} as never,
+            reads: {
+              queryGraph: () =>
+                ({
+                  lsn: options.graph!.lsn,
+                  nodes: options.graph!.nodes,
+                  edges: options.graph!.edges,
+                }) as never,
+              getNodes: () => [],
+              resolveNodeCode: () => undefined,
+              getElicitationGaps: () => [],
+              getOpenReconciliationNeeds: () => [],
+              latestLsn: () => options.graph!.lsn,
+            },
+          },
+        }
+      : {}),
+  })({
+    on() {},
+    registerTool(tool: RegisteredTestTool) {
+      registeredTools.push(tool);
+    },
+    registerCommand() {},
+    registerShortcut() {},
+    registerMessageRenderer() {},
+    sendMessage() {},
+    getAllTools: () => [],
+    setActiveTools() {},
+  } as never);
+  return registeredTools;
+}
 
 function recordingApiWithEvents(events: Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>) {
   return {

@@ -8,16 +8,16 @@ const snapshot: ExecutionSpecSnapshot = {
   specId: '7',
   mode: 'brownfield',
   requirements: [
-    { itemId: 'requirement-1', nodeId: 1, title: 'Build feature', content: 'Build feature' },
-    { itemId: 'requirement-2', nodeId: 2, title: 'Wire feature', content: 'Wire feature' },
+    { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature' },
+    { itemId: 'REQ2', nodeId: 2, title: 'Wire feature', content: 'Wire feature' },
   ],
   criteria: [
     {
-      itemId: 'criterion-3',
+      itemId: 'AC1',
       nodeId: 3,
       title: 'Feature is visible',
       content: 'Feature is visible',
-      verifies: ['requirement-2'],
+      verifies: ['REQ2'],
     },
   ],
   context: { constraints: [], invariants: [], decisions: [], examples: [], design: [], oracle: [] },
@@ -37,7 +37,7 @@ describe('outlineExecutionPlan', () => {
             {
               id: 'task-1',
               title: 'Build feature',
-              requirementId: 'requirement-1',
+              requirementId: 'REQ1',
               summary: 'Build feature',
               acceptanceCriterionIds: [],
               acceptanceCriteria: [],
@@ -45,12 +45,12 @@ describe('outlineExecutionPlan', () => {
             {
               id: 'task-2',
               title: 'Wire feature',
-              requirementId: 'requirement-2',
+              requirementId: 'REQ2',
               summary: 'Wire feature',
-              acceptanceCriterionIds: ['criterion-3'],
+              acceptanceCriterionIds: ['AC1'],
               acceptanceCriteria: [
                 {
-                  criterionId: 'criterion-3',
+                  criterionId: 'AC1',
                   title: 'Feature is visible',
                   content: 'Feature is visible',
                 },

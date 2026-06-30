@@ -6,7 +6,10 @@ import type { ExecutablePlanDraft } from './executable-plan-draft.js';
 
 export interface ExecutablePlanDraftArtifactWriteResult {
   readonly path: string;
-  readonly sideEffects: readonly [{ readonly kind: 'write_file'; readonly path: string }];
+  readonly writeMode: 'overwrite';
+  readonly sideEffects: readonly [
+    { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
+  ];
 }
 
 export function executablePlanDraftArtifactPath(cwd: string, specId: string): string {
@@ -20,5 +23,5 @@ export async function writeExecutablePlanDraftArtifact(args: {
   const path = executablePlanDraftArtifactPath(args.cwd, args.draft.specId);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(args.draft, null, 2)}\n`, 'utf8');
-  return { path, sideEffects: [{ kind: 'write_file', path }] };
+  return { path, writeMode: 'overwrite', sideEffects: [{ kind: 'write_file', path, ifExists: 'overwrite' }] };
 }

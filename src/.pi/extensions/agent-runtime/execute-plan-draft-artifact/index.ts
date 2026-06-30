@@ -2,12 +2,8 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import { Type, type Static } from 'typebox';
 
 import { writeExecutablePlanDraftArtifact } from '../../../../orchestration/executable-plan-draft-artifact.js';
-import {
-  draftExecutablePlan,
-  type ExecutablePlanDraft,
-} from '../../../../orchestration/executable-plan-draft.js';
-import { outlineExecutionPlan } from '../../../../orchestration/execute-plan-outline.js';
-import { projectExecutionSpecSnapshot } from '../../../../orchestration/execution-spec-snapshot.js';
+import type { ExecutablePlanDraft } from '../../../../orchestration/executable-plan-draft.js';
+import { projectExecuteGraph } from '../../../../orchestration/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
@@ -26,7 +22,7 @@ type ExecutePlanDraftArtifactParams = Static<typeof ExecutePlanDraftArtifactPara
 
 interface ExecutePlanDraftArtifactDetails {
   readonly draft: ExecutablePlanDraft;
-  readonly artifact: { readonly path: string };
+  readonly artifact: { readonly path: string; readonly writeMode: 'overwrite' };
   readonly source: { readonly graphLsn: number; readonly visibility: 'active' };
   readonly sideEffects: readonly [{ readonly kind: 'write_file'; readonly path: string }];
 }
@@ -51,13 +47,14 @@ export function createExecutePlanDraftArtifactTool(
         throw new Error('execute_plan_draft_artifact requires an active cwd');
       }
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
-      const snapshot = projectExecutionSpecSnapshot({
+      const projection = projectExecuteGraph({
         specId: deps.specId,
         mode: params.mode ?? 'greenfield',
+        graphLsn: graph.lsn,
         nodes: graph.nodes,
         edges: graph.edges,
       });
-      const draft = draftExecutablePlan(outlineExecutionPlan(snapshot));
+      const draft = projection.draft;
       const artifact = await writeExecutablePlanDraftArtifact({ cwd, draft });
       return {
         content: [
@@ -74,8 +71,8 @@ export function createExecutePlanDraftArtifactTool(
         ],
         details: {
           draft,
-          artifact: { path: artifact.path },
-          source: { graphLsn: graph.lsn, visibility: 'active' },
+          artifact: { path: artifact.path, writeMode: artifact.writeMode },
+          source: projection.source,
           sideEffects: artifact.sideEffects,
         },
       };

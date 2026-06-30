@@ -25,7 +25,8 @@ describe('writeExecutablePlanDraftArtifact', () => {
     const result = await writeExecutablePlanDraftArtifact({ cwd, draft });
 
     expect(result.path).toBe(executablePlanDraftArtifactPath(cwd, '7'));
-    expect(result.sideEffects).toEqual([{ kind: 'write_file', path: result.path }]);
+    expect(result.writeMode).toBe('overwrite');
+    expect(result.sideEffects).toEqual([{ kind: 'write_file', path: result.path, ifExists: 'overwrite' }]);
     await expect(readFile(result.path, 'utf8')).resolves.toBe(`${JSON.stringify(draft, null, 2)}\n`);
   });
 });

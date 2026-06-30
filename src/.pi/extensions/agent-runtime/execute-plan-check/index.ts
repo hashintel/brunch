@@ -1,11 +1,8 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import {
-  checkExecutionSpecForPlan,
-  type ExecutePlanCheckResult,
-} from '../../../../orchestration/execute-plan-check.js';
-import { projectExecutionSpecSnapshot } from '../../../../orchestration/execution-spec-snapshot.js';
+import type { ExecutePlanCheckResult } from '../../../../orchestration/execute-plan-check.js';
+import { projectExecuteGraph } from '../../../../orchestration/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
@@ -47,13 +44,14 @@ export function createExecutePlanCheckTool(
     parameters: ExecutePlanCheckParams,
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
-      const snapshot = projectExecutionSpecSnapshot({
+      const projection = projectExecuteGraph({
         specId: deps.specId,
         mode: params.mode ?? 'greenfield',
+        graphLsn: graph.lsn,
         nodes: graph.nodes,
         edges: graph.edges,
       });
-      const check = checkExecutionSpecForPlan(snapshot);
+      const check = projection.check;
       return {
         content: [
           {
@@ -70,7 +68,7 @@ export function createExecutePlanCheckTool(
         ],
         details: {
           check,
-          source: { graphLsn: graph.lsn, visibility: 'active' },
+          source: projection.source,
           sideEffects: [],
         },
       };
