@@ -1,3 +1,8 @@
+import {
+  BRUNCH_EXECUTE_STATUS_TOOL,
+  BRUNCH_ORCHESTRATOR_STUB_TOOL,
+} from '../../../session/schema/tool-names.js';
+
 export interface ExecutorToolPolicyInput {
   readonly registeredToolNames: readonly string[];
 }
@@ -11,7 +16,8 @@ export const EXECUTOR_ALLOWED_TOOL_NAMES = [
   'read_specification_context',
   'read_session_context',
   'read_graph',
-  'orchestrator_stub',
+  BRUNCH_EXECUTE_STATUS_TOOL,
+  BRUNCH_ORCHESTRATOR_STUB_TOOL,
 ] as const;
 
 export function activeToolNamesForExecutor({ registeredToolNames }: ExecutorToolPolicyInput): string[] {

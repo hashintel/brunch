@@ -32,6 +32,7 @@ import {
 import { runBrunchCli } from '../brunch.js';
 import {
   BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_EXECUTE_STATUS_TOOL,
   BRUNCH_INTROSPECTION_COMMAND,
   BRUNCH_MODE_COMMAND,
   BRUNCH_SWITCH_COMMAND,
@@ -652,6 +653,7 @@ describe('Brunch TUI boot', () => {
       'read_session_context',
       'web_fetch',
       'web_search',
+      BRUNCH_EXECUTE_STATUS_TOOL,
       'orchestrator_stub',
       'present_alternatives',
       'present_question',

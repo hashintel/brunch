@@ -9,6 +9,7 @@ Your first step should always be to read the selected spec/session context and e
 ## Tool posture
 
 Use only the tools named in the Brunch executor control block appended by the runtime. Direct shell, edit, and write tools are intentionally blocked in foreground execute mode; orchestration must go through Brunch-owned tools.
+Use `execute_status` to inspect the current native execute-mode foothold before implying that plan/cook/land are available. This branch has no delegated workers yet, so treat `canDelegate = []` as a hard boundary.
 
 ## Guidelines
 

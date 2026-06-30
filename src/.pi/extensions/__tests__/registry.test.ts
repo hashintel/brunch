@@ -1,7 +1,12 @@
+import { access, readdir, readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
+import { BRUNCH_EXECUTE_STATUS_TOOL } from '../agent-runtime/execute-status/index.js';
 import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../agent-runtime/orchestrator-stub/index.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
 import { registerBrunchPrompting as prompting } from '../agent-runtime/system-prompts/index.js';
@@ -43,6 +48,58 @@ describe('Brunch explicit Pi extension registry', () => {
     }
   });
 
+  it('keeps product-dependency src/.pi extensions disabled for direct Pi iteration', async () => {
+    const settings = JSON.parse(await readFile(join(projectRoot(), 'src/.pi/settings.json'), 'utf8')) as {
+      extensions?: unknown;
+    };
+
+    expect(settings.extensions).toContain('extensions/chrome/index.ts');
+    expect(settings.extensions).not.toContain('!extensions/**');
+    expect(settings.extensions).toEqual(
+      expect.arrayContaining([
+        '-extensions/agent-runtime/index.ts',
+        '-extensions/agent-runtime/execute-status/index.ts',
+        '-extensions/agent-runtime/orchestrator-stub/index.ts',
+        '-extensions/agent-runtime/runtime/index.ts',
+        '-extensions/agent-runtime/system-prompts/index.ts',
+        '-extensions/brunch-data/context/index.ts',
+        '-extensions/brunch-data/elicitation/index.ts',
+        '-extensions/brunch-data/graph/index.ts',
+        '-extensions/brunch-data/reconciliation/index.ts',
+        '-extensions/commands/index.ts',
+        '-extensions/commands/policy.ts',
+        '-extensions/compaction/index.ts',
+        '-extensions/dev-mode/index.ts',
+        '-extensions/dev-mode/introspect-query/index.ts',
+        '-extensions/dev-mode/introspection/index.ts',
+        '-extensions/dev-mode/session-query/index.ts',
+        '-extensions/session-hooks/index.ts',
+        '-extensions/subagents/index.ts',
+        '-extensions/web-tools/index.ts',
+        '-extensions/web-tools/web/index.ts',
+        '-extensions/workspace/index.ts',
+      ]),
+    );
+  });
+
+  it('keeps every enabled src/.pi ambient entrypoint default-loadable', async () => {
+    const settings = JSON.parse(await readFile(join(projectRoot(), 'src/.pi/settings.json'), 'utf8')) as {
+      extensions?: string[];
+    };
+    const disabledEntrypoints = new Set(
+      (settings.extensions ?? [])
+        .filter((entry) => entry.startsWith('-'))
+        .map((entry) => join(projectRoot(), 'src/.pi', entry.slice(1))),
+    );
+
+    const files = await listExtensionEntrypoints();
+    for (const file of files) {
+      if (disabledEntrypoints.has(file)) continue;
+      const source = await readFile(file, 'utf8');
+      expect(source, file).toContain('export default');
+    }
+  });
+
   it('registers product extensions from the shell in explicit order', async () => {
     const recording = createRecordingExtensionApi();
 
@@ -61,6 +118,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'read_session_context',
       'web_fetch',
       'web_search',
+      BRUNCH_EXECUTE_STATUS_TOOL,
       BRUNCH_ORCHESTRATOR_STUB_TOOL,
       'present_alternatives',
       PRESENT_QUESTION_TOOL,
@@ -95,6 +153,49 @@ describe('Brunch explicit Pi extension registry', () => {
       event === 'session_start' ? [index] : [],
     );
     expect(sessionStartIndexes[0]).toBeLessThan(sessionStartIndexes[1] ?? -1);
+  });
+
+  it('keeps execute_status side-effect free while plan/cook/land are pending', async () => {
+    const registeredTools: Array<{
+      name: string;
+      execute: (
+        toolCallId: string,
+        params: unknown,
+      ) => Promise<{
+        content: readonly { text: string }[];
+        details: Record<string, unknown>;
+      }>;
+    }> = [];
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+    })({
+      on() {},
+      registerTool(tool: (typeof registeredTools)[number]) {
+        registeredTools.push(tool);
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => [],
+      setActiveTools() {},
+    } as never);
+
+    const status = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_STATUS_TOOL);
+    expect(status).toBeDefined();
+    const result = await status!.execute('call-1', { discipline: 'interpretive' });
+
+    expect(result.content[0]?.text).toContain('execute_status: interpretive');
+    expect(result.content[0]?.text).toContain('pending tools: plan, cook, land');
+    expect(result.details).toMatchObject({
+      discipline: 'interpretive',
+      availableDisciplines: ['strict', 'interpretive'],
+      portedTools: ['execute_status'],
+      pendingTools: ['plan', 'cook', 'land'],
+      sideEffects: [],
+    });
   });
 
   it('keeps the default stub tool output aligned with its registered identity', async () => {
@@ -423,4 +524,32 @@ function createRecordingExtensionApi() {
     messageRenderers,
     onSessionBoundary,
   };
+}
+
+async function listExtensionEntrypoints(): Promise<string[]> {
+  const extensionsDir = join(projectRoot(), 'src/.pi/extensions');
+  const entries = await readdir(extensionsDir, { withFileTypes: true });
+  const files: string[] = [];
+  for (const entry of entries) {
+    const path = join(extensionsDir, entry.name);
+    if (entry.isFile() && entry.name.endsWith('.ts')) files.push(path);
+    if (entry.isDirectory()) {
+      const indexFile = join(path, 'index.ts');
+      if (await fileExists(indexFile)) files.push(indexFile);
+    }
+  }
+  return files;
+}
+
+async function fileExists(file: string): Promise<boolean> {
+  try {
+    await access(file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function projectRoot(): string {
+  return dirname(dirname(dirname(dirname(dirname(fileURLToPath(import.meta.url))))));
 }
