@@ -47,7 +47,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - `structured-exchange-affordance` — **next earned hardening.** Stabilize the live model-authored exchange contract after the `request_response` collapse and the new `generate` / `project` loops.
 - `elicitation-gap-guidance` — **next proving frontier after exchange hardening.** Derive "what next?" guidance from graph shape, settlement, and readiness rather than only sorting the existing gap register.
-- `exchange-symmetry-audit` — **third / earned cleanup.** Delete-oriented audit of the exchange projection/renderer split once the live exchange and asking seams stop moving.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
 ### Recently Completed
@@ -62,7 +61,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 1. `structured-exchange-affordance`
 2. `elicitation-gap-guidance`
-3. `exchange-symmetry-audit`
 
 ### Parallel / Low-Conflict
 
@@ -120,24 +118,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - D97-L provenance applies: cite ontology/render surfaces, do not copy vocabulary lists into the skill.
 - **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L; D60-L.
 
-### exchange-symmetry-audit
-
-- **Name:** Exchange-surface three-layer symmetry audit
-- **Linear:** unassigned
-- **Branch:** tbd
-- **Kind:** refactor / earned cleanup
-- **Status:** active candidate; sequence third, after the live exchange and asking seams settle.
-- **Certainty:** earned.
-- **Deletes / retires:** unjustified exchange projection/context mirrors that exist only for symmetry, especially survivors kept alive by the now-built collapse / generate / project work.
-- **Locks in:** shared exchange layers exist only for multi-consumer semantics; TUI presenters stay local.
-- **Objective:** Audit the remaining exchange-surface split after `request_response`, `present_candidates`, and `project` have landed, and delete any `projections/exchanges` or `agents/contexts/exchanges` survivors that no longer earn a shared home.
-- **Acceptance:**
-  - Each retained `projections/exchanges/*` module has a named multi-consumer or reusable-shape reason, not symmetry with a neighboring file.
-  - Each retained `agents/contexts/exchanges/*` renderer has a named model-facing-text ownership reason, not mere mirroring of projection shape.
-  - Single-owner reads are inlined or deleted without reintroducing TUI/UI rendering into shared layers.
-  - `src/projections/TOPOLOGY.md` and the touched exchange topology homes agree on the final kept-vs-deleted inventory.
-- **Traceability:** D27-L, D37-L, D65-L, D66-L; `src/projections/TOPOLOGY.md`, `src/agents/contexts/exchanges/TOPOLOGY.md`.
-
 ### structured-exchange-affordance
 
 - **Name:** Structured-exchange affordance hardening
@@ -146,15 +126,18 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Kind:** hardening / earned contract cleanup
 - **Status:** active candidate; recommended next frontier.
 - **Certainty:** earned.
+- **Absorbs:** the former `exchange-symmetry-audit` cleanup; the remaining delete pass is residue of exchange hardening, not a separate dependency boundary.
 - **Closes:** recurring "enforced but untaught" failures where the model sees legal schemas but not the intended present-vs-response, discriminant-companion, or nested review-set payload contract.
-- **Canonicalizes:** structured-exchange schema descriptions, prompt guidelines, and renderer/context language around `present_question`, `present_candidates`, `present_review_set`, `request_response`, and their companion detail shapes.
-- **Objective:** Tighten the live structured-exchange authoring contract after the `request_response` collapse so the model-facing surface teaches the legal shape directly instead of relying on deep validator failures or legacy pairing prose.
+- **Canonicalizes:** structured-exchange schema descriptions, prompt guidelines, renderer/context language, and the final kept-vs-deleted exchange projection/render inventory around `present_question`, `present_candidates`, `present_review_set`, `request_response`, and their companion detail shapes.
+- **Objective:** Tighten the live structured-exchange authoring contract after the `request_response` collapse so the model-facing surface teaches the legal shape directly instead of relying on deep validator failures or legacy pairing prose, then delete any exchange-layer mirrors that no longer earn a shared home.
 - **Acceptance:**
   - Present-side choice vs freeform vs candidate selection rules are explicit where the model authors them; stale legacy request-tool pairing language is removed.
   - Review-set nested payload companions (`grounding`, `pitch`, `epistemicStatus`, related discriminants) are described or re-shaped at the authoring boundary, not only rejected deep in graph validation.
   - `present_candidates` / `request_response` wording stays aligned with I51-L: recognition only until a later review-set or graph-mutation commitment path.
+  - Unjustified `projections/exchanges/*` and `agents/contexts/exchanges/*` symmetry survivors are inlined or deleted; retained modules name a real multi-consumer or model-facing-text ownership reason.
+  - `src/projections/TOPOLOGY.md` and the touched exchange topology homes agree on the final kept-vs-deleted inventory.
   - Tests cover the affordance-level shapes that previously generated review findings, not just the deepest schema rejection points.
-- **Traceability:** I23-L, I51-L, D37-L, D38-L, D84-L, D86-L, D96-L, D100-L; `docs/design/STRUCTURED_EXCHANGE_COLLAPSE.md`.
+- **Traceability:** I23-L, I51-L, D27-L, D37-L, D38-L, D65-L, D66-L, D84-L, D86-L, D96-L, D100-L; `docs/design/STRUCTURED_EXCHANGE_COLLAPSE.md`, `src/projections/TOPOLOGY.md`, `src/agents/contexts/exchanges/TOPOLOGY.md`.
 
 ### elicitation-gap-guidance
 
@@ -181,15 +164,11 @@ frontiers:
   Active:
     structured-exchange-affordance
       status: next / earned hardening
-      depends_on: request_response collapse and review-set proposal payload shape
+      depends_on: request_response collapse, review-set proposal payload shape, and remaining exchange-symmetry residue
 
     elicitation-gap-guidance
       status: second / proving
       depends_on: readiness bands, data-model legibility, elicitor-generate, and a stable exchange affordance surface for asking/proposal loops
-
-    exchange-symmetry-audit
-      status: third / earned cleanup
-      depends_on: exchange surface being mostly built and the live exchange/guidance seams no longer moving
 
     orchestrator-tool-port
       status: deferred / D98-sensitive
