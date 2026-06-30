@@ -5,6 +5,7 @@ export const BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL = 'execute_cook_plan_file';
 export const BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL = 'execute_cook_plan_preview';
 export const BRUNCH_EXECUTE_COOK_POPULATE_TOOL = 'execute_cook_populate';
 export const BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL = 'execute_cook_report_init';
+export const BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL = 'execute_cook_run_complete';
 export const BRUNCH_EXECUTE_COOK_RUN_CREATE_TOOL = 'execute_cook_run_create';
 export const BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL = 'execute_cook_source_copy';
 export const BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL = 'execute_cook_source_policy';

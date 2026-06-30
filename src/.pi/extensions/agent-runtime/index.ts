@@ -4,6 +4,7 @@ export * from './execute-cook-plan-file/index.js';
 export * from './execute-cook-plan-preview/index.js';
 export * from './execute-cook-populate/index.js';
 export * from './execute-cook-report-init/index.js';
+export * from './execute-cook-run-complete/index.js';
 export * from './execute-cook-run-create/index.js';
 export * from './execute-cook-source-copy/index.js';
 export * from './execute-cook-source-policy/index.js';
