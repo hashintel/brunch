@@ -17,6 +17,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Active arcs.** Work is organized into multi-frontier **initiatives (arcs)** — see [§Initiatives](#initiatives) for through-lines, member frontiers, and done-definitions: the completed **skill-substrate** arc (populate / weed / lock), the active **elicitor-capability-spine** arc (`capture` / `generate` done, `project` next), and the active **context-pipeline** arc (PULL / PROJECT / COMPOSE locked, RENDER still open for final prompt/subagent topology closure).
 
+**Execute / orchestration cutover.** FE-1089 is the active CODE/executor cutover frontier: re-grow the old cook orchestrator on the alpha branch using native Pi executor tools and a durable `ExecutionSpecSnapshot` projection seam, rather than harmonizing `main` and `next` schemas or reviving the old execute/orchestrator foreground split. The first slices are footholds only — prompt-resource conduct, read-only status/snapshot tools, and projection contracts — before any plan/cook/land runner port.
+
 **Topology and evidence discipline.** Directory `README.md` files under `src/**` own current topology state. `memory/SPEC.md` owns product contract and architectural decisions; `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
 ## Initiatives
@@ -69,7 +71,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 
 ### Active
 
-- _None._
+- `orchestrator-alpha-cutover` (FE-1089) — active on `ka/fe-1089-orchestrator-alpha-cutover`. Native CODE/executor footholds landed: execute-mode method guidance, side-effect-free `execute_status`, `ExecutionSpecSnapshot v1`, `execute_snapshot`, and method guidance routing through those foothold tools. Next slice should choose the first plan-facing read-only tool (`plan`/`plan_check` over `ExecutionSpecSnapshot`) without creating runs or worktrees.
 
 ### Recently Completed
 
@@ -82,7 +84,6 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 
 ### Next
 
-- `orchestrator-tool-port` (FE-1087) — **scoped but D98-sensitive.** Port the external `brunch cook` orchestrator into the future CODE/executor tool surface rather than preserving a separate execute/orchestrator product mode. First active scope: `memory/cards/orchestrator-tool-port--plan-check-tool.md`; reconcile that scope against D98-L before build.
 - `elicitor-project` (FE-1085) — **design-gated.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before any scope/build.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 
@@ -105,21 +106,36 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 
 ## Frontier Definitions
 
+### orchestrator-alpha-cutover
+
+- **Name:** Reconcile orchestrator with alpha branch
+- **Linear:** [FE-1089](https://linear.app/hash/issue/FE-1089/reconcile-orchestrator-with-alpha-branch)
+- **Branch:** `ka/fe-1089-orchestrator-alpha-cutover`
+- **Kind:** structural / execute-mode orchestration cutover
+- **Status:** active; foothold slices landed.
+- **Certainty:** proving.
+- **Current execution pointer:** next slice should build the first plan-facing read-only tool over `ExecutionSpecSnapshot` (`plan`/`plan_check` naming still open); do not create runs/worktrees yet.
+- **Objective:** Cut the old `main` cook orchestrator off the divergent stable branch and re-grow it natively on alpha's CODE/executor substrate. The near-term bridge is `ExecutionSpecSnapshot v1` plus side-effect-free executor tools; data-model harmonization and adaptive replan are deferred.
+- **Acceptance:**
+  - ✓ CODE/executor prompt resources can scope and build from a plan hypothesis without granting raw write/shell authority.
+  - ✓ `execute_status` reports current strict/interpretive foothold state and pending `plan`/`cook`/`land` without side effects.
+  - ✓ `ExecutionSpecSnapshot v1` projects graph requirements, criteria, positive witness/verifies links, mode, and context buckets from `next` graph DTOs.
+  - ✓ `execute_snapshot` reads the active selected-spec graph and returns the snapshot with `sideEffects: []`.
+  - Next: first read-only plan-facing tool consumes the snapshot and returns typed findings without creating a run sandbox.
+  - Later: cook execution, Petri/net artifacts, worktrees, promotion/land, and adaptive replan arrive as separate slices; topology mutation remains out of interpretive execution.
+- **Traceability:** R26; D39-L, D40-L, D58-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I50-L; `src/orchestration/README.md`, `src/.pi/extensions/README.md`.
+
 ### orchestrator-tool-port
 
 - **Name:** Port cook orchestration into CODE/executor tools
 - **Linear:** [FE-1087](https://linear.app/hash/issue/FE-1087/port-cook-orchestrator-into-execute-mode-tools)
 - **Branch:** tbd
 - **Kind:** structural / execute-mode tool boundary
-- **Status:** scoped; first scope file active.
+- **Status:** superseded as a separate frontier by FE-1089; preserve only as historical precursor if Linear remains open.
 - **Certainty:** proving.
-- **Current execution pointer:** `memory/cards/orchestrator-tool-port--plan-check-tool.md`.
-- **Objective:** Replace the old execute-mode standup stub direction with CODE/executor tooling by porting reusable `brunch cook` core logic into product-owned modules and exposing it through thin `.pi/extensions` adapters. D98-L changes the target agent from a separate no-write orchestrator to the Brunch-aware executor; the first read-only plan-check tool can still establish the tool seam, but the frontier must not preserve the old orchestrator/pi-coder split as product architecture.
-- **Acceptance:**
-  - First tracer replaces the old standup stub with a read-only `cook_plan_check` tool that validates a cook plan and returns typed plan shape/findings without creating a run sandbox.
-  - Later `cook_run` tooling is bounded behind executor-owned sandbox/worktree machinery; write-capable worker sessions, if any, are code-owned child execution boundaries.
-  - External `../brunch` CLI behavior is ported as reusable product core plus Pi adapter, not wrapped as a shell command.
-- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L / I49-L; `src/.pi/extensions/README.md`.
+- **Objective:** Old framing for porting reusable `brunch cook` logic into CODE/executor tools. FE-1089 now owns the active alpha cutover, including the first read-only plan-facing tool.
+- **Acceptance:** See `orchestrator-alpha-cutover`.
+- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I50-L.
 
 ### elicitor-project
 
