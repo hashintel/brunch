@@ -61,19 +61,6 @@ Do not add a fan-in schema field, a plane-specific commit tool, or a multi-selec
 - Put grounding, assumptions, caveats, and uncertainty in prose, not in `graph_refs`.
 - Cite existing ontology/render surfaces when graph vocabulary matters; `map` and graph schema/policy own node kinds, edge categories, detail payloads, and persistence rules.
 
-## Grounding and density
+## Grounding posture
 
-The proposal flow is always available, but output resolution and epistemic posture scale with grounding density:
-
-| Density | Output shape | Conduct |
-| --- | --- | --- |
-| empty / thin | low-resolution framings or ensembles | mark as speculative and name what would make them safer |
-| moderate | scenario sketches or tradeoff candidates | foreground which anchors are doing the work |
-| rich | completion candidates tied to graph context | attach alternatives to concrete accepted or proposed material |
-| mature | refactor/diff-like alternatives | preserve existing commitments and make changes reviewable |
-
-Low-density proposals should help recognition without pretending to be discovered truth. Rich proposals may be more assertive only where selected-spec evidence supports them.
-
-## Scenarios and probes
-
-Scenarios are runtime examples used to make alternatives recognizable: anchor scenarios illustrate one option, contrastive scenarios distinguish options, and probing scenarios invite a user reaction. Probe inputs are testing infrastructure. Do not turn probe inputs into product scenarios, and do not revive a standalone brief-library subsystem from proposal work.
+The proposal flow is always available. Thin context lowers resolution and demands visible uncertainty; rich selected-spec context permits sharper candidates tied to existing graph anchors. Branch references own the plane-specific density rules and scenario use. Probe inputs remain testing infrastructure, not product scenarios.
