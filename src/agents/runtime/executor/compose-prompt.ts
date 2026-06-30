@@ -3,9 +3,7 @@ import { readFileSync } from 'node:fs';
 import { bundledAgentBodyLocation } from '../../prompts/registry.js';
 import type { ForegroundRuntimePromptInput, ForegroundRuntimePromptResult } from '../foreground-policy.js';
 
-export function composeExecutorPrompt(
-  input: ForegroundRuntimePromptInput,
-): ForegroundRuntimePromptResult {
+export function composeExecutorPrompt(input: ForegroundRuntimePromptInput): ForegroundRuntimePromptResult {
   assertExecutorState(input.sessionState);
   return {
     prompt: joinSections([input.agentBody ?? readExecutorBody(), renderExecutorControl(input)]),

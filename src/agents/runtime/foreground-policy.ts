@@ -1,12 +1,6 @@
-import type {
-  AgentPromptSpecContext,
-  AgentPromptWorkspaceContext,
-} from '../contexts/seeds/turn-context.js';
 import type { ResolvedBrunchAgentState } from '../../projections/session/runtime-state.js';
-import {
-  activeToolNamesForLiveElicitor,
-  type LiveElicitorToolPolicyInput,
-} from './elicitor/active-tools.js';
+import type { AgentPromptSpecContext, AgentPromptWorkspaceContext } from '../contexts/seeds/turn-context.js';
+import { activeToolNamesForLiveElicitor, type LiveElicitorToolPolicyInput } from './elicitor/active-tools.js';
 import { composeLiveElicitorPrompt } from './elicitor/compose-live-prompt.js';
 import type { LiveElicitorPushedContext } from './elicitor/context.js';
 import { activeToolNamesForExecutor } from './executor/active-tools.js';

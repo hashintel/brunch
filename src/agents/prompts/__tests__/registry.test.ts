@@ -2,11 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import {
-  BUNDLED_AGENT_BODY_IDS,
-  bundledAgentBodyLocation,
-  bundledAgentBodyRepoPath,
-} from '../registry.js';
+import { BUNDLED_AGENT_BODY_IDS, bundledAgentBodyLocation, bundledAgentBodyRepoPath } from '../registry.js';
 
 describe('agent context registry', () => {
   it('owns the foreground body registry contract', () => {
