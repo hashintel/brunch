@@ -1,70 +1,39 @@
-# Slice: the band-walk (ingestion movements)
+# Slice: Capture Band Walk
 
-> Draft injectable context slice (scratch; not wired). Inject as the procedural backbone for generalized-content ingestion: the order in which the elicitor walks readiness bands while sweeping ingested material into graph truth. Source of truth for the kind→band table is [`graph-ontology.md`](../../contexts/references/graph-ontology.md) (D94-L); kind selection is [`slice-kind-selection.md`](slice-kind-selection.md); confidence/conflict routing is [`slice-promotion-capture.md`](slice-promotion-capture.md). This slice owns the *walk* (a procedure), not the vocabulary (a lookup).
+Support slice for generalized capture. The canonical readiness concepts and latest-band table live in [`../../contexts/about/readiness-bands.md`](../../contexts/about/readiness-bands.md); this file owns only the capture walk.
 
-Readiness bands are `grounding → elicitation → projection → commitment` (plus band-less kinds), derived per-kind by the schema (D94-L). Walked as a procedure, they are four **movements** the elicitor moves through while ingesting any source material. Bands guide *what to look for and ask next*; they **do not gate truth** — if the user states a later-movement item early, capture it honestly with the right kind and basis.
+Walk readiness bands as concern envelopes, not as workflow stages. Capture whatever the source actually supports, then assign the right route: gap, reconciliation need, advisory graph item, or settled graph item.
 
-```
-chain band-walk:
+```text
+chain capture-band-walk:
   ingested material (digest + conversation)
-    -> GROUND   establish the initiative frame
-    -> ELICIT   expand the working middle
-    -> PROJECT  materialize structure (design / oracle)
-    -> CLOSE    harden obligations + sequence the work
-  ANYTIME: term / example / sketch are capturable in any movement
+    -> GROUND  establish the initiative frame
+    -> ELICIT  expand the working middle
+    -> PROJECT harmonize requirements/design/oracles
+    -> COMMIT  harden obligations and sequencing
+  ANYTIME: band-less kinds are capturable wherever they surface
 ```
 
-## GROUND — grounding band
+## Ground
 
-- Gathers: `goal`, `thesis`, `context`, `constraint` (band membership: cite ontology).
 - Routing question: "What outcome, for whom and why, is true about the world, and what is ruled out?"
-- Completion: the initiative frame is anchored (problem / for-whom / value / bounding context present as truth) or the smallest missing anchor is a spawned gap. Do not push deeper just to look complete.
+- Capture rule: anchor `goal` / `thesis` when supported; use `context` / `constraint` for the frame only when sharper kinds do not fit.
+- Completion signal: the smallest missing frame becomes an `elicitation_gap`; do not ask deeper just to make the graph look complete.
 
-(reconciliation: the sketch's "pitch" = `thesis`.)
+## Elicit
 
-## ELICIT — elicitation band
+- Routing question: "What is believed but falsifiable, what is unknown, what was chosen, what must remain true, and what bounds the space?"
+- Capture rule: preserve epistemic shape. Do not launder `unknown` into `assumption`, `constraint` into `invariant`, or broad description into `context` when a sharper kind is available.
+- Completion signal: open forks are either captured, made into gaps, or routed to reconciliation.
 
-- Gathers: `context`, `story`, `unknown`, `assumption`, `constraint`, `invariant`, `decision`.
-- Routing question: "What is believed-but-falsifiable, what is an acknowledged unknown, what was chosen among alternatives, what must stay true, what bounds the space?"
-- Completion: open forks captured as truth or gaps; tentative language preserved as `assumption` / `unknown`, not laundered into commitment.
+## Project
 
-(reconciliation: the sketch placed `story` under ANYTIME and omitted `invariant`; canonically both are elicitation-band.)
+- Routing question: "What requirements, design shape, or oracle machinery follows from the settled inner concerns?"
+- Capture rule: source-derived `requirement`, `module`, `interface`, `entity`, `check`, `evidence`, `vv_method`, and `vv_obligation` may be persisted as advisory when reviewed but not yet harmonized.
+- Completion signal: projected items name the intent they serve through edges or remain advisory/gap material until support is clear.
 
-## PROJECT — projection band
+## Commit
 
-Projection is gated: do not materialize structure ahead of a settled-enough intent frame. The sketch splits this into two sub-movements:
-
-- design — `module`, `interface`, `entity`. Routing question: "How is it shaped?"
-- oracle — `check`, `vv_method`, `evidence`, `vv_obligation`. Routing question: "How is it checked or evidenced?"
-- Completion: a projection node only when the intent it serves is settled — each design node realizes a claim (`realization`), each oracle node witnesses one (`witness`).
-
-(reconciliation: the sketch placed `check` under CLOSURE; canonically `check` is projection-band, and `entity` / `evidence` belong here too.)
-
-## CLOSE — commitment band
-
-- Gathers: `requirement`, `criterion`; plan kinds `milestone`, `frontier`, `slice`.
-- Routing question: "What must the system do, how will we judge it, and how is the work sequenced?"
-- Completion: commitments are reviewed; `requirement` / `criterion` become truth via the user's direct statement or an accepted review set, not auto-promoted from a sweep.
-
-(reconciliation: the sketch grouped `milestone` / `frontier` under PROJECTION:PLAN; canonically plan kinds are commitment-band, and `slice` belongs here too.)
-
-## ANYTIME — band-less
-
-`term`, `example`, `sketch` carry no readiness band; capture them in whatever movement they surface. `term` fixes lexicon; `example` is a witness (pair with a `witness` edge, stance `for` / `against`); `sketch` is advisory design, not yet hardened.
-
-## Sketch → canonical reconciliation (overlay)
-
-```
-matrix sketch-group -> canonical band
-policy: overlay (procedural; no schema change)
-
-sketch group        | canonical band | reconciliation
---------------------|----------------|--------------------------------------------------
-GROUNDING           | grounding      | "pitch" = thesis
-ELICITATION         | elicitation    | + invariant; + story (sketch put story in ANYTIME)
-ANYTIME             | band-less      | term, example, sketch (story is elicitation-band)
-PROJECTION:DESIGN   | projection     | + entity
-PROJECTION:ORACLE   | projection     | + evidence; check is projection (sketch put it in CLOSURE)
-PROJECTION:CLOSURE  | commitment     | requirement, criterion
-PROJECTION:PLAN     | commitment     | milestone, frontier, + slice
-```
+- Routing question: "What is binding now, how will we judge it, and how is the work sequenced?"
+- Capture rule: commitment-band material (`criterion`, `milestone`, `frontier`, `slice`) captured early is early outer-band signal unless it has survived review against the inner concerns.
+- Completion signal: commitments are promoted, rewritten, superseded, or reconciled. They are not auto-settled merely because they appeared in a source document.

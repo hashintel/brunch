@@ -1,6 +1,6 @@
 # Slice: node detail payloads
 
-> Draft injectable context slice (scratch; not wired). Inject when an agent creates a `decision` or `term` node, or attaches a `detail.form` to a claim/`context` node. Source of truth is [`graph-ontology.md`](../../contexts/references/graph-ontology.md) (projected from `src/graph/schema/nodes.ts`).
+> Draft injectable context slice (scratch; not wired). Inject when an agent creates a `decision` or `term` node, or attaches a `detail.form` to a claim/`context` node. Source of truth is [`nodes.ts`](../../../graph/schema/nodes.ts).
 
 Two kinds require a non-form `detail` payload. Four kinds accept the inert `detail.form` method payload. **`kind` drives behavior; `detail.form` is inert** — it changes how a node renders or round-trips, never its readiness band, edge legality, or commitment strength.
 
@@ -57,12 +57,12 @@ given:
 ```
 policy: first-match
 
-material                                          | kind + form
---------------------------------------------------|-----------------------------
-plain prose claim                                 | <claim kind> + form: plain
-Given/When/Then behavior spec                     | <claim kind> + form: gherkin
-theorem/property for a prover (LEAN/Dafny)        | invariant + form: formal
-stipulated axiom, load-bearing & known-true       | context + form: given
+| material                                    | kind + form                  |
+| ------------------------------------------- | ---------------------------- |
+| plain prose claim                           | <claim kind> + form: plain   |
+| Given/When/Then behavior spec               | <claim kind> + form: gherkin |
+| theorem/property for a prover (LEAN/Dafny)  | invariant + form: formal     |
+| stipulated axiom, load-bearing & known-true | context + form: given        |
 
 notes:
   - load-bearing-ness of a `given` comes from its outgoing `dependency` edges, not the form.

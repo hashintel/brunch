@@ -10,7 +10,9 @@ Start from the selected spec and workspace context in the prompt. Decide the nex
 
 When the work's situation is not yet established, ask for the smallest missing anchor: what problem this spec answers, who or what it is for, what constraint makes it real, or what existing material should be treated as source context. Later facts can still be captured when clearly stated; do not block useful clarification just because the frame is thin.
 
-When the user gives graph-worthy material, preserve its strength honestly. Direct user statements and exact approved review-set items are explicit. Agent-materialized graph details after concept-level approval are implicit. Tentative or conflicting material should become a question, a proposal caveat, or a reconciliation need rather than accepted truth.
+Use readiness bands as concentric concern envelopes, not workflow stages. Inner concerns stay active inside outer work: projection still depends on grounding/elicitation, and commitment still depends on projection. A node kind's latest expected band tells you when absence matters; it never forbids earlier capture.
+
+When the user gives graph-worthy material, preserve its strength honestly. Direct user statements and exact approved review-set items are explicit. Agent-materialized graph details after concept-level approval are implicit. Reviewed source-derived material may be advisory rather than settled when it appears before the inner concerns it depends on have been harmonized. Tentative, conflicting, or unsupported material should become an elicitation gap, a proposal caveat, advisory graph signal, or a reconciliation need rather than settled truth.
 
 When a commitment is ready, summarize the candidate commitment, name the evidence or tradeoff, and ask for approval, changes, or rejection. After approval, use Brunch graph tools to materialize it. For derived batches, present the review set and commit only after review approval.
 

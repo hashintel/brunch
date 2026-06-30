@@ -155,10 +155,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Status:** active candidate.
 - **Certainty:** proving.
 - **Lights up:** model-facing "what next?" guidance derived from graph topology, readiness bands, and current elicitation state.
-- **Stabilizes:** the boundary between generated gap guidance and persisted `reconciliation_need` / `elicitation_gap` records.
+- **Stabilizes:** the boundary between generated gap guidance, advisory graph capture, persisted `reconciliation_need` records, and `elicitation_gap` records.
 - **Objective:** Give the elicitor a graph-shaped asking agenda for next useful questions without turning prompt examples into a parallel gap ontology.
-- **Acceptance:** Guidance is derived from current graph/readiness context and rendered into elicitor context; it distinguishes suggested next questions from committed graph truth; existing registered gaps remain rankable but are not the only source of asking guidance.
-- **Traceability:** D56-L, D64-L, D65-L, D94-L, D97-L.
+- **Acceptance:** Guidance is derived from current graph/readiness context and rendered into elicitor context; it distinguishes suggested next questions from settled graph truth and advisory early outer-band signal; existing registered gaps remain rankable but are not the only source of asking guidance.
+- **Traceability:** D56-L, D64-L, D65-L, D94-L, D97-L, D99-L; I52-L.
 
 ## Dependencies
 

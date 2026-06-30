@@ -25,7 +25,8 @@ skills/
 rules:
   agents/skills/* x> TypeScript imports [read-only prompt resources]
   agents/runtime/elicitor x> agents/skills/_suspended/ [live elicitor does not negotiate legacy axes]
-  agents/skills/capture/references/ -> agents/contexts/references/graph-ontology.md [cite generated vocabulary]
+  agents/skills/capture/references/ -> graph/schema + graph/policy [cite schema-owned vocabulary]
+  agents/skills/* -> agents/contexts/about/readiness-bands.md [cite readiness terminology]
 ```
 
 ## Migration Note

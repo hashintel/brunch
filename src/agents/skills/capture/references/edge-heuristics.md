@@ -80,16 +80,16 @@ out-of-scope disambiguator:
 
 Contradiction between two accepted claims is **not** an edge — there is no `conflict` category. Raise a `reconciliation_need` of kind `semantic_conflict`.
 
-## Author edges only between settled endpoints
+## Author edges only between confident endpoints
 
 ```
 chain relation-authoring:
   candidate relation
-    -> both endpoints settled enough to be graph truth?
+    -> both endpoints confident enough for the intended settlement?
       x> no: spawn/reuse an elicitation_gap for the missing endpoint; skip the edge
-    -> contradicts existing truth?
+    -> contradicts existing settled truth?
       x> yes: raise a reconciliation_need; do not overwrite or add a competing edge
-    -> create_edge with role-named endpoints + stance (witness/rationale only)
+    -> create_edge with role-named endpoints + stance (witness/rationale only) + settlement
 ```
 
 ## Edge and node interfaces
@@ -100,6 +100,7 @@ interface GraphEdge {
   sourceId, targetId: NodeId      // storage order carries NO impact meaning
   stance?: 'for' | 'against'      // required iff witness | rationale
   basis: 'explicit' | 'implicit'  // approval directness (D63-L)
+  settlement: 'advisory' | 'settled'
   rationale?: string              // why the relation holds
   // + id, specId, createdAtLsn, updatedAtLsn
 }
@@ -108,6 +109,7 @@ interface GraphNode {
   plane, kind, kindOrdinal        // kind drives behavior; code = label+ordinal (D62-L)
   title, body?
   basis: 'explicit' | 'implicit'
+  settlement: 'advisory' | 'settled'
   source?: string                 // lightweight epistemic attribution text, not policy
   detail?: NodeDetail             // decision | term | claim-form union
   // + id, specId, createdAtLsn, updatedAtLsn

@@ -1,58 +1,19 @@
-# About / Specifiation Lifecycle and Data-model
+# About / Specification Lifecycle and Data Model
 
-## Lifecycle
+> Historical scratch reference. Canonical readiness-band terminology now lives in [`readiness-bands.md`](readiness-bands.md). Do not treat the lifecycle or capture tables below as the source of truth for readiness bands, latest expected band, advisory capture, or settlement.
 
-A specification moves through phases. These can broadly be grouped in to first extractive, and then generative categories. The extractive phases require active **elicitation** of the user's intent in detail; the generative phases rely more on **projection** of the user's stated intent, preferences, ideas etc. in to proposed graph truth which the user accepts/approves or rejects. Moving from the extractive to the generative phases requires a certain *readiness*.
+## Canonical Reference
 
-The final phase of the specification process is commitment and planning but the phases are not strictly forward-only gates. The user can return to questions of an earlier phase, which is to say also of a more fundamental type, in order to revisit them and maybe reconsider certain ideas, choices, and so on. In such a case reconciliation may be required.
+Use [`readiness-bands.md`](readiness-bands.md) for:
 
-- extractive phases (grounding, elicitation)
-  - intent capture (basic, structural, reasoning)
+- readiness bands as concentric concern envelopes
+- latest expected band
+- capability-readiness
+- advisory capture
+- early outer-band signal
+- settlement
 
-- generative phases (projection, commitment)
-  - technical design
-  - verification design
-  - req and ac projection
-  - plan projection
-
-
-## Data Model
-
-Specifications and plans in the contexts described above are often structured documents; in Brunch they are represented as a graph of nodes and edges. The full set of nodes and edges, conceived for the SWE specification process, is detailed below.
-
-### Nodes and Planes
-
-- **intent plane**: what we want and why
-- **design plane**: how to shape it
-- **oracle plane**: how to verify it
-- **plan plane**: how implementation is sequenced and qualified
-
-| Kind            | Code | Plane  | Latest Phase | Latest Band |
-| --------------- | ---- | ------ | ------------ | ----------- |
-| `example`       | EX   | intent | extractive   | -           |
-| `story`         | ST   | intent | extractive   | -           |
-| `term`          | T    | intent | extractive   | -           |
-| `sketch`        | SKT  | intent | extractive   | -           |
-| `thesis`        | TH   | intent | extractive   | grounding   |
-| `goal`          | G    | intent | extractive   | grounding   |
-| `assumption`    | A    | intent | extractive   | elicitation |
-| `constraint`    | CON  | intent | extractive   | elicitation |
-| `context`       | CTX  | intent | extractive   | elicitation |
-| `decision`      | D    | intent | extractive   | elicitation |
-| `invariant`     | INV  | intent | extractive   | elicitation |
-| `unknown`       | UNK  | intent | extractive   | elicitation |
-| `requirement`   | REQ  | intent | generative   | commitment  |
-| `interface`     | API  | design | generative   | projection  |
-| `module`        | MOD  | design | generative   | projection  |
-| `entity`        | ENT  | design | generative   | projection  |
-| `check`         | CH   | oracle | generative   | projection  |
-| `evidence`      | E    | oracle | generative   | projection  |
-| `vv_method`     | VV   | oracle | generative   | projection  |
-| `vv_obligation` | O    | oracle | generative   | projection  |
-| `criterion`     | AC   | plan   | generative   | commitment  |
-| `milestone`     | M    | plan   | generative   | commitment  |
-| `frontier`      | F    | plan   | generative   | commitment  |
-| `slice`         | S    | plan   | generative   | commitment  |
+Use generated graph/schema references for the closed node and edge vocabulary. Do not maintain a second readiness/kind table here.
 
 ### Edge Categories, Impact Directions and Policies
 
@@ -100,11 +61,12 @@ chain capture-then-ask:
 
 Stop at the first rung that holds:
 
-1. **directly stated, or exact-review approved**? Capture as graph truth with `basis: explicit`           
-2. **confidently materialized from accepted content**? Capture as graph truth with `basis: implicit`           
+1. **directly stated, or exact-review approved and harmonized**? Capture as settled graph material with `basis: explicit`
+2. **confidently materialized from accepted and harmonized content**? Capture as settled graph material with `basis: implicit`
 3. **low-confidence noticing / suspicion / possible implication / missing piece**? Capture as elicitation_gap (question + rationale) 
-4. **contradicts existing graph truth**? Capture as reconciliation_need                    
-5. **a batch awaiting human judgment**? Capture as review-set draft (not accepted truth)  
+4. **reviewed source-derived signal that is not yet harmonized**? Capture as advisory graph material
+5. **contradicts existing settled graph truth**? Capture as reconciliation_need
+6. **a batch awaiting human judgment**? Capture as review-set draft (not accepted graph material)
 
 NOTES:
 - `basis` is approval DIRECTNESS, not the mutation path. The path lives in `change_log`.
@@ -249,7 +211,7 @@ Typical edges: `rationale` (goal→requirement), `dependency` (claim→claim), `
 
 > how it's shaped  
 
-Name the implementation shape that realizes the intent. Keep advisory material as `sketch` until it is settled enough to be graph truth.
+Name the implementation shape that realizes the intent. Keep weak design hints as `sketch`; if a source clearly implies `module`, `interface`, or `entity` before harmonization, capture the sharper kind as advisory graph material.
 
 ```
 kinds: module (MOD) | interface (API) | entity (ENT) | sketch (SKT)

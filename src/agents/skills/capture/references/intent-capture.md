@@ -1,17 +1,17 @@
 # Intent capture slice
 
-Draft injectable reference for the elicitor, capture sweep, and any foreground agent turning user/world material into coherent specification graph content. Use after reading `graph-ontology.md` for exact kind legality.
+Draft injectable reference for the elicitor, capture sweep, and any foreground agent turning user/world material into coherent specification graph content. Use schema-owned graph files for exact kind legality and [`../../../contexts/about/readiness-bands.md`](../../../contexts/about/readiness-bands.md) for readiness/settlement terminology.
 
 ## Job
 
-Capture stable intent-plane material as graph truth; route everything else to the correct non-truth substrate.
+Capture stable intent-plane material as settled graph truth; capture reviewed but not-yet-harmonized source signal as advisory graph material; route everything else to the correct non-truth substrate.
 
 ```pseudo
 incoming material
   -> normalize to declarative claim or named graph item
   -> classify by modality
   -> promote away from context when a sharper kind is earned
-  -> decide route: graph truth | elicitation_gap | reconciliation_need | review draft
+  -> decide route: settled graph item | advisory graph item | elicitation_gap | reconciliation_need | review draft
   -> add edges only after endpoint confidence is settled
 ```
 
@@ -37,17 +37,17 @@ incoming material
 
 policy: first-match
 
-| rule | If material...                            | → route                          |
-| ---- | ----------------------------------------- | -------------------------------- |
-| R1   | contradicts existing accepted graph truth | `reconciliation_need`            |
-| R2   | is low-confidence, suspected, or missing  | `elicitation_gap`                |
-| R3   | is a candidate batch awaiting approval    | review-set draft                 |
-| R4   | selects A over named B/C with rationale   | `decision`                       |
-| R5   | rules out solution space or scope         | `constraint`                     |
-| R6   | must remain true across operation/change  | `invariant`                      |
-| R7   | describes how success will be judged      | `criterion` or oracle-plane node |
-| R8   | gives a concrete witness/counterexample   | `example`                        |
-| R9   | only helps interpretation                 | `context`                        |
+| rule | If material...                           | → route                          |
+| ---- | ---------------------------------------- | -------------------------------- |
+| R1   | contradicts existing settled graph truth | `reconciliation_need`            |
+| R2   | is low-confidence, suspected, or missing | `elicitation_gap`                |
+| R3   | is a candidate batch awaiting approval   | review-set draft                 |
+| R4   | selects A over named B/C with rationale  | `decision`                       |
+| R5   | rules out solution space or scope        | `constraint`                     |
+| R6   | must remain true across operation/change | `invariant`                      |
+| R7   | describes how success will be judged     | `criterion` or oracle-plane node |
+| R8   | gives a concrete witness/counterexample  | `example`                        |
+| R9   | only helps interpretation                | `context`                        |
 
 notes:
   - #R1 is retrospective repair; do not file contradictions as gaps.

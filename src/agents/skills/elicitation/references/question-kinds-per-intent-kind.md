@@ -4,38 +4,40 @@ This is a **priming catalog**, organized by graph node kind. The questions are *
 
 > **The node kind is the closed ontology. Questions are the open, projectable layer *inside* a kind.**
 
+Read [`../../../contexts/about/readiness-bands.md`](../../../contexts/about/readiness-bands.md) for canonical readiness-band terminology. This file uses latest expected band only to orient what kind of absence should shape the next question.
+
 
 Usage:
 
 ```diagram
-╭──────────────────────────────────────────────────────────────╮
-│ projection loop (one step of generalized capture)             │
-│                                                                │
-│ 1. read open gaps + grounding density for THIS spec           │
-│ 2. pick a node kind whose source-question is under-answered    │
-│ 3. project: bind the kind's facets to what's already known     │
+╭──────────────────────────────────────────────────────────────────╮
+│ projection loop (one step of generalized capture)                │
+│                                                                  │
+│ 1. read open gaps + grounding density for THIS spec              │
+│ 2. pick a node kind whose source-question is under-answered      │
+│ 3. project: bind the kind's facets to what's already known       │
 │    (domain X + protagonist Y  →  a concrete, situated question) │
 │ 4. emit as an elicitation_gap: ⟨question, refersTo: kind, …⟩    │
-│ 5. NEVER mint a new kind/typology to hold a question —          │
-│    attach to the nearest existing kind                          │
-╰──────────────────────────────────────────────────────────────╯
+│ 5. NEVER mint a new kind/typology to hold a question             │
+│    attach to the nearest existing kind                           │
+╰──────────────────────────────────────────────────────────────────╯
 ```
 
-| Kind          | Code | Claim modality              | Latest band where it may appear | Query lens |
-| ------------- | ---- | --------------------------- | ------------------------------- | ---------- |
-| `goal`        | G    | value / outcome             | grounding                       | basic      |
-| `thesis`      | TH   | position / bet              | grounding                       | basic      |
-| `context`     | CTX  | known / given               | elicitation                     | basic      |
-| `story`       | ST   | feature / scenario          | -                               | basic      |
-| `term`        | T    | domain language             | -                               | basic      |
-| `unknown`     | UNK  | known-unknown               | elicitation                     | structural |
-| `assumption`  | A    | deferred-falsifiable belief | elicitation                     | structural |
-| `constraint`  | CON  | boundary                    | elicitation                     | structural |
-| `invariant`   | INV  | preservation                | elicitation                     | structural |
-| `requirement` | REQ  | obligation                  | commitment                      | structural |
-| `decision`    | D    | choice                      | elicitation                     | reasoning  |
-| `criterion`   | AC   | oracle                      | commitment                      | reasoning  |
-| `example`     | EX   | witness / disambiguator     | -                               | reasoning  |
+| Kind          | Code | Claim modality              | Latest expected band | Query lens |
+| ------------- | ---- | --------------------------- | -------------------- | ---------- |
+| `goal`        | G    | value / outcome             | grounding            | basic      |
+| `thesis`      | TH   | position / bet              | grounding            | basic      |
+| `context`     | CTX  | known / given               | elicitation          | basic      |
+| `story`       | ST   | feature / scenario          | -                    | basic      |
+| `term`        | T    | domain language             | -                    | basic      |
+| `unknown`     | UNK  | known-unknown               | elicitation          | structural |
+| `assumption`  | A    | deferred-falsifiable belief | elicitation          | structural |
+| `constraint`  | CON  | boundary                    | elicitation          | structural |
+| `invariant`   | INV  | preservation                | elicitation          | structural |
+| `requirement` | REQ  | obligation                  | projection           | structural |
+| `decision`    | D    | choice                      | elicitation          | reasoning  |
+| `criterion`   | AC   | oracle                      | commitment           | reasoning  |
+| `example`     | EX   | witness / disambiguator     | -                    | reasoning  |
 
 ## Basic Lens (grounding band — opens the spec)
 

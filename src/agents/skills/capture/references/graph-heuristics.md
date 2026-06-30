@@ -1,6 +1,6 @@
 # Graph authoring heuristics
 
-Runtime-eligible shared reference for graph-writing judgment (D97-L/D98-L). Use `graph-ontology.md` for generated vocabulary tables: exact kind list, codes, readiness bands, edge-category policy, required detail payloads, and `detail.form` legality. This file carries the authored judgment the elicitor needs to classify, promote, relate, and verify graph material without copying schema tables into skill bodies.
+Runtime-eligible shared reference for graph-writing judgment (D97-L/D98-L). Use schema-owned graph files for exact kind lists, codes, edge-category policy, required detail payloads, and `detail.form` legality. Use [`../../../contexts/about/readiness-bands.md`](../../../contexts/about/readiness-bands.md) for readiness-band and settlement terminology. This file carries the authored judgment the elicitor needs to classify, promote, relate, and verify graph material without copying schema tables into skill bodies.
 
 ## Mental model
 
@@ -13,14 +13,16 @@ spec graph:
   design plane     how the system is shaped
   plan plane       how the work is sequenced
 
-accepted graph truth:
-  nodes: stable graph items with kind, basis, source, optional detail
-  edges: structural categories with role-named endpoints
+spec graph material:
+  nodes: graph items with kind, basis, settlement, source, optional detail
+  edges: structural categories with role-named endpoints, basis, settlement
+  settled truth: graph items harmonized enough to stand as current spec truth
+  advisory signal: reviewed source-derived graph items not yet harmonized
   gaps: prospective elicitation obligations, not graph truth
   reconciliation_needs: retrospective repair obligations, not graph edges
 ```
 
-The old nine-kind claim ontology is superseded. The current model has four planes and 24 node kinds. The current exact set is generated in `graph-ontology.md`; use this guide for the semantic routing behind those kinds.
+The old nine-kind claim ontology is superseded. The current model has four planes and 24 node kinds. The exact set is schema-owned; use this guide for the semantic routing behind those kinds.
 
 ## Classify by modality, then by plane
 
@@ -50,24 +52,24 @@ Use these when the material is no longer only intent capture.
 - Design plane (`module`, `interface`, `entity`, `sketch`) — implementation shape, seams, data/domain entities, or intentionally lightweight design sketches.
 - Plan plane (`milestone`, `frontier`, `slice`) — sequencing units. A `frontier` is the plan/tracker/branch unit; a `slice` is the buildable implementation unit inside it.
 
-Readiness bands guide questioning and projection; they do not gate graph truth. If the user clearly states a later-band item early, capture it honestly with the right kind and basis.
+Readiness bands guide questioning and projection; they do not gate graph capture. If the user or a reviewed source clearly supplies a later-band item early, capture it honestly with the right kind and basis, then mark settlement according to whether it has been harmonized.
 
 ## Promote before filing as context
 
 `context` is the broadest attractor and therefore the most common misclassification. Promote to a sharper kind before writing graph truth.
 
-| If the descriptive material... | Route to... |
-| --- | --- |
-| states the desired outcome or why the work matters | `goal` or `thesis` |
-| defines a term or naming commitment | `term` |
-| must be true for the system to succeed or stay safe | `requirement` or `invariant` |
-| limits acceptable solutions or scope | `constraint` |
-| is believed but might be false in a material way | `assumption` |
-| is an acknowledged unknown that cannot simply be answered now | `unknown` |
-| chooses among alternatives with durable consequences | `decision` |
-| explains how success will be judged | `criterion` or an oracle-plane node |
-| gives a concrete case, trace, or counterexample | `example` |
-| only helps interpretation and has no stronger graph role yet | keep `context` |
+| If the descriptive material...                                | Route to...                         |
+| ------------------------------------------------------------- | ----------------------------------- |
+| states the desired outcome or why the work matters            | `goal` or `thesis`                  |
+| defines a term or naming commitment                           | `term`                              |
+| must be true for the system to succeed or stay safe           | `requirement` or `invariant`        |
+| limits acceptable solutions or scope                          | `constraint`                        |
+| is believed but might be false in a material way              | `assumption`                        |
+| is an acknowledged unknown that cannot simply be answered now | `unknown`                           |
+| chooses among alternatives with durable consequences          | `decision`                          |
+| explains how success will be judged                           | `criterion` or an oracle-plane node |
+| gives a concrete case, trace, or counterexample               | `example`                           |
+| only helps interpretation and has no stronger graph role yet  | keep `context`                      |
 
 A formal axiom or given is `context` with `detail.form:"given"` when it is stipulated as true and load-bearing. Load-bearing-ness comes from edges such as `dependency`, not from inventing a `given` kind.
 
@@ -117,7 +119,7 @@ A story groups related behavior inside a spec. An example is a concrete witness.
 
 ### `sketch` vs committed design nodes
 
-Use `sketch` for advisory or early design material that should not yet harden into module/interface/entity truth. Promote to `module`, `interface`, or `entity` only when the design claim is settled enough to be part of graph truth.
+Use `sketch` for lightweight design material that should not yet harden into module/interface/entity shape. When a source implies `module`, `interface`, or `entity` before projection has harmonized it, capture the sharper design kind as advisory rather than hiding it as a sketch.
 
 ## Decision capture criteria
 
@@ -129,7 +131,7 @@ Do not turn every user answer into a `decision`. A `decision` needs all of these
 4. At least one rejected alternative can be named.
 5. There is a rationale.
 
-Current required detail fields are `chosen_option`, `rejected`, and `rationale` (see `graph-ontology.md`). Put scope and consequences in the title/body or express them with edges; do not invent decision-detail fields.
+Current required detail fields are `chosen_option`, `rejected`, and `rationale` (see `src/graph/schema/nodes.ts`). Put scope and consequences in the title/body or express them with edges; do not invent decision-detail fields.
 
 ## Examples and negative knowledge
 
@@ -161,50 +163,52 @@ Intent is often clarified by what has been ruled out. Prefer a concrete `example
 
 ## Edge authoring
 
-Accepted edges use the closed structural categories generated in `graph-ontology.md`. Do not use retired named-relation dialects such as `derived_from`, `motivated_by`, `rules_out`, `counterexample_for`, or `tested_by` as edge categories.
+Accepted edges use the closed structural categories owned by `src/graph/policy/category-policy.ts`. Do not use retired named-relation dialects such as `derived_from`, `motivated_by`, `rules_out`, `counterexample_for`, or `tested_by` as edge categories.
 
 Use the role-named `mutate_graph` grammar. Endpoint storage order does not carry impact meaning; category metadata owns endpoint roles, affected endpoint, impact strength, criteria-help signal, and projection effect.
 
-| If you mean... | Use current edge category |
-| --- | --- |
-| one claim relies on another remaining true | `dependency` (`dependency` -> `dependent`) |
-| an oracle, example, check, evidence, or criterion supports/refutes a claim | `witness` with `stance: for` or `stance: against` |
-| a goal, thesis, rationale, or argument motivates/opposes a claim | `rationale` with `stance: for` or `stance: against` |
-| an abstract claim is implemented or expressed by a concrete artifact | `realization` |
-| a general claim/model is specialized by a more specific one | `refinement` |
-| a boundary, non-goal, or constraint limits a subject | `exclusion` |
-| a whole contains a part | `composition` |
-| two items are related but no stronger relation is justified | `cross_reference` |
-| one item replaces an older item | `supersession` |
+| If you mean...                                                             | Use current edge category                           |
+| -------------------------------------------------------------------------- | --------------------------------------------------- |
+| one claim relies on another remaining true                                 | `dependency` (`dependency` -> `dependent`)          |
+| an oracle, example, check, evidence, or criterion supports/refutes a claim | `witness` with `stance: for` or `stance: against`   |
+| a goal, thesis, rationale, or argument motivates/opposes a claim           | `rationale` with `stance: for` or `stance: against` |
+| an abstract claim is implemented or expressed by a concrete artifact       | `realization`                                       |
+| a general claim/model is specialized by a more specific one                | `refinement`                                        |
+| a boundary, non-goal, or constraint limits a subject                       | `exclusion`                                         |
+| a whole contains a part                                                    | `composition`                                       |
+| two items are related but no stronger relation is justified                | `cross_reference`                                   |
+| one item replaces an older item                                            | `supersession`                                      |
 
 Stance is required only for `witness` and `rationale`; omit it everywhere else.
 
 ## Relation-bearing batches need confident endpoints
 
-Create edges only after both endpoints are settled enough to stand as graph truth.
+Create edges only after both endpoints are confident enough for the intended settlement. Advisory edges are allowed when a reviewed source implies the relation but it is not yet globally harmonized; settled edges require settled endpoints.
 
 ```pseudo
 chain relation-bearing-authoring:
   candidate relation
     -> confirm or create confident endpoint nodes
+    -> choose advisory vs settled settlement
     -> skip edge if either endpoint remains low-confidence
     -> use role-named mutate_graph endpoints
 ```
 
-If an endpoint is uncertain, spawn or reuse an elicitation gap for the missing claim. If a relation contradicts existing graph truth, create a reconciliation need instead of overwriting or adding a competing edge.
+If an endpoint is uncertain, spawn or reuse an elicitation gap for the missing claim. If a relation contradicts existing settled graph truth, create a reconciliation need instead of overwriting or adding a competing settled edge.
 
-## Accepted graph truth has no proposal/status fields
+## Graph material has basis and settlement, not proposal/status sprawl
 
 Do not add old edge metadata such as `support`, `status`, `provenanceTurnId`, `createdBy`, or per-claim `checkability`/`strength` fields.
 
 Current ownership:
 
 - `basis: explicit | implicit` records approval directness for accepted nodes and edges.
+- `settlement: advisory | settled` records whether graph material is source-derived signal awaiting harmonization or current spec truth.
 - `source` on nodes is lightweight epistemic attribution text, not policy.
 - `rationale` on edges explains the relation.
 - `change_log` owns audit/provenance by LSN.
 - Review-set drafts own proposed graph material before acceptance.
-- Rejected proposals are absent from active graph truth plus audit history.
+- Rejected proposals are absent from active graph material plus audit history.
 - Staleness is represented by `reconciliation_need`, not by mutating edge status.
 
 ## Treat `detail.form` as inert payload
@@ -219,13 +223,14 @@ Do not infer edge legality, readiness, commitment strength, or runtime method st
 
 ## Capture routes
 
-| Material confidence / conflict state | Route |
-| --- | --- |
-| directly stated or exact-review approved graph material | graph truth with `basis: explicit` |
-| confidently materialized from accepted content | graph truth with `basis: implicit` |
-| low-confidence noticing, suspicion, possible implication, or missing piece | `elicitation_gap` with a question and rationale |
-| contradiction with existing graph truth | `reconciliation_need` |
-| candidate batch awaiting human judgment | review-set draft, not accepted graph truth |
+| Material confidence / conflict / settlement state                              | Route                                            |
+| ------------------------------------------------------------------------------ | ------------------------------------------------ |
+| directly stated or exact-review approved and harmonized graph material         | settled graph item with `basis: explicit`        |
+| confidently materialized from accepted and harmonized content                  | settled graph item with `basis: implicit`        |
+| reviewed arbitrary-source material that is graph-shaped but not yet harmonized | advisory graph item with the appropriate `basis` |
+| low-confidence noticing, suspicion, possible implication, or missing piece     | `elicitation_gap` with a question and rationale  |
+| contradiction with existing settled graph truth                                | `reconciliation_need`                            |
+| candidate batch awaiting human judgment                                        | review-set draft, not accepted graph material    |
 
 Abstain rather than guess. Speculative captures degrade graph signal.
 
@@ -251,16 +256,16 @@ Do not reconstruct directionality from raw `sourceId` / `targetId` or from the E
 
 Use graph topology to pick the next useful question:
 
-| Signal | Suggested question shape |
-| --- | --- |
-| High-fanout `assumption` with thin evidence | “Many claims depend on X. Should we validate it or mark the risk?” |
-| `requirement` or `invariant` with no witness/evidence path | “How will we know this holds?” |
-| `criterion` not linked to the claim it judges | “Which requirement or invariant does this criterion check?” |
-| Candidate `decision` lacks rejected alternatives or rationale | “What did we consider and rule out before choosing this?” |
-| Constraints/exclusions appear to disagree about one subject | “These boundaries conflict. Which one wins?” |
-| `goal` / `thesis` has no path into requirements, design, or plan | “What would satisfy this goal in the actual system?” |
-| Requirement has no example/counterexample and high ambiguity | “What concrete case would settle this interpretation?” |
-| `unknown` blocks a design or plan edge | “Do we accommodate the unknown, investigate it, or narrow scope around it?” |
+| Signal                                                           | Suggested question shape                                                    |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| High-fanout `assumption` with thin evidence                      | “Many claims depend on X. Should we validate it or mark the risk?”          |
+| `requirement` or `invariant` with no witness/evidence path       | “How will we know this holds?”                                              |
+| `criterion` not linked to the claim it judges                    | “Which requirement or invariant does this criterion check?”                 |
+| Candidate `decision` lacks rejected alternatives or rationale    | “What did we consider and rule out before choosing this?”                   |
+| Constraints/exclusions appear to disagree about one subject      | “These boundaries conflict. Which one wins?”                                |
+| `goal` / `thesis` has no path into requirements, design, or plan | “What would satisfy this goal in the actual system?”                        |
+| Requirement has no example/counterexample and high ambiguity     | “What concrete case would settle this interpretation?”                      |
+| `unknown` blocks a design or plan edge                           | “Do we accommodate the unknown, investigate it, or narrow scope around it?” |
 
 These are ranking heuristics, not automatic graph writes.
 
@@ -274,20 +279,20 @@ Do not add claim-level `checkability`, `strength`, `validTraces`, or `invalidTra
 
 Treat these as priors, not rigid rules.
 
-| User phrase pattern | Likely route |
-| --- | --- |
-| “we want Y” / “so that Y” | `goal` |
-| “this is for X because...” | `thesis` |
-| “by X we mean...” | `term` |
-| “true about the environment/repo/domain...” | `context` unless promotable |
-| “a known unknown is...” | `unknown` |
-| “must not”, “cannot”, “out of scope” | `constraint` |
-| “probably”, “we think”, “if X is true” | `assumption` |
-| “the system must...” | `requirement` |
-| “always”, “never”, “must remain” | `invariant` |
-| “we chose A over B because...” | `decision` |
-| “we'll know it works when...” | `criterion` or oracle-plane node |
-| “for example”, “case where”, “counterexample” | `example` |
-| “module”, “API”, “entity”, “sketch” | design-plane kind |
-| “test”, “proof”, “evidence”, “verification method” | oracle-plane kind |
-| “milestone”, “frontier”, “slice” | plan-plane kind |
+| User phrase pattern                                | Likely route                     |
+| -------------------------------------------------- | -------------------------------- |
+| “we want Y” / “so that Y”                          | `goal`                           |
+| “this is for X because...”                         | `thesis`                         |
+| “by X we mean...”                                  | `term`                           |
+| “true about the environment/repo/domain...”        | `context` unless promotable      |
+| “a known unknown is...”                            | `unknown`                        |
+| “must not”, “cannot”, “out of scope”               | `constraint`                     |
+| “probably”, “we think”, “if X is true”             | `assumption`                     |
+| “the system must...”                               | `requirement`                    |
+| “always”, “never”, “must remain”                   | `invariant`                      |
+| “we chose A over B because...”                     | `decision`                       |
+| “we'll know it works when...”                      | `criterion` or oracle-plane node |
+| “for example”, “case where”, “counterexample”      | `example`                        |
+| “module”, “API”, “entity”, “sketch”                | design-plane kind                |
+| “test”, “proof”, “evidence”, “verification method” | oracle-plane kind                |
+| “milestone”, “frontier”, “slice”                   | plan-plane kind                  |

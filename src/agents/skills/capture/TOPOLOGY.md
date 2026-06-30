@@ -1,6 +1,6 @@
 # agents/skills/capture/ — live capture conduct
 
-SPEC decisions: D66-L, D81-L, D82-L, D98-L
+SPEC decisions: D66-L, D81-L, D82-L, D98-L, D99-L / I52-L
 
 ## Owns
 
