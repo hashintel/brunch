@@ -1,10 +1,8 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import {
-  projectExecutionSpecSnapshot,
-  type ExecutionSpecSnapshot,
-} from '../../../../orchestration/execution-spec-snapshot.js';
+import { projectExecuteGraph } from '../../../../orchestration/execute-projection.js';
+import type { ExecutionSpecSnapshot } from '../../../../orchestration/execution-spec-snapshot.js';
 import { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
@@ -46,12 +44,14 @@ export function createExecuteSnapshotTool(
     parameters: ExecuteSnapshotParams,
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
-      const snapshot = projectExecutionSpecSnapshot({
+      const projection = projectExecuteGraph({
         specId: deps.specId,
         mode: params.mode ?? 'greenfield',
+        graphLsn: graph.lsn,
         nodes: graph.nodes,
         edges: graph.edges,
       });
+      const snapshot = projection.snapshot;
       return {
         content: [
           {
@@ -67,7 +67,7 @@ export function createExecuteSnapshotTool(
         ],
         details: {
           snapshot,
-          source: { graphLsn: graph.lsn, visibility: 'active' },
+          source: projection.source,
           sideEffects: [],
         },
       };

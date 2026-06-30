@@ -6,7 +6,10 @@ import type { ExecutionPlanOutline } from './execute-plan-outline.js';
 
 export interface PlanOutlineArtifactWriteResult {
   readonly path: string;
-  readonly sideEffects: readonly [{ readonly kind: 'write_file'; readonly path: string }];
+  readonly writeMode: 'overwrite';
+  readonly sideEffects: readonly [
+    { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
+  ];
 }
 
 export function planOutlineArtifactPath(cwd: string, specId: string): string {
@@ -20,5 +23,5 @@ export async function writePlanOutlineArtifact(args: {
   const path = planOutlineArtifactPath(args.cwd, args.outline.specId);
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, `${JSON.stringify(args.outline, null, 2)}\n`, 'utf8');
-  return { path, sideEffects: [{ kind: 'write_file', path }] };
+  return { path, writeMode: 'overwrite', sideEffects: [{ kind: 'write_file', path, ifExists: 'overwrite' }] };
 }

@@ -1,11 +1,8 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import {
-  outlineExecutionPlan,
-  type ExecutionPlanOutline,
-} from '../../../../orchestration/execute-plan-outline.js';
-import { projectExecutionSpecSnapshot } from '../../../../orchestration/execution-spec-snapshot.js';
+import type { ExecutionPlanOutline } from '../../../../orchestration/execute-plan-outline.js';
+import { projectExecuteGraph } from '../../../../orchestration/execute-projection.js';
 import { writePlanOutlineArtifact } from '../../../../orchestration/plan-outline-artifact.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
@@ -27,6 +24,7 @@ interface ExecutePlanOutlineArtifactDetails {
   readonly outline: ExecutionPlanOutline;
   readonly artifact: {
     readonly path: string;
+    readonly writeMode: 'overwrite';
   };
   readonly source: {
     readonly graphLsn: number;
@@ -55,13 +53,14 @@ export function createExecutePlanOutlineArtifactTool(
         throw new Error('execute_plan_outline_artifact requires an active cwd');
       }
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
-      const snapshot = projectExecutionSpecSnapshot({
+      const projection = projectExecuteGraph({
         specId: deps.specId,
         mode: params.mode ?? 'greenfield',
+        graphLsn: graph.lsn,
         nodes: graph.nodes,
         edges: graph.edges,
       });
-      const outline = outlineExecutionPlan(snapshot);
+      const outline = projection.outline;
       const artifact = await writePlanOutlineArtifact({ cwd, outline });
       return {
         content: [
@@ -78,8 +77,8 @@ export function createExecutePlanOutlineArtifactTool(
         ],
         details: {
           outline,
-          artifact: { path: artifact.path },
-          source: { graphLsn: graph.lsn, visibility: 'active' },
+          artifact: { path: artifact.path, writeMode: artifact.writeMode },
+          source: projection.source,
           sideEffects: artifact.sideEffects,
         },
       };

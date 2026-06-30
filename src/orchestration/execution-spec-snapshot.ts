@@ -1,5 +1,5 @@
 import type { GraphEdge } from '../graph/schema/edges.js';
-import type { GraphNode, NodeKind } from '../graph/schema/nodes.js';
+import { formatGraphNodeCode, type GraphNode, type NodeKind } from '../graph/schema/nodes.js';
 
 export type ExecutionSpecMode = 'greenfield' | 'brownfield';
 
@@ -114,7 +114,7 @@ function itemSnapshot(node: GraphNode): ExecutionSpecItemSnapshot {
 }
 
 function itemId(node: GraphNode): string {
-  return `${node.kind}-${node.id}`;
+  return formatGraphNodeCode(node.kind, node.kindOrdinal);
 }
 
 function byKindOrdinalThenId(a: GraphNode, b: GraphNode): number {

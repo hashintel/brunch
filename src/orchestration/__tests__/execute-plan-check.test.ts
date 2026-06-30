@@ -8,16 +8,16 @@ const baseSnapshot: ExecutionSpecSnapshot = {
   specId: '7',
   mode: 'greenfield',
   requirements: [
-    { itemId: 'requirement-1', nodeId: 1, title: 'Build feature', content: 'Build feature' },
-    { itemId: 'requirement-2', nodeId: 2, title: 'Wire feature', content: 'Wire feature' },
+    { itemId: 'REQ1', nodeId: 1, title: 'Build feature', content: 'Build feature' },
+    { itemId: 'REQ2', nodeId: 2, title: 'Wire feature', content: 'Wire feature' },
   ],
   criteria: [
     {
-      itemId: 'criterion-3',
+      itemId: 'AC1',
       nodeId: 3,
       title: 'Feature is visible',
       content: 'Feature is visible',
-      verifies: ['requirement-1'],
+      verifies: ['REQ1'],
     },
   ],
   context: { constraints: [], invariants: [], decisions: [], examples: [], design: [], oracle: [] },
@@ -34,8 +34,8 @@ describe('checkExecutionSpecForPlan', () => {
         {
           code: 'requirement_without_criterion',
           severity: 'warning',
-          itemId: 'requirement-2',
-          message: 'Requirement requirement-2 has no verifying criterion in the execution snapshot.',
+          itemId: 'REQ2',
+          message: 'Requirement REQ2 has no verifying criterion in the execution snapshot.',
         },
       ],
       sideEffects: [],

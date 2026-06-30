@@ -1,11 +1,8 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import {
-  outlineExecutionPlan,
-  type ExecutionPlanOutline,
-} from '../../../../orchestration/execute-plan-outline.js';
-import { projectExecutionSpecSnapshot } from '../../../../orchestration/execution-spec-snapshot.js';
+import type { ExecutionPlanOutline } from '../../../../orchestration/execute-plan-outline.js';
+import { projectExecuteGraph } from '../../../../orchestration/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
@@ -47,13 +44,14 @@ export function createExecutePlanOutlineTool(
     parameters: ExecutePlanOutlineParams,
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
-      const snapshot = projectExecutionSpecSnapshot({
+      const projection = projectExecuteGraph({
         specId: deps.specId,
         mode: params.mode ?? 'greenfield',
+        graphLsn: graph.lsn,
         nodes: graph.nodes,
         edges: graph.edges,
       });
-      const outline = outlineExecutionPlan(snapshot);
+      const outline = projection.outline;
       return {
         content: [
           {
@@ -69,7 +67,7 @@ export function createExecutePlanOutlineTool(
         ],
         details: {
           outline,
-          source: { graphLsn: graph.lsn, visibility: 'active' },
+          source: projection.source,
           sideEffects: [],
         },
       };
