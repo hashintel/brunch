@@ -59,5 +59,7 @@ D98-L suspends strategy/lens/method as runtime axes. Useful conduct has been lif
 - `read-context` → `analyze` plus `analyze/references/neighborhoods.md`
 - `review-for-gaps` → `review`
 - acquisition/capture/commit/exchange methods → decomposed across `ingest`, `map`, `propose`, `elicit`, and product exchange contracts
+- strategy interaction tactics → `src/agents/prompts/elicitor.md` and `elicit`
+- lens plane heuristics → `elicit`, `review`, and `propose/references/{intent,design,oracle}.md`
 
 Historical or compatibility prompt resources remain under `_suspended/` and are not available merely because a file exists.

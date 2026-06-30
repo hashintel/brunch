@@ -9,8 +9,8 @@ SPEC decisions: D25-L, D52-L, D85-L, D95-L, D98-L
 ```text
 _suspended/
 ├── TOPOLOGY.md
-├── strategies/<name>/SKILL.md        retired interaction-shape resources
-├── lenses/<name>/SKILL.md            retired focus-lens resources
+├── strategies/<name>/SKILL.md        audited disposition stubs; tactics lifted to prompt/elicit
+├── lenses/<name>/SKILL.md            audited disposition stubs; heuristics lifted to elicit/review/propose
 └── methods/
     ├── generate-proposal/            lifted to propose; probes.md left as future eval seed
     ├── read-context/                 lifted to analyze
@@ -41,4 +41,6 @@ Post-salvage dispositions:
 
 - **Lifted:** `generate-proposal`, its intent/design/oracle references, `read-context`, and `review-for-gaps`.
 - **Confirmed/backported:** `elicit-by-question`, `explore-and-characterize`, `read-referenced-documents`, `ingest-paste`, `capture`, `commit-graph`, and `run-structured-exchange`.
-- **Left suspended intentionally:** `generate-proposal/probes.md` remains future oracle/eval material; strategies and lenses remain quarantined by D98-L unless a later frontier reopens prompt-resource organization.
+- **Strategies audited/backported:** `freestyle` baseline posture moved to `src/agents/prompts/elicitor.md`; `step-wise-decision-tree` and `step-wise-disambiguate` tactics moved to `elicit`; strategy files now read as suspended historical source material.
+- **Lenses audited/backported:** intent/design/oracle questioning moved to `elicit`, critique heuristics moved to `review`, and proposal payload remains in `propose/references/{intent,design,oracle}.md`; lens files now read as suspended historical source material.
+- **Left suspended intentionally:** `generate-proposal/probes.md` remains future oracle/eval material; the retired strategy/lens/method taxonomy remains quarantined by D98-L unless a later frontier reopens prompt-resource organization.
