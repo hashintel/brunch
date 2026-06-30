@@ -5,7 +5,7 @@ description: Ingest source material for the selected spec — a human answer, pa
 
 # Ingest
 
-Ingest owns how source material arrives and how its provenance is phrased. It does not own graph ontology: use [`../map/references/mapping-kinds.md`](../map/references/mapping-kinds.md), [`../map/references/mapping-edges.md`](../map/references/mapping-edges.md), and [`../map/references/routing.md`](../map/references/routing.md) when deciding what graph item, edge, or non-truth substrate the material becomes.
+Ingest owns how source material arrives and how its provenance is phrased. It does not own graph ontology: use [`../map/references/map-nodes.md`](../map/references/map-nodes.md), [`../map/references/map-edges.md`](../map/references/map-edges.md), and [`../map/references/routing.md`](../map/references/routing.md) when deciding what graph item, edge, or non-truth substrate the material becomes.
 
 ## Procedure
 

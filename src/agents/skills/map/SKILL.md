@@ -9,11 +9,11 @@ Map owns source-independent graph ontology guidance: what kind a span becomes, w
 
 Read the focused references when detail matters:
 
-- [`references/mapping-kinds.md`](references/mapping-kinds.md) — kind selection, promotion, nearby-kind distinctions, and decision criteria.
-- [`references/mapping-edges.md`](references/mapping-edges.md) — the closed edge categories and role-named grammar.
-- [`references/mapping-design.md`](references/mapping-design.md) — `module`, `interface`, `entity`, and `sketch` routing.
-- [`references/mapping-oracles.md`](references/mapping-oracles.md) — criteria, checks, evidence, methods, obligations, and witnesses.
-- [`references/mapping-plans.md`](references/mapping-plans.md) — `milestone`, `frontier`, and `slice` routing.
+- [`references/map-nodes.md`](references/map-nodes.md) — kind selection, promotion, nearby-kind distinctions, and decision criteria.
+- [`references/map-edges.md`](references/map-edges.md) — the closed edge categories and role-named grammar.
+- [`references/map-design.md`](references/map-design.md) — `module`, `interface`, `entity`, and `sketch` routing.
+- [`references/map-oracles.md`](references/map-oracles.md) — criteria, checks, evidence, methods, obligations, and witnesses.
+- [`references/map-plans.md`](references/map-plans.md) — `milestone`, `frontier`, and `slice` routing.
 - [`references/routing.md`](references/routing.md) — confidence/conflict routing into settled graph truth, advisory graph signal, gaps, reconciliation, or review.
 
 Each plane answers a different concern. Stay on the plane the active work is on; cross-plane links are edges, not kind changes. Promote across planes only when the material genuinely hardens.
