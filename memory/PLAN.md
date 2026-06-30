@@ -129,7 +129,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
   - ✓ `execute_cook_plan_preview` maps the draft into an old-cook-compatible DTO preview without writing `plan.yaml`.
   - Next: compatibility hardening toward the old plan model before any plan file writer or runner.
   - Later: cook execution, Petri/net artifacts, worktrees, promotion/land, and adaptive replan arrive as separate slices; topology mutation remains out of interpretive execution.
-- **Traceability:** R26; D39-L, D40-L, D58-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I50-L; `src/orchestration/README.md`, `src/.pi/extensions/README.md`.
+- **Traceability:** R26; D39-L, D40-L, D58-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L; `src/orchestration/README.md`, `src/.pi/extensions/README.md`.
 
 ### orchestrator-tool-port
 
@@ -141,7 +141,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 - **Certainty:** proving.
 - **Objective:** Old framing for porting reusable `brunch cook` logic into CODE/executor tools. FE-1089 now owns the active alpha cutover, including the first read-only plan-facing tool.
 - **Acceptance:** See `orchestrator-alpha-cutover`.
-- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I50-L.
+- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L.
 
 ### elicitor-project
 
