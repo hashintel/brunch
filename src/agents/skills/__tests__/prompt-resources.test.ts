@@ -18,6 +18,11 @@ const generateProposalDisclosureExpectations = {
   ],
 };
 
+const executeMethodToolExpectations = {
+  'scope-execution-task': ['execute_status', 'execute_snapshot'],
+  'build-with-tests': ['execute_status', 'execute_snapshot'],
+} as const;
+
 describe('prompt-resource skills', () => {
   it('keeps every code-owned prompt resource readable and substantial', async () => {
     const entries = [
@@ -52,6 +57,15 @@ describe('prompt-resource skills', () => {
           join(projectRoot, reference),
         ),
       );
+    }
+  });
+
+  it('routes execute-mode methods through code-owned execute foothold tools', async () => {
+    for (const [method, toolNames] of Object.entries(executeMethodToolExpectations)) {
+      const body = await readFile(join(projectRoot, 'src/agents/skills/methods', method, 'SKILL.md'), 'utf8');
+      for (const toolName of toolNames) {
+        expect(body).toContain(toolName);
+      }
     }
   });
 });

@@ -62,4 +62,6 @@ User-approved COMPOSE disposition (updated 2026-06-22): the git-tracked `SKILL.m
 | methods | `read-context/SKILL.md` | required | Source file + manifest readability invariant. |
 | methods | `review-for-gaps/SKILL.md` | required | Source file + manifest readability invariant; audit-only, capability-gated by selected-spec gaps. |
 | methods | `run-structured-exchange/SKILL.md` | required | Source file + manifest readability invariant. |
+| methods | `scope-execution-task/SKILL.md` | required | Execute-mode scoping conduct; routes through `execute_status` and `execute_snapshot` when active. |
+| methods | `build-with-tests/SKILL.md` | required | Execute-mode build conduct; preserves deterministic harness/tool-policy boundaries. |
 | fixtures | `__fixtures__/unlisted-fixture/SKILL.md` | test-only | Proves filesystem presence under `skills/` is not advertisement. |

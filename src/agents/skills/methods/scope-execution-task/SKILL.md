@@ -7,6 +7,10 @@ description: "Interpret an execute-mode frontier or plan item into a bounded tas
 
 Use this method in execute mode before treating a plan item as literal implementation work. The plan is a build hypothesis: it names the user's intended frontier, but it may be under-scoped, over-specific, missing a design seam, or written before the codebase shape was known. Your job is to restate the next executable task without silently changing durable plan topology.
 
+Start by calling `execute_status` when the active tools expose it. Use its result as the boundary check for what execute mode can honestly do now: which foothold tools are ported, which of `plan` / `cook` / `land` are still pending, and whether the current posture is `strict` or `interpretive`. Do not imply that an unported tool exists just because the frontier vocabulary says it should eventually exist.
+
+Then call `execute_snapshot` when it is active and the task depends on selected-spec truth. Treat the returned `ExecutionSpecSnapshot` as the handoff contract for scoping: requirements, criteria, verifies links, mode, and design/oracle context. If `execute_snapshot` is unavailable, say so and fall back to pushed graph context or read-only graph tools; do not invent a snapshot.
+
 Read the selected spec, pushed graph context, current session notes, and any run/report context available through Brunch tools. Identify the user-facing behavior, the requirement or criterion it serves, and the smallest codebase boundary that can prove progress. Prefer one vertical task brief over a grab bag. Name assumptions and missing context explicitly; do not invent product intent to fill gaps.
 
 The task brief should answer:
