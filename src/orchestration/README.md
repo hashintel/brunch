@@ -17,6 +17,7 @@ orchestration/
 ├── cook-report.ts             source-copied run -> reports.jsonl initialization
 ├── cook-run.ts                ready plan.yaml -> metadata-only run creation
 ├── cook-slice-execute.ts      active slice -> execution request artifact
+├── cook-slice-complete.ts     test-ingested slice -> completion marker
 ├── cook-slice-start.ts        reports-ready run -> slice-start marker
 ├── cook-source-copy.ts        source policy -> bounded host source copy
 ├── cook-source-policy.ts      plan-populated worktree -> source policy selection
@@ -78,3 +79,5 @@ rules:
 `cook-agent-result.ts` ingests an already-written `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and records `status:"agent_result_ingested"`. It is still not an agent launcher and does not run tests, compile Petri artifacts, promote, or land.
 
 `cook-test-result.ts` ingests an already-written `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and records `status:"test_result_ingested"`. It is still not a test runner and does not compile Petri artifacts, promote, or land.
+
+`cook-slice-complete.ts` appends `slice_completed` after test result ingestion and records the completed slice id in `run.json`. Petri artifacts, promotion refs, and land branches remain deferred.

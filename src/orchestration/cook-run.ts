@@ -18,7 +18,8 @@ export interface CookRunMetadata {
     | 'slice_started'
     | 'slice_execution_requested'
     | 'agent_result_ingested'
-    | 'test_result_ingested';
+    | 'test_result_ingested'
+    | 'slice_completed';
   readonly worktreeDir?: string;
   readonly populatedPlanPath?: string;
   readonly sourcePolicy?: string;
@@ -31,6 +32,7 @@ export interface CookRunMetadata {
   readonly sliceExecutionRequestPath?: string;
   readonly agentResultPath?: string;
   readonly testResultPath?: string;
+  readonly completedSliceIds?: readonly string[];
 }
 
 export type CookRunCreateResult =
