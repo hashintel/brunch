@@ -21,6 +21,7 @@ interface ExecuteStatusDetails {
   readonly portedTools: readonly [
     'execute_status',
     'execute_snapshot',
+    'execute_cook_plan_preview',
     'execute_plan_check',
     'execute_plan_draft',
     'execute_plan_draft_artifact',
@@ -47,7 +48,7 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
             text: [
               `execute_status: ${discipline}`,
               'available disciplines: strict, interpretive',
-              'ported tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
+              'ported tools: execute_status, execute_snapshot, execute_cook_plan_preview, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
               'pending tools: plan, cook, land',
               'side effects: none',
             ].join('\n'),
@@ -59,6 +60,7 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
           portedTools: [
             'execute_status',
             'execute_snapshot',
+            'execute_cook_plan_preview',
             'execute_plan_check',
             'execute_plan_draft',
             'execute_plan_draft_artifact',
