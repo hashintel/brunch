@@ -1,14 +1,16 @@
 ---
 name: review-for-gaps
-description: "Review commitments for gaps, conflicts, and verification debt."
+description: "Suspended legacy method. Current evaluation conduct lives in the live review skill."
 ---
 
-# review-for-gaps
+# review-for-gaps — suspended
 
-Use this method to inspect accepted or proposed commitments for missing support, contradictions, and verification debt. It is a review pass over graph meaning, not a license to rewrite the graph by yourself.
+Disposition: **lifted into `src/agents/skills/review/`**.
 
-Sequence the review from the active lens. For intent, look for goals with no requirements, requirements with no examples, assumptions with high fanout, decisions without rejected alternatives, and conflicting boundaries. For design, look for unclear ownership, unbacked realization edges, and dependency direction that contradicts the stated module boundary. For oracle, look for claims without proof, criteria without targets, and obligations without evidence.
+The useful plane-specific weakness heuristics from this legacy method now live in the activity-named `review` home. Keep this file suspended only as a historical marker for the retired strategy/lens/method taxonomy; do not route the live elicitor here.
 
-Invoke context reads first, then either ask a single clarifying question, generate a review-set proposal if item-level approval is needed, or route contradictions in accepted graph truth toward reconciliation. If the gap is merely a prospective question for the user, name it as audit output; capture-sweep conduct owns whether it becomes an elicitation gap.
+Retired residue:
 
-Compose with `read-context` and, when proposing repairs, `generate-proposal`. Out of scope: inventing new truth to close the gap, spawning or closing elicitation gaps, adding broad audit frameworks, or silently downgrading accepted commitments.
+- active-lens sequencing as runtime method dispatch
+- composition directions to other suspended methods
+- any implication that the review method itself can spawn/close gaps or rewrite graph truth
