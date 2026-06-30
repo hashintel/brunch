@@ -23,7 +23,7 @@ rules:
   agents/runtime/elicitor/ -> agents/prompts/elicitor.md [fixed body]
   agents/runtime/elicitor/context.ts -> agents/contexts/seeds/ [prompt context input types]
   agents/runtime/elicitor/ -> agents/runtime/shared/ [shared runtime helpers]
-  .pi/extensions/agent-runtime/* -> agents/runtime/elicitor/ [adapter wiring]
+  agents/runtime/foreground-policy -> agents/runtime/elicitor/ [central dispatch]
   agents/runtime/elicitor/ x> agents/runtime/_suspended/ [no legacy control reads]
 ```
 

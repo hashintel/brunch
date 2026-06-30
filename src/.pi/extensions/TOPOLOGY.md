@@ -1,6 +1,6 @@
 # .pi/extensions/ — Pi adapter registrars
 
-SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L
+SPEC decisions: D34-L, D35-L, D37-L, D39-L, D40-L, D44-L, D52-L, D69-L, D71-L, D90-L, D91-L, D93-L, D98-L
 
 ## Owns
 
@@ -19,9 +19,9 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 ```text
 extensions/
 ├── TOPOLOGY.md
-├── agent-runtime/          Pi adapter for central agent runtime policy plus execute-mode stub
+├── agent-runtime/          Pi adapter for central foreground runtime policy plus execute-mode stub
 │   ├── runtime/            operational-mode Pi tool activation adapter
-│   ├── system-prompts/     before_agent_start hook adapter into agents/runtime/elicitor
+│   ├── system-prompts/     before_agent_start hook adapter into agents/runtime/foreground-policy
 │   └── orchestrator-stub/
 ├── brunch-data/            Pi tools over selected Brunch graph/spec/workspace/session data
 │   ├── graph/              mutate_graph/read_graph tools + selected-spec graph read seam
@@ -52,7 +52,7 @@ extensions/
 ```pseudo
 rules:
   .pi/extensions/* -> agents/, .pi/components/, graph/, session/, projections/ [adapter imports allowed]
-  .pi/extensions/agent-runtime/system-prompts -> agents/runtime/elicitor/ [SPEC-mode prompt assembly]
+  .pi/extensions/agent-runtime/* -> agents/runtime/foreground-policy [foreground prompt/tool policy]
   .pi/extensions/* x> db/                                                            [no direct storage]
   graph/, session/    x> .pi/                                                        [domain layers never import adapters]
   agents/prompts/     x> .pi/extensions/                                             [prompt bodies do not register Pi hooks]
