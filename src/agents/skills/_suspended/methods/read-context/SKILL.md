@@ -11,7 +11,7 @@ Start from the handles in the runtime prompt: selected spec, soft readiness esti
 
 ## Edge-local preference
 
-When a move is centered on an existing graph item, read the anchor and its neighborhood before asking or proposing. Use `src/agents/contexts/references/neighborhood-consumption-slice.md` as the conduct reference: bucket neighbors as dependencies, dependents, evidence, refinements, lateral context, open gaps, and reconciliation needs. This is usually more useful than loading all nodes of a kind, because it shows why the anchor stands and what downstream material changes if it moves.
+When a move is centered on an existing graph item, read the anchor and its neighborhood before asking or proposing. Use `src/agents/references/node-neighbourhoods.md` as the conduct reference: bucket neighbors as dependencies, dependents, evidence, refinements, lateral context, open gaps, and reconciliation needs. This is usually more useful than loading all nodes of a kind, because it shows why the anchor stands and what downstream material changes if it moves.
 
 ```pseudo
 context read:

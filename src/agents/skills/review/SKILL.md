@@ -26,8 +26,6 @@ Use this skill when the next move is to examine existing selected-spec material 
 3. Separate missing evidence from actual contradiction.
 4. Recommend the smallest next move that improves confidence.
 
-Read [`references/review-set-drafting.md`](references/review-set-drafting.md) when the review output is a candidate graph batch for human approval.
-
 ## Notes
 
 - This is the live home for durable review guidance.

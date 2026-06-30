@@ -12,13 +12,12 @@ Generate proposal material by fanning out alternatives, making comparison legibl
 Use the same spine for every plane:
 
 1. Read the active lens/plane and the current graph/session context.
-2. Prefer edge-local neighborhoods for the anchors under proposal, then load the smallest matching topical slice from `../../../contexts/references/context-slice-index.md`.
+2. Prefer edge-local neighborhoods for the anchors under proposal, then load the smallest current shared reference from `../../../references/` when a static concept changes the proposal.
 3. Load the matching plane reference:
-   - `references/intent.md` plus `../../../contexts/references/intent-capture-slice.md` when generating intent-plane territory candidates.
-   - `references/design.md` plus `../../../contexts/references/design-projection-slice.md` when generating design-plane module or boundary candidates.
-   - `references/oracle.md` plus `../../../contexts/references/oracle-witness-slice.md` when generating oracle-plane verification ensembles.
-   - `../../../contexts/references/plan-sequencing-slice.md` only when the proposal is explicitly about milestones, frontiers, slices, or work sequencing.
-   - `../../../contexts/references/review-set-drafting-slice.md` before presenting any commit-facing graph-draft batch.
+   - `references/intent.md` when generating intent-plane territory candidates.
+   - `references/design.md` when generating design-plane module or boundary candidates.
+   - `references/oracle.md` when generating oracle-plane verification ensembles.
+   - current map/propose references only when the proposal is explicitly about graph mapping, work sequencing, or a review-set batch.
 4. Fan out candidate alternatives with explicit comparison axes.
 5. Call `present_candidates` for recognition/comparison before any commit-facing draft.
 6. Call `present_review_set` only when the user is reviewing a structurally valid graph-draft batch.
@@ -56,8 +55,7 @@ present_candidates({ heading, candidates: [...] })
 
 The disclosed references are branch-specific payload, not independently advertised skills. Load exactly one branch reference unless the user explicitly asks to compare planes. Topical context slices are supporting references, not new model-invoked skills.
 
-- `references/intent.md`: intent plane, single pick, grounding-density scaling. Pair with `../../../contexts/references/intent-capture-slice.md` when candidate material names graph kinds or capture routes.
-- `references/design.md`: design plane, synthesize, radically different module/interface shapes. Pair with `../../../contexts/references/design-projection-slice.md` and relevant neighborhoods.
-- `references/oracle.md`: oracle plane, compose, additive verification ensembles and blind spots. Pair with `../../../contexts/references/oracle-witness-slice.md` and relevant neighborhoods.
-- `../../../contexts/references/plan-sequencing-slice.md`: supporting slice for explicit plan projection; keep it behind this method for now rather than adding a separate `project-graph` or plan lens.
-- `../../../contexts/references/review-set-drafting-slice.md`: supporting slice for turning selected material into a reviewable graph batch.
+- `references/intent.md`: intent plane, single pick, grounding-density scaling.
+- `references/design.md`: design plane, synthesize, radically different module/interface shapes.
+- `references/oracle.md`: oracle plane, compose, additive verification ensembles and blind spots.
+- Current live map and propose references supersede the retired context-slice files when candidate material names graph kinds, capture routes, plan sequencing, or review-set batches.

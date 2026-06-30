@@ -4,473 +4,470 @@ overrides:
   auto_init_empty: false
   check_severity: error
   exclude:
-  - __tests__
+    - __tests__
   icons: false
   indent_size: 2
   max_description_length: 120
   use_gitignore: true
 project:
-  last_updated: '2026-06-25'
+  last_updated: "2026-06-25"
   name: src
   version: 0.0.0
 schema_version: 0.2.0
 signature: sha256:396f29ef335a810829849d13163bf80bf75f19be8db7441923527b3815908c87
 tree:
   .pi:
-    TOPOLOGY.md: 'Documents this source subtree.'
+    TOPOLOGY.md: "Documents this source subtree."
     components:
-      TOPOLOGY.md: 'Documents this source subtree.'
-      alternatives.ts: 'Implements alternatives.'
-      brunch-identity.ts: 'Implements brunch identity.'
-      brunch-version.ts: 'Implements brunch version.'
-      cards.ts: 'Implements cards.'
-      chrome-header.ts: 'Implements chrome header.'
-      lateral-padding.ts: 'Implements lateral padding.'
-      multi-choice-picker.ts: 'Implements multi choice picker.'
+      TOPOLOGY.md: "Documents this source subtree."
+      alternatives.ts: "Implements alternatives."
+      brunch-identity.ts: "Implements brunch identity."
+      brunch-version.ts: "Implements brunch version."
+      cards.ts: "Implements cards."
+      chrome-header.ts: "Implements chrome header."
+      lateral-padding.ts: "Implements lateral padding."
+      multi-choice-picker.ts: "Implements multi choice picker."
       runtime-posture:
-        axis-picker.ts: 'Implements axis picker.'
-        strategy-picker.ts: 'Implements strategy picker.'
+        axis-picker.ts: "Implements axis picker."
+        strategy-picker.ts: "Implements strategy picker."
       tui-lab:
-        index.ts: 'Exports the public module surface.'
-        segment-track.ts: 'Implements segment track.'
-        style-palette.ts: 'Implements style palette.'
+        index.ts: "Exports the public module surface."
+        segment-track.ts: "Implements segment track."
+        style-palette.ts: "Implements style palette."
       workspace-dialog:
         assets:
-          brunch-logo-quad-56x18-240.ansi: 'ANSI art asset.'
-          brunch-logo-quad-56x18.ansi: 'ANSI art asset.'
-          brunch.png: 'Image asset.'
-        component.ts: 'Implements component.'
-        index.ts: 'Exports the public module surface.'
-        model.ts: 'Implements model.'
-        preflight.ts: 'Implements preflight.'
-      workspace-dialog.ts: 'Implements workspace dialog.'
+          brunch-logo-quad-56x18-240.ansi: "ANSI art asset."
+          brunch-logo-quad-56x18.ansi: "ANSI art asset."
+          brunch.png: "Image asset."
+        component.ts: "Implements component."
+        index.ts: "Exports the public module surface."
+        model.ts: "Implements model."
+        preflight.ts: "Implements preflight."
+      workspace-dialog.ts: "Implements workspace dialog."
     extensions:
-      TOPOLOGY.md: 'Documents this source subtree.'
+      TOPOLOGY.md: "Documents this source subtree."
       agent-runtime:
-        index.ts: 'Exports the public module surface.'
+        index.ts: "Exports the public module surface."
         orchestrator-stub:
-          index.ts: 'Exports the public module surface.'
+          index.ts: "Exports the public module surface."
         runtime:
-          authority-matrix.test.ts: 'Tests authority matrix behavior.'
-          index.ts: 'Exports the public module surface.'
+          authority-matrix.test.ts: "Tests authority matrix behavior."
+          index.ts: "Exports the public module surface."
         system-prompts:
-          index.ts: 'Exports the public module surface.'
-          world-reads.ts: 'Implements world reads.'
+          index.ts: "Exports the public module surface."
+          world-reads.ts: "Implements world reads."
       brunch-data:
         context:
-          get-cwd.ts: 'Implements get cwd.'
-          get-specification.ts: 'Implements get specification.'
-          index.ts: 'Exports the public module surface.'
-          session-binding.ts: 'Implements session binding.'
+          get-cwd.ts: "Implements get cwd."
+          get-specification.ts: "Implements get specification."
+          index.ts: "Exports the public module surface."
+          session-binding.ts: "Implements session binding."
         elicitation:
-          index.test.ts: 'Tests index behavior.'
-          index.ts: 'Exports the public module surface.'
+          index.test.ts: "Tests index behavior."
+          index.ts: "Exports the public module surface."
         graph:
-          command-adapter.ts: 'Implements command adapter.'
-          index.ts: 'Exports the public module surface.'
-          tool-schemas.ts: 'Implements tool schemas.'
-        index.ts: 'Exports the public module surface.'
+          command-adapter.ts: "Implements command adapter."
+          index.ts: "Exports the public module surface."
+          tool-schemas.ts: "Implements tool schemas."
+        index.ts: "Exports the public module surface."
         reconciliation:
-          index.test.ts: 'Tests index behavior.'
-          index.ts: 'Exports the public module surface.'
+          index.test.ts: "Tests index behavior."
+          index.ts: "Exports the public module surface."
       chrome:
-        TOPOLOGY.md: 'Documents this source subtree.'
-        index.ts: 'Exports the public module surface.'
+        TOPOLOGY.md: "Documents this source subtree."
+        index.ts: "Exports the public module surface."
       commands:
-        index.ts: 'Exports the public module surface.'
-        policy.ts: 'Implements policy.'
+        index.ts: "Exports the public module surface."
+        policy.ts: "Implements policy."
       compaction:
-        index.ts: 'Exports the public module surface.'
+        index.ts: "Exports the public module surface."
       dev-mode:
-        index.ts: 'Exports the public module surface.'
+        index.ts: "Exports the public module surface."
         introspect-query:
-          TOPOLOGY.md: 'Documents this source subtree.'
-          index.test.ts: 'Tests index behavior.'
-          index.ts: 'Exports the public module surface.'
+          TOPOLOGY.md: "Documents this source subtree."
+          index.test.ts: "Tests index behavior."
+          index.ts: "Exports the public module surface."
         introspection:
-          TOPOLOGY.md: 'Documents this source subtree.'
-          debug-cache.ts: 'Implements debug cache.'
-          index.ts: 'Exports the public module surface.'
+          TOPOLOGY.md: "Documents this source subtree."
+          debug-cache.ts: "Implements debug cache."
+          index.ts: "Exports the public module surface."
         session-query:
-          TOPOLOGY.md: 'Documents this source subtree.'
-          index.test.ts: 'Tests index behavior.'
-          index.ts: 'Exports the public module surface.'
+          TOPOLOGY.md: "Documents this source subtree."
+          index.test.ts: "Tests index behavior."
+          index.ts: "Exports the public module surface."
       exchanges:
-        TOPOLOGY.md: 'Documents this source subtree.'
-        index.ts: 'Exports the public module surface.'
-        pi-schema.ts: 'Implements pi schema.'
-        present-candidates.ts: 'Implements present candidates.'
-        present-question.ts: 'Implements present question.'
-        present-review-set.ts: 'Implements present review set.'
-        request-response.ts: 'Implements request response.'
+        TOPOLOGY.md: "Documents this source subtree."
+        index.ts: "Exports the public module surface."
+        pi-schema.ts: "Implements pi schema."
+        present-candidates.ts: "Implements present candidates."
+        present-question.ts: "Implements present question."
+        present-review-set.ts: "Implements present review set."
+        request-response.ts: "Implements request response."
         schemas:
-          TOPOLOGY.md: 'Documents this source subtree.'
-          capture.ts: 'Implements capture.'
-          editor.ts: 'Implements editor.'
-          index.ts: 'Exports the public module surface.'
-          params.ts: 'Implements params.'
-          present.ts: 'Implements present.'
-          request.ts: 'Implements request.'
-          shared.ts: 'Implements shared.'
+          TOPOLOGY.md: "Documents this source subtree."
+          capture.ts: "Implements capture."
+          editor.ts: "Implements editor."
+          index.ts: "Exports the public module surface."
+          params.ts: "Implements params."
+          present.ts: "Implements present."
+          request.ts: "Implements request."
+          shared.ts: "Implements shared."
         shared:
-          answer-source.ts: 'Implements answer source.'
-          choice-source.ts: 'Implements choice source.'
-          choices-editor.ts: 'Implements choices editor.'
-          markdown.ts: 'Implements markdown.'
-          recovery.ts: 'Implements recovery.'
-          review-source.ts: 'Implements review source.'
-          ui-context.ts: 'Implements ui context.'
+          answer-source.ts: "Implements answer source."
+          choice-source.ts: "Implements choice source."
+          choices-editor.ts: "Implements choices editor."
+          markdown.ts: "Implements markdown."
+          recovery.ts: "Implements recovery."
+          review-source.ts: "Implements review source."
+          ui-context.ts: "Implements ui context."
       mentions:
-        index.ts: 'Exports the public module surface.'
+        index.ts: "Exports the public module surface."
       session-hooks:
-        index.ts: 'Exports the public module surface.'
+        index.ts: "Exports the public module surface."
         session:
-          lifecycle.test.ts: 'Tests lifecycle behavior.'
-          lifecycle.ts: 'Implements lifecycle.'
+          lifecycle.test.ts: "Tests lifecycle behavior."
+          lifecycle.ts: "Implements lifecycle."
       shared:
-        pi-tool-schema.ts: 'Implements pi tool schema.'
-        query-projection.ts: 'Implements query projection.'
+        pi-tool-schema.ts: "Implements pi tool schema."
+        query-projection.ts: "Implements query projection."
       subagents:
-        TOPOLOGY.md: 'Documents this source subtree.'
-        agents.ts: 'Implements agents.'
-        config.json: 'Configuration data.'
-        config.ts: 'Implements config.'
-        index.ts: 'Exports the public module surface.'
-        prompt-assembly.ts: 'Implements prompt assembly.'
-        session.ts: 'Implements session.'
-        subagents.test.ts: 'Tests subagents behavior.'
+        TOPOLOGY.md: "Documents this source subtree."
+        agents.ts: "Implements agents."
+        config.json: "Configuration data."
+        config.ts: "Implements config."
+        index.ts: "Exports the public module surface."
+        prompt-assembly.ts: "Implements prompt assembly."
+        session.ts: "Implements session."
+        subagents.test.ts: "Tests subagents behavior."
       tui-lab:
-        index.ts: 'Exports the public module surface.'
+        index.ts: "Exports the public module surface."
       web-tools:
-        index.ts: 'Exports the public module surface.'
+        index.ts: "Exports the public module surface."
         web:
-          index.ts: 'Exports the public module surface.'
-          web-fetch.ts: 'Implements web fetch.'
-          web-search.ts: 'Implements web search.'
-          web-tools.test.ts: 'Tests web tools behavior.'
+          index.ts: "Exports the public module surface."
+          web-fetch.ts: "Implements web fetch."
+          web-search.ts: "Implements web search."
+          web-tools.test.ts: "Tests web tools behavior."
       workspace:
-        index.ts: 'Exports the public module surface.'
-    settings.json: 'Configuration data.'
-  TOPOLOGY.md: 'Documents this source subtree.'
+        index.ts: "Exports the public module surface."
+    settings.json: "Configuration data."
+  TOPOLOGY.md: "Documents this source subtree."
   agents:
-    TOPOLOGY.md: 'Documents this source subtree.'
+    TOPOLOGY.md: "Documents this source subtree."
     contexts:
-      TOPOLOGY.md: 'Documents this source subtree.'
-      elicitation.ts: 'Implements elicitation.'
+      TOPOLOGY.md: "Documents this source subtree."
+      elicitation.ts: "Implements elicitation."
       exchanges:
-        TOPOLOGY.md: 'Documents this source subtree.'
-        present-candidates.ts: 'Implements present candidates.'
-        present-question.ts: 'Implements present question.'
-        present-review-set.ts: 'Implements present review set.'
-        request-answer.ts: 'Implements request answer.'
-        request-choice.ts: 'Implements request choice.'
-        request-choices.ts: 'Implements request choices.'
-        request-response.ts: 'Implements request response.'
-        request-review.ts: 'Implements request review.'
+        TOPOLOGY.md: "Documents this source subtree."
+        present-candidates.ts: "Implements present candidates."
+        present-question.ts: "Implements present question."
+        present-review-set.ts: "Implements present review set."
+        request-answer.ts: "Implements request answer."
+        request-choice.ts: "Implements request choice."
+        request-choices.ts: "Implements request choices."
+        request-response.ts: "Implements request response."
+        request-review.ts: "Implements request review."
       graph:
-        TOPOLOGY.md: 'Documents this source subtree.'
+        TOPOLOGY.md: "Documents this source subtree."
         __snapshots__:
-          graph-overview-kind-coverage-matrix.md: 'Markdown resource.'
-          neighborhood-brunch-self-MOD1-hops2.md: 'Markdown resource.'
-          neighborhood-brunch-self-REQ1.md: 'Markdown resource.'
-          neighborhood-code-health-REQ1.md: 'Markdown resource.'
-          neighborhood-hub-REQ1-compact.md: 'Markdown resource.'
-          neighborhood-hub-REQ1-hops2.md: 'Markdown resource.'
-          neighborhood-hub-REQ1.md: 'Markdown resource.'
-        commit-result.ts: 'Implements commit result.'
-        graph-slice.ts: 'Implements graph slice.'
-        node-neighborhood.ts: 'Implements node neighborhood.'
-        reconciliation-needs.ts: 'Implements reconciliation needs.'
-        related-nodes.ts: 'Implements related nodes.'
+          graph-overview-kind-coverage-matrix.md: "Markdown resource."
+          neighborhood-brunch-self-MOD1-hops2.md: "Markdown resource."
+          neighborhood-brunch-self-REQ1.md: "Markdown resource."
+          neighborhood-code-health-REQ1.md: "Markdown resource."
+          neighborhood-hub-REQ1-compact.md: "Markdown resource."
+          neighborhood-hub-REQ1-hops2.md: "Markdown resource."
+          neighborhood-hub-REQ1.md: "Markdown resource."
+        commit-result.ts: "Implements commit result."
+        graph-slice.ts: "Implements graph slice."
+        node-neighborhood.ts: "Implements node neighborhood."
+        reconciliation-needs.ts: "Implements reconciliation needs."
+        related-nodes.ts: "Implements related nodes."
       primitives:
-        TOPOLOGY.md: 'Documents this source subtree.'
-        markdown.ts: 'Implements markdown.'
-        section.ts: 'Implements section.'
-        toon.ts: 'Implements toon.'
-        tree.ts: 'Implements tree.'
-      references:
-        graph-ontology.md: 'Markdown resource.'
+        TOPOLOGY.md: "Documents this source subtree."
+        markdown.ts: "Implements markdown."
+        section.ts: "Implements section."
+        toon.ts: "Implements toon."
+        tree.ts: "Implements tree."
       seeds:
-        TOPOLOGY.md: 'Documents this source subtree.'
-        origination.ts: 'Implements origination.'
-        turn-context.ts: 'Implements turn context.'
+        TOPOLOGY.md: "Documents this source subtree."
+        origination.ts: "Implements origination."
+        turn-context.ts: "Implements turn context."
       session:
-        TOPOLOGY.md: 'Documents this source subtree.'
+        TOPOLOGY.md: "Documents this source subtree."
         __snapshots__:
-          runtime-frame-ready.md: 'Markdown resource.'
-        readiness-estimate.ts: 'Implements readiness estimate.'
-        runtime-frame.ts: 'Implements runtime frame.'
+          runtime-frame-ready.md: "Markdown resource."
+        readiness-estimate.ts: "Implements readiness estimate."
+        runtime-frame.ts: "Implements runtime frame."
       specification:
-        TOPOLOGY.md: 'Documents this source subtree.'
+        TOPOLOGY.md: "Documents this source subtree."
         __snapshots__:
-          specification-context.md: 'Markdown resource.'
-        specification-context.ts: 'Implements specification context.'
+          specification-context.md: "Markdown resource."
+        specification-context.ts: "Implements specification context."
       workspace:
-        TOPOLOGY.md: 'Documents this source subtree.'
+        TOPOLOGY.md: "Documents this source subtree."
         __snapshots__:
-          workspace-cwd-context.md: 'Markdown resource.'
-          workspace-overview-context.md: 'Markdown resource.'
-        workspace-context.ts: 'Implements workspace context.'
+          workspace-cwd-context.md: "Markdown resource."
+          workspace-overview-context.md: "Markdown resource."
+        workspace-context.ts: "Implements workspace context."
     docs:
-      TOPOLOGY.md: 'Documents this source subtree.'
+      TOPOLOGY.md: "Documents this source subtree."
     prompts:
-      TOPOLOGY.md: 'Documents this source subtree.'
-      elicitor.md: 'Defines the elicitor agent system prompt.'
-      executor.md: 'Defines the executor agent system prompt.'
+      TOPOLOGY.md: "Documents this source subtree."
+      elicitor.md: "Defines the elicitor agent system prompt."
+      executor.md: "Defines the executor agent system prompt."
     subagents:
-      TOPOLOGY.md: 'Documents this source subtree.'
-      explorer.md: 'Defines the explorer background agent system prompt.'
-      projector.md: 'Defines the projector background agent system prompt.'
-      researcher.md: 'Defines the researcher background agent system prompt.'
-      reviewer.md: 'Defines the reviewer background agent system prompt.'
-    registry.ts: 'Implements registry.'
+      TOPOLOGY.md: "Documents this source subtree."
+      explorer.md: "Defines the explorer background agent system prompt."
+      projector.md: "Defines the projector background agent system prompt."
+      researcher.md: "Defines the researcher background agent system prompt."
+      reviewer.md: "Defines the reviewer background agent system prompt."
+    registry.ts: "Implements registry."
     runtime:
-      TOPOLOGY.md: 'Documents this source subtree.'
+      TOPOLOGY.md: "Documents this source subtree."
       __snapshots__:
-        elicitor--auto-floor-gaps-open.md: 'Markdown resource.'
-        elicitor--auto-high-coverage.md: 'Markdown resource.'
-        elicitor--pinned-strategy-lens.md: 'Markdown resource.'
-        elicitor--pushed-context.md: 'Markdown resource.'
-      capability-readiness.ts: 'Implements capability readiness.'
-      compose.ts: 'Implements compose.'
-      policy.ts: 'Implements runtime policy.'
-      prompt-skills.ts: 'Implements prompt skills.'
-      state.ts: 'Implements state.'
+        elicitor--auto-floor-gaps-open.md: "Markdown resource."
+        elicitor--auto-high-coverage.md: "Markdown resource."
+        elicitor--pinned-strategy-lens.md: "Markdown resource."
+        elicitor--pushed-context.md: "Markdown resource."
+      capability-readiness.ts: "Implements capability readiness."
+      compose.ts: "Implements compose."
+      policy.ts: "Implements runtime policy."
+      prompt-skills.ts: "Implements prompt skills."
+      state.ts: "Implements state."
     skills:
-      TOPOLOGY.md: 'Documents this source subtree.'
+      TOPOLOGY.md: "Documents this source subtree."
       __fixtures__:
         unlisted-fixture:
-          SKILL.md: 'Defines the unlisted-fixture prompt-resource skill.'
+          SKILL.md: "Defines the unlisted-fixture prompt-resource skill."
       lenses:
-        TOPOLOGY.md: 'Documents this source subtree.'
+        TOPOLOGY.md: "Documents this source subtree."
         design:
-          SKILL.md: 'Defines the design prompt-resource skill.'
+          SKILL.md: "Defines the design prompt-resource skill."
         intent:
-          SKILL.md: 'Defines the intent prompt-resource skill.'
+          SKILL.md: "Defines the intent prompt-resource skill."
         oracle:
-          SKILL.md: 'Defines the oracle prompt-resource skill.'
+          SKILL.md: "Defines the oracle prompt-resource skill."
       methods:
         capture:
-          SKILL.md: 'Defines the capture prompt-resource skill.'
+          SKILL.md: "Defines the capture prompt-resource skill."
         commit-graph:
-          SKILL.md: 'Defines the commit-graph prompt-resource skill.'
+          SKILL.md: "Defines the commit-graph prompt-resource skill."
         elicit-by-question:
-          SKILL.md: 'Defines the elicit-by-question prompt-resource skill.'
+          SKILL.md: "Defines the elicit-by-question prompt-resource skill."
         explore-and-characterize:
-          SKILL.md: 'Defines the explore-and-characterize prompt-resource skill.'
+          SKILL.md: "Defines the explore-and-characterize prompt-resource skill."
         generate-proposal:
-          SKILL.md: 'Defines the generate-proposal prompt-resource skill.'
-          probes.md: 'Markdown resource.'
+          SKILL.md: "Defines the generate-proposal prompt-resource skill."
+          probes.md: "Markdown resource."
           references:
-            design.md: 'Markdown resource.'
-            intent.md: 'Markdown resource.'
-            oracle.md: 'Markdown resource.'
+            design.md: "Markdown resource."
+            intent.md: "Markdown resource."
+            oracle.md: "Markdown resource."
         ingest-paste:
-          SKILL.md: 'Defines the ingest-paste prompt-resource skill.'
+          SKILL.md: "Defines the ingest-paste prompt-resource skill."
         read-context:
-          SKILL.md: 'Defines the read-context prompt-resource skill.'
+          SKILL.md: "Defines the read-context prompt-resource skill."
         read-referenced-documents:
-          SKILL.md: 'Defines the read-referenced-documents prompt-resource skill.'
+          SKILL.md: "Defines the read-referenced-documents prompt-resource skill."
         review-for-gaps:
-          SKILL.md: 'Defines the review-for-gaps prompt-resource skill.'
+          SKILL.md: "Defines the review-for-gaps prompt-resource skill."
         run-structured-exchange:
-          SKILL.md: 'Defines the run-structured-exchange prompt-resource skill.'
+          SKILL.md: "Defines the run-structured-exchange prompt-resource skill."
       strategies:
-        TOPOLOGY.md: 'Documents this source subtree.'
+        TOPOLOGY.md: "Documents this source subtree."
         freestyle:
-          SKILL.md: 'Defines the freestyle prompt-resource skill.'
+          SKILL.md: "Defines the freestyle prompt-resource skill."
         step-wise-decision-tree:
-          SKILL.md: 'Defines the step-wise-decision-tree prompt-resource skill.'
+          SKILL.md: "Defines the step-wise-decision-tree prompt-resource skill."
         step-wise-disambiguate:
-          SKILL.md: 'Defines the step-wise-disambiguate prompt-resource skill.'
+          SKILL.md: "Defines the step-wise-disambiguate prompt-resource skill."
   app:
-    TOPOLOGY.md: 'Documents this source subtree.'
-    brunch-tui.ts: 'Implements brunch tui.'
-    brunch.ts: 'Implements brunch.'
-    pi-extensions.ts: 'Implements pi extensions.'
-    pi-settings.ts: 'Implements pi settings.'
-    pi-subagents.ts: 'Implements pi subagents.'
-    print-workspace-state.ts: 'Implements print workspace state.'
-  constants.ts: 'Implements constants.'
+    TOPOLOGY.md: "Documents this source subtree."
+    brunch-tui.ts: "Implements brunch tui."
+    brunch.ts: "Implements brunch."
+    pi-extensions.ts: "Implements pi extensions."
+    pi-settings.ts: "Implements pi settings."
+    pi-subagents.ts: "Implements pi subagents."
+    print-workspace-state.ts: "Implements print workspace state."
+  constants.ts: "Implements constants."
   db:
-    TOPOLOGY.md: 'Documents this source subtree.'
-    connection.ts: 'Implements connection.'
-    row-schemas.ts: 'Implements row schemas.'
-    schema.ts: 'Implements schema.'
+    TOPOLOGY.md: "Documents this source subtree."
+    connection.ts: "Implements connection."
+    row-schemas.ts: "Implements row schemas."
+    schema.ts: "Implements schema."
   dev:
-    TOPOLOGY.md: 'Documents this source subtree.'
-    agent-messages.ts: 'Implements agent messages.'
-    dev-cli.ts: 'Implements the dev launcher and curation CLI.'
-    faux-harness.ts: 'Implements faux harness.'
-    faux-launcher.ts: 'Implements faux launcher.'
-    generate-fan-out-witness.ts: 'Implements generate fan out witness.'
-    graph-curation.ts: 'Implements local graph curation over the shared mutation seam.'
-    index.ts: 'Exports the public module surface.'
-    introspection-launcher.ts: 'Implements introspection launcher.'
-    tier-2-harness.ts: 'Implements tier 2 harness.'
+    TOPOLOGY.md: "Documents this source subtree."
+    agent-messages.ts: "Implements agent messages."
+    dev-cli.ts: "Implements the dev launcher and curation CLI."
+    faux-harness.ts: "Implements faux harness."
+    faux-launcher.ts: "Implements faux launcher."
+    generate-fan-out-witness.ts: "Implements generate fan out witness."
+    graph-curation.ts: "Implements local graph curation over the shared mutation seam."
+    index.ts: "Exports the public module surface."
+    introspection-launcher.ts: "Implements introspection launcher."
+    tier-2-harness.ts: "Implements tier 2 harness."
   graph:
-    TOPOLOGY.md: 'Documents this source subtree.'
-    atoms.ts: 'Implements atoms.'
+    TOPOLOGY.md: "Documents this source subtree."
+    atoms.ts: "Implements atoms."
     command-executor:
-      command-types.ts: 'Implements command types.'
-      command-validation.ts: 'Implements command validation.'
-      create-graph-batch.ts: 'Implements create graph batch.'
-      graph-mutation-planner.ts: 'Implements graph mutation planner.'
-      graph-mutation-types.ts: 'Implements graph mutation types.'
-      graph-mutation-writer.ts: 'Implements graph mutation writer.'
-      role-named-edge-draft.ts: 'Implements role named edge draft.'
-    command-executor.ts: 'Implements command executor.'
-    elicitation-driver.ts: 'Implements elicitation driver.'
-    export-fixtures.ts: 'Implements export fixtures.'
-    index.ts: 'Exports the public module surface.'
+      command-types.ts: "Implements command types."
+      command-validation.ts: "Implements command validation."
+      create-graph-batch.ts: "Implements create graph batch."
+      graph-mutation-planner.ts: "Implements graph mutation planner."
+      graph-mutation-types.ts: "Implements graph mutation types."
+      graph-mutation-writer.ts: "Implements graph mutation writer."
+      role-named-edge-draft.ts: "Implements role named edge draft."
+    command-executor.ts: "Implements command executor."
+    elicitation-driver.ts: "Implements elicitation driver."
+    export-fixtures.ts: "Implements export fixtures."
+    index.ts: "Exports the public module surface."
     policy:
-      category-policy.ts: 'Implements category policy.'
+      category-policy.ts: "Implements category policy."
     projection:
-      direction.ts: 'Implements direction.'
-      labels.ts: 'Implements labels.'
-    queries.ts: 'Implements queries.'
-    review-set.ts: 'Implements review set.'
+      direction.ts: "Implements direction."
+      labels.ts: "Implements labels."
+    queries.ts: "Implements queries."
+    review-set.ts: "Implements review set."
     schema:
-      edges.ts: 'Implements edges.'
-      elicitation-gap-fixtures.ts: 'Implements elicitation gap fixtures.'
-      elicitation-gaps.ts: 'Implements elicitation gaps.'
-      generate-ontology-ref.ts: 'Implements generate ontology ref.'
-      kinds.ts: 'Implements kinds.'
-      nodes.ts: 'Implements nodes.'
-      reconciliation-need.ts: 'Implements reconciliation need.'
-    seed-fixtures.ts: 'Implements seed fixtures.'
-    validate-fixture.ts: 'Implements validate fixture.'
-    workspace-store.ts: 'Implements workspace store.'
+      edges.ts: "Implements edges."
+      elicitation-gap-fixtures.ts: "Implements elicitation gap fixtures."
+      elicitation-gaps.ts: "Implements elicitation gaps."
+      kinds.ts: "Implements kinds."
+      nodes.ts: "Implements nodes."
+      reconciliation-need.ts: "Implements reconciliation need."
+    seed-fixtures.ts: "Implements seed fixtures."
+    validate-fixture.ts: "Implements validate fixture."
+    workspace-store.ts: "Implements workspace store."
   probes:
-    capture-quality-loop.ts: 'Implements capture quality loop.'
-    check-workspace-session-stores.ts: 'Implements check workspace session stores.'
-    deterministic-exchange-script.ts: 'Implements deterministic exchange script.'
-    faux-provider.ts: 'Implements faux provider.'
-    fixture-curation-loop.ts: 'Implements fixture curation loop.'
-    portable-report.ts: 'Implements portable report.'
-    project-graph-review-cycle-proof.ts: 'Implements project graph review cycle proof.'
-    propose-graph-commit-proof.ts: 'Implements propose graph commit proof.'
-    public-rpc-parity-proof.ts: 'Implements public rpc parity proof.'
+    capture-quality-loop.ts: "Implements capture quality loop."
+    check-workspace-session-stores.ts: "Implements check workspace session stores."
+    deterministic-exchange-script.ts: "Implements deterministic exchange script."
+    faux-provider.ts: "Implements faux provider."
+    fixture-curation-loop.ts: "Implements fixture curation loop."
+    portable-report.ts: "Implements portable report."
+    project-graph-review-cycle-proof.ts: "Implements project graph review cycle proof."
+    propose-graph-commit-proof.ts: "Implements propose graph commit proof."
+    public-rpc-parity-proof.ts: "Implements public rpc parity proof."
     scripts:
-      run-ship-gate-composition.sh: 'Source asset.'
-      verify-startup-no-resume.sh: 'Source asset.'
-    ship-gate-composition-proof.ts: 'Implements ship gate composition proof.'
-    ship-gate-rpc-client.ts: 'Implements ship gate rpc client.'
-    structured-exchange-ordering-proof.ts: 'Implements structured exchange ordering proof.'
-    structured-exchange-rpc-proof.ts: 'Implements structured exchange rpc proof.'
-    test-helpers.ts: 'Implements test helpers.'
+      run-ship-gate-composition.sh: "Source asset."
+      verify-startup-no-resume.sh: "Source asset."
+    ship-gate-composition-proof.ts: "Implements ship gate composition proof."
+    ship-gate-rpc-client.ts: "Implements ship gate rpc client."
+    structured-exchange-ordering-proof.ts: "Implements structured exchange ordering proof."
+    structured-exchange-rpc-proof.ts: "Implements structured exchange rpc proof."
+    test-helpers.ts: "Implements test helpers."
   projections:
-    TOPOLOGY.md: 'Documents this source subtree.'
+    TOPOLOGY.md: "Documents this source subtree."
     exchanges:
-      present-candidates.ts: 'Implements present candidates.'
-      present-question.ts: 'Implements present question.'
-      present-review-set.ts: 'Implements present review set.'
-      request-answer.ts: 'Implements request answer.'
-      request-choice.ts: 'Implements request choice.'
-      request-choices.ts: 'Implements request choices.'
-      request-review.ts: 'Implements request review.'
-      review-set-payload.ts: 'Implements review set payload.'
+      present-candidates.ts: "Implements present candidates."
+      present-question.ts: "Implements present question."
+      present-review-set.ts: "Implements present review set."
+      request-answer.ts: "Implements request answer."
+      request-choice.ts: "Implements request choice."
+      request-choices.ts: "Implements request choices."
+      request-review.ts: "Implements request review."
+      review-set-payload.ts: "Implements review set payload."
     graph:
-      commit-result.ts: 'Implements commit result.'
-      neighborhood.ts: 'Implements neighborhood.'
-      overview.ts: 'Implements overview.'
-      reconciliation-needs.ts: 'Implements reconciliation needs.'
+      commit-result.ts: "Implements commit result."
+      neighborhood.ts: "Implements neighborhood."
+      overview.ts: "Implements overview."
+      reconciliation-needs.ts: "Implements reconciliation needs."
     session:
-      assistant-visible-watermark.ts: 'Implements assistant visible watermark.'
-      continuity-entry-classifier.ts: 'Implements continuity entry classifier.'
-      readiness-estimate.ts: 'Implements readiness estimate.'
-      runtime-state.ts: 'Implements runtime state.'
-      sweep-watermark.test.ts: 'Tests sweep watermark behavior.'
-      sweep-watermark.ts: 'Implements sweep watermark.'
-      transcript-context.ts: 'Implements transcript context.'
+      assistant-visible-watermark.ts: "Implements assistant visible watermark."
+      continuity-entry-classifier.ts: "Implements continuity entry classifier."
+      readiness-estimate.ts: "Implements readiness estimate."
+      runtime-state.ts: "Implements runtime state."
+      sweep-watermark.test.ts: "Tests sweep watermark behavior."
+      sweep-watermark.ts: "Implements sweep watermark."
+      transcript-context.ts: "Implements transcript context."
     workspace:
-      workspace-state.ts: 'Implements workspace state.'
+      workspace-state.ts: "Implements workspace state."
   rpc:
-    TOPOLOGY.md: 'Documents this source subtree.'
-    handlers.ts: 'Implements handlers.'
+    TOPOLOGY.md: "Documents this source subtree."
+    handlers.ts: "Implements handlers."
     methods:
-      graph.ts: 'Implements graph.'
-      registry.ts: 'Implements registry.'
-      schemas.ts: 'Implements schemas.'
-      session-driver.ts: 'Implements session driver.'
-      session-exchange-answer.ts: 'Implements session exchange answer.'
-      session.ts: 'Implements session.'
-      workspace.ts: 'Implements workspace.'
-    product-updates.ts: 'Implements product updates.'
-    protocol.ts: 'Implements protocol.'
-    session-event-relay.test.ts: 'Tests session event relay behavior.'
-    session-event-relay.ts: 'Implements session event relay.'
-    web-host.ts: 'Implements web host.'
-    websocket.ts: 'Implements websocket.'
+      graph.ts: "Implements graph."
+      registry.ts: "Implements registry."
+      schemas.ts: "Implements schemas."
+      session-driver.ts: "Implements session driver."
+      session-exchange-answer.ts: "Implements session exchange answer."
+      session.ts: "Implements session."
+      workspace.ts: "Implements workspace."
+    product-updates.ts: "Implements product updates."
+    protocol.ts: "Implements protocol."
+    session-event-relay.test.ts: "Tests session event relay behavior."
+    session-event-relay.ts: "Implements session event relay."
+    web-host.ts: "Implements web host."
+    websocket.ts: "Implements websocket."
   scripts:
-    TOPOLOGY.md: 'Documents this source subtree.'
+    TOPOLOGY.md: "Documents this source subtree."
   session:
-    TOPOLOGY.md: 'Documents this source subtree.'
-    brunch-session-envelope.ts: 'Implements brunch session envelope.'
-    exchange-projection.ts: 'Implements exchange projection.'
-    flush-session-manager.ts: 'Implements flush session manager.'
-    live-exchange-broker.ts: 'Implements live exchange broker.'
-    mention-ledger.ts: 'Implements mention ledger.'
-    originate-assistant-turn.ts: 'Implements originate assistant turn.'
-    prepare-next-turn.ts: 'Implements prepare next turn.'
-    runtime-state.ts: 'Implements runtime state.'
+    TOPOLOGY.md: "Documents this source subtree."
+    brunch-session-envelope.ts: "Implements brunch session envelope."
+    exchange-projection.ts: "Implements exchange projection."
+    flush-session-manager.ts: "Implements flush session manager."
+    live-exchange-broker.ts: "Implements live exchange broker."
+    mention-ledger.ts: "Implements mention ledger."
+    originate-assistant-turn.ts: "Implements originate assistant turn."
+    prepare-next-turn.ts: "Implements prepare next turn."
+    runtime-state.ts: "Implements runtime state."
     schema:
-      TOPOLOGY.md: 'Documents this source subtree.'
-      agent-manifest.ts: 'Implements agent manifest.'
-      kinds.ts: 'Implements kinds.'
-      tool-names.ts: 'Implements tool names.'
-    session-binding.ts: 'Implements session binding.'
-    session-projection-reader.ts: 'Implements session projection reader.'
-    session-transcript.ts: 'Implements session transcript.'
-    specification-overview-context.ts: 'Implements specification overview context.'
-    start-assistant-turn.ts: 'Implements start assistant turn.'
+      TOPOLOGY.md: "Documents this source subtree."
+      agent-manifest.ts: "Implements agent manifest."
+      kinds.ts: "Implements kinds."
+      tool-names.ts: "Implements tool names."
+    session-binding.ts: "Implements session binding."
+    session-projection-reader.ts: "Implements session projection reader."
+    session-transcript.ts: "Implements session transcript."
+    specification-overview-context.ts: "Implements specification overview context."
+    start-assistant-turn.ts: "Implements start assistant turn."
     structured-exchange-loop:
-      accepted-response.ts: 'Implements accepted response.'
-      pending-exchange.ts: 'Implements pending exchange.'
-      synthetic-tool-call.ts: 'Implements synthetic tool call.'
-    structured-exchange-loop.ts: 'Implements structured exchange loop.'
-    transcript-markdown.ts: 'Implements transcript markdown.'
-    workspace-overview-context.ts: 'Implements workspace overview context.'
+      accepted-response.ts: "Implements accepted response."
+      pending-exchange.ts: "Implements pending exchange."
+      synthetic-tool-call.ts: "Implements synthetic tool call."
+    structured-exchange-loop.ts: "Implements structured exchange loop."
+    transcript-markdown.ts: "Implements transcript markdown."
+    workspace-overview-context.ts: "Implements workspace overview context."
     workspace-session-coordinator:
-      canonical-session-files.ts: 'Implements canonical session files.'
-    workspace-session-coordinator.ts: 'Implements workspace session coordinator.'
-  treedocs.yaml: 'Source asset.'
+      canonical-session-files.ts: "Implements canonical session files."
+    workspace-session-coordinator.ts: "Implements workspace session coordinator."
+  treedocs.yaml: "Source asset."
   utils:
-    strings.ts: 'Implements strings.'
+    strings.ts: "Implements strings."
   web:
-    TOPOLOGY.md: 'Documents this source subtree.'
-    app-meta.ts: 'Implements app meta.'
-    app.tsx: 'Source asset.'
+    TOPOLOGY.md: "Documents this source subtree."
+    app-meta.ts: "Implements app meta."
+    app.tsx: "Source asset."
     assets:
-      brunch.png: 'Image asset.'
+      brunch.png: "Image asset."
     components:
-      app-header.tsx: 'Source asset.'
-      drawer-card.tsx: 'Source asset.'
-      icons.tsx: 'Source asset.'
-      node-card.tsx: 'Source asset.'
+      app-header.tsx: "Source asset."
+      drawer-card.tsx: "Source asset."
+      icons.tsx: "Source asset."
+      node-card.tsx: "Source asset."
     features:
       graph:
-        kind-display.ts: 'Implements kind display.'
-        structured-list-view.tsx: 'Source asset.'
-    main.tsx: 'Source asset.'
+        kind-display.ts: "Implements kind display."
+        structured-list-view.tsx: "Source asset."
+    main.tsx: "Source asset."
     queries:
-      graph.ts: 'Implements graph.'
-      session.ts: 'Implements session.'
-      workspace.ts: 'Implements workspace.'
-    query-client.ts: 'Implements query client.'
-    query-keys.ts: 'Implements query keys.'
+      graph.ts: "Implements graph."
+      session.ts: "Implements session."
+      workspace.ts: "Implements workspace."
+    query-client.ts: "Implements query client."
+    query-keys.ts: "Implements query keys."
     routes:
-      root.tsx: 'Source asset.'
-      spec.tsx: 'Source asset.'
-    rpc-client.ts: 'Implements rpc client.'
-    spec-id.ts: 'Implements spec id.'
-    styles.css: 'Source asset.'
+      root.tsx: "Source asset."
+      spec.tsx: "Source asset."
+    rpc-client.ts: "Implements rpc client."
+    spec-id.ts: "Implements spec id."
+    styles.css: "Source asset."
     subscriptions:
-      brunch-updates.ts: 'Implements brunch updates.'
-      follow-workspace-spec.ts: 'Implements follow workspace spec.'
-    vite-env.d.ts: 'Implements vite env.d.'
+      brunch-updates.ts: "Implements brunch updates."
+      follow-workspace-spec.ts: "Implements follow workspace spec."
+    vite-env.d.ts: "Implements vite env.d."
   workspace:
-    TOPOLOGY.md: 'Documents this source subtree.'
-    cwd-inventory.ts: 'Implements cwd inventory.'
-    project-identity.ts: 'Implements project identity.'
-    workspace-state-store.ts: 'Implements workspace state store.'
+    TOPOLOGY.md: "Documents this source subtree."
+    cwd-inventory.ts: "Implements cwd inventory."
+    project-identity.ts: "Implements project identity."
+    workspace-state-store.ts: "Implements workspace state store."

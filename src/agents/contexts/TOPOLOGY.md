@@ -4,14 +4,12 @@ SPEC decisions: D52-L, D58-L, D60-L, D76-L, D78-L, D83-L, D91-L, D96-L, D98-L
 
 ## Owns
 
-`src/agents/contexts/` owns reusable Brunch-authored text that enters the model: pushed seed blocks, context-tool result text, data-model markdown, generated/authored shared context references, and structured-exchange tool result text. Live elicitor prompt-frame context belongs to `src/agents/runtime/elicitor/`.
+`src/agents/contexts/` owns reusable Brunch-authored text that enters the model as rendered runtime context: pushed seed blocks, context-tool result text, data-model renderer text, and structured-exchange tool result text. Runtime-eligible static references live in `src/agents/references/`; live elicitor prompt-frame context belongs to `src/agents/runtime/elicitor/`.
 
 ```text
 contexts/
 ├── _suspended/       quarantined legacy lens/readiness/recommendation-shaped context controls
-├── about/            durable project/about context notes
 ├── data-model/       model-facing graph/spec/session/workspace/plan/elicitation renderers
-├── references/       runtime-eligible shared context references cited by skills/prompts
 ├── seeds/            per-turn pushed context blocks and origination seed payloads
 └── exchanges/        present_* / request_* structured-exchange result text
 ```
@@ -31,7 +29,7 @@ rules:
 
 Targeted `.pi/extensions` tests guard the adapter half of this boundary for `brunch-data`, `agent-runtime`, and structured-exchange tools: Pi adapters may own schemas, labels, descriptions, prompt snippets, and TUI rendering, but provider-visible Brunch text must be imported from this subtree rather than formatted inline.
 
-`references/` and `about/` files are runtime-eligible agent-readable context references. They are shared cite targets when concepts should be loaded on demand without copying tables into skill bodies. Schema-owned graph vocabulary lives in `src/graph/schema/**` and `src/graph/policy/**`; authored graph-mapping judgment lives under `src/agents/skills/map/references/`; readiness-band terminology lives at `src/agents/contexts/about/readiness-bands.md`. Draft injectable slice candidates may live under their owning skill while being evaluated when they self-label as drafts and are not treated as required prompt-resource payload until a skill or prompt cites them.
+Static files that should be loaded on demand rather than rendered from runtime state live in `src/agents/references/`. Schema-owned graph vocabulary lives in `src/graph/schema/**` and `src/graph/policy/**`; authored graph-mapping judgment lives under `src/agents/skills/map/references/`; readiness-band terminology lives at `src/agents/references/readiness-bands.md`. Draft injectable slice candidates may live under their owning skill while being evaluated when they self-label as drafts and are not treated as required prompt-resource payload until a skill or prompt cites them.
 
 ## Snapshot convention
 

@@ -4,7 +4,7 @@ This is a **priming catalog**, organized by graph node kind. The questions are *
 
 > **The node kind is the closed ontology. Questions are the open, projectable layer *inside* a kind.**
 
-Read [`../../../contexts/about/readiness-bands.md`](../../../contexts/about/readiness-bands.md) for canonical readiness-band terminology. This file uses latest expected band only to orient what kind of absence should shape the next question.
+Read [`../../../references/readiness-bands.md`](../../../references/readiness-bands.md) for canonical readiness-band terminology. This file uses latest expected band only to orient what kind of absence should shape the next question.
 
 
 Usage:

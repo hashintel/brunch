@@ -7,7 +7,7 @@ description: Ask focused questions and run the next human-facing exchange needed
 
 Use this skill when the best next move is to ask the user for the missing piece that would improve the selected spec.
 
-Read [`../../contexts/about/readiness-bands.md`](../../contexts/about/readiness-bands.md) when deciding what absence means. Read [`references/question-kinds-per-intent-kind.md`](references/question-kinds-per-intent-kind.md) when you need example phrasings for a node kind.
+Read [`../../references/readiness-bands.md`](../../references/readiness-bands.md) when deciding what absence means. Read [`references/question-kinds-per-intent-kind.md`](references/question-kinds-per-intent-kind.md) when you need example phrasings for a node kind.
 
 ## Procedure
 
