@@ -45,7 +45,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `structured-exchange-affordance` — **next earned hardening.** Stabilize the live model-authored exchange contract after the `request_response` collapse and the new `generate` / `project` loops.
+- `structured-exchange-affordance` (FE-1108) — **next earned hardening.** Stabilize the live model-authored exchange contract after the `request_response` collapse and the new `generate` / `project` loops.
 - `elicitation-gap-guidance` — **next proving frontier after exchange hardening.** Derive "what next?" guidance from graph shape, settlement, and readiness rather than only sorting the existing gap register.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
@@ -86,7 +86,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Name:** Port cook orchestration into CODE/executor tools
 - **Linear:** [FE-1107](https://linear.app/hash/issue/FE-1107/port-cook-orchestration-into-codeexecutor-tools)
-- **Branch:** `ln/fe-1107-orchestrator-tool-port`
+- **Branch:** tbd
 - **Kind:** structural / execute-mode tool boundary
 - **Status:** active but intentionally deferred; first tracer is scoped on its branch when we are ready to switch to the CODE-mode tool seam.
 - **Certainty:** proving.
@@ -121,11 +121,12 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### structured-exchange-affordance
 
 - **Name:** Structured-exchange affordance hardening
-- **Linear:** unassigned
-- **Branch:** tbd
+- **Linear:** [FE-1108](https://linear.app/hash/issue/FE-1108/harden-structured-exchange-affordances)
+- **Branch:** `ln/fe-1108-structured-exchange-affordance`
 - **Kind:** hardening / earned contract cleanup
-- **Status:** active candidate; recommended next frontier.
+- **Status:** active; scoped on the current branch.
 - **Certainty:** earned.
+- **Current execution pointer:** `memory/cards/structured-exchange-affordance--contract-tightening.md`.
 - **Absorbs:** the former `exchange-symmetry-audit` cleanup; the remaining delete pass is residue of exchange hardening, not a separate dependency boundary.
 - **Closes:** recurring "enforced but untaught" failures where the model sees legal schemas but not the intended present-vs-response, discriminant-companion, or nested review-set payload contract.
 - **Canonicalizes:** structured-exchange schema descriptions, prompt guidelines, renderer/context language, and the final kept-vs-deleted exchange projection/render inventory around `present_question`, `present_candidates`, `present_review_set`, `request_response`, and their companion detail shapes.
@@ -164,6 +165,7 @@ frontiers:
   Active:
     structured-exchange-affordance
       status: next / earned hardening
+      active_scope: memory/cards/structured-exchange-affordance--contract-tightening.md
       depends_on: request_response collapse, review-set proposal payload shape, and remaining exchange-symmetry residue
 
     elicitation-gap-guidance
