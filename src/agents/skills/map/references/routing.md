@@ -26,6 +26,8 @@ Stop at the first row that holds.
 
 ## Rules
 
+- Commit graph truth only through the current graph mutation or approved review-set path; never by direct database/file edits or prose assertion.
+- Prepare one coherent batch when writing graph truth, so nodes and confident role-named edges validate atomically.
 - Low confidence never commits. Its durable form is an `elicitation_gap`, not a speculative node or edge.
 - Contradiction is reconciliation, not a gap. A gap is missing prospective coverage; a contradiction is a retrospective impasse over existing truth.
 - Relate only confident endpoints. Commit missing high-confidence endpoints first, then add role-named edges; skip the edge and spawn a gap when either endpoint is weak.

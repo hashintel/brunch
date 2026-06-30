@@ -22,6 +22,8 @@ chain elicitation:
 
 Use readiness bands as signal for the next question. They do not make earlier capture illegal and they do not make later-band material self-settling.
 
+Use a typed structured exchange when the response shape matters — single-choice, multi-choice, freeform-plus-choice, or review outcome. Keep the prompt compact, request exactly one response union outcome, and let ingest/map handle persistence after the response.
+
 ## Do's and Don'ts
 
 ### Use It For
@@ -49,7 +51,7 @@ Use readiness bands as signal for the next question. They do not make earlier ca
 
 Once the graph carries kinds and typed edges, the interviewer ranks the next question by topology rather than template. These are ranking heuristics, not automatic writes; low-confidence material routes to an `elicitation_gap`, never to a speculative node. 
 
-They complement the band-driven qeustion routing suggest *what kind* of question to ask; topology heuristics suggest *which item* to ask about next.
+They complement the band-driven question routing that suggests *what kind* of question to ask; topology heuristics suggest *which item* to ask about next.
 
 | Signal                                                          | Suggested question shape                                     |
 | --------------------------------------------------------------- | ------------------------------------------------------------ |

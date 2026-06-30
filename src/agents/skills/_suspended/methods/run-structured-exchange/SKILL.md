@@ -1,20 +1,10 @@
 ---
 name: run-structured-exchange
-description: "Present typed Brunch exchanges and request typed responses."
+description: "Suspended legacy method. Current exchange semantics are owned by product exchange docs/tools, with local reminders in live skills."
 ---
 
-# Method: run-structured-exchange
+# run-structured-exchange — suspended
 
-Use Brunch structured exchanges for typed human responses: questions, single-choice, multi-choice, freeform, and review outcomes.
+Disposition: **minimally backported into `propose` / `elicit`; canonical contract remains exchange-tool code/docs**.
 
-Each exchange should have a clear reason, a compact prompt, and response options that map to the current goal. Do not rely on ambient chat when a typed exchange is needed.
-
-Transcript/projection rules:
-
-- Structured exchanges are transcript-native `present_* -> request_* -> capture_*` tool result families.
-- `toolResult.content` is durable markdown for transcript display and model-readable context.
-- `toolResult.details` is structured recovery/projection data; classify rows by `details.schema` plus `v`, not by tool name alone.
-- `renderCall` is display-only and must not carry durable Brunch meaning.
-- Use `tool_meta` for sequence/sibling facts.
-- Use `comment` for user-authored text and `message` for system/runtime-authored text.
-- Request outcomes are an exactly-one property-presence union: `answered`, `cancelled`, or `unavailable`.
+The live skill family should not route through a generic exchange method. `propose` names the `present_candidates` / `present_review_set` choreography, and `elicit` names when typed exchanges are useful. Durable response schemas, transcript projection, and recovery details remain product-owned outside this suspended prompt resource.

@@ -34,9 +34,11 @@ chain ingest:
 | brownfield  | an existing codebase/area needs a map     | yes      | "from <area> as inspected" |
 
 - **ask**: the human is the source; do not read or search just because a question *could* be researched.
-- **paste**: do not require saving to a file before learning from it.
-- **reference**: use only legal read tools; `web_fetch` for a known URL, `web_search` only when external context would change the next move.
-- **brownfield**: smallest useful reconnaissance bounded by the user's area and the current gap; do not crawl for completeness.
+- **paste**: do not require saving to a file before learning from it; for long pasted material, name sections and preserve uncertainty before capture.
+- **reference**: use only legal read tools; `web_fetch` for a known URL, `web_search` only when external context would change the next move; do not expand one reference into open-ended research unless asked.
+- **brownfield**: smallest useful reconnaissance bounded by the user's area and the current gap; read nearby topology/README notes first when present; do not crawl for completeness.
+
+A digest should include: source/scope, high-confidence facts, interpretation separated from direct claims, uncertainties or contradictions, and the suggested next question/gap/graph area. Capture from the digest plus conversation, not unbounded raw tool output.
 
 ### Sweep
 
