@@ -1,6 +1,4 @@
-# Slice: reading an anchored neighborhood
-
-> Draft injectable context slice (scratch; not wired). Inject when an agent consumes an anchored neighborhood / context pack and must reason about consequences, dependencies, or drift. Direction and labels are projected from `src/graph/policy/category-policy.ts` via `src/graph/projection/{labels,direction}.ts`.
+# Node Neighbourhoods
 
 An edge-local neighborhood is a stronger context object than "all goals, all requirements." It anchors on one node and groups incident edges by **impact direction**, each rendered with an **anchor-relative label**. Read the grouping and the label as the meaning — never reconstruct direction from the English verb or from `sourceId`/`targetId`.
 
@@ -36,17 +34,17 @@ Reading rules:
 
 The same edge reads differently from each endpoint. Labels are projections of `(category, anchor end, stance)`.
 
-| Category | Anchor = source side | Anchor = target side |
-| --- | --- | --- |
-| `dependency` | required by | depends on |
-| `witness` (for / against) | witnesses / refutes | witnessed by / challenged by |
-| `rationale` (for / against) | supports / argues against | motivated by / opposed by |
-| `realization` | realized by | realizes |
-| `refinement` | refined by | refines |
-| `exclusion` | bounds | bounded by |
-| `composition` | contains | part of |
-| `supersession` | supersedes | superseded by |
-| `cross_reference` | related to | related to |
+| Category                    | Anchor = source side      | Anchor = target side         |
+| --------------------------- | ------------------------- | ---------------------------- |
+| `dependency`                | required by               | depends on                   |
+| `witness` (for / against)   | witnesses / refutes       | witnessed by / challenged by |
+| `rationale` (for / against) | supports / argues against | motivated by / opposed by    |
+| `realization`               | realized by               | realizes                     |
+| `refinement`                | refined by                | refines                      |
+| `exclusion`                 | bounds                    | bounded by                   |
+| `composition`               | contains                  | part of                      |
+| `supersession`              | supersedes                | superseded by                |
+| `cross_reference`           | related to                | related to                   |
 
 Kind-sharpened `realization` verbs: requirement/interface → module render "implemented by / implements"; requirement → slice render "established by / establishes"; invariant → requirement render "expressed by / expresses".
 
