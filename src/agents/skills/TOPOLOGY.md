@@ -30,4 +30,4 @@ rules:
 
 ## Migration Note
 
-D98-L suspends strategy/lens/method as runtime axes. Useful conduct moves into activity homes only when it is live guidance; historical or compatibility prompt resources remain under `_suspended/` and are not availability by filesystem presence.
+D98-L suspends strategy/lens/method as runtime axes. Useful conduct moves into activity homes only when it is live guidance; historical or compatibility prompt resources remain under `_suspended/` and are not available merely because a file exists.
