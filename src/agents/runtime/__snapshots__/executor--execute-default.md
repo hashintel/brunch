@@ -7,7 +7,7 @@ Preview role body from `src/agents/prompts/executor.md`.
 - foreground role: executor (derived from op_mode=execute)
 - model: default; thinking: medium
 - tool authority: execute executor read-only plus code-owned execute tools; direct shell and file writes are blocked
-- active tools: read, grep, find, ls, execute_plan_check, execute_snapshot, execute_status, orchestrator_stub
+- active tools: read, grep, find, ls, execute_plan_check, execute_plan_outline, execute_snapshot, execute_status, orchestrator_stub
 
 [Brunch runtime state]
 - op_mode: execute

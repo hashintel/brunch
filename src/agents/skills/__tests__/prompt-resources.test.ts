@@ -19,8 +19,13 @@ const generateProposalDisclosureExpectations = {
 };
 
 const executeMethodToolExpectations = {
-  'scope-execution-task': ['execute_status', 'execute_snapshot', 'execute_plan_check'],
-  'build-with-tests': ['execute_status', 'execute_snapshot', 'execute_plan_check'],
+  'scope-execution-task': [
+    'execute_status',
+    'execute_snapshot',
+    'execute_plan_check',
+    'execute_plan_outline',
+  ],
+  'build-with-tests': ['execute_status', 'execute_snapshot', 'execute_plan_check', 'execute_plan_outline'],
 } as const;
 
 describe('prompt-resource skills', () => {

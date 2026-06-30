@@ -524,6 +524,7 @@ describe('composeAgentPrompt previews', () => {
           'find',
           'ls',
           'execute_plan_check',
+          'execute_plan_outline',
           'execute_snapshot',
           'execute_status',
           'orchestrator_stub',
@@ -542,7 +543,7 @@ describe('composeAgentPrompt previews', () => {
     expect(rendered).toContain('<name>build-with-tests</name>');
     expect(rendered).toContain('Current prompt-resource selection');
     expect(rendered).toContain(
-      '- active tools: read, grep, find, ls, execute_plan_check, execute_snapshot, execute_status, orchestrator_stub',
+      '- active tools: read, grep, find, ls, execute_plan_check, execute_plan_outline, execute_snapshot, execute_status, orchestrator_stub',
     );
   });
 

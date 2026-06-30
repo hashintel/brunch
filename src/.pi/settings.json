@@ -3,6 +3,7 @@
     "extensions/chrome/index.ts",
     "-extensions/agent-runtime/index.ts",
     "-extensions/agent-runtime/execute-plan-check/index.ts",
+    "-extensions/agent-runtime/execute-plan-outline/index.ts",
     "-extensions/agent-runtime/execute-snapshot/index.ts",
     "-extensions/agent-runtime/execute-status/index.ts",
     "-extensions/agent-runtime/orchestrator-stub/index.ts",

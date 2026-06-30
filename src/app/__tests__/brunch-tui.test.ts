@@ -34,6 +34,7 @@ import { runBrunchCli } from '../brunch.js';
 import {
   BRUNCH_CONTINUE_COMMAND,
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
+  BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
   BRUNCH_EXECUTE_SNAPSHOT_TOOL,
   BRUNCH_EXECUTE_STATUS_TOOL,
   BRUNCH_INTROSPECTION_COMMAND,
@@ -664,6 +665,7 @@ describe('Brunch TUI boot', () => {
       'request_response',
     ]);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_CHECK_TOOL);
+    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL);
     expect(registeredTools).not.toContain(BRUNCH_EXECUTE_SNAPSHOT_TOOL);
     expect(commands.get(BRUNCH_SWITCH_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
