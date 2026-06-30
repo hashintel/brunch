@@ -71,7 +71,7 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 
 ### Active
 
-- `orchestrator-alpha-cutover` (FE-1089) — active on `ka/fe-1089-orchestrator-alpha-cutover`. Native CODE/executor footholds landed: execute-mode method guidance, side-effect-free `execute_status`, `ExecutionSpecSnapshot v1`, `execute_snapshot`, and method guidance routing through those foothold tools. Next slice should choose the first plan-facing read-only tool (`plan`/`plan_check` over `ExecutionSpecSnapshot`) without creating runs or worktrees.
+- `orchestrator-alpha-cutover` (FE-1089) — active on `ka/fe-1089-orchestrator-alpha-cutover`. Native CODE/executor footholds landed: execute-mode method guidance, side-effect-free `execute_status`, `ExecutionSpecSnapshot v1`, `execute_snapshot`, `execute_plan_check`, and method guidance routing through those foothold tools. Next slice should choose the first side-effect-free plan-outline/draft surface over `ExecutionSpecSnapshot` without creating runs or worktrees.
 
 ### Recently Completed
 
@@ -114,14 +114,15 @@ Foreground prompt bodies are flat under `src/agents/prompts/{elicitor,executor}.
 - **Kind:** structural / execute-mode orchestration cutover
 - **Status:** active; foothold slices landed.
 - **Certainty:** proving.
-- **Current execution pointer:** next slice should build the first plan-facing read-only tool over `ExecutionSpecSnapshot` (`plan`/`plan_check` naming still open); do not create runs/worktrees yet.
+- **Current execution pointer:** next slice should build the first side-effect-free plan-outline/draft surface over `ExecutionSpecSnapshot`; do not create runs/worktrees yet.
 - **Objective:** Cut the old `main` cook orchestrator off the divergent stable branch and re-grow it natively on alpha's CODE/executor substrate. The near-term bridge is `ExecutionSpecSnapshot v1` plus side-effect-free executor tools; data-model harmonization and adaptive replan are deferred.
 - **Acceptance:**
   - ✓ CODE/executor prompt resources can scope and build from a plan hypothesis without granting raw write/shell authority.
   - ✓ `execute_status` reports current strict/interpretive foothold state and pending `plan`/`cook`/`land` without side effects.
   - ✓ `ExecutionSpecSnapshot v1` projects graph requirements, criteria, positive witness/verifies links, mode, and context buckets from `next` graph DTOs.
   - ✓ `execute_snapshot` reads the active selected-spec graph and returns the snapshot with `sideEffects: []`.
-  - Next: first read-only plan-facing tool consumes the snapshot and returns typed findings without creating a run sandbox.
+  - ✓ `execute_plan_check` consumes the snapshot and returns typed plan-input findings without creating a run sandbox.
+  - Next: first side-effect-free plan-outline/draft tool turns the checked snapshot into reviewable plan-shaped data without creating a run sandbox.
   - Later: cook execution, Petri/net artifacts, worktrees, promotion/land, and adaptive replan arrive as separate slices; topology mutation remains out of interpretive execution.
 - **Traceability:** R26; D39-L, D40-L, D58-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I50-L; `src/orchestration/README.md`, `src/.pi/extensions/README.md`.
 
