@@ -5,7 +5,16 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
+import { registerBrunchExecuteCookLaunch } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookPlanFile } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteCookPlanPreview } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookPopulate } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookReportInit } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookRunCreate } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookSourceCopy } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookSourcePolicy } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookSliceStart } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteCookWorktreeCreate } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanCheck } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanDraftArtifact } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanDraft } from '../.pi/extensions/agent-runtime/index.js';
@@ -105,9 +114,36 @@ export { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 
 export { registerBrunchGraph } from '../.pi/extensions/brunch-data/index.js';
 export {
+  BRUNCH_EXECUTE_COOK_LAUNCH_TOOL,
+  createExecuteCookLaunchTool,
+  registerBrunchExecuteCookLaunch,
+  BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL,
+  createExecuteCookPlanFileTool,
+  registerBrunchExecuteCookPlanFile,
   BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,
   createExecuteCookPlanPreviewTool,
   registerBrunchExecuteCookPlanPreview,
+  BRUNCH_EXECUTE_COOK_POPULATE_TOOL,
+  createExecuteCookPopulateTool,
+  registerBrunchExecuteCookPopulate,
+  BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL,
+  createExecuteCookReportInitTool,
+  registerBrunchExecuteCookReportInit,
+  BRUNCH_EXECUTE_COOK_RUN_CREATE_TOOL,
+  createExecuteCookRunCreateTool,
+  registerBrunchExecuteCookRunCreate,
+  BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL,
+  createExecuteCookSourceCopyTool,
+  registerBrunchExecuteCookSourceCopy,
+  BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL,
+  createExecuteCookSourcePolicyTool,
+  registerBrunchExecuteCookSourcePolicy,
+  BRUNCH_EXECUTE_COOK_SLICE_START_TOOL,
+  createExecuteCookSliceStartTool,
+  registerBrunchExecuteCookSliceStart,
+  BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL,
+  createExecuteCookWorktreeCreateTool,
+  registerBrunchExecuteCookWorktreeCreate,
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
   createExecutePlanCheckTool,
   registerBrunchExecutePlanCheck,
@@ -238,7 +274,16 @@ export function createBrunchPiExtensions(
       registerBrunchContext,
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookLaunch(api, graph)] : []),
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookPlanFile(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookPlanPreview(api, graph)] : []),
+      registerBrunchExecuteCookPopulate,
+      registerBrunchExecuteCookReportInit,
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookRunCreate(api, graph)] : []),
+      registerBrunchExecuteCookSourcePolicy,
+      registerBrunchExecuteCookSourceCopy,
+      registerBrunchExecuteCookSliceStart,
+      registerBrunchExecuteCookWorktreeCreate,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraftArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraft(api, graph)] : []),
