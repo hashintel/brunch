@@ -363,7 +363,6 @@ present_* toolResult
   assistant-side display and recovery payload:
     exchange id
     display markdown/data
-    strategy/lens metadata when applicable
     preface/proposal/rubric/offer material when applicable
     expected request_* tool
 

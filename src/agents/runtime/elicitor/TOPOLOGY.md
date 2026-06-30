@@ -24,7 +24,6 @@ rules:
   agents/runtime/elicitor/context.ts -> agents/contexts/seeds/ [prompt context input types]
   agents/runtime/elicitor/ -> agents/runtime/shared/ [shared runtime helpers]
   agents/runtime/foreground-policy -> agents/runtime/elicitor/ [central dispatch]
-  agents/runtime/elicitor/ x> agents/runtime/_suspended/ [no legacy control reads]
 ```
 
 ## Migration Note

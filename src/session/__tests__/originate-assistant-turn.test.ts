@@ -184,18 +184,11 @@ describe('completeAssistantKick', () => {
       sendCustomMessage: async (message) => sent.push(message),
       onOutcome: (outcome) => outcomes.push(outcome),
     });
-    await completeAssistantKick({
-      decision: { action: 'idle', reason: 'explicit_freestyle', seedEntries: [] },
-      modelAvailable: true,
-      sendCustomMessage: async (message) => sent.push(message),
-      onOutcome: (outcome) => outcomes.push(outcome),
-    });
 
     expect(sent).toEqual([]);
     expect(outcomes).toEqual([
       { status: 'skipped', reason: 'no_model_available' },
       { status: 'skipped', reason: 'idle_no_unresolved_debt' },
-      { status: 'skipped', reason: 'idle_explicit_freestyle' },
     ]);
   });
 

@@ -9,7 +9,6 @@ import {
   DEFAULT_BRUNCH_AGENT_STATE,
   type BrunchAgentState,
 } from '../../../session/runtime-state.js';
-import { AGENT_STRATEGY_IDS } from '../../../session/schema/kinds.js';
 import { createSessionBindingData } from '../../../session/session-binding.js';
 import { projectSessionRuntimeState } from '../runtime-state.js';
 
@@ -47,18 +46,16 @@ function runtimeEntry(id: string, state: BrunchAgentState, parentId = 'binding-1
 }
 
 describe('runtime-state projection', () => {
-  it('accepts legacy strategy ids in runtime state parsing without projecting them as public posture', () => {
-    expect(AGENT_STRATEGY_IDS).toEqual(['freestyle', 'step-wise-decision-tree', 'step-wise-disambiguate']);
-
-    const freestyle: BrunchAgentState = {
+  it('ignores stale legacy runtime fields while projecting only public mode/role posture', () => {
+    const legacyAxisState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
       agentStrategy: 'freestyle',
       agentLens: 'intent',
-    };
+    } as unknown as BrunchAgentState;
 
     expect(
-      projectSessionRuntimeState(envelope([runtimeEntry('runtime-freestyle', freestyle)])),
+      projectSessionRuntimeState(envelope([runtimeEntry('runtime-legacy-axes', legacyAxisState)])),
     ).toMatchObject({
       agent: {
         operationalMode: 'elicit',
@@ -66,7 +63,7 @@ describe('runtime-state projection', () => {
       },
     });
     expect(
-      projectSessionRuntimeState(envelope([runtimeEntry('runtime-freestyle', freestyle)])).agent,
+      projectSessionRuntimeState(envelope([runtimeEntry('runtime-legacy-axes', legacyAxisState)])).agent,
     ).not.toHaveProperty('strategy');
   });
 
@@ -95,14 +92,10 @@ describe('runtime-state projection', () => {
     const first: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'elicit',
-      agentStrategy: 'step-wise-decision-tree',
-      agentLens: 'intent',
     };
     const latest: BrunchAgentState = {
       schemaVersion: 1,
-      operationalMode: 'elicit',
-      agentStrategy: 'step-wise-disambiguate',
-      agentLens: 'oracle',
+      operationalMode: 'execute',
     };
 
     expect(
@@ -147,8 +140,8 @@ describe('runtime-state projection', () => {
       ),
     ).toMatchObject({
       agent: {
-        operationalMode: 'elicit',
-        role: 'elicitor',
+        operationalMode: 'execute',
+        role: 'executor',
       },
       mentions: {
         graphNodes: [{ id: 'node-1', handle: 'D12', title: 'Decision seam', seenLsn: 7 }],

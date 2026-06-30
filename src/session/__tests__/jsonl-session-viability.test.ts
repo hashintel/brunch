@@ -51,7 +51,18 @@ describe('Pi JSONL transcript viability', () => {
   it('jsonl custom entry survival matrix', async () => {
     const { file, manager } = createPersistedSession();
     const customEntries = [
-      ['brunch.lens_switch', { lens: 'verification-design', reason: 'test' }],
+      [
+        'brunch.agent_runtime_state',
+        {
+          schemaVersion: 1,
+          reason: 'switch',
+          source: 'user',
+          state: {
+            schemaVersion: 1,
+            operationalMode: 'elicit',
+          },
+        },
+      ],
       ['brunch.mention', { entityId: 'node-1', seenLsn: 7, title: 'Known node' }],
       ['brunch.mention_staleness_hint', { entityId: 'node-1', seenLsn: 7, currentLsn: 9 }],
       [
@@ -149,7 +160,6 @@ describe('Pi JSONL transcript viability', () => {
     manager.appendCustomMessageEntry('worldUpdate', 'World update: node-1 changed.', true, {
       changedSinceLsn: 3,
     });
-    manager.appendCustomEntry('brunch.lens_switch', { lens: 'observer' });
     manager.appendCustomMessageEntry('brunch.side_task_result', 'Side task completed.', false, {
       taskId: 'task-1',
     });

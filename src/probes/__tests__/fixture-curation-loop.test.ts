@@ -67,8 +67,6 @@ const mixedBasisOverview: GraphSlice = {
 
 const runtimeState = {
   operationalMode: 'elicit' as const,
-  agentStrategy: 'step-wise-decision-tree' as const,
-  agentLens: 'intent' as const,
 };
 
 describe('fixture curation loop report', () => {

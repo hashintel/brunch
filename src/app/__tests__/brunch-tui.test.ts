@@ -34,9 +34,7 @@ import { runBrunchCli } from '../brunch.js';
 import {
   BRUNCH_CONTINUE_COMMAND,
   BRUNCH_INTROSPECTION_COMMAND,
-  BRUNCH_LENS_COMMAND,
   BRUNCH_MODE_COMMAND,
-  BRUNCH_STRATEGY_COMMAND,
   BRUNCH_SWITCH_COMMAND,
   BRUNCH_SWITCH_SHORTCUT,
   chromeStateForWorkspace,
@@ -663,7 +661,7 @@ describe('Brunch TUI boot', () => {
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
     expect(commands.has(retiredWorkspaceCommand)).toBe(false);
     expect(commands.has('brunch')).toBe(false);
-    for (const commandName of [BRUNCH_LENS_COMMAND, BRUNCH_STRATEGY_COMMAND, BRUNCH_MODE_COMMAND]) {
+    for (const commandName of [BRUNCH_MODE_COMMAND]) {
       expect(commands.has(commandName)).toBe(true);
     }
     // Disabled until operational: continue is unimplemented.

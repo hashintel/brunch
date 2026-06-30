@@ -29,7 +29,6 @@ tree:
       multi-choice-picker.ts: "Implements multi choice picker."
       runtime-posture:
         axis-picker.ts: "Implements axis picker."
-        strategy-picker.ts: "Implements strategy picker."
       tui-lab:
         index.ts: "Exports the public module surface."
         segment-track.ts: "Implements segment track."
@@ -224,63 +223,39 @@ tree:
     registry.ts: "Implements registry."
     runtime:
       TOPOLOGY.md: "Documents this source subtree."
-      __snapshots__:
-        elicitor--auto-floor-gaps-open.md: "Markdown resource."
-        elicitor--auto-high-coverage.md: "Markdown resource."
-        elicitor--pinned-strategy-lens.md: "Markdown resource."
-        elicitor--pushed-context.md: "Markdown resource."
-      capability-readiness.ts: "Implements capability readiness."
-      compose.ts: "Implements compose."
-      policy.ts: "Implements runtime policy."
-      prompt-skills.ts: "Implements prompt skills."
-      state.ts: "Implements state."
+      elicitor:
+        TOPOLOGY.md: "Documents this source subtree."
+        active-tools.ts: "Implements active tools."
+        compose-live-prompt.ts: "Implements compose live prompt."
+        context.ts: "Implements context."
+      executor:
+        TOPOLOGY.md: "Documents this source subtree."
+        active-tools.ts: "Implements active tools."
+        compose-prompt.ts: "Implements compose prompt."
+      foreground-policy.ts: "Implements foreground policy."
+      shared:
+        TOPOLOGY.md: "Documents this source subtree."
+        blocked-tools.ts: "Implements blocked tools."
     skills:
       TOPOLOGY.md: "Documents this source subtree."
       __fixtures__:
         unlisted-fixture:
           SKILL.md: "Defines the unlisted-fixture prompt-resource skill."
-      lenses:
-        TOPOLOGY.md: "Documents this source subtree."
-        design:
-          SKILL.md: "Defines the design prompt-resource skill."
-        intent:
-          SKILL.md: "Defines the intent prompt-resource skill."
-        oracle:
-          SKILL.md: "Defines the oracle prompt-resource skill."
-      methods:
-        capture:
-          SKILL.md: "Defines the capture prompt-resource skill."
-        commit-graph:
-          SKILL.md: "Defines the commit-graph prompt-resource skill."
-        elicit-by-question:
-          SKILL.md: "Defines the elicit-by-question prompt-resource skill."
-        explore-and-characterize:
-          SKILL.md: "Defines the explore-and-characterize prompt-resource skill."
-        generate-proposal:
-          SKILL.md: "Defines the generate-proposal prompt-resource skill."
-          probes.md: "Markdown resource."
-          references:
-            design.md: "Markdown resource."
-            intent.md: "Markdown resource."
-            oracle.md: "Markdown resource."
-        ingest-paste:
-          SKILL.md: "Defines the ingest-paste prompt-resource skill."
-        read-context:
-          SKILL.md: "Defines the read-context prompt-resource skill."
-        read-referenced-documents:
-          SKILL.md: "Defines the read-referenced-documents prompt-resource skill."
-        review-for-gaps:
-          SKILL.md: "Defines the review-for-gaps prompt-resource skill."
-        run-structured-exchange:
-          SKILL.md: "Defines the run-structured-exchange prompt-resource skill."
-      strategies:
-        TOPOLOGY.md: "Documents this source subtree."
-        freestyle:
-          SKILL.md: "Defines the freestyle prompt-resource skill."
-        step-wise-decision-tree:
-          SKILL.md: "Defines the step-wise-decision-tree prompt-resource skill."
-        step-wise-disambiguate:
-          SKILL.md: "Defines the step-wise-disambiguate prompt-resource skill."
+      analyze:
+        SKILL.md: "Defines the analyze prompt-resource skill."
+      elicit:
+        SKILL.md: "Defines the elicit prompt-resource skill."
+      ingest:
+        SKILL.md: "Defines the ingest prompt-resource skill."
+      map:
+        SKILL.md: "Defines the map prompt-resource skill."
+      propose:
+        SKILL.md: "Defines the propose prompt-resource skill."
+      registry.ts: "Implements registry."
+      review:
+        SKILL.md: "Defines the review prompt-resource skill."
+      tutorial:
+        SKILL.md: "Defines the tutorial prompt-resource skill."
   app:
     TOPOLOGY.md: "Documents this source subtree."
     brunch-tui.ts: "Implements brunch tui."

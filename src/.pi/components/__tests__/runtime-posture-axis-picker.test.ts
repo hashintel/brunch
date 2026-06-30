@@ -1,207 +1,100 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  AGENT_LENS_IDS,
-  AGENT_STRATEGY_IDS,
-  type AgentLensSelection,
-  type AgentStrategySelection,
+  OPERATIONAL_MODE_IDS,
+  operationalModeLabel,
+  type OperationalModeId,
 } from '../../../session/schema/kinds.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
-import {
-  createRuntimeLensPickerComponent,
-  createRuntimeModePickerComponent,
-  createRuntimeStrategyPickerComponent,
-} from '../runtime-posture/axis-picker.js';
+import { createRuntimeModePickerComponent } from '../runtime-posture/axis-picker.js';
 
 const theme = createTestLabTheme();
 
 describe('runtime posture picker overlays', () => {
-  it('renders auto plus every strategy and highlights the current projection', () => {
-    const component = createRuntimeStrategyPickerComponent({
-      current: 'step-wise-decision-tree',
+  it('renders every mode and highlights the current projection', () => {
+    const component = createRuntimeModePickerComponent({
+      current: 'execute',
       theme,
       onDone: () => {},
     });
 
     const text = component.render(120).join('\n');
 
-    expect(text).toContain('Choose Brunch strategy');
-    for (const strategy of ['auto', ...AGENT_STRATEGY_IDS]) {
-      expect(text).toContain(strategy);
+    expect(text).toContain('Choose Brunch mode');
+    for (const mode of OPERATIONAL_MODE_IDS) {
+      expect(text).toContain(operationalModeLabel(mode));
     }
-    // Current value renders as a success-colored badge and in the header line.
-    expect(text).toContain('\x1b[48;5;34m\x1b[30m step-wise-decision-tree ');
-    expect(text).toContain('\x1b[38;5;34mstep-wise-decision-tree\x1b[39m');
-  });
-
-  it('renders auto plus every lens and highlights the current projection', () => {
-    const component = createRuntimeLensPickerComponent({
-      current: 'design',
-      theme,
-      onDone: () => {},
-    });
-
-    const text = component.render(120).join('\n');
-
-    expect(text).toContain('Choose Brunch lens');
-    for (const lens of ['auto', ...AGENT_LENS_IDS]) {
-      expect(text).toContain(lens);
-    }
-    expect(text).toContain('\x1b[48;5;34m\x1b[30m design ');
+    expect(text).toContain(`\x1b[48;5;34m\x1b[30m ${operationalModeLabel('execute')} `);
+    expect(text).toContain(`\x1b[38;5;34m${operationalModeLabel('execute')}\x1b[39m`);
   });
 
   it('cycles and wraps selection with arrow and hj-style keys', () => {
-    const component = createRuntimeStrategyPickerComponent({
-      current: 'auto',
-      theme,
-      onDone: () => {},
-    });
-
-    component.handleInput?.('\x1b[D');
-    expect(component.render(120).join('\n')).toContain(`\x1b[48;5;33m\x1b[30m ${AGENT_STRATEGY_IDS.at(-1)} `);
-
-    // "auto" is the current value here, so its badge uses the success color.
-    component.handleInput?.('l');
-    expect(component.render(120).join('\n')).toContain('\x1b[48;5;34m\x1b[30m auto ');
-
-    component.handleInput?.('j');
-    expect(component.render(120).join('\n')).toContain(`\x1b[48;5;33m\x1b[30m ${AGENT_STRATEGY_IDS[0]} `);
-
-    component.handleInput?.('k');
-    expect(component.render(120).join('\n')).toContain('\x1b[48;5;34m\x1b[30m auto ');
-  });
-
-  it('grays out disabled choices, notes them, and skips them during cycling', () => {
-    const [first, second] = AGENT_STRATEGY_IDS;
-    const component = createRuntimeStrategyPickerComponent({
-      current: 'auto',
-      disabled: [first!],
-      theme,
-      onDone: () => {},
-    });
-
-    const text = component.render(200).join('\n');
-    expect(text).toContain(`\x1b[38;5;240m${first}\x1b[39m`);
-    expect(text).toContain(`-- NOTE: ${first} is not yet enabled`);
-
-    // Cycling right from auto skips the disabled first strategy.
-    component.handleInput?.('\x1b[C');
-    expect(component.render(200).join('\n')).toContain(`\x1b[48;5;33m\x1b[30m ${second} `);
-
-    // Cycling back left skips it again and wraps to auto.
-    component.handleInput?.('\x1b[D');
-    expect(component.render(200).join('\n')).toContain('\x1b[48;5;34m\x1b[30m auto ');
-  });
-
-  it.each([
-    [2, /-- NOTE: \S+ and \S+ are not yet enabled/u],
-    [3, /-- NOTE: \S+, \S+ and \S+ are not yet enabled/u],
-  ] as const)('lists %i disabled choices with natural grammar', (count, pattern) => {
-    const component = createRuntimeStrategyPickerComponent({
-      current: 'auto',
-      disabled: AGENT_STRATEGY_IDS.slice(0, count),
-      theme,
-      onDone: () => {},
-    });
-
-    expect(component.render(200).join('\n')).toMatch(pattern);
-  });
-
-  it('renders caution choices muted gray while keeping them selectable', () => {
-    const selected: unknown[] = [];
-    const [first] = AGENT_STRATEGY_IDS;
-    const component = createRuntimeStrategyPickerComponent({
-      current: 'auto',
-      caution: [first!],
-      theme,
-      onDone: (value) => selected.push(value),
-    });
-
-    const text = component.render(200).join('\n');
-    expect(text).toContain(`\x1b[38;5;244m${first}\x1b[39m`);
-    expect(text).toContain(`-- NOTE: ${first} needs more grounding`);
-
-    // Cycling lands on the caution choice and enter commits it.
-    component.handleInput?.('\x1b[C');
-    component.handleInput?.('\r');
-    expect(selected).toEqual([first]);
-  });
-
-  it('shows planned operational modes as disabled in the mode picker', () => {
-    const selected: unknown[] = [];
     const component = createRuntimeModePickerComponent({
       current: 'elicit',
       theme,
-      onDone: (value) => selected.push(value),
+      onDone: () => {},
     });
 
-    const text = component.render(200).join('\n');
-    expect(text).toContain('Choose Brunch mode');
-    // elicit is current (success badge); execute is live; code remains planned and grayed out (D93-L roster).
-    expect(text).toContain('\x1b[48;5;34m\x1b[30m elicit ');
-    expect(text).toContain('\x1b[38;5;33mexecute\x1b[39m');
-    expect(text).toContain('\x1b[38;5;240mcode\x1b[39m');
-    expect(text).toContain('-- NOTE: code is not yet enabled');
+    component.handleInput?.('\x1b[D');
+    expect(component.render(120).join('\n')).toContain(
+      `\x1b[48;5;33m\x1b[30m ${operationalModeLabel('execute')} `,
+    );
 
-    // Cycling can land on execute, while skipping the disabled planned code mode.
+    component.handleInput?.('l');
+    expect(component.render(120).join('\n')).toContain(
+      `\x1b[48;5;34m\x1b[30m ${operationalModeLabel('elicit')} `,
+    );
+
+    component.handleInput?.('j');
+    expect(component.render(120).join('\n')).toContain(
+      `\x1b[48;5;33m\x1b[30m ${operationalModeLabel('execute')} `,
+    );
+
+    component.handleInput?.('k');
+    expect(component.render(120).join('\n')).toContain(
+      `\x1b[48;5;34m\x1b[30m ${operationalModeLabel('elicit')} `,
+    );
+  });
+
+  it('returns selected mode value on enter', () => {
+    const selected: OperationalModeId[] = [];
+    const component = createRuntimeModePickerComponent({
+      current: 'elicit',
+      theme,
+      onDone: (value: OperationalModeId | undefined) => {
+        if (value) selected.push(value);
+      },
+    });
+
     component.handleInput?.('\x1b[C');
     component.handleInput?.('\r');
     expect(selected).toEqual(['execute']);
   });
 
-  it('snaps the initial selection to the first enabled choice when current is disabled', () => {
-    const selected: unknown[] = [];
-    const component = createRuntimeStrategyPickerComponent({
-      current: AGENT_STRATEGY_IDS[0]!,
-      disabled: [AGENT_STRATEGY_IDS[0]!],
-      theme,
-      onDone: (value) => selected.push(value),
-    });
+  it('cancels on escape or q without a value', () => {
+    for (const key of ['\x1b', 'q']) {
+      const selected: Array<OperationalModeId | undefined> = [];
+      const component = createRuntimeModePickerComponent({
+        current: 'elicit',
+        theme,
+        onDone: (value: OperationalModeId | undefined) => selected.push(value),
+      });
 
-    expect(component.render(200).join('\n')).toContain('\x1b[48;5;244m\x1b[30m auto ');
-
-    component.handleInput?.('\r');
-    expect(selected).toEqual(['auto']);
+      component.handleInput?.(key);
+      expect(selected).toEqual([undefined]);
+    }
   });
 
-  it('returns selected strategy value on enter', () => {
-    const selected: AgentStrategySelection[] = [];
-    const component = createRuntimeStrategyPickerComponent({
-      current: 'auto',
+  it('uses human-facing mode labels in the picker header and segments', () => {
+    const component = createRuntimeModePickerComponent({
+      current: 'elicit',
       theme,
-      onDone: (value) => selected.push(value as AgentStrategySelection),
+      onDone: () => {},
     });
 
-    component.handleInput?.('\x1b[C');
-    component.handleInput?.('\r');
-
-    expect(selected).toEqual([AGENT_STRATEGY_IDS[0]]);
-  });
-
-  it('returns selected lens value on enter', () => {
-    const selected: AgentLensSelection[] = [];
-    const component = createRuntimeLensPickerComponent({
-      current: 'auto',
-      theme,
-      onDone: (value) => selected.push(value as AgentLensSelection),
-    });
-
-    component.handleInput?.('\x1b[C');
-    component.handleInput?.('\r');
-
-    expect(selected).toEqual([AGENT_LENS_IDS[0]]);
-  });
-
-  it.each(['\x1b', 'q'])('cancels on %j without a value', (key) => {
-    const selected: unknown[] = [];
-    const component = createRuntimeStrategyPickerComponent({
-      current: 'auto',
-      theme,
-      onDone: (value) => selected.push(value),
-    });
-
-    component.handleInput?.(key);
-
-    expect(selected).toEqual([undefined]);
+    const text = component.render(200).join('\n');
+    expect(text).toContain('Choose Brunch mode');
+    expect(text).toContain(operationalModeLabel('elicit'));
+    expect(text).toContain(operationalModeLabel('execute'));
   });
 });

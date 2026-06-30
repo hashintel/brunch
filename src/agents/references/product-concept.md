@@ -8,7 +8,7 @@ Brunch is an agent harness whose goal is to facilitate a development workflow in
 
 Brunch has two top-level modes: Specify and Execute.
 
-All projects begin in specify mode, where the `elicitor` agent works with the user, applying various strategies and procedures to bring a given specification to a point where it is ready for planning and implementation.
+All projects begin in specify mode, where the `elicitor` agent works with the user through focused questions, proposal/review exchanges, and graph-backed capture to bring a specification to a point where it is ready for planning and implementation.
 
 When specs are ready for implementation, the `executor` agent can turn them in to plans, and then orchestrate the implementation of those plans
 

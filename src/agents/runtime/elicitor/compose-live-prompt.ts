@@ -5,6 +5,7 @@ import type {
   AgentPromptWorkspaceContext,
 } from '../../contexts/seeds/turn-context.js';
 import { bundledAgentBodyLocation } from '../../prompts/registry.js';
+import { renderBrunchSkills } from '../../skills/registry.js';
 import { renderLiveElicitorContext, type LiveElicitorPushedContext } from './context.js';
 
 export interface LiveElicitorSessionState {
@@ -32,6 +33,7 @@ export function composeLiveElicitorPrompt(
   const prompt = joinSections([
     input.agentBody ?? readLiveElicitorBody(),
     renderLiveElicitorControl(input),
+    renderBrunchSkills(),
     renderLiveElicitorContext(input),
   ]);
   return { prompt };
@@ -56,7 +58,7 @@ function renderLiveElicitorControl(input: ComposeLiveElicitorPromptInput): strin
     `- operational mode: ${input.sessionState.operationalMode}`,
     `- foreground role: ${input.sessionState.agentRole}`,
     `- active tools: ${tools}`,
-    '- prompt resources: fixed live elicitor path; no strategy/lens/method manifest negotiation',
+    '- prompt resources: code-owned live skill list only; no runtime axis negotiation',
   ].join('\n');
 }
 

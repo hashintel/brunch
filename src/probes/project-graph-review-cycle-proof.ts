@@ -27,8 +27,6 @@ const DEFAULT_SEED_REF = `${DEFAULT_SEED_NAME}/${DEFAULT_SEED_VARIANT}`;
 
 interface ProjectGraphReviewRuntimeStateReport {
   readonly operationalMode: 'elicit';
-  readonly agentStrategy: 'step-wise-disambiguate';
-  readonly agentLens: 'intent';
 }
 
 interface ProjectGraphReviewCycleProofOptions {
@@ -194,13 +192,9 @@ export async function runProjectGraphReviewCycleProof(
   const runtimeState: BrunchAgentState = {
     schemaVersion: 1,
     operationalMode: 'elicit',
-    agentStrategy: 'step-wise-disambiguate',
-    agentLens: 'intent',
   };
   const runtimeStateReport: ProjectGraphReviewRuntimeStateReport = {
     operationalMode: 'elicit',
-    agentStrategy: 'step-wise-disambiguate',
-    agentLens: 'intent',
   };
   appendBrunchAgentRuntimeSwitch(activated.session.manager, runtimeState, 'extension');
   const productUpdates = createProductUpdatePublisher();

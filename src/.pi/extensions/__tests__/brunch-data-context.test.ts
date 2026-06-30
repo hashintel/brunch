@@ -105,8 +105,6 @@ describe('context tools', () => {
               state: {
                 schemaVersion: 1,
                 operationalMode: 'elicit',
-                agentStrategy: 'step-wise-disambiguate',
-                agentLens: 'oracle',
               },
             },
           },

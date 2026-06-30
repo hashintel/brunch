@@ -8,7 +8,6 @@ SPEC decisions: D52-L, D58-L, D60-L, D76-L, D78-L, D83-L, D91-L, D96-L, D98-L
 
 ```text
 contexts/
-├── _suspended/       quarantined legacy lens/readiness/recommendation-shaped context controls
 ├── data-model/       model-facing graph/spec/session/workspace/plan/elicitation renderers
 ├── seeds/            per-turn pushed context blocks and origination seed payloads
 └── exchanges/        present_* / request_* structured-exchange result text
@@ -21,7 +20,6 @@ Formatting primitives used by these renderers live in `src/agents/shared/`; they
 ```pseudo
 rules:
   agents/contexts/ -> graph/, projections/, session/, workspace/ [render already-read facts]
-  agents/runtime/_suspended -> agents/contexts/_suspended/      [legacy control context]
   .pi/extensions/* -> agents/contexts/                         [adapters gather data, then ask for text]
   session/         -> agents/contexts/seeds/                   [origination asks for seed payload text]
   agents/contexts/ x> .pi/, app/, rpc/, web/                   [no host, adapter, or transport effects]
@@ -39,4 +37,4 @@ Context golden files live beside their tests under `__snapshots__/` and use stoc
 
 Reusable agent-visible renderers have moved here from the retired `src/renderers/` layer, and formerly adapter-local model text for graph mutation/related reads plus elicitation/reconciliation register tools now lives here too. Human/product-only text now lives beside the single owner that emits it (`app/print-workspace-state.ts`, `session/transcript-markdown.ts`).
 
-The simplified elicitor prompt context now lives with the live runtime in `src/agents/runtime/elicitor/context.ts`. Context that exists only for retired strategy/lens/method/readiness behavior belongs in `_suspended/`, outside normal test/build discovery.
+The simplified elicitor prompt context now lives with the live runtime in `src/agents/runtime/elicitor/context.ts`. There is no separate legacy context-control subtree in the live repo topology.

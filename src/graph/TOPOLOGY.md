@@ -32,9 +32,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 
 - **Capture** — the submit-time `capture/` structured-response translator was
   deleted 2026-06-19 (D80-L fossil retirement). Capture is now elicitor
-  turn-boundary sweep conduct now quarantined at `src/agents/skills/_suspended/methods/capture/SKILL.md`; the graph
-  layer owns only the `mutate_graph` / `update_elicitation_gaps` mutation/gap
-  boundary that sweep conduct routes through, not a product-side extraction pass.
+  turn-boundary sweep conduct authored in the live elicitor path; the graph layer
+  owns only the `mutate_graph` / `update_elicitation_gaps` mutation/gap boundary
+  that sweep conduct routes through, not a product-side extraction pass.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
   detail levels: active-context and graph-truth overview, node
   neighborhood, selected-spec graph-code lookup, open reconciliation needs, and

@@ -4,7 +4,7 @@ SPEC decisions: D52-L, D58-L, D85-L, D95-L, D97-L, D98-L
 
 ## Owns
 
-`src/agents/skills/` owns Brunch-authored prompt-resource guidance that may be cited or loaded by agents. Live homes are activity-named; the retired strategy/lens/method taxonomy is quarantined under `_suspended/`.
+`src/agents/skills/` owns Brunch-authored prompt-resource guidance that may be cited or loaded by agents. Live homes are activity-named and sit exactly one directory below `skills/`; nested directories under a live home are references, not additional skills.
 
 ```text
 skills/
@@ -16,11 +16,11 @@ skills/
 ├── map/           graph vocabulary, routing, persistence-boundary guidance
 ├── review/        critique, plane weakness heuristics, and next-move routing
 ├── tutorial/      product walkthrough and operator help
-├── _suspended/    audited legacy strategy/lens/method resources
+├── registry.ts    code-owned live skill manifest for prompt injection
 └── __fixtures__/  registry guard fixtures only
 ```
 
-Only directories with a routable `SKILL.md` are live prompt-resource homes. Empty staging folders are not part of the live routing surface.
+Only first-level directories with a routable `SKILL.md` are live prompt-resource homes. Empty staging folders, nested references, and fixtures are not part of the live routing surface.
 
 ## Skill Routing
 
@@ -43,7 +43,7 @@ If this table is rendered into a future `<brunch-skills>` manifest, keep it comp
 ```pseudo
 rules:
   agents/skills/* x> TypeScript imports [read-only prompt resources]
-  agents/runtime/elicitor x> agents/skills/_suspended/ [live elicitor does not negotiate legacy axes]
+  agents/skills/registry.ts -> agents/skills/{analyze,elicit,ingest,map,propose,review,tutorial}/SKILL.md [first-level live manifest only]
   agents/skills/propose -> agents/skills/map/references/ [graph expression/persistence boundary]
   agents/skills/map/references/ -> graph/schema + graph/policy [cite schema-owned vocabulary]
   agents/skills/ingest/ -> agents/skills/map/references/ [delegate graph kind/edge/routing]
@@ -53,7 +53,7 @@ rules:
 
 ## Migration Note
 
-D98-L suspends strategy/lens/method as runtime axes. Useful conduct has been lifted into activity homes only where it is live guidance:
+D98-L retired strategy/lens/method as live runtime or manifest axes. Useful conduct was lifted into activity homes only where it remains live guidance:
 
 - `generate-proposal` → `propose` plus `propose/references/{intent,design,oracle,present-review-set}.md`
 - `read-context` → `analyze` plus `analyze/references/neighborhoods.md`
@@ -62,4 +62,4 @@ D98-L suspends strategy/lens/method as runtime axes. Useful conduct has been lif
 - strategy interaction tactics → `src/agents/prompts/elicitor.md` and `elicit`
 - lens plane heuristics → `elicit`, `review`, and `propose/references/{intent,design,oracle}.md`
 
-Historical or compatibility prompt resources remain under `_suspended/` and are not available merely because a file exists.
+There is no legacy runtime manifest tree left in `src/agents/skills/`: if a skill is live, it appears in the first-level registry above; if guidance is not there, it is not switchable product state.

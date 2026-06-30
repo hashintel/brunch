@@ -21,9 +21,10 @@ import { renderSoftReadinessEstimate } from '../../../agents/contexts/data-model
 import type { GraphSlice } from '../../../graph/queries.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
-import type { AgentLensSelection } from '../../../session/schema/kinds.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 import { formatGraphOverview } from '../data-model/graph/graph-slice.js';
+
+type GraphSeedLens = 'auto' | 'intent' | 'design' | 'oracle';
 
 export interface AgentPromptSpecContext {
   id: number;
@@ -46,7 +47,7 @@ export interface ComposeAgentContextSeedInput {
   readonly session?: AgentPromptSessionContext;
   readonly gaps: readonly ElicitationGap[];
   readonly graph: GraphSlice;
-  readonly lens: AgentLensSelection;
+  readonly lens: GraphSeedLens;
 }
 
 /**
@@ -106,7 +107,7 @@ function renderPosture(posture: AgentPromptWorkspaceContext['posture']): string 
 // ----- selected-spec graph seed -----
 
 export interface RenderGraphContextOptions {
-  readonly lens: AgentLensSelection;
+  readonly lens: GraphSeedLens;
   readonly maxNodes?: number;
   readonly maxEdges?: number;
 }
@@ -141,7 +142,7 @@ export function renderGraphSeed(overview: GraphSlice, options: RenderGraphContex
   return lines.join('\n\n');
 }
 
-function lensScore(node: GraphNode, lens: AgentLensSelection): number {
+function lensScore(node: GraphNode, lens: GraphSeedLens): number {
   if (node.plane === lens) return 4;
   if (lens === 'intent' && node.plane === 'plan') return 1;
   if (lens === 'design' && (node.plane === 'intent' || node.plane === 'plan')) return 1;
@@ -149,7 +150,7 @@ function lensScore(node: GraphNode, lens: AgentLensSelection): number {
   return 0;
 }
 
-function lensEmphasis(lens: AgentLensSelection): string {
+function lensEmphasis(lens: GraphSeedLens): string {
   switch (lens) {
     case 'intent':
       return 'intent claims, terms, assumptions, constraints, and decisions first';

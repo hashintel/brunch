@@ -8,12 +8,7 @@ import {
   type BrunchAgentStateEntryData,
 } from '../../../session/runtime-state.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
-import {
-  BRUNCH_LENS_COMMAND,
-  BRUNCH_MODE_COMMAND,
-  BRUNCH_STRATEGY_COMMAND,
-  registerBrunchCommands,
-} from '../commands/index.js';
+import { BRUNCH_MODE_COMMAND, registerBrunchCommands } from '../commands/index.js';
 
 interface RegisteredCommand {
   description?: string;
@@ -76,11 +71,18 @@ function commandHarness(
         entries.push({ type: 'custom', customType, data });
       },
       getAllTools: () =>
-        ['read', 'grep', 'find', 'ls', 'present_question', 'request_response', 'mutate_graph'].map(
-          (name) => ({
-            name,
-          }),
-        ),
+        [
+          'read',
+          'grep',
+          'find',
+          'ls',
+          'present_question',
+          'request_response',
+          'mutate_graph',
+          'orchestrator_stub',
+        ].map((name) => ({
+          name,
+        })),
       setActiveTools(names: string[]) {
         activeToolNames.push(names);
       },
@@ -98,56 +100,37 @@ function commandHarness(
 }
 
 describe('Brunch runtime switch commands', () => {
-  it.each([
-    [BRUNCH_STRATEGY_COMMAND, 'step-wise-decision-tree', { agentStrategy: 'step-wise-decision-tree' }],
-    [BRUNCH_STRATEGY_COMMAND, 'auto', { agentStrategy: 'auto' }],
-    [BRUNCH_LENS_COMMAND, 'intent', { agentLens: 'intent' }],
-    [BRUNCH_LENS_COMMAND, 'auto', { agentLens: 'auto' }],
-  ] as const)('appends a user runtime switch for /%s %s', async (commandName, args, expectedState) => {
-    const harness = commandHarness();
+  it.each([['execute', { operationalMode: 'execute' }]] as const)(
+    'appends a user runtime switch for /brunch:mode %s',
+    async (args, expectedState) => {
+      const harness = commandHarness();
 
-    await harness.commands.get(commandName)?.handler(args, harness.ctx);
+      await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler(args, harness.ctx);
 
-    expect(harness.entries).toHaveLength(1);
-    expect(harness.entries[0]).toMatchObject({
-      type: 'custom',
-      customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
-      data: {
-        schemaVersion: 1,
-        reason: 'switch',
-        source: 'user',
-        previous: DEFAULT_BRUNCH_AGENT_STATE,
-        state: {
-          ...DEFAULT_BRUNCH_AGENT_STATE,
-          ...expectedState,
+      expect(harness.entries).toHaveLength(1);
+      expect(harness.entries[0]).toMatchObject({
+        type: 'custom',
+        customType: BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
+        data: {
+          schemaVersion: 1,
+          reason: 'switch',
+          source: 'user',
+          previous: DEFAULT_BRUNCH_AGENT_STATE,
+          state: {
+            ...DEFAULT_BRUNCH_AGENT_STATE,
+            ...expectedState,
+          },
         },
-      },
-    });
-    expect(projectBrunchAgentState(harness.entries)).toMatchObject(expectedState);
-    expect(harness.notifications.at(-1)).toMatchObject({ level: 'info' });
-  });
+      });
+      expect(projectBrunchAgentState(harness.entries)).toMatchObject(expectedState);
+      expect(harness.notifications.at(-1)).toMatchObject({ level: 'info' });
+    },
+  );
 
-  it('opens the strategy picker for no-arg strategy commands and commits through the runtime switch path', async () => {
-    const harness = commandHarness({ customResult: 'step-wise-disambiguate' });
+  it('opens the mode picker for no-arg mode commands and commits through the runtime switch path', async () => {
+    const harness = commandHarness({ customResult: 'execute' });
 
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('', harness.ctx);
-
-    expect(harness.customCalls).toHaveLength(1);
-    // No overlay options: the picker replaces the input editor in place.
-    expect(harness.customCalls[0]?.options).toBeUndefined();
-    expect(harness.entries).toHaveLength(1);
-    expect(harness.entries[0]?.data).toMatchObject({
-      reason: 'switch',
-      source: 'user',
-      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'step-wise-disambiguate' },
-    });
-    expect(harness.activeToolNames).toHaveLength(1);
-  });
-
-  it('opens the lens picker for no-arg lens commands and commits through the runtime switch path', async () => {
-    const harness = commandHarness({ customResult: 'oracle' });
-
-    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
     // No overlay options: the picker replaces the input editor in place.
@@ -156,120 +139,86 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.entries[0]?.data).toMatchObject({
       reason: 'switch',
       source: 'user',
-      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentLens: 'oracle' },
+      state: { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'execute' },
     });
     expect(harness.activeToolNames).toHaveLength(1);
+    expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['orchestrator_stub']));
   });
 
-  it('cancels the no-arg strategy picker without appending runtime state', async () => {
+  it('reports a no-op when the picker selects the current mode', async () => {
+    const harness = commandHarness({ customResult: 'elicit' });
+
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
+
+    expect(harness.customCalls).toHaveLength(1);
+    expect(harness.entries).toEqual([]);
+    expect(harness.notifications).toEqual([
+      expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
+    ]);
+  });
+
+  it('cancels the no-arg mode picker without appending runtime state', async () => {
     const harness = commandHarness({ customResult: undefined });
 
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.customCalls).toHaveLength(1);
     expect(harness.entries).toEqual([]);
   });
 
-  it('cancels the no-arg lens picker without appending runtime state', async () => {
+  it('falls back to current-mode reporting when no-arg mode command has no custom TUI surface', async () => {
     const harness = commandHarness({ customResult: undefined });
+    delete harness.ctx.ui.custom;
 
-    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
-
-    expect(harness.customCalls).toHaveLength(1);
-    expect(harness.entries).toEqual([]);
-  });
-
-  it('falls back to usage when no-arg strategy command has no custom TUI surface', async () => {
-    const harness = commandHarness({ customAvailable: false });
-
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
 
     expect(harness.entries).toEqual([]);
     expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: expect.stringContaining('Usage:') }),
+      expect.objectContaining({ level: 'info', message: 'Brunch mode is elicit.' }),
     ]);
   });
 
-  it('falls back to usage when no-arg lens command has no custom TUI surface', async () => {
-    const harness = commandHarness({ customAvailable: false });
-
-    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
-
-    expect(harness.entries).toEqual([]);
-    expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: expect.stringContaining('Usage:') }),
-    ]);
-  });
-
-  it('rejects unknown strategy and lens values without appending runtime state', async () => {
+  it('rejects unknown mode values without appending runtime state', async () => {
     const harness = commandHarness();
 
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('unknown-strategy', harness.ctx);
-    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('unknown-lens', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('unknown-mode', harness.ctx);
 
     expect(harness.entries).toEqual([]);
     expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'error', message: expect.stringContaining('Unknown strategy') }),
-      expect.objectContaining({ level: 'error', message: expect.stringContaining('Unknown lens') }),
+      expect.objectContaining({ level: 'error', message: expect.stringContaining('Unknown mode') }),
     ]);
   });
 
   it('derives the post-switch tool posture from the supplied gap reader, not an empty register', async () => {
     const harness = commandHarness();
 
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('step-wise-decision-tree', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
-    // The harness gap reader reports a covered grounding floor, so the
-    // recomputed active tools must include the capability-gated mutate_graph
-    // from method legality instead of the floor-locked set an empty register would produce.
-    expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['mutate_graph']));
+    expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['orchestrator_stub']));
+    expect(harness.activeToolNames.at(-1)).not.toEqual(expect.arrayContaining(['mutate_graph']));
   });
 
   it('requests a chrome refresh after a successful runtime switch and not on rejection or cancel', async () => {
     const harness = commandHarness({ customResult: undefined });
 
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('step-wise-decision-tree', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
     expect(harness.chromeRefreshes).toHaveLength(1);
 
-    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('unknown-lens', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('unknown-mode', harness.ctx);
     expect(harness.chromeRefreshes).toHaveLength(1);
 
-    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
     expect(harness.chromeRefreshes).toHaveLength(1);
   });
 
-  it('keeps interaction-shape strategies pinnable independent of readiness (D74-L)', async () => {
-    const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
-
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('step-wise-decision-tree', harness.ctx);
-
-    expect(harness.entries).toHaveLength(1);
-    expect(harness.entries[0]?.data).toMatchObject({
-      reason: 'switch',
-      source: 'user',
-      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'step-wise-decision-tree' },
-    });
-  });
-
-  it('keeps freestyle explicitly pinnable at zero floor coverage', async () => {
-    const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
-
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('freestyle', harness.ctx);
-
-    expect(harness.entries).toHaveLength(1);
-    expect(harness.entries[0]?.data).toMatchObject({
-      reason: 'switch',
-      source: 'user',
-      state: { ...DEFAULT_BRUNCH_AGENT_STATE, agentStrategy: 'freestyle' },
-    });
-  });
-
-  it('keeps runtime-axis pickers free of suspended readiness cautions', async () => {
+  it('renders a simple mode picker without suspended caution text', async () => {
     const theme = createTestLabTheme();
-    const harness = commandHarness({ gaps: groundingFloorGaps({ defaultCoverage: 0 }) });
+    const harness = commandHarness({
+      customResult: undefined,
+      gaps: groundingFloorGaps({ defaultCoverage: 0 }),
+    });
 
-    await harness.commands.get(BRUNCH_STRATEGY_COMMAND)?.handler('', harness.ctx);
-    await harness.commands.get(BRUNCH_LENS_COMMAND)?.handler('', harness.ctx);
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
 
     const renderPicker = (call?: { factory: (...args: unknown[]) => unknown }) => {
       const component = call?.factory(undefined, theme, undefined, () => {}) as {
@@ -278,41 +227,22 @@ describe('Brunch runtime switch commands', () => {
       return component.render(220).join('\n');
     };
 
-    const strategyText = renderPicker(harness.customCalls[0]);
-    expect(strategyText).not.toContain('-- NOTE:');
-    expect(strategyText).toContain('step-wise-decision-tree');
-
-    const lensText = renderPicker(harness.customCalls[1]);
-    expect(lensText).not.toContain('-- NOTE:');
-    expect(lensText).toContain('design');
-    expect(lensText).toContain('oracle');
+    const modeText = renderPicker(harness.customCalls[0]);
+    expect(modeText).not.toContain('-- NOTE:');
+    expect(modeText).toContain('Specify');
+    expect(modeText).toContain('Execute');
   });
 
-  it('opens the mode picker for no-arg mode commands and never appends a runtime switch', async () => {
-    const harness = commandHarness({ customResult: 'elicit' });
-
-    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
-
-    expect(harness.customCalls).toHaveLength(1);
-    // No overlay options: the picker replaces the input editor in place.
-    expect(harness.customCalls[0]?.options).toBeUndefined();
-    // Elicit is the only enabled mode, so committing it is a no-op report.
-    expect(harness.entries).toEqual([]);
-    expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
-    ]);
-  });
-
-  it('reports explicit mode args without inventing future modes', async () => {
+  it('reports explicit mode args without inventing extra runtime state', async () => {
     const harness = commandHarness();
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('elicit', harness.ctx);
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
-    expect(harness.entries).toEqual([]);
+    expect(harness.entries).toHaveLength(1);
     expect(harness.notifications).toEqual([
       expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
-      expect.objectContaining({ level: 'error', message: expect.stringContaining('Only elicit mode') }),
+      expect.objectContaining({ level: 'info', message: expect.stringContaining('mode set to execute') }),
     ]);
   });
 });

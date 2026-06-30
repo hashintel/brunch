@@ -23,7 +23,6 @@ describe('startAssistantTurn', () => {
       currentLsn: 3,
       entries: [],
       origin: 'new_session',
-      strategy: 'auto',
       seedContent: 'Seeded overview with top gap: What is the primary goal?',
     });
 
@@ -58,13 +57,12 @@ describe('startAssistantTurn', () => {
         currentLsn: 4,
         entries,
         origin: 'resume_debt',
-        strategy: 'auto',
         seedContent: 'seed',
       }).action,
     ).toBe('start');
   });
 
-  it('stays idle for request/system leaves and for explicit freestyle while AUTO remains offer-first', () => {
+  it('stays idle for request/system leaves while ordinary user turns remain offer-first', () => {
     // Real request_* envelopes carry the outcome as key presence
     // (answered/cancelled/unavailable), never a status string field.
     expect(
@@ -84,7 +82,6 @@ describe('startAssistantTurn', () => {
         currentLsn: 4,
         entries: [message('assistant', 'Already answered'), custom('worldUpdate', { specId, currentLsn: 4 })],
         origin: 'resume_debt',
-        strategy: 'auto',
         seedContent: 'seed',
       }),
     ).toEqual({ action: 'idle', reason: 'no_unresolved_debt', seedEntries: [] });
@@ -98,17 +95,6 @@ describe('startAssistantTurn', () => {
         seedContent: 'seed',
       }),
     ).toMatchObject({ action: 'start' });
-
-    expect(
-      startAssistantTurn({
-        specId,
-        currentLsn: 4,
-        entries: [message('user', 'Ambient')],
-        origin: 'resume_debt',
-        strategy: 'freestyle',
-        seedContent: 'seed',
-      }),
-    ).toMatchObject({ action: 'idle', reason: 'explicit_freestyle' });
   });
 
   it('is idempotent across reboot and crash-after-notice-before-provider', () => {

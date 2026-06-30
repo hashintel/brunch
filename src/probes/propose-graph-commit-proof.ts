@@ -138,8 +138,6 @@ export async function runProposeGraphCommitProof(
   const runtimeState: BrunchAgentState = {
     schemaVersion: 1,
     operationalMode: 'elicit',
-    agentStrategy: 'step-wise-decision-tree',
-    agentLens: 'intent',
   };
   appendBrunchAgentRuntimeSwitch(workspace.session.manager, runtimeState, 'extension');
   const graph = await openWorkspaceGraphRuntime(cwd);

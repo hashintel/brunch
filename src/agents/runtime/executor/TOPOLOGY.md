@@ -20,7 +20,6 @@ rules:
   agents/runtime/executor/ -> agents/prompts/executor.md [fixed body]
   agents/runtime/executor/ -> agents/runtime/shared/ [blocked-tool/runtime helpers]
   agents/runtime/foreground-policy -> agents/runtime/executor/ [central dispatch]
-  agents/runtime/executor/ x> agents/runtime/_suspended/ [no legacy strategy/lens/method reads]
   agents/runtime/executor/ x> .pi/extensions/ [no Pi hook/tool registration side effects]
 ```
 
