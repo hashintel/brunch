@@ -7,6 +7,7 @@ export * from './execute-cook-report-init/index.js';
 export * from './execute-cook-run-create/index.js';
 export * from './execute-cook-source-copy/index.js';
 export * from './execute-cook-source-policy/index.js';
+export * from './execute-cook-slice-complete/index.js';
 export * from './execute-cook-slice-execute/index.js';
 export * from './execute-cook-slice-start/index.js';
 export * from './execute-cook-test-result/index.js';

@@ -41,6 +41,10 @@ Call `execute_cook_slice_execute` only to create an execution request artifact f
 
 Call `execute_cook_agent_result` only to ingest an already-written agent result for the active slice. It reads `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and updates `run.json`; it still does not launch agents, run tests, compile Petri nets, promote, or land.
 
+Call `execute_cook_test_result` only to ingest an already-written test result for the active slice. It reads `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and updates `run.json`; it still does not run tests, compile Petri nets, promote, or land.
+
+Call `execute_cook_slice_complete` only after test result ingestion. It appends `slice_completed` and updates `run.json`; it still does not compile Petri nets, promote, or land.
+
 Call `execute_plan_draft_artifact` only when the user asks to persist executable-plan-shaped data for review. It writes an artifact under `.brunch/execution-reports`; it still does not create an executable `plan.yaml`, cook run, worktree, Petri net, or promotion branch.
 
 Call `execute_plan_outline_artifact` only when the user asks to persist that outline for review. It writes an artifact under `.brunch/execution-reports`; it still does not create a cook run, worktree, Petri net, or promotion branch.
