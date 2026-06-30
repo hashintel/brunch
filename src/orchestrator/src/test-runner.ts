@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-import { defaultToolchain, type Toolchain } from './project-profile.js';
+import { defaultToolchain, type RunnerDiagnostics, type Toolchain } from './project-profile.js';
 import type { ConfinedSpawn } from './sandbox-guard.js';
 import type {
   TestFailureKind,
@@ -18,12 +18,6 @@ const RUNNER_MISSING_PATTERNS: readonly RegExp[] = [
   /is not recognized as an internal or external command/i,
 ];
 
-// The runner matched zero test files. Vitest prints exactly this on an empty
-// filter; it means "nothing built yet", not a red. Kept narrow on purpose — a
-// missing *module* ("Cannot find module") is a genuine TDD red and must stay
-// `test`, never `absent`.
-const NO_TESTS_PATTERNS: readonly RegExp[] = [/No test files found/i];
-
 /**
  * FE-884 Slice B: the verify subprocess timeout. Sized well above a real test
  * run because the wait includes `npx`/runner resolution + framework warmup +
@@ -37,28 +31,67 @@ export const VERIFY_TIMEOUT_MS = 180_000;
 
 /**
  * FE-884 Slice B: a spawn error that means "the runner never delivered a
- * verdict" — the binary is missing (`ENOENT`) or the run was killed by the
- * timeout (`ETIMEDOUT`). Both are toolchain/infra faults, not a code assertion,
- * so they must not be routed to the (logic-fix) remediation agent. ENOBUFS and
- * other post-start errors stay `test` — output exists to classify.
+ * verdict" — the binary is missing, unavailable, or the run was killed by the
+ * timeout. These are toolchain/infra faults, not code assertions, so they must
+ * not be routed to the (logic-fix) remediation agent. ENOBUFS and other
+ * post-start errors stay `test` — output exists to classify.
  */
 export function isInfraSpawnError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | null)?.code;
-  return code === 'ENOENT' || code === 'ETIMEDOUT';
+  return code === 'ENOENT' || code === 'ETIMEDOUT' || code === 'EACCES' || code === 'EPERM';
+}
+
+function isIdentifierChar(ch: string | undefined): boolean {
+  if (!ch) return false;
+  const code = ch.codePointAt(0);
+  if (code === undefined) return false;
+  return (
+    (code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || ch === '_'
+  );
+}
+
+function includesErrorCode(output: string, code: string): boolean {
+  let index = output.indexOf(code);
+  while (index !== -1) {
+    const before = output[index - 1];
+    const after = output[index + code.length];
+    if (!isIdentifierChar(before) && !isIdentifierChar(after)) return true;
+    index = output.indexOf(code, index + code.length);
+  }
+  return false;
+}
+
+function isRunnerPackageDenied(output: string, diagnostics: RunnerDiagnostics): boolean {
+  return output.split('\n').some((line) => {
+    const lowerLine = line.toLowerCase();
+    const denied =
+      includesErrorCode(line, 'EACCES') ||
+      includesErrorCode(line, 'EPERM') ||
+      lowerLine.includes('operation not permitted') ||
+      lowerLine.includes('permission denied');
+    if (!denied) return false;
+    const normalized = line.replaceAll('\\', '/');
+    return diagnostics.runnerPackages.some((pkg) => normalized.includes(`/node_modules/${pkg}/`));
+  });
 }
 
 /**
  * Classify a non-passing test run. Deliberately conservative ordering:
  *   1. `infra` — a spawn failure (missing binary) or shell "command not found";
- *      an unambiguous "the runner itself isn't there".
- *   2. `absent` — zero test files matched ("No test files found"); not started.
+ *      an unambiguous "the runner itself isn't there/can't load".
+ *   2. `absent` — zero test files matched; not started.
  *   3. `test` — everything else, because a missing *module* is ambiguous with a
  *      legitimate TDD red and misrouting a real failure would silently skip it.
  */
-export function classifyTestFailure(output: string, spawnFailed: boolean): TestFailureKind {
+export function classifyTestFailure(
+  output: string,
+  spawnFailed: boolean,
+  diagnostics: RunnerDiagnostics,
+): TestFailureKind {
   if (spawnFailed) return 'infra';
   if (RUNNER_MISSING_PATTERNS.some((re) => re.test(output))) return 'infra';
-  if (NO_TESTS_PATTERNS.some((re) => re.test(output))) return 'absent';
+  if (isRunnerPackageDenied(output, diagnostics)) return 'infra';
+  if (diagnostics.noTestsPatterns.some((re) => re.test(output))) return 'absent';
   return 'test';
 }
 
@@ -107,7 +140,11 @@ export class ToolchainTestRunner implements TestRunner {
     // the runner never delivered a verdict — an infra fault, not a code red
     // (FE-884 Slice B). Other post-start errors stay `test`.
     const runnerFailed = isInfraSpawnError(result.error);
-    return { passed, output, failureKind: classifyTestFailure(output, runnerFailed) };
+    return {
+      passed,
+      output,
+      failureKind: classifyTestFailure(output, runnerFailed, this.toolchain.diagnostics),
+    };
   }
 }
 
