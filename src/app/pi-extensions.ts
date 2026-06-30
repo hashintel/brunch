@@ -6,6 +6,7 @@ import {
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
 import { registerBrunchExecutePlanCheck } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecutePlanDraftArtifact } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanDraft } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanOutlineArtifact } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanOutline } from '../.pi/extensions/agent-runtime/index.js';
@@ -114,6 +115,9 @@ export {
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
   createExecutePlanCheckTool,
   registerBrunchExecutePlanCheck,
+  BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
+  createExecutePlanDraftArtifactTool,
+  registerBrunchExecutePlanDraftArtifact,
   BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
   createExecutePlanDraftTool,
   registerBrunchExecutePlanDraft,
@@ -249,6 +253,7 @@ export function createBrunchPiExtensions(
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraftArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraft(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutlineArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutline(api, graph)] : []),

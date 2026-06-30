@@ -11,6 +11,7 @@ orchestration/
 ├── README.md
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO
+├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact
 ├── execute-plan-check.ts        ExecutionSpecSnapshot -> read-only plan-input findings
 ├── execute-plan-outline.ts      ExecutionSpecSnapshot -> side-effect-free plan outline
 ├── plan-outline-artifact.ts     plan outline -> .brunch/execution-reports artifact

@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../agent-runtime/execute-plan-check/index.js';
+import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-draft-artifact/index.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_TOOL } from '../agent-runtime/execute-plan-draft/index.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-outline-artifact/index.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../agent-runtime/execute-plan-outline/index.js';
@@ -67,6 +68,7 @@ describe('Brunch explicit Pi extension registry', () => {
       expect.arrayContaining([
         '-extensions/agent-runtime/index.ts',
         '-extensions/agent-runtime/execute-plan-check/index.ts',
+        '-extensions/agent-runtime/execute-plan-draft-artifact/index.ts',
         '-extensions/agent-runtime/execute-plan-draft/index.ts',
         '-extensions/agent-runtime/execute-plan-outline/index.ts',
         '-extensions/agent-runtime/execute-snapshot/index.ts',
@@ -313,6 +315,88 @@ describe('Brunch explicit Pi extension registry', () => {
         sideEffects: [],
       },
     });
+  });
+
+  it('registers execute_plan_draft_artifact only with selected graph deps and writes the draft artifact', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-draft-'));
+    const registeredTools: Array<{
+      name: string;
+      execute: (
+        toolCallId: string,
+        params: unknown,
+        signal?: AbortSignal,
+        onUpdate?: unknown,
+        ctx?: { cwd: string },
+      ) => Promise<{
+        content: readonly { text: string }[];
+        details: Record<string, unknown>;
+      }>;
+    }> = [];
+
+    await createBrunchPiExtensions(brunchChromeFixture, undefined, {
+      coordinator: {} as never,
+      graphMentionSource: { listMentionCandidates: () => [] },
+      graph: {
+        specId: 42,
+        commandExecutor: {} as never,
+        reads: {
+          queryGraph: () =>
+            ({
+              lsn: 16,
+              nodes: [
+                {
+                  id: 1,
+                  specId: 42,
+                  plane: 'intent',
+                  kind: 'requirement',
+                  kindOrdinal: 1,
+                  title: 'Run the cooked feature',
+                  body: 'Feature runs through the alpha executor.',
+                  basis: 'explicit',
+                  createdAtLsn: 1,
+                  updatedAtLsn: 1,
+                },
+              ],
+              edges: [],
+            }) as never,
+          getNodes: () => [],
+          resolveNodeCode: () => undefined,
+          getElicitationGaps: () => [],
+          getOpenReconciliationNeeds: () => [],
+          latestLsn: () => 16,
+        },
+      },
+    })({
+      on() {},
+      registerTool(tool: (typeof registeredTools)[number]) {
+        registeredTools.push(tool);
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerMessageRenderer() {},
+      sendMessage() {},
+      getAllTools: () => [],
+      setActiveTools() {},
+    } as never);
+
+    const draftArtifact = registeredTools.find(
+      (tool) => tool.name === BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
+    );
+    expect(draftArtifact).toBeDefined();
+    const result = await draftArtifact!.execute('call-1', { mode: 'brownfield' }, undefined, undefined, {
+      cwd,
+    });
+
+    expect(result.content[0]?.text).toContain('execute_plan_draft_artifact:');
+    expect(result.details.sideEffects).toEqual([
+      {
+        kind: 'write_file',
+        path: join(cwd, '.brunch', 'execution-reports', '42', 'executable-plan-draft.json'),
+      },
+    ]);
+    await expect(
+      readFile(join(cwd, '.brunch', 'execution-reports', '42', 'executable-plan-draft.json'), 'utf8'),
+    ).resolves.toContain('Run the cooked feature');
   });
 
   it('registers execute_plan_outline only with selected graph deps and returns a side-effect-free outline', async () => {
@@ -603,7 +687,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_draft, execute_plan_outline, execute_plan_outline_artifact',
+      'ported tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
     );
     expect(result.content[0]?.text).toContain('pending tools: plan, cook, land');
     expect(result.details).toMatchObject({
@@ -614,6 +698,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_snapshot',
         'execute_plan_check',
         'execute_plan_draft',
+        'execute_plan_draft_artifact',
         'execute_plan_outline',
         'execute_plan_outline_artifact',
       ],
@@ -676,6 +761,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'mutate_graph',
         'read_graph',
         BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
+        BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
         BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
         BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
         BRUNCH_EXECUTE_SNAPSHOT_TOOL,

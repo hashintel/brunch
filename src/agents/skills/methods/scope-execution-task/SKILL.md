@@ -17,6 +17,8 @@ Call `execute_plan_outline` when it is active and you need a reviewable plan-sha
 
 Call `execute_plan_draft` when it is active and you need executable-plan-shaped data for review or downstream tooling. Treat the draft as schema-shaped data, not as a written `plan.yaml` or a cook run.
 
+Call `execute_plan_draft_artifact` only when the user asks to persist executable-plan-shaped data for review. It writes an artifact under `.brunch/execution-reports`; it still does not create an executable `plan.yaml`, cook run, worktree, Petri net, or promotion branch.
+
 Call `execute_plan_outline_artifact` only when the user asks to persist that outline for review. It writes an artifact under `.brunch/execution-reports`; it still does not create a cook run, worktree, Petri net, or promotion branch.
 
 Read the selected spec, pushed graph context, current session notes, and any run/report context available through Brunch tools. Identify the user-facing behavior, the requirement or criterion it serves, and the smallest codebase boundary that can prove progress. Prefer one vertical task brief over a grab bag. Name assumptions and missing context explicitly; do not invent product intent to fill gaps.

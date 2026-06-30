@@ -1,0 +1,31 @@
+import { mkdtemp, readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import {
+  executablePlanDraftArtifactPath,
+  writeExecutablePlanDraftArtifact,
+} from '../executable-plan-draft-artifact.js';
+import type { ExecutablePlanDraft } from '../executable-plan-draft.js';
+
+const draft: ExecutablePlanDraft = {
+  schemaVersion: 1,
+  specId: '7',
+  mode: 'greenfield',
+  epics: [],
+  slices: [],
+  sideEffects: [],
+};
+
+describe('writeExecutablePlanDraftArtifact', () => {
+  it('writes a bounded executable-plan draft artifact under .brunch/execution-reports', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-executable-plan-draft-'));
+    const result = await writeExecutablePlanDraftArtifact({ cwd, draft });
+
+    expect(result.path).toBe(executablePlanDraftArtifactPath(cwd, '7'));
+    expect(result.sideEffects).toEqual([{ kind: 'write_file', path: result.path }]);
+    await expect(readFile(result.path, 'utf8')).resolves.toBe(`${JSON.stringify(draft, null, 2)}\n`);
+  });
+});
