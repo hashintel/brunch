@@ -1,6 +1,6 @@
 # agents/skills/ — prompt-resource skill homes
 
-SPEC decisions: D52-L, D58-L, D85-L, D95-L, D97-L, D98-L, D100-L
+SPEC decisions: D52-L, D58-L, D66-L, D81-L, D82-L, D85-L, D95-L, D97-L, D98-L, D99-L, D100-L / I52-L
 
 ## Owns
 
