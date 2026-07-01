@@ -62,6 +62,19 @@ describe('read_elicitation_scratchpad', () => {
     expect(result.content[0]!.text).toContain('empty');
   });
 
+  it('renders each item id in the tool content text, since update requires it and details is not the read surface', async () => {
+    const sessionManager = new FakeSessionManager();
+    appendElicitationScratchpadSnapshot(sessionManager, [
+      { id: 'a', obligation: 'ask about budget', disposition: 'open' },
+    ]);
+
+    const result = (await executeTool(READ_ELICITATION_SCRATCHPAD_TOOL, {}, sessionManager)) as {
+      content: readonly { text: string }[];
+    };
+
+    expect(result.content[0]!.text).toContain('id=a');
+  });
+
   it('reconstructs the current scratchpad from prior appended snapshots on the branch, not from tool-result details', async () => {
     const sessionManager = new FakeSessionManager();
     appendElicitationScratchpadSnapshot(sessionManager, [

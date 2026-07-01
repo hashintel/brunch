@@ -17,10 +17,12 @@ export function formatElicitationScratchpad(items: readonly ElicitationScratchpa
 
   const lines = ['ELICITATION SCRATCHPAD'];
   for (const item of open) {
-    lines.push(`- [open] ${item.obligation}${item.rationale ? ` — ${item.rationale}` : ''}`);
+    lines.push(`- [open] id=${item.id} — ${item.obligation}${item.rationale ? ` — ${item.rationale}` : ''}`);
   }
   for (const item of resolved) {
-    lines.push(`- [resolved] ${item.obligation}${item.rationale ? ` — ${item.rationale}` : ''}`);
+    lines.push(
+      `- [resolved] id=${item.id} — ${item.obligation}${item.rationale ? ` — ${item.rationale}` : ''}`,
+    );
   }
   return lines.join('\n');
 }
