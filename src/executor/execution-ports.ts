@@ -2,6 +2,7 @@ export interface GitWorktreeCreateArgs {
   readonly cwd: string;
   readonly worktreeDir: string;
   readonly ref: string;
+  readonly signal?: AbortSignal | undefined;
 }
 
 export type GitWorktreeCreateResult =
@@ -27,6 +28,7 @@ export interface AgentRunnerPort {}
 
 export interface TestRunArgs {
   readonly worktreeDir: string;
+  readonly signal?: AbortSignal | undefined;
 }
 
 export type TestRunResult =

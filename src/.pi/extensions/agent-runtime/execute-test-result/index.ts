@@ -27,12 +27,12 @@ export function createExecuteTestResultTool(
     description:
       'Run the verify subprocess for the active slice in its worktree and ingest the true result. Does not create Petri artifacts.',
     parameters: ExecuteTestResultParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_test_result requires an active cwd');
       }
-      const result = await ingestTestResult({ cwd, runId: params.runId, testRunner });
+      const result = await ingestTestResult({ cwd, runId: params.runId, testRunner, signal });
       return {
         content: [
           {

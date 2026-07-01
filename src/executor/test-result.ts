@@ -50,6 +50,7 @@ export async function ingestTestResult(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly testRunner: TestRunnerPort;
+  readonly signal?: AbortSignal | undefined;
 }): Promise<TestResultIngestResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -74,7 +75,7 @@ export async function ingestTestResult(args: {
   }
 
   const worktreeDir = metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
-  const runResult = await args.testRunner.run({ worktreeDir });
+  const runResult = await args.testRunner.run({ worktreeDir, signal: args.signal });
   if (runResult.status === 'failed') {
     return {
       status: 'test_run_failed',

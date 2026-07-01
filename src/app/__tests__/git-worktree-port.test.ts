@@ -4,10 +4,25 @@ import { createGitWorktreePort } from '../git-worktree-port.js';
 
 describe('createGitWorktreePort', () => {
   it('shells out to git worktree add for the requested run workspace', async () => {
-    const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
+    const controller = new AbortController();
+    const calls: Array<{
+      command: string;
+      args: readonly string[];
+      cwd: string;
+      signal?: AbortSignal | undefined;
+      timeoutMs?: number | undefined;
+      maxOutputBytes?: number | undefined;
+    }> = [];
     const port = createGitWorktreePort({
       run: async (command, args, options) => {
-        calls.push({ command, args, cwd: options.cwd });
+        calls.push({
+          command,
+          args,
+          cwd: options.cwd,
+          signal: options.signal,
+          timeoutMs: options.timeoutMs,
+          maxOutputBytes: options.maxOutputBytes,
+        });
         return { exitCode: 0, stdout: 'Preparing worktree', stderr: '' };
       },
     });
@@ -16,6 +31,7 @@ describe('createGitWorktreePort', () => {
       cwd: '/repo',
       worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree',
       ref: 'HEAD',
+      signal: controller.signal,
     });
 
     expect(calls).toEqual([
@@ -23,6 +39,9 @@ describe('createGitWorktreePort', () => {
         command: 'git',
         args: ['worktree', 'add', '--detach', '/repo/.brunch/cook/runs/run-1/worktree', 'HEAD'],
         cwd: '/repo',
+        signal: controller.signal,
+        timeoutMs: 30_000,
+        maxOutputBytes: 16 * 1024,
       },
     ]);
     expect(result).toEqual({
@@ -58,6 +77,32 @@ describe('createGitWorktreePort', () => {
       status: 'failed',
       worktreeDir: '/repo/wt',
       message: 'spawn git ENOENT',
+      sideEffects: [],
+    });
+  });
+
+  it('reports aborts as git worktree failures', async () => {
+    const port = createGitWorktreePort({
+      run: async () => ({ exitCode: 1, stdout: '', stderr: '', aborted: true }),
+    });
+
+    await expect(port.create({ cwd: '/repo', worktreeDir: '/repo/wt', ref: 'HEAD' })).resolves.toEqual({
+      status: 'failed',
+      worktreeDir: '/repo/wt',
+      message: 'git worktree add aborted',
+      sideEffects: [],
+    });
+  });
+
+  it('reports timeouts as git worktree failures', async () => {
+    const port = createGitWorktreePort({
+      run: async () => ({ exitCode: 1, stdout: '', stderr: '', timedOut: true }),
+    });
+
+    await expect(port.create({ cwd: '/repo', worktreeDir: '/repo/wt', ref: 'HEAD' })).resolves.toEqual({
+      status: 'failed',
+      worktreeDir: '/repo/wt',
+      message: 'git worktree add timed out after 30000ms',
       sideEffects: [],
     });
   });

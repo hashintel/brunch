@@ -27,12 +27,12 @@ export function createExecuteWorktreeCreateTool(
     description:
       'Create the git worktree for an existing cook run. Does not populate it, execute slices, or create Petri artifacts.',
     parameters: ExecuteWorktreeCreateParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_worktree_create requires an active cwd');
       }
-      const result = await createWorktree({ cwd, runId: params.runId, gitWorktree });
+      const result = await createWorktree({ cwd, runId: params.runId, gitWorktree, signal });
       return {
         content: [
           {

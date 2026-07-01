@@ -51,6 +51,7 @@ export async function createWorktree(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly gitWorktree: GitWorktreePort;
+  readonly signal?: AbortSignal | undefined;
 }): Promise<WorktreeCreateResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -101,6 +102,7 @@ export async function createWorktree(args: {
     cwd: args.cwd,
     worktreeDir: targetWorktreeDir,
     ref: 'HEAD',
+    signal: args.signal,
   });
   if (worktreeResult.status === 'failed') {
     return {
