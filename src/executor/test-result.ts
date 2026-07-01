@@ -1,20 +1,9 @@
-import { appendFile, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { appendFile } from 'node:fs/promises';
 
+import type { TestRunnerPort } from './execution-ports.js';
 import { reportsPath } from './report.js';
-import {
-  assertSafeSliceId,
-  runDirPath,
-  runMetadataPath,
-  persistRunMetadata,
-  readRunMetadata,
-  type RunMetadata,
-} from './run.js';
-
-interface TestResultPayload {
-  readonly status?: string;
-  readonly target?: string;
-}
+import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import { worktreeDirPath } from './worktree.js';
 
 export type TestResultIngestResult =
   | {
@@ -32,12 +21,13 @@ export type TestResultIngestResult =
       readonly sideEffects: readonly [];
     }
   | {
-      readonly status: 'missing_test_result';
+      readonly status: 'test_run_failed';
       readonly runStatus: 'agent_result_ingested';
       readonly runId: string;
       readonly sliceId: string;
-      readonly resultPath: string;
+      readonly worktreeDir: string;
       readonly metadataPath: string;
+      readonly message: string;
       readonly sideEffects: readonly [];
     }
   | {
@@ -46,7 +36,8 @@ export type TestResultIngestResult =
       readonly runId: string;
       readonly sliceId: string;
       readonly epicId: string;
-      readonly resultPath: string;
+      readonly verdict: 'passed' | 'failed';
+      readonly worktreeDir: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
       readonly sideEffects: readonly [
@@ -55,14 +46,10 @@ export type TestResultIngestResult =
       ];
     };
 
-export function testResultPath(cwd: string, runId: string, sliceId: string): string {
-  assertSafeSliceId(sliceId);
-  return join(runDirPath(cwd, runId), 'agent-output', sliceId, 'test-result.json');
-}
-
 export async function ingestTestResult(args: {
   readonly cwd: string;
   readonly runId: string;
+  readonly testRunner: TestRunnerPort;
 }): Promise<TestResultIngestResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -86,16 +73,17 @@ export async function ingestTestResult(args: {
     };
   }
 
-  const resultPath = testResultPath(args.cwd, args.runId, metadata.activeSliceId);
-  const result = await readTestResult(resultPath);
-  if (!result) {
+  const worktreeDir = metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
+  const runResult = await args.testRunner.run({ cwd: args.cwd, worktreeDir });
+  if (runResult.status === 'failed') {
     return {
-      status: 'missing_test_result',
+      status: 'test_run_failed',
       runStatus: 'agent_result_ingested',
       runId: args.runId,
       sliceId: metadata.activeSliceId,
-      resultPath,
+      worktreeDir,
       metadataPath,
+      message: runResult.message,
       sideEffects: [],
     };
   }
@@ -106,13 +94,13 @@ export async function ingestTestResult(args: {
     runId: args.runId,
     epicId: metadata.activeEpicId,
     sliceId: metadata.activeSliceId,
-    status: result.status ?? 'passed',
-    ...(result.target ? { target: result.target } : {}),
+    status: runResult.verdict,
+    exitCode: runResult.exitCode,
+    ...(runResult.target ? { target: runResult.target } : {}),
   };
   const updated: RunMetadata = {
     ...metadata,
     status: 'test_result_ingested',
-    testResultPath: resultPath,
   };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
@@ -124,17 +112,10 @@ export async function ingestTestResult(args: {
     runId: args.runId,
     sliceId: metadata.activeSliceId,
     epicId: metadata.activeEpicId,
-    resultPath,
+    verdict: runResult.verdict,
+    worktreeDir,
     metadataPath,
     reportsPath: reportPath,
     sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],
   };
-}
-
-async function readTestResult(path: string): Promise<TestResultPayload | undefined> {
-  try {
-    return JSON.parse(await readFile(path, 'utf8')) as TestResultPayload;
-  } catch {
-    return undefined;
-  }
 }
