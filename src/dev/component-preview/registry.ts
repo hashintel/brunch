@@ -55,10 +55,30 @@ function sampleWorkspaceInventory(): WorkspaceLaunchInventory {
 }
 
 /**
+ * Long enough to overflow `WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS`, so the `specList` stage exercises
+ * `.pi/components/scroll-viewport.ts`'s windowing + `▐` thumb. No `currentSpec` -> no "continue" home option, so "Continue another existing specification" is
+ * index 0 and a single Enter reaches the scrollable list.
+ */
+function manySpecsWorkspaceInventory(specCount: number): WorkspaceLaunchInventory {
+  return {
+    cwd: '/project',
+    currentSpec: null,
+    currentSessionFile: null,
+    needsNewSpec: false,
+    specs: Array.from({ length: specCount }, (_, index) => ({
+      spec: { id: index + 1, title: `Spec ${index}` },
+      sessions: [],
+    })),
+    unavailableSessions: [],
+  };
+}
+
+/**
  * Each entry's `open` mirrors the real `ctx.ui.custom(factory, options)` call
  * at its production call site — same `options` shape, same `overlay` on/off —
  * not a uniform "always overlay" assumption. See `custom-ui.ts` and
- * `memory/cards/tooling--component-preview-harness.md` for why that matters.
+ * `src/dev/TOPOLOGY.md`'s "Component Preview Harness" section for why that
+ * matters.
  */
 export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
   {
@@ -107,6 +127,30 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
             theme: previewTheme,
             onDecision: done,
             includeContinue: false,
+          }),
+        {
+          overlay: true,
+          overlayOptions: { anchor: 'center', width: WORKSPACE_DIALOG_WIDTH, maxHeight: '90%', margin: 1 },
+        },
+      ),
+  },
+  {
+    id: 'workspace-dialog-scroll',
+    label: 'Workspace dialog — long spec list (scroll viewport demo)',
+    presentedLike:
+      'overlay — src/.pi/extensions/workspace/index.ts (runBrunchWorkspaceAction), with a fixture long ' +
+      'enough to exercise projectScrollViewport: press enter, then arrow-down/up to see the option ' +
+      'window follow the selection and the ▐ thumb move in the right border',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done): Component =>
+          createWorkspaceDialogComponent({
+            inventory: manySpecsWorkspaceInventory(20),
+            theme: previewTheme,
+            onDecision: done,
           }),
         {
           overlay: true,

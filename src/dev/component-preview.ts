@@ -38,9 +38,9 @@ function createComponentPreviewKeybindings(): KeybindingsManager {
 
 /**
  * Standalone real-terminal preview loop for `.pi/components` — no workspace,
- * session, or DB. See `memory/cards/tooling--component-preview-harness.md`
- * for the design rationale (why a bare `ProcessTerminal` + `TUI` is the right
- * truth environment, and why entries mirror their real production
+ * session, or DB. See `src/dev/TOPOLOGY.md`'s "Component Preview Harness"
+ * section for the design rationale (why a bare `ProcessTerminal` + `TUI` is
+ * the right truth environment, and why entries mirror their real production
  * presentation contract instead of a uniform overlay assumption).
  */
 export async function runComponentPreviewGallery(

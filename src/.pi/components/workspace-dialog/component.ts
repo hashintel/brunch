@@ -7,6 +7,7 @@ import type {
 } from '../../../session/workspace-session-coordinator.js';
 import { formatBrunchProductIdentity, readBrunchAnsiLogo } from '../brunch-identity.js';
 import { resolveBrunchVersion } from '../brunch-version.js';
+import { projectScrollViewport } from '../scroll-viewport.js';
 import {
   buildWorkspaceSelectionView,
   selectWorkspaceSelectionOption,
@@ -15,6 +16,11 @@ import {
 } from './model.js';
 
 export const WORKSPACE_DIALOG_WIDTH = 80;
+// ceiling: fixed viewport size rather than deriving from tui.terminal.rows. This component holds no
+// TUI reference today (Component.render(width) never receives height) — adding one only to size this
+// would be new surface for no other present need. Revisit if a real case needs it sized off the
+// actual overlay height instead of a flat cap.
+export const WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS = 8;
 const CTRL_C = '\x03';
 const ASSET_DIR = new URL('./assets/', import.meta.url);
 
@@ -80,13 +86,13 @@ class WorkspaceDialogComponent implements Component {
 
   render(width: number): string[] {
     const dialogWidth = Math.max(24, Math.min(width, WORKSPACE_DIALOG_WIDTH));
-    const content = this.#contentLines();
-    return renderFrame(content, dialogWidth, this.#theme);
+    const { lines, thumbRows } = this.#contentLines();
+    return renderFrame(lines, dialogWidth, this.#theme, thumbRows);
   }
 
   invalidate(): void {}
 
-  #contentLines(): string[] {
+  #contentLines(): { lines: string[]; thumbRows: ReadonlySet<number> } {
     const view = this.#view();
     const title = style(this.#theme, 'accent', view.title);
     const subtitle = style(
@@ -109,18 +115,30 @@ class WorkspaceDialogComponent implements Component {
     if (this.#stage.stage === 'newSpecTitle') {
       lines.push('New specification title:', `› ${this.#title}`);
       lines.push('', style(this.#theme, 'dim', 'enter create • esc back'));
-      return lines;
+      return { lines, thumbRows: new Set() };
     }
 
-    for (const [index, option] of view.options.entries()) {
+    const optionLines = view.options.map((option, index) => {
       const selected = index === this.#selectedIndex;
       const prefix = selected ? style(this.#theme, 'accent', '› ') : '  ';
       const label = selected ? style(this.#theme, 'accent', option.label) : option.label;
       const detail = option.detail ? `  ${style(this.#theme, 'dim', option.detail)}` : '';
-      lines.push(`${prefix}${label}${detail}`);
-    }
+      return `${prefix}${label}${detail}`;
+    });
+
+    const window = projectScrollViewport(
+      optionLines,
+      WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS,
+      this.#selectedIndex,
+    );
+    const optionsStart = lines.length;
+    lines.push(...window.lines);
+    const thumbRows = new Set(
+      window.isThumbRow.flatMap((isThumb, index) => (isThumb ? [optionsStart + index] : [])),
+    );
+
     lines.push('', style(this.#theme, 'dim', '↑↓ navigate • enter select • esc cancel'));
-    return lines;
+    return { lines, thumbRows };
   }
 
   #selectCurrentOption(): void {
@@ -185,23 +203,36 @@ function viewToStage(view: WorkspaceSelectionView): WorkspaceSelectionStage {
   return { stage: 'home' };
 }
 
-function renderFrame(content: string[], width: number, theme: WorkspaceDialogTheme | undefined): string[] {
+function renderFrame(
+  content: string[],
+  width: number,
+  theme: WorkspaceDialogTheme | undefined,
+  thumbRows: ReadonlySet<number>,
+): string[] {
   return [
     topBorderLine(width, theme),
     emptyLine(width, theme),
-    ...content.map((line) => contentLine(line, width, theme)),
+    ...content.map((line, index) => contentLine(line, width, theme, thumbRows.has(index))),
     emptyLine(width, theme),
     bottomBorderLine(width, theme),
   ];
 }
 
-function contentLine(content: string, width: number, theme: WorkspaceDialogTheme | undefined): string {
+function contentLine(
+  content: string,
+  width: number,
+  theme: WorkspaceDialogTheme | undefined,
+  isThumbRow = false,
+): string {
   if (width <= 4) return truncateToWidth(content, width);
   const innerWidth = width - 4;
   const inner = truncateToWidth(content, innerWidth);
   const padding = ' '.repeat(Math.max(0, innerWidth - visibleWidth(inner)));
-  const vertical = style(theme, 'borderMuted', '│');
-  return `${vertical} ${inner}${padding} ${vertical}`;
+  const left = style(theme, 'borderMuted', '│');
+  // The scroll thumb folds into the existing right border (gocui/lazygit's approach) rather than a
+  // separate column — see .pi/components/scroll-viewport.ts.
+  const right = style(theme, 'borderMuted', isThumbRow ? '▐' : '│');
+  return `${left} ${inner}${padding} ${right}`;
 }
 
 function emptyLine(width: number, theme: WorkspaceDialogTheme | undefined): string {

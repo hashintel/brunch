@@ -71,6 +71,12 @@ components are render-only with injectable `theme`/props.
     for the session).
   - The footer lane (`ui.setFooter`) is deliberately not previewed yet: it is driven by live
     token/model/coherence state rather than static layout, and is lower value to preview in isolation.
+- A `workspace-dialog-scroll` entry reuses the same `workspace-dialog` mounting path with a 20-spec
+  fixture long enough to overflow `WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS`, demonstrating
+  `projectScrollViewport`'s windowing and `▐` border-folded scroll thumb
+  (`.pi/components/scroll-viewport.ts`) live: `npm run dev:components -- workspace-dialog-scroll`,
+  then arrow-down/up past the visible window. No new preview lane or wrapper component was needed —
+  it is a fixture variation on the existing `ctx.ui.custom` overlay lane.
 - A fourth, `[experimental]` entry (`brunch-editor`) previews `ctx.ui.setEditorComponent` —
   `BrunchEditorComponent` (`.pi/components/brunch-editor.ts`) wraps `CustomEditor` in a `│`-bordered box
   with runtime-state labels baked into the border corners, since the default `Editor` has no side
