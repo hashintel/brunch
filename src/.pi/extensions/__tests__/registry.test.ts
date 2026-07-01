@@ -67,6 +67,8 @@ describe('Brunch explicit Pi extension registry', () => {
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       REQUEST_RESPONSE_TOOL,
+      'read_elicitation_scratchpad',
+      'update_elicitation_scratchpad',
     ]);
     expect(recording.commandNames).toEqual([BRUNCH_SWITCH_COMMAND, BRUNCH_MODE_COMMAND]);
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);

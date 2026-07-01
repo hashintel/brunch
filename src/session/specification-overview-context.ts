@@ -1,8 +1,8 @@
 import { resolve } from 'node:path';
 
 import { type SpecificationContextRenderInput } from '../agents/contexts/data-model/spec/spec-context.js';
-import { sortElicitationGapsForAsking } from '../graph/elicitation-driver.js';
 import { openWorkspaceGraphRuntime } from '../graph/index.js';
+import { latestElicitationScratchpad } from './elicitation-scratchpad.js';
 import { inspectWorkspaceOverview } from './workspace-overview-context.js';
 
 export interface SpecificationOverviewContext extends SpecificationContextRenderInput {
@@ -12,6 +12,7 @@ export interface SpecificationOverviewContext extends SpecificationContextRender
 export async function inspectSpecificationOverview(
   cwd: string,
   specId: number,
+  sessionEntries: Parameters<typeof latestElicitationScratchpad>[0] = [],
 ): Promise<SpecificationOverviewContext> {
   const resolvedCwd = resolve(cwd);
   const workspace = await inspectWorkspaceOverview(resolvedCwd);
@@ -23,15 +24,13 @@ export async function inspectSpecificationOverview(
   const graphRuntime = await openWorkspaceGraphRuntime(resolvedCwd);
   const specReaders = graphRuntime.forSpec(specId);
   const graph = specReaders.queryGraph();
-  const readinessGaps = specReaders.getElicitationGaps();
-  const gaps = sortElicitationGapsForAsking(readinessGaps);
+  const scratchpad = latestElicitationScratchpad(sessionEntries);
 
   return {
     status: 'ready',
     spec: { id: spec.id, title: spec.title },
     graph,
     sessions: workspace.sessions.filter((session) => session.specId === specId),
-    gaps,
-    readinessGaps,
+    scratchpad,
   };
 }

@@ -16,6 +16,7 @@ import {
 } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchContext } from '../.pi/extensions/brunch-data/index.js';
 import { registerBrunchElicitation } from '../.pi/extensions/brunch-data/index.js';
+import { registerBrunchElicitationScratchpad } from '../.pi/extensions/brunch-data/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from '../.pi/extensions/brunch-data/index.js';
 import { registerBrunchReconciliation } from '../.pi/extensions/brunch-data/index.js';
 import { registerBrunchChrome } from '../.pi/extensions/chrome/index.js';
@@ -250,6 +251,9 @@ export function createBrunchPiExtensions(
       // Elicitation and reconciliation registers are distinct surfaces from the
       // graph register, but they read through the same workspace graph runtime deps.
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchElicitation(api, options.graph!)] : []),
+      // Session-local elicitation scratchpad (D101-L): no graph dependency —
+      // it reads/writes only the session branch via ctx.sessionManager.
+      registerBrunchElicitationScratchpad,
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchReconciliation(api, options.graph!)] : []),
       ...(introspectionOptions
         ? [

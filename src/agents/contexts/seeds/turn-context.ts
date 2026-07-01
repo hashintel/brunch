@@ -12,15 +12,15 @@
  * compose. Mirrors `origination.ts` (continuity seed entry); this is
  * its ephemeral per-turn sibling.
  *
- * Input:  selected spec/workspace/session + gaps + already-read graph slice + lens
+ * Input:  selected spec/workspace/session + session scratchpad + already-read graph slice + lens
  * Output: rendered context block strings (lossy, bounded)
  * Used by: `.pi/extensions/agent-runtime/system-prompts` (before_agent_start) via composeAgentContextSeed
  */
 
-import { renderSoftReadinessEstimate } from '../../../agents/contexts/data-model/session/readiness-estimate.js';
+import { formatElicitationScratchpad } from '../../../agents/contexts/data-model/elicitation-scratchpad.js';
 import type { GraphSlice } from '../../../graph/queries.js';
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { GraphNode } from '../../../graph/schema/nodes.js';
+import type { ElicitationScratchpadItem } from '../../../session/elicitation-scratchpad.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 import { formatGraphOverview } from '../data-model/graph/graph-slice.js';
 
@@ -45,17 +45,17 @@ export interface ComposeAgentContextSeedInput {
   readonly spec: AgentPromptSpecContext;
   readonly workspace: AgentPromptWorkspaceContext;
   readonly session?: AgentPromptSessionContext;
-  readonly gaps: readonly ElicitationGap[];
+  readonly scratchpad: readonly ElicitationScratchpadItem[];
   readonly graph: GraphSlice;
   readonly lens: GraphSeedLens;
 }
 
 /**
  * Compose the per-turn pushed context blocks from already-read world state.
- * The caller (the Pi extension) performs the PULL (graph query, gap read) and
- * passes the data in; this module owns only the RENDER/COMPOSE of the blocks,
- * so the same bundle is reusable across mode/prompt switches that do not change
- * world state.
+ * The caller (the Pi extension) performs the PULL (graph query, scratchpad
+ * fold) and passes the data in; this module owns only the RENDER/COMPOSE of
+ * the blocks, so the same bundle is reusable across mode/prompt switches that
+ * do not change world state.
  */
 export function composeAgentContextSeed(input: ComposeAgentContextSeedInput): readonly string[] {
   return [
@@ -63,8 +63,9 @@ export function composeAgentContextSeed(input: ComposeAgentContextSeedInput): re
       spec: input.spec,
       workspace: input.workspace,
       ...(input.session ? { session: input.session } : {}),
-      gaps: input.gaps,
+      scratchpad: input.scratchpad,
     }),
+    formatElicitationScratchpad(input.scratchpad),
     renderGraphSeed(input.graph, { lens: input.lens }),
   ];
 }
@@ -75,19 +76,24 @@ export interface RenderCwdContextInput {
   readonly spec: AgentPromptSpecContext;
   readonly workspace: AgentPromptWorkspaceContext;
   readonly session?: AgentPromptSessionContext;
-  readonly gaps: readonly ElicitationGap[];
+  readonly scratchpad: readonly ElicitationScratchpadItem[];
 }
 
 export function renderWorkspaceSeed(input: RenderCwdContextInput): string {
   return [
     '[Selected workspace context]',
     `- cwd: ${input.workspace.cwd}`,
-    `- selected spec: ${input.spec.name} (#${input.spec.id}); ${renderSoftReadinessEstimate(input.gaps)}`,
+    `- selected spec: ${input.spec.name} (#${input.spec.id})`,
     `- selected session: ${renderSession(input.session)}`,
     `- workspace posture: ${renderPosture(input.workspace.posture)}`,
     '- ambient Pi resources: not scanned; Brunch prompt resources come only from code-owned manifests',
     '- graph scope: selected spec only; no workspace-global graph fallback',
+    `- elicitation scratchpad: ${input.scratchpad.length} item(s), ${countOpen(input.scratchpad)} open`,
   ].join('\n');
+}
+
+function countOpen(items: readonly ElicitationScratchpadItem[]): number {
+  return items.filter((item) => item.disposition === 'open').length;
 }
 
 function renderSession(session: AgentPromptSessionContext | undefined): string {

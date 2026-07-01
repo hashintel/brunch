@@ -2,7 +2,6 @@
 Overview:
 - id: 1
 - title: Alpha Grounding
-- readiness estimate (soft; gates nothing): grounding=0.76, elicitation=0.00, projection=0.00, commitment=0.00
 
 Graph (LSN 2): 5 nodes, 3 edges
 
@@ -32,12 +31,12 @@ edges (sorted by upstream)
 | 1 | G1 | motivated by | CTX1 |
 | 3 | G1 | motivated by | TH1 |
 
-Gaps:
-```toon
-[2]{id,band,refersTo,importance,coverage,question}:
-  "2",grounding,context,3,0,"Is this new-from-scratch, a brownfield codebase, or a continuation of a prior thread?"
-  "7",grounding,assumption,1,0,What are we assuming that might be false?
-```
+Graph facts:
+- lsn: 2
+- node counts by kind: constraint=1, context=1, goal=1, term=1, thesis=1
+- zero-count kinds: story (band=none), unknown (band=elicitation), requirement (band=projection), assumption (band=elicitation), invariant (band=elicitation), decision (band=elicitation), criterion (band=commitment), example (band=none), check (band=projection), vv_method (band=projection), evidence (band=projection), vv_obligation (band=projection), module (band=projection), interface (band=projection), entity (band=projection), sketch (band=none), milestone (band=commitment), frontier (band=commitment), slice (band=commitment)
+
+ELICITATION SCRATCHPAD (empty)
 
 Sessions:
 | name | file | turns |

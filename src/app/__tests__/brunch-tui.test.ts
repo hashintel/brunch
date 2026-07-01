@@ -656,6 +656,8 @@ describe('Brunch TUI boot', () => {
       'present_review_set',
       'present_candidates',
       'request_response',
+      'read_elicitation_scratchpad',
+      'update_elicitation_scratchpad',
     ]);
     expect(commands.get(BRUNCH_SWITCH_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');

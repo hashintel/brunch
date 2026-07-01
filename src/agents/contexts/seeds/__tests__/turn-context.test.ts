@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import type { GraphSlice } from '../../../../graph/queries.js';
-import { presenceGap } from '../../../../graph/schema/elicitation-gap-fixtures.js';
+import type { ElicitationScratchpadItem } from '../../../../session/elicitation-scratchpad.js';
 import { composeAgentContextSeed, renderGraphSeed, renderWorkspaceSeed } from '../turn-context.js';
+
+const scratchpad: readonly ElicitationScratchpadItem[] = [
+  { id: 'gap-1', obligation: 'confirm the audience', disposition: 'open' },
+  { id: 'gap-2', obligation: 'confirm the constraint', disposition: 'resolved' },
+];
 
 describe('renderWorkspaceSeed', () => {
   it('renders selected-spec/session/posture facts without ambient resource discovery', async () => {
@@ -17,14 +22,12 @@ describe('renderWorkspaceSeed', () => {
         },
       },
       session: { id: 'session-7', label: 'Grounding' },
-      gaps: [
-        presenceGap({ refersTo: 'context', coverage: 0.5, band: 'grounding', specId: 42 }),
-        presenceGap({ refersTo: 'requirement', coverage: 1, band: 'elicitation', specId: 42 }),
-      ],
+      scratchpad,
     });
 
     await expect(rendered).toMatchFileSnapshot('../__snapshots__/turn-context-workspace-seed.md');
     expect(rendered).not.toContain('readiness_grade=');
+    expect(rendered).not.toContain('readiness estimate');
     expect(rendered).not.toContain('.pi/context');
   });
 });
@@ -83,19 +86,20 @@ describe('renderGraphSeed', () => {
 });
 
 describe('composeAgentContextSeed', () => {
-  it('composes the workspace and graph blocks from already-read world state', () => {
+  it('composes the workspace, scratchpad, and graph blocks from already-read world state', () => {
     const blocks = composeAgentContextSeed({
       spec: { id: 42, name: 'Payments Spec' },
       workspace: { cwd: '/repo/product' },
       session: { id: 'session-7', label: 'Grounding' },
-      gaps: [presenceGap({ refersTo: 'context', coverage: 0.5, band: 'grounding', specId: 42 })],
+      scratchpad,
       graph: overview,
       lens: 'design',
     });
 
-    expect(blocks).toHaveLength(2);
+    expect(blocks).toHaveLength(3);
     expect(blocks[0]).toContain('[Selected workspace context]');
-    expect(blocks[1]).toContain('Selected-spec graph overview · design lens');
+    expect(blocks[1]).toContain('ELICITATION SCRATCHPAD');
+    expect(blocks[2]).toContain('Selected-spec graph overview · design lens');
   });
 });
 

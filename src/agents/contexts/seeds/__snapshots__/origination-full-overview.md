@@ -22,6 +22,11 @@ edges (sorted by upstream)
 | id | upstream | relation | downstream |
 | - | - | - | - |
 | 1 | REQ1 | required by | G1 |
-Open elicitation gaps (top 2 by ranking):
-1. What is the primary goal? (goal, grounding)
-2. Who are the users? (goal, grounding)
+
+Graph facts:
+- lsn: 9
+- node counts by kind: goal=2, requirement=1
+- zero-count kinds: thesis (band=grounding), term (band=none), context (band=elicitation), story (band=none), unknown (band=elicitation), assumption (band=elicitation), constraint (band=elicitation), invariant (band=elicitation), decision (band=elicitation), criterion (band=commitment), example (band=none), check (band=projection), vv_method (band=projection), evidence (band=projection), vv_obligation (band=projection), module (band=projection), interface (band=projection), entity (band=projection), sketch (band=none), milestone (band=commitment), frontier (band=commitment), slice (band=commitment)
+
+ELICITATION SCRATCHPAD
+- [open] id=gap-1 — What is the primary goal?

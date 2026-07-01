@@ -410,7 +410,7 @@ describe('Brunch prompt-pack topology', () => {
             'grep',
             'read_graph',
             'read_session_context',
-            'read_elicitation_gaps',
+            'read_elicitation_scratchpad',
             'mutate_graph',
             'present_review_set',
             'bash',
@@ -443,7 +443,7 @@ describe('Brunch prompt-pack topology', () => {
       'grep',
       'read_graph',
       'read_session_context',
-      'read_elicitation_gaps',
+      'read_elicitation_scratchpad',
       'mutate_graph',
       'present_review_set',
     ]);

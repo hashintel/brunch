@@ -5,14 +5,14 @@ import type {
 } from '../../../agents/contexts/seeds/turn-context.js';
 import { renderWorkspaceSeed } from '../../../agents/contexts/seeds/turn-context.js';
 import { renderBrunchSkills } from '../../../agents/skills/registry.js';
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
+import type { ElicitationScratchpadItem } from '../../../session/elicitation-scratchpad.js';
 import type { SubagentDefinition } from './agents.js';
 
 export interface BackgroundWorldSnapshot {
   readonly spec: AgentPromptSpecContext;
   readonly workspace: AgentPromptWorkspaceContext;
   readonly session?: AgentPromptSessionContext;
-  readonly gaps: readonly ElicitationGap[];
+  readonly scratchpad: readonly ElicitationScratchpadItem[];
   readonly sessionDigest?: string;
 }
 
@@ -71,7 +71,7 @@ function renderWorldSnapshot(world: BackgroundWorldSnapshot | undefined): string
         spec: world.spec,
         workspace: world.workspace,
         ...(world.session ? { session: world.session } : {}),
-        gaps: world.gaps,
+        scratchpad: world.scratchpad,
       }),
     ),
     '[Parent session digest]',

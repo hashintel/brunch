@@ -857,7 +857,7 @@ function injectedWorld(options: { cwd?: string } = {}): NonNullable<SubagentSeal
       spec: { id: 7, name: 'Parent Spec' },
       workspace: { cwd: options.cwd ?? '/workspace' },
       session: { id: 'session-7', label: 'Grounding' },
-      gaps: [],
+      scratchpad: [],
       sessionDigest: '- user asked for graph reconciliation',
     },
     graph: { specId: 7, reads },

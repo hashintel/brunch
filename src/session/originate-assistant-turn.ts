@@ -19,14 +19,13 @@
 
 import { composeContextSeedContent } from '../agents/contexts/seeds/origination.js';
 import type { GraphSlice } from '../graph/index.js';
-import type { ElicitationGap } from '../graph/schema/elicitation-gaps.js';
 import type { TranscriptEntryLike } from '../projections/session/continuity-entry-classifier.js';
+import { latestElicitationScratchpad } from './elicitation-scratchpad.js';
 import { appendPreparedContinuityEntry, type ContinuityEntryAppender } from './prepare-next-turn.js';
 import { startAssistantTurn, type StartAssistantTurnDecision } from './start-assistant-turn.js';
 
 export interface OriginationReads {
   readonly queryGraph: () => GraphSlice;
-  readonly getElicitationGaps: () => readonly ElicitationGap[];
 }
 
 export type OriginationManager = ContinuityEntryAppender;
@@ -155,7 +154,7 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
       specId: input.specId,
       ...(input.specName ? { specName: input.specName } : {}),
       slice,
-      gaps: input.reads.getElicitationGaps(),
+      scratchpad: latestElicitationScratchpad(input.entries),
       workspaceContext: input.workspaceContext,
     }),
   });

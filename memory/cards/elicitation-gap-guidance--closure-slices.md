@@ -193,7 +193,7 @@ Implemented as three files rather than the tentative `projections/session/` + `.
 
 ## Card 3 — Repoint foreground, context, and subagent consumers
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -281,6 +281,18 @@ src/
     ├── pi-extensions.ts                                 ~
     └── brunch-tui.ts                                    ~
 ```
+
+### Build notes
+
+Added one new module beyond the tentative touched paths: `agents/contexts/seeds/graph-fact-seed.ts` (+ test) — the thin graph-fact neutral seed named in the design doc's open design point (lsn, node counts by kind, zero-count kinds with their `latestExpectedBand`). It is a pure derive/render pair with no reconciliation-needs or mutation-summary fields; those two design-doc-listed "safe facts" were left out as unneeded scope for this card (no consumer currently threads reconciliation needs into these renders) — a candidate for Card 6 to revisit only if a closure oracle needs them.
+
+`world-reads.ts`'s `WorldReadCache` turned out to be unused by any production caller (the live elicitor prompt path already composes context without it, per `agents/runtime/elicitor/context.ts`'s "no strategy, lens, readiness, or gap-recommendation shaping"); the acceptance criterion was satisfied by removing `gaps`/`getElicitationGaps` from its `WorldReads` shape and cache computation, with a test proving scratchpad state is absent from the cached shape (so no future caller could reintroduce cache-gated scratchpad reads).
+
+`specification-overview-context.ts` (`inspectSpecificationOverview`) gained a third `sessionEntries` parameter (default `[]`) to fold the *calling* session's scratchpad — spec overview is session-bound, not spec-global, once scratchpad replaces the old spec-global gap register. `get-specification.ts` now threads `sessionManager?.getEntries()` through.
+
+`origination.ts` and `turn-context.ts` both replaced their `gaps: readonly ElicitationGap[]` field with `scratchpad: readonly ElicitationScratchpadItem[]`; `composeAgentContextSeed` now emits three blocks (workspace, scratchpad, graph) instead of two. `pi-subagents.ts` derives the subagent world-snapshot scratchpad via `latestElicitationScratchpad(sessionBranch)` instead of a graph gap read.
+
+One item outside the card's declared touched paths was left deliberately unrepointed: `agents/skills/ingest/SKILL.md` still names `update_elicitation_gaps` in its sweep-chain sketch. It is a conceptual prompt doc, not wired code, and outside this card's boundary crossings; flagging for Card 6's topology/doc reconciliation pass rather than touching it here.
 
 ---
 
