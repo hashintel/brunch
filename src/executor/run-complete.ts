@@ -2,21 +2,16 @@ import { appendFile, readFile } from 'node:fs/promises';
 
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
-import {
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
+import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 interface PlanSlice {
   readonly id: string;
 }
-interface CookPlanPayload {
+interface PlanPayload {
   readonly slices?: readonly PlanSlice[];
 }
 
-export type CookRunCompleteResult =
+export type RunCompleteResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -26,7 +21,7 @@ export type CookRunCompleteResult =
     }
   | {
       readonly status: 'slices_incomplete';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
       readonly completedSliceIds: readonly string[];
@@ -45,12 +40,12 @@ export type CookRunCompleteResult =
       ];
     };
 
-export async function completeCookRun(args: {
+export async function completeRun(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<CookRunCompleteResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<RunCompleteResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata)
     return {
       status: 'missing_run',
@@ -78,9 +73,9 @@ export async function completeCookRun(args: {
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const event = { event: 'run_completed', runId: args.runId, status: 'run_completed' };
-  const updated: CookRunMetadata = { ...metadata, status: 'run_completed' };
+  const updated: RunMetadata = { ...metadata, status: 'run_completed' };
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
     status: 'run_completed',
@@ -92,6 +87,6 @@ export async function completeCookRun(args: {
   };
 }
 
-async function readPlan(path: string): Promise<CookPlanPayload> {
-  return JSON.parse(await readFile(path, 'utf8')) as CookPlanPayload;
+async function readPlan(path: string): Promise<PlanPayload> {
+  return JSON.parse(await readFile(path, 'utf8')) as PlanPayload;
 }

@@ -4,15 +4,15 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { cookPlanFilePath } from '../plan-file.js';
-import { populateCookWorktree } from '../populate.js';
-import { initializeCookReports, reportsPath } from '../report.js';
-import { cookRunDir, cookRunMetadataPath, createCookRun } from '../run.js';
-import { requestCookSliceExecution, sliceExecutionRequestPath } from '../slice-execute.js';
-import { startCookSlice } from '../slice-start.js';
-import { copyCookHostSource } from '../source-copy.js';
-import { selectCookSourcePolicy } from '../source-policy.js';
-import { createCookWorktree } from '../worktree.js';
+import { planFilePath } from '../plan-file.js';
+import { populateWorktree } from '../populate.js';
+import { initializeReports, reportsPath } from '../report.js';
+import { runDirPath, runMetadataPath, createRun } from '../run.js';
+import { requestSliceExecution, sliceExecutionRequestPath } from '../slice-execute.js';
+import { startSlice } from '../slice-start.js';
+import { copyHostSource } from '../source-copy.js';
+import { selectSourcePolicy } from '../source-policy.js';
+import { createWorktree } from '../worktree.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -24,7 +24,7 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 async function createSliceStartedRun(cwd: string): Promise<void> {
-  const planPath = cookPlanFilePath(cwd, '42');
+  const planPath = planFilePath(cwd, '42');
   await mkdir(join(cwd, 'src'), { recursive: true });
   await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
   await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
@@ -46,25 +46,25 @@ async function createSliceStartedRun(cwd: string): Promise<void> {
     }),
     'utf8',
   );
-  await createCookRun({ cwd, specId: '42', runId: 'run-1' });
-  await createCookWorktree({ cwd, runId: 'run-1' });
-  await populateCookWorktree({ cwd, runId: 'run-1' });
-  await selectCookSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
-  await copyCookHostSource({ cwd, runId: 'run-1' });
-  await initializeCookReports({ cwd, runId: 'run-1' });
-  await startCookSlice({ cwd, runId: 'run-1' });
+  await createRun({ cwd, specId: '42', runId: 'run-1' });
+  await createWorktree({ cwd, runId: 'run-1' });
+  await populateWorktree({ cwd, runId: 'run-1' });
+  await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+  await copyHostSource({ cwd, runId: 'run-1' });
+  await initializeReports({ cwd, runId: 'run-1' });
+  await startSlice({ cwd, runId: 'run-1' });
 }
 
-describe('requestCookSliceExecution', () => {
+describe('requestSliceExecution', () => {
   it('does not request execution before a slice is active', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-missing-run-'));
-    const result = await requestCookSliceExecution({ cwd, runId: 'run-1' });
+    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'missing_run',
       runStatus: 'not_started',
       runId: 'run-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
   });
@@ -73,7 +73,7 @@ describe('requestCookSliceExecution', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-ready-'));
     await createSliceStartedRun(cwd);
 
-    const result = await requestCookSliceExecution({ cwd, runId: 'run-1' });
+    const result = await requestSliceExecution({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'slice_execution_requested',
@@ -81,18 +81,18 @@ describe('requestCookSliceExecution', () => {
       runId: 'run-1',
       sliceId: 'task-1',
       epicId: 'frontier-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
       requestPath: sliceExecutionRequestPath(cwd, 'run-1', 'task-1'),
       sideEffects: [
-        { kind: 'mkdir', path: join(cookRunDir(cwd, 'run-1'), 'agent-output', 'task-1') },
+        { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1') },
         {
           kind: 'write_file',
           path: sliceExecutionRequestPath(cwd, 'run-1', 'task-1'),
           ifExists: 'overwrite',
         },
         { kind: 'append_file', path: reportsPath(cwd, 'run-1') },
-        { kind: 'write_file', path: cookRunMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
       ],
     });
     expect(JSON.parse(await readFile(sliceExecutionRequestPath(cwd, 'run-1', 'task-1'), 'utf8'))).toEqual({
@@ -113,9 +113,9 @@ describe('requestCookSliceExecution', () => {
       sliceId: 'task-1',
       status: 'slice_execution_requested',
     });
-    expect(await pathExists(join(cookRunDir(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json'))).toBe(
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json'))).toBe(
       false,
     );
-    expect(await pathExists(join(cookRunDir(cwd, 'run-1'), 'petrinaut'))).toBe(false);
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
   });
 });

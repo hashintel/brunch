@@ -1,15 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import {
-  cookRunDir,
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
+import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
-export type CookPromotionPrepareResult =
+export type PromotionPrepareResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -19,7 +13,7 @@ export type CookPromotionPrepareResult =
     }
   | {
       readonly status: 'run_not_promotable';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -38,15 +32,15 @@ export type CookPromotionPrepareResult =
     };
 
 export function promotionReportPath(cwd: string, runId: string): string {
-  return join(cookRunDir(cwd, runId), 'promotion', 'promotion.json');
+  return join(runDirPath(cwd, runId), 'promotion', 'promotion.json');
 }
 
-export async function prepareCookPromotion(args: {
+export async function preparePromotion(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<CookPromotionPrepareResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<PromotionPrepareResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata)
     return {
       status: 'missing_run',
@@ -73,10 +67,10 @@ export async function prepareCookPromotion(args: {
     reportsPath: metadata.reportsPath ?? null,
     completedSliceIds: metadata.completedSliceIds ?? [],
   };
-  const updated: CookRunMetadata = { ...metadata, status: 'promotion_prepared', promotionPath: path };
+  const updated: RunMetadata = { ...metadata, status: 'promotion_prepared', promotionPath: path };
   await mkdir(dir, { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
   return {
     status: 'promotion_prepared',
     runStatus: 'promotion_prepared',

@@ -1,21 +1,16 @@
 import { cp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import {
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
-import { sourcePolicyPath, type CookSourcePolicyKind } from './source-policy.js';
-import { cookWorktreeDir } from './worktree.js';
+import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import { sourcePolicyPath, type SourcePolicyKind } from './source-policy.js';
+import { worktreeDirPath } from './worktree.js';
 
 const EXCLUDED_TOP_LEVEL_ENTRIES = new Set(['.brunch', '.git', 'node_modules', 'dist', 'build']);
 
 type CopyEntryEffect = { readonly kind: 'copy_entry'; readonly from: string; readonly to: string };
 type WriteFileEffect = { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' };
 
-export type CookSourceCopyResult =
+export type SourceCopyResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -25,7 +20,7 @@ export type CookSourceCopyResult =
     }
   | {
       readonly status: 'missing_source_policy';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
       readonly sourcePolicyPath: string;
@@ -33,10 +28,10 @@ export type CookSourceCopyResult =
     }
   | {
       readonly status: 'policy_skipped';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
-      readonly policy: CookSourcePolicyKind;
+      readonly policy: SourcePolicyKind;
       readonly sideEffects: readonly [];
     }
   | {
@@ -49,12 +44,12 @@ export type CookSourceCopyResult =
       readonly sideEffects: readonly [...CopyEntryEffect[], WriteFileEffect, WriteFileEffect];
     };
 
-export async function copyCookHostSource(args: {
+export async function copyHostSource(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<CookSourceCopyResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<SourceCopyResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -89,7 +84,7 @@ export async function copyCookHostSource(args: {
     };
   }
 
-  const worktreeDir = metadata.worktreeDir ?? cookWorktreeDir(args.cwd, args.runId);
+  const worktreeDir = metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
   const entries = (await readdir(args.cwd)).filter((entry) => !EXCLUDED_TOP_LEVEL_ENTRIES.has(entry)).sort();
   const copyEffects: CopyEntryEffect[] = [];
 
@@ -101,7 +96,7 @@ export async function copyCookHostSource(args: {
   }
 
   const updatedPolicy = { ...policy, hostSourceCopied: true, copiedEntries: entries };
-  const updatedMetadata: CookRunMetadata = {
+  const updatedMetadata: RunMetadata = {
     ...metadata,
     status: 'source_copied',
     sourceCopied: true,
@@ -109,7 +104,7 @@ export async function copyCookHostSource(args: {
   };
 
   await writeFile(policyPath, `${JSON.stringify(updatedPolicy, null, 2)}\n`, 'utf8');
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updatedMetadata);
+  const metadataEffect = await persistRunMetadata(metadataPath, updatedMetadata);
 
   return {
     status: 'source_copied',
@@ -128,12 +123,10 @@ export async function copyCookHostSource(args: {
 
 async function readSourcePolicy(
   path: string,
-): Promise<
-  { policy: CookSourcePolicyKind; hostSourceCopied: boolean; copiedEntries?: string[] } | undefined
-> {
+): Promise<{ policy: SourcePolicyKind; hostSourceCopied: boolean; copiedEntries?: string[] } | undefined> {
   try {
     return JSON.parse(await readFile(path, 'utf8')) as {
-      policy: CookSourcePolicyKind;
+      policy: SourcePolicyKind;
       hostSourceCopied: boolean;
       copiedEntries?: string[];
     };

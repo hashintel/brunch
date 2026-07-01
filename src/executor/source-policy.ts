@@ -2,17 +2,11 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { populatedPlanPath } from './populate.js';
-import {
-  cookRunDir,
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
+import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
-export type CookSourcePolicyKind = 'plan_only' | 'host_source_deferred';
+export type SourcePolicyKind = 'plan_only' | 'host_source_deferred';
 
-export type CookSourcePolicyResult =
+export type SourcePolicyResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -22,7 +16,7 @@ export type CookSourcePolicyResult =
     }
   | {
       readonly status: 'missing_populated_plan';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -33,7 +27,7 @@ export type CookSourcePolicyResult =
       readonly runId: string;
       readonly metadataPath: string;
       readonly sourcePolicyPath: string;
-      readonly policy: CookSourcePolicyKind;
+      readonly policy: SourcePolicyKind;
       readonly sideEffects: readonly [
         { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
         { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
@@ -41,16 +35,16 @@ export type CookSourcePolicyResult =
     };
 
 export function sourcePolicyPath(cwd: string, runId: string): string {
-  return join(cookRunDir(cwd, runId), 'source-policy.json');
+  return join(runDirPath(cwd, runId), 'source-policy.json');
 }
 
-export async function selectCookSourcePolicy(args: {
+export async function selectSourcePolicy(args: {
   readonly cwd: string;
   readonly runId: string;
-  readonly policy: CookSourcePolicyKind;
-}): Promise<CookSourcePolicyResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+  readonly policy: SourcePolicyKind;
+}): Promise<SourcePolicyResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -72,7 +66,7 @@ export async function selectCookSourcePolicy(args: {
   }
 
   const policyPath = sourcePolicyPath(args.cwd, args.runId);
-  const updated: CookRunMetadata = {
+  const updated: RunMetadata = {
     ...metadata,
     status: 'source_policy_selected',
     sourcePolicy: args.policy,
@@ -84,7 +78,7 @@ export async function selectCookSourcePolicy(args: {
     `${JSON.stringify({ policy: args.policy, hostSourceCopied: false }, null, 2)}\n`,
     'utf8',
   );
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
     status: 'source_policy_selected',

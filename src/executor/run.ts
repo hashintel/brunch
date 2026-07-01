@@ -2,9 +2,9 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
-import { prepareCookLaunch } from './launch.js';
+import { prepareLaunch } from './launch.js';
 
-export interface CookRunMetadata {
+export interface RunMetadata {
   readonly runId: string;
   readonly specId: string;
   readonly planPath: string;
@@ -40,7 +40,7 @@ export interface CookRunMetadata {
   readonly promotionPath?: string;
 }
 
-export type CookRunCreateResult =
+export type RunCreateResult =
   | {
       readonly status: 'missing_plan';
       readonly runStatus: 'not_started';
@@ -60,42 +60,42 @@ export type CookRunCreateResult =
       ];
     };
 
-export function cookRunDir(cwd: string, runId: string): string {
+export function runDirPath(cwd: string, runId: string): string {
   return join(cwd, BRUNCH_DIR, 'cook', 'runs', runId);
 }
 
-export function cookRunMetadataPath(cwd: string, runId: string): string {
-  return join(cookRunDir(cwd, runId), 'run.json');
+export function runMetadataPath(cwd: string, runId: string): string {
+  return join(runDirPath(cwd, runId), 'run.json');
 }
 
-export async function readCookRunMetadata(path: string): Promise<CookRunMetadata | undefined> {
+export async function readRunMetadata(path: string): Promise<RunMetadata | undefined> {
   try {
-    return JSON.parse(await readFile(path, 'utf8')) as CookRunMetadata;
+    return JSON.parse(await readFile(path, 'utf8')) as RunMetadata;
   } catch {
     return undefined;
   }
 }
 
-export interface CookRunMetadataWriteEffect {
+export interface RunMetadataWriteEffect {
   readonly kind: 'write_file';
   readonly path: string;
   readonly ifExists: 'overwrite';
 }
 
-export async function persistCookRunMetadata(
+export async function persistRunMetadata(
   metadataPath: string,
-  metadata: CookRunMetadata,
-): Promise<CookRunMetadataWriteEffect> {
+  metadata: RunMetadata,
+): Promise<RunMetadataWriteEffect> {
   await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
   return { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' };
 }
 
-export async function createCookRun(args: {
+export async function createRun(args: {
   readonly cwd: string;
   readonly specId: string;
   readonly runId?: string;
-}): Promise<CookRunCreateResult> {
-  const launch = await prepareCookLaunch({ cwd: args.cwd, specId: args.specId });
+}): Promise<RunCreateResult> {
+  const launch = await prepareLaunch({ cwd: args.cwd, specId: args.specId });
   if (launch.status === 'missing_plan') {
     return {
       status: 'missing_plan',
@@ -106,9 +106,9 @@ export async function createCookRun(args: {
   }
 
   const runId = args.runId ?? `run-${Date.now().toString(36)}`;
-  const runDir = cookRunDir(args.cwd, runId);
-  const metadataPath = cookRunMetadataPath(args.cwd, runId);
-  const metadata: CookRunMetadata = {
+  const runDir = runDirPath(args.cwd, runId);
+  const metadataPath = runMetadataPath(args.cwd, runId);
+  const metadata: RunMetadata = {
     runId,
     specId: args.specId,
     planPath: launch.planPath,

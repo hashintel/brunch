@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 
 import { agentResultPath } from '../agent-result.js';
 import { reportsPath } from '../report.js';
-import { cookRunDir, cookRunMetadataPath } from '../run.js';
-import { ingestCookTestResult, testResultPath } from '../test-result.js';
+import { runDirPath, runMetadataPath } from '../run.js';
+import { ingestTestResult, testResultPath } from '../test-result.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -19,9 +19,9 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 async function createAgentResultRun(cwd: string): Promise<void> {
-  const runDir = cookRunDir(cwd, 'run-1');
+  const runDir = runDirPath(cwd, 'run-1');
   const reportPath = reportsPath(cwd, 'run-1');
-  const metadataPath = cookRunMetadataPath(cwd, 'run-1');
+  const metadataPath = runMetadataPath(cwd, 'run-1');
   const resultPath = agentResultPath(cwd, 'run-1', 'task-1');
   await mkdir(join(runDir, 'agent-output', 'task-1'), { recursive: true });
   await writeFile(resultPath, JSON.stringify({ status: 'completed', summary: 'Implemented task.' }), 'utf8');
@@ -42,25 +42,25 @@ async function createAgentResultRun(cwd: string): Promise<void> {
   );
 }
 
-describe('ingestCookTestResult', () => {
+describe('ingestTestResult', () => {
   it('does not ingest when run metadata is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-test-result-missing-run-'));
-    const result = await ingestCookTestResult({ cwd, runId: 'run-1' });
+    const result = await ingestTestResult({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'missing_run',
       runStatus: 'not_started',
       runId: 'run-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
   });
 
   it('does not ingest before agent result has been ingested', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-test-result-not-ready-'));
-    await mkdir(cookRunDir(cwd, 'run-1'), { recursive: true });
+    await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
     await writeFile(
-      cookRunMetadataPath(cwd, 'run-1'),
+      runMetadataPath(cwd, 'run-1'),
       JSON.stringify({
         runId: 'run-1',
         specId: '42',
@@ -70,13 +70,13 @@ describe('ingestCookTestResult', () => {
       'utf8',
     );
 
-    const result = await ingestCookTestResult({ cwd, runId: 'run-1' });
+    const result = await ingestTestResult({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'agent_result_not_ingested',
       runStatus: 'slice_execution_requested',
       runId: 'run-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
   });
@@ -85,7 +85,7 @@ describe('ingestCookTestResult', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-test-result-missing-result-'));
     await createAgentResultRun(cwd);
 
-    const result = await ingestCookTestResult({ cwd, runId: 'run-1' });
+    const result = await ingestTestResult({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'missing_test_result',
@@ -93,7 +93,7 @@ describe('ingestCookTestResult', () => {
       runId: 'run-1',
       sliceId: 'task-1',
       resultPath: testResultPath(cwd, 'run-1', 'task-1'),
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
   });
@@ -104,7 +104,7 @@ describe('ingestCookTestResult', () => {
     const resultPath = testResultPath(cwd, 'run-1', 'task-1');
     await writeFile(resultPath, JSON.stringify({ status: 'passed', target: 'tests/task-1.test.ts' }), 'utf8');
 
-    const result = await ingestCookTestResult({ cwd, runId: 'run-1' });
+    const result = await ingestTestResult({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'test_result_ingested',
@@ -113,11 +113,11 @@ describe('ingestCookTestResult', () => {
       sliceId: 'task-1',
       epicId: 'frontier-1',
       resultPath,
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
       sideEffects: [
         { kind: 'append_file', path: reportsPath(cwd, 'run-1') },
-        { kind: 'write_file', path: cookRunMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
       ],
     });
     const reports = (await readFile(reportsPath(cwd, 'run-1'), 'utf8'))
@@ -132,11 +132,11 @@ describe('ingestCookTestResult', () => {
       status: 'passed',
       target: 'tests/task-1.test.ts',
     });
-    expect(JSON.parse(await readFile(cookRunMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'test_result_ingested',
       testResultPath: resultPath,
     });
-    expect(await pathExists(join(cookRunDir(cwd, 'run-1'), 'petrinaut'))).toBe(false);
-    expect(await pathExists(join(cookRunDir(cwd, 'run-1'), 'promotion'))).toBe(false);
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'promotion'))).toBe(false);
   });
 });

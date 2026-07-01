@@ -1,41 +1,38 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import {
-  ingestCookAgentResult,
-  type CookAgentResultIngestResult,
-} from '../../../../executor/agent-result.js';
+import { ingestAgentResult, type AgentResultIngestResult } from '../../../../executor/agent-result.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookAgentResultParams = Type.Object({
-  runId: Type.String({ description: 'Cook run id with a requested active slice.' }),
+const ExecuteAgentResultParams = Type.Object({
+  runId: Type.String({ description: 'Run id with a requested active slice.' }),
 });
 
-type ExecuteCookAgentResultParams = Static<typeof ExecuteCookAgentResultParams>;
+type ExecuteAgentResultParams = Static<typeof ExecuteAgentResultParams>;
 
-interface ExecuteCookAgentResultDetails {
-  readonly result: CookAgentResultIngestResult;
-  readonly sideEffects: CookAgentResultIngestResult['sideEffects'];
+interface ExecuteAgentResultDetails {
+  readonly result: AgentResultIngestResult;
+  readonly sideEffects: AgentResultIngestResult['sideEffects'];
 }
 
-export function createExecuteCookAgentResultTool(): ToolDefinition<
-  typeof ExecuteCookAgentResultParams,
-  ExecuteCookAgentResultDetails
+export function createExecuteAgentResultTool(): ToolDefinition<
+  typeof ExecuteAgentResultParams,
+  ExecuteAgentResultDetails
 > {
   return {
     name: BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
     label: 'execute_agent_result',
     description:
       'Ingest a prewritten agent result for the active slice. Does not launch agents, run tests, or create Petri artifacts.',
-    parameters: ExecuteCookAgentResultParams,
+    parameters: ExecuteAgentResultParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_agent_result requires an active cwd');
       }
-      const result = await ingestCookAgentResult({ cwd, runId: params.runId });
+      const result = await ingestAgentResult({ cwd, runId: params.runId });
       return {
         content: [
           {
@@ -54,8 +51,8 @@ export function createExecuteCookAgentResultTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteCookAgentResult(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteCookAgentResultTool() as never);
+export function registerBrunchExecuteAgentResult(pi: ExtensionAPI): void {
+  pi.registerTool(createExecuteAgentResultTool() as never);
 }
 
-export default registerBrunchExecuteCookAgentResult;
+export default registerBrunchExecuteAgentResult;

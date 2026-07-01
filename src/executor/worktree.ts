@@ -1,15 +1,9 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import {
-  cookRunDir,
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
+import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
-export type CookWorktreeCreateResult =
+export type WorktreeCreateResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -30,16 +24,16 @@ export type CookWorktreeCreateResult =
       ];
     };
 
-export function cookWorktreeDir(cwd: string, runId: string): string {
-  return join(cookRunDir(cwd, runId), 'worktree');
+export function worktreeDirPath(cwd: string, runId: string): string {
+  return join(runDirPath(cwd, runId), 'worktree');
 }
 
-export async function createCookWorktree(args: {
+export async function createWorktree(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<CookWorktreeCreateResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<WorktreeCreateResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -50,12 +44,12 @@ export async function createCookWorktree(args: {
     };
   }
 
-  const runDir = cookRunDir(args.cwd, args.runId);
-  const worktreeDir = cookWorktreeDir(args.cwd, args.runId);
-  const updated: CookRunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
+  const runDir = runDirPath(args.cwd, args.runId);
+  const worktreeDir = worktreeDirPath(args.cwd, args.runId);
+  const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
 
   await mkdir(worktreeDir, { recursive: true });
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
     status: 'worktree_created',

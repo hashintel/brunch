@@ -2,40 +2,40 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import { Type, type Static } from 'typebox';
 
 import {
-  requestCookSliceExecution,
-  type CookSliceExecutionRequestResult,
+  requestSliceExecution,
+  type SliceExecutionRequestResult,
 } from '../../../../executor/slice-execute.js';
 import { BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookSliceExecuteParams = Type.Object({
-  runId: Type.String({ description: 'Cook run id whose active slice has been marked started.' }),
+const ExecuteSliceExecuteParams = Type.Object({
+  runId: Type.String({ description: 'Run id whose active slice has been marked started.' }),
 });
 
-type ExecuteCookSliceExecuteParams = Static<typeof ExecuteCookSliceExecuteParams>;
+type ExecuteSliceExecuteParams = Static<typeof ExecuteSliceExecuteParams>;
 
-interface ExecuteCookSliceExecuteDetails {
-  readonly result: CookSliceExecutionRequestResult;
-  readonly sideEffects: CookSliceExecutionRequestResult['sideEffects'];
+interface ExecuteSliceExecuteDetails {
+  readonly result: SliceExecutionRequestResult;
+  readonly sideEffects: SliceExecutionRequestResult['sideEffects'];
 }
 
-export function createExecuteCookSliceExecuteTool(): ToolDefinition<
-  typeof ExecuteCookSliceExecuteParams,
-  ExecuteCookSliceExecuteDetails
+export function createExecuteSliceExecuteTool(): ToolDefinition<
+  typeof ExecuteSliceExecuteParams,
+  ExecuteSliceExecuteDetails
 > {
   return {
     name: BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL,
     label: 'execute_slice_execute',
     description:
       'Create an execution request artifact for the active slice. Does not run agents, tests, or Petri transitions.',
-    parameters: ExecuteCookSliceExecuteParams,
+    parameters: ExecuteSliceExecuteParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_slice_execute requires an active cwd');
       }
-      const result = await requestCookSliceExecution({ cwd, runId: params.runId });
+      const result = await requestSliceExecution({ cwd, runId: params.runId });
       return {
         content: [
           {
@@ -54,8 +54,8 @@ export function createExecuteCookSliceExecuteTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteCookSliceExecute(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteCookSliceExecuteTool() as never);
+export function registerBrunchExecuteSliceExecute(pi: ExtensionAPI): void {
+  pi.registerTool(createExecuteSliceExecuteTool() as never);
 }
 
-export default registerBrunchExecuteCookSliceExecute;
+export default registerBrunchExecuteSliceExecute;

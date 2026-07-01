@@ -1,15 +1,10 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import {
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
-import { cookWorktreeDir } from './worktree.js';
+import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import { worktreeDirPath } from './worktree.js';
 
-export type CookPopulateResult =
+export type PopulateResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -19,7 +14,7 @@ export type CookPopulateResult =
     }
   | {
       readonly status: 'missing_worktree';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly worktreeDir: string;
       readonly metadataPath: string;
@@ -40,15 +35,15 @@ export type CookPopulateResult =
     };
 
 export function populatedPlanPath(cwd: string, runId: string): string {
-  return join(cookWorktreeDir(cwd, runId), '.brunch', 'cook', 'plan.yaml');
+  return join(worktreeDirPath(cwd, runId), '.brunch', 'cook', 'plan.yaml');
 }
 
-export async function populateCookWorktree(args: {
+export async function populateWorktree(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<CookPopulateResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<PopulateResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -59,7 +54,7 @@ export async function populateCookWorktree(args: {
     };
   }
 
-  const worktreeDir = cookWorktreeDir(args.cwd, args.runId);
+  const worktreeDir = worktreeDirPath(args.cwd, args.runId);
   if (!(await pathExists(worktreeDir))) {
     return {
       status: 'missing_worktree',
@@ -73,7 +68,7 @@ export async function populateCookWorktree(args: {
 
   const destination = populatedPlanPath(args.cwd, args.runId);
   const destinationDir = dirname(destination);
-  const updated: CookRunMetadata = {
+  const updated: RunMetadata = {
     ...metadata,
     status: 'worktree_populated',
     worktreeDir,
@@ -82,7 +77,7 @@ export async function populateCookWorktree(args: {
 
   await mkdir(destinationDir, { recursive: true });
   await writeFile(destination, await readFile(metadata.planPath, 'utf8'), 'utf8');
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
     status: 'worktree_populated',

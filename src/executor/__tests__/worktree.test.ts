@@ -4,9 +4,9 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { cookPlanFilePath } from '../plan-file.js';
-import { cookRunDir, cookRunMetadataPath, createCookRun } from '../run.js';
-import { cookWorktreeDir, createCookWorktree } from '../worktree.js';
+import { planFilePath } from '../plan-file.js';
+import { runDirPath, runMetadataPath, createRun } from '../run.js';
+import { worktreeDirPath, createWorktree } from '../worktree.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -17,50 +17,50 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-describe('createCookWorktree', () => {
+describe('createWorktree', () => {
   it('does not create a worktree when run metadata is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-missing-'));
-    const result = await createCookWorktree({ cwd, runId: 'run-1' });
+    const result = await createWorktree({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'missing_run',
       runStatus: 'not_started',
       runId: 'run-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
-    expect(await pathExists(cookWorktreeDir(cwd, 'run-1'))).toBe(false);
+    expect(await pathExists(worktreeDirPath(cwd, 'run-1'))).toBe(false);
   });
 
   it('creates only an empty worktree directory for an existing run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-ready-'));
-    const planPath = cookPlanFilePath(cwd, '42');
+    const planPath = planFilePath(cwd, '42');
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
-    await createCookRun({ cwd, specId: '42', runId: 'run-1' });
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
 
-    const result = await createCookWorktree({ cwd, runId: 'run-1' });
+    const result = await createWorktree({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'worktree_created',
       runStatus: 'worktree_created',
       runId: 'run-1',
-      runDir: cookRunDir(cwd, 'run-1'),
-      worktreeDir: cookWorktreeDir(cwd, 'run-1'),
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      runDir: runDirPath(cwd, 'run-1'),
+      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [
-        { kind: 'mkdir', path: cookWorktreeDir(cwd, 'run-1') },
-        { kind: 'write_file', path: cookRunMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        { kind: 'mkdir', path: worktreeDirPath(cwd, 'run-1') },
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
       ],
     });
-    expect(await pathExists(cookWorktreeDir(cwd, 'run-1'))).toBe(true);
-    expect(JSON.parse(await readFile(cookRunMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+    expect(await pathExists(worktreeDirPath(cwd, 'run-1'))).toBe(true);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       runId: 'run-1',
       status: 'worktree_created',
-      worktreeDir: cookWorktreeDir(cwd, 'run-1'),
+      worktreeDir: worktreeDirPath(cwd, 'run-1'),
     });
-    expect(await pathExists(join(cookRunDir(cwd, 'run-1'), 'petrinaut'))).toBe(false);
-    expect(await pathExists(join(cookRunDir(cwd, 'run-1'), 'reports.jsonl'))).toBe(false);
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'reports.jsonl'))).toBe(false);
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'land'))).toBe(false);
   });
 });

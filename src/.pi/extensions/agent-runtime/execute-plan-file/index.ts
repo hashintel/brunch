@@ -2,14 +2,14 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import { Type, type Static } from 'typebox';
 
 import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
-import { writeCookPlanFile } from '../../../../executor/plan-file.js';
-import type { CookPlanPreview } from '../../../../executor/plan-preview.js';
+import { writePlanFile } from '../../../../executor/plan-file.js';
+import type { PlanPreview } from '../../../../executor/plan-preview.js';
 import { BRUNCH_EXECUTE_PLAN_FILE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
 export { BRUNCH_EXECUTE_PLAN_FILE_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookPlanFileParams = Type.Object({
+const ExecutePlanFileParams = Type.Object({
   mode: Type.Optional(
     Type.Union([Type.Literal('greenfield'), Type.Literal('brownfield')], {
       description:
@@ -18,29 +18,29 @@ const ExecuteCookPlanFileParams = Type.Object({
   ),
 });
 
-type ExecuteCookPlanFileParams = Static<typeof ExecuteCookPlanFileParams>;
+type ExecutePlanFileParams = Static<typeof ExecutePlanFileParams>;
 
-interface ExecuteCookPlanFileDetails {
-  readonly preview: CookPlanPreview;
+interface ExecutePlanFileDetails {
+  readonly preview: PlanPreview;
   readonly artifact: { readonly path: string; readonly writeMode: 'overwrite' };
   readonly source: { readonly graphLsn: number; readonly visibility: 'active' };
   readonly sideEffects: readonly [{ readonly kind: 'write_file'; readonly path: string }];
 }
 
-export interface ExecuteCookPlanFileDeps {
+export interface ExecutePlanFileDeps {
   readonly specId: number;
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecuteCookPlanFileTool(
-  deps: ExecuteCookPlanFileDeps,
-): ToolDefinition<typeof ExecuteCookPlanFileParams, ExecuteCookPlanFileDetails> {
+export function createExecutePlanFileTool(
+  deps: ExecutePlanFileDeps,
+): ToolDefinition<typeof ExecutePlanFileParams, ExecutePlanFileDetails> {
   return {
     name: BRUNCH_EXECUTE_PLAN_FILE_TOOL,
     label: 'execute_plan_file',
     description:
       'Write an old-cook-compatible plan.yaml under .brunch/cook/specs/<specId>. Does not create cook runs or worktrees.',
-    parameters: ExecuteCookPlanFileParams,
+    parameters: ExecutePlanFileParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
@@ -54,8 +54,8 @@ export function createExecuteCookPlanFileTool(
         nodes: graph.nodes,
         edges: graph.edges,
       });
-      const preview = projection.cookPlanPreview;
-      const artifact = await writeCookPlanFile({ cwd, preview });
+      const preview = projection.planPreview;
+      const artifact = await writePlanFile({ cwd, preview });
       return {
         content: [
           {
@@ -80,8 +80,8 @@ export function createExecuteCookPlanFileTool(
   };
 }
 
-export function registerBrunchExecuteCookPlanFile(pi: ExtensionAPI, deps: ExecuteCookPlanFileDeps): void {
-  pi.registerTool(createExecuteCookPlanFileTool(deps) as never);
+export function registerBrunchExecutePlanFile(pi: ExtensionAPI, deps: ExecutePlanFileDeps): void {
+  pi.registerTool(createExecutePlanFileTool(deps) as never);
 }
 
-export default registerBrunchExecuteCookPlanFile;
+export default registerBrunchExecutePlanFile;

@@ -45,6 +45,6 @@ describe('projectExecuteGraph', () => {
     expect(projection.check.status).toBe('ok');
     expect(projection.outline.frontiers[0]?.tasks[0]?.requirementId).toBe('REQ1');
     expect(projection.draft.slices[0]?.requirementId).toBe('REQ1');
-    expect(projection.cookPlanPreview.slices[0]?.derived_from).toEqual(['REQ1']);
+    expect(projection.planPreview.slices[0]?.derived_from).toEqual(['REQ1']);
   });
 });

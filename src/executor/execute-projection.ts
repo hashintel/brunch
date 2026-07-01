@@ -7,7 +7,7 @@ import {
   type ExecutionSpecSnapshot,
   type ProjectExecutionSpecSnapshotInput,
 } from './execution-spec-snapshot.js';
-import { previewCookPlan, type CookPlanPreview } from './plan-preview.js';
+import { previewPlan, type PlanPreview } from './plan-preview.js';
 
 export interface ExecuteGraphProjectionSource {
   readonly graphLsn: number;
@@ -20,7 +20,7 @@ export interface ExecuteGraphProjection {
   readonly check: ExecutePlanCheckResult;
   readonly outline: ExecutionPlanOutline;
   readonly draft: ExecutablePlanDraft;
-  readonly cookPlanPreview: CookPlanPreview;
+  readonly planPreview: PlanPreview;
 }
 
 export interface ProjectExecuteGraphInput extends Omit<ProjectExecutionSpecSnapshotInput, 'mode'> {
@@ -44,6 +44,6 @@ export function projectExecuteGraph(input: ProjectExecuteGraphInput): ExecuteGra
     check: checkExecutionSpecForPlan(snapshot),
     outline,
     draft,
-    cookPlanPreview: previewCookPlan(draft),
+    planPreview: previewPlan(draft),
   };
 }
