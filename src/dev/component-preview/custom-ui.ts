@@ -1,9 +1,12 @@
 import type { KeybindingsManager, Theme } from '@earendil-works/pi-coding-agent';
 import type { Component, OverlayHandle, OverlayOptions, TUI } from '@earendil-works/pi-tui';
 
+import { parseWheelEvent } from '../../.pi/components/mouse-wheel.js';
+
 export interface ComponentPreviewCustomOptions {
   readonly overlay?: boolean;
   readonly overlayOptions?: OverlayOptions | (() => OverlayOptions);
+  readonly wheelScroll?: boolean;
 }
 
 export type ComponentPreviewFactory<T> = (
@@ -12,6 +15,11 @@ export type ComponentPreviewFactory<T> = (
   keybindings: KeybindingsManager,
   done: (result?: T) => void,
 ) => Component;
+
+const ENABLE_SGR_MOUSE = '\x1b[?1000h\x1b[?1006h';
+const DISABLE_SGR_MOUSE = '\x1b[?1006l\x1b[?1000l';
+const ARROW_UP = '\x1b[A';
+const ARROW_DOWN = '\x1b[B';
 
 /**
  * Mirrors the real `ExtensionUIContext.custom` calling contract — the shape
@@ -44,15 +52,26 @@ export function showComponentPreview<T>(
     let closed = false;
     let overlayHandle: OverlayHandle | undefined;
     let component: Component;
+    let removeWheelListener: (() => void) | undefined;
     const close = (result?: T) => {
       if (closed) return;
       closed = true;
+      removeWheelListener?.();
+      if (options?.wheelScroll) tui.terminal.write(DISABLE_SGR_MOUSE);
       if (isOverlay) overlayHandle?.hide();
       else tui.removeChild(component);
       tui.requestRender();
       resolve(result);
     };
     component = factory(tui, theme, keybindings, close);
+    if (options?.wheelScroll) {
+      tui.terminal.write(ENABLE_SGR_MOUSE);
+      removeWheelListener = tui.addInputListener((data) => {
+        const wheel = parseWheelEvent(data);
+        if (!wheel) return undefined;
+        return { data: wheel === 'up' ? ARROW_UP : ARROW_DOWN };
+      });
+    }
     if (isOverlay) {
       const resolvedOverlayOptions =
         typeof options?.overlayOptions === 'function' ? options.overlayOptions() : options?.overlayOptions;

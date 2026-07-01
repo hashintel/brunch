@@ -154,6 +154,7 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
           }),
         {
           overlay: true,
+          wheelScroll: true,
           overlayOptions: { anchor: 'center', width: WORKSPACE_DIALOG_WIDTH, maxHeight: '90%', margin: 1 },
         },
       ),

@@ -32,6 +32,8 @@ components/
 ├── chrome-header.ts
 ├── lateral-padding.ts          transparent horizontal padding wrapper
 ├── multi-choice-picker.ts      focused checkbox-style exchange response picker
+├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
+│                                preview harness; components still receive ordinary key bytes
 ├── scroll-viewport.ts          projectScrollViewport() — pure scroll-window + thumb-row primitive,
 │                                sibling to projectBorderedChrome; wired into workspace-dialog today
 ├── runtime-posture/             private sub-tree for runtime posture pickers

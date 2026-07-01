@@ -75,8 +75,12 @@ components are render-only with injectable `theme`/props.
   fixture long enough to overflow `WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS`, demonstrating
   `projectScrollViewport`'s windowing and `▐` border-folded scroll thumb
   (`.pi/components/scroll-viewport.ts`) live: `npm run dev:components -- workspace-dialog-scroll`,
-  then arrow-down/up past the visible window. No new preview lane or wrapper component was needed —
-  it is a fixture variation on the existing `ctx.ui.custom` overlay lane.
+  then arrow-down/up or wheel-scroll past the visible window. Wheel handling is an explicit
+  `showComponentPreview(..., { wheelScroll: true })` opt-in for this preview entry: the shim owns
+  SGR mouse enable/disable and forwards recognized wheel events as the same arrow-key bytes the
+  component already handles. No new preview lane or wrapper component was needed — it is a fixture
+  variation on the existing `ctx.ui.custom` overlay lane. Real physical terminal wheel emission
+  remains a manual smoke-test residual; the automated harness injects the SGR bytes directly.
 - A fourth, `[experimental]` entry (`brunch-editor`) previews `ctx.ui.setEditorComponent` —
   `BrunchEditorComponent` (`.pi/components/brunch-editor.ts`) wraps `CustomEditor` in a `│`-bordered box
   with runtime-state labels baked into the border corners, since the default `Editor` has no side
