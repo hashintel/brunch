@@ -2,7 +2,14 @@ import { appendFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { reportsPath } from './report.js';
-import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import {
+  assertSafeSliceId,
+  runDirPath,
+  runMetadataPath,
+  persistRunMetadata,
+  readRunMetadata,
+  type RunMetadata,
+} from './run.js';
 
 interface TestResultPayload {
   readonly status?: string;
@@ -49,6 +56,7 @@ export type TestResultIngestResult =
     };
 
 export function testResultPath(cwd: string, runId: string, sliceId: string): string {
+  assertSafeSliceId(sliceId);
   return join(runDirPath(cwd, runId), 'agent-output', sliceId, 'test-result.json');
 }
 
