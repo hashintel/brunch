@@ -21,6 +21,15 @@ export type WorktreeCreateResult =
       readonly sideEffects: readonly [];
     }
   | {
+      readonly status: 'already_created';
+      readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly runDir: string;
+      readonly worktreeDir: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
       readonly status: 'worktree_created';
       readonly runStatus: 'worktree_created';
       readonly runId: string;
@@ -56,6 +65,22 @@ export async function createWorktree(args: {
 
   const runDir = runDirPath(args.cwd, args.runId);
   const worktreeDir = worktreeDirPath(args.cwd, args.runId);
+
+  // Idempotent: if the worktree was already created, do not re-run
+  // `git worktree add` (it fails when the directory already exists). The
+  // previous mkdir-based path could be safely retried; preserve that.
+  if (metadata.worktreeDir) {
+    return {
+      status: 'already_created',
+      runStatus: metadata.status,
+      runId: args.runId,
+      runDir,
+      worktreeDir: metadata.worktreeDir,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
   const worktreeResult = await args.gitWorktree.create({ cwd: args.cwd, worktreeDir, ref: 'HEAD' });
   if (worktreeResult.status === 'failed') {
     return {

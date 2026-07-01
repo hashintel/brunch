@@ -72,7 +72,7 @@ async function createTwoSliceReportReadyRun(cwd: string): Promise<void> {
     'utf8',
   );
   await createRun({ cwd, specId: '42', runId: 'run-1' });
-  await createWorktree({ cwd, runId: 'run-1' });
+  await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
   await populateWorktree({ cwd, runId: 'run-1' });
   await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
   await copyHostSource({ cwd, runId: 'run-1' });
