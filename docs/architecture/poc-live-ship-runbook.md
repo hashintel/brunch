@@ -48,8 +48,8 @@ Each row names the public surface and the artifact to capture before moving on.
 | 4 | TUI exchange surface | Answer the next-best question with a directly stated fact that can close or update a gap. | `accepted-gaps-before.json`; `accepted-gaps-after.json`; answer excerpt in `report.json`. |
 | 5 | Product graph path | Confirm high-confidence generalized capture committed graph truth through the normal command layer. | `graph-summary-before.json`; `graph-summary-after.json` with LSN increase and committed node titles. |
 | 6 | Web observer | Confirm the web sidecar reflects the graph update for the selected spec. | `web-observer-after.md` and optional screenshot path in `report.json`. |
-| 7 | TUI posture switch | Switch strategy or lens from the TUI runtime-axis affordance. | `posture-before.md`; `posture-after.md`; `runtime-state-before.json`; `runtime-state-after.json`. |
-| 8 | Prompt observable | Trigger or resume a turn after the posture switch so the composed system prompt mirror updates. | `system-prompt-before.md`; `system-prompt-after.md`; `posture-diff.md`. |
+| 7 | TUI mode switch | Switch the operational mode from Specify to Execute (or back) using the TUI mode affordance. | `mode-before.md`; `mode-after.md`; `runtime-state-before.json`; `runtime-state-after.json`. |
+| 8 | Prompt observable | Trigger or resume a turn after the mode switch so the composed system prompt mirror updates. | `system-prompt-before.md`; `system-prompt-after.md`; `mode-diff.md`. |
 
 Stop and record a defect if any step requires importing `createRpcHandlers`, `createWorkspaceSessionCoordinator`, `createBrunchAgentSessionRuntimeFactory`, reading SQLite directly for the claim, or mutating through a non-product helper.
 
@@ -69,7 +69,7 @@ A committed run directory uses this shape:
 ├── runtime-state-after.json
 ├── system-prompt-before.md
 ├── system-prompt-after.md
-├── posture-diff.md
+├── mode-diff.md
 ├── web-observer-before.md
 ├── web-observer-after.md
 ├── entry-contents.md
@@ -98,16 +98,16 @@ A committed run directory uses this shape:
     "questionAnswerGapWriteback": true,
     "highConfidenceCaptureCommitted": true,
     "webObserverReflectedGraphUpdate": true,
-    "postureSwitchChangedPrompt": true
+    "modeSwitchChangedPrompt": true
   },
   "graph": {
     "before": { "lsn": 2, "nodeCount": 4, "edgeCount": 2 },
     "after": { "lsn": 3, "nodeCount": 5, "edgeCount": 2 },
     "committedNodeTitles": ["<directly stated fact captured by the live turn>"]
   },
-  "posture": {
-    "before": { "strategy": "auto", "lens": "auto" },
-    "after": { "strategy": "propose-graph", "lens": "intent" },
+  "mode": {
+    "before": { "operationalMode": "elicit", "label": "Specify" },
+    "after": { "operationalMode": "execute", "label": "Execute" },
     "systemPromptChanged": true
   },
   "friction": [],
@@ -117,8 +117,8 @@ A committed run directory uses this shape:
     "reportJson": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/report.json",
     "graphBefore": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/graph-summary-before.json",
     "graphAfter": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/graph-summary-after.json",
-    "postureBefore": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/system-prompt-before.md",
-    "postureAfter": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/system-prompt-after.md"
+    "modeBefore": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/system-prompt-before.md",
+    "modeAfter": "runs/ship-gate-runbook/2026-06-22T00-00-00Z/system-prompt-after.md"
   }
 }
 ```

@@ -15,7 +15,7 @@
 
 Brunch-next has delivered the original composition spine: the host, sealed Pi profile, transcript substrate, SQLite graph plane, public RPC, TUI/web observer shape, generalized capture, review-set commitment path, and public-entry ship gate all have evidence. The live plan is no longer organized around the old delivery cut. Active work is now the elicitor capability spine and the remaining hardening frontiers that build on that substrate.
 
-**Live arc.** The remaining active initiative is the **elicitor-capability-spine** arc (`capture` / `generate` done, `project` next). Closed arc detail no longer lives in the rolling plan.
+**Live arc.** The **elicitor-capability-spine** arc (`capture` / `generate` / `project`) is done for the current POC capability surface. The retired strategy/lens/method runtime trees are no longer part of live product topology; current capability work routes through the code-owned first-level skill manifest and activity-named skill homes. Closed arc detail no longer lives in the rolling plan.
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -30,22 +30,21 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
      including reconciliation of co-located topology files and discharge of any standing-obligation
      residue scoped to it. Arc completion is the trigger for residue that no future frontier touches. -->
 
-### elicitor-capability-spine — ◐ active
+### elicitor-capability-spine — ✓ done
 
-- **Goal:** build `capture` / `generate` / `project` over the frozen `strategy` / `lens` / `method` axes (A35-L), on top of the skill-substrate arc.
+- **Goal:** build `capture` / `generate` / `project` over the elicitor capability spine without reviving the retired `strategy` / `lens` / `method` runtime axes (A35-L), on top of the skill-substrate arc.
 - **Members:**
   - `capture` ✓ done via generalized capture (D80-L–D82-L).
   - `generate` ✓ done through promoted real-model fan-out evidence (FE-1059): one plane-parameterized `generate-proposal` method, `present_candidates` unstubbed, fan-in as method conduct (`pick` / `synthesize` / `compose`), promoted I51-L no-write evidence.
-  - `project` → `elicitor-project` (FE-1085), **active, design-gated** (A33-L): cross-plane derivation may fold into `generate` or need a distinct surface.
+  - `project` ✓ done via FE-1085: distinct first-level live `project` guidance derives downstream plane material from accepted graph anchors over existing exchange and review-set seams (D100-L).
   - `acquire` rides the completed subagent-reconciliation substrate (A34-L), not its own frontier.
-- **Done-definition:** all three capabilities carry promoted real-model evidence; no capability remains a stub or a method-less axis member.
+- **Done-definition:** all three capabilities have live non-stub homes/evidence appropriate to their seam: `capture` and `generate` carry promoted model/runtime evidence; `project` is prompt-resource guidance only, witnessed through the live manifest/prompt path because FE-1085 adds no product tool or schema seam.
 - **Anchors:** D95-L, D96-L; A31-L–A35-L; I51-L.
 
 ## Sequencing
 
 ### Active
 
-- `elicitor-project` (FE-1085) — **design-gated proving frontier.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before scope/build.
 - `orchestrator-tool-port` (FE-1087) — **D98-sensitive proving frontier.** Port the external `brunch cook` orchestrator into CODE/executor tooling, not a separate execute/orchestrator product mode.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 - `structured-exchange-affordance` — **earned hardening.** Collapse recurring discriminant-companion and nested-payload affordance failures into clearer schema/tool contracts.
@@ -53,6 +52,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Recently Completed
 
+- 2026-06-30 `elicitor-project` (FE-1085) — project canonicalized as a first-level live skill home over existing exchange/review-set seams; A33-L validated, D100-L added, and the prompt manifest witnesses `project`.
 - 2026-06-29 `spec-structural-relief` — SPEC slimmed from long-form register to compact live index; pre-slim snapshot archived in `docs/archive/SPEC_HISTORY.md`.
 - 2026-06-26 `renderer-golden-coverage` (FE-1091) — context pipeline done; prompt/subagent topology flattened and locked.
 - 2026-06-26 `data-model-legibility` (FE-1090) — reference substrate complete; generated ontology tables and authored graph heuristics have canonical homes.
@@ -104,17 +104,17 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Name:** Elicitor `project` capability — cross-plane derivation
 - **Linear:** [FE-1085](https://linear.app/hash/issue/FE-1085) — elicitor project capability design
-- **Branch:** tbd
+- **Branch:** `ln/fe-1085-elicitor-project-prep`
 - **Kind:** structural / capability
-- **Status:** active; design-gated by A33-L.
-- **Certainty:** proving; the first deliverable is a design verdict, not code.
-- **Retires:** A33-L by deciding whether cross-plane derivation is a `generate` extension or a distinct `project` surface.
+- **Status:** done.
+- **Certainty:** proving.
+- **Retires:** A33-L by materializing the branch-implied distinct `project` surface into canon and the live skill manifest.
 - **Lights up:** requirements/design/oracle cross-plane derivation over the frozen elicitor capability axes.
-- **Objective:** Decide whether cross-plane derivation folds into `generate` with an upstream-graph input or needs a distinct surface for target-plane nodes + connecting cross-plane edges.
-- **Acceptance:**
-  - Run `ln-design` with at least three module shapes and a recommendation.
-  - If distinct, subsequent scope/build uses the review-set path for commitment (I51-L) and role-named `mutateGraph` grammar for edges.
-  - The old `oracle-design-plan-graphs` horizon concern is resolved here: lifting oracle/design/plan planes beyond stubs is either `project` itself or a direct consequence of the chosen `project` shape, not a separate frontier until design proves otherwise.
+- **Objective:** Materialize cross-plane derivation as a distinct first-level live `project` move over the existing exchange triad and review-set commitment path, without introducing a new tool, schema family, or direct graph-write seam.
+- **Acceptance:** done.
+  - `memory/SPEC.md`, `memory/PLAN.md`, and the touched parent topology homes state one consistent shape: `project` is a distinct first-level live skill home, not a `generate` branch.
+  - The live skill manifest includes `project`, and its guidance covers accepted-graph derivation lanes such as intent → design and design → oracle.
+  - `project` reuses `present_candidates`, `request_response`, `present_review_set`, and the existing `map` / review-set commitment boundary; it does not add a new product tool or exchange schema family.
   - D97-L provenance applies: cite ontology/render surfaces, do not copy vocabulary lists into the skill.
 - **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L; D60-L.
 
@@ -155,21 +155,16 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Status:** active candidate.
 - **Certainty:** proving.
 - **Lights up:** model-facing "what next?" guidance derived from graph topology, readiness bands, and current elicitation state.
-- **Stabilizes:** the boundary between generated gap guidance and persisted `reconciliation_need` / `elicitation_gap` records.
+- **Stabilizes:** the boundary between generated gap guidance, advisory graph capture, persisted `reconciliation_need` records, and `elicitation_gap` records.
 - **Objective:** Give the elicitor a graph-shaped asking agenda for next useful questions without turning prompt examples into a parallel gap ontology.
-- **Acceptance:** Guidance is derived from current graph/readiness context and rendered into elicitor context; it distinguishes suggested next questions from committed graph truth; existing registered gaps remain rankable but are not the only source of asking guidance.
-- **Traceability:** D56-L, D64-L, D65-L, D94-L, D97-L.
+- **Acceptance:** Guidance is derived from current graph/readiness context and rendered into elicitor context; it distinguishes suggested next questions from settled graph truth and advisory early outer-band signal; existing registered gaps remain rankable but are not the only source of asking guidance.
+- **Traceability:** D56-L, D64-L, D65-L, D94-L, D97-L, D99-L; I52-L.
 
 ## Dependencies
 
 ```text
 frontiers:
   Active:
-    elicitor-project
-      status: design-gated
-      depends_on: elicitor-generate, D95-L, D96-L, I51-L
-      retires: A33-L
-
     orchestrator-tool-port
       status: D98-sensitive
       depends_on: D39-L, D90-L, D91-L, D92-L, D93-L, I49-L, D98-L
@@ -188,7 +183,7 @@ frontiers:
       depends_on: readiness bands, data-model legibility, elicitor-generate
 
   Recently Completed:
-    spec-structural-relief, renderer-golden-coverage, data-model-legibility
+    elicitor-project, spec-structural-relief, renderer-golden-coverage, data-model-legibility
 
   Next:
     none

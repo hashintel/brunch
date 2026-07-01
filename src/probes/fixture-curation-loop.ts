@@ -39,8 +39,6 @@ type FixtureCurationCommitStatus =
 
 interface FixtureCurationRuntimeStateReport {
   readonly operationalMode: 'elicit';
-  readonly agentStrategy: 'step-wise-decision-tree';
-  readonly agentLens: 'intent';
 }
 
 interface FixtureCurationRunOptions {
@@ -155,13 +153,9 @@ export async function runFixtureCurationLoop(
   const runtimeState: BrunchAgentState = {
     schemaVersion: 1,
     operationalMode: 'elicit',
-    agentStrategy: 'step-wise-decision-tree',
-    agentLens: 'intent',
   };
   const runtimeStateReport: FixtureCurationRuntimeStateReport = {
     operationalMode: 'elicit',
-    agentStrategy: 'step-wise-decision-tree',
-    agentLens: 'intent',
   };
   appendBrunchAgentRuntimeSwitch(activated.session.manager, runtimeState, 'extension');
   const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace: activated, coordinator });

@@ -71,8 +71,7 @@ export interface GenerateFanOutWitnessReport {
     readonly edgeDelta: number;
   };
   readonly markers: {
-    readonly oracleBranchPinned: GenerateFanOutWitnessMarker;
-    readonly generateSkillRead: GenerateFanOutWitnessMarker;
+    readonly proposeSkillRead: GenerateFanOutWitnessMarker;
     readonly oracleReferenceReadAfterSkill: GenerateFanOutWitnessMarker;
     readonly presentCandidatesEmitted: GenerateFanOutWitnessMarker;
     readonly noBrunchKickBeforePrompt: GenerateFanOutWitnessMarker;
@@ -135,9 +134,6 @@ export async function runGenerateFanOutWitness(
   const sessionId = sessionIdFromFile(boot.sessionFile);
 
   try {
-    const lensCommand = boot.runtime.session.extensionRunner.getCommand('brunch:lens');
-    if (!lensCommand) throw new Error('brunch:lens command is not registered in the real runtime.');
-    await lensCommand.handler('oracle', boot.runtime.session.extensionRunner.createCommandContext());
     await boot.runtime.session.extensionRunner.emitBeforeAgentStart(
       'Derive generate fan-out witness legality',
       undefined,
@@ -204,9 +200,8 @@ export function summarizeGenerateFanOutWitness(
 ): GenerateFanOutWitnessReport {
   const toolEvents = toolTranscriptEvents(input.sessionText);
   const toolResults = toolEvents.filter((event) => event.source === 'toolResult');
-  const oracleBranchPins = entriesContaining(input.sessionText, '"agentLens":"oracle"');
-  const skillReads = findToolEvents(toolEvents, 'read', 'generate-proposal/SKILL.md');
-  const oracleReads = findToolEvents(toolEvents, 'read', 'generate-proposal/references/oracle.md');
+  const skillReads = findToolEvents(toolEvents, 'read', 'propose/SKILL.md');
+  const oracleReads = findToolEvents(toolEvents, 'read', 'propose/references/oracle.md');
   const presentCandidates = findToolEvents(toolEvents, 'present_candidates');
   const mutateGraphResults = findToolEvents(toolResults, 'mutate_graph');
   const approvedReviewResults = toolResults.filter((message) => hasApprovedReviewResult(message.text));
@@ -240,8 +235,7 @@ export function summarizeGenerateFanOutWitness(
     ),
   };
   const markers: GenerateFanOutWitnessReport['markers'] = {
-    oracleBranchPinned: marker(oracleBranchPins),
-    generateSkillRead: marker(skillReads),
+    proposeSkillRead: marker(skillReads),
     oracleReferenceReadAfterSkill: marker(oracleReferenceReadAfterSkill),
     presentCandidatesEmitted: marker(presentCandidates),
     noBrunchKickBeforePrompt: {
@@ -252,11 +246,8 @@ export function summarizeGenerateFanOutWitness(
   };
   const friction = [...(input.friction ?? [])];
 
-  if (!markers.oracleBranchPinned.passed) {
-    friction.push('The transcript did not show the oracle branch/lens pin.');
-  }
-  if (!markers.generateSkillRead.passed) {
-    friction.push('The transcript did not show a read of generate-proposal/SKILL.md.');
+  if (!markers.proposeSkillRead.passed) {
+    friction.push('The transcript did not show a read of propose/SKILL.md.');
   }
   if (!markers.oracleReferenceReadAfterSkill.passed) {
     friction.push('The transcript did not show references/oracle.md read after SKILL.md.');
@@ -278,8 +269,7 @@ export function summarizeGenerateFanOutWitness(
 
   const success =
     input.status === 'ok' &&
-    markers.oracleBranchPinned.passed &&
-    markers.generateSkillRead.passed &&
+    markers.proposeSkillRead.passed &&
     markers.oracleReferenceReadAfterSkill.passed &&
     markers.presentCandidatesEmitted.passed &&
     markers.noBrunchKickBeforePrompt.passed &&
@@ -291,9 +281,9 @@ export function summarizeGenerateFanOutWitness(
     runId: input.runId,
     generatedAt: input.generatedAt,
     mission:
-      'Witness the oracle-plane generate fan-out path through the real Brunch runtime and canonical session transcript.',
+      'Witness the oracle-plane proposal fan-out path through the real Brunch runtime and canonical session transcript.',
     evaluationFocus:
-      'A31-L fan-out half: oracle branch/pointer, present_candidates, and I51-L no-write before candidate pick.',
+      'A31-L fan-out half: live propose skill load, oracle reference load, present_candidates, and I51-L no-write before candidate pick.',
     cwd: input.cwd,
     specId: input.specId,
     sessionId: input.sessionId,

@@ -32,9 +32,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 
 - **Capture** — the submit-time `capture/` structured-response translator was
   deleted 2026-06-19 (D80-L fossil retirement). Capture is now elicitor
-  turn-boundary sweep conduct now quarantined at `src/agents/skills/_suspended/methods/capture/SKILL.md`; the graph
-  layer owns only the `mutate_graph` / `update_elicitation_gaps` mutation/gap
-  boundary that sweep conduct routes through, not a product-side extraction pass.
+  turn-boundary sweep conduct authored in the live elicitor path; the graph layer
+  owns only the `mutate_graph` / `update_elicitation_gaps` mutation/gap boundary
+  that sweep conduct routes through, not a product-side extraction pass.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
   detail levels: active-context and graph-truth overview, node
   neighborhood, selected-spec graph-code lookup, open reconciliation needs, and
@@ -51,12 +51,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   kind/category types, per-kind node ordinals, per-kind node `detail` schemas,
   derived readiness-band membership (`bandsForKind`), and derived intent-kind
   grouping. Raw domain enum taxonomy lives in the zero-import `schema/kinds.ts`
-  leaf so web-facing graph imports do not pull in Drizzle. The kind→readiness-band
-  ontology is projected from this typed source to a committed runtime context
-  reference at `src/agents/contexts/references/graph-ontology.md` by
-  `schema/generate-ontology-ref.ts`; the `check:data-model` script fails if the
-  committed file drifts from the schema (D87-L(d), D97-L). Skills cite that
-  generated reference instead of restating bands.
+  leaf so web-facing graph imports do not pull in Drizzle. Agent-facing reference
+  prose cites schema-owned vocabulary rather than regenerating a parallel
+  ontology table.
 
 - **Policy** (`policy/category-policy.ts`) — the single per-category
   metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact
@@ -202,11 +199,6 @@ graph/
       per-kind detail schema owner consumed by validation + mutation boundary schemas
     edges.ts
     reconciliation-need.ts
-    generate-ontology-ref.ts
-      projects the typed kind→readiness-band ontology to
-      src/agents/contexts/references/graph-ontology.md
-      --check mode (check:data-model) guards the committed file against drift
-
   policy/
     category-policy.ts
 

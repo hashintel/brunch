@@ -116,8 +116,6 @@ describe('Brunch prompt-pack topology', () => {
   it('appends composed Brunch prompting from runtime-state projection', async () => {
     const latestState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: 'step-wise-disambiguate',
-      agentLens: 'design',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
 
@@ -154,8 +152,6 @@ describe('Brunch prompt-pack topology', () => {
     const executeState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'execute',
-      agentStrategy: 'auto',
-      agentLens: 'auto',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
 
@@ -315,8 +311,6 @@ describe('Brunch prompt-pack topology', () => {
     );
     const latestState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: 'step-wise-decision-tree',
-      agentLens: 'oracle',
     };
     appendBrunchAgentRuntimeSwitch(manager, latestState, 'user');
     await Promise.all(
@@ -492,8 +486,7 @@ describe('Brunch prompt-pack topology', () => {
     const nextBeforeAgentStartIndex = eventNames.indexOf('before_agent_start', promptingIndex + 1);
     const switchedState: BrunchAgentState = {
       ...DEFAULT_BRUNCH_AGENT_STATE,
-      agentStrategy: 'step-wise-disambiguate',
-      agentLens: 'design',
+      operationalMode: 'execute',
     };
     await Promise.all(
       (events.before_agent_start ?? []).map((handler) =>
@@ -512,7 +505,7 @@ describe('Brunch prompt-pack topology', () => {
     expect(promptingIndex).toBeLessThan(nextBeforeAgentStartIndex);
   });
 
-  it('keeps transcript-backed strategy and lens switches out of the live elicitor prompt', async () => {
+  it('keeps live elicitor prompt selection keyed to mode, not stale legacy fields', async () => {
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
 
     await createBrunchPiExtensions(
@@ -558,16 +551,16 @@ describe('Brunch prompt-pack topology', () => {
       return promptResult?.systemPrompt ?? '';
     }
 
-    const disambiguateIntentPrompt = await promptFor({
+    const legacyIntentPrompt = await promptFor({
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'intent',
-    });
-    const disambiguateDesignPrompt = await promptFor({
+    } as unknown as BrunchAgentState);
+    const legacyDesignPrompt = await promptFor({
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentStrategy: 'step-wise-disambiguate',
       agentLens: 'design',
-    });
-    expect(disambiguateIntentPrompt).toBe(disambiguateDesignPrompt);
+    } as unknown as BrunchAgentState);
+    expect(legacyIntentPrompt).toBe(legacyDesignPrompt);
   });
 });

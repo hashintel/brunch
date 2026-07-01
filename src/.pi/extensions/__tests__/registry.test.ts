@@ -8,9 +8,7 @@ import { registerBrunchPrompting as prompting } from '../agent-runtime/system-pr
 import { registerBrunchContext as context } from '../brunch-data/context/index.js';
 import chrome from '../chrome/index.js';
 import {
-  BRUNCH_LENS_COMMAND,
   BRUNCH_MODE_COMMAND,
-  BRUNCH_STRATEGY_COMMAND,
   BRUNCH_SWITCH_COMMAND,
   registerBrunchCommands as commands,
 } from '../commands/index.js';
@@ -70,14 +68,9 @@ describe('Brunch explicit Pi extension registry', () => {
       PRESENT_CANDIDATES_TOOL,
       REQUEST_RESPONSE_TOOL,
     ]);
-    expect(recording.commandNames).toEqual([
-      BRUNCH_SWITCH_COMMAND,
-      BRUNCH_LENS_COMMAND,
-      BRUNCH_STRATEGY_COMMAND,
-      BRUNCH_MODE_COMMAND,
-    ]);
+    expect(recording.commandNames).toEqual([BRUNCH_SWITCH_COMMAND, BRUNCH_MODE_COMMAND]);
     expect(recording.messageRenderers).toEqual(['alternatives-card-set']);
-    expect(recording.shortcuts).toEqual(['alt+m', 'alt+s', 'alt+l', 'ctrl+shift+b']);
+    expect(recording.shortcuts).toEqual(['alt+m', 'ctrl+shift+b']);
     expect(recording.eventNames).toEqual([
       'session_start',
       'before_agent_start',

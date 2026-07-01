@@ -34,19 +34,13 @@ export const compactionAnchorContract = {
       kind: 'brunch.agent_runtime_state',
       select: 'latest',
       rationale:
-        'D40-L — turn preparation reconstructs operational mode / role preset / strategy / lens from the latest valid runtime-state snapshot; losing it after compaction breaks I25-L.',
+        'D40-L — turn preparation reconstructs operational mode and foreground role from the latest valid runtime-state snapshot; losing it after compaction breaks I25-L.',
     },
     {
       kind: 'brunch.establishment_offer',
       select: 'latest',
       rationale:
         'PLAN compaction-and-conflict-widening — ambient-affordance chrome reads the latest establishment offer to render the current orientation surface.',
-    },
-    {
-      kind: 'brunch.lens_switch',
-      select: 'latest',
-      rationale:
-        'D25-L — observer/reviewer routing and prompt composition depend on the active lens; the latest switch is the authoritative lens marker post-compaction.',
     },
     {
       kind: 'brunch.side_task_result',

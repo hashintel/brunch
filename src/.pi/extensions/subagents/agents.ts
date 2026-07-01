@@ -133,7 +133,7 @@ export function parseSubagentMarkdown(
     id: candidate.name,
     kind: 'background',
     body: { source: 'markdown', systemPrompt: body },
-    skills: { strategies: [], lenses: [], methods: [] },
+    skills: [],
     canDelegate: [],
     systemPrompt: body,
   };

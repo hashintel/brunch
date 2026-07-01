@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
+import { LIVE_BRUNCH_SKILL_IDS, renderBrunchSkills } from '../../skills/registry.js';
 import { BUNDLED_AGENT_BODY_IDS, bundledAgentBodyLocation, bundledAgentBodyRepoPath } from '../registry.js';
 
 describe('agent context registry', () => {
@@ -16,5 +17,10 @@ describe('agent context registry', () => {
 
       expect(body, bodyId).not.toMatch(/\$\{[^}]+\}/);
     }
+  });
+
+  it('exposes project as a first-level live Brunch skill', () => {
+    expect(LIVE_BRUNCH_SKILL_IDS).toContain('project');
+    expect(renderBrunchSkills()).toContain('<name>project</name>');
   });
 });

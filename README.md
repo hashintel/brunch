@@ -141,7 +141,7 @@ Start here when changing the alpha architecture:
 - [`memory/SPEC.md`](./memory/SPEC.md) — product contract, capability requirements, decisions, assumptions, invariants, and lexicon.
 - [`memory/PLAN.md`](./memory/PLAN.md) — active frontier work and current sequencing.
 - [`docs/architecture/prd.md`](./docs/architecture/prd.md) — POC product thesis, mode topology, and milestone ladder.
-- [`docs/architecture/pi-seam-extensions.md`](./docs/architecture/pi-seam-extensions.md) — how Brunch lands structured exchanges, lenses, spec selection, side tasks, and staleness on Pi seams.
+- [`docs/architecture/pi-seam-extensions.md`](./docs/architecture/pi-seam-extensions.md) — mixed-status Pi-seam rationale; use it for background on structured exchanges, side tasks, and staleness, but defer to `memory/SPEC.md` and `src/**/TOPOLOGY.md` for current runtime truth.
 - [`docs/architecture/probes-and-transcripts.md`](./docs/architecture/probes-and-transcripts.md) — probe artifacts, transcript evidence, and report shape.
 - [`src/README.md`](./src/README.md) — current source topology and dependency direction.
 

@@ -1,5 +1,7 @@
 # Brunch POC — Pi Seam Extensions
 
+> Status (2026-06-30): This note is mixed-status historical architecture. The graph clock/change-log, mention/staleness, and general Pi-seam rationale remain useful background, but the lens/strategy/runtime-mode and spec-switcher sections predate D98-L and the later prompt-axis retirement. Current canonical runtime/product truth lives in `memory/SPEC.md` plus co-located `src/**/TOPOLOGY.md` files; read this document as rationale, not as the live contract.
+
 This is a sibling document to [prd.md](./prd.md). It captures four architectural extensions to the POC that drill into how specific Brunch product affordances land on pi's existing seams. The PRD asserts that pi can be used as an internal harness without forcing Brunch to become a pi distribution; this document checks that claim against four concrete affordances and records where Brunch owns work that pi does not provide.
 
 The four affordances:
@@ -57,23 +59,23 @@ The interviewing agent should be able to operate under several elicitation strat
 ### Pi seams used
 
 - `before_agent_start` event whose result may include `systemPrompt`. Multiple extensions chain, so a lens-extension can layer over the Brunch base prompt without owning the whole assembly.
-- `context` event whose result may include rewritten `messages`. This is the sanctioned place for a lens to project history differently — for example hiding earlier candidate-proposal output during an ambiguity-explore pass.
-- `pi.setActiveTools(toolNames)` to swap the tool subset per lens.
-- `pi.registerCommand(...)` for `/lens design-tree`, `/lens intent`, etc., and `pi.registerMessageRenderer(...)` for lens-specific custom messages.
-- `ExtensionUIContext.select` (or a Brunch-owned multi-select overlay) for a `/lens` picker UI.
+- `context` event whose result may include rewritten `messages`. This is the sanctioned place for a mode-specific renderer to project history differently when the product needs it.
+- `pi.setActiveTools(toolNames)` to swap the tool subset per operational mode.
+- `pi.registerCommand(...)` for `/brunch:mode` and `pi.registerMessageRenderer(...)` for Brunch-owned custom messages.
+- `ExtensionUIContext.select` (or a Brunch-owned overlay) for a mode picker UI.
 
 ### Brunch-owned work
 
-- A `LensBundle` abstraction: `{ id, systemPromptFragment, activeTools, contextProjection?, customRenderers?, allowedSideTasks? }`.
-- A `LensRegistry` holding the loaded bundles and the currently active bundle for each session.
-- A persistent `brunch.lens_switch` custom entry written at every switch so resume and compaction preserve which lens was active when which messages were produced.
-- A `prepareNextTurn` participation point so a lens switch that happens between turns can re-render the system prompt and tool roster before the next model call.
+- An operational-mode bundle abstraction: `{ id, systemPromptFragment, activeTools, contextProjection?, customRenderers?, allowedSideTasks? }`.
+- A mode registry holding the current operational mode for each session.
+- A persistent `brunch.agent_runtime_state` custom entry written at every switch so resume and compaction preserve which mode was active when which messages were produced.
+- A `prepareNextTurn` participation point so a mode switch that happens between turns can re-render the system prompt and tool roster before the next model call.
 
 ### Posture
 
-- Lenses are Brunch policy bundles, not pi extensions. A lens may register pi extensions internally, but the lens itself is a Brunch concept and the user-facing surface is `/lens`, not pi's extension model.
-- Switching lenses mid-turn is disallowed. Switches take effect at the next turn boundary so the model's reasoning context remains coherent within a turn.
-- The active lens is part of the session's interest state for cross-session detection purposes: a lens switch may widen or narrow the session's interest set against the graph.
+- Operational modes are Brunch policy bundles, not pi extensions. A mode may register pi extensions internally, but the mode itself is a Brunch concept and the user-facing surface is `/brunch:mode`, not pi's extension model.
+- Switching modes mid-turn is disallowed. Switches take effect at the next turn boundary so the model's reasoning context remains coherent within a turn.
+- The active mode is part of the session's runtime state for cross-session detection purposes.
 
 ### Residual risks
 
@@ -113,8 +115,8 @@ Implications:
 
 - A `SpecRegistry` over `.brunch/` that enumerates the specs in the workspace, where a spec is identified by its intent-graph root and carries display metadata (name, last activity, current coherence verdict).
 - A `SpecSelectorComponent` modeled on `SessionSelectorComponent` but reading from `SpecRegistry` rather than `SessionManager`.
-- A `SpecBinding` decision per spec: either (a) one session per spec, in which case spec switching uses `switchSession`, or (b) one shared session across specs with lens-style framing handling spec scope.
-- A persistent `brunch.spec_switch` custom entry, mirroring `brunch.lens_switch`, so resume reconstructs which spec was active at each point in the transcript.
+- A `SpecBinding` decision per spec: either (a) one session per spec, in which case spec switching uses `switchSession`, or (b) one shared session across specs with mode-safe framing handling spec scope.
+- A persistent `brunch.spec_switch` custom entry, mirroring runtime-state/session binding handling, so resume reconstructs which spec was active at each point in the transcript.
 - A persistent **TUI status line / chrome region** that displays four facts at all times, regardless of which overlay is active: current `cwd` (project), current `spec` (id + short title), current `phase`/`stage` for that spec, current `chat-mode` (e.g. `interview`, `clarify`, `oracle-lens-active`). The chrome region is owned by Brunch on top of `pi-tui`'s root layout and is not consumed by transient overlays. Selector overlays, offer overlays, and confirmation dialogs render above the chrome but do not occlude it.
 
 ### Posture
@@ -248,7 +250,7 @@ The five affordances together imply a small Brunch-owned subsystem cluster that 
 
 All five subsystems route their durable effects through the same shared command layer described in the PRD. None of them require modifying pi.
 
-The custom-message + `deliverAs: "nextTurn" | "followUp"` + `prepareNextTurn` triad turns out to be load-bearing for Brunch's product semantics. It is what allows offers, side-chain results, world updates, and lens switches to all be expressed in one substrate without inventing a second event plane.
+The custom-message + `deliverAs: "nextTurn" | "followUp"` + `prepareNextTurn` triad turns out to be load-bearing for Brunch's product semantics. It is what allows offers, side-chain results, world updates, and mode switches to all be expressed in one substrate without inventing a second event plane.
 
 ## Milestone implications
 
@@ -519,14 +521,14 @@ The decision is: **stay on `pi-coding-agent` as the harness; treat Flue as a ref
 
 ### Why Flue is the wrong shape for the POC harness
 
-The four affordances in this document lean on a specific pi triad: **custom-message entries + `deliverAs: "nextTurn" | "followUp"` + `prepareNextTurn`**. That triad is load-bearing for offers, side-chain results, world updates, and lens switches. Flue's public `SessionData` knows three entry kinds only — `message`, `compaction`, `branch_summary` — and exposes neither `appendEntry`, nor `deliverAs`, nor a `prepareNextTurn` hook.
+The four affordances in this document lean on a specific pi triad: **custom-message entries + `deliverAs: "nextTurn" | "followUp"` + `prepareNextTurn`**. That triad is load-bearing for offers, side-chain results, world updates, and mode switches. Flue's public `SessionData` knows three entry kinds only — `message`, `compaction`, `branch_summary` — and exposes neither `appendEntry`, nor `deliverAs`, nor a `prepareNextTurn` hook.
 
 Concretely, Flue has **no equivalent** for any of:
 
 - `prepareNextTurn` injection of `worldUpdate` between turns.
 - `pi.appendEntry({ deliverAs: "nextTurn" })` for side-chain result delivery. Flue's `session.task()` is awaited inline.
-- Custom-message/tool-result transcript types plus renderers for Brunch structured interaction state (`brunch.establishment_offer`, `brunch.review_set_proposal`, `brunch.lens_switch`, `brunch.spec_switch`, `brunch.side_task_result`, and structured-exchange toolResult details).
-- `pi.registerCommand` for `/lens`, `/spec`, `/compact`-style affordances.
+- Custom-message/tool-result transcript types plus renderers for Brunch structured interaction state (`brunch.establishment_offer`, `brunch.review_set_proposal`, `brunch.agent_runtime_state`, `brunch.spec_switch`, `brunch.side_task_result`, and structured-exchange toolResult details).
+- `pi.registerCommand` for `/brunch:mode`, `/spec`, `/compact`-style affordances.
 - `ExtensionUIContext.select | confirm | input | custom` for confirmation-gated writes and overlay UIs.
 - `pi-tui` primitives, including `SessionSelectorComponent` as a model for `SpecSelectorComponent`.
 - A JSON-RPC + WebSocket subscription transport. Flue is HTTP+SSE, request/response over `POST /agents/<name>/<id>`.
@@ -552,7 +554,7 @@ Flue's two real contributions — sandbox abstraction and remote deployment — 
 - Flue's HTTP+SSE-only transport. Brunch's primary transport remains JSON-RPC with subscriptions per the PRD.
 - Flue's headless-only stance. Brunch keeps TUI, web, RPC, and print modes as peers.
 - Flue's "agent as deployable workspace" framing. Brunch is a local product first, and remote operation is a deployment mode of that product, not its primary shape.
-- Flue's `roles` abstraction as a substitute for the Brunch lens model. Roles are call-scoped system prompt overlays; lenses are durable, switchable bundles of system prompt + tools + context projection + custom renderers, persisted in the transcript via `brunch.lens_switch`. The lens model strictly subsumes Flue roles for Brunch's needs.
+- Flue's `roles` abstraction as a substitute for Brunch runtime posture. Roles are call-scoped system prompt overlays; Brunch keeps a transcript-backed operational mode plus a code-owned live skill manifest, which is a different control surface.
 
 ### Milestone implications
 
@@ -729,7 +731,7 @@ Does not enable:
 - No automatic obligation derivation from formal properties.
 - No evidence storage backend (`evidence.payload_ref` is an opaque ID).
 - No assurance-level computation rules; `assurance_level` is recorded, not derived.
-- No kernel-card registry as a first-class graph item. Kernel activation in a turn is captured as a transcript custom entry (`brunch.kernel_activation`, on the same model as `brunch.lens_switch`) rather than a graph node in the POC.
+- No kernel-card registry as a first-class graph item. Kernel activation in a turn is captured as a transcript custom entry (`brunch.kernel_activation`, on the same transcript-custom-entry model as runtime-state switches) rather than a graph node in the POC.
 
 #### Cost and milestone placement
 

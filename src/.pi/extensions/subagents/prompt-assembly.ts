@@ -4,14 +4,9 @@ import type {
   AgentPromptSessionContext,
 } from '../../../agents/contexts/seeds/turn-context.js';
 import { renderWorkspaceSeed } from '../../../agents/contexts/seeds/turn-context.js';
+import { renderBrunchSkills } from '../../../agents/skills/registry.js';
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import type { SubagentDefinition } from './agents.js';
-
-interface PromptManifests {
-  readonly strategies: readonly [];
-  readonly lenses: readonly [];
-  readonly methods: readonly [];
-}
 
 export interface BackgroundWorldSnapshot {
   readonly spec: AgentPromptSpecContext;
@@ -28,36 +23,20 @@ export interface ComposeBackgroundSubagentPromptInput {
 
 export interface ComposeBackgroundSubagentPromptResult {
   readonly prompt: string;
-  readonly manifests: PromptManifests;
 }
 
 export function composeBackgroundSubagentPrompt(
   input: ComposeBackgroundSubagentPromptInput,
 ): ComposeBackgroundSubagentPromptResult {
-  const manifests = manifestsForBackgroundSubagent(input.definition);
   const prompt = joinSections([
     input.definition.systemPrompt,
     renderBackgroundControl(input.definition),
     renderWorldSnapshot(input.world),
-    renderBackgroundRouterRules(input.definition),
+    renderBrunchSkills(),
+    renderBackgroundRouterRules(),
   ]);
 
-  return { prompt, manifests };
-}
-
-function manifestsForBackgroundSubagent(definition: SubagentDefinition): PromptManifests {
-  if (
-    definition.skills.strategies.length > 0 ||
-    definition.skills.lenses.length > 0 ||
-    definition.skills.methods.length > 0
-  ) {
-    throw new Error('Background subagent prompt resources are suspended and must not be advertised.');
-  }
-  return {
-    strategies: [],
-    lenses: [],
-    methods: [],
-  };
+  return { prompt };
 }
 
 function renderBackgroundControl(definition: SubagentDefinition): string {
@@ -101,18 +80,12 @@ function renderWorldSnapshot(world: BackgroundWorldSnapshot | undefined): string
   ].join('\n');
 }
 
-function renderBackgroundRouterRules(definition: SubagentDefinition): string {
-  const hasSkills =
-    definition.skills.strategies.length > 0 ||
-    definition.skills.lenses.length > 0 ||
-    definition.skills.methods.length > 0;
+function renderBackgroundRouterRules(): string {
   return [
     '[Brunch background routing]',
     '- Treat the task message as the caller authority; do not assume access to the parent conversation beyond this snapshot.',
     '- Use only tools listed in the manifest tool grant and actually advertised to you.',
-    hasSkills
-      ? '- Use only prompt resources advertised in <brunch-skills>; read a listed resource before applying its detailed method.'
-      : '- No Brunch prompt resources are advertised for this background agent.',
+    '- Use only prompt resources advertised in <brunch-skills>; read a listed skill before applying its detailed guidance.',
     '- Return findings as concise assistant text; structured details are render-only and not model context.',
   ].join('\n');
 }

@@ -240,41 +240,6 @@ describe('origination-kick-live — the product originates the opening turn on i
       noModel.restoreEnv();
     }
   });
-
-  it('records explicit freestyle as an idle origination reason', async () => {
-    await withTier2FauxAgentServices(async (faux) => {
-      const boot = await bootTier2RuntimeFromFixture({
-        dev: true,
-        agentServices: faux.agentServices,
-        fixtureEntries: () => [
-          {
-            type: 'custom',
-            customType: 'brunch.agent_runtime_state',
-            data: {
-              schemaVersion: 1,
-              reason: 'switch',
-              source: 'user',
-              state: {
-                schemaVersion: 1,
-                operationalMode: 'elicit',
-                agentStrategy: 'freestyle',
-                agentLens: 'auto',
-              },
-            },
-          },
-          { type: 'message', message: userMessage('Let me type freely first.') },
-        ],
-      });
-      try {
-        await expectNoKick(boot.runtime);
-        const debug = await readOriginationDebug(boot.cwd, '"reason": "idle_explicit_freestyle"');
-        expect(debug).toContain('"reason": "explicit_freestyle"');
-      } finally {
-        await boot.runtime.dispose();
-        boot.restoreEnv();
-      }
-    });
-  });
 });
 
 describe('FE-847 Tier-2 real boot harness', () => {
@@ -325,10 +290,10 @@ describe('FE-847 Tier-2 real boot harness', () => {
   it('invokes a registered Brunch runtime switch command through the real runBrunchTui boot', async () => {
     const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {
-      const command = boot.runtime.session.extensionRunner.getCommand('brunch:lens');
+      const command = boot.runtime.session.extensionRunner.getCommand('brunch:mode');
       expect(command).toBeDefined();
 
-      await command?.handler('intent', boot.runtime.session.extensionRunner.createCommandContext());
+      await command?.handler('execute', boot.runtime.session.extensionRunner.createCommandContext());
 
       const entries = boot.runtime.session.sessionManager.getEntries();
       expect(entries).toEqual(
@@ -339,13 +304,16 @@ describe('FE-847 Tier-2 real boot harness', () => {
             data: expect.objectContaining({
               reason: 'switch',
               source: 'user',
-              state: expect.objectContaining({ agentLens: 'intent' }),
-              previous: expect.objectContaining({ agentLens: 'auto' }),
+              state: expect.objectContaining({ operationalMode: 'execute' }),
+              previous: expect.objectContaining({ operationalMode: 'elicit' }),
             }),
           }),
         ]),
       );
-      expect(projectBrunchAgentState(entries).agentLens).toBe('intent');
+      expect(projectBrunchAgentState(entries).operationalMode).toBe('execute');
+      expect(boot.runtime.session.getActiveToolNames()).toEqual(
+        expect.arrayContaining(['orchestrator_stub']),
+      );
       expect(boot.runtime.session.getActiveToolNames()).not.toEqual(expect.arrayContaining(['bash']));
     } finally {
       await boot.runtime.dispose();
@@ -468,16 +436,6 @@ describe('FE-844/FE-847 live gap legality through real boot', () => {
       // alongside the rest of the structured-exchange family.
       const registeredNames = boot.runtime.session.getAllTools().map((tool) => tool.name);
       expect(registeredNames).toEqual(expect.arrayContaining(generateTriad));
-
-      // Pin the oracle lens through the real registered command (the plane the
-      // generate skill's compose facet serves), then derive legality at the
-      // turn boundary as the product does.
-      const lensCommand = boot.runtime.session.extensionRunner.getCommand('brunch:lens');
-      expect(lensCommand).toBeDefined();
-      await lensCommand?.handler('oracle', boot.runtime.session.extensionRunner.createCommandContext());
-      expect(projectBrunchAgentState(boot.runtime.session.sessionManager.getEntries()).agentLens).toBe(
-        'oracle',
-      );
 
       await boot.runtime.session.extensionRunner.emitBeforeAgentStart(
         'Derive generate-activation legality',

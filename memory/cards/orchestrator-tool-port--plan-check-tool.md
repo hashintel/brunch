@@ -24,7 +24,7 @@ The execute-mode executor can inspect a cook plan through a product-registered, 
 - `memory/PLAN.md` — frontier: `orchestrator-tool-port`.
 - `src/.pi/extensions/TOPOLOGY.md` — adapter-only ownership and boundary rules.
 - `src/agents/prompts/executor.md` — current execute-mode foreground prompt and stub wording to retire.
-- `src/agents/runtime/elicitor/TOPOLOGY.md`, `src/agents/runtime/TOPOLOGY.md`, and `src/agents/runtime/_suspended/TOPOLOGY.md` — current runtime split; execute tool policy is not a live top-level runtime module yet, and `_suspended/policy.ts` is legacy compatibility only.
+- `src/agents/runtime/executor/TOPOLOGY.md` and `src/agents/runtime/TOPOLOGY.md` — current CODE-mode runtime split; execute tool policy is a live runtime seam under `runtime/executor/`, and new execute seams should stay in that live runtime tree.
 - `src/session/schema/tool-names.ts` — shared tool-name constants.
 - `/Users/lunelson/Code/hashintel/brunch/ORCHESTRATOR.md` — source CLI behavior and plan format.
 - `/Users/lunelson/Code/hashintel/brunch/src/orchestrator/src/{types.ts,plan-loader.ts,plan-contract.ts,cook-cli.ts}` — portable plan model, loader, contract, and plan-resolution behavior to adapt.
@@ -33,7 +33,7 @@ The execute-mode executor can inspect a cook plan through a product-registered, 
 
 ```text
 → execute-mode foreground `executor` prompt
-→ execute-mode tool grant / block list (new live seam; do not reuse `_suspended/policy.ts` as product architecture)
+→ execute-mode tool grant / block list (new live seam; do not reintroduce a second legacy runtime-policy tree)
 → `.pi/extensions/agent-runtime` Pi tool adapter
 → product-owned `src/orchestrator` plan loader + contract core
 → workspace cook plan path

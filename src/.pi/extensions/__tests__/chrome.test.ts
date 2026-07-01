@@ -71,8 +71,6 @@ describe('Brunch chrome projection', () => {
       agentState: {
         schemaVersion: 1,
         operationalMode: 'elicit',
-        agentStrategy: 'step-wise-decision-tree',
-        agentLens: 'intent',
         agentRole: 'elicitor',
       },
     })[1];

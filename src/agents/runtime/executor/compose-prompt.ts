@@ -1,12 +1,17 @@
 import { readFileSync } from 'node:fs';
 
 import { bundledAgentBodyLocation } from '../../prompts/registry.js';
+import { renderBrunchSkills } from '../../skills/registry.js';
 import type { ForegroundRuntimePromptInput, ForegroundRuntimePromptResult } from '../foreground-policy.js';
 
 export function composeExecutorPrompt(input: ForegroundRuntimePromptInput): ForegroundRuntimePromptResult {
   assertExecutorState(input.sessionState);
   return {
-    prompt: joinSections([input.agentBody ?? readExecutorBody(), renderExecutorControl(input)]),
+    prompt: joinSections([
+      input.agentBody ?? readExecutorBody(),
+      renderExecutorControl(input),
+      renderBrunchSkills(),
+    ]),
   };
 }
 
@@ -26,6 +31,7 @@ function renderExecutorControl(input: ForegroundRuntimePromptInput): string {
     `- operational mode: ${input.sessionState.operationalMode}`,
     `- foreground role: ${input.sessionState.agentRole}`,
     `- active tools: ${tools}`,
+    '- prompt resources: code-owned live skill list only; no runtime axis negotiation',
     '- direct shell/edit/write tools stay blocked by Brunch runtime policy',
   ].join('\n');
 }

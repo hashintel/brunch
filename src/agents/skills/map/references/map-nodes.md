@@ -1,0 +1,65 @@
+# Mapping Nodes
+
+## Classify by modality, then by plane
+
+Start from the role the material plays, not the words the user happened to use.
+
+### Intent plane
+
+- `goal` — value or outcome claim: what result is sought, without committing to implementation.
+- `thesis` — position or bet claim: who/what/why framing, target user, problem theory, or product bet.
+- `term` — vocabulary commitment: canonical definition, alias, or ubiquitous-language clarification. `term` is graph-addressable now, but band-less.
+- `context` — descriptive claim: a relevant fact about the world, repo, domain, environment, or starting situation.
+- `story` — intra-spec grouping: a mid-level narrative or Gherkin-Feature-like cluster inside one spec.
+- `unknown` — known-unknown: a domain uncertainty that is not presently answerable but must be structurally accommodated.
+- `requirement` — obligation claim: what the system shall do or satisfy.
+- `assumption` — deferred-falsifiable belief: something believed enough to proceed, but possibly false.
+- `constraint` — boundary claim: what rules out solution space, scope, policy, resource envelope, platform, or non-goal interpretations.
+- `invariant` — preservation claim: what must remain true across states, transitions, versions, or semantic revisions.
+- `decision` — choice claim: a durable selected option among real alternatives; requires chosen option, rejected alternatives, and rationale.
+- `criterion` — oracle claim: how a requirement, invariant, or other claim will be judged.
+- `example` — concrete witness or disambiguator: positive case, counterexample, edge case, trace, or labelled out-of-scope case. Polarity comes from wording and edges, not a subtype field.
+
+Continue in [`map-intents.md`](map-intents.md) when distinguishing intent-plane kinds or promoting away from `context`.
+
+### Oracle plane — how we know
+
+Activating concepts: verification, tests, proof, audit trail, observed run, counterexample, blind spot.
+
+| Material role                                       | Kind            | Example question forms                                  |
+| --------------------------------------------------- | --------------- | ------------------------------------------------------- |
+| acceptance/oracle claim                             | `criterion`     | "How will we judge that this holds?"                    |
+| concrete executable or manual check                 | `check`         | "What test, review step, or gate verifies this?"        |
+| verification method family                          | `vv_method`     | "What method establishes the criterion?"                |
+| observed artifact                                   | `evidence`      | "What run, transcript, log, or measurement shows this?" |
+| outstanding proof or verification obligation        | `vv_obligation` | "What must still be proven before relying on this?"     |
+| concrete positive/negative witness or disambiguator | `example`       | "What case would demonstrate or falsify this?"          |
+
+Continue in [`map-oracles.md`](map-oracles.md) when choosing the weakest sufficient oracle artifact or attaching witness edges.
+
+### Design plane — how it is shaped
+
+Activating concepts: deep modules, information hiding, seams, API surface, data identity, lifecycle, deliberately soft architecture.
+
+| Material role                             | Kind        | Example question forms                                         |
+| ----------------------------------------- | ----------- | -------------------------------------------------------------- |
+| implementation part with responsibility   | `module`    | "What part hides this complexity?"                             |
+| contract across a seam                    | `interface` | "Where is the boundary, and what is exchanged across it?"      |
+| domain/data object with identity          | `entity`    | "What object has lifecycle, storage shape, or relationships?"  |
+| tentative option, diagram, or design hint | `sketch`    | "What shape helps thinking without constraining the work yet?" |
+
+Continue in [`map-design.md`](map-design.md) when deciding whether design material is settled shape or advisory sketch.
+
+### Plan plane — how it is sequenced
+
+Activating concepts: phase boundary, invariant bundle, tracker unit, branch unit, walking skeleton, tracer-bullet slice, risk retirement.
+
+| Material role                                 | Kind        | Example question forms                                |
+| --------------------------------------------- | ----------- | ----------------------------------------------------- |
+| phase threshold or invariant bundle           | `milestone` | "What bundle must be true before this phase is done?" |
+| canonical named work/tracker/branch unit      | `frontier`  | "What is the next named unit of work?"                |
+| buildable implementation unit inside frontier | `slice`     | "What is the thinnest verifiable slice?"              |
+
+Continue in [`map-plans.md`](map-plans.md) when distinguishing phase, frontier, and slice or linking work back to graph pressure.
+
+Readiness bands guide questioning and mapping; they do not gate graph truth. If the user or a reviewed source clearly supplies a later-band item early, map it honestly with the right kind and basis, then mark settlement according to whether it has been harmonized.

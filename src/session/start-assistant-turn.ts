@@ -13,7 +13,6 @@ export interface StartAssistantTurnInput {
   readonly currentLsn: number;
   readonly entries: readonly TranscriptEntryLike[];
   readonly origin: AssistantTurnOrigin;
-  readonly strategy?: 'auto' | 'freestyle';
   /**
    * Composed provider-visible seed body (spec overview + grounding-floor
    * framing) — always `composeContextSeedContent` output in product paths;
@@ -30,15 +29,12 @@ export type StartAssistantTurnDecision =
     }
   | {
       readonly action: 'idle';
-      readonly reason: 'explicit_freestyle' | 'no_unresolved_debt';
+      readonly reason: 'no_unresolved_debt';
       readonly seedEntries: readonly PreparedContinuityEntry[];
     };
 
 export function startAssistantTurn(input: StartAssistantTurnInput): StartAssistantTurnDecision {
   const seedEntries = contextSeedEntries(input);
-  if (input.strategy === 'freestyle') {
-    return { action: 'idle', reason: 'explicit_freestyle', seedEntries };
-  }
   if (
     input.origin === 'new_session' ||
     input.origin === 'manual_trigger' ||

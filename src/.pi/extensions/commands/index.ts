@@ -12,19 +12,13 @@
  * Active commands:
  *  - `/brunch:switch`   — open the spec/session picker (delegates to
  *                         workspace-dialog.ts).
- *  - `/brunch:lens`     — change the transcript-backed agent lens.
- *  - `/brunch:strategy` — change the transcript-backed agent strategy.
- *  - `/brunch:mode`     — show the operational-mode picker; planned modes
- *                         (execute) are visible but disabled, so only the
- *                         current `elicit` mode is selectable.
+ *  - `/brunch:mode`     — change the transcript-backed operational mode.
  *
  * Keyboard shortcuts (match the bracketed key hints in the footer chrome):
  *  - `ctrl+shift+b` — spec/session picker (borrows a command-capable context
  *                     from the composition root for the actual session switch;
  *                     alt+b is reserved by Pi's editor for cursorWordLeft)
  *  - `alt+m` — mode picker
- *  - `alt+s` — strategy picker
- *  - `alt+l` — lens picker
  *
  * Disabled until operational (constant kept so tests can assert absence):
  *  - `/brunch:continue` — recover/restart from an interrupted `request_*` tool
@@ -38,19 +32,8 @@ import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-c
 
 import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
-import {
-  AGENT_LENS_IDS,
-  AGENT_STRATEGY_IDS,
-  OPERATIONAL_MODE_IDS,
-  type AgentLensSelection,
-  type AgentStrategySelection,
-  type OperationalModeChoice,
-} from '../../../session/schema/kinds.js';
-import {
-  createRuntimeLensPickerComponent,
-  createRuntimeModePickerComponent,
-  createRuntimeStrategyPickerComponent,
-} from '../../components/runtime-posture/axis-picker.js';
+import { OPERATIONAL_MODE_IDS, type OperationalModeId } from '../../../session/schema/kinds.js';
+import { createRuntimeModePickerComponent } from '../../components/runtime-posture/axis-picker.js';
 import {
   activeToolNamesForBrunchAgentState,
   projectBrunchAgentState,
@@ -64,15 +47,11 @@ import {
 export const BRUNCH_COMMAND_PREFIX = 'brunch:';
 export const BRUNCH_SWITCH_COMMAND = 'brunch:switch';
 export const BRUNCH_CONTINUE_COMMAND = 'brunch:continue';
-export const BRUNCH_LENS_COMMAND = 'brunch:lens';
-export const BRUNCH_STRATEGY_COMMAND = 'brunch:strategy';
 export const BRUNCH_MODE_COMMAND = 'brunch:mode';
 
 /** alt+b is unavailable: Pi reserves it as a built-in editor binding (cursorWordLeft). */
 export const BRUNCH_SWITCH_SHORTCUT = 'ctrl+shift+b';
 export const BRUNCH_MODE_SHORTCUT = 'alt+m';
-export const BRUNCH_STRATEGY_SHORTCUT = 'alt+s';
-export const BRUNCH_LENS_SHORTCUT = 'alt+l';
 
 export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
   /** Called after a runtime posture switch so chrome (footer) re-renders from re-projected state. */
@@ -102,97 +81,17 @@ function normalizeAxisArg(args: string): string {
   return args.trim().split(/\s+/)[0] ?? '';
 }
 
-function isStrategySelection(value: string): value is AgentStrategySelection {
-  return value === 'auto' || AGENT_STRATEGY_IDS.includes(value as never);
-}
-
-function isLensSelection(value: string): value is AgentLensSelection {
-  return value === 'auto' || AGENT_LENS_IDS.includes(value as never);
-}
-
-type RuntimeSwitchPatch =
-  | { readonly axis: 'strategy'; readonly value: AgentStrategySelection }
-  | { readonly axis: 'lens'; readonly value: AgentLensSelection };
-
-function strategyUsage(): string {
-  return `Usage: /${BRUNCH_STRATEGY_COMMAND} <auto|${AGENT_STRATEGY_IDS.join('|')}>`;
-}
-
-function lensUsage(): string {
-  return `Usage: /${BRUNCH_LENS_COMMAND} <auto|${AGENT_LENS_IDS.join('|')}>`;
-}
-
-/**
- * Open the lens picker (non-overlay ui.custom: temporarily replaces the input
- * editor in place, so it renders at the input area instead of floating at a
- * terminal-absolute anchor). Shared by the `/brunch:lens` no-arg command and
- * the lens shortcut.
- */
-async function openLensPicker(
+async function openModePicker(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
   options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
 ): Promise<void> {
-  const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-  if (typeof ctx.ui.custom !== 'function') {
-    ctx.ui.notify(lensUsage(), 'info');
-    return;
-  }
-  const picked = await ctx.ui.custom<AgentLensSelection | undefined>((_tui, theme, _keybindings, done) =>
-    createRuntimeLensPickerComponent({
-      current: current.agentLens,
-      caution: [],
-      theme,
-      onDone: done,
-    }),
-  );
-  if (picked === undefined) return;
-  if (!isLensSelection(picked)) {
-    ctx.ui.notify(lensUsage(), 'error');
-    return;
-  }
-  applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: picked }, options);
-}
-
-/** Open the strategy picker; see {@link openLensPicker} for rendering notes. */
-async function openStrategyPicker(
-  pi: ExtensionAPI,
-  ctx: RuntimeSwitchContext,
-  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
-): Promise<void> {
-  const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-  if (typeof ctx.ui.custom !== 'function') {
-    ctx.ui.notify(strategyUsage(), 'info');
-    return;
-  }
-  const picked = await ctx.ui.custom<AgentStrategySelection | undefined>((_tui, theme, _keybindings, done) =>
-    createRuntimeStrategyPickerComponent({
-      current: current.agentStrategy,
-      caution: [],
-      theme,
-      onDone: done,
-    }),
-  );
-  if (picked === undefined) return;
-  if (!isStrategySelection(picked)) {
-    ctx.ui.notify(strategyUsage(), 'error');
-    return;
-  }
-  applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: picked }, options);
-}
-
-/**
- * Open the mode picker. Planned modes render disabled, so the only
- * committable pick is the current mode — committing it is a no-op report
- * until execute mode exists.
- */
-async function openModePicker(ctx: RuntimeSwitchContext): Promise<void> {
   const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
   if (typeof ctx.ui.custom !== 'function') {
     ctx.ui.notify(`Brunch mode is ${current.operationalMode}.`, 'info');
     return;
   }
-  const picked = await ctx.ui.custom<OperationalModeChoice | undefined>((_tui, theme, _keybindings, done) =>
+  const picked = await ctx.ui.custom<OperationalModeId | undefined>((_tui, theme, _keybindings, done) =>
     createRuntimeModePickerComponent({
       current: current.operationalMode,
       theme,
@@ -200,21 +99,22 @@ async function openModePicker(ctx: RuntimeSwitchContext): Promise<void> {
     }),
   );
   if (picked === undefined) return;
-  ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
+  if (picked === current.operationalMode) {
+    ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
+    return;
+  }
+  applyModeSwitch(pi, ctx, picked, options);
 }
 
-function applyRuntimeSwitch(
+function applyModeSwitch(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
-  patch: RuntimeSwitchPatch,
+  nextMode: OperationalModeId,
   options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
 ): void {
-  const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
   const nextState = {
     schemaVersion: 1 as const,
-    operationalMode: current.operationalMode,
-    agentStrategy: patch.axis === 'strategy' ? patch.value : current.agentStrategy,
-    agentLens: patch.axis === 'lens' ? patch.value : current.agentLens,
+    operationalMode: nextMode,
   };
 
   appendBrunchAgentRuntimeSwitch(
@@ -236,61 +136,15 @@ function applyRuntimeSwitch(
     ),
   );
   options.requestChromeRefresh?.();
-  ctx.ui.notify(`Brunch ${patch.axis} set to ${patch.value}.`, 'info');
+  ctx.ui.notify(`Brunch mode set to ${nextMode}.`, 'info');
 }
 
 function registerRuntimeSwitchCommands(
   pi: ExtensionAPI,
   options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
 ): void {
-  pi.registerCommand(BRUNCH_LENS_COMMAND, {
-    description: `Change the active Brunch lens (${['auto', ...AGENT_LENS_IDS].join(', ')})`,
-    getArgumentCompletions: (prefix) =>
-      ['auto', ...AGENT_LENS_IDS]
-        .filter((value) => value.startsWith(prefix))
-        .map((value) => ({ value, label: value })),
-    handler: async (args, ctx) => {
-      const selection = normalizeAxisArg(args);
-      if (!selection) {
-        await openLensPicker(pi, ctx, options);
-        return;
-      }
-      if (!isLensSelection(selection)) {
-        ctx.ui.notify(
-          `Unknown lens "${selection}". Use one of: auto, ${AGENT_LENS_IDS.join(', ')}.`,
-          'error',
-        );
-        return;
-      }
-      applyRuntimeSwitch(pi, ctx, { axis: 'lens', value: selection }, options);
-    },
-  });
-
-  pi.registerCommand(BRUNCH_STRATEGY_COMMAND, {
-    description: `Change the active Brunch strategy (${['auto', ...AGENT_STRATEGY_IDS].join(', ')})`,
-    getArgumentCompletions: (prefix) =>
-      ['auto', ...AGENT_STRATEGY_IDS]
-        .filter((value) => value.startsWith(prefix))
-        .map((value) => ({ value, label: value })),
-    handler: async (args, ctx) => {
-      const selection = normalizeAxisArg(args);
-      if (!selection) {
-        await openStrategyPicker(pi, ctx, options);
-        return;
-      }
-      if (!isStrategySelection(selection)) {
-        ctx.ui.notify(
-          `Unknown strategy "${selection}". Use one of: auto, ${AGENT_STRATEGY_IDS.join(', ')}.`,
-          'error',
-        );
-        return;
-      }
-      applyRuntimeSwitch(pi, ctx, { axis: 'strategy', value: selection }, options);
-    },
-  });
-
   pi.registerCommand(BRUNCH_MODE_COMMAND, {
-    description: 'Show the active Brunch operational mode; only elicit is selectable for now',
+    description: 'Change the active Brunch operational mode',
     getArgumentCompletions: (prefix) =>
       OPERATIONAL_MODE_IDS.filter((value) => value.startsWith(prefix)).map((value) => ({
         value,
@@ -300,36 +154,28 @@ function registerRuntimeSwitchCommands(
       const selection = normalizeAxisArg(args);
       const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
       if (!selection) {
-        await openModePicker(ctx);
+        await openModePicker(pi, ctx, options);
+        return;
+      }
+      if (!OPERATIONAL_MODE_IDS.includes(selection as OperationalModeId)) {
+        ctx.ui.notify(
+          `Unknown mode "${selection}". Use one of: ${OPERATIONAL_MODE_IDS.join(', ')}.`,
+          'error',
+        );
         return;
       }
       if (selection === current.operationalMode) {
         ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
         return;
       }
-      ctx.ui.notify(
-        'Only elicit mode is available in this Brunch build; execute mode is not implemented.',
-        'error',
-      );
+      applyModeSwitch(pi, ctx, selection as OperationalModeId, options);
     },
   });
 
   pi.registerShortcut?.(BRUNCH_MODE_SHORTCUT, {
     description: 'Change the Brunch mode',
     handler: async (ctx) => {
-      await openModePicker(ctx);
-    },
-  });
-  pi.registerShortcut?.(BRUNCH_STRATEGY_SHORTCUT, {
-    description: 'Change the Brunch strategy',
-    handler: async (ctx) => {
-      await openStrategyPicker(pi, ctx, options);
-    },
-  });
-  pi.registerShortcut?.(BRUNCH_LENS_SHORTCUT, {
-    description: 'Change the Brunch lens',
-    handler: async (ctx) => {
-      await openLensPicker(pi, ctx, options);
+      await openModePicker(pi, ctx, options);
     },
   });
 }

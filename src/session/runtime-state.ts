@@ -1,12 +1,4 @@
-import {
-  AGENT_LENS_IDS,
-  AGENT_STRATEGY_IDS,
-  OPERATIONAL_MODE_IDS,
-  type AgentLensSelection,
-  type AgentStrategySelection,
-  type AutoAxisSelection,
-  type OperationalModeId,
-} from './schema/kinds.js';
+import { OPERATIONAL_MODE_IDS, type OperationalModeId } from './schema/kinds.js';
 
 export const BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE = 'brunch.agent_runtime_state';
 
@@ -18,8 +10,6 @@ export type ThinkingLevel = 'low' | 'medium' | 'high';
 export interface BrunchAgentState {
   schemaVersion: 1;
   operationalMode: OperationalModeId;
-  agentStrategy: AgentStrategySelection;
-  agentLens: AgentLensSelection;
 }
 
 export interface BrunchAgentStateEntryData {
@@ -45,8 +35,6 @@ export interface FileMention {
 export const DEFAULT_BRUNCH_AGENT_STATE: BrunchAgentState = {
   schemaVersion: 1,
   operationalMode: 'elicit',
-  agentStrategy: 'auto',
-  agentLens: 'auto',
 };
 
 interface CustomEntryLike {
@@ -63,26 +51,15 @@ function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value
   return typeof value === 'string' && allowed.includes(value as T);
 }
 
-function isAxisSelection<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-): value is AutoAxisSelection | T {
-  return value === 'auto' || isOneOf(value, allowed);
-}
-
 export function parseBrunchAgentState(value: unknown): BrunchAgentState | undefined {
   if (!isRecord(value)) return undefined;
   if (value.schemaVersion !== 1) return undefined;
   if (!isOneOf(value.operationalMode, OPERATIONAL_MODE_IDS)) return undefined;
   if ('agentRole' in value) return undefined;
-  if (!isAxisSelection(value.agentStrategy, AGENT_STRATEGY_IDS)) return undefined;
-  if (!isAxisSelection(value.agentLens, AGENT_LENS_IDS)) return undefined;
 
   return {
     schemaVersion: 1,
     operationalMode: value.operationalMode,
-    agentStrategy: value.agentStrategy,
-    agentLens: value.agentLens,
   };
 }
 

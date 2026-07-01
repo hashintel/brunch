@@ -4,14 +4,11 @@ SPEC decisions: D52-L, D58-L, D60-L, D76-L, D78-L, D83-L, D91-L, D96-L, D98-L
 
 ## Owns
 
-`src/agents/contexts/` owns reusable Brunch-authored text that enters the model: pushed seed blocks, context-tool result text, data-model markdown, generated/authored shared context references, and structured-exchange tool result text. Live elicitor prompt-frame context belongs to `src/agents/runtime/elicitor/`.
+`src/agents/contexts/` owns reusable Brunch-authored text that enters the model as rendered runtime context: pushed seed blocks, context-tool result text, data-model renderer text, and structured-exchange tool result text. Runtime-eligible static references live in `src/agents/references/`; live elicitor prompt-frame context belongs to `src/agents/runtime/elicitor/`.
 
 ```text
 contexts/
-├── _suspended/       quarantined legacy lens/readiness/recommendation-shaped context controls
-├── about/            durable project/about context notes
 ├── data-model/       model-facing graph/spec/session/workspace/plan/elicitation renderers
-├── references/       runtime-eligible shared context references cited by skills/prompts
 ├── seeds/            per-turn pushed context blocks and origination seed payloads
 └── exchanges/        present_* / request_* structured-exchange result text
 ```
@@ -23,7 +20,6 @@ Formatting primitives used by these renderers live in `src/agents/shared/`; they
 ```pseudo
 rules:
   agents/contexts/ -> graph/, projections/, session/, workspace/ [render already-read facts]
-  agents/runtime/_suspended -> agents/contexts/_suspended/      [legacy control context]
   .pi/extensions/* -> agents/contexts/                         [adapters gather data, then ask for text]
   session/         -> agents/contexts/seeds/                   [origination asks for seed payload text]
   agents/contexts/ x> .pi/, app/, rpc/, web/                   [no host, adapter, or transport effects]
@@ -31,7 +27,7 @@ rules:
 
 Targeted `.pi/extensions` tests guard the adapter half of this boundary for `brunch-data`, `agent-runtime`, and structured-exchange tools: Pi adapters may own schemas, labels, descriptions, prompt snippets, and TUI rendering, but provider-visible Brunch text must be imported from this subtree rather than formatted inline.
 
-`references/` files are runtime-eligible agent-readable generated context references. They are shared cite targets when vocabulary should be loaded on demand without copying tables into skill bodies. Generated references, such as `references/graph-ontology.md`, are committed artifacts with their source-of-truth and drift-check command named in the file. Authored graph-writing judgment now lives with the live capture activity at `src/agents/skills/capture/references/graph-heuristics.md` and must point back to generated references for vocabulary rather than restating tables. Draft injectable slice candidates may live under their owning skill while being evaluated when they self-label as drafts and are not treated as required prompt-resource payload until a skill or prompt cites them. The packaged CLI copies this subtree into `dist/agents/contexts/references/` because generated vocabulary references may be cited at runtime.
+Static files that should be loaded on demand rather than rendered from runtime state live in `src/agents/references/`. Schema-owned graph vocabulary lives in `src/graph/schema/**` and `src/graph/policy/**`; authored graph-mapping judgment lives under `src/agents/skills/map/references/`; readiness-band terminology lives at `src/agents/references/readiness-bands.md`. Draft injectable slice candidates may live under their owning skill while being evaluated when they self-label as drafts and are not treated as required prompt-resource payload until a skill or prompt cites them.
 
 ## Snapshot convention
 
@@ -41,4 +37,4 @@ Context golden files live beside their tests under `__snapshots__/` and use stoc
 
 Reusable agent-visible renderers have moved here from the retired `src/renderers/` layer, and formerly adapter-local model text for graph mutation/related reads plus elicitation/reconciliation register tools now lives here too. Human/product-only text now lives beside the single owner that emits it (`app/print-workspace-state.ts`, `session/transcript-markdown.ts`).
 
-The simplified elicitor prompt context now lives with the live runtime in `src/agents/runtime/elicitor/context.ts`. Context that exists only for retired strategy/lens/method/readiness behavior belongs in `_suspended/`, outside normal test/build discovery.
+The simplified elicitor prompt context now lives with the live runtime in `src/agents/runtime/elicitor/context.ts`. There is no separate legacy context-control subtree in the live repo topology.

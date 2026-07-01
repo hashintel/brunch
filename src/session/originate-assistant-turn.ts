@@ -48,7 +48,6 @@ export interface OriginateAssistantTurnInput {
    * seed carries the workspace section (D78-L revised 2026-06-12).
    */
   readonly workspaceContext: string;
-  readonly strategy?: 'auto' | 'freestyle';
   readonly manager: OriginationManager;
 }
 
@@ -65,7 +64,7 @@ export type KickCompletionOutcome =
     }
   | {
       readonly status: 'skipped';
-      readonly reason: 'no_model_available' | 'idle_explicit_freestyle' | 'idle_no_unresolved_debt';
+      readonly reason: 'no_model_available' | 'idle_no_unresolved_debt';
     }
   | {
       readonly status: 'failed';
@@ -152,7 +151,6 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
     currentLsn: slice.lsn,
     entries: input.entries,
     origin: input.entries.some(isConversationalMessageEntry) ? input.resumeOrigin : 'new_session',
-    ...(input.strategy ? { strategy: input.strategy } : {}),
     seedContent: composeContextSeedContent({
       specId: input.specId,
       ...(input.specName ? { specName: input.specName } : {}),
@@ -174,7 +172,7 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
 function idleKickSkipReason(
   reason: Extract<StartAssistantTurnDecision, { action: 'idle' }>['reason'],
 ): Extract<KickCompletionOutcome, { status: 'skipped' }>['reason'] {
-  return reason === 'explicit_freestyle' ? 'idle_explicit_freestyle' : 'idle_no_unresolved_debt';
+  return reason === 'no_unresolved_debt' ? 'idle_no_unresolved_debt' : reason;
 }
 
 function isConversationalMessageEntry(entry: TranscriptEntryLike): boolean {

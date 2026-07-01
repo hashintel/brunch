@@ -1,10 +1,10 @@
 import { TUI } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
-import { AGENT_STRATEGY_IDS, type AgentStrategySelection } from '../../../session/schema/kinds.js';
+import { operationalModeLabel, type OperationalModeId } from '../../../session/schema/kinds.js';
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
 import { VirtualTerminal } from '../../__tests__/support/virtual-terminal.js';
-import { createRuntimeStrategyPickerComponent } from '../runtime-posture/axis-picker.js';
+import { createRuntimeModePickerComponent } from '../runtime-posture/axis-picker.js';
 
 const theme = createTestLabTheme();
 
@@ -15,7 +15,7 @@ function trackLine(viewport: string[]): string {
 }
 
 /**
- * Drive the runtime strategy picker through a real pi-tui TUI backed by the
+ * Drive the runtime mode picker through a real pi-tui TUI backed by the
  * shared VirtualTerminal harness. This complements the fast direct-render test
  * in runtime-axis-picker.test.ts by exercising focus + input routing + overlay
  * render through the actual TUI input path.
@@ -24,12 +24,12 @@ describe('runtime posture picker harness', () => {
   it('cycles highlight with arrow and hjkl keys through real TUI input routing', async () => {
     const terminal = new VirtualTerminal(120, 32);
     const tui = new TUI(terminal);
-    const selected: Array<AgentStrategySelection | undefined> = [];
+    const selected: Array<OperationalModeId | undefined> = [];
 
-    const picker = createRuntimeStrategyPickerComponent({
-      current: 'auto',
+    const picker = createRuntimeModePickerComponent({
+      current: 'elicit',
       theme,
-      onDone: (value) => selected.push(value),
+      onDone: (value: OperationalModeId | undefined) => selected.push(value),
     });
 
     const overlay = tui.showOverlay(picker, {
@@ -46,45 +46,43 @@ describe('runtime posture picker harness', () => {
       await terminal.waitForRender();
 
       let viewport = terminal.getViewport().join('\n');
-      expect(viewport).toContain('Choose Brunch strategy');
+      expect(viewport).toContain('Choose Brunch mode');
       expect(viewport).toContain('current:');
-      expect(viewport).toContain('auto');
+      expect(viewport).toContain(operationalModeLabel('elicit'));
       expect(viewport).toContain('←/→ or h/l/j/k cycle · enter commits · esc/q cancels');
-      // Active segment badge is visible as the label padded with an extra space
-      // on each side (xterm normalizes ANSI away, leaving the spacing).
-      expect(trackLine(terminal.getViewport())).toContain(' auto  ');
+      expect(trackLine(terminal.getViewport())).toContain(` ${operationalModeLabel('elicit')}  `);
 
       terminal.sendInput('\x1b[C');
       await terminal.waitForRender();
-      expect(trackLine(terminal.getViewport())).toContain(` ${AGENT_STRATEGY_IDS[0]}  `);
-      expect(trackLine(terminal.getViewport())).not.toContain(' auto  ');
+      expect(trackLine(terminal.getViewport())).toContain(` ${operationalModeLabel('execute')}  `);
+      expect(trackLine(terminal.getViewport())).not.toContain(` ${operationalModeLabel('elicit')}  `);
 
       terminal.sendInput('h');
       await terminal.waitForRender();
-      expect(trackLine(terminal.getViewport())).toContain(' auto  ');
+      expect(trackLine(terminal.getViewport())).toContain(` ${operationalModeLabel('elicit')}  `);
 
       terminal.sendInput('j');
       await terminal.waitForRender();
-      expect(trackLine(terminal.getViewport())).toContain(` ${AGENT_STRATEGY_IDS[0]}  `);
+      expect(trackLine(terminal.getViewport())).toContain(` ${operationalModeLabel('execute')}  `);
 
       terminal.sendInput('k');
       await terminal.waitForRender();
-      expect(trackLine(terminal.getViewport())).toContain(' auto  ');
+      expect(trackLine(terminal.getViewport())).toContain(` ${operationalModeLabel('elicit')}  `);
     } finally {
       terminal.stop();
       tui.stop();
     }
   });
 
-  it('commits the selected value on Enter routed through real TUI input routing', async () => {
+  it('commits the selected mode on Enter routed through real TUI input routing', async () => {
     const terminal = new VirtualTerminal(120, 32);
     const tui = new TUI(terminal);
-    const selected: Array<AgentStrategySelection | undefined> = [];
+    const selected: Array<OperationalModeId | undefined> = [];
 
-    const picker = createRuntimeStrategyPickerComponent({
-      current: 'auto',
+    const picker = createRuntimeModePickerComponent({
+      current: 'elicit',
       theme,
-      onDone: (value) => selected.push(value),
+      onDone: (value: OperationalModeId | undefined) => selected.push(value),
     });
 
     const overlay = tui.showOverlay(picker, {
@@ -102,10 +100,10 @@ describe('runtime posture picker harness', () => {
 
       terminal.sendInput('\x1b[C');
       await terminal.waitForRender();
-      expect(trackLine(terminal.getViewport())).toContain(` ${AGENT_STRATEGY_IDS[0]}  `);
+      expect(trackLine(terminal.getViewport())).toContain(` ${operationalModeLabel('execute')}  `);
 
       terminal.sendInput('\r');
-      expect(selected).toEqual([AGENT_STRATEGY_IDS[0]]);
+      expect(selected).toEqual(['execute']);
     } finally {
       terminal.stop();
       tui.stop();
@@ -115,12 +113,12 @@ describe('runtime posture picker harness', () => {
   it('cancels without a value on Esc routed through real TUI input routing', async () => {
     const terminal = new VirtualTerminal(120, 32);
     const tui = new TUI(terminal);
-    const selected: Array<AgentStrategySelection | undefined> = [];
+    const selected: Array<OperationalModeId | undefined> = [];
 
-    const picker = createRuntimeStrategyPickerComponent({
-      current: 'auto',
+    const picker = createRuntimeModePickerComponent({
+      current: 'elicit',
       theme,
-      onDone: (value) => selected.push(value),
+      onDone: (value: OperationalModeId | undefined) => selected.push(value),
     });
 
     const overlay = tui.showOverlay(picker, {

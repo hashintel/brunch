@@ -14,7 +14,7 @@ Start with these, in this order:
 Useful supporting docs:
 
 - [`docs/architecture/prd.md`](./docs/architecture/prd.md)
-- [`docs/architecture/pi-seam-extensions.md`](./docs/architecture/pi-seam-extensions.md)
+- [`docs/architecture/pi-seam-extensions.md`](./docs/architecture/pi-seam-extensions.md) — historical/mixed-status seam rationale; current runtime truth lives in `memory/SPEC.md` and `src/**/TOPOLOGY.md`
 - [`docs/architecture/probes-and-transcripts.md`](./docs/architecture/probes-and-transcripts.md)
 - [`.fixtures/README.md`](./.fixtures/README.md)
 

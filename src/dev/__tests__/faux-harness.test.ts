@@ -161,9 +161,9 @@ describe('createBrunchFauxHarness', () => {
       expect(harness.providerContexts).toHaveLength(1);
       expect(systemPrompt).toContain('[Brunch live elicitor control]');
       expect(systemPrompt).toContain(
-        '- prompt resources: fixed live elicitor path; no strategy/lens/method manifest negotiation',
+        '- prompt resources: code-owned live skill list only; no runtime axis negotiation',
       );
-      expect(systemPrompt).not.toContain('<brunch-skills>');
+      expect(systemPrompt).toContain('<brunch-skills>');
       expect(activeToolsLine).toContain('read');
       expect(activeToolsLine).toContain('grep');
       expect(activeToolsLine).toContain('find');

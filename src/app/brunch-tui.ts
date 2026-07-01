@@ -469,7 +469,6 @@ export function createBrunchAgentSessionRuntimeFactory(
       entries: sessionManager.getEntries(),
       resumeOrigin: 'resume_debt',
       workspaceContext: await renderWorkspaceOverviewContext(cwd),
-      strategy: agentState.agentStrategy === 'freestyle' ? 'freestyle' : 'auto',
       manager: sessionManager,
     });
     if (context.introspection?.debugCache) {
