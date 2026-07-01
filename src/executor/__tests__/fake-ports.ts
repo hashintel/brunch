@@ -1,10 +1,12 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import type { GitWorktreePort, TestRunnerPort, TestRunResult } from '../execution-ports.js';
 
 export function createFakeGitWorktreePort(
   create: GitWorktreePort['create'] = async ({ worktreeDir, ref }) => {
     await mkdir(worktreeDir, { recursive: true });
+    await writeFile(join(worktreeDir, '.git'), 'gitdir: /tmp/brunch-fake-worktree\n', 'utf8');
     return {
       status: 'created',
       worktreeDir,

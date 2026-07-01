@@ -70,7 +70,7 @@ export async function createWorktree(args: {
   // Idempotent: if the worktree was already created, do not re-run
   // `git worktree add` (it fails when the directory already exists). The
   // previous mkdir-based path could be safely retried; preserve that.
-  if (metadata.worktreeDir && (await pathExists(metadata.worktreeDir))) {
+  if (metadata.worktreeDir && (await hasGitWorktreeMarker(metadata.worktreeDir))) {
     return {
       status: 'already_created',
       runStatus: metadata.status,
@@ -82,7 +82,7 @@ export async function createWorktree(args: {
     };
   }
 
-  if (!metadata.worktreeDir && (await pathExists(worktreeDir))) {
+  if (!metadata.worktreeDir && (await hasGitWorktreeMarker(worktreeDir))) {
     const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
     const metadataEffect = await persistRunMetadata(metadataPath, updated);
     return {
@@ -135,4 +135,8 @@ async function pathExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function hasGitWorktreeMarker(worktreeDir: string): Promise<boolean> {
+  return pathExists(join(worktreeDir, '.git'));
 }

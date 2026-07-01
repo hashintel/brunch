@@ -51,6 +51,7 @@ describe('createWorktree', () => {
       gitWorktree: createFakeGitWorktreePort(async (portArgs) => {
         calls.push(portArgs);
         await mkdir(portArgs.worktreeDir, { recursive: true });
+        await writeFile(join(portArgs.worktreeDir, '.git'), 'gitdir: /tmp/worktrees/run-1\n', 'utf8');
         return {
           status: 'created',
           worktreeDir: portArgs.worktreeDir,
@@ -94,6 +95,7 @@ describe('createWorktree', () => {
     const gitWorktree = createFakeGitWorktreePort(async (portArgs) => {
       calls.push(portArgs);
       await mkdir(portArgs.worktreeDir, { recursive: true });
+      await writeFile(join(portArgs.worktreeDir, '.git'), 'gitdir: /tmp/worktrees/run-1\n', 'utf8');
       return {
         status: 'created',
         worktreeDir: portArgs.worktreeDir,
@@ -125,6 +127,7 @@ describe('createWorktree', () => {
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
     await createRun({ cwd, specId: '42', runId: 'run-1' });
     await mkdir(worktreeDirPath(cwd, 'run-1'), { recursive: true });
+    await writeFile(join(worktreeDirPath(cwd, 'run-1'), '.git'), 'gitdir: /tmp/worktrees/run-1\n', 'utf8');
 
     const result = await createWorktree({
       cwd,
@@ -146,6 +149,44 @@ describe('createWorktree', () => {
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'worktree_created',
       worktreeDir: worktreeDirPath(cwd, 'run-1'),
+    });
+  });
+
+  it('does not recover metadata from a stale non-git directory', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-stale-directory-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await mkdir(worktreeDirPath(cwd, 'run-1'), { recursive: true });
+
+    const calls: Array<{ cwd: string; worktreeDir: string; ref: string }> = [];
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async (portArgs) => {
+        calls.push(portArgs);
+        return {
+          status: 'failed',
+          worktreeDir: portArgs.worktreeDir,
+          message: 'not a git worktree',
+          sideEffects: [],
+        };
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'worktree_create_failed',
+      runStatus: 'created',
+      runId: 'run-1',
+      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      message: 'not a git worktree',
+      sideEffects: [],
+    });
+    expect(calls).toEqual([{ cwd, worktreeDir: worktreeDirPath(cwd, 'run-1'), ref: 'HEAD' }]);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'created',
     });
   });
 
@@ -174,6 +215,7 @@ describe('createWorktree', () => {
       gitWorktree: createFakeGitWorktreePort(async (portArgs) => {
         calls.push(portArgs);
         await mkdir(portArgs.worktreeDir, { recursive: true });
+        await writeFile(join(portArgs.worktreeDir, '.git'), 'gitdir: /tmp/worktrees/run-1\n', 'utf8');
         return {
           status: 'created',
           worktreeDir: portArgs.worktreeDir,
