@@ -1,7 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { GitWorktreePort, TestRunnerPort, TestRunResult } from '../execution-ports.js';
+import type {
+  GitLandPort,
+  GitLandResult,
+  GitWorktreePort,
+  TestRunnerPort,
+  TestRunResult,
+} from '../execution-ports.js';
 
 export function createFakeGitWorktreePort(
   create: GitWorktreePort['create'] = async ({ worktreeDir, ref }) => {
@@ -22,6 +28,20 @@ export function createFakeTestRunnerPort(
 ): TestRunnerPort {
   return {
     async run() {
+      return result;
+    },
+  };
+}
+
+export function createFakeGitLandPort(
+  result: GitLandResult = {
+    status: 'promoted',
+    commitSha: 'abc123',
+    sideEffects: [{ kind: 'git_commit', path: '/worktree', sha: 'abc123' }],
+  },
+): GitLandPort {
+  return {
+    async promote() {
       return result;
     },
   };

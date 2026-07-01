@@ -7,12 +7,14 @@ import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
+  createFakeGitLandPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../executor/__tests__/fake-ports.js';
 import type {
   AgentRunArgs,
   AgentRunnerPort,
+  GitLandPort,
   GitWorktreePort,
   TestRunnerPort,
 } from '../../../executor/execution-ports.js';
@@ -1261,6 +1263,57 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
+  it('registers execute_promotion_prepare as injected run-local promotion', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-promotion-prepare-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    const reportPath = join(runDir, 'reports.jsonl');
+    const petriPath = join(runDir, 'petrinaut', 'net.json');
+    const worktreeDir = join(runDir, 'worktree');
+    const promotionPath = join(runDir, 'promotion', 'promotion.json');
+    await mkdir(dirname(petriPath), { recursive: true });
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(petriPath, JSON.stringify({ runId: 'run-1' }), 'utf8');
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/tmp/plan.yaml',
+        status: 'petri_exported',
+        reportsPath: reportPath,
+        petriPath,
+        worktreeDir,
+        completedSliceIds: ['task-1'],
+      }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 31, nodes: [], edges: [] },
+      gitLand: createFakeGitLandPort({
+        status: 'promoted',
+        commitSha: 'def456',
+        sideEffects: [{ kind: 'git_commit', path: worktreeDir, sha: 'def456' }],
+      }),
+    });
+
+    const promotion = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL);
+    expect(promotion).toBeDefined();
+    const result = await promotion!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_promotion_prepare: promotion_prepared');
+    expect(result.details).toMatchObject({
+      result: { status: 'promotion_prepared', runStatus: 'promotion_prepared', promotionPath },
+      sideEffects: [
+        { kind: 'git_commit', path: worktreeDir, sha: 'def456' },
+        { kind: 'mkdir', path: dirname(promotionPath) },
+        { kind: 'write_file', path: promotionPath, ifExists: 'overwrite' },
+        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      ],
+    });
+    await expect(readFile(promotionPath, 'utf8')).resolves.toContain('def456');
+  });
+
   it('registers execute_plan_outline only with selected graph deps and returns a side-effect-free outline', async () => {
     const registeredTools: Array<{
       name: string;
@@ -1816,6 +1869,7 @@ async function collectProductTools(
     gitWorktree?: GitWorktreePort;
     testRunner?: TestRunnerPort;
     agentRunner?: AgentRunnerPort;
+    gitLand?: GitLandPort;
     subagents?: BrunchSubagentsDeps;
   } = {},
 ): Promise<RegisteredTestTool[]> {
@@ -1824,12 +1878,13 @@ async function collectProductTools(
     coordinator: {} as never,
     graphMentionSource: { listMentionCandidates: () => [] },
     ...(options.subagents ? { subagents: options.subagents } : {}),
-    ...(options.gitWorktree || options.testRunner || options.agentRunner
+    ...(options.gitWorktree || options.testRunner || options.agentRunner || options.gitLand
       ? {
           executionPorts: {
             ...(options.gitWorktree ? { gitWorktree: options.gitWorktree } : {}),
             ...(options.testRunner ? { testRunner: options.testRunner } : {}),
             ...(options.agentRunner ? { agentRunner: options.agentRunner } : {}),
+            ...(options.gitLand ? { gitLand: options.gitLand } : {}),
           },
         }
       : {}),

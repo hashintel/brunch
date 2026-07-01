@@ -8,6 +8,7 @@ import { petriNetPath } from '../petri.js';
 import { preparePromotion, promotionReportPath } from '../promotion.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
+import { createFakeGitLandPort } from './fake-ports.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -36,6 +37,7 @@ async function createPetriExportedRun(cwd: string): Promise<void> {
       reportsPath: reportsPath(cwd, 'run-1'),
       petriPath: petriNetPath(cwd, 'run-1'),
       completedSliceIds: ['task-1'],
+      worktreeDir: join(runDir, 'worktree'),
     }),
     'utf8',
   );
@@ -45,7 +47,7 @@ describe('preparePromotion', () => {
   it('does not prepare promotion for a missing run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-missing-'));
 
-    const result = await preparePromotion({ cwd, runId: 'run-1' });
+    const result = await preparePromotion({ cwd, runId: 'run-1', gitLand: createFakeGitLandPort() });
 
     expect(result).toEqual({
       status: 'missing_run',
@@ -66,7 +68,7 @@ describe('preparePromotion', () => {
       'utf8',
     );
 
-    const result = await preparePromotion({ cwd, runId: 'run-1' });
+    const result = await preparePromotion({ cwd, runId: 'run-1', gitLand: createFakeGitLandPort() });
 
     expect(result).toEqual({
       status: 'run_not_promotable',
@@ -82,7 +84,7 @@ describe('preparePromotion', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-ready-'));
     await createPetriExportedRun(cwd);
 
-    const result = await preparePromotion({ cwd, runId: 'run-1' });
+    const result = await preparePromotion({ cwd, runId: 'run-1', gitLand: createFakeGitLandPort() });
 
     expect(result).toEqual({
       status: 'promotion_prepared',
@@ -91,6 +93,7 @@ describe('preparePromotion', () => {
       metadataPath: runMetadataPath(cwd, 'run-1'),
       promotionPath: promotionReportPath(cwd, 'run-1'),
       sideEffects: [
+        { kind: 'git_commit', path: '/worktree', sha: 'abc123' },
         { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'promotion') },
         { kind: 'write_file', path: promotionReportPath(cwd, 'run-1'), ifExists: 'overwrite' },
         { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
@@ -104,19 +107,67 @@ describe('preparePromotion', () => {
       petriPath: petriNetPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
       completedSliceIds: ['task-1'],
+      land: { status: 'promoted', commitSha: 'abc123' },
     });
-    // Descriptive only: no git/branch/ref topology fields.
-    expect(report).not.toHaveProperty('ref');
     expect(report).not.toHaveProperty('branch');
-    expect(report).not.toHaveProperty('sha');
 
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'promotion_prepared',
       promotionPath: promotionReportPath(cwd, 'run-1'),
+      promotionCommitSha: 'abc123',
     });
 
-    // No topology mutation: no land branch/worktree/git ref created.
-    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'worktree'))).toBe(false);
+    // No host topology mutation: no host land branch/ref created.
     expect(await pathExists(join(cwd, '.git'))).toBe(false);
+  });
+
+  it('does not advance metadata when the land port reports no changes', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-no-changes-'));
+    await createPetriExportedRun(cwd);
+
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitLand: createFakeGitLandPort({
+        status: 'no_changes',
+        message: 'nothing to promote',
+        sideEffects: [],
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'promotion_no_changes',
+      runStatus: 'petri_exported',
+      runId: 'run-1',
+      worktreeDir: join(runDirPath(cwd, 'run-1'), 'worktree'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      message: 'nothing to promote',
+      sideEffects: [],
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'petri_exported',
+    });
+    expect(await pathExists(promotionReportPath(cwd, 'run-1'))).toBe(false);
+  });
+
+  it('does not advance metadata when the land port fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-failed-'));
+    await createPetriExportedRun(cwd);
+
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitLand: createFakeGitLandPort({ status: 'failed', message: 'git commit failed', sideEffects: [] }),
+    });
+
+    expect(result).toMatchObject({
+      status: 'promotion_failed',
+      runStatus: 'petri_exported',
+      message: 'git commit failed',
+      sideEffects: [],
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'petri_exported',
+    });
   });
 });

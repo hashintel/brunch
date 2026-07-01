@@ -75,11 +75,37 @@ export interface TestRunnerPort {
   run(args: TestRunArgs): Promise<TestRunResult>;
 }
 
-export interface GitLandPort {}
+export interface GitLandArgs {
+  readonly worktreeDir: string;
+  readonly message: string;
+}
+
+export type GitLandResult =
+  | {
+      readonly status: 'promoted';
+      readonly commitSha: string;
+      readonly sideEffects: readonly [
+        { readonly kind: 'git_commit'; readonly path: string; readonly sha: string },
+      ];
+    }
+  | {
+      readonly status: 'no_changes';
+      readonly message: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+      readonly sideEffects: readonly [];
+    };
+
+export interface GitLandPort {
+  promote(args: GitLandArgs): Promise<GitLandResult>;
+}
 
 export interface ExecutionPorts {
   readonly gitWorktree: GitWorktreePort;
   readonly agentRunner: AgentRunnerPort;
   readonly testRunner: TestRunnerPort;
-  readonly gitLand?: GitLandPort;
+  readonly gitLand: GitLandPort;
 }

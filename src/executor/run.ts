@@ -37,6 +37,7 @@ export interface RunMetadata {
   readonly completedSliceIds?: readonly string[];
   readonly petriPath?: string;
   readonly promotionPath?: string;
+  readonly promotionCommitSha?: string;
 }
 
 export type RunCreateResult =

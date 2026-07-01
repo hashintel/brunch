@@ -14,7 +14,7 @@ executor/
 ├── launch.ts             spec-scoped plan.yaml -> non-running launch readiness
 ├── plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
 ├── petri.ts              completed run -> minimal Petrinaut net.json
-├── promotion.ts          petri-exported run -> descriptive promotion report
+├── promotion.ts          petri-exported run -> run-local promotion (GitLandPort) + report
 ├── populate.ts           worktree -> plan-only worktree population
 ├── report.ts             source-copied run -> reports.jsonl initialization
 ├── run-complete.ts       completed slices -> run completion marker
@@ -26,7 +26,7 @@ executor/
 ├── source-policy.ts      plan-populated worktree -> source policy selection
 ├── test-result.ts        run worktree -> verify subprocess (TestRunnerPort) -> slice test report
 ├── worktree.ts           run metadata -> real git worktree (GitWorktreePort)
-├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner)
+├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner, git land)
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO
 ├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact
@@ -90,4 +90,4 @@ rules:
 
 `petri.ts` writes the first minimal Petrinaut artifact at `.brunch/cook/runs/<runId>/petrinaut/net.json` for a completed run and records `status:"petri_exported"`. Promotion refs and land branches remain deferred.
 
-`promotion.ts` is the first land/promotion boundary, but it is intentionally descriptive: for a `petri_exported` run it writes a single promotion report at `.brunch/cook/runs/<runId>/promotion/promotion.json` (runId, specId, petriPath, reportsPath, completedSliceIds) and records `status:"promotion_prepared"`. It creates no git branch, promotion ref, or worktree/topology mutation, and does not land. Actual branch-level land remains the still-pending boundary in `execute_status`.
+`promotion.ts` is the first land/promotion boundary: for a `petri_exported` run with a worktree it invokes the injected `GitLandPort`, then writes `.brunch/cook/runs/<runId>/promotion/promotion.json` (runId, specId, petriPath, reportsPath, completedSliceIds, run-local commit SHA) and records `status:"promotion_prepared"`. `GitLandPort` failure or no changes leaves metadata unchanged. This is run-local only: host branch/ref promotion remains out of scope, and actual host land remains pending.

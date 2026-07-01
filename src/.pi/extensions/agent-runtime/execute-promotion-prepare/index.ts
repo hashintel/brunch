@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import type { GitLandPort } from '../../../../executor/execution-ports.js';
 import { preparePromotion, type PromotionPrepareResult } from '../../../../executor/promotion.js';
 import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -13,10 +14,9 @@ interface ExecutePromotionPrepareDetails {
   readonly sideEffects: PromotionPrepareResult['sideEffects'];
 }
 
-export function createExecutePromotionPrepareTool(): ToolDefinition<
-  typeof ExecutePromotionPrepareParams,
-  ExecutePromotionPrepareDetails
-> {
+export function createExecutePromotionPrepareTool(
+  gitLand: GitLandPort,
+): ToolDefinition<typeof ExecutePromotionPrepareParams, ExecutePromotionPrepareDetails> {
   return {
     name: BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
     label: 'execute_promotion_prepare',
@@ -27,7 +27,7 @@ export function createExecutePromotionPrepareTool(): ToolDefinition<
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0)
         throw new Error('execute_promotion_prepare requires an active cwd');
-      const result = await preparePromotion({ cwd, runId: params.runId });
+      const result = await preparePromotion({ cwd, runId: params.runId, gitLand });
       return {
         content: [
           {
@@ -46,7 +46,7 @@ export function createExecutePromotionPrepareTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecutePromotionPrepare(pi: ExtensionAPI): void {
-  pi.registerTool(createExecutePromotionPrepareTool() as never);
+export function registerBrunchExecutePromotionPrepare(pi: ExtensionAPI, gitLand: GitLandPort): void {
+  pi.registerTool(createExecutePromotionPrepareTool(gitLand) as never);
 }
 export default registerBrunchExecutePromotionPrepare;
