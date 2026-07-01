@@ -43,7 +43,12 @@ plus the coordination logic for workspace/spec/session lifecycle.
   to JSON-RPC status and error codes; transcript mechanics stay here. The broker
   holds only an in-flight `request_response` promise keyed by exchange id; the
   answered result still reduces to canonical `request_answer` / `request_choice`
-  / `request_choices` Pi JSONL details. **Provider-legality rule
+  / `request_choices` Pi JSONL details. The broker exists only for `answer`
+  (free-text) today — `choice`/`choices`/review have no broker-equivalent yet, a
+  named `web-driver-streaming` Horizon gap, not an oversight here. See
+  [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md)
+  for why this broker path is structurally distinct from `session.submitExchangeResponse`
+  (which never touches this broker or Pi's `ctx.ui.*` at all). **Provider-legality rule
   (2026-06-12):** every synthetic exchange toolResult (present offers at
   origination, request responses at submit) persists as a *pair* — a synthetic
   assistant toolCall (`syntheticExchangeToolCallMessage`, sentinel provenance

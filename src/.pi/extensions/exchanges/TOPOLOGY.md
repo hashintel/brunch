@@ -26,6 +26,11 @@ There are two distinct envelopes in this seam — do not conflate them:
 
 ## Answer sources
 
+See [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md)
+for the underlying mechanism (why `ctx.hasUI`/`ctx.ui.custom` are a process-boot-time fact, not
+a per-caller one; the three distinct answering paths; and per-kind coverage) rather than
+re-deriving it from `pi-coding-agent` source each time it matters.
+
 `request_response` is dual-homed for free-text prompts because interactive TUI
 sessions and headless web-driver sessions close the same transcript result
 through different live surfaces. It routes through `shared/answer-source.ts`:
