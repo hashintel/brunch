@@ -3,6 +3,32 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-01 Sync archive
+
+Archived from `memory/PLAN.md` during the 2026-07-01 `ln-sync`, once `elicitor-project` (FE-1085) and
+`structured-exchange-affordance` (FE-1108) had been `done` since 2026-06-30 and their full frontier
+definitions no longer carried live rationale beyond what the `Recently Completed` one-liners already
+summarize. Durable architecture for both lives in `memory/SPEC.md` (A33-L, D95-L–D97-L, D100-L for
+`project`; I23-L, I51-L, I53-L, D27-L, D37-L, D38-L, D65-L, D66-L, D84-L, D86-L, D96-L, D100-L for the
+exchange-affordance hardening) and the topology homes each already cites; this is the retired full
+definition record.
+
+### elicitor-project (FE-1085) — retired full frontier definition
+
+- **Name:** Elicitor `project` capability — cross-plane derivation
+- **Linear:** [FE-1085](https://linear.app/hash/issue/FE-1085) — elicitor project capability design · **Branch:** `ln/fe-1085-elicitor-project-prep` · **Kind:** structural / capability
+- **Done 2026-06-30** — materialized cross-plane derivation as a distinct first-level live `project` move over the existing exchange triad and review-set commitment path, adding no new tool, schema family, or direct graph-write seam. Retired A33-L by landing the branch-implied distinct `project` surface into canon and the live skill manifest.
+- **Delivered:** the live skill manifest includes `project`, covering accepted-graph derivation lanes (intent → design, design → oracle); `project` reuses `present_candidates`, `request_response`, `present_review_set`, and the existing `map`/review-set commitment boundary; D97-L provenance applied (cites ontology/render surfaces rather than copying vocabulary lists).
+- **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L, I54-L; D60-L.
+
+### structured-exchange-affordance (FE-1108) — retired full frontier definition
+
+- **Name:** Structured-exchange affordance hardening
+- **Linear:** [FE-1108](https://linear.app/hash/issue/FE-1108/harden-structured-exchange-affordances) · **Branch:** `ln/fe-1108-structured-exchange-affordance` · **Kind:** hardening / earned contract cleanup
+- **Done 2026-06-30** — absorbed the former `exchange-symmetry-audit` cleanup; tightened the live structured-exchange authoring contract after the `request_response` collapse so the model-facing surface teaches the legal shape directly instead of relying on deep validator failures or legacy pairing prose.
+- **Delivered:** present-side choice vs freeform vs candidate-selection rules made explicit where the model authors them (stale legacy request-tool pairing language removed); review-set nested payload companions (`grounding`, `pitch`, `epistemicStatus`, related discriminants) described/re-shaped at the authoring boundary; `present_candidates`/`request_response` wording aligned with I51-L; unjustified `projections/exchanges/*` and `agents/contexts/exchanges/*` symmetry survivors inlined or deleted, with `src/projections/TOPOLOGY.md` and touched exchange topology homes agreeing on the final kept-vs-deleted inventory; tests cover affordance-level shapes, not just deepest schema rejection points.
+- **Traceability:** I23-L, I51-L, I53-L, D27-L, D37-L, D38-L, D65-L, D66-L, D84-L, D86-L, D96-L, D100-L; `docs/design/STRUCTURED_EXCHANGE_COLLAPSE.md`, `src/projections/TOPOLOGY.md`, `src/agents/contexts/exchanges/TOPOLOGY.md`.
+
 ## 2026-06-24 Sync archive
 
 Archived from `memory/PLAN.md` during the 2026-06-24 `ln-sync`, once `ontology-revision` (FE-1052) was done and its full frontier definition no longer carried live rationale for nearby work — its forward constraints survive as the Sequencing done-anchor (`-[unblocks]-> coherence-first-class, oracle-design-plan-graphs`). Durable architecture lives in `memory/SPEC.md` D87-L/D88-L/D89-L; this is the completion record plus the retired full definition.

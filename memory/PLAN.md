@@ -84,22 +84,21 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ## Frontier Definitions
 
-
 ### component-dx
 
 - **Name:** Pi TUI component DX — preview harness, component refinement, and new components
 - **Linear:** [FE-1115](https://linear.app/hash/issue/FE-1115/refine-pi-tui-component-dx-preview-harness-component-refinements-and)
 - **Branch:** `ln/fe-1115-component-preview-dx`
 - **Kind:** bounded feature / dev-DX + presentation-component work.
-- **Status:** active. First slice (the preview harness) shipped; refinement/new-component slices are open-ended and get their own `memory/cards/component-dx--<slug>.md` cards on this branch.
-- **Current execution pointer:** `memory/cards/component-dx--component-preview-harness.md` (first slice, done).
+- **Status:** active. First slice (the preview harness) shipped; refinement/new-component slices are open-ended and may use their own `memory/cards/component-dx--<slug>.md` card while in progress, but the card is retired once its durable state is reconciled into this definition plus the co-located `TOPOLOGY.md` homes (see the current execution pointer note) rather than kept as a standing artifact.
+- **Current execution pointer:** none live — this is an open-ended refinement frontier; slices are direct-built and reconciled straight into this definition plus `src/.pi/components/TOPOLOGY.md`/`src/dev/TOPOLOGY.md` rather than kept as standing scope cards (2026-07-01 `ln-sync`: the harness and scroll-viewport cards were retired once their durable state fully migrated to those homes).
 - **Objective:** Give `.pi/components` authors a fast, faithful iteration loop, then use it to refine existing components and build new ones as product needs surface them.
 - **Acceptance (first slice, done):**
   - `npm run dev:components` boots a real `ProcessTerminal` + `TUI`; no workspace, session, or DB is required. A `tsx watch`-backed variant was intentionally removed because `tsx watch` reruns on stdin bytes, which conflicts with `pi-tui` startup terminal-capability replies and creates a self-triggering reload loop.
   - A registry maps each previewable component to the same presentation contract its real call site uses (`ctx.ui.custom(factory, options)`): `{ overlay: true, overlayOptions }` for overlay components (workspace-dialog), no options for inline-swap components (axis-picker, multi-choice-picker) — not a uniform "always overlay" assumption.
   - A small `custom()` shim mirrors pi-coding-agent's real `showExtensionCustom` branching closely enough that nested overlays (a previewed component calling `tui.showOverlay` on the `tui` it's given) work without special-casing.
   - Theme is a real `Theme` instance (constructed via the public `Theme` class from `@earendil-works/pi-coding-agent`), not a duck-typed stand-in; it satisfies both `LabTheme` and `WorkspaceDialogTheme` call sites structurally.
-- **Open (not yet scoped):** refine existing components' rendering/affordances/copy; build new `.pi/components` as needed. Both carried-forward findings from the first slice are resolved: the axis-picker harness/production presentation drift is fixed (harness now drives the picker via `tui.addChild`/`tui.setFocus`, matching production's inline swap), and the unwired `tui-lab` slash command (`registerBrunchTuiLab`) is retired — `TuiStyleLabComponent` now lives at `.pi/components/tui-lab/style-lab-component.ts` as a preview-harness-only reference component. The harness's lane coverage gap is also closed: `static-preview.ts` adds the transcript-message-renderer lane (`alternatives`, via a captured `registerBrunchAlternatives` renderer) and the persistent-chrome lane (`chrome-header`), alongside the original `ctx.ui.custom` lane. The footer lane (`ui.setFooter`) is deliberately deferred — driven by live session state, and rides the scope the user wants to refine later. A fourth, `[experimental]` entry (`brunch-editor`) previews the `ctx.ui.setEditorComponent` slot: `BrunchEditorComponent` wraps `CustomEditor` in a runtime-state-labeled bordered box (design exploration only, not yet wired into production chrome) — first of a planned family that also covers the `request_*` question-form pickers (`request_response` etc.), which the user wants to refine next using the same `projectBorderedChrome` primitive.
+- **Open (not yet scoped):** refine existing components' rendering/affordances/copy; build new `.pi/components` as needed. Both carried-forward findings from the first slice are resolved: the axis-picker harness/production presentation drift is fixed (harness now drives the picker via `tui.addChild`/`tui.setFocus`, matching production's inline swap), and the unwired `tui-lab` slash command (`registerBrunchTuiLab`) is retired — `TuiStyleLabComponent` now lives at `.pi/components/tui-lab/style-lab-component.ts` as a preview-harness-only reference component. The harness's lane coverage gap is also closed: `static-preview.ts` adds the transcript-message-renderer lane (`alternatives`, via a captured `registerBrunchAlternatives` renderer) and the persistent-chrome lane (`chrome-header`), alongside the original `ctx.ui.custom` lane. The footer lane (`ui.setFooter`) is deliberately deferred — driven by live session state, and rides the scope the user wants to refine later. A fourth, `[experimental]` entry (`brunch-editor`) previews the `ctx.ui.setEditorComponent` slot: `BrunchEditorComponent` wraps `CustomEditor` in a runtime-state-labeled bordered box (design exploration only, not yet wired into production chrome) — first of a planned family that also covers the `request_*` question-form pickers (`request_response` etc.), which the user wants to refine next using the same `projectBorderedChrome` primitive. A sibling primitive, `projectScrollViewport` (`.pi/components/scroll-viewport.ts`), landed for a converged scroll-viewport pattern (keyboard scroll, selection-follow windowing, a `▐`-in-border scroll thumb), confirmed against pi-tui's own `Editor`/`SelectList` windowing plus glyph/opentui/lazygit precedent, and wired into `WorkspaceDialogComponent`'s real unwindowed option-list gap (demoed via the `workspace-dialog-scroll` preview entry). Two follow-ons are named but not started: wheel-scroll passthrough is buildable without forking pi-tui (`Terminal.write` is public; `TUI.handleInput` passes raw bytes through `addInputListener`) but needs one clear owner for the global terminal-mouse-mode toggle before it's built; true pointer-hover hit-testing (scroll whatever's under the cursor, not just the focused component) is out of scope for a brunch component entirely — pi-tui has no per-render row→component ownership map, and building one is an upstream pi-tui change, not a component-dx slice.
 - **Traceability:** none required for the harness itself — dev tooling only. Component refinement/creation slices add SPEC links only if they change durable product boundaries. Extends the "Build/test convention" section of `src/.pi/components/TOPOLOGY.md` and the "Launcher Surface" section of `src/dev/TOPOLOGY.md`.
 
 ### orchestrator-tool-port
@@ -119,45 +118,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - Later `cook_run` tooling is bounded behind executor-owned sandbox/worktree machinery; write-capable worker sessions, if any, are code-owned child execution boundaries.
   - External `../brunch` CLI behavior is ported as reusable product core plus Pi adapter, not wrapped as a shell command.
 - **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L / I49-L; `src/.pi/extensions/TOPOLOGY.md`.
-
-### elicitor-project
-
-- **Name:** Elicitor `project` capability — cross-plane derivation
-- **Linear:** [FE-1085](https://linear.app/hash/issue/FE-1085) — elicitor project capability design
-- **Branch:** `ln/fe-1085-elicitor-project-prep`
-- **Kind:** structural / capability
-- **Status:** done.
-- **Certainty:** proving.
-- **Retires:** A33-L by materializing the branch-implied distinct `project` surface into canon and the live skill manifest.
-- **Lights up:** requirements/design/oracle cross-plane derivation over the frozen elicitor capability axes.
-- **Objective:** Materialize cross-plane derivation as a distinct first-level live `project` move over the existing exchange triad and review-set commitment path, without introducing a new tool, schema family, or direct graph-write seam.
-- **Acceptance:** done.
-  - `memory/SPEC.md`, `memory/PLAN.md`, and the touched parent topology homes state one consistent shape: `project` is a distinct first-level live skill home, not a `generate` branch.
-  - The live skill manifest includes `project`, and its guidance covers accepted-graph derivation lanes such as intent → design and design → oracle.
-  - `project` reuses `present_candidates`, `request_response`, `present_review_set`, and the existing `map` / review-set commitment boundary; it does not add a new product tool or exchange schema family.
-  - D97-L provenance applies: cite ontology/render surfaces, do not copy vocabulary lists into the skill.
-- **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L, I54-L; D60-L.
-
-### structured-exchange-affordance
-
-- **Name:** Structured-exchange affordance hardening
-- **Linear:** [FE-1108](https://linear.app/hash/issue/FE-1108/harden-structured-exchange-affordances)
-- **Branch:** `ln/fe-1108-structured-exchange-affordance`
-- **Kind:** hardening / earned contract cleanup
-- **Status:** done.
-- **Certainty:** earned.
-- **Absorbs:** the former `exchange-symmetry-audit` cleanup; the remaining delete pass is residue of exchange hardening, not a separate dependency boundary.
-- **Closes:** recurring "enforced but untaught" failures where the model sees legal schemas but not the intended present-vs-response, discriminant-companion, or nested review-set payload contract.
-- **Canonicalizes:** structured-exchange schema descriptions, prompt guidelines, renderer/context language, and the final kept-vs-deleted exchange projection/render inventory around `present_question`, `present_candidates`, `present_review_set`, `request_response`, and their companion detail shapes.
-- **Objective:** Tighten the live structured-exchange authoring contract after the `request_response` collapse so the model-facing surface teaches the legal shape directly instead of relying on deep validator failures or legacy pairing prose, then delete any exchange-layer mirrors that no longer earn a shared home.
-- **Acceptance:** done.
-  - Present-side choice vs freeform vs candidate selection rules are explicit where the model authors them; stale legacy request-tool pairing language is removed.
-  - Review-set nested payload companions (`grounding`, `pitch`, `epistemicStatus`, related discriminants) are described or re-shaped at the authoring boundary, not only rejected deep in graph validation.
-  - `present_candidates` / `request_response` wording stays aligned with I51-L: recognition only until a later review-set or graph-mutation commitment path.
-  - Unjustified `projections/exchanges/*` and `agents/contexts/exchanges/*` symmetry survivors are inlined or deleted; retained modules name a real multi-consumer or model-facing-text ownership reason.
-  - `src/projections/TOPOLOGY.md` and the touched exchange topology homes agree on the final kept-vs-deleted inventory.
-  - Tests cover the affordance-level shapes that previously generated review findings, not just the deepest schema rejection points.
-- **Traceability:** I23-L, I51-L, I53-L, D27-L, D37-L, D38-L, D65-L, D66-L, D84-L, D86-L, D96-L, D100-L; `docs/design/STRUCTURED_EXCHANGE_COLLAPSE.md`, `src/projections/TOPOLOGY.md`, `src/agents/contexts/exchanges/TOPOLOGY.md`.
 
 ### elicitation-gap-guidance
 
