@@ -20,7 +20,11 @@ describe('agent context registry', () => {
   });
 
   it('exposes project as a first-level live Brunch skill', () => {
+    const rendered = renderBrunchSkills();
+
     expect(LIVE_BRUNCH_SKILL_IDS).toContain('project');
-    expect(renderBrunchSkills()).toContain('<name>project</name>');
+    expect(rendered).toContain('<name>project</name>');
+    expect(rendered).toContain('<location>src/agents/skills/project/SKILL.md</location>');
+    expect(rendered).not.toContain(process.cwd());
   });
 });

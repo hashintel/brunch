@@ -1,4 +1,3 @@
-import { basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadSkills, type Skill } from '@earendil-works/pi-coding-agent';
@@ -68,6 +67,10 @@ function liveBrunchSkillLocation(id: LiveBrunchSkillId): string {
   return fileURLToPath(new URL(`./${id}/SKILL.md`, import.meta.url));
 }
 
+function liveBrunchSkillRepoPath(id: LiveBrunchSkillId): string {
+  return `src/agents/skills/${id}/SKILL.md`;
+}
+
 function skillToManifestEntry(
   expectedId: LiveBrunchSkillId,
   skill: Skill | undefined,
@@ -75,16 +78,15 @@ function skillToManifestEntry(
   if (!skill) {
     throw new Error(`Missing Brunch live skill metadata for ${expectedId}.`);
   }
-  const parentDir = basename(dirname(skill.filePath));
-  if (skill.name !== expectedId || parentDir !== expectedId) {
+  if (skill.name !== expectedId) {
     throw new Error(
-      `Brunch live skill ${expectedId} must have name == parent directory; got name=${skill.name}, dir=${parentDir}.`,
+      `Brunch live skill ${expectedId} must have matching frontmatter name; got ${skill.name}.`,
     );
   }
   return {
     name: skill.name,
     description: skill.description,
-    location: skill.filePath,
+    location: liveBrunchSkillRepoPath(expectedId),
   };
 }
 
