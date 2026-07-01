@@ -14,6 +14,7 @@ import {
   INTENT_KINDS,
   NODE_BASES,
   NODE_PLANES,
+  NODE_SETTLEMENTS,
   ORACLE_KINDS,
   PLAN_KINDS,
   type ReadinessBand,
@@ -41,6 +42,15 @@ export type NodePlane = (typeof NODE_PLANES)[number];
  * Derived from `graph/schema/kinds.ts` — same semantics as EdgeBasis.
  */
 export type NodeBasis = (typeof NODE_BASES)[number];
+
+/**
+ * Whether this graph item is `advisory` (reviewed source-derived signal, not
+ * yet harmonized against inner-band concerns) or `settled` (accepted as
+ * current spec truth/commitment for its band). Orthogonal to `basis` (I52-L,
+ * D99-L): a directly-stated fact can still be advisory if it was captured as
+ * early outer-band signal; harmonization is a distinct command-layer step.
+ */
+export type NodeSettlement = (typeof NODE_SETTLEMENTS)[number];
 
 // ---------------------------------------------------------------------------
 // Kind taxonomy — derived from graph/schema/kinds.ts const arrays
@@ -382,6 +392,7 @@ export interface GraphNode {
   readonly title: string;
   readonly body?: string;
   readonly basis: NodeBasis;
+  readonly settlement: NodeSettlement;
   readonly source?: string;
   readonly detail?: NodeDetail;
   readonly createdAtLsn: Lsn;

@@ -8,7 +8,14 @@
  */
 
 import * as schema from '../../db/schema.js';
-import { DESIGN_KINDS, INTENT_KINDS, NODE_BASES, ORACLE_KINDS, PLAN_KINDS } from '../schema/kinds.js';
+import {
+  DESIGN_KINDS,
+  INTENT_KINDS,
+  NODE_BASES,
+  NODE_SETTLEMENTS,
+  ORACLE_KINDS,
+  PLAN_KINDS,
+} from '../schema/kinds.js';
 import {
   claimFormKnownFields,
   NODE_DETAIL_FORMS,
@@ -19,6 +26,7 @@ import {
   type NodeBasis,
   type NodeKindRequiringDetail,
   type NodeKindWithFormDetail,
+  type NodeSettlement,
 } from '../schema/nodes.js';
 import type { CreateNodeInput } from './command-types.js';
 import type { Diagnostic, EdgePatch, NodePatch } from './graph-mutation-types.js';
@@ -39,9 +47,14 @@ const VALID_KINDS_BY_PLANE: Record<string, readonly string[]> = {
 const KINDS_REQUIRING_DETAIL = new Set<string>(NODE_KINDS_REQUIRING_DETAIL);
 const KINDS_WITH_FORM_DETAIL = new Set<string>(NODE_KINDS_WITH_FORM_DETAIL);
 const VALID_NODE_BASES = NODE_BASES as unknown as string[];
+const VALID_NODE_SETTLEMENTS = NODE_SETTLEMENTS as unknown as string[];
 
 function isNodeBasis(value: string): value is NodeBasis {
   return VALID_NODE_BASES.includes(value);
+}
+
+function isNodeSettlement(value: string): value is NodeSettlement {
+  return VALID_NODE_SETTLEMENTS.includes(value);
 }
 
 export function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
@@ -56,6 +69,13 @@ export function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
     diagnostics.push({
       field: 'basis',
       message: 'basis must be explicit or implicit',
+    });
+  }
+
+  if (input.settlement !== undefined && !isNodeSettlement(input.settlement)) {
+    diagnostics.push({
+      field: 'settlement',
+      message: 'settlement must be advisory or settled',
     });
   }
 
@@ -118,7 +138,7 @@ export function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: No
   const diagnostics: Diagnostic[] = [];
   const patchRecord = patch as Record<string, unknown>;
   const patchFields = Object.keys(patchRecord);
-  const allowedFields = new Set(['title', 'body', 'source', 'detail']);
+  const allowedFields = new Set(['title', 'body', 'source', 'detail', 'settlement']);
 
   if (patchFields.length === 0) {
     diagnostics.push({ field: 'patch', message: 'patch_node requires at least one patch field' });
@@ -140,6 +160,16 @@ export function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: No
   if (hasOwn(patchRecord, 'source') && patch.source !== null && typeof patch.source !== 'string') {
     diagnostics.push({ field: 'patch.source', message: 'source must be a string or null when present' });
   }
+  if (hasOwn(patchRecord, 'settlement')) {
+    if (typeof patch.settlement !== 'string' || !isNodeSettlement(patch.settlement)) {
+      diagnostics.push({ field: 'patch.settlement', message: 'settlement must be advisory or settled' });
+    } else if (row.settlement === 'settled' && patch.settlement === 'advisory') {
+      diagnostics.push({
+        field: 'patch.settlement',
+        message: 'settlement cannot regress from settled to advisory (I52-L)',
+      });
+    }
+  }
 
   const merged: CreateNodeInput = {
     specId: row.spec_id,
@@ -148,6 +178,7 @@ export function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: No
     title: hasOwn(patchRecord, 'title') ? (patch.title as string) : row.title,
     body: hasOwn(patchRecord, 'body') ? (patch.body ?? undefined) : (row.body ?? undefined),
     basis: row.basis,
+    settlement: hasOwn(patchRecord, 'settlement') ? (patch.settlement as NodeSettlement) : row.settlement,
     source: hasOwn(patchRecord, 'source') ? (patch.source ?? undefined) : (row.source ?? undefined),
     detail: hasOwn(patchRecord, 'detail') ? patch.detail : parseNodeDetail(row),
   };
@@ -173,7 +204,7 @@ export function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
   }
 
   for (const field of patchFields) {
-    if (field !== 'rationale') {
+    if (field !== 'rationale' && field !== 'settlement') {
       diagnostics.push({ field: `patch.${field}`, message: 'field is not patchable' });
     }
   }
@@ -183,6 +214,12 @@ export function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
       field: 'patch.rationale',
       message: 'rationale must be a string or null when present',
     });
+  }
+
+  // ceiling: no row-based monotonic transition check on edge settlement yet
+  // (unlike patch_node) — add one if an edge-settlement regression bug surfaces.
+  if (hasOwn(patchRecord, 'settlement') && !isNodeSettlement(patch.settlement as string)) {
+    diagnostics.push({ field: 'patch.settlement', message: 'settlement must be advisory or settled' });
   }
 
   return diagnostics;

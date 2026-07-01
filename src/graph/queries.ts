@@ -20,6 +20,7 @@ import {
   type GraphNode,
   type NodeDetail,
   type NodeKind,
+  type NodeSettlement,
 } from './schema/nodes.js';
 import type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
@@ -66,6 +67,7 @@ interface EdgePresenceFilter {
 export interface GraphFilter {
   readonly kinds?: readonly NodeKind[];
   readonly bands?: readonly ReadinessBand[];
+  readonly settlement?: readonly NodeSettlement[];
   readonly hasEdge?: EdgePresenceFilter;
   readonly lacksEdge?: EdgePresenceFilter;
 }
@@ -80,6 +82,7 @@ function rowToNode(row: typeof schema.nodes.$inferSelect): GraphNode {
     title: row.title,
     ...(row.body != null ? { body: row.body } : {}),
     basis: row.basis as GraphNode['basis'],
+    settlement: row.settlement as GraphNode['settlement'],
     ...(row.source != null ? { source: row.source } : {}),
     ...(row.detail != null ? { detail: JSON.parse(row.detail) as NodeDetail } : {}),
     createdAtLsn: row.created_at_lsn,
@@ -95,6 +98,7 @@ function rowToEdge(row: typeof schema.edges.$inferSelect): GraphEdge {
     sourceId: row.source_id,
     targetId: row.target_id,
     basis: row.basis as GraphEdge['basis'],
+    settlement: row.settlement as GraphEdge['settlement'],
     createdAtLsn: row.created_at_lsn,
     updatedAtLsn: row.updated_at_lsn,
   };
@@ -271,6 +275,9 @@ function nodeMatchesFilter(
   if (filter.bands && filter.bands.length > 0) {
     const band = latestExpectedBand(row.kind as NodeKind);
     if (band === null || !filter.bands.includes(band)) return false;
+  }
+  if (filter.settlement && filter.settlement.length > 0) {
+    if (!filter.settlement.includes(row.settlement as NodeSettlement)) return false;
   }
   if (filter.hasEdge && !hasMatchingEdge(row.id, edges, filter.hasEdge)) return false;
   if (filter.lacksEdge && hasMatchingEdge(row.id, edges, filter.lacksEdge)) return false;

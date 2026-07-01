@@ -414,7 +414,7 @@ Full deletion sweep landed, with divergences beyond the tentative touched paths:
 
 ## Card 5 — Settlement materialization
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -488,6 +488,26 @@ src/
 │   └── references/                                      ~
 └── probes/ or fixtures                                  ?
 ```
+
+### Build notes
+
+Landed across the layers named above, plus one divergence beyond the tentative touched paths: the LLM-facing `mutate_graph` tool schema (`src/.pi/extensions/brunch-data/graph/tool-schemas.ts`, `command-adapter.ts`, `index.ts`) gained a `createSettlement` parameter mirroring the existing `createBasis` batch-wide param. This was necessary, not speculative — `agents/skills/map/references/routing.md` and `ingest/SKILL.md` already prescribed "create_edge with role-named endpoints + stance + settlement" as the agent-facing capture mechanism (written in an earlier docs-reconciliation pass, ahead of this card's schema work), so without a tool-level `createSettlement` param the documented advisory-capture route would have had no way to reach the command layer.
+
+Settlement applies symmetrically to nodes **and** edges (not nodes only), mirroring `basis`'s existing node/edge symmetry (D63-L already treats both) and because bulk-acquired digest material naturally includes edges (realization/witness/rationale) that are equally unharmonized until promoted.
+
+Promotion enforcement (I52-L: "not treat as globally settled until a command-layer mutation promotes") is implemented as a monotonic transition rule inside `validateNodePatchAgainstExisting`: `patch_node` may set `settlement: 'settled'` on an advisory node, but rejects `settlement: 'advisory'` on an already-`settled` node as `structural_illegal`. `EdgePatch.settlement` accepts the same enum but — marked with a `ceiling:` comment in `command-validation.ts` — does not yet do the row-based monotonic check the node path does, since `validateEdgePatch` doesn't currently receive the existing edge row; add one if an edge-settlement regression bug surfaces.
+
+`db/schema.ts` gained a `settlement` column on both `nodes` and `edges` (`NOT NULL DEFAULT 'settled'`), migration `drizzle/0008_sharp_storm.sql`. `GraphNode`/`GraphEdge` both carry `settlement` as a required field (not optional), matching `basis`'s existing required-field pattern — this forced updates to ~14 hand-built test fixture literals across `graph-slice.test.ts`, `plan-output.test.ts`, `spec-output.test.ts`, `turn-context.test.ts`, `brunch-tui.test.ts`, three `probes/__tests__/*.test.ts` files, `web/app.test.tsx`, `agent-runtime-system-prompts.test.ts`, and `subagents.test.ts` — mechanical `settlement: 'settled'` additions alongside each existing `basis:` literal, not a design change.
+
+`queryGraph`'s `GraphFilter` gained a `settlement` filter so projection/plan/commitment readers can request settled-only reads (`queryGraph(db, specId, { settlement: ['settled'] })`) — this is the concrete mechanism promised by "context/projection rendering exposes settlement so capability-readiness can consult it," since no bespoke "plan reader" or "commitment reader" module exists yet to hard-code the exclusion into. `graph-slice.ts`'s node table rendering labels advisory nodes inline (`title (advisory)`) so any consumer of the rendered overview sees settlement without a schema change to the render shape.
+
+`agents/references/data-model.md`, `readiness-bands.md`, and the `elicit`/`ingest`/`map` skill docs already described the settled/advisory model in full (written ahead of this card, presumably during the Card 1 reference-doc reconciliation pass) — no doc changes were needed since the schema now matches what they already say. `agents/contexts/seeds/graph-fact-seed.ts` was checked and confirmed to have no `settlement` reference, honoring the cross-cutting obligation that the thin seed must not depend on settlement state (A36-L).
+
+New test coverage: `src/graph/__tests__/settlement.test.ts` (schema defaults, `createSettlement` batch creation, promotion, rejected regression, `queryGraph` filter); a `graph-slice.test.ts` case for advisory labeling; a `brunch-data-graph.test.ts` end-to-end case proving the `mutate_graph` tool surface persists and surfaces advisory settlement.
+
+Deferred to Card 6 per the frontier's own sequencing (unchanged from Cards 1–4's precedent): topology files (`graph/TOPOLOGY.md`, `db/TOPOLOGY.md`, `projections/TOPOLOGY.md`, `.pi/extensions/TOPOLOGY.md`) still need their settlement-aware dependency/layout notes reconciled; `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md` §Settlement materialization is otherwise already accurate and needs only a status flip from "folded slice" to "landed."
+
+One pre-existing, unrelated test failure was discovered during verification and left untouched (confirmed via `git stash` that it fails identically without this card's changes): `src/.pi/extensions/__tests__/subagents.test.ts > ... > locks the assembled explorer background prompt shape` — a trailing-newline snapshot mismatch in subagent background-prompt assembly, outside this card's boundary crossings.
 
 ---
 

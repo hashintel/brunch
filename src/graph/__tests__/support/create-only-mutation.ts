@@ -23,6 +23,7 @@ function toMutateGraphInput(input: CreateOnlyMutationInput): MutateGraphInput {
   return {
     specId: input.specId,
     createBasis: input.basis,
+    createSettlement: input.settlement,
     ops: [
       ...input.nodes.map((node) => ({ op: 'create_node' as const, ...node })),
       ...input.edges.map((edge) => toCreateEdgeOp(edge)),

@@ -875,6 +875,7 @@ function graphSlice(title: string, specId: number): GraphSlice {
         kindOrdinal: 1,
         title,
         basis: 'explicit',
+        settlement: 'settled',
         createdAtLsn: specId,
         updatedAtLsn: specId,
       },

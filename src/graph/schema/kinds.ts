@@ -37,6 +37,16 @@ export const NODE_PLANES = ['intent', 'oracle', 'design', 'plan'] as const;
 
 export const NODE_BASES = ['explicit', 'implicit'] as const;
 
+/**
+ * Whether a graph item has been harmonized against inner-band concerns
+ * (`settled`) or is still reviewed-but-unharmonized signal (`advisory`).
+ *
+ * Orthogonal to `NODE_BASES` (I52-L): `basis` records approval strength,
+ * `settlement` records harmonization state. Applies to both nodes and edges,
+ * mirroring `NODE_BASES`'s scope.
+ */
+export const NODE_SETTLEMENTS = ['advisory', 'settled'] as const;
+
 export const EDGE_CATEGORIES = [
   'dependency',
   'witness',

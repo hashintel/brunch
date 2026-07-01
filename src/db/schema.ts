@@ -10,7 +10,14 @@
 import { sql } from 'drizzle-orm';
 import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
-import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES, NODE_PLANES, SPEC_KINDS } from '../graph/schema/kinds.js';
+import {
+  EDGE_CATEGORIES,
+  EDGE_STANCES,
+  NODE_BASES,
+  NODE_PLANES,
+  NODE_SETTLEMENTS,
+  SPEC_KINDS,
+} from '../graph/schema/kinds.js';
 
 // ---------------------------------------------------------------------------
 // Tables
@@ -37,6 +44,7 @@ export const nodes = sqliteTable(
     title: text().notNull(),
     body: text(),
     basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
+    settlement: text({ enum: NODE_SETTLEMENTS }).notNull().default('settled'),
     source: text(),
     detail: text(), // JSON column: decision → {chosen_option, rejected, rationale}, term → {definition, aliases?}
     created_at_lsn: integer().notNull(),
@@ -66,6 +74,7 @@ export const edges = sqliteTable('edges', {
     .references(() => nodes.id),
   stance: text({ enum: EDGE_STANCES }),
   basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
+  settlement: text({ enum: NODE_SETTLEMENTS }).notNull().default('settled'),
   rationale: text(),
   created_at_lsn: integer().notNull(),
   updated_at_lsn: integer().notNull(),

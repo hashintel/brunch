@@ -151,7 +151,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Current execution pointer:** `memory/cards/elicitation-gap-guidance--closure-slices.md`.
 - **Certainty:** proving.
 - **Retires:** the persisted spec-scoped `elicitation_gaps` register and its count-based readiness scoring (D65-L, D45-L); the fixed spec-creation seed catalog `SEEDED_ELICITATION_GAPS` (D75-L).
-- **Materializes (folded slice):** advisory/settled `settlement` as a graph dimension orthogonal to `basis`, enforced at the command layer and surfaced in projection/context (D99-L, I52-L, D63-L) — formerly the separate `settlement-materialization` frontier, folded in per the 2026-07-01 review + user decision.
+- **Materializes (folded slice):** advisory/settled `settlement` as a graph dimension orthogonal to `basis`, enforced at the command layer and surfaced in projection/context (D99-L, I52-L, D63-L) — formerly the separate `settlement-materialization` frontier, folded in per the 2026-07-01 review + user decision. Landed 2026-07-01 (Card 5).
 - **Depends on:** readiness bands, data-model legibility, and the stable exchange affordance surface (all done). Settlement is folded in as a later slice; the thin seed still must **not** depend on advisory/settlement state (A36-L).
 - **Lights up:** a session-local, cumulative asking agenda seeded per session from thin graph facts and focused by a prompt orientation directive.
 - **Stabilizes:** the boundary between graph truth (durable), the session-local gap scratchpad (non-authoritative asking agenda), and persisted `reconciliation_need` follow-up; plus a single code-owned latest-expected-band scalar source.

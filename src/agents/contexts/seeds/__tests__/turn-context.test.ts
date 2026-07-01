@@ -48,6 +48,7 @@ const overview: GraphSlice = {
       sourceId: 2,
       targetId: 1,
       basis: 'explicit',
+      settlement: 'settled',
       createdAtLsn: 6,
       updatedAtLsn: 6,
     },
@@ -59,6 +60,7 @@ const overview: GraphSlice = {
       targetId: 4,
       stance: 'for',
       basis: 'explicit',
+      settlement: 'settled',
       createdAtLsn: 7,
       updatedAtLsn: 7,
     },
@@ -117,6 +119,7 @@ function node(
     kindOrdinal: id,
     title,
     basis: 'explicit',
+    settlement: 'settled',
     createdAtLsn: id,
     updatedAtLsn: id,
   };

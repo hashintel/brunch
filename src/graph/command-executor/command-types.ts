@@ -8,7 +8,7 @@
  */
 
 import type { SpecKind } from '../schema/kinds.js';
-import type { NodeBasis, NodePlane } from '../schema/nodes.js';
+import type { NodeBasis, NodePlane, NodeSettlement } from '../schema/nodes.js';
 import type { MutateGraphSuccess, StructuralIllegal } from './graph-mutation-types.js';
 
 // ---------------------------------------------------------------------------
@@ -126,6 +126,8 @@ export interface CreateNodeInput {
   readonly title: string;
   readonly body?: string | undefined;
   readonly basis?: NodeBasis | undefined;
+  /** Defaults to `settled`; bulk/advisory capture paths pass `advisory` (D99-L, I52-L). */
+  readonly settlement?: NodeSettlement | undefined;
   readonly source?: string | undefined;
   readonly detail?: unknown;
 }

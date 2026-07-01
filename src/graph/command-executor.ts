@@ -237,6 +237,7 @@ export class CommandExecutor {
           title: input.title,
           body: input.body ?? null,
           basis: input.basis ?? 'explicit',
+          settlement: input.settlement ?? 'settled',
           source: input.source ?? null,
           detail: input.detail != null ? JSON.stringify(input.detail) : null,
           created_at_lsn: lsn,

@@ -95,6 +95,7 @@ export function planGraphMutation(options: {
   const createInput: CreateGraphInput = {
     specId: input.specId,
     basis: input.createBasis,
+    settlement: input.createSettlement,
     nodes: createNodes.map(({ ref, plane, kind, title, body, source, detail }) => ({
       ref,
       plane,

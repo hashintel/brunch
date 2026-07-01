@@ -4,7 +4,7 @@ import type { BrunchDb } from '../../db/connection.js';
 import * as schema from '../../db/schema.js';
 import { EDGE_CATEGORY_METADATA } from '../policy/category-policy.js';
 import type { EdgeCategory, EdgeStance } from '../schema/edges.js';
-import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from '../schema/kinds.js';
+import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES, NODE_SETTLEMENTS } from '../schema/kinds.js';
 import { formatGraphNodeCode, type NodeKind } from '../schema/nodes.js';
 import type {
   CreateGraphEdgeInput,
@@ -17,6 +17,7 @@ import type {
 const VALID_CATEGORIES = EDGE_CATEGORIES as unknown as string[];
 const VALID_STANCES = EDGE_STANCES as unknown as string[];
 const VALID_BASES = NODE_BASES as unknown as string[];
+const VALID_SETTLEMENTS = NODE_SETTLEMENTS as unknown as string[];
 
 export interface PlannedBatchEndpoint {
   readonly kind: 'batch' | 'existing';
@@ -64,6 +65,12 @@ export function planCreateGraphBatch(
     diagnostics.push({
       field: 'basis',
       message: `"${String(input.basis)}" is not a valid graph approval basis`,
+    });
+  }
+  if (input.settlement != null && !VALID_SETTLEMENTS.includes(input.settlement)) {
+    diagnostics.push({
+      field: 'settlement',
+      message: `"${String(input.settlement)}" is not a valid graph settlement`,
     });
   }
 

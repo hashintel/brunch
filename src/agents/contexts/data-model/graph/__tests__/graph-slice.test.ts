@@ -98,6 +98,27 @@ test('overview preserves caller heading for read_graph list modes and seed', () 
   ).toBe(true);
 });
 
+test('overview labels advisory nodes and leaves settled nodes unmarked (I52-L)', () => {
+  const rendered = formatGraphOverview({
+    lsn: 1,
+    nodes: [
+      node({ id: 1, kind: 'goal', kindOrdinal: 1, title: 'Directly-stated goal' }),
+      node({
+        id: 2,
+        kind: 'context',
+        kindOrdinal: 1,
+        title: 'Digest-sourced observation',
+        settlement: 'advisory',
+      }),
+    ],
+    edges: [],
+  });
+
+  expect(rendered).toContain('Directly-stated goal |');
+  expect(rendered).not.toContain('Directly-stated goal (advisory)');
+  expect(rendered).toContain('Digest-sourced observation (advisory) |');
+});
+
 test('overview includes LSN on empty selected-spec graph', () => {
   expect(formatGraphOverview({ lsn: 3, nodes: [], edges: [] })).toBe(
     'Graph overview (LSN 3): empty (no nodes or edges).',
@@ -119,6 +140,7 @@ function node(input: {
   readonly kind: GraphSlice['nodes'][number]['kind'];
   readonly kindOrdinal: number;
   readonly title: string;
+  readonly settlement?: GraphSlice['nodes'][number]['settlement'];
 }): GraphSlice['nodes'][number] {
   return {
     specId: 1,
@@ -128,6 +150,7 @@ function node(input: {
     kindOrdinal: input.kindOrdinal,
     title: input.title,
     basis: 'explicit',
+    settlement: input.settlement ?? 'settled',
     createdAtLsn: 1,
     updatedAtLsn: 1,
   };
@@ -148,6 +171,7 @@ function edge(input: {
     targetId: input.targetId,
     ...(input.stance ? { stance: input.stance } : {}),
     basis: 'explicit',
+    settlement: 'settled',
     createdAtLsn: 1,
     updatedAtLsn: 1,
   };

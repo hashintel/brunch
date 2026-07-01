@@ -91,7 +91,7 @@ function formatNodeSections(
             ...sortedNodes.map((node) => [
               formatGraphNodeCode(node.kind, node.kindOrdinal),
               node.id,
-              node.title,
+              node.settlement === 'advisory' ? `${node.title} (advisory)` : node.title,
             ]),
           ]),
         ].join('\n'),

@@ -990,6 +990,7 @@ describe('Brunch TUI boot', () => {
                   title: 'Live selected-spec goal',
                   body: 'Graph-backed candidate',
                   basis: 'explicit',
+                  settlement: 'settled',
                   createdAtLsn: 1,
                   updatedAtLsn: 1,
                 },
