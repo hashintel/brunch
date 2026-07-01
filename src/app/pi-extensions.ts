@@ -290,7 +290,11 @@ export function createBrunchPiExtensions(
     const graph = options.graph;
     const executionPorts: ExecutionPorts = {
       gitWorktree: options.executionPorts?.gitWorktree ?? createGitWorktreePort(),
-      agentRunner: options.executionPorts?.agentRunner ?? createAgentRunnerPort(),
+      agentRunner:
+        options.executionPorts?.agentRunner ??
+        (options.subagents
+          ? createAgentRunnerPort({ subagents: options.subagents })
+          : createAgentRunnerPort()),
       testRunner: options.executionPorts?.testRunner ?? createTestRunnerPort(),
       ...(options.executionPorts?.gitLand ? { gitLand: options.executionPorts.gitLand } : {}),
     };

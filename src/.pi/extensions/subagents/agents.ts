@@ -23,7 +23,7 @@ import { Value } from 'typebox/value';
 
 import type { BackgroundAgentManifest } from '../../../session/schema/agent-manifest.js';
 
-export const BACKGROUND_SUBAGENT_IDS = ['explorer', 'researcher', 'projector', 'reviewer'] as const;
+export const BACKGROUND_SUBAGENT_IDS = ['explorer', 'researcher', 'projector', 'reviewer', 'worker'] as const;
 export type BackgroundSubagentId = (typeof BACKGROUND_SUBAGENT_IDS)[number];
 
 export const SUBAGENT_THINKING_LEVELS = ['low', 'medium', 'high'] as const;

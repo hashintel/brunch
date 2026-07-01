@@ -31,6 +31,13 @@ export interface AgentRunArgs {
   readonly runId: string;
   readonly epicId: string;
   readonly sliceId: string;
+  readonly runtime?: AgentRunnerRuntime;
+}
+
+export interface AgentRunnerRuntime {
+  readonly modelRegistry?: unknown;
+  readonly model?: unknown;
+  readonly signal?: AbortSignal;
 }
 
 export type AgentRunResult =

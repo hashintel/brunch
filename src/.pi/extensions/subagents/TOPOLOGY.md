@@ -45,9 +45,11 @@ delegates an isolated reasoning task to a sealed Pi child session and returns th
 child's last assistant message as tool-result content. Starter background agents
 are read-only (`explorer`, `researcher`) or no-tools (`projector`, `reviewer`) and
 are spawnable by `elicit` because `FOREGROUND_AGENT_ROSTER.elicit.foregroundAgent`
-names them in `canDelegate`. No write/worker agent exists yet. `explorer` can
-also read the selected parent spec through `read_graph` when the app root injects
-graph readers.
+names them in `canDelegate`. The execute-only `worker` is registry-owned but not
+spawnable through the foreground `subagent` tool; `AgentRunnerPort` launches it
+directly for sandbox runs with bounded `read` + `write_worktree_file` authority.
+`explorer` can also read the selected parent spec through `read_graph` when the
+app root injects graph readers.
 
 It is the Brunch-native realization of the community "subagents" pattern
 (`amosblomqvist/pi-subagents`, the canonical pi example, etc.), but using Pi's
@@ -136,17 +138,18 @@ Starter agents (read-only / no-write):
 | `researcher` | `web_search, web_fetch`            | external web research                                          |
 | `projector`  | _(none)_                           | one candidate-proposal variant per call; fan out for diversity |
 | `reviewer`   | _(none)_                           | proposal/commitment review from supplied context               |
+| `worker`     | `read, write_worktree_file`         | execute-mode sandbox code worker (not `elicit`-delegatable)    |
 
 Tool resolution (`planSubagentTools`): read-only filesystem tools come from the
 SDK (`createReadToolDefinition(cwd)` etc., cwd-bound, override built-ins of the
 same name); web tools come from Brunch's own `../web-tools/web/` factories; `read_graph`
 comes from the graph extension's reusable read-tool factory and is available only
-when parent graph readers are injected. The child grant is sovereign: it resolves
-against this catalog, not against the parent op-mode's active tool list. Write/shell
-built-ins (`bash`/`edit`/`write`) are not in the current catalog; an unknown tool
-name in frontmatter **throws** at plan time (authoring bug → fail loud). Future
-write-capable children add narrow tools to this catalog plus an op-mode allowlist
-entry, rather than inheriting the parent tool policy.
+when parent graph readers are injected. `write_worktree_file` is a Brunch-owned
+bounded complete-file write tool scoped to the child session cwd; `AgentRunnerPort`
+uses it with `cwd = worktreeDir`. The child grant is sovereign: it resolves against
+this catalog, not against the parent op-mode's active tool list. Shell/nesting
+built-ins (`bash`, ambient `write`/`edit`, `subagent`) are not in the catalog; an
+unknown tool name in frontmatter **throws** at plan time (authoring bug → fail loud).
 
 ## Startup wiring
 

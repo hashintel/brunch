@@ -1,7 +1,7 @@
 import { appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { AgentRunnerPort } from './execution-ports.js';
+import type { AgentRunnerPort, AgentRunnerRuntime } from './execution-ports.js';
 import { reportsPath } from './report.js';
 import {
   assertSafeSliceId,
@@ -63,6 +63,7 @@ export async function ingestAgentResult(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly agentRunner: AgentRunnerPort;
+  readonly runtime?: AgentRunnerRuntime;
 }): Promise<AgentResultIngestResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -98,6 +99,7 @@ export async function ingestAgentResult(args: {
     runId: args.runId,
     epicId: metadata.activeEpicId,
     sliceId: metadata.activeSliceId,
+    ...(args.runtime ? { runtime: args.runtime } : {}),
   });
   if (runResult.status === 'failed') {
     return {

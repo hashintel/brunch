@@ -1087,7 +1087,13 @@ describe('Brunch explicit Pi extension registry', () => {
 
     const agentResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_AGENT_RESULT_TOOL);
     expect(agentResult).toBeDefined();
-    const result = await agentResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+    const modelRegistry = { marker: 'registry' };
+    const model = { provider: 'faux', id: 'model' };
+    const result = await agentResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, {
+      cwd,
+      modelRegistry,
+      model,
+    });
 
     expect(result.content[0]?.text).toContain('execute_agent_result: agent_result_ingested');
     expect(calls).toEqual([
@@ -1098,6 +1104,7 @@ describe('Brunch explicit Pi extension registry', () => {
         runId: 'run-1',
         epicId: 'frontier-1',
         sliceId: 'task-1',
+        runtime: { modelRegistry, model },
       },
     ]);
     expect(result.details).toMatchObject({
@@ -1734,7 +1741,7 @@ type RegisteredTestTool = {
     params: unknown,
     signal?: AbortSignal,
     onUpdate?: unknown,
-    ctx?: { cwd: string },
+    ctx?: { cwd: string; modelRegistry?: unknown; model?: unknown },
   ) => Promise<{
     content: readonly { text: string }[];
     details: Record<string, unknown>;

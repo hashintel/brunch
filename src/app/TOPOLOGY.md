@@ -24,7 +24,9 @@ Current runtime support modules:
 - `git-worktree-port.ts`, `agent-runner-port.ts`, `test-runner-port.ts` —
   app-layer execution-port implementations injected into executor Pi tools;
   executor core owns the port contracts and state transitions, while app owns
-  concrete external capability implementations or fail-closed placeholders.
+  concrete external capability implementations. `agent-runner-port.ts` bridges
+  executor run metadata to the sealed subagent worker substrate and fails closed
+  when subagent deps or Pi model context are absent.
 
 ## Does not own
 

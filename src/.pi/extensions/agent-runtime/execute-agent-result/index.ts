@@ -32,7 +32,16 @@ export function createExecuteAgentResultTool(
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_agent_result requires an active cwd');
       }
-      const result = await ingestAgentResult({ cwd, runId: params.runId, agentRunner });
+      const result = await ingestAgentResult({
+        cwd,
+        runId: params.runId,
+        agentRunner,
+        runtime: {
+          ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
+          ...(ctx.model ? { model: ctx.model } : {}),
+          ...(_signal ? { signal: _signal } : {}),
+        },
+      });
       return {
         content: [
           {
