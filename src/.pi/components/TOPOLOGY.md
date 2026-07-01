@@ -77,5 +77,5 @@ These workbench patterns are intentionally out of scope until their tripwire fir
 
 - **Popper-style placement math** — `anchor: 'center'` is sufficient today. Port/adapt only when the first non-centered or trigger-relative overlay appears.
 - **Anchor/geometry marker protocol** — invisible ANSI measurement markers for aligned overlays. Add only when centered/fixed positioning cannot serve ≥2 real use cases.
-- **Workbench app/playground shell** — a standalone component playground. Build only if an explicit decision creates a separate Brunch TUI component playground; brunch already has injectable-terminal entry points (`preflight.ts`) and the test harness.
+- **Workbench app/playground shell** — built as `src/dev/component-preview.ts` (`npm run dev:components`), not under this directory: it is dev tooling, not a Pi-native presentation component, so it lives with Brunch's other dev feedback loops (`src/dev/TOPOLOGY.md`). It reuses this directory's injectable-terminal entry points (`preflight.ts`) and mirrors each component's real `ctx.ui.custom` presentation contract rather than assuming a uniform overlay.
 - **Ad-hoc SGR style helpers** — brunch uses the real `LabTheme` from `tui-lab/`; do not introduce one-off escape-sequence helpers.

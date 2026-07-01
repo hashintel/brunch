@@ -4,12 +4,13 @@ This directory owns Brunch-only development loops and curation seams. Nothing he
 
 ## Ownership
 
-`src/dev/**` owns four things:
+`src/dev/**` owns five things:
 
 - the human-facing dev launcher (`scripts/dev.ts` → `src/dev/dev-cli.ts`)
 - the explicit graph-curation seam for fixture shaping (`graph-curation.ts`)
 - faux/introspection/tier-2 harnesses used by tests and probes
 - dev-only witnesses such as `generate-fan-out-witness.ts`
+- the standalone component preview harness (`scripts/dev-components.ts` → `src/dev/component-preview.ts`) for previewing `.pi/components` in isolation on a real terminal, with no workspace/session/DB
 
 It does not own published CLI behavior, public RPC contracts, or database imports from outside `graph/`.
 
@@ -32,6 +33,28 @@ npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbench
 npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
 npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
 ```
+
+## Component Preview Harness
+
+`npm run dev:components` (or `npm run dev:components:watch` for a `tsx watch`-backed edit loop) boots a
+real `ProcessTerminal` + `TUI` and shows a gallery of every registered `.pi/components` entry
+(`src/dev/component-preview/registry.ts`) — no seeded workbench, session, or DB required, since these
+components are render-only with injectable `theme`/props.
+
+- `npm run dev:components -- <id>` deep-links straight into one entry, skipping the gallery.
+- Each registry entry mirrors its component's *real* production presentation contract
+  (`src/dev/component-preview/custom-ui.ts`'s `showComponentPreview` shim reimplements
+  `ExtensionUIContext.custom`'s documented calling shape): overlay-with-options for components that
+  opt into `{ overlay: true, overlayOptions }` in production (e.g. `workspace-dialog`), or an inline
+  swap of the gallery's root content for components that call `ctx.ui.custom` with no options (e.g. the
+  runtime-mode axis picker, the multi-choice picker). This is deliberate: those two presentation modes
+  differ in production, and a preview tool that assumed "always overlay" would misrepresent how a
+  component actually ships.
+- Theme is a real `pi-coding-agent` `Theme` instance (`src/dev/component-preview/theme.ts`), not a
+  duck-typed stand-in — seeded with Brunch's own established 256-color palette, since the package's
+  `exports` map does not expose pi's shipped theme-loading internals outside a running session.
+- `keybindings` is stubbed (`undefined as unknown as KeybindingsManager`) since no previewed component
+  reads it yet.
 
 ## Debug Mirrors And Dev Tools
 

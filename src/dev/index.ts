@@ -1,5 +1,9 @@
 export { runDevCli, type DevCliOptions, type DevCliPrompts } from './dev-cli.js';
 export {
+  runComponentPreviewGallery,
+  type ComponentPreviewGalleryOptions,
+} from './component-preview.js';
+export {
   DevMutateGraphParamsSchema,
   applyDevGraphMutation,
   parseDevMutateGraphParams,
