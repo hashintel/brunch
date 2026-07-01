@@ -221,8 +221,6 @@ describe('Brunch agent runtime-state projection', () => {
     const executeState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'execute',
-      agentStrategy: 'auto',
-      agentLens: 'auto',
     };
 
     expect(

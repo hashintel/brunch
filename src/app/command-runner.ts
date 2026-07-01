@@ -116,10 +116,10 @@ export async function runCommand(
       return current + clipped;
     };
 
-    child.stdout.on('data', (chunk: Buffer) => {
+    child.stdout?.on('data', (chunk: Buffer) => {
       stdout = appendOutput(stdout, chunk);
     });
-    child.stderr.on('data', (chunk: Buffer) => {
+    child.stderr?.on('data', (chunk: Buffer) => {
       stderr = appendOutput(stderr, chunk);
     });
     child.on('error', (error) => {
