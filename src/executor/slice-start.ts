@@ -2,23 +2,18 @@ import { appendFile, readFile } from 'node:fs/promises';
 
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
-import {
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
+import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 interface PlanSlice {
   readonly id: string;
   readonly epic_id: string;
 }
 
-interface CookPlanPayload {
+interface PlanPayload {
   readonly slices?: readonly PlanSlice[];
 }
 
-export type CookSliceStartResult =
+export type SliceStartResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -28,7 +23,7 @@ export type CookSliceStartResult =
     }
   | {
       readonly status: 'reports_not_initialized';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -55,13 +50,13 @@ export type CookSliceStartResult =
       ];
     };
 
-export async function startCookSlice(args: {
+export async function startSlice(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly sliceId?: string;
-}): Promise<CookSliceStartResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<SliceStartResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -106,7 +101,7 @@ export async function startCookSlice(args: {
     sliceId: slice.id,
     status: 'slice_started',
   };
-  const updated: CookRunMetadata = {
+  const updated: RunMetadata = {
     ...metadata,
     status: 'slice_started',
     activeSliceId: slice.id,
@@ -114,7 +109,7 @@ export async function startCookSlice(args: {
   };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
     status: 'slice_started',
@@ -128,6 +123,6 @@ export async function startCookSlice(args: {
   };
 }
 
-async function readPlan(path: string): Promise<CookPlanPayload> {
-  return JSON.parse(await readFile(path, 'utf8')) as CookPlanPayload;
+async function readPlan(path: string): Promise<PlanPayload> {
+  return JSON.parse(await readFile(path, 'utf8')) as PlanPayload;
 }

@@ -1,38 +1,38 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { copyCookHostSource, type CookSourceCopyResult } from '../../../../executor/source-copy.js';
+import { copyHostSource, type SourceCopyResult } from '../../../../executor/source-copy.js';
 import { BRUNCH_EXECUTE_SOURCE_COPY_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_SOURCE_COPY_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookSourceCopyParams = Type.Object({
-  runId: Type.String({ description: 'Cook run id with selected host source policy.' }),
+const ExecuteSourceCopyParams = Type.Object({
+  runId: Type.String({ description: 'Run id with selected host source policy.' }),
 });
 
-type ExecuteCookSourceCopyParams = Static<typeof ExecuteCookSourceCopyParams>;
+type ExecuteSourceCopyParams = Static<typeof ExecuteSourceCopyParams>;
 
-interface ExecuteCookSourceCopyDetails {
-  readonly result: CookSourceCopyResult;
-  readonly sideEffects: CookSourceCopyResult['sideEffects'];
+interface ExecuteSourceCopyDetails {
+  readonly result: SourceCopyResult;
+  readonly sideEffects: SourceCopyResult['sideEffects'];
 }
 
-export function createExecuteCookSourceCopyTool(): ToolDefinition<
-  typeof ExecuteCookSourceCopyParams,
-  ExecuteCookSourceCopyDetails
+export function createExecuteSourceCopyTool(): ToolDefinition<
+  typeof ExecuteSourceCopyParams,
+  ExecuteSourceCopyDetails
 > {
   return {
     name: BRUNCH_EXECUTE_SOURCE_COPY_TOOL,
     label: 'execute_source_copy',
     description:
       'Copy bounded host source entries into the cook worktree. Does not execute slices or create Petri/report artifacts.',
-    parameters: ExecuteCookSourceCopyParams,
+    parameters: ExecuteSourceCopyParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_source_copy requires an active cwd');
       }
-      const result = await copyCookHostSource({ cwd, runId: params.runId });
+      const result = await copyHostSource({ cwd, runId: params.runId });
       return {
         content: [
           {
@@ -51,8 +51,8 @@ export function createExecuteCookSourceCopyTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteCookSourceCopy(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteCookSourceCopyTool() as never);
+export function registerBrunchExecuteSourceCopy(pi: ExtensionAPI): void {
+  pi.registerTool(createExecuteSourceCopyTool() as never);
 }
 
-export default registerBrunchExecuteCookSourceCopy;
+export default registerBrunchExecuteSourceCopy;

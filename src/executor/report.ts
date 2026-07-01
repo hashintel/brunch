@@ -1,15 +1,9 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import {
-  cookRunDir,
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
+import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
-export type CookReportInitResult =
+export type ReportInitResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -19,7 +13,7 @@ export type CookReportInitResult =
     }
   | {
       readonly status: 'source_not_copied';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -37,15 +31,15 @@ export type CookReportInitResult =
     };
 
 export function reportsPath(cwd: string, runId: string): string {
-  return join(cookRunDir(cwd, runId), 'reports.jsonl');
+  return join(runDirPath(cwd, runId), 'reports.jsonl');
 }
 
-export async function initializeCookReports(args: {
+export async function initializeReports(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<CookReportInitResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<ReportInitResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -67,11 +61,11 @@ export async function initializeCookReports(args: {
   }
 
   const path = reportsPath(args.cwd, args.runId);
-  const updated: CookRunMetadata = { ...metadata, status: 'reports_initialized', reportsPath: path };
+  const updated: RunMetadata = { ...metadata, status: 'reports_initialized', reportsPath: path };
   const event = { event: 'run_ready', runId: args.runId, status: 'reports_initialized' };
 
   await writeFile(path, `${JSON.stringify(event)}\n`, 'utf8');
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
     status: 'reports_initialized',

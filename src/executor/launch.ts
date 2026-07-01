@@ -1,22 +1,22 @@
 import { access } from 'node:fs/promises';
 
-import { cookPlanFilePath } from './plan-file.js';
+import { planFilePath } from './plan-file.js';
 
-export type CookLaunchStatus = 'missing_plan' | 'ready';
+export type LaunchStatus = 'missing_plan' | 'ready';
 
-export interface CookLaunchResult {
-  readonly status: CookLaunchStatus;
+export interface LaunchResult {
+  readonly status: LaunchStatus;
   readonly runStatus: 'not_started';
   readonly planPath: string;
   readonly sideEffects: readonly [];
 }
 
-export async function prepareCookLaunch(args: {
+export async function prepareLaunch(args: {
   readonly cwd: string;
   readonly specId: string;
   readonly planPath?: string;
-}): Promise<CookLaunchResult> {
-  const planPath = args.planPath ?? cookPlanFilePath(args.cwd, args.specId);
+}): Promise<LaunchResult> {
+  const planPath = args.planPath ?? planFilePath(args.cwd, args.specId);
   return {
     status: (await fileExists(planPath)) ? 'ready' : 'missing_plan',
     runStatus: 'not_started',

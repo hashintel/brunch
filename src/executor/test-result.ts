@@ -2,20 +2,14 @@ import { appendFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { reportsPath } from './report.js';
-import {
-  cookRunDir,
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
+import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 interface TestResultPayload {
   readonly status?: string;
   readonly target?: string;
 }
 
-export type CookTestResultIngestResult =
+export type TestResultIngestResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -25,7 +19,7 @@ export type CookTestResultIngestResult =
     }
   | {
       readonly status: 'agent_result_not_ingested';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -55,15 +49,15 @@ export type CookTestResultIngestResult =
     };
 
 export function testResultPath(cwd: string, runId: string, sliceId: string): string {
-  return join(cookRunDir(cwd, runId), 'agent-output', sliceId, 'test-result.json');
+  return join(runDirPath(cwd, runId), 'agent-output', sliceId, 'test-result.json');
 }
 
-export async function ingestCookTestResult(args: {
+export async function ingestTestResult(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<CookTestResultIngestResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<TestResultIngestResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -107,14 +101,14 @@ export async function ingestCookTestResult(args: {
     status: result.status ?? 'passed',
     ...(result.target ? { target: result.target } : {}),
   };
-  const updated: CookRunMetadata = {
+  const updated: RunMetadata = {
     ...metadata,
     status: 'test_result_ingested',
     testResultPath: resultPath,
   };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
     status: 'test_result_ingested',

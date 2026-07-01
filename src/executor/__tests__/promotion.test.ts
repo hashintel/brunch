@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { petriNetPath } from '../petri.js';
-import { prepareCookPromotion, promotionReportPath } from '../promotion.js';
+import { preparePromotion, promotionReportPath } from '../promotion.js';
 import { reportsPath } from '../report.js';
-import { cookRunDir, cookRunMetadataPath } from '../run.js';
+import { runDirPath, runMetadataPath } from '../run.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -19,7 +19,7 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 async function createPetriExportedRun(cwd: string): Promise<void> {
-  const runDir = cookRunDir(cwd, 'run-1');
+  const runDir = runDirPath(cwd, 'run-1');
   await mkdir(join(runDir, 'petrinaut'), { recursive: true });
   await writeFile(
     petriNetPath(cwd, 'run-1'),
@@ -27,7 +27,7 @@ async function createPetriExportedRun(cwd: string): Promise<void> {
     'utf8',
   );
   await writeFile(
-    cookRunMetadataPath(cwd, 'run-1'),
+    runMetadataPath(cwd, 'run-1'),
     JSON.stringify({
       runId: 'run-1',
       specId: '42',
@@ -41,17 +41,17 @@ async function createPetriExportedRun(cwd: string): Promise<void> {
   );
 }
 
-describe('prepareCookPromotion', () => {
+describe('preparePromotion', () => {
   it('does not prepare promotion for a missing run', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-missing-'));
 
-    const result = await prepareCookPromotion({ cwd, runId: 'run-1' });
+    const result = await preparePromotion({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'missing_run',
       runStatus: 'not_started',
       runId: 'run-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
     expect(await pathExists(promotionReportPath(cwd, 'run-1'))).toBe(false);
@@ -59,20 +59,20 @@ describe('prepareCookPromotion', () => {
 
   it('does not prepare promotion before Petri export', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-not-ready-'));
-    await mkdir(cookRunDir(cwd, 'run-1'), { recursive: true });
+    await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
     await writeFile(
-      cookRunMetadataPath(cwd, 'run-1'),
+      runMetadataPath(cwd, 'run-1'),
       JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.yaml', status: 'run_completed' }),
       'utf8',
     );
 
-    const result = await prepareCookPromotion({ cwd, runId: 'run-1' });
+    const result = await preparePromotion({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'run_not_promotable',
       runStatus: 'run_completed',
       runId: 'run-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
     expect(await pathExists(promotionReportPath(cwd, 'run-1'))).toBe(false);
@@ -82,18 +82,18 @@ describe('prepareCookPromotion', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-ready-'));
     await createPetriExportedRun(cwd);
 
-    const result = await prepareCookPromotion({ cwd, runId: 'run-1' });
+    const result = await preparePromotion({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'promotion_prepared',
       runStatus: 'promotion_prepared',
       runId: 'run-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       promotionPath: promotionReportPath(cwd, 'run-1'),
       sideEffects: [
-        { kind: 'mkdir', path: join(cookRunDir(cwd, 'run-1'), 'promotion') },
+        { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'promotion') },
         { kind: 'write_file', path: promotionReportPath(cwd, 'run-1'), ifExists: 'overwrite' },
-        { kind: 'write_file', path: cookRunMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
       ],
     });
 
@@ -110,13 +110,13 @@ describe('prepareCookPromotion', () => {
     expect(report).not.toHaveProperty('branch');
     expect(report).not.toHaveProperty('sha');
 
-    expect(JSON.parse(await readFile(cookRunMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'promotion_prepared',
       promotionPath: promotionReportPath(cwd, 'run-1'),
     });
 
     // No topology mutation: no land branch/worktree/git ref created.
-    expect(await pathExists(join(cookRunDir(cwd, 'run-1'), 'worktree'))).toBe(false);
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'worktree'))).toBe(false);
     expect(await pathExists(join(cwd, '.git'))).toBe(false);
   });
 });

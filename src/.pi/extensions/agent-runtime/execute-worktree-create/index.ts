@@ -1,38 +1,38 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { createCookWorktree, type CookWorktreeCreateResult } from '../../../../executor/worktree.js';
+import { createWorktree, type WorktreeCreateResult } from '../../../../executor/worktree.js';
 import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookWorktreeCreateParams = Type.Object({
-  runId: Type.String({ description: 'Cook run id whose metadata already exists.' }),
+const ExecuteWorktreeCreateParams = Type.Object({
+  runId: Type.String({ description: 'Run id whose metadata already exists.' }),
 });
 
-type ExecuteCookWorktreeCreateParams = Static<typeof ExecuteCookWorktreeCreateParams>;
+type ExecuteWorktreeCreateParams = Static<typeof ExecuteWorktreeCreateParams>;
 
-interface ExecuteCookWorktreeCreateDetails {
-  readonly result: CookWorktreeCreateResult;
-  readonly sideEffects: CookWorktreeCreateResult['sideEffects'];
+interface ExecuteWorktreeCreateDetails {
+  readonly result: WorktreeCreateResult;
+  readonly sideEffects: WorktreeCreateResult['sideEffects'];
 }
 
-export function createExecuteCookWorktreeCreateTool(): ToolDefinition<
-  typeof ExecuteCookWorktreeCreateParams,
-  ExecuteCookWorktreeCreateDetails
+export function createExecuteWorktreeCreateTool(): ToolDefinition<
+  typeof ExecuteWorktreeCreateParams,
+  ExecuteWorktreeCreateDetails
 > {
   return {
     name: BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
     label: 'execute_worktree_create',
     description:
       'Create the empty worktree directory for an existing cook run. Does not populate it, execute slices, or create Petri artifacts.',
-    parameters: ExecuteCookWorktreeCreateParams,
+    parameters: ExecuteWorktreeCreateParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_worktree_create requires an active cwd');
       }
-      const result = await createCookWorktree({ cwd, runId: params.runId });
+      const result = await createWorktree({ cwd, runId: params.runId });
       return {
         content: [
           {
@@ -51,8 +51,8 @@ export function createExecuteCookWorktreeCreateTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteCookWorktreeCreate(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteCookWorktreeCreateTool() as never);
+export function registerBrunchExecuteWorktreeCreate(pi: ExtensionAPI): void {
+  pi.registerTool(createExecuteWorktreeCreateTool() as never);
 }
 
-export default registerBrunchExecuteCookWorktreeCreate;
+export default registerBrunchExecuteWorktreeCreate;

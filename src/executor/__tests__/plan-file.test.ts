@@ -4,10 +4,10 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { cookPlanFilePayload, cookPlanFilePath, writeCookPlanFile } from '../plan-file.js';
-import type { CookPlanPreview } from '../plan-preview.js';
+import { planFilePayload, planFilePath, writePlanFile } from '../plan-file.js';
+import type { PlanPreview } from '../plan-preview.js';
 
-const preview: CookPlanPreview = {
+const preview: PlanPreview = {
   schemaVersion: 1,
   mode: 'brownfield',
   spec: {
@@ -33,7 +33,7 @@ const preview: CookPlanPreview = {
 
 describe('cook plan file writer', () => {
   it('converts a preview into an old-cook Plan payload without preview-only fields', () => {
-    const payload = cookPlanFilePayload(preview);
+    const payload = planFilePayload(preview);
 
     expect(payload).toEqual({
       mode: 'brownfield',
@@ -47,15 +47,13 @@ describe('cook plan file writer', () => {
 
   it('writes one bounded spec-scoped plan.yaml with explicit overwrite semantics', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-plan-file-'));
-    const result = await writeCookPlanFile({ cwd, preview });
+    const result = await writePlanFile({ cwd, preview });
 
     expect(result).toEqual({
-      path: cookPlanFilePath(cwd, '42'),
+      path: planFilePath(cwd, '42'),
       writeMode: 'overwrite',
-      sideEffects: [{ kind: 'write_file', path: cookPlanFilePath(cwd, '42'), ifExists: 'overwrite' }],
+      sideEffects: [{ kind: 'write_file', path: planFilePath(cwd, '42'), ifExists: 'overwrite' }],
     });
-    expect(JSON.parse(await readFile(cookPlanFilePath(cwd, '42'), 'utf8'))).toEqual(
-      cookPlanFilePayload(preview),
-    );
+    expect(JSON.parse(await readFile(planFilePath(cwd, '42'), 'utf8'))).toEqual(planFilePayload(preview));
   });
 });

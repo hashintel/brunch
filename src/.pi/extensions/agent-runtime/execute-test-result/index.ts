@@ -1,38 +1,38 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { ingestCookTestResult, type CookTestResultIngestResult } from '../../../../executor/test-result.js';
+import { ingestTestResult, type TestResultIngestResult } from '../../../../executor/test-result.js';
 import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookTestResultParams = Type.Object({
-  runId: Type.String({ description: 'Cook run id whose active slice has an ingested agent result.' }),
+const ExecuteTestResultParams = Type.Object({
+  runId: Type.String({ description: 'Run id whose active slice has an ingested agent result.' }),
 });
 
-type ExecuteCookTestResultParams = Static<typeof ExecuteCookTestResultParams>;
+type ExecuteTestResultParams = Static<typeof ExecuteTestResultParams>;
 
-interface ExecuteCookTestResultDetails {
-  readonly result: CookTestResultIngestResult;
-  readonly sideEffects: CookTestResultIngestResult['sideEffects'];
+interface ExecuteTestResultDetails {
+  readonly result: TestResultIngestResult;
+  readonly sideEffects: TestResultIngestResult['sideEffects'];
 }
 
-export function createExecuteCookTestResultTool(): ToolDefinition<
-  typeof ExecuteCookTestResultParams,
-  ExecuteCookTestResultDetails
+export function createExecuteTestResultTool(): ToolDefinition<
+  typeof ExecuteTestResultParams,
+  ExecuteTestResultDetails
 > {
   return {
     name: BRUNCH_EXECUTE_TEST_RESULT_TOOL,
     label: 'execute_test_result',
     description:
       'Ingest a prewritten test result for the active slice. Does not run tests or create Petri artifacts.',
-    parameters: ExecuteCookTestResultParams,
+    parameters: ExecuteTestResultParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_test_result requires an active cwd');
       }
-      const result = await ingestCookTestResult({ cwd, runId: params.runId });
+      const result = await ingestTestResult({ cwd, runId: params.runId });
       return {
         content: [
           {
@@ -51,8 +51,8 @@ export function createExecuteCookTestResultTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteCookTestResult(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteCookTestResultTool() as never);
+export function registerBrunchExecuteTestResult(pi: ExtensionAPI): void {
+  pi.registerTool(createExecuteTestResultTool() as never);
 }
 
-export default registerBrunchExecuteCookTestResult;
+export default registerBrunchExecuteTestResult;

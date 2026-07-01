@@ -2,15 +2,9 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { reportsPath } from './report.js';
-import {
-  cookRunDir,
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
+import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
-export type CookSliceExecutionRequestResult =
+export type SliceExecutionRequestResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -20,7 +14,7 @@ export type CookSliceExecutionRequestResult =
     }
   | {
       readonly status: 'slice_not_started';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -43,15 +37,15 @@ export type CookSliceExecutionRequestResult =
     };
 
 export function sliceExecutionRequestPath(cwd: string, runId: string, sliceId: string): string {
-  return join(cookRunDir(cwd, runId), 'agent-output', sliceId, 'request.json');
+  return join(runDirPath(cwd, runId), 'agent-output', sliceId, 'request.json');
 }
 
-export async function requestCookSliceExecution(args: {
+export async function requestSliceExecution(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<CookSliceExecutionRequestResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<SliceExecutionRequestResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -74,7 +68,7 @@ export async function requestCookSliceExecution(args: {
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const requestPath = sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
-  const requestDir = join(cookRunDir(args.cwd, args.runId), 'agent-output', metadata.activeSliceId);
+  const requestDir = join(runDirPath(args.cwd, args.runId), 'agent-output', metadata.activeSliceId);
   const request = {
     runId: args.runId,
     sliceId: metadata.activeSliceId,
@@ -89,7 +83,7 @@ export async function requestCookSliceExecution(args: {
     sliceId: metadata.activeSliceId,
     status: 'slice_execution_requested',
   };
-  const updated: CookRunMetadata = {
+  const updated: RunMetadata = {
     ...metadata,
     status: 'slice_execution_requested',
     sliceExecutionRequestPath: requestPath,
@@ -98,7 +92,7 @@ export async function requestCookSliceExecution(args: {
   await mkdir(requestDir, { recursive: true });
   await writeFile(requestPath, `${JSON.stringify(request, null, 2)}\n`, 'utf8');
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
     status: 'slice_execution_requested',

@@ -1,33 +1,33 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { completeCookRun, type CookRunCompleteResult } from '../../../../executor/run-complete.js';
+import { completeRun, type RunCompleteResult } from '../../../../executor/run-complete.js';
 import { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookRunCompleteParams = Type.Object({ runId: Type.String() });
-type ExecuteCookRunCompleteParams = Static<typeof ExecuteCookRunCompleteParams>;
-interface ExecuteCookRunCompleteDetails {
-  readonly result: CookRunCompleteResult;
-  readonly sideEffects: CookRunCompleteResult['sideEffects'];
+const ExecuteRunCompleteParams = Type.Object({ runId: Type.String() });
+type ExecuteRunCompleteParams = Static<typeof ExecuteRunCompleteParams>;
+interface ExecuteRunCompleteDetails {
+  readonly result: RunCompleteResult;
+  readonly sideEffects: RunCompleteResult['sideEffects'];
 }
 
-export function createExecuteCookRunCompleteTool(): ToolDefinition<
-  typeof ExecuteCookRunCompleteParams,
-  ExecuteCookRunCompleteDetails
+export function createExecuteRunCompleteTool(): ToolDefinition<
+  typeof ExecuteRunCompleteParams,
+  ExecuteRunCompleteDetails
 > {
   return {
     name: BRUNCH_EXECUTE_RUN_COMPLETE_TOOL,
     label: 'execute_run_complete',
     description:
       'Mark a cook run complete after all slices are complete. Does not create Petri artifacts, promote, or land.',
-    parameters: ExecuteCookRunCompleteParams,
+    parameters: ExecuteRunCompleteParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0)
         throw new Error('execute_run_complete requires an active cwd');
-      const result = await completeCookRun({ cwd, runId: params.runId });
+      const result = await completeRun({ cwd, runId: params.runId });
       return {
         content: [
           {
@@ -46,8 +46,8 @@ export function createExecuteCookRunCompleteTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteCookRunComplete(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteCookRunCompleteTool() as never);
+export function registerBrunchExecuteRunComplete(pi: ExtensionAPI): void {
+  pi.registerTool(createExecuteRunCompleteTool() as never);
 }
 
-export default registerBrunchExecuteCookRunComplete;
+export default registerBrunchExecuteRunComplete;

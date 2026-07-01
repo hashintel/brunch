@@ -1,28 +1,28 @@
 import type { ExecutablePlanDraft } from './executable-plan-draft.js';
 
-export interface CookPlanPreviewVerificationTarget {
+export interface PlanPreviewVerificationTarget {
   readonly kind: 'criterion';
   readonly target: string;
 }
 
-export interface CookPlanPreviewSpecRequirement {
+export interface PlanPreviewSpecRequirement {
   readonly item_id: string;
   readonly content: string;
 }
 
-export interface CookPlanPreviewSpecCriterion {
+export interface PlanPreviewSpecCriterion {
   readonly item_id: string;
   readonly content: string;
   readonly verifies: readonly string[];
 }
 
-export interface CookPlanPreviewSpec {
+export interface PlanPreviewSpec {
   readonly spec_id: string;
-  readonly requirements: readonly CookPlanPreviewSpecRequirement[];
-  readonly criteria: readonly CookPlanPreviewSpecCriterion[];
+  readonly requirements: readonly PlanPreviewSpecRequirement[];
+  readonly criteria: readonly PlanPreviewSpecCriterion[];
 }
 
-export interface CookPlanPreviewEpic {
+export interface PlanPreviewEpic {
   readonly id: string;
   readonly summary: string;
   readonly depends_on: readonly string[];
@@ -31,29 +31,29 @@ export interface CookPlanPreviewEpic {
   // has no truthful boot/probe or host-blind reachability source yet.
 }
 
-export interface CookPlanPreviewSlice {
+export interface PlanPreviewSlice {
   readonly id: string;
   readonly epic_id: string;
   readonly definition: string;
   readonly depends_on: readonly string[];
-  readonly verification: readonly CookPlanPreviewVerificationTarget[];
+  readonly verification: readonly PlanPreviewVerificationTarget[];
   readonly derived_from: readonly string[];
   // Old cook Plan also accepts `writes`, but the alpha draft has no file-layout
   // authoring source yet. Keep it absent instead of inventing ownership.
 }
 
-export interface CookPlanPreview {
+export interface PlanPreview {
   readonly schemaVersion: 1;
   readonly mode: ExecutablePlanDraft['mode'];
-  readonly spec: CookPlanPreviewSpec;
-  readonly epics: readonly CookPlanPreviewEpic[];
-  readonly slices: readonly CookPlanPreviewSlice[];
+  readonly spec: PlanPreviewSpec;
+  readonly epics: readonly PlanPreviewEpic[];
+  readonly slices: readonly PlanPreviewSlice[];
   readonly sideEffects: readonly [];
   // Old cook Plan also accepts `profile` and `harnessNotes`; both remain absent
   // until alpha has a profile/toolchain detection or harness-prior-art source.
 }
 
-export function previewCookPlan(draft: ExecutablePlanDraft): CookPlanPreview {
+export function previewPlan(draft: ExecutablePlanDraft): PlanPreview {
   return {
     schemaVersion: 1,
     mode: draft.mode,
@@ -76,9 +76,9 @@ export function previewCookPlan(draft: ExecutablePlanDraft): CookPlanPreview {
   };
 }
 
-function previewSpec(draft: ExecutablePlanDraft): CookPlanPreviewSpec {
-  const requirements = new Map<string, CookPlanPreviewSpecRequirement>();
-  const criteria = new Map<string, CookPlanPreviewSpecCriterion>();
+function previewSpec(draft: ExecutablePlanDraft): PlanPreviewSpec {
+  const requirements = new Map<string, PlanPreviewSpecRequirement>();
+  const criteria = new Map<string, PlanPreviewSpecCriterion>();
 
   for (const slice of draft.slices) {
     if (!requirements.has(slice.requirementId)) {

@@ -1,38 +1,38 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { populateCookWorktree, type CookPopulateResult } from '../../../../executor/populate.js';
+import { populateWorktree, type PopulateResult } from '../../../../executor/populate.js';
 import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_POPULATE_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookPopulateParams = Type.Object({
-  runId: Type.String({ description: 'Cook run id whose empty worktree already exists.' }),
+const ExecutePopulateParams = Type.Object({
+  runId: Type.String({ description: 'Run id whose empty worktree already exists.' }),
 });
 
-type ExecuteCookPopulateParams = Static<typeof ExecuteCookPopulateParams>;
+type ExecutePopulateParams = Static<typeof ExecutePopulateParams>;
 
-interface ExecuteCookPopulateDetails {
-  readonly result: CookPopulateResult;
-  readonly sideEffects: CookPopulateResult['sideEffects'];
+interface ExecutePopulateDetails {
+  readonly result: PopulateResult;
+  readonly sideEffects: PopulateResult['sideEffects'];
 }
 
-export function createExecuteCookPopulateTool(): ToolDefinition<
-  typeof ExecuteCookPopulateParams,
-  ExecuteCookPopulateDetails
+export function createExecutePopulateTool(): ToolDefinition<
+  typeof ExecutePopulateParams,
+  ExecutePopulateDetails
 > {
   return {
     name: BRUNCH_EXECUTE_POPULATE_TOOL,
     label: 'execute_populate',
     description:
       'Populate an existing cook worktree with the selected plan source only. Does not copy host source, execute slices, or create Petri artifacts.',
-    parameters: ExecuteCookPopulateParams,
+    parameters: ExecutePopulateParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_populate requires an active cwd');
       }
-      const result = await populateCookWorktree({ cwd, runId: params.runId });
+      const result = await populateWorktree({ cwd, runId: params.runId });
       return {
         content: [
           {
@@ -51,8 +51,8 @@ export function createExecuteCookPopulateTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteCookPopulate(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteCookPopulateTool() as never);
+export function registerBrunchExecutePopulate(pi: ExtensionAPI): void {
+  pi.registerTool(createExecutePopulateTool() as never);
 }
 
-export default registerBrunchExecuteCookPopulate;
+export default registerBrunchExecutePopulate;

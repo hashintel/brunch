@@ -4,9 +4,9 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { ingestCookAgentResult } from '../agent-result.js';
+import { ingestAgentResult } from '../agent-result.js';
 import { reportsPath } from '../report.js';
-import { cookRunDir, cookRunMetadataPath } from '../run.js';
+import { runDirPath, runMetadataPath } from '../run.js';
 import { sliceExecutionRequestPath } from '../slice-execute.js';
 
 async function pathExists(path: string): Promise<boolean> {
@@ -19,8 +19,8 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 async function createRequestedSliceRun(cwd: string): Promise<void> {
-  const runDir = cookRunDir(cwd, 'run-1');
-  const metadataPath = cookRunMetadataPath(cwd, 'run-1');
+  const runDir = runDirPath(cwd, 'run-1');
+  const metadataPath = runMetadataPath(cwd, 'run-1');
   const reportPath = reportsPath(cwd, 'run-1');
   const requestPath = sliceExecutionRequestPath(cwd, 'run-1', 'task-1');
   await mkdir(dirname(requestPath), { recursive: true });
@@ -43,36 +43,36 @@ async function createRequestedSliceRun(cwd: string): Promise<void> {
   await mkdir(join(runDir, 'worktree'), { recursive: true });
 }
 
-describe('ingestCookAgentResult', () => {
+describe('ingestAgentResult', () => {
   it('does not ingest when run metadata is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-missing-run-'));
-    const result = await ingestCookAgentResult({ cwd, runId: 'run-1' });
+    const result = await ingestAgentResult({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'missing_run',
       runStatus: 'not_started',
       runId: 'run-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
   });
 
   it('does not ingest before execution has been requested', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-not-requested-'));
-    await mkdir(cookRunDir(cwd, 'run-1'), { recursive: true });
+    await mkdir(runDirPath(cwd, 'run-1'), { recursive: true });
     await writeFile(
-      cookRunMetadataPath(cwd, 'run-1'),
+      runMetadataPath(cwd, 'run-1'),
       JSON.stringify({ runId: 'run-1', specId: '42', planPath: '/tmp/plan.yaml', status: 'slice_started' }),
       'utf8',
     );
 
-    const result = await ingestCookAgentResult({ cwd, runId: 'run-1' });
+    const result = await ingestAgentResult({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'slice_not_requested',
       runStatus: 'slice_started',
       runId: 'run-1',
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
   });
@@ -81,15 +81,15 @@ describe('ingestCookAgentResult', () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-missing-result-'));
     await createRequestedSliceRun(cwd);
 
-    const result = await ingestCookAgentResult({ cwd, runId: 'run-1' });
+    const result = await ingestAgentResult({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'missing_agent_result',
       runStatus: 'slice_execution_requested',
       runId: 'run-1',
       sliceId: 'task-1',
-      resultPath: join(cookRunDir(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json'),
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      resultPath: join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
   });
@@ -97,14 +97,14 @@ describe('ingestCookAgentResult', () => {
   it('ingests a prewritten agent result without running tests or Petri', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-ready-'));
     await createRequestedSliceRun(cwd);
-    const resultPath = join(cookRunDir(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json');
+    const resultPath = join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json');
     await writeFile(
       resultPath,
       JSON.stringify({ status: 'completed', summary: 'Implemented task.' }),
       'utf8',
     );
 
-    const result = await ingestCookAgentResult({ cwd, runId: 'run-1' });
+    const result = await ingestAgentResult({ cwd, runId: 'run-1' });
 
     expect(result).toEqual({
       status: 'agent_result_ingested',
@@ -113,11 +113,11 @@ describe('ingestCookAgentResult', () => {
       sliceId: 'task-1',
       epicId: 'frontier-1',
       resultPath,
-      metadataPath: cookRunMetadataPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
       reportsPath: reportsPath(cwd, 'run-1'),
       sideEffects: [
         { kind: 'append_file', path: reportsPath(cwd, 'run-1') },
-        { kind: 'write_file', path: cookRunMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
       ],
     });
     const reports = (await readFile(reportsPath(cwd, 'run-1'), 'utf8'))
@@ -132,12 +132,12 @@ describe('ingestCookAgentResult', () => {
       status: 'completed',
       summary: 'Implemented task.',
     });
-    expect(JSON.parse(await readFile(cookRunMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'agent_result_ingested',
       activeSliceId: 'task-1',
       agentResultPath: resultPath,
     });
-    expect(await pathExists(join(cookRunDir(cwd, 'run-1'), 'petrinaut'))).toBe(false);
-    expect(await pathExists(join(cookRunDir(cwd, 'run-1'), 'tests-ran.json'))).toBe(false);
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'tests-ran.json'))).toBe(false);
   });
 });

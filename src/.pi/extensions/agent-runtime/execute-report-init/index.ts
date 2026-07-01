@@ -1,38 +1,38 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { initializeCookReports, type CookReportInitResult } from '../../../../executor/report.js';
+import { initializeReports, type ReportInitResult } from '../../../../executor/report.js';
 import { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookReportInitParams = Type.Object({
-  runId: Type.String({ description: 'Cook run id whose host source has been copied.' }),
+const ExecuteReportInitParams = Type.Object({
+  runId: Type.String({ description: 'Run id whose host source has been copied.' }),
 });
 
-type ExecuteCookReportInitParams = Static<typeof ExecuteCookReportInitParams>;
+type ExecuteReportInitParams = Static<typeof ExecuteReportInitParams>;
 
-interface ExecuteCookReportInitDetails {
-  readonly result: CookReportInitResult;
-  readonly sideEffects: CookReportInitResult['sideEffects'];
+interface ExecuteReportInitDetails {
+  readonly result: ReportInitResult;
+  readonly sideEffects: ReportInitResult['sideEffects'];
 }
 
-export function createExecuteCookReportInitTool(): ToolDefinition<
-  typeof ExecuteCookReportInitParams,
-  ExecuteCookReportInitDetails
+export function createExecuteReportInitTool(): ToolDefinition<
+  typeof ExecuteReportInitParams,
+  ExecuteReportInitDetails
 > {
   return {
     name: BRUNCH_EXECUTE_REPORT_INIT_TOOL,
     label: 'execute_report_init',
     description:
       'Initialize reports.jsonl for a source-copied cook run. Does not execute slices or create Petri artifacts.',
-    parameters: ExecuteCookReportInitParams,
+    parameters: ExecuteReportInitParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_report_init requires an active cwd');
       }
-      const result = await initializeCookReports({ cwd, runId: params.runId });
+      const result = await initializeReports({ cwd, runId: params.runId });
       return {
         content: [
           {
@@ -51,8 +51,8 @@ export function createExecuteCookReportInitTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteCookReportInit(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteCookReportInitTool() as never);
+export function registerBrunchExecuteReportInit(pi: ExtensionAPI): void {
+  pi.registerTool(createExecuteReportInitTool() as never);
 }
 
-export default registerBrunchExecuteCookReportInit;
+export default registerBrunchExecuteReportInit;

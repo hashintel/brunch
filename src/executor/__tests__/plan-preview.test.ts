@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ExecutablePlanDraft } from '../executable-plan-draft.js';
-import { previewCookPlan } from '../plan-preview.js';
+import { previewPlan } from '../plan-preview.js';
 
 const draft: ExecutablePlanDraft = {
   schemaVersion: 1,
@@ -24,9 +24,9 @@ const draft: ExecutablePlanDraft = {
   sideEffects: [],
 };
 
-describe('previewCookPlan', () => {
+describe('previewPlan', () => {
   it('maps executable draft data into the old cook Plan shape without side effects', () => {
-    expect(previewCookPlan(draft)).toMatchObject({
+    expect(previewPlan(draft)).toMatchObject({
       schemaVersion: 1,
       mode: 'brownfield',
       spec: {
@@ -52,7 +52,7 @@ describe('previewCookPlan', () => {
   });
 
   it('leaves old runner fields absent when the executable draft cannot derive them truthfully', () => {
-    const preview = previewCookPlan(draft);
+    const preview = previewPlan(draft);
 
     expect(preview).not.toHaveProperty('profile');
     expect(preview).not.toHaveProperty('harnessNotes');

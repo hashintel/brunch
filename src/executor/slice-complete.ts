@@ -1,14 +1,9 @@
 import { appendFile } from 'node:fs/promises';
 
 import { reportsPath } from './report.js';
-import {
-  cookRunMetadataPath,
-  persistCookRunMetadata,
-  readCookRunMetadata,
-  type CookRunMetadata,
-} from './run.js';
+import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
-export type CookSliceCompleteResult =
+export type SliceCompleteResult =
   | {
       readonly status: 'missing_run';
       readonly runStatus: 'not_started';
@@ -18,7 +13,7 @@ export type CookSliceCompleteResult =
     }
   | {
       readonly status: 'test_result_not_ingested';
-      readonly runStatus: CookRunMetadata['status'];
+      readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [];
@@ -37,12 +32,12 @@ export type CookSliceCompleteResult =
       ];
     };
 
-export async function completeCookSlice(args: {
+export async function completeSlice(args: {
   readonly cwd: string;
   readonly runId: string;
-}): Promise<CookSliceCompleteResult> {
-  const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readCookRunMetadata(metadataPath);
+}): Promise<SliceCompleteResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -74,10 +69,10 @@ export async function completeCookSlice(args: {
     sliceId: metadata.activeSliceId,
     status: 'slice_completed',
   };
-  const updated: CookRunMetadata = { ...metadata, status: 'slice_completed', completedSliceIds };
+  const updated: RunMetadata = { ...metadata, status: 'slice_completed', completedSliceIds };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
-  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
+  const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
     status: 'slice_completed',

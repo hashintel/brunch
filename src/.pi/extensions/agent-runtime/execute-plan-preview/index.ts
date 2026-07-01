@@ -2,13 +2,13 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import { Type, type Static } from 'typebox';
 
 import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
-import type { CookPlanPreview } from '../../../../executor/plan-preview.js';
+import type { PlanPreview } from '../../../../executor/plan-preview.js';
 import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
 export { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookPlanPreviewParams = Type.Object({
+const ExecutePlanPreviewParams = Type.Object({
   mode: Type.Optional(
     Type.Union([Type.Literal('greenfield'), Type.Literal('brownfield')], {
       description:
@@ -17,28 +17,28 @@ const ExecuteCookPlanPreviewParams = Type.Object({
   ),
 });
 
-type ExecuteCookPlanPreviewParams = Static<typeof ExecuteCookPlanPreviewParams>;
+type ExecutePlanPreviewParams = Static<typeof ExecutePlanPreviewParams>;
 
-interface ExecuteCookPlanPreviewDetails {
-  readonly preview: CookPlanPreview;
+interface ExecutePlanPreviewDetails {
+  readonly preview: PlanPreview;
   readonly source: { readonly graphLsn: number; readonly visibility: 'active' };
   readonly sideEffects: readonly [];
 }
 
-export interface ExecuteCookPlanPreviewDeps {
+export interface ExecutePlanPreviewDeps {
   readonly specId: number;
   readonly reads: Pick<GraphReaders, 'queryGraph'>;
 }
 
-export function createExecuteCookPlanPreviewTool(
-  deps: ExecuteCookPlanPreviewDeps,
-): ToolDefinition<typeof ExecuteCookPlanPreviewParams, ExecuteCookPlanPreviewDetails> {
+export function createExecutePlanPreviewTool(
+  deps: ExecutePlanPreviewDeps,
+): ToolDefinition<typeof ExecutePlanPreviewParams, ExecutePlanPreviewDetails> {
   return {
     name: BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL,
     label: 'execute_plan_preview',
     description:
       'Preview the old cook-compatible plan shape derived from the selected specification graph. Does not write plan files or create cook runs.',
-    parameters: ExecuteCookPlanPreviewParams,
+    parameters: ExecutePlanPreviewParams,
     async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
       const graph = deps.reads.queryGraph(undefined, { visibility: 'active' });
       const projection = projectExecuteGraph({
@@ -48,7 +48,7 @@ export function createExecuteCookPlanPreviewTool(
         nodes: graph.nodes,
         edges: graph.edges,
       });
-      const preview = projection.cookPlanPreview;
+      const preview = projection.planPreview;
       return {
         content: [
           {
@@ -68,11 +68,8 @@ export function createExecuteCookPlanPreviewTool(
   };
 }
 
-export function registerBrunchExecuteCookPlanPreview(
-  pi: ExtensionAPI,
-  deps: ExecuteCookPlanPreviewDeps,
-): void {
-  pi.registerTool(createExecuteCookPlanPreviewTool(deps) as never);
+export function registerBrunchExecutePlanPreview(pi: ExtensionAPI, deps: ExecutePlanPreviewDeps): void {
+  pi.registerTool(createExecutePlanPreviewTool(deps) as never);
 }
 
-export default registerBrunchExecuteCookPlanPreview;
+export default registerBrunchExecutePlanPreview;

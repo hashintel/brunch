@@ -5,23 +5,23 @@ import {
 } from '@earendil-works/pi-coding-agent';
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
-import { registerBrunchExecuteCookAgentResult } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookLaunch } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookPlanFile } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookPlanPreview } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookPetriExport } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookPromotionPrepare } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookPopulate } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookReportInit } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookRunComplete } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookRunCreate } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookSourceCopy } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookSourcePolicy } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookSliceComplete } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookSliceExecute } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookSliceStart } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookTestResult } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchExecuteCookWorktreeCreate } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteAgentResult } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteLaunch } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecutePlanFile } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecutePlanPreview } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecutePetriExport } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecutePromotionPrepare } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecutePopulate } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteReportInit } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteRunComplete } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteRunCreate } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteSourceCopy } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteSourcePolicy } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteSliceComplete } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteSliceExecute } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteSliceStart } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteTestResult } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteWorktreeCreate } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanCheck } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanDraftArtifact } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanDraft } from '../.pi/extensions/agent-runtime/index.js';
@@ -122,56 +122,56 @@ export { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 export { registerBrunchGraph } from '../.pi/extensions/brunch-data/index.js';
 export {
   BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
-  createExecuteCookAgentResultTool,
-  registerBrunchExecuteCookAgentResult,
+  createExecuteAgentResultTool,
+  registerBrunchExecuteAgentResult,
   BRUNCH_EXECUTE_LAUNCH_TOOL,
-  createExecuteCookLaunchTool,
-  registerBrunchExecuteCookLaunch,
+  createExecuteLaunchTool,
+  registerBrunchExecuteLaunch,
   BRUNCH_EXECUTE_PLAN_FILE_TOOL,
-  createExecuteCookPlanFileTool,
-  registerBrunchExecuteCookPlanFile,
+  createExecutePlanFileTool,
+  registerBrunchExecutePlanFile,
   BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL,
-  createExecuteCookPlanPreviewTool,
-  registerBrunchExecuteCookPlanPreview,
+  createExecutePlanPreviewTool,
+  registerBrunchExecutePlanPreview,
   BRUNCH_EXECUTE_PETRI_EXPORT_TOOL,
-  createExecuteCookPetriExportTool,
-  registerBrunchExecuteCookPetriExport,
+  createExecutePetriExportTool,
+  registerBrunchExecutePetriExport,
   BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
-  createExecuteCookPromotionPrepareTool,
-  registerBrunchExecuteCookPromotionPrepare,
+  createExecutePromotionPrepareTool,
+  registerBrunchExecutePromotionPrepare,
   BRUNCH_EXECUTE_POPULATE_TOOL,
-  createExecuteCookPopulateTool,
-  registerBrunchExecuteCookPopulate,
+  createExecutePopulateTool,
+  registerBrunchExecutePopulate,
   BRUNCH_EXECUTE_REPORT_INIT_TOOL,
-  createExecuteCookReportInitTool,
-  registerBrunchExecuteCookReportInit,
+  createExecuteReportInitTool,
+  registerBrunchExecuteReportInit,
   BRUNCH_EXECUTE_RUN_COMPLETE_TOOL,
-  createExecuteCookRunCompleteTool,
-  registerBrunchExecuteCookRunComplete,
+  createExecuteRunCompleteTool,
+  registerBrunchExecuteRunComplete,
   BRUNCH_EXECUTE_RUN_CREATE_TOOL,
-  createExecuteCookRunCreateTool,
-  registerBrunchExecuteCookRunCreate,
+  createExecuteRunCreateTool,
+  registerBrunchExecuteRunCreate,
   BRUNCH_EXECUTE_SOURCE_COPY_TOOL,
-  createExecuteCookSourceCopyTool,
-  registerBrunchExecuteCookSourceCopy,
+  createExecuteSourceCopyTool,
+  registerBrunchExecuteSourceCopy,
   BRUNCH_EXECUTE_SOURCE_POLICY_TOOL,
-  createExecuteCookSourcePolicyTool,
-  registerBrunchExecuteCookSourcePolicy,
+  createExecuteSourcePolicyTool,
+  registerBrunchExecuteSourcePolicy,
   BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL,
-  createExecuteCookSliceCompleteTool,
-  registerBrunchExecuteCookSliceComplete,
+  createExecuteSliceCompleteTool,
+  registerBrunchExecuteSliceComplete,
   BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL,
-  createExecuteCookSliceExecuteTool,
-  registerBrunchExecuteCookSliceExecute,
+  createExecuteSliceExecuteTool,
+  registerBrunchExecuteSliceExecute,
   BRUNCH_EXECUTE_SLICE_START_TOOL,
-  createExecuteCookSliceStartTool,
-  registerBrunchExecuteCookSliceStart,
+  createExecuteSliceStartTool,
+  registerBrunchExecuteSliceStart,
   BRUNCH_EXECUTE_TEST_RESULT_TOOL,
-  createExecuteCookTestResultTool,
-  registerBrunchExecuteCookTestResult,
+  createExecuteTestResultTool,
+  registerBrunchExecuteTestResult,
   BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
-  createExecuteCookWorktreeCreateTool,
-  registerBrunchExecuteCookWorktreeCreate,
+  createExecuteWorktreeCreateTool,
+  registerBrunchExecuteWorktreeCreate,
   BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
   createExecutePlanCheckTool,
   registerBrunchExecutePlanCheck,
@@ -302,23 +302,23 @@ export function createBrunchPiExtensions(
       registerBrunchContext,
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
-      registerBrunchExecuteCookAgentResult,
-      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookLaunch(api, graph)] : []),
-      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookPlanFile(api, graph)] : []),
-      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookPlanPreview(api, graph)] : []),
-      registerBrunchExecuteCookPetriExport,
-      registerBrunchExecuteCookPromotionPrepare,
-      registerBrunchExecuteCookPopulate,
-      registerBrunchExecuteCookReportInit,
-      registerBrunchExecuteCookRunComplete,
-      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteCookRunCreate(api, graph)] : []),
-      registerBrunchExecuteCookSourcePolicy,
-      registerBrunchExecuteCookSourceCopy,
-      registerBrunchExecuteCookSliceComplete,
-      registerBrunchExecuteCookSliceExecute,
-      registerBrunchExecuteCookSliceStart,
-      registerBrunchExecuteCookTestResult,
-      registerBrunchExecuteCookWorktreeCreate,
+      registerBrunchExecuteAgentResult,
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteLaunch(api, graph)] : []),
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanFile(api, graph)] : []),
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanPreview(api, graph)] : []),
+      registerBrunchExecutePetriExport,
+      registerBrunchExecutePromotionPrepare,
+      registerBrunchExecutePopulate,
+      registerBrunchExecuteReportInit,
+      registerBrunchExecuteRunComplete,
+      ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteRunCreate(api, graph)] : []),
+      registerBrunchExecuteSourcePolicy,
+      registerBrunchExecuteSourceCopy,
+      registerBrunchExecuteSliceComplete,
+      registerBrunchExecuteSliceExecute,
+      registerBrunchExecuteSliceStart,
+      registerBrunchExecuteTestResult,
+      registerBrunchExecuteWorktreeCreate,
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraftArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraft(api, graph)] : []),

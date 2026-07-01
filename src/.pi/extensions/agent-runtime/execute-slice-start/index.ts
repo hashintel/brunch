@@ -1,39 +1,39 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { startCookSlice, type CookSliceStartResult } from '../../../../executor/slice-start.js';
+import { startSlice, type SliceStartResult } from '../../../../executor/slice-start.js';
 import { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../../../../session/schema/tool-names.js';
 
-const ExecuteCookSliceStartParams = Type.Object({
-  runId: Type.String({ description: 'Cook run id whose report log is initialized.' }),
+const ExecuteSliceStartParams = Type.Object({
+  runId: Type.String({ description: 'Run id whose report log is initialized.' }),
   sliceId: Type.Optional(Type.String({ description: 'Optional slice id. Defaults to the first slice.' })),
 });
 
-type ExecuteCookSliceStartParams = Static<typeof ExecuteCookSliceStartParams>;
+type ExecuteSliceStartParams = Static<typeof ExecuteSliceStartParams>;
 
-interface ExecuteCookSliceStartDetails {
-  readonly result: CookSliceStartResult;
-  readonly sideEffects: CookSliceStartResult['sideEffects'];
+interface ExecuteSliceStartDetails {
+  readonly result: SliceStartResult;
+  readonly sideEffects: SliceStartResult['sideEffects'];
 }
 
-export function createExecuteCookSliceStartTool(): ToolDefinition<
-  typeof ExecuteCookSliceStartParams,
-  ExecuteCookSliceStartDetails
+export function createExecuteSliceStartTool(): ToolDefinition<
+  typeof ExecuteSliceStartParams,
+  ExecuteSliceStartDetails
 > {
   return {
     name: BRUNCH_EXECUTE_SLICE_START_TOOL,
     label: 'execute_slice_start',
     description:
       'Append a slice-start marker for a ready cook run. Does not execute agents, tests, or Petri transitions.',
-    parameters: ExecuteCookSliceStartParams,
+    parameters: ExecuteSliceStartParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_slice_start requires an active cwd');
       }
-      const result = await startCookSlice({
+      const result = await startSlice({
         cwd,
         runId: params.runId,
         ...(params.sliceId ? { sliceId: params.sliceId } : {}),
@@ -56,8 +56,8 @@ export function createExecuteCookSliceStartTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteCookSliceStart(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteCookSliceStartTool() as never);
+export function registerBrunchExecuteSliceStart(pi: ExtensionAPI): void {
+  pi.registerTool(createExecuteSliceStartTool() as never);
 }
 
-export default registerBrunchExecuteCookSliceStart;
+export default registerBrunchExecuteSliceStart;
