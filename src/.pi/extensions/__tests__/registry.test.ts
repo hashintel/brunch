@@ -10,7 +10,12 @@ import {
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../executor/__tests__/fake-ports.js';
-import type { GitWorktreePort, TestRunnerPort } from '../../../executor/execution-ports.js';
+import type {
+  AgentRunArgs,
+  AgentRunnerPort,
+  GitWorktreePort,
+  TestRunnerPort,
+} from '../../../executor/execution-ports.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../agent-runtime/execute-agent-result/index.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../agent-runtime/execute-launch/index.js';
@@ -1042,18 +1047,17 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'agent-output', 'task-1', 'result.json'))).rejects.toThrow();
   });
 
-  it('registers execute_agent_result as prewritten result ingestion only', async () => {
+  it('registers execute_agent_result as injected agent-runner ingestion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-agent-result-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
+    const worktreeDir = join(runDir, 'worktree');
+    const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
     const resultPath = join(runDir, 'agent-output', 'task-1', 'result.json');
-    await mkdir(dirname(resultPath), { recursive: true });
-    await writeFile(
-      resultPath,
-      JSON.stringify({ status: 'completed', summary: 'Implemented task.' }),
-      'utf8',
-    );
+    await mkdir(dirname(requestPath), { recursive: true });
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(requestPath, JSON.stringify({ task: 'execute_slice' }), 'utf8');
     await writeFile(
       metadataPath,
       JSON.stringify({
@@ -1061,15 +1065,24 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: '42',
         planPath: '/tmp/plan.yaml',
         status: 'slice_execution_requested',
+        worktreeDir,
         reportsPath: reportPath,
         activeSliceId: 'task-1',
         activeEpicId: 'frontier-1',
+        sliceExecutionRequestPath: requestPath,
       }),
       'utf8',
     );
     await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+    const calls: AgentRunArgs[] = [];
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 28, nodes: [], edges: [] },
+      agentRunner: {
+        async run(args) {
+          calls.push(args);
+          return { status: 'completed', summary: 'Implemented task.' };
+        },
+      },
     });
 
     const agentResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_AGENT_RESULT_TOOL);
@@ -1077,6 +1090,16 @@ describe('Brunch explicit Pi extension registry', () => {
     const result = await agentResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
     expect(result.content[0]?.text).toContain('execute_agent_result: agent_result_ingested');
+    expect(calls).toEqual([
+      {
+        worktreeDir,
+        requestPath,
+        resultPath,
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+      },
+    ]);
     expect(result.details).toMatchObject({
       result: { status: 'agent_result_ingested', runStatus: 'agent_result_ingested', resultPath },
       sideEffects: [
@@ -1726,17 +1749,23 @@ interface TestGraphSlice {
 }
 
 async function collectProductTools(
-  options: { graph?: TestGraphSlice; gitWorktree?: GitWorktreePort; testRunner?: TestRunnerPort } = {},
+  options: {
+    graph?: TestGraphSlice;
+    gitWorktree?: GitWorktreePort;
+    testRunner?: TestRunnerPort;
+    agentRunner?: AgentRunnerPort;
+  } = {},
 ): Promise<RegisteredTestTool[]> {
   const registeredTools: RegisteredTestTool[] = [];
   await createBrunchPiExtensions(brunchChromeFixture, undefined, {
     coordinator: {} as never,
     graphMentionSource: { listMentionCandidates: () => [] },
-    ...(options.gitWorktree || options.testRunner
+    ...(options.gitWorktree || options.testRunner || options.agentRunner
       ? {
           executionPorts: {
             ...(options.gitWorktree ? { gitWorktree: options.gitWorktree } : {}),
             ...(options.testRunner ? { testRunner: options.testRunner } : {}),
+            ...(options.agentRunner ? { agentRunner: options.agentRunner } : {}),
           },
         }
       : {}),

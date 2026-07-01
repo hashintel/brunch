@@ -80,6 +80,7 @@ import {
   type GraphChangeItem,
   type PrepareNextTurnResult,
 } from '../session/prepare-next-turn.js';
+import { createAgentRunnerPort } from './agent-runner-port.js';
 import { createGitWorktreePort } from './git-worktree-port.js';
 import { createTestRunnerPort } from './test-runner-port.js';
 
@@ -289,8 +290,8 @@ export function createBrunchPiExtensions(
     const graph = options.graph;
     const executionPorts: ExecutionPorts = {
       gitWorktree: options.executionPorts?.gitWorktree ?? createGitWorktreePort(),
+      agentRunner: options.executionPorts?.agentRunner ?? createAgentRunnerPort(),
       testRunner: options.executionPorts?.testRunner ?? createTestRunnerPort(),
-      ...(options.executionPorts?.agentRunner ? { agentRunner: options.executionPorts.agentRunner } : {}),
       ...(options.executionPorts?.gitLand ? { gitLand: options.executionPorts.gitLand } : {}),
     };
     const extensions: BrunchProductExtensionRegistrar[] = [
@@ -313,7 +314,7 @@ export function createBrunchPiExtensions(
       registerBrunchContext,
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
-      registerBrunchExecuteAgentResult,
+      (api) => registerBrunchExecuteAgentResult(api, executionPorts.agentRunner),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteLaunch(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanFile(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanPreview(api, graph)] : []),

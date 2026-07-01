@@ -2,6 +2,7 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import { Type, type Static } from 'typebox';
 
 import { ingestAgentResult, type AgentResultIngestResult } from '../../../../executor/agent-result.js';
+import type { AgentRunnerPort } from '../../../../executor/execution-ports.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
@@ -17,22 +18,21 @@ interface ExecuteAgentResultDetails {
   readonly sideEffects: AgentResultIngestResult['sideEffects'];
 }
 
-export function createExecuteAgentResultTool(): ToolDefinition<
-  typeof ExecuteAgentResultParams,
-  ExecuteAgentResultDetails
-> {
+export function createExecuteAgentResultTool(
+  agentRunner: AgentRunnerPort,
+): ToolDefinition<typeof ExecuteAgentResultParams, ExecuteAgentResultDetails> {
   return {
     name: BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
     label: 'execute_agent_result',
     description:
-      'Ingest a prewritten agent result for the active slice. Does not launch agents, run tests, or create Petri artifacts.',
+      'Run the agent runner for the active slice in its worktree and ingest the true result. Does not run tests or create Petri artifacts.',
     parameters: ExecuteAgentResultParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_agent_result requires an active cwd');
       }
-      const result = await ingestAgentResult({ cwd, runId: params.runId });
+      const result = await ingestAgentResult({ cwd, runId: params.runId, agentRunner });
       return {
         content: [
           {
@@ -51,8 +51,8 @@ export function createExecuteAgentResultTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteAgentResult(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteAgentResultTool() as never);
+export function registerBrunchExecuteAgentResult(pi: ExtensionAPI, agentRunner: AgentRunnerPort): void {
+  pi.registerTool(createExecuteAgentResultTool(agentRunner) as never);
 }
 
 export default registerBrunchExecuteAgentResult;
