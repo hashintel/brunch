@@ -30,7 +30,7 @@ These cards are sequential within the same frontier/branch. If implementing an e
 
 ## Card 1 — Band scalar and reference reconciliation
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -102,6 +102,10 @@ src/
 │       └── question-kinds-per-intent-kind.md            ~
 └── graph/TOPOLOGY.md                                    ?
 ```
+
+### Build notes
+
+`readiness-bands.md` and `data-model.md` already matched the target ownership split; only `question-kinds-per-intent-kind.md` needed its duplicated band column and per-kind source-question lines removed. D94-L rejects the array-membership model outright, not just the `[0]` read, so `bandsForKind` was replaced everywhere (not left alongside the new scalar): `src/graph/queries.ts` (`GraphFilter.bands`, the old `derivePresenceCoverage` gap-predicate band check — left in place for Card 4 to delete) and `src/graph/index.ts`'s export, beyond the two paths named above. Updated goldens/expectations that encoded the old earliest-band read: `src/graph/__tests__/{queries,read-api,seed-fixtures}.test.ts`, `graph-slice.test.ts` + its snapshot, and the `origination`/`turn-context`/`spec-context` context-render snapshots (all fed by the same `context`/`constraint`/`requirement` band reclassification).
 
 ---
 

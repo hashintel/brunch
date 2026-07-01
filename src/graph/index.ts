@@ -44,7 +44,7 @@ export type {
 } from './schema/nodes.js';
 
 export {
-  bandsForKind,
+  latestExpectedBand,
   CLAIM_FORM_JSON_SCHEMAS,
   claimFormKnownFields,
   formatGraphNodeCode,

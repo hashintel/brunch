@@ -4,10 +4,14 @@ Selected-spec graph overview · oracle lens (LSN 7): 4 nodes, 2 edges
 
 legend: G=goal, CON=constraint, CH=check, MOD=module
 
-nodes — intent · grounding (2)
+nodes — intent · grounding (1)
 | code | id | title |
 | - | - | - |
 | G1 | 1 | Fast local specification |
+
+nodes — intent · elicitation (1)
+| code | id | title |
+| - | - | - |
 | CON4 | 4 | No ambient Pi discovery |
 
 nodes — oracle · projection (1)

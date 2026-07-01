@@ -24,16 +24,24 @@ test('overview renders G-D dual markdown tables with impact-normalized edges', (
 
 legend: G=goal, REQ=requirement, CON=constraint, AC=criterion, E=evidence
 
-nodes — intent · grounding (2)
+nodes — intent · grounding (1)
 | code | id | title |
 | - | - | - |
 | G1 | 1 | Ship offline-first sync |
+
+nodes — intent · elicitation (1)
+| code | id | title |
+| - | - | - |
 | CON1 | 2 | No cloud dependency |
 
-nodes — intent · commitment (2)
+nodes — intent · projection (1)
 | code | id | title |
 | - | - | - |
 | REQ1 | 4 | Render stable graph-node codes |
+
+nodes — intent · commitment (1)
+| code | id | title |
+| - | - | - |
 | AC1 | 3 | Golden diff is reviewable |
 
 nodes — oracle · projection (1)
@@ -68,7 +76,7 @@ test('overview renders projection and keeps band-less nodes in a trailing bucket
   });
 
   expect(rendered).toContain('nodes — oracle · projection (1)');
-  expect(rendered).toContain('nodes — intent · commitment (1)');
+  expect(rendered).toContain('nodes — intent · projection (1)');
   expect(rendered).toContain('nodes — intent · unbanded (1)');
   expect(rendered).toContain('| EX1 | 6 | Reference example |');
 });

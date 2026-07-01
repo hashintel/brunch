@@ -49,7 +49,7 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
   `ReconciliationNeed`, `ElicitationGap` (`refersTo` + `question`),
   kind/category types, per-kind node ordinals, per-kind node `detail` schemas,
-  derived readiness-band membership (`bandsForKind`), and derived intent-kind
+  derived per-kind latest-expected-readiness-band scalar (`latestExpectedBand`), and derived intent-kind
   grouping. Raw domain enum taxonomy lives in the zero-import `schema/kinds.ts`
   leaf so web-facing graph imports do not pull in Drizzle. Agent-facing reference
   prose cites schema-owned vocabulary rather than regenerating a parallel

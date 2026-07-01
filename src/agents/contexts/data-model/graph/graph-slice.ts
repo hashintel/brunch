@@ -9,7 +9,7 @@ import type { GraphSlice } from '../../../../graph/queries.js';
 import { NODE_KINDS, NODE_PLANES, type ReadinessBand } from '../../../../graph/schema/kinds.js';
 import {
   NODE_KIND_METADATA,
-  bandsForKind,
+  latestExpectedBand,
   formatGraphNodeCode,
   type NodeKind,
 } from '../../../../graph/schema/nodes.js';
@@ -106,17 +106,16 @@ function bandForRender(
   kind: NodeKind,
   requestedReadinessBands: readonly ReadinessBand[] | undefined,
 ): RenderBand {
+  const band = latestExpectedBand(kind);
   if (requestedReadinessBands) {
-    const kindBands = bandsForKind(kind);
-    const band = requestedReadinessBands.find((candidate) => kindBands.includes(candidate));
-    if (!band) {
+    if (band === null || !requestedReadinessBands.includes(band)) {
       throw new Error(
         `Node kind ${kind} does not belong to requested readiness bands: ${requestedReadinessBands.join(', ')}`,
       );
     }
     return band;
   }
-  return bandsForKind(kind)[0] ?? 'unbanded';
+  return band ?? 'unbanded';
 }
 
 function compareNodes(a: GraphSlice['nodes'][number], b: GraphSlice['nodes'][number]): number {

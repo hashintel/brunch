@@ -6,7 +6,12 @@ import { elicitationGaps, graphClock, specs } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
 import { getElicitationGaps, getOpenReconciliationNeeds } from '../queries.js';
 import { READINESS_BANDS } from '../schema/kinds.js';
-import { NODE_KIND_METADATA, bandsForKind, parseGraphNodeCode, type NodeKind } from '../schema/nodes.js';
+import {
+  NODE_KIND_METADATA,
+  latestExpectedBand,
+  parseGraphNodeCode,
+  type NodeKind,
+} from '../schema/nodes.js';
 import { runCreateOnlyMutation } from './support/create-only-mutation.js';
 
 function createTestDb(): BrunchDb {
@@ -53,7 +58,7 @@ describe('graph node code metadata', () => {
     });
   });
 
-  it('derives readiness bands from plane plus intent-kind bisection', () => {
+  it('derives the latest-expected-band scalar from plane plus intent-kind bisection', () => {
     expect(READINESS_BANDS).toEqual(['grounding', 'elicitation', 'projection', 'commitment']);
 
     const projectionKinds = [
@@ -64,41 +69,38 @@ describe('graph node code metadata', () => {
       'vv_method',
       'vv_obligation',
       'evidence',
+      'requirement',
     ] as const satisfies readonly NodeKind[];
     for (const kind of projectionKinds) {
-      expect(bandsForKind(kind)).toEqual(['projection']);
+      expect(latestExpectedBand(kind)).toBe('projection');
     }
     const commitmentKinds = [
       'milestone',
       'frontier',
       'slice',
-      'requirement',
       'criterion',
     ] as const satisfies readonly NodeKind[];
     for (const kind of commitmentKinds) {
-      expect(bandsForKind(kind)).toEqual(['commitment']);
+      expect(latestExpectedBand(kind)).toBe('commitment');
     }
-    const dualBandKinds = ['context', 'constraint'] as const satisfies readonly NodeKind[];
-    for (const kind of dualBandKinds) {
-      expect(bandsForKind(kind)).toEqual(['grounding', 'elicitation']);
-    }
-    const bandLessKinds = ['example', 'sketch', 'term'] as const satisfies readonly NodeKind[];
+    const bandLessKinds = ['example', 'sketch', 'term', 'story'] as const satisfies readonly NodeKind[];
     for (const kind of bandLessKinds) {
-      expect(bandsForKind(kind)).toEqual([]);
+      expect(latestExpectedBand(kind)).toBeNull();
     }
     const groundingKinds = ['goal', 'thesis'] as const satisfies readonly NodeKind[];
     for (const kind of groundingKinds) {
-      expect(bandsForKind(kind)).toEqual(['grounding']);
+      expect(latestExpectedBand(kind)).toBe('grounding');
     }
     const elicitationKinds = [
-      'story',
+      'context',
+      'constraint',
       'unknown',
       'assumption',
       'invariant',
       'decision',
     ] as const satisfies readonly NodeKind[];
     for (const kind of elicitationKinds) {
-      expect(bandsForKind(kind)).toEqual(['elicitation']);
+      expect(latestExpectedBand(kind)).toBe('elicitation');
     }
   });
 });

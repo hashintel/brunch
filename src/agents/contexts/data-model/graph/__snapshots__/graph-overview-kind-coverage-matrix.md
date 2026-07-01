@@ -2,33 +2,37 @@ Graph overview (LSN 2): 24 nodes, 7 edges
 
 legend: G=goal, TH=thesis, T=term, CTX=context, ST=story, UNK=unknown, REQ=requirement, A=assumption, CON=constraint, INV=invariant, D=decision, AC=criterion, EX=example, CH=check, VV=vv_method, E=evidence, O=vv_obligation, MOD=module, API=interface, ENT=entity, SKT=sketch, M=milestone, F=frontier, S=slice
 
-nodes — intent · grounding (4)
+nodes — intent · grounding (2)
 | code | id | title |
 | - | - | - |
 | G1 | 1 | Anchor the product problem |
 | TH1 | 2 | A graph-native workspace can hold evolving specification truth |
-| CTX1 | 4 | The POC favors deterministic local fixtures over ambient state |
-| CON1 | 8 | Preview harnesses must not bypass the command layer |
 
-nodes — intent · elicitation (5)
+nodes — intent · elicitation (6)
 | code | id | title |
 | - | - | - |
-| ST1 | 5 | A preview story groups renderer-facing checks |
+| CTX1 | 4 | The POC favors deterministic local fixtures over ambient state |
 | UNK1 | 6 | The renderer audience's next preferred grouping is unknown |
 | A1 | 7 | Seed fixtures should stay small enough to eyeball |
+| CON1 | 8 | Preview harnesses must not bypass the command layer |
 | INV1 | 13 | Rendered edges should not leak raw database ids |
 | D1 | 11 | Golden files co-locate with renderer tests |
 
-nodes — intent · commitment (2)
+nodes — intent · projection (1)
 | code | id | title |
 | - | - | - |
 | REQ1 | 9 | Renderers should emit stable graph-node codes |
+
+nodes — intent · commitment (1)
+| code | id | title |
+| - | - | - |
 | AC1 | 10 | A preview can be locked as a diffable golden file |
 
-nodes — intent · unbanded (2)
+nodes — intent · unbanded (3)
 | code | id | title |
 | - | - | - |
 | T1 | 3 | Workspace |
+| ST1 | 5 | A preview story groups renderer-facing checks |
 | EX1 | 12 | A neighborhood preview for R1 is human-reviewable |
 
 nodes — oracle · projection (4)

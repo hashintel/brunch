@@ -18,7 +18,7 @@ import { changeLog, edges, elicitationGaps, graphClock, nodes, specs } from '../
 import { CommandExecutor } from '../command-executor.js';
 import { GROUNDING_FLOOR_KINDS } from '../schema/elicitation-gap-fixtures.js';
 import { EDGE_CATEGORIES, type ReadinessBand } from '../schema/kinds.js';
-import { NODE_KIND_METADATA, bandsForKind } from '../schema/nodes.js';
+import { NODE_KIND_METADATA, latestExpectedBand } from '../schema/nodes.js';
 import {
   parseSeedRef,
   runSeedFixturesCli,
@@ -511,5 +511,7 @@ describe('seedFixture', () => {
 });
 
 function readinessBandsFor(kinds: string[]): ReadinessBand[] {
-  return kinds.flatMap((kind) => bandsForKind(kind as keyof typeof NODE_KIND_METADATA));
+  return kinds
+    .map((kind) => latestExpectedBand(kind as keyof typeof NODE_KIND_METADATA))
+    .filter((band): band is ReadinessBand => band !== null);
 }

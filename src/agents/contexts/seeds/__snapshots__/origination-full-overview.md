@@ -13,7 +13,7 @@ nodes — intent · grounding (2)
 | G1 | 14 | Ship tracker |
 | G2 | 24 | Second goal |
 
-nodes — intent · commitment (1)
+nodes — intent · projection (1)
 | code | id | title |
 | - | - | - |
 | REQ1 | 21 | Fast search |
