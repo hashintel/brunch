@@ -265,6 +265,8 @@ src/.pi/components/
 
 ## Slice 3 — migrate `workspace-dialog/component.ts`
 
+Status: done (2026-07-01)
+
 ### Objective
 
 `WorkspaceDialogComponent`'s `renderFrame` / `topBorderLine` / `bottomBorderLine` / `contentLine` /

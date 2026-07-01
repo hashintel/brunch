@@ -1,5 +1,5 @@
 import type { Theme, ThemeColor } from '@earendil-works/pi-coding-agent';
-import { Key, matchesKey, truncateToWidth, visibleWidth, type Component } from '@earendil-works/pi-tui';
+import { Key, matchesKey, type Component } from '@earendil-works/pi-tui';
 
 import type {
   WorkspaceLaunchInventory,
@@ -7,6 +7,7 @@ import type {
 } from '../../../session/workspace-session-coordinator.js';
 import { formatBrunchProductIdentity, readBrunchAnsiLogo } from '../brunch-identity.js';
 import { resolveBrunchVersion } from '../brunch-version.js';
+import { projectRoundedBox } from '../rounded-box.js';
 import { projectScrollViewport } from '../scroll-viewport.js';
 import {
   buildWorkspaceSelectionView,
@@ -209,46 +210,9 @@ function renderFrame(
   theme: WorkspaceDialogTheme | undefined,
   thumbRows: ReadonlySet<number>,
 ): string[] {
-  return [
-    topBorderLine(width, theme),
-    emptyLine(width, theme),
-    ...content.map((line, index) => contentLine(line, width, theme, thumbRows.has(index))),
-    emptyLine(width, theme),
-    bottomBorderLine(width, theme),
-  ];
-}
-
-function contentLine(
-  content: string,
-  width: number,
-  theme: WorkspaceDialogTheme | undefined,
-  isThumbRow = false,
-): string {
-  if (width <= 4) return truncateToWidth(content, width);
-  const innerWidth = width - 4;
-  const inner = truncateToWidth(content, innerWidth);
-  const padding = ' '.repeat(Math.max(0, innerWidth - visibleWidth(inner)));
-  const left = style(theme, 'borderMuted', '│');
-  // The scroll thumb folds into the existing right border (gocui/lazygit's approach) rather than a
-  // separate column — see .pi/components/scroll-viewport.ts.
-  const right = style(theme, 'borderMuted', isThumbRow ? '▐' : '│');
-  return `${left} ${inner}${padding} ${right}`;
-}
-
-function emptyLine(width: number, theme: WorkspaceDialogTheme | undefined): string {
-  if (width <= 2) return ' '.repeat(Math.max(0, width));
-  const vertical = style(theme, 'borderMuted', '│');
-  return `${vertical}${' '.repeat(width - 2)}${vertical}`;
-}
-
-function topBorderLine(width: number, theme: WorkspaceDialogTheme | undefined): string {
-  if (width <= 2) return ' '.repeat(Math.max(0, width));
-  return style(theme, 'borderMuted', `╭${'─'.repeat(width - 2)}╮`);
-}
-
-function bottomBorderLine(width: number, theme: WorkspaceDialogTheme | undefined): string {
-  if (width <= 2) return ' '.repeat(Math.max(0, width));
-  return style(theme, 'borderMuted', `╰${'─'.repeat(width - 2)}╯`);
+  return projectRoundedBox(content, { blankPadding: { top: 1, bottom: 1 }, thumbRows }, width, (text) =>
+    style(theme, 'borderMuted', text),
+  );
 }
 
 function readLogo(): string[] {
