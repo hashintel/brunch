@@ -47,9 +47,10 @@ export function deriveGraphFactSeed(input: GraphFactSeedInput): GraphFactSeed {
 }
 
 export function renderGraphFactSeed(seed: GraphFactSeed): string {
-  const counts = Object.entries(seed.nodeCountsByKind)
-    .map(([kind, count]) => `${kind}=${count}`)
-    .join(', ');
+  const counts = NODE_KINDS.flatMap((kind) => {
+    const count = seed.nodeCountsByKind[kind];
+    return count === undefined ? [] : [`${kind}=${count}`];
+  }).join(', ');
   const zeroKinds = seed.zeroCountKinds
     .map((entry) => `${entry.kind} (band=${entry.band ?? 'none'})`)
     .join(', ');

@@ -18,6 +18,7 @@ import {
 import {
   appendElicitationScratchpadSnapshot,
   latestElicitationScratchpad,
+  parseElicitationScratchpadEntryData,
   type ElicitationScratchpadEntrySessionManager,
   type ElicitationScratchpadItem,
 } from '../../../../session/elicitation-scratchpad.js';
@@ -93,29 +94,37 @@ export type ScratchpadUpdateResult =
   | { status: 'ok'; items: readonly ElicitationScratchpadItem[] }
   | { status: 'structural_illegal'; diagnostics: readonly { field: string; message: string }[] };
 
+function hasText(value: string | undefined): value is string {
+  return value !== undefined && value !== '';
+}
+
 export function applyElicitationScratchpadUpdate(
   current: readonly ElicitationScratchpadItem[],
   params: UpdateElicitationScratchpadParamValues,
 ): ScratchpadUpdateResult {
   if (params.operation === 'add') {
-    if (!params.id || !params.obligation) {
+    if (!hasText(params.id) || !hasText(params.obligation)) {
       return {
         status: 'structural_illegal',
         diagnostics: [
-          ...(!params.id ? [{ field: 'id', message: 'id is required for add' }] : []),
-          ...(!params.obligation ? [{ field: 'obligation', message: 'obligation is required for add' }] : []),
+          ...(!hasText(params.id) ? [{ field: 'id', message: 'id is required for add' }] : []),
+          ...(!hasText(params.obligation)
+            ? [{ field: 'obligation', message: 'obligation is required for add' }]
+            : []),
         ],
       };
     }
-    if (current.some((item) => item.id === params.id)) {
+    const id = params.id;
+    const obligation = params.obligation;
+    if (current.some((item) => item.id === id)) {
       return {
         status: 'structural_illegal',
-        diagnostics: [{ field: 'id', message: `an obligation with id ${params.id} already exists` }],
+        diagnostics: [{ field: 'id', message: `an obligation with id ${id} already exists` }],
       };
     }
     const added: ElicitationScratchpadItem = {
-      id: params.id,
-      obligation: params.obligation,
+      id,
+      obligation,
       disposition: 'open',
       ...(params.rationale !== undefined ? { rationale: params.rationale } : {}),
       ...(params.meta !== undefined ? { meta: params.meta } : {}),
@@ -123,11 +132,18 @@ export function applyElicitationScratchpadUpdate(
     return { status: 'ok', items: [...current, added] };
   }
 
+  if (!hasText(params.id)) {
+    return {
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'id', message: `id is required for ${params.operation}` }],
+    };
+  }
+
   const index = current.findIndex((item) => item.id === params.id);
   if (index === -1) {
     return {
       status: 'structural_illegal',
-      diagnostics: [{ field: 'id', message: `no scratchpad obligation with id ${String(params.id)}` }],
+      diagnostics: [{ field: 'id', message: `no scratchpad obligation with id ${params.id}` }],
     };
   }
 
@@ -135,6 +151,13 @@ export function applyElicitationScratchpadUpdate(
     const next = [...current];
     next[index] = { ...next[index]!, disposition: 'resolved' };
     return { status: 'ok', items: next };
+  }
+
+  if (params.obligation === '') {
+    return {
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'obligation', message: 'obligation cannot be empty for update' }],
+    };
   }
 
   const next = [...current];
@@ -198,9 +221,51 @@ export function registerBrunchElicitationScratchpad(pi: ExtensionAPI): void {
         };
       }
 
-      if (supportsScratchpadEntries(ctx?.sessionManager)) {
-        appendElicitationScratchpadSnapshot(ctx.sessionManager, result.items);
+      if (!supportsScratchpadEntries(ctx?.sessionManager)) {
+        const unavailableResult: ScratchpadUpdateResult = {
+          status: 'structural_illegal',
+          diagnostics: [
+            {
+              field: 'sessionManager.appendCustomEntry',
+              message: 'session manager cannot persist elicitation scratchpad snapshots',
+            },
+          ],
+        };
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `STRUCTURAL_ILLEGAL\n${unavailableResult.diagnostics
+                .map((d) => `- ${d.field}: ${d.message}`)
+                .join('\n')}`,
+            },
+          ],
+          details: unavailableResult,
+        };
       }
+
+      const snapshotData = { schemaVersion: 1 as const, items: result.items };
+      if (!parseElicitationScratchpadEntryData(snapshotData)) {
+        const invalidResult: ScratchpadUpdateResult = {
+          status: 'structural_illegal',
+          diagnostics: [
+            { field: 'items', message: 'updated scratchpad would not parse as a valid snapshot' },
+          ],
+        };
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `STRUCTURAL_ILLEGAL\n${invalidResult.diagnostics
+                .map((d) => `- ${d.field}: ${d.message}`)
+                .join('\n')}`,
+            },
+          ],
+          details: invalidResult,
+        };
+      }
+
+      appendElicitationScratchpadSnapshot(ctx.sessionManager, result.items);
 
       return {
         content: [

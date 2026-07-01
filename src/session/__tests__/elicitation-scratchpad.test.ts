@@ -58,6 +58,7 @@ describe('parseElicitationScratchpadItem', () => {
     { id: 'a', obligation: 'x', disposition: 'closed' },
     { id: 'a', obligation: 'x', disposition: 'open', rationale: 5 },
     { id: 'a', obligation: 'x', disposition: 'open', meta: 'not-a-record' },
+    { id: 'a', obligation: 'x', disposition: 'open', meta: ['not-a-record'] },
     null,
     'string',
   ])('rejects invalid item %#', (invalid) => {

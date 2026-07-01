@@ -182,13 +182,61 @@ describe('update_elicitation_scratchpad', () => {
     expect(sessionManager.entries).toHaveLength(0);
   });
 
-  it('does not throw when the session manager cannot append custom entries', async () => {
+  it('returns structural_illegal and writes nothing when resolve omits id', async () => {
+    const sessionManager = new FakeSessionManager();
+
+    const result = (await executeTool(
+      UPDATE_ELICITATION_SCRATCHPAD_TOOL,
+      { operation: 'resolve' },
+      sessionManager,
+    )) as { details: { status: string; diagnostics: readonly { field: string }[] } };
+
+    expect(result.details.status).toBe('structural_illegal');
+    expect(result.details.diagnostics).toContainEqual(expect.objectContaining({ field: 'id' }));
+    expect(sessionManager.entries).toHaveLength(0);
+  });
+
+  it('returns structural_illegal and writes nothing when update omits id', async () => {
+    const sessionManager = new FakeSessionManager();
+    appendElicitationScratchpadSnapshot(sessionManager, [
+      { id: 'a', obligation: 'ask about budget', disposition: 'open' },
+    ]);
+
+    const result = (await executeTool(
+      UPDATE_ELICITATION_SCRATCHPAD_TOOL,
+      { operation: 'update', obligation: 'ask about timeline' },
+      sessionManager,
+    )) as { details: { status: string; diagnostics: readonly { field: string }[] } };
+
+    expect(result.details.status).toBe('structural_illegal');
+    expect(result.details.diagnostics).toContainEqual(expect.objectContaining({ field: 'id' }));
+    expect(sessionManager.entries).toHaveLength(1);
+  });
+
+  it('returns structural_illegal and writes nothing when update supplies an empty obligation', async () => {
+    const sessionManager = new FakeSessionManager();
+    appendElicitationScratchpadSnapshot(sessionManager, [
+      { id: 'a', obligation: 'ask about budget', disposition: 'open' },
+    ]);
+
+    const result = (await executeTool(
+      UPDATE_ELICITATION_SCRATCHPAD_TOOL,
+      { operation: 'update', id: 'a', obligation: '' },
+      sessionManager,
+    )) as { details: { status: string; diagnostics: readonly { field: string }[] } };
+
+    expect(result.details.status).toBe('structural_illegal');
+    expect(result.details.diagnostics).toContainEqual(expect.objectContaining({ field: 'obligation' }));
+    expect(sessionManager.entries).toHaveLength(1);
+  });
+
+  it('returns structural_illegal when the session manager cannot append custom entries', async () => {
     const result = await executeTool(UPDATE_ELICITATION_SCRATCHPAD_TOOL, {
       operation: 'add',
       id: 'a',
       obligation: 'ask about budget',
     });
 
-    expect((result as { details: { status: string } }).details.status).toBe('ok');
+    expect((result as { details: { status: string } }).details.status).toBe('structural_illegal');
   });
 });

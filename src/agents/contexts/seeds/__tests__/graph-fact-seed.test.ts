@@ -36,4 +36,19 @@ describe('renderGraphFactSeed', () => {
     expect(rendered).toContain('context');
     expect(rendered).not.toMatch(/readiness|score|coverage|rank|importance/i);
   });
+
+  it('renders node counts in canonical node-kind order independent of input order', () => {
+    const rendered = renderGraphFactSeed(
+      deriveGraphFactSeed({
+        lsn: 3,
+        nodes: [
+          { kind: 'criterion', kindOrdinal: 1 },
+          { kind: 'goal', kindOrdinal: 1 },
+          { kind: 'criterion', kindOrdinal: 2 },
+        ] as never,
+      }),
+    );
+
+    expect(rendered).toContain('node counts by kind: goal=1, criterion=2');
+  });
 });

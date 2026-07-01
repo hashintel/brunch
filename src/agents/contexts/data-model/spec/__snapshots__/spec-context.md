@@ -33,7 +33,7 @@ edges (sorted by upstream)
 
 Graph facts:
 - lsn: 2
-- node counts by kind: constraint=1, context=1, goal=1, term=1, thesis=1
+- node counts by kind: goal=1, thesis=1, term=1, context=1, constraint=1
 - zero-count kinds: story (band=none), unknown (band=elicitation), requirement (band=projection), assumption (band=elicitation), invariant (band=elicitation), decision (band=elicitation), criterion (band=commitment), example (band=none), check (band=projection), vv_method (band=projection), evidence (band=projection), vv_obligation (band=projection), module (band=projection), interface (band=projection), entity (band=projection), sketch (band=none), milestone (band=commitment), frontier (band=commitment), slice (band=commitment)
 
 ELICITATION SCRATCHPAD (empty)
