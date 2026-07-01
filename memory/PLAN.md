@@ -115,7 +115,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - The live skill manifest includes `project`, and its guidance covers accepted-graph derivation lanes such as intent → design and design → oracle.
   - `project` reuses `present_candidates`, `request_response`, `present_review_set`, and the existing `map` / review-set commitment boundary; it does not add a new product tool or exchange schema family.
   - D97-L provenance applies: cite ontology/render surfaces, do not copy vocabulary lists into the skill.
-- **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L; D60-L.
+- **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L, I54-L; D60-L.
 
 ### structured-exchange-affordance
 
