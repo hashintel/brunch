@@ -1429,7 +1429,7 @@ describe('Brunch explicit Pi extension registry', () => {
     });
   });
 
-  it('keeps execute_status side-effect free while execution and land are pending', async () => {
+  it('keeps execute_status side-effect free while descriptive lifecycle tools are inactive', async () => {
     const registeredTools = await collectProductTools();
 
     const status = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_STATUS_TOOL);
@@ -1438,11 +1438,12 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_agent_result, execute_test_result, execute_launch, execute_plan_file, execute_plan_preview, execute_petri_export, execute_promotion_prepare, execute_populate, execute_report_init, execute_run_complete, execute_run_create, execute_source_policy, execute_source_copy, execute_slice_complete, execute_slice_start, execute_slice_execute, execute_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
+      'ported active tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview',
     );
-    expect(result.content[0]?.text).toContain('pending tools: land');
+    expect(result.content[0]?.text).toContain('inactive registered tools: execute_plan_outline_artifact');
+    expect(result.content[0]?.text).toContain('pending tools: cook, land');
     expect(result.content[0]?.text).toContain(
-      'cook execution: Petri artifact export and promotion-prepare report only; land not ported',
+      'cook execution: descriptive scaffold registered but inactive until the real-execution stack lands',
     );
     expect(result.details).toMatchObject({
       discipline: 'interpretive',
@@ -1450,30 +1451,13 @@ describe('Brunch explicit Pi extension registry', () => {
       portedTools: [
         'execute_status',
         'execute_snapshot',
-        'execute_agent_result',
-        'execute_test_result',
-        'execute_launch',
-        'execute_plan_file',
         'execute_plan_preview',
-        'execute_petri_export',
-        'execute_promotion_prepare',
-        'execute_populate',
-        'execute_report_init',
-        'execute_run_complete',
-        'execute_run_create',
-        'execute_source_policy',
-        'execute_source_copy',
-        'execute_slice_complete',
-        'execute_slice_start',
-        'execute_slice_execute',
-        'execute_worktree_create',
         'execute_plan_check',
         'execute_plan_draft',
-        'execute_plan_draft_artifact',
         'execute_plan_outline',
-        'execute_plan_outline_artifact',
       ],
-      pendingTools: ['land'],
+      inactiveRegisteredTools: expect.arrayContaining(['execute_plan_file', 'execute_agent_result']),
+      pendingTools: ['cook', 'land'],
       sideEffects: [],
     });
   });

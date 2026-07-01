@@ -19,8 +19,7 @@ The native execute-mode cutover is built from bounded footholds; use `execute_st
 - `execute_plan_outline` — returns a reviewable plan-shaped outline without creating a plan file or run.
 - `execute_plan_draft` — returns executable-plan-shaped data (epics/slices/criterion verification) without writing it.
 - `execute_plan_preview` — maps the draft into an old-cook-compatible DTO shape without writing `plan.yaml`.
-- `execute_plan_outline_artifact` / `execute_plan_draft_artifact` — persist the outline/draft under `.brunch/execution-reports/<specId>/` only when the user asks for it.
-- `execute_*` (plan-file → launch → run/worktree/populate → source policy/copy → report → slice start/execute/agent-result/test-result/complete → run-complete → Petri export → promotion-prepare) — descriptively reconstruct the cook lifecycle under `.brunch/cook/`, one explicit side effect per tool, with no real agent/test execution and no host git mutation.
+- The bounded artifact and lifecycle `execute_*` tools are registered for stack review, but this FE-1089 branch keeps them inactive in CODE mode until the real-execution stack lands. Do not imply plan-file, run/worktree, agent/test, Petri, promotion, or land capability is currently callable unless `execute_status` reports it as an active ported tool.
 
 ## Guidelines
 
