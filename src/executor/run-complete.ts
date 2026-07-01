@@ -77,7 +77,8 @@ export async function completeRun(args: {
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
   const expectedSliceIds = (plan.slices ?? []).map((slice) => slice.id);
   const completedSliceIds = metadata.completedSliceIds ?? [];
-  const complete = expectedSliceIds.every((id) => completedSliceIds.includes(id));
+  const complete =
+    expectedSliceIds.length > 0 && expectedSliceIds.every((id) => completedSliceIds.includes(id));
   if (!complete) {
     return {
       status: 'slices_incomplete',

@@ -49,6 +49,27 @@ async function createSliceCompletedRun(cwd: string, completedSliceIds: string[])
   );
 }
 
+async function createEmptyPlanRun(cwd: string): Promise<void> {
+  const runDir = runDirPath(cwd, 'run-1');
+  const reportPath = reportsPath(cwd, 'run-1');
+  const planPath = populatedPlanPath(cwd, 'run-1');
+  await mkdir(join(runDir, 'worktree', '.brunch', 'cook'), { recursive: true });
+  await writeFile(planPath, JSON.stringify({ slices: [] }), 'utf8');
+  await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+  await writeFile(
+    runMetadataPath(cwd, 'run-1'),
+    JSON.stringify({
+      runId: 'run-1',
+      specId: '42',
+      planPath: '/tmp/plan.yaml',
+      populatedPlanPath: planPath,
+      reportsPath: reportPath,
+      status: 'reports_initialized',
+    }),
+    'utf8',
+  );
+}
+
 describe('completeRun', () => {
   it('does not complete before all plan slices are complete', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-incomplete-'));
@@ -64,6 +85,26 @@ describe('completeRun', () => {
       completedSliceIds: ['task-1'],
       expectedSliceIds: ['task-1', 'task-2'],
       sideEffects: [],
+    });
+  });
+
+  it('does not complete an empty plan without any executed slices', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-empty-plan-'));
+    await createEmptyPlanRun(cwd);
+
+    const result = await completeRun({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'slices_incomplete',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      completedSliceIds: [],
+      expectedSliceIds: [],
+      sideEffects: [],
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'reports_initialized',
     });
   });
 
