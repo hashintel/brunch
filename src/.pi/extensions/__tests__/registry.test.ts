@@ -1305,6 +1305,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(result.details).toMatchObject({
       result: { status: 'promotion_prepared', runStatus: 'promotion_prepared', promotionPath },
       sideEffects: [
+        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
         { kind: 'git_commit', path: worktreeDir, sha: 'def456' },
         { kind: 'mkdir', path: dirname(promotionPath) },
         { kind: 'write_file', path: promotionPath, ifExists: 'overwrite' },
