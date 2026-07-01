@@ -1691,8 +1691,11 @@ describe('Brunch explicit Pi extension registry', () => {
     const result = await status!.execute('call-1', { discipline: 'interpretive' });
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
+    // The ported-tool narrative mirrors the execute-mode subset of
+    // EXECUTOR_ALLOWED_TOOL_NAMES; the registered-but-unadmitted plan artifact
+    // tools are intentionally excluded, and text and details must agree.
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_agent_result, execute_test_result, execute_launch, execute_plan_file, execute_plan_preview, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply, execute_populate, execute_report_init, execute_run_complete, execute_run_create, execute_source_policy, execute_source_copy, execute_slice_complete, execute_slice_start, execute_slice_execute, execute_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
+      'ported tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
     );
     expect(result.content[0]?.text).toContain('pending tools: none');
     expect(result.content[0]?.text).toContain(
@@ -1704,24 +1707,28 @@ describe('Brunch explicit Pi extension registry', () => {
       portedTools: [
         'execute_status',
         'execute_snapshot',
+        'execute_plan_check',
+        'execute_plan_outline',
+        'execute_plan_draft',
         'execute_plan_preview',
+        'execute_plan_file',
+        'execute_launch',
+        'execute_run_create',
+        'execute_worktree_create',
+        'execute_populate',
+        'execute_source_policy',
+        'execute_source_copy',
+        'execute_report_init',
+        'execute_slice_start',
+        'execute_slice_execute',
+        'execute_agent_result',
+        'execute_test_result',
+        'execute_slice_complete',
+        'execute_run_complete',
         'execute_petri_export',
         'execute_promotion_prepare',
         'execute_host_promotion_preflight',
         'execute_host_promotion_apply',
-        'execute_populate',
-        'execute_report_init',
-        'execute_run_complete',
-        'execute_run_create',
-        'execute_source_policy',
-        'execute_source_copy',
-        'execute_slice_complete',
-        'execute_slice_start',
-        'execute_slice_execute',
-        'execute_worktree_create',
-        'execute_plan_check',
-        'execute_plan_draft',
-        'execute_plan_outline',
       ],
       pendingTools: [],
       sideEffects: [],
