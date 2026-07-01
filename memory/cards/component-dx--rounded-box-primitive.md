@@ -1,7 +1,7 @@
 # Rounded-box primitive extraction
 
 Frontier: component-dx | n/a
-Status:   superseded
+Status:   active
 Mode:     slices
 Created:  2026-07-01
 
@@ -320,7 +320,7 @@ src/.pi/components/__tests__/
 
 ## Slice 4 — migrate `cards.ts`
 
-Status: stale — stop/rescope (2026-07-01)
+Status: resumed as 4a/4b below (2026-07-01) — stop finding preserved as history, resolution follows
 
 ### Objective
 
@@ -342,46 +342,106 @@ all** today (confirmed: no `cards.test.ts`, and its only consumer, `alternatives
 render-output test covering the card box). There is no regression oracle to migrate against. This slice
 must add one *before* refactoring, not skip the safety net because none currently exists.
 
-### Light-card cold-start reads
+### Resolution (2026-07-01, this thread)
 
+The stop finding is precise but conflates two independently-sized problems — traced exactly against
+both `cards.ts`'s real code and `rounded-box.ts`'s real code, not re-guessed:
+
+1. **Content-row side-border coloring** (`│ content │`): `CardComponent` colors the border glyph
+   *and* its adjacent padding space together (`c('│ ')`, `c(' │')`). `projectRoundedBox` colors only
+   the bare glyph (`borderColor('│')`, space is plain) — and this is *already* what both
+   `brunch-editor.ts`'s and `workspace-dialog/component.ts`'s original code did, proven byte-identical
+   in slices 2 and 3. A space carries no visible color either way. This is a pure byte-representation
+   difference with zero visual effect, already 2-of-3-canonical — **no primitive change needed; slice
+   4b re-baselines `cards.test.ts` to the already-proven bare-glyph convention.**
+
+2. **Top-border label placement**: `CardComponent` left-aligns its title immediately after `╭─`;
+   `projectRoundedBox`'s `topLabel`/`bottomLabel` right-align (matching `brunch-editor.ts`'s original
+   `borderLine()`). This is a **real, visible difference** — title position on screen actually differs
+   — not a byte-level artifact. It's also a real scoping gap: the original feature-coverage matrix
+   recorded "label in top border" as one shared `+` feature across brunch-editor and cards.ts without
+   checking they use opposite alignments. Left alignment is the semantically correct choice for cards
+   (title is the primary heading of a comparison card, read left-to-right) — not something to
+   homogenize away. **This does need a small, narrow primitive widening**, below.
+
+   Incidentally, `colorBorderText`'s current *per-glyph* scanning (coloring every `─`/`╭`/etc.
+   character as its own separate call) was never actually proven necessary by any of the three original
+   implementations — all three color contiguous corner+dash *runs* as one span each side of a label,
+   never per-character. Switching to run-based coloring is simpler than the current scanner, not more
+   complex, and is what slice 4a below specifies.
+
+#### Slice 4a — widen `projectRoundedBox` for label alignment (narrow, targeted)
+
+**Objective:** `RoundedBoxOptions` gains `labelAlign?: 'left' | 'right'` (default `'right'`, preserving
+brunch-editor's and workspace-dialog's current behavior unchanged). Border-line-with-label construction
+switches from per-glyph scanning to two contiguous colored runs (left run, raw label, right run) — the
+no-label case (already one colored run across all three original implementations) is unaffected.
+
+**Light-card cold-start reads:**
 ```
-- memory/PLAN.md — frontier: component-dx
-- src/.pi/components/rounded-box.ts (slice 1)
-- src/.pi/components/cards.ts — CardComponent's current render(), the title-in-top-border shape
-- src/.pi/components/alternatives.ts — CardComponent's one real consumer, for a realistic
-  title/body/theme/accent fixture to test against
+- src/.pi/components/rounded-box.ts + __tests__/rounded-box.test.ts (slice 1, as landed)
+- src/.pi/components/cards.ts — the exact left-aligned layout to match: `╭─` + label + dashes + `╮`
+- src/.pi/components/brunch-editor.ts — the exact right-aligned layout to keep matching: dashes +
+  ` label ` + `─` + corner
 ```
 
-### Acceptance Criteria
-
+**Acceptance Criteria:**
 ```
-✓ a new cards.test.ts captures CardComponent's CURRENT rendered output (title placement, border
-  runes, body wrapping, accent color) as a baseline BEFORE any internal change — this is the
-  regression oracle slices 2/3 already had and this slice must establish
-✓ after refactoring to call projectRoundedBox, that same baseline test still passes unmodified —
-  byte-identical output
+✓ existing rounded-box.test.ts suite passes unmodified (labelAlign defaults to 'right', current
+  behavior is the default, not a breaking change)
+✓ labelAlign: 'left' produces `╭leftCorner─` + label + dashes + `╮` matching cards.ts's exact
+  current layout math (topFiller = width - 2 - 1 - visibleWidth(titleText))
+✓ for both alignments, the label text itself is never wrapped in borderColor; only the corner/dash
+  runs are, each as ONE colored span (not per-character)
+✓ an oversized label still truncates gracefully without throwing (assert a concrete case; exact
+  truncation edge behavior is this slice's to settle via TDD, not pre-specified here)
+```
+
+**Verification:** Inner — direct-render vitest tests, extending rounded-box.test.ts.
+
+**Expected touched paths (tentative):**
+```
+src/.pi/components/
+├── rounded-box.ts                    ~
+└── __tests__/
+    └── rounded-box.test.ts           ~
+```
+
+#### Slice 4b — migrate `cards.ts` (resumed)
+
+**Objective:** `CardComponent`'s hand-rolled top/bottom border and `│ │` wrapping delegate to
+`projectRoundedBox` with `labelAlign: 'left'`; rendered output is byte-identical to before **except**
+the already-justified content-row space-coloring simplification from the Resolution above, which
+`cards.test.ts`'s baseline is updated to reflect explicitly (not silently).
+
+**Light-card cold-start reads:**
+```
+- src/.pi/components/rounded-box.ts (slice 4a, as landed) — the labelAlign contract
+- src/.pi/components/cards.ts + __tests__/cards.test.ts — the existing baseline from the stopped
+  attempt; update its content-row lines to the bare-glyph convention as part of this slice, not a
+  separate step
+- src/.pi/components/alternatives.ts — CardComponent's one real consumer
+```
+
+**Acceptance Criteria:**
+```
+✓ cards.test.ts's title/border-rune/label-position assertions are byte-identical to the original
+  (left-aligned title, matching dash counts)
+✓ cards.test.ts's content-row assertions are updated to bare-glyph coloring (│ then plain space,
+  not │-and-space colored together) — the change is named in the test/commit, not silent
 ✓ ResponsiveColumns and chunk (also exported from cards.ts) are untouched — this slice only
   touches CardComponent's render()
 ```
 
-### Verification Approach
+**Verification:** Inner — `cards.test.ts`, updated per the acceptance criteria, as the regression
+oracle for the refactor.
 
-```
-- Inner: new direct-render vitest tests for CardComponent (written first, as the acceptance
-  criteria specify), then reused as the regression oracle for the refactor.
-```
-
-### Assumption dependency
-
-None.
-
-### Expected touched paths (tentative)
-
+**Expected touched paths (tentative):**
 ```
 src/.pi/components/
 ├── cards.ts                        ~
 └── __tests__/
-    └── cards.test.ts               +
+    └── cards.test.ts               ~
 ```
 
 ---
