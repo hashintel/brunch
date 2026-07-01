@@ -21,7 +21,13 @@ export interface BrunchSkillManifestEntry {
   readonly location: string;
 }
 
+let cachedManifestEntries: readonly BrunchSkillManifestEntry[] | undefined;
+
 export function loadLiveBrunchSkillManifestEntries(): readonly BrunchSkillManifestEntry[] {
+  // Skill metadata is fixed at build time, so load once and reuse for the process lifetime
+  // rather than reparsing SKILL.md files on every prompt composition.
+  if (cachedManifestEntries) return cachedManifestEntries;
+
   const skillPaths = LIVE_BRUNCH_SKILL_IDS.map((id) => liveBrunchSkillLocation(id));
   const result = loadSkills({
     cwd: process.cwd(),
@@ -36,7 +42,8 @@ export function loadLiveBrunchSkillManifestEntries(): readonly BrunchSkillManife
   }
 
   const byName = new Map(result.skills.map((skill) => [skill.name, skill]));
-  return LIVE_BRUNCH_SKILL_IDS.map((id) => skillToManifestEntry(id, byName.get(id)));
+  cachedManifestEntries = LIVE_BRUNCH_SKILL_IDS.map((id) => skillToManifestEntry(id, byName.get(id)));
+  return cachedManifestEntries;
 }
 
 export function renderBrunchSkills(entries = loadLiveBrunchSkillManifestEntries()): string {
@@ -90,10 +97,13 @@ function skillToManifestEntry(
   };
 }
 
+const XML_TEXT_ESCAPES: Readonly<Record<string, string>> = {
+  '&': '&amp;',
+  '"': '&quot;',
+  '<': '&lt;',
+  '>': '&gt;',
+};
+
 function escapeXml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+  return value.replace(/[&"<>]/g, (char) => XML_TEXT_ESCAPES[char] ?? char);
 }
