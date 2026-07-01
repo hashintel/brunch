@@ -1,6 +1,8 @@
 import type { KeybindingsManager, Theme } from '@earendil-works/pi-coding-agent';
 import type { Component, TUI } from '@earendil-works/pi-tui';
 
+import { registerBrunchAlternatives } from '../../.pi/components/alternatives.js';
+import { BrunchStartupHeader } from '../../.pi/components/chrome-header.js';
 import { MultiChoicePickerComponent } from '../../.pi/components/multi-choice-picker.js';
 import { createRuntimeModePickerComponent } from '../../.pi/components/runtime-posture/axis-picker.js';
 import { TuiStyleLabComponent } from '../../.pi/components/tui-lab/index.js';
@@ -10,6 +12,7 @@ import {
 } from '../../.pi/components/workspace-dialog/index.js';
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
+import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
 
 export interface ComponentPreviewEntry {
   readonly id: string;
@@ -122,5 +125,42 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
         (_tui, previewTheme, _kb, done) => new TuiStyleLabComponent(previewTheme, done),
         { overlay: true },
       ),
+  },
+  {
+    id: 'alternatives',
+    label: 'Alternatives card set (transcript message)',
+    presentedLike:
+      'transcript message renderer — src/.pi/components/alternatives.ts (registerBrunchAlternatives, dispatched via the present_alternatives tool)',
+    open: (tui, theme) => {
+      const renderer = captureMessageRenderer('alternatives-card-set', registerBrunchAlternatives);
+      const message = sampleCustomMessage('alternatives-card-set', {
+        headline: 'Pick a direction',
+        alternatives: [
+          { title: 'Narrow slice', body: 'Ship the smallest vertical slice that proves the seam.' },
+          {
+            title: 'Widen scope now',
+            body: 'Cover every consumer up front.',
+            flavor: 'warning' as const,
+          },
+        ],
+        layout: 'columns' as const,
+      });
+      const component = renderer(message, { expanded: false }, theme);
+      if (!component) throw new Error('alternatives-card-set renderer returned no component');
+      return previewStaticComponent(tui, component);
+    },
+  },
+  {
+    id: 'chrome-header',
+    label: 'Startup chrome header (persistent, session-scoped)',
+    presentedLike:
+      'persistent chrome region — src/.pi/extensions/chrome/index.ts (ui.setHeader via registerBrunchChrome)',
+    open: (tui, theme) => {
+      const header = new BrunchStartupHeader(
+        { project: 'brunch-next-chi', spec: 'component-dx', session: 'preview-session' },
+        theme,
+      );
+      return previewStaticComponent(tui, header);
+    },
   },
 ];

@@ -55,6 +55,19 @@ components are render-only with injectable `theme`/props.
   `exports` map does not expose pi's shipped theme-loading internals outside a running session.
 - `keybindings` is stubbed (`undefined as unknown as KeybindingsManager`) since no previewed component
   reads it yet.
+- Two further lanes beyond `ctx.ui.custom` are covered by `src/dev/component-preview/static-preview.ts`,
+  since neither has a `done()` callback of its own:
+  - **Transcript message renderers** (e.g. `alternatives-card-set`) — `captureMessageRenderer` feeds the
+    real registration function (`registerBrunchAlternatives`) a minimal fake `ExtensionAPI` slice to
+    capture the renderer closure, then calls it directly with a sample message.
+  - **Persistent chrome regions** (e.g. the startup header mounted via `ui.setHeader`) — these are
+    already plain `Component`s with public constructors, so they preview like any other static content.
+  - Both are mounted via `previewStaticComponent`, which wraps the component with a
+    "press any key to return to the gallery" dismiss handler — a preview-only affordance, since in
+    production these lanes have no dismissal at all (a transcript message persists; chrome stays mounted
+    for the session).
+  - The footer lane (`ui.setFooter`) is deliberately not previewed yet: it is driven by live
+    token/model/coherence state rather than static layout, and is lower value to preview in isolation.
 
 ## Debug Mirrors And Dev Tools
 

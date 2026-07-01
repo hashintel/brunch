@@ -46,11 +46,14 @@ deep-link arg.
 src/dev/component-preview.ts                 public entry point (fractal root, mirrors workspace-dialog.ts)
 src/dev/component-preview/
   theme.ts                                   createComponentPreviewTheme() — real Theme instance
-  custom-ui.ts                               showComponentPreview() — faithful custom() shim
+  custom-ui.ts                               showComponentPreview() — faithful ctx.ui.custom() shim
+  static-preview.ts                          previewStaticComponent() + captureMessageRenderer() —
+                                              transcript-message-renderer and persistent-chrome lanes
   registry.ts                                 COMPONENT_PREVIEW_REGISTRY — one entry per previewable component
   gallery-component.ts                        ComponentGalleryComponent — menu Component
   __tests__/
     custom-ui.test.ts
+    static-preview.test.ts
     theme.test.ts
 scripts/dev-components.ts                    tsx entry point, optional deep-link arg
 ```
@@ -77,6 +80,14 @@ scripts/dev-components.ts                    tsx entry point, optional deep-link
     call site; the `registerBrunchTuiLab` extension registrar it used to live behind (`.pi/extensions/tui-lab/`)
     was retired — it never entered the product bundle and was inert even under Pi's ambient
     `.pi/extensions/` directory scan (see `memory/PLAN.md`'s `component-dx` frontier).
+  - `alternatives` (transcript message renderer, not `ctx.ui.custom`) — `captureMessageRenderer` feeds
+    `registerBrunchAlternatives` a minimal fake `ExtensionAPI` slice to capture the real
+    `alternatives-card-set` renderer closure, then calls it directly with a sample message; mounted via
+    `previewStaticComponent` (dismiss-on-any-key, since the renderer's output has no `done()` of its own).
+  - `chrome-header` (persistent chrome region, not `ctx.ui.custom`) — `BrunchStartupHeader` is already a
+    plain `Component` with a public constructor, so it previews like any other static content via
+    `previewStaticComponent` with sample project/spec/session facts. The footer lane (`ui.setFooter`) is
+    deliberately deferred — driven by live token/model/coherence state, lower value to preview statically.
 
 ### package.json
 
