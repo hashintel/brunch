@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { copyCookHostSource, type CookSourceCopyResult } from '../../../../orchestration/cook-source-copy.js';
+import { copyCookHostSource, type CookSourceCopyResult } from '../../../../executor/cook-source-copy.js';
 import { BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL } from '../../../../session/schema/tool-names.js';

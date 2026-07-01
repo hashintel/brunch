@@ -4,7 +4,7 @@ import { Type, type Static } from 'typebox';
 import {
   prepareCookPromotion,
   type CookPromotionPrepareResult,
-} from '../../../../orchestration/cook-promotion.js';
+} from '../../../../executor/cook-promotion.js';
 import { BRUNCH_EXECUTE_COOK_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';

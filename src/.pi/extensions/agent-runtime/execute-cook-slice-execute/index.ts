@@ -4,7 +4,7 @@ import { Type, type Static } from 'typebox';
 import {
   requestCookSliceExecution,
   type CookSliceExecutionRequestResult,
-} from '../../../../orchestration/cook-slice-execute.js';
+} from '../../../../executor/cook-slice-execute.js';
 import { BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL } from '../../../../session/schema/tool-names.js';

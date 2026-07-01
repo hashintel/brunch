@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { prepareCookLaunch, type CookLaunchResult } from '../../../../orchestration/cook-launch.js';
+import { prepareCookLaunch, type CookLaunchResult } from '../../../../executor/cook-launch.js';
 import { BRUNCH_EXECUTE_COOK_LAUNCH_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_LAUNCH_TOOL } from '../../../../session/schema/tool-names.js';

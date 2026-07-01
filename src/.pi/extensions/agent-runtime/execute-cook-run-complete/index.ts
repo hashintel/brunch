@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { completeCookRun, type CookRunCompleteResult } from '../../../../orchestration/cook-run-complete.js';
+import { completeCookRun, type CookRunCompleteResult } from '../../../../executor/cook-run-complete.js';
 import { BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';

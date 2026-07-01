@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { populateCookWorktree, type CookPopulateResult } from '../../../../orchestration/cook-populate.js';
+import { populateCookWorktree, type CookPopulateResult } from '../../../../executor/cook-populate.js';
 import { BRUNCH_EXECUTE_COOK_POPULATE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_POPULATE_TOOL } from '../../../../session/schema/tool-names.js';
