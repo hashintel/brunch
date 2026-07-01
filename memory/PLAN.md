@@ -138,7 +138,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - ✓ Descriptive cutover scaffold complete: the `fs`-only foothold chain truthfully simulates the cook lifecycle without any git/topology mutation or faked execution.
   - Blocked → moved out of frontier: actual host land is blocked on real agent/test execution + a real git worktree (no truthful source otherwise); reordered into the `cook-sandbox` → `cook-agent-runner` → `cook-land` arc frontiers. Do not fake a host git mutation against copied source under I52-L.
   - Later: real cook execution, real worktrees, host promotion/land, and adaptive replan arrive under the `cook-sandbox` → `cook-agent-runner` → `cook-land` frontiers behind the D99-L cook-execution-ports seam; interpretive execution may reinterpret task briefs but may not mutate plan/net topology.
-- **Traceability:** R26; D39-L, D40-L, D58-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L; `src/orchestration/README.md`, `src/.pi/extensions/README.md`.
+- **Traceability:** R26; D39-L, D40-L, D58-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L; `src/orchestration/TOPOLOGY.md`, `src/.pi/extensions/README.md`.
 
 ### orchestrator-tool-port
 
@@ -168,7 +168,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - `GitWorktreePort` makes the per-run worktree a real `git worktree`, replacing the `mkdir`+copy substrate in `cook-worktree.ts`.
   - `TestRunnerPort` runs the real verify subprocess and ingests its true result, replacing the prewritten `test-result.json` ingest path for the sandbox layer.
   - App-layer implementations under `src/app/cook-*.ts`; adapters inject the bag; focused tests cover the port contracts.
-- **Traceability:** D39-L, D40-L, D52-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L (land-substrate finding + cook-execution-ports refinement) / I49-L, I52-L; depends on `orchestrator-alpha-cutover`; `src/orchestration/README.md`.
+- **Traceability:** D39-L, D40-L, D52-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L (land-substrate finding + cook-execution-ports refinement) / I49-L, I52-L; depends on `orchestrator-alpha-cutover`; `src/orchestration/TOPOLOGY.md`.
 
 ### cook-agent-runner
 
@@ -200,7 +200,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - `GitLandPort` implementation (app layer) performs a run-local land of the verified worktree diffs first; host land is a later, explicitly-accepted slice.
   - The land path consumes/validates the existing Petri + `promotion.json` artifacts rather than re-deriving run state.
   - `execute_status` `pendingTools` drops `land` once a real (at minimum run-local, real-git) land exists.
-- **Traceability:** D39-L, D40-L, D52-L, D98-L, D99-L (land-substrate finding) / I49-L, I52-L; depends on `cook-agent-runner`; `src/orchestration/README.md`.
+- **Traceability:** D39-L, D40-L, D52-L, D98-L, D99-L (land-substrate finding) / I49-L, I52-L; depends on `cook-agent-runner`; `src/orchestration/TOPOLOGY.md`.
 
 ### elicitor-project
 

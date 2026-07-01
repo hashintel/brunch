@@ -8,7 +8,7 @@ Pure contracts and projection helpers that turn `next` graph facts into execute-
 
 ```text
 orchestration/
-├── README.md
+├── TOPOLOGY.md
 ├── cook-agent-result.ts       prewritten result -> slice result report
 ├── cook-plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml
 ├── cook-launch.ts             spec-scoped plan.yaml -> non-running launch readiness
