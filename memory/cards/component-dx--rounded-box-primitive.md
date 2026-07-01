@@ -372,6 +372,8 @@ both `cards.ts`'s real code and `rounded-box.ts`'s real code, not re-guessed:
 
 #### Slice 4a — widen `projectRoundedBox` for label alignment (narrow, targeted)
 
+Status: done (2026-07-01)
+
 **Objective:** `RoundedBoxOptions` gains `labelAlign?: 'left' | 'right'` (default `'right'`, preserving
 brunch-editor's and workspace-dialog's current behavior unchanged). Border-line-with-label construction
 switches from per-glyph scanning to two contiguous colored runs (left run, raw label, right run) — the

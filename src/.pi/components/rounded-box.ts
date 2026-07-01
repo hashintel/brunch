@@ -3,6 +3,7 @@ import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 export interface RoundedBoxOptions {
   readonly topLabel?: string;
   readonly bottomLabel?: string;
+  readonly labelAlign?: 'left' | 'right';
   readonly thumbRows?: ReadonlySet<number>;
   readonly preserveContentWidth?: boolean;
   readonly blankPadding?: {
@@ -35,7 +36,7 @@ export function projectRoundedBox(
   ];
 
   return [
-    borderLine('╭', '╮', options.topLabel, safeWidth, borderColor),
+    borderLine('╭', '╮', options.topLabel, options.labelAlign ?? 'right', safeWidth, borderColor),
     ...rows.map(({ line, contentIndex }) =>
       contentLine(
         line,
@@ -45,7 +46,7 @@ export function projectRoundedBox(
         options.preserveContentWidth,
       ),
     ),
-    borderLine('╰', '╯', options.bottomLabel, safeWidth, borderColor),
+    borderLine('╰', '╯', options.bottomLabel, options.labelAlign ?? 'right', safeWidth, borderColor),
   ];
 }
 
@@ -53,6 +54,7 @@ function borderLine(
   leftCorner: string,
   rightCorner: string,
   label: string | undefined,
+  labelAlign: 'left' | 'right',
   width: number,
   borderColor: (text: string) => string,
 ): string {
@@ -60,8 +62,12 @@ function borderLine(
 
   const suffix = ` ${label} `;
   const dashCount = Math.max(0, width - 2 - 1 - visibleWidth(suffix));
-  const raw = `${leftCorner}${'─'.repeat(dashCount)}${suffix}─${rightCorner}`;
-  return colorBorderText(truncateToWidth(raw, width), borderColor);
+  const leftRun = labelAlign === 'left' ? `${leftCorner}─` : `${leftCorner}${'─'.repeat(dashCount)}`;
+  const rightRun = labelAlign === 'left' ? `${'─'.repeat(dashCount)}${rightCorner}` : `─${rightCorner}`;
+  const raw = `${leftRun}${suffix}${rightRun}`;
+
+  if (visibleWidth(raw) > width) return colorBorderText(truncateToWidth(raw, width), borderColor);
+  return `${borderColor(leftRun)}${suffix}${borderColor(rightRun)}`;
 }
 
 function contentLine(
