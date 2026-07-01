@@ -53,8 +53,11 @@ components are render-only with injectable `theme`/props.
 - Theme is a real `pi-coding-agent` `Theme` instance (`src/dev/component-preview/theme.ts`), not a
   duck-typed stand-in — seeded with Brunch's own established 256-color palette, since the package's
   `exports` map does not expose pi's shipped theme-loading internals outside a running session.
-- `keybindings` is stubbed (`undefined as unknown as KeybindingsManager`) since no previewed component
-  reads it yet.
+- `keybindings` is a real `pi-tui` `KeybindingsManager` (`createComponentPreviewKeybindings()`), not a
+  stub — `BrunchEditorComponent`'s inherited `CustomEditor.handleInput` calls `.matches(...)` for
+  app-level actions (escape-to-cancel, ctrl+d-to-exit), which a stub can't satisfy. Built from
+  `TUI_KEYBINDINGS` plus the two app-level actions any `CustomEditor`-based preview entry needs, since
+  pi-coding-agent's fuller app-action table isn't part of the package's public value exports.
 - Two further lanes beyond `ctx.ui.custom` are covered by `src/dev/component-preview/static-preview.ts`,
   since neither has a `done()` callback of its own:
   - **Transcript message renderers** (e.g. `alternatives-card-set`) — `captureMessageRenderer` feeds the
@@ -68,6 +71,13 @@ components are render-only with injectable `theme`/props.
     for the session).
   - The footer lane (`ui.setFooter`) is deliberately not previewed yet: it is driven by live
     token/model/coherence state rather than static layout, and is lower value to preview in isolation.
+- A fourth, `[experimental]` entry (`brunch-editor`) previews `ctx.ui.setEditorComponent` —
+  `BrunchEditorComponent` (`.pi/components/brunch-editor.ts`) wraps `CustomEditor` in a `│`-bordered box
+  with runtime-state labels baked into the border corners, since the default `Editor` has no side
+  borders at all. This is a design exploration for the `component-dx` frontier, not yet wired into
+  `src/.pi/extensions/chrome/index.ts` — it mounts directly (`tui.addChild` + `onEscape` dismiss) rather
+  than through `showComponentPreview` or `previewStaticComponent`, since it needs real focus and input
+  routing that a static preview doesn't exercise.
 
 ## Debug Mirrors And Dev Tools
 

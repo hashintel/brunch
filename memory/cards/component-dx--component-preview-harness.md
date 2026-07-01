@@ -88,6 +88,19 @@ scripts/dev-components.ts                    tsx entry point, optional deep-link
     plain `Component` with a public constructor, so it previews like any other static content via
     `previewStaticComponent` with sample project/spec/session facts. The footer lane (`ui.setFooter`) is
     deliberately deferred — driven by live token/model/coherence state, lower value to preview statically.
+  - `brunch-editor` `[experimental]` (editor slot, `ctx.ui.setEditorComponent`, not `ctx.ui.custom`) —
+    a design exploration, not yet wired into production chrome. `BrunchEditorComponent`
+    (`.pi/components/brunch-editor.ts`) subclasses `CustomEditor`, overriding only `render()` to wrap
+    the inherited output in a `│`-bordered box (the default `Editor` has no side borders at all) with
+    runtime-state labels baked into the border corners (`projectBorderedChrome`, a pure, reusable
+    function — intended reuse target: the `request_*` question-form pickers). Facts are pulled fresh on
+    every `render()` via a closure, matching `chrome/index.ts`'s existing `telemetry?.()` freshness
+    contract. Because a real `Editor`'s bottom border is not reliably the last rendered line (autocomplete
+    dropdown rows are appended after it), the bottom border is found by scanning backward for an
+    `Editor`-shaped border line, not by a fixed index — confirmed against the real (non-compiled)
+    `pi-tui` `Editor.render()` source, not just its `.d.ts`. This entry is also what forced
+    `component-preview.ts`'s `keybindings` stub to become a real `pi-tui` `KeybindingsManager` (see
+    `src/dev/TOPOLOGY.md`) — `CustomEditor.handleInput` needs `.matches()` for escape/ctrl+d handling.
 
 ### package.json
 

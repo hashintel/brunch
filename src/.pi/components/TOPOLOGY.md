@@ -24,6 +24,8 @@ Components grow by **fractal sub-tree**: when a component outgrows a single file
 ```text
 components/
 ├── alternatives.ts              single-file components
+├── brunch-editor.ts             [experimental] bordered custom editor with embedded runtime-state
+│                                labels — design exploration, not yet wired into production chrome
 ├── brunch-identity.ts
 ├── brunch-version.ts
 ├── cards.ts

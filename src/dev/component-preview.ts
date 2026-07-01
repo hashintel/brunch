@@ -1,5 +1,11 @@
 import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
-import { ProcessTerminal, TUI } from '@earendil-works/pi-tui';
+import {
+  KeybindingsManager as PiTuiKeybindingsManager,
+  ProcessTerminal,
+  TUI,
+  TUI_KEYBINDINGS,
+  type KeybindingDefinitions,
+} from '@earendil-works/pi-tui';
 
 import { ComponentGalleryComponent } from './component-preview/gallery-component.js';
 import { COMPONENT_PREVIEW_REGISTRY } from './component-preview/registry.js';
@@ -8,6 +14,26 @@ import { createComponentPreviewTheme } from './component-preview/theme.js';
 export interface ComponentPreviewGalleryOptions {
   /** Skip the gallery menu and open this one registry entry directly. */
   readonly entryId?: string;
+}
+
+/**
+ * Real pi-tui KeybindingsManager, not a stub: `BrunchEditorComponent`'s
+ * inherited `CustomEditor.handleInput` calls `.matches(...)` for app-level
+ * actions (escape-to-cancel, ctrl+d-to-exit). pi-coding-agent's own
+ * `KeybindingsManager` subclass is type-only from the public entry (package
+ * `exports` map constraint, same as the theme-loading internals noted in
+ * `theme.ts`) and its full app-action table isn't exported either, so this
+ * constructs the real pi-tui base class with `TUI_KEYBINDINGS` plus the two
+ * app-level actions any `CustomEditor`-based preview entry needs, and casts
+ * — every previewed component only ever calls base-class methods.
+ */
+function createComponentPreviewKeybindings(): KeybindingsManager {
+  const definitions: KeybindingDefinitions = {
+    ...TUI_KEYBINDINGS,
+    'app.interrupt': { defaultKeys: ['escape', 'ctrl+c'], description: 'Cancel' },
+    'app.exit': { defaultKeys: 'ctrl+d', description: 'Exit' },
+  } as unknown as KeybindingDefinitions;
+  return new PiTuiKeybindingsManager(definitions) as unknown as KeybindingsManager;
 }
 
 /**
@@ -23,8 +49,7 @@ export async function runComponentPreviewGallery(
   const terminal = new ProcessTerminal();
   const tui = new TUI(terminal);
   const theme = createComponentPreviewTheme();
-  // ceiling: no previewed component reads keybindings yet; stub until one does.
-  const keybindings = undefined as unknown as KeybindingsManager;
+  const keybindings = createComponentPreviewKeybindings();
 
   if (options.entryId) {
     const entry = COMPONENT_PREVIEW_REGISTRY.find((candidate) => candidate.id === options.entryId);

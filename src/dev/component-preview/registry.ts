@@ -2,6 +2,7 @@ import type { KeybindingsManager, Theme } from '@earendil-works/pi-coding-agent'
 import type { Component, TUI } from '@earendil-works/pi-tui';
 
 import { registerBrunchAlternatives } from '../../.pi/components/alternatives.js';
+import { BrunchEditorComponent } from '../../.pi/components/brunch-editor.js';
 import { BrunchStartupHeader } from '../../.pi/components/chrome-header.js';
 import { MultiChoicePickerComponent } from '../../.pi/components/multi-choice-picker.js';
 import { createRuntimeModePickerComponent } from '../../.pi/components/runtime-posture/axis-picker.js';
@@ -13,6 +14,7 @@ import {
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
+import { createComponentPreviewEditorTheme } from './theme.js';
 
 export interface ComponentPreviewEntry {
   readonly id: string;
@@ -161,6 +163,31 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
         theme,
       );
       return previewStaticComponent(tui, header);
+    },
+  },
+  {
+    id: 'brunch-editor',
+    label: 'Brunch editor (runtime chrome border) [experimental]',
+    presentedLike:
+      'editor slot — ctx.ui.setEditorComponent (design exploration for the component-dx frontier; not yet wired into src/.pi/extensions/chrome/index.ts)',
+    open: (tui, theme, keybindings) => {
+      const editorTheme = createComponentPreviewEditorTheme(theme);
+      const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({
+        topRight: '[ Specify ]',
+        bottomRight: '"Walking Skeleton SDK to SSE to React"',
+        belowLines: ['http://localhost:3141/session', 'claude-sonnet-5 | 35.6%'],
+      }));
+      tui.addChild(editor);
+      tui.setFocus(editor);
+      editor.focused = true;
+      tui.requestRender();
+      return new Promise<void>((resolve) => {
+        editor.onEscape = () => {
+          tui.removeChild(editor);
+          tui.requestRender();
+          resolve();
+        };
+      });
     },
   },
 ];

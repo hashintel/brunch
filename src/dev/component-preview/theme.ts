@@ -1,4 +1,5 @@
-import { Theme, type ThemeColor } from '@earendil-works/pi-coding-agent';
+import { getSelectListTheme, Theme, type ThemeColor } from '@earendil-works/pi-coding-agent';
+import type { EditorTheme } from '@earendil-works/pi-tui';
 
 /**
  * Real 256-color palette for the standalone component preview harness
@@ -77,4 +78,19 @@ const BG_COLORS = {
 
 export function createComponentPreviewTheme(): Theme {
   return new Theme(FG_COLORS, BG_COLORS, '256color', { name: 'brunch-dev-preview' });
+}
+
+/**
+ * `ctx.ui.setEditorComponent`'s factory receives an `EditorTheme`
+ * (`{ borderColor, selectList }`), not the full `Theme` class — in a real
+ * session Pi constructs that conversion internally before calling the
+ * factory. The preview harness only has the full `Theme`, so this builds the
+ * same shape from it for components (like `BrunchEditorComponent`) that need
+ * an `EditorTheme` to construct standalone.
+ */
+export function createComponentPreviewEditorTheme(theme: Theme): EditorTheme {
+  return {
+    borderColor: (str: string) => theme.fg('border', str),
+    selectList: getSelectListTheme(),
+  };
 }
