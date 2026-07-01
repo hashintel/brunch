@@ -3,6 +3,22 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+## 2026-07-01 Recently Completed trim (`ln-plan`)
+
+Archived from `memory/PLAN.md`'s `Recently Completed` list during the `ln-plan` pass that split
+`component-dx` (see the `component-dx` and `bordered-chrome-production` frontier definitions), once the
+list had grown to 8 entries — past the "last 2-3" convention. Kept live: `elicitation-gap-guidance`
+(FE-1116) and the two `component-dx` entries (`rounded-box-primitive`, `wheel-scroll-passthrough`),
+since the latter two are the direct precedent the new `bordered-chrome-production` frontier depends on.
+
+- 2026-07-01 `portable-resource-paths--manifest-location` (bugfix, `ln-induct` from PR #273) — skill manifest `location` is now the loader-resolved absolute `Skill.filePath` instead of a hardcoded repo-relative string, so it resolves under any process cwd or `dist/`-only install; dead `liveBrunchSkillRepoPath`/`bundledAgentBodyRepoPath` builders removed; the two prompt-composition goldens normalize the machine root to a `<PKG>/…` token. See SPEC §Acknowledged Blind Spots "Live-vs-harness wiring divergence".
+- 2026-07-01 `promoted-run-path-normalization` (tooling) — `.fixtures/runs/**` no longer leaks developer-workstation absolute paths; `npm run check:promoted-run-paths` guards committed evidence going forward. `.fixtures/seeds/**` is untouched (separate seed-curation concern). Not a `fixture-vs-real-audit` sweep.
+- 2026-06-30 `structured-exchange-affordance` (FE-1108) — exchange authoring guidance now teaches present-side response rules and review-set nested companions at the boundary; one unearned exchange projection adapter was inlined into its RPC consumer, and topology inventories name the retained model-facing/projection homes.
+- 2026-06-30 `elicitor-project` (FE-1085) — project canonicalized as a first-level live skill home over existing exchange/review-set seams; A33-L validated, D100-L added, and the prompt manifest witnesses `project`.
+- 2026-06-29 `spec-structural-relief` — SPEC slimmed from long-form register to compact live index; pre-slim snapshot archived in `docs/archive/SPEC_HISTORY.md`.
+- 2026-06-26 `renderer-golden-coverage` (FE-1091) — context pipeline done; prompt/subagent topology flattened and locked.
+- 2026-06-26 `data-model-legibility` (FE-1090) — reference substrate complete; generated ontology tables and authored graph heuristics have canonical homes.
+
 ## 2026-07-01 Sync archive
 
 Archived from `memory/PLAN.md` during the 2026-07-01 `ln-sync`, once `elicitor-project` (FE-1085) and
