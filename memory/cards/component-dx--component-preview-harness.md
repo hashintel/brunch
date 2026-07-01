@@ -1,6 +1,10 @@
-# tooling — component preview harness
+# component-dx — component preview harness (first slice)
 
-Plan pointer: `memory/PLAN.md` → Parallel / Low-Conflict → `component-preview-harness`.
+Plan pointer: `memory/PLAN.md` → Parallel / Low-Conflict → `component-dx` (Linear: FE-1115, branch: `ln/fe-1115-component-preview-dx`).
+
+This card covers the first shipped slice of `component-dx` (the preview harness). Later slices —
+refining existing components, building new ones — get their own `component-dx--<slug>.md` cards on the
+same branch/issue unless `ln-plan` splits the frontier further.
 
 ## Why
 

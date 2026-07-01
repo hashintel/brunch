@@ -65,7 +65,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Parallel / Low-Conflict
 
-- `component-preview-harness` — standalone real-terminal preview loop for `.pi/components`; independent of the active elicitor/orchestrator stack.
+- `component-dx` (FE-1115) — Pi TUI component DX: the standalone real-terminal preview harness (shipped), plus ongoing refinement of existing `.pi/components` and new ones as product needs surface them; independent of the active elicitor/orchestrator stack.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
 ### Horizon
@@ -85,22 +85,22 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ## Frontier Definitions
 
 
-### component-preview-harness
+### component-dx
 
-- **Name:** Standalone component preview/dev harness for `.pi/components`
-- **Linear:** none — tooling, not a tracked frontier item per `AGENTS.md`'s non-frontier work convention.
-- **Branch:** none dedicated — lands on whichever branch is active when built.
-- **Kind:** tooling / dev-DX (bounded-feature planning weight).
-- **Status:** new; ready to build.
-- **Current execution pointer:** `memory/cards/tooling--component-preview-harness.md`.
-- **Objective:** Give `.pi/components` authors a one-command, real-terminal preview loop for isolated Pi TUI components, faithful to each component's actual production presentation contract (overlay vs. inline editor-swap), without booting a full seeded workbench/session.
-- **Acceptance:**
+- **Name:** Pi TUI component DX — preview harness, component refinement, and new components
+- **Linear:** [FE-1115](https://linear.app/hash/issue/FE-1115/refine-pi-tui-component-dx-preview-harness-component-refinements-and)
+- **Branch:** `ln/fe-1115-component-preview-dx`
+- **Kind:** bounded feature / dev-DX + presentation-component work.
+- **Status:** active. First slice (the preview harness) shipped; refinement/new-component slices are open-ended and get their own `memory/cards/component-dx--<slug>.md` cards on this branch.
+- **Current execution pointer:** `memory/cards/component-dx--component-preview-harness.md` (first slice, done).
+- **Objective:** Give `.pi/components` authors a fast, faithful iteration loop, then use it to refine existing components and build new ones as product needs surface them.
+- **Acceptance (first slice, done):**
   - `npm run dev:components` (and a `tsx watch`-backed variant) boots a real `ProcessTerminal` + `TUI`; no workspace, session, or DB is required.
   - A registry maps each previewable component to the same presentation contract its real call site uses (`ctx.ui.custom(factory, options)`): `{ overlay: true, overlayOptions }` for overlay components (workspace-dialog), no options for inline-swap components (axis-picker, multi-choice-picker) — not a uniform "always overlay" assumption.
   - A small `custom()` shim mirrors pi-coding-agent's real `showExtensionCustom` branching closely enough that nested overlays (a previewed component calling `tui.showOverlay` on the `tui` it's given) work without special-casing.
   - Theme is a real `Theme` instance (constructed via the public `Theme` class from `@earendil-works/pi-coding-agent`), not a duck-typed stand-in; it satisfies both `LabTheme` and `WorkspaceDialogTheme` call sites structurally.
-  - Finding carried forward, not silently fixed in this pass: `runtime-posture-axis-picker.harness.test.ts` wraps the picker in `tui.showOverlay(..., { anchor: 'center', ... })`, but production (`commands/index.ts`'s `openModePicker`) calls `ctx.ui.custom` with no overlay options — an inline editor-swap, not a centered overlay. Leave an explicit note near the mismatch rather than reconciling it here.
-- **Traceability:** none required — dev tooling only, no durable product/SPEC boundary changes. Extends the "Build/test convention" section of `src/.pi/components/TOPOLOGY.md` and the "Launcher Surface" section of `src/dev/TOPOLOGY.md`.
+- **Open (not yet scoped):** refine existing components' rendering/affordances/copy; build new `.pi/components` as needed; carried-forward findings from the first slice — `runtime-posture-axis-picker.harness.test.ts` wraps the picker in `tui.showOverlay(..., { anchor: 'center', ... })` while production (`commands/index.ts`'s `openModePicker`) calls `ctx.ui.custom` with no overlay options (inline editor-swap); `tui-lab`'s slash command remains unwired in `src/app/pi-extensions.ts`.
+- **Traceability:** none required for the harness itself — dev tooling only. Component refinement/creation slices add SPEC links only if they change durable product boundaries. Extends the "Build/test convention" section of `src/.pi/components/TOPOLOGY.md` and the "Launcher Surface" section of `src/dev/TOPOLOGY.md`.
 
 ### orchestrator-tool-port
 
@@ -217,7 +217,7 @@ frontiers:
     none
 
   Parallel / Low-Conflict:
-    component-preview-harness
+    component-dx (FE-1115)
 
   Horizon:
     session-branching
