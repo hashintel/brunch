@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { planFilePath } from '../plan-file.js';
 import { populateWorktree } from '../populate.js';
 import { initializeReports, reportsPath } from '../report.js';
-import { runDirPath, runMetadataPath, createRun } from '../run.js';
+import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, createRun } from '../run.js';
 import { startSlice } from '../slice-start.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy } from '../source-policy.js';
@@ -41,6 +41,31 @@ async function createReportReadyRun(cwd: string): Promise<void> {
           verification: [],
           derived_from: ['REQ1'],
         },
+      ],
+    }),
+    'utf8',
+  );
+  await createRun({ cwd, specId: '42', runId: 'run-1' });
+  await createWorktree({ cwd, runId: 'run-1' });
+  await populateWorktree({ cwd, runId: 'run-1' });
+  await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+  await copyHostSource({ cwd, runId: 'run-1' });
+  await initializeReports({ cwd, runId: 'run-1' });
+}
+
+async function createTwoSliceReportReadyRun(cwd: string): Promise<void> {
+  const planPath = planFilePath(cwd, '42');
+  await mkdir(join(cwd, 'src'), { recursive: true });
+  await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
+  await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+  await writeFile(
+    planPath,
+    JSON.stringify({
+      mode: 'greenfield',
+      epics: [{ id: 'frontier-1', summary: 'Build feature', depends_on: [], verification: [] }],
+      slices: [
+        { id: 'task-1', epic_id: 'frontier-1', definition: 'First.', depends_on: [], verification: [] },
+        { id: 'task-2', epic_id: 'frontier-1', definition: 'Second.', depends_on: [], verification: [] },
       ],
     }),
     'utf8',
@@ -104,5 +129,58 @@ describe('startSlice', () => {
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'agent-output'))).toBe(false);
+  });
+
+  it('starts the next incomplete slice after a previous slice has completed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-next-'));
+    await createTwoSliceReportReadyRun(cwd);
+
+    const first = await startSlice({ cwd, runId: 'run-1' });
+    expect(first.status).toBe('slice_started');
+    expect(first.status === 'slice_started' && first.sliceId).toBe('task-1');
+
+    // Simulate the first slice completing (agent + test ingest + slice complete).
+    const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(metadata).toBeDefined();
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), {
+      ...metadata!,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1'],
+    });
+
+    const second = await startSlice({ cwd, runId: 'run-1' });
+    expect(second).toMatchObject({
+      status: 'slice_started',
+      runStatus: 'slice_started',
+      sliceId: 'task-2',
+      epicId: 'frontier-1',
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'slice_started',
+      activeSliceId: 'task-2',
+    });
+  });
+
+  it('reports no remaining slice once every slice has completed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-exhausted-'));
+    await createTwoSliceReportReadyRun(cwd);
+    await startSlice({ cwd, runId: 'run-1' });
+
+    const metadata = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    await persistRunMetadata(runMetadataPath(cwd, 'run-1'), {
+      ...metadata!,
+      status: 'slice_completed',
+      completedSliceIds: ['task-1', 'task-2'],
+    });
+
+    const result = await startSlice({ cwd, runId: 'run-1' });
+    expect(result).toEqual({
+      status: 'no_slice',
+      runStatus: 'slice_completed',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
   });
 });

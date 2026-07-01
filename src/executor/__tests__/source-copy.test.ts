@@ -63,13 +63,18 @@ describe('copyHostSource', () => {
 
     expect(result).toEqual({
       status: 'policy_skipped',
-      runStatus: 'source_policy_selected',
+      runStatus: 'source_copied',
       runId: 'run-1',
       metadataPath: runMetadataPath(cwd, 'run-1'),
       policy: 'plan_only',
-      sideEffects: [],
+      sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
     });
     expect(await pathExists(join(worktreeDirPath(cwd, 'run-1'), 'src', 'app.ts'))).toBe(false);
+    // The run still advances so report init / slices can proceed on plan_only.
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'source_copied',
+      sourceCopied: false,
+    });
   });
 
   it('copies host source entries into the worktree while excluding cook state and heavy dirs', async () => {

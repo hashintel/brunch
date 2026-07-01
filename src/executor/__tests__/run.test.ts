@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { planFilePath } from '../plan-file.js';
-import { createRun, runDirPath, runMetadataPath } from '../run.js';
+import { assertSafeRunId, createRun, runDirPath, runMetadataPath } from '../run.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -60,5 +60,23 @@ describe('createRun', () => {
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'reports.jsonl'))).toBe(false);
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'land'))).toBe(false);
+  });
+});
+
+describe('assertSafeRunId', () => {
+  it('accepts flat path-segment-safe run ids', () => {
+    for (const runId of ['run-1', 'run_1', 'RUN.1', 'abc123']) {
+      expect(() => assertSafeRunId(runId)).not.toThrow();
+    }
+  });
+
+  it('rejects run ids that would escape the runs directory', () => {
+    for (const runId of ['../escape', 'a/b', '..', 'run/../..', '']) {
+      expect(() => assertSafeRunId(runId)).toThrow(/invalid runId/);
+    }
+  });
+
+  it('rejects traversal run ids when building run paths', () => {
+    expect(() => runDirPath('/tmp/x', '../../etc')).toThrow(/invalid runId/);
   });
 });
