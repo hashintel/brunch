@@ -31,8 +31,7 @@ components/
 ├── lateral-padding.ts          transparent horizontal padding wrapper
 ├── multi-choice-picker.ts      focused checkbox-style exchange response picker
 ├── runtime-posture/             private sub-tree for runtime posture pickers
-│   ├── axis-picker.ts           public picker components
-│   └── strategy-picker.ts
+│   └── axis-picker.ts           public picker component (operational-mode picker)
 ├── tui-lab/                     shared visual primitives
 │   ├── index.ts                 public seam for theme + segment-track helpers
 │   ├── segment-track.ts
