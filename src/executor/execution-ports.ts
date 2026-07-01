@@ -26,7 +26,6 @@ export interface GitWorktreePort {
 export interface AgentRunnerPort {}
 
 export interface TestRunArgs {
-  readonly cwd: string;
   readonly worktreeDir: string;
 }
 

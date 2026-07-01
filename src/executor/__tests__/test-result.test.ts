@@ -117,7 +117,7 @@ describe('ingestTestResult', () => {
       },
     });
 
-    expect(calls).toEqual([{ cwd, worktreeDir: worktreeDirPath(cwd, 'run-1') }]);
+    expect(calls).toEqual([{ worktreeDir: worktreeDirPath(cwd, 'run-1') }]);
     expect(result).toEqual({
       status: 'test_result_ingested',
       runStatus: 'test_result_ingested',

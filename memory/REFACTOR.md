@@ -1,56 +1,44 @@
-# Refactor: cook run-metadata lifecycle + orchestration topology file
-
-> Temporary derivative execution aid (ln-refactor). Delete when complete or superseded.
-> Source: ln-review findings 1, 2, 4 on `src/orchestration/` (FE-1089). Finding 3
-> (discriminated-union `CookRunMetadata`) is deliberately out of scope — routed to
-> `ln-design` under the `cook-sandbox` frontier.
+# Refactor: executor-sandbox port internals (FE-1109 review findings 1–3)
 
 ## Problem Statement
 
-The cook lifecycle tools in `src/orchestration/` re-derive the same run-metadata plumbing:
+The two app-layer execution ports were built in parallel and drifted into avoidable duplication:
 
-- The identical `readRunMetadata(path)` helper (try / `JSON.parse` / `catch → undefined`) is privately copy-pasted into **13** cook-\* files.
-- Every transition tool repeats the same shape by hand: read `run.json`, guard on the prior `status`, build `{ ...metadata, status: <next>, ...newFields }`, `writeFile` the metadata JSON, and hand-assemble the `{ kind: 'write_file', path: metadataPath, ifExists: 'overwrite' }` side-effect record.
-- `cook-run.ts` already owns `CookRunMetadata`, the path helpers (`cookRunDir`, `cookRunMetadataPath`), and the *write* half of run creation — but the *read* half and the metadata-persist + side-effect encoding live nowhere, so they scatter.
-- `src/orchestration/README.md` is the only `README.md` left under `src/**`; every other subtree now uses `TOPOLOGY.md` (AGENTS.md: "Directory `TOPOLOGY.md` files under `src/**` own current topology state").
-
-This is pure structural debt: it works and is fully test-covered, but the metadata lifecycle is not owned by one module, so the coming `cook-sandbox` ports would multiply the duplication.
+- `git-worktree-port` and `test-runner-port` each carry their own copy of the same `spawn`-based subprocess runner and its `CommandResult` / `CommandRunner` types. The only real difference is that the test runner surfaces a distinct spawn-error signal while the git port folds it into stderr. The two pending ports (agent-runner, git-land) will shell out too, so this becomes four copies.
+- Test fakes for the ports exist in three places: the shared `fake-ports` helper, a parametrized inline fake in the worktree test, and local copies in the extension registry test. A port-contract change would need edits in three spots.
+- `TestRunArgs` carries a `cwd` field that no runner uses (tests run inside the worktree). It was added only for shape-symmetry with the git worktree args.
 
 ## Solution
 
-`cook-run.ts` becomes the single owner of run-metadata I/O and side-effect encoding:
+- One app-layer subprocess runner owns stdio capture, exit-code, and spawn-error semantics. Both ports (and future ports) keep only their command/args and their result mapping.
+- One canonical set of port test fakes that every test imports.
+- `TestRunArgs` describes only what a test runner actually needs.
 
-- a shared `readCookRun(cwd, runId)` (or `readRunMetadata(path)`) reader, imported by every cook tool instead of a private copy;
-- a shared metadata-persist helper that writes updated metadata and returns the canonical `write_file` side-effect record.
-
-Each transition tool keeps its own status guard and result shape (these legitimately vary), but stops re-implementing metadata read/write and the side-effect literal. `README.md` is renamed to `TOPOLOGY.md` and the two canonical-doc references are updated.
-
-Behavior is unchanged throughout — this is a pure refactor, verified by the existing per-tool cook test suite plus `npm run verify`.
+Observable behavior is unchanged: same commands, same success/failure results, same reported side effects.
 
 ## Commits
 
-1. Rename `src/orchestration/README.md` to `TOPOLOGY.md` and update the two references to it (the D99-L materialized-state list in `memory/SPEC.md` and the cook frontier traceability lines in `memory/PLAN.md`). No code change; markdown-link check + verify stay green.
+1. ~~**Drop the unused `cwd` from the test-run arguments.**~~ Done. Removed from the port argument type, the executor call site, and the app + executor test assertions that named it.
 
-2. Add a single run-metadata reader to `cook-run.ts`, exported from that module. Replace all 13 private `readRunMetadata` copies with imports of the shared reader; delete the local copies. Behavior identical; existing cook tests cover every caller.
+2. **Extract a single app-layer subprocess runner and have both ports use it.** Move the `spawn` wrapper and its result type into one shared module that exposes a spawn-error signal. Rewire both ports to it, preserving each port's existing failure message — in particular the git port must still surface the spawn-error text it does today. Add the currently-missing test that pins the git port's spawn-failure message so the extraction is provably behavior-preserving.
 
-3. Add a run-metadata persist helper to `cook-run.ts` that writes the updated metadata file and returns the canonical `write_file` side-effect record. Adopt it in each transition tool, replacing the inline `writeFile(metadataPath, ...)` + hand-built metadata side-effect literal. Tools that also write an artifact file keep composing that artifact's own side effect alongside the returned metadata effect. Behavior identical.
+3. **Consolidate the port test fakes onto the shared helper.** Give the shared git-worktree fake an optional behavior override so it can replace the parametrized inline fake, add any missing fake the registry test needs, then point the worktree test and the registry test at the shared helper and delete their local copies.
 
 ## Decisions
 
-- **Module owner**: `cook-run.ts` owns run-metadata read, persist, path helpers, and the `CookRunMetadata` type. No new file is introduced — this deepens the existing public entry module rather than adding a shallow helper module.
-- **Seam boundary**: tools own their prior-status guard and their result/DTO shape; the shared module owns metadata I/O and side-effect encoding only. The `write_file` side-effect record is a real seam (13+ identical occurrences), not a hypothetical one.
-- **No behavioral change**: statuses, guards, artifact paths, and returned side-effect arrays are byte-for-byte equivalent. I52-L bounded-side-effect discipline is preserved (the helper only re-expresses the same single metadata write).
-- Finalize in `memory/SPEC.md` §Decisions only if the seam proves durable through `cook-sandbox`; otherwise this refactor needs no new decision record.
+- New module: a shared app-layer subprocess runner used by all execution ports.
+- Interface change: `TestRunArgs` loses `cwd`; the shared runner result carries an explicit spawn-error field.
+- No change to port public contracts (`GitWorktreePort.create`, `TestRunnerPort.run`), tool side-effect reports, or run-metadata transitions.
 
 ## Testing Decisions
 
-- **Behavior, not implementation**: the existing `src/orchestration/__tests__/cook-*.test.ts` suite asserts each tool's status transitions and `sideEffects` payloads — exactly the observable contract this refactor must preserve. Every cook source file has a matching test; no coverage gap.
-- **No new tests required** for a behavior-preserving extraction; rely on the existing suite + `npm run verify` as the regression oracle after each commit.
-- Prior art: `cook-run.ts` already exposes `cookRunDir` / `cookRunMetadataPath` as shared helpers imported across tools — the reader/persist helpers follow the same pattern.
+- Keep the port contract tests behavior-first: assert the command/args issued, the pass/fail/errored result, and the reported side effects — not the internal runner wiring.
+- Add one git-worktree-port test for the spawn-failure message (the gap that makes commit 2 risky).
+- Fakes are test infrastructure; a single shared source keeps them honest against the real port types.
 
 ## Out of Scope
 
-- **Finding 3** — modelling `CookRunMetadata` as a status-discriminated union to make invalid field combinations unrepresentable. This is a design change, not a mechanical extraction; route to `ln-design` and fold into `cook-sandbox`.
-- The `cook-execution-ports.ts` seam and any real-execution behavior (belongs to `cook-sandbox` / `cook-agent-runner` / `cook-land`).
-- The Pi tool adapters under `src/.pi/extensions/agent-runtime/execute-cook-*/` — already appropriately thin; no change.
-- Any change to statuses, guards, artifact layout, or side-effect contracts.
+- Wiring tool cancellation (`_signal`) or a timeout into the verify subprocess (separate behavioral slice).
+- Making the verify command configurable beyond its current option.
+- Any change to `AgentRunnerPort` / `GitLandPort` (pending frontiers).
+- The retained `.brunch/cook/` runtime paths (settled decision).
