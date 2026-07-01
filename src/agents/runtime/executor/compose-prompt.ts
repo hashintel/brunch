@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 
+import { operationalModeLabel } from '../../../session/schema/kinds.js';
 import { bundledAgentBodyLocation } from '../../prompts/registry.js';
 import { renderBrunchSkills } from '../../skills/registry.js';
 import type { ForegroundRuntimePromptInput, ForegroundRuntimePromptResult } from '../foreground-policy.js';
@@ -27,8 +28,8 @@ function renderExecutorControl(input: ForegroundRuntimePromptInput): string {
   const tools = input.activeTools?.join(', ') || 'none';
   return [
     '[Brunch executor control]',
-    '- target product surface: CODE',
-    `- operational mode: ${input.sessionState.operationalMode}`,
+    '- product mode: Execute',
+    `- operational mode id: ${input.sessionState.operationalMode} (${operationalModeLabel(input.sessionState.operationalMode)})`,
     `- foreground role: ${input.sessionState.agentRole}`,
     `- active tools: ${tools}`,
     '- prompt resources: code-owned live skill list only; no runtime axis negotiation',

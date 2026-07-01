@@ -204,7 +204,7 @@ describe('Brunch TUI boot', () => {
     ]);
   });
 
-  it('mirrors debug cache by default in source runs and gates query tools behind developerTools', async () => {
+  it('mirrors debug cache by default, gates query tools behind developerTools, and keeps subagents product-enabled', async () => {
     const workspace = readyWorkspace('/tmp/project', 'session-ready');
     const observed: unknown[] = [];
 
@@ -229,8 +229,8 @@ describe('Brunch TUI boot', () => {
         sessionFile: workspace.session.file,
       }),
       webSidecarRunner: async () => null,
-      launchInteractive: async ({ introspection }) => {
-        observed.push(introspection?.queryTools);
+      launchInteractive: async ({ introspection, allowSubagents }) => {
+        observed.push({ queryTools: introspection?.queryTools, allowSubagents });
         expect(introspection?.store).toBeDefined();
         expect(introspection?.debugCache).toEqual({ cwd: '/tmp/project' });
       },
@@ -257,12 +257,15 @@ describe('Brunch TUI boot', () => {
         sessionFile: workspace.session.file,
       }),
       webSidecarRunner: async () => null,
-      launchInteractive: async ({ introspection }) => {
-        observed.push(introspection);
+      launchInteractive: async ({ introspection, allowSubagents }) => {
+        observed.push({ introspection, allowSubagents });
       },
     });
 
-    expect(observed).toEqual([true, undefined]);
+    expect(observed).toEqual([
+      { queryTools: true, allowSubagents: true },
+      { introspection: undefined, allowSubagents: true },
+    ]);
   });
 
   it('lets programmatic callers enable developer tools when argv omits the flag', async () => {

@@ -31,7 +31,11 @@
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
-import { OPERATIONAL_MODE_IDS, type OperationalModeId } from '../../../session/schema/kinds.js';
+import {
+  OPERATIONAL_MODE_IDS,
+  operationalModeLabel,
+  type OperationalModeId,
+} from '../../../session/schema/kinds.js';
 import { createRuntimeModePickerComponent } from '../../components/runtime-posture/axis-picker.js';
 import {
   activeToolNamesForBrunchAgentState,
@@ -73,6 +77,10 @@ function normalizeAxisArg(args: string): string {
   return args.trim().split(/\s+/)[0] ?? '';
 }
 
+function formatOperationalModeChoices(): string {
+  return OPERATIONAL_MODE_IDS.map((mode) => `${mode} (${operationalModeLabel(mode)})`).join(', ');
+}
+
 async function openModePicker(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
@@ -80,7 +88,7 @@ async function openModePicker(
 ): Promise<void> {
   const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
   if (typeof ctx.ui.custom !== 'function') {
-    ctx.ui.notify(`Brunch mode is ${current.operationalMode}.`, 'info');
+    ctx.ui.notify(`Brunch mode is ${operationalModeLabel(current.operationalMode)}.`, 'info');
     return;
   }
   const picked = await ctx.ui.custom<OperationalModeId | undefined>((_tui, theme, _keybindings, done) =>
@@ -92,7 +100,7 @@ async function openModePicker(
   );
   if (picked === undefined) return;
   if (picked === current.operationalMode) {
-    ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
+    ctx.ui.notify(`Brunch mode is already ${operationalModeLabel(current.operationalMode)}.`, 'info');
     return;
   }
   applyModeSwitch(pi, ctx, picked, options);
@@ -124,7 +132,7 @@ function applyModeSwitch(
     activeToolNamesForBrunchAgentState(pi, projectBrunchAgentState(ctx.sessionManager.getEntries())),
   );
   options.requestChromeRefresh?.();
-  ctx.ui.notify(`Brunch mode set to ${nextMode}.`, 'info');
+  ctx.ui.notify(`Brunch mode set to ${operationalModeLabel(nextMode)}.`, 'info');
 }
 
 function registerRuntimeSwitchCommands(
@@ -136,7 +144,7 @@ function registerRuntimeSwitchCommands(
     getArgumentCompletions: (prefix) =>
       OPERATIONAL_MODE_IDS.filter((value) => value.startsWith(prefix)).map((value) => ({
         value,
-        label: value,
+        label: operationalModeLabel(value),
       })),
     handler: async (args, ctx) => {
       const selection = normalizeAxisArg(args);
@@ -146,14 +154,11 @@ function registerRuntimeSwitchCommands(
         return;
       }
       if (!OPERATIONAL_MODE_IDS.includes(selection as OperationalModeId)) {
-        ctx.ui.notify(
-          `Unknown mode "${selection}". Use one of: ${OPERATIONAL_MODE_IDS.join(', ')}.`,
-          'error',
-        );
+        ctx.ui.notify(`Unknown mode "${selection}". Use one of: ${formatOperationalModeChoices()}.`, 'error');
         return;
       }
       if (selection === current.operationalMode) {
-        ctx.ui.notify(`Brunch mode is already ${current.operationalMode}.`, 'info');
+        ctx.ui.notify(`Brunch mode is already ${operationalModeLabel(current.operationalMode)}.`, 'info');
         return;
       }
       applyModeSwitch(pi, ctx, selection as OperationalModeId, options);

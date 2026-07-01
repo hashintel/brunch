@@ -94,8 +94,8 @@ components are render-only with injectable `theme`/props.
 Source runs and local dev builds automatically mirror debug artifacts into `<workspace>/.brunch/debug/`.
 
 - This automatic mirror is for passive observability only: system prompt captures, Brunch-owned tool content, origination records, and debug transcript rendering.
-- Prompt-affecting dev surfaces stay explicit. `--dev-tools` is the opt-in for query tools and subagent affordances.
-- TUI boots therefore have three states: product-default, debug-mirror-only, and debug-mirror plus dev tools.
+- Prompt-affecting dev surfaces stay explicit. `--dev-tools` is the opt-in for dev query tools only; product subagents are not dev-gated.
+- TUI boots therefore have three states: product-default (including product subagents when registered), debug-mirror-only, and debug-mirror plus dev query tools.
 
 ## Graph Curation
 

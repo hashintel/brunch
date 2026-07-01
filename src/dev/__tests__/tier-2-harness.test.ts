@@ -264,6 +264,10 @@ describe('FE-847 Tier-2 real boot harness', () => {
       expect(productBoot.runtime.session.getActiveToolNames()).not.toEqual(
         expect.arrayContaining(['brunch_session_query', 'brunch_introspect_query']),
       );
+      expect(productBoot.runtime.session.getAllTools().map((tool) => tool.name)).toEqual(
+        expect.arrayContaining(['subagent']),
+      );
+      expect(productBoot.runtime.session.getActiveToolNames()).toEqual(expect.arrayContaining(['subagent']));
     } finally {
       await productBoot.runtime.dispose();
       productBoot.restoreEnv();

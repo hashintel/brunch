@@ -4,7 +4,7 @@ SPEC decisions: D40-L, D52-L, D85-L, D98-L
 
 ## Owns
 
-`src/agents/runtime/elicitor/` owns the live SPEC-mode elicitor assembly path: fixed prompt body selection, plain context composition, and the explicit active-tool policy used by the foreground elicitor.
+`src/agents/runtime/elicitor/` owns the live Specify-mode elicitor assembly path: fixed prompt body selection, plain context composition, and the explicit active-tool policy used by the foreground elicitor.
 
 ```text
 elicitor/

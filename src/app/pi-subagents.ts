@@ -41,8 +41,8 @@ export interface LoadBrunchSubagentsWorld {
 /**
  * Load the bundled subagent registry and assemble its sealed dependencies.
  * The result is passed to `createBrunchPiExtensions({ subagents })`, which
- * registers the `subagent` tool default-off (it is only advertised when the
- * operational-mode opt-in includes it).
+ * registers the product `subagent` tool when the current foreground mode has a
+ * non-empty code-owned delegatable set.
  */
 export async function loadBrunchSubagents(options: LoadBrunchSubagentsOptions): Promise<BrunchSubagentsDeps> {
   const [definitions, config] = await Promise.all([

@@ -14,6 +14,7 @@ describe('activeToolNamesForLiveElicitor', () => {
         'mutate_graph',
         'present_question',
         'request_response',
+        'subagent',
         'brunch_session_query',
       ],
     });
@@ -25,14 +26,15 @@ describe('activeToolNamesForLiveElicitor', () => {
       'mutate_graph',
       'present_question',
       'request_response',
+      'subagent',
     ]);
   });
 
-  it('admits shell-provided opt-in tools without opening blocked tool names', () => {
+  it('admits dev query opt-in tools without opening blocked tool names', () => {
     expect(
       activeToolNamesForLiveElicitor({
         registeredToolNames: ['read', 'bash', 'subagent', 'brunch_session_query'],
-        devAllowedToolNames: ['subagent', 'brunch_session_query'],
+        devAllowedToolNames: ['brunch_session_query'],
       }),
     ).toEqual(['read', 'subagent', 'brunch_session_query']);
   });
