@@ -118,6 +118,75 @@ describe('createWorktree', () => {
     expect(calls).toHaveLength(1);
   });
 
+  it('recovers metadata when the worktree exists after a metadata write failure', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-recover-metadata-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await mkdir(worktreeDirPath(cwd, 'run-1'), { recursive: true });
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git should not run when the worktree already exists');
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'worktree_created',
+      runStatus: 'worktree_created',
+      runId: 'run-1',
+      runDir: runDirPath(cwd, 'run-1'),
+      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'worktree_created',
+      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+    });
+  });
+
+  it('recreates the worktree when persisted metadata points at a missing directory', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-recreate-missing-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'worktree_created',
+        worktreeDir: worktreeDirPath(cwd, 'run-1'),
+      }),
+      'utf8',
+    );
+
+    const calls: Array<{ cwd: string; worktreeDir: string; ref: string }> = [];
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async (portArgs) => {
+        calls.push(portArgs);
+        await mkdir(portArgs.worktreeDir, { recursive: true });
+        return {
+          status: 'created',
+          worktreeDir: portArgs.worktreeDir,
+          sideEffects: [{ kind: 'git_worktree_add', path: portArgs.worktreeDir, ref: portArgs.ref }],
+        };
+      }),
+    });
+
+    expect(result.status).toBe('worktree_created');
+    expect(calls).toEqual([{ cwd, worktreeDir: worktreeDirPath(cwd, 'run-1'), ref: 'HEAD' }]);
+    expect(await pathExists(worktreeDirPath(cwd, 'run-1'))).toBe(true);
+  });
+
   it('does not update run metadata when the git worktree port fails', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-failed-'));
     const planPath = planFilePath(cwd, '42');

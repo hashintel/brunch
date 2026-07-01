@@ -1,3 +1,4 @@
+import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { GitWorktreePort } from './execution-ports.js';
@@ -36,10 +37,10 @@ export type WorktreeCreateResult =
       readonly runDir: string;
       readonly worktreeDir: string;
       readonly metadataPath: string;
-      readonly sideEffects: readonly [
-        { readonly kind: 'git_worktree_add'; readonly path: string; readonly ref: string },
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-      ];
+      readonly sideEffects: readonly (
+        | { readonly kind: 'git_worktree_add'; readonly path: string; readonly ref: string }
+        | { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' }
+      )[];
     };
 
 export function worktreeDirPath(cwd: string, runId: string): string {
@@ -69,7 +70,7 @@ export async function createWorktree(args: {
   // Idempotent: if the worktree was already created, do not re-run
   // `git worktree add` (it fails when the directory already exists). The
   // previous mkdir-based path could be safely retried; preserve that.
-  if (metadata.worktreeDir) {
+  if (metadata.worktreeDir && (await pathExists(metadata.worktreeDir))) {
     return {
       status: 'already_created',
       runStatus: metadata.status,
@@ -81,20 +82,39 @@ export async function createWorktree(args: {
     };
   }
 
-  const worktreeResult = await args.gitWorktree.create({ cwd: args.cwd, worktreeDir, ref: 'HEAD' });
+  if (!metadata.worktreeDir && (await pathExists(worktreeDir))) {
+    const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
+    const metadataEffect = await persistRunMetadata(metadataPath, updated);
+    return {
+      status: 'worktree_created',
+      runStatus: 'worktree_created',
+      runId: args.runId,
+      runDir,
+      worktreeDir,
+      metadataPath,
+      sideEffects: [metadataEffect],
+    };
+  }
+
+  const targetWorktreeDir = metadata.worktreeDir ?? worktreeDir;
+  const worktreeResult = await args.gitWorktree.create({
+    cwd: args.cwd,
+    worktreeDir: targetWorktreeDir,
+    ref: 'HEAD',
+  });
   if (worktreeResult.status === 'failed') {
     return {
       status: 'worktree_create_failed',
       runStatus: metadata.status,
       runId: args.runId,
-      worktreeDir,
+      worktreeDir: targetWorktreeDir,
       metadataPath,
       message: worktreeResult.message,
       sideEffects: [],
     };
   }
 
-  const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
+  const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir: targetWorktreeDir };
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
@@ -102,8 +122,17 @@ export async function createWorktree(args: {
     runStatus: 'worktree_created',
     runId: args.runId,
     runDir,
-    worktreeDir,
+    worktreeDir: targetWorktreeDir,
     metadataPath,
     sideEffects: [...worktreeResult.sideEffects, metadataEffect],
   };
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
