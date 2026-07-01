@@ -5,7 +5,7 @@ import {
   selectCookSourcePolicy,
   type CookSourcePolicyKind,
   type CookSourcePolicyResult,
-} from '../../../../executor/cook-source-policy.js';
+} from '../../../../executor/source-policy.js';
 import { BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL } from '../../../../session/schema/tool-names.js';

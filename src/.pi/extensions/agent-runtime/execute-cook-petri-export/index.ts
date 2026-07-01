@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { exportCookPetri, type CookPetriExportResult } from '../../../../executor/cook-petri.js';
+import { exportCookPetri, type CookPetriExportResult } from '../../../../executor/petri.js';
 import { BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL } from '../../../../session/schema/tool-names.js';

@@ -58,7 +58,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `cook-sandbox` (`orchestrator-cutover` arc) — **next up; design chosen, ready to scope.** First real-execution frontier: replace the `fs`-only simulation with a real runnable sandbox via two injected capability ports — `GitWorktreePort` (real `git worktree add`, replacing `cook-worktree.ts`'s `mkdir`) and `TestRunnerPort` (real verify subprocess). No LLM, subprocess only, low blast radius. Stacks on the FE-1089 branch. First slice: the git-worktree port. See `cook-sandbox` frontier definition for the chosen ports seam (SPEC D99-L cook-execution-ports refinement).
+- `cook-sandbox` (`orchestrator-cutover` arc) — **next up; design chosen, ready to scope.** First real-execution frontier: replace the `fs`-only simulation with a real runnable sandbox via two injected capability ports — `GitWorktreePort` (real `git worktree add`, replacing `worktree.ts`'s `mkdir`) and `TestRunnerPort` (real verify subprocess). No LLM, subprocess only, low blast radius. Stacks on the FE-1089 branch. First slice: the git-worktree port. See `cook-sandbox` frontier definition for the chosen ports seam (SPEC D99-L cook-execution-ports refinement).
 - `elicitor-project` (FE-1085) — **design-gated proving frontier.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before scope/build.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 - `structured-exchange-affordance` — **earned hardening.** Collapse recurring discriminant-companion and nested-payload affordance failures into clearer schema/tool contracts.
@@ -162,10 +162,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Certainty:** proving.
 - **Why now / unlocks:** the FE-1089 chain proved the cook lifecycle shape with `fs`-only descriptive footholds, but every step simulates execution (copied-dir "worktree", prewritten-ingested agent/test results, no git). A meaningful run needs a real, runnable, verifiable workspace first. This is the lowest-blast-radius real-execution layer (subprocess only, no LLM).
 - **Design verdict (chosen):** real execution enters orchestration core through an **injected capability-port bag**, not a deep environment object or an effect-program rewrite. Port *types* live in `src/executor/cook-execution-ports.ts` (`CookExecutionPorts` = `{ GitWorktreePort, AgentRunnerPort, TestRunnerPort, GitLandPort }`); real implementations live in the app layer (`src/app/cook-*.ts`) and are injected by the Pi adapters, preserving the D52-L/I52-L boundary (no git/subprocess in core). See SPEC D99-L cook-execution-ports refinement.
-- **Objective:** Implement and inject `GitWorktreePort` (real `git worktree add`, replacing `cook-worktree.ts`'s `mkdir`) and `TestRunnerPort` (real verify subprocess), so a run becomes a real, runnable, verifiable git workspace — keeping the one-explicit-side-effect-per-tool discipline (I52-L).
+- **Objective:** Implement and inject `GitWorktreePort` (real `git worktree add`, replacing `worktree.ts`'s `mkdir`) and `TestRunnerPort` (real verify subprocess), so a run becomes a real, runnable, verifiable git workspace — keeping the one-explicit-side-effect-per-tool discipline (I52-L).
 - **Acceptance (to refine via `ln-scope`):**
   - `src/executor/cook-execution-ports.ts` defines the `CookExecutionPorts` bag as types only; orchestration core imports no git/subprocess.
-  - `GitWorktreePort` makes the per-run worktree a real `git worktree`, replacing the `mkdir`+copy substrate in `cook-worktree.ts`.
+  - `GitWorktreePort` makes the per-run worktree a real `git worktree`, replacing the `mkdir`+copy substrate in `worktree.ts`.
   - `TestRunnerPort` runs the real verify subprocess and ingests its true result, replacing the prewritten `test-result.json` ingest path for the sandbox layer.
   - App-layer implementations under `src/app/cook-*.ts`; adapters inject the bag; focused tests cover the port contracts.
 - **Traceability:** D39-L, D40-L, D52-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L (land-substrate finding + cook-execution-ports refinement) / I49-L, I52-L; depends on `orchestrator-alpha-cutover`; `src/executor/TOPOLOGY.md`.

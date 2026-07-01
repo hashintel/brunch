@@ -1,9 +1,9 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { writeCookPlanFile } from '../../../../executor/cook-plan-file.js';
-import type { CookPlanPreview } from '../../../../executor/cook-plan-preview.js';
 import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
+import { writeCookPlanFile } from '../../../../executor/plan-file.js';
+import type { CookPlanPreview } from '../../../../executor/plan-preview.js';
 import { BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 

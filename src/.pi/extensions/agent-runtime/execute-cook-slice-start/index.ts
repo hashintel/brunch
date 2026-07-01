@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { startCookSlice, type CookSliceStartResult } from '../../../../executor/cook-slice-start.js';
+import { startCookSlice, type CookSliceStartResult } from '../../../../executor/slice-start.js';
 import { BRUNCH_EXECUTE_COOK_SLICE_START_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_SLICE_START_TOOL } from '../../../../session/schema/tool-names.js';

@@ -1,4 +1,3 @@
-import { previewCookPlan, type CookPlanPreview } from './cook-plan-preview.js';
 import { draftExecutablePlan, type ExecutablePlanDraft } from './executable-plan-draft.js';
 import { checkExecutionSpecForPlan, type ExecutePlanCheckResult } from './execute-plan-check.js';
 import { outlineExecutionPlan, type ExecutionPlanOutline } from './execute-plan-outline.js';
@@ -8,6 +7,7 @@ import {
   type ExecutionSpecSnapshot,
   type ProjectExecutionSpecSnapshotInput,
 } from './execution-spec-snapshot.js';
+import { previewCookPlan, type CookPlanPreview } from './plan-preview.js';
 
 export interface ExecuteGraphProjectionSource {
   readonly graphLsn: number;

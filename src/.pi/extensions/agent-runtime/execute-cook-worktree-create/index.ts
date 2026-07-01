@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { createCookWorktree, type CookWorktreeCreateResult } from '../../../../executor/cook-worktree.js';
+import { createCookWorktree, type CookWorktreeCreateResult } from '../../../../executor/worktree.js';
 import { BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
