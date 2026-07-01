@@ -93,6 +93,41 @@ describe('createWorktree', () => {
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'land'))).toBe(false);
   });
 
+  it('is idempotent: a second create does not re-invoke the git worktree port', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-idempotent-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+
+    const calls: Array<{ cwd: string; worktreeDir: string; ref: string }> = [];
+    const gitWorktree = createFakeGitWorktreePort(async (portArgs) => {
+      calls.push(portArgs);
+      await mkdir(portArgs.worktreeDir, { recursive: true });
+      return {
+        status: 'created',
+        worktreeDir: portArgs.worktreeDir,
+        sideEffects: [{ kind: 'git_worktree_add', path: portArgs.worktreeDir, ref: portArgs.ref }],
+      };
+    });
+
+    const first = await createWorktree({ cwd, runId: 'run-1', gitWorktree });
+    expect(first.status).toBe('worktree_created');
+
+    const second = await createWorktree({ cwd, runId: 'run-1', gitWorktree });
+    expect(second).toEqual({
+      status: 'already_created',
+      runStatus: 'worktree_created',
+      runId: 'run-1',
+      runDir: runDirPath(cwd, 'run-1'),
+      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    // git worktree add ran exactly once, not on the retry.
+    expect(calls).toHaveLength(1);
+  });
+
   it('does not update run metadata when the git worktree port fails', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-failed-'));
     const planPath = planFilePath(cwd, '42');
