@@ -1,10 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import {
-  ingestCookTestResult,
-  type CookTestResultIngestResult,
-} from '../../../../executor/cook-test-result.js';
+import { ingestCookTestResult, type CookTestResultIngestResult } from '../../../../executor/test-result.js';
 import { BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL } from '../../../../session/schema/tool-names.js';

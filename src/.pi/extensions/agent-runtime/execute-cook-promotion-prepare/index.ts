@@ -1,10 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import {
-  prepareCookPromotion,
-  type CookPromotionPrepareResult,
-} from '../../../../executor/cook-promotion.js';
+import { prepareCookPromotion, type CookPromotionPrepareResult } from '../../../../executor/promotion.js';
 import { BRUNCH_EXECUTE_COOK_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_PROMOTION_PREPARE_TOOL } from '../../../../session/schema/tool-names.js';
