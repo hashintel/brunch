@@ -385,7 +385,6 @@ export function createBrunchAgentSessionRuntimeFactory(
               };
         },
         resolveNodeCode: (code: string) => graph.forSpec(currentWorkspace.spec.id).resolveNodeCode(code),
-        getElicitationGaps: () => graph.forSpec(currentWorkspace.spec.id).getElicitationGaps(),
         getOpenReconciliationNeeds: () =>
           graph.forSpec(currentWorkspace.spec.id).getOpenReconciliationNeeds(),
         latestLsn: () => graph.forSpec(currentWorkspace.spec.id).latestLsn(),
@@ -545,7 +544,6 @@ function graphReadersForSpec(graph: WorkspaceGraphRuntime, specId: number): Grap
     queryGraph: (filter, options) => graph.forSpec(specId).queryGraph(filter, options),
     getNodes: (selectors, options) => graph.forSpec(specId).getNodes(selectors, options),
     resolveNodeCode: (code) => graph.forSpec(specId).resolveNodeCode(code),
-    getElicitationGaps: () => graph.forSpec(specId).getElicitationGaps(),
     getOpenReconciliationNeeds: () => graph.forSpec(specId).getOpenReconciliationNeeds(),
     latestLsn: () => graph.forSpec(specId).latestLsn(),
   };

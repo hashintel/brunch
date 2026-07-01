@@ -298,7 +298,7 @@ One item outside the card's declared touched paths was left deliberately unrepoi
 
 ## Card 4 — Delete persisted gap register and count readiness
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -394,6 +394,21 @@ src/
     ├── public-rpc-parity-proof.ts                        ~
     └── __tests__/                                        ~
 ```
+
+### Build notes
+
+Full deletion sweep landed, with divergences beyond the tentative touched paths:
+
+- `graph/schema/kinds.ts` also lost `LENS_AFFINITIES`, `GAP_DISPOSITIONS`, `GAP_PREDICATE_KINDS` — no consumer survived once the register and its command validation were gone, so keeping them would have been dead exports.
+- `db/schema.ts` dropped the `elicitationGaps` table entirely (not just its gap-specific columns); a new Drizzle migration `drizzle/0007_jittery_mongu.sql` (`DROP TABLE elicitation_gaps`) was generated via `npm run db:generate`.
+- `graph/command-executor/command-types.ts` and `command-validation.ts` lost their gap-specific input/result types and validators (`CreateElicitationGapInput/Result`, `SetElicitationGapDispositionInput/Result`, `RepairSeededElicitationGaps*`, `validateGapPredicate`, `isGapDisposition`, `isElicitationGapLensAffinity`) — none had a surviving caller.
+- `.pi/extensions/brunch-data/graph/index.ts` (`GraphReaders`) and `.pi/extensions/commands/index.ts` (`BrunchCommandsOptions`) both lost their `getElicitationGaps` field; `app/pi-extensions.ts` and `app/brunch-tui.ts` dropped the matching plumbing (`commandGapReads`, `conservativeUncoveredFloorGaps` fallback wiring).
+- `.pi/extensions/brunch-data/elicitation/index.ts` is now a thin re-export of `scratchpad-tools.ts` only; the old `read_elicitation_gaps`/`update_elicitation_gaps` registrar body is gone.
+- `probes/capture-quality-loop.ts` renamed the `spawn_gap` expected-outcome to `scratchpad_note` (plus its count field and verdict-markdown label) rather than deleting the outlet — the underlying concept (low-confidence noticing) is still real, it now routes to the session scratchpad; `.fixtures/runs/capture-quality/sample-llm-extractions.json` was updated to match.
+- Two live prompt docs outside the card's declared touched paths needed fixing because they named now-deleted tools/register concepts, not just stale prose: `agents/skills/elicit/SKILL.md` (`elicitation_gaps` register → session scratchpad) and `agents/skills/ingest/SKILL.md` (`update_elicitation_gaps` → `update_elicitation_scratchpad`). Card 3 had deliberately left the `ingest/SKILL.md` reference untouched because the old tool still existed then; this card's deletion made it actively wrong.
+- Tests: deleted `graph/__tests__/{elicitation-driver,workspace-store,capture-commitment-gradient-gate}.test.ts` and `.pi/extensions/__tests__/brunch-data-elicitation.test.ts` outright (their entire subject was removed machinery, not adaptable in place). Removed obsolete gap-seeding/gap-CRUD assertions from `command-executor.test.ts`, `queries.test.ts`, `seed-fixtures.test.ts`, and updated `observed-shapes-coverage.test.ts` to drop the `elicitation_gaps` shape row. `db/__tests__/connection.test.ts`'s legacy-migration test was rewritten from "recreates elicitation gaps" to "migrates a backlog-era table without touching the retired gap register," since the table the old assertion queried no longer exists.
+- Deliberately deferred to Card 6 per the frontier's own sequencing: `graph/TOPOLOGY.md`, `db/TOPOLOGY.md`, `projections/TOPOLOGY.md`, `.pi/extensions/TOPOLOGY.md`, and `rpc/TOPOLOGY.md` still describe the retired register (Card 6 is explicitly named "topology reconciliation" and lists these same files in its own touched paths). `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md`, `memory/SPEC.md`, `memory/PLAN.md` also untouched here for the same reason.
+- `reconciliation_needs` machinery was left fully untouched, per the card's cross-cutting obligation.
 
 ---
 

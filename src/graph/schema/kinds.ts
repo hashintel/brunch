@@ -53,9 +53,3 @@ export const EDGE_STANCES = ['for', 'against'] as const;
 
 export const READINESS_BANDS = ['grounding', 'elicitation', 'projection', 'commitment'] as const;
 export type ReadinessBand = (typeof READINESS_BANDS)[number];
-
-export const LENS_AFFINITIES = ['intent', 'design', 'oracle'] as const;
-
-export const GAP_DISPOSITIONS = ['open', 'answered', 'not_applicable', 'irrelevant', 'reopened'] as const;
-
-export const GAP_PREDICATE_KINDS = ['presence', 'field', 'coverage', 'manual'] as const;

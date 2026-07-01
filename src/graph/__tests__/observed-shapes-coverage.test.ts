@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  READ_ELICITATION_GAPS_SHAPE,
-  READ_ELICITATION_GAPS_TOOL,
-} from '../../.pi/extensions/brunch-data/elicitation/index.js';
 import { ReadGraphParams } from '../../.pi/extensions/brunch-data/graph/tool-schemas.js';
 import { graphRpcMethods } from '../../rpc/methods/graph.js';
 import { queryKeys } from '../../web/query-keys.js';
@@ -51,13 +47,6 @@ const observedShapeLedger = [
     rpc: 'deferred',
     web: 'deferred',
   },
-  {
-    shape: 'elicitation_gaps',
-    owner: 'getElicitationGaps',
-    tool: 'required',
-    rpc: 'deferred',
-    web: 'deferred',
-  },
 ] as const;
 
 type Consumer = 'tool' | 'rpc' | 'web';
@@ -79,7 +68,7 @@ function webGraphShape(keyFactoryName: string): string {
 
 describe('graph observed-shape coverage ledger', () => {
   it('names exactly one canonical graph query owner for every observed read shape', () => {
-    expect(observedShapeLedger).toHaveLength(7);
+    expect(observedShapeLedger).toHaveLength(6);
     expect(observedShapeLedger.map((row) => row.owner)).toEqual([
       'getGraphOverview',
       'getNodeNeighborhood',
@@ -87,15 +76,11 @@ describe('graph observed-shape coverage ledger', () => {
       'getGraphSliceByReadinessBands',
       'getRelatedNodes',
       'getOpenReconciliationNeeds',
-      'getElicitationGaps',
     ]);
   });
 
   it('keeps the agent tool surface aligned to the ledger-required shapes', () => {
-    // The agent tool surface is read_graph's modes plus dedicated register
-    // tools (the elicitation register is deliberately not a read_graph mode).
-    expect(READ_ELICITATION_GAPS_TOOL).toBe('read_elicitation_gaps');
-    const toolShapes = [...ReadGraphParams.properties.mode.enum, READ_ELICITATION_GAPS_SHAPE];
+    const toolShapes = [...ReadGraphParams.properties.mode.enum];
     expect(toolShapes.sort()).toEqual(requiredShapesFor('tool'));
   });
 

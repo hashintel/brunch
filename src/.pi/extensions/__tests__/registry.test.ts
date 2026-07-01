@@ -125,7 +125,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(result.content[0]?.text).toBe(`${toolLabel} ran: standup`);
   });
 
-  it('registers both graph-register and elicitation-register tools when graph deps are provided', async () => {
+  it('registers both graph-register and reconciliation-register tools when graph deps are provided', async () => {
     const recording = createRecordingExtensionApi();
 
     await createBrunchPiExtensions(brunchChromeFixture, recording.onSessionBoundary, {
@@ -138,7 +138,6 @@ describe('Brunch explicit Pi extension registry', () => {
           queryGraph: () => ({ lsn: 1, nodes: [], edges: [] }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
-          getElicitationGaps: () => [],
           getOpenReconciliationNeeds: () => [],
           latestLsn: () => 1,
         },
@@ -149,13 +148,11 @@ describe('Brunch explicit Pi extension registry', () => {
       expect.arrayContaining([
         'mutate_graph',
         'read_graph',
-        'read_elicitation_gaps',
         'read_reconciliation_needs',
         'update_reconciliation_needs',
       ]),
     );
-    // the elicitation/reconciliation registers are dedicated tools, not read_graph modes
-    expect(recording.toolNames.filter((name) => name === 'read_elicitation_gaps')).toHaveLength(1);
+    // the reconciliation register is a dedicated tool, not a read_graph mode
     expect(recording.toolNames.filter((name) => name === 'read_reconciliation_needs')).toHaveLength(1);
   });
 
@@ -187,7 +184,6 @@ describe('Brunch explicit Pi extension registry', () => {
             }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
-          getElicitationGaps: () => [],
           getOpenReconciliationNeeds: () => [],
           latestLsn: () => graphLsn,
         },
@@ -255,7 +251,6 @@ describe('Brunch explicit Pi extension registry', () => {
           queryGraph: () => ({ lsn: 0, nodes: [], edges: [] }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
-          getElicitationGaps: () => [],
           getOpenReconciliationNeeds: () => [],
           latestLsn: () => 0,
         },
@@ -311,7 +306,6 @@ describe('Brunch explicit Pi extension registry', () => {
             }) as never,
           getNodes: () => [],
           resolveNodeCode: () => undefined,
-          getElicitationGaps: () => [],
           getOpenReconciliationNeeds: () => [],
           latestLsn: () => 2,
         },

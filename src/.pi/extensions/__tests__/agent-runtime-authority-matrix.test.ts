@@ -2,7 +2,6 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
 import type { CommandResult } from '../../../graph/command-executor.js';
-import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { DEFAULT_BRUNCH_AGENT_STATE } from '../../../session/runtime-state.js';
 import {
   activeToolNamesForBrunchAgentState,
@@ -22,8 +21,6 @@ const REGISTERED_POC_TOOLS = [
   'request_response',
   'mutate_graph',
 ] as const;
-
-const uncoveredGaps = groundingFloorGaps({ defaultCoverage: 0 });
 
 function piWithRegisteredTools(toolNames: readonly string[]): ExtensionAPI {
   return {
@@ -73,9 +70,7 @@ describe('minimal authority matrix', () => {
 
     expect(state).toMatchObject({ operationalMode: 'elicit', agentRole: 'elicitor' });
 
-    expect(
-      activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state, uncoveredGaps),
-    ).toEqual([
+    expect(activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state)).toEqual([
       'read',
       'grep',
       'find',
@@ -89,22 +84,6 @@ describe('minimal authority matrix', () => {
     expect(
       activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state),
     ).not.toEqual(expect.arrayContaining([...SIDE_EFFECTING_POC_TOOLS]));
-  });
-
-  it('falls back to conservative uncovered gaps when no selected-spec gap read is available', () => {
-    const state = projectBrunchAgentState([{ data: { state: DEFAULT_BRUNCH_AGENT_STATE } }]);
-
-    expect(activeToolNamesForBrunchAgentState(piWithRegisteredTools(REGISTERED_POC_TOOLS), state)).toEqual([
-      'read',
-      'grep',
-      'find',
-      'ls',
-      'web_fetch',
-      'web_search',
-      'present_question',
-      'request_response',
-      'mutate_graph',
-    ]);
   });
 
   it('represents needs_human as structured data instead of a TUI-only dialog', () => {

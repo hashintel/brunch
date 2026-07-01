@@ -30,7 +30,6 @@
 
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
 
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
 import { appendBrunchAgentRuntimeSwitch } from '../../../session/runtime-state.js';
 import { OPERATIONAL_MODE_IDS, type OperationalModeId } from '../../../session/schema/kinds.js';
 import { createRuntimeModePickerComponent } from '../../components/runtime-posture/axis-picker.js';
@@ -63,13 +62,6 @@ export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
    * available and degrades to the shortcut context otherwise.
    */
   readonly getCommandContext?: () => ExtensionCommandContext | undefined;
-  /**
-   * Must-wire: the post-switch tool posture derives from these gaps. Required
-   * so a composition root cannot leave runtime switches recomputing legality
-   * from an empty register (which silently floor-locks gated tools until the
-   * next turn boundary).
-   */
-  readonly getElicitationGaps: () => readonly ElicitationGap[];
 };
 
 interface RuntimeSwitchContext {
@@ -84,7 +76,7 @@ function normalizeAxisArg(args: string): string {
 async function openModePicker(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
-  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
+  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh'>,
 ): Promise<void> {
   const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
   if (typeof ctx.ui.custom !== 'function') {
@@ -110,7 +102,7 @@ function applyModeSwitch(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
   nextMode: OperationalModeId,
-  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
+  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh'>,
 ): void {
   const nextState = {
     schemaVersion: 1 as const,
@@ -129,11 +121,7 @@ function applyModeSwitch(
   );
 
   pi.setActiveTools(
-    activeToolNamesForBrunchAgentState(
-      pi,
-      projectBrunchAgentState(ctx.sessionManager.getEntries()),
-      options.getElicitationGaps(),
-    ),
+    activeToolNamesForBrunchAgentState(pi, projectBrunchAgentState(ctx.sessionManager.getEntries())),
   );
   options.requestChromeRefresh?.();
   ctx.ui.notify(`Brunch mode set to ${nextMode}.`, 'info');
@@ -141,7 +129,7 @@ function applyModeSwitch(
 
 function registerRuntimeSwitchCommands(
   pi: ExtensionAPI,
-  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'getElicitationGaps'>,
+  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh'>,
 ): void {
   pi.registerCommand(BRUNCH_MODE_COMMAND, {
     description: 'Change the active Brunch operational mode',

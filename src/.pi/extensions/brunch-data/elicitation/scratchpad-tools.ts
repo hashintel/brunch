@@ -1,10 +1,8 @@
 /**
  * Session-local elicitation scratchpad tools — read/write access to the
  * `brunch.elicitation_scratchpad` custom entry projection
- * (`session/elicitation-scratchpad.ts`). Replaces
- * `read_elicitation_gaps`/`update_elicitation_gaps` per D101-L; the old tools
- * stay registered until Card 3/4 repoint allowlists and delete the
- * persisted-register tools.
+ * (`session/elicitation-scratchpad.ts`). Replaces the retired persisted
+ * `elicitation_gaps` register per D101-L.
  *
  * Reads/writes go through exactly one fold projection
  * (`latestElicitationScratchpad`); the tool result content describes the

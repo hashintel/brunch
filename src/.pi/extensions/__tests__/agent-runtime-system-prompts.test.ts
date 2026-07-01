@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
-import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
@@ -102,7 +101,6 @@ const promptContext = {
     }),
     getNodes: () => [],
     resolveNodeCode: () => undefined,
-    getElicitationGaps: () => groundingFloorGaps(),
     getOpenReconciliationNeeds: () => [],
     latestLsn: () => 4,
   },
@@ -229,7 +227,6 @@ describe('Brunch prompt-pack topology', () => {
             }),
             getNodes: () => [],
             resolveNodeCode: () => undefined,
-            getElicitationGaps: () => groundingFloorGaps(),
             getOpenReconciliationNeeds: () => [],
             latestLsn: () => 1,
           },
@@ -423,9 +420,6 @@ describe('Brunch prompt-pack topology', () => {
           ...promptContext.graphReads,
           latestLsn: () => {
             throw new Error('live elicitor tool policy must not read graph clocks');
-          },
-          getElicitationGaps: () => {
-            throw new Error('live elicitor tool policy must not read selected-spec gaps');
           },
         },
       },

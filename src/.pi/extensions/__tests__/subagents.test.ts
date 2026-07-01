@@ -848,7 +848,6 @@ function injectedWorld(options: { cwd?: string } = {}): NonNullable<SubagentSeal
     queryGraph: () => parentGraph,
     getNodes: () => [],
     resolveNodeCode: () => undefined,
-    getElicitationGaps: () => [],
     getOpenReconciliationNeeds: () => [],
     latestLsn: () => parentGraph.lsn,
   };

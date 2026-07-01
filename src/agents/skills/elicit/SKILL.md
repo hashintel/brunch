@@ -55,7 +55,7 @@ Choose question content by the plane of uncertainty. For intent, translate user 
 
 ## Topology-driven question ranking
 
-Once the graph carries kinds and typed edges, the interviewer ranks the next question by topology rather than template. These are ranking heuristics, not automatic writes; low-confidence material routes to an `elicitation_gap`, never to a speculative node. 
+Once the graph carries kinds and typed edges, the interviewer ranks the next question by topology rather than template. These are ranking heuristics, not automatic writes; low-confidence material routes to the session-local elicitation scratchpad, never to a speculative node.
 
 They complement the band-driven question routing that suggests *what kind* of question to ask; topology heuristics suggest *which item* to ask about next.
 
@@ -70,4 +70,4 @@ They complement the band-driven question routing that suggests *what kind* of qu
 | Requirement with no example and high ambiguity                  | "What concrete case would settle this interpretation?"       |
 | `unknown` blocking a design or plan edge                        | "Accommodate it, investigate it, or narrow scope around it?" |
 
-This substrate is the `elicitation_gaps` register (D65-L): a flat table of prospective coverage obligations, each with a `predicate` (`presence` is structurally derivable; `field` and `coverage` are not yet supported; `manual` rides disposition), a `band`, an `importance`, and a `disposition` (`open` / `answered` / `not_applicable` / `irrelevant` / `reopened`). Structural coverage is derived from the graph at read time, not stored.
+This substrate is the session-local elicitation scratchpad (D101-L): a non-authoritative, per-session cumulative agenda of obligations still needing to be asked, seeded from thin graph facts and read/written through `read_elicitation_scratchpad` / `update_elicitation_scratchpad`. Durable truth remains graph-only; the scratchpad never becomes canonical spec fact by projection side effect.

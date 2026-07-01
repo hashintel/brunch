@@ -1,10 +1,9 @@
-import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { createDb, type BrunchDb } from '../../db/connection.js';
-import { elicitationGaps, graphClock, specs } from '../../db/schema.js';
+import { graphClock, specs } from '../../db/schema.js';
 import { CommandExecutor } from '../command-executor.js';
-import { getElicitationGaps, getOpenReconciliationNeeds } from '../queries.js';
+import { getOpenReconciliationNeeds } from '../queries.js';
 import { READINESS_BANDS } from '../schema/kinds.js';
 import {
   NODE_KIND_METADATA,
@@ -149,61 +148,5 @@ describe('getOpenReconciliationNeeds', () => {
 
     executor.resolveReconciliationNeed({ specId, id: create.id });
     expect(getOpenReconciliationNeeds(db, specId)).toEqual([]);
-  });
-});
-
-describe('getElicitationGaps', () => {
-  let db: BrunchDb;
-  let executor: CommandExecutor;
-  let specId: number;
-
-  beforeEach(() => {
-    db = createTestDb();
-    executor = new CommandExecutor(db);
-    const created = executor.createSpec({ name: 'Test Spec', slug: 'test-spec' });
-    expect(created.status).toBe('success');
-    if (created.status !== 'success') throw new Error('unreachable');
-    specId = created.specId;
-  });
-
-  it('returns gaps for the requested spec with live presence-derived coverage', () => {
-    const other = executor.createSpec({ name: 'Other Spec', slug: 'other-spec' });
-    expect(other.status).toBe('success');
-    if (other.status !== 'success') throw new Error('unreachable');
-
-    const before = getElicitationGaps(db, specId).find((gap) => gap.refersTo === 'context')!;
-    expect(before.coverage).toBe(0);
-    expect(before.answered).toBe(false);
-    expect(before.disposition).toBe('open');
-
-    const resolvedNode = executor.createNode({
-      specId,
-      plane: 'intent',
-      kind: 'context',
-      title: 'Brunch is a local spec-workspace product',
-    });
-    expect(resolvedNode.status).toBe('success');
-
-    const after = getElicitationGaps(db, specId).find((gap) => gap.refersTo === 'context')!;
-    expect(after.coverage).toBe(1);
-    expect(after.answered).toBe(true);
-    expect(after.disposition).toBe('answered');
-
-    expect(before.question).toBe(
-      'What kind of thing is this, and what domain or environment does it live in?',
-    );
-    expect(getElicitationGaps(db, specId)).toHaveLength(7);
-    expect(getElicitationGaps(db, other.specId)).toHaveLength(7);
-    expect(getElicitationGaps(db, other.specId).find((gap) => gap.refersTo === 'context')!.answered).toBe(
-      false,
-    );
-  });
-
-  it('fails loudly when predicate columns diverge from predicate JSON', () => {
-    const row = db.select().from(elicitationGaps).where(eq(elicitationGaps.spec_id, specId)).get();
-    if (!row) throw new Error('expected seeded elicitation gap');
-    db.update(elicitationGaps).set({ predicate_kind: 'manual' }).where(eq(elicitationGaps.id, row.id)).run();
-
-    expect(() => getElicitationGaps(db, specId)).toThrow(/predicate_kind manual does not match/);
   });
 });

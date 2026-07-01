@@ -12,7 +12,6 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import { userMessage } from '../../probes/test-helpers.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -1000,7 +999,6 @@ describe('Brunch TUI boot', () => {
             }),
             getNodes: () => [],
             resolveNodeCode: () => undefined,
-            getElicitationGaps: () => [],
             getOpenReconciliationNeeds: () => [],
             latestLsn: () => 1,
           },
@@ -1480,7 +1478,6 @@ function stubPromptGraphReads() {
     queryGraph: () => ({ lsn: 1, nodes: [], edges: [] }),
     getNodes: () => [],
     resolveNodeCode: () => undefined,
-    getElicitationGaps: () => groundingFloorGaps(),
     getOpenReconciliationNeeds: () => [],
     latestLsn: () => 1,
   };

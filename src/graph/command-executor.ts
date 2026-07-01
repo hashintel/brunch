@@ -25,25 +25,17 @@ import type {
   AcceptReviewSetDryRunResult,
   AcceptReviewSetInput,
   AcceptReviewSetResult,
-  CreateElicitationGapInput,
-  CreateElicitationGapResult,
   CreateNodeInput,
   CreateNodeResult,
   CreateReconNeedInput,
   CreateReconNeedResult,
   CreateSpecInput,
   CreateSpecResult,
-  RepairSeededElicitationGapsResult,
-  RepairSeededElicitationGapsSpecResult,
   ResolveReconNeedInput,
   ResolveReconNeedResult,
-  SetElicitationGapDispositionInput,
-  SetElicitationGapDispositionResult,
   SpecRecord,
 } from './command-executor/command-types.js';
 import {
-  isGapDisposition,
-  validateCreateElicitationGap,
   validateCreateNode,
   validateEdgePatch,
   validateNodePatchAgainstExisting,
@@ -57,9 +49,7 @@ import type {
 } from './command-executor/graph-mutation-types.js';
 import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
 import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
-import type { ElicitationGapLensAffinity, GapPredicate } from './schema/elicitation-gaps.js';
-import type { ReadinessBand } from './schema/kinds.js';
-import { type NodeBasis, type NodeKind, type NodePlane } from './schema/nodes.js';
+import { type NodePlane } from './schema/nodes.js';
 
 export type {
   Diagnostic,
@@ -80,128 +70,16 @@ export type {
   AcceptReviewSetInput,
   AcceptReviewSetResult,
   CommandResult,
-  CreateElicitationGapInput,
-  CreateElicitationGapResult,
   CreateNodeInput,
   CreateNodeResult,
   CreateReconNeedInput,
   CreateReconNeedResult,
   CreateSpecInput,
   CreateSpecResult,
-  RepairSeededElicitationGapsResult,
-  RepairSeededElicitationGapsSpecResult,
   ResolveReconNeedInput,
   ResolveReconNeedResult,
-  SetElicitationGapDispositionInput,
-  SetElicitationGapDispositionResult,
   SpecRecord,
 } from './command-executor/command-types.js';
-
-// ---------------------------------------------------------------------------
-// Seeded elicitation gaps
-// ---------------------------------------------------------------------------
-
-const SEEDED_ELICITATION_GAPS: readonly {
-  readonly refersTo: NodeKind;
-  readonly question: string;
-  readonly rationale: string;
-  readonly basis: NodeBasis;
-  readonly band: ReadinessBand;
-  readonly predicate: GapPredicate;
-  readonly importance: number;
-  readonly planeAffinity: NodePlane;
-  readonly lensAffinity: ElicitationGapLensAffinity;
-}[] = [
-  {
-    refersTo: 'context',
-    question: 'What kind of thing is this, and what domain or environment does it live in?',
-    rationale: 'Anchors what kind of thing is being specified and the domain it belongs to.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'context', minimum: 1 },
-    importance: 3,
-    planeAffinity: 'intent',
-    lensAffinity: 'intent',
-  },
-  {
-    refersTo: 'context',
-    question: 'Is this new-from-scratch, a brownfield codebase, or a continuation of a prior thread?',
-    rationale:
-      'Situates the opening acquisition route: new-from-scratch usually starts with elicit-by-question or ingest-paste; brownfield codebase usually starts with explore-and-characterize or read-referenced-documents; continuation of a prior thread usually starts by ingesting paste or reading referenced documents before capture.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: {
-      kind: 'manual',
-      rubric: 'The opening orientation is clear enough to choose an acquisition mode.',
-    },
-    importance: 3,
-    planeAffinity: 'intent',
-    lensAffinity: 'intent',
-  },
-  {
-    refersTo: 'thesis',
-    question: 'Who is this for, and what pull or pain makes it worth doing?',
-    rationale: 'Identifies the primary audience and why the work matters for them.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'thesis', minimum: 1 },
-    importance: 3,
-    planeAffinity: 'intent',
-    lensAffinity: 'intent',
-  },
-  {
-    refersTo: 'goal',
-    question: 'What outcome or value should this create?',
-    rationale: 'Clarifies the desired outcome or payoff the work should create.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'goal', minimum: 1 },
-    importance: 3,
-    planeAffinity: 'intent',
-    lensAffinity: 'intent',
-  },
-  {
-    refersTo: 'constraint',
-    question: 'What binding constraints, non-goals, or boundaries already shape the work?',
-    rationale: 'Captures binding constraints or non-negotiable boundaries already shaping the work.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'constraint', minimum: 1 },
-    importance: 3,
-    planeAffinity: 'intent',
-    lensAffinity: 'intent',
-  },
-  {
-    refersTo: 'term',
-    question: 'What key word or domain term needs a shared definition?',
-    rationale: 'Pins ubiquitous language before naming drift becomes specification ambiguity.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'term', minimum: 1 },
-    importance: 1,
-    planeAffinity: 'intent',
-    lensAffinity: 'intent',
-  },
-  {
-    refersTo: 'assumption',
-    question: 'What are we assuming that might be false?',
-    rationale: 'Surfaces early bets and fragility without turning them into hidden readiness gates.',
-    basis: 'implicit',
-    band: 'grounding',
-    predicate: { kind: 'presence', plane: 'intent', nodeKind: 'assumption', minimum: 1 },
-    importance: 1,
-    planeAffinity: 'intent',
-    lensAffinity: 'intent',
-  },
-] as const;
-
-function seededElicitationGapKey(seed: {
-  readonly refersTo: string;
-  readonly question: string;
-  readonly predicateKind: string;
-}): string {
-  return `${seed.refersTo}\u0000${seed.predicateKind}\u0000${seed.question}`;
-}
 
 function specRecordFromRow(row: typeof schema.specs.$inferSelect): SpecRecord {
   return {
@@ -276,33 +154,6 @@ export class CommandExecutor {
     return existing.nextOrdinal;
   }
 
-  private seededElicitationGapRows(
-    entries: readonly (typeof SEEDED_ELICITATION_GAPS)[number][],
-    specId: number,
-    lsn: number,
-  ) {
-    return entries.map((entry) => ({
-      spec_id: specId,
-      refers_to: entry.refersTo,
-      question: entry.question,
-      rationale: entry.rationale,
-      basis: entry.basis,
-      readiness_band: entry.band,
-      predicate_kind: entry.predicate.kind,
-      predicate: JSON.stringify(entry.predicate),
-      importance: entry.importance,
-      plane_affinity: entry.planeAffinity,
-      lens_affinity: entry.lensAffinity,
-      created_at_lsn: lsn,
-    }));
-  }
-
-  private seedElicitationGaps(tx: Pick<BrunchDb, 'insert'>, specId: number, lsn: number): void {
-    tx.insert(schema.elicitationGaps)
-      .values(this.seededElicitationGapRows(SEEDED_ELICITATION_GAPS, specId, lsn))
-      .run();
-  }
-
   /** Create a spec row through the command boundary. */
   createSpec(input: CreateSpecInput): CreateSpecResult {
     const diagnostics: Diagnostic[] = [];
@@ -319,8 +170,6 @@ export class CommandExecutor {
 
       const lsn = this.createInitialSpecClock(tx, row!.id);
 
-      this.seedElicitationGaps(tx, row!.id, lsn);
-
       tx.insert(schema.changeLog)
         .values({
           spec_id: row!.id,
@@ -331,276 +180,6 @@ export class CommandExecutor {
         .run();
 
       return { status: 'success' as const, specId: row!.id, lsn };
-    });
-  }
-
-  /** Repair legacy/local specs that predate the current seeded elicitation-gap floor. */
-  repairSeededElicitationGaps(): RepairSeededElicitationGapsResult {
-    return this.db.transaction((tx) => {
-      const repairedSpecs: RepairSeededElicitationGapsSpecResult[] = [];
-      const specRows = tx.select({ id: schema.specs.id }).from(schema.specs).all();
-
-      for (const spec of specRows) {
-        const existingSeedKeys = new Set(
-          tx
-            .select({
-              refersTo: schema.elicitationGaps.refers_to,
-              question: schema.elicitationGaps.question,
-              predicateKind: schema.elicitationGaps.predicate_kind,
-            })
-            .from(schema.elicitationGaps)
-            .where(eq(schema.elicitationGaps.spec_id, spec.id))
-            .all()
-            .map((row) => seededElicitationGapKey(row)),
-        );
-        const missing = SEEDED_ELICITATION_GAPS.filter(
-          (entry) =>
-            !existingSeedKeys.has(
-              seededElicitationGapKey({
-                refersTo: entry.refersTo,
-                question: entry.question,
-                predicateKind: entry.predicate.kind,
-              }),
-            ),
-        );
-        if (missing.length === 0) continue;
-
-        const lsn = this.bumpExistingSpecLsn(tx, spec.id);
-        tx.insert(schema.elicitationGaps)
-          .values(this.seededElicitationGapRows(missing, spec.id, lsn))
-          .run();
-        tx.insert(schema.changeLog)
-          .values({
-            spec_id: spec.id,
-            lsn,
-            operation: 'repair_seeded_elicitation_gaps',
-            payload: JSON.stringify({
-              specId: spec.id,
-              insertedGaps: missing.map((entry) => ({
-                refersTo: entry.refersTo,
-                predicateKind: entry.predicate.kind,
-              })),
-            }),
-          })
-          .run();
-        repairedSpecs.push({ specId: spec.id, insertedCount: missing.length, lsn });
-      }
-
-      return { status: 'success' as const, repairedSpecs };
-    });
-  }
-
-  /** Create an elicitation gap through the command boundary. */
-  createElicitationGap(input: CreateElicitationGapInput): CreateElicitationGapResult {
-    const diagnostics = validateCreateElicitationGap(input);
-    if (diagnostics.length > 0) {
-      return { status: 'structural_illegal', diagnostics };
-    }
-
-    return this.db.transaction((tx) => {
-      const specRow = tx
-        .select({ id: schema.specs.id })
-        .from(schema.specs)
-        .where(eq(schema.specs.id, input.specId))
-        .get();
-      if (!specRow) {
-        return {
-          status: 'structural_illegal' as const,
-          diagnostics: [{ field: 'specId', message: `spec ${input.specId} does not exist` }],
-        };
-      }
-
-      if (input.predicate.kind === 'presence' && input.predicate.nodeKind !== undefined) {
-        const duplicate = tx
-          .select({ id: schema.elicitationGaps.id })
-          .from(schema.elicitationGaps)
-          .where(
-            and(
-              eq(schema.elicitationGaps.spec_id, input.specId),
-              eq(schema.elicitationGaps.predicate_kind, 'presence'),
-              eq(schema.elicitationGaps.refers_to, input.predicate.nodeKind),
-              eq(schema.elicitationGaps.disposition, 'open'),
-            ),
-          )
-          .get();
-        if (duplicate) {
-          return {
-            status: 'structural_illegal' as const,
-            diagnostics: [
-              {
-                field: 'predicate.nodeKind',
-                message: `open presence gap already exists for ${input.predicate.nodeKind}: ${duplicate.id}`,
-              },
-            ],
-          };
-        }
-      }
-
-      if (input.aroseFromGapId != null) {
-        const parent = tx
-          .select({ id: schema.elicitationGaps.id, specId: schema.elicitationGaps.spec_id })
-          .from(schema.elicitationGaps)
-          .where(eq(schema.elicitationGaps.id, input.aroseFromGapId))
-          .get();
-
-        if (!parent) {
-          return {
-            status: 'structural_illegal' as const,
-            diagnostics: [
-              { field: 'aroseFromGapId', message: `elicitation gap ${input.aroseFromGapId} does not exist` },
-            ],
-          };
-        }
-
-        if (parent.specId !== input.specId) {
-          return {
-            status: 'structural_illegal' as const,
-            diagnostics: [
-              {
-                field: 'aroseFromGapId',
-                message: `elicitation gap ${input.aroseFromGapId} belongs to a different spec`,
-              },
-            ],
-          };
-        }
-      }
-
-      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
-
-      const entry = tx
-        .insert(schema.elicitationGaps)
-        .values({
-          spec_id: input.specId,
-          refers_to: input.refersTo,
-          question: input.question.trim(),
-          rationale: input.rationale.trim(),
-          basis: input.basis ?? 'explicit',
-          readiness_band: input.band,
-          predicate_kind: input.predicate.kind,
-          predicate: JSON.stringify(input.predicate),
-          importance: input.importance ?? 1,
-          plane_affinity: input.planeAffinity ?? null,
-          lens_affinity: input.lensAffinity ?? null,
-          arose_from_gap_id: input.aroseFromGapId ?? null,
-          created_at_lsn: lsn,
-        })
-        .returning({ id: schema.elicitationGaps.id })
-        .get();
-
-      tx.insert(schema.changeLog)
-        .values({
-          spec_id: input.specId,
-          lsn,
-          operation: 'create_elicitation_gap',
-          payload: JSON.stringify({
-            id: entry!.id,
-            specId: input.specId,
-            refersTo: input.refersTo,
-            band: input.band,
-            predicateKind: input.predicate.kind,
-            planeAffinity: input.planeAffinity,
-            lensAffinity: input.lensAffinity,
-            ...(input.aroseFromGapId != null ? { aroseFromGapId: input.aroseFromGapId } : {}),
-          }),
-        })
-        .run();
-
-      return { status: 'success' as const, id: entry!.id, lsn };
-    });
-  }
-
-  /** Set an elicitation gap's non-derivable disposition through the command boundary. */
-  setElicitationGapDisposition(input: SetElicitationGapDispositionInput): SetElicitationGapDispositionResult {
-    if (!isGapDisposition(input.disposition)) {
-      return {
-        status: 'structural_illegal',
-        diagnostics: [{ field: 'disposition', message: 'disposition is not valid' }],
-      };
-    }
-
-    return this.db.transaction((tx) => {
-      const gap = tx
-        .select()
-        .from(schema.elicitationGaps)
-        .where(and(eq(schema.elicitationGaps.id, input.id), eq(schema.elicitationGaps.spec_id, input.specId)))
-        .get();
-
-      if (!gap) {
-        return {
-          status: 'structural_illegal' as const,
-          diagnostics: [
-            { field: 'id', message: `elicitation gap ${input.id} does not exist for spec ${input.specId}` },
-          ],
-        };
-      }
-
-      if (input.disposition === 'answered' && gap.predicate_kind !== 'manual') {
-        return {
-          status: 'structural_illegal' as const,
-          diagnostics: [
-            {
-              field: 'disposition',
-              message: 'structural gap answered state is graph-derived, not hand-settable',
-            },
-          ],
-        };
-      }
-
-      if (input.resolvedByNodeId != null) {
-        const node = tx
-          .select({ id: schema.nodes.id, specId: schema.nodes.spec_id })
-          .from(schema.nodes)
-          .where(eq(schema.nodes.id, input.resolvedByNodeId))
-          .get();
-
-        if (!node) {
-          return {
-            status: 'structural_illegal' as const,
-            diagnostics: [
-              { field: 'resolvedByNodeId', message: `node ${input.resolvedByNodeId} does not exist` },
-            ],
-          };
-        }
-
-        if (node.specId !== input.specId) {
-          return {
-            status: 'structural_illegal' as const,
-            diagnostics: [
-              {
-                field: 'resolvedByNodeId',
-                message: `node ${input.resolvedByNodeId} belongs to a different spec`,
-              },
-            ],
-          };
-        }
-      }
-
-      const lsn = this.bumpExistingSpecLsn(tx, input.specId);
-
-      tx.update(schema.elicitationGaps)
-        .set({
-          disposition: input.disposition,
-          resolved_by_node_id: input.resolvedByNodeId ?? null,
-          disposition_set_at_lsn: lsn,
-        })
-        .where(and(eq(schema.elicitationGaps.id, input.id), eq(schema.elicitationGaps.spec_id, input.specId)))
-        .run();
-
-      tx.insert(schema.changeLog)
-        .values({
-          spec_id: input.specId,
-          lsn,
-          operation: 'set_elicitation_gap_disposition',
-          payload: JSON.stringify({
-            id: input.id,
-            specId: input.specId,
-            disposition: input.disposition,
-            ...(input.resolvedByNodeId != null ? { resolvedByNodeId: input.resolvedByNodeId } : {}),
-          }),
-        })
-        .run();
-
-      return { status: 'success' as const, lsn };
     });
   }
 

@@ -48,7 +48,7 @@ chain ingest-sweep:
     -> classify each span by graph role
     -> promote context to its sharpest supported kind
     -> route by confidence/conflict
-    -> mutate_graph / update_elicitation_gaps / raise reconciliation_need
+    -> mutate_graph / update_elicitation_scratchpad / raise reconciliation_need
     -> compose next question over the updated graph + gaps
 ```
 

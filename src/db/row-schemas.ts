@@ -13,7 +13,6 @@ import { createInsertSchema, createSelectSchema } from 'drizzle-typebox';
 import {
   changeLog,
   edges,
-  elicitationGaps,
   graphClock,
   nodeKindCounters,
   nodes,
@@ -46,7 +45,3 @@ export const selectNodeKindCounterSchema = createSelectSchema(nodeKindCounters);
 // --- Reconciliation need schemas ---
 export const insertReconciliationNeedSchema = createInsertSchema(reconciliationNeed);
 export const selectReconciliationNeedSchema = createSelectSchema(reconciliationNeed);
-
-// --- Elicitation gaps schemas ---
-export const insertElicitationGapSchema = createInsertSchema(elicitationGaps);
-export const selectElicitationGapSchema = createSelectSchema(elicitationGaps);

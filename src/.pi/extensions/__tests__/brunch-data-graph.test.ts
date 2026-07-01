@@ -6,7 +6,6 @@ import { formatGraphOverview } from '../../../agents/contexts/data-model/graph/g
 import { createDb, type BrunchDb } from '../../../db/connection.js';
 import { CommandExecutor } from '../../../graph/command-executor.js';
 import {
-  getElicitationGaps,
   getNodes,
   getOpenReconciliationNeeds,
   latestGraphLsn,
@@ -38,7 +37,6 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
       queryGraph(db, specId, filter, options),
     getNodes: (selectors, options) => getNodes(db, specId, selectors, options),
     resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
-    getElicitationGaps: () => getElicitationGaps(db, specId),
     getOpenReconciliationNeeds: () => getOpenReconciliationNeeds(db, specId),
     latestLsn: () => latestGraphLsn(db, specId),
   };

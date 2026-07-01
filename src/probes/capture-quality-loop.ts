@@ -12,7 +12,7 @@ type CaptureRecommendation = 'graduate' | 'narrow' | 'keep_parked';
 export type CaptureQualityExpectedOutcome =
   | 'commit_explicit'
   | 'commit_implicit'
-  | 'spawn_gap'
+  | 'scratchpad_note'
   | 'reconciliation_need';
 
 interface CaptureQualityExpectedFact {
@@ -53,7 +53,7 @@ interface CaptureQualityScenarioResult {
   readonly missedOutcomes: readonly CaptureQualityExpectedFact[];
   readonly falseCommitCount: number;
   readonly falseCommits: readonly CaptureQualityExtractedFact[];
-  readonly spawnGapCount: number;
+  readonly scratchpadNoteCount: number;
   readonly reconciliationNeedCount: number;
   readonly extractedFacts: readonly CaptureQualityExtractedFact[];
 }
@@ -71,7 +71,7 @@ export interface CaptureQualityReport {
     readonly correctOutcomeCount: number;
     readonly missedOutcomeCount: number;
     readonly falseCommitCount: number;
-    readonly spawnGapCount: number;
+    readonly scratchpadNoteCount: number;
     readonly reconciliationNeedCount: number;
     readonly routingAccuracy: number;
   };
@@ -155,7 +155,7 @@ export const CAPTURE_QUALITY_SCENARIOS: readonly CaptureQualityScenario[] = [
         id: 'must-build-full-replay-engine-now',
         kind: 'requirement',
         title: 'Build a full replay engine immediately.',
-        expectedOutcome: 'spawn_gap',
+        expectedOutcome: 'scratchpad_note',
         rationale: 'This is an implication beyond the stated condition.',
       },
     ],
@@ -171,7 +171,7 @@ export const CAPTURE_QUALITY_SCENARIOS: readonly CaptureQualityScenario[] = [
         id: 'terminal-demo-preference-conditional',
         kind: 'assumption',
         title: 'The user may prefer the terminal view if the browser observer is confusing.',
-        expectedOutcome: 'spawn_gap',
+        expectedOutcome: 'scratchpad_note',
         rationale: 'Conditional preference, not settled graph truth.',
       },
       {
@@ -185,7 +185,7 @@ export const CAPTURE_QUALITY_SCENARIOS: readonly CaptureQualityScenario[] = [
         id: 'review-sets-in-poc',
         kind: 'requirement',
         title: 'Review sets belong in the POC story.',
-        expectedOutcome: 'spawn_gap',
+        expectedOutcome: 'scratchpad_note',
         rationale: 'Explicitly undecided; should stay out of graph truth.',
       },
     ],
@@ -262,7 +262,7 @@ export function summarizeCaptureQualityRun(input: {
       correctOutcomeCount: acc.correctOutcomeCount + result.correctOutcomeCount,
       missedOutcomeCount: acc.missedOutcomeCount + result.missedOutcomes.length,
       falseCommitCount: acc.falseCommitCount + result.falseCommitCount,
-      spawnGapCount: acc.spawnGapCount + result.spawnGapCount,
+      scratchpadNoteCount: acc.scratchpadNoteCount + result.scratchpadNoteCount,
       reconciliationNeedCount: acc.reconciliationNeedCount + result.reconciliationNeedCount,
     }),
     {
@@ -270,7 +270,7 @@ export function summarizeCaptureQualityRun(input: {
       correctOutcomeCount: 0,
       missedOutcomeCount: 0,
       falseCommitCount: 0,
-      spawnGapCount: 0,
+      scratchpadNoteCount: 0,
       reconciliationNeedCount: 0,
     },
   );
@@ -355,7 +355,7 @@ function summarizeScenario(
     missedOutcomes,
     falseCommitCount: falseCommits.length,
     falseCommits,
-    spawnGapCount: extractedFacts.filter((fact) => fact.expectedOutcome === 'spawn_gap').length,
+    scratchpadNoteCount: extractedFacts.filter((fact) => fact.expectedOutcome === 'scratchpad_note').length,
     reconciliationNeedCount: extractedFacts.filter((fact) => fact.expectedOutcome === 'reconciliation_need')
       .length,
     extractedFacts,
@@ -398,7 +398,7 @@ async function readScenarioExtractions(path: string): Promise<CaptureQualityScen
 }
 
 function verdictMarkdown(report: CaptureQualityReport): string {
-  return `# Capture-quality verdict\n\n- A22-L confidence shift: ${report.verdict.a22ConfidenceShift}\n- Recommendation: ${report.verdict.recommendation}\n- Routing accuracy: ${report.totals.routingAccuracy}\n- False commits: ${report.totals.falseCommitCount}\n- Gap spawns: ${report.totals.spawnGapCount}\n- Reconciliation needs: ${report.totals.reconciliationNeedCount}\n\n${report.verdict.summary}\n`;
+  return `# Capture-quality verdict\n\n- A22-L confidence shift: ${report.verdict.a22ConfidenceShift}\n- Recommendation: ${report.verdict.recommendation}\n- Routing accuracy: ${report.totals.routingAccuracy}\n- False commits: ${report.totals.falseCommitCount}\n- Scratchpad notes: ${report.totals.scratchpadNoteCount}\n- Reconciliation needs: ${report.totals.reconciliationNeedCount}\n\n${report.verdict.summary}\n`;
 }
 
 function round(value: number): number {

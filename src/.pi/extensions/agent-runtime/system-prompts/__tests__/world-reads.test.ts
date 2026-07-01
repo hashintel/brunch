@@ -27,7 +27,6 @@ function trackingReaders(
     },
     getNodes: () => [],
     resolveNodeCode: () => undefined,
-    getElicitationGaps: () => [],
     getOpenReconciliationNeeds: () => [],
     latestLsn: () => {
       currentLsn = lsnSequence[Math.min(call, lsnSequence.length - 1)] ?? 0;
