@@ -1,17 +1,18 @@
 # agents/contexts/seeds/ — context seeds
 
-SPEC decisions: D58-L, D76-L, D78-L, D91-L
+SPEC decisions: D58-L, D76-L, D78-L, D91-L, D102-L, A36-L
 
 ## Owns
 
 Seed text that Brunch deliberately inserts into model context:
 
-- `turn-context.ts` composes compact per-turn pushed context blocks for prompt assembly and background subagent world snapshots.
+- `turn-context.ts` composes compact per-turn pushed context blocks for prompt assembly and background subagent world snapshots, emitting workspace, session-scratchpad, and graph blocks.
 - `origination.ts` composes the provider-visible `brunch.context_seed` payload used when a session is kicked or resumed.
+- `graph-fact-seed.ts` derives and renders the thin, graph-derived neutral seed (D102-L, A36-L): raw facts only — graph LSN, node counts by kind, and zero-count kinds with their `latestExpectedBand` — never a score, rank, or "this is underanswered" judgment. It has no `settlement` dependency; the seed must not depend on settlement state.
 
-Both modules are pure over already-read data. Callers own PULL: graph reads, gap reads, workspace inspection, transcript-tail classification, and Pi/session side effects.
+All three modules are pure over already-read data. Callers own PULL: graph reads, the session elicitation-scratchpad projection, workspace inspection, transcript-tail classification, and Pi/session side effects.
 
-Seed wording is intentionally protected with semantic invariant tests rather than full goldens. These blocks are glue between already-goldened renderers and live prompt assembly; the contract is stable scope tags, selected workspace/spec/session facts, gap/readiness summaries, and graph-priority ordering, not exact prose beyond those invariants.
+Seed wording is intentionally protected with semantic invariant tests rather than full goldens. These blocks are glue between already-goldened renderers and live prompt assembly; the contract is stable scope tags, selected workspace/spec/session facts, the scratchpad and graph-fact-seed summaries, and graph-priority ordering, not exact prose beyond those invariants.
 
 ## Boundary rules
 

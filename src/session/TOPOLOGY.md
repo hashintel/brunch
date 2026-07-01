@@ -1,6 +1,6 @@
 # session/ — Session domain layer
 
-SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L / A29-L
+SPEC decisions: D6-L, D11-L, D12-L, D13-L, D21-L, D40-L, D52-L, D76-L, D77-L, D78-L, D84-L / A29-L, D101-L, D102-L, I56-L
 
 ## Owns
 
@@ -25,6 +25,16 @@ plus the coordination logic for workspace/spec/session lifecycle.
   parser, and append helpers. Reusable runtime-state projection/policy lives in
   `projections/session/`; `.pi` may append operational-mode entries but does not
   own hidden runtime memory.
+
+- **Elicitation scratchpad carrier** (`elicitation-scratchpad.ts`) — the one
+  session-local, non-authoritative asking-agenda substrate (D101-L, I56-L):
+  a `brunch.elicitation_scratchpad` custom-entry type plus parse/fold/append
+  helpers, mirroring `runtime-state.ts`'s fold pattern exactly (latest-snapshot-wins,
+  reconstructed from the session branch — branch-correct by construction, never
+  from runtime-state fields or tool-result `details`). Foreground context seeds,
+  the `read_elicitation_scratchpad` / `update_elicitation_scratchpad` tools, and
+  subagent world snapshots all read the same fold. It never becomes canonical
+  graph truth by projection side effect.
 
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, response
@@ -70,7 +80,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
   `before_provider_request` is a guard-only check. `start-assistant-turn.ts`
   owns the origination decision and context seed entries;
   `agents/contexts/seeds/origination.ts` composes the seed's provider-visible
-  payload (spec overview + top-ranked open gaps) from spec-scoped reads;
+  payload (spec overview + session scratchpad projection) from spec-scoped reads;
   `originate-assistant-turn.ts` is the one seed choreography every entry point (TUI boot, `session.triggerExchange`)
   delegates to — origin derives from conversational-message presence in the
   projected transcript, never entry counts (I46-L). Origination only *decides

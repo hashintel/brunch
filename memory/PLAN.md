@@ -15,7 +15,7 @@
 
 Brunch-next has delivered the original composition spine: the host, sealed Pi profile, transcript substrate, SQLite graph plane, public RPC, TUI/web observer shape, generalized capture, review-set commitment path, and public-entry ship gate all have evidence. The live plan is no longer organized around the old delivery cut. Active work is now the elicitor capability spine and the remaining hardening frontiers that build on that substrate.
 
-**Live arc.** The **elicitor-capability-spine** arc (`capture` / `generate` / `project`) is done for the current POC capability surface. The retired strategy/lens/method runtime trees are no longer part of live product topology; current capability work routes through the code-owned first-level skill manifest and activity-named skill homes. Closed arc detail no longer lives in the rolling plan. Elicitation/readiness truthfulness (graph-as-truth, session-local asking agenda, advisory settlement) is now delivered by the single active **`elicitation-gap-guidance`** frontier, which folds in settlement materialization; there is no separate settlement frontier.
+**Live arc.** The **elicitor-capability-spine** arc (`capture` / `generate` / `project`) is done for the current POC capability surface. The retired strategy/lens/method runtime trees are no longer part of live product topology; current capability work routes through the code-owned first-level skill manifest and activity-named skill homes. Closed arc detail no longer lives in the rolling plan. Elicitation/readiness truthfulness (graph-as-truth, session-local asking agenda, advisory settlement) was delivered by the now-closed **`elicitation-gap-guidance`** frontier, which folded in settlement materialization; there was no separate settlement frontier.
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -45,11 +45,11 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `elicitation-gap-guidance` (FE-1116) — **active proving frontier.** Retire the spec-global persisted gap register + count-based readiness scoring; move "what to ask" to a session-local scratchpad seeded from thin graph facts and focused by a prompt orientation directive; reconcile the latest-expected-band scalar; and fold in settlement materialization (advisory/settled, D99-L/I52-L) as a later slice. Full topology + slice ledger: `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md`.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
 ### Recently Completed
 
+- 2026-07-01 `elicitation-gap-guidance` (FE-1116) — the spec-global persisted `elicitation_gaps` register and its count-based readiness scoring are retired; the asking agenda is now a session-local `brunch.elicitation_scratchpad` fold seeded from a thin graph-fact seed; `latestExpectedBand(kind)` is the single band scalar; and settlement (`advisory` | `settled`, orthogonal to `basis`) is materialized and command-enforced (D99-L, I52-L). Closure oracle: `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names. All co-located `TOPOLOGY.md` homes named in `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md` are reconciled; that doc's status flips to landed.
 - 2026-07-01 `portable-resource-paths--manifest-location` (bugfix, `ln-induct` from PR #273) — skill manifest `location` is now the loader-resolved absolute `Skill.filePath` instead of a hardcoded repo-relative string, so it resolves under any process cwd or `dist/`-only install; dead `liveBrunchSkillRepoPath`/`bundledAgentBodyRepoPath` builders removed; the two prompt-composition goldens normalize the machine root to a `<PKG>/…` token. See SPEC §Acknowledged Blind Spots "Live-vs-harness wiring divergence".
 - 2026-07-01 `promoted-run-path-normalization` (tooling) — `.fixtures/runs/**` no longer leaks developer-workstation absolute paths; `npm run check:promoted-run-paths` guards committed evidence going forward. `.fixtures/seeds/**` is untouched (separate seed-curation concern). Not a `fixture-vs-real-audit` sweep.
 - 2026-06-30 `structured-exchange-affordance` (FE-1108) — exchange authoring guidance now teaches present-side response rules and review-set nested companions at the boundary; one unearned exchange projection adapter was inlined into its RPC consumer, and topology inventories name the retained model-facing/projection homes.
@@ -61,7 +61,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-- _None distinct._ Settlement materialization (advisory/settled, D99-L/I52-L) is **folded into `elicitation-gap-guidance`** as a later slice, not a separate frontier.
+- _None distinct._
 
 ### Parallel / Low-Conflict
 
@@ -147,9 +147,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1116](https://linear.app/hash/issue/FE-1116/session-local-elicitation-gaps-from-a-graph-derived-seed)
 - **Branch:** `ln/fe-1116-elicitation-gap-guidance` (onto `ln/fe-1108-structured-exchange-affordance`)
 - **Kind:** structural / elicitor guidance + session-state seam
-- **Status:** active.
-- **Current execution pointer:** `memory/cards/elicitation-gap-guidance--closure-slices.md`.
-- **Certainty:** proving.
+- **Status:** ✓ done (2026-07-01). All six cards landed; closure oracle `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names.
+- **Certainty:** proving (retired on land).
 - **Retires:** the persisted spec-scoped `elicitation_gaps` register and its count-based readiness scoring (D65-L, D45-L); the fixed spec-creation seed catalog `SEEDED_ELICITATION_GAPS` (D75-L).
 - **Materializes (folded slice):** advisory/settled `settlement` as a graph dimension orthogonal to `basis`, enforced at the command layer and surfaced in projection/context (D99-L, I52-L, D63-L) — formerly the separate `settlement-materialization` frontier, folded in per the 2026-07-01 review + user decision. Landed 2026-07-01 (Card 5).
 - **Depends on:** readiness bands, data-model legibility, and the stable exchange affordance surface (all done). Settlement is folded in as a later slice; the thin seed still must **not** depend on advisory/settlement state (A36-L).
@@ -188,22 +187,16 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ```text
 frontiers:
   Active:
-    elicitation-gap-guidance
-      status: active / proving
-      depends_on: readiness bands, data-model legibility, elicitor-generate, stable exchange affordance surface (all done)
-      folds_in: settlement materialization (advisory/settled) as a later slice
-      seed_slice_does_not_depend_on: settlement slice (A36-L — thin seed must not read advisory/settlement state)
-
     orchestrator-tool-port
       status: deferred / D98-sensitive
       depends_on: D39-L, D90-L, D91-L, D92-L, D93-L, I49-L, D98-L
       active_scope: memory/cards/orchestrator-tool-port--plan-check-tool.md
 
   Recently Completed:
-    structured-exchange-affordance, elicitor-project, spec-structural-relief, renderer-golden-coverage, data-model-legibility
+    elicitation-gap-guidance, structured-exchange-affordance, elicitor-project, spec-structural-relief, renderer-golden-coverage, data-model-legibility
 
   Next:
-    none (settlement materialization folded into elicitation-gap-guidance as a later slice)
+    none
 
   Parallel / Low-Conflict:
     none

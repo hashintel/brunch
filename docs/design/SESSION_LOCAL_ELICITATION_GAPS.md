@@ -1,6 +1,6 @@
 # Session-local elicitation gaps from a graph-derived seed
 
-> Status: **planned** — active frontier `elicitation-gap-guidance` ([FE-1116](https://linear.app/hash/issue/FE-1116/session-local-elicitation-gaps-from-a-graph-derived-seed)), branch `ln/fe-1116-elicitation-gap-guidance` onto `ln/fe-1108-structured-exchange-affordance`.
+> Status: **landed** (2026-07-01) — frontier `elicitation-gap-guidance` ([FE-1116](https://linear.app/hash/issue/FE-1116/session-local-elicitation-gaps-from-a-graph-derived-seed)), branch `ln/fe-1116-elicitation-gap-guidance` onto `ln/fe-1108-structured-exchange-affordance`. All six cards in `memory/cards/elicitation-gap-guidance--closure-slices.md` are done; this document's residue is reconciled into the co-located `TOPOLOGY.md` files it names below and `memory/SPEC.md`/`memory/PLAN.md`.
 > Date: 2026-07-01.
 > Scope: the elicitation-gap **substrate** and the readiness-band **source of truth**. This document is the long-form topology + consolidation ledger for a single-branch redesign: move "what still needs asking" out of a spec-global persisted table into session-local evolving state, seed it from thin graph facts, and collapse readiness to graph-fact reads over one band scalar. It **folds in settlement materialization** (advisory/settled), previously planned as a separate frontier, as a later slice of the same branch.
 > Posture: `prototype` + `stakes: high` (`memory/POSTURE.md`). Pre-release — old data models, fixtures, and compatibility shims are deleted, not migrated. One clean model; every old/temp/stub/naive version goes.
@@ -188,7 +188,7 @@ question-kinds-per-intent-kind.md    open phrasings / facets per kind        ban
                                                                             (-> readiness-bands.md / data-model.md)
 ```
 
-## Settlement materialization (folded slice)
+## Settlement materialization (landed)
 
 Folded from the former `settlement-materialization` frontier — it materializes D99-L / I52-L so capability-readiness can consult real settlement state. `settlement` is a graph-item dimension **orthogonal to `basis`** (I52-L).
 

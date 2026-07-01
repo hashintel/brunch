@@ -1,13 +1,13 @@
 # db/ — Persistence substrate
 
-SPEC decisions: D16-L, D41-L, D45-L, D52-L, D54-L, D62-L, D75-L
+SPEC decisions: D16-L, D41-L, D45-L, D52-L, D54-L, D62-L, D63-L, D65-L, D75-L, D99-L, I52-L
 
 ## Owns
 
 - **Drizzle table definitions** (`schema.ts`) — the canonical column-level
   source of truth for persisted graph/workspace rows. It owns the SQLite table
   names and column names. Domain enum taxonomy (`INTENT_KINDS`,
-  `GAP_DISPOSITIONS`, `EDGE_CATEGORIES`, etc.) is owned by
+  `NODE_BASES`, `NODE_SETTLEMENTS`, `EDGE_CATEGORIES`, etc.) is owned by
   `graph/schema/kinds.ts`; `db/schema.ts` imports those literals only for
   column constraints.
 
@@ -98,17 +98,20 @@ their boundary.
 ## Current schema posture
 
 The current graph and graph-adjacent tables are spec-scoped: `specs` (`id`, `name`, `slug`, and `kind` — the `product | feature | function` scope ownership relation, D89-L; `readiness_band` stays computed, not stored, per D45-L), `nodes`,
-`edges`, `node_kind_counters`, `graph_clock`, `change_log`,
-`reconciliation_need`, and `elicitation_gaps`. `graph_clock` is keyed by
+`edges`, `node_kind_counters`, `graph_clock`, `change_log`, and
+`reconciliation_need`. `graph_clock` is keyed by
 `spec_id`; `change_log` carries `spec_id` and is keyed by `(spec_id, lsn)`, so
 a bare LSN is comparable only inside one spec.
 
-`elicitation_gaps` is the prospective sibling of `reconciliation_need`: a
-flat typed coverage-obligation register, not a graph plane or node table. It
-stores obligation/disposition/meta only: `refers_to` names the graph node kind
-that the obligation points at, `question` carries situated elicitor prose, and
-graph-owned command/query code derives structural coverage from graph truth at
-read time.
+There is no persisted asking-agenda register: the former `elicitation_gaps`
+table was dropped (D65-L, `drizzle/0007_jittery_mongu.sql`). The session-local
+asking agenda that replaced it (`elicitation-gap-guidance` frontier) lives in
+the session branch (`session/elicitation-scratchpad.ts`), not in `db/`.
+
+`nodes` and `edges` both carry a `settlement` column (`NOT NULL DEFAULT
+'settled'`, `drizzle/0008_sharp_storm.sql`) orthogonal to the existing `basis`
+column — advisory capture persists as `settlement: 'advisory'` until a
+command-layer mutation promotes it (D99-L, I52-L).
 
 `nodes.kind_ordinal` is persisted as the storage half of the D62-L projected-code
 contract. `node_kind_counters` owns monotonic per-`(spec_id, plane, kind)`

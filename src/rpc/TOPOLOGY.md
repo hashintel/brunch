@@ -381,7 +381,9 @@ capture_* toolResult (future)
 
 generalized capture (D80-L)
   elicitor turn-boundary banded sweep over the un-swept transcript tail
-  -> mutate_graph (commit) / update_elicitation_gaps (spawn) — not a submit-path mutation
+  -> mutate_graph (commit, advisory basis/settlement for low-confidence capture, D99-L)
+     or update_elicitation_scratchpad (low-confidence noticing, non-authoritative, D81-L)
+  — not a submit-path mutation
 
 ```
 Payload facets such as establishment offers, elicitor intent hints, and review/proposal material belong inside structured exchange payloads when they are part of an exchange. They are not separate public RPC entities.
