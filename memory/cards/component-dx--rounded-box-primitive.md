@@ -138,6 +138,8 @@ notes:
 
 ## Slice 1 — `projectRoundedBox` primitive
 
+Status: done (2026-07-01)
+
 ### Objective
 
 A new pure `projectRoundedBox` function exists in `.pi/components/rounded-box.ts`, fully tested against

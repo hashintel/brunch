@@ -34,8 +34,10 @@ components/
 ├── multi-choice-picker.ts      focused checkbox-style exchange response picker
 ├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
 │                                preview harness; components still receive ordinary key bytes
+├── rounded-box.ts              projectRoundedBox() — pure rounded-border primitive shared by
+│                                bordered presentation components
 ├── scroll-viewport.ts          projectScrollViewport() — pure scroll-window + thumb-row primitive,
-│                                sibling to projectBorderedChrome; wired into workspace-dialog today
+│                                consumed by bordered components that fold thumbs into the right edge
 ├── runtime-posture/             private sub-tree for runtime posture pickers
 │   └── axis-picker.ts           public picker component (operational-mode picker)
 ├── tui-lab/                     shared visual primitives
