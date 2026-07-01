@@ -4,6 +4,7 @@ export interface RoundedBoxOptions {
   readonly topLabel?: string;
   readonly bottomLabel?: string;
   readonly thumbRows?: ReadonlySet<number>;
+  readonly preserveContentWidth?: boolean;
   readonly blankPadding?: {
     readonly top?: number;
     readonly bottom?: number;
@@ -41,6 +42,7 @@ export function projectRoundedBox(
         safeWidth,
         borderColor,
         contentIndex !== undefined && options.thumbRows?.has(contentIndex),
+        options.preserveContentWidth,
       ),
     ),
     borderLine('╰', '╯', options.bottomLabel, safeWidth, borderColor),
@@ -67,10 +69,11 @@ function contentLine(
   width: number,
   borderColor: (text: string) => string,
   isThumbRow: boolean | undefined,
+  preserveContentWidth: boolean | undefined,
 ): string {
   const innerWidth = Math.max(0, width - SIDE_BUDGET);
   const inner = truncateToWidth(content, innerWidth);
-  const padding = ' '.repeat(Math.max(0, innerWidth - visibleWidth(inner)));
+  const padding = preserveContentWidth ? '' : ' '.repeat(Math.max(0, innerWidth - visibleWidth(inner)));
   const rightBorder = isThumbRow ? '▐' : '│';
   return `${borderColor('│')} ${inner}${padding} ${borderColor(rightBorder)}`;
 }

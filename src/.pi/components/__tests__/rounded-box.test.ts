@@ -39,6 +39,12 @@ describe('projectRoundedBox', () => {
     expect(result[1]).toContain('...');
   });
 
+  it('can preserve the visible width of pre-rendered content rows', () => {
+    const result = projectRoundedBox(['pre-rendered'], { preserveContentWidth: true }, 24, identityColor);
+
+    expect(result[1]).toBe('│ pre-rendered │');
+  });
+
   it('renders thumb rows by replacing the right border glyph for matching content rows', () => {
     const result = projectRoundedBox(['one', 'two', 'three'], { thumbRows: new Set([1]) }, 12, identityColor);
 

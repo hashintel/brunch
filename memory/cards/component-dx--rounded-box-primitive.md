@@ -72,6 +72,7 @@ RoundedBoxOptions:
   topLabel?:    string               # embedded right-aligned in the top border, e.g. "[ Specify ]"
   bottomLabel?: string               # embedded right-aligned in the bottom border, e.g. "Spec Title"
   thumbRows?:   ReadonlySet<number>  # indices into contentLines; right border becomes ▐ there
+  preserveContentWidth?: boolean     # true for already-rendered child lines that must not be padded
   blankPadding?:
     top?:    number    # N blank bordered rows inserted just inside the top border
     bottom?: number    # N blank bordered rows inserted just inside the bottom border
@@ -85,6 +86,8 @@ _rules:
   - every contentLine is truncateToWidth-safe; callers never pre-truncate
   - blankPadding shifts thumbRows internally — callers index thumbRows against their OWN
     contentLines (pre-padding); the primitive owns the arithmetic
+  - preserveContentWidth is only for pre-rendered child components such as BrunchEditor; ordinary
+    callers get padded content rows so the visible box width is stable
   - returns [] for empty contentLines (matches projectBorderedChrome's existing empty-input contract)
 ```
 
@@ -208,6 +211,8 @@ src/.pi/components/
 ---
 
 ## Slice 2 — migrate `brunch-editor.ts`
+
+Status: done (2026-07-01)
 
 ### Objective
 

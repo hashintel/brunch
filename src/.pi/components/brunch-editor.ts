@@ -1,7 +1,9 @@
 import { CustomEditor } from '@earendil-works/pi-coding-agent';
 import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
-import { getCapabilities, hyperlink, truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
+import { getCapabilities, hyperlink, truncateToWidth } from '@earendil-works/pi-tui';
 import type { EditorTheme, TUI } from '@earendil-works/pi-tui';
+
+import { projectRoundedBox } from './rounded-box.js';
 
 /**
  * Pre-formatted label strings baked into the box border / trailing lines.
@@ -64,47 +66,33 @@ function findLastIndex<T>(items: readonly T[], predicate: (item: T) => boolean):
 }
 
 /**
- * Right-align `label` into a border line built from scratch (`leftCorner` +
- * dashes + label + dash + `rightCorner`), truncating gracefully when the
- * label doesn't fit. `undefined` label produces a plain rule.
+ * Pad editor content before any autocomplete rows so the box is always at
+ * least `MIN_CONTENT_LINES` tall, even for an empty editor.
  */
-function borderLine(
-  leftCorner: string,
-  rightCorner: string,
-  label: string | undefined,
-  width: number,
-  borderColor: (str: string) => string,
-): string {
-  const safeWidth = Math.max(2, width);
-  if (!label) {
-    return borderColor(`${leftCorner}${'─'.repeat(safeWidth - 2)}${rightCorner}`);
-  }
-  const suffix = ` ${label} `;
-  const dashCount = Math.max(0, safeWidth - 2 - 1 - visibleWidth(suffix));
-  const raw = `${leftCorner}${'─'.repeat(dashCount)}${suffix}─${rightCorner}`;
-  return borderColor(truncateToWidth(raw, safeWidth));
+function padContentToMinimum(contentLines: readonly string[], innerWidth: number): readonly string[] {
+  const padCount = Math.max(0, MIN_CONTENT_LINES - contentLines.length);
+  if (padCount === 0) return contentLines;
+  return [...contentLines, ...Array.from({ length: padCount }, () => ' '.repeat(Math.max(0, innerWidth)))];
 }
 
-/**
- * Insert blank content rows just before the detected bottom border so the
- * box is always at least `MIN_CONTENT_LINES` tall, even for an empty editor.
- * Padding is inserted before the border (never after, where autocomplete
- * rows may live) and the returned `bottomIndex` accounts for the shift.
- */
-function padContentToMinimum(
+function stripEditorBorder(
   innerLines: readonly string[],
   bottomIndex: number,
-  innerWidth: number,
-): { lines: readonly string[]; bottomIndex: number } {
-  if (bottomIndex <= 0) return { lines: innerLines, bottomIndex };
-  const contentLineCount = bottomIndex - 1;
-  const padCount = Math.max(0, MIN_CONTENT_LINES - contentLineCount);
-  if (padCount === 0) return { lines: innerLines, bottomIndex };
+): { contentLines: readonly string[]; trailingLines: readonly string[] } {
+  if (bottomIndex <= 0) return { contentLines: innerLines, trailingLines: [] };
+  return {
+    contentLines: innerLines.slice(1, bottomIndex),
+    trailingLines: innerLines.slice(bottomIndex + 1),
+  };
+}
 
-  const blank = ' '.repeat(Math.max(0, innerWidth));
-  const lines = [...innerLines];
-  lines.splice(bottomIndex, 0, ...Array.from({ length: padCount }, () => blank));
-  return { lines, bottomIndex: bottomIndex + padCount };
+function projectTrailingRows(
+  trailingLines: readonly string[],
+  width: number,
+  borderColor: (str: string) => string,
+): readonly string[] {
+  if (trailingLines.length === 0) return [];
+  return projectRoundedBox(trailingLines, { preserveContentWidth: true }, width, borderColor).slice(1, -1);
 }
 
 /** Renders `text` as a clickable OSC 8 hyperlink where the terminal supports it, plain text otherwise. */
@@ -130,15 +118,15 @@ export function projectBorderedChrome(
 ): string[] {
   if (innerLines.length === 0) return [];
 
-  const innerWidth = Math.max(1, width - SIDE_BUDGET);
   const rawBottomIndex = findLastIndex(innerLines, isEditorBorderLine);
-  const { lines: paddedInner, bottomIndex } = padContentToMinimum(innerLines, rawBottomIndex, innerWidth);
-
-  const lines = paddedInner.map((line, index) => {
-    if (index === 0) return borderLine('╭', '╮', labels.topRight, width, borderColor);
-    if (index === bottomIndex) return borderLine('╰', '╯', labels.bottomRight, width, borderColor);
-    return `${borderColor('│')} ${line} ${borderColor('│')}`;
-  });
+  const { contentLines, trailingLines } = stripEditorBorder(innerLines, rawBottomIndex);
+  const boxedContent = projectRoundedBox(
+    padContentToMinimum(contentLines, Math.max(1, width - SIDE_BUDGET)),
+    { topLabel: labels.topRight, bottomLabel: labels.bottomRight, preserveContentWidth: true },
+    width,
+    borderColor,
+  );
+  const boxedTrailing = projectTrailingRows(trailingLines, width, borderColor);
 
   const belowWidth = Math.max(0, width - BELOW_LINES_INDENT);
   const indent = ' '.repeat(BELOW_LINES_INDENT);
@@ -146,7 +134,7 @@ export function projectBorderedChrome(
     const text = typeof line === 'string' ? line : renderLinkedText(line.text, line.url);
     return indent + truncateToWidth(text, belowWidth);
   });
-  return [...lines, ...below];
+  return [...boxedContent, ...boxedTrailing, ...below];
 }
 
 /**
