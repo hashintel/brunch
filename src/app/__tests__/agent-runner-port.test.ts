@@ -88,4 +88,33 @@ describe('createAgentRunnerPort', () => {
       'changed by worker\n',
     );
   });
+
+  it('fails closed when the execution request cannot be read', async () => {
+    const worktreeDir = await mkdtemp(join(tmpdir(), 'brunch-agent-missing-request-'));
+    const requestPath = join(worktreeDir, 'missing-request.json');
+    const resultPath = join(worktreeDir, 'result.json');
+    const calls: string[] = [];
+    const port = createAgentRunnerPort({
+      subagents: subagentDeps(async ({ definition }): Promise<SubagentResult> => {
+        calls.push(definition.name);
+        return { agent: definition.name, status: 'ok', text: 'should not run' };
+      }),
+    });
+
+    await expect(
+      port.run({
+        worktreeDir,
+        requestPath,
+        resultPath,
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+        runtime: { modelRegistry: {} },
+      }),
+    ).resolves.toEqual({
+      status: 'failed',
+      message: `AgentRunnerPort could not read execution request at ${requestPath}.`,
+    });
+    expect(calls).toEqual([]);
+  });
 });

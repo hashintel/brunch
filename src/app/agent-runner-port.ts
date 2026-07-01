@@ -34,7 +34,13 @@ export function createAgentRunnerPort(options: AgentRunnerPortOptions = {}): Age
         };
       }
 
-      const request = await readFile(args.requestPath, 'utf8');
+      const request = await readExecutionRequest(args.requestPath);
+      if (!request) {
+        return {
+          status: 'failed',
+          message: `AgentRunnerPort could not read execution request at ${args.requestPath}.`,
+        };
+      }
       const runSubagent = subagents.runSubagent ?? defaultRunSubagent;
       const result = await runSubagent({
         definition: worker,
@@ -63,6 +69,14 @@ export function createAgentRunnerPort(options: AgentRunnerPortOptions = {}): Age
       };
     },
   };
+}
+
+async function readExecutionRequest(requestPath: string): Promise<string | undefined> {
+  try {
+    return await readFile(requestPath, 'utf8');
+  } catch {
+    return undefined;
+  }
 }
 
 function renderWorkerTask(args: Parameters<AgentRunnerPort['run']>[0], request: string): string {
