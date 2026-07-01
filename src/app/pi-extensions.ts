@@ -71,6 +71,7 @@ import {
   type BrunchSubagentsDeps,
 } from '../.pi/extensions/subagents/index.js';
 import { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
+import type { ExecutionPorts } from '../executor/execution-ports.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import {
   CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE,
@@ -86,6 +87,7 @@ import {
   type GraphChangeItem,
   type PrepareNextTurnResult,
 } from '../session/prepare-next-turn.js';
+import { createGitWorktreePort } from './git-worktree-port.js';
 
 export { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from '../.pi/extensions/commands/policy.js';
@@ -243,6 +245,7 @@ export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, '
   promptContext?: BrunchPromptContextProvider;
   introspection?: BrunchPiIntrospectionOptions;
   continuityDrains?: () => readonly ContinuityDrain[];
+  executionPorts?: Partial<ExecutionPorts>;
   /**
    * Optional subagent registry (D44-L/D92-L). When provided with a non-empty
    * code-owned delegatable set, the `subagent` tool is registered and opted
@@ -297,6 +300,12 @@ export function createBrunchPiExtensions(
       : [];
     const chromeRefresh: { current: (() => void) | null } = { current: null };
     const graph = options.graph;
+    const executionPorts: ExecutionPorts = {
+      gitWorktree: options.executionPorts?.gitWorktree ?? createGitWorktreePort(),
+      ...(options.executionPorts?.agentRunner ? { agentRunner: options.executionPorts.agentRunner } : {}),
+      ...(options.executionPorts?.testRunner ? { testRunner: options.executionPorts.testRunner } : {}),
+      ...(options.executionPorts?.gitLand ? { gitLand: options.executionPorts.gitLand } : {}),
+    };
     const commandGapReads =
       options.getElicitationGaps ??
       (graph ? () => graph.reads.getElicitationGaps(graph.specId) : conservativeUncoveredFloorGaps); // no graph in this composition: explicit fail-closed floor
@@ -336,7 +345,7 @@ export function createBrunchPiExtensions(
       registerBrunchExecuteSliceExecute,
       registerBrunchExecuteSliceStart,
       registerBrunchExecuteTestResult,
-      registerBrunchExecuteWorktreeCreate,
+      (api) => registerBrunchExecuteWorktreeCreate(api, executionPorts.gitWorktree),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraftArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraft(api, graph)] : []),

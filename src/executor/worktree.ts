@@ -1,6 +1,6 @@
-import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { GitWorktreePort } from './execution-ports.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 export type WorktreeCreateResult =
@@ -12,6 +12,15 @@ export type WorktreeCreateResult =
       readonly sideEffects: readonly [];
     }
   | {
+      readonly status: 'worktree_create_failed';
+      readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly worktreeDir: string;
+      readonly metadataPath: string;
+      readonly message: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
       readonly status: 'worktree_created';
       readonly runStatus: 'worktree_created';
       readonly runId: string;
@@ -19,7 +28,7 @@ export type WorktreeCreateResult =
       readonly worktreeDir: string;
       readonly metadataPath: string;
       readonly sideEffects: readonly [
-        { readonly kind: 'mkdir'; readonly path: string },
+        { readonly kind: 'git_worktree_add'; readonly path: string; readonly ref: string },
         { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
       ];
     };
@@ -31,6 +40,7 @@ export function worktreeDirPath(cwd: string, runId: string): string {
 export async function createWorktree(args: {
   readonly cwd: string;
   readonly runId: string;
+  readonly gitWorktree: GitWorktreePort;
 }): Promise<WorktreeCreateResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -46,9 +56,20 @@ export async function createWorktree(args: {
 
   const runDir = runDirPath(args.cwd, args.runId);
   const worktreeDir = worktreeDirPath(args.cwd, args.runId);
-  const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
+  const worktreeResult = await args.gitWorktree.create({ cwd: args.cwd, worktreeDir, ref: 'HEAD' });
+  if (worktreeResult.status === 'failed') {
+    return {
+      status: 'worktree_create_failed',
+      runStatus: metadata.status,
+      runId: args.runId,
+      worktreeDir,
+      metadataPath,
+      message: worktreeResult.message,
+      sideEffects: [],
+    };
+  }
 
-  await mkdir(worktreeDir, { recursive: true });
+  const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
 
   return {
@@ -58,6 +79,6 @@ export async function createWorktree(args: {
     runDir,
     worktreeDir,
     metadataPath,
-    sideEffects: [{ kind: 'mkdir', path: worktreeDir }, metadataEffect],
+    sideEffects: [...worktreeResult.sideEffects, metadataEffect],
   };
 }
