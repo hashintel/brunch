@@ -43,9 +43,14 @@ extensions/
 ├── exchanges/              structured-exchange present_* / request_* Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider
 ├── shared/                 projection/truncation helpers + Zod→Pi schema adapter for dev query tools
-├── workspace/              spec/session picker command adapter
-└── tui-lab/                local TUI experiment registrar
+└── workspace/              spec/session picker command adapter
 ```
+
+The former `tui-lab/` registrar (`registerBrunchTuiLab`, gated behind an `enabled`
+option nothing ever set) was retired — it never entered the product bundle and
+was inert even under Pi's ambient `.pi/extensions/` directory scan. Its
+`TuiStyleLabComponent` moved to `.pi/components/tui-lab/` as a reference
+component, previewable via `npm run dev:components -- tui-lab`.
 
 ## Boundary rules
 

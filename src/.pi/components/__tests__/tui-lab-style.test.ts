@@ -1,14 +1,12 @@
 import { visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
-import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
   lineVisibleWidths,
   makeSolidBadge,
   renderStylePalettePreview,
   type LabTheme,
-} from '../../components/tui-lab/index.js';
-import { BRUNCH_TUI_STYLE_LAB_COMMAND, registerBrunchTuiLab } from '../tui-lab/index.js';
+} from '../tui-lab/index.js';
 
 const theme = createTheme();
 
@@ -46,34 +44,6 @@ describe('TUI style lab palette', () => {
   });
 });
 
-describe('TUI style lab extension registration', () => {
-  it('registers only when explicitly enabled', () => {
-    const off = createCommandRecorder();
-    registerBrunchTuiLab(off.api);
-    expect(off.commandNames).toEqual([]);
-
-    const on = createCommandRecorder();
-    registerBrunchTuiLab(on.api, { enabled: true });
-    expect(on.commandNames).toEqual([BRUNCH_TUI_STYLE_LAB_COMMAND]);
-  });
-
-  it('does not enter the product extension bundle by default', async () => {
-    const recording = createProductRecorder();
-
-    await createBrunchPiExtensions(
-      {
-        cwd: '/tmp/brunch',
-        spec: { id: 1, title: 'Spec' },
-        session: { id: 'session', label: 'Session' },
-      },
-      undefined,
-      { coordinator: {} as never, graphMentionSource: { listMentionCandidates: () => [] } },
-    )(recording.api);
-
-    expect(recording.commandNames).not.toContain(BRUNCH_TUI_STYLE_LAB_COMMAND);
-  });
-});
-
 function createTheme(): LabTheme {
   const colorCodes: Record<string, string> = {
     accent: '\x1b[38;5;33m',
@@ -95,35 +65,5 @@ function createTheme(): LabTheme {
     strikethrough: (text) => `\x1b[9m${text}\x1b[29m`,
     inverse: (text) => `\x1b[7m${text}\x1b[27m`,
     getFgAnsi: (color) => colorCodes[color],
-  };
-}
-
-function createCommandRecorder() {
-  const commandNames: string[] = [];
-  return {
-    commandNames,
-    api: {
-      registerCommand(name: string) {
-        commandNames.push(name);
-      },
-    } as never,
-  };
-}
-
-function createProductRecorder() {
-  const commandNames: string[] = [];
-  return {
-    commandNames,
-    api: {
-      on() {},
-      registerTool() {},
-      registerCommand(name: string) {
-        commandNames.push(name);
-      },
-      registerShortcut() {},
-      registerMessageRenderer() {},
-      getAllTools: () => [],
-      setActiveTools() {},
-    } as never,
   };
 }

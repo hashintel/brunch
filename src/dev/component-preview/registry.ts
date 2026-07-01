@@ -3,11 +3,11 @@ import type { Component, TUI } from '@earendil-works/pi-tui';
 
 import { MultiChoicePickerComponent } from '../../.pi/components/multi-choice-picker.js';
 import { createRuntimeModePickerComponent } from '../../.pi/components/runtime-posture/axis-picker.js';
+import { TuiStyleLabComponent } from '../../.pi/components/tui-lab/index.js';
 import {
   createWorkspaceDialogComponent,
   WORKSPACE_DIALOG_WIDTH,
 } from '../../.pi/components/workspace-dialog/index.js';
-import { TuiStyleLabComponent } from '../../.pi/extensions/tui-lab/index.js';
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
 
@@ -112,7 +112,8 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
   {
     id: 'tui-lab',
     label: 'TUI style lab (palette + segment track demo)',
-    presentedLike: 'overlay — src/.pi/extensions/tui-lab/index.ts (registerBrunchTuiLab; product-unwired)',
+    presentedLike:
+      'overlay — reference component only, no production call site (retired the unwired /brunch:tui-style-lab command; kept here for style/segment-track experimentation)',
     open: (tui, theme, keybindings) =>
       showComponentPreview(
         tui,

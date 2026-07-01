@@ -72,9 +72,11 @@ scripts/dev-components.ts                    tsx entry point, optional deep-link
   - `axis-picker` — no options (inline swap, matches `commands/index.ts`).
   - `multi-choice-picker` — no options (inline swap, matches `choices-editor.ts`).
   - `workspace-dialog` — `{ overlay: true, overlayOptions: { anchor: 'center', width: WORKSPACE_DIALOG_WIDTH, maxHeight: '90%', margin: 1 } }` (matches `workspace/index.ts`).
-  - `tui-lab` (style palette + segment track) — `{ overlay: true }`, reusing the existing but
-    product-unwired `TuiStyleLabComponent` (matches its own dead `registerBrunchTuiLab` registration
-    options; still not wired into `pi-extensions.ts` — separate concern, not fixed here).
+  - `tui-lab` (style palette + segment track) — `{ overlay: true }`. `TuiStyleLabComponent` now lives
+    at `.pi/components/tui-lab/style-lab-component.ts` as a reference component with no production
+    call site; the `registerBrunchTuiLab` extension registrar it used to live behind (`.pi/extensions/tui-lab/`)
+    was retired — it never entered the product bundle and was inert even under Pi's ambient
+    `.pi/extensions/` directory scan (see `memory/PLAN.md`'s `component-dx` frontier).
 
 ### package.json
 

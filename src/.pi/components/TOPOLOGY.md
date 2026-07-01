@@ -36,7 +36,8 @@ components/
 ├── tui-lab/                     shared visual primitives
 │   ├── index.ts                 public seam for theme + segment-track helpers
 │   ├── segment-track.ts
-│   └── style-palette.ts
+│   ├── style-palette.ts
+│   └── style-lab-component.ts   reference-only demo Component (previewable via npm run dev:components -- tui-lab; no production call site)
 ├── workspace-dialog.ts          public entry re-exporting the folder below
 └── workspace-dialog/            fractal sub-tree for the workspace/session picker
     ├── assets/                  logo assets colocated with the dialog

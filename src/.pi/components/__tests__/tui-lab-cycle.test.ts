@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { TuiStyleLabComponent } from '../../extensions/tui-lab/index.js';
 import {
   DEMO_MODEL_SEGMENTS,
   nextSegmentIndex,
@@ -8,6 +7,7 @@ import {
   previousSegmentIndex,
   renderSegmentTrack,
   trackVisibleWidth,
+  TuiStyleLabComponent,
   type LabTheme,
 } from '../tui-lab/index.js';
 

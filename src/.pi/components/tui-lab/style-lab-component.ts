@@ -1,4 +1,3 @@
-import { type ExtensionAPI } from '@earendil-works/pi-coding-agent';
 import { type Component } from '@earendil-works/pi-tui';
 
 import {
@@ -6,34 +5,16 @@ import {
   nextSegmentIndex,
   previousSegmentIndex,
   renderSegmentTrack,
-  renderStylePalettePreview,
-  safeLines,
-  type LabTheme,
-} from '../../components/tui-lab/index.js';
+} from './segment-track.js';
+import { renderStylePalettePreview, safeLines, type LabTheme } from './style-palette.js';
 
-export const BRUNCH_TUI_STYLE_LAB_COMMAND = 'brunch:tui-style-lab';
-
-export interface BrunchTuiLabOptions {
-  readonly enabled?: boolean;
-}
-
-export function registerBrunchTuiLab(pi: ExtensionAPI, options: BrunchTuiLabOptions = {}): void {
-  if (!options.enabled) return;
-
-  pi.registerCommand(BRUNCH_TUI_STYLE_LAB_COMMAND, {
-    description: 'Preview Brunch dev-only Pi TUI style patterns',
-    handler: async (_args, ctx) => {
-      await ctx.ui.custom(
-        (_tui, theme, _keybindings, done) => {
-          const component = new TuiStyleLabComponent(theme, done);
-          return component;
-        },
-        { overlay: true },
-      );
-    },
-  });
-}
-
+/**
+ * Reference component demonstrating `tui-lab`'s shared visual primitives
+ * (style palette + segment track) side by side. Not wired into any product
+ * extension or slash command — previewable only via
+ * `npm run dev:components -- tui-lab`. Kept for style/segment-track
+ * experimentation, not as a shipped affordance.
+ */
 export class TuiStyleLabComponent implements Component {
   #activeSegment = 1;
 
@@ -69,5 +50,3 @@ export class TuiStyleLabComponent implements Component {
 
   invalidate(): void {}
 }
-
-export default registerBrunchTuiLab;
