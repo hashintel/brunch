@@ -65,7 +65,7 @@ rules:
 Components are tested at two tiers:
 
 1. **Direct-render tests** (`runtime-axis-picker.test.ts`) — cheap, precise assertions against `component.render(width)` and `component.handleInput()`. Use these for render logic, color/badge output, disabled/caution behavior, and direct method contracts.
-2. **Harness integration tests** (`runtime-axis-picker.harness.test.ts`) — drive the component through a real `TUI(VirtualTerminal)` overlay. Use these for focus, real input routing, and overlay render paths that the direct test cannot reach.
+2. **Harness integration tests** (`runtime-axis-picker.harness.test.ts`) — drive the component through a real `TUI(VirtualTerminal)`, presented the same way its real call site presents it (`tui.showOverlay` for overlay components, `tui.addChild` + `tui.setFocus` for inline-swap components like the runtime mode picker — see `component-preview.ts`'s registry for the per-component split). Use these for focus, real input routing, and render paths the direct test cannot reach.
 
 The harness lives at `../__tests__/support/virtual-terminal.ts`. It is test-only infrastructure: production code must never import it, and it must never import production wiring.
 
