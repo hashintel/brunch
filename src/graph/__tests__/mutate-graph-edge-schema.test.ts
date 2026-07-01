@@ -104,6 +104,7 @@ describe('authored graph-mutation schemas', () => {
       form: 'gherkin',
       given: ['offline'],
       when: ['save'],
+      // eslint-disable-next-line unicorn/no-thenable -- Gherkin's field is literally named `then`.
       then: ['persisted'],
     });
     const criterionFormal = createNodeOp('criterion', {

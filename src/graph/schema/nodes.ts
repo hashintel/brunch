@@ -303,6 +303,7 @@ export const CLAIM_FORM_JSON_SCHEMAS = {
       form: { const: 'gherkin' },
       given: { type: 'array', items: { type: 'string' }, description: 'Given preconditions.' },
       when: { type: 'array', items: { type: 'string' }, description: 'When actions.' },
+      // eslint-disable-next-line unicorn/no-thenable -- Gherkin's field is literally named `then`.
       then: {
         type: 'array',
         minItems: 1,
