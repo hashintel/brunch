@@ -1,7 +1,7 @@
 import { cp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { cookRunMetadataPath, type CookRunMetadata } from './cook-run.js';
+import { cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
 import { sourcePolicyPath, type CookSourcePolicyKind } from './cook-source-policy.js';
 import { cookWorktreeDir } from './cook-worktree.js';
 
@@ -49,7 +49,7 @@ export async function copyCookHostSource(args: {
   readonly runId: string;
 }): Promise<CookSourceCopyResult> {
   const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readRunMetadata(metadataPath);
+  const metadata = await readCookRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -119,14 +119,6 @@ export async function copyCookHostSource(args: {
       { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
     ],
   };
-}
-
-async function readRunMetadata(path: string): Promise<CookRunMetadata | undefined> {
-  try {
-    return JSON.parse(await readFile(path, 'utf8')) as CookRunMetadata;
-  } catch {
-    return undefined;
-  }
 }
 
 async function readSourcePolicy(
