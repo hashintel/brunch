@@ -1,8 +1,15 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { reportsPath } from './report.js';
-import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import {
+  assertSafeSliceId,
+  runDirPath,
+  runMetadataPath,
+  persistRunMetadata,
+  readRunMetadata,
+  type RunMetadata,
+} from './run.js';
 
 export type SliceExecutionRequestResult =
   | {
@@ -37,6 +44,7 @@ export type SliceExecutionRequestResult =
     };
 
 export function sliceExecutionRequestPath(cwd: string, runId: string, sliceId: string): string {
+  assertSafeSliceId(sliceId);
   return join(runDirPath(cwd, runId), 'agent-output', sliceId, 'request.json');
 }
 
@@ -68,7 +76,7 @@ export async function requestSliceExecution(args: {
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const requestPath = sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
-  const requestDir = join(runDirPath(args.cwd, args.runId), 'agent-output', metadata.activeSliceId);
+  const requestDir = dirname(requestPath);
   const request = {
     runId: args.runId,
     sliceId: metadata.activeSliceId,

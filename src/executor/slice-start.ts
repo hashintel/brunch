@@ -2,7 +2,13 @@ import { appendFile, readFile } from 'node:fs/promises';
 
 import { populatedPlanPath } from './populate.js';
 import { reportsPath } from './report.js';
-import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import {
+  assertSafeSliceId,
+  runMetadataPath,
+  persistRunMetadata,
+  readRunMetadata,
+  type RunMetadata,
+} from './run.js';
 
 interface PlanSlice {
   readonly id: string;
@@ -82,10 +88,10 @@ export async function startSlice(args: {
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
   const completedSliceIds = new Set(metadata.completedSliceIds ?? []);
-  const slice = args.sliceId
-    ? plan.slices?.find((candidate) => candidate.id === args.sliceId)
-    : // Without an explicit id, advance to the next slice that has not completed.
-      plan.slices?.find((candidate) => !completedSliceIds.has(candidate.id));
+  // Always advance from the next incomplete slice; an explicit id narrows the
+  // expected slice but cannot skip ahead or restart a completed slice.
+  const nextSlice = plan.slices?.find((candidate) => !completedSliceIds.has(candidate.id));
+  const slice = args.sliceId && nextSlice?.id !== args.sliceId ? undefined : nextSlice;
 
   if (!slice) {
     return {
@@ -97,6 +103,7 @@ export async function startSlice(args: {
       sideEffects: [],
     };
   }
+  assertSafeSliceId(slice.id);
 
   const event = {
     event: 'slice_started',

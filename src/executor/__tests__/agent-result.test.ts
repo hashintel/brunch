@@ -94,6 +94,30 @@ describe('ingestAgentResult', () => {
     });
   });
 
+  it('rejects active slice ids that would read outside the agent-output directory', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-unsafe-slice-'));
+    const runDir = runDirPath(cwd, 'run-1');
+    const metadataPath = runMetadataPath(cwd, 'run-1');
+    const reportPath = reportsPath(cwd, 'run-1');
+    await mkdir(runDir, { recursive: true });
+    await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/tmp/plan.yaml',
+        status: 'slice_execution_requested',
+        reportsPath: reportPath,
+        activeSliceId: '../../escape',
+        activeEpicId: 'frontier-1',
+      }),
+      'utf8',
+    );
+
+    await expect(ingestAgentResult({ cwd, runId: 'run-1' })).rejects.toThrow('invalid sliceId');
+  });
+
   it('ingests a prewritten agent result without running tests or Petri', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-ready-'));
     await createRequestedSliceRun(cwd);

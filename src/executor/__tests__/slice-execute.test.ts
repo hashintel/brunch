@@ -118,4 +118,28 @@ describe('requestSliceExecution', () => {
     );
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
   });
+
+  it('rejects active slice ids that would escape the agent-output directory', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-execute-unsafe-slice-'));
+    const runDir = runDirPath(cwd, 'run-1');
+    const reportPath = reportsPath(cwd, 'run-1');
+    await mkdir(runDir, { recursive: true });
+    await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/tmp/plan.yaml',
+        status: 'slice_started',
+        reportsPath: reportPath,
+        activeSliceId: '../../escape',
+        activeEpicId: 'frontier-1',
+      }),
+      'utf8',
+    );
+
+    await expect(requestSliceExecution({ cwd, runId: 'run-1' })).rejects.toThrow('invalid sliceId');
+    expect(await pathExists(join(runDir, '..', 'escape', 'request.json'))).toBe(false);
+  });
 });

@@ -161,6 +161,25 @@ describe('startSlice', () => {
     });
   });
 
+  it('does not let an explicit slice id skip the next incomplete slice', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-explicit-skip-'));
+    await createTwoSliceReportReadyRun(cwd);
+
+    const result = await startSlice({ cwd, runId: 'run-1', sliceId: 'task-2' });
+
+    expect(result).toEqual({
+      status: 'no_slice',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'reports_initialized',
+    });
+  });
+
   it('reports no remaining slice once every slice has completed', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-start-exhausted-'));
     await createTwoSliceReportReadyRun(cwd);
