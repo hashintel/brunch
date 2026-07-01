@@ -9,6 +9,7 @@ import { populateWorktree } from '../populate.js';
 import { runDirPath, runMetadataPath, createRun } from '../run.js';
 import { selectSourcePolicy, sourcePolicyPath, type SourcePolicyKind } from '../source-policy.js';
 import { createWorktree } from '../worktree.js';
+import { createFakeGitWorktreePort } from './fake-ports.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -24,7 +25,7 @@ async function createPopulatedRun(cwd: string): Promise<void> {
   await mkdir(dirname(planPath), { recursive: true });
   await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
   await createRun({ cwd, specId: '42', runId: 'run-1' });
-  await createWorktree({ cwd, runId: 'run-1' });
+  await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
   await populateWorktree({ cwd, runId: 'run-1' });
 }
 
@@ -48,7 +49,7 @@ describe('selectSourcePolicy', () => {
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
     await createRun({ cwd, specId: '42', runId: 'run-1' });
-    await createWorktree({ cwd, runId: 'run-1' });
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
 
     const result = await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'plan_only' });
 

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
+import type { GitWorktreePort } from '../../../executor/execution-ports.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../agent-runtime/execute-agent-result/index.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../agent-runtime/execute-launch/index.js';
@@ -737,6 +738,7 @@ describe('Brunch explicit Pi extension registry', () => {
     );
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 21, nodes: [], edges: [] },
+      gitWorktree: createFakeGitWorktreePort(),
     });
 
     const createWorktree = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL);
@@ -748,7 +750,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(result.details).toMatchObject({
       result: { status: 'worktree_created', runStatus: 'worktree_created', runId: 'run-1', worktreeDir },
       sideEffects: [
-        { kind: 'mkdir', path: worktreeDir },
+        { kind: 'git_worktree_add', path: worktreeDir, ref: 'HEAD' },
         { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
       ],
     });
@@ -1713,11 +1715,14 @@ interface TestGraphSlice {
   readonly edges: readonly unknown[];
 }
 
-async function collectProductTools(options: { graph?: TestGraphSlice } = {}): Promise<RegisteredTestTool[]> {
+async function collectProductTools(
+  options: { graph?: TestGraphSlice; gitWorktree?: GitWorktreePort } = {},
+): Promise<RegisteredTestTool[]> {
   const registeredTools: RegisteredTestTool[] = [];
   await createBrunchPiExtensions(brunchChromeFixture, undefined, {
     coordinator: {} as never,
     graphMentionSource: { listMentionCandidates: () => [] },
+    ...(options.gitWorktree ? { executionPorts: { gitWorktree: options.gitWorktree } } : {}),
     ...(options.graph
       ? {
           graph: {
@@ -1751,6 +1756,19 @@ async function collectProductTools(options: { graph?: TestGraphSlice } = {}): Pr
     setActiveTools() {},
   } as never);
   return registeredTools;
+}
+
+function createFakeGitWorktreePort(): GitWorktreePort {
+  return {
+    async create({ worktreeDir, ref }) {
+      await mkdir(worktreeDir, { recursive: true });
+      return {
+        status: 'created',
+        worktreeDir,
+        sideEffects: [{ kind: 'git_worktree_add', path: worktreeDir, ref }],
+      };
+    },
+  };
 }
 
 function recordingApiWithEvents(events: Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>) {

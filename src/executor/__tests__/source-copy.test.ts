@@ -10,6 +10,7 @@ import { runDirPath, runMetadataPath, createRun } from '../run.js';
 import { copyHostSource } from '../source-copy.js';
 import { selectSourcePolicy, sourcePolicyPath } from '../source-policy.js';
 import { worktreeDirPath, createWorktree } from '../worktree.js';
+import { createFakeGitWorktreePort } from './fake-ports.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -36,7 +37,7 @@ async function createPolicyRun(cwd: string, policy: 'plan_only' | 'host_source_d
   await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
   await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
   await createRun({ cwd, specId: '42', runId: 'run-1' });
-  await createWorktree({ cwd, runId: 'run-1' });
+  await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
   await populateWorktree({ cwd, runId: 'run-1' });
   await selectSourcePolicy({ cwd, runId: 'run-1', policy });
 }
