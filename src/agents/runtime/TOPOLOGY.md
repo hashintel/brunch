@@ -4,8 +4,7 @@ SPEC decisions: D40-L, D52-L, D58-L, D85-L, D90-L, D93-L, D98-L
 
 ## Owns
 
-Runtime prompt/tool policy that is Pi-independent: exhaustive foreground runtime dispatch, live elicitor prompt/context assembly, executor prompt/control assembly, foreground active-tool policy, shared blocked-tool contract, and agent body location lookup. Strategy/lens/method control policy is suspended as live foreground authority.
-Runtime prompt/tool policy that is Pi-independent: exhaustive foreground runtime dispatch, live elicitor prompt/context assembly, executor prompt/control assembly, foreground active-tool policy, shared blocked-tool contract, and agent body location lookup. The only live runtime switch is operational mode.
+Runtime prompt/tool policy that is Pi-independent: exhaustive foreground runtime dispatch, live elicitor prompt/context assembly, executor prompt/control assembly, foreground active-tool policy, shared blocked-tool contract, and agent body location lookup. Strategy/lens/method control policy is suspended: the only live runtime switch is operational mode.
 
 ```text
 runtime/

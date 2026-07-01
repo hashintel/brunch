@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   PRESENT_CANDIDATES_TOOL,
   PRESENT_QUESTION_TOOL,
+  PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
 } from '../exchanges/index.js';
@@ -28,6 +29,35 @@ const theme = {
   bg: (_color: string, text: string) => text,
   bold: (text: string) => text,
 };
+
+describe('structured exchange tool guidance', () => {
+  it('teaches present-side response selection and the single request_response terminal', () => {
+    const tools = registerTools();
+    const present = tools.get(PRESENT_QUESTION_TOOL);
+    const candidates = tools.get(PRESENT_CANDIDATES_TOOL);
+    const review = tools.get(PRESENT_REVIEW_SET_TOOL);
+    const request = tools.get(REQUEST_RESPONSE_TOOL);
+
+    expect(`${present.description}\n${present.promptGuidelines.join('\n')}`).toContain(
+      'Omit options for a free-text answer; include options for a finite choice; set multiple only when the user may pick more than one option.',
+    );
+    expect(`${present.description}\n${present.promptGuidelines.join('\n')}`).toContain(
+      'Do not put numbered candidate answers in body markdown when options[] should carry them.',
+    );
+    expect(`${candidates.description}\n${candidates.promptGuidelines.join('\n')}`).toContain(
+      'recognition-only',
+    );
+    expect(`${candidates.description}\n${candidates.promptGuidelines.join('\n')}`).toContain(
+      'Choosing a candidate records fan-in intent; it does not commit graph truth',
+    );
+    expect(`${review.description}\n${review.promptGuidelines.join('\n')}`).toContain(
+      'Do not call request_review',
+    );
+    expect(`${request.description}\n${request.promptGuidelines.join('\n')}`).not.toMatch(
+      /request_answer|request_choice|request_choices|request_review/,
+    );
+  });
+});
 
 describe('structured exchange renderers', () => {
   it('keeps renderCall non-semantic for present/request tools', () => {

@@ -36,7 +36,7 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
     promptGuidelines: [
       'Use present_review_set only for exact graph drafts the user can approve or reject as a batch.',
       'If the tool returns structural_illegal, fix the payload and retry; do not ask the user to review invalid graph drafts.',
-      'Call request_response only after a successful present_review_set result.',
+      'Call request_response only after a successful present_review_set result. Do not call request_review; the runtime derives the preserved review request details from this present result.',
     ],
     parameters: PresentReviewSetParams,
     executionMode: 'sequential',

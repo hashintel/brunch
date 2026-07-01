@@ -45,13 +45,14 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `orchestrator-tool-port` (FE-1087) — **D98-sensitive proving frontier.** Port the external `brunch cook` orchestrator into CODE/executor tooling, not a separate execute/orchestrator product mode.
-- `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
-- `structured-exchange-affordance` — **earned hardening.** Collapse recurring discriminant-companion and nested-payload affordance failures into clearer schema/tool contracts.
-- `elicitation-gap-guidance` — **proving frontier.** Generate "what next?" gap guidance from graph shape/readiness, distinct from ranking already-registered gaps.
+- `elicitation-gap-guidance` — **next proving frontier after exchange hardening.** Derive "what next?" guidance from graph shape, settlement, and readiness rather than only sorting the existing gap register.
+- `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
 ### Recently Completed
 
+- 2026-07-01 `portable-resource-paths--manifest-location` (bugfix, `ln-induct` from PR #273) — skill manifest `location` is now the loader-resolved absolute `Skill.filePath` instead of a hardcoded repo-relative string, so it resolves under any process cwd or `dist/`-only install; dead `liveBrunchSkillRepoPath`/`bundledAgentBodyRepoPath` builders removed; the two prompt-composition goldens normalize the machine root to a `<PKG>/…` token. See SPEC §Acknowledged Blind Spots "Live-vs-harness wiring divergence".
+- 2026-07-01 `promoted-run-path-normalization` (tooling) — `.fixtures/runs/**` no longer leaks developer-workstation absolute paths; `npm run check:promoted-run-paths` guards committed evidence going forward. `.fixtures/seeds/**` is untouched (separate seed-curation concern). Not a `fixture-vs-real-audit` sweep.
+- 2026-06-30 `structured-exchange-affordance` (FE-1108) — exchange authoring guidance now teaches present-side response rules and review-set nested companions at the boundary; one unearned exchange projection adapter was inlined into its RPC consumer, and topology inventories name the retained model-facing/projection homes.
 - 2026-06-30 `elicitor-project` (FE-1085) — project canonicalized as a first-level live skill home over existing exchange/review-set seams; A33-L validated, D100-L added, and the prompt manifest witnesses `project`.
 - 2026-06-29 `spec-structural-relief` — SPEC slimmed from long-form register to compact live index; pre-slim snapshot archived in `docs/archive/SPEC_HISTORY.md`.
 - 2026-06-26 `renderer-golden-coverage` (FE-1091) — context pipeline done; prompt/subagent topology flattened and locked.
@@ -60,7 +61,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-- _None._
+1. `elicitation-gap-guidance`
 
 ### Parallel / Low-Conflict
 
@@ -85,10 +86,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### orchestrator-tool-port
 
 - **Name:** Port cook orchestration into CODE/executor tools
-- **Linear:** [FE-1087](https://linear.app/hash/issue/FE-1087/port-cook-orchestrator-into-execute-mode-tools)
+- **Linear:** [FE-1107](https://linear.app/hash/issue/FE-1107/port-cook-orchestration-into-codeexecutor-tools)
 - **Branch:** tbd
 - **Kind:** structural / execute-mode tool boundary
-- **Status:** active; first scope file exists but must be reconciled against D98-L before build.
+- **Status:** active but intentionally deferred; first tracer is scoped on its branch when we are ready to switch to the CODE-mode tool seam.
 - **Certainty:** proving.
 - **Current execution pointer:** `memory/cards/orchestrator-tool-port--plan-check-tool.md`.
 - **Lights up:** executor-owned product tooling for cook-plan inspection.
@@ -116,35 +117,28 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - The live skill manifest includes `project`, and its guidance covers accepted-graph derivation lanes such as intent → design and design → oracle.
   - `project` reuses `present_candidates`, `request_response`, `present_review_set`, and the existing `map` / review-set commitment boundary; it does not add a new product tool or exchange schema family.
   - D97-L provenance applies: cite ontology/render surfaces, do not copy vocabulary lists into the skill.
-- **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L; D60-L.
-
-### exchange-symmetry-audit
-
-- **Name:** Exchange-surface three-layer symmetry audit
-- **Linear:** unassigned
-- **Branch:** tbd
-- **Kind:** refactor / earned cleanup
-- **Status:** active candidate, not capability-blocking.
-- **Certainty:** earned.
-- **Deletes / retires:** unjustified exchange projection/context mirrors that exist only for symmetry.
-- **Locks in:** shared exchange layers exist only for multi-consumer semantics; TUI presenters stay local.
-- **Objective:** Confirm each retained `projections/exchanges` and `agents/contexts/exchanges` file earns its place; delete symmetry regrowth where single-owner reads were mirrored into shared layers only for shape symmetry.
-- **Acceptance:** Retained files have named multi-consumer/shared-semantics justification; unjustified mirrors are deleted; TUI presenters stay local and exchange context renderers stay durable markdown/text/TOON only.
-- **Traceability:** D27-L, D65-L, D66-L.
+- **Traceability:** D95-L, D96-L, D97-L / A33-L / I51-L, I54-L; D60-L.
 
 ### structured-exchange-affordance
 
 - **Name:** Structured-exchange affordance hardening
-- **Linear:** unassigned
-- **Branch:** tbd
+- **Linear:** [FE-1108](https://linear.app/hash/issue/FE-1108/harden-structured-exchange-affordances)
+- **Branch:** `ln/fe-1108-structured-exchange-affordance`
 - **Kind:** hardening / earned contract cleanup
-- **Status:** active candidate.
+- **Status:** done.
 - **Certainty:** earned.
-- **Closes:** recurring "enforced but untaught" failures where the model sees legal schemas but not the intended discriminant/companion contract.
-- **Canonicalizes:** structured-exchange schema descriptions and renderer/context language around discriminants, companion fields, and nested payloads.
-- **Objective:** Audit the structured-exchange request/present/review payload surface after the `request_response` collapse and make the legal shape obvious at the model boundary.
-- **Acceptance:** Nested review-set payload shape and discriminant-companion expectations are described or re-shaped where the model authors them; stale request-tool pairing language is gone; tests cover the affordance-level shape that previously produced review findings.
-- **Traceability:** I23-L, D37-L, D38-L, D84-L, D86-L; `docs/design/STRUCTURED_EXCHANGE_COLLAPSE.md`.
+- **Absorbs:** the former `exchange-symmetry-audit` cleanup; the remaining delete pass is residue of exchange hardening, not a separate dependency boundary.
+- **Closes:** recurring "enforced but untaught" failures where the model sees legal schemas but not the intended present-vs-response, discriminant-companion, or nested review-set payload contract.
+- **Canonicalizes:** structured-exchange schema descriptions, prompt guidelines, renderer/context language, and the final kept-vs-deleted exchange projection/render inventory around `present_question`, `present_candidates`, `present_review_set`, `request_response`, and their companion detail shapes.
+- **Objective:** Tighten the live structured-exchange authoring contract after the `request_response` collapse so the model-facing surface teaches the legal shape directly instead of relying on deep validator failures or legacy pairing prose, then delete any exchange-layer mirrors that no longer earn a shared home.
+- **Acceptance:** done.
+  - Present-side choice vs freeform vs candidate selection rules are explicit where the model authors them; stale legacy request-tool pairing language is removed.
+  - Review-set nested payload companions (`grounding`, `pitch`, `epistemicStatus`, related discriminants) are described or re-shaped at the authoring boundary, not only rejected deep in graph validation.
+  - `present_candidates` / `request_response` wording stays aligned with I51-L: recognition only until a later review-set or graph-mutation commitment path.
+  - Unjustified `projections/exchanges/*` and `agents/contexts/exchanges/*` symmetry survivors are inlined or deleted; retained modules name a real multi-consumer or model-facing-text ownership reason.
+  - `src/projections/TOPOLOGY.md` and the touched exchange topology homes agree on the final kept-vs-deleted inventory.
+  - Tests cover the affordance-level shapes that previously generated review findings, not just the deepest schema rejection points.
+- **Traceability:** I23-L, I51-L, I53-L, D27-L, D37-L, D38-L, D65-L, D66-L, D84-L, D86-L, D96-L, D100-L; `docs/design/STRUCTURED_EXCHANGE_COLLAPSE.md`, `src/projections/TOPOLOGY.md`, `src/agents/contexts/exchanges/TOPOLOGY.md`.
 
 ### elicitation-gap-guidance
 
@@ -152,41 +146,37 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** unassigned
 - **Branch:** tbd
 - **Kind:** structural / elicitor guidance
-- **Status:** active candidate.
+- **Status:** active candidate; sequence second after structured-exchange affordances are tightened.
 - **Certainty:** proving.
 - **Lights up:** model-facing "what next?" guidance derived from graph topology, readiness bands, and current elicitation state.
-- **Stabilizes:** the boundary between generated gap guidance, advisory graph capture, persisted `reconciliation_need` records, and `elicitation_gap` records.
-- **Objective:** Give the elicitor a graph-shaped asking agenda for next useful questions without turning prompt examples into a parallel gap ontology.
-- **Acceptance:** Guidance is derived from current graph/readiness context and rendered into elicitor context; it distinguishes suggested next questions from settled graph truth and advisory early outer-band signal; existing registered gaps remain rankable but are not the only source of asking guidance.
-- **Traceability:** D56-L, D64-L, D65-L, D94-L, D97-L, D99-L; I52-L.
+- **Stabilizes:** the boundary between the stored `elicitation_gaps` register, a derived asking agenda, advisory graph signal, and persisted `reconciliation_need` follow-up.
+- **Objective:** Move the elicitor from "sort the open gap rows" to a richer asking agenda derived from graph topology, readiness/settlement semantics, and current elicitation state, without inventing a second persisted gap ontology.
+- **Acceptance:**
+  - A read-side asking agenda is derived from current graph + readiness + gap state and rendered into elicitor-facing context.
+  - The agenda can surface next useful asks that come from advisory or missing graph structure even when no existing `elicitation_gap` row names them exactly.
+  - The contract distinguishes stored gaps, advisory graph signal, and reconciliation follow-up instead of laundering them into one list.
+  - Existing `elicitation_gaps` remain rankable and editable, but they become one input to asking guidance rather than the whole asking agenda.
+- **Traceability:** D56-L, D64-L, D65-L, D74-L, D94-L, D97-L, D99-L; I50-L, I52-L; `src/session/specification-overview-context.ts`, `src/graph/elicitation-driver.ts`.
 
 ## Dependencies
 
 ```text
 frontiers:
   Active:
+    elicitation-gap-guidance
+      status: second / proving
+      depends_on: readiness bands, data-model legibility, elicitor-generate, and a stable exchange affordance surface for asking/proposal loops
+
     orchestrator-tool-port
-      status: D98-sensitive
+      status: deferred / D98-sensitive
       depends_on: D39-L, D90-L, D91-L, D92-L, D93-L, I49-L, D98-L
       active_scope: memory/cards/orchestrator-tool-port--plan-check-tool.md
 
-    exchange-symmetry-audit
-      status: earned cleanup
-      depends_on: exchange surface being mostly built
-
-    structured-exchange-affordance
-      status: earned hardening
-      depends_on: request_response collapse and review-set proposal payload shape
-
-    elicitation-gap-guidance
-      status: proving
-      depends_on: readiness bands, data-model legibility, elicitor-generate
-
   Recently Completed:
-    elicitor-project, spec-structural-relief, renderer-golden-coverage, data-model-legibility
+    structured-exchange-affordance, elicitor-project, spec-structural-relief, renderer-golden-coverage, data-model-legibility
 
   Next:
-    none
+    elicitation-gap-guidance
 
   Parallel / Low-Conflict:
     none

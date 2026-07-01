@@ -242,6 +242,7 @@ describe('CommandExecutor', () => {
         form: 'gherkin',
         given: ['the app is offline'],
         when: ['the user saves'],
+        // eslint-disable-next-line unicorn/no-thenable -- Gherkin's field is literally named `then`.
         then: ['the change is persisted locally'],
       },
     });

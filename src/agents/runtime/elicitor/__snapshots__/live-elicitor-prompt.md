@@ -9,50 +9,50 @@ Fixed body.
 - prompt resources: code-owned live skill list only; no runtime axis negotiation
 
 [Brunch live skills]
-- These first-level `src/agents/skills/*/SKILL.md` homes are the only live Brunch prompt resources.
-- Use the read tool to load a listed skill when the current move matches its description.
+- Each `<location>` below is an absolute path to that skill's SKILL.md; these are the only live Brunch prompt resources.
+- Use the read tool to load a listed skill at its given location when the current move matches its description.
 - Do not infer additional skills from nested references, fixtures, or the filesystem beyond this block.
 
 <brunch-skills>
   <skill>
     <name>analyze</name>
     <description>Read and analyze the selected spec and workspace context needed for the next elicitor move. Use when the agent needs orientation, relevant graph facts, or session/workspace state before asking, ingesting, mapping, proposing, or reviewing.</description>
-    <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/analyze/SKILL.md</location>
+    <location><PKG>/src/agents/skills/analyze/SKILL.md</location>
   </skill>
   <skill>
     <name>elicit</name>
     <description>Ask focused questions and run the next human-facing exchange needed to move the selected spec forward. Use when the agent should acquire missing information, resolve ambiguity, or tighten the user's intent before ingest, map, or review.</description>
-    <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/elicit/SKILL.md</location>
+    <location><PKG>/src/agents/skills/elicit/SKILL.md</location>
   </skill>
   <skill>
     <name>ingest</name>
     <description>Ingest source material for the selected spec — a human answer, pasted block, referenced document/URL, or bounded brownfield area — by digesting it and handing graph-worthy material to map/routing guidance.</description>
-    <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/ingest/SKILL.md</location>
+    <location><PKG>/src/agents/skills/ingest/SKILL.md</location>
   </skill>
   <skill>
     <name>map</name>
     <description>Map grounded material into graph-shaped intent, design, oracle, plan, and edge candidates without confusing proposal with committed truth.</description>
-    <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/map/SKILL.md</location>
+    <location><PKG>/src/agents/skills/map/SKILL.md</location>
   </skill>
   <skill>
     <name>project</name>
     <description>Derive downstream graph-plane material from accepted upstream graph anchors; use for intent-to-design or design-to-oracle projection without adding a new tool, schema family, or commit path.</description>
-    <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/project/SKILL.md</location>
+    <location><PKG>/src/agents/skills/project/SKILL.md</location>
   </skill>
   <skill>
     <name>propose</name>
     <description>Generate candidate source material for human recognition and review; use when the elicitor should fan out alternatives, compare them, and fan in without treating proposals as accepted graph truth.</description>
-    <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/propose/SKILL.md</location>
+    <location><PKG>/src/agents/skills/propose/SKILL.md</location>
   </skill>
   <skill>
     <name>review</name>
     <description>Evaluate selected-spec material for weaknesses, gaps, blind spots, or change risk before further commitment. Use when the agent should critique what already exists or what has been proposed rather than orient, ingest, map, or propose.</description>
-    <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/review/SKILL.md</location>
+    <location><PKG>/src/agents/skills/review/SKILL.md</location>
   </skill>
   <skill>
     <name>tutorial</name>
     <description>Explain how Brunch works and walk the user through what they can do here. Use when the user asks for a product overview, onboarding help, or a guided first step.</description>
-    <location>/Users/lunelson/Code/hashintel/brunch-next-omega/src/agents/skills/tutorial/SKILL.md</location>
+    <location><PKG>/src/agents/skills/tutorial/SKILL.md</location>
   </skill>
 </brunch-skills>
 

@@ -41,6 +41,12 @@ probe report and source transcript artifacts, then track it. Dev launchers must
 resolve scratch from the repo-root `.fixtures/scratch/`, independent of the
 workspace cwd they target.
 
+Promoted `runs/**` evidence must stay portable: replace any developer-workstation
+absolute path (`/Users/<user>/…`, `/home/<user>/…`) with a placeholder such as
+`<repo>`, `<workbench>`, `<ephemeral-workspace>`, or `<external-source>` before
+committing. `npm run check:promoted-run-paths` guards this over `git ls-files
+.fixtures/runs`; `.fixtures/seeds/**` is a separate, out-of-scope concern.
+
 Seed workbench state explicitly; `npm run dev` never seeds by implication. See
 [`seeds/README.md`](./seeds/README.md) for the roster-level seed disposition
 catalog. From the repo root, load one tracked seed into one named workspace with:

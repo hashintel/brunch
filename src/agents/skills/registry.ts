@@ -1,4 +1,3 @@
-import { basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadSkills, type Skill } from '@earendil-works/pi-coding-agent';
@@ -22,7 +21,13 @@ export interface BrunchSkillManifestEntry {
   readonly location: string;
 }
 
+let cachedManifestEntries: readonly BrunchSkillManifestEntry[] | undefined;
+
 export function loadLiveBrunchSkillManifestEntries(): readonly BrunchSkillManifestEntry[] {
+  // Skill metadata is fixed at build time, so load once and reuse for the process lifetime
+  // rather than reparsing SKILL.md files on every prompt composition.
+  if (cachedManifestEntries) return cachedManifestEntries;
+
   const skillPaths = LIVE_BRUNCH_SKILL_IDS.map((id) => liveBrunchSkillLocation(id));
   const result = loadSkills({
     cwd: process.cwd(),
@@ -37,15 +42,16 @@ export function loadLiveBrunchSkillManifestEntries(): readonly BrunchSkillManife
   }
 
   const byName = new Map(result.skills.map((skill) => [skill.name, skill]));
-  return LIVE_BRUNCH_SKILL_IDS.map((id) => skillToManifestEntry(id, byName.get(id)));
+  cachedManifestEntries = LIVE_BRUNCH_SKILL_IDS.map((id) => skillToManifestEntry(id, byName.get(id)));
+  return cachedManifestEntries;
 }
 
 export function renderBrunchSkills(entries = loadLiveBrunchSkillManifestEntries()): string {
   if (entries.length === 0) return '';
   return [
     '[Brunch live skills]',
-    '- These first-level `src/agents/skills/*/SKILL.md` homes are the only live Brunch prompt resources.',
-    '- Use the read tool to load a listed skill when the current move matches its description.',
+    "- Each `<location>` below is an absolute path to that skill's SKILL.md; these are the only live Brunch prompt resources.",
+    '- Use the read tool to load a listed skill at its given location when the current move matches its description.',
     '- Do not infer additional skills from nested references, fixtures, or the filesystem beyond this block.',
     '',
     '<brunch-skills>',
@@ -75,10 +81,9 @@ function skillToManifestEntry(
   if (!skill) {
     throw new Error(`Missing Brunch live skill metadata for ${expectedId}.`);
   }
-  const parentDir = basename(dirname(skill.filePath));
-  if (skill.name !== expectedId || parentDir !== expectedId) {
+  if (skill.name !== expectedId) {
     throw new Error(
-      `Brunch live skill ${expectedId} must have name == parent directory; got name=${skill.name}, dir=${parentDir}.`,
+      `Brunch live skill ${expectedId} must have matching frontmatter name; got ${skill.name}.`,
     );
   }
   return {
@@ -88,10 +93,13 @@ function skillToManifestEntry(
   };
 }
 
+const XML_TEXT_ESCAPES: Readonly<Record<string, string>> = {
+  '&': '&amp;',
+  '"': '&quot;',
+  '<': '&lt;',
+  '>': '&gt;',
+};
+
 function escapeXml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+  return value.replace(/[&"<>]/g, (char) => XML_TEXT_ESCAPES[char] ?? char);
 }

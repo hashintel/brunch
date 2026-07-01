@@ -29,11 +29,15 @@ export const zPresentQuestionParams = z
     options: z
       .array(zPresentedOptionParam)
       .min(1)
-      .describe('Finite response options. Omit this field for a free-text answer.')
+      .describe(
+        'Finite response options. Omit this field for a free-text answer; include it instead of embedding numbered choices in body markdown.',
+      )
       .optional(),
     multiple: z
       .boolean()
-      .describe('When options are present, collect one-or-more choices instead of a single choice.')
+      .describe(
+        'Only meaningful when options are present: collect one-or-more choices instead of a single choice.',
+      )
       .optional(),
     allowOther: z.boolean().describe('Whether the user may choose Other for option responses.').optional(),
     allowNone: z
@@ -76,7 +80,9 @@ export const zPresentCandidatesParams = z
     candidates: z
       .array(zPresentedCandidate)
       .min(1)
-      .describe('Candidate expressions to compare and choose from.'),
+      .describe(
+        'Recognition-only candidate expressions to compare and choose from; selection records fan-in intent but does not commit graph truth.',
+      ),
   })
   .strict();
 export type PresentCandidatesParams = z.infer<typeof zPresentCandidatesParams>;

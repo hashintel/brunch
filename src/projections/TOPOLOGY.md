@@ -39,7 +39,6 @@ Disposition: `✓` resolved (direct lock or accepted transitive proof) · `●` 
 | `exchanges/request-answer` | 5 | ✓ | Keep-transitive — `session/exchange-projection.test.ts` proves prompt/response pairing over persisted `toolResult.details`, and the structured-exchange `.pi` tests prove submit-time materialization. |
 | `exchanges/request-choices` | 6 | ✓ | Keep-transitive — `.pi/__tests__/structured-exchange-present-request.test.ts` proves multi-select persistence and comment rules, and `session/exchange-projection.test.ts` proves the terminal tuple reconstruction. |
 | `exchanges/request-review` | 5 | ✓ | Keep-transitive — `.pi/__tests__/structured-exchange-present-request.test.ts` proves approve/request-changes/reject persistence, and `probes/project-graph-review-cycle-proof.test.ts` proves the review cycle at the owning seam. |
-| `exchanges/review-set-payload` | 1 | ✓ | Keep-transitive — `session/structured-exchange-loop.test.ts` reconstructs `reviewSet` from persisted details, and `probes/project-graph-review-cycle-proof.test.ts` proves the downstream review path. |
 | `exchanges/present-candidates` | 2 | ✓ | `present-candidates.test.ts` — direct schema round-trip plus display normalization and candidate rubric preservation; consumed by the `present_candidates` tool and renderer. |
 
 Aggregate DoD for the PROJECT stage: every `●` row carries a direct shape/no-loss invariant (co-located `*.test.ts`); every `✗` row is deleted/inlined with its consumer fed from the source read; `◐` rows are resolved by an explicit keep-transitive or add-direct decision; `○` rows stay untouched. `topology-boundaries.test.ts` continues to guard that `projections/` imports no adapter/transport layer, that `workspace/` remains a cwd-owned leaf without domain/adapter imports, and that direct-read graph neighborhood consumers do not accidentally adopt the deprecated projection stub. This frontier is now closed: no `●` or `◐` rows remain.
@@ -52,7 +51,7 @@ Upstream note (PULL): `●` projections lock against their read sources, so thos
 projections/
   graph/                 graph read/command DTO projection
   session/               transcript-context, runtime-state, watermarks, and readiness-estimate DTO projections
-  exchanges/             canonical toolResult.details construction and transcript details → domain DTO adapters
+  exchanges/             canonical toolResult.details construction for active exchange tools
   workspace/             workspace/session state DTO projection
 ```
 

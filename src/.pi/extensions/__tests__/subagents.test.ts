@@ -1,6 +1,7 @@
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   fauxAssistantMessage,
@@ -47,6 +48,10 @@ import {
   type SubagentRunContext,
   type SubagentSealedDeps,
 } from '../subagents/session.js';
+
+// Manifest skill locations are absolute paths (see src/agents/skills/registry.ts); normalize the
+// machine root before snapshotting so the committed golden carries no workstation-specific path.
+const packageRoot = fileURLToPath(new URL('../../../..', import.meta.url)).replace(/\/$/u, '');
 
 const EXPLORER_MD = `---
 name: explorer
@@ -665,7 +670,9 @@ describe('runSubagent (sealed SDK child session over a faux provider)', () => {
       world: injectedWorld({ cwd: '/work/brunch-subagent' }).snapshot,
     }).prompt;
 
-    await expect(rendered).toMatchFileSnapshot('../__snapshots__/subagent-explorer-prompt.md');
+    const normalizedRendered = rendered.replaceAll(packageRoot, '<PKG>');
+
+    await expect(normalizedRendered).toMatchFileSnapshot('../__snapshots__/subagent-explorer-prompt.md');
     expect(rendered).toContain('You are an explorer.');
     expect(rendered).toContain('[Brunch background subagent control]');
     expect(rendered).toContain('[Brunch injected world snapshot]');
