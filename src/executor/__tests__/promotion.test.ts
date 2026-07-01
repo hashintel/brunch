@@ -174,11 +174,14 @@ describe('preparePromotion', () => {
     const result = await preparePromotion({
       cwd,
       runId: 'run-1',
-      gitLand: createFakeGitLandPort({
-        status: 'no_changes',
-        message: 'nothing to promote',
-        sideEffects: [],
-      }),
+      gitLand: createFakeGitLandPort(
+        {
+          status: 'no_changes',
+          message: 'nothing to promote',
+          sideEffects: [],
+        },
+        'abc123',
+      ),
     });
 
     expect(result).toEqual({
@@ -193,6 +196,49 @@ describe('preparePromotion', () => {
       status: 'promotion_prepared',
       promotionPath: promotionReportPath(cwd, 'run-1'),
       promotionCommitSha: 'abc123',
+    });
+  });
+
+  it('does not recover a prewritten promotion report whose commit is not current HEAD', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-stale-report-'));
+    await createPetriExportedRun(cwd);
+    await mkdir(join(runDirPath(cwd, 'run-1'), 'promotion'), { recursive: true });
+    await writeFile(
+      promotionReportPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        petriPath: petriNetPath(cwd, 'run-1'),
+        reportsPath: reportsPath(cwd, 'run-1'),
+        completedSliceIds: ['task-1'],
+        land: { status: 'promoted', commitSha: 'stale123' },
+      }),
+      'utf8',
+    );
+
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitLand: createFakeGitLandPort(
+        {
+          status: 'failed',
+          message: 'must not trust stale report',
+          sideEffects: [],
+        },
+        'abc123',
+      ),
+    });
+
+    expect(result).toMatchObject({
+      status: 'promotion_failed',
+      runStatus: 'petri_exported',
+      message: 'must not trust stale report',
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'petri_exported',
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).not.toMatchObject({
+      promotionCommitSha: 'stale123',
     });
   });
 

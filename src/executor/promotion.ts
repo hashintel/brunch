@@ -80,11 +80,13 @@ export async function preparePromotion(args: {
     };
   const recovered = await recoverPreparedPromotion({
     cwd: args.cwd,
+    gitLand: args.gitLand,
     runId: args.runId,
     metadata,
     metadataPath,
   });
   if (recovered) return recovered;
+  const hasPromotionReport = Boolean(await readPromotionReport(promotionReportPath(args.cwd, args.runId)));
 
   const worktreeDir = metadata.worktreeDir;
   if (!worktreeDir) {
@@ -104,6 +106,7 @@ export async function preparePromotion(args: {
     metadata,
     metadataPath,
     worktreeDir,
+    persistBaseSha: !hasPromotionReport,
   });
   if (preparedAttempt.status === 'failed') {
     return {
@@ -210,8 +213,12 @@ async function preparePromotionAttempt(args: {
   readonly metadata: RunMetadata;
   readonly metadataPath: string;
   readonly worktreeDir: string;
+  readonly persistBaseSha: boolean;
 }): Promise<PromotionAttemptPrepareResult> {
   if (args.metadata.promotionBaseSha) {
+    return { status: 'prepared', metadata: args.metadata, sideEffects: [] };
+  }
+  if (!args.persistBaseSha) {
     return { status: 'prepared', metadata: args.metadata, sideEffects: [] };
   }
   const head = await args.gitLand.currentHead({ worktreeDir: args.worktreeDir });
@@ -243,6 +250,7 @@ function promotedRunMetadata(metadata: RunMetadata, promotionPath: string, commi
 
 async function recoverPreparedPromotion(args: {
   readonly cwd: string;
+  readonly gitLand: GitLandPort;
   readonly runId: string;
   readonly metadata: RunMetadata;
   readonly metadataPath: string;
@@ -251,6 +259,10 @@ async function recoverPreparedPromotion(args: {
   const report = await readPromotionReport(path);
   const commitSha = report?.land?.status === 'promoted' ? report.land.commitSha : undefined;
   if (!commitSha) return undefined;
+  if (!args.metadata.worktreeDir) return undefined;
+
+  const head = await args.gitLand.currentHead({ worktreeDir: args.metadata.worktreeDir });
+  if (head.status !== 'ok' || head.commitSha !== commitSha) return undefined;
 
   const updated: RunMetadata = {
     ...args.metadata,
