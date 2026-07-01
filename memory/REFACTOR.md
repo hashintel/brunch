@@ -20,7 +20,7 @@ Observable behavior is unchanged: same commands, same success/failure results, s
 
 1. ~~**Drop the unused `cwd` from the test-run arguments.**~~ Done. Removed from the port argument type, the executor call site, and the app + executor test assertions that named it.
 
-2. **Extract a single app-layer subprocess runner and have both ports use it.** Move the `spawn` wrapper and its result type into one shared module that exposes a spawn-error signal. Rewire both ports to it, preserving each port's existing failure message — in particular the git port must still surface the spawn-error text it does today. Add the currently-missing test that pins the git port's spawn-failure message so the extraction is provably behavior-preserving.
+2. ~~**Extract a single app-layer subprocess runner and have both ports use it.**~~ Done. Added a shared `command-runner` module (spawn wrapper + `CommandResult` with a `spawnError` signal); both ports consume it. Git port's spawn-error message preserved via a `spawnError` fallback, locked by a new git spawn-failure test.
 
 3. **Consolidate the port test fakes onto the shared helper.** Give the shared git-worktree fake an optional behavior override so it can replace the parametrized inline fake, add any missing fake the registry test needs, then point the worktree test and the registry test at the shared helper and delete their local copies.
 
