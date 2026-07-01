@@ -1,8 +1,8 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import type { ExecutionPlanOutline } from '../../../../orchestration/execute-plan-outline.js';
-import { projectExecuteGraph } from '../../../../orchestration/execute-projection.js';
+import type { ExecutionPlanOutline } from '../../../../executor/execute-plan-outline.js';
+import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 

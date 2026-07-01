@@ -1,4 +1,4 @@
-# orchestration/ — execute-mode projection contracts
+# executor/ — execute-mode projection contracts
 
 SPEC decisions: FE-1089 cutover frontier; `brunch-orchestrator-cutover-to-next.md` Arc 1 data bridge.
 
@@ -7,7 +7,7 @@ SPEC decisions: FE-1089 cutover frontier; `brunch-orchestrator-cutover-to-next.m
 Pure contracts and projection helpers that turn `next` graph facts into execute-mode orchestration inputs. This subtree is product core: it imports graph DTOs and emits stable orchestration DTOs, but it does not register Pi tools, read SQLite, run Petri nets, execute slices, or promote/land changes.
 
 ```text
-orchestration/
+executor/
 ├── TOPOLOGY.md
 ├── cook-agent-result.ts       prewritten result -> slice result report
 ├── cook-plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml
@@ -39,8 +39,8 @@ orchestration/
 
 ```pseudo
 rules:
-  orchestration/ -> graph/schema/ [read typed DTOs]
-  orchestration/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
+  executor/ -> graph/schema/ [read typed DTOs]
+  executor/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
 ```
 
 `ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Artifact writers in this subtree may write only explicit execution artifacts under `.brunch/execution-reports`; cook helpers may create only the side effects accepted below. They must not run agents, compile Petri nets, write report logs, promotion refs, land branches, or graph mutations.

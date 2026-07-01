@@ -1,10 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import {
-  completeCookSlice,
-  type CookSliceCompleteResult,
-} from '../../../../orchestration/cook-slice-complete.js';
+import { completeCookSlice, type CookSliceCompleteResult } from '../../../../executor/cook-slice-complete.js';
 import { BRUNCH_EXECUTE_COOK_SLICE_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_SLICE_COMPLETE_TOOL } from '../../../../session/schema/tool-names.js';

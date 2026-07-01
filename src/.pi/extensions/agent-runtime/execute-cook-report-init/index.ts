@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { initializeCookReports, type CookReportInitResult } from '../../../../orchestration/cook-report.js';
+import { initializeCookReports, type CookReportInitResult } from '../../../../executor/cook-report.js';
 import { BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL } from '../../../../session/schema/tool-names.js';

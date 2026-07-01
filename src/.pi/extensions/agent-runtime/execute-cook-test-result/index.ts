@@ -4,7 +4,7 @@ import { Type, type Static } from 'typebox';
 import {
   ingestCookTestResult,
   type CookTestResultIngestResult,
-} from '../../../../orchestration/cook-test-result.js';
+} from '../../../../executor/cook-test-result.js';
 import { BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL } from '../../../../session/schema/tool-names.js';

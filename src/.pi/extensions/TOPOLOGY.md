@@ -101,7 +101,7 @@ custom compaction threshold and rules
 
 ### executor-relevant
 
-orchestration/cook tool state, as session state?
+executor/cook tool state, as session state?
 - `packages/coding-agent/examples/extensions/todo.ts`
 
 how to have an event bus between extensions
