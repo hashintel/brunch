@@ -24,8 +24,9 @@ executor/
 ├── slice-start.ts        reports-ready run -> slice-start marker
 ├── source-copy.ts        source policy -> bounded host source copy
 ├── source-policy.ts      plan-populated worktree -> source policy selection
-├── test-result.ts        prewritten test result -> slice test report
-├── worktree.ts           run metadata -> empty worktree directory
+├── test-result.ts        run worktree -> verify subprocess (TestRunnerPort) -> slice test report
+├── worktree.ts           run metadata -> real git worktree (GitWorktreePort)
+├── execution-ports.ts    injected capability ports (git worktree, test runner)
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO
 ├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact
@@ -65,7 +66,7 @@ rules:
 
 `run.ts` creates only metadata for a ready plan: `.brunch/cook/runs/<runId>/run.json` with the selected spec id, plan path, and `status:"created"`. It accepts the first run-resource side effect but still does not create a worktree, Petri artifact, report log, promotion ref, or land branch.
 
-`worktree.ts` creates only an empty worktree directory for an existing run and updates `run.json` to `status:"worktree_created"`. Source population, sandbox strategy, agent execution, Petri artifacts, report logs, promotion refs, and land branches remain deferred.
+`worktree.ts` creates a real git worktree for an existing run through the injected `GitWorktreePort` (app-layer `git worktree add --detach <worktreeDir> HEAD`) and updates `run.json` to `status:"worktree_created"`. If the port fails, run metadata is not advanced (`status:"worktree_create_failed"`). Source population, sandbox strategy, agent execution, Petri artifacts, report logs, promotion refs, and land branches remain deferred.
 
 `populate.ts` performs the first bounded worktree population: it copies the selected plan into `.brunch/cook/runs/<runId>/worktree/.brunch/cook/plan.yaml` and updates `run.json` to `status:"worktree_populated"`. Host source copying, sandbox policy, agent execution, Petri artifacts, report logs, promotion refs, and land branches remain deferred.
 
@@ -81,7 +82,7 @@ rules:
 
 `agent-result.ts` ingests an already-written `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and records `status:"agent_result_ingested"`. It is still not an agent launcher and does not run tests, compile Petri artifacts, promote, or land.
 
-`test-result.ts` ingests an already-written `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and records `status:"test_result_ingested"`. It is still not a test runner and does not compile Petri artifacts, promote, or land.
+`test-result.ts` runs the verify subprocess in the run's worktree through the injected `TestRunnerPort` (app-layer `npm run verify`), appends `slice_test_result` with the true verdict and exit code, and records `status:"test_result_ingested"`. A failing verdict still advances the run; only a runner that cannot execute (`status:"test_run_failed"`) leaves metadata unchanged. It does not compile Petri artifacts, promote, or land.
 
 `slice-complete.ts` appends `slice_completed` after test result ingestion and records the completed slice id in `run.json`. Petri artifacts, promotion refs, and land branches remain deferred.
 

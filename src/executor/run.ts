@@ -34,7 +34,6 @@ export interface RunMetadata {
   readonly activeEpicId?: string;
   readonly sliceExecutionRequestPath?: string;
   readonly agentResultPath?: string;
-  readonly testResultPath?: string;
   readonly completedSliceIds?: readonly string[];
   readonly petriPath?: string;
   readonly promotionPath?: string;

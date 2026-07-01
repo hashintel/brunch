@@ -41,7 +41,7 @@ Call `execute_slice_execute` only to create an execution request artifact for th
 
 Call `execute_agent_result` only to ingest an already-written agent result for the active slice. It reads `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and updates `run.json`; it still does not launch agents, run tests, compile Petri nets, promote, or land.
 
-Call `execute_test_result` only to ingest an already-written test result for the active slice. It reads `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and updates `run.json`; it still does not run tests, compile Petri nets, promote, or land.
+Call `execute_test_result` to run the verify subprocess for the active slice in its worktree and ingest the true result. It runs `npm run verify` in the run worktree via the injected `TestRunnerPort`, appends `slice_test_result` with the verdict and exit code, and updates `run.json`; it still does not compile Petri nets, promote, or land.
 
 Call `execute_slice_complete` only after test result ingestion. It appends `slice_completed` and updates `run.json`; it still does not compile Petri nets, promote, or land.
 

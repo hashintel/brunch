@@ -158,8 +158,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1109](https://linear.app/hash/issue/FE-1109) — real executor sandbox: git worktree + test runner ports
 - **Branch:** `ka/fe-1109-cook-sandbox` (created from `ka/fe-1089-orchestrator-alpha-cutover`; Graphite tracking pending while PR #274 remains open/non-Graphite)
 - **Kind:** structural / execute-mode runner substrate (`orchestrator-cutover` arc)
-- **Status:** next; design chosen (`ln-design` ran), ready to scope.
-- **Current execution pointer:** `GitWorktreePort` slice built; next scope is `TestRunnerPort` for real verify subprocess ingestion.
+- **Status:** built; both port slices (`GitWorktreePort`, `TestRunnerPort`) delivered. Ready to tie off once reviewed.
+- **Current execution pointer:** frontier complete — real git worktree + real verify-subprocess ingestion both landed; next arc frontier is `executor-agent-runner`.
 - **Certainty:** proving.
 - **Why now / unlocks:** the FE-1089 chain proved the cook lifecycle shape with `fs`-only descriptive footholds, but every step simulates execution (copied-dir "worktree", prewritten-ingested agent/test results, no git). A meaningful run needs a real, runnable, verifiable workspace first. This is the lowest-blast-radius real-execution layer (subprocess only, no LLM).
 - **Design verdict (chosen):** real execution enters executor core through an **injected capability-port bag**, not a deep environment object or an effect-program rewrite. Port *types* live in `src/executor/execution-ports.ts` (`ExecutionPorts` = `{ GitWorktreePort, AgentRunnerPort, TestRunnerPort, GitLandPort }`); real implementations live in the app layer (`src/app/git-worktree-port.ts`, and future `src/app/*-port.ts`) and are injected by the Pi adapters, preserving the D52-L/I52-L boundary (no git/subprocess in core). See SPEC D99-L execution-ports refinement.
@@ -167,8 +167,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Acceptance (to refine via `ln-scope`):**
   - Done: `src/executor/execution-ports.ts` defines the `ExecutionPorts` bag as types only; executor core imports no git/subprocess.
   - Done: `GitWorktreePort` makes the per-run worktree a real `git worktree`, replacing the `mkdir` substrate in `worktree.ts`; app-layer `src/app/git-worktree-port.ts` runs `git worktree add --detach <worktreeDir> HEAD` and the Pi adapter injects it. If the worktree fails, run metadata is not advanced.
-  - `TestRunnerPort` runs the real verify subprocess and ingests its true result, replacing the prewritten `test-result.json` ingest path for the sandbox layer.
-  - App-layer implementations under `src/app/*-port.ts`; adapters inject the bag; focused tests cover the port contracts.
+  - Done: `TestRunnerPort` runs the real verify subprocess (`npm run verify`) in the run worktree and ingests its true verdict/exit code, replacing the prewritten `test-result.json` ingest path; app-layer `src/app/test-runner-port.ts` owns the subprocess. A failing verdict still advances the run; a runner that cannot execute (`test_run_failed`) leaves metadata unchanged.
+  - Done: app-layer implementations under `src/app/*-port.ts`; adapters inject the bag; focused tests cover the port contracts.
 - **Traceability:** D39-L, D40-L, D52-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L (land-substrate finding + execution-ports refinement) / I49-L, I52-L; depends on `orchestrator-alpha-cutover`; `src/executor/TOPOLOGY.md`.
 
 ### executor-agent-runner

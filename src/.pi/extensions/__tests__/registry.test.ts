@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
-import type { GitWorktreePort } from '../../../executor/execution-ports.js';
+import type { GitWorktreePort, TestRunnerPort } from '../../../executor/execution-ports.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../agent-runtime/execute-agent-result/index.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../agent-runtime/execute-launch/index.js';
@@ -1090,14 +1090,13 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
-  it('registers execute_test_result as prewritten test result ingestion only', async () => {
+  it('registers execute_test_result as injected verify-subprocess ingestion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-test-result-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
-    const resultPath = join(runDir, 'agent-output', 'task-1', 'test-result.json');
-    await mkdir(dirname(resultPath), { recursive: true });
-    await writeFile(resultPath, JSON.stringify({ status: 'passed', target: 'tests/task-1.test.ts' }), 'utf8');
+    const worktreeDir = join(runDir, 'worktree');
+    await mkdir(runDir, { recursive: true });
     await writeFile(
       metadataPath,
       JSON.stringify({
@@ -1105,6 +1104,7 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: '42',
         planPath: '/tmp/plan.yaml',
         status: 'agent_result_ingested',
+        worktreeDir,
         reportsPath: reportPath,
         activeSliceId: 'task-1',
         activeEpicId: 'frontier-1',
@@ -1114,6 +1114,7 @@ describe('Brunch explicit Pi extension registry', () => {
     await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 29, nodes: [], edges: [] },
+      testRunner: createFakeTestRunnerPort(),
     });
 
     const testResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_TEST_RESULT_TOOL);
@@ -1122,7 +1123,12 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_test_result: test_result_ingested');
     expect(result.details).toMatchObject({
-      result: { status: 'test_result_ingested', runStatus: 'test_result_ingested', resultPath },
+      result: {
+        status: 'test_result_ingested',
+        runStatus: 'test_result_ingested',
+        verdict: 'passed',
+        worktreeDir,
+      },
       sideEffects: [
         { kind: 'append_file', path: reportPath },
         { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
@@ -1745,13 +1751,20 @@ interface TestGraphSlice {
 }
 
 async function collectProductTools(
-  options: { graph?: TestGraphSlice; gitWorktree?: GitWorktreePort } = {},
+  options: { graph?: TestGraphSlice; gitWorktree?: GitWorktreePort; testRunner?: TestRunnerPort } = {},
 ): Promise<RegisteredTestTool[]> {
   const registeredTools: RegisteredTestTool[] = [];
   await createBrunchPiExtensions(brunchChromeFixture, undefined, {
     coordinator: {} as never,
     graphMentionSource: { listMentionCandidates: () => [] },
-    ...(options.gitWorktree ? { executionPorts: { gitWorktree: options.gitWorktree } } : {}),
+    ...(options.gitWorktree || options.testRunner
+      ? {
+          executionPorts: {
+            ...(options.gitWorktree ? { gitWorktree: options.gitWorktree } : {}),
+            ...(options.testRunner ? { testRunner: options.testRunner } : {}),
+          },
+        }
+      : {}),
     ...(options.graph
       ? {
           graph: {
@@ -1797,6 +1810,14 @@ function createFakeGitWorktreePort(): GitWorktreePort {
         worktreeDir,
         sideEffects: [{ kind: 'git_worktree_add', path: worktreeDir, ref }],
       };
+    },
+  };
+}
+
+function createFakeTestRunnerPort(): TestRunnerPort {
+  return {
+    async run() {
+      return { status: 'completed', verdict: 'passed', exitCode: 0, target: 'npm run verify' };
     },
   };
 }

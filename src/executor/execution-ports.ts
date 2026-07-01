@@ -25,13 +25,32 @@ export interface GitWorktreePort {
 
 export interface AgentRunnerPort {}
 
-export interface TestRunnerPort {}
+export interface TestRunArgs {
+  readonly cwd: string;
+  readonly worktreeDir: string;
+}
+
+export type TestRunResult =
+  | {
+      readonly status: 'completed';
+      readonly verdict: 'passed' | 'failed';
+      readonly exitCode: number;
+      readonly target?: string;
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+    };
+
+export interface TestRunnerPort {
+  run(args: TestRunArgs): Promise<TestRunResult>;
+}
 
 export interface GitLandPort {}
 
 export interface ExecutionPorts {
   readonly gitWorktree: GitWorktreePort;
+  readonly testRunner: TestRunnerPort;
   readonly agentRunner?: AgentRunnerPort;
-  readonly testRunner?: TestRunnerPort;
   readonly gitLand?: GitLandPort;
 }

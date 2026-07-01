@@ -88,6 +88,7 @@ import {
   type PrepareNextTurnResult,
 } from '../session/prepare-next-turn.js';
 import { createGitWorktreePort } from './git-worktree-port.js';
+import { createTestRunnerPort } from './test-runner-port.js';
 
 export { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from '../.pi/extensions/commands/policy.js';
@@ -302,8 +303,8 @@ export function createBrunchPiExtensions(
     const graph = options.graph;
     const executionPorts: ExecutionPorts = {
       gitWorktree: options.executionPorts?.gitWorktree ?? createGitWorktreePort(),
+      testRunner: options.executionPorts?.testRunner ?? createTestRunnerPort(),
       ...(options.executionPorts?.agentRunner ? { agentRunner: options.executionPorts.agentRunner } : {}),
-      ...(options.executionPorts?.testRunner ? { testRunner: options.executionPorts.testRunner } : {}),
       ...(options.executionPorts?.gitLand ? { gitLand: options.executionPorts.gitLand } : {}),
     };
     const commandGapReads =
@@ -344,7 +345,7 @@ export function createBrunchPiExtensions(
       registerBrunchExecuteSliceComplete,
       registerBrunchExecuteSliceExecute,
       registerBrunchExecuteSliceStart,
-      registerBrunchExecuteTestResult,
+      (api) => registerBrunchExecuteTestResult(api, executionPorts.testRunner),
       (api) => registerBrunchExecuteWorktreeCreate(api, executionPorts.gitWorktree),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraftArtifact(api, graph)] : []),
