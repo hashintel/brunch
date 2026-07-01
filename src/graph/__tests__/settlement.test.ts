@@ -146,4 +146,77 @@ describe('graph item settlement (D99-L, I52-L)', () => {
     const everything = queryGraph(db, specId);
     expect(everything.nodes).toHaveLength(2);
   });
+
+  it('queryGraph settlement filter excludes an advisory edge even between two settled nodes', () => {
+    const seed = runCreateOnlyMutation(executor, {
+      specId,
+      nodes: [
+        { ref: 'g1', plane: 'intent', kind: 'goal', title: 'Settled goal' },
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Settled requirement' },
+      ],
+      edges: [],
+    });
+    if (seed.status !== 'success') throw new Error('unreachable');
+    const g1 = seed.createdNodes['g1']!.id;
+    const r1 = seed.createdNodes['r1']!.id;
+
+    runCreateOnlyMutation(executor, {
+      specId,
+      settlement: 'advisory',
+      nodes: [],
+      edges: [{ category: 'dependency', source: { existing: g1 }, target: { existing: r1 } }],
+    });
+
+    const settledOnly = queryGraph(db, specId, { settlement: ['settled'] });
+    expect(settledOnly.nodes).toHaveLength(2);
+    expect(settledOnly.edges).toHaveLength(0);
+
+    const everything = queryGraph(db, specId);
+    expect(everything.edges).toHaveLength(1);
+  });
+
+  it('patch_edge promotes an advisory edge to settled', () => {
+    const seed = runCreateOnlyMutation(executor, {
+      specId,
+      settlement: 'advisory',
+      nodes: [
+        { ref: 'g1', plane: 'intent', kind: 'goal', title: 'Goal' },
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Requirement' },
+      ],
+      edges: [{ category: 'dependency', source: 'g1', target: 'r1' }],
+    });
+    if (seed.status !== 'success') throw new Error('unreachable');
+    const edgeId = seed.createdEdges[0]!;
+
+    const result = executor.mutateGraph({
+      specId,
+      ops: [{ op: 'patch_edge', edge: { existing: edgeId }, patch: { settlement: 'settled' } }],
+    });
+
+    expect(result.status).toBe('success');
+    const row = db.select().from(edges).where(eq(edges.id, edgeId)).get();
+    expect(row!.settlement).toBe('settled');
+  });
+
+  it('rejects a patch_edge regression from settled back to advisory (I52-L)', () => {
+    const seed = runCreateOnlyMutation(executor, {
+      specId,
+      nodes: [
+        { ref: 'g1', plane: 'intent', kind: 'goal', title: 'Goal' },
+        { ref: 'r1', plane: 'intent', kind: 'requirement', title: 'Requirement' },
+      ],
+      edges: [{ category: 'dependency', source: 'g1', target: 'r1' }],
+    });
+    if (seed.status !== 'success') throw new Error('unreachable');
+    const edgeId = seed.createdEdges[0]!;
+
+    const result = executor.mutateGraph({
+      specId,
+      ops: [{ op: 'patch_edge', edge: { existing: edgeId }, patch: { settlement: 'advisory' } }],
+    });
+
+    expect(result.status).toBe('structural_illegal');
+    const row = db.select().from(edges).where(eq(edges.id, edgeId)).get();
+    expect(row!.settlement).toBe('settled');
+  });
 });

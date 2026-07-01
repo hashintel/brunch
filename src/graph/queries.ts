@@ -170,7 +170,10 @@ export function queryGraph(
   );
   const nodeRows = state.visibleNodeRows.filter((row) => matchingIds.has(row.id));
   const edgeRows = state.visibleEdgeRows.filter(
-    (edge) => matchingIds.has(edge.source_id) && matchingIds.has(edge.target_id),
+    (edge) =>
+      matchingIds.has(edge.source_id) &&
+      matchingIds.has(edge.target_id) &&
+      edgeMatchesSettlementFilter(edge, filter),
   );
 
   return withClock(db, specId, {
@@ -282,6 +285,11 @@ function nodeMatchesFilter(
   if (filter.hasEdge && !hasMatchingEdge(row.id, edges, filter.hasEdge)) return false;
   if (filter.lacksEdge && hasMatchingEdge(row.id, edges, filter.lacksEdge)) return false;
   return true;
+}
+
+function edgeMatchesSettlementFilter(edge: typeof schema.edges.$inferSelect, filter: GraphFilter): boolean {
+  if (!filter.settlement || filter.settlement.length === 0) return true;
+  return filter.settlement.includes(edge.settlement as NodeSettlement);
 }
 
 function hasMatchingEdge(

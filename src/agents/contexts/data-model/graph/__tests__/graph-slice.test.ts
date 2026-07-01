@@ -119,6 +119,19 @@ test('overview labels advisory nodes and leaves settled nodes unmarked (I52-L)',
   expect(rendered).toContain('Digest-sourced observation (advisory) |');
 });
 
+test('overview labels advisory edges in the relation column (I52-L)', () => {
+  const rendered = formatGraphOverview({
+    lsn: 1,
+    nodes: [
+      node({ id: 1, kind: 'goal', kindOrdinal: 1, title: 'Goal' }),
+      node({ id: 2, kind: 'requirement', kindOrdinal: 1, title: 'Requirement' }),
+    ],
+    edges: [edge({ id: 1, category: 'dependency', sourceId: 2, targetId: 1, settlement: 'advisory' })],
+  });
+
+  expect(rendered).toContain('required by (advisory)');
+});
+
 test('overview includes LSN on empty selected-spec graph', () => {
   expect(formatGraphOverview({ lsn: 3, nodes: [], edges: [] })).toBe(
     'Graph overview (LSN 3): empty (no nodes or edges).',
@@ -162,6 +175,7 @@ function edge(input: {
   readonly sourceId: number;
   readonly targetId: number;
   readonly stance?: GraphSlice['edges'][number]['stance'];
+  readonly settlement?: GraphSlice['edges'][number]['settlement'];
 }): GraphSlice['edges'][number] {
   return {
     specId: 1,
@@ -171,7 +185,7 @@ function edge(input: {
     targetId: input.targetId,
     ...(input.stance ? { stance: input.stance } : {}),
     basis: 'explicit',
-    settlement: 'settled',
+    settlement: input.settlement ?? 'settled',
     createdAtLsn: 1,
     updatedAtLsn: 1,
   };

@@ -155,18 +155,20 @@ function edgeRow(
   const target = nodesById.get(edge.targetId);
   const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
   const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
+  const relationSuffix = edge.settlement === 'advisory' ? ' (advisory)' : '';
 
   if (impact.downstreamEndpoint === 'none') {
     return {
       id: edge.id,
       upstream: sourceCode,
-      relation: edgeLabel({
-        category: edge.category,
-        anchorRole: 'source',
-        stance: edge.stance,
-        sourceKind: source?.kind,
-        targetKind: target?.kind,
-      }),
+      relation:
+        edgeLabel({
+          category: edge.category,
+          anchorRole: 'source',
+          stance: edge.stance,
+          sourceKind: source?.kind,
+          targetKind: target?.kind,
+        }) + relationSuffix,
       downstream: targetCode,
     };
   }
@@ -175,13 +177,14 @@ function edgeRow(
   return {
     id: edge.id,
     upstream: upstreamEndpoint === 'source' ? sourceCode : targetCode,
-    relation: edgeLabel({
-      category: edge.category,
-      anchorRole: upstreamEndpoint,
-      stance: edge.stance,
-      sourceKind: source?.kind,
-      targetKind: target?.kind,
-    }),
+    relation:
+      edgeLabel({
+        category: edge.category,
+        anchorRole: upstreamEndpoint,
+        stance: edge.stance,
+        sourceKind: source?.kind,
+        targetKind: target?.kind,
+      }) + relationSuffix,
     downstream: impact.downstreamEndpoint === 'source' ? sourceCode : targetCode,
   };
 }

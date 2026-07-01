@@ -193,7 +193,9 @@ export function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: No
   return diagnostics;
 }
 
-export function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
+type ExistingEdgeRow = typeof schema.edges.$inferSelect;
+
+export function validateEdgePatch(row: ExistingEdgeRow, patch: EdgePatch): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const patchRecord = patch as Record<string, unknown>;
   const patchFields = Object.keys(patchRecord);
@@ -216,10 +218,15 @@ export function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
     });
   }
 
-  // ceiling: no row-based monotonic transition check on edge settlement yet
-  // (unlike patch_node) — add one if an edge-settlement regression bug surfaces.
-  if (hasOwn(patchRecord, 'settlement') && !isNodeSettlement(patch.settlement as string)) {
-    diagnostics.push({ field: 'patch.settlement', message: 'settlement must be advisory or settled' });
+  if (hasOwn(patchRecord, 'settlement')) {
+    if (typeof patch.settlement !== 'string' || !isNodeSettlement(patch.settlement)) {
+      diagnostics.push({ field: 'patch.settlement', message: 'settlement must be advisory or settled' });
+    } else if (row.settlement === 'settled' && patch.settlement === 'advisory') {
+      diagnostics.push({
+        field: 'patch.settlement',
+        message: 'settlement cannot regress from settled to advisory (I52-L)',
+      });
+    }
   }
 
   return diagnostics;
