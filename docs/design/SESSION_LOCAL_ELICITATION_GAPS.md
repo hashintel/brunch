@@ -62,9 +62,9 @@ _rules:
   #          concurrent-subagent merge becomes real
 ```
 
-## Current topology
+## Former topology
 
-Everything currently wired into the elicitation-gap register and the readiness-band model. Grouped by layer; `!` marks weak-reasoning code that must not survive; `~` marks a shape that is fixed in place rather than deleted.
+Pre-frontier wiring into the elicitation-gap register and the readiness-band model. Grouped by layer; `!` marks weak-reasoning code that must not survive; `~` marks a shape that is fixed in place rather than deleted.
 
 ```graph
 # persistence / graph plane

@@ -78,7 +78,8 @@ are *not* in code. The thread's tables are proposals, not the baseline.
   is therefore new surface (see §6.4).
 - `framing_as` is **retired**, absorbed by `thesis`/`term`/`constraint`/`goal`.
 - Interrogatives never enter the graph; there is **no `question` kind**.
-  "Open questions" live in the separate `elicitation_gaps` table.
+  "Open questions" live in the session-local elicitation scratchpad, not in
+  persisted graph truth.
 - A durable `risk` / `unknown` node is **deferred but already named** in SPEC
   (Future Direction §Vocabulary evolution; Lexicon "Risk").
 

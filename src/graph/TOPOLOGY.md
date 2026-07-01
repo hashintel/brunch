@@ -178,7 +178,7 @@ graph/
     nodes.ts
       GraphNode and node taxonomy metadata
       NodeBasis / NodeSettlement as orthogonal required fields (D63-L, D99-L, I52-L)
-      derived readiness-band membership + latestExpectedBand(kind) scalar (D94-L, I50-L)
+      derived latestExpectedBand(kind) scalar (D94-L, I50-L)
       per-kind detail schema owner consumed by validation + mutation boundary schemas
     edges.ts
     reconciliation-need.ts

@@ -36,7 +36,7 @@ export function composeBackgroundSubagentPrompt(
     renderBackgroundRouterRules(),
   ]);
 
-  return { prompt };
+  return { prompt: `${prompt}\n` };
 }
 
 function renderBackgroundControl(definition: SubagentDefinition): string {
