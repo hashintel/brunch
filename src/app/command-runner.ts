@@ -16,6 +16,7 @@ export interface CommandRunnerOptions {
   readonly signal?: AbortSignal | undefined;
   readonly timeoutMs?: number | undefined;
   readonly maxOutputBytes?: number | undefined;
+  readonly stdin?: string | undefined;
 }
 
 export type CommandRunner = (
@@ -38,7 +39,7 @@ export async function runCommand(
     const child = spawn(command, [...args], {
       cwd: options.cwd,
       detached: process.platform !== 'win32',
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: [options.stdin === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     });
     let stdout = '';
     let stderr = '';
@@ -127,5 +128,6 @@ export async function runCommand(
     child.on('close', (code) => {
       finish({ exitCode: code ?? 1, stdout, stderr });
     });
+    if (options.stdin !== undefined) child.stdin?.end(options.stdin);
   });
 }

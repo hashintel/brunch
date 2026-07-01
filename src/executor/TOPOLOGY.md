@@ -15,6 +15,7 @@ executor/
 ├── plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
 ├── petri.ts              completed run -> minimal Petrinaut net.json
 ├── promotion.ts          petri-exported run -> run-local promotion (GitLandPort) + report
+├── host-promotion.ts     promoted run -> preflight/apply report (GitHostPromotionPort)
 ├── populate.ts           worktree -> plan-only worktree population
 ├── report.ts             source-copied run -> reports.jsonl initialization
 ├── run-complete.ts       completed slices -> run completion marker
@@ -26,7 +27,7 @@ executor/
 ├── source-policy.ts      plan-populated worktree -> source policy selection
 ├── test-result.ts        run worktree -> verify subprocess (TestRunnerPort) -> slice test report
 ├── worktree.ts           run metadata -> real git worktree (GitWorktreePort)
-├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner, git land)
+├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner, git land, host-promotion preflight)
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO
 ├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact
@@ -91,3 +92,5 @@ rules:
 `petri.ts` writes the first minimal Petrinaut artifact at `.brunch/cook/runs/<runId>/petrinaut/net.json` for a completed run and records `status:"petri_exported"`. Promotion refs and land branches remain deferred.
 
 `promotion.ts` is the first land/promotion boundary: for a `petri_exported` run with a worktree it invokes the injected `GitLandPort`, then writes `.brunch/cook/runs/<runId>/promotion/promotion.json` (runId, specId, petriPath, reportsPath, completedSliceIds, run-local commit SHA) and records `status:"promotion_prepared"`. `GitLandPort` failure or no changes leaves metadata unchanged. This is run-local only: host branch/ref promotion remains out of scope, and actual host land remains pending.
+
+`host-promotion.ts` is the host-promotion preflight/apply boundary. Preflight validates that `run.json.promotionCommitSha` agrees with `promotion/promotion.json` and delegates read-only promoted-commit diff inspection to `GitHostPromotionPort`, returning changed files and patch summary with `sideEffects: []`. Apply requires an accepted commit SHA, reruns preflight, and delegates bounded host worktree patch application to the same port; it reports `host_worktree_apply` and still does not commit, create refs, switch branches, or stage the host index.

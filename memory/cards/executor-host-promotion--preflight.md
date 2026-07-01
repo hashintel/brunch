@@ -44,6 +44,16 @@ future host-promotion Pi tool or core helper
 - Inner: focused Vitest tests for preflight success, stale metadata, and no host mutation.
 - Gate: `npm run verify`.
 
+## Promotion Checklist
+
+- [x] Does this change a requirement? It materializes FE-1118's inspection-only host-promotion boundary.
+- [x] Does this create, retire, or invalidate an assumption? It validates that a preflight-only slice can make host apply reviewable before mutation.
+- [x] Does this make or reverse a non-trivial design decision? It chooses read-only run-worktree diff inspection before explicit host apply.
+- [x] Does this establish a new seam-level invariant? Host-promotion preflight must not mutate host files, refs, or index state.
+- [x] Does it cross more than two major seams?
+- [ ] Is this the first touch in an unfamiliar seam from a fresh thread?
+- [ ] Can you not name the containing seam or current rationale from the live docs?
+
 ## Recommended Next Route
 
-Build it with `ln-build`.
+Scope the explicit host-apply slice with `ln-scope`.

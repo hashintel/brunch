@@ -22,12 +22,15 @@ Current runtime support modules:
   lifecycle forwarding, tool hardening, thinking preset, and optional concrete
   model override.
 - `git-worktree-port.ts`, `agent-runner-port.ts`, `test-runner-port.ts`,
-  `git-land-port.ts` —
+  `git-land-port.ts`, `git-host-promotion-port.ts` —
   app-layer execution-port implementations injected into executor Pi tools;
   executor core owns the port contracts and state transitions, while app owns
   concrete external capability implementations. `agent-runner-port.ts` bridges
   executor run metadata to the sealed subagent worker substrate and fails closed
-  when subagent deps or Pi model context are absent.
+  when subagent deps or Pi model context are absent. `git-host-promotion-port.ts`
+  performs promoted-commit diff inspection in the run worktree and accepted host
+  patch application via `git apply`; it must not create commits, refs, branch
+  switches, or staged index state.
 
 ## Does not own
 
