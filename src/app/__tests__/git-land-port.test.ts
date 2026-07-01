@@ -39,12 +39,30 @@ describe('createGitLandPort', () => {
     });
   });
 
-  it('reports no_changes with current HEAD without staging or committing when the worktree is clean', async () => {
+  it('reports no_changes without a recovery sha when clean HEAD is unrelated to promotion', async () => {
     const calls: string[] = [];
     const port = createGitLandPort({
       run: async (_command, args) => {
         calls.push(args.join(' '));
-        if (args[0] === 'rev-parse') return { exitCode: 0, stdout: 'abc123\n', stderr: '' };
+        if (args[0] === 'log') return { exitCode: 0, stdout: 'abc123\u0000some other commit\n', stderr: '' };
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    await expect(port.promote({ worktreeDir: '/repo/wt', message: 'promote' })).resolves.toEqual({
+      status: 'no_changes',
+      message: 'no worktree changes to promote',
+      sideEffects: [],
+    });
+    expect(calls).toEqual(['status --porcelain', 'log -1 --format=%H%x00%s']);
+  });
+
+  it('reports no_changes with a recovery sha when clean HEAD is the promotion commit', async () => {
+    const calls: string[] = [];
+    const port = createGitLandPort({
+      run: async (_command, args) => {
+        calls.push(args.join(' '));
+        if (args[0] === 'log') return { exitCode: 0, stdout: 'abc123\u0000promote\n', stderr: '' };
         return { exitCode: 0, stdout: '', stderr: '' };
       },
     });
@@ -55,7 +73,7 @@ describe('createGitLandPort', () => {
       commitSha: 'abc123',
       sideEffects: [],
     });
-    expect(calls).toEqual(['status --porcelain', 'rev-parse HEAD']);
+    expect(calls).toEqual(['status --porcelain', 'log -1 --format=%H%x00%s']);
   });
 
   it('reports git failures without claiming side effects', async () => {

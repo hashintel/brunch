@@ -8,12 +8,19 @@ export function createGitLandPort(options: { readonly run?: CommandRunner } = {}
       const status = await run('git', ['status', '--porcelain'], { cwd: args.worktreeDir });
       if (status.exitCode !== 0) return failed(status, `git status exited ${status.exitCode}`);
       if (status.stdout.trim().length === 0) {
-        const revParse = await run('git', ['rev-parse', 'HEAD'], { cwd: args.worktreeDir });
-        if (revParse.exitCode !== 0) return failed(revParse, `git rev-parse exited ${revParse.exitCode}`);
+        const head = await run('git', ['log', '-1', '--format=%H%x00%s'], { cwd: args.worktreeDir });
+        if (head.exitCode !== 0) return failed(head, `git log exited ${head.exitCode}`);
+        const [commitSha, subject] = head.stdout.trimEnd().split('\0');
+        if (commitSha && subject === args.message)
+          return {
+            status: 'no_changes',
+            message: 'no worktree changes to promote',
+            commitSha,
+            sideEffects: [],
+          };
         return {
           status: 'no_changes',
           message: 'no worktree changes to promote',
-          commitSha: revParse.stdout.trim(),
           sideEffects: [],
         };
       }
