@@ -14,7 +14,7 @@ describe('CardComponent', () => {
 
     expect(card.render(20)).toEqual([
       '[accent]╭─[/accent] *Alpha* [accent]────────╮[/accent]',
-      '[accent]│ [/accent]Plain body      [accent] │[/accent]',
+      '[accent]│[/accent] Plain body       [accent]│[/accent]',
       '[accent]╰──────────────────╯[/accent]',
     ]);
   });

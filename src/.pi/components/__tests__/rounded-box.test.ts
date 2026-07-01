@@ -105,6 +105,6 @@ describe('projectRoundedBox', () => {
     const color = (text: string) => `<${text}>`;
     const result = projectRoundedBox(['body'], { thumbRows: new Set([0]) }, 8, color);
 
-    expect(result).toEqual(['<╭><─><─><─><─><─><─><╮>', '<│> body <▐>', '<╰><─><─><─><─><─><─><╯>']);
+    expect(result).toEqual(['<╭──────╮>', '<│> body <▐>', '<╰──────╯>']);
   });
 });

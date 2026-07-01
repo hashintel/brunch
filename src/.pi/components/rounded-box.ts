@@ -58,7 +58,7 @@ function borderLine(
   width: number,
   borderColor: (text: string) => string,
 ): string {
-  if (!label) return colorBorderText(`${leftCorner}${'─'.repeat(width - 2)}${rightCorner}`, borderColor);
+  if (!label) return borderColor(`${leftCorner}${'─'.repeat(width - 2)}${rightCorner}`);
 
   const suffix = ` ${label} `;
   const dashCount = Math.max(0, width - 2 - 1 - visibleWidth(suffix));

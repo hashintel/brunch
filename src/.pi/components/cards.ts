@@ -9,7 +9,9 @@
 
 import type { Theme, ThemeColor } from '@earendil-works/pi-coding-agent';
 import { getMarkdownTheme } from '@earendil-works/pi-coding-agent';
-import { type Component, Markdown, visibleWidth, truncateToWidth } from '@earendil-works/pi-tui';
+import { type Component, Markdown, visibleWidth } from '@earendil-works/pi-tui';
+
+import { projectRoundedBox } from './rounded-box.js';
 
 /**
  * Lay components out side-by-side and fall back to vertical stacking once the
@@ -89,28 +91,13 @@ export class CardComponent implements Component {
     // 4 = "│ " (2) + " │" (2). Markdown fills the inner column.
     const innerWidth = Math.max(10, width - 4);
     const bodyLines = new Markdown(this.body, 0, 0, getMarkdownTheme()).render(innerWidth);
-
     const c = (s: string) => this.theme.fg(this.accent, s);
-    const titleText = ` ${this.theme.bold(this.title)} `;
-    const titleVis = visibleWidth(titleText);
-
-    // Top: ╭─ Title ──...──╮
-    const topFiller = Math.max(0, width - 2 - 1 - titleVis); // border corners (2) + opening dash (1)
-    const top = c('╭─') + titleText + c('─'.repeat(topFiller) + '╮');
-
-    // Bottom: ╰────────────╯
-    const bottom = c('╰' + '─'.repeat(Math.max(0, width - 2)) + '╯');
-
-    // Body: │ <line padded to innerWidth> │
-    const sided = bodyLines.map((line) => {
-      const vis = visibleWidth(line);
-      const padding = vis < innerWidth ? ' '.repeat(innerWidth - vis) : '';
-      // If a markdown line exceeds innerWidth, truncate to avoid wrapping.
-      const safeLine = vis > innerWidth ? truncateToWidth(line, innerWidth) : line + padding;
-      return c('│ ') + safeLine + c(' │');
-    });
-
-    return [top, ...sided, bottom];
+    return projectRoundedBox(
+      bodyLines,
+      { topLabel: this.theme.bold(this.title), labelAlign: 'left' },
+      width,
+      c,
+    );
   }
 }
 
