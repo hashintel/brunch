@@ -1,7 +1,10 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import type { RoleNamedEdgeDraftOf } from '../../graph/command-executor/role-named-edge-draft.js';
+import {
+  zReviewSetDetailsPayload,
+  type ReviewSetDetailsPayload,
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
@@ -669,23 +672,6 @@ type SessionProjectionParamsParseResult =
     }
   | { ok: false };
 
-type ReviewSetDetailsPlane = 'intent' | 'oracle' | 'design' | 'plan';
-
-type ReviewSetDetailsEndpointRef = { readonly draft_id: string } | { readonly existing_code: string };
-type ReviewSetDetailsEdgeDraft = RoleNamedEdgeDraftOf<ReviewSetDetailsEndpointRef>;
-
-interface ReviewSetDetailsPayload {
-  readonly nodes: readonly {
-    readonly draft_id: string;
-    readonly plane: ReviewSetDetailsPlane;
-    readonly kind: string;
-    readonly title: string;
-    readonly body?: string | undefined;
-    readonly detail?: unknown;
-  }[];
-  readonly edges: readonly ReviewSetDetailsEdgeDraft[];
-}
-
 function reviewResultForAcceptedResponse(options: {
   readonly pending: PendingStructuredExchange;
   readonly acceptedAnswer: Record<string, unknown>;
@@ -720,6 +706,17 @@ function reviewResultForAcceptedResponse(options: {
     };
   }
 
+  const parsedReviewSet = zReviewSetDetailsPayload.safeParse(options.pending.reviewSet);
+  if (!parsedReviewSet.success) {
+    return {
+      status: 'structural_illegal',
+      diagnostics: parsedReviewSet.error.issues.map((issue) => ({
+        field: issue.path.length > 0 ? issue.path.join('.') : 'reviewSet',
+        message: issue.message,
+      })),
+    };
+  }
+
   const accepted = options.commandExecutor.acceptReviewSet({
     specId: options.specId,
     proposalEntryId: options.proposalEntryId,
@@ -727,7 +724,7 @@ function reviewResultForAcceptedResponse(options: {
       exchangeId: options.pending.exchangeId,
       heading: options.pending.prompt,
       body: options.pending.details,
-      reviewSet: options.pending.reviewSet as unknown as ReviewSetDetailsPayload,
+      reviewSet: parsedReviewSet.data,
     }),
   });
   if (accepted.status === 'structural_illegal') {
@@ -773,6 +770,12 @@ function reviewSetProposalPayloadFromDetails(input: {
     edgeDrafts: input.reviewSet.edges.map(reviewSetEdgeDraftFromDetails),
   };
 }
+
+type ReviewSetDetailsEdgeDraft = ReviewSetDetailsPayload['edges'][number];
+type ReviewSetDetailsEndpointRef = Extract<
+  ReviewSetDetailsEdgeDraft,
+  { category: 'dependency' }
+>['dependency'];
 
 function endpointRefFromDetails(value: ReviewSetDetailsEndpointRef) {
   if ('draft_id' in value) return { draftId: value.draft_id };

@@ -136,7 +136,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - Unjustified `projections/exchanges/*` and `agents/contexts/exchanges/*` symmetry survivors are inlined or deleted; retained modules name a real multi-consumer or model-facing-text ownership reason.
   - `src/projections/TOPOLOGY.md` and the touched exchange topology homes agree on the final kept-vs-deleted inventory.
   - Tests cover the affordance-level shapes that previously generated review findings, not just the deepest schema rejection points.
-- **Traceability:** I23-L, I51-L, D27-L, D37-L, D38-L, D65-L, D66-L, D84-L, D86-L, D96-L, D100-L; `docs/design/STRUCTURED_EXCHANGE_COLLAPSE.md`, `src/projections/TOPOLOGY.md`, `src/agents/contexts/exchanges/TOPOLOGY.md`.
+- **Traceability:** I23-L, I51-L, I53-L, D27-L, D37-L, D38-L, D65-L, D66-L, D84-L, D86-L, D96-L, D100-L; `docs/design/STRUCTURED_EXCHANGE_COLLAPSE.md`, `src/projections/TOPOLOGY.md`, `src/agents/contexts/exchanges/TOPOLOGY.md`.
 
 ### elicitation-gap-guidance
 

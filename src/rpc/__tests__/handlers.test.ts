@@ -1347,6 +1347,63 @@ describe('JSON-RPC handlers', () => {
     await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('request_review');
   });
 
+  it('rejects a review approval whose persisted review set is not a valid ReviewSetDetailsPayload', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-review-malformed-'));
+    const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinatorInstance.createSetupSession({
+      specTitle: 'Malformed review set spec',
+    });
+    workspace.session.manager.appendCustomMessageEntry(
+      'brunch.elicitation_prompt',
+      'Approve reviewed graph facts',
+      true,
+      {
+        exchangeId: 'malformed-review-set',
+        lens: 'intent',
+        mode: 'review',
+        prompt: 'Approve reviewed graph facts',
+        options: [],
+        note: { allowed: true },
+        reviewSet: {
+          nodes: [
+            {
+              draft_id: 'requirement-draft',
+              plane: 'intent',
+              kind: 'requirement',
+              title: 'Reviewed requirement',
+            },
+          ],
+          edges: [{ category: 'dependency', dependency: {}, dependent: {} }],
+        },
+      },
+    );
+    flushSessionManagerToFile(workspace.session.manager);
+    const handlers = createRpcHandlers({ coordinator: coordinatorInstance, cwd });
+
+    const response = await handlers.handle({
+      jsonrpc: '2.0',
+      id: 278,
+      method: 'session.submitExchangeResponse',
+      params: {
+        exchangeId: 'malformed-review-set',
+        answer: { review: { decision: 'approve' } },
+      },
+    });
+
+    expect(response).toMatchObject({
+      jsonrpc: '2.0',
+      id: 278,
+      result: {
+        status: 'accepted',
+        exchangeId: 'malformed-review-set',
+        review: {
+          status: 'structural_illegal',
+          diagnostics: expect.arrayContaining([expect.objectContaining({ field: expect.any(String) })]),
+        },
+      },
+    });
+  });
+
   it('accepts labeled text answers without submit-time capture or graph invalidations', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-rpc-response-capture-'));
     const coordinatorInstance = createWorkspaceSessionCoordinator({ cwd });
