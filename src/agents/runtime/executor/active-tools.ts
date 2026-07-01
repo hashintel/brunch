@@ -12,8 +12,8 @@ export const EXECUTOR_ALLOWED_TOOL_NAMES = [
   'read_session_context',
   'read_graph',
   'orchestrator_stub',
-  // Execute-mode orchestration footholds (FE-1089). Registered-but-inactive
-  // unless the executor admits them; side-effect-bounded per I52-L.
+  // Execute-mode orchestration tools (FE-1089..FE-1118). Registered tools are
+  // inactive unless admitted here; side-effect-bounded per I56-L.
   'execute_status',
   'execute_snapshot',
   'execute_plan_check',
