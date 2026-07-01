@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
+import {
+  createFakeGitWorktreePort,
+  createFakeTestRunnerPort,
+} from '../../../executor/__tests__/fake-ports.js';
 import type { GitWorktreePort, TestRunnerPort } from '../../../executor/execution-ports.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../agent-runtime/execute-agent-result/index.js';
@@ -1799,27 +1803,6 @@ async function collectProductTools(
     setActiveTools() {},
   } as never);
   return registeredTools;
-}
-
-function createFakeGitWorktreePort(): GitWorktreePort {
-  return {
-    async create({ worktreeDir, ref }) {
-      await mkdir(worktreeDir, { recursive: true });
-      return {
-        status: 'created',
-        worktreeDir,
-        sideEffects: [{ kind: 'git_worktree_add', path: worktreeDir, ref }],
-      };
-    },
-  };
-}
-
-function createFakeTestRunnerPort(): TestRunnerPort {
-  return {
-    async run() {
-      return { status: 'completed', verdict: 'passed', exitCode: 0, target: 'npm run verify' };
-    },
-  };
 }
 
 function recordingApiWithEvents(events: Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>) {
