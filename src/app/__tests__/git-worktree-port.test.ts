@@ -48,4 +48,17 @@ describe('createGitWorktreePort', () => {
       sideEffects: [],
     });
   });
+
+  it('surfaces the spawn-error message when git cannot be launched', async () => {
+    const port = createGitWorktreePort({
+      run: async () => ({ exitCode: 1, stdout: '', stderr: '', spawnError: 'spawn git ENOENT' }),
+    });
+
+    await expect(port.create({ cwd: '/repo', worktreeDir: '/repo/wt', ref: 'HEAD' })).resolves.toEqual({
+      status: 'failed',
+      worktreeDir: '/repo/wt',
+      message: 'spawn git ENOENT',
+      sideEffects: [],
+    });
+  });
 });

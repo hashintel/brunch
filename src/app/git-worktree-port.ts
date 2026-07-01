@@ -1,22 +1,5 @@
-import { spawn } from 'node:child_process';
-
 import type { GitWorktreePort } from '../executor/execution-ports.js';
-
-interface CommandResult {
-  readonly exitCode: number;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
-interface CommandRunnerOptions {
-  readonly cwd: string;
-}
-
-type CommandRunner = (
-  command: string,
-  args: readonly string[],
-  options: CommandRunnerOptions,
-) => Promise<CommandResult>;
+import { runCommand, type CommandRunner } from './command-runner.js';
 
 export function createGitWorktreePort(options: { readonly run?: CommandRunner } = {}): GitWorktreePort {
   const run = options.run ?? runCommand;
@@ -30,7 +13,10 @@ export function createGitWorktreePort(options: { readonly run?: CommandRunner } 
           status: 'failed',
           worktreeDir: args.worktreeDir,
           message:
-            result.stderr.trim() || result.stdout.trim() || `git worktree add exited ${result.exitCode}`,
+            result.stderr.trim() ||
+            result.stdout.trim() ||
+            result.spawnError ||
+            `git worktree add exited ${result.exitCode}`,
           sideEffects: [],
         };
       }
@@ -42,28 +28,4 @@ export function createGitWorktreePort(options: { readonly run?: CommandRunner } 
       };
     },
   };
-}
-
-async function runCommand(
-  command: string,
-  args: readonly string[],
-  options: CommandRunnerOptions,
-): Promise<CommandResult> {
-  return await new Promise((resolve) => {
-    const child = spawn(command, [...args], { cwd: options.cwd, stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8');
-    });
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8');
-    });
-    child.on('error', (error) => {
-      resolve({ exitCode: 1, stdout, stderr: error.message });
-    });
-    child.on('close', (code) => {
-      resolve({ exitCode: code ?? 1, stdout, stderr });
-    });
-  });
 }

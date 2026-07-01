@@ -74,7 +74,7 @@ export async function ingestTestResult(args: {
   }
 
   const worktreeDir = metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
-  const runResult = await args.testRunner.run({ cwd: args.cwd, worktreeDir });
+  const runResult = await args.testRunner.run({ worktreeDir });
   if (runResult.status === 'failed') {
     return {
       status: 'test_run_failed',

@@ -4,10 +4,10 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import type { GitWorktreePort } from '../execution-ports.js';
 import { planFilePath } from '../plan-file.js';
 import { runDirPath, runMetadataPath, createRun } from '../run.js';
 import { worktreeDirPath, createWorktree } from '../worktree.js';
+import { createFakeGitWorktreePort } from './fake-ports.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -19,16 +19,6 @@ async function pathExists(path: string): Promise<boolean> {
 }
 
 describe('createWorktree', () => {
-  function createFakeGitWorktreePort(
-    create: GitWorktreePort['create'] = async ({ worktreeDir, ref }) => ({
-      status: 'created',
-      worktreeDir,
-      sideEffects: [{ kind: 'git_worktree_add', path: worktreeDir, ref }],
-    }),
-  ): GitWorktreePort {
-    return { create };
-  }
-
   it('does not create a worktree when run metadata is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-missing-'));
     const result = await createWorktree({

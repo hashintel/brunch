@@ -12,7 +12,7 @@ describe('createTestRunnerPort', () => {
       },
     });
 
-    const result = await port.run({ cwd: '/repo', worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree' });
+    const result = await port.run({ worktreeDir: '/repo/.brunch/cook/runs/run-1/worktree' });
 
     expect(calls).toEqual([
       { command: 'npm', args: ['run', 'verify'], cwd: '/repo/.brunch/cook/runs/run-1/worktree' },
@@ -30,7 +30,7 @@ describe('createTestRunnerPort', () => {
       run: async () => ({ exitCode: 1, stdout: '', stderr: '2 tests failed' }),
     });
 
-    await expect(port.run({ cwd: '/repo', worktreeDir: '/repo/wt' })).resolves.toEqual({
+    await expect(port.run({ worktreeDir: '/repo/wt' })).resolves.toEqual({
       status: 'completed',
       verdict: 'failed',
       exitCode: 1,
@@ -43,7 +43,7 @@ describe('createTestRunnerPort', () => {
       run: async () => ({ exitCode: 1, stdout: '', stderr: '', spawnError: 'spawn npm ENOENT' }),
     });
 
-    await expect(port.run({ cwd: '/repo', worktreeDir: '/repo/wt' })).resolves.toEqual({
+    await expect(port.run({ worktreeDir: '/repo/wt' })).resolves.toEqual({
       status: 'failed',
       message: 'spawn npm ENOENT',
     });
@@ -60,7 +60,7 @@ describe('createTestRunnerPort', () => {
       },
     });
 
-    const result = await port.run({ cwd: '/repo', worktreeDir: '/repo/wt' });
+    const result = await port.run({ worktreeDir: '/repo/wt' });
 
     expect(calls).toEqual([{ command: 'pnpm', args: ['test'] }]);
     expect(result).toMatchObject({ status: 'completed', verdict: 'passed', target: 'pnpm test' });
