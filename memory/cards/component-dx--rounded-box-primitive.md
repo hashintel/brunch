@@ -1,7 +1,7 @@
 # Rounded-box primitive extraction
 
 Frontier: component-dx | n/a
-Status:   active
+Status:   superseded
 Mode:     slices
 Created:  2026-07-01
 
@@ -320,10 +320,22 @@ src/.pi/components/__tests__/
 
 ## Slice 4 — migrate `cards.ts`
 
+Status: stale — stop/rescope (2026-07-01)
+
 ### Objective
 
 `CardComponent`'s hand-rolled top/bottom border and `│ │` wrapping delegate to `projectRoundedBox`
 (`topLabel` = the card title, no `bottomLabel`); rendered output is byte-identical to before.
+
+### Stop finding
+
+The baseline `cards.test.ts` added for this slice proved the migration premise stale before any
+`cards.ts` refactor. `CardComponent`'s current top border left-places the bold title after the opening
+rule and colors border runs plus adjacent padding spaces as grouped chunks. The settled
+`projectRoundedBox` contract right-aligns labels and colors border glyphs individually. A byte-identical
+CardComponent migration would therefore require widening `projectRoundedBox` for legacy card title
+placement/color grouping, or accepting visual byte drift. Per user choice, this scope stops here for
+rescoping instead of widening the primitive inside this sequence.
 
 **Scoping finding, named explicitly:** unlike slices 2 and 3, `CardComponent` has **no existing test at
 all** today (confirmed: no `cards.test.ts`, and its only consumer, `alternatives.ts`, also has no
