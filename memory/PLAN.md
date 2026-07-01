@@ -17,7 +17,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Live arc.** The remaining active initiative is the **elicitor-capability-spine** arc (`capture` / `generate` done, `project` next). Closed arc detail no longer lives in the rolling plan.
 
-**Execute / orchestration cutover.** The `orchestrator-cutover` arc re-grows the old cook orchestrator on the alpha branch using native Pi executor tools and a durable `ExecutionSpecSnapshot` projection seam, rather than harmonizing `main` and `next` schemas or reviving the old execute/orchestrator foreground split. FE-1089 (`orchestrator-alpha-cutover`) landed the descriptive `fs`-only foothold scaffold and is done; real execution + land continue in the stacked `cook-sandbox` → `cook-agent-runner` → `cook-land` frontiers behind an injected capability-port seam.
+**Execute / orchestration cutover.** The `orchestrator-cutover` arc re-grows the old cook orchestrator on the alpha branch using native Pi executor tools and a durable `ExecutionSpecSnapshot` projection seam, rather than harmonizing `main` and `next` schemas or reviving the old execute/orchestrator foreground split. FE-1089 (`orchestrator-alpha-cutover`) landed the descriptive `fs`-only foothold scaffold and is done; real execution + land continue in the stacked `executor-sandbox` → `executor-agent-runner` → `executor-land` frontiers behind an injected capability-port seam.
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -48,9 +48,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Goal:** re-grow the old `main` cook orchestrator natively on alpha's CODE/executor substrate (D99-L), layer by layer: projection seam → descriptive lifecycle shape → real runnable sandbox → real change-producing agent → real promotion/land. Split by capability layer + risk + reversibility so each layer is independently reviewable and the hard-to-reverse git seam lands last.
 - **Members:**
   - `orchestrator-alpha-cutover` (FE-1089) ✓ done — `ExecutionSpecSnapshot` projection seam + the descriptive `fs`-only cook lifecycle scaffold (`execute_plan_file` → … → `execute_promotion_prepare`). Proved the lifecycle shape + thin-adapter/one-side-effect-per-tool pattern with zero real execution.
-  - `cook-sandbox` → next — `GitWorktreePort` + `TestRunnerPort`: a run becomes a real, runnable, verifiable git workspace (no LLM, subprocess only).
-  - `cook-agent-runner` → after sandbox — `AgentRunnerPort` reusing the D90-L–D93-L sealed subagent substrate: a run actually produces real changes via a code-owned write-capable CODE worker.
-  - `cook-land` → last — `GitLandPort`: a run's real changes get promoted (run-local land first, host land later); the only externally-visible, hard-to-reverse seam.
+  - `executor-sandbox` → next — `GitWorktreePort` + `TestRunnerPort`: a run becomes a real, runnable, verifiable git workspace (no LLM, subprocess only).
+  - `executor-agent-runner` → after sandbox — `AgentRunnerPort` reusing the D90-L–D93-L sealed subagent substrate: a run actually produces real changes via a code-owned write-capable CODE worker.
+  - `executor-land` → last — `GitLandPort`: a run's real changes get promoted (run-local land first, host land later); the only externally-visible, hard-to-reverse seam.
 - **Done-definition:** a selected-spec cook run can be planned, executed against a real git worktree by a real CODE worker that produces real diffs, verified by real tests, and landed — each layer behind the established injected-capability-port seam (SPEC D99-L cook-execution-ports refinement), no faked side effects, topology immutable in execution, and `execute_status` `pendingTools` empty. Open follow-ups (adaptive replan, real Petri-net execution) ride their own horizon items, not arc blockers.
 - **Anchors:** D39-L, D40-L, D52-L, D90-L–D93-L, D98-L, D99-L (incl. land-substrate finding + cook-execution-ports refinement) / I49-L, I52-L.
 
@@ -58,7 +58,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `cook-sandbox` (`orchestrator-cutover` arc) — **next up; design chosen, ready to scope.** First real-execution frontier: replace the `fs`-only simulation with a real runnable sandbox via two injected capability ports — `GitWorktreePort` (real `git worktree add`, replacing `worktree.ts`'s `mkdir`) and `TestRunnerPort` (real verify subprocess). No LLM, subprocess only, low blast radius. Stacks on the FE-1089 branch. First slice: the git-worktree port. See `cook-sandbox` frontier definition for the chosen ports seam (SPEC D99-L cook-execution-ports refinement).
+- `executor-sandbox` (`orchestrator-cutover` arc) — **next up; design chosen, ready to scope.** First real-execution frontier: replace the `fs`-only simulation with a real runnable sandbox via two injected capability ports — `GitWorktreePort` (real `git worktree add`, replacing `worktree.ts`'s `mkdir`) and `TestRunnerPort` (real verify subprocess). No LLM, subprocess only, low blast radius. Stacks on the FE-1089 branch. First slice: the git-worktree port. See `executor-sandbox` frontier definition for the chosen ports seam (SPEC D99-L cook-execution-ports refinement).
 - `elicitor-project` (FE-1085) — **design-gated proving frontier.** Cross-plane derivation (requirements -> design, design -> oracles) remains undesigned under A33-L; run `ln-design` before scope/build.
 - `exchange-symmetry-audit` — **earned cleanup.** Delete-oriented audit of the exchange projection/renderer split; not a capability blocker.
 - `structured-exchange-affordance` — **earned hardening.** Collapse recurring discriminant-companion and nested-payload affordance failures into clearer schema/tool contracts.
@@ -66,7 +66,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Recently Completed
 
-- 2026-06-30 `orchestrator-alpha-cutover` (FE-1089) — **descriptive cutover scaffold done** (arc member of `orchestrator-cutover`). Landed the `ExecutionSpecSnapshot` projection seam plus the full `fs`-only cook lifecycle simulation through `execute_promotion_prepare`, establishing the thin-Pi-adapter / one-explicit-side-effect-per-tool pattern with zero real execution. Scoping real land surfaced the D99-L land-substrate finding (copied-dir worktree, prewritten-ingested results, no git in core), so real execution + land were reordered into the `cook-sandbox` → `cook-agent-runner` → `cook-land` frontiers.
+- 2026-06-30 `orchestrator-alpha-cutover` (FE-1089) — **descriptive cutover scaffold done** (arc member of `orchestrator-cutover`). Landed the `ExecutionSpecSnapshot` projection seam plus the full `fs`-only cook lifecycle simulation through `execute_promotion_prepare`, establishing the thin-Pi-adapter / one-explicit-side-effect-per-tool pattern with zero real execution. Scoping real land surfaced the D99-L land-substrate finding (copied-dir worktree, prewritten-ingested results, no git in core), so real execution + land were reordered into the `executor-sandbox` → `executor-agent-runner` → `executor-land` frontiers.
 - 2026-06-29 `spec-structural-relief` — SPEC slimmed from long-form register to compact live index; pre-slim snapshot archived in `docs/archive/SPEC_HISTORY.md`.
 - 2026-06-26 `renderer-golden-coverage` (FE-1091) — context pipeline done; prompt/subagent topology flattened and locked.
 - 2026-06-26 `data-model-legibility` (FE-1090) — reference substrate complete; generated ontology tables and authored graph heuristics have canonical homes.
@@ -74,8 +74,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-- `cook-agent-runner` (`orchestrator-cutover` arc) — **after `cook-sandbox`.** Inject the `AgentRunnerPort` so a run actually produces real changes via a code-owned write-capable CODE worker reusing the D90-L–D93-L sealed subagent substrate, replacing the prewritten-ingest tools (`execute_agent_result`, `execute_test_result`) with a real runner. Stacks on `cook-sandbox`.
-- `cook-land` (`orchestrator-cutover` arc) — **last; the only hard-to-reverse seam.** Inject the `GitLandPort` so a run's real diffs get promoted (run-local land first, host land later), consuming the Petri + promotion artifacts rather than re-deriving run state. Drops `land` from `execute_status` `pendingTools`. Stacks on `cook-agent-runner`.
+- `executor-agent-runner` (`orchestrator-cutover` arc) — **after `executor-sandbox`.** Inject the `AgentRunnerPort` so a run actually produces real changes via a code-owned write-capable CODE worker reusing the D90-L–D93-L sealed subagent substrate, replacing the prewritten-ingest tools (`execute_agent_result`, `execute_test_result`) with a real runner. Stacks on `executor-sandbox`.
+- `executor-land` (`orchestrator-cutover` arc) — **last; the only hard-to-reverse seam.** Inject the `GitLandPort` so a run's real diffs get promoted (run-local land first, host land later), consuming the Petri + promotion artifacts rather than re-deriving run state. Drops `land` from `execute_status` `pendingTools`. Stacks on `executor-agent-runner`.
 
 ### Parallel / Low-Conflict
 
@@ -105,7 +105,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Kind:** structural / execute-mode orchestration cutover
 - **Status:** done (descriptive scaffold); arc member of `orchestrator-cutover`. Branch still needs Linear→Done + PR tie-off.
 - **Certainty:** proven for the descriptive layer.
-- **Current execution pointer:** none on this frontier; the descriptive `fs`-only foothold chain is complete through promotion-prepare (cook-plan compatibility hardening → plan-file → launch readiness → run/worktree/populate → source policy/copy → report → slice start/execute/agent-result/test-result/complete → run-complete → Petri export → promotion-prepare). Real execution + land moved off this frontier into the `cook-sandbox` → `cook-agent-runner` → `cook-land` arc frontiers after scoping "actual land" surfaced the D99-L land-substrate finding. Preserve the no-land boundary (no host git branch/ref/worktree mutation, no faked side effects against copied source) until those real-execution frontiers land it.
+- **Current execution pointer:** none on this frontier; the descriptive `fs`-only foothold chain is complete through promotion-prepare (cook-plan compatibility hardening → plan-file → launch readiness → run/worktree/populate → source policy/copy → report → slice start/execute/agent-result/test-result/complete → run-complete → Petri export → promotion-prepare). Real execution + land moved off this frontier into the `executor-sandbox` → `executor-agent-runner` → `executor-land` arc frontiers after scoping "actual land" surfaced the D99-L land-substrate finding. Preserve the no-land boundary (no host git branch/ref/worktree mutation, no faked side effects against copied source) until those real-execution frontiers land it.
 - **Objective:** Cut the old `main` cook orchestrator off the divergent stable branch and re-grow it natively on alpha's CODE/executor substrate. The near-term bridge is `ExecutionSpecSnapshot v1` plus side-effect-free executor tools; data-model harmonization and adaptive replan are deferred.
 - **Acceptance:**
   - ✓ CODE/executor prompt resources can scope and build from a plan hypothesis without granting raw write/shell authority.
@@ -136,8 +136,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - ✓ `execute_petri_export` writes the minimal Petrinaut `net.json` artifact for a completed run; it does not promote or land.
   - ✓ `execute_promotion_prepare` writes a descriptive `promotion/promotion.json` report for a Petri-exported run and records `status:"promotion_prepared"`; it creates no git branch, promotion ref, or worktree mutation, and does not land.
   - ✓ Descriptive cutover scaffold complete: the `fs`-only foothold chain truthfully simulates the cook lifecycle without any git/topology mutation or faked execution.
-  - Blocked → moved out of frontier: actual host land is blocked on real agent/test execution + a real git worktree (no truthful source otherwise); reordered into the `cook-sandbox` → `cook-agent-runner` → `cook-land` arc frontiers. Do not fake a host git mutation against copied source under I52-L.
-  - Later: real cook execution, real worktrees, host promotion/land, and adaptive replan arrive under the `cook-sandbox` → `cook-agent-runner` → `cook-land` frontiers behind the D99-L cook-execution-ports seam; interpretive execution may reinterpret task briefs but may not mutate plan/net topology.
+  - Blocked → moved out of frontier: actual host land is blocked on real agent/test execution + a real git worktree (no truthful source otherwise); reordered into the `executor-sandbox` → `executor-agent-runner` → `executor-land` arc frontiers. Do not fake a host git mutation against copied source under I52-L.
+  - Later: real cook execution, real worktrees, host promotion/land, and adaptive replan arrive under the `executor-sandbox` → `executor-agent-runner` → `executor-land` frontiers behind the D99-L cook-execution-ports seam; interpretive execution may reinterpret task briefs but may not mutate plan/net topology.
 - **Traceability:** R26; D39-L, D40-L, D58-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L; `src/executor/TOPOLOGY.md`, `src/.pi/extensions/README.md`.
 
 ### orchestrator-tool-port
@@ -152,9 +152,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Acceptance:** See `orchestrator-alpha-cutover`.
 - **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L.
 
-### cook-sandbox
+### executor-sandbox
 
-- **Name:** Real cook sandbox — git worktree + test runner ports
+- **Name:** Real executor sandbox — git worktree + test runner ports
 - **Linear:** tbd (new FE issue when started, per AGENTS.md frontier workflow)
 - **Branch:** tbd (new Graphite branch stacked on `ka/fe-1089-orchestrator-alpha-cutover`)
 - **Kind:** structural / execute-mode runner substrate (`orchestrator-cutover` arc)
@@ -170,27 +170,27 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - App-layer implementations under `src/app/cook-*.ts`; adapters inject the bag; focused tests cover the port contracts.
 - **Traceability:** D39-L, D40-L, D52-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L (land-substrate finding + cook-execution-ports refinement) / I49-L, I52-L; depends on `orchestrator-alpha-cutover`; `src/executor/TOPOLOGY.md`.
 
-### cook-agent-runner
+### executor-agent-runner
 
 - **Name:** Real cook agent runner — change-producing CODE worker port
 - **Linear:** tbd (new FE issue when started)
-- **Branch:** tbd (stacked on `cook-sandbox`)
+- **Branch:** tbd (stacked on `executor-sandbox`)
 - **Kind:** structural / execute-mode runner substrate (`orchestrator-cutover` arc)
-- **Status:** after `cook-sandbox`.
+- **Status:** after `executor-sandbox`.
 - **Certainty:** proving.
 - **Why now / unlocks:** with a real sandbox, a run can finally produce real changes. This frontier introduces the only LLM-bearing port and reuses the sealed subagent substrate rather than a new agent runtime.
 - **Objective:** Implement and inject `AgentRunnerPort` so a run actually produces real diffs via a code-owned write-capable CODE worker reusing the D90-L–D93-L sealed subagent substrate, retiring the prewritten-ingest tool (`execute_agent_result`) in favor of the real runner.
 - **Acceptance (to refine via `ln-scope`):**
-  - `AgentRunnerPort` implementation (app layer) launches a write-capable CODE worker over the `cook-sandbox` worktree under the D90-L–D93-L grant model.
+  - `AgentRunnerPort` implementation (app layer) launches a write-capable CODE worker over the `executor-sandbox` worktree under the D90-L–D93-L grant model.
   - `execute_agent_result` is re-grounded on or retired in favor of the real runner; no prewritten `result.json` ingest remains on this layer.
   - Real diffs land in the sandbox worktree; focused tests/witness cover the runner contract.
-- **Traceability:** D39-L, D40-L, D52-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L; depends on `cook-sandbox`.
+- **Traceability:** D39-L, D40-L, D52-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L; depends on `executor-sandbox`.
 
-### cook-land
+### executor-land
 
 - **Name:** Real cook land — promotion port (run-local then host)
 - **Linear:** tbd (new FE issue when started)
-- **Branch:** tbd (stacked on `cook-agent-runner`)
+- **Branch:** tbd (stacked on `executor-agent-runner`)
 - **Kind:** structural / execute-mode runner substrate (`orchestrator-cutover` arc)
 - **Status:** last; the only externally-visible, hard-to-reverse seam.
 - **Certainty:** proving.
@@ -200,7 +200,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - `GitLandPort` implementation (app layer) performs a run-local land of the verified worktree diffs first; host land is a later, explicitly-accepted slice.
   - The land path consumes/validates the existing Petri + `promotion.json` artifacts rather than re-deriving run state.
   - `execute_status` `pendingTools` drops `land` once a real (at minimum run-local, real-git) land exists.
-- **Traceability:** D39-L, D40-L, D52-L, D98-L, D99-L (land-substrate finding) / I49-L, I52-L; depends on `cook-agent-runner`; `src/executor/TOPOLOGY.md`.
+- **Traceability:** D39-L, D40-L, D52-L, D98-L, D99-L (land-substrate finding) / I49-L, I52-L; depends on `executor-agent-runner`; `src/executor/TOPOLOGY.md`.
 
 ### elicitor-project
 
@@ -267,7 +267,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ```text
 frontiers:
   Active:
-    cook-sandbox (orchestrator-cutover arc)
+    executor-sandbox (orchestrator-cutover arc)
       status: next up; design chosen (ports bag), ready to scope
       depends_on: orchestrator-alpha-cutover (FE-1089), D52-L, D99-L cook-execution-ports refinement, I52-L
       ports: GitWorktreePort, TestRunnerPort
@@ -294,18 +294,18 @@ frontiers:
     orchestrator-alpha-cutover (FE-1089), spec-structural-relief, renderer-golden-coverage, data-model-legibility
 
   Next:
-    cook-agent-runner (orchestrator-cutover arc)
-      status: after cook-sandbox
-      depends_on: cook-sandbox, D90-L..D93-L, D52-L, I49-L, I52-L
+    executor-agent-runner (orchestrator-cutover arc)
+      status: after executor-sandbox
+      depends_on: executor-sandbox, D90-L..D93-L, D52-L, I49-L, I52-L
       ports: AgentRunnerPort
-      stacks_on: cook-sandbox
+      stacks_on: executor-sandbox
 
-    cook-land (orchestrator-cutover arc)
+    executor-land (orchestrator-cutover arc)
       status: last; only hard-to-reverse seam
-      depends_on: cook-agent-runner, D99-L land-substrate finding, D52-L, I52-L
+      depends_on: executor-agent-runner, D99-L land-substrate finding, D52-L, I52-L
       ports: GitLandPort
       unblocks: host cook land/promotion; drops `land` from execute_status pendingTools
-      stacks_on: cook-agent-runner
+      stacks_on: executor-agent-runner
 
   Parallel / Low-Conflict:
     none
