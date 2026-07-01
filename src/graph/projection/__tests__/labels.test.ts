@@ -65,7 +65,6 @@ interface RefineCell {
 const REFINE_MATRIX: readonly RefineCell[] = [
   { sourceKind: 'requirement', targetKind: 'module', fromSource: 'implemented by', fromTarget: 'implements' },
   { sourceKind: 'interface', targetKind: 'module', fromSource: 'implemented by', fromTarget: 'implements' },
-  { sourceKind: 'requirement', targetKind: 'slice', fromSource: 'established by', fromTarget: 'establishes' },
   { sourceKind: 'invariant', targetKind: 'requirement', fromSource: 'expressed by', fromTarget: 'expresses' },
 ];
 

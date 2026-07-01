@@ -53,7 +53,6 @@ describe('graph node code metadata', () => {
       sketch: { label: 'SKT' },
       milestone: { label: 'M' },
       frontier: { label: 'F' },
-      slice: { label: 'S' },
     });
   });
 
@@ -76,7 +75,6 @@ describe('graph node code metadata', () => {
     const commitmentKinds = [
       'milestone',
       'frontier',
-      'slice',
       'criterion',
     ] as const satisfies readonly NodeKind[];
     for (const kind of commitmentKinds) {

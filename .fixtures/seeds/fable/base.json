@@ -86,9 +86,9 @@
     { "local_id": 63, "plane": "plan", "kind": "frontier", "title": "Adapter contract plus capability-plugin model", "basis": "explicit", "source": "memory/ROADMAP.md" },
     { "local_id": 64, "plane": "plan", "kind": "frontier", "title": "Ladle watermark gap audit", "basis": "explicit", "source": "memory/ROADMAP.md" },
 
-    { "local_id": 65, "plane": "plan", "kind": "slice", "title": "Vite config composition spike (5 fixtures, no-merge audit)", "basis": "explicit", "source": "memory/ROADMAP.md" },
-    { "local_id": 66, "plane": "plan", "kind": "slice", "title": "URL-backed preview mode", "basis": "explicit", "source": "memory/ROADMAP.md" },
-    { "local_id": 67, "plane": "plan", "kind": "slice", "title": "Source view capability", "basis": "explicit", "source": "memory/ROADMAP.md" }
+    { "local_id": 65, "plane": "plan", "kind": "frontier", "title": "Vite config composition spike (5 fixtures, no-merge audit)", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 66, "plane": "plan", "kind": "frontier", "title": "URL-backed preview mode", "basis": "explicit", "source": "memory/ROADMAP.md" },
+    { "local_id": 67, "plane": "plan", "kind": "frontier", "title": "Source view capability", "basis": "explicit", "source": "memory/ROADMAP.md" }
   ],
   "edges": [
     { "category": "dependency", "source_local_id": 2, "target_local_id": 15, "basis": "explicit", "rationale": "The unmodified-config goal depends on consuming user config through Vite's own primitives." },

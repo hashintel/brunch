@@ -217,14 +217,13 @@ intent grounding is in place.
 | `interface` | Where's the boundary? What's the contract across it? |
 
 ### Plan plane — *how it's sequenced*
-`milestone`, `frontier`, `slice`.
-*Activating concepts:* walking skeleton, tracer-bullet slices, sequencing, risk retirement.
+`milestone`, `frontier`.
+*Activating concepts:* walking skeleton, tracer-bullet slices, sequencing, risk retirement. The plan plane stops at frontier; buildable slicing is downstream scoping/execution, not a plan node.
 
 | Kind | Example question forms |
 | --- | --- |
 | `milestone` | What's the phase boundary? What bundle must be true to advance? |
-| `frontier` | What's the next named unit of work? |
-| `slice` | What's the thinnest end-to-end slice to build first? |
+| `frontier` | What's the next named unit of work? What's the thinnest end-to-end path it should establish? |
 
 ---
 

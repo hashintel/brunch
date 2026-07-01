@@ -109,7 +109,6 @@ export const NODE_KIND_METADATA = {
   sketch: { label: 'SKT' },
   milestone: { label: 'M' },
   frontier: { label: 'F' },
-  slice: { label: 'S' },
 } as const satisfies NodeKindMetadataByKind;
 
 /**
@@ -141,7 +140,6 @@ const LATEST_EXPECTED_BAND = {
   sketch: null,
   milestone: 'commitment',
   frontier: 'commitment',
-  slice: 'commitment',
 } as const satisfies Readonly<Record<NodeKind, ReadinessBand | null>>;
 
 export function latestExpectedBand(kind: NodeKind): ReadinessBand | null {

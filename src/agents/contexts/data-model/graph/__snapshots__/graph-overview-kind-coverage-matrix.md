@@ -1,6 +1,6 @@
 Graph overview (LSN 2): 24 nodes, 7 edges
 
-legend: G=goal, TH=thesis, T=term, CTX=context, ST=story, UNK=unknown, REQ=requirement, A=assumption, CON=constraint, INV=invariant, D=decision, AC=criterion, EX=example, CH=check, VV=vv_method, E=evidence, O=vv_obligation, MOD=module, API=interface, ENT=entity, SKT=sketch, M=milestone, F=frontier, S=slice
+legend: G=goal, TH=thesis, T=term, CTX=context, ST=story, UNK=unknown, REQ=requirement, A=assumption, CON=constraint, INV=invariant, D=decision, AC=criterion, EX=example, CH=check, VV=vv_method, E=evidence, O=vv_obligation, MOD=module, API=interface, ENT=entity, SKT=sketch, M=milestone, F=frontier
 
 nodes — intent · grounding (2)
 | code | id | title |
@@ -60,7 +60,7 @@ nodes — plan · commitment (3)
 | - | - | - |
 | M1 | 22 | Cross-cut render feedback loop |
 | F1 | 23 | Preview harness slice |
-| S1 | 24 | Lock one neighborhood preview |
+| F2 | 24 | Lock one neighborhood preview |
 
 edges (sorted by upstream)
 | id | upstream | relation | downstream |
@@ -68,7 +68,7 @@ edges (sorted by upstream)
 | 5 | AC1 | witnessed by | E1 |
 | 2 | CON1 | bounds | MOD1 |
 | 6 | F1 | part of | M1 |
+| 7 | F2 | part of | F1 |
 | 4 | MOD1 | realized by | REQ1 |
 | 1 | REQ1 | motivated by | G1 |
 | 3 | REQ1 | required by | AC1 |
-| 7 | S1 | part of | F1 |

@@ -521,7 +521,7 @@ describe('CommandExecutor', () => {
   });
 
   it('creates plan-plane nodes', () => {
-    const result = executor.createNode({ specId, plane: 'plan', kind: 'slice', title: 'M4 skeleton' });
+    const result = executor.createNode({ specId, plane: 'plan', kind: 'frontier', title: 'M4 skeleton' });
 
     expect(result.status).toBe('success');
   });

@@ -18,7 +18,7 @@ export const ORACLE_KINDS = ['check', 'vv_method', 'evidence', 'vv_obligation'] 
 
 export const DESIGN_KINDS = ['module', 'interface', 'entity', 'sketch'] as const;
 
-export const PLAN_KINDS = ['milestone', 'frontier', 'slice'] as const;
+export const PLAN_KINDS = ['milestone', 'frontier'] as const;
 
 /** Every node kind across the four planes, in plane order — the canonical all-kinds array. */
 export const NODE_KINDS = [...INTENT_KINDS, ...ORACLE_KINDS, ...DESIGN_KINDS, ...PLAN_KINDS] as const;

@@ -144,7 +144,7 @@ test('overview: kind-coverage fixture golden stays uncapped and sectioned', asyn
   );
   await expect(rendered).toMatchFileSnapshot('../__snapshots__/graph-overview-kind-coverage-matrix.md');
   expect(rendered).toContain('Graph overview (LSN 2): 24 nodes, 7 edges');
-  expect(rendered).toContain('| S1 | 24 | Lock one neighborhood preview |');
+  expect(rendered).toContain('| F2 | 24 | Lock one neighborhood preview |');
 });
 
 function node(input: {
