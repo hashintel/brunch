@@ -2,7 +2,13 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { populatedPlanPath } from './cook-populate.js';
-import { cookRunDir, cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunDir,
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 
 export type CookSourcePolicyKind = 'plan_only' | 'host_source_deferred';
 
@@ -78,7 +84,7 @@ export async function selectCookSourcePolicy(args: {
     `${JSON.stringify({ policy: args.policy, hostSourceCopied: false }, null, 2)}\n`,
     'utf8',
   );
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
 
   return {
     status: 'source_policy_selected',
@@ -87,10 +93,7 @@ export async function selectCookSourcePolicy(args: {
     metadataPath,
     sourcePolicyPath: policyPath,
     policy: args.policy,
-    sideEffects: [
-      { kind: 'write_file', path: policyPath, ifExists: 'overwrite' },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
-    ],
+    sideEffects: [{ kind: 'write_file', path: policyPath, ifExists: 'overwrite' }, metadataEffect],
   };
 }
 

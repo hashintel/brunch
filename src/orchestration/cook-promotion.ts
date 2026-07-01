@@ -1,7 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { cookRunDir, cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunDir,
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 
 export type CookPromotionPrepareResult =
   | {
@@ -70,7 +76,7 @@ export async function prepareCookPromotion(args: {
   const updated: CookRunMetadata = { ...metadata, status: 'promotion_prepared', promotionPath: path };
   await mkdir(dir, { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
   return {
     status: 'promotion_prepared',
     runStatus: 'promotion_prepared',
@@ -80,7 +86,7 @@ export async function prepareCookPromotion(args: {
     sideEffects: [
       { kind: 'mkdir', path: dir },
       { kind: 'write_file', path, ifExists: 'overwrite' },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      metadataEffect,
     ],
   };
 }

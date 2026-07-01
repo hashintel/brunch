@@ -1,7 +1,12 @@
-import { appendFile, writeFile } from 'node:fs/promises';
+import { appendFile } from 'node:fs/promises';
 
 import { reportsPath } from './cook-report.js';
-import { cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 
 export type CookSliceCompleteResult =
   | {
@@ -72,7 +77,7 @@ export async function completeCookSlice(args: {
   const updated: CookRunMetadata = { ...metadata, status: 'slice_completed', completedSliceIds };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
 
   return {
     status: 'slice_completed',
@@ -82,9 +87,6 @@ export async function completeCookSlice(args: {
     epicId: metadata.activeEpicId,
     metadataPath,
     reportsPath: reportPath,
-    sideEffects: [
-      { kind: 'append_file', path: reportPath },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
-    ],
+    sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],
   };
 }

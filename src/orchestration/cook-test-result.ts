@@ -1,8 +1,14 @@
-import { appendFile, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { reportsPath } from './cook-report.js';
-import { cookRunDir, cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunDir,
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 
 interface TestResultPayload {
   readonly status?: string;
@@ -108,7 +114,7 @@ export async function ingestCookTestResult(args: {
   };
 
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
 
   return {
     status: 'test_result_ingested',
@@ -119,10 +125,7 @@ export async function ingestCookTestResult(args: {
     resultPath,
     metadataPath,
     reportsPath: reportPath,
-    sideEffects: [
-      { kind: 'append_file', path: reportPath },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
-    ],
+    sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],
   };
 }
 

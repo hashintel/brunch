@@ -2,7 +2,13 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { reportsPath } from './cook-report.js';
-import { cookRunDir, cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunDir,
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 
 export type CookSliceExecutionRequestResult =
   | {
@@ -92,7 +98,7 @@ export async function requestCookSliceExecution(args: {
   await mkdir(requestDir, { recursive: true });
   await writeFile(requestPath, `${JSON.stringify(request, null, 2)}\n`, 'utf8');
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
 
   return {
     status: 'slice_execution_requested',
@@ -107,7 +113,7 @@ export async function requestCookSliceExecution(args: {
       { kind: 'mkdir', path: requestDir },
       { kind: 'write_file', path: requestPath, ifExists: 'overwrite' },
       { kind: 'append_file', path: reportPath },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      metadataEffect,
     ],
   };
 }

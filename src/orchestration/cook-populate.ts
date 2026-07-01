@@ -1,7 +1,12 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 import { cookWorktreeDir } from './cook-worktree.js';
 
 export type CookPopulateResult =
@@ -77,7 +82,7 @@ export async function populateCookWorktree(args: {
 
   await mkdir(destinationDir, { recursive: true });
   await writeFile(destination, await readFile(metadata.planPath, 'utf8'), 'utf8');
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
 
   return {
     status: 'worktree_populated',
@@ -89,7 +94,7 @@ export async function populateCookWorktree(args: {
     sideEffects: [
       { kind: 'mkdir', path: destinationDir },
       { kind: 'write_file', path: destination, ifExists: 'overwrite' },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      metadataEffect,
     ],
   };
 }

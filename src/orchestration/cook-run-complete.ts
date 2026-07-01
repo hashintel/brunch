@@ -1,8 +1,13 @@
-import { appendFile, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, readFile } from 'node:fs/promises';
 
 import { populatedPlanPath } from './cook-populate.js';
 import { reportsPath } from './cook-report.js';
-import { cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 
 interface PlanSlice {
   readonly id: string;
@@ -75,7 +80,7 @@ export async function completeCookRun(args: {
   const event = { event: 'run_completed', runId: args.runId, status: 'run_completed' };
   const updated: CookRunMetadata = { ...metadata, status: 'run_completed' };
   await appendFile(reportPath, `${JSON.stringify(event)}\n`, 'utf8');
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
 
   return {
     status: 'run_completed',
@@ -83,10 +88,7 @@ export async function completeCookRun(args: {
     runId: args.runId,
     metadataPath,
     reportsPath: reportPath,
-    sideEffects: [
-      { kind: 'append_file', path: reportPath },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
-    ],
+    sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],
   };
 }
 

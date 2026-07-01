@@ -76,6 +76,20 @@ export async function readCookRunMetadata(path: string): Promise<CookRunMetadata
   }
 }
 
+export interface CookRunMetadataWriteEffect {
+  readonly kind: 'write_file';
+  readonly path: string;
+  readonly ifExists: 'overwrite';
+}
+
+export async function persistCookRunMetadata(
+  metadataPath: string,
+  metadata: CookRunMetadata,
+): Promise<CookRunMetadataWriteEffect> {
+  await writeFile(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
+  return { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' };
+}
+
 export async function createCookRun(args: {
   readonly cwd: string;
   readonly specId: string;

@@ -1,7 +1,13 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { cookRunDir, cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunDir,
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 
 export type CookWorktreeCreateResult =
   | {
@@ -49,7 +55,7 @@ export async function createCookWorktree(args: {
   const updated: CookRunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
 
   await mkdir(worktreeDir, { recursive: true });
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
 
   return {
     status: 'worktree_created',
@@ -58,9 +64,6 @@ export async function createCookWorktree(args: {
     runDir,
     worktreeDir,
     metadataPath,
-    sideEffects: [
-      { kind: 'mkdir', path: worktreeDir },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
-    ],
+    sideEffects: [{ kind: 'mkdir', path: worktreeDir }, metadataEffect],
   };
 }
