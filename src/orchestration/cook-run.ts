@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { BRUNCH_DIR } from '../constants.js';
@@ -66,6 +66,14 @@ export function cookRunDir(cwd: string, runId: string): string {
 
 export function cookRunMetadataPath(cwd: string, runId: string): string {
   return join(cookRunDir(cwd, runId), 'run.json');
+}
+
+export async function readCookRunMetadata(path: string): Promise<CookRunMetadata | undefined> {
+  try {
+    return JSON.parse(await readFile(path, 'utf8')) as CookRunMetadata;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function createCookRun(args: {

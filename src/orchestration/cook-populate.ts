@@ -1,7 +1,7 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { cookRunMetadataPath, type CookRunMetadata } from './cook-run.js';
+import { cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
 import { cookWorktreeDir } from './cook-worktree.js';
 
 export type CookPopulateResult =
@@ -43,7 +43,7 @@ export async function populateCookWorktree(args: {
   readonly runId: string;
 }): Promise<CookPopulateResult> {
   const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readRunMetadata(metadataPath);
+  const metadata = await readCookRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -92,14 +92,6 @@ export async function populateCookWorktree(args: {
       { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
     ],
   };
-}
-
-async function readRunMetadata(path: string): Promise<CookRunMetadata | undefined> {
-  try {
-    return JSON.parse(await readFile(path, 'utf8')) as CookRunMetadata;
-  } catch {
-    return undefined;
-  }
 }
 
 async function pathExists(path: string): Promise<boolean> {

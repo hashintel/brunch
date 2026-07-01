@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { populatedPlanPath } from './cook-populate.js';
-import { cookRunDir, cookRunMetadataPath, type CookRunMetadata } from './cook-run.js';
+import { cookRunDir, cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
 
 export type CookSourcePolicyKind = 'plan_only' | 'host_source_deferred';
 
@@ -44,7 +44,7 @@ export async function selectCookSourcePolicy(args: {
   readonly policy: CookSourcePolicyKind;
 }): Promise<CookSourcePolicyResult> {
   const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readRunMetadata(metadataPath);
+  const metadata = await readCookRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -92,14 +92,6 @@ export async function selectCookSourcePolicy(args: {
       { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
     ],
   };
-}
-
-async function readRunMetadata(path: string): Promise<CookRunMetadata | undefined> {
-  try {
-    return JSON.parse(await readFile(path, 'utf8')) as CookRunMetadata;
-  } catch {
-    return undefined;
-  }
 }
 
 async function fileExists(path: string): Promise<boolean> {

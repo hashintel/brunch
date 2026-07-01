@@ -1,7 +1,7 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { cookRunDir, cookRunMetadataPath, type CookRunMetadata } from './cook-run.js';
+import { cookRunDir, cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
 
 export type CookReportInitResult =
   | {
@@ -39,7 +39,7 @@ export async function initializeCookReports(args: {
   readonly runId: string;
 }): Promise<CookReportInitResult> {
   const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readRunMetadata(metadataPath);
+  const metadata = await readCookRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -78,12 +78,4 @@ export async function initializeCookReports(args: {
       { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
     ],
   };
-}
-
-async function readRunMetadata(path: string): Promise<CookRunMetadata | undefined> {
-  try {
-    return JSON.parse(await readFile(path, 'utf8')) as CookRunMetadata;
-  } catch {
-    return undefined;
-  }
 }

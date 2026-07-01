@@ -1,7 +1,7 @@
-import { appendFile, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, writeFile } from 'node:fs/promises';
 
 import { reportsPath } from './cook-report.js';
-import { cookRunMetadataPath, type CookRunMetadata } from './cook-run.js';
+import { cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
 
 export type CookSliceCompleteResult =
   | {
@@ -37,7 +37,7 @@ export async function completeCookSlice(args: {
   readonly runId: string;
 }): Promise<CookSliceCompleteResult> {
   const metadataPath = cookRunMetadataPath(args.cwd, args.runId);
-  const metadata = await readRunMetadata(metadataPath);
+  const metadata = await readCookRunMetadata(metadataPath);
   if (!metadata) {
     return {
       status: 'missing_run',
@@ -87,12 +87,4 @@ export async function completeCookSlice(args: {
       { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
     ],
   };
-}
-
-async function readRunMetadata(path: string): Promise<CookRunMetadata | undefined> {
-  try {
-    return JSON.parse(await readFile(path, 'utf8')) as CookRunMetadata;
-  } catch {
-    return undefined;
-  }
 }
