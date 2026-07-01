@@ -60,8 +60,8 @@ describe('BrunchEditorComponent harness', () => {
       expect(viewport).toContain('claude-sonnet-5 | 35.6%');
 
       const lines = terminal.getViewport();
-      expect(lines[0]?.trimEnd().endsWith('┐')).toBe(true);
-      expect(lines[0]?.includes('┌')).toBe(true);
+      expect(lines[0]?.trimEnd().endsWith('╮')).toBe(true);
+      expect(lines[0]?.includes('╭')).toBe(true);
 
       terminal.sendInput('hello world');
       await terminal.waitForRender();

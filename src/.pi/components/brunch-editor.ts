@@ -1,6 +1,6 @@
 import { CustomEditor } from '@earendil-works/pi-coding-agent';
 import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
-import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
+import { getCapabilities, hyperlink, truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 import type { EditorTheme, TUI } from '@earendil-works/pi-tui';
 
 /**
@@ -16,12 +16,25 @@ export interface BrunchEditorLabels {
   readonly topRight?: string;
   /** Right-aligned label embedded in the bottom border, e.g. '"Spec Title"'. Omit for a plain bottom border. */
   readonly bottomRight?: string;
-  /** Lines appended immediately below the box (not part of the border). */
-  readonly belowLines?: readonly string[];
+  /**
+   * Lines appended immediately below the box (not part of the border). A
+   * plain string renders as-is; `{ text, url }` renders as a clickable OSC 8
+   * hyperlink where the terminal supports it (falls back to plain `text`
+   * otherwise) — kept as a union rather than a dedicated "url" field so this
+   * stays generic for any future bordered component's below-lines, not just
+   * this editor's sidecar URL.
+   */
+  readonly belowLines?: readonly (string | { readonly text: string; readonly url: string })[];
 }
 
 /** "│ " + " │" reserved from the outer width before delegating to the wrapped inner renderer. */
 const SIDE_BUDGET = 4;
+
+/** Minimum content rows inside the box, even when the editor is empty. */
+const MIN_CONTENT_LINES = 2;
+
+/** Left indent applied to lines below the box. */
+const BELOW_LINES_INDENT = 1;
 
 const ANSI = '\x1b';
 const ANSI_SEQUENCE_GLOBAL = new RegExp(`${ANSI}\\[[0-9;?]*[ -/]*[@-~]`, 'g');
@@ -73,6 +86,33 @@ function borderLine(
 }
 
 /**
+ * Insert blank content rows just before the detected bottom border so the
+ * box is always at least `MIN_CONTENT_LINES` tall, even for an empty editor.
+ * Padding is inserted before the border (never after, where autocomplete
+ * rows may live) and the returned `bottomIndex` accounts for the shift.
+ */
+function padContentToMinimum(
+  innerLines: readonly string[],
+  bottomIndex: number,
+  innerWidth: number,
+): { lines: readonly string[]; bottomIndex: number } {
+  if (bottomIndex <= 0) return { lines: innerLines, bottomIndex };
+  const contentLineCount = bottomIndex - 1;
+  const padCount = Math.max(0, MIN_CONTENT_LINES - contentLineCount);
+  if (padCount === 0) return { lines: innerLines, bottomIndex };
+
+  const blank = ' '.repeat(Math.max(0, innerWidth));
+  const lines = [...innerLines];
+  lines.splice(bottomIndex, 0, ...Array.from({ length: padCount }, () => blank));
+  return { lines, bottomIndex: bottomIndex + padCount };
+}
+
+/** Renders `text` as a clickable OSC 8 hyperlink where the terminal supports it, plain text otherwise. */
+function renderLinkedText(text: string, url: string): string {
+  return getCapabilities().hyperlinks ? hyperlink(text, url) : text;
+}
+
+/**
  * Splice runtime-state labels into an already-rendered bordered box, and
  * append trailing lines below it.
  *
@@ -90,14 +130,22 @@ export function projectBorderedChrome(
 ): string[] {
   if (innerLines.length === 0) return [];
 
-  const bottomIndex = findLastIndex(innerLines, isEditorBorderLine);
-  const lines = innerLines.map((line, index) => {
-    if (index === 0) return borderLine('┌', '┐', labels.topRight, width, borderColor);
-    if (index === bottomIndex) return borderLine('└', '┘', labels.bottomRight, width, borderColor);
+  const innerWidth = Math.max(1, width - SIDE_BUDGET);
+  const rawBottomIndex = findLastIndex(innerLines, isEditorBorderLine);
+  const { lines: paddedInner, bottomIndex } = padContentToMinimum(innerLines, rawBottomIndex, innerWidth);
+
+  const lines = paddedInner.map((line, index) => {
+    if (index === 0) return borderLine('╭', '╮', labels.topRight, width, borderColor);
+    if (index === bottomIndex) return borderLine('╰', '╯', labels.bottomRight, width, borderColor);
     return `${borderColor('│')} ${line} ${borderColor('│')}`;
   });
 
-  const below = (labels.belowLines ?? []).map((line) => truncateToWidth(line, width));
+  const belowWidth = Math.max(0, width - BELOW_LINES_INDENT);
+  const indent = ' '.repeat(BELOW_LINES_INDENT);
+  const below = (labels.belowLines ?? []).map((line) => {
+    const text = typeof line === 'string' ? line : renderLinkedText(line.text, line.url);
+    return indent + truncateToWidth(text, belowWidth);
+  });
   return [...lines, ...below];
 }
 

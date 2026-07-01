@@ -175,7 +175,10 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       const editor = new BrunchEditorComponent(tui, editorTheme, keybindings, () => ({
         topRight: '[ Specify ]',
         bottomRight: '"Walking Skeleton SDK to SSE to React"',
-        belowLines: ['http://localhost:3141/session', 'claude-sonnet-5 | 35.6%'],
+        belowLines: [
+          { text: 'http://localhost:3141/session', url: 'http://localhost:3141/session' },
+          'claude-sonnet-5 | 35.6%',
+        ],
       }));
       tui.addChild(editor);
       tui.setFocus(editor);
