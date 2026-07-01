@@ -59,7 +59,7 @@ The renderer surfaces per-spec node counts (REQ1) and grade contrast at a glance
 
 ### Response
 
-let me give you the following brief first: `/Users/lunelson/Code/hashintel/bilal-spec-elicitation-proto/briefs/macro-view-brief.md`
+let me give you the following brief first: `<external-source>/briefs/macro-view-brief.md`
 
 ---
 

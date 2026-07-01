@@ -6,7 +6,7 @@
 Project:
 - name: ship-gate-runbook
 - slug: ship-gate-runbook
-- path: `/Users/lunelson/Code/hashintel/brunch-next/.fixtures/workbenches/ship-gate-runbook`
+- path: `<repo>/.fixtures/workbenches/ship-gate-runbook`
 
 Specifications:
 | id | title | nodes | sessions |
@@ -78,7 +78,7 @@ Open elicitation gaps (top 5 by ranking):
 Project:
 - name: ship-gate-runbook
 - slug: ship-gate-runbook
-- path: `/Users/lunelson/Code/hashintel/brunch-next/.fixtures/workbenches/ship-gate-runbook`
+- path: `<repo>/.fixtures/workbenches/ship-gate-runbook`
 
 Specifications:
 | id | title | nodes | sessions |
@@ -135,7 +135,7 @@ Open elicitation gaps (top 2 by ranking):
 Project:
 - name: ship-gate-runbook
 - slug: ship-gate-runbook
-- path: `/Users/lunelson/Code/hashintel/brunch-next/.fixtures/workbenches/ship-gate-runbook`
+- path: `<repo>/.fixtures/workbenches/ship-gate-runbook`
 
 Specifications:
 | id | title | nodes | sessions |
