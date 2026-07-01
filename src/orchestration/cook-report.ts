@@ -1,7 +1,13 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { cookRunDir, cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunDir,
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 
 export type CookReportInitResult =
   | {
@@ -65,7 +71,7 @@ export async function initializeCookReports(args: {
   const event = { event: 'run_ready', runId: args.runId, status: 'reports_initialized' };
 
   await writeFile(path, `${JSON.stringify(event)}\n`, 'utf8');
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
 
   return {
     status: 'reports_initialized',
@@ -73,9 +79,6 @@ export async function initializeCookReports(args: {
     runId: args.runId,
     metadataPath,
     reportsPath: path,
-    sideEffects: [
-      { kind: 'write_file', path, ifExists: 'overwrite' },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
-    ],
+    sideEffects: [{ kind: 'write_file', path, ifExists: 'overwrite' }, metadataEffect],
   };
 }

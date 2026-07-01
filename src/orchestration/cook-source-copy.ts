@@ -1,7 +1,12 @@
 import { cp, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 import { sourcePolicyPath, type CookSourcePolicyKind } from './cook-source-policy.js';
 import { cookWorktreeDir } from './cook-worktree.js';
 
@@ -104,7 +109,7 @@ export async function copyCookHostSource(args: {
   };
 
   await writeFile(policyPath, `${JSON.stringify(updatedPolicy, null, 2)}\n`, 'utf8');
-  await writeFile(metadataPath, `${JSON.stringify(updatedMetadata, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updatedMetadata);
 
   return {
     status: 'source_copied',
@@ -116,7 +121,7 @@ export async function copyCookHostSource(args: {
     sideEffects: [
       ...copyEffects,
       { kind: 'write_file', path: policyPath, ifExists: 'overwrite' },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      metadataEffect,
     ],
   };
 }

@@ -1,7 +1,13 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-import { cookRunDir, cookRunMetadataPath, readCookRunMetadata, type CookRunMetadata } from './cook-run.js';
+import {
+  cookRunDir,
+  cookRunMetadataPath,
+  persistCookRunMetadata,
+  readCookRunMetadata,
+  type CookRunMetadata,
+} from './cook-run.js';
 
 export type CookPetriExportResult =
   | {
@@ -67,7 +73,7 @@ export async function exportCookPetri(args: {
     `${JSON.stringify({ runId: args.runId, places: ['run_completed'], transitions: [] }, null, 2)}\n`,
     'utf8',
   );
-  await writeFile(metadataPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistCookRunMetadata(metadataPath, updated);
   return {
     status: 'petri_exported',
     runStatus: 'petri_exported',
@@ -77,7 +83,7 @@ export async function exportCookPetri(args: {
     sideEffects: [
       { kind: 'mkdir', path: dir },
       { kind: 'write_file', path, ifExists: 'overwrite' },
-      { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      metadataEffect,
     ],
   };
 }
