@@ -47,4 +47,19 @@ describe('prepareLaunch', () => {
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'runs'))).toBe(false);
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'petrinaut'))).toBe(false);
   });
+
+  it('rejects an explicit plan path outside the selected spec plan file without probing it', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-launch-bounded-'));
+    const outside = join(await mkdtemp(join(tmpdir(), 'brunch-cook-launch-outside-')), 'plan.yaml');
+    await writeFile(outside, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+
+    const result = await prepareLaunch({ cwd, specId: '42', planPath: outside });
+
+    expect(result).toEqual({
+      status: 'invalid_plan_path',
+      runStatus: 'not_started',
+      planPath: outside,
+      sideEffects: [],
+    });
+  });
 });
