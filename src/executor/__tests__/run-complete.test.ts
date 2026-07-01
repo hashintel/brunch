@@ -97,4 +97,23 @@ describe('completeRun', () => {
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'promotion'))).toBe(false);
   });
+
+  it('does not append another report when the run is already complete', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-idempotent-'));
+    await createSliceCompletedRun(cwd, ['task-1', 'task-2']);
+    await completeRun({ cwd, runId: 'run-1' });
+    const reportBeforeSecondCompletion = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
+
+    const result = await completeRun({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'already_completed',
+      runStatus: 'run_completed',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    expect(await readFile(reportsPath(cwd, 'run-1'), 'utf8')).toBe(reportBeforeSecondCompletion);
+  });
 });

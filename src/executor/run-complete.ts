@@ -29,6 +29,14 @@ export type RunCompleteResult =
       readonly sideEffects: readonly [];
     }
   | {
+      readonly status: 'already_completed';
+      readonly runStatus: 'run_completed';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
       readonly status: 'run_completed';
       readonly runStatus: 'run_completed';
       readonly runId: string;
@@ -54,6 +62,17 @@ export async function completeRun(args: {
       metadataPath,
       sideEffects: [],
     };
+
+  if (metadata.status === 'run_completed') {
+    return {
+      status: 'already_completed',
+      runStatus: 'run_completed',
+      runId: args.runId,
+      metadataPath,
+      reportsPath: metadata.reportsPath ?? reportsPath(args.cwd, args.runId),
+      sideEffects: [],
+    };
+  }
 
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
   const expectedSliceIds = (plan.slices ?? []).map((slice) => slice.id);
