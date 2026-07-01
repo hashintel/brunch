@@ -1,4 +1,4 @@
-import { access } from 'node:fs/promises';
+import { access, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { GitWorktreePort } from './execution-ports.js';
@@ -98,6 +98,15 @@ export async function createWorktree(args: {
   }
 
   const targetWorktreeDir = metadata.worktreeDir ?? worktreeDir;
+
+  // Reaching here means `targetWorktreeDir` has no `.git` worktree marker, so
+  // any directory sitting there is stale — an interrupted `git worktree add` or
+  // a legacy mkdir workspace. `git worktree add` refuses a non-empty path, so
+  // clear it first; otherwise the run wedges with no automatic repair path.
+  if (await pathExists(targetWorktreeDir)) {
+    await rm(targetWorktreeDir, { recursive: true, force: true });
+  }
+
   const worktreeResult = await args.gitWorktree.create({
     cwd: args.cwd,
     worktreeDir: targetWorktreeDir,
