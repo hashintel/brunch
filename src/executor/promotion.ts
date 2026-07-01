@@ -1,8 +1,13 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type { GitLandPort } from './execution-ports.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+
+type PromotionSideEffect =
+  | { readonly kind: 'git_commit'; readonly path: string; readonly sha: string }
+  | { readonly kind: 'mkdir'; readonly path: string }
+  | { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' };
 
 export type PromotionPrepareResult =
   | {
@@ -43,12 +48,7 @@ export type PromotionPrepareResult =
       readonly runId: string;
       readonly metadataPath: string;
       readonly promotionPath: string;
-      readonly sideEffects: readonly [
-        { readonly kind: 'git_commit'; readonly path: string; readonly sha: string },
-        { readonly kind: 'mkdir'; readonly path: string },
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-      ];
+      readonly sideEffects: readonly PromotionSideEffect[];
     };
 
 export function promotionReportPath(cwd: string, runId: string): string {
@@ -78,6 +78,14 @@ export async function preparePromotion(args: {
       metadataPath,
       sideEffects: [],
     };
+  const recovered = await recoverPreparedPromotion({
+    cwd: args.cwd,
+    runId: args.runId,
+    metadata,
+    metadataPath,
+  });
+  if (recovered) return recovered;
+
   const worktreeDir = metadata.worktreeDir;
   if (!worktreeDir) {
     return {
@@ -147,6 +155,46 @@ export async function preparePromotion(args: {
       metadataEffect,
     ],
   };
+}
+
+async function recoverPreparedPromotion(args: {
+  readonly cwd: string;
+  readonly runId: string;
+  readonly metadata: RunMetadata;
+  readonly metadataPath: string;
+}): Promise<PromotionPrepareResult | undefined> {
+  const path = promotionReportPath(args.cwd, args.runId);
+  const report = await readPromotionReport(path);
+  const commitSha = report?.land?.status === 'promoted' ? report.land.commitSha : undefined;
+  if (!commitSha) return undefined;
+
+  const updated: RunMetadata = {
+    ...args.metadata,
+    status: 'promotion_prepared',
+    promotionPath: path,
+    promotionCommitSha: commitSha,
+  };
+  const metadataEffect = await persistRunMetadata(args.metadataPath, updated);
+  return {
+    status: 'promotion_prepared',
+    runStatus: 'promotion_prepared',
+    runId: args.runId,
+    metadataPath: args.metadataPath,
+    promotionPath: path,
+    sideEffects: [metadataEffect],
+  };
+}
+
+interface PromotionReportPayload {
+  readonly land?: { readonly status?: string; readonly commitSha?: string };
+}
+
+async function readPromotionReport(path: string): Promise<PromotionReportPayload | undefined> {
+  try {
+    return JSON.parse(await readFile(path, 'utf8')) as PromotionReportPayload;
+  } catch {
+    return undefined;
+  }
 }
 
 function worktreePathFallback(cwd: string, runId: string): string {

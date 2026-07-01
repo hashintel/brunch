@@ -150,6 +150,48 @@ describe('preparePromotion', () => {
     expect(await pathExists(promotionReportPath(cwd, 'run-1'))).toBe(false);
   });
 
+  it('recovers promotion metadata when the report exists but run metadata did not advance', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-recovery-'));
+    await createPetriExportedRun(cwd);
+    await mkdir(join(runDirPath(cwd, 'run-1'), 'promotion'), { recursive: true });
+    await writeFile(
+      promotionReportPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        petriPath: petriNetPath(cwd, 'run-1'),
+        reportsPath: reportsPath(cwd, 'run-1'),
+        completedSliceIds: ['task-1'],
+        land: { status: 'promoted', commitSha: 'abc123' },
+      }),
+      'utf8',
+    );
+
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitLand: createFakeGitLandPort({
+        status: 'no_changes',
+        message: 'nothing to promote',
+        sideEffects: [],
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'promotion_prepared',
+      runStatus: 'promotion_prepared',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      promotionPath: promotionReportPath(cwd, 'run-1'),
+      sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'promotion_prepared',
+      promotionPath: promotionReportPath(cwd, 'run-1'),
+      promotionCommitSha: 'abc123',
+    });
+  });
+
   it('does not advance metadata when the land port fails', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-failed-'));
     await createPetriExportedRun(cwd);
