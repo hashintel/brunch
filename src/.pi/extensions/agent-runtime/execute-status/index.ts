@@ -26,8 +26,7 @@ interface ExecuteStatusDetails {
     'execute_plan_draft',
     'execute_plan_outline',
   ];
-  readonly inactiveRegisteredTools: readonly string[];
-  readonly pendingTools: readonly ['cook', 'land'];
+  readonly pendingTools: readonly [];
   readonly sideEffects: readonly [];
 }
 
@@ -48,9 +47,8 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
               `execute_status: ${discipline}`,
               'available disciplines: strict, interpretive',
               'ported active tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview',
-              'inactive registered tools: execute_plan_outline_artifact, execute_plan_draft_artifact, execute_plan_file, execute_launch, execute_run_create, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare',
-              'pending tools: cook, land',
-              'cook execution: descriptive scaffold registered but inactive until the real-execution stack lands',
+              'pending tools: none',
+              'executor promotion: run-local git promotion ported; host promotion deferred',
               'side effects: none',
             ].join('\n'),
           },
@@ -66,27 +64,7 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
             'execute_plan_draft',
             'execute_plan_outline',
           ],
-          inactiveRegisteredTools: [
-            'execute_plan_outline_artifact',
-            'execute_plan_draft_artifact',
-            'execute_plan_file',
-            'execute_launch',
-            'execute_run_create',
-            'execute_worktree_create',
-            'execute_populate',
-            'execute_source_policy',
-            'execute_source_copy',
-            'execute_report_init',
-            'execute_slice_start',
-            'execute_slice_execute',
-            'execute_agent_result',
-            'execute_test_result',
-            'execute_slice_complete',
-            'execute_run_complete',
-            'execute_petri_export',
-            'execute_promotion_prepare',
-          ],
-          pendingTools: ['cook', 'land'],
+          pendingTools: [],
           sideEffects: [],
         },
       };

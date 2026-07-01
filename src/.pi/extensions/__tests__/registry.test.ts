@@ -1569,7 +1569,7 @@ describe('Brunch explicit Pi extension registry', () => {
     });
   });
 
-  it('keeps execute_status side-effect free while descriptive lifecycle tools are inactive', async () => {
+  it('keeps execute_status side-effect free after run-local promotion is ported', async () => {
     const registeredTools = await collectProductTools();
 
     const status = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_STATUS_TOOL);
@@ -1580,10 +1580,9 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(result.content[0]?.text).toContain(
       'ported active tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview',
     );
-    expect(result.content[0]?.text).toContain('inactive registered tools: execute_plan_outline_artifact');
-    expect(result.content[0]?.text).toContain('pending tools: cook, land');
+    expect(result.content[0]?.text).toContain('pending tools: none');
     expect(result.content[0]?.text).toContain(
-      'cook execution: descriptive scaffold registered but inactive until the real-execution stack lands',
+      'executor promotion: run-local git promotion ported; host promotion deferred',
     );
     expect(result.details).toMatchObject({
       discipline: 'interpretive',
@@ -1596,8 +1595,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_plan_draft',
         'execute_plan_outline',
       ],
-      inactiveRegisteredTools: expect.arrayContaining(['execute_plan_file', 'execute_agent_result']),
-      pendingTools: ['cook', 'land'],
+      pendingTools: [],
       sideEffects: [],
     });
   });
