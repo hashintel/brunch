@@ -47,7 +47,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Goal:** re-grow the old `main` cook orchestrator natively on alpha's CODE/executor substrate (D99-L), layer by layer: projection seam → descriptive lifecycle shape → real runnable sandbox → real change-producing agent → real promotion/land. Split by capability layer + risk + reversibility so each layer is independently reviewable and the hard-to-reverse git seam lands last.
 - **Members:**
-  - `orchestrator-alpha-cutover` (FE-1089) ✓ done — `ExecutionSpecSnapshot` projection seam + the descriptive `fs`-only cook lifecycle scaffold (`execute_cook_plan_file` → … → `execute_cook_promotion_prepare`). Proved the lifecycle shape + thin-adapter/one-side-effect-per-tool pattern with zero real execution.
+  - `orchestrator-alpha-cutover` (FE-1089) ✓ done — `ExecutionSpecSnapshot` projection seam + the descriptive `fs`-only cook lifecycle scaffold (`execute_plan_file` → … → `execute_promotion_prepare`). Proved the lifecycle shape + thin-adapter/one-side-effect-per-tool pattern with zero real execution.
   - `cook-sandbox` → next — `GitWorktreePort` + `TestRunnerPort`: a run becomes a real, runnable, verifiable git workspace (no LLM, subprocess only).
   - `cook-agent-runner` → after sandbox — `AgentRunnerPort` reusing the D90-L–D93-L sealed subagent substrate: a run actually produces real changes via a code-owned write-capable CODE worker.
   - `cook-land` → last — `GitLandPort`: a run's real changes get promoted (run-local land first, host land later); the only externally-visible, hard-to-reverse seam.
@@ -66,7 +66,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Recently Completed
 
-- 2026-06-30 `orchestrator-alpha-cutover` (FE-1089) — **descriptive cutover scaffold done** (arc member of `orchestrator-cutover`). Landed the `ExecutionSpecSnapshot` projection seam plus the full `fs`-only cook lifecycle simulation through `execute_cook_promotion_prepare`, establishing the thin-Pi-adapter / one-explicit-side-effect-per-tool pattern with zero real execution. Scoping real land surfaced the D99-L land-substrate finding (copied-dir worktree, prewritten-ingested results, no git in core), so real execution + land were reordered into the `cook-sandbox` → `cook-agent-runner` → `cook-land` frontiers.
+- 2026-06-30 `orchestrator-alpha-cutover` (FE-1089) — **descriptive cutover scaffold done** (arc member of `orchestrator-cutover`). Landed the `ExecutionSpecSnapshot` projection seam plus the full `fs`-only cook lifecycle simulation through `execute_promotion_prepare`, establishing the thin-Pi-adapter / one-explicit-side-effect-per-tool pattern with zero real execution. Scoping real land surfaced the D99-L land-substrate finding (copied-dir worktree, prewritten-ingested results, no git in core), so real execution + land were reordered into the `cook-sandbox` → `cook-agent-runner` → `cook-land` frontiers.
 - 2026-06-29 `spec-structural-relief` — SPEC slimmed from long-form register to compact live index; pre-slim snapshot archived in `docs/archive/SPEC_HISTORY.md`.
 - 2026-06-26 `renderer-golden-coverage` (FE-1091) — context pipeline done; prompt/subagent topology flattened and locked.
 - 2026-06-26 `data-model-legibility` (FE-1090) — reference substrate complete; generated ontology tables and authored graph heuristics have canonical homes.
@@ -74,7 +74,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-- `cook-agent-runner` (`orchestrator-cutover` arc) — **after `cook-sandbox`.** Inject the `AgentRunnerPort` so a run actually produces real changes via a code-owned write-capable CODE worker reusing the D90-L–D93-L sealed subagent substrate, replacing the prewritten-ingest tools (`execute_cook_agent_result`, `execute_cook_test_result`) with a real runner. Stacks on `cook-sandbox`.
+- `cook-agent-runner` (`orchestrator-cutover` arc) — **after `cook-sandbox`.** Inject the `AgentRunnerPort` so a run actually produces real changes via a code-owned write-capable CODE worker reusing the D90-L–D93-L sealed subagent substrate, replacing the prewritten-ingest tools (`execute_agent_result`, `execute_test_result`) with a real runner. Stacks on `cook-sandbox`.
 - `cook-land` (`orchestrator-cutover` arc) — **last; the only hard-to-reverse seam.** Inject the `GitLandPort` so a run's real diffs get promoted (run-local land first, host land later), consuming the Petri + promotion artifacts rather than re-deriving run state. Drops `land` from `execute_status` `pendingTools`. Stacks on `cook-agent-runner`.
 
 ### Parallel / Low-Conflict
@@ -117,24 +117,24 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - ✓ `execute_plan_outline_artifact` writes the reviewable outline under `.brunch/execution-reports/<specId>/plan-outline.json` without creating a cook run/worktree.
   - ✓ `ExecutablePlanDraft` / `execute_plan_draft` produces executable-plan-shaped epics/slices/criterion verification data without writing a plan file.
   - ✓ `execute_plan_draft_artifact` writes the executable-plan draft under `.brunch/execution-reports/<specId>/executable-plan-draft.json` without creating a cook run/worktree.
-  - ✓ `execute_cook_plan_preview` maps the draft into an old-cook-compatible DTO preview without writing `plan.yaml`.
+  - ✓ `execute_plan_preview` maps the draft into an old-cook-compatible DTO preview without writing `plan.yaml`.
   - ✓ Cook-plan compatibility is field-classified against the old `Plan` model: `spec` provenance is mapped; `profile`, `harnessNotes`, `writes`, and reachability/probe fields remain explicitly deferred/absent until alpha has truthful sources.
-  - ✓ `execute_cook_plan_file` writes the old-cook `Plan` payload to `.brunch/cook/specs/<specId>/plan.yaml` as one explicit `write_file` side effect, stripping preview-only fields and creating no run/worktree/Petri/promotion artifacts.
-  - ✓ `execute_cook_launch` validates the selected spec's plan path as `missing_plan` or `ready`, returns `runStatus: not_started`, and creates no run/worktree/Petri/report/promotion artifacts.
-  - ✓ `execute_cook_run_create` creates `.brunch/cook/runs/<runId>/run.json` metadata for a ready plan and creates no worktree/Petri/report/promotion artifacts.
-  - ✓ `execute_cook_worktree_create` creates an empty `.brunch/cook/runs/<runId>/worktree/` for an existing run and updates run metadata; it does not populate source, run agents, write reports, compile Petri artifacts, promote, or land.
-  - ✓ `execute_cook_populate` copies the selected plan into the worktree and updates run metadata; it does not copy host source, run agents, write reports, compile Petri artifacts, promote, or land.
-  - ✓ `execute_cook_source_policy` records the host-source policy and updates run metadata; it does not copy host source, run agents, write reports, compile Petri artifacts, promote, or land.
-  - ✓ `execute_cook_source_copy` copies bounded host source into the worktree, excluding `.brunch`, `.git`, `node_modules`, `dist`, and `build`; it does not run agents, write reports, compile Petri artifacts, promote, or land.
-  - ✓ `execute_cook_report_init` initializes `reports.jsonl` with a single `run_ready` event and updates run metadata; it does not execute slices, compile Petri artifacts, promote, or land.
-  - ✓ `execute_cook_slice_start` appends a `slice_started` marker for one plan slice and updates run metadata; it does not run agents, tests, Petri transitions, promote, or land.
-  - ✓ `execute_cook_slice_execute` writes an `agent-output/<sliceId>/request.json` execution request, appends `slice_execution_requested`, and updates run metadata; it does not run agents, tests, Petri transitions, promote, or land.
-  - ✓ `execute_cook_agent_result` ingests a prewritten `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and updates run metadata; it does not launch agents, run tests, compile Petri artifacts, promote, or land.
-  - ✓ `execute_cook_test_result` ingests a prewritten `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and updates run metadata; it does not run tests, compile Petri artifacts, promote, or land.
-  - ✓ `execute_cook_slice_complete` appends `slice_completed` and records the completed slice id; it does not compile Petri artifacts, promote, or land.
-  - ✓ `execute_cook_run_complete` appends `run_completed` once every plan slice is complete; it does not compile Petri artifacts, promote, or land.
-  - ✓ `execute_cook_petri_export` writes the minimal Petrinaut `net.json` artifact for a completed run; it does not promote or land.
-  - ✓ `execute_cook_promotion_prepare` writes a descriptive `promotion/promotion.json` report for a Petri-exported run and records `status:"promotion_prepared"`; it creates no git branch, promotion ref, or worktree mutation, and does not land.
+  - ✓ `execute_plan_file` writes the old-cook `Plan` payload to `.brunch/cook/specs/<specId>/plan.yaml` as one explicit `write_file` side effect, stripping preview-only fields and creating no run/worktree/Petri/promotion artifacts.
+  - ✓ `execute_launch` validates the selected spec's plan path as `missing_plan` or `ready`, returns `runStatus: not_started`, and creates no run/worktree/Petri/report/promotion artifacts.
+  - ✓ `execute_run_create` creates `.brunch/cook/runs/<runId>/run.json` metadata for a ready plan and creates no worktree/Petri/report/promotion artifacts.
+  - ✓ `execute_worktree_create` creates an empty `.brunch/cook/runs/<runId>/worktree/` for an existing run and updates run metadata; it does not populate source, run agents, write reports, compile Petri artifacts, promote, or land.
+  - ✓ `execute_populate` copies the selected plan into the worktree and updates run metadata; it does not copy host source, run agents, write reports, compile Petri artifacts, promote, or land.
+  - ✓ `execute_source_policy` records the host-source policy and updates run metadata; it does not copy host source, run agents, write reports, compile Petri artifacts, promote, or land.
+  - ✓ `execute_source_copy` copies bounded host source into the worktree, excluding `.brunch`, `.git`, `node_modules`, `dist`, and `build`; it does not run agents, write reports, compile Petri artifacts, promote, or land.
+  - ✓ `execute_report_init` initializes `reports.jsonl` with a single `run_ready` event and updates run metadata; it does not execute slices, compile Petri artifacts, promote, or land.
+  - ✓ `execute_slice_start` appends a `slice_started` marker for one plan slice and updates run metadata; it does not run agents, tests, Petri transitions, promote, or land.
+  - ✓ `execute_slice_execute` writes an `agent-output/<sliceId>/request.json` execution request, appends `slice_execution_requested`, and updates run metadata; it does not run agents, tests, Petri transitions, promote, or land.
+  - ✓ `execute_agent_result` ingests a prewritten `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and updates run metadata; it does not launch agents, run tests, compile Petri artifacts, promote, or land.
+  - ✓ `execute_test_result` ingests a prewritten `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and updates run metadata; it does not run tests, compile Petri artifacts, promote, or land.
+  - ✓ `execute_slice_complete` appends `slice_completed` and records the completed slice id; it does not compile Petri artifacts, promote, or land.
+  - ✓ `execute_run_complete` appends `run_completed` once every plan slice is complete; it does not compile Petri artifacts, promote, or land.
+  - ✓ `execute_petri_export` writes the minimal Petrinaut `net.json` artifact for a completed run; it does not promote or land.
+  - ✓ `execute_promotion_prepare` writes a descriptive `promotion/promotion.json` report for a Petri-exported run and records `status:"promotion_prepared"`; it creates no git branch, promotion ref, or worktree mutation, and does not land.
   - ✓ Descriptive cutover scaffold complete: the `fs`-only foothold chain truthfully simulates the cook lifecycle without any git/topology mutation or faked execution.
   - Blocked → moved out of frontier: actual host land is blocked on real agent/test execution + a real git worktree (no truthful source otherwise); reordered into the `cook-sandbox` → `cook-agent-runner` → `cook-land` arc frontiers. Do not fake a host git mutation against copied source under I52-L.
   - Later: real cook execution, real worktrees, host promotion/land, and adaptive replan arrive under the `cook-sandbox` → `cook-agent-runner` → `cook-land` frontiers behind the D99-L cook-execution-ports seam; interpretive execution may reinterpret task briefs but may not mutate plan/net topology.
@@ -179,10 +179,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Status:** after `cook-sandbox`.
 - **Certainty:** proving.
 - **Why now / unlocks:** with a real sandbox, a run can finally produce real changes. This frontier introduces the only LLM-bearing port and reuses the sealed subagent substrate rather than a new agent runtime.
-- **Objective:** Implement and inject `AgentRunnerPort` so a run actually produces real diffs via a code-owned write-capable CODE worker reusing the D90-L–D93-L sealed subagent substrate, retiring the prewritten-ingest tool (`execute_cook_agent_result`) in favor of the real runner.
+- **Objective:** Implement and inject `AgentRunnerPort` so a run actually produces real diffs via a code-owned write-capable CODE worker reusing the D90-L–D93-L sealed subagent substrate, retiring the prewritten-ingest tool (`execute_agent_result`) in favor of the real runner.
 - **Acceptance (to refine via `ln-scope`):**
   - `AgentRunnerPort` implementation (app layer) launches a write-capable CODE worker over the `cook-sandbox` worktree under the D90-L–D93-L grant model.
-  - `execute_cook_agent_result` is re-grounded on or retired in favor of the real runner; no prewritten `result.json` ingest remains on this layer.
+  - `execute_agent_result` is re-grounded on or retired in favor of the real runner; no prewritten `result.json` ingest remains on this layer.
   - Real diffs land in the sandbox worktree; focused tests/witness cover the runner contract.
 - **Traceability:** D39-L, D40-L, D52-L, D90-L, D91-L, D92-L, D93-L, D98-L, D99-L / I49-L, I52-L; depends on `cook-sandbox`.
 

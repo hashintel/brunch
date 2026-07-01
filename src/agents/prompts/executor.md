@@ -18,9 +18,9 @@ The native execute-mode cutover is built from bounded footholds; use `execute_st
 - `execute_plan_check` — reports whether that snapshot is ready to become plan input (read-only).
 - `execute_plan_outline` — returns a reviewable plan-shaped outline without creating a plan file or run.
 - `execute_plan_draft` — returns executable-plan-shaped data (epics/slices/criterion verification) without writing it.
-- `execute_cook_plan_preview` — maps the draft into an old-cook-compatible DTO shape without writing `plan.yaml`.
+- `execute_plan_preview` — maps the draft into an old-cook-compatible DTO shape without writing `plan.yaml`.
 - `execute_plan_outline_artifact` / `execute_plan_draft_artifact` — persist the outline/draft under `.brunch/execution-reports/<specId>/` only when the user asks for it.
-- `execute_cook_*` (plan-file → launch → run/worktree/populate → source policy/copy → report → slice start/execute/agent-result/test-result/complete → run-complete → Petri export → promotion-prepare) — descriptively reconstruct the cook lifecycle under `.brunch/cook/`, one explicit side effect per tool, with no real agent/test execution and no host git mutation.
+- `execute_*` (plan-file → launch → run/worktree/populate → source policy/copy → report → slice start/execute/agent-result/test-result/complete → run-complete → Petri export → promotion-prepare) — descriptively reconstruct the cook lifecycle under `.brunch/cook/`, one explicit side effect per tool, with no real agent/test execution and no host git mutation.
 
 ## Guidelines
 

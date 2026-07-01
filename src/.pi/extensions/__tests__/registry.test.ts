@@ -7,30 +7,30 @@ import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
-import { BRUNCH_EXECUTE_COOK_AGENT_RESULT_TOOL } from '../agent-runtime/execute-cook-agent-result/index.js';
-import { BRUNCH_EXECUTE_COOK_LAUNCH_TOOL } from '../agent-runtime/execute-cook-launch/index.js';
-import { BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL } from '../agent-runtime/execute-cook-petri-export/index.js';
-import { BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL } from '../agent-runtime/execute-cook-plan-file/index.js';
-import { BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL } from '../agent-runtime/execute-cook-plan-preview/index.js';
-import { BRUNCH_EXECUTE_COOK_POPULATE_TOOL } from '../agent-runtime/execute-cook-populate/index.js';
-import { BRUNCH_EXECUTE_COOK_PROMOTION_PREPARE_TOOL } from '../agent-runtime/execute-cook-promotion-prepare/index.js';
-import { BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL } from '../agent-runtime/execute-cook-report-init/index.js';
-import { BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL } from '../agent-runtime/execute-cook-run-complete/index.js';
-import { BRUNCH_EXECUTE_COOK_RUN_CREATE_TOOL } from '../agent-runtime/execute-cook-run-create/index.js';
-import { BRUNCH_EXECUTE_COOK_SLICE_COMPLETE_TOOL } from '../agent-runtime/execute-cook-slice-complete/index.js';
-import { BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL } from '../agent-runtime/execute-cook-slice-execute/index.js';
-import { BRUNCH_EXECUTE_COOK_SLICE_START_TOOL } from '../agent-runtime/execute-cook-slice-start/index.js';
-import { BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL } from '../agent-runtime/execute-cook-source-copy/index.js';
-import { BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL } from '../agent-runtime/execute-cook-source-policy/index.js';
-import { BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL } from '../agent-runtime/execute-cook-test-result/index.js';
-import { BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL } from '../agent-runtime/execute-cook-worktree-create/index.js';
+import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../agent-runtime/execute-agent-result/index.js';
+import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../agent-runtime/execute-launch/index.js';
+import { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../agent-runtime/execute-petri-export/index.js';
 import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../agent-runtime/execute-plan-check/index.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-draft-artifact/index.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_TOOL } from '../agent-runtime/execute-plan-draft/index.js';
+import { BRUNCH_EXECUTE_PLAN_FILE_TOOL } from '../agent-runtime/execute-plan-file/index.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-outline-artifact/index.js';
 import { BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL } from '../agent-runtime/execute-plan-outline/index.js';
+import { BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL } from '../agent-runtime/execute-plan-preview/index.js';
+import { BRUNCH_EXECUTE_POPULATE_TOOL } from '../agent-runtime/execute-populate/index.js';
+import { BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL } from '../agent-runtime/execute-promotion-prepare/index.js';
+import { BRUNCH_EXECUTE_REPORT_INIT_TOOL } from '../agent-runtime/execute-report-init/index.js';
+import { BRUNCH_EXECUTE_RUN_COMPLETE_TOOL } from '../agent-runtime/execute-run-complete/index.js';
+import { BRUNCH_EXECUTE_RUN_CREATE_TOOL } from '../agent-runtime/execute-run-create/index.js';
+import { BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL } from '../agent-runtime/execute-slice-complete/index.js';
+import { BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL } from '../agent-runtime/execute-slice-execute/index.js';
+import { BRUNCH_EXECUTE_SLICE_START_TOOL } from '../agent-runtime/execute-slice-start/index.js';
 import { BRUNCH_EXECUTE_SNAPSHOT_TOOL } from '../agent-runtime/execute-snapshot/index.js';
+import { BRUNCH_EXECUTE_SOURCE_COPY_TOOL } from '../agent-runtime/execute-source-copy/index.js';
+import { BRUNCH_EXECUTE_SOURCE_POLICY_TOOL } from '../agent-runtime/execute-source-policy/index.js';
 import { BRUNCH_EXECUTE_STATUS_TOOL } from '../agent-runtime/execute-status/index.js';
+import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../agent-runtime/execute-test-result/index.js';
+import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../agent-runtime/execute-worktree-create/index.js';
 import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../agent-runtime/orchestrator-stub/index.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
 import { registerBrunchPrompting as prompting } from '../agent-runtime/system-prompts/index.js';
@@ -84,7 +84,7 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(settings.extensions).toEqual(
       expect.arrayContaining([
         '-extensions/agent-runtime/index.ts',
-        '-extensions/agent-runtime/execute-cook-plan-preview/index.ts',
+        '-extensions/agent-runtime/execute-plan-preview/index.ts',
         '-extensions/agent-runtime/execute-plan-check/index.ts',
         '-extensions/agent-runtime/execute-plan-draft-artifact/index.ts',
         '-extensions/agent-runtime/execute-plan-draft/index.ts',
@@ -146,19 +146,19 @@ describe('Brunch explicit Pi extension registry', () => {
       'web_fetch',
       'web_search',
       BRUNCH_EXECUTE_STATUS_TOOL,
-      BRUNCH_EXECUTE_COOK_AGENT_RESULT_TOOL,
-      BRUNCH_EXECUTE_COOK_PETRI_EXPORT_TOOL,
-      BRUNCH_EXECUTE_COOK_PROMOTION_PREPARE_TOOL,
-      BRUNCH_EXECUTE_COOK_POPULATE_TOOL,
-      BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL,
-      BRUNCH_EXECUTE_COOK_RUN_COMPLETE_TOOL,
-      BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL,
-      BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL,
-      BRUNCH_EXECUTE_COOK_SLICE_COMPLETE_TOOL,
-      BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL,
-      BRUNCH_EXECUTE_COOK_SLICE_START_TOOL,
-      BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL,
-      BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL,
+      BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
+      BRUNCH_EXECUTE_PETRI_EXPORT_TOOL,
+      BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
+      BRUNCH_EXECUTE_POPULATE_TOOL,
+      BRUNCH_EXECUTE_REPORT_INIT_TOOL,
+      BRUNCH_EXECUTE_RUN_COMPLETE_TOOL,
+      BRUNCH_EXECUTE_SOURCE_POLICY_TOOL,
+      BRUNCH_EXECUTE_SOURCE_COPY_TOOL,
+      BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL,
+      BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL,
+      BRUNCH_EXECUTE_SLICE_START_TOOL,
+      BRUNCH_EXECUTE_TEST_RESULT_TOOL,
+      BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
       BRUNCH_ORCHESTRATOR_STUB_TOOL,
       'present_alternatives',
       PRESENT_QUESTION_TOOL,
@@ -271,7 +271,7 @@ describe('Brunch explicit Pi extension registry', () => {
     });
   });
 
-  it('registers execute_cook_plan_preview only with selected graph deps and returns old cook DTO shape', async () => {
+  it('registers execute_plan_preview only with selected graph deps and returns old cook DTO shape', async () => {
     const registeredTools: Array<{
       name: string;
       execute: (
@@ -329,11 +329,11 @@ describe('Brunch explicit Pi extension registry', () => {
       setActiveTools() {},
     } as never);
 
-    const preview = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL);
+    const preview = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL);
     expect(preview).toBeDefined();
     const result = await preview!.execute('call-1', { mode: 'brownfield' });
 
-    expect(result.content[0]?.text).toContain('execute_cook_plan_preview: brownfield');
+    expect(result.content[0]?.text).toContain('execute_plan_preview: brownfield');
     expect(result.details).toMatchObject({
       source: { graphLsn: 17, visibility: 'active' },
       sideEffects: [],
@@ -512,8 +512,8 @@ describe('Brunch explicit Pi extension registry', () => {
     ).resolves.toContain('Run the cooked feature');
   });
 
-  it('registers execute_cook_plan_file only with selected graph deps and writes one bounded plan.yaml', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-plan-file-'));
+  it('registers execute_plan_file only with selected graph deps and writes one bounded plan.yaml', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-plan-file-'));
     const registeredTools: Array<{
       name: string;
       execute: (
@@ -574,12 +574,12 @@ describe('Brunch explicit Pi extension registry', () => {
       setActiveTools() {},
     } as never);
 
-    const planFile = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_PLAN_FILE_TOOL);
+    const planFile = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PLAN_FILE_TOOL);
     expect(planFile).toBeDefined();
     const result = await planFile!.execute('call-1', { mode: 'brownfield' }, undefined, undefined, { cwd });
 
     const path = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
-    expect(result.content[0]?.text).toContain('execute_cook_plan_file:');
+    expect(result.content[0]?.text).toContain('execute_plan_file:');
     expect(result.details).toMatchObject({
       artifact: { path, writeMode: 'overwrite' },
       source: { graphLsn: 18, visibility: 'active' },
@@ -591,8 +591,8 @@ describe('Brunch explicit Pi extension registry', () => {
     expect(payload).not.toHaveProperty('sideEffects');
   });
 
-  it('registers execute_cook_launch as a selected-spec non-running readiness boundary', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-launch-'));
+  it('registers execute_launch as a selected-spec non-running readiness boundary', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-launch-'));
     const registeredTools: Array<{
       name: string;
       execute: (
@@ -635,12 +635,12 @@ describe('Brunch explicit Pi extension registry', () => {
       setActiveTools() {},
     } as never);
 
-    const launch = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_LAUNCH_TOOL);
+    const launch = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_LAUNCH_TOOL);
     expect(launch).toBeDefined();
     const missing = await launch!.execute('call-1', {}, undefined, undefined, { cwd });
 
     const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
-    expect(missing.content[0]?.text).toContain('execute_cook_launch: missing_plan');
+    expect(missing.content[0]?.text).toContain('execute_launch: missing_plan');
     expect(missing.details).toMatchObject({
       result: { status: 'missing_plan', runStatus: 'not_started', planPath, sideEffects: [] },
       sideEffects: [],
@@ -650,7 +650,7 @@ describe('Brunch explicit Pi extension registry', () => {
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
     const ready = await launch!.execute('call-2', {}, undefined, undefined, { cwd });
 
-    expect(ready.content[0]?.text).toContain('execute_cook_launch: ready');
+    expect(ready.content[0]?.text).toContain('execute_launch: ready');
     expect(ready.details).toMatchObject({
       result: { status: 'ready', runStatus: 'not_started', planPath, sideEffects: [] },
       sideEffects: [],
@@ -658,8 +658,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(cwd, '.brunch', 'cook', 'runs'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_run_create as metadata-only run creation', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-run-create-'));
+  it('registers execute_run_create as metadata-only run creation', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-run-create-'));
     const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
@@ -705,13 +705,13 @@ describe('Brunch explicit Pi extension registry', () => {
       setActiveTools() {},
     } as never);
 
-    const createRun = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_RUN_CREATE_TOOL);
+    const createRun = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_RUN_CREATE_TOOL);
     expect(createRun).toBeDefined();
     const result = await createRun!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
-    expect(result.content[0]?.text).toContain('execute_cook_run_create: created');
+    expect(result.content[0]?.text).toContain('execute_run_create: created');
     expect(result.details).toMatchObject({
       result: {
         status: 'created',
@@ -731,8 +731,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_worktree_create as empty worktree materialization only', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-worktree-create-'));
+  it('registers execute_worktree_create as empty worktree materialization only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-worktree-create-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     await mkdir(runDir, { recursive: true });
@@ -745,14 +745,12 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 21, nodes: [], edges: [] },
     });
 
-    const createWorktree = registeredTools.find(
-      (tool) => tool.name === BRUNCH_EXECUTE_COOK_WORKTREE_CREATE_TOOL,
-    );
+    const createWorktree = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL);
     expect(createWorktree).toBeDefined();
     const result = await createWorktree!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
     const worktreeDir = join(runDir, 'worktree');
-    expect(result.content[0]?.text).toContain('execute_cook_worktree_create: worktree_created');
+    expect(result.content[0]?.text).toContain('execute_worktree_create: worktree_created');
     expect(result.details).toMatchObject({
       result: { status: 'worktree_created', runStatus: 'worktree_created', runId: 'run-1', worktreeDir },
       sideEffects: [
@@ -765,8 +763,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_populate as plan-only worktree population', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-populate-'));
+  it('registers execute_populate as plan-only worktree population', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-populate-'));
     const planPath = join(cwd, '.brunch', 'cook', 'specs', '42', 'plan.yaml');
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const worktreeDir = join(runDir, 'worktree');
@@ -783,12 +781,12 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 22, nodes: [], edges: [] },
     });
 
-    const populate = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_POPULATE_TOOL);
+    const populate = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_POPULATE_TOOL);
     expect(populate).toBeDefined();
     const result = await populate!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
     const populatedPlan = join(worktreeDir, '.brunch', 'cook', 'plan.yaml');
-    expect(result.content[0]?.text).toContain('execute_cook_populate: worktree_populated');
+    expect(result.content[0]?.text).toContain('execute_populate: worktree_populated');
     expect(result.details).toMatchObject({
       result: {
         status: 'worktree_populated',
@@ -806,8 +804,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_source_policy as policy-only source selection', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-source-policy-'));
+  it('registers execute_source_policy as policy-only source selection', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-source-policy-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const worktreeDir = join(runDir, 'worktree');
     const metadataPath = join(runDir, 'run.json');
@@ -831,7 +829,7 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 23, nodes: [], edges: [] },
     });
 
-    const sourcePolicy = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_SOURCE_POLICY_TOOL);
+    const sourcePolicy = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SOURCE_POLICY_TOOL);
     expect(sourcePolicy).toBeDefined();
     const result = await sourcePolicy!.execute(
       'call-1',
@@ -841,7 +839,7 @@ describe('Brunch explicit Pi extension registry', () => {
       { cwd },
     );
 
-    expect(result.content[0]?.text).toContain('execute_cook_source_policy: source_policy_selected');
+    expect(result.content[0]?.text).toContain('execute_source_policy: source_policy_selected');
     expect(result.details).toMatchObject({
       result: {
         status: 'source_policy_selected',
@@ -860,8 +858,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_source_copy as bounded host source copy', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-source-copy-'));
+  it('registers execute_source_copy as bounded host source copy', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-source-copy-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const worktreeDir = join(runDir, 'worktree');
     const metadataPath = join(runDir, 'run.json');
@@ -892,11 +890,11 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 24, nodes: [], edges: [] },
     });
 
-    const sourceCopy = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_SOURCE_COPY_TOOL);
+    const sourceCopy = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SOURCE_COPY_TOOL);
     expect(sourceCopy).toBeDefined();
     const result = await sourceCopy!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
-    expect(result.content[0]?.text).toContain('execute_cook_source_copy: source_copied');
+    expect(result.content[0]?.text).toContain('execute_source_copy: source_copied');
     expect(result.details).toMatchObject({
       result: {
         status: 'source_copied',
@@ -915,8 +913,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'reports.jsonl'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_report_init as report-log initialization only', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-report-init-'));
+  it('registers execute_report_init as report-log initialization only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-report-init-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportsPath = join(runDir, 'reports.jsonl');
@@ -930,11 +928,11 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 25, nodes: [], edges: [] },
     });
 
-    const reportInit = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_REPORT_INIT_TOOL);
+    const reportInit = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_REPORT_INIT_TOOL);
     expect(reportInit).toBeDefined();
     const result = await reportInit!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
-    expect(result.content[0]?.text).toContain('execute_cook_report_init: reports_initialized');
+    expect(result.content[0]?.text).toContain('execute_report_init: reports_initialized');
     expect(result.details).toMatchObject({
       result: {
         status: 'reports_initialized',
@@ -951,8 +949,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_slice_start as slice-start marker only', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-slice-start-'));
+  it('registers execute_slice_start as slice-start marker only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-slice-start-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const worktreePlan = join(runDir, 'worktree', '.brunch', 'cook', 'plan.yaml');
     const metadataPath = join(runDir, 'run.json');
@@ -980,11 +978,11 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 26, nodes: [], edges: [] },
     });
 
-    const sliceStart = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_SLICE_START_TOOL);
+    const sliceStart = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SLICE_START_TOOL);
     expect(sliceStart).toBeDefined();
     const result = await sliceStart!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
-    expect(result.content[0]?.text).toContain('execute_cook_slice_start: slice_started');
+    expect(result.content[0]?.text).toContain('execute_slice_start: slice_started');
     expect(result.details).toMatchObject({
       result: { status: 'slice_started', runStatus: 'slice_started', runId: 'run-1', sliceId: 'task-1' },
       sideEffects: [
@@ -996,8 +994,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'agent-output'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_slice_execute as execution request only', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-slice-execute-'));
+  it('registers execute_slice_execute as execution request only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-slice-execute-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
@@ -1020,12 +1018,12 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 27, nodes: [], edges: [] },
     });
 
-    const sliceExecute = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_SLICE_EXECUTE_TOOL);
+    const sliceExecute = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL);
     expect(sliceExecute).toBeDefined();
     const result = await sliceExecute!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
     const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
-    expect(result.content[0]?.text).toContain('execute_cook_slice_execute: slice_execution_requested');
+    expect(result.content[0]?.text).toContain('execute_slice_execute: slice_execution_requested');
     expect(result.details).toMatchObject({
       result: {
         status: 'slice_execution_requested',
@@ -1044,8 +1042,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'agent-output', 'task-1', 'result.json'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_agent_result as prewritten result ingestion only', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-agent-result-'));
+  it('registers execute_agent_result as prewritten result ingestion only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-agent-result-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
@@ -1074,11 +1072,11 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 28, nodes: [], edges: [] },
     });
 
-    const agentResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_AGENT_RESULT_TOOL);
+    const agentResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_AGENT_RESULT_TOOL);
     expect(agentResult).toBeDefined();
     const result = await agentResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
-    expect(result.content[0]?.text).toContain('execute_cook_agent_result: agent_result_ingested');
+    expect(result.content[0]?.text).toContain('execute_agent_result: agent_result_ingested');
     expect(result.details).toMatchObject({
       result: { status: 'agent_result_ingested', runStatus: 'agent_result_ingested', resultPath },
       sideEffects: [
@@ -1090,8 +1088,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_test_result as prewritten test result ingestion only', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-test-result-'));
+  it('registers execute_test_result as prewritten test result ingestion only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-test-result-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
@@ -1116,11 +1114,11 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 29, nodes: [], edges: [] },
     });
 
-    const testResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_TEST_RESULT_TOOL);
+    const testResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_TEST_RESULT_TOOL);
     expect(testResult).toBeDefined();
     const result = await testResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
-    expect(result.content[0]?.text).toContain('execute_cook_test_result: test_result_ingested');
+    expect(result.content[0]?.text).toContain('execute_test_result: test_result_ingested');
     expect(result.details).toMatchObject({
       result: { status: 'test_result_ingested', runStatus: 'test_result_ingested', resultPath },
       sideEffects: [
@@ -1132,8 +1130,8 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
-  it('registers execute_cook_slice_complete as completion marker only', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-cook-slice-complete-'));
+  it('registers execute_slice_complete as completion marker only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-slice-complete-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
@@ -1156,11 +1154,11 @@ describe('Brunch explicit Pi extension registry', () => {
       graph: { specId: 42, lsn: 30, nodes: [], edges: [] },
     });
 
-    const complete = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_COOK_SLICE_COMPLETE_TOOL);
+    const complete = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL);
     expect(complete).toBeDefined();
     const result = await complete!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
 
-    expect(result.content[0]?.text).toContain('execute_cook_slice_complete: slice_completed');
+    expect(result.content[0]?.text).toContain('execute_slice_complete: slice_completed');
     expect(result.details).toMatchObject({
       result: { status: 'slice_completed', runStatus: 'slice_completed', sliceId: 'task-1' },
       sideEffects: [
@@ -1439,7 +1437,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_cook_agent_result, execute_cook_launch, execute_cook_plan_file, execute_cook_plan_preview, execute_cook_petri_export, execute_cook_promotion_prepare, execute_cook_populate, execute_cook_report_init, execute_cook_run_complete, execute_cook_run_create, execute_cook_source_policy, execute_cook_source_copy, execute_cook_slice_complete, execute_cook_slice_start, execute_cook_slice_execute, execute_cook_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
+      'ported tools: execute_status, execute_snapshot, execute_agent_result, execute_launch, execute_plan_file, execute_plan_preview, execute_petri_export, execute_promotion_prepare, execute_populate, execute_report_init, execute_run_complete, execute_run_create, execute_source_policy, execute_source_copy, execute_slice_complete, execute_slice_start, execute_slice_execute, execute_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
     );
     expect(result.content[0]?.text).toContain('pending tools: land');
     expect(result.content[0]?.text).toContain(
@@ -1451,22 +1449,22 @@ describe('Brunch explicit Pi extension registry', () => {
       portedTools: [
         'execute_status',
         'execute_snapshot',
-        'execute_cook_agent_result',
-        'execute_cook_launch',
-        'execute_cook_plan_file',
-        'execute_cook_plan_preview',
-        'execute_cook_petri_export',
-        'execute_cook_promotion_prepare',
-        'execute_cook_populate',
-        'execute_cook_report_init',
-        'execute_cook_run_complete',
-        'execute_cook_run_create',
-        'execute_cook_source_policy',
-        'execute_cook_source_copy',
-        'execute_cook_slice_complete',
-        'execute_cook_slice_start',
-        'execute_cook_slice_execute',
-        'execute_cook_worktree_create',
+        'execute_agent_result',
+        'execute_launch',
+        'execute_plan_file',
+        'execute_plan_preview',
+        'execute_petri_export',
+        'execute_promotion_prepare',
+        'execute_populate',
+        'execute_report_init',
+        'execute_run_complete',
+        'execute_run_create',
+        'execute_source_policy',
+        'execute_source_copy',
+        'execute_slice_complete',
+        'execute_slice_start',
+        'execute_slice_execute',
+        'execute_worktree_create',
         'execute_plan_check',
         'execute_plan_draft',
         'execute_plan_draft_artifact',
@@ -1512,7 +1510,7 @@ describe('Brunch explicit Pi extension registry', () => {
       expect.arrayContaining([
         'mutate_graph',
         'read_graph',
-        BRUNCH_EXECUTE_COOK_PLAN_PREVIEW_TOOL,
+        BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL,
         BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
         BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
         BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,

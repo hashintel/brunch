@@ -17,39 +17,39 @@ Call `execute_plan_outline` when it is active and you need a reviewable plan-sha
 
 Call `execute_plan_draft` when it is active and you need executable-plan-shaped data for review or downstream tooling. Treat the draft as schema-shaped data, not as a written `plan.yaml` or a cook run.
 
-Call `execute_cook_plan_preview` when it is active and you need to inspect the old-cook-compatible DTO shape. It previews compatibility only; it does not write `plan.yaml`, compile a Petri net, or start a cook run.
+Call `execute_plan_preview` when it is active and you need to inspect the old-cook-compatible DTO shape. It previews compatibility only; it does not write `plan.yaml`, compile a Petri net, or start a cook run.
 
-Call `execute_cook_plan_file` only when the user asks to write the executable old-cook-compatible plan file. It writes `.brunch/cook/specs/<specId>/plan.yaml` and returns an explicit `write_file` side effect; it still does not create a cook run, worktree, Petri net, or promotion branch.
+Call `execute_plan_file` only when the user asks to write the executable old-cook-compatible plan file. It writes `.brunch/cook/specs/<specId>/plan.yaml` and returns an explicit `write_file` side effect; it still does not create a cook run, worktree, Petri net, or promotion branch.
 
-Call `execute_cook_launch` only to validate the selected spec's cook launch readiness. It reports `missing_plan` or `ready` against the spec-scoped plan file and always returns `runStatus: not_started`; it does not create a cook run, worktree, Petri net, or promotion branch.
+Call `execute_launch` only to validate the selected spec's cook launch readiness. It reports `missing_plan` or `ready` against the spec-scoped plan file and always returns `runStatus: not_started`; it does not create a cook run, worktree, Petri net, or promotion branch.
 
-Call `execute_cook_run_create` only to create durable run metadata for a ready spec-scoped plan. It writes `.brunch/cook/runs/<runId>/run.json` and returns explicit `mkdir` + `write_file` side effects; it still does not create a worktree, Petri net, reports log, promotion branch, or land branch.
+Call `execute_run_create` only to create durable run metadata for a ready spec-scoped plan. It writes `.brunch/cook/runs/<runId>/run.json` and returns explicit `mkdir` + `write_file` side effects; it still does not create a worktree, Petri net, reports log, promotion branch, or land branch.
 
-Call `execute_cook_worktree_create` only to create the empty worktree directory for an existing run. It writes `.brunch/cook/runs/<runId>/worktree/` and updates `run.json`; it still does not populate source files, run agents, compile Petri nets, write reports, promote, or land.
+Call `execute_worktree_create` only to create the empty worktree directory for an existing run. It writes `.brunch/cook/runs/<runId>/worktree/` and updates `run.json`; it still does not populate source files, run agents, compile Petri nets, write reports, promote, or land.
 
-Call `execute_cook_populate` only to copy the selected plan into an existing run worktree. It writes `.brunch/cook/runs/<runId>/worktree/.brunch/cook/plan.yaml` and updates `run.json`; it still does not copy host source files, run agents, compile Petri nets, write reports, promote, or land.
+Call `execute_populate` only to copy the selected plan into an existing run worktree. It writes `.brunch/cook/runs/<runId>/worktree/.brunch/cook/plan.yaml` and updates `run.json`; it still does not copy host source files, run agents, compile Petri nets, write reports, promote, or land.
 
-Call `execute_cook_source_policy` only to record the source population policy for an already plan-populated run. It writes `source-policy.json` and updates `run.json`; it still does not copy host source files, run agents, compile Petri nets, write reports, promote, or land.
+Call `execute_source_policy` only to record the source population policy for an already plan-populated run. It writes `source-policy.json` and updates `run.json`; it still does not copy host source files, run agents, compile Petri nets, write reports, promote, or land.
 
-Call `execute_cook_source_copy` only after source policy is selected and the user asks to copy bounded host source into the worktree. It copies top-level source entries while excluding `.brunch`, `.git`, `node_modules`, `dist`, and `build`, then updates `source-policy.json` and `run.json`; it still does not run agents, compile Petri nets, write reports, promote, or land.
+Call `execute_source_copy` only after source policy is selected and the user asks to copy bounded host source into the worktree. It copies top-level source entries while excluding `.brunch`, `.git`, `node_modules`, `dist`, and `build`, then updates `source-policy.json` and `run.json`; it still does not run agents, compile Petri nets, write reports, promote, or land.
 
-Call `execute_cook_report_init` only to initialize `reports.jsonl` after source copy. It writes a single `run_ready` report and updates `run.json`; it still does not run agents, compile Petri nets, promote, or land.
+Call `execute_report_init` only to initialize `reports.jsonl` after source copy. It writes a single `run_ready` report and updates `run.json`; it still does not run agents, compile Petri nets, promote, or land.
 
-Call `execute_cook_slice_start` only to append a slice-start marker after reports are initialized. It appends a `slice_started` report and updates `run.json`; it still does not run agents, run tests, compile Petri nets, promote, or land.
+Call `execute_slice_start` only to append a slice-start marker after reports are initialized. It appends a `slice_started` report and updates `run.json`; it still does not run agents, run tests, compile Petri nets, promote, or land.
 
-Call `execute_cook_slice_execute` only to create an execution request artifact for the active slice. It writes `agent-output/<sliceId>/request.json`, appends a `slice_execution_requested` report, and updates `run.json`; it still does not run agents, run tests, compile Petri nets, promote, or land.
+Call `execute_slice_execute` only to create an execution request artifact for the active slice. It writes `agent-output/<sliceId>/request.json`, appends a `slice_execution_requested` report, and updates `run.json`; it still does not run agents, run tests, compile Petri nets, promote, or land.
 
-Call `execute_cook_agent_result` only to ingest an already-written agent result for the active slice. It reads `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and updates `run.json`; it still does not launch agents, run tests, compile Petri nets, promote, or land.
+Call `execute_agent_result` only to ingest an already-written agent result for the active slice. It reads `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and updates `run.json`; it still does not launch agents, run tests, compile Petri nets, promote, or land.
 
-Call `execute_cook_test_result` only to ingest an already-written test result for the active slice. It reads `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and updates `run.json`; it still does not run tests, compile Petri nets, promote, or land.
+Call `execute_test_result` only to ingest an already-written test result for the active slice. It reads `agent-output/<sliceId>/test-result.json`, appends `slice_test_result`, and updates `run.json`; it still does not run tests, compile Petri nets, promote, or land.
 
-Call `execute_cook_slice_complete` only after test result ingestion. It appends `slice_completed` and updates `run.json`; it still does not compile Petri nets, promote, or land.
+Call `execute_slice_complete` only after test result ingestion. It appends `slice_completed` and updates `run.json`; it still does not compile Petri nets, promote, or land.
 
-Call `execute_cook_run_complete` only when all plan slices are complete. It appends `run_completed` and updates `run.json`; it still does not compile Petri nets, promote, or land.
+Call `execute_run_complete` only when all plan slices are complete. It appends `run_completed` and updates `run.json`; it still does not compile Petri nets, promote, or land.
 
-Call `execute_cook_petri_export` only after run completion. It writes the minimal Petrinaut `net.json` artifact and updates `run.json`; it still does not promote or land.
+Call `execute_petri_export` only after run completion. It writes the minimal Petrinaut `net.json` artifact and updates `run.json`; it still does not promote or land.
 
-Call `execute_cook_promotion_prepare` only after Petri export. It writes a descriptive `promotion/promotion.json` report and updates `run.json` to `status:"promotion_prepared"`; it creates no git branch, promotion ref, or worktree mutation, and still does not land.
+Call `execute_promotion_prepare` only after Petri export. It writes a descriptive `promotion/promotion.json` report and updates `run.json` to `status:"promotion_prepared"`; it creates no git branch, promotion ref, or worktree mutation, and still does not land.
 
 Call `execute_plan_draft_artifact` only when the user asks to persist executable-plan-shaped data for review. It writes an artifact under `.brunch/execution-reports`; it still does not create an executable `plan.yaml`, cook run, worktree, Petri net, or promotion branch.
 
