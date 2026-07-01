@@ -13,11 +13,11 @@ Usage:
 ╭──────────────────────────────────────────────────────────────────╮
 │ projection loop (one step of generalized capture)                │
 │                                                                  │
-│ 1. read open gaps + grounding density for THIS spec              │
+│ 1. read scratchpad obligations + grounding density for THIS spec │
 │ 2. pick a node kind whose source-question is under-answered      │
 │ 3. project: bind the kind's facets to what's already known       │
 │    (domain X + protagonist Y  →  a concrete, situated question) │
-│ 4. emit as an elicitation_gap: ⟨question, refersTo: kind, …⟩    │
+│ 4. add as scratchpad obligation: ⟨obligation, rationale, meta?⟩ │
 │ 5. NEVER mint a new kind/typology to hold a question             │
 │    attach to the nearest existing kind                           │
 ╰──────────────────────────────────────────────────────────────────╯

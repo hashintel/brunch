@@ -76,14 +76,14 @@ This is an authoring sketch, not a replacement schema. If it diverges from curre
 rules review-set-route
   exact user-approved item or safe explicit direct commit -> graph mutation path
   coherent candidate batch needing judgment -> present_review_set
-  useful low-confidence noticing -> elicitation_gap
+  useful low-confidence noticing -> session scratchpad obligation
   conflict with accepted graph truth -> reconciliation_need
   only conversational response needed -> no graph artifact
 ```
 
 Notes:
 - Review-set approval can produce `basis: explicit` only for the exact reviewed items.
-- A gap stores the obligation/question/rationale, not a hidden low-confidence claim.
+- A scratchpad obligation stores the obligation/rationale, not a hidden low-confidence claim.
 - A reconciliation need records the conflict; it does not silently choose a winner.
 
 ## Coherence checks before presenting

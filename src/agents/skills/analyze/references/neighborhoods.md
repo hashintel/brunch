@@ -41,7 +41,7 @@ item_edge:
 task about anchor
   -> read anchor text and edge-local neighborhood
   -> bucket neighbors by relation to anchor: dependencies | dependents | evidence | lateral
-  -> inspect open gaps/reconciliation needs before assuming completeness
+  -> inspect open scratchpad obligations/reconciliation needs before assuming completeness
   -> answer or propose with explicit references to affected neighbors
 ```
 
@@ -70,7 +70,7 @@ REQ17: Each phase exposes explicit kickoff/frontier/recovery/handoff affordances
     witnessed by AC13: open phases bottom-load one visible artifact
     challenged by EX4: cancelled interview with no handoff artifact
   open:
-    gap: Should recovery affordances appear before or after generation failure?
+    scratchpad obligation: Should recovery affordances appear before or after generation failure?
 ```
 
 This shape is more useful than “all goals, all constraints, all requirements” because it carries why the anchor stands and what changes if it moves.

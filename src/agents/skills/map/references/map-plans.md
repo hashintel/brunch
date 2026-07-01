@@ -68,7 +68,7 @@ policy: exclusive
 | R1   | establishes a phase threshold across multiple work items                | `milestone`                                          |
 | R2   | is the canonical named work item with its own planning/tracker identity | `frontier`                                           |
 | R3   | is one buildable execution scope inside a frontier                      | `slice`                                              |
-| R4   | is just a note, risk, or unresolved question                            | not plan graph truth; use body text, gap, or unknown |
+| R4   | is just a note, risk, or unresolved question                            | not plan graph truth; use body text, a scratchpad obligation, or unknown |
 
 notes:
   - #R2 can contain several slices through `composition`.
@@ -91,7 +91,7 @@ notes:
 - Do not turn every task into a `frontier`; frontiers are named work items, slices are build units.
 - Do not create plan nodes detached from accepted claims/design/oracles.
 - Do not sequence by aesthetic completeness; sequence by pressure, dependency, risk, and verification economics.
-- Do not use plan nodes as a hidden backlog for uncertain facts; use `elicitation_gap`, `unknown`, or review notes.
+- Do not use plan nodes as a hidden backlog for uncertain facts; use a session scratchpad obligation, `unknown`, or review notes.
 - Do not infer that a passing slice proves a whole frontier; state the acceptance breadth honestly.
 
 ## Minimum plan proposal shape

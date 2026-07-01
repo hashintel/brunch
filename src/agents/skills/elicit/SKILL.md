@@ -13,7 +13,7 @@ Read [`../../references/readiness-bands.md`](../../references/readiness-bands.md
 
 ```text
 chain elicitation:
-  current graph + gaps + latest user answer
+  current graph + scratchpad + latest user answer
     -> identify the smallest meaningful absence
     -> choose the node kind or relation the answer would clarify
     -> ask one focused question

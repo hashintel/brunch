@@ -32,7 +32,7 @@ chain review
 - Replacing capture with endless critique.
 - Inventing new graph truth to close the gap.
 - Pretending every review concern is a contradiction that needs immediate repair.
-- Spawning or closing elicitation gaps automatically; audit output may route to gap capture, but capture/mapping owns the write.
+- Adding or resolving scratchpad obligations automatically; audit output may route to scratchpad capture, but capture/mapping owns the write.
 - Expanding into broad architectural analysis when the current review question is local.
 
 ## Plane heuristics
@@ -41,14 +41,14 @@ chain review
 | --- | --- | --- |
 | intent | goals with no requirements; requirements with no examples/criteria; high-fanout assumptions; decisions without rejected alternatives or rationale; conflicting boundaries; weak category support masquerading as certainty | ask one clarifier, propose a reviewable repair, or route accepted conflicts to reconciliation |
 | design | unclear ownership; leaky interfaces; unbacked realization edges; dependency direction contradicting the module boundary; design claims with no accepted intent anchor; two modules owning the same fact; implementation preference posing as requirement | ask for boundary intent, mutation/projection owner, or hidden information; propose design alternatives; or route a graph repair through review-set drafting |
-| oracle | claims without observation; criteria without target behavior; obligations without evidence; fixtures/probes with no replay commitment; blind spots hidden by one oracle family; metrics with no claim they validate | ask what observation discriminates success from failure, propose oracle ensembles, ask for evidence, or route verification debt to graph/gap handling |
+| oracle | claims without observation; criteria without target behavior; obligations without evidence; fixtures/probes with no replay commitment; blind spots hidden by one oracle family; metrics with no claim they validate | ask what observation discriminates success from failure, propose oracle ensembles, ask for evidence, or route verification debt to graph/scratchpad handling |
 | plan | slices detached from claims/design/oracles; dependency order hiding risk; done definitions with no witness; handoff/recovery gaps | revise plan material or ask for the smallest missing proof |
 
 ## Finding classes
 
 ```pseudo
 rules review-finding-route
-  missing support or unanswered question -> ask or route to elicitation-gap capture
+  missing support or unanswered question -> ask or route to scratchpad capture
   coherent repair candidate needing approval -> propose / present_review_set
   conflict with accepted graph truth -> reconciliation_need
   stale or illegal graph shape -> map-guided repair path

@@ -14,15 +14,15 @@ chain ingest:
   identify source (ask | paste | reference | brownfield)
     -> digest if raw/large           (reference + brownfield: required; paste: if large; ask: n/a)
     -> map graph-worthy spans        (kinds, edges, design/oracle/plan guidance live under ../map/)
-    -> route by confidence/conflict  (settled truth | advisory signal | gap | reconciliation)
-    -> ask from the updated graph + gaps
+    -> route by confidence/conflict  (settled truth | advisory signal | scratchpad obligation | reconciliation)
+    -> ask from the updated graph + scratchpad
 ```
 
 1. **Identify source.** Name the source in ordinary language. Done when the source and its provenance phrasing are explicit.
 2. **Digest if raw/large.** For a referenced document or brownfield area, read with legal read tools and write an assistant-authored digest in the transcript that separates direct claims from interpretation and names open uncertainties; raw tool output stays background. Done when the sweep has a bounded digest to work from, not unbounded raw bulk. (Skip for a direct human answer; optional for a small paste.)
 3. **Map graph-worthy spans.** Use map references to classify spans to the sharpest supported kind and author only confident relations. Done when every useful span is either mapped, deliberately abstained, or named as missing support.
-4. **Route by confidence/conflict/settlement.** Use [`../map/references/routing.md`](../map/references/routing.md) to send mapped material to settled graph truth, advisory graph signal, `elicitation_gap`, or `reconciliation_need`. Done when nothing low-confidence is committed and no contradiction was written as truth.
-5. **Ask from the updated world.** Compose the next question over the updated graph + gaps, not the pre-capture state.
+4. **Route by confidence/conflict/settlement.** Use [`../map/references/routing.md`](../map/references/routing.md) to send mapped material to settled graph truth, advisory graph signal, a session scratchpad obligation, or `reconciliation_need`. Done when nothing low-confidence is committed and no contradiction was written as truth.
+5. **Ask from the updated world.** Compose the next question over the updated graph + scratchpad, not the pre-capture state.
 
 ### Digest (if needed)
 
@@ -49,12 +49,12 @@ chain ingest-sweep:
     -> promote context to its sharpest supported kind
     -> route by confidence/conflict
     -> mutate_graph / update_elicitation_scratchpad / raise reconciliation_need
-    -> compose next question over the updated graph + gaps
+    -> compose next question over the updated graph + scratchpad
 ```
 
 ## Method
 
-Walk readiness bands as concern envelopes, not as workflow stages. Ingest whatever the source actually supports, then assign the right route: gap, reconciliation need, advisory graph item, or settled graph item.
+Walk readiness bands as concern envelopes, not as workflow stages. Ingest whatever the source actually supports, then assign the right route: scratchpad obligation, reconciliation need, advisory graph item, or settled graph item.
 
 ```text
 chain ingest-band-walk:
@@ -70,19 +70,19 @@ chain ingest-band-walk:
 
 - Routing question: "What outcome, for whom and why, is true about the world, and what is ruled out?"
 - Ingest rule: anchor `goal` / `thesis` when supported; use `context` / `constraint` for the frame only when sharper kinds do not fit.
-- Completion signal: the smallest missing frame becomes an `elicitation_gap`; do not ask deeper just to make the graph look complete.
+- Completion signal: the smallest missing frame becomes a session scratchpad obligation; do not ask deeper just to make the graph look complete.
 
 ### Elicit
 
 - Routing question: "What is believed but falsifiable, what is unknown, what was chosen, what must remain true, and what bounds the space?"
 - Ingest rule: preserve epistemic shape. Do not launder `unknown` into `assumption`, `constraint` into `invariant`, or broad description into `context` when a sharper kind is available.
-- Completion signal: open forks are either captured, made into gaps, or routed to reconciliation.
+- Completion signal: open forks are either captured, made into scratchpad obligations, or routed to reconciliation.
 
 ### Project
 
 - Routing question: "What requirements, design shape, or oracle machinery follows from the settled inner concerns?"
 - Ingest rule: source-derived `requirement`, `module`, `interface`, `entity`, `check`, `evidence`, `vv_method`, and `vv_obligation` may be persisted as advisory when reviewed but not yet harmonized.
-- Completion signal: projected items name the intent they serve through edges or remain advisory/gap material until support is clear.
+- Completion signal: projected items name the intent they serve through edges or remain advisory/scratchpad material until support is clear.
 
 ### Commit
 

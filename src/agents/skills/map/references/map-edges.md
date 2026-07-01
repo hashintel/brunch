@@ -31,7 +31,7 @@ chain relation-bearing-authoring:
     -> use role-named mutate_graph endpoints
 ```
 
-If an endpoint is uncertain, spawn or reuse an elicitation gap for the missing claim. If a relation contradicts existing settled graph truth, create a reconciliation need instead of overwriting or adding a competing settled edge.
+If an endpoint is uncertain, add or reuse a scratchpad obligation for the missing claim. If a relation contradicts existing settled graph truth, create a reconciliation need instead of overwriting or adding a competing settled edge.
 
 # Edge Heuristics
 
@@ -121,7 +121,7 @@ Contradiction between two accepted claims is **not** an edge — there is no `co
 chain relation-authoring:
   candidate relation
     -> both endpoints confident enough for the intended settlement?
-      x> no: spawn/reuse an elicitation_gap for the missing endpoint; skip the edge
+      x> no: add/reuse a scratchpad obligation for the missing endpoint; skip the edge
     -> contradicts existing settled truth?
       x> yes: raise a reconciliation_need; do not overwrite or add a competing edge
     -> create_edge with role-named endpoints + stance (witness/rationale only) + settlement

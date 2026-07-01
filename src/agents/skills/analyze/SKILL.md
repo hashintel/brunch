@@ -39,7 +39,7 @@ chain analyze-anchor
   -> resolve anchor code through product reads
   -> read anchor text + edge-local neighborhood
   -> inspect dependencies, dependents, evidence, refinements, lateral context
-  -> inspect open gaps and reconciliation needs
+  -> inspect open scratchpad obligations and reconciliation needs
   -> act with relation-aware references
 ```
 

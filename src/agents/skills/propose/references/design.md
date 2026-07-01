@@ -42,7 +42,7 @@ Use `graph_refs` only for existing intent/design/oracle nodes that anchor the ca
 
 When synthesizing, keep the chosen direction coherent. Borrowing an insight from a losing candidate is legitimate only when it does not invert the winning candidate's boundary or dependency direction.
 
-If a design alternative exposes a missing product requirement, do not smuggle it in as architecture. Route it to `elicit` or `map` as an intent assumption/gap that needs validation.
+If a design alternative exposes a missing product requirement, do not smuggle it in as architecture. Route it to `elicit` or `map` as an intent assumption or scratchpad obligation that needs validation.
 
 ## Review-set boundary
 
