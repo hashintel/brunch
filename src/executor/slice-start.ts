@@ -30,7 +30,7 @@ export type SliceStartResult =
     }
   | {
       readonly status: 'no_slice';
-      readonly runStatus: 'reports_initialized';
+      readonly runStatus: 'reports_initialized' | 'slice_completed';
       readonly runId: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
@@ -67,7 +67,9 @@ export async function startSlice(args: {
     };
   }
 
-  if (metadata.status !== 'reports_initialized') {
+  // A run is ready for a slice once reports are initialized (first slice) or
+  // after a previous slice has completed (subsequent slices).
+  if (metadata.status !== 'reports_initialized' && metadata.status !== 'slice_completed') {
     return {
       status: 'reports_not_initialized',
       runStatus: metadata.status,
@@ -79,14 +81,16 @@ export async function startSlice(args: {
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
   const plan = await readPlan(metadata.populatedPlanPath ?? populatedPlanPath(args.cwd, args.runId));
+  const completedSliceIds = new Set(metadata.completedSliceIds ?? []);
   const slice = args.sliceId
     ? plan.slices?.find((candidate) => candidate.id === args.sliceId)
-    : plan.slices?.[0];
+    : // Without an explicit id, advance to the next slice that has not completed.
+      plan.slices?.find((candidate) => !completedSliceIds.has(candidate.id));
 
   if (!slice) {
     return {
       status: 'no_slice',
-      runStatus: 'reports_initialized',
+      runStatus: metadata.status,
       runId: args.runId,
       metadataPath,
       reportsPath: reportPath,

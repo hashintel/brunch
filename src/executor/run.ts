@@ -60,7 +60,22 @@ export type RunCreateResult =
       ];
     };
 
+const SAFE_RUN_ID = /^[A-Za-z0-9._-]+$/;
+
+/**
+ * Guards run ids used to build filesystem paths. Run ids come from tool
+ * parameters, so a value like `../escape` would let bounded cook side effects
+ * read or write outside `.brunch/cook/runs/`. Reject anything that is not a
+ * flat, path-segment-safe identifier.
+ */
+export function assertSafeRunId(runId: string): void {
+  if (!SAFE_RUN_ID.test(runId) || runId.includes('..')) {
+    throw new Error(`invalid runId: ${JSON.stringify(runId)}`);
+  }
+}
+
 export function runDirPath(cwd: string, runId: string): string {
+  assertSafeRunId(runId);
   return join(cwd, BRUNCH_DIR, 'cook', 'runs', runId);
 }
 

@@ -1438,7 +1438,7 @@ describe('Brunch explicit Pi extension registry', () => {
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_agent_result, execute_launch, execute_plan_file, execute_plan_preview, execute_petri_export, execute_promotion_prepare, execute_populate, execute_report_init, execute_run_complete, execute_run_create, execute_source_policy, execute_source_copy, execute_slice_complete, execute_slice_start, execute_slice_execute, execute_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
+      'ported tools: execute_status, execute_snapshot, execute_agent_result, execute_test_result, execute_launch, execute_plan_file, execute_plan_preview, execute_petri_export, execute_promotion_prepare, execute_populate, execute_report_init, execute_run_complete, execute_run_create, execute_source_policy, execute_source_copy, execute_slice_complete, execute_slice_start, execute_slice_execute, execute_worktree_create, execute_plan_check, execute_plan_draft, execute_plan_draft_artifact, execute_plan_outline, execute_plan_outline_artifact',
     );
     expect(result.content[0]?.text).toContain('pending tools: land');
     expect(result.content[0]?.text).toContain(
@@ -1451,6 +1451,7 @@ describe('Brunch explicit Pi extension registry', () => {
         'execute_status',
         'execute_snapshot',
         'execute_agent_result',
+        'execute_test_result',
         'execute_launch',
         'execute_plan_file',
         'execute_plan_preview',

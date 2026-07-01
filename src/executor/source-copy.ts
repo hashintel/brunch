@@ -28,11 +28,11 @@ export type SourceCopyResult =
     }
   | {
       readonly status: 'policy_skipped';
-      readonly runStatus: RunMetadata['status'];
+      readonly runStatus: 'source_copied';
       readonly runId: string;
       readonly metadataPath: string;
       readonly policy: SourcePolicyKind;
-      readonly sideEffects: readonly [];
+      readonly sideEffects: readonly [WriteFileEffect];
     }
   | {
       readonly status: 'source_copied';
@@ -74,13 +74,23 @@ export async function copyHostSource(args: {
   }
 
   if (policy.policy === 'plan_only') {
+    // plan_only runs intentionally skip copying host source into the worktree,
+    // but the run must still advance so downstream steps (report init, slices)
+    // can proceed. Mark the source stage resolved without a copy.
+    const updatedMetadata: RunMetadata = {
+      ...metadata,
+      status: 'source_copied',
+      sourceCopied: false,
+      copiedEntries: [],
+    };
+    const metadataEffect = await persistRunMetadata(metadataPath, updatedMetadata);
     return {
       status: 'policy_skipped',
-      runStatus: metadata.status,
+      runStatus: 'source_copied',
       runId: args.runId,
       metadataPath,
       policy: policy.policy,
-      sideEffects: [],
+      sideEffects: [metadataEffect],
     };
   }
 
