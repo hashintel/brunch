@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,6 +8,7 @@ import { openWorkspaceGraphRuntime } from '../../graph/index.js';
 import { createProductUpdatePublisher } from '../../rpc/product-updates.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
 import { createBrunchAgentSessionRuntimeFactory } from '../brunch-tui.js';
+import { appendBrunchAgentRuntimeSwitch } from '../pi-extensions.js';
 
 describe('Brunch Pi runtime', () => {
   it('registers graph and read-only tools without built-in write tools on the product runtime path', async () => {
@@ -110,6 +111,80 @@ describe('Brunch Pi runtime', () => {
       ]);
     } finally {
       unsubscribe();
+      created.session.dispose();
+    }
+  });
+
+  it('wires executor agent runner subagents in CODE mode without dev tools', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-executor-runtime-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-agent-dir-'));
+    const coordinator = createWorkspaceSessionCoordinator({ cwd });
+    const workspace = await coordinator.createSetupSession({
+      specTitle: 'Executor runtime',
+      createNewSpec: true,
+    });
+    appendBrunchAgentRuntimeSwitch(
+      workspace.session.manager,
+      { schemaVersion: 1, operationalMode: 'execute' },
+      'user',
+    );
+    const runId = 'run-agent-runtime';
+    const sliceId = 'task-1';
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', runId);
+    const worktreeDir = join(runDir, 'worktree');
+    const requestPath = join(runDir, 'agent-output', sliceId, 'request.json');
+    await mkdir(join(runDir, 'agent-output', sliceId), { recursive: true });
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(requestPath, `${JSON.stringify({ runId, sliceId })}\n`, 'utf8');
+    await writeFile(
+      join(runDir, 'run.json'),
+      `${JSON.stringify({
+        runId,
+        specId: String(workspace.spec.id),
+        planPath: join(cwd, '.brunch', 'cook', 'specs', String(workspace.spec.id), 'plan.yaml'),
+        status: 'slice_execution_requested',
+        worktreeDir,
+        reportsPath: join(runDir, 'reports.jsonl'),
+        activeSliceId: sliceId,
+        activeEpicId: 'frontier-1',
+        sliceExecutionRequestPath: requestPath,
+      })}\n`,
+      'utf8',
+    );
+    const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace, coordinator });
+    const created = await createRuntime({
+      cwd,
+      agentDir,
+      sessionManager: workspace.session.manager,
+    });
+
+    try {
+      expect(created.session.getToolDefinition('subagent')).toBeUndefined();
+      const executeAgentResult = created.session.getToolDefinition('execute_agent_result') as
+        | {
+            execute: (
+              id: string,
+              params: unknown,
+              signal?: AbortSignal,
+              onUpdate?: unknown,
+              ctx?: unknown,
+            ) => Promise<{ details: { result: { message?: string } } }>;
+          }
+        | undefined;
+      expect(executeAgentResult).toBeDefined();
+
+      const result = await executeAgentResult!.execute(
+        'agent-runner-no-model',
+        { runId },
+        undefined,
+        undefined,
+        { cwd },
+      );
+
+      expect(result.details.result.message).toBe(
+        'AgentRunnerPort requires Pi model context to launch the worker.',
+      );
+    } finally {
       created.session.dispose();
     }
   });
