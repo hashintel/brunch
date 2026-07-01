@@ -4,23 +4,21 @@ import { runCommand, type CommandRunner } from './command-runner.js';
 export function createGitLandPort(options: { readonly run?: CommandRunner } = {}): GitLandPort {
   const run = options.run ?? runCommand;
   return {
+    async currentHead(args) {
+      const revParse = await run('git', ['rev-parse', 'HEAD'], { cwd: args.worktreeDir });
+      if (revParse.exitCode !== 0) return failedHead(revParse, `git rev-parse exited ${revParse.exitCode}`);
+      return { status: 'ok', commitSha: revParse.stdout.trim() };
+    },
     async promote(args) {
       const status = await run('git', ['status', '--porcelain'], { cwd: args.worktreeDir });
       if (status.exitCode !== 0) return failed(status, `git status exited ${status.exitCode}`);
       if (status.stdout.trim().length === 0) {
-        const head = await run('git', ['log', '-1', '--format=%H%x00%s'], { cwd: args.worktreeDir });
-        if (head.exitCode !== 0) return failed(head, `git log exited ${head.exitCode}`);
-        const [commitSha, subject] = head.stdout.trimEnd().split('\0');
-        if (commitSha && subject === args.message)
-          return {
-            status: 'no_changes',
-            message: 'no worktree changes to promote',
-            commitSha,
-            sideEffects: [],
-          };
+        const revParse = await run('git', ['rev-parse', 'HEAD'], { cwd: args.worktreeDir });
+        if (revParse.exitCode !== 0) return failed(revParse, `git rev-parse exited ${revParse.exitCode}`);
         return {
           status: 'no_changes',
           message: 'no worktree changes to promote',
+          commitSha: revParse.stdout.trim(),
           sideEffects: [],
         };
       }
@@ -41,6 +39,16 @@ export function createGitLandPort(options: { readonly run?: CommandRunner } = {}
         sideEffects: [{ kind: 'git_commit', path: args.worktreeDir, sha: commitSha }],
       };
     },
+  };
+}
+
+function failedHead(
+  result: { readonly stderr: string; readonly stdout: string; readonly spawnError?: string },
+  fallback: string,
+) {
+  return {
+    status: 'failed' as const,
+    message: result.stderr.trim() || result.stdout.trim() || result.spawnError || fallback,
   };
 }
 

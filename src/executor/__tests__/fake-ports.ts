@@ -39,8 +39,12 @@ export function createFakeGitLandPort(
     commitSha: 'abc123',
     sideEffects: [{ kind: 'git_commit', path: '/worktree', sha: 'abc123' }],
   },
+  currentHeadSha = 'base123',
 ): GitLandPort {
   return {
+    async currentHead() {
+      return { status: 'ok', commitSha: currentHeadSha };
+    },
     async promote() {
       return result;
     },

@@ -31,7 +31,7 @@ export type PromotionPrepareResult =
       readonly worktreeDir: string;
       readonly metadataPath: string;
       readonly message: string;
-      readonly sideEffects: readonly [];
+      readonly sideEffects: readonly PromotionSideEffect[];
     }
   | {
       readonly status: 'promotion_no_changes';
@@ -40,7 +40,7 @@ export type PromotionPrepareResult =
       readonly worktreeDir: string;
       readonly metadataPath: string;
       readonly message: string;
-      readonly sideEffects: readonly [];
+      readonly sideEffects: readonly PromotionSideEffect[];
     }
   | {
       readonly status: 'promotion_prepared';
@@ -99,6 +99,25 @@ export async function preparePromotion(args: {
     };
   }
 
+  const preparedAttempt = await preparePromotionAttempt({
+    gitLand: args.gitLand,
+    metadata,
+    metadataPath,
+    worktreeDir,
+  });
+  if (preparedAttempt.status === 'failed') {
+    return {
+      status: 'promotion_failed',
+      runStatus: 'petri_exported',
+      runId: args.runId,
+      worktreeDir,
+      metadataPath,
+      message: preparedAttempt.message,
+      sideEffects: [],
+    };
+  }
+  const promotionMetadata = preparedAttempt.metadata;
+
   const land = await args.gitLand.promote({ worktreeDir, message: `promote ${args.runId}` });
   if (land.status === 'failed') {
     return {
@@ -108,15 +127,15 @@ export async function preparePromotion(args: {
       worktreeDir,
       metadataPath,
       message: land.message,
-      sideEffects: [],
+      sideEffects: preparedAttempt.sideEffects,
     };
   }
   if (land.status === 'no_changes') {
-    if (land.commitSha) {
+    if (land.commitSha && land.commitSha !== promotionMetadata.promotionBaseSha) {
       const path = promotionReportPath(args.cwd, args.runId);
       const dir = dirname(path);
-      const report = promotionReport(args.runId, metadata, land.commitSha);
-      const updated = promotedRunMetadata(metadata, path, land.commitSha);
+      const report = promotionReport(args.runId, promotionMetadata, land.commitSha);
+      const updated = promotedRunMetadata(promotionMetadata, path, land.commitSha);
       await mkdir(dir, { recursive: true });
       await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
       const metadataEffect = await persistRunMetadata(metadataPath, updated);
@@ -127,6 +146,7 @@ export async function preparePromotion(args: {
         metadataPath,
         promotionPath: path,
         sideEffects: [
+          ...preparedAttempt.sideEffects,
           { kind: 'mkdir', path: dir },
           { kind: 'write_file', path, ifExists: 'overwrite' },
           metadataEffect,
@@ -140,14 +160,14 @@ export async function preparePromotion(args: {
       worktreeDir,
       metadataPath,
       message: land.message,
-      sideEffects: [],
+      sideEffects: preparedAttempt.sideEffects,
     };
   }
 
   const path = promotionReportPath(args.cwd, args.runId);
   const dir = dirname(path);
-  const report = promotionReport(args.runId, metadata, land.commitSha);
-  const updated = promotedRunMetadata(metadata, path, land.commitSha);
+  const report = promotionReport(args.runId, promotionMetadata, land.commitSha);
+  const updated = promotedRunMetadata(promotionMetadata, path, land.commitSha);
   await mkdir(dir, { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
@@ -158,12 +178,47 @@ export async function preparePromotion(args: {
     metadataPath,
     promotionPath: path,
     sideEffects: [
+      ...preparedAttempt.sideEffects,
       ...land.sideEffects,
       { kind: 'mkdir', path: dir },
       { kind: 'write_file', path, ifExists: 'overwrite' },
       metadataEffect,
     ],
   };
+}
+
+type PromotionAttemptPrepareResult =
+  | {
+      readonly status: 'prepared';
+      readonly metadata: RunMetadata;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'prepared';
+      readonly metadata: RunMetadata;
+      readonly sideEffects: readonly [
+        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
+      ];
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+    };
+
+async function preparePromotionAttempt(args: {
+  readonly gitLand: GitLandPort;
+  readonly metadata: RunMetadata;
+  readonly metadataPath: string;
+  readonly worktreeDir: string;
+}): Promise<PromotionAttemptPrepareResult> {
+  if (args.metadata.promotionBaseSha) {
+    return { status: 'prepared', metadata: args.metadata, sideEffects: [] };
+  }
+  const head = await args.gitLand.currentHead({ worktreeDir: args.worktreeDir });
+  if (head.status === 'failed') return { status: 'failed', message: head.message };
+  const metadata = { ...args.metadata, promotionBaseSha: head.commitSha };
+  const metadataEffect = await persistRunMetadata(args.metadataPath, metadata);
+  return { status: 'prepared', metadata, sideEffects: [metadataEffect] };
 }
 
 function promotionReport(runId: string, metadata: RunMetadata, commitSha: string): object {

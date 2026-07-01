@@ -80,6 +80,16 @@ export interface GitLandArgs {
   readonly message: string;
 }
 
+export type GitHeadResult =
+  | {
+      readonly status: 'ok';
+      readonly commitSha: string;
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+    };
+
 export type GitLandResult =
   | {
       readonly status: 'promoted';
@@ -101,6 +111,7 @@ export type GitLandResult =
     };
 
 export interface GitLandPort {
+  currentHead(args: { readonly worktreeDir: string }): Promise<GitHeadResult>;
   promote(args: GitLandArgs): Promise<GitLandResult>;
 }
 

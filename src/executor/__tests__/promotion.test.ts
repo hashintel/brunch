@@ -93,6 +93,7 @@ describe('preparePromotion', () => {
       metadataPath: runMetadataPath(cwd, 'run-1'),
       promotionPath: promotionReportPath(cwd, 'run-1'),
       sideEffects: [
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
         { kind: 'git_commit', path: '/worktree', sha: 'abc123' },
         { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'promotion') },
         { kind: 'write_file', path: promotionReportPath(cwd, 'run-1'), ifExists: 'overwrite' },
@@ -114,6 +115,7 @@ describe('preparePromotion', () => {
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'promotion_prepared',
       promotionPath: promotionReportPath(cwd, 'run-1'),
+      promotionBaseSha: 'base123',
       promotionCommitSha: 'abc123',
     });
 
@@ -131,6 +133,7 @@ describe('preparePromotion', () => {
       gitLand: createFakeGitLandPort({
         status: 'no_changes',
         message: 'nothing to promote',
+        commitSha: 'base123',
         sideEffects: [],
       }),
     });
@@ -142,10 +145,11 @@ describe('preparePromotion', () => {
       worktreeDir: join(runDirPath(cwd, 'run-1'), 'worktree'),
       metadataPath: runMetadataPath(cwd, 'run-1'),
       message: 'nothing to promote',
-      sideEffects: [],
+      sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'petri_exported',
+      promotionBaseSha: 'base123',
     });
     expect(await pathExists(promotionReportPath(cwd, 'run-1'))).toBe(false);
   });
@@ -214,6 +218,7 @@ describe('preparePromotion', () => {
       metadataPath: runMetadataPath(cwd, 'run-1'),
       promotionPath: promotionReportPath(cwd, 'run-1'),
       sideEffects: [
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
         { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'promotion') },
         { kind: 'write_file', path: promotionReportPath(cwd, 'run-1'), ifExists: 'overwrite' },
         { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
@@ -224,6 +229,7 @@ describe('preparePromotion', () => {
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'promotion_prepared',
+      promotionBaseSha: 'base123',
       promotionCommitSha: 'abc123',
     });
   });
@@ -242,10 +248,11 @@ describe('preparePromotion', () => {
       status: 'promotion_failed',
       runStatus: 'petri_exported',
       message: 'git commit failed',
-      sideEffects: [],
+      sideEffects: [{ kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' }],
     });
     expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
       status: 'petri_exported',
+      promotionBaseSha: 'base123',
     });
   });
 });
