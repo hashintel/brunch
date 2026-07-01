@@ -32,6 +32,12 @@ import type {
 } from '../../../../graph/index.js';
 import { GAP_DISPOSITIONS, NODE_KINDS, READINESS_BANDS } from '../../../../graph/index.js';
 
+export {
+  READ_ELICITATION_SCRATCHPAD_TOOL,
+  registerBrunchElicitationScratchpad,
+  UPDATE_ELICITATION_SCRATCHPAD_TOOL,
+} from './scratchpad-tools.js';
+
 export const READ_ELICITATION_GAPS_TOOL = 'read_elicitation_gaps';
 export const UPDATE_ELICITATION_GAPS_TOOL = 'update_elicitation_gaps';
 

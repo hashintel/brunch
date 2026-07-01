@@ -111,7 +111,7 @@ src/
 
 ## Card 2 — Session scratchpad carrier and tools
 
-Status: next
+Status: done
 
 ### Target Behavior
 
@@ -184,6 +184,10 @@ src/
 │   └── elicitation-scratchpad.ts                       +
 └── session/TOPOLOGY.md                                 ?
 ```
+
+### Build notes
+
+Implemented as three files rather than the tentative `projections/session/` + `.pi/extensions/brunch-data/elicitation/` split: `session/elicitation-scratchpad.ts` (custom-entry type, parse/fold/append — mirrors `session/runtime-state.ts` exactly, no separate `projections/session/` wrapper needed since the fold has no additional derived-projection shape beyond the raw item list), `agents/contexts/data-model/elicitation-scratchpad.ts` (pure text rendering), and `.pi/extensions/brunch-data/elicitation/scratchpad-tools.ts` (new `read_elicitation_scratchpad` / `update_elicitation_scratchpad` tools, re-exported from the existing `elicitation/index.ts` entry point). The old `read_elicitation_gaps` / `update_elicitation_gaps` tools and their registrar are untouched and still registered in `app/pi-extensions.ts` — Card 3 repoints consumers and allowlists, Card 4 deletes the old tools. The new tools are exported but not yet wired into `app/pi-extensions.ts`, per this card's cross-cutting obligation not to repoint all consumers yet; they are exercised directly in tests the same way `brunch-data-elicitation.test.ts` exercises the old registrar. `session/TOPOLOGY.md` was not touched — the new file follows an existing documented fold pattern and does not change the directory's ownership statement, layout sketch, or dependency direction.
 
 ---
 
