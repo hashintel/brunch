@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -5,6 +7,10 @@ import {
   projectBrunchAgentState,
 } from '../../../../projections/session/runtime-state.js';
 import { composeLiveElicitorPrompt } from '../compose-live-prompt.js';
+
+// Manifest skill locations are absolute paths (see src/agents/skills/registry.ts); normalize the
+// machine root before snapshotting so the committed golden carries no workstation-specific path.
+const packageRoot = fileURLToPath(new URL('../../../../..', import.meta.url)).replace(/\/$/u, '');
 
 const workspace = {
   cwd: '/work/brunch',
@@ -29,7 +35,9 @@ describe('composeLiveElicitorPrompt', () => {
       agentBody: '# Agent: elicitor\n\nFixed body.',
     });
 
-    await expect(result.prompt).toMatchFileSnapshot('../__snapshots__/live-elicitor-prompt.md');
+    const normalizedPrompt = result.prompt.replaceAll(packageRoot, '<PKG>');
+
+    await expect(normalizedPrompt).toMatchFileSnapshot('../__snapshots__/live-elicitor-prompt.md');
   });
 
   it('fails loud when called for a non-elicitor foreground state', () => {

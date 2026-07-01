@@ -1,5 +1,7 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -52,5 +54,33 @@ describe('live skill manifest rendering', () => {
 
   it('reuses the same loaded manifest entries across repeated default calls', () => {
     expect(loadLiveBrunchSkillManifestEntries()).toBe(loadLiveBrunchSkillManifestEntries());
+  });
+
+  it('gives every entry an absolute, existing location ending in agents/skills/<id>/SKILL.md', () => {
+    const entries = loadLiveBrunchSkillManifestEntries();
+
+    for (const [index, id] of LIVE_BRUNCH_SKILL_IDS.entries()) {
+      const entry = entries[index];
+      expect(entry?.location, id).toBeDefined();
+      if (!entry) continue;
+      expect(isAbsolute(entry.location), entry.location).toBe(true);
+      expect(existsSync(entry.location), entry.location).toBe(true);
+      expect(entry.location.endsWith(`agents/skills/${id}/SKILL.md`), entry.location).toBe(true);
+    }
+  });
+
+  it('resolves manifest locations when the process cwd is unrelated to the repo checkout', async () => {
+    const entries = loadLiveBrunchSkillManifestEntries();
+    const originalCwd = process.cwd();
+    const unrelatedCwd = await mkdtemp(join(tmpdir(), 'brunch-manifest-cwd-'));
+
+    process.chdir(unrelatedCwd);
+    try {
+      for (const entry of entries) {
+        expect(readFileSync(entry.location, 'utf8').length, entry.location).toBeGreaterThan(0);
+      }
+    } finally {
+      process.chdir(originalCwd);
+    }
   });
 });

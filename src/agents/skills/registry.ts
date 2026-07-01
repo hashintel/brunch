@@ -50,8 +50,8 @@ export function renderBrunchSkills(entries = loadLiveBrunchSkillManifestEntries(
   if (entries.length === 0) return '';
   return [
     '[Brunch live skills]',
-    '- These first-level `src/agents/skills/*/SKILL.md` homes are the only live Brunch prompt resources.',
-    '- Use the read tool to load a listed skill when the current move matches its description.',
+    "- Each `<location>` below is an absolute path to that skill's SKILL.md; these are the only live Brunch prompt resources.",
+    '- Use the read tool to load a listed skill at its given location when the current move matches its description.',
     '- Do not infer additional skills from nested references, fixtures, or the filesystem beyond this block.',
     '',
     '<brunch-skills>',
@@ -74,10 +74,6 @@ function liveBrunchSkillLocation(id: LiveBrunchSkillId): string {
   return fileURLToPath(new URL(`./${id}/SKILL.md`, import.meta.url));
 }
 
-function liveBrunchSkillRepoPath(id: LiveBrunchSkillId): string {
-  return `src/agents/skills/${id}/SKILL.md`;
-}
-
 function skillToManifestEntry(
   expectedId: LiveBrunchSkillId,
   skill: Skill | undefined,
@@ -93,7 +89,7 @@ function skillToManifestEntry(
   return {
     name: skill.name,
     description: skill.description,
-    location: liveBrunchSkillRepoPath(expectedId),
+    location: skill.filePath,
   };
 }
 
