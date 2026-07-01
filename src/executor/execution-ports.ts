@@ -91,6 +91,7 @@ export type GitLandResult =
   | {
       readonly status: 'no_changes';
       readonly message: string;
+      readonly commitSha?: string;
       readonly sideEffects: readonly [];
     }
   | {

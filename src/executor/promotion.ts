@@ -112,6 +112,27 @@ export async function preparePromotion(args: {
     };
   }
   if (land.status === 'no_changes') {
+    if (land.commitSha) {
+      const path = promotionReportPath(args.cwd, args.runId);
+      const dir = dirname(path);
+      const report = promotionReport(args.runId, metadata, land.commitSha);
+      const updated = promotedRunMetadata(metadata, path, land.commitSha);
+      await mkdir(dir, { recursive: true });
+      await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+      const metadataEffect = await persistRunMetadata(metadataPath, updated);
+      return {
+        status: 'promotion_prepared',
+        runStatus: 'promotion_prepared',
+        runId: args.runId,
+        metadataPath,
+        promotionPath: path,
+        sideEffects: [
+          { kind: 'mkdir', path: dir },
+          { kind: 'write_file', path, ifExists: 'overwrite' },
+          metadataEffect,
+        ],
+      };
+    }
     return {
       status: 'promotion_no_changes',
       runStatus: 'petri_exported',
@@ -125,20 +146,8 @@ export async function preparePromotion(args: {
 
   const path = promotionReportPath(args.cwd, args.runId);
   const dir = dirname(path);
-  const report = {
-    runId: args.runId,
-    specId: metadata.specId,
-    petriPath: metadata.petriPath ?? null,
-    reportsPath: metadata.reportsPath ?? null,
-    completedSliceIds: metadata.completedSliceIds ?? [],
-    land: { status: 'promoted', commitSha: land.commitSha },
-  };
-  const updated: RunMetadata = {
-    ...metadata,
-    status: 'promotion_prepared',
-    promotionPath: path,
-    promotionCommitSha: land.commitSha,
-  };
+  const report = promotionReport(args.runId, metadata, land.commitSha);
+  const updated = promotedRunMetadata(metadata, path, land.commitSha);
   await mkdir(dir, { recursive: true });
   await writeFile(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   const metadataEffect = await persistRunMetadata(metadataPath, updated);
@@ -154,6 +163,26 @@ export async function preparePromotion(args: {
       { kind: 'write_file', path, ifExists: 'overwrite' },
       metadataEffect,
     ],
+  };
+}
+
+function promotionReport(runId: string, metadata: RunMetadata, commitSha: string): object {
+  return {
+    runId,
+    specId: metadata.specId,
+    petriPath: metadata.petriPath ?? null,
+    reportsPath: metadata.reportsPath ?? null,
+    completedSliceIds: metadata.completedSliceIds ?? [],
+    land: { status: 'promoted', commitSha },
+  };
+}
+
+function promotedRunMetadata(metadata: RunMetadata, promotionPath: string, commitSha: string): RunMetadata {
+  return {
+    ...metadata,
+    status: 'promotion_prepared',
+    promotionPath,
+    promotionCommitSha: commitSha,
   };
 }
 

@@ -192,6 +192,42 @@ describe('preparePromotion', () => {
     });
   });
 
+  it('recovers promotion metadata when the commit exists but the report was never written', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-recovery-no-report-'));
+    await createPetriExportedRun(cwd);
+
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitLand: createFakeGitLandPort({
+        status: 'no_changes',
+        message: 'already promoted',
+        commitSha: 'abc123',
+        sideEffects: [],
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'promotion_prepared',
+      runStatus: 'promotion_prepared',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      promotionPath: promotionReportPath(cwd, 'run-1'),
+      sideEffects: [
+        { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'promotion') },
+        { kind: 'write_file', path: promotionReportPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+      ],
+    });
+    expect(JSON.parse(await readFile(promotionReportPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      land: { status: 'promoted', commitSha: 'abc123' },
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'promotion_prepared',
+      promotionCommitSha: 'abc123',
+    });
+  });
+
   it('does not advance metadata when the land port fails', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-failed-'));
     await createPetriExportedRun(cwd);
