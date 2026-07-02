@@ -2,6 +2,6 @@
 
 Pick one option.
 
-## 1. Alpha
-
-**Rationale:** Fastest path.
+Choose one:
+1. Alpha
+   why: Fastest path.

@@ -11,8 +11,10 @@ import {
   createWorkspaceDialogComponent,
   WORKSPACE_DIALOG_WIDTH,
 } from '../../.pi/components/workspace-dialog/index.js';
+import { renderPresentQuestionResult } from '../../.pi/extensions/exchanges/present-question-renderer.js';
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
+import { presentQuestionOptionsFixture } from './exchange-fixtures.js';
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
 
@@ -196,6 +198,17 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       if (!component) throw new Error('alternatives-card-set renderer returned no component');
       return previewStaticComponent(tui, component);
     },
+  },
+  {
+    id: 'present-question',
+    label: 'present_question transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/present-question.ts (renderResult from structured details)',
+    open: (tui, theme) =>
+      previewStaticComponent(
+        tui,
+        renderPresentQuestionResult(presentQuestionOptionsFixture.result.details, theme),
+      ),
   },
   {
     id: 'chrome-header',

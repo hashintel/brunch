@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { presentQuestionTool } from '../../../../.pi/extensions/exchanges/present-question.js';
+import { presentQuestionOptionsFixture } from '../../../../dev/component-preview/exchange-fixtures.js';
 import { projectPresentQuestion } from '../../../../projections/exchanges/present-question.js';
 import { projectRequestAnswer } from '../../../../projections/exchanges/request-answer.js';
 import { projectRequestChoice } from '../../../../projections/exchanges/request-choice.js';
@@ -11,6 +13,13 @@ import { formatRequestChoice } from '../request-choice.js';
 import { formatRequestChoices } from '../request-choices.js';
 import { formatRequestResponseDiagnostic } from '../request-response.js';
 import { formatRequestReview } from '../request-review.js';
+
+const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
+const identityTheme = { fg: (_color: never, text: string) => text };
+
+function stripAnsi(text: string): string {
+  return text.replace(ansiPattern, '');
+}
 
 describe('structured-exchange renderer inventory', () => {
   it('covers the request/present result renderers not snapshot-locked elsewhere', async () => {
@@ -68,6 +77,21 @@ describe('structured-exchange renderer inventory', () => {
         }),
       ),
     ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-review.md');
+  });
+
+  it('keeps present_question model-facing content and TUI render snapshots split', async () => {
+    await expect(presentQuestionOptionsFixture.result.content[0]?.text).toMatchFileSnapshot(
+      '../__snapshots__/exchange-renderer-inventory-present-question-content.md',
+    );
+
+    if (!presentQuestionTool.renderResult) throw new Error('present_question is missing renderResult');
+    await expect(
+      stripAnsi(
+        (presentQuestionTool.renderResult as any)(presentQuestionOptionsFixture.result, {}, identityTheme, {})
+          .render(80)
+          .join('\n'),
+      ),
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-present-question-render-result.md');
   });
 
   it('keeps unavailable/cancelled branches model-facing and explicit', async () => {

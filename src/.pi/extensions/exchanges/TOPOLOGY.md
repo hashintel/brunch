@@ -1,11 +1,13 @@
 # exchanges/ — structured-exchange Pi tools
 
-Owns Pi registration and live UI collection for the structured-exchange tool
-family (`present_question`, `present_review_set`, `present_candidates`, and
-`request_response`). Result details are constructed only through
-`projections/exchanges/*` and validated
+Owns Pi registration, live UI collection, and TUI transcript `renderResult`
+projection for the structured-exchange tool family (`present_question`,
+`present_review_set`, `present_candidates`, and `request_response`). Result
+details are constructed only through `projections/exchanges/*` and validated
 against the Zod schemas in `schemas/` (see `schemas/README.md` for the details
-contract).
+contract). D104-L adds the render rule: `renderResult` consumes trusted
+`toolResult.details`, not the model-facing `content` markdown string; renderer
+modules declare any intentional detail elisions beside the code.
 
 ## The two envelopes
 
@@ -66,8 +68,8 @@ so the tool casts the runtime `ctx` once at the boundary.
 ## Dependency rules
 
 ```pseudo
-exchanges/*        -> schemas/, projections/exchanges/, agents/contexts/exchanges/
-exchanges/shared/  -> shared UI dispatch only; no tool-result detail literals
+exchanges/*        -> schemas/, projections/exchanges/, agents/contexts/exchanges/, .pi/components/
+exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result detail literals
 exchanges/schemas/ -> zod only (pi-schema.ts is the lone TSchema adapter)
 ```
 

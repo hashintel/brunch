@@ -3,7 +3,7 @@ import * as z from 'zod';
 import { zReviewSetProposalPayloadForBoundary } from '../../../../graph/review-set.js';
 import { zPresentedCandidate } from './present.js';
 
-export const zPresentedOptionParam = z
+const zPresentedOptionParam = z
   .object({
     id: z
       .string()

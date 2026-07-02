@@ -110,7 +110,7 @@ describe('structured exchange renderers', () => {
     expect(rendered).toContain('Local-first graph work.');
   });
 
-  it('renders present_question from tool result markdown content', async () => {
+  it('renders present_question from structured details instead of markdown content', async () => {
     const present = registerTools().get(PRESENT_QUESTION_TOOL);
 
     const result = await present.execute(
@@ -126,9 +126,20 @@ describe('structured exchange renderers', () => {
       {} as never,
     );
 
-    const rendered = stripAnsi(present.renderResult(result, {}, theme, {}).render(80).join('\n'));
+    const rendered = stripAnsi(
+      present
+        .renderResult(
+          { ...result, content: [{ type: 'text', text: '# Poisoned markdown path' }] },
+          {},
+          theme,
+          {},
+        )
+        .render(80)
+        .join('\n'),
+    );
     expect(rendered).toContain('Choose');
     expect(rendered).toContain('Alpha');
     expect(rendered).toContain('First');
+    expect(rendered).not.toContain('Poisoned markdown path');
   });
 });

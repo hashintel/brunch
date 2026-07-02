@@ -3,7 +3,12 @@ import { defineTool } from '@earendil-works/pi-coding-agent';
 import { formatPresentQuestion } from '../../../agents/contexts/exchanges/present-question.js';
 import { projectPresentQuestion } from '../../../projections/exchanges/present-question.js';
 import { piSchema } from './pi-schema.js';
-import { zPresentQuestionParams, type PresentQuestionParams } from './schemas/index.js';
+import { renderPresentQuestionResult } from './present-question-renderer.js';
+import {
+  zPresentQuestionParams,
+  type PresentQuestionParams,
+  type PresentQuestionDetails,
+} from './schemas/index.js';
 import { renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_QUESTION_TOOL = 'present_question' as const;
@@ -38,6 +43,6 @@ export const presentQuestionTool = defineTool({
   },
 
   renderResult(result, _options, theme) {
-    return renderMarkdownResult(result, theme);
+    return renderPresentQuestionResult(result.details as PresentQuestionDetails, theme);
   },
 });
