@@ -431,8 +431,8 @@ Answer in terms of what a user sees in the transcript, not which tests pass.
 
 ## Answer
 
-- [ ] 1. **iTerm2**
-- [ ] 2. **Kitty**
+- [ ] ~~1. **iTerm2**~~
+- [ ] ~~2. **Kitty**~~
 - [x] *Other:* Ghostty — it's what I actually use daily now.
 
 ---
@@ -478,8 +478,10 @@ no redundancy. **Preferred.**
 
 > Keeps the `project*` naming family that rounded-box established.
 
-(B) checkbox + strikethrough — `[ ]` and `~~…~~` double-encode "not chosen"; extra
-tokens saying one thing twice.
+(B) checkbox + strikethrough — double-encodes "not chosen". Initially critiqued as
+redundant; verdict reversed once numbers are embedded (see Final resolution below):
+the strike makes each rejected line self-describing out of list context, for a
+handful of tokens.
 
 ## Answer
 
@@ -489,11 +491,13 @@ tokens saying one thing twice.
 
 > Keeps the `project*` naming family that rounded-box established.
 
-Resolution (2026-07-02, later): **checkbox echo with embedded numbers** — restating
-the original option numbers inside the checkbox items gives checkboxes the
-numbering-retention property that was (A)'s main advantage, and handles `Other`
-write-ins more gracefully (an unlisted answer has no number to strike, but slots
-naturally into the list). Current lead, at least for multi-choice:
+Final resolution (2026-07-02): **checkbox echo, embedded numbers, struck rejected
+items** — the composed stack. Restating the original option numbers inside the
+checkbox items gives checkboxes (A)'s numbering-retention property; striking the
+rejected items makes each line self-describing (rejection legible at item level,
+not only by contrast with the `[x]`); `Other` write-ins slot in unnumbered and
+unstruck. One grammar for choice and choices alike (single-choice = exactly one
+`[x]`):
 
 ## Question: Which terminal should the physical wheel-scroll smoke test target first?
 
@@ -502,12 +506,9 @@ naturally into the list). Current lead, at least for multi-choice:
 
 ## Answer
 
-- [ ] 1. **iTerm2**
-- [ ] 2. **Kitty**
+- [ ] ~~1. **iTerm2**~~
+- [ ] ~~2. **Kitty**~~
 - [x] *Other:* Ghostty — it's what I actually use daily now.
-
-Still open: whether single-choice uses the same shape (uniform grammar, one `[x]`)
-or the strike variant (A); decide at build time against tuple goldens + preview.
 
 ---
 
