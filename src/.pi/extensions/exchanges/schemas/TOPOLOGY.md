@@ -42,8 +42,7 @@ The organization is layer-first: shared vocabulary, tool parameter schemas, pres
 ```pseudo
 chain active Pi tool / session trigger / RPC editor relay
   -> parse params or relay payload at the entry boundary
-  -> projections/exchanges/* constructs details
-  -> relevant details Zod schema parses result
+  -> projections/exchanges/* constructs typed details
   -> agents/contexts/exchanges/* renders provider-visible durable markdown
 ```
 
@@ -54,6 +53,7 @@ chain active Pi tool / session trigger / RPC editor relay
 - `agents/contexts/exchanges/*` owns durable provider-visible markdown for active present/request emissions.
 - Session pending exchange recovery projects from canonical present/request details; it does not author a TypeBox semantic schema.
 - The RPC/editor relay is an intentional current product fallback and must still emit canonical details through projectors.
+- Details schemas remain the read-side recognizer for persisted transcript `toolResult.details`; write-side projection constructors rely on typed branch construction after boundary validation.
 - The proof-era `brunch.structured_exchange.result` details model is retired.
 
 ## Global details header

@@ -65,5 +65,5 @@ projections/  x> .pi/, rpc/, app/, web/
 
 Current migration notes:
 
-- `projections/exchanges/*` imports Zod schemas from `.pi/extensions/exchanges/schemas/` because D37-L/D41-L currently place the structured-exchange schema lock at that Pi transcript seam. That is an explicit temporary exception, not a general adapter dependency permission.
+- `projections/exchanges/*` imports structured-exchange types, discriminant constants, and the shared comment-requirement predicate from `.pi/extensions/exchanges/schemas/` because D37-L/D41-L currently place the structured-exchange schema lock at that Pi transcript seam. Runtime Zod validation happens at trust boundaries and transcript read-back; details constructors are branch-typed and do not parse objects they just built. This is an explicit temporary exception, not a general adapter dependency permission.
 - `projections/session/runtime-state.ts` owns flattened runtime-state DTO projection while `session/runtime-state.ts` owns transcript entry facts and append helpers. Public projections report operational mode and role only; they do not own agent body locations, capability-readiness, runtime affordance menus, or tool policy.
