@@ -54,7 +54,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `walkthrough-batch-2` (FE-1124) — continued doctor-pass scenarios (those not blocked on exchange-rendering) + fixture/seed preparation and generative-scenario variation sets. Branch `ln/fe-1124-walkthrough-batch-2` (stack tip, this worktree). Findings ledger: `TESTING_FINDINGS.md`.
+- `walkthrough-batch-2` (FE-1124) — continued doctor-pass scenarios (those not blocked on exchange-rendering) + fixture/seed preparation and generative-scenario variation sets (seed-variation worklist: TESTING_PLAN.md scenario 2). Branch `ln/fe-1124-walkthrough-batch-2` (stack tip, this worktree). Findings ledger: `TESTING_FINDINGS.md`. Beat-5 findings F16/F17 spawned `session-entry-orientation` (Next); its generative-option verification consumes this frontier's seed variants.
 - `walkthrough-fixes` (FE-1122) — **built 2026-07-02** (all cards incl. F10 addendum; commits `e0701b4`…`486824b` on `ln/fe-1122-walkthrough-fixes`); pending PR tie-off. Walkthrough continues on a stacked follow-on branch.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
@@ -68,8 +68,16 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
+<<<<<<< ours — heading `Next` (S+F, confidence: low)
+// hint: Structural and logic conflict. Both design and behavior differ.
 1. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
 2. `exchange-answering-chrome` — not yet started; no Linear issue or branch yet. Second member of the `exchange-presentation` arc (renamed from `bordered-chrome-production`; main-editor thread split to `main-editor-chrome`, Horizon). Owns the live answering surfaces (choice/review pickers, free-text answer dialog); pairs with `exchange-rendering`, which owns transcript renders.
+=======
+1. `exchange-rendering` (FE-1123) — coverage frontier (structural head slice + sweep body), opened 2026-07-02 from walkthrough findings F7/F8/F11. Branch `ln/fe-1123-exchange-rendering` in worktree `brunch-next-lambda`. First member of the `exchange-presentation` arc.
+2. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
+3. `session-entry-orientation` — opened 2026-07-02 from beat-5 walkthrough findings F16/F17 (MAJOR), absorbing chrome polish F13/F14 and F15 option (a). No Linear issue or branch yet (create on pickup). Owns what a session says and asks at entry: deterministic entry chrome, elicitor re-entry assessment, and the process-level mode menu. Low code-conflict with `exchange-rendering` (chrome + prompt files, not formatters/renderers).
+4. `exchange-answering-chrome` — not yet started; no Linear issue or branch yet. Second member of the `exchange-presentation` arc (renamed from `bordered-chrome-production`; main-editor thread split to `main-editor-chrome`, Horizon). Owns the live answering surfaces (choice/review pickers, free-text answer dialog); pairs with `exchange-rendering`, which owns transcript renders.
+>>>>>>> theirs — heading `Next` (S+F, confidence: low)
 
 ### Parallel / Low-Conflict
 
@@ -161,6 +169,28 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Carried design question (2026-07-02, from `exchange-rendering`):** GitHub-style per-item review commentary — widening the review answered payload (`comments: [{on: draft|edge|set, body}]`) plus the collection UI to gather it. The payload half is a SPEC decision; the collection half belongs to this frontier's review-answering surface. Evaluate when scoping; transcript sketch in `src/agents/contexts/exchanges/design-permutations.md` §Review-set evaluation.
 - **Verification:** answering-path non-regression contract test — `session.submitExchangeResponse` never touches `ctx.ui.*` (locks `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`); injected-key VirtualTerminal tests for the new pickers (workspace-dialog-scroll precedent); manual physical-terminal smoke carried from `component-dx`. See `memory/SPEC.md` §Design Notes "Exchange-presentation oracle design".
 - **Traceability:** D22-L, D35-L (chrome, thread 1); D37-L, D38-L (structured-exchange UI seam, threads 2–3); `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`; `src/.pi/components/TOPOLOGY.md`, `src/.pi/extensions/chrome/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`.
+
+
+### session-entry-orientation
+
+- **Name:** Session entry orientation — entry chrome, re-entry assessment, and the process-level mode menu
+- **Linear:** unassigned (create on pickup)
+- **Branch:** tbd
+- **Kind:** bounded feature / kick-design + chrome; introduces a new workflow entry behavior (the mode menu) at the session-entry seam.
+- **Status:** not started; opened 2026-07-02 from walkthrough beat-5 findings.
+- **Certainty:** proving — the mode menu's product shape is unproven: deterministic kick chrome vs prompt-directed agent behavior, every-entry vs graph-threshold gating, and how a menu choice maps to skill routing are all open design questions the first tracer must answer.
+- **Source findings:** TESTING_FINDINGS.md F16 (no "where are we" orientation on resume), F17 (resume dives into elicitation instead of asking what to do), absorbing F13 (welcome block placement/styling), F14 (kick indicator salience), F15 option (a) (session-global "Worked for Ns" collapsed-block label; option (c) rides `exchange-rendering`'s renderCall row instead).
+- **Why now / unlocks:** both MAJOR findings sit on the first thing every user experiences (session entry), and the mode menu is the user-facing surface of skill-manifest routing — it converges with TESTING_PLAN.md goal 6 (generative discoverability) and the scenario 7 mode-switch probe, turning discoverability from model volition into an explicit affordance.
+- **Objective (three threads):**
+  1. **Deterministic entry chrome:** welcome block as its own styled element after the header (F13); kick activity driven through pi's salient `setWorkingMessage`/`setWorkingVisible` surface rather than only a status-line entry (F14); resume-variant state/status insertion (workspace name, mode, graph stats) in TUI chrome or transcript (F16a); optionally the cheap turn_end "Worked for Ns" global label (F15a, accepting pi's global-label semantics).
+  2. **Elicitor re-entry assessment:** kick/persona guidance so the assistant opens re-entry with an *assessment* — a summary of what the graph expresses (not a node listing), a forecast of what's TODO and what comes next, doubling as the teaching surface for what Brunch can do (F16b). Raw material already exists in the context seed's graph facts (D101-L/D102-L); this is prompt shaping, not new plumbing.
+  3. **Process-level mode menu:** first interaction on entry is a `request_response` single-select over process moves — continue via design-decision questions · continue via example-based questions · generatively expand/enhance · design the technical implementation · design the verification approach — before any questioning proceeds (F17). Options map onto skill routing (elicit variants / propose / project).
+- **Lights up:** the first user-*directed* skill routing — a menu choice steering conduct, rather than the model inferring the move from prose.
+- **Retires:** the open question of whether generative-mode discoverability needs prompt guidance, chrome, or an explicit affordance (goal 6's cheapest probe).
+- **Depends on:** F1 fix (composed kick prompt reaching every provider call — landed, FE-1122); context-seed graph facts (D101-L/D102-L); `request_response` exchange seam (D37-L/D38-L).
+- **Blocked by (verification only, not build):** conduct verification for the menu's generative options (propose/project) needs the `walkthrough-batch-2` seed variants (`intent-settled`, `requirements-accepted`) — the elicit-path options are verifiable on existing seeds now.
+- **Verification:** live walkthrough re-observation beats — cold-open (scenario 1 variant on an empty workbench) and resume (beat 5 repeat) — plus captured `system-prompt.md`/`origination.md` debug oracles for the kick composition; menu→conduct routing evidence via session JSONL skill `read` calls (TESTING_PLAN.md scenario 2 oracles).
+- **Traceability:** D98-L (mode→role→prompt composition), D101-L/D102-L (session seed facts), D37-L/D38-L (structured-exchange seam); TESTING_PLAN.md goal 6 + scenarios 1/2/7.
 
 ### walkthrough-fixes
 
@@ -294,6 +324,10 @@ frontiers:
       status: proving / exploratory (opened by D103-L)
       depends_on: D103-L, D100-L (project seam)
       cheapest_first_tracer: plan-as-projection
+    session-entry-orientation
+      status: not started, no Linear issue/branch yet (opened 2026-07-02 from F16/F17; absorbs F13/F14/F15a)
+      depends_on: FE-1122 F1 fix (landed), D101-L/D102-L (seed facts), D37-L/D38-L (request_response seam)
+      verification_gated_by: walkthrough-batch-2 seed variants -[optional]-> generative menu options only
     exchange-answering-chrome
       status: not started, no Linear issue/branch yet (renamed from bordered-chrome-production; main-editor thread -> main-editor-chrome, Horizon)
       arc: exchange-presentation
