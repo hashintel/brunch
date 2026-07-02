@@ -85,8 +85,12 @@ if it ends up caller-free.
 ✓ answer echo (final shape, design-permutations.md §Final resolution): checkbox echo with embedded
   numbers and struck rejected items — `- [ ] ~~1. **iTerm2**~~` / `- [x] 2. **Kitty**`; one grammar
   for choice and choices (single-choice = exactly one `[x]`); Other write-ins unnumbered, unstruck
-✓ tuple-form goldens: question(answer|choice|choices) tuples in both snapshot families; per-renderer
-  present_question snapshots superseded and deleted
+✓ tuple-form goldens: question(answer|choice|choices) tuples — content family only (renderResult
+  family suspended per D104-L revision 2026-07-02: renderResult = Markdown pass-through of content);
+  per-renderer present_question snapshots superseded and deleted
+✓ renderResult revert rides this slice: present_question renderResult back to renderMarkdownResult;
+  details-built box renderer + its goldens/metamorphic retired; render-honesty invariant retargeted
+  at the content string; preview entry shows the Markdown render
 ✓ render-honesty invariant green for each touched formatter/renderer pairing (echoed options are
   required rendering)
 ✓ structured-exchange-boundaries.test.ts green; capture/projection consumers of choice details unaffected
@@ -101,8 +105,8 @@ if it ends up caller-free.
 
 ## Cross-cutting obligations
 
-- Content register only — renderResult design is a separate surface (see ledger row
-  "renderResult text handling"); dual-audience discipline per D104-L.
+- renderResult is the Markdown pass-through of content (D104-L revision 2026-07-02; ledger row
+  "renderResult = Markdown pass-through" rides this slice) — TUI-only divergence is a future ceiling.
 - Do not touch live-picker collection paths.
 
 ## Expected touched paths (tentative)
