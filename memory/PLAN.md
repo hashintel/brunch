@@ -68,16 +68,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-<<<<<<< ours — heading `Next` (S+F, confidence: low)
-// hint: Structural and logic conflict. Both design and behavior differ.
 1. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
-2. `exchange-answering-chrome` — not yet started; no Linear issue or branch yet. Second member of the `exchange-presentation` arc (renamed from `bordered-chrome-production`; main-editor thread split to `main-editor-chrome`, Horizon). Owns the live answering surfaces (choice/review pickers, free-text answer dialog); pairs with `exchange-rendering`, which owns transcript renders.
-=======
-1. `exchange-rendering` (FE-1123) — coverage frontier (structural head slice + sweep body), opened 2026-07-02 from walkthrough findings F7/F8/F11. Branch `ln/fe-1123-exchange-rendering` in worktree `brunch-next-lambda`. First member of the `exchange-presentation` arc.
-2. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
-3. `session-entry-orientation` — opened 2026-07-02 from beat-5 walkthrough findings F16/F17 (MAJOR), absorbing chrome polish F13/F14 and F15 option (a). No Linear issue or branch yet (create on pickup). Owns what a session says and asks at entry: deterministic entry chrome, elicitor re-entry assessment, and the process-level mode menu. Low code-conflict with `exchange-rendering` (chrome + prompt files, not formatters/renderers).
-4. `exchange-answering-chrome` — not yet started; no Linear issue or branch yet. Second member of the `exchange-presentation` arc (renamed from `bordered-chrome-production`; main-editor thread split to `main-editor-chrome`, Horizon). Owns the live answering surfaces (choice/review pickers, free-text answer dialog); pairs with `exchange-rendering`, which owns transcript renders.
->>>>>>> theirs — heading `Next` (S+F, confidence: low)
+2. `session-entry-orientation` — opened 2026-07-02 from beat-5 walkthrough findings F16/F17 (MAJOR), absorbing chrome polish F13/F14 and F15 option (a). No Linear issue or branch yet (create on pickup). Owns what a session says and asks at entry: deterministic entry chrome, elicitor re-entry assessment, and the process-level mode menu. Low code-conflict with `exchange-rendering` (chrome + prompt files, not formatters/renderers).
+3. `exchange-answering-chrome` — not yet started; no Linear issue or branch yet. Second member of the `exchange-presentation` arc (renamed from `bordered-chrome-production`; main-editor thread split to `main-editor-chrome`, Horizon). Owns the live answering surfaces (choice/review pickers, free-text answer dialog); pairs with `exchange-rendering`, which owns transcript renders.
 
 ### Parallel / Low-Conflict
 
