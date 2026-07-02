@@ -52,7 +52,8 @@ describe('createAgentRunnerPort', () => {
       }),
     ).resolves.toEqual({
       status: 'failed',
-      message: 'AgentRunnerPort is not implemented yet; inject sealed subagent deps to execute agent slices.',
+      message:
+        'AgentRunnerPort has no subagent deps injected in this launch, so the sealed worker cannot run. Compose subagents (execute mode or --dev-tools).',
     });
   });
 

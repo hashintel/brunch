@@ -20,7 +20,7 @@ export function createAgentRunnerPort(options: AgentRunnerPortOptions = {}): Age
         return {
           status: 'failed',
           message:
-            'AgentRunnerPort is not implemented yet; inject sealed subagent deps to execute agent slices.',
+            'AgentRunnerPort has no subagent deps injected in this launch, so the sealed worker cannot run. Compose subagents (execute mode or --dev-tools).',
         };
       }
       const worker = subagents.definitions.get('worker');
