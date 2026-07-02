@@ -59,14 +59,11 @@ const zChoiceAnsweredPayload = z
   })
   .strict()
   .superRefine((payload, ctx) => {
-    if (
-      (payload.choice.kind === 'other' || payload.choice.kind === 'none') &&
-      (!payload.comment || payload.comment.trim().length === 0)
-    ) {
+    if (payload.choice.kind === 'none' && (!payload.comment || payload.comment.trim().length === 0)) {
       ctx.addIssue({
         code: 'custom',
         path: ['comment'],
-        message: 'other and none choices require comment',
+        message: 'none choices require comment',
       });
     }
   });

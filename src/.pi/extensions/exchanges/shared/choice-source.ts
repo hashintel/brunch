@@ -78,7 +78,6 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
         : undefined;
     if (other === undefined || other.trim().length === 0) return terminal('cancelled');
     choice = { id: 'other', label: other.trim(), kind: 'other' };
-    comment = other.trim();
   } else {
     choice = selectedChoice(picked, 'listed');
     if (typeof params.ctx.ui.input === 'function') {
