@@ -489,9 +489,25 @@ tokens saying one thing twice.
 
 > Keeps the `project*` naming family that rounded-box established.
 
-Open question this raises for the ★ pattern: (A) supersedes the plain checkbox echo
-for the answer block? The strike variant keeps numbering — which the checkbox echo
-loses — while preserving the rejected-options-stay-visible property.
+Resolution (2026-07-02, later): **checkbox echo with embedded numbers** — restating
+the original option numbers inside the checkbox items gives checkboxes the
+numbering-retention property that was (A)'s main advantage, and handles `Other`
+write-ins more gracefully (an unlisted answer has no number to strike, but slots
+naturally into the list). Current lead, at least for multi-choice:
+
+## Question: Which terminal should the physical wheel-scroll smoke test target first?
+
+1. **iTerm2** — primary dev environment.
+2. **Kitty** — closest to pi-tui's assumed capabilities.
+
+## Answer
+
+- [ ] 1. **iTerm2**
+- [ ] 2. **Kitty**
+- [x] *Other:* Ghostty — it's what I actually use daily now.
+
+Still open: whether single-choice uses the same shape (uniform grammar, one `[x]`)
+or the strike variant (A); decide at build time against tuple goldens + preview.
 
 ---
 

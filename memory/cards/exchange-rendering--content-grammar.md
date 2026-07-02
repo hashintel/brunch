@@ -70,7 +70,10 @@ with tuple-form dual-family goldens locking it.
 ```
 ✓ zChoiceAnsweredPayload / zChoicesAnsweredPayload carry the full option field; fixtures regenerated
 ✓ formatters emit ★ grammar: h2 Question/Answer frames, blockquote reason+comment, em-dash rationale
-✓ answer echo: numbering retained, chosen bold, rejected ~~struck~~; Other write-ins rendered distinctly
+✓ answer echo: full option field with original numbering retained; lead shape is checkbox echo with
+  embedded numbers (`- [x] 2. **Kitty**`) — strike variant (A) is the alternate for single-choice;
+  final pick at build against tuple goldens (see design-permutations.md §Resolution). Other write-ins
+  slot into the checkbox list
 ✓ tuple-form goldens: question(answer|choice|choices) tuples in both snapshot families; per-renderer
   present_question snapshots superseded and deleted
 ✓ render-honesty invariant green for each touched formatter/renderer pairing (echoed options are
