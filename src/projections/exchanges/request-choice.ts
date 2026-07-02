@@ -1,27 +1,28 @@
-import type {
-  RequestChoiceDetails,
-  RequestOutcomeKey,
-  SelectedChoice,
-} from '../../.pi/extensions/exchanges/schemas/index.js';
-import {
-  STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
-  zRequestChoiceDetails,
-} from '../../.pi/extensions/exchanges/schemas/index.js';
+import type { RequestChoiceDetails, SelectedChoice } from '../../.pi/extensions/exchanges/schemas/index.js';
+import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../../.pi/extensions/exchanges/schemas/index.js';
 
-export type { RequestChoiceDetails, RequestOutcomeKey, SelectedChoice };
+export type { RequestChoiceDetails, SelectedChoice };
 export type RequestChoicePresentTool = 'present_question' | 'present_candidates';
 
-export function projectRequestChoice(input: {
-  readonly exchangeId: string;
-  readonly respondsToPresentTool: RequestChoicePresentTool;
-  readonly status: RequestOutcomeKey;
-  readonly choice?: SelectedChoice | undefined;
-  readonly comment?: string | undefined;
-  readonly message?: string | undefined;
-}): RequestChoiceDetails {
+type RequestChoiceProjectionInput =
+  | {
+      readonly exchangeId: string;
+      readonly respondsToPresentTool: RequestChoicePresentTool;
+      readonly status: 'answered';
+      readonly choice: SelectedChoice;
+      readonly comment?: string | undefined;
+    }
+  | {
+      readonly exchangeId: string;
+      readonly respondsToPresentTool: RequestChoicePresentTool;
+      readonly status: 'cancelled' | 'unavailable';
+      readonly message?: string | undefined;
+    };
+
+export function projectRequestChoice(input: RequestChoiceProjectionInput): RequestChoiceDetails {
   const base = {
     schema: STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
-    v: 1,
+    v: 1 as const,
     exchange_id: input.exchangeId,
     tool_meta: {
       prev: input.respondsToPresentTool,
@@ -30,36 +31,34 @@ export function projectRequestChoice(input: {
   };
   if (input.status === 'answered') {
     const comment = normalizeOptionalText(input.comment);
-    return zRequestChoiceDetails.parse({
+    const tool_meta =
+      input.respondsToPresentTool === 'present_candidates'
+        ? ({
+            ...base.tool_meta,
+            prev: 'present_candidates',
+            next: 'capture_candidate',
+          } as const)
+        : ({
+            ...base.tool_meta,
+            prev: 'present_question',
+            next: 'capture_choice',
+          } as const);
+    return {
       ...base,
-      tool_meta: {
-        ...base.tool_meta,
-        next: captureToolForPresentTool(input.respondsToPresentTool),
-      },
+      tool_meta,
       answered: {
         choice: input.choice,
         ...(comment !== undefined ? { comment } : {}),
       },
-    });
+    };
   }
   if (input.status === 'cancelled') {
-    return zRequestChoiceDetails.parse({ ...base, cancelled: {} });
+    return { ...base, cancelled: {} };
   }
-  return zRequestChoiceDetails.parse({
+  return {
     ...base,
     unavailable: { message: input.message ?? 'request_choice unavailable' },
-  });
-}
-
-/**
- * The capture tool that answers a request_choice depends on which present tool
- * the request responds to: prompt option lists capture as a plain choice,
- * candidate lists capture as a candidate selection.
- */
-function captureToolForPresentTool(
-  presentTool: RequestChoicePresentTool,
-): 'capture_choice' | 'capture_candidate' {
-  return presentTool === 'present_candidates' ? 'capture_candidate' : 'capture_choice';
+  };
 }
 
 function normalizeOptionalText(value: string | undefined): string | undefined {
