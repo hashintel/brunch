@@ -1,4 +1,4 @@
-import { blockquote, bold, heading, italic } from 'md-pen';
+import { blockquote, bold, heading, italic, ul } from 'md-pen';
 
 import type { PresentReviewSetProjection } from '../../../projections/exchanges/present-review-set.js';
 import { joinMarkdownBlocks } from '../../shared/markdown.js';
@@ -35,8 +35,8 @@ export function formatPresentReviewSet(projection: PresentReviewSetProjection): 
   return joinMarkdownBlocks(
     heading(`Proposal: ${projection.details.display.heading}`, 2),
     projection.details.display.body ? blockquote(projection.details.display.body) : undefined,
-    reviewSet.nodes.map((node) => renderNode(node, nestedEdges.get(node.draft_id) ?? [])).join('\n'),
-    trailingEdges.length > 0 ? ['Other new edges:', '', ...trailingEdges].join('\n') : undefined,
+    ul(reviewSet.nodes.flatMap((node) => renderNodeItems(node, nestedEdges.get(node.draft_id) ?? []))),
+    trailingEdges.length > 0 ? joinMarkdownBlocks('Other new edges:', ul(trailingEdges)) : undefined,
   );
 }
 
@@ -61,13 +61,14 @@ type ReviewSetDetails = PresentReviewSetProjection['details']['review_set'];
 type ReviewSetNodeDetails = ReviewSetDetails['nodes'][number];
 type ReviewSetEdgeDetails = ReviewSetDetails['edges'][number];
 type ReviewSetEndpointDetails = Extract<ReviewSetEdgeDetails, { category: 'dependency' }>['dependency'];
+type MarkdownListItem = string | MarkdownListItem[];
 
-function renderNode(node: ReviewSetNodeDetails, nestedEdges: readonly string[]): string {
-  return [
-    `- ${bold(`$${node.proposed_code}: ${node.title.trim()}`)}`,
-    ...(node.body ? ['', indentBlock(node.body.trim(), 2)] : []),
-    ...nestedEdges,
-  ].join('\n');
+function renderNodeItems(node: ReviewSetNodeDetails, nestedEdges: readonly string[]): MarkdownListItem[] {
+  const nodeText = joinMarkdownBlocks(
+    bold(`$${node.proposed_code}: ${node.title.trim()}`),
+    node.body?.trim(),
+  );
+  return nestedEdges.length > 0 ? [nodeText, [...nestedEdges]] : [nodeText];
 }
 
 function renderEdge(
@@ -132,16 +133,16 @@ function renderSubjectEdge(
     return {
       hostDraftId: subject.draft_id,
       line: joinMarkdownBlocks(
-        `  - ${verb} ${bold(endpointLabel(object, nodesByDraftId))}${stanceText}`,
-        rationale ? indentBlock(blockquote(rationale), 4) : undefined,
+        `${verb} ${bold(endpointLabel(object, nodesByDraftId))}${stanceText}`,
+        rationale ? blockquote(rationale) : undefined,
       ),
     };
   }
 
   return {
     line: joinMarkdownBlocks(
-      `- ${bold(endpointLabel(subject, nodesByDraftId))} ${verb} ${bold(endpointLabel(object, nodesByDraftId))}${stanceText}`,
-      rationale ? indentBlock(blockquote(rationale), 2) : undefined,
+      `${bold(endpointLabel(subject, nodesByDraftId))} ${verb} ${bold(endpointLabel(object, nodesByDraftId))}${stanceText}`,
+      rationale ? blockquote(rationale) : undefined,
     ),
   };
 }
@@ -153,12 +154,4 @@ function endpointLabel(
   if ('existing_code' in ref) return ref.existing_code;
   const node = nodesByDraftId.get(ref.draft_id);
   return node ? `$${node.proposed_code}` : ref.draft_id;
-}
-
-function indentBlock(text: string, spaces: number): string {
-  const indent = ' '.repeat(spaces);
-  return text
-    .split('\n')
-    .map((line) => `${indent}${line}`)
-    .join('\n');
 }
