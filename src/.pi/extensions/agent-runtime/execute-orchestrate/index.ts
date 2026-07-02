@@ -24,7 +24,7 @@ export function createExecuteOrchestrateTool(
     name: BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
     label: 'execute_orchestrate',
     description:
-      'Drive an executor run end-to-end to run_completed by advancing each lifecycle step the scheduler reports ready. Halts without advancing if a step cannot execute. Does not promote or land.',
+      'Drive an executor run end-to-end to promotion_prepared (run-local land) by advancing each lifecycle step the scheduler reports ready. Halts without advancing if a step cannot execute. Does not perform host promotion/land.',
     parameters: ExecuteOrchestrateParams,
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;

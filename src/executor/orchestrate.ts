@@ -2,7 +2,9 @@ import { readFile } from 'node:fs/promises';
 
 import { ingestAgentResult } from './agent-result.js';
 import type { AgentRunnerRuntime, ExecutionPorts } from './execution-ports.js';
+import { exportPetri } from './petri.js';
 import { populatedPlanPath, populateWorktree } from './populate.js';
+import { preparePromotion } from './promotion.js';
 import { initializeReports } from './report.js';
 import { completeRun } from './run-complete.js';
 import { readRunMetadata, runMetadataPath, type RunMetadata } from './run.js';
@@ -29,7 +31,9 @@ export type ReadyStep =
   | { readonly kind: 'agent_result' }
   | { readonly kind: 'test_result' }
   | { readonly kind: 'slice_complete' }
-  | { readonly kind: 'run_complete' };
+  | { readonly kind: 'run_complete' }
+  | { readonly kind: 'petri_export' }
+  | { readonly kind: 'promotion' };
 
 /** The minimal plan projection the scheduler needs to resolve the slice frontier. */
 export interface SchedulerPlan {
@@ -74,7 +78,9 @@ export const linearScheduler: RunScheduler = {
       case 'test_result_ingested':
         return [{ kind: 'slice_complete' }];
       case 'run_completed':
+        return [{ kind: 'petri_export' }];
       case 'petri_exported':
+        return [{ kind: 'promotion' }];
       case 'promotion_prepared':
         return [];
     }
@@ -106,9 +112,9 @@ interface StepResult {
 }
 
 /**
- * Drive a run to `run_completed` by repeatedly executing the scheduler's ready
- * step. Promotion and host land are out of scope: the scheduler reports no ready
- * step once the run reaches `run_completed`.
+ * Drive a run to `promotion_prepared` (run-local land) by repeatedly executing the
+ * scheduler's ready step. Host promotion/land stays out of scope: the scheduler
+ * reports no ready step once the run reaches `promotion_prepared`.
  */
 export async function drive(
   ctx: DriveContext,
@@ -179,5 +185,9 @@ async function runStep(step: ReadyStep, ctx: DriveContext): Promise<StepResult> 
       return completeSlice({ cwd, runId });
     case 'run_complete':
       return completeRun({ cwd, runId });
+    case 'petri_export':
+      return exportPetri({ cwd, runId });
+    case 'promotion':
+      return preparePromotion({ cwd, runId, gitLand: ports.gitLand });
   }
 }
