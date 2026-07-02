@@ -1,3 +1,4 @@
+import { structuredExchangeResponseRequiresComment } from '../../.pi/extensions/exchanges/schemas/index.js';
 import { projectRequestAnswer } from '../../projections/exchanges/request-answer.js';
 import { projectRequestChoice } from '../../projections/exchanges/request-choice.js';
 import { projectRequestChoices } from '../../projections/exchanges/request-choices.js';
@@ -95,7 +96,10 @@ export function acceptedResponseFromParams(
     const choice = pending.options.find((option) => option.id === optionId);
     if (!choice) return { ok: false, message: 'Invalid elicitation option' };
     const comment = params.note?.trim();
-    if ((choice.id === 'other' || choice.id === 'none') && (comment === undefined || comment.length === 0)) {
+    if (
+      structuredExchangeResponseRequiresComment({ choiceKinds: [choiceKind(choice.id)] }) &&
+      (comment === undefined || comment.length === 0)
+    ) {
       return {
         ok: false,
         message: 'Elicitation response requires a comment for Other or None selections',
@@ -123,7 +127,10 @@ export function acceptedResponseFromParams(
     if (pending.mode !== 'review') return invalidResponseMode();
     const review = params.answer.review;
     const comment = review.comment?.trim();
-    if (review.decision === 'request_changes' && (comment === undefined || comment.length === 0)) {
+    if (
+      structuredExchangeResponseRequiresComment({ reviewDecision: review.decision }) &&
+      (comment === undefined || comment.length === 0)
+    ) {
       return { ok: false, message: 'Review request_changes requires a comment' };
     }
     return {
@@ -158,7 +165,9 @@ export function acceptedResponseFromParams(
   }
   const choices = selected as PendingChoice[];
   if (
-    choices.some((choice) => choice.id === 'other' || choice.id === 'none') &&
+    structuredExchangeResponseRequiresComment({
+      choiceKinds: choices.map((choice) => choiceKind(choice.id)),
+    }) &&
     (params.note === undefined || params.note.trim().length === 0)
   ) {
     return {

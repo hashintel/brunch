@@ -4,6 +4,7 @@ import { createMultiChoicePickerComponent } from '../../../components/multi-choi
 import {
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_VERSION,
+  structuredExchangeResponseRequiresComment,
   zRequestChoicesEditorReply,
   type RequestChoicesEditorChoice,
   type RequestChoicesEditorEnvelopeInput,
@@ -121,7 +122,10 @@ function matchedChoicesResult(
   if (typeof matched === 'string') return terminalResult(params.exchangeId, 'unavailable', matched);
 
   const comment = normalizeOptionalText(commentText);
-  if (matched.some((choice) => choice.kind === 'other' || choice.kind === 'none') && comment === undefined) {
+  if (
+    structuredExchangeResponseRequiresComment({ choiceKinds: matched.map((choice) => choice.kind) }) &&
+    comment === undefined
+  ) {
     return terminalResult(
       params.exchangeId,
       'unavailable',
@@ -157,7 +161,11 @@ export async function requestChoicesFromSources(
 
     const needsComment =
       params.commentPrompt !== undefined ||
-      picked.choices.some((choice) => choice.id === 'other' || choice.id === 'none');
+      structuredExchangeResponseRequiresComment({
+        choiceKinds: picked.choices.map((choice) =>
+          choice.id === 'none' ? 'none' : choice.id === 'other' ? 'other' : 'listed',
+        ),
+      });
     const comment = needsComment
       ? await ctx.ui.input?.(params.commentPrompt ?? 'Required comment')
       : undefined;

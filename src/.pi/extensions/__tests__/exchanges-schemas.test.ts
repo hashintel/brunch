@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import * as z from 'zod';
 
 import {
+  structuredExchangeResponseRequiresComment,
   zCaptureAnswerDetails,
   zCaptureCandidateDetails,
   zCaptureChoiceDetails,
@@ -37,6 +38,18 @@ function expectJsonSchemaExport(schema: z.ZodType) {
 }
 
 describe('structured exchange shared schemas', () => {
+  it.each([
+    [{ choiceKinds: ['listed'] as const }, false],
+    [{ choiceKinds: ['other'] as const }, true],
+    [{ choiceKinds: ['none'] as const }, true],
+    [{ choiceKinds: ['listed', 'other'] as const }, true],
+    [{ reviewDecision: 'approve' as const }, false],
+    [{ reviewDecision: 'request_changes' as const }, true],
+    [{ reviewDecision: 'reject' as const }, false],
+  ])('identifies response cases that require comments %#', (params, expected) => {
+    expect(structuredExchangeResponseRequiresComment(params)).toBe(expected);
+  });
+
   it('parses checked details headers and rejects unsupported versions', () => {
     expect(
       zPresentDetailsHeader.parse({
@@ -463,7 +476,7 @@ describe('structured exchange request schemas', () => {
     ).toThrow();
   });
 
-  it('supports candidate choices and requires comments for none choices', () => {
+  it('supports candidate choices and requires comments for other or none choices', () => {
     expect(
       zRequestChoiceDetails.parse({
         schema: 'brunch.structured_exchange.request',
@@ -496,6 +509,7 @@ describe('structured exchange request schemas', () => {
         },
         answered: {
           choice: { id: 'other', label: 'Something else entirely', kind: 'other' },
+          comment: 'The intended option is not listed.',
         },
       }),
     ).toMatchObject({ answered: { choice: { kind: 'other' } } });
@@ -508,6 +522,17 @@ describe('structured exchange request schemas', () => {
         tool_meta: { prev: 'present_question', curr: 'request_choice' },
         answered: {
           choice: { id: 'none', label: 'None of these', kind: 'none' },
+        },
+      }),
+    ).toThrow();
+    expect(() =>
+      zRequestChoiceDetails.parse({
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'domain-shape-other',
+        tool_meta: { prev: 'present_question', curr: 'request_choice' },
+        answered: {
+          choice: { id: 'other', label: 'Something else entirely', kind: 'other' },
         },
       }),
     ).toThrow();

@@ -36,6 +36,7 @@ export const UnavailableOutcomeSchema = z.toJSONSchema(zUnavailableOutcome, {
 });
 
 export const zChoiceKind = z.enum(['listed', 'other', 'none']);
+export type ChoiceKind = z.infer<typeof zChoiceKind>;
 export const ChoiceKindSchema = z.toJSONSchema(zChoiceKind, {
   unrepresentable: 'throw',
 });
@@ -52,6 +53,16 @@ export const SelectedChoiceSchema = z.toJSONSchema(zSelectedChoice, {
   unrepresentable: 'throw',
 });
 
+export function structuredExchangeResponseRequiresComment(params: {
+  readonly choiceKinds?: readonly ChoiceKind[] | undefined;
+  readonly reviewDecision?: 'approve' | 'request_changes' | 'reject' | undefined;
+}): boolean {
+  return (
+    params.reviewDecision === 'request_changes' ||
+    params.choiceKinds?.some((kind) => kind === 'other' || kind === 'none') === true
+  );
+}
+
 const zChoiceAnsweredPayload = z
   .object({
     choice: zSelectedChoice,
@@ -59,11 +70,14 @@ const zChoiceAnsweredPayload = z
   })
   .strict()
   .superRefine((payload, ctx) => {
-    if (payload.choice.kind === 'none' && (!payload.comment || payload.comment.trim().length === 0)) {
+    if (
+      structuredExchangeResponseRequiresComment({ choiceKinds: [payload.choice.kind] }) &&
+      (!payload.comment || payload.comment.trim().length === 0)
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['comment'],
-        message: 'none choices require comment',
+        message: 'other and none choices require comment',
       });
     }
   });
@@ -77,7 +91,9 @@ const zChoicesAnsweredPayload = z
   .strict()
   .superRefine((payload, ctx) => {
     if (
-      payload.choices.some((choice) => choice.kind === 'other' || choice.kind === 'none') &&
+      structuredExchangeResponseRequiresComment({
+        choiceKinds: payload.choices.map((choice) => choice.kind),
+      }) &&
       (!payload.comment || payload.comment.trim().length === 0)
     ) {
       ctx.addIssue({
@@ -179,9 +195,14 @@ const zReviewAnsweredPayload = z.union([
   z
     .object({
       decision: z.literal('request_changes'),
-      comment: zMarkdown.refine((value) => value.trim().length > 0, {
-        message: 'request_changes requires comment',
-      }),
+      comment: zMarkdown.refine(
+        (value) =>
+          !structuredExchangeResponseRequiresComment({ reviewDecision: 'request_changes' }) ||
+          value.trim().length > 0,
+        {
+          message: 'request_changes requires comment',
+        },
+      ),
     })
     .strict(),
   z

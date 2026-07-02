@@ -487,6 +487,9 @@ describe('structured exchange present/request tools', () => {
   it('records an Other choice label without duplicating it as the comment', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
+    const input = vi.fn(async () =>
+      input.mock.calls.length === 1 ? 'Something else entirely' : 'Needs a custom path.',
+    );
 
     const result = await request_response.execute(
       'request-response-choice-other-call',
@@ -497,7 +500,7 @@ describe('structured exchange present/request tools', () => {
         hasUI: true,
         ui: {
           select: async () => 'Other',
-          input: vi.fn(async () => 'Something else entirely'),
+          input,
         },
         sessionManager: {
           getBranch: () => [
@@ -524,15 +527,17 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(result.content[0]?.text).toContain('Selected: **Something else entirely**');
-    expect(result.content[0]?.text).not.toContain('Comment:');
+    expect(result.content[0]?.text).toContain('Comment:');
+    expect(result.content[0]?.text).toContain('Needs a custom path.');
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location-other',
       tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
       answered: {
         choice: { id: 'other', label: 'Something else entirely', kind: 'other' },
+        comment: 'Needs a custom path.',
       },
     });
-    expect(result.details.answered.comment).toBeUndefined();
+    expect(result.details.answered.comment).not.toBe('Something else entirely');
   });
 
   it('maps duplicate present_question option labels back to the selected stable id', async () => {
