@@ -16,6 +16,7 @@ export const presentQuestionTool = defineTool({
   promptSnippet: 'Present a structured question before requesting a response',
   promptGuidelines: [
     'Use present_question for free-text, single-choice, and multi-choice prompts; options[] presence determines the response kind.',
+    'Use multiple: true when the options are not mutually exclusive; use single-select only when exactly one answer is wanted.',
     'Do not put numbered candidate answers in body markdown when options[] should carry them.',
     'Call request_response after present_question; the runtime derives the request details from this present result.',
     'The durable user-visible question is this tool result, not renderCall.',

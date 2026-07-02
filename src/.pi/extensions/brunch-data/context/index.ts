@@ -64,11 +64,12 @@ export function registerBrunchContext(pi: ExtensionAPI): void {
     name: 'read_specification_context',
     label: 'Read Specification Context',
     description:
-      'Read the selected specification context: overview, full graph overview, ranked elicitation gaps, and spec-scoped sessions.',
-    promptSnippet: 'Read the selected specification overview, graph overview, sessions, and elicitation gaps',
+      'Read the selected specification context: overview, full graph overview, session-local elicitation scratchpad, and spec-scoped sessions.',
+    promptSnippet:
+      'Read the selected specification overview, graph overview, sessions, and elicitation scratchpad',
     promptGuidelines: [
       'Use read_specification_context when you need selected-spec context rather than cwd or session runtime context.',
-      'This render is scope-clustered: overview, full graph overview, ranked elicitation gaps, and spec-scoped sessions.',
+      'This render is scope-clustered: overview, full graph overview, session-local elicitation scratchpad, and spec-scoped sessions; use it for graph-fact reasoning, not gap ranking.',
       'Use read_graph when you need a filtered graph slice or node neighborhood after reading this overview.',
     ],
     parameters: {

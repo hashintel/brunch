@@ -34,6 +34,7 @@ const BANNED_IDENTIFIERS = [
   'update_elicitation_gaps',
   "action: 'spawn'",
   'spawn_gap',
+  'ranked elicitation gaps',
 ];
 
 function sourceFilesUnder(path: string): string[] {

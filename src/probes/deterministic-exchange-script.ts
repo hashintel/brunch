@@ -3,7 +3,7 @@
  *
  * Relocated out of product origination (D78-L/D49-L revised 2026-06-12): the
  * product never fabricates a `present_*` offer — the assistant authors
- * openings live from the seeded context and ranked elicitation gaps. This
+ * openings live from seeded graph facts and the session-local elicitation scratchpad. This
  * script survives solely as the generator for the R24 public-RPC
  * structured-exchange permutation evidence (`public-rpc-parity-proof`) and
  * for fixture-driven exchange tests: probes/tests mint present pairs here
