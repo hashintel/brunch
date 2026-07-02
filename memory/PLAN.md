@@ -123,7 +123,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Status:** scoped, ready to build. Findings ledger: `TESTING_FINDINGS.md`. Walkthrough continues in parallel; later beats may append further cards or a batch-2 frontier.
 - **Certainty:** earned (settled seams; each card closes a named defect).
 - **Objective:** Close the beat-1 walkthrough findings: kick turn must carry the composed foreground prompt (F1 — pi `triggerTurn` path bypasses `before_agent_start`); origination decision record written at decision time (F2); kick-time chrome (activity indicator F3, welcome intro F4, collapsed thinking F6); elicitor prompt refinements (concision F5, multi-select nudge F9, retired "ranked elicitation gaps" vocabulary).
-- **Current execution pointer:** `memory/cards/walkthrough--kick-prompt-and-origination-record.md`, `memory/cards/walkthrough--kick-chrome-and-thinking.md`, `memory/cards/walkthrough--elicitor-prompt-refinements.md`. Excluded/deferred: F7/F8 (`present_question`/`request_response` rendering refinements).
+- **Current execution pointer:** `memory/cards/walkthrough--elicitor-prompt-refinements.md`. Excluded/deferred: F7/F8 (`present_question`/`request_response` rendering refinements).
 - **Traceability:** D78-L, I46-L/I47-L (origination honesty); D98-L (mode→role→prompt); D101-L (retired gap vocabulary); D40-L (tool policy).
 
 ### orchestrator-tool-port

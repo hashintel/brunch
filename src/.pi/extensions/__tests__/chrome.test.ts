@@ -5,8 +5,10 @@ import { describe, expect, it } from 'vitest';
 import type { WorkspaceSessionReadyState } from '../../../session/workspace-session-coordinator.js';
 import { BrunchStartupHeader } from '../../components/chrome-header.js';
 import chromeExtension, {
+  BRUNCH_KICK_ACTIVITY_STATUS_KEY,
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
+  registerBrunchChrome,
   renderBrunchChrome,
 } from '../chrome/index.js';
 import { BRUNCH_MODE_COMMAND, BRUNCH_MODE_SHORTCUT, BRUNCH_SWITCH_SHORTCUT } from '../commands/index.js';
@@ -211,6 +213,30 @@ describe('Brunch chrome projection', () => {
     expect(text).not.toContain('Welcome to Brunch.');
     expect(text).not.toContain('/brunch:mode');
     expect(text).toContain('Graph capture flows through Brunch commands and structured exchanges.');
+  });
+
+  it('clears kick activity status on first assistant message', async () => {
+    const calls: FakeUiCall[] = [];
+    const handlers = new Map<string, Array<(event: unknown, ctx: { ui: FakeExtensionUi }) => unknown>>();
+
+    registerBrunchChrome(
+      {
+        on: (event: string, handler: never) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        },
+      } as never,
+      { cwd: '/tmp/project', spec: { id: 1, title: 'Spec One' }, session: { id: 'session-1' } },
+    );
+
+    await handlers.get('message_start')?.[0]?.(
+      { message: { role: 'assistant' } },
+      { ui: fakeChromeUi(calls) },
+    );
+
+    expect(calls).toContainEqual({
+      method: 'setStatus',
+      args: [BRUNCH_KICK_ACTIVITY_STATUS_KEY, undefined],
+    });
   });
 
   it('installs dev fallback header through the src/.pi extension entrypoint', async () => {
