@@ -41,11 +41,20 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Done-definition:** all three capabilities have live non-stub homes/evidence appropriate to their seam: `capture` and `generate` carry promoted model/runtime evidence; `project` is prompt-resource guidance only, witnessed through the live manifest/prompt path because FE-1085 adds no product tool or schema seam.
 - **Anchors:** D95-L, D96-L; A31-L–A35-L; I51-L.
 
+### exchange-presentation — ◐ active
+
+- **Goal:** lock down every user-facing surface of the structured-exchange family — persisted transcript renders, live TUI answer collection, and their dev-preview loop — so exchanges read as designed product, not raw scaffolding.
+- **Members:**
+  - `exchange-rendering` (new, below) — transcript render surfaces: content formatters, `renderResult`-from-details, preview fixtures, render-honesty oracles.
+  - `exchange-answering-chrome` (né `bordered-chrome-production`) — live answering UI: bordered picker/dialog replacements for the `ctx.ui.select`/`ctx.ui.editor` answering paths.
+- **Done-definition:** every exchange kind in the closed inventory renders honestly in transcript and re-render; live single-choice answering no longer routes through pi's plain `ctx.ui.select`; each renderer has a `dev:components` preview entry; `src/.pi/extensions/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md` shape ledger, and `src/.pi/components/TOPOLOGY.md` reconciled; the formatter-home decision (see `exchange-rendering`) recorded in `memory/SPEC.md`.
+- **Anchors:** D37-L, D38-L, D41-L (exchange schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); TESTING_FINDINGS.md F7/F8/F11.
+
 ## Sequencing
 
 ### Active
 
-- `walkthrough-fixes` (FE-1122) — doctor-pass defect-closure batch; three scope cards ready under `memory/cards/walkthrough--*.md`; built by a parallel thread while the walkthrough continues.
+- `walkthrough-fixes` (FE-1122) — **built 2026-07-02** (all cards incl. F10 addendum; commits `e0701b4`…`486824b` on `ln/fe-1122-walkthrough-fixes`); pending PR tie-off. Walkthrough continues on a stacked follow-on branch.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
 ### Recently Completed
@@ -57,16 +66,18 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-1. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
-2. `bordered-chrome-production` — not yet started; no Linear issue or branch yet. Ready to scope once picked up.
+1. `exchange-rendering` — coverage frontier (structural head slice + sweep body), opened 2026-07-02 from walkthrough findings F7/F8/F11. No Linear issue or branch yet; pick up once the FE-1122 batch lands. First member of the `exchange-presentation` arc.
+2. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
+3. `exchange-answering-chrome` — not yet started; no Linear issue or branch yet. Second member of the `exchange-presentation` arc (renamed from `bordered-chrome-production`; main-editor thread split to `main-editor-chrome`, Horizon). Owns the live answering surfaces (choice/review pickers, free-text answer dialog); pairs with `exchange-rendering`, which owns transcript renders.
 
 ### Parallel / Low-Conflict
 
-- `component-dx` (FE-1115) — **paused.** Preview harness plus shared presentation primitives shipped; open for further dev-tooling refinement if a concrete need surfaces, but nothing is actively scoped. Production-wiring follow-on split to `bordered-chrome-production`.
+- `component-dx` (FE-1115) — **paused.** Preview harness plus shared presentation primitives shipped; open for further dev-tooling refinement if a concrete need surfaces, but nothing is actively scoped. Production-wiring follow-on split to `exchange-answering-chrome` (né `bordered-chrome-production`) and `main-editor-chrome`.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
 ### Horizon
 
+- `main-editor-chrome` — wire `BrunchEditorComponent` as the persistent input editor via `ctx.ui.setEditorComponent` (D22-L/D35-L chrome territory). Split out of the former `bordered-chrome-production` on 2026-07-02 because it is not exchange work; carries the unverified render-height assumption its first tracer must resolve (see `exchange-answering-chrome` rename note).
 - `session-branching` — support session branching (D24-L reversal); needs branch-aware continuity/coherence design (A37-L).
 - `compaction-and-conflict-widening` — long-horizon continuity through compaction.
 - `fixture-vs-real-audit` — `ln-induct` candidate for real-vs-fixture shape gaps (tool ids, orphan tool results, provider payload assumptions).
@@ -97,21 +108,69 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Open (not yet scoped):** refine existing components' rendering/affordances/copy; build new `.pi/components` as needed. Both carried-forward findings from the first slice are resolved: the axis-picker harness/production presentation drift is fixed (harness now drives the picker via `tui.addChild`/`tui.setFocus`, matching production's inline swap), and the unwired `tui-lab` slash command (`registerBrunchTuiLab`) is retired — `TuiStyleLabComponent` now lives at `.pi/components/tui-lab/style-lab-component.ts` as a preview-harness-only reference component. The harness's lane coverage gap is also closed: `static-preview.ts` adds the transcript-message-renderer lane (`alternatives`, via a captured `registerBrunchAlternatives` renderer) and the persistent-chrome lane (`chrome-header`), alongside the original `ctx.ui.custom` lane. The footer lane (`ui.setFooter`) is deliberately deferred — driven by live session state, and rides the scope the user wants to refine later. A fourth, `[experimental]` entry (`brunch-editor`) previews the `ctx.ui.setEditorComponent` slot: `BrunchEditorComponent` wraps `CustomEditor` in a runtime-state-labeled bordered box (design exploration only, not yet wired into production chrome) — first of a planned family that also covers the `request_*` question-form pickers (`request_response` etc.) — that production wiring now lives in the `bordered-chrome-production` frontier, below, not here. A sibling primitive, `projectScrollViewport` (`.pi/components/scroll-viewport.ts`), landed for a converged scroll-viewport pattern (keyboard scroll, selection-follow windowing, a `▐`-in-border scroll thumb), confirmed against pi-tui's own `Editor`/`SelectList` windowing plus glyph/opentui/lazygit precedent, and wired into `WorkspaceDialogComponent`'s real unwindowed option-list gap (demoed via the `workspace-dialog-scroll` preview entry). Wheel-scroll passthrough is now implemented for that preview entry only: `showComponentPreview` can opt into SGR mouse enable/disable and translates recognized wheel events to ordinary arrow-key bytes via `.pi/components/mouse-wheel.ts`, leaving `WorkspaceDialogComponent`'s input API unchanged. Follow-ons remain: true pointer-hover hit-testing (scroll whatever's under the cursor, not just the focused component) is out of scope for a brunch component entirely — pi-tui has no per-render row→component ownership map, and building one is an upstream pi-tui change, not a component-dx slice; native-text-selection UX and session-scoped mouse-mode ownership are still production-design questions, not answered by this preview-only opt-in. A manual real-terminal smoke test still needs to confirm physical wheel emission matches the injected SGR shape proved in harness.
 - **Traceability:** none required for the harness itself — dev tooling only. Component refinement/creation slices add SPEC links only if they change durable product boundaries. Extends the "Build/test convention" section of `src/.pi/components/TOPOLOGY.md` and the "Launcher Surface" section of `src/dev/TOPOLOGY.md`.
 
-### bordered-chrome-production
+### exchange-rendering
 
-- **Name:** Wire bordered Pi TUI components into real production surfaces
-- **Linear:** unassigned
+- **Name:** Structured-exchange transcript rendering — fix, unify, and lock the renderer family
+- **Linear:** unassigned (create on pickup)
 - **Branch:** tbd
-- **Kind:** bounded feature / presentation-layer production wiring
+- **Kind:** coverage frontier (sweep shape) with a structural head slice. Arc: `exchange-presentation`.
+- **Certainty:** head slice `proving` (new render-from-details seam + formatter-home decision); sweep rows `earned` (locking settled per-kind renderers).
+- **Classification:** buildable-now. No product-state or evidence gate — all inputs (schemas, details contracts, preview harness) exist.
+- **Source findings:** TESTING_FINDINGS.md F7 (present_question template noise), F8 (request_response picker re-list: raw `**`, unnumbered, bare "Other"), F11 (flat "# Response" answered template); beat-2 render-topology analysis (2026-07-02).
+- **Why now / unlocks:** every elicitation beat flows through these renders; they are the product's face during Specify mode. The walkthrough showed the family is uneven (present_question/request_* are flat scaffolding; present_candidates has a rubric table; present_alternatives lives outside the family) and the render path is structurally wrong-way (renderResult re-renders the model-facing markdown string instead of the structured `details`).
+
+- **The three surfaces (boundary):**
+  1. **Persisted `content` markdown** — `src/agents/contexts/exchanges/*` formatters. **Dual-audience**: the same string is the model-facing tool result and the current TUI render source. In scope: template quality, honesty, concision-for-model.
+  2. **`renderResult`** — `src/.pi/extensions/exchanges/*` + `shared/markdown.ts`. In scope, and the structural head: render from `result.details` (structured) instead of re-parsing the markdown string, so TUI presentation (numbering, hierarchy, bordered cards via `projectRoundedBox`) evolves independently of model-facing content.
+  3. **Live pickers** — **out of scope**; owned by `exchange-answering-chrome` (`ctx.ui.select` replacement, choices-editor restyle, answer dialog). Boundary rule: this frontier may not touch `shared/choice-source.ts` / `choices-editor.ts` UI collection; it may only consume their result details.
+
+- **Head slice (structural, proving — before any sweep row):**
+  - Establish render-from-details in one renderer (`present_question`) end-to-end, including a `dev:components` preview entry fed by fixture `{content, details}` (same static lane as the `alternatives` entry).
+  - **Formatter-home decision:** resolve the three-home split (`agents/contexts/exchanges` formatters vs `.pi/extensions/exchanges` render vs `projections/exchanges` details). Working resolution to validate: `projections/exchanges` **stays** — the TOPOLOGY.md shape ledger shows 5–6 real consumers per module (tools, session reconstruction, RPC/web, probes) and D52-L/D60-L/D75-L govern it; the felt indirection is actually the markdown-string round-trip in surface 2, which the head slice removes. If the head slice instead proves formatters and renderers should co-locate, record the move as a SPEC decision and update the shape ledger — do not silently relocate.
+  - Define the **render-honesty oracle** shape: for each renderer, every `details` field is either visibly rendered or deliberately elided by a named rule (extends the existing shape/no-loss invariant discipline from `src/projections/TOPOLOGY.md`).
+
+- **Sweep inventory (draft — `ln-scope` authors the closed ledger in `memory/cards/exchange-rendering--sweep.md`):**
+  | row | owner (formatter / render) | notes |
+  | --- | --- | --- |
+  | ● present_question | `agents/contexts/exchanges/present-question.ts` / tool renderResult | F7 template redesign |
+  | ● request answered: choice | `request-choice.ts` | F11; ties answer back to its question |
+  | ● request answered: choices | `request-choices.ts` | multi-select display |
+  | ● request answered: answer | `request-answer.ts` | free-text display |
+  | ● request answered: review | `request-review.ts` | decision + comment display |
+  | ● request terminal states | cancelled / unavailable / diagnostic (`request-response.ts`) | consistent quiet styling |
+  | ● present_candidates | `present-candidates.ts` (rubric table) | verify rubric renders; candidates → cards? |
+  | ● present_review_set | `present-review-set.ts` | deepest formatter; drafts/edges/settlement honesty |
+  | ● STRUCTURAL_ILLEGAL / recovery | `formatExchangeStructuralIllegal`, `shared/recovery.ts` | agent-facing but user-visible on failure |
+  | ● renderCall coverage | all tools currently render empty calls | decide per-kind: stay empty or minimal call line |
+  | ○ present_alternatives | `.pi/components/alternatives.ts` | family-membership decision: join the exchange render family or stay a standalone card set; tripwire — decide in head slice, build only if joined |
+  - Row closure = formatter honest + renderResult-from-details + preview entry + snapshot/invariant oracle green.
+
+- **Aggregate DoD:** no ● row open; head-slice decision recorded; `exchange-renderer-inventory.test.ts` extended to every row (snapshot per formatter); render-honesty invariant per renderer; `structured-exchange-boundaries.test.ts` still green; preview registry has one entry per renderer family member.
+- **Inventory authority:** `memory/cards/exchange-rendering--sweep.md` (temporary ledger; rows only — sequencing stays here).
+- **Oracles:**
+  - Inner: per-row `toMatchFileSnapshot` (extends `exchange-renderer-inventory.test.ts`) for model-facing content; direct-render component tests for renderResult output (precedent: rounded-box/chrome direct-render tests).
+  - Middle: render-honesty invariant (details ↔ visible-content no-loss) per renderer; boundaries test for the dependency rules in `src/.pi/extensions/exchanges/TOPOLOGY.md`.
+  - Outer: walkthrough re-observation beats (TESTING_PLAN.md scenarios 3/5) after landing.
+- **Cross-cutting obligations:** dual-audience discipline — changes to persisted `content` strings change model context; keep model-facing text concise and stable, do visual work in renderResult. Preview-harness parity: every new/changed renderer lands with its `dev:components` entry (extends `src/dev/component-preview/registry.ts`). Topology reconciliation: `src/.pi/extensions/exchanges/TOPOLOGY.md` + `src/projections/TOPOLOGY.md` shape ledger on close.
+- **Verification:** four-oracle compound per `memory/SPEC.md` §Design Notes "Exchange-presentation oracle design" — dual-family goldens (content vs render snapshots, inner), render-honesty invariant with declared elision lists (middle), live/persisted metamorphic render equality (middle), family-completeness registry test (middle, = executable aggregate DoD). Fixtures captured-then-normalized from live sessions + hand-authored terminal-state edges. Tier-2 dual-audience probe fires when model-facing content snapshots change. Preview-gallery + walkthrough re-observation outer.
+- **Traceability:** D37-L, D38-L, D41-L (schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); new SPEC decision on formatter-home + render-from-details when the head slice lands.
+
+### exchange-answering-chrome
+
+- **Name:** Bordered Brunch-owned answering UI for the `request_*` response kinds
+- **Linear:** unassigned (create on pickup)
+- **Branch:** tbd
+- **Kind:** bounded feature / presentation-layer production wiring. Arc: `exchange-presentation` (transcript-render counterpart: `exchange-rendering`; this frontier owns the live answering surfaces — pickers, one-shot answer dialog).
+- **Renamed 2026-07-02:** was `bordered-chrome-production`. Its former thread 1 (persistent main editor via `ctx.ui.setEditorComponent`) is NOT exchange work and split out to `main-editor-chrome` (Horizon). Threads 2–3 below are the retained scope, folded into the `exchange-presentation` arc and sequenced directly behind `exchange-rendering`.
 - **Status:** not started; split off `component-dx` (FE-1115) on 2026-07-01, once that frontier's harness + shared-primitive work (`projectRoundedBox`, `projectScrollViewport`) shipped with zero production behavior change. This is the first production UX change either primitive will drive.
 - **Certainty:** proving.
 - **Depends on:** `component-dx`'s shipped primitives (`.pi/components/rounded-box.ts`, `.pi/components/scroll-viewport.ts`) and `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md` (the answering-path mechanism this frontier's exchanges threads must not break).
 - **Lights up:** the first Brunch-owned `.pi/components` wired into a real, live-user-facing surface rather than the preview harness or an already-shipped component's internals.
-- **Objective:** Three threads, deliberately kept separate rather than bundled under one "install the editor" framing — `ctx.ui.setEditorComponent` and `ctx.ui.editor(...)` are two structurally distinct mechanisms in `pi-coding-agent` (confirmed against source: the former replaces the persistent main chat input editor used for every ordinary message; the latter is `request_response`'s own one-shot free-text answer dialog, `ExtensionEditorComponent`, entirely unaffected by `setEditorComponent`), so "install the custom editor" and "give the `answer` response kind bordered chrome" are independent decisions with independent risk profiles, not one move:
-  1. **Main editor**: wire `BrunchEditorComponent` as the persistent input editor via `ctx.ui.setEditorComponent` (D22-L/D35-L chrome territory). Carries a real, unverified assumption: whether Pi's TUI editor region accepts a `render()` taller than the default `Editor` budgets for (the `belowLines` rows grow the box past what production chrome currently reserves) — not yet promoted to a `memory/SPEC.md` assumption row since it's implementation-level uncertainty about this one frontier's mechanism, not a durable cross-frontier product claim; this frontier's first tracer should resolve it directly rather than deferring to a spike.
-  2. **`answer` (free-text) response kind**: give `request_response`'s `collectAnswerFromSources` path a Brunch-owned bordered component via `ctx.ui.custom` (not `setEditorComponent` — independent of thread 1), following `choices`'/`MultiChoicePickerComponent`'s proven `ctx.ui.custom` + `ctx.ui.editor`-fallback pattern; keep the existing `answerBroker` branch as a third fallback.
-  3. **`choice` and review response kinds**: give `collectChoiceFromUi`/`collectReviewFromUi` the same `ctx.ui.custom`-backed bordered-picker treatment, reusing `projectRoundedBox` + `projectScrollViewport`. Most ready-to-build of the three — `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`'s coverage matrix already proves this cannot regress `session.submitExchangeResponse` (Brunch's real RPC-driven answering path bypasses `ctx.ui.*` entirely, so it's unaffected by whichever UI mechanism the local-TUI path uses).
-- **Acceptance:** to be defined per-thread when scoped; likely three separate `ln-design`/`ln-scope` passes given the differing risk profiles above, not one combined scope card.
+- **Objective:** Two threads (formerly threads 2–3 of `bordered-chrome-production`; the main-editor thread moved to `main-editor-chrome`, Horizon). `ctx.ui.setEditorComponent` and `ctx.ui.editor(...)` are two structurally distinct mechanisms in `pi-coding-agent` (the former replaces the persistent main chat input editor; the latter is `request_response`'s own one-shot free-text answer dialog, `ExtensionEditorComponent`, entirely unaffected by `setEditorComponent`), which is exactly why the main-editor work could split away cleanly:
+  1. **`answer` (free-text) response kind**: give `request_response`'s `collectAnswerFromSources` path a Brunch-owned bordered component via `ctx.ui.custom` (not `setEditorComponent` — independent of thread 1), following `choices`'/`MultiChoicePickerComponent`'s proven `ctx.ui.custom` + `ctx.ui.editor`-fallback pattern; keep the existing `answerBroker` branch as a third fallback.
+  2. **`choice` and review response kinds**: give `collectChoiceFromUi`/`collectReviewFromUi` the same `ctx.ui.custom`-backed bordered-picker treatment, reusing `projectRoundedBox` + `projectScrollViewport` — this retires the raw `ctx.ui.select` path behind walkthrough findings F8 (raw `**`, unnumbered, bare "Other"). Most ready-to-build of the two — `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`'s coverage matrix already proves this cannot regress `session.submitExchangeResponse` (Brunch's real RPC-driven answering path bypasses `ctx.ui.*` entirely, so it's unaffected by whichever UI mechanism the local-TUI path uses).
+- **Acceptance:** to be defined per-thread when scoped; likely two separate `ln-design`/`ln-scope` passes given the differing risk profiles above, not one combined scope card.
+- **Verification:** answering-path non-regression contract test — `session.submitExchangeResponse` never touches `ctx.ui.*` (locks `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`); injected-key VirtualTerminal tests for the new pickers (workspace-dialog-scroll precedent); manual physical-terminal smoke carried from `component-dx`. See `memory/SPEC.md` §Design Notes "Exchange-presentation oracle design".
 - **Traceability:** D22-L, D35-L (chrome, thread 1); D37-L, D38-L (structured-exchange UI seam, threads 2–3); `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`; `src/.pi/components/TOPOLOGY.md`, `src/.pi/extensions/chrome/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`.
 
 ### walkthrough-fixes
@@ -218,16 +277,23 @@ frontiers:
     elicitation-gap-guidance, component-dx--rounded-box-primitive, component-dx--wheel-scroll-passthrough
 
   Next:
+    exchange-rendering
+      status: coverage frontier, buildable-now; head slice proving, sweep rows earned
+      arc: exchange-presentation
+      depends_on: D37-L, D38-L, D41-L, D52-L/D60-L/D75-L (projection pipeline), walkthrough-fixes (FE-1122 lands first)
+      boundary_with: exchange-answering-chrome (live answering UI there; transcript renders here)
     planning-process-model
       status: proving / exploratory (opened by D103-L)
       depends_on: D103-L, D100-L (project seam)
       cheapest_first_tracer: plan-as-projection
-    bordered-chrome-production
-      status: not started, no Linear issue/branch yet
+    exchange-answering-chrome
+      status: not started, no Linear issue/branch yet (renamed from bordered-chrome-production; main-editor thread -> main-editor-chrome, Horizon)
+      arc: exchange-presentation
       depends_on: component-dx (paused, primitives shipped), STRUCTURED_EXCHANGE_ANSWERING_PATHS.md
+      pairs_with: exchange-rendering -[boundary]-> live answering UI vs transcript renders
 
   Parallel / Low-Conflict:
-    component-dx (FE-1115) -[paused]-> bordered-chrome-production
+    component-dx (FE-1115) -[paused]-> exchange-answering-chrome
 
   Horizon:
     session-branching

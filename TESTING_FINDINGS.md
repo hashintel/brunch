@@ -6,7 +6,9 @@ Doctor-mode log for the TESTING_PLAN.md walkthrough, 2026-07-02. Session: `works
 
 ### F1 · prompt/context · MAJOR · scoped → `memory/cards/walkthrough--kick-prompt-and-origination-record.md` (Card 1)
 
-**Root cause (traced):** pi's `sendCustomMessage({triggerTurn: true})` — the kick path — calls `_runAgentPrompt` directly (agent-session.js:1004) and never calls `emitBeforeAgentStart`, the only place `registerBrunchPrompting`'s append runs. Kick turns run on Pi's base prompt; ordinary user turns are unaffected. Prediction: turns after the first user answer DO carry the elicitor prompt — verify in-walkthrough.
+**Root cause (traced):** pi's `sendCustomMessage({triggerTurn: true})` — the kick path — calls `_runAgentPrompt` directly (agent-session.js:1004) and never calls `emitBeforeAgentStart`, the only place `registerBrunchPrompting`'s append runs. Kick turns run on Pi's base prompt; ordinary user turns are unaffected.
+
+**Blast radius widened (beat 2, in vivo):** answering via the `request_response` picker resolves the tool call *inside the same kick run* — no new turn, no `before_agent_start`. The whole elicitation conversation can proceed through repeated present/request cycles within one agent run, so **every provider call in it uses the base prompt** (verified: `system-prompt.md` still has zero elicitor content after the first answer). The `before_provider_request` guard fix is confirmed as the right shape — it must repair every provider call, not just turn starts. Same mechanism explains F2 timing: origination outcome still unflushed after the answer because the run is still open.
 
 **Elicitor system prompt never reached the provider.** `.brunch/debug/system-prompt.md` (captured final provider prompt) is Pi's default "expert coding assistant" persona + Brunch tool promptGuidelines + Pi docs section — no `elicitor.md` persona, no Brunch skills manifest, no readiness-band framing. `registerBrunchPrompting` (`src/.pi/extensions/agent-runtime/system-prompts/index.ts`) appends the composed foreground prompt in `before_agent_start`, but the append is absent from the captured payload. Hypotheses: composition root didn't register it (the "must-wire" hazard its own comment warns about), or `before_agent_start` fired before/without the merge, or the capture predates the append. Downstream effects likely masked as separate symptoms: verbosity (F5), possibly single-select choice (F8), skill routing untestable (scenario 2 blocked until fixed). Elicitor-ish behavior observed anyway is carried by the context seed + tool guidelines, not the persona prompt.
 
@@ -43,6 +45,22 @@ Doctor-mode log for the TESTING_PLAN.md walkthrough, 2026-07-02. Session: `works
 ### F9 · prompt/context (agent judgment) · minor · scoped → `memory/cards/walkthrough--elicitor-prompt-refinements.md`
 
 **Single-select chosen where multi-select fit.** "What's the primary thing a user is trying to figure out?" plausibly wants multiple answers. Capability exists — `present_question` supports `multiple`; the agent didn't use it. Prompt guidance nudge ("prefer multi-select when options aren't mutually exclusive") belongs in the elicitor persona / present_question promptGuideline. Blocked-by/related-to F1.
+
+## Beat 2 — First answer via "Other", follow-up question
+
+### F10 · exchange protocol (data, not rendering) · minor · logged
+
+**"Other" answers duplicate text into label AND comment.** `choice-source.ts:81-82`: when the user picks Other, the typed text becomes both `choice.label` and `comment`, so `formatRequestChoice` renders "Selected: **text**" followed by "Comment: > text" — same text twice. Fix: Other text is the label; comment stays empty (or ask the optional comment question separately, as the listed-choice path does). Not a rendering issue — candidate for the build batch despite the F7/F8 exclusion.
+
+### F11 · transport/projection (TUI rendering) · minor · logged (rides F7/F8 rendering work)
+
+**`request_response` answered-result template is flat.** "# Response / Selected: … / Comment: > …" reads as raw scaffolding; no visual tie back to the question it answers. Same family as F7/F8 — deferred with them; see the render-topology map (below/pseudo) for where the template lives (`src/agents/contexts/exchanges/request-choice.ts` et al).
+
+## Beat 3 — Builder-reported (FE-1122 batch)
+
+### F12 · observability/harness · minor · logged
+
+**`registry.test.ts` event-order failure: extra `message_start`.** Reported by the build thread as unrelated to its changes and left untouched. Needs triage: possibly interaction between the new F1 `before_provider_request` prompt guard (or F3 kick-activity status) and pi event ordering, or pre-existing flake. Reproduce on the stacked branch before assuming pre-existing.
 
 ## Cross-checks recorded in passing
 
