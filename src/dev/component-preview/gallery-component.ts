@@ -1,5 +1,5 @@
 import type { KeybindingsManager, Theme } from '@earendil-works/pi-coding-agent';
-import { type Component, type TUI } from '@earendil-works/pi-tui';
+import { type Component, truncateToWidth, type TUI } from '@earendil-works/pi-tui';
 
 import type { ComponentPreviewEntry } from './registry.js';
 
@@ -35,7 +35,7 @@ export class ComponentGalleryComponent implements Component {
       '',
       this.theme.fg('dim', '\u2191/\u2193 or j/k move \u00b7 enter opens \u00b7 q quits'),
     ];
-    return lines.map((line) => line.slice(0, safeWidth));
+    return lines.map((line) => truncateToWidth(line, safeWidth));
   }
 
   #entryLine(entry: ComponentPreviewEntry, index: number): string {

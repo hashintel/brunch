@@ -12,8 +12,9 @@ orchestration ported into executor-owned tools). This doc extracts the
   work." All CueLoop citations below are external GitHub links; nothing here is a
   dependency.
 - **Companion prior art:** the external `../brunch` orchestrator
-  ([`/Users/lunelson/Code/hashintel/brunch/ORCHESTRATOR.md`](/Users/lunelson/Code/hashintel/brunch/ORCHESTRATOR.md)
-  and `src/orchestrator/src/`), already listed in the card's cold-start reads.
+  (`../brunch/ORCHESTRATOR.md` and `src/orchestrator/src/`, relative to this
+  repo's checkout — not part of this repo), already listed in the card's
+  cold-start reads.
   Treat CueLoop as a **second, independent reference point** for the same
   problem — not a replacement for that source.
 - **Consumers:** [`memory/cards/orchestrator-tool-port--plan-check-tool.md`](../../memory/cards/orchestrator-tool-port--plan-check-tool.md)

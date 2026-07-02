@@ -58,8 +58,11 @@ export async function runComponentPreviewGallery(
       throw new Error(`Unknown component preview id "${options.entryId}". Known ids: ${known}`);
     }
     tui.start();
-    await entry.open(tui, theme, keybindings);
-    tui.stop();
+    try {
+      await entry.open(tui, theme, keybindings);
+    } finally {
+      tui.stop();
+    }
     return;
   }
 

@@ -27,7 +27,6 @@ import {
   type ReadinessBand,
   type WorkspaceGraphRuntime,
 } from '../graph/index.js';
-import { projectBrunchAgentState } from '../projections/session/runtime-state.js';
 import type { SessionTurnDriver } from '../rpc/methods/session-driver.js';
 import type { SessionExchangeAnswerHandle } from '../rpc/methods/session-exchange-answer.js';
 import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rpc/product-updates.js';
@@ -402,16 +401,16 @@ export function createBrunchAgentSessionRuntimeFactory(
     // shortcut contexts do not carry.
     const liveAgentSession = context.liveAgentSession ?? { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
-    const agentState = projectBrunchAgentState(sessionManager.getEntries());
     const subagents =
       context.allowSubagents !== false
         ? await loadBrunchSubagents({
             cwd,
             agentDir: runtimeAgentDir,
-            delegatableAgents:
-              agentState.operationalMode === 'elicit'
-                ? ['explorer', 'researcher', 'projector', 'reviewer']
-                : [],
+            // Always register the code-owned delegatable set; whether the
+            // subagent tool is active/advertised is the per-mode tool policy's
+            // call (elicitor allowlist includes it, executor's excludes it) —
+            // never conditional registration (D86-L discipline).
+            delegatableAgents: ['explorer', 'researcher', 'projector', 'reviewer'],
             world: {
               graph: {
                 specId: currentWorkspace.spec.id,

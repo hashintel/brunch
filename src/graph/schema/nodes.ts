@@ -162,7 +162,17 @@ const MAX_NODE_KIND_CODE_LENGTH = Math.max(
 );
 
 export function formatGraphNodeCode(kind: NodeKind, kindOrdinal: number): string {
-  return `${NODE_KIND_METADATA[kind].label}${kindOrdinal}`;
+  // Trust boundary: `kind` may come from persisted rows written under an older
+  // schema (e.g. retired `slice` nodes), so the lookup can miss at runtime
+  // despite the NodeKind type. Fail loudly with the remedy — no migration
+  // bridge under prototype posture.
+  const metadata: (typeof NODE_KIND_METADATA)[NodeKind] | undefined = NODE_KIND_METADATA[kind];
+  if (metadata === undefined) {
+    throw new Error(
+      `Unknown graph node kind "${kind}": persisted data predates the current schema; regenerate or reseed the local workspace.`,
+    );
+  }
+  return `${metadata.label}${kindOrdinal}`;
 }
 
 export function parseGraphNodeCode(code: string): ParsedGraphNodeCode | undefined {

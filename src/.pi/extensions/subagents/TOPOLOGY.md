@@ -1,10 +1,12 @@
 # subagents extension — D44-L / D91-L / D92-L
 
-> **Status:** product SPEC-mode wiring active. Normal Brunch launches inject the
-> selected parent spec/workspace/session snapshot, spec-bound graph readers, and
-> the active op-mode's code-owned delegatable set. Launches that explicitly omit
-> subagent deps, or carry an empty delegatable set, do not register or advertise
-> the tool.
+> **Status:** product Specify-mode wiring active. Normal Brunch launches inject
+> the selected parent spec/workspace/session snapshot, spec-bound graph readers,
+> and the code-owned delegatable set — registration is unconditional; whether the
+> `subagent` tool is active/advertised is the per-mode tool policy's call
+> (Specify-mode's elicitor allowlist includes it, Execute-mode's executor
+> allowlist excludes it). Launches that explicitly omit subagent deps, or carry
+> an empty delegatable set, do not register or advertise the tool.
 
 SPEC decisions: D44-L (subagent), D39-L (sealed profile), D40-L (registration ≠
 advertisement), D90-L (shared foreground/background manifest + code-owned

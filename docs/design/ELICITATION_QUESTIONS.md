@@ -33,8 +33,10 @@ The load-bearing idea from the thread that produced this doc:
 
 "Who is it for" and "who are the stakeholders" are both `thesis` questions — not two new types.
 Adding more questions never adds ontology; it adds priming for an existing kind. A session
-elicitation scratchpad item is therefore a **situated question that refers to a graph node kind**,
-not an entry in a persisted parallel "typology" vocabulary.
+elicitation scratchpad item is therefore a **situated question** (an obligation with a
+disposition, plus optional rationale/meta — see `src/session/elicitation-scratchpad.ts`),
+not an entry in a persisted parallel "typology" vocabulary; the graph node kinds it serves
+stay in the closed ontology, not on the item schema.
 
 Every intent kind already ships a canonical **source-question** (SPEC D56-L) — the abstract
 driver, not a literal question to parrot, but a heuristic for what kind of material the node

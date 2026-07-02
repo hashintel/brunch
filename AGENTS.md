@@ -96,21 +96,21 @@ Frontier-item traceability, scope-card inheritance, and the verification-ownersh
 
 **Inner loop** (run after every meaningful edit): `npm run fix` — lint:fix then format.
 
-**Gate** (run before committing): `npm run verify` — fix → test → build → check:markdown-links. The gate auto-applies inner-loop fixes; if anything else fails, stop and fix it.
+**Gate** (run before committing): `npm run verify` — fix → test → build. The gate auto-applies inner-loop fixes; if anything else fails, stop and fix it.
 
-**CI / read-only check**: `npm run check` — lint then fmt:check then check:markdown-links then check:skills then check:data-model, no writes. Use this where the gate must not mutate the worktree.
+**CI / read-only check**: `npm run check` — lint then fmt:check then check:markdown-links then check:skills then check:promoted-run-paths, no writes. Use this where the gate must not mutate the worktree.
 
-**Skill-system check**: `npm run check:skills` — verifies the `ln-*` skill set against the working guide, cross-skill links, and required guardrails (e.g. the topology-stub carve-out). Read-only; runs as the last step of `check`.
+**Skill-system check**: `npm run check:skills` — verifies the `ln-*` skill set against the working guide, cross-skill links, and required guardrails (e.g. the topology-stub carve-out). Read-only.
 
 **Markdown link check**: `npm run check:markdown-links` — validates local Markdown links and headings through `remark-validate-links`. Read-only.
 
 | Script | Steps | Writes? |
 | --- | --- | --- |
 | `npm run fix` | lint:fix → fmt | yes |
-| `npm run check` | lint → fmt:check → check:markdown-links → check:skills → check:data-model | no |
+| `npm run check` | lint → fmt:check → check:markdown-links → check:skills → check:promoted-run-paths | no |
 | `npm run check:markdown-links` | remark-validate-links over Markdown files | no |
 | `npm run check:skills` | ln-* skill consistency | no |
-| `npm run verify` | fix → test → build → check:markdown-links | yes (via fix) |
+| `npm run verify` | fix → test → build | yes (via fix) |
 
 Ordering rationale: `fix` must run lint:fix before fmt because lint fixes can rewrite code that then needs reformatting. `check` mirrors that order (lint before fmt:check) so both scripts read as the same recipe in different modes.
 

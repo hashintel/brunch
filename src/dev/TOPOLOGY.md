@@ -36,7 +36,7 @@ npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-groundin
 
 ## Component Preview Harness
 
-`npm run dev:components` (or `npm run dev:components:watch` for a `tsx watch`-backed edit loop) boots a
+`npm run dev:components` boots a
 real `ProcessTerminal` + `TUI` and shows a gallery of every registered `.pi/components` entry
 (`src/dev/component-preview/registry.ts`) — no seeded workbench, session, or DB required, since these
 components are render-only with injectable `theme`/props.
