@@ -149,6 +149,9 @@ export function acceptedResponseFromParams(
   }
 
   if (pending.mode !== 'multi-select') return invalidResponseMode();
+  if (params.answer.optionIds.length === 0) {
+    return { ok: false, message: 'Elicitation response requires at least one selected option' };
+  }
   const selected = params.answer.optionIds.map((id) => pending.options.find((option) => option.id === id));
   if (selected.some((choice) => choice === undefined)) {
     return { ok: false, message: 'Invalid elicitation option' };

@@ -98,6 +98,16 @@ describe('structured exchange loop helpers', () => {
     expect(
       acceptedResponseFromParams(pending, {
         exchangeId: pending.exchangeId,
+        answer: { optionIds: [] },
+      }),
+    ).toEqual({
+      ok: false,
+      message: 'Elicitation response requires at least one selected option',
+    });
+
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: pending.exchangeId,
         answer: { optionIds: ['transcript', 'other'] },
       }),
     ).toEqual({
