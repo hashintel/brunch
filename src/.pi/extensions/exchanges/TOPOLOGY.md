@@ -71,6 +71,9 @@ For D106-L, `request_response` passes the pending present's listed options (or
 candidate titles) into the projection constructors so `request_choice` /
 `request_choices` details carry the full answer echo without re-listing literals
 inside collectors or formatters.
+For D107-L, `present_review_set` enriches valid graph proposals with real
+`review_set.nodes[*].proposed_code` values before persistence; later approval
+must commit under those exact codes or fail as structural illegal.
 
 ## Dependency rules
 

@@ -46,9 +46,15 @@ import type {
   MutateGraphDryRunResult,
   MutateGraphInput,
   MutateGraphResult,
+  StructuralIllegal,
 } from './command-executor/graph-mutation-types.js';
 import { writeGraphMutation } from './command-executor/graph-mutation-writer.js';
-import { translateReviewSetPayloadToMutateGraph } from './review-set.js';
+import {
+  assignProposedReviewSetCodes,
+  proposedReviewSetCodeDiagnostics,
+  translateReviewSetPayloadToMutateGraph,
+  type ReviewSetProposalPayload,
+} from './review-set.js';
 import { type NodePlane } from './schema/nodes.js';
 
 export type {
@@ -304,6 +310,13 @@ export class CommandExecutor {
     });
   }
 
+  assignProposedReviewSetCodes(input: {
+    readonly specId: number;
+    readonly payload: unknown;
+  }): ReviewSetProposalPayload | StructuralIllegal {
+    return assignProposedReviewSetCodes({ db: this.db, specId: input.specId, payload: input.payload });
+  }
+
   /**
    * Validate a review-set payload before it becomes user-reviewable.
    *
@@ -338,6 +351,15 @@ export class CommandExecutor {
     if (translated.status === 'structural_illegal') return translated;
 
     return this.db.transaction((tx) => {
+      const proposedCodeDiagnostics = proposedReviewSetCodeDiagnostics({
+        db: tx,
+        specId: input.specId,
+        payload: translated.payload,
+      });
+      if (proposedCodeDiagnostics.length > 0) {
+        return { status: 'structural_illegal' as const, diagnostics: proposedCodeDiagnostics };
+      }
+
       const planned = planGraphMutation({
         db: tx,
         input: translated.command,

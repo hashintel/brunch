@@ -1,9 +1,8 @@
-import { roleNamedEdgeDraftEndpoints } from '../../../graph/command-executor/role-named-edge-draft.js';
-import { edgeLabel } from '../../../graph/projection/labels.js';
-import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
-import { NODE_KINDS } from '../../../graph/schema/kinds.js';
-import type { NodeKind } from '../../../graph/schema/nodes.js';
+import { blockquote, bold, heading, italic } from 'md-pen';
+
 import type { PresentReviewSetProjection } from '../../../projections/exchanges/present-review-set.js';
+import { joinMarkdownBlocks } from '../../shared/markdown.js';
+import type { RenderElision } from './render-honesty.js';
 
 export function formatExchangeStructuralIllegal(result: {
   readonly diagnostics: readonly { readonly field: string; readonly message: string }[];
@@ -16,63 +15,150 @@ export function formatExchangeStructuralIllegal(result: {
 }
 
 export function formatPresentReviewSet(projection: PresentReviewSetProjection): string {
-  const payload = projection.payload;
-  const lines = [
-    `# ${payload.pitch.title}`,
-    '',
-    payload.pitch.narrative,
-    '',
-    `Lens: ${payload.lens}`,
-    '',
-    `Epistemic status: ${payload.epistemicStatus}`,
-    '',
-    '## Grounding',
-    '',
-    payload.grounding.summary,
-    '',
-    ...payload.grounding.support.map((support) => `- ${support}`),
-    '',
-    '## Entity drafts',
-  ];
+  const reviewSet = projection.details.review_set;
+  const nodesByDraftId = new Map(reviewSet.nodes.map((node) => [node.draft_id, node]));
+  const nestedEdges = new Map<string, string[]>();
+  const trailingEdges: string[] = [];
 
-  payload.entityDrafts.forEach((draft) => {
-    lines.push('', `- **${draft.draftId}** (${draft.plane}/${draft.kind}): ${draft.title}`);
-    if (draft.body) lines.push(`  ${draft.body}`);
-  });
+  for (const edge of reviewSet.edges) {
+    const rendered = renderEdge(edge, nodesByDraftId);
+    if (rendered.hostDraftId) {
+      nestedEdges.set(rendered.hostDraftId, [
+        ...(nestedEdges.get(rendered.hostDraftId) ?? []),
+        rendered.line,
+      ]);
+    } else {
+      trailingEdges.push(rendered.line);
+    }
+  }
 
-  lines.push('', '## Edge drafts');
-  const draftKinds = draftKindMap(payload.entityDrafts);
-  payload.edgeDrafts.forEach((draft) => {
-    const { source: sourceRef, target: targetRef } = roleNamedEdgeDraftEndpoints(draft);
-    const source = endpointLabel(sourceRef);
-    const target = endpointLabel(targetRef);
-    const sourceKind = 'draftId' in sourceRef ? draftKinds.get(sourceRef.draftId) : undefined;
-    const targetKind = 'draftId' in targetRef ? draftKinds.get(targetRef.draftId) : undefined;
-    const relation = edgeLabel({
-      category: draft.category,
-      anchorRole: 'source',
-      stance: 'stance' in draft ? draft.stance : undefined,
-      sourceKind,
-      targetKind,
-    });
-    lines.push('', `- ${source} ${relation} ${target}`);
-    if (draft.rationale) lines.push(`  ${draft.rationale}`);
-  });
-
-  return lines.join('\n');
-}
-
-function draftKindMap(drafts: ReviewSetProposalPayload['entityDrafts']): ReadonlyMap<string, NodeKind> {
-  const entries = drafts.flatMap((draft) =>
-    isNodeKind(draft.kind) ? [[draft.draftId, draft.kind] as const] : [],
+  return joinMarkdownBlocks(
+    heading(`Proposal: ${projection.details.display.heading}`, 2),
+    projection.details.display.body ? blockquote(projection.details.display.body) : undefined,
+    reviewSet.nodes.map((node) => renderNode(node, nestedEdges.get(node.draft_id) ?? [])).join('\n'),
+    trailingEdges.length > 0 ? ['Other new edges:', '', ...trailingEdges].join('\n') : undefined,
   );
-  return new Map(entries);
 }
 
-function endpointLabel(ref: { readonly draftId: string } | { readonly existingCode: string }): string {
-  return 'draftId' in ref ? ref.draftId : ref.existingCode;
+export const PRESENT_REVIEW_SET_CONTENT_ELISIONS: readonly RenderElision[] = [
+  { path: 'schema', reason: 'structural details schema tag' },
+  { path: 'v', reason: 'structural details schema version' },
+  { path: 'exchange_id', reason: 'structural exchange correlation id' },
+  { path: 'tool_meta.curr', reason: 'structural tool-chain marker' },
+  { path: 'tool_meta.next', reason: 'structural tool-chain marker' },
+  { path: 'review_set.nodes.*.draft_id', reason: 'local draft ids are represented by proposed graph codes' },
+  { path: 'review_set.nodes.*.plane', reason: 'plane elided by locked neighborhood grammar' },
+  { path: 'review_set.nodes.*.kind', reason: 'kind is encoded in the proposed graph-code prefix' },
+  { path: 'review_set.nodes.*.detail', reason: 'detail is graph payload, not transcript content' },
+  { path: 'review_set.edges.*.category', reason: 'edge category is rendered as the directional verb' },
+  {
+    path: 'review_set.edges.*.*.draft_id',
+    reason: 'edge draft endpoints are represented by proposed graph codes',
+  },
+];
+
+type ReviewSetDetails = PresentReviewSetProjection['details']['review_set'];
+type ReviewSetNodeDetails = ReviewSetDetails['nodes'][number];
+type ReviewSetEdgeDetails = ReviewSetDetails['edges'][number];
+type ReviewSetEndpointDetails = Extract<ReviewSetEdgeDetails, { category: 'dependency' }>['dependency'];
+
+function renderNode(node: ReviewSetNodeDetails, nestedEdges: readonly string[]): string {
+  return [
+    `- ${bold(`$${node.proposed_code}: ${node.title.trim()}`)}`,
+    ...(node.body ? ['', indentBlock(node.body.trim(), 2)] : []),
+    ...nestedEdges,
+  ].join('\n');
 }
 
-function isNodeKind(value: string): value is NodeKind {
-  return NODE_KINDS.includes(value as NodeKind);
+function renderEdge(
+  edge: ReviewSetEdgeDetails,
+  nodesByDraftId: ReadonlyMap<string, ReviewSetNodeDetails>,
+): { readonly hostDraftId?: string | undefined; readonly line: string } {
+  switch (edge.category) {
+    case 'dependency':
+      return renderSubjectEdge(edge.dependent, 'depends on', edge.dependency, edge.rationale, nodesByDraftId);
+    case 'witness':
+      return renderSubjectEdge(
+        edge.oracle,
+        'witnesses',
+        edge.claim,
+        edge.rationale,
+        nodesByDraftId,
+        edge.stance,
+      );
+    case 'rationale':
+      return renderSubjectEdge(
+        edge.support,
+        edge.stance === 'against' ? 'argues against' : 'supports',
+        edge.claim,
+        edge.rationale,
+        nodesByDraftId,
+      );
+    case 'realization':
+      return renderSubjectEdge(edge.concrete, 'realizes', edge.abstract, edge.rationale, nodesByDraftId);
+    case 'refinement':
+      return renderSubjectEdge(edge.concrete, 'refines', edge.abstract, edge.rationale, nodesByDraftId);
+    case 'exclusion':
+      return renderSubjectEdge(edge.boundary, 'excludes', edge.subject, edge.rationale, nodesByDraftId);
+    case 'composition':
+      return renderSubjectEdge(edge.part, 'part of', edge.whole, edge.rationale, nodesByDraftId);
+    case 'cross_reference':
+      return renderSubjectEdge(edge.a, 'relates to', edge.b, edge.rationale, nodesByDraftId);
+    case 'supersession':
+      return renderSubjectEdge(
+        edge.successor,
+        'supersedes',
+        edge.predecessor,
+        edge.rationale,
+        nodesByDraftId,
+      );
+    default: {
+      const _exhaustive: never = edge;
+      return _exhaustive;
+    }
+  }
+}
+
+function renderSubjectEdge(
+  subject: ReviewSetEndpointDetails,
+  verb: string,
+  object: ReviewSetEndpointDetails,
+  rationale: string | undefined,
+  nodesByDraftId: ReadonlyMap<string, ReviewSetNodeDetails>,
+  stance?: 'for' | 'against',
+): { readonly hostDraftId?: string | undefined; readonly line: string } {
+  const stanceText = stance ? ` ${italic(`(${stance})`)}` : '';
+  if ('draft_id' in subject) {
+    return {
+      hostDraftId: subject.draft_id,
+      line: joinMarkdownBlocks(
+        `  - ${verb} ${bold(endpointLabel(object, nodesByDraftId))}${stanceText}`,
+        rationale ? indentBlock(blockquote(rationale), 4) : undefined,
+      ),
+    };
+  }
+
+  return {
+    line: joinMarkdownBlocks(
+      `- ${bold(endpointLabel(subject, nodesByDraftId))} ${verb} ${bold(endpointLabel(object, nodesByDraftId))}${stanceText}`,
+      rationale ? indentBlock(blockquote(rationale), 2) : undefined,
+    ),
+  };
+}
+
+function endpointLabel(
+  ref: ReviewSetEndpointDetails,
+  nodesByDraftId: ReadonlyMap<string, ReviewSetNodeDetails>,
+): string {
+  if ('existing_code' in ref) return ref.existing_code;
+  const node = nodesByDraftId.get(ref.draft_id);
+  return node ? `$${node.proposed_code}` : ref.draft_id;
+}
+
+function indentBlock(text: string, spaces: number): string {
+  const indent = ' '.repeat(spaces);
+  return text
+    .split('\n')
+    .map((line) => `${indent}${line}`)
+    .join('\n');
 }

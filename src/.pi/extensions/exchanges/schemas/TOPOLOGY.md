@@ -182,6 +182,7 @@ display:
 review_set:
   nodes:
     - draft_id: "req-approval"
+      proposed_code: "REQ1"
       plane: intent
       kind: requirement
       title: "Approval is atomic"

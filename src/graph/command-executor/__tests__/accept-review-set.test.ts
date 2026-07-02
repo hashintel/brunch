@@ -26,8 +26,14 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
       narrative: 'Two exact items and their relationship are ready for review.',
     },
     entityDrafts: [
-      { draftId: 'goal-launch', plane: 'intent', kind: 'goal', title: 'Launch safely' },
-      { draftId: 'req-rollback', plane: 'intent', kind: 'requirement', title: 'Rollback path exists' },
+      { draftId: 'goal-launch', proposedCode: 'G1', plane: 'intent', kind: 'goal', title: 'Launch safely' },
+      {
+        draftId: 'req-rollback',
+        proposedCode: 'REQ1',
+        plane: 'intent',
+        kind: 'requirement',
+        title: 'Rollback path exists',
+      },
     ],
     edgeDrafts: [
       {
@@ -101,6 +107,42 @@ describe('CommandExecutor.acceptReviewSet', () => {
         'req-rollback': expect.any(Number),
       },
       createdEdges: [expect.any(Number)],
+    });
+  });
+
+  it('honors proposed codes and fails loudly when a counter has diverged', () => {
+    const result = executor.acceptReviewSet({
+      specId,
+      proposalEntryId: 'proposal-codes',
+      payload: validPayload(),
+    });
+    expect(result).toMatchObject({
+      status: 'success',
+      createdNodes: {
+        'goal-launch': { code: 'G1' },
+        'req-rollback': { code: 'REQ1' },
+      },
+    });
+
+    const stale = executor.acceptReviewSet({
+      specId,
+      proposalEntryId: 'proposal-stale',
+      payload: validPayload({
+        entityDrafts: [
+          { draftId: 'goal-next', proposedCode: 'G1', plane: 'intent', kind: 'goal', title: 'Next goal' },
+        ],
+        edgeDrafts: [
+          {
+            category: 'dependency',
+            dependency: { existingCode: 'G1' },
+            dependent: { draftId: 'goal-next' },
+          },
+        ],
+      }),
+    });
+    expect(stale).toMatchObject({
+      status: 'structural_illegal',
+      diagnostics: [{ field: 'entityDrafts[0].proposedCode' }],
     });
   });
 

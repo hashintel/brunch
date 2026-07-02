@@ -93,6 +93,7 @@ function presentReviewSetEntry(): string {
       nodes: [
         {
           draft_id: 'req-resolution-state',
+          proposed_code: 'REQ1',
           plane: 'intent',
           kind: 'requirement',
           title: 'Macro view names impasse resolution state',
@@ -130,7 +131,7 @@ function pendingReviewResponse(): JsonRpcResponse {
         exchangeId: 'review-1',
         mode: 'review',
         reviewSet: {
-          nodes: [{ draft_id: 'req-resolution-state' }],
+          nodes: [{ draft_id: 'req-resolution-state', proposed_code: 'REQ1' }],
           edges: [{ category: 'rationale' }],
         },
       },

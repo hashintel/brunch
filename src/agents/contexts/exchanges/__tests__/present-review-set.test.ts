@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import type { ReviewSetProposalPayload } from '../../../../graph/review-set.js';
 import { projectPresentReviewSet } from '../../../../projections/exchanges/present-review-set.js';
-import { formatPresentReviewSet } from '../present-review-set.js';
+import { formatPresentReviewSet, PRESENT_REVIEW_SET_CONTENT_ELISIONS } from '../present-review-set.js';
+import { missingRenderedDetailsLeaves } from '../render-honesty.js';
 
 describe('formatPresentReviewSet', () => {
   it('renders role-named edge drafts as readable relations, not raw draft arrows', async () => {
@@ -13,6 +14,17 @@ describe('formatPresentReviewSet', () => {
     await expect(rendered).toMatchFileSnapshot('../__snapshots__/present-review-set.md');
     expect(rendered).not.toContain('—exclusion→');
     expect(rendered).not.toContain('—witness [for]→');
+  });
+
+  it('declares every details leaf as rendered or intentionally elided', () => {
+    const projection = projectPresentReviewSet({ exchangeId: 'review-launch', payload: reviewSetPayload });
+    const rendered = formatPresentReviewSet(projection);
+
+    expect(
+      missingRenderedDetailsLeaves(projection.details, rendered, {
+        elisions: PRESENT_REVIEW_SET_CONTENT_ELISIONS,
+      }),
+    ).toEqual([]);
   });
 });
 
@@ -31,18 +43,21 @@ const reviewSetPayload = {
   entityDrafts: [
     {
       draftId: 'goal-launch',
+      proposedCode: 'G2',
       plane: 'intent',
       kind: 'goal',
       title: 'Launch safely',
     },
     {
       draftId: 'req-rollback',
+      proposedCode: 'REQ5',
       plane: 'intent',
       kind: 'requirement',
       title: 'Rollback is required',
     },
     {
       draftId: 'check-observable',
+      proposedCode: 'CH3',
       plane: 'oracle',
       kind: 'check',
       title: 'Observe rollback path',

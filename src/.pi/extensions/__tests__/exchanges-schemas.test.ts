@@ -203,7 +203,13 @@ describe('structured exchange present schemas', () => {
         display: { heading: 'Review proposed requirements' },
         review_set: {
           nodes: [
-            { draft_id: 'req-approval', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+            {
+              draft_id: 'req-approval',
+              proposed_code: 'REQ1',
+              plane: 'intent',
+              kind: 'requirement',
+              title: 'Approval is atomic',
+            },
           ],
           edges: [
             {
@@ -215,7 +221,7 @@ describe('structured exchange present schemas', () => {
         },
       }),
     ).toMatchObject({
-      review_set: { nodes: [{ draft_id: 'req-approval' }] },
+      review_set: { nodes: [{ draft_id: 'req-approval', proposed_code: 'REQ1' }] },
     });
 
     expect(zPresentCandidatesDetails.parse(candidateDetails)).toMatchObject({
@@ -235,7 +241,13 @@ describe('structured exchange present schemas', () => {
       display: { heading: 'Review proposed requirements' },
       review_set: {
         nodes: [
-          { draft_id: 'req-approval', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+          {
+            draft_id: 'req-approval',
+            proposed_code: 'REQ1',
+            plane: 'intent',
+            kind: 'requirement',
+            title: 'Approval is atomic',
+          },
         ],
         edges: [
           {

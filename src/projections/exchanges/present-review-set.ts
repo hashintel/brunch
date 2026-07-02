@@ -40,6 +40,7 @@ function reviewSetDetailsPayload(payload: ReviewSetProposalPayload): ReviewSetDe
   return {
     nodes: payload.entityDrafts.map((draft) => ({
       draft_id: draft.draftId,
+      proposed_code: draft.proposedCode,
       plane: draft.plane,
       kind: draft.kind,
       title: draft.title,

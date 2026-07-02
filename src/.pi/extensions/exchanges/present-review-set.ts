@@ -19,7 +19,7 @@ export const PRESENT_REVIEW_SET_TOOL = 'present_review_set' as const;
 
 export interface ReviewSetStructuredExchangeDeps {
   readonly specId: number;
-  readonly commandExecutor: Pick<CommandExecutor, 'dryRunAcceptReviewSet'>;
+  readonly commandExecutor: Pick<CommandExecutor, 'assignProposedReviewSetCodes' | 'dryRunAcceptReviewSet'>;
 }
 
 type PresentReviewSetToolDetails = StructuralIllegal | PresentReviewSetDetails;
@@ -56,10 +56,21 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
         };
       }
 
+      const payload = deps.commandExecutor.assignProposedReviewSetCodes({
+        specId: deps.specId,
+        payload: params.payload,
+      });
+      if (isStructuralIllegal(payload)) {
+        return {
+          content: [{ type: 'text' as const, text: formatExchangeStructuralIllegal(payload) }],
+          details: payload,
+        };
+      }
+
       const dryRun = deps.commandExecutor.dryRunAcceptReviewSet({
         specId: deps.specId,
         proposalEntryId: params.proposalEntryId,
-        payload: params.payload,
+        payload,
       });
       if (dryRun.status === 'structural_illegal') {
         return {
@@ -70,10 +81,7 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
 
       const projection = projectPresentReviewSet({
         exchangeId: params.exchangeId,
-        // Safe after a successful dry run: the deep validator (graph/review-set.ts)
-        // has confirmed the full shape. The boundary schema only guarantees an
-        // object with schemaVersion: 1, so widen through unknown deliberately.
-        payload: params.payload as unknown as ReviewSetProposalPayload,
+        payload,
       });
       return {
         content: [{ type: 'text' as const, text: formatPresentReviewSet(projection) }],
@@ -92,3 +100,9 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
 }
 
 export const presentReviewSetTool = createPresentReviewSetTool();
+
+function isStructuralIllegal(
+  value: ReviewSetProposalPayload | StructuralIllegal,
+): value is StructuralIllegal {
+  return 'status' in value;
+}

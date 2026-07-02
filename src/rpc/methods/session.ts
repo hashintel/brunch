@@ -761,6 +761,7 @@ function reviewSetProposalPayloadFromDetails(input: {
     },
     entityDrafts: input.reviewSet.nodes.map((draft) => ({
       draftId: draft.draft_id,
+      proposedCode: draft.proposed_code,
       plane: draft.plane,
       kind: draft.kind,
       title: draft.title,

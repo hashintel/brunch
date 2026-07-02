@@ -1,27 +1,9 @@
-# Launch readiness review set
+## Proposal: Launch readiness review set
 
-Review the launch-readiness commitments together.
+> Review the launch-readiness commitments together.
 
-Lens: intent
-
-Epistemic status: asserted
-
-## Grounding
-
-Launch readiness needs rollback and observability.
-
-- User asked for launch readiness.
-
-## Entity drafts
-
-- **goal-launch** (intent/goal): Launch safely
-
-- **req-rollback** (intent/requirement): Rollback is required
-
-- **check-observable** (oracle/check): Observe rollback path
-
-## Edge drafts
-
-- req-rollback bounds goal-launch
-
-- check-observable witnesses goal-launch
+- __$G2: Launch safely__
+- __$REQ5: Rollback is required__
+- excludes __$G2__
+- __$CH3: Observe rollback path__
+- witnesses __$G2__ *(for)*

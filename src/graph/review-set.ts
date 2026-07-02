@@ -15,9 +15,9 @@ import {
   type RoleNamedEdgeDraftOf,
 } from './command-executor/role-named-edge-draft.js';
 import { EDGE_CATEGORY_METADATA } from './policy/category-policy.js';
-import { EDGE_CATEGORIES, EDGE_STANCES, NODE_PLANES } from './schema/kinds.js';
-import type { NodePlane } from './schema/nodes.js';
-import { parseGraphNodeCode } from './schema/nodes.js';
+import { EDGE_CATEGORIES, EDGE_STANCES, NODE_KINDS, NODE_PLANES } from './schema/kinds.js';
+import type { NodeKind, NodePlane } from './schema/nodes.js';
+import { formatGraphNodeCode, parseGraphNodeCode } from './schema/nodes.js';
 
 type ReviewSetLens = 'intent' | 'design' | 'oracle';
 type ReviewSetEpistemicStatus = 'inferred' | 'assumed' | 'asserted' | 'observed';
@@ -36,6 +36,7 @@ interface ReviewSetEntityDraft {
   readonly draftId: string;
   readonly plane: NodePlane;
   readonly kind: string;
+  readonly proposedCode: string;
   readonly title: string;
   readonly body?: string | undefined;
   readonly detail?: unknown;
@@ -68,6 +69,7 @@ export type ReviewSetTranslationResult = ReviewSetTranslationSuccess | Structura
 const VALID_LENSES = ['intent', 'design', 'oracle'] as const;
 const VALID_EPISTEMIC_STATUSES = ['inferred', 'assumed', 'asserted', 'observed'] as const;
 const VALID_PLANES = NODE_PLANES;
+const VALID_NODE_KINDS = NODE_KINDS as unknown as readonly string[];
 const VALID_CATEGORIES = EDGE_CATEGORIES as unknown as readonly string[];
 const VALID_STANCES = EDGE_STANCES as unknown as readonly string[];
 
@@ -193,6 +195,7 @@ export const zReviewSetProposalPayloadForBoundary = z
             draftId: z.string().min(1),
             plane: z.enum(NODE_PLANES),
             kind: z.string().min(1),
+            proposedCode: z.string().min(1).optional(),
             title: z.string().min(1),
             body: z.string().optional(),
             detail: z.unknown().optional(),
@@ -260,6 +263,48 @@ export function translateReviewSetPayloadToMutateGraph(options: {
   };
 }
 
+export function assignProposedReviewSetCodes(options: {
+  readonly db: Pick<BrunchDb, 'select'>;
+  readonly specId: number;
+  readonly payload: unknown;
+}): ReviewSetProposalPayload | StructuralIllegal {
+  const diagnostics = validateReviewSetPayloadShape(options.payload, { requireProposedCode: false });
+  if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
+
+  const payload = options.payload as Omit<ReviewSetProposalPayload, 'entityDrafts'> & {
+    readonly entityDrafts: readonly Omit<ReviewSetEntityDraft, 'proposedCode'>[];
+  };
+  const proposed = proposeCodesForDrafts(options.db, options.specId, payload.entityDrafts);
+  if (proposed.status === 'structural_illegal') return proposed;
+
+  return {
+    ...payload,
+    entityDrafts: payload.entityDrafts.map((draft, index) => ({
+      ...draft,
+      proposedCode: proposed.codes[index]!,
+    })),
+  };
+}
+
+export function proposedReviewSetCodeDiagnostics(options: {
+  readonly db: Pick<BrunchDb, 'select'>;
+  readonly specId: number;
+  readonly payload: ReviewSetProposalPayload;
+}): Diagnostic[] {
+  const proposed = proposeCodesForDrafts(options.db, options.specId, options.payload.entityDrafts);
+  if (proposed.status === 'structural_illegal') return [...proposed.diagnostics];
+  return options.payload.entityDrafts.flatMap((draft, index) =>
+    draft.proposedCode === proposed.codes[index]
+      ? []
+      : [
+          {
+            field: `entityDrafts[${index}].proposedCode`,
+            message: `proposed code "${draft.proposedCode}" is stale; expected "${proposed.codes[index]}"`,
+          },
+        ],
+  );
+}
+
 function toCreateGraphNodeInput(draft: ReviewSetEntityDraft): CreateGraphNodeInput {
   return {
     ref: draft.draftId,
@@ -271,7 +316,10 @@ function toCreateGraphNodeInput(draft: ReviewSetEntityDraft): CreateGraphNodeInp
   };
 }
 
-function validateReviewSetPayloadShape(value: unknown): Diagnostic[] {
+function validateReviewSetPayloadShape(
+  value: unknown,
+  options: { readonly requireProposedCode: boolean } = { requireProposedCode: true },
+): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   if (!isRecord(value)) return [{ field: 'payload', message: 'review-set payload must be an object' }];
 
@@ -288,7 +336,7 @@ function validateReviewSetPayloadShape(value: unknown): Diagnostic[] {
 
   validateGrounding(value.grounding, diagnostics);
   validatePitch(value.pitch, diagnostics);
-  validateEntityDrafts(value.entityDrafts, diagnostics);
+  validateEntityDrafts(value.entityDrafts, diagnostics, options);
   validateEdgeDrafts(value.edgeDrafts, diagnostics);
   return diagnostics;
 }
@@ -319,7 +367,11 @@ function validatePitch(value: unknown, diagnostics: Diagnostic[]): void {
   }
 }
 
-function validateEntityDrafts(value: unknown, diagnostics: Diagnostic[]): void {
+function validateEntityDrafts(
+  value: unknown,
+  diagnostics: Diagnostic[],
+  options: { readonly requireProposedCode: boolean },
+): void {
   if (!Array.isArray(value) || value.length === 0) {
     diagnostics.push({ field: 'entityDrafts', message: 'entityDrafts must be non-empty' });
     return;
@@ -346,10 +398,67 @@ function validateEntityDrafts(value: unknown, diagnostics: Diagnostic[]): void {
     if (typeof draft.kind !== 'string' || draft.kind.trim().length === 0) {
       diagnostics.push({ field: `${path}.kind`, message: 'kind must be non-empty' });
     }
+    if (options.requireProposedCode) {
+      if (typeof draft.proposedCode !== 'string' || draft.proposedCode.trim().length === 0) {
+        diagnostics.push({ field: `${path}.proposedCode`, message: 'proposedCode must be non-empty' });
+      }
+    } else if (
+      draft.proposedCode !== undefined &&
+      (typeof draft.proposedCode !== 'string' || draft.proposedCode.trim().length === 0)
+    ) {
+      diagnostics.push({
+        field: `${path}.proposedCode`,
+        message: 'proposedCode must be non-empty when present',
+      });
+    }
     if (typeof draft.title !== 'string' || draft.title.trim().length === 0) {
       diagnostics.push({ field: `${path}.title`, message: 'title must be non-empty' });
     }
   });
+}
+
+function proposeCodesForDrafts(
+  db: Pick<BrunchDb, 'select'>,
+  specId: number,
+  drafts: readonly Pick<ReviewSetEntityDraft, 'kind' | 'plane'>[],
+): { readonly status: 'success'; readonly codes: readonly string[] } | StructuralIllegal {
+  const diagnostics: Diagnostic[] = [];
+  const nextOrdinals = new Map<string, number>();
+  const codes = drafts.map((draft, index) => {
+    if (!VALID_NODE_KINDS.includes(draft.kind)) {
+      diagnostics.push({ field: `entityDrafts[${index}].kind`, message: 'invalid node kind' });
+      return '';
+    }
+    const kind = draft.kind as NodeKind;
+    const key = `${draft.plane}\u0000${kind}`;
+    const nextOrdinal = nextOrdinals.get(key) ?? readNextNodeKindOrdinal(db, specId, draft.plane, kind);
+    nextOrdinals.set(key, nextOrdinal + 1);
+    return formatGraphNodeCode(kind, nextOrdinal);
+  });
+  return diagnostics.length > 0
+    ? { status: 'structural_illegal', diagnostics }
+    : { status: 'success', codes };
+}
+
+function readNextNodeKindOrdinal(
+  db: Pick<BrunchDb, 'select'>,
+  specId: number,
+  plane: NodePlane,
+  kind: NodeKind,
+): number {
+  return (
+    db
+      .select({ nextOrdinal: schema.nodeKindCounters.next_ordinal })
+      .from(schema.nodeKindCounters)
+      .where(
+        and(
+          eq(schema.nodeKindCounters.spec_id, specId),
+          eq(schema.nodeKindCounters.plane, plane),
+          eq(schema.nodeKindCounters.kind, kind),
+        ),
+      )
+      .get()?.nextOrdinal ?? 1
+  );
 }
 
 function validateEdgeDrafts(value: unknown, diagnostics: Diagnostic[]): void {

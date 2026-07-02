@@ -1266,6 +1266,7 @@ describe('JSON-RPC handlers', () => {
       entityDrafts: [
         {
           draftId: 'requirement-draft',
+          proposedCode: 'REQ1',
           plane: 'intent',
           kind: 'requirement',
           title: 'Reviewed requirement',
@@ -1368,6 +1369,7 @@ describe('JSON-RPC handlers', () => {
           nodes: [
             {
               draft_id: 'requirement-draft',
+              proposed_code: 'REQ1',
               plane: 'intent',
               kind: 'requirement',
               title: 'Reviewed requirement',

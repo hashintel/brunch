@@ -135,7 +135,13 @@ function pendingReviewSet(exchangeId: string, heading = 'Review proposal') {
           display: { heading },
           review_set: {
             nodes: [
-              { draft_id: 'req-approval', plane: 'intent', kind: 'requirement', title: 'Approval is atomic' },
+              {
+                draft_id: 'req-approval',
+                proposed_code: 'REQ1',
+                plane: 'intent',
+                kind: 'requirement',
+                title: 'Approval is atomic',
+              },
             ],
             edges: [
               {
@@ -762,17 +768,21 @@ describe('structured exchange present/request tools', () => {
       {} as never,
     );
 
-    expect(result.content[0]?.text).toContain('# Review cycle wiring');
-    expect(result.content[0]?.text).toContain('Epistemic status: inferred');
-    expect(result.content[0]?.text).toContain('## Entity drafts');
-    expect(result.content[0]?.text).toContain('Approval is atomic');
-    expect(result.content[0]?.text).toContain('## Edge drafts');
+    expect(result.content[0]?.text).toContain('## Proposal: Review cycle wiring');
+    expect(result.content[0]?.text).toContain(
+      '> Commit review-set approvals as explicit graph truth only after user review.',
+    );
+    expect(result.content[0]?.text).toContain('__$REQ1: Approval is atomic__');
+    expect(result.content[0]?.text).toContain('depends on __$REQ1__');
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'review-cycle-1',
       tool_meta: { curr: PRESENT_REVIEW_SET_TOOL, next: REQUEST_RESPONSE_TOOL },
       review_set: {
-        nodes: [{ draft_id: 'goal-review' }, { draft_id: 'req-approve' }],
+        nodes: [
+          { draft_id: 'goal-review', proposed_code: 'G1' },
+          { draft_id: 'req-approve', proposed_code: 'REQ1' },
+        ],
         edges: [{ dependency: { draft_id: 'req-approve' }, dependent: { draft_id: 'goal-review' } }],
       },
     });

@@ -66,6 +66,7 @@ export const ReviewSetEndpointRefSchema = z.toJSONSchema(zReviewSetEndpointRef, 
 export const zReviewSetNodeDraft = z
   .object({
     draft_id: z.string().min(1),
+    proposed_code: z.string().min(1),
     plane: z.enum(['intent', 'oracle', 'design', 'plan']),
     kind: z.string().min(1),
     title: z.string().min(1),

@@ -1,6 +1,9 @@
 import type { PresentQuestionParams } from '../../.pi/extensions/exchanges/schemas/index.js';
 import { formatPresentQuestion } from '../../agents/contexts/exchanges/present-question.js';
+import { formatPresentReviewSet } from '../../agents/contexts/exchanges/present-review-set.js';
+import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 import { projectPresentQuestion } from '../../projections/exchanges/present-question.js';
+import { projectPresentReviewSet } from '../../projections/exchanges/present-review-set.js';
 
 function presentQuestionFixture(params: PresentQuestionParams) {
   const projection = projectPresentQuestion(params);
@@ -42,3 +45,66 @@ export const presentQuestionFixtures = [
   presentQuestionOptionsFixture,
   presentQuestionFreeTextFixture,
 ] as const;
+
+export const presentReviewSetFixture = (() => {
+  const payload = {
+    schemaVersion: 1,
+    lens: 'intent',
+    epistemicStatus: 'asserted',
+    grounding: {
+      summary: 'Launch readiness needs rollback and observability.',
+      support: ['User asked for launch readiness.'],
+    },
+    pitch: {
+      title: 'Launch readiness review set',
+      narrative: 'Review the launch-readiness commitments together.',
+    },
+    entityDrafts: [
+      {
+        draftId: 'goal-launch',
+        proposedCode: 'G2',
+        plane: 'intent',
+        kind: 'goal',
+        title: 'Launch safely',
+      },
+      {
+        draftId: 'req-rollback',
+        proposedCode: 'REQ5',
+        plane: 'intent',
+        kind: 'requirement',
+        title: 'Rollback is required',
+        body: 'Rollback must be available before launch.',
+      },
+      {
+        draftId: 'check-observable',
+        proposedCode: 'CH3',
+        plane: 'oracle',
+        kind: 'check',
+        title: 'Observe rollback path',
+      },
+    ],
+    edgeDrafts: [
+      {
+        category: 'dependency',
+        dependency: { draftId: 'req-rollback' },
+        dependent: { draftId: 'goal-launch' },
+      },
+      {
+        category: 'witness',
+        oracle: { draftId: 'check-observable' },
+        claim: { draftId: 'goal-launch' },
+        stance: 'for',
+        rationale: 'The check proves the rollback path is visible.',
+      },
+    ],
+  } satisfies ReviewSetProposalPayload;
+  const projection = projectPresentReviewSet({ exchangeId: 'preview-review-set', payload });
+  return {
+    payload,
+    projection,
+    result: {
+      content: [{ type: 'text' as const, text: formatPresentReviewSet(projection) }],
+      details: projection.details,
+    },
+  };
+})();
