@@ -113,6 +113,10 @@ function workspacePosture(posture: WorkspacePostureState): WorkspacePostureState
   return posture;
 }
 
+function countOccurrences(text: string, needle: string): number {
+  return text.split(needle).length - 1;
+}
+
 describe('Brunch prompt-pack topology', () => {
   it('appends composed Brunch prompting from runtime-state projection', async () => {
     const latestState: BrunchAgentState = {
@@ -147,6 +151,98 @@ describe('Brunch prompt-pack topology', () => {
     expect(result).toMatchObject({
       systemPrompt: expect.stringMatching(/^base\n\n/s),
     });
+  });
+
+  it('repairs triggerTurn provider payloads that bypass before_agent_start without changing tools', async () => {
+    const manager = new FakeRuntimeStateSessionManager();
+    const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
+    const activeTools: string[][] = [];
+
+    const pi = {
+      on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+        events[event] ??= [];
+        events[event].push(handler);
+      },
+      registerTool() {},
+      getAllTools: () =>
+        [
+          'read',
+          'grep',
+          'bash',
+          'edit',
+          'write',
+          'present_question',
+          'request_response',
+          'present_review_set',
+          'read_graph',
+          'read_session_context',
+          'mutate_graph',
+        ].map((name) => ({ name })),
+      setActiveTools: (tools: string[]) => activeTools.push(tools),
+    };
+    registerBrunchOperationalModePolicy(pi as never);
+    registerBrunchPrompting(pi as never, promptContext);
+
+    for (const handler of events.session_start ?? []) {
+      await handler({} as never, { sessionManager: manager } as never);
+    }
+
+    const providerTools = activeTools.at(-1)?.map((name) => ({ name })) ?? [];
+    const payload = {
+      input: [{ role: 'developer', content: 'base prompt' }],
+      tools: providerTools,
+    };
+
+    const results = await Promise.all(
+      (events.before_provider_request ?? []).map((handler) =>
+        Promise.resolve(handler({ payload } as never, { sessionManager: manager } as never)),
+      ),
+    );
+    const repaired = results.find((result) => result !== undefined) as typeof payload | undefined;
+
+    expect(repaired?.input[0]?.content).toContain('# Elicitor');
+    expect(repaired?.input[0]?.content).toContain('[Brunch live skills]');
+    expect(repaired?.tools).toEqual(providerTools);
+    expect(activeTools).toHaveLength(1);
+    expect(providerTools.map((tool) => tool.name)).toEqual(
+      expect.arrayContaining(['present_question', 'request_response', 'mutate_graph']),
+    );
+  });
+
+  it('keeps the provider-request prompt guard idempotent after before_agent_start appended', async () => {
+    const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
+
+    registerBrunchPrompting(
+      {
+        on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+          events[event] ??= [];
+          events[event].push(handler);
+        },
+        getAllTools: () => ['read', 'grep', 'present_question', 'request_response'].map((name) => ({ name })),
+        setActiveTools() {},
+      } as never,
+      promptContext,
+    );
+
+    const beforeStart = (await Promise.resolve(
+      events.before_agent_start?.[0]?.(
+        { systemPrompt: 'base prompt' } as never,
+        { sessionManager: { getEntries: () => [] } } as never,
+      ),
+    )) as { systemPrompt: string };
+    const payload = {
+      messages: [{ role: 'system', content: beforeStart.systemPrompt }],
+    };
+
+    const repaired = (await Promise.resolve(
+      events.before_provider_request?.[0]?.(
+        { payload } as never,
+        { sessionManager: { getEntries: () => [] } } as never,
+      ),
+    )) as typeof payload;
+
+    expect(repaired).toBe(payload);
+    expect(countOccurrences(repaired.messages[0]?.content ?? '', '# Elicitor')).toBe(1);
   });
 
   it('composes the execute-mode executor prompt without calling the elicitor composer', async () => {

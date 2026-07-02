@@ -9,7 +9,7 @@ Build order: Card 1 then Card 2. Both live in the origination/kick seam; Card 2'
 
 ---
 
-## Card 1 (full) — F1: kick turn bypasses `before_agent_start`, so the elicitor prompt never reaches the kick provider call
+## Card 1 (done) — F1: kick turn bypasses `before_agent_start`, so the elicitor prompt never reaches the kick provider call
 
 ### Target Behavior
 
