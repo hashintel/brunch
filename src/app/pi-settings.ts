@@ -29,6 +29,7 @@ export const BRUNCH_SETTINGS_POLICY = {
       maxRetryDelayMs: 60000,
     },
   },
+  hideThinkingBlock: true,
   terminal: {
     showImages: true,
     imageWidthCells: 60,

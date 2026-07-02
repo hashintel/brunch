@@ -9,7 +9,7 @@ Three small vertical cards in the TUI-chrome seam. Independent of the originatio
 
 ---
 
-## Card 1 (light) — F6: thinking blocks render inline instead of collapsed
+## Card 1 (done) — F6: thinking blocks render inline instead of collapsed
 
 ### Objective
 
