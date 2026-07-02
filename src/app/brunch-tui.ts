@@ -479,6 +479,9 @@ export function createBrunchAgentSessionRuntimeFactory(
       for (const entry of origination.decision.seedEntries) {
         await appendEntryContentToDebugCache(debugCache, entry).catch(() => {});
       }
+      await appendOriginationRecordToDebugCache(debugCache, { decision: origination.decision }).catch(
+        () => {},
+      );
     }
 
     const services = await createAgentSessionServices({

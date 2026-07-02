@@ -103,8 +103,14 @@ describe('debug cache origination record mirror', () => {
     expect(mirror).toContain('"stack":');
   });
 
-  it('records the decision and completion outcome for a boot', async () => {
+  it('appends a decision-time record before the completion outcome', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-origination-mirror-'));
+    await appendOriginationRecordToDebugCache(
+      { cwd },
+      {
+        decision: { action: 'idle', reason: 'no_unresolved_debt' },
+      },
+    );
     await appendOriginationRecordToDebugCache(
       { cwd },
       {
@@ -117,6 +123,8 @@ describe('debug cache origination record mirror', () => {
     expect(mirror).toContain('brunch.origination');
     expect(mirror).toContain('"action": "idle"');
     expect(mirror).toContain('"reason": "idle_no_unresolved_debt"');
+    expect(mirror.indexOf('"decision"')).toBeLessThan(mirror.indexOf('"outcome"'));
+    expect(mirror).toContain('\n\n---\n\n');
   });
 });
 
