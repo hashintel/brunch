@@ -24,7 +24,7 @@ export const zPresentQuestionParams = z
       .string()
       .min(1)
       .describe('Stable id tying this question to the later request_response call.'),
-    heading: z.string().describe('Question or offer heading.'),
+    heading: z.string().trim().min(1).describe('Question or offer heading.'),
     body: z.string().describe('Markdown body for context before the response.').optional(),
     options: z
       .array(zPresentedOptionParam)
@@ -75,7 +75,7 @@ export const zPresentCandidatesParams = z
       .string()
       .min(1)
       .describe('Stable id tying this candidate presentation to the later request_response call.'),
-    heading: z.string().min(1).describe('Candidate comparison heading.'),
+    heading: z.string().trim().min(1).describe('Candidate comparison heading.'),
     body: z.string().describe('Markdown body for context before the candidate list.').optional(),
     candidates: z
       .array(zPresentedCandidate)

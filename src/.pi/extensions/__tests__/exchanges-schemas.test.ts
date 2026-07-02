@@ -19,7 +19,9 @@ import {
   zPresentCandidatesDetails,
   zPresentDetails,
   zPresentDetailsHeader,
+  zPresentCandidatesParams,
   zPresentQuestionDetails,
+  zPresentQuestionParams,
   zPresentReviewSetDetails,
   zPresentReviewSetParams,
   zPresentToolMeta,
@@ -333,6 +335,61 @@ describe('structured exchange present schemas', () => {
 });
 
 describe('structured exchange present params', () => {
+  it('trims and rejects blank present headings at the params boundary', () => {
+    expect(
+      zPresentQuestionParams.parse({
+        exchangeId: 'problem-frame',
+        heading: '  Choose direction  ',
+      }),
+    ).toMatchObject({ heading: 'Choose direction' });
+    expect(() => zPresentQuestionParams.parse({ exchangeId: 'problem-frame', heading: '   ' })).toThrow();
+
+    expect(
+      zPresentCandidatesParams.parse({
+        exchangeId: 'candidate-direction',
+        heading: '  Compare candidates  ',
+        candidates: [
+          {
+            id: 'local',
+            title: 'Local workbench',
+            user_rubric: {
+              core_bet: 'Local-first graph work.',
+              best_fit: 'Current POC.',
+              cost_complexity: 'Own local state.',
+              covers_well: 'Graph and transcript.',
+              main_risks: 'No cloud proof.',
+              lock_in_constraints: 'Local semantics.',
+            },
+            meta_rubric: {},
+            graph_refs: [],
+          },
+        ],
+      }),
+    ).toMatchObject({ heading: 'Compare candidates' });
+    expect(() =>
+      zPresentCandidatesParams.parse({
+        exchangeId: 'candidate-direction',
+        heading: '   ',
+        candidates: [
+          {
+            id: 'local',
+            title: 'Local workbench',
+            user_rubric: {
+              core_bet: 'Local-first graph work.',
+              best_fit: 'Current POC.',
+              cost_complexity: 'Own local state.',
+              covers_well: 'Graph and transcript.',
+              main_risks: 'No cloud proof.',
+              lock_in_constraints: 'Local semantics.',
+            },
+            meta_rubric: {},
+            graph_refs: [],
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
   it('exports the nested present_review_set payload companion shape', () => {
     const schema = z.toJSONSchema(zPresentReviewSetParams, { unrepresentable: 'throw' }) as unknown as {
       readonly properties: {
