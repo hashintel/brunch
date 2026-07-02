@@ -1,26 +1,22 @@
+import { blockquote, bold, heading, ol } from 'md-pen';
+
 import type { PresentQuestionProjection } from '../../../projections/exchanges/present-question.js';
-import {
-  joinMarkdownBlocks,
-  markdownBlockquote,
-  markdownBold,
-  markdownHeading,
-  markdownOl,
-} from '../../shared/markdown.js';
+import { joinMarkdownBlocks } from '../../shared/markdown.js';
 import type { RenderElision } from './render-honesty.js';
 
 export function formatPresentQuestion(projection: PresentQuestionProjection): string {
   const question = joinMarkdownBlocks(
-    markdownHeading(2, `Question: ${projection.heading.trim()}`),
-    projection.body ? markdownBlockquote(projection.body) : undefined,
+    heading(`Question: ${projection.heading.trim()}`, 2),
+    projection.body ? blockquote(projection.body) : undefined,
   );
 
   if ('options' in projection.details) {
     const options = projection.details.options.map((option) => {
-      const content = markdownBold(option.content.trim());
+      const content = bold(option.content.trim());
       const rationale = option.rationale?.trim();
       return rationale ? `${content} — ${rationale}` : content;
     });
-    return joinMarkdownBlocks(question, markdownOl(options));
+    return joinMarkdownBlocks(question, ol(options));
   }
 
   return question;

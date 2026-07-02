@@ -1,5 +1,7 @@
+import { heading } from 'md-pen';
+
 import { formatGraphNodeCode, type GraphNode } from '../../../../graph/schema/nodes.js';
-import { joinMarkdownBlocks, markdownBullet, markdownHeading } from '../../../shared/markdown.js';
+import { joinMarkdownBlocks } from '../../../shared/markdown.js';
 
 export interface SpecMarkdownOutputInput {
   readonly title: string;
@@ -11,7 +13,7 @@ const SPEC_PLANE_ORDER = ['intent', 'design', 'oracle'] as const;
 export function renderSpecMarkdownOutput(input: SpecMarkdownOutputInput): string {
   const nodes = input.nodes.filter((node) => node.plane !== 'plan');
   return joinMarkdownBlocks(
-    markdownHeading(1, input.title),
+    heading(input.title, 1),
     ...SPEC_PLANE_ORDER.map((plane) =>
       renderPlane(
         plane,
@@ -24,7 +26,7 @@ export function renderSpecMarkdownOutput(input: SpecMarkdownOutputInput): string
 function renderPlane(plane: (typeof SPEC_PLANE_ORDER)[number], nodes: readonly GraphNode[]): string {
   if (nodes.length === 0) return '';
   return joinMarkdownBlocks(
-    markdownHeading(2, titleCase(plane)),
+    heading(titleCase(plane), 2),
     nodes.slice().sort(compareNodes).map(renderNode).join('\n\n'),
   );
 }
@@ -32,12 +34,9 @@ function renderPlane(plane: (typeof SPEC_PLANE_ORDER)[number], nodes: readonly G
 function renderNode(node: GraphNode): string {
   const code = formatGraphNodeCode(node.kind, node.kindOrdinal);
   return joinMarkdownBlocks(
-    markdownHeading(3, `${code} ${node.title}`),
+    heading(`${code} ${node.title}`, 3),
     node.body,
-    [
-      markdownBullet(`basis: ${node.basis}`),
-      ...(node.source ? [markdownBullet(`source: ${node.source}`)] : []),
-    ].join('\n'),
+    [`- basis: ${node.basis}`, ...(node.source ? [`- source: ${node.source}`] : [])].join('\n'),
   );
 }
 

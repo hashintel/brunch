@@ -2,5 +2,5 @@
 
 > Pick the answer that best matches the current product risk.
 
-1. **Thin vertical proof** — Proves the seam before styling the neighborhood.
-2. **Renderer sweep** — Closes the family once the head slice lands.
+1. __Thin vertical proof__ — Proves the seam before styling the neighborhood.
+2. __Renderer sweep__ — Closes the family once the head slice lands.

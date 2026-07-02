@@ -2,12 +2,12 @@
 
 > Pick one option.
 
-1. **iTerm2** — Already installed.
-2. **Kitty** — Better keyboard protocol.
+1. __iTerm2__ — Already installed.
+2. __Kitty__ — Better keyboard protocol.
 
 ## Answer
 
-- [ ] ~~1. **iTerm2**~~
-- [x] 2. **Kitty**
+- [ ] ~~1. __iTerm2__~~
+- [x] 2. __Kitty__
 
 > Better for keyboard-heavy sessions.

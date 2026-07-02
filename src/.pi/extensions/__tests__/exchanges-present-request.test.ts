@@ -472,7 +472,7 @@ describe('structured exchange present/request tools', () => {
 
     expect(result.content[0]?.text).toContain('## Answer');
     expect(result.content[0]?.text).toContain('Move under src/tui-client');
-    expect(result.content[0]?.text).toContain('~~1. **Keep src/pi-extensions.ts**~~');
+    expect(result.content[0]?.text).toContain('~~1. __Keep src/pi-extensions.ts__~~');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location',
@@ -686,7 +686,7 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(result.content[0]?.text).toContain('- [x] 1. **Local workbench**');
+    expect(result.content[0]?.text).toContain('- [x] 1. __Local workbench__');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'candidate-direction',

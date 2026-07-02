@@ -1,6 +1,8 @@
+import { code, table, ul } from 'md-pen';
+
 import type { WorkspaceOverview } from '../../../../session/workspace-overview-context.js';
 import type { WorkspaceCwdInventory, WorkspaceTopologyEntry } from '../../../../workspace/cwd-inventory.js';
-import { inlineCode, joinMarkdownBlocks, markdownTable, markdownUl } from '../../../shared/markdown.js';
+import { joinMarkdownBlocks } from '../../../shared/markdown.js';
 import { section } from '../../../shared/section.js';
 import type { RenderTreeNode } from '../../../shared/tree.js';
 import { renderTreeBlock } from '../../../shared/tree.js';
@@ -17,10 +19,10 @@ export function renderWorkspaceContext(context: WorkspaceCwdInventory | Workspac
 }
 
 function renderProject(context: WorkspaceCwdInventory | WorkspaceOverview): string {
-  return `Project:\n${markdownUl([
+  return `Project:\n${ul([
     `name: ${context.project.name}`,
     `slug: ${context.project.slug}`,
-    `path: ${inlineCode(context.cwd)}`,
+    `path: ${code(context.cwd)}`,
   ])}`;
 }
 
@@ -29,7 +31,7 @@ function renderSpecifications(context: WorkspaceCwdInventory | WorkspaceOverview
   if ('specs' in context) {
     rows.push(...context.specs.map((spec) => [spec.id, spec.title, spec.nodeCount, spec.sessionCount]));
   }
-  return `Specifications:\n${markdownTable(rows)}`;
+  return `Specifications:\n${table(rows)}`;
 }
 
 function renderTopology(topology: WorkspaceTopologyEntry): string {

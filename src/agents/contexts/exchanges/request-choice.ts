@@ -1,12 +1,14 @@
+import { blockquote, heading } from 'md-pen';
+
 import type { RequestChoiceDetails } from '../../../projections/exchanges/request-choice.js';
-import { joinMarkdownBlocks, markdownBlockquote, markdownHeading } from '../../shared/markdown.js';
+import { joinMarkdownBlocks } from '../../shared/markdown.js';
 import { formatOptionEcho, formatResponseTerminal } from './option-echo.js';
 
 export function formatRequestChoice(details: RequestChoiceDetails): string {
   if ('cancelled' in details) return formatResponseTerminal('User cancelled the request.');
   if ('unavailable' in details) return formatResponseTerminal(details.unavailable.message);
   return joinMarkdownBlocks(
-    markdownHeading(2, 'Answer'),
+    heading('Answer', 2),
     formatOptionEcho({
       selectedIds: new Set([details.answered.choice.id]),
       options: details.answered.options,
@@ -15,6 +17,6 @@ export function formatRequestChoice(details: RequestChoiceDetails): string {
           ? []
           : [{ kind: details.answered.choice.kind, label: details.answered.choice.label }],
     }),
-    details.answered.comment ? markdownBlockquote(details.answered.comment) : undefined,
+    details.answered.comment ? blockquote(details.answered.comment) : undefined,
   );
 }

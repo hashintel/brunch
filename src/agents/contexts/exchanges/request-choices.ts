@@ -1,5 +1,7 @@
+import { blockquote, heading } from 'md-pen';
+
 import type { RequestChoicesDetails } from '../../../projections/exchanges/request-choices.js';
-import { joinMarkdownBlocks, markdownBlockquote, markdownHeading } from '../../shared/markdown.js';
+import { joinMarkdownBlocks } from '../../shared/markdown.js';
 import { formatOptionEcho, formatResponseTerminal } from './option-echo.js';
 
 export function formatRequestChoices(details: RequestChoicesDetails): string {
@@ -7,7 +9,7 @@ export function formatRequestChoices(details: RequestChoicesDetails): string {
   if ('unavailable' in details) return formatResponseTerminal(details.unavailable.message);
 
   return joinMarkdownBlocks(
-    markdownHeading(2, 'Answer'),
+    heading('Answer', 2),
     formatOptionEcho({
       selectedIds: new Set(details.answered.choices.map((choice) => choice.id)),
       options: details.answered.options,
@@ -18,6 +20,6 @@ export function formatRequestChoices(details: RequestChoicesDetails): string {
           label: choice.label,
         })),
     }),
-    details.answered.comment ? markdownBlockquote(details.answered.comment) : undefined,
+    details.answered.comment ? blockquote(details.answered.comment) : undefined,
   );
 }

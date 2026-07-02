@@ -1,5 +1,5 @@
 ## Answer
 
-- [x] 1. **Alpha**
+- [x] 1. __Alpha__
 
 > Because.

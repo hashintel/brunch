@@ -1,9 +1,6 @@
-import {
-  joinMarkdownBlocks,
-  markdownBold,
-  markdownStrikethrough,
-  markdownTaskList,
-} from '../../shared/markdown.js';
+import { bold, strikethrough, taskList } from 'md-pen';
+
+import { joinMarkdownBlocks } from '../../shared/markdown.js';
 
 export interface OptionEchoWriteIn {
   readonly kind: 'other' | 'none';
@@ -20,11 +17,11 @@ export function formatOptionEcho(params: {
   readonly options: readonly { readonly id: string; readonly content: string }[];
   readonly writeIns: readonly OptionEchoWriteIn[];
 }): string {
-  return markdownTaskList([
+  return taskList([
     ...params.options.map((option, index): [boolean, string] => {
       const selected = params.selectedIds.has(option.id);
-      const label = `${index + 1}. ${markdownBold(option.content.trim())}`;
-      return [selected, selected ? label : markdownStrikethrough(label)];
+      const label = `${index + 1}. ${bold(option.content.trim())}`;
+      return [selected, selected ? label : strikethrough(label)];
     }),
     ...params.writeIns.map((writeIn): [boolean, string] => {
       const prefix = writeIn.kind === 'none' ? '*None:*' : '*Other:*';

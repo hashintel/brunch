@@ -12,9 +12,10 @@
  *          agents/contexts/data-model/spec/spec-context.ts
  */
 
+import { ul } from 'md-pen';
+
 import { NODE_KINDS, type ReadinessBand } from '../../../graph/schema/kinds.js';
 import { latestExpectedBand, type NodeKind } from '../../../graph/schema/nodes.js';
-import { markdownUl } from '../../shared/markdown.js';
 
 export interface GraphFactSeedInput {
   readonly lsn: number;
@@ -55,7 +56,7 @@ export function renderGraphFactSeed(seed: GraphFactSeed): string {
     .map((entry) => `${entry.kind} (band=${entry.band ?? 'none'})`)
     .join(', ');
 
-  return `Graph facts:\n${markdownUl([
+  return `Graph facts:\n${ul([
     `lsn: ${seed.lsn}`,
     `node counts by kind: ${counts || 'none'}`,
     `zero-count kinds: ${zeroKinds || 'none'}`,

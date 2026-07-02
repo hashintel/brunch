@@ -8,8 +8,7 @@
  */
 
 import { encode, type JsonObject } from '@toon-format/toon';
-
-import { markdownCodeBlock } from './markdown.js';
+import { codeBlock } from 'md-pen';
 
 export type ToonRecord = JsonObject;
 
@@ -18,5 +17,5 @@ export function renderToonRecords(records: ToonRecord[]): string {
 }
 
 export function renderToonBlock(records: ToonRecord[]): string {
-  return markdownCodeBlock(renderToonRecords(records), 'toon');
+  return codeBlock(renderToonRecords(records), 'toon');
 }

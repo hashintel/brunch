@@ -9,7 +9,7 @@
 
 import { createRequire } from 'node:module';
 
-import { markdownCodeBlock } from './markdown.js';
+import { codeBlock } from 'md-pen';
 
 const require = createRequire(import.meta.url);
 // `stringify-tree` publishes CommonJS only; keep the require here at the wrapper seam.
@@ -31,5 +31,5 @@ export function renderTree(root: RenderTreeNode): string {
 }
 
 export function renderTreeBlock(root: RenderTreeNode): string {
-  return markdownCodeBlock(renderTree(root), 'tree');
+  return codeBlock(renderTree(root), 'tree');
 }

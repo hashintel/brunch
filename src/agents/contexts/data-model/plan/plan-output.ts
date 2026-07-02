@@ -1,5 +1,7 @@
+import { heading } from 'md-pen';
+
 import { formatGraphNodeCode, type GraphNode } from '../../../../graph/schema/nodes.js';
-import { joinMarkdownBlocks, markdownBullet, markdownHeading } from '../../../shared/markdown.js';
+import { joinMarkdownBlocks } from '../../../shared/markdown.js';
 
 export interface PlanMarkdownOutputInput {
   readonly title: string;
@@ -11,7 +13,7 @@ const PLAN_KIND_ORDER = ['milestone', 'frontier'] as const;
 export function renderPlanMarkdownOutput(input: PlanMarkdownOutputInput): string {
   const planNodes = input.nodes.filter((node) => node.plane === 'plan');
   return joinMarkdownBlocks(
-    markdownHeading(1, input.title),
+    heading(input.title, 1),
     ...PLAN_KIND_ORDER.map((kind) =>
       renderKind(
         kind,
@@ -24,7 +26,7 @@ export function renderPlanMarkdownOutput(input: PlanMarkdownOutputInput): string
 function renderKind(kind: (typeof PLAN_KIND_ORDER)[number], nodes: readonly GraphNode[]): string {
   if (nodes.length === 0) return '';
   return joinMarkdownBlocks(
-    markdownHeading(2, titleCase(kind)),
+    heading(titleCase(kind), 2),
     nodes.slice().sort(compareNodes).map(renderNode).join('\n\n'),
   );
 }
@@ -32,12 +34,9 @@ function renderKind(kind: (typeof PLAN_KIND_ORDER)[number], nodes: readonly Grap
 function renderNode(node: GraphNode): string {
   const code = formatGraphNodeCode(node.kind, node.kindOrdinal);
   return joinMarkdownBlocks(
-    markdownHeading(3, `${code} ${node.title}`),
+    heading(`${code} ${node.title}`, 3),
     node.body,
-    [
-      markdownBullet(`basis: ${node.basis}`),
-      ...(node.source ? [markdownBullet(`source: ${node.source}`)] : []),
-    ].join('\n'),
+    [`- basis: ${node.basis}`, ...(node.source ? [`- source: ${node.source}`] : [])].join('\n'),
   );
 }
 

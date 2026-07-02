@@ -1,7 +1,7 @@
 ## Answer
 
-- [x] 1. **Alpha***
-- [ ] ~~2. **Beta**~~
-- [x] 3. **Gamma**
+- [x] 1. __Alpha*__
+- [ ] ~~2. __Beta__~~
+- [x] 3. __Gamma__
 
 > Both.

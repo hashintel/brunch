@@ -1,5 +1,7 @@
+import { blockquote, heading } from 'md-pen';
+
 import type { RequestReviewDetails } from '../../../projections/exchanges/request-review.js';
-import { joinMarkdownBlocks, markdownBlockquote, markdownHeading } from '../../shared/markdown.js';
+import { joinMarkdownBlocks } from '../../shared/markdown.js';
 import { formatResponseTerminal } from './option-echo.js';
 
 export function formatRequestReview(details: RequestReviewDetails): string {
@@ -13,7 +15,7 @@ export function formatRequestReview(details: RequestReviewDetails): string {
         ? 'changes requested'
         : 'rejected';
   return joinMarkdownBlocks(
-    markdownHeading(2, `Review: ${label}`),
-    details.answered.comment ? markdownBlockquote(details.answered.comment) : undefined,
+    heading(`Review: ${label}`, 2),
+    details.answered.comment ? blockquote(details.answered.comment) : undefined,
   );
 }
