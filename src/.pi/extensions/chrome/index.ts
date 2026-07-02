@@ -219,7 +219,8 @@ export function renderBrunchChrome(
       },
     };
   });
-  if (chrome.startupHeader) {
+  const startupHeader = chrome.startupHeader;
+  if (startupHeader) {
     ui.setHeader(
       (_tui, theme) =>
         new BrunchStartupHeader(
@@ -227,6 +228,7 @@ export function renderBrunchChrome(
             project: formatProject(chrome),
             spec: formatSpec(chrome),
             session: chrome.session.label ?? chrome.session.id,
+            decision: startupHeader.decision,
             ...(chrome.webSidecarUrl ? { sidecarUrl: chrome.webSidecarUrl } : {}),
           },
           theme,

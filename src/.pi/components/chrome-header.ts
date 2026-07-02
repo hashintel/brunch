@@ -9,6 +9,7 @@ export interface BrunchStartupHeaderFacts {
   project: string;
   spec: string;
   session: string;
+  decision?: 'continue' | 'openSession' | 'newSpec' | 'newSession';
   sidecarUrl?: string;
 }
 
@@ -39,7 +40,14 @@ export class BrunchStartupHeader implements Component {
   }
 
   private collapsedLines(): string[] {
-    return [...this.topPaddingLines(), ...this.identityLines(), '', this.webOrExpandHelpLine()];
+    return [
+      ...this.topPaddingLines(),
+      ...this.identityLines(),
+      '',
+      ...this.introLines(),
+      '',
+      this.webOrExpandHelpLine(),
+    ];
   }
 
   private topPaddingLines(): string[] {
@@ -54,14 +62,21 @@ export class BrunchStartupHeader implements Component {
     });
   }
 
+  private introLines(): string[] {
+    if (this.facts.decision !== 'newSpec' && this.facts.decision !== 'newSession') return [];
+    return [
+      this.theme.bold('Welcome to Brunch.'),
+      'Brunch helps you and the agent co-author this specification as a local graph.',
+      'The assistant is about to open with a grounded question from the seeded workspace context.',
+      'Commands: /brunch:mode or alt+m changes mode; ctrl+shift+b switches spec/session.',
+    ];
+  }
+
   private webOrExpandHelpLine(): string {
     if (this.facts.sidecarUrl) {
       return this.theme.fg('dim', `web-ui: ${sanitizeText(this.facts.sidecarUrl)}`);
     }
-    return this.theme.fg(
-      'dim',
-      'Graph capture flows through Brunch commands; runtime posture follows mode/strategy/lens.',
-    );
+    return this.theme.fg('dim', 'Graph capture flows through Brunch commands and structured exchanges.');
   }
 }
 

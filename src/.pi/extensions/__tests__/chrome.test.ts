@@ -9,6 +9,7 @@ import chromeExtension, {
   projectBrunchChromeFooterLines,
   renderBrunchChrome,
 } from '../chrome/index.js';
+import { BRUNCH_MODE_COMMAND, BRUNCH_MODE_SHORTCUT, BRUNCH_SWITCH_SHORTCUT } from '../commands/index.js';
 
 describe('Brunch chrome projection', () => {
   it('uses activated session state instead of fabricating unbound', async () => {
@@ -177,6 +178,10 @@ describe('Brunch chrome projection', () => {
     expect(collapsedLines.join('\n')).toContain('brunch v1.0.0-alpha.0');
     expect(collapsedLines.join('\n')).toContain('built on Pi v');
     expect(collapsedLines.join('\n')).not.toContain('escape interrupt');
+    expect(collapsedLines.join('\n')).toContain('Welcome to Brunch.');
+    expect(collapsedLines.join('\n')).toContain('The assistant is about to open');
+    expect(collapsedLines.join('\n')).toContain(`/${BRUNCH_MODE_COMMAND} or ${BRUNCH_MODE_SHORTCUT}`);
+    expect(collapsedLines.join('\n')).toContain(`${BRUNCH_SWITCH_SHORTCUT} switches spec/session`);
     expect(collapsedLines.join('\n')).toContain('web-ui: http://127.0.0.1:49152/spec/1');
     expect(collapsedLines.join('\n')).not.toContain('Press ctrl+o');
     expect(collapsedLines.join('\n')).not.toContain('Spec One — session 1');
@@ -189,6 +194,23 @@ describe('Brunch chrome projection', () => {
       session: { id: 'session-1' },
     });
     expect(resumedCalls.some((call) => call.method === 'setHeader')).toBe(false);
+  });
+
+  it('suppresses the welcome copy for resumed startup headers', () => {
+    const component = new BrunchStartupHeader(
+      {
+        project: 'Project One',
+        spec: 'Spec One',
+        session: 'Session One',
+        decision: 'openSession',
+      },
+      fakeTheme,
+    );
+
+    const text = component.render(120).join('\n');
+    expect(text).not.toContain('Welcome to Brunch.');
+    expect(text).not.toContain('/brunch:mode');
+    expect(text).toContain('Graph capture flows through Brunch commands and structured exchanges.');
   });
 
   it('installs dev fallback header through the src/.pi extension entrypoint', async () => {

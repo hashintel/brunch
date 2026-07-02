@@ -54,7 +54,7 @@ All no — stays light.
 
 ---
 
-## Card 2 (light) — F4: deterministic "Welcome to Brunch" intro block
+## Card 2 (done) — F4: deterministic "Welcome to Brunch" intro block
 
 ### Objective
 
