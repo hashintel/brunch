@@ -309,6 +309,7 @@ Rules:
 - `request_review` follows `present_review_set` and may lead to `capture_review`.
 - `request_review` supports `approve`, `request_changes`, and `reject`; `comment` is required for `request_changes`.
 - `other` and `none` choices require a user `comment`.
+- `request_choice` and `request_choices` answered payloads carry `answered.options`: the full listed option echo from the pending present (`id`, `content`, optional `rationale`). Selected write-ins stay in `choice(s)` as `kind: other | none`; they are not appended to `options`.
 
 Variant payload examples:
 
@@ -325,6 +326,12 @@ request_choice answered:
       id: "local-first"
       label: "Local-first app"
       kind: listed
+    options:
+      - id: "local-first"
+        content: "Local-first app"
+        rationale: "Best matches the POC posture."
+      - id: "cloud-first"
+        content: "Cloud-hosted collaboration"
     comment: "This fits the POC constraints."
 ```
 
@@ -338,6 +345,12 @@ request_choices answered:
       - id: "chrome"
         label: "Chrome recovery"
         kind: listed
+    options:
+      - id: "transport"
+        content: "Transport contract"
+      - id: "chrome"
+        content: "Chrome recovery"
+        rationale: "Presentation debt blocks walkthrough quality."
     comment: "These are the ones I care about before graph work."
 ```
 

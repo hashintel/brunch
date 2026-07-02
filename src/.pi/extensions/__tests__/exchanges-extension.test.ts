@@ -110,7 +110,9 @@ describe('structured exchange renderers', () => {
     expect(rendered).toContain('Local-first graph work.');
   });
 
-  it('renders present_question from structured details instead of markdown content', async () => {
+  it('renders present_question as the Markdown pass-through of its content string', async () => {
+    // D104-L revision 2026-07-02: the formatter's content markdown is the designed
+    // surface for both audiences; renderResult displays that same string.
     const present = registerTools().get(PRESENT_QUESTION_TOOL);
 
     const result = await present.execute(
@@ -126,20 +128,9 @@ describe('structured exchange renderers', () => {
       {} as never,
     );
 
-    const rendered = stripAnsi(
-      present
-        .renderResult(
-          { ...result, content: [{ type: 'text', text: '# Poisoned markdown path' }] },
-          {},
-          theme,
-          {},
-        )
-        .render(80)
-        .join('\n'),
-    );
-    expect(rendered).toContain('Choose');
+    const rendered = stripAnsi(present.renderResult(result, {}, theme, {}).render(80).join('\n'));
+    expect(rendered).toContain('Question: Choose');
     expect(rendered).toContain('Alpha');
     expect(rendered).toContain('First');
-    expect(rendered).not.toContain('Poisoned markdown path');
   });
 });

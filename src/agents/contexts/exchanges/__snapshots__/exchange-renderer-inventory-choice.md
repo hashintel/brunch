@@ -1,7 +1,5 @@
-# Response
+## Answer
 
-Selected: **Alpha**
-
-Comment:
+- [x] 1. **Alpha**
 
 > Because.

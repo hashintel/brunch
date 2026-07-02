@@ -5,6 +5,7 @@ import {
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_VERSION,
   structuredExchangeResponseRequiresComment,
+  type AnsweredOptionEcho,
   zRequestChoicesEditorReply,
   type RequestChoicesEditorChoice,
   type RequestChoicesEditorEnvelopeInput,
@@ -91,6 +92,7 @@ export interface RequestChoicesEditorFlowParams {
   readonly exchangeId: string;
   readonly prompt: string;
   readonly choices: readonly StructuredExchangeChoice[];
+  readonly options: readonly AnsweredOptionEcho[];
   readonly allowOther?: boolean;
   readonly allowNone?: boolean;
   readonly commentPrompt?: string;
@@ -137,6 +139,7 @@ function matchedChoicesResult(
     exchangeId: params.exchangeId,
     status: 'answered',
     choices: matched,
+    options: params.options,
     comment,
   });
   return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };

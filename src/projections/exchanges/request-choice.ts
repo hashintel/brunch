@@ -1,7 +1,11 @@
-import type { RequestChoiceDetails, SelectedChoice } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type {
+  AnsweredOptionEcho,
+  RequestChoiceDetails,
+  SelectedChoice,
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../../.pi/extensions/exchanges/schemas/index.js';
 
-export type { RequestChoiceDetails, SelectedChoice };
+export type { AnsweredOptionEcho, RequestChoiceDetails, SelectedChoice };
 export type RequestChoicePresentTool = 'present_question' | 'present_candidates';
 
 type RequestChoiceProjectionInput =
@@ -10,6 +14,7 @@ type RequestChoiceProjectionInput =
       readonly respondsToPresentTool: RequestChoicePresentTool;
       readonly status: 'answered';
       readonly choice: SelectedChoice;
+      readonly options: readonly AnsweredOptionEcho[];
       readonly comment?: string | undefined;
     }
   | {
@@ -48,6 +53,7 @@ export function projectRequestChoice(input: RequestChoiceProjectionInput): Reque
       tool_meta,
       answered: {
         choice: input.choice,
+        options: [...input.options],
         ...(comment !== undefined ? { comment } : {}),
       },
     };

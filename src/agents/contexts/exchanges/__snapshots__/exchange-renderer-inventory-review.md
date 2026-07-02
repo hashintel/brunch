@@ -1,7 +1,3 @@
-# Review decision
-
-Changes requested
-
-Comment:
+## Review: changes requested
 
 > Tighten scope.

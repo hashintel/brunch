@@ -499,6 +499,7 @@ describe('structured exchange request schemas', () => {
             label: 'Local-first app',
             kind: 'listed',
           },
+          options: [{ id: 'local-first', content: 'Local-first app' }],
           comment: 'This fits the POC constraints.',
         },
       }),
@@ -527,6 +528,7 @@ describe('structured exchange request schemas', () => {
             label: 'Local-first app',
             kind: 'listed',
           },
+          options: [{ id: 'local-first', content: 'Local-first app' }],
           message: 'runtime text in the wrong place',
         },
       }),
@@ -550,6 +552,7 @@ describe('structured exchange request schemas', () => {
             label: 'Local workbench for graph-native specs',
             kind: 'listed',
           },
+          options: [{ id: 'candidate-local-workbench', content: 'Local workbench for graph-native specs' }],
         },
       }),
     ).toMatchObject({ tool_meta: { prev: 'present_candidates' } });
@@ -566,6 +569,7 @@ describe('structured exchange request schemas', () => {
         },
         answered: {
           choice: { id: 'other', label: 'Something else entirely', kind: 'other' },
+          options: [{ id: 'local-first', content: 'Local-first app' }],
           comment: 'The intended option is not listed.',
         },
       }),
@@ -579,6 +583,7 @@ describe('structured exchange request schemas', () => {
         tool_meta: { prev: 'present_question', curr: 'request_choice' },
         answered: {
           choice: { id: 'none', label: 'None of these', kind: 'none' },
+          options: [{ id: 'local-first', content: 'Local-first app' }],
         },
       }),
     ).toThrow();
@@ -590,6 +595,7 @@ describe('structured exchange request schemas', () => {
         tool_meta: { prev: 'present_question', curr: 'request_choice' },
         answered: {
           choice: { id: 'other', label: 'Something else entirely', kind: 'other' },
+          options: [{ id: 'local-first', content: 'Local-first app' }],
         },
       }),
     ).toThrow();
@@ -615,6 +621,10 @@ describe('structured exchange request schemas', () => {
               kind: 'other',
             },
           ],
+          options: [
+            { id: 'transport', content: 'Transport contract' },
+            { id: 'ux', content: 'User experience' },
+          ],
           comment: 'Keep schema drift visible.',
         },
       }),
@@ -630,6 +640,7 @@ describe('structured exchange request schemas', () => {
         tool_meta: { prev: 'present_question', curr: 'request_choices' },
         answered: {
           choices: [{ id: 'none', label: 'None of these', kind: 'none' }],
+          options: [{ id: 'transport', content: 'Transport contract' }],
         },
       }),
     ).toThrow();

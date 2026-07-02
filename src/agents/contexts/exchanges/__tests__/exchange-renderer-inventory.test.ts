@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { presentQuestionTool } from '../../../../.pi/extensions/exchanges/present-question.js';
 import { presentQuestionOptionsFixture } from '../../../../dev/component-preview/exchange-fixtures.js';
 import { projectPresentQuestion } from '../../../../projections/exchanges/present-question.js';
 import { projectRequestAnswer } from '../../../../projections/exchanges/request-answer.js';
@@ -14,39 +13,86 @@ import { formatRequestChoices } from '../request-choices.js';
 import { formatRequestResponseDiagnostic } from '../request-response.js';
 import { formatRequestReview } from '../request-review.js';
 
-const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
-const identityTheme = { fg: (_color: never, text: string) => text };
-
-function stripAnsi(text: string): string {
-  return text.replace(ansiPattern, '');
-}
-
 describe('structured-exchange renderer inventory', () => {
   it('covers the request/present result renderers not snapshot-locked elsewhere', async () => {
+    const freeTextQuestion = projectPresentQuestion({
+      exchangeId: 'ex-answer',
+      heading: 'What should change?',
+      body: 'Name the product-facing improvement.',
+    });
     await expect(
-      formatPresentQuestion(
-        projectPresentQuestion({
-          exchangeId: 'ex-1',
-          heading: 'Choose a direction',
-          body: 'Pick one option.',
-          options: [{ id: 'a', content: 'Alpha', rationale: 'Fastest path.' }],
-        }),
-      ),
-    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-present.md');
+      [
+        formatPresentQuestion(freeTextQuestion),
+        formatRequestAnswer(
+          projectRequestAnswer({ exchangeId: 'ex-answer', status: 'answered', answer: 'Make it clear.' }),
+        ),
+      ].join('\n\n'),
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-question-answer-tuple.md');
 
+    const choiceOptions = [
+      { id: 'iterm', content: 'iTerm2', rationale: 'Already installed.' },
+      { id: 'kitty', content: 'Kitty', rationale: 'Better keyboard protocol.' },
+    ];
+    const choiceQuestion = projectPresentQuestion({
+      exchangeId: 'ex-choice',
+      heading: 'Choose a terminal',
+      body: 'Pick one option.',
+      options: choiceOptions,
+    });
     await expect(
-      formatRequestAnswer(
-        projectRequestAnswer({ exchangeId: 'ex-1', status: 'answered', answer: 'Freeform answer' }),
-      ),
-    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-answer.md');
+      [
+        formatPresentQuestion(choiceQuestion),
+        formatRequestChoice(
+          projectRequestChoice({
+            exchangeId: 'ex-choice',
+            respondsToPresentTool: 'present_question',
+            status: 'answered',
+            choice: { id: 'kitty', label: 'Kitty', kind: 'listed' },
+            options: choiceOptions,
+            comment: 'Better for keyboard-heavy sessions.',
+          }),
+        ),
+      ].join('\n\n'),
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-question-choice-tuple.md');
+
+    const choicesOptions = [
+      { id: 'grammar', content: 'Grammar drift', rationale: 'Model-facing text is contract-like.' },
+      { id: 'preview', content: 'Preview lag', rationale: 'Humans need a fast visual loop.' },
+    ];
+    const choicesQuestion = projectPresentQuestion({
+      exchangeId: 'ex-choices',
+      heading: 'Choose risks',
+      body: 'Select every risk that should stay visible.',
+      options: choicesOptions,
+      multiple: true,
+      allowOther: true,
+    });
+    await expect(
+      [
+        formatPresentQuestion(choicesQuestion),
+        formatRequestChoices(
+          projectRequestChoices({
+            exchangeId: 'ex-choices',
+            status: 'answered',
+            choices: [
+              { id: 'grammar', label: 'Grammar drift', kind: 'listed' },
+              { id: 'other', label: 'Schema source-of-truth drift', kind: 'other' },
+            ],
+            options: choicesOptions,
+            comment: 'Both affect re-entry.',
+          }),
+        ),
+      ].join('\n\n'),
+    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-question-choices-tuple.md');
 
     await expect(
       formatRequestChoice(
         projectRequestChoice({
-          exchangeId: 'ex-1',
+          exchangeId: 'ex-candidate',
           respondsToPresentTool: 'present_question',
           status: 'answered',
           choice: { id: 'a', label: 'Alpha', kind: 'listed' },
+          options: [{ id: 'a', content: 'Alpha' }],
           comment: 'Because.',
         }),
       ),
@@ -57,7 +103,15 @@ describe('structured-exchange renderer inventory', () => {
         projectRequestChoices({
           exchangeId: 'ex-1',
           status: 'answered',
-          choices: [{ id: 'a', label: 'Alpha*', kind: 'listed' }],
+          choices: [
+            { id: 'a', label: 'Alpha*', kind: 'listed' },
+            { id: 'c', label: 'Gamma', kind: 'listed' },
+          ],
+          options: [
+            { id: 'a', content: 'Alpha*' },
+            { id: 'b', content: 'Beta' },
+            { id: 'c', content: 'Gamma' },
+          ],
           comment: 'Both.',
         }),
       ),
@@ -79,19 +133,12 @@ describe('structured-exchange renderer inventory', () => {
     ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-review.md');
   });
 
-  it('keeps present_question model-facing content and TUI render snapshots split', async () => {
+  it('locks the present_question model-facing content golden', async () => {
+    // TUI renderResult is the Markdown pass-through of this same string (D104-L
+    // revision 2026-07-02), so the content golden is the single snapshot family.
     await expect(presentQuestionOptionsFixture.result.content[0]?.text).toMatchFileSnapshot(
       '../__snapshots__/exchange-renderer-inventory-present-question-content.md',
     );
-
-    if (!presentQuestionTool.renderResult) throw new Error('present_question is missing renderResult');
-    await expect(
-      stripAnsi(
-        (presentQuestionTool.renderResult as any)(presentQuestionOptionsFixture.result, {}, identityTheme, {})
-          .render(80)
-          .join('\n'),
-      ),
-    ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-present-question-render-result.md');
   });
 
   it('keeps unavailable/cancelled branches model-facing and explicit', async () => {

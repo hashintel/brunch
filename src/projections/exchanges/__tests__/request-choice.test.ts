@@ -7,6 +7,7 @@ const answeredChoice = {
   label: 'Keep the current shell location',
   kind: 'listed',
 } as const;
+const answeredOptions = [{ id: 'opt-1', content: 'Keep the current shell location' }] as const;
 
 describe('projectRequestChoice next-tool metadata', () => {
   it('derives the capture_choice next step when answering present_question options', () => {
@@ -15,6 +16,7 @@ describe('projectRequestChoice next-tool metadata', () => {
       respondsToPresentTool: 'present_question',
       status: 'answered',
       choice: answeredChoice,
+      options: answeredOptions,
     });
 
     expect(details.tool_meta).toEqual({
@@ -30,6 +32,7 @@ describe('projectRequestChoice next-tool metadata', () => {
       respondsToPresentTool: 'present_candidates',
       status: 'answered',
       choice: answeredChoice,
+      options: answeredOptions,
     });
 
     expect(details.tool_meta).toEqual({

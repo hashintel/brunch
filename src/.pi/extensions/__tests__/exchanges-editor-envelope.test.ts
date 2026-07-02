@@ -53,6 +53,11 @@ describe('request_choices editor envelope', () => {
         label: choice.label ?? offeredLabels.get(choice.id) ?? choice.id,
         kind: choice.id === 'other' ? ('other' as const) : ('listed' as const),
       })),
+      options: envelope.choices.flatMap((choice) =>
+        choice.id === 'other' || choice.id === 'none' || choice.label === undefined
+          ? []
+          : [{ id: choice.id, content: choice.label }],
+      ),
       comment: response.comment,
     });
 
@@ -65,6 +70,10 @@ describe('request_choices editor envelope', () => {
         choices: [
           { id: 'speed', label: 'Move quickly', kind: 'listed' },
           { id: 'other', label: 'Other', kind: 'other' },
+        ],
+        options: [
+          { id: 'speed', content: 'Move quickly' },
+          { id: 'safety', content: 'Keep the transcript safe' },
         ],
         comment: 'Also keep the proof deterministic.',
       },

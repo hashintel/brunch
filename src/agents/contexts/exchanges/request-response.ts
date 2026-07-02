@@ -3,5 +3,5 @@ export interface RequestResponseDiagnosticTextInput {
 }
 
 export function formatRequestResponseDiagnostic(input: RequestResponseDiagnosticTextInput): string {
-  return `# Response\n\n_${input.message}_`;
+  return `## Response\n\n_${input.message}_`;
 }

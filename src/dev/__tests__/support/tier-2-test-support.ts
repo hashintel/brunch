@@ -117,6 +117,7 @@ export function requestChoicesResultMessage(status: 'answered' | 'cancelled' | '
           exchangeId: 'ex-resume-1',
           status,
           choices: [{ id: 'choice-1', label: 'Choice 1', kind: 'listed' as const }],
+          options: [{ id: 'choice-1', content: 'Choice 1' }],
         })
       : projectRequestChoices({
           exchangeId: 'ex-resume-1',

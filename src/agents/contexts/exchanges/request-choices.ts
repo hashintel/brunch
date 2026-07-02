@@ -1,17 +1,23 @@
 import type { RequestChoicesDetails } from '../../../projections/exchanges/request-choices.js';
-
-function markdownEscape(text: string): string {
-  return text.replace(/([\\`*_{}[\]()#+\-.!|>])/g, '\\$1');
-}
+import { joinMarkdownBlocks, markdownBlockquote, markdownHeading } from '../../shared/markdown.js';
+import { formatOptionEcho, formatResponseTerminal } from './option-echo.js';
 
 export function formatRequestChoices(details: RequestChoicesDetails): string {
-  if ('cancelled' in details) return '# Response\n\n_User cancelled the request._';
-  if ('unavailable' in details) return `# Response\n\n_${details.unavailable.message}_`;
+  if ('cancelled' in details) return formatResponseTerminal('User cancelled the request.');
+  if ('unavailable' in details) return formatResponseTerminal(details.unavailable.message);
 
-  const lines = ['# Response'];
-  if (details.answered.choices.length > 0) {
-    lines.push('', ...details.answered.choices.map((choice) => `- ${markdownEscape(choice.label)}`));
-  }
-  if (details.answered.comment) lines.push('', 'Comment:', '', `> ${details.answered.comment}`);
-  return lines.join('\n');
+  return joinMarkdownBlocks(
+    markdownHeading(2, 'Answer'),
+    formatOptionEcho({
+      selectedIds: new Set(details.answered.choices.map((choice) => choice.id)),
+      options: details.answered.options,
+      writeIns: details.answered.choices
+        .filter((choice) => choice.kind !== 'listed')
+        .map((choice) => ({
+          kind: choice.kind === 'none' ? ('none' as const) : ('other' as const),
+          label: choice.label,
+        })),
+    }),
+    details.answered.comment ? markdownBlockquote(details.answered.comment) : undefined,
+  );
 }

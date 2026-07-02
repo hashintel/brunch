@@ -1,6 +1,10 @@
 import { formatRequestChoice } from '../../../../agents/contexts/exchanges/request-choice.js';
 import { projectRequestChoice } from '../../../../projections/exchanges/request-choice.js';
-import { structuredExchangeResponseRequiresComment, type SelectedChoice } from '../schemas/index.js';
+import {
+  structuredExchangeResponseRequiresComment,
+  type AnsweredOptionEcho,
+  type SelectedChoice,
+} from '../schemas/index.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
@@ -41,6 +45,7 @@ export interface CollectChoiceParams {
   readonly exchangeId: string;
   readonly prompt: string;
   readonly choices: readonly StructuredExchangeChoice[];
+  readonly options: readonly AnsweredOptionEcho[];
   readonly respondsToPresentTool?: 'present_question' | 'present_candidates';
   readonly allowOther?: boolean;
   readonly commentPrompt?: string;
@@ -96,6 +101,7 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
     respondsToPresentTool,
     status: 'answered',
     choice,
+    options: params.options,
     comment: normalizeOptionalText(comment),
   });
   return { content: [{ type: 'text' as const, text: formatRequestChoice(details) }], details };

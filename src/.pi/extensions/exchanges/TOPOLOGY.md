@@ -1,13 +1,16 @@
 # exchanges/ — structured-exchange Pi tools
 
 Owns Pi registration, live UI collection, and TUI transcript `renderResult`
-projection for the structured-exchange tool family (`present_question`,
+wiring for the structured-exchange tool family (`present_question`,
 `present_review_set`, `present_candidates`, and `request_response`). Result
 details are constructed only through `projections/exchanges/*` and validated
 against the Zod schemas in `schemas/` (see `schemas/README.md` for the details
-contract). D104-L adds the render rule: `renderResult` consumes trusted
-`toolResult.details`, not the model-facing `content` markdown string; renderer
-modules declare any intentional detail elisions beside the code.
+contract). D104-L (as revised 2026-07-02) sets the render rule: `renderResult`
+is the Markdown pass-through of the formatter's `content` string — the content
+formatters in `agents/contexts/exchanges/` are the designed surface, and the
+render-honesty contract (details → content; elision lists beside the
+formatters) lives there. A details-built TUI-only render is the named upgrade
+path if exchange blocks should diverge from the content register.
 
 ## The two envelopes
 
@@ -64,6 +67,10 @@ families, and the `capture_*` chains); `request_response` derives the response
 kind from the pending present and emits those same canonical request details.
 `shared/ui-context.ts` is the one structural `ctx` slice every collector reads,
 so the tool casts the runtime `ctx` once at the boundary.
+For D106-L, `request_response` passes the pending present's listed options (or
+candidate titles) into the projection constructors so `request_choice` /
+`request_choices` details carry the full answer echo without re-listing literals
+inside collectors or formatters.
 
 ## Dependency rules
 

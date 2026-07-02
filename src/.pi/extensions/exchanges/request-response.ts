@@ -73,6 +73,7 @@ async function collectQuestionResponse(
         exchangeId,
         prompt: present.display.heading,
         choices: present.options.map((option) => ({ id: option.id, label: option.content })),
+        options: present.options,
         ...(present.allow_other !== undefined ? { allowOther: present.allow_other } : {}),
         ...(present.comment_prompt !== undefined ? { commentPrompt: present.comment_prompt } : {}),
       });
@@ -82,6 +83,7 @@ async function collectQuestionResponse(
           exchangeId,
           prompt: present.display.heading,
           choices: present.options.map((option) => ({ id: option.id, label: option.content })),
+          options: present.options,
           ...(present.allow_other !== undefined ? { allowOther: present.allow_other } : {}),
           ...(present.allow_none !== undefined ? { allowNone: present.allow_none } : {}),
           ...(present.comment_prompt !== undefined ? { commentPrompt: present.comment_prompt } : {}),
@@ -164,6 +166,10 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
             choices: candidatesPresent.candidates.map((candidate) => ({
               id: candidate.id,
               label: candidate.title,
+            })),
+            options: candidatesPresent.candidates.map((candidate) => ({
+              id: candidate.id,
+              content: candidate.title,
             })),
             respondsToPresentTool: 'present_candidates',
           });

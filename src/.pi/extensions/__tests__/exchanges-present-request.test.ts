@@ -188,9 +188,9 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(result.content[0]?.text).toMatchInlineSnapshot(`
-      "# What problem are we solving?
+      "## Question: What problem are we solving?
 
-      Keep the answer grounded in current Brunch session behavior."
+      > Keep the answer grounded in current Brunch session behavior."
     `);
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
@@ -232,7 +232,7 @@ describe('structured exchange present/request tools', () => {
       {} as never,
     );
 
-    expect(result.content[0]?.text).toContain('# Where should the shell live?');
+    expect(result.content[0]?.text).toContain('## Question: Where should the shell live?');
     expect(result.content[0]?.text).toContain('Clearer ownership.');
     expect(result.content[0]?.text).not.toContain('<!--');
     expect(isStructuredExchangePresentDetails(result.details)).toBe(true);
@@ -470,15 +470,19 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(result.content[0]?.text).toContain('# Response');
-    expect(result.content[0]?.text).toContain('Move under src/tui-client');
-    expect(result.content[0]?.text).not.toContain('Clearer ownership');
+    expect(result.content[0]?.text).toContain('## Answer');
+    expect(result.content[0]?.text).toContain('Move under src/tui\\-client');
+    expect(result.content[0]?.text).toContain('~~1. **Keep src/pi\\-extensions.ts**~~');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location',
       tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
       answered: {
         choice: { id: 'tui', label: 'Move under src/tui-client', kind: 'listed' },
+        options: [
+          { id: 'root', content: 'Keep src/pi-extensions.ts' },
+          { id: 'tui', content: 'Move under src/tui-client' },
+        ],
         comment: 'Aligns ownership with /reload iteration.',
       },
     });
@@ -526,14 +530,14 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(result.content[0]?.text).toContain('Selected: **Something else entirely**');
-    expect(result.content[0]?.text).toContain('Comment:');
-    expect(result.content[0]?.text).toContain('Needs a custom path.');
+    expect(result.content[0]?.text).toContain('- [x] *Other:* Something else entirely');
+    expect(result.content[0]?.text).toContain('> Needs a custom path.');
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location-other',
       tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
       answered: {
         choice: { id: 'other', label: 'Something else entirely', kind: 'other' },
+        options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
         comment: 'Needs a custom path.',
       },
     });
@@ -682,12 +686,15 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(result.content[0]?.text).toContain('Selected: **Local workbench**');
+    expect(result.content[0]?.text).toContain('- [x] 1. **Local workbench**');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'candidate-direction',
       tool_meta: { prev: PRESENT_CANDIDATES_TOOL, curr: 'request_choice', next: 'capture_candidate' },
-      answered: { choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' } },
+      answered: {
+        choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' },
+        options: [{ id: 'local-workbench', content: 'Local workbench' }],
+      },
     });
     expect(result.details).not.toHaveProperty('review_set');
   });
@@ -866,7 +873,7 @@ describe('structured exchange present/request tools', () => {
         } as never,
       );
 
-      expect(result.content[0]?.text).toContain('# Review decision');
+      expect(result.content[0]?.text).toContain('## Review:');
       expect(result.details).toMatchObject({
         exchange_id: 'review-cycle-1',
         tool_meta: { prev: PRESENT_REVIEW_SET_TOOL, curr: 'request_review' },
@@ -1053,7 +1060,7 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(result.content[0]?.text).toContain('# Response');
+    expect(result.content[0]?.text).toContain('## Answer');
     expect(result.content[0]?.text).toContain('Move quickly');
     expect(result.content[0]?.text).toContain('Other');
     expect(result.content[0]?.text).toContain('Also keep the proof deterministic.');
@@ -1066,6 +1073,10 @@ describe('structured exchange present/request tools', () => {
         choices: [
           { id: 'speed', label: 'Move quickly', kind: 'listed' },
           { id: 'other', label: 'Other', kind: 'other' },
+        ],
+        options: [
+          { id: 'speed', content: 'Move quickly' },
+          { id: 'safety', content: 'Keep the transcript safe' },
         ],
         comment: 'Also keep the proof deterministic.',
       },

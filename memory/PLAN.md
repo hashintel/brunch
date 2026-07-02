@@ -113,7 +113,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Name:** Structured-exchange transcript rendering — fix, unify, and lock the renderer family
 - **Linear:** FE-1123
 - **Branch:** `ln/fe-1123-exchange-rendering`
-- **Current execution pointer:** `memory/cards/exchange-rendering--sweep.md` (ledger) + `memory/cards/exchange-rendering--content-grammar.md` (next slice: ★ content grammar, answered-payload option echo, tuple goldens — from the 2026-07-02 design session in `src/agents/contexts/exchanges/design-permutations.md`). Head slice built 2026-07-02 (`beede8d5`, D104-L); its consumed scope card deleted per cleanup.
+- **Current execution pointer:** `memory/cards/exchange-rendering--sweep.md` (ledger; content grammar + option echo built 2026-07-02, D106-L; next open row: renderResult text handling). Head slice built 2026-07-02 (`beede8d5`, D104-L); its consumed scope card deleted per cleanup.
 - **Kind:** coverage frontier (sweep shape) with a structural head slice. Arc: `exchange-presentation`.
 - **Certainty:** head slice `proving` (new render-from-details seam + formatter-home decision); sweep rows `earned` (locking settled per-kind renderers).
 - **Classification:** buildable-now. No product-state or evidence gate — all inputs (schemas, details contracts, preview harness) exist.
@@ -131,19 +131,19 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - Define the **render-honesty oracle** shape: for each renderer, every `details` field is either visibly rendered or deliberately elided by a named rule (extends the existing shape/no-loss invariant discipline from `src/projections/TOPOLOGY.md`).
 
 - **Sweep inventory (draft — `ln-scope` authors the closed ledger in `memory/cards/exchange-rendering--sweep.md`):**
-  | row | owner (formatter / render) | notes |
-  | --- | --- | --- |
-  | ● present_question | `agents/contexts/exchanges/present-question.ts` / tool renderResult | F7 template redesign |
-  | ● request answered: choice | `request-choice.ts` | F11; ties answer back to its question |
-  | ● request answered: choices | `request-choices.ts` | multi-select display |
-  | ● request answered: answer | `request-answer.ts` | free-text display |
-  | ● request answered: review | `request-review.ts` | decision + comment display |
-  | ● request terminal states | cancelled / unavailable / diagnostic (`request-response.ts`) | consistent quiet styling |
-  | ● present_candidates | `present-candidates.ts` (rubric table) | verify rubric renders; candidates → cards? |
-  | ● present_review_set | `present-review-set.ts` | deepest formatter; drafts/edges/settlement honesty |
-  | ● STRUCTURAL_ILLEGAL / recovery | `formatExchangeStructuralIllegal`, `shared/recovery.ts` | agent-facing but user-visible on failure |
-  | ● renderCall coverage | all tools currently render empty calls | decide per-kind: stay empty or minimal call line |
-  | ○ present_alternatives | `.pi/components/alternatives.ts` | family-membership decision: join the exchange render family or stay a standalone card set; tripwire — decide in head slice, build only if joined |
+  | row                             | owner (formatter / render)                                          | notes                                                                                                                                            |
+  | ------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+  | ● present_question              | `agents/contexts/exchanges/present-question.ts` / tool renderResult | F7 template redesign                                                                                                                             |
+  | ● request answered: choice      | `request-choice.ts`                                                 | F11; ties answer back to its question                                                                                                            |
+  | ● request answered: choices     | `request-choices.ts`                                                | multi-select display                                                                                                                             |
+  | ● request answered: answer      | `request-answer.ts`                                                 | free-text display                                                                                                                                |
+  | ● request answered: review      | `request-review.ts`                                                 | decision + comment display                                                                                                                       |
+  | ● request terminal states       | cancelled / unavailable / diagnostic (`request-response.ts`)        | consistent quiet styling                                                                                                                         |
+  | ● present_candidates            | `present-candidates.ts` (rubric table)                              | verify rubric renders; candidates → cards?                                                                                                       |
+  | ● present_review_set            | `present-review-set.ts`                                             | deepest formatter; drafts/edges/settlement honesty                                                                                               |
+  | ● STRUCTURAL_ILLEGAL / recovery | `formatExchangeStructuralIllegal`, `shared/recovery.ts`             | agent-facing but user-visible on failure                                                                                                         |
+  | ● renderCall coverage           | all tools currently render empty calls                              | decide per-kind: stay empty or minimal call line                                                                                                 |
+  | ○ present_alternatives          | `.pi/components/alternatives.ts`                                    | family-membership decision: join the exchange render family or stay a standalone card set; tripwire — decide in head slice, build only if joined |
   - Row closure = formatter honest + renderResult-from-details + preview entry + snapshot/invariant oracle green.
 
 - **Aggregate DoD:** no ● row open; head-slice decision recorded; `exchange-renderer-inventory.test.ts` extended to every row (snapshot per formatter); render-honesty invariant per renderer; `structured-exchange-boundaries.test.ts` still green; preview registry has one entry per renderer family member.

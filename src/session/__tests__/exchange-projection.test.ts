@@ -160,6 +160,10 @@ const requestChoicesToolResult = {
           { id: 'speed', label: 'Move quickly', kind: 'listed' },
           { id: 'other', label: 'Other', kind: 'other' },
         ],
+        options: [
+          { id: 'speed', content: 'Move quickly' },
+          { id: 'other', content: 'Other' },
+        ],
         comment: 'Keep it deterministic.',
       },
     },

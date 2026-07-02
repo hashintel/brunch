@@ -1,8 +1,10 @@
 # agents/contexts/exchanges/ — structured-exchange result text
 
-SPEC decisions: D13-L, D84-L, D96-L
+SPEC decisions: D13-L, D84-L, D96-L, D104-L, D106-L
 
 Owns model-facing text for structured-exchange tool results (`present_*` and preserved canonical `request_*` detail discriminants). Pi exchange adapters own schemas, registration, TUI collection, and details-backed `renderResult`; this directory formats the returned text that becomes tool-result context. D104-L keeps this home because model-facing content is a separate audience from TUI transcript rendering.
+
+The current question/answer grammar is the ★ pattern from the `exchange-rendering` frontier: h2 `Question:` / `Answer` frames, blockquoted body/comment text, numbered options with em-dash rationales, and checkbox answer echoes over the full option field from D106-L (`answered.options`; chosen options checked, rejected listed options struck, write-ins unnumbered).
 
 `request_response` is the live terminal tool name, but successful responses emit canonical `request_answer` / `request_choice` / `request_choices` / `request_review` details, so model-facing success text stays with those preserved result-detail discriminants. `request-response.ts` is retained only for model-facing diagnostics when no matching pending present can be served.
 

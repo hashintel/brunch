@@ -1,22 +1,45 @@
 import type { PresentQuestionProjection } from '../../../projections/exchanges/present-question.js';
+import {
+  joinMarkdownBlocks,
+  markdownBlockquote,
+  markdownBold,
+  markdownEscape,
+  markdownHeading,
+  markdownOl,
+} from '../../shared/markdown.js';
+import type { RenderElision } from './render-honesty.js';
 
 export function formatPresentQuestion(projection: PresentQuestionProjection): string {
-  const lines = [`# ${projection.heading.trim()}`];
-  const body = projection.body?.trim();
-  if (body) lines.push('', body);
+  const question = joinMarkdownBlocks(
+    markdownHeading(2, `Question: ${projection.heading.trim()}`),
+    projection.body ? markdownBlockquote(projection.body) : undefined,
+  );
 
   if ('options' in projection.details) {
-    lines.push('', projection.details.response_kind === 'choices' ? 'Choose one or more:' : 'Choose one:');
-    projection.details.options.forEach((option, index) => {
-      lines.push(`${index + 1}. ${option.content.trim()}`);
+    const options = projection.details.options.map((option) => {
+      const content = markdownBold(markdownEscape(option.content.trim()));
       const rationale = option.rationale?.trim();
-      if (rationale) lines.push(`   why: ${rationale}`);
+      return rationale ? `${content} — ${markdownEscape(rationale)}` : content;
     });
-    if (projection.details.allow_other) lines.push('Other is allowed.');
-    if (projection.details.allow_none) lines.push('None is allowed.');
-    const commentPrompt = projection.details.comment_prompt?.trim();
-    if (commentPrompt) lines.push(`Optional comment: ${commentPrompt}`);
+    return joinMarkdownBlocks(question, markdownOl(options));
   }
 
-  return lines.join('\n');
+  return question;
 }
+
+/**
+ * Render-honesty elision list for the present_question content formatter: every
+ * populated details leaf not listed here must appear in the formatted content.
+ */
+export const PRESENT_QUESTION_CONTENT_ELISIONS: readonly RenderElision[] = [
+  { path: 'schema', reason: 'structural details schema tag' },
+  { path: 'v', reason: 'structural details schema version' },
+  { path: 'exchange_id', reason: 'structural exchange correlation id' },
+  { path: 'tool_meta.curr', reason: 'structural tool-chain marker' },
+  { path: 'tool_meta.next', reason: 'structural tool-chain marker' },
+  { path: 'response_kind', reason: 'answering-surface concern; the response entry echoes the field' },
+  { path: 'options.*.id', reason: 'stable answer ids are represented by visible option numbering' },
+  { path: 'allow_other', reason: 'answering affordance — collection-UI concern, not transcript content' },
+  { path: 'allow_none', reason: 'answering affordance — collection-UI concern, not transcript content' },
+  { path: 'comment_prompt', reason: 'answering affordance — collection-UI concern, not transcript content' },
+];

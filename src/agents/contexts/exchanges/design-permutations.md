@@ -209,15 +209,19 @@ Response in the question's own vocabulary, conversational:
 
 ## Tuples — question → answer (free-text)
 
+Decision (2026-07-02): the free-text answer renders as **plain text**, never a
+blockquote — the answer is the user's own voice, not commentary on one; blockquote
+stays reserved for the why-voice (reasons and comments).
+
 ---
 
 # Question: {question_content}
 
 *Answer freely.*
 
-**Answered:**
+## Answer
 
-> {answer_text_verbatim, possibly multi-paragraph}
+{answer_text_verbatim — plain, possibly multi-paragraph}
 
 ---
 
@@ -598,7 +602,19 @@ deterministic proof the retirement holds.
 
 ---
 
-### review decision — checkbox echo over the verdict field (★-consistent)
+### review decision — settled format (2026-07-02)
+
+Landed: `## Review: accepted | changes requested | rejected` + optional bare
+blockquote comment. Verdict-in-heading beats the checkbox echo here — three fixed
+enum values carry no per-option rationale, so re-listing them earns nothing.
+
+## Review: accepted
+
+> {Content of comment, if any, on the final acceptance}
+
+---
+
+### review decision — checkbox echo over the verdict field (superseded by the above)
 
 The three verdicts ARE a single-choice field — the same task-list semantics apply,
 and rejected verdicts staying visible carries signal ("changes were requested when

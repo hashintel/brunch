@@ -11,7 +11,7 @@ import {
   createWorkspaceDialogComponent,
   WORKSPACE_DIALOG_WIDTH,
 } from '../../.pi/components/workspace-dialog/index.js';
-import { renderPresentQuestionResult } from '../../.pi/extensions/exchanges/present-question-renderer.js';
+import { renderMarkdownResult } from '../../.pi/extensions/exchanges/shared/markdown.js';
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
 import { presentQuestionOptionsFixture } from './exchange-fixtures.js';
@@ -203,12 +203,9 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     id: 'present-question',
     label: 'present_question transcript render',
     presentedLike:
-      'tool result renderer — src/.pi/extensions/exchanges/present-question.ts (renderResult from structured details)',
+      'tool result renderer — src/.pi/extensions/exchanges/present-question.ts (renderResult = Markdown pass-through of content, D104-L)',
     open: (tui, theme) =>
-      previewStaticComponent(
-        tui,
-        renderPresentQuestionResult(presentQuestionOptionsFixture.result.details, theme),
-      ),
+      previewStaticComponent(tui, renderMarkdownResult(presentQuestionOptionsFixture.result, theme)),
   },
   {
     id: 'chrome-header',

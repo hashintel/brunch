@@ -53,6 +53,15 @@ export const SelectedChoiceSchema = z.toJSONSchema(zSelectedChoice, {
   unrepresentable: 'throw',
 });
 
+export const zAnsweredOptionEcho = z
+  .object({
+    id: z.string().min(1),
+    content: zMarkdown,
+    rationale: zMarkdown.optional(),
+  })
+  .strict();
+export type AnsweredOptionEcho = z.infer<typeof zAnsweredOptionEcho>;
+
 export function structuredExchangeResponseRequiresComment(params: {
   readonly choiceKinds?: readonly ChoiceKind[] | undefined;
   readonly reviewDecision?: 'approve' | 'request_changes' | 'reject' | undefined;
@@ -66,6 +75,7 @@ export function structuredExchangeResponseRequiresComment(params: {
 const zChoiceAnsweredPayload = z
   .object({
     choice: zSelectedChoice,
+    options: z.array(zAnsweredOptionEcho).min(1),
     comment: zMarkdown.optional(),
   })
   .strict()
@@ -86,6 +96,7 @@ export const zRequestChoiceAnswered = zChoiceAnsweredPayload;
 const zChoicesAnsweredPayload = z
   .object({
     choices: z.array(zSelectedChoice).min(1),
+    options: z.array(zAnsweredOptionEcho).min(1),
     comment: zMarkdown.optional(),
   })
   .strict()

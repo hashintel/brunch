@@ -1,4 +1,8 @@
-import type { RequestChoicesDetails, SelectedChoice } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type {
+  AnsweredOptionEcho,
+  RequestChoicesDetails,
+  SelectedChoice,
+} from '../../.pi/extensions/exchanges/schemas/index.js';
 import {
   REQUEST_OUTCOME_KEYS,
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA,
@@ -7,12 +11,13 @@ import {
 // Re-exported so session-side consumers can reach the outcome union without
 // importing extension internals.
 export { REQUEST_OUTCOME_KEYS };
-export type { RequestChoicesDetails, SelectedChoice };
+export type { AnsweredOptionEcho, RequestChoicesDetails, SelectedChoice };
 type RequestChoicesProjectionInput =
   | {
       readonly exchangeId: string;
       readonly status: 'answered';
       readonly choices: readonly SelectedChoice[];
+      readonly options: readonly AnsweredOptionEcho[];
       readonly comment?: string | undefined;
     }
   | {
@@ -38,6 +43,7 @@ export function projectRequestChoices(input: RequestChoicesProjectionInput): Req
       tool_meta: { ...base.tool_meta, next: 'capture_choices' as const },
       answered: {
         choices: [...input.choices],
+        options: [...input.options],
         ...(comment !== undefined ? { comment } : {}),
       },
     };
