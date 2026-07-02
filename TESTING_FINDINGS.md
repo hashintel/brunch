@@ -58,9 +58,9 @@ Doctor-mode log for the TESTING_PLAN.md walkthrough, 2026-07-02. Session: `works
 
 ## Beat 3 — Builder-reported (FE-1122 batch)
 
-### F12 · observability/harness · minor · logged
+### F12 · harness (test ledger) · minor · fixed (`6e263787` on `ln/fe-1122-walkthrough-fixes`)
 
-**`registry.test.ts` event-order failure: extra `message_start`.** Reported by the build thread as unrelated to its changes and left untouched. Needs triage: possibly interaction between the new F1 `before_provider_request` prompt guard (or F3 kick-activity status) and pi event ordering, or pre-existing flake. Reproduce on the stacked branch before assuming pre-existing.
+**`registry.test.ts` event-order failure: extra `message_start`.** Triaged: NOT pre-existing and NOT flake — commit `6eae06db` (F3 kick-activity) added `pi.on('message_start', …)` in `src/.pi/extensions/chrome/index.ts` to clear the indicator on first assistant output; `src/.pi/extensions/__tests__/registry.test.ts` is an exact registration ledger and needed the new listener added between `thinking_level_select` and `turn_end`. Fixed on the causing branch; fe-1123/fe-1124 restacked; test green (7/7).
 
 ## Cross-checks recorded in passing
 
