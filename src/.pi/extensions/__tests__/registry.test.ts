@@ -80,6 +80,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'session_start',
       'model_select',
       'thinking_level_select',
+      'message_start',
       'turn_end',
       'session_before_fork',
       'session_start',
