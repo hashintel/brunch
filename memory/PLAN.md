@@ -111,8 +111,9 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### exchange-rendering
 
 - **Name:** Structured-exchange transcript rendering — fix, unify, and lock the renderer family
-- **Linear:** unassigned (create on pickup)
-- **Branch:** tbd
+- **Linear:** FE-1123
+- **Branch:** `ln/fe-1123-exchange-rendering`
+- **Current execution pointer:** `memory/cards/exchange-rendering--sweep.md` (ledger) + `memory/cards/exchange-rendering--content-grammar.md` (next slice: ★ content grammar, answered-payload option echo, tuple goldens — from the 2026-07-02 design session in `src/agents/contexts/exchanges/design-permutations.md`). Head slice built 2026-07-02 (`beede8d5`, D104-L); its consumed scope card deleted per cleanup.
 - **Kind:** coverage frontier (sweep shape) with a structural head slice. Arc: `exchange-presentation`.
 - **Certainty:** head slice `proving` (new render-from-details seam + formatter-home decision); sweep rows `earned` (locking settled per-kind renderers).
 - **Classification:** buildable-now. No product-state or evidence gate — all inputs (schemas, details contracts, preview harness) exist.
@@ -146,14 +147,14 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - Row closure = formatter honest + renderResult-from-details + preview entry + snapshot/invariant oracle green.
 
 - **Aggregate DoD:** no ● row open; head-slice decision recorded; `exchange-renderer-inventory.test.ts` extended to every row (snapshot per formatter); render-honesty invariant per renderer; `structured-exchange-boundaries.test.ts` still green; preview registry has one entry per renderer family member.
-- **Inventory authority:** `memory/cards/exchange-rendering--sweep.md` (temporary ledger; rows only — sequencing stays here).
+- **Inventory authority:** `memory/cards/exchange-rendering--sweep.md` (authored 2026-07-02; rows only — sequencing stays here). The draft table above is superseded by the ledger.
 - **Oracles:**
   - Inner: per-row `toMatchFileSnapshot` (extends `exchange-renderer-inventory.test.ts`) for model-facing content; direct-render component tests for renderResult output (precedent: rounded-box/chrome direct-render tests).
   - Middle: render-honesty invariant (details ↔ visible-content no-loss) per renderer; boundaries test for the dependency rules in `src/.pi/extensions/exchanges/TOPOLOGY.md`.
   - Outer: walkthrough re-observation beats (TESTING_PLAN.md scenarios 3/5) after landing.
 - **Cross-cutting obligations:** dual-audience discipline — changes to persisted `content` strings change model context; keep model-facing text concise and stable, do visual work in renderResult. Preview-harness parity: every new/changed renderer lands with its `dev:components` entry (extends `src/dev/component-preview/registry.ts`). Topology reconciliation: `src/.pi/extensions/exchanges/TOPOLOGY.md` + `src/projections/TOPOLOGY.md` shape ledger on close.
 - **Verification:** four-oracle compound per `memory/SPEC.md` §Design Notes "Exchange-presentation oracle design" — dual-family goldens (content vs render snapshots, inner), render-honesty invariant with declared elision lists (middle), live/persisted metamorphic render equality (middle), family-completeness registry test (middle, = executable aggregate DoD). Fixtures captured-then-normalized from live sessions + hand-authored terminal-state edges. Tier-2 dual-audience probe fires when model-facing content snapshots change. Preview-gallery + walkthrough re-observation outer.
-- **Traceability:** D37-L, D38-L, D41-L (schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); new SPEC decision on formatter-home + render-from-details when the head slice lands.
+- **Traceability:** D37-L, D38-L, D41-L (schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); D104-L (formatter-home retained, details-backed TUI render, render-honesty/elision convention, `present_alternatives` excluded from this sweep family).
 
 ### exchange-answering-chrome
 
@@ -170,6 +171,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   1. **`answer` (free-text) response kind**: give `request_response`'s `collectAnswerFromSources` path a Brunch-owned bordered component via `ctx.ui.custom` (not `setEditorComponent` — independent of thread 1), following `choices`'/`MultiChoicePickerComponent`'s proven `ctx.ui.custom` + `ctx.ui.editor`-fallback pattern; keep the existing `answerBroker` branch as a third fallback.
   2. **`choice` and review response kinds**: give `collectChoiceFromUi`/`collectReviewFromUi` the same `ctx.ui.custom`-backed bordered-picker treatment, reusing `projectRoundedBox` + `projectScrollViewport` — this retires the raw `ctx.ui.select` path behind walkthrough findings F8 (raw `**`, unnumbered, bare "Other"). Most ready-to-build of the two — `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`'s coverage matrix already proves this cannot regress `session.submitExchangeResponse` (Brunch's real RPC-driven answering path bypasses `ctx.ui.*` entirely, so it's unaffected by whichever UI mechanism the local-TUI path uses).
 - **Acceptance:** to be defined per-thread when scoped; likely two separate `ln-design`/`ln-scope` passes given the differing risk profiles above, not one combined scope card.
+- **Carried design question (2026-07-02, from `exchange-rendering`):** GitHub-style per-item review commentary — widening the review answered payload (`comments: [{on: draft|edge|set, body}]`) plus the collection UI to gather it. The payload half is a SPEC decision; the collection half belongs to this frontier's review-answering surface. Evaluate when scoping; transcript sketch in `src/agents/contexts/exchanges/design-permutations.md` §Review-set evaluation.
 - **Verification:** answering-path non-regression contract test — `session.submitExchangeResponse` never touches `ctx.ui.*` (locks `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`); injected-key VirtualTerminal tests for the new pickers (workspace-dialog-scroll precedent); manual physical-terminal smoke carried from `component-dx`. See `memory/SPEC.md` §Design Notes "Exchange-presentation oracle design".
 - **Traceability:** D22-L, D35-L (chrome, thread 1); D37-L, D38-L (structured-exchange UI seam, threads 2–3); `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`; `src/.pi/components/TOPOLOGY.md`, `src/.pi/extensions/chrome/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`.
 
