@@ -1,7 +1,6 @@
 import {
   joinMarkdownBlocks,
   markdownBold,
-  markdownEscape,
   markdownStrikethrough,
   markdownTaskList,
 } from '../../shared/markdown.js';
@@ -24,12 +23,12 @@ export function formatOptionEcho(params: {
   return markdownTaskList([
     ...params.options.map((option, index): [boolean, string] => {
       const selected = params.selectedIds.has(option.id);
-      const label = `${index + 1}. ${markdownBold(markdownEscape(option.content.trim()))}`;
+      const label = `${index + 1}. ${markdownBold(option.content.trim())}`;
       return [selected, selected ? label : markdownStrikethrough(label)];
     }),
     ...params.writeIns.map((writeIn): [boolean, string] => {
       const prefix = writeIn.kind === 'none' ? '*None:*' : '*Other:*';
-      return [true, `${prefix} ${markdownEscape(writeIn.label.trim())}`];
+      return [true, `${prefix} ${writeIn.label.trim()}`];
     }),
   ]);
 }

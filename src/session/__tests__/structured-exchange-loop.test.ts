@@ -35,7 +35,7 @@ describe('structured exchange loop helpers', () => {
       toolResultMessage: {
         role: 'toolResult',
         toolName: 'request_response',
-        content: [{ text: '## Answer\n\n> A local product specification workspace.' }],
+        content: [{ text: '## Answer\n\nA local product specification workspace.' }],
         details: {
           schema: 'brunch.structured_exchange.request',
           exchange_id: pending.exchangeId,

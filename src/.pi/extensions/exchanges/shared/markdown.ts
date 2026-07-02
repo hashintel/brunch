@@ -56,10 +56,6 @@ export function renderPlainResult(result: ToolResultLike) {
   return new Text(textFromToolContent(result), 0, 0);
 }
 
-export function markdownEscape(text: string): string {
-  return text.replace(/([\\`*_{}[\]()#+\-.!|>])/g, '\\$1');
-}
-
 export function normalizeOptionalText(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const trimmed = value.trim();

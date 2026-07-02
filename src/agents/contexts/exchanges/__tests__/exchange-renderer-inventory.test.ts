@@ -56,7 +56,7 @@ describe('structured-exchange renderer inventory', () => {
     ).toMatchFileSnapshot('../__snapshots__/exchange-renderer-inventory-question-choice-tuple.md');
 
     const choicesOptions = [
-      { id: 'grammar', content: 'Grammar drift', rationale: 'Model-facing text is contract-like.' },
+      { id: 'grammar', content: 'Grammar drift', rationale: 'Model-facing `content` is *contract-like*.' },
       { id: 'preview', content: 'Preview lag', rationale: 'Humans need a fast visual loop.' },
     ];
     const choicesQuestion = projectPresentQuestion({

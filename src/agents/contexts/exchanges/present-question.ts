@@ -3,7 +3,6 @@ import {
   joinMarkdownBlocks,
   markdownBlockquote,
   markdownBold,
-  markdownEscape,
   markdownHeading,
   markdownOl,
 } from '../../shared/markdown.js';
@@ -17,9 +16,9 @@ export function formatPresentQuestion(projection: PresentQuestionProjection): st
 
   if ('options' in projection.details) {
     const options = projection.details.options.map((option) => {
-      const content = markdownBold(markdownEscape(option.content.trim()));
+      const content = markdownBold(option.content.trim());
       const rationale = option.rationale?.trim();
-      return rationale ? `${content} — ${markdownEscape(rationale)}` : content;
+      return rationale ? `${content} — ${rationale}` : content;
     });
     return joinMarkdownBlocks(question, markdownOl(options));
   }

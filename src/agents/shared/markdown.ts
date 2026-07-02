@@ -3,8 +3,12 @@
  *
  * Owns:
  * - thin wrapper helpers around md-pen
- * - shared fenced-block and escaping conventions
+ * - shared fenced-block and list-structure conventions
  * - no graph/session/exchange domain semantics
+ *
+ * Policy: zMarkdown callers pass markdown source through verbatim. Structural
+ * helpers may protect their own container syntax, but this module does not
+ * context-free escape markdown-by-contract content into plain text.
  */
 
 import {
@@ -12,7 +16,6 @@ import {
   bold,
   code,
   codeBlock,
-  escape,
   heading,
   hr,
   ol,
@@ -72,10 +75,6 @@ export function markdownHr(): string {
 
 export function inlineCode(text: string): string {
   return code(text);
-}
-
-export function markdownEscape(text: string): string {
-  return escape(text);
 }
 
 export function joinMarkdownBlocks(...blocks: Array<string | null | undefined | false>): string {

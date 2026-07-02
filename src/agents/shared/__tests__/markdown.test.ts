@@ -6,9 +6,10 @@ import {
   markdownBlockquote,
   markdownBullet,
   markdownCodeBlock,
-  markdownEscape,
   markdownHeading,
+  markdownOl,
   markdownTable,
+  markdownTaskList,
   markdownUl,
 } from '../markdown.js';
 
@@ -25,6 +26,14 @@ test('markdown primitives are md-pen backed while preserving current bullet outp
   ).toBe('| Name | Count |\n| - | - |\n| Alpha | 2 |');
   expect(markdownUl(['alpha', 'beta'])).toBe('- alpha\n- beta');
   expect(inlineCode('a `tick`')).toBe('`` a `tick` ``');
-  expect(markdownEscape('**not bold**')).toBe('\\*\\*not bold\\*\\*');
   expect(joinMarkdownBlocks(' A ', false, undefined, 'B')).toBe('A\n\nB');
+});
+
+test('list helpers keep multiline markdown inside the owning list item', () => {
+  expect(markdownOl(['Model-facing **alpha**\n1. still same item', 'Beta*'])).toBe(
+    '1. Model-facing **alpha**\n   1. still same item\n2. Beta*',
+  );
+  expect(markdownTaskList([[true, 'Other: `code`\n- still same item']])).toBe(
+    '- [x] Other: `code`\n  - still same item',
+  );
 });

@@ -471,8 +471,8 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(result.content[0]?.text).toContain('## Answer');
-    expect(result.content[0]?.text).toContain('Move under src/tui\\-client');
-    expect(result.content[0]?.text).toContain('~~1. **Keep src/pi\\-extensions.ts**~~');
+    expect(result.content[0]?.text).toContain('Move under src/tui-client');
+    expect(result.content[0]?.text).toContain('~~1. **Keep src/pi-extensions.ts**~~');
     expect(isStructuredExchangeRequestDetails(result.details)).toBe(true);
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location',
