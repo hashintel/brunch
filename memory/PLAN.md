@@ -54,6 +54,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
+- `walkthrough-batch-2` (FE-1124) — continued doctor-pass scenarios (those not blocked on exchange-rendering) + fixture/seed preparation and generative-scenario variation sets. Branch `ln/fe-1124-walkthrough-batch-2` (stack tip, this worktree). Findings ledger: `TESTING_FINDINGS.md`.
 - `walkthrough-fixes` (FE-1122) — **built 2026-07-02** (all cards incl. F10 addendum; commits `e0701b4`…`486824b` on `ln/fe-1122-walkthrough-fixes`); pending PR tie-off. Walkthrough continues on a stacked follow-on branch.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
@@ -111,8 +112,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### exchange-rendering
 
 - **Name:** Structured-exchange transcript rendering — fix, unify, and lock the renderer family
-- **Linear:** FE-1123
-- **Branch:** `ln/fe-1123-exchange-rendering`
+- **Linear:** [FE-1123](https://linear.app/hash/issue/FE-1123/structured-exchange-rendering-fix-unify-and-lock-the-transcript)
+- **Branch:** `ln/fe-1123-exchange-rendering` (stacked on `ln/fe-1122-walkthrough-fixes`; worktree `~/Code/hashintel/brunch-next-lambda`)
 - **Status:** ✓ done (2026-07-03). Code DoD closed by `npm run verify`; human outer oracles remain owed: walkthrough re-observation for `TESTING_PLAN.md` scenarios 3/5 and preview-gallery aesthetic review.
 - **Current execution pointer:** none. Ledger `memory/cards/exchange-rendering--sweep.md` is done at 12 of 12 rows built as of 2026-07-03; closeout slices are done in `memory/cards/exchange-rendering--closeout.md`. Head slice built 2026-07-02 (`beede8d5`, D104-L); its consumed scope card deleted per cleanup. The 2026-07-03 consolidation of core contracts into `src/exchanges/` is recorded as D108-L.
 - **Kind:** coverage frontier (sweep shape) with a structural head slice. Arc: `exchange-presentation`.
