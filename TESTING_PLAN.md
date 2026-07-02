@@ -14,6 +14,9 @@ This pass validates the current Brunch POC after the recent data-model and agent
    - graph item `settlement` distinct from `basis`
    - absolute, readable Brunch `SKILL.md` locations in the live prompt manifest
 5. Capture divergences as product, data-model, prompt/context, skill-routing, transport/projection, or demo-friction findings.
+6. Pressure-test two open design questions with live evidence:
+   - **Generative discoverability**: does the Specify-mode elicitor ever spontaneously go generative (`propose`/`project`) when the spec needs it, and would a user ever discover they can ask for it? (Feeds the Specify/Enhance/Execute mode question — observe, don't redesign.)
+   - **Reboot semantics**: "kick" is currently origination-only; the working hypothesis is that all restart-like session events (new session, resume, re-entry, tree navigation, mode switch) should be able to trigger a kick. Scenario 7 gathers the evidence.
 
 ## Primary invocation surface
 
@@ -172,6 +175,7 @@ Expected behavior:
 - Commands can create advisory graph material and promote advisory → settled.
 - Commands reject invalid settlements and settled → advisory regression.
 - Graph projections/renderers surface advisory items honestly.
+- **Capture-time settlement convention** (prompt-carried, not code-enforced — watch closely): intent-plane captures may land settled with direct authority; design/oracle/commitment-plane material captured during ingest/map lands `advisory` and is settled only through the review window. Known hazard: `mutate_graph` defaults omitted settlement to `settled`, so a forgetful elicitor silently over-settles ingested material. Record every non-intent-plane create where the agent omitted or wrongly set settlement — this decides whether we need provenance/action-traced enforcement (or a mode-derived signal) in code.
 
 Evidence to inspect:
 
@@ -213,6 +217,51 @@ Evidence to inspect:
 - `rpc.discover` from dev CLI
 - browser sidecar behavior
 - `graph.overview`, `session.pendingExchange`, `session.exchanges` before/after turns
+
+### 7. Mode switch, FTR events, and session reboot
+
+Known state going in: `applyModeSwitch` (`src/.pi/extensions/commands/index.ts`) swaps the system prompt + active tools and appends a `brunch.agent_runtime_state` custom entry (`reason: 'switch'`), but does **not** trigger a kick — kick today is origination-only (D78-L, `src/session/originate-assistant-turn.ts`). Session re-entry / tree navigation as reboot events is horizon (`session-branching`). This scenario gathers evidence for a unified "reboot on FTR events" seam as a likely scoped fix.
+
+Expected behavior (current contract):
+
+- `/brunch:mode` (or `alt+m`) switches Specify ↔ Execute.
+- Runtime-switch entry appears in session state with `previous` + `source`.
+- A status-change notification is visible in the transcript/TUI.
+- The next provider request uses the new role's system prompt (`elicitor.md` vs `executor.md`) and the new active-tool set.
+- Executor mode blocks shell/edit/write and exposes `orchestrator_stub` only.
+
+Dramaturgical probes (observe, classify, don't fix in-line unless trivial):
+
+- After switching, does the new agent orient itself unprompted, or does it sit silent until poked? (This is the missing mode-entry kick.)
+- **Execute-gate pushback**: switch to Execute with a spec that has intent but thin design/oracle/commitment coverage and say "OK let's go." Does the executor push back — "let's figure out technical design, verification design, and plan sequencing first" — and route the user back, or does it barrel ahead? This probes whether the two-mode model plus pushback can substitute for a third Enhance mode.
+- Resume an existing session (`--workspace` without `--seed`): does re-entry produce a coherent reorientation, and is there any session-state evidence of the re-entry event?
+
+Evidence to inspect:
+
+- `.brunch/debug/system-prompt.md` before/after switch
+- `.brunch/debug/origination.md` (expect NO mode-switch kick record — confirming the gap)
+- `session.runtimeState` and session JSONL runtime-switch entries
+- `src/.pi/extensions/__tests__/commands-runtime-switch.test.ts` as the current contract
+
+### 8. Seeded-scenario probe via tier-2 harness
+
+Expected behavior:
+
+- A tracked seed loads a scenario to a known state, a scripted input runs, and output quality is validated — without the interactive TUI.
+- The probe writes JSONL evidence under `.fixtures/scratch/` suitable for promotion.
+
+Canonical code paths:
+
+- `src/dev/tier-2-harness.ts`, `src/dev/faux-harness.ts`
+- `src/probes/capture-quality-loop.ts`, `src/probes/fixture-curation-loop.ts`
+- `src/graph/seed-fixtures.ts`
+
+Evidence to inspect:
+
+- probe run JSONL + report/oracle artifact
+- `.brunch/debug/transcript.md` (tier-2 harness writes this)
+
+Fixture grooming rider: while here, inventory `.fixtures/seeds/` (18 seed dirs) for staleness against the current data model, wipe and reseed dev workbenches, and shortlist which seeds become the preset scenarios for repeatable probes. Grooming actions are their own scoped task — record candidates, don't churn fixtures mid-walkthrough.
 
 ## Finding classification
 

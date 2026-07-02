@@ -45,6 +45,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
+- `walkthrough-fixes` (FE-1122) — doctor-pass defect-closure batch; three scope cards ready under `memory/cards/walkthrough--*.md`; built by a parallel thread while the walkthrough continues.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
 ### Recently Completed
@@ -112,6 +113,18 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   3. **`choice` and review response kinds**: give `collectChoiceFromUi`/`collectReviewFromUi` the same `ctx.ui.custom`-backed bordered-picker treatment, reusing `projectRoundedBox` + `projectScrollViewport`. Most ready-to-build of the three — `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`'s coverage matrix already proves this cannot regress `session.submitExchangeResponse` (Brunch's real RPC-driven answering path bypasses `ctx.ui.*` entirely, so it's unaffected by whichever UI mechanism the local-TUI path uses).
 - **Acceptance:** to be defined per-thread when scoped; likely three separate `ln-design`/`ln-scope` passes given the differing risk profiles above, not one combined scope card.
 - **Traceability:** D22-L, D35-L (chrome, thread 1); D37-L, D38-L (structured-exchange UI seam, threads 2–3); `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`; `src/.pi/components/TOPOLOGY.md`, `src/.pi/extensions/chrome/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`.
+
+### walkthrough-fixes
+
+- **Name:** Doctor-pass walkthrough fixes (batch 1)
+- **Linear:** [FE-1122](https://linear.app/hash/issue/FE-1122/walkthrough-doctor-pass-fixes-kick-prompt-origination-record-kick)
+- **Branch:** `ln/fe-1122-walkthrough-fixes` (stacked on `ln/fe-xxx-plan-plane-redesign` / PR #283)
+- **Kind:** defect-closure batch inside settled seams, sourced from the 2026-07-02 TESTING_PLAN.md walkthrough.
+- **Status:** scoped, ready to build. Findings ledger: `TESTING_FINDINGS.md`. Walkthrough continues in parallel; later beats may append further cards or a batch-2 frontier.
+- **Certainty:** earned (settled seams; each card closes a named defect).
+- **Objective:** Close the beat-1 walkthrough findings: kick turn must carry the composed foreground prompt (F1 — pi `triggerTurn` path bypasses `before_agent_start`); origination decision record written at decision time (F2); kick-time chrome (activity indicator F3, welcome intro F4, collapsed thinking F6); elicitor prompt refinements (concision F5, multi-select nudge F9, retired "ranked elicitation gaps" vocabulary).
+- **Current execution pointer:** `memory/cards/walkthrough--kick-prompt-and-origination-record.md`, `memory/cards/walkthrough--kick-chrome-and-thinking.md`, `memory/cards/walkthrough--elicitor-prompt-refinements.md`. Excluded/deferred: F7/F8 (`present_question`/`request_response` rendering refinements).
+- **Traceability:** D78-L, I46-L/I47-L (origination honesty); D98-L (mode→role→prompt); D101-L (retired gap vocabulary); D40-L (tool policy).
 
 ### orchestrator-tool-port
 
