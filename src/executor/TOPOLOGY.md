@@ -1,6 +1,6 @@
 # executor/ — execute-mode projection contracts
 
-SPEC decisions: D101-L (executor cutover over injected ports), D52-L (layer boundary) / I56-L (bounded execute-mode ports).
+SPEC decisions: D101-L (executor cutover over injected ports), D52-L (layer boundary), FE-1125 run driver / I56-L (bounded execute-mode ports).
 
 ## Owns
 
@@ -10,6 +10,7 @@ Pure contracts and orchestration helpers that turn `next` graph facts into execu
 executor/
 ├── TOPOLOGY.md
 ├── agent-result.ts       AgentRunnerPort -> slice result report
+├── orchestrate.ts        run facts + RunScheduler -> drive() over the lifecycle steps
 ├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml
 ├── launch.ts             spec-scoped plan.yaml -> non-running launch readiness
 ├── plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
@@ -94,3 +95,5 @@ rules:
 `promotion.ts` is the first land/promotion boundary: for a `petri_exported` run with a worktree it invokes the injected `GitLandPort`, then writes `.brunch/cook/runs/<runId>/promotion/promotion.json` (runId, specId, petriPath, reportsPath, completedSliceIds, run-local commit SHA) and records `status:"promotion_prepared"`. `GitLandPort` failure or no changes leaves metadata unchanged. This is run-local only: host branch/ref promotion remains out of scope, and actual host land remains pending.
 
 `host-promotion.ts` is the host-promotion preflight/apply boundary. Preflight validates that `run.json.promotionCommitSha` agrees with `promotion/promotion.json` and delegates read-only promoted-commit diff inspection to `GitHostPromotionPort`, returning changed files and patch summary with `sideEffects: []`. Apply requires an accepted commit SHA, reruns preflight, and delegates bounded host worktree patch application to the same port; it reports `host_worktree_apply` and still does not commit, create refs, switch branches, or stage the host index.
+
+`orchestrate.ts` is the run driver (FE-1125, D102-L): a generic `drive()` loop advances a run by repeatedly asking a pure `RunScheduler` for the ready step and calling the matching lifecycle step function with the injected `ExecutionPorts`. It owns no side effects of its own — `run.json` status is the loop state, and per-slice-frontier readiness derives from completion facts, not the status enum. `linearScheduler` returns a single ready step and drives to `run_completed`; the set-returning `ready()` contract leaves room for a future `PetriScheduler` (real Petri-net execution) without reshaping the loop. Promotion and host land stay out of scope — the scheduler reports no ready step at `run_completed`.

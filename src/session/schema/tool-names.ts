@@ -1,4 +1,5 @@
 export const BRUNCH_ORCHESTRATOR_STUB_TOOL = 'orchestrator_stub';
+export const BRUNCH_EXECUTE_ORCHESTRATE_TOOL = 'execute_orchestrate';
 export const BRUNCH_EXECUTE_AGENT_RESULT_TOOL = 'execute_agent_result';
 export const BRUNCH_EXECUTE_LAUNCH_TOOL = 'execute_launch';
 export const BRUNCH_EXECUTE_PLAN_FILE_TOOL = 'execute_plan_file';
