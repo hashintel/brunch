@@ -62,6 +62,22 @@ Doctor-mode log for the TESTING_PLAN.md walkthrough, 2026-07-02. Session: `works
 
 **`registry.test.ts` event-order failure: extra `message_start`.** Triaged: NOT pre-existing and NOT flake — commit `6eae06db` (F3 kick-activity) added `pi.on('message_start', …)` in `src/.pi/extensions/chrome/index.ts` to clear the indicator on first assistant output; `src/.pi/extensions/__tests__/registry.test.ts` is an exact registration ledger and needed the new listener added between `thinking_level_select` and `turn_end`. Fixed on the causing branch; fe-1123/fe-1124 restacked; test green (7/7).
 
+## Beat 4 — Relaunch verification (batch-1 fixes live)
+
+Verified in vivo: F1 ✓ (elicitor persona + skills manifest in captured provider prompt; agent chose multi-select unprompted, also confirming F9), F2 ✓ (`origination.md` decision record present while first question still pending), F4 ✓ (welcome renders before assistant output), F6 ✓ (thinking collapsed).
+
+### F13 · product behavior (chrome design) · minor · logged
+
+**Welcome block placement + styling.** The welcome copy is part of `BrunchStartupHeader` itself (`ui.setHeader`, `src/.pi/extensions/chrome/index.ts:224`), not a separate block. Wanted: welcome as its own element *after* the header, with stronger styling/decoration to stand out. Content is good.
+
+### F14 · demo friction · minor · logged
+
+**Kick activity indicator too low-salience.** F3 landed as a status-line entry (`setStatus('brunch.kick', 'opening assistant turn…')`, `brunch-tui.ts:510`) — user didn't notice it during a real kick. Pi exposes `setWorkingMessage` / `setWorkingVisible` / `setWorkingIndicator` (the main loading animation), which is the salient surface; the kick should probably drive that instead of (or in addition to) a status entry.
+
+### F15 · product behavior (TUI rendering) · minor · logged
+
+**Collapsed thinking/tool blocks should summarize what happened.** Wanted: "Thinking..." → "Thought for N seconds", "Exploring..." → "Explored N files", or generic "Working..." → "Worked for N seconds". Pi capability check: `ctx.ui.setHiddenThinkingLabel(label)` exists and is extension-settable at runtime, but it is a **single global label** propagated to all rendered assistant messages (`interactive-mode.js:1373-1381`) and reset to default on turn boundaries — so per-message retrospective labels ("Thought for 12s" on *that* block) are not natively supported; a duration-updating label would apply to every collapsed block at once. Per-message labels or tool-call collapse summaries ("Explored 4 files") for pi built-in tools would need an upstream pi change; Brunch-owned tools could get summary-style `renderCall`/`renderResult` treatment inside the exchange-rendering frontier instead. Candidates: (a) cheap — set a session-global "Worked for Ns" label at turn_end (accepting the global-label semantics), (b) upstream pi feature request for per-message labels, (c) fold Brunch-tool collapse summaries into `exchange-rendering`'s renderCall row.
+
 ## Cross-checks recorded in passing
 
 - `entry-contents.md` ✓ healthy: context seed at LSN 2, graph facts (counts by kind, zero-count kinds with bands), empty scratchpad, **no** gap scores/ranks — matches D101-L/D102-L expectations.
