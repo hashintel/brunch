@@ -43,6 +43,18 @@ with tuple-form dual-family goldens locking it.
 → dev/component-preview/exchange-fixtures.ts (tuple fixtures)
 ```
 
+## Implementation directive (user, 2026-07-02)
+
+Compose the content strings with **md-pen** (existing dependency, v1.2.0) instead of
+hand-rolled string concatenation — via the existing house wrapper
+`src/agents/shared/markdown.ts` (extend it with what the grammar needs: `ol`,
+`taskList`, `strikethrough`, `bold`, `hr`). The full ★ grammar maps onto its API
+(`heading(_,2)`, `blockquote`, `ol`, `taskList`, `bold`/`strikethrough`, `table`).
+Use md-pen's `escape` for option content / user answers embedded in composed
+structure (labels containing `**` or `1.` must not corrupt the grammar); evaluate
+retiring the regex `markdownEscape` in `src/.pi/extensions/exchanges/shared/markdown.ts`
+if it ends up caller-free.
+
 ## Decisions this card must record (→ SPEC on landing)
 
 1. **Answered-payload option echo.** Widen choice/choices answered payloads to carry
