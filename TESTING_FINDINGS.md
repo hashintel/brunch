@@ -62,6 +62,8 @@ Doctor-mode log for the TESTING_PLAN.md walkthrough, 2026-07-02. Session: `works
 
 **`registry.test.ts` event-order failure: extra `message_start`.** Triaged: NOT pre-existing and NOT flake — commit `6eae06db` (F3 kick-activity) added `pi.on('message_start', …)` in `src/.pi/extensions/chrome/index.ts` to clear the indicator on first assistant output; `src/.pi/extensions/__tests__/registry.test.ts` is an exact registration ledger and needed the new listener added between `thinking_level_select` and `turn_end`. Fixed on the causing branch; fe-1123/fe-1124 restacked; test green (7/7).
 
+**Postscript (doctor note):** the builder reported this failure as "unrelated/pre-existing" — wrong; its own F3 commit introduced the listener. Treat builder-thread attribution claims about test failures as unverified until traced.
+
 ## Beat 4 — Relaunch verification (batch-1 fixes live)
 
 Verified in vivo: F1 ✓ (elicitor persona + skills manifest in captured provider prompt; agent chose multi-select unprompted, also confirming F9), F2 ✓ (`origination.md` decision record present while first question still pending), F4 ✓ (welcome renders before assistant output), F6 ✓ (thinking collapsed).
@@ -77,6 +79,16 @@ Verified in vivo: F1 ✓ (elicitor persona + skills manifest in captured provide
 ### F15 · product behavior (TUI rendering) · minor · logged
 
 **Collapsed thinking/tool blocks should summarize what happened.** Wanted: "Thinking..." → "Thought for N seconds", "Exploring..." → "Explored N files", or generic "Working..." → "Worked for N seconds". Pi capability check: `ctx.ui.setHiddenThinkingLabel(label)` exists and is extension-settable at runtime, but it is a **single global label** propagated to all rendered assistant messages (`interactive-mode.js:1373-1381`) and reset to default on turn boundaries — so per-message retrospective labels ("Thought for 12s" on *that* block) are not natively supported; a duration-updating label would apply to every collapsed block at once. Per-message labels or tool-call collapse summaries ("Explored 4 files") for pi built-in tools would need an upstream pi change; Brunch-owned tools could get summary-style `renderCall`/`renderResult` treatment inside the exchange-rendering frontier instead. Candidates: (a) cheap — set a session-global "Worked for Ns" label at turn_end (accepting the global-label semantics), (b) upstream pi feature request for per-message labels, (c) fold Brunch-tool collapse summaries into `exchange-rendering`'s renderCall row.
+
+## Beat 5 — Resume re-entry (relaunch without `--reset`)
+
+### F16 · product behavior + prompt/context (re-entry framing) · MAJOR · logged
+
+**Resume gives no "where are we" orientation.** On re-entry the session should (a) surface deterministic state/status in the TUI — current mode, graph stats, possibly tucked into the transcript as chrome — and (b) have the elicitor open with an *assessment* of the spec's current state: not a raw node/edge listing, but a summary of what the graph expresses, plus a forecast of what's TODO and what comes next. Example shape: "Welcome back to **Alpha Grounding**. This is an early-stage spec with 5 nodes and 0 edges…" followed by a compact reading of the nodes (G1/TH1/CTX1/CON1/T1) and where the elicitation is headed. This is also the natural teaching surface — the re-entry summary is where the user learns what Brunch can do next. Two homes: deterministic chrome (rides the F13 welcome-block family, resume variant) and elicitor persona/kick-prompt guidance for the assessment framing (rides the F5/F9 elicitor-refinements family). The graph facts the summary needs are already in the context seed (entry-contents cross-check ✓).
+
+### F17 · product behavior (kick/exchange design) · MAJOR · logged
+
+**Resume should open with a process-level mode selection, not dive back into elicitation.** First interaction on re-entry should be a `request_response` single-select asking what the user wants to do — e.g.: continue specification via design-decision questions · continue via example-based questions · generatively expand/enhance the spec from what we know · design the technical implementation · design the verification approach — and only then proceed with questioning. This is the user-facing surface of the skills manifest routing (elicit variants / propose / project) and converges with TESTING_PLAN goal 6 (generative discoverability) and the scenario 7 mode-switch probe: the generative options in this menu are exactly the paths with no discriminating seed yet (see fixture-prep worklist). Design questions to settle when scoping: is the menu deterministic kick chrome or prompt-directed agent behavior; does it appear on every resume or only when the graph is past some threshold; how a choice maps to skill routing.
 
 ## Cross-checks recorded in passing
 

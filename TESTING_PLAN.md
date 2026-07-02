@@ -142,6 +142,34 @@ Evidence to inspect:
 - session JSONL tool calls/results
 - `src/agents/skills/__tests__/registry.test.ts`
 
+Failure modes to discriminate: never-reads (manifest ignored), wrong-skill (reads a non-matching SKILL.md), reads-but-ignores (loads it, conduct unchanged).
+
+#### Per-skill discriminating state (seed-gap matrix)
+
+Each probe needs graph state where the target skill is the *distinctively correct* move; without it, routing evidence is ambiguous.
+
+| skill | trigger probe | discriminating state | fit today |
+| --- | --- | --- | --- |
+| analyze | "what changes your next move?" | mid-size graph | ◔ alpha trivial; `bilal-macro-view/base` (232n) is wrong workbench |
+| elicit | "ask next focused question" | thin intent + zero-count bands | ✓ alpha is exactly this |
+| ingest | paste source notes | any state (empty workbench cleanest) | ✓ now |
+| map | "turn answer into graph shape" | chained after elicit/ingest | ✓ chained |
+| propose | "generate candidate reqs/oracles" | settled intent + EMPTY target plane | ✗ no seed |
+| project | "project reqs into design/oracle" | ACCEPTED upstream + empty downstream | ✗ no seed (macro-view/base already projected; grounded-intent has no reqs) |
+| review | "critique before committing" | plantable weaknesses; advisory items | ◔ no seed has settlement variation |
+| tutorial | "walk me through Brunch" | state-independent | ✓ now |
+
+#### Seed-variation worklist (fixture-prep; offered as a batch-2 scope card, not yet scoped)
+
+- `+ <ws>/intent-settled` → unlocks propose: settled goal/req intent, empty design+oracle planes
+- `+ <ws>/requirements-accepted` → unlocks project: settled requirements, zero criterion/check/vv_*
+- `+ <ws>/advisory-pending` → unlocks review: settled+advisory mix — **new variant class**; A36-L made seeds settlement-independent, so check `seedFixture` accepts settlement on the way in first
+- `+ <ws>/contradictory` → review + `semantic_conflict` testing (converges with `reconciliation-derivation` frontier)
+- `? mid-size alpha (~30n)` for analyze
+- Prep path: drive a workbench live to the desired state → `npm run dev -- export` as seed candidate
+
+Key dependency: the generative paths (propose/project) are exactly the ones with no discriminating seed — those variants are a prerequisite for the generative-discoverability probe (goal 6) and for verifying the F17 mode-menu options, not just skill routing.
+
 ### 3. Readiness and next-question flow
 
 Expected behavior:
