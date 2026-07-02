@@ -2,10 +2,7 @@ import type {
   PresentReviewSetDetails,
   ReviewSetDetailsPayload,
 } from '../../.pi/extensions/exchanges/schemas/index.js';
-import {
-  STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
-  zPresentReviewSetDetails,
-} from '../../.pi/extensions/exchanges/schemas/index.js';
+import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../../.pi/extensions/exchanges/schemas/index.js';
 import { roleNamedEdgeDraftEndpoints } from '../../graph/command-executor/role-named-edge-draft.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 
@@ -19,7 +16,7 @@ export function projectPresentReviewSet(input: {
   readonly payload: ReviewSetProposalPayload;
 }): PresentReviewSetProjection {
   const body = input.payload.pitch.narrative.trim();
-  const details = zPresentReviewSetDetails.parse({
+  const details: PresentReviewSetDetails = {
     schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
     v: 1,
     exchange_id: input.exchangeId,
@@ -32,7 +29,7 @@ export function projectPresentReviewSet(input: {
       ...(body ? { body } : {}),
     },
     review_set: reviewSetDetailsPayload(input.payload),
-  });
+  };
   return {
     details,
     payload: input.payload,
@@ -124,6 +121,10 @@ function reviewSetEdgeDetails(
         predecessor: endpointRefDetails(target),
         ...(draft.rationale !== undefined ? { rationale: draft.rationale } : {}),
       };
+    default: {
+      const _exhaustive: never = draft;
+      return _exhaustive;
+    }
   }
 }
 
