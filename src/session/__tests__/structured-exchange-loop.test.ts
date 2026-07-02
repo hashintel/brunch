@@ -72,6 +72,26 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
+  it('rejects single-select Other or None without a comment', () => {
+    const pending = {
+      ...nextDeterministicStructuredExchange(0),
+      options: [
+        { id: 'listed', label: 'Listed option', content: 'Listed option' },
+        { id: 'none', label: 'None of these', content: 'None of these' },
+      ],
+    } satisfies PendingStructuredExchange;
+
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: pending.exchangeId,
+        answer: { optionId: 'none' },
+      }),
+    ).toEqual({
+      ok: false,
+      message: 'Elicitation response requires a comment for Other or None selections',
+    });
+  });
+
   it('materializes accepted multi-select responses and requires comments for Other or None', () => {
     const pending = nextDeterministicStructuredExchange(2);
 

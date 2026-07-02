@@ -95,6 +95,12 @@ export function acceptedResponseFromParams(
     const choice = pending.options.find((option) => option.id === optionId);
     if (!choice) return { ok: false, message: 'Invalid elicitation option' };
     const comment = params.note?.trim();
+    if ((choice.id === 'other' || choice.id === 'none') && (comment === undefined || comment.length === 0)) {
+      return {
+        ok: false,
+        message: 'Elicitation response requires a comment for Other or None selections',
+      };
+    }
     return {
       ok: true,
       answer: { optionId: choice.id, label: choice.label },
