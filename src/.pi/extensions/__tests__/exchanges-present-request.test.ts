@@ -484,6 +484,57 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
+  it('records an Other choice label without duplicating it as the comment', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-choice-other-call',
+      { exchangeId: 'shell-location-other' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          select: async () => 'Other',
+          input: vi.fn(async () => 'Something else entirely'),
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'shell-location-other',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Select one option.' },
+                  options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
+                  allow_other: true,
+                  comment_prompt: 'Optional comment',
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(result.content[0]?.text).toContain('Selected: **Something else entirely**');
+    expect(result.content[0]?.text).not.toContain('Comment:');
+    expect(result.details).toMatchObject({
+      exchange_id: 'shell-location-other',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
+      answered: {
+        choice: { id: 'other', label: 'Something else entirely', kind: 'other' },
+      },
+    });
+    expect(result.details.answered.comment).toBeUndefined();
+  });
+
   it('maps duplicate present_question option labels back to the selected stable id', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');

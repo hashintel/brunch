@@ -1179,6 +1179,9 @@ describe('Brunch TUI boot', () => {
     applyBrunchOfflineDefault(env);
 
     expect(settingsManager.getQuietStartup()).toBe(true);
+    expect(settingsManager.getHideThinkingBlock()).toBe(true);
+    settingsManager.setHideThinkingBlock(false);
+    expect(settingsManager.getHideThinkingBlock()).toBe(false);
     expect(resourceOptions).toEqual({
       noContextFiles: true,
       noExtensions: true,
@@ -1224,6 +1227,7 @@ describe('Brunch TUI boot', () => {
       maxRetries: undefined,
       maxRetryDelayMs: 60000,
     });
+    expect(settingsManager.getHideThinkingBlock()).toBe(true);
     expect(settingsManager.getShowImages()).toBe(true);
     expect(settingsManager.getImageWidthCells()).toBe(60);
     expect(settingsManager.getClearOnShrink()).toBe(false);

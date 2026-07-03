@@ -95,6 +95,8 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   coherence?: BrunchChromeCoherenceVerdict;
 }
 
+export const BRUNCH_KICK_ACTIVITY_STATUS_KEY = 'brunch.kick';
+
 export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle'>;
 
 type BrunchChromeTheme = Pick<Theme, 'fg'>;
@@ -219,7 +221,8 @@ export function renderBrunchChrome(
       },
     };
   });
-  if (chrome.startupHeader) {
+  const startupHeader = chrome.startupHeader;
+  if (startupHeader) {
     ui.setHeader(
       (_tui, theme) =>
         new BrunchStartupHeader(
@@ -227,6 +230,7 @@ export function renderBrunchChrome(
             project: formatProject(chrome),
             spec: formatSpec(chrome),
             session: chrome.session.label ?? chrome.session.id,
+            decision: startupHeader.decision,
             ...(chrome.webSidecarUrl ? { sidecarUrl: chrome.webSidecarUrl } : {}),
           },
           theme,
@@ -258,6 +262,12 @@ export function registerBrunchChrome(
   });
   pi.on('thinking_level_select', async () => {
     requestFooterRender?.();
+  });
+  pi.on('message_start', async (event, ctx) => {
+    if ((event.message as { role?: unknown }).role === 'assistant') {
+      ctx.ui.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, undefined);
+      requestFooterRender?.();
+    }
   });
   pi.on('turn_end', async () => {
     requestFooterRender?.();

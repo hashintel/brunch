@@ -44,6 +44,9 @@ describe('structured exchange tool guidance', () => {
     expect(`${present.description}\n${present.promptGuidelines.join('\n')}`).toContain(
       'Do not put numbered candidate answers in body markdown when options[] should carry them.',
     );
+    expect(`${present.description}\n${present.promptGuidelines.join('\n')}`).toContain(
+      'Use multiple: true when the options are not mutually exclusive; use single-select only when exactly one answer is wanted.',
+    );
     expect(`${candidates.description}\n${candidates.promptGuidelines.join('\n')}`).toContain(
       'recognition-only',
     );

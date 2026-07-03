@@ -40,6 +40,19 @@ describe('composeLiveElicitorPrompt', () => {
     await expect(normalizedPrompt).toMatchFileSnapshot('../__snapshots__/live-elicitor-prompt.md');
   });
 
+  it('includes the bundled elicitor style and choice-shape guidance', () => {
+    const result = composeLiveElicitorPrompt({
+      sessionState: projectBrunchAgentState([]),
+      spec: { id: 42, name: 'Live Assembly Spec' },
+      workspace,
+      activeTools: ['present_question', 'request_response'],
+    });
+
+    expect(result.prompt).toContain('Be clear and concise');
+    expect(result.prompt).toContain('Prefer structural forms');
+    expect(result.prompt).toContain('Use multi-select when options are not mutually exclusive');
+  });
+
   it('fails loud when called for a non-elicitor foreground state', () => {
     const sessionState = projectBrunchAgentState([
       {

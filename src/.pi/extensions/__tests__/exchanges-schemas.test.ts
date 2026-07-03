@@ -463,7 +463,7 @@ describe('structured exchange request schemas', () => {
     ).toThrow();
   });
 
-  it('supports candidate choices and requires comments for other or none choices', () => {
+  it('supports candidate choices and requires comments for none choices', () => {
     expect(
       zRequestChoiceDetails.parse({
         schema: 'brunch.structured_exchange.request',
@@ -483,6 +483,22 @@ describe('structured exchange request schemas', () => {
         },
       }),
     ).toMatchObject({ tool_meta: { prev: 'present_candidates' } });
+
+    expect(
+      zRequestChoiceDetails.parse({
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'domain-shape-other',
+        tool_meta: {
+          prev: 'present_question',
+          curr: 'request_choice',
+          next: 'capture_choice',
+        },
+        answered: {
+          choice: { id: 'other', label: 'Something else entirely', kind: 'other' },
+        },
+      }),
+    ).toMatchObject({ answered: { choice: { kind: 'other' } } });
 
     expect(() =>
       zRequestChoiceDetails.parse({

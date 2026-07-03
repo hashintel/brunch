@@ -49,6 +49,7 @@ import {
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
 import {
+  BRUNCH_KICK_ACTIVITY_STATUS_KEY,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   createInMemoryBrunchIntrospectionStore,
@@ -479,6 +480,9 @@ export function createBrunchAgentSessionRuntimeFactory(
       for (const entry of origination.decision.seedEntries) {
         await appendEntryContentToDebugCache(debugCache, entry).catch(() => {});
       }
+      await appendOriginationRecordToDebugCache(debugCache, { decision: origination.decision }).catch(
+        () => {},
+      );
     }
 
     const services = await createAgentSessionServices({
@@ -500,6 +504,11 @@ export function createBrunchAgentSessionRuntimeFactory(
     });
     liveAgentSession.current = created.session;
     context.sessionEvents?.attachSession(created.session);
+    const kickStatusUi = created.session.createReplacedSessionContext().ui;
+    const modelAvailable = services.modelRegistry.getAvailable().length > 0;
+    if (origination.decision.action === 'start' && modelAvailable) {
+      kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, 'opening assistant turn…');
+    }
     // Complete the kick: a 'start' decision owes an actual assistant-originated
     // LLM turn, which only the live AgentSession can run. Fire-and-forget:
     // sendCustomMessage with triggerTurn awaits the whole turn, and boot must
@@ -508,9 +517,10 @@ export function createBrunchAgentSessionRuntimeFactory(
     // IO.
     void completeAssistantKick({
       decision: origination.decision,
-      modelAvailable: services.modelRegistry.getAvailable().length > 0,
+      modelAvailable,
       sendCustomMessage: (message, options) => created.session.sendCustomMessage(message, options),
       onOutcome: (outcome) => {
+        kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, undefined);
         if (context.introspection?.debugCache) {
           void appendOriginationRecordToDebugCache(context.introspection.debugCache, {
             decision: origination.decision,
