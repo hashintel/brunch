@@ -1,0 +1,167 @@
+import { CustomEditor } from '@earendil-works/pi-coding-agent';
+import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
+import { getCapabilities, hyperlink, truncateToWidth } from '@earendil-works/pi-tui';
+import type { EditorTheme, TUI } from '@earendil-works/pi-tui';
+
+import { projectRoundedBox } from './rounded-box.js';
+
+/**
+ * Pre-formatted label strings baked into the box border / trailing lines.
+ * Callers assemble these from whatever runtime facts they have (operational
+ * mode, spec title, sidecar URL, model/context usage, ...) — this module
+ * stays domain-ignorant so `projectBorderedChrome` can be reused for other
+ * bordered components later (the `request_*` question-form pickers are the
+ * next intended reuse; see `memory/PLAN.md`'s `component-dx` frontier).
+ */
+export interface BrunchEditorLabels {
+  /** Right-aligned label embedded in the top border, e.g. '[ Specify ]'. Omit for a plain top border. */
+  readonly topRight?: string;
+  /** Right-aligned label embedded in the bottom border, e.g. '"Spec Title"'. Omit for a plain bottom border. */
+  readonly bottomRight?: string;
+  /**
+   * Lines appended immediately below the box (not part of the border). A
+   * plain string renders as-is; `{ text, url }` renders as a clickable OSC 8
+   * hyperlink where the terminal supports it (falls back to plain `text`
+   * otherwise) — kept as a union rather than a dedicated "url" field so this
+   * stays generic for any future bordered component's below-lines, not just
+   * this editor's sidecar URL.
+   */
+  readonly belowLines?: readonly (string | { readonly text: string; readonly url: string })[];
+}
+
+/** "│ " + " │" reserved from the outer width before delegating to the wrapped inner renderer. */
+const SIDE_BUDGET = 4;
+
+/** Minimum content rows inside the box, even when the editor is empty. */
+const MIN_CONTENT_LINES = 2;
+
+/** Left indent applied to lines below the box. */
+const BELOW_LINES_INDENT = 1;
+
+const ANSI = '\x1b';
+const ANSI_SEQUENCE_GLOBAL = new RegExp(`${ANSI}\\[[0-9;?]*[ -/]*[@-~]`, 'g');
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_SEQUENCE_GLOBAL, '');
+}
+
+/**
+ * True for a full-width horizontal rule or `Editor`'s own scroll-indicator
+ * line (`─── ↑ N more ───`) — both mark an `Editor`-drawn border, not content
+ * or an autocomplete row. `Editor`'s own `render()` (pi-tui) draws no side
+ * borders at all and appends autocomplete-dropdown rows *after* its bottom
+ * border line, so the bottom border is not reliably the last array element —
+ * this predicate is how `projectBorderedChrome` finds it regardless.
+ */
+function isEditorBorderLine(line: string): boolean {
+  const stripped = stripAnsi(line);
+  return /^─*$/.test(stripped) || /^─+\s[↑↓]\s\d+\smore\s─*$/.test(stripped);
+}
+
+function findLastIndex<T>(items: readonly T[], predicate: (item: T) => boolean): number {
+  for (let index = items.length - 1; index >= 0; index--) {
+    if (predicate(items[index]!)) return index;
+  }
+  return -1;
+}
+
+/**
+ * Pad editor content before any autocomplete rows so the box is always at
+ * least `MIN_CONTENT_LINES` tall, even for an empty editor.
+ */
+function padContentToMinimum(contentLines: readonly string[], innerWidth: number): readonly string[] {
+  const padCount = Math.max(0, MIN_CONTENT_LINES - contentLines.length);
+  if (padCount === 0) return contentLines;
+  return [...contentLines, ...Array.from({ length: padCount }, () => ' '.repeat(Math.max(0, innerWidth)))];
+}
+
+function stripEditorBorder(
+  innerLines: readonly string[],
+  bottomIndex: number,
+): { contentLines: readonly string[]; trailingLines: readonly string[] } {
+  if (bottomIndex <= 0) return { contentLines: innerLines, trailingLines: [] };
+  return {
+    contentLines: innerLines.slice(1, bottomIndex),
+    trailingLines: innerLines.slice(bottomIndex + 1),
+  };
+}
+
+function projectTrailingRows(
+  trailingLines: readonly string[],
+  width: number,
+  borderColor: (str: string) => string,
+): readonly string[] {
+  if (trailingLines.length === 0) return [];
+  return projectRoundedBox(trailingLines, { preserveContentWidth: true }, width, borderColor).slice(1, -1);
+}
+
+/** Renders `text` as a clickable OSC 8 hyperlink where the terminal supports it, plain text otherwise. */
+function renderLinkedText(text: string, url: string): string {
+  return getCapabilities().hyperlinks ? hyperlink(text, url) : text;
+}
+
+/**
+ * Splice runtime-state labels into an already-rendered bordered box, and
+ * append trailing lines below it.
+ *
+ * `innerLines` is the untouched output of another component's
+ * `render(innerWidth)` where `innerWidth = width - 4` (room for a `│ `/` │`
+ * side wrap) — this function only assumes an `Editor`-shaped border contract
+ * (`isEditorBorderLine`), not anything editor-specific, so it stays reusable
+ * for other bordered components.
+ */
+export function projectBorderedChrome(
+  innerLines: readonly string[],
+  labels: BrunchEditorLabels,
+  width: number,
+  borderColor: (str: string) => string,
+): string[] {
+  if (innerLines.length === 0) return [];
+
+  const rawBottomIndex = findLastIndex(innerLines, isEditorBorderLine);
+  const { contentLines, trailingLines } = stripEditorBorder(innerLines, rawBottomIndex);
+  const boxedContent = projectRoundedBox(
+    padContentToMinimum(contentLines, Math.max(1, width - SIDE_BUDGET)),
+    { topLabel: labels.topRight, bottomLabel: labels.bottomRight, preserveContentWidth: true },
+    width,
+    borderColor,
+  );
+  const boxedTrailing = projectTrailingRows(trailingLines, width, borderColor);
+
+  const belowWidth = Math.max(0, width - BELOW_LINES_INDENT);
+  const indent = ' '.repeat(BELOW_LINES_INDENT);
+  const below = (labels.belowLines ?? []).map((line) => {
+    const text = typeof line === 'string' ? line : renderLinkedText(line.text, line.url);
+    return indent + truncateToWidth(text, belowWidth);
+  });
+  return [...boxedContent, ...boxedTrailing, ...below];
+}
+
+/**
+ * Wraps the default `CustomEditor` in a left/right `│` box and embeds
+ * runtime-state labels into the border — the default `Editor` box has no
+ * side borders at all, so the wrapped editor renders at `width - SIDE_BUDGET`
+ * and every returned line (border, content, and any autocomplete rows) gets
+ * boxed by `projectBorderedChrome`, mirroring how `CardComponent` (`cards.ts`)
+ * already boxes Markdown content.
+ *
+ * `getLabels` is pulled fresh on every `render()` call, never cached — the
+ * same freshness contract `src/.pi/extensions/chrome/index.ts` already uses
+ * for the footer/header (`options?.telemetry?.()`).
+ */
+export class BrunchEditorComponent extends CustomEditor {
+  constructor(
+    tui: TUI,
+    private readonly editorTheme: EditorTheme,
+    keybindings: KeybindingsManager,
+    private readonly getLabels: () => BrunchEditorLabels,
+  ) {
+    super(tui, editorTheme, keybindings);
+  }
+
+  override render(width: number): string[] {
+    const innerWidth = Math.max(1, width - SIDE_BUDGET);
+    const innerLines = super.render(innerWidth);
+    return projectBorderedChrome(innerLines, this.getLabels(), width, this.editorTheme.borderColor);
+  }
+}

@@ -17,3 +17,4 @@ export {
   trackVisibleWidth,
   type TrackSegment,
 } from './segment-track.js';
+export { TuiStyleLabComponent } from './style-lab-component.js';

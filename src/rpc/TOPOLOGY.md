@@ -20,6 +20,8 @@ rpc handler surfaces:
 
 The full CLI/RPC host includes mutation-capable workspace/session methods. The TUI-started web sidecar is an attachment to the TUI-hosted process: ordinary `/rpc` observer connections expose projection/read methods plus `rpc.discover` and reject workspace/session write methods as `Method not found`. The explicitly designated `/rpc/driver` connection adds live driver methods only when their process-local handles are attached (`session.driveTurn` for a live `AgentSession`, `session.answerExchange` for a live exchange broker). Browser clients, CLI probes, TUI adapters, and future relays speak Brunch method names; they do not coordinate raw Pi RPC plus Brunch product RPC themselves.
 
+`session.submitExchangeResponse` (this directory) and `session.answerExchange` (the `/rpc/driver` leg above) are two structurally distinct paths, not variants of one mechanism — the former never touches Pi's `ctx.ui.*`/tool-execution layer at all; the latter answers a genuinely live tool call through the process-local broker when no local TUI is bound. See [`docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`](../../docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md) for the full mechanism and per-response-kind coverage.
+
 RPC handlers project from canonical stores:
 
 ```pseudo

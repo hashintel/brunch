@@ -15,6 +15,7 @@ export class VirtualTerminal implements PiTerminal {
   #stopped = false;
   #pendingWrites = 0;
   #writeActivityVersion = 0;
+  #writes: string[] = [];
 
   constructor(cols = 100, rows = 32) {
     this.#term = new XtermTerminal({ cols, rows, allowProposedApi: true });
@@ -30,6 +31,10 @@ export class VirtualTerminal implements PiTerminal {
 
   get kittyProtocolActive(): boolean {
     return false;
+  }
+
+  get writes(): readonly string[] {
+    return this.#writes;
   }
 
   start(onInput: (data: string) => void, _onResize: () => void): void {
@@ -49,6 +54,7 @@ export class VirtualTerminal implements PiTerminal {
 
   write(data: string): void {
     if (this.#stopped) return;
+    this.#writes.push(data);
     this.#pendingWrites += 1;
     this.#writeActivityVersion += 1;
     this.#term.write(data, () => {

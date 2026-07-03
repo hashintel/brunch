@@ -4,12 +4,13 @@ This directory owns Brunch-only development loops and curation seams. Nothing he
 
 ## Ownership
 
-`src/dev/**` owns four things:
+`src/dev/**` owns five things:
 
 - the human-facing dev launcher (`scripts/dev.ts` → `src/dev/dev-cli.ts`)
 - the explicit graph-curation seam for fixture shaping (`graph-curation.ts`)
 - faux/introspection/tier-2 harnesses used by tests and probes
 - dev-only witnesses such as `generate-fan-out-witness.ts`
+- the standalone component preview harness (`scripts/dev-components.ts` → `src/dev/component-preview.ts`) for previewing `.pi/components` in isolation on a real terminal, with no workspace/session/DB
 
 It does not own published CLI behavior, public RPC contracts, or database imports from outside `graph/`.
 
@@ -32,6 +33,61 @@ npm run dev -- rpc graph.overview '{"specId":1}' --workspace .fixtures/workbench
 npm run dev -- mutate --workspace .fixtures/workbenches/workspace-alpha-grounding --params-file /tmp/mutate.json
 npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-grounding --spec-id 1 --out .fixtures/seeds/custom/example.json
 ```
+
+## Component Preview Harness
+
+`npm run dev:components` (or `npm run dev:components:watch` for a `tsx watch`-backed edit loop) boots a
+real `ProcessTerminal` + `TUI` and shows a gallery of every registered `.pi/components` entry
+(`src/dev/component-preview/registry.ts`) — no seeded workbench, session, or DB required, since these
+components are render-only with injectable `theme`/props.
+
+- `npm run dev:components -- <id>` deep-links straight into one entry, skipping the gallery.
+- Each registry entry mirrors its component's *real* production presentation contract
+  (`src/dev/component-preview/custom-ui.ts`'s `showComponentPreview` shim reimplements
+  `ExtensionUIContext.custom`'s documented calling shape): overlay-with-options for components that
+  opt into `{ overlay: true, overlayOptions }` in production (e.g. `workspace-dialog`), or an inline
+  swap of the gallery's root content for components that call `ctx.ui.custom` with no options (e.g. the
+  runtime-mode axis picker, the multi-choice picker). This is deliberate: those two presentation modes
+  differ in production, and a preview tool that assumed "always overlay" would misrepresent how a
+  component actually ships.
+- Theme is a real `pi-coding-agent` `Theme` instance (`src/dev/component-preview/theme.ts`), not a
+  duck-typed stand-in — seeded with Brunch's own established 256-color palette, since the package's
+  `exports` map does not expose pi's shipped theme-loading internals outside a running session.
+- `keybindings` is a real `pi-tui` `KeybindingsManager` (`createComponentPreviewKeybindings()`), not a
+  stub — `BrunchEditorComponent`'s inherited `CustomEditor.handleInput` calls `.matches(...)` for
+  app-level actions (escape-to-cancel, ctrl+d-to-exit), which a stub can't satisfy. Built from
+  `TUI_KEYBINDINGS` plus the two app-level actions any `CustomEditor`-based preview entry needs, since
+  pi-coding-agent's fuller app-action table isn't part of the package's public value exports.
+- Two further lanes beyond `ctx.ui.custom` are covered by `src/dev/component-preview/static-preview.ts`,
+  since neither has a `done()` callback of its own:
+  - **Transcript message renderers** (e.g. `alternatives-card-set`) — `captureMessageRenderer` feeds the
+    real registration function (`registerBrunchAlternatives`) a minimal fake `ExtensionAPI` slice to
+    capture the renderer closure, then calls it directly with a sample message.
+  - **Persistent chrome regions** (e.g. the startup header mounted via `ui.setHeader`) — these are
+    already plain `Component`s with public constructors, so they preview like any other static content.
+  - Both are mounted via `previewStaticComponent`, which wraps the component with a
+    "press any key to return to the gallery" dismiss handler — a preview-only affordance, since in
+    production these lanes have no dismissal at all (a transcript message persists; chrome stays mounted
+    for the session).
+  - The footer lane (`ui.setFooter`) is deliberately not previewed yet: it is driven by live
+    token/model/coherence state rather than static layout, and is lower value to preview in isolation.
+- A `workspace-dialog-scroll` entry reuses the same `workspace-dialog` mounting path with a 20-spec
+  fixture long enough to overflow `WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS`, demonstrating
+  `projectScrollViewport`'s windowing and `▐` border-folded scroll thumb
+  (`.pi/components/scroll-viewport.ts`) live: `npm run dev:components -- workspace-dialog-scroll`,
+  then arrow-down/up or wheel-scroll past the visible window. Wheel handling is an explicit
+  `showComponentPreview(..., { wheelScroll: true })` opt-in for this preview entry: the shim owns
+  SGR mouse enable/disable and forwards recognized wheel events as the same arrow-key bytes the
+  component already handles. No new preview lane or wrapper component was needed — it is a fixture
+  variation on the existing `ctx.ui.custom` overlay lane. Real physical terminal wheel emission
+  remains a manual smoke-test residual; the automated harness injects the SGR bytes directly.
+- A fourth, `[experimental]` entry (`brunch-editor`) previews `ctx.ui.setEditorComponent` —
+  `BrunchEditorComponent` (`.pi/components/brunch-editor.ts`) wraps `CustomEditor` in a `│`-bordered box
+  with runtime-state labels baked into the border corners, since the default `Editor` has no side
+  borders at all. This is a design exploration for the `component-dx` frontier, not yet wired into
+  `src/.pi/extensions/chrome/index.ts` — it mounts directly (`tui.addChild` + `onEscape` dismiss) rather
+  than through `showComponentPreview` or `previewStaticComponent`, since it needs real focus and input
+  routing that a static preview doesn't exercise.
 
 ## Debug Mirrors And Dev Tools
 

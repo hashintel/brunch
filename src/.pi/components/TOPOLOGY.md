@@ -24,19 +24,27 @@ Components grow by **fractal sub-tree**: when a component outgrows a single file
 ```text
 components/
 ├── alternatives.ts              single-file components
+├── brunch-editor.ts             [experimental] bordered custom editor with embedded runtime-state
+│                                labels — design exploration, not yet wired into production chrome
 ├── brunch-identity.ts
 ├── brunch-version.ts
 ├── cards.ts
 ├── chrome-header.ts
 ├── lateral-padding.ts          transparent horizontal padding wrapper
 ├── multi-choice-picker.ts      focused checkbox-style exchange response picker
+├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
+│                                preview harness; components still receive ordinary key bytes
+├── rounded-box.ts              projectRoundedBox() — pure rounded-border primitive shared by
+│                                bordered presentation components
+├── scroll-viewport.ts          projectScrollViewport() — pure scroll-window + thumb-row primitive,
+│                                consumed by bordered components that fold thumbs into the right edge
 ├── runtime-posture/             private sub-tree for runtime posture pickers
-│   ├── axis-picker.ts           public picker components
-│   └── strategy-picker.ts
+│   └── axis-picker.ts           public picker component (operational-mode picker)
 ├── tui-lab/                     shared visual primitives
 │   ├── index.ts                 public seam for theme + segment-track helpers
 │   ├── segment-track.ts
-│   └── style-palette.ts
+│   ├── style-palette.ts
+│   └── style-lab-component.ts   reference-only demo Component (previewable via npm run dev:components -- tui-lab; no production call site)
 ├── workspace-dialog.ts          public entry re-exporting the folder below
 └── workspace-dialog/            fractal sub-tree for the workspace/session picker
     ├── assets/                  logo assets colocated with the dialog
@@ -65,7 +73,7 @@ rules:
 Components are tested at two tiers:
 
 1. **Direct-render tests** (`runtime-axis-picker.test.ts`) — cheap, precise assertions against `component.render(width)` and `component.handleInput()`. Use these for render logic, color/badge output, disabled/caution behavior, and direct method contracts.
-2. **Harness integration tests** (`runtime-axis-picker.harness.test.ts`) — drive the component through a real `TUI(VirtualTerminal)` overlay. Use these for focus, real input routing, and overlay render paths that the direct test cannot reach.
+2. **Harness integration tests** (`runtime-axis-picker.harness.test.ts`) — drive the component through a real `TUI(VirtualTerminal)`, presented the same way its real call site presents it (`tui.showOverlay` for overlay components, `tui.addChild` + `tui.setFocus` for inline-swap components like the runtime mode picker — see `component-preview.ts`'s registry for the per-component split). Use these for focus, real input routing, and render paths the direct test cannot reach.
 
 The harness lives at `../__tests__/support/virtual-terminal.ts`. It is test-only infrastructure: production code must never import it, and it must never import production wiring.
 
@@ -77,5 +85,5 @@ These workbench patterns are intentionally out of scope until their tripwire fir
 
 - **Popper-style placement math** — `anchor: 'center'` is sufficient today. Port/adapt only when the first non-centered or trigger-relative overlay appears.
 - **Anchor/geometry marker protocol** — invisible ANSI measurement markers for aligned overlays. Add only when centered/fixed positioning cannot serve ≥2 real use cases.
-- **Workbench app/playground shell** — a standalone component playground. Build only if an explicit decision creates a separate Brunch TUI component playground; brunch already has injectable-terminal entry points (`preflight.ts`) and the test harness.
+- **Workbench app/playground shell** — built as `src/dev/component-preview.ts` (`npm run dev:components`), not under this directory: it is dev tooling, not a Pi-native presentation component, so it lives with Brunch's other dev feedback loops (`src/dev/TOPOLOGY.md`). It reuses this directory's injectable-terminal entry points (`preflight.ts`) and mirrors each component's real `ctx.ui.custom` presentation contract rather than assuming a uniform overlay.
 - **Ad-hoc SGR style helpers** — brunch uses the real `LabTheme` from `tui-lab/`; do not introduce one-off escape-sequence helpers.

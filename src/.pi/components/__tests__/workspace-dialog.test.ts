@@ -8,6 +8,7 @@ import {
   createWorkspaceDialogComponent,
   selectWorkspaceSelectionOption,
   runWorkspaceDialogPreflight,
+  WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS,
 } from '../workspace-dialog/index.js';
 
 describe('spec/session picker', () => {
@@ -345,7 +346,82 @@ describe('spec/session picker', () => {
     expect(terminal.events.at(-2)).toBe('stop');
     expect(terminal.events.at(-1)).toBe('clearScreen');
   });
+
+  describe('long option lists (scroll viewport)', () => {
+    it('windows the spec list to the fixed viewport size instead of rendering every spec', () => {
+      const specCount = WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS + 12;
+      const component = createWorkspaceDialogComponent({
+        inventory: manySpecsInventory(specCount),
+        onDecision: () => {},
+      });
+
+      component.handleInput!('\r'); // resume-spec is index 0 (no currentSpec -> no continue option) -> specList
+      const text = component.render(80).join('\n');
+
+      const visibleSpecs = Array.from({ length: specCount }, (_, i) => `Spec ${i}`).filter((label) =>
+        text.includes(label),
+      );
+      expect(visibleSpecs).toHaveLength(WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS);
+      // The window starts at the top with the selection on the first spec.
+      expect(text).toContain('Spec 0');
+      expect(text).not.toContain(`Spec ${specCount - 1}`);
+    });
+
+    it('keeps the selected spec visible as arrow-down moves past the initial window', () => {
+      const specCount = WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS + 12;
+      const component = createWorkspaceDialogComponent({
+        inventory: manySpecsInventory(specCount),
+        onDecision: () => {},
+      });
+
+      component.handleInput!('\r');
+      for (let i = 0; i < specCount - 1; i++) {
+        component.handleInput!('\x1B[B');
+      }
+      const text = component.render(80).join('\n');
+
+      expect(text).toContain(`Spec ${specCount - 1}`);
+      expect(text).not.toContain('Spec 0');
+    });
+
+    it('folds a scroll thumb into the right border only for windowed rows, only when the list overflows', () => {
+      const specCount = WORKSPACE_DIALOG_MAX_VISIBLE_OPTIONS + 12;
+      const longList = createWorkspaceDialogComponent({
+        inventory: manySpecsInventory(specCount),
+        onDecision: () => {},
+      });
+      longList.handleInput!('\r');
+      // Scope the thumb-character check to option rows: the brand logo above them is real
+      // truecolor ANSI block art and can incidentally contain the same glyph.
+      const longOptionLines = longList.render(80).filter((line) => /Spec \d+/.test(line));
+
+      expect(longOptionLines.some((line) => line.includes('\u2590'))).toBe(true);
+
+      const shortList = createWorkspaceDialogComponent({ inventory: inventory(), onDecision: () => {} });
+      shortList.handleInput!('\x1B[B');
+      shortList.handleInput!('\r');
+      const shortOptionLines = shortList
+        .render(80)
+        .filter((line) => line.includes('Alpha') || line.includes('Beta'));
+
+      expect(shortOptionLines.some((line) => line.includes('\u2590'))).toBe(false);
+    });
+  });
 });
+
+function manySpecsInventory(specCount: number): WorkspaceLaunchInventory {
+  return {
+    cwd: '/project',
+    currentSpec: null,
+    currentSessionFile: null,
+    needsNewSpec: false,
+    specs: Array.from({ length: specCount }, (_, i) => ({
+      spec: { id: i + 1, title: `Spec ${i}` },
+      sessions: [],
+    })),
+    unavailableSessions: [],
+  };
+}
 
 class FakeTerminal implements Terminal {
   events: string[] = [];
