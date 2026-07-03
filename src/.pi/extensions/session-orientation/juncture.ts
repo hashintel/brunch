@@ -1,22 +1,24 @@
 /**
- * Session-orientation juncture orchestrator — the one flow every mid-session
- * juncture (session-entry-orientation J2–J6, and eventually option-2 J1)
- * runs when it fires:
+ * Session-orientation juncture orchestrator — the one flow every juncture
+ * in the session-entry-orientation decision-flow chart runs when it fires:
  *
- *   dialog → entry → (choice ≠ continue at a no-pending-kick juncture) → live-kick
+ *   dialog → entry → (origination + kick, shaped by juncture mode)
  *
- * Composition seam: delegates dialog + entry write to
- * `runAndRecordSessionOrientation`, and — when the juncture is not carried
- * by an already-pending kick and the choice is not `continue` — composes
- * `originateAssistantTurn` (with `forceSeed: true`, so a fresh orientation
- * directive reaches the provider even when the graph LSN has not moved)
- * and fires the kick turn via the injected `sendCustomMessage`.
+ * Two juncture modes share the seam:
  *
- * Pending-kick junctures (option-2 J1 boot startup, J2 launch-path
- * re-origination) pass `carriesPendingKick: true` — the caller already
- * owns the kick fire, so this seam stops at the dialog + entry write, and
- * the next origination pass folds the fresh choice via
- * `freshSessionOrientationChoice` (`src/session/session-orientation.ts`).
+ * - **`'follow-choice'` (J2/J3/J4/J6):** dialog + entry, then live-kick only
+ *   when the choice is neither `continue` nor missing. Origination uses
+ *   `resumeOrigin: 'manual_trigger'` (always yields a `start` decision) and
+ *   `forceSeed: true` so the fresh orientation directive reaches the next
+ *   provider turn even when the graph LSN has not moved.
+ *
+ * - **`'boot'` (option-2 J1, `session_start` reason `startup`):** dialog is
+ *   best-effort — degraded mode (`hasUI: false`) skips it but the boot kick
+ *   still fires; origination uses `resumeOrigin: 'resume_debt'` so a resumed
+ *   session with no unresolved debt correctly idles, and `forceSeed: true`
+ *   only when a real orientation choice was recorded (escape/continue and
+ *   degraded mode respect the watermark). This is the option-2 replacement
+ *   for the pre-session-binding origination call in `brunch-tui.ts`.
  *
  * Never emits present_/request_ tool results — orientation is not an
  * exchange (D37-L).
@@ -38,6 +40,7 @@ import {
   type SessionOrientationEntrySessionManager,
   type SessionOrientationTrigger,
 } from '../../../session/session-orientation.js';
+import type { StartAssistantTurnDecision } from '../../../session/start-assistant-turn.js';
 import { runAndRecordSessionOrientation, type SessionOrientationDialogUi } from './index.js';
 
 export type JunctureSessionManager = SessionOrientationEntrySessionManager &
@@ -45,24 +48,25 @@ export type JunctureSessionManager = SessionOrientationEntrySessionManager &
     getEntries(): readonly TranscriptEntryLike[];
   };
 
+export type OrientationJunctureMode = 'follow-choice' | 'boot';
+
 export interface RunOrientationJunctureInput {
   readonly hasUI: boolean;
   readonly ui: SessionOrientationDialogUi;
   readonly trigger: SessionOrientationTrigger;
   readonly sessionManager: JunctureSessionManager;
   /**
-   * True when the juncture is already followed by a kick the caller owns
-   * (option-2 J1 boot startup, J2 launch-path re-origination). At pending-kick
-   * junctures this seam stops at dialog + entry; the pending kick's next
-   * origination reads the fresh orientation via `freshSessionOrientationChoice`.
+   * Chart mode. `'follow-choice'` (default) is J2/J3/J4/J6; `'boot'` is
+   * option-2 J1. See module header for semantics.
    */
-  readonly carriesPendingKick: boolean;
+  readonly mode?: OrientationJunctureMode;
   readonly title?: string;
   readonly onAppendError?: (error: unknown) => void;
   /**
-   * Live-kick surface. Omitted when `carriesPendingKick` is true; required
-   * when non-continue choices at this juncture must fire a live kick
-   * (J3/J4/J6, and later J5).
+   * Live-kick surface. Required when the mode may fire a kick
+   * (`'follow-choice'` + non-continue choice, or `'boot'` unconditionally).
+   * `'follow-choice'` with a `continue`/undefined choice never dereferences
+   * this, so callers that only need the dialog can omit it.
    */
   readonly kick?: LiveKickDeps;
 }
@@ -78,7 +82,16 @@ export interface LiveKickDeps {
     message: ReturnType<typeof kickTurnMessage>,
     options: { readonly triggerTurn: true },
   ) => Promise<unknown>;
-  readonly onOutcome?: (outcome: KickCompletionOutcome) => void;
+  /**
+   * Called with each origination decision — before the kick fires — so
+   * callers can mirror it into `.brunch/debug` (D97-L) or drive kick-status
+   * chrome (`setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, ...)`).
+   */
+  readonly onOriginationDecision?: (decision: StartAssistantTurnDecision) => Promise<void> | void;
+  readonly onKickOutcome?: (
+    outcome: KickCompletionOutcome,
+    decision: StartAssistantTurnDecision,
+  ) => Promise<void> | void;
 }
 
 export interface RunOrientationJunctureResult {
@@ -90,28 +103,58 @@ export interface RunOrientationJunctureResult {
 export async function runOrientationJuncture(
   input: RunOrientationJunctureInput,
 ): Promise<RunOrientationJunctureResult> {
-  const choice = await runAndRecordSessionOrientation({
-    hasUI: input.hasUI,
-    ui: input.ui,
-    trigger: input.trigger,
-    manager: input.sessionManager,
-    ...(input.title !== undefined ? { title: input.title } : {}),
-    ...(input.onAppendError ? { onAppendError: input.onAppendError } : {}),
-  });
+  const mode = input.mode ?? 'follow-choice';
 
-  if (choice === undefined) return { ran: false, kickFired: false };
-  if (input.carriesPendingKick || choice === 'continue' || !input.kick) {
-    return { ran: true, choice, kickFired: false };
+  const choice = input.hasUI
+    ? await runAndRecordSessionOrientation({
+        hasUI: true,
+        ui: input.ui,
+        trigger: input.trigger,
+        manager: input.sessionManager,
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.onAppendError ? { onAppendError: input.onAppendError } : {}),
+      })
+    : undefined;
+
+  const dialogRan = choice !== undefined;
+
+  if (mode === 'follow-choice') {
+    if (!dialogRan || choice === 'continue' || !input.kick) {
+      return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
+    }
+    await originateAndKick(input.sessionManager, input.kick, {
+      resumeOrigin: 'manual_trigger',
+      forceSeed: true,
+    });
+    return { ran: true, choice, kickFired: true };
   }
 
-  await fireLiveKick(input.sessionManager, input.kick);
-  return { ran: true, choice, kickFired: true };
+  // mode === 'boot': always originate+kick (respecting resume-debt idle),
+  // forcing a fresh seed only when a real orientation choice was recorded.
+  if (!input.kick) {
+    return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
+  }
+  const forceSeed = choice !== undefined && choice !== 'continue';
+  await originateAndKick(input.sessionManager, input.kick, {
+    resumeOrigin: 'resume_debt',
+    forceSeed,
+  });
+  return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: true };
 }
 
-async function fireLiveKick(sessionManager: JunctureSessionManager, kick: LiveKickDeps): Promise<void> {
+interface OriginateAndKickOptions {
+  readonly resumeOrigin: 'manual_trigger' | 'resume_debt';
+  readonly forceSeed: boolean;
+}
+
+async function originateAndKick(
+  sessionManager: JunctureSessionManager,
+  kick: LiveKickDeps,
+  options: OriginateAndKickOptions,
+): Promise<void> {
   const entries = sessionManager.getEntries();
-  // Sanity-only fold — proves the orientation entry that was just appended
-  // is the choice the next origination will pick up.
+  // Sanity-only fold — proves the orientation entry just appended is what
+  // the next origination will pick up.
   void freshSessionOrientationChoice(entries, BRUNCH_KICK_CUSTOM_TYPE);
 
   const origination = originateAssistantTurn({
@@ -119,16 +162,20 @@ async function fireLiveKick(sessionManager: JunctureSessionManager, kick: LiveKi
     ...(kick.specName ? { specName: kick.specName } : {}),
     reads: kick.reads,
     entries,
-    resumeOrigin: 'manual_trigger',
+    resumeOrigin: options.resumeOrigin,
     workspaceContext: kick.workspaceContext,
     manager: sessionManager,
-    forceSeed: true,
+    ...(options.forceSeed ? { forceSeed: true } : {}),
   });
+
+  if (kick.onOriginationDecision) await kick.onOriginationDecision(origination.decision);
 
   await completeAssistantKick({
     decision: origination.decision,
     modelAvailable: kick.modelAvailable,
     sendCustomMessage: kick.sendCustomMessage,
-    onOutcome: (outcome) => kick.onOutcome?.(outcome),
+    onOutcome: (outcome) => {
+      if (kick.onKickOutcome) void kick.onKickOutcome(outcome, origination.decision);
+    },
   });
 }

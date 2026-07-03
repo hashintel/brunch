@@ -1,12 +1,15 @@
 /**
  * Pi extension registrar wiring the session-orientation dialog to every
- * mid-session juncture in the session-entry-orientation decision-flow chart:
+ * juncture in the session-entry-orientation decision-flow chart:
  *
- *  - J2: `pi.on('session_start')` for reasons `new`/`resume` (post-switch);
- *        guarded off for reasons `startup` (option-2 J1 boot wiring lives in
- *        the launch path, not this registrar — deferred slice), `reload`
- *        (extension reload; J8 guard), and `fork` (blocked upstream by
- *        `commands/policy.ts`; J7 guard).
+ *  - J1 (option-2 boot): `pi.on('session_start')` reason `startup` — dialog
+ *        + origination + kick, driven from inside the session-extension
+ *        binding so `ctx.ui`/`hasUI` are already live (verified against
+ *        Pi's `bindExtensions` order). Replaces the pre-session-binding
+ *        origination call that previously lived in `brunch-tui.ts`.
+ *  - J2: `pi.on('session_start')` reasons `new`/`resume` (post-switch);
+ *        guarded off for `reload` (extension reload; J8 guard) and `fork`
+ *        (blocked upstream by `commands/policy.ts`; J7 guard).
  *  - J3: `pi.on('session_tree')` — after tree navigation, always dialog.
  *  - J4: `pi.on('agent_end')` when the tail assistant message has
  *        `stopReason === 'aborted'` (C3 probe, `pi-ai` `StopReason`).
@@ -37,7 +40,12 @@ import type {
 
 import type { OriginationReads } from '../../../session/originate-assistant-turn.js';
 import type { SessionOrientationTrigger } from '../../../session/session-orientation.js';
-import { runOrientationJuncture, type JunctureSessionManager, type LiveKickDeps } from './juncture.js';
+import {
+  runOrientationJuncture,
+  type JunctureSessionManager,
+  type LiveKickDeps,
+  type OrientationJunctureMode,
+} from './juncture.js';
 
 export interface BrunchSessionOrientationDeps {
   /**
@@ -60,6 +68,8 @@ export interface KickContext {
   readonly reads: OriginationReads;
   readonly workspaceContext: string;
   readonly sendCustomMessage: LiveKickDeps['sendCustomMessage'];
+  readonly onOriginationDecision?: LiveKickDeps['onOriginationDecision'];
+  readonly onKickOutcome?: LiveKickDeps['onKickOutcome'];
 }
 
 // ceiling: 750ms wall-clock debounce for coinciding junctures. Upgrade to a
@@ -77,21 +87,27 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
   const debounce: DebounceState = { lastResolvedAt: 0 };
 
   pi.on('session_start', async (event: SessionStartEvent, ctx: ExtensionContext) => {
+    if (event.reason === 'startup') {
+      // J1 (option-2): dialog + origination + kick. Fires from inside the
+      // session-extension binding so ctx.ui is live even in TUI mode.
+      await runJuncture(pi, ctx, deps, debounce, {
+        trigger: 'entry',
+        mode: 'boot',
+      });
+      return;
+    }
     if (event.reason !== 'new' && event.reason !== 'resume') return;
-    // J2: launch-path may or may not re-originate on session switch. The
-    // dialog runs unconditionally; a fresh choice is folded into whatever
-    // origination path is active next, and only fires a live kick if none
-    // is pending (carriesPendingKick=false).
+    // J2: post-switch. Dialog + non-continue → live-kick.
     await runJuncture(pi, ctx, deps, debounce, {
       trigger: 'switch',
-      carriesPendingKick: false,
+      mode: 'follow-choice',
     });
   });
 
   pi.on('session_tree', async (_event: SessionTreeEvent, ctx: ExtensionContext) => {
     await runJuncture(pi, ctx, deps, debounce, {
       trigger: 'tree',
-      carriesPendingKick: false,
+      mode: 'follow-choice',
     });
   });
 
@@ -99,7 +115,7 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
     if (!isEscAbortedAgentEnd(event)) return;
     await runJuncture(pi, ctx, deps, debounce, {
       trigger: 'abort',
-      carriesPendingKick: false,
+      mode: 'follow-choice',
     });
   });
 
@@ -108,7 +124,7 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
     handler: async (_args, ctx) => {
       await runJuncture(pi, ctx, deps, debounce, {
         trigger: 'consult',
-        carriesPendingKick: false,
+        mode: 'follow-choice',
       });
     },
   });
@@ -116,7 +132,7 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
 
 interface JunctureInvocation {
   readonly trigger: SessionOrientationTrigger;
-  readonly carriesPendingKick: boolean;
+  readonly mode: OrientationJunctureMode;
 }
 
 async function runJuncture(
@@ -132,14 +148,14 @@ async function runJuncture(
   const sessionManager = ctx.sessionManager as unknown as JunctureSessionManager;
   if (!sessionManagerCanAppend(sessionManager)) return;
 
-  const kickContext = invocation.carriesPendingKick ? undefined : await deps.resolveKickContext();
+  const kickContext = await deps.resolveKickContext();
 
   const result = await runOrientationJuncture({
     hasUI: ctx.hasUI,
     ui: { select: (title, options) => ctx.ui.select(title, options) },
     trigger: invocation.trigger,
     sessionManager,
-    carriesPendingKick: invocation.carriesPendingKick,
+    mode: invocation.mode,
     ...(kickContext
       ? {
           kick: {
@@ -149,6 +165,10 @@ async function runJuncture(
             workspaceContext: kickContext.workspaceContext,
             modelAvailable: ctx.modelRegistry.getAvailable().length > 0,
             sendCustomMessage: kickContext.sendCustomMessage,
+            ...(kickContext.onOriginationDecision
+              ? { onOriginationDecision: kickContext.onOriginationDecision }
+              : {}),
+            ...(kickContext.onKickOutcome ? { onKickOutcome: kickContext.onKickOutcome } : {}),
           },
         }
       : {}),

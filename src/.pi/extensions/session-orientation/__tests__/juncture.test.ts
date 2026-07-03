@@ -63,110 +63,155 @@ function fakeKickDeps(overrides: Partial<LiveKickDeps> = {}): {
 }
 
 describe('runOrientationJuncture', () => {
-  it('no-ops when hasUI is false and does not append an entry (degraded mode)', async () => {
-    const manager = fakeSessionManager();
-    const { deps, sent } = fakeKickDeps();
+  describe("mode: 'follow-choice'", () => {
+    it('no-ops when hasUI is false and does not append an entry (degraded mode)', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
 
-    const result = await runOrientationJuncture({
-      hasUI: false,
-      ui: fakeUi('anything'),
-      trigger: 'entry',
-      sessionManager: manager,
-      carriesPendingKick: false,
-      kick: deps,
+      const result = await runOrientationJuncture({
+        hasUI: false,
+        ui: fakeUi('anything'),
+        trigger: 'consult',
+        sessionManager: manager,
+        mode: 'follow-choice',
+        kick: deps,
+      });
+
+      expect(result).toEqual({ ran: false, kickFired: false });
+      expect(manager.entries).toEqual([]);
+      expect(sent).toEqual([]);
     });
 
-    expect(result).toEqual({ ran: false, kickFired: false });
-    expect(manager.entries).toEqual([]);
-    expect(sent).toEqual([]);
+    it('appends a continue entry and never fires the kick when the user escapes', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
+
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(undefined),
+        trigger: 'tree',
+        sessionManager: manager,
+        mode: 'follow-choice',
+        kick: deps,
+      });
+
+      expect(result.choice).toBe('continue');
+      expect(result.kickFired).toBe(false);
+      expect(manager.entries[0]).toEqual({
+        type: 'custom',
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'continue', trigger: 'tree' } satisfies SessionOrientationEntryData,
+      });
+      expect(sent).toEqual([]);
+    });
+
+    it('appends the entry then fires a live kick on a non-continue choice', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
+
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(labelFor('ingest')),
+        trigger: 'consult',
+        sessionManager: manager,
+        mode: 'follow-choice',
+        kick: deps,
+      });
+
+      expect(result.kickFired).toBe(true);
+      expect(sent).toHaveLength(1);
+      const kick = sent[0]!.message as { customType: string };
+      expect(kick.customType).toBe(BRUNCH_KICK_CUSTOM_TYPE);
+      expect(sent[0]!.options).toEqual({ triggerTurn: true });
+
+      // A forced seed was appended (LSN did not advance yet the seed still lands).
+      const seedEntry = manager.entries.find((entry) => entry.customType === 'brunch.context_seed');
+      expect(seedEntry).toBeDefined();
+      expect(String(seedEntry?.content)).toContain('chosen: ingest');
+    });
+
+    it('skips the kick when the choice is continue', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
+
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(labelFor('continue')),
+        trigger: 'abort',
+        sessionManager: manager,
+        mode: 'follow-choice',
+        kick: deps,
+      });
+
+      expect(result.choice).toBe('continue');
+      expect(result.kickFired).toBe(false);
+      expect(sent).toEqual([]);
+    });
   });
 
-  it('appends a continue entry and never fires the kick when the user escapes', async () => {
-    const manager = fakeSessionManager();
-    const { deps, sent } = fakeKickDeps();
+  describe("mode: 'boot' (option-2 J1)", () => {
+    it('degraded mode (no UI) still fires the boot kick without a dialog', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
 
-    const result = await runOrientationJuncture({
-      hasUI: true,
-      ui: fakeUi(undefined),
-      trigger: 'tree',
-      sessionManager: manager,
-      carriesPendingKick: false,
-      kick: deps,
+      const result = await runOrientationJuncture({
+        hasUI: false,
+        ui: fakeUi('anything'),
+        trigger: 'entry',
+        sessionManager: manager,
+        mode: 'boot',
+        kick: deps,
+      });
+
+      expect(result.ran).toBe(false);
+      expect(result.kickFired).toBe(true);
+      // No orientation entry (dialog was skipped) but a boot kick still went out.
+      expect(
+        manager.entries.find((e) => e.customType === BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE),
+      ).toBeUndefined();
+      expect(sent).toHaveLength(1);
+      // Continue-shaped seed only, no orientation directive.
+      const seedEntry = manager.entries.find((entry) => entry.customType === 'brunch.context_seed');
+      if (seedEntry) expect(String(seedEntry.content)).not.toContain('chosen:');
     });
 
-    expect(result.choice).toBe('continue');
-    expect(result.kickFired).toBe(false);
-    expect(manager.entries[0]).toEqual({
-      type: 'custom',
-      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-      data: { schemaVersion: 1, choice: 'continue', trigger: 'tree' } satisfies SessionOrientationEntryData,
-    });
-    expect(sent).toEqual([]);
-  });
+    it('escape (continue) still fires the boot kick but does not force-seed', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
 
-  it('records the entry but skips the kick when the juncture carries a pending kick', async () => {
-    const manager = fakeSessionManager();
-    const { deps, sent } = fakeKickDeps();
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(undefined),
+        trigger: 'entry',
+        sessionManager: manager,
+        mode: 'boot',
+        kick: deps,
+      });
 
-    const result = await runOrientationJuncture({
-      hasUI: true,
-      ui: fakeUi(labelFor('ingest')),
-      trigger: 'switch',
-      sessionManager: manager,
-      carriesPendingKick: true,
-      kick: deps,
+      expect(result.choice).toBe('continue');
+      expect(result.kickFired).toBe(true);
+      expect(sent).toHaveLength(1);
     });
 
-    expect(result.choice).toBe('ingest');
-    expect(result.kickFired).toBe(false);
-    expect(sent).toEqual([]);
-    expect(manager.entries.at(-1)).toEqual({
-      type: 'custom',
-      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-      data: { schemaVersion: 1, choice: 'ingest', trigger: 'switch' } satisfies SessionOrientationEntryData,
+    it('non-continue choice at boot fires kick with a forced seed carrying the directive', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
+
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(labelFor('propose_intent')),
+        trigger: 'entry',
+        sessionManager: manager,
+        mode: 'boot',
+        kick: deps,
+      });
+
+      expect(result.choice).toBe('propose_intent');
+      expect(result.kickFired).toBe(true);
+      expect(sent).toHaveLength(1);
+      const seedEntry = manager.entries.find((entry) => entry.customType === 'brunch.context_seed');
+      expect(seedEntry).toBeDefined();
+      expect(String(seedEntry?.content)).toContain('chosen: propose_intent');
     });
-  });
-
-  it('appends the entry then fires a live kick on a non-continue choice at a no-pending-kick juncture', async () => {
-    const manager = fakeSessionManager();
-    const { deps, sent } = fakeKickDeps();
-
-    const result = await runOrientationJuncture({
-      hasUI: true,
-      ui: fakeUi(labelFor('ingest')),
-      trigger: 'consult',
-      sessionManager: manager,
-      carriesPendingKick: false,
-      kick: deps,
-    });
-
-    expect(result.kickFired).toBe(true);
-    expect(sent).toHaveLength(1);
-    const kick = sent[0]!.message as { customType: string };
-    expect(kick.customType).toBe(BRUNCH_KICK_CUSTOM_TYPE);
-    expect(sent[0]!.options).toEqual({ triggerTurn: true });
-
-    // A forced seed was appended (LSN did not advance yet the seed still lands).
-    const seedEntry = manager.entries.find((entry) => entry.customType === 'brunch.context_seed');
-    expect(seedEntry).toBeDefined();
-    expect(String(seedEntry?.content)).toContain('chosen: ingest');
-  });
-
-  it('skips the kick when the choice is continue even without a pending kick', async () => {
-    const manager = fakeSessionManager();
-    const { deps, sent } = fakeKickDeps();
-
-    const result = await runOrientationJuncture({
-      hasUI: true,
-      ui: fakeUi(labelFor('continue')),
-      trigger: 'abort',
-      sessionManager: manager,
-      carriesPendingKick: false,
-      kick: deps,
-    });
-
-    expect(result.choice).toBe('continue');
-    expect(result.kickFired).toBe(false);
-    expect(sent).toEqual([]);
   });
 });

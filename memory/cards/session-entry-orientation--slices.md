@@ -101,7 +101,12 @@ Consumption rule: origination folds only the **latest** orientation entry, and o
 
 ---
 
-## Card 1 — Orientation dialog tracer: TUI entry juncture end-to-end · `in progress` (boot wiring blocked — see finding below)
+## Card 1 — Orientation dialog tracer: TUI entry juncture end-to-end · `landed (option-2 J1)`
+
+**2026-07-03 landed (option-2 J1 boot rework):** J1 now runs as a `session_start` handler for reason `startup` inside the session-orientation extension registrar. Binding-order verified against `@earendil-works/pi-coding-agent/dist/core/agent-session.js:1644-1665`: `bindExtensions()` applies the UI context (`_applyExtensionBindings`, line 1663) *then* emits `session_start` (line 1664), so `ctx.hasUI === true` and `ctx.ui.select` are live for the boot handler. The pre-session-binding origination + fire-and-forget kick were deleted from `src/app/brunch-tui.ts`; the resolveKickContext callback carries the debug-cache mirror and kick-status chrome forward. `runOrientationJuncture` gained a `mode: 'follow-choice' | 'boot'` parameter — `'boot'` always originates+kicks (with `resumeOrigin: 'resume_debt'` so a resumed session with no debt still idles correctly, and `forceSeed: true` only when a real orientation choice was recorded), preserving "never a wall" including degraded-mode boots and escape (both still fire the boot kick). No-double-kick in degraded modes is proven at unit level: the deleted brunch-tui boot origination is the only other path that could have fired, and it is gone.
+
+Full-scope card body kept below for retro/traceability.
+
 
 Full scope card. Posture: proving (inherited) — scores on **proof of life** (first deterministic orientation path lights up), **invariants** (locates the dialog→entry→kick seam), and **uncertainty** (retires the boot-ordering unknown).
 
@@ -169,7 +174,7 @@ On TUI boot with UI available, the orientation dialog fires with the SPEC-mode m
   origination unchanged (existing boot tests stay green) — real boot-path wiring is the blocked item below
 ✓ append failure — a failed appendCustomEntry is logged and never blocks boot or the kick (dialog path is best-effort)
 ✓ D37-L guard — the dialog path emits no present_ or request_ tool results anywhere (orientation is not an exchange)
-◐ boot order — BLOCKED: see 2026-07-03 build finding above; no real J1 wiring exists yet to test ordering against
+✓ boot order — landed via option 2 (session_start reason 'startup' handler); binding order verified against Pi's bindExtensions (apply UI context → emit session_start)
 ✓ sweep exclusion probe — brunch.session_orientation entry is not sweep-conversational (sweep-watermark test)
 ```
 

@@ -84,7 +84,7 @@ function fakeKickContext(sent: Array<{ message: unknown; options: unknown }>): K
 }
 
 describe('registerBrunchSessionOrientation', () => {
-  it.each(['startup', 'reload', 'fork'] as const)(
+  it.each(['reload', 'fork'] as const)(
     'skips the dialog on session_start reason %s (J7/J8 guard)',
     async (reason) => {
       const { pi, handlers } = collectPi();
@@ -96,6 +96,21 @@ describe('registerBrunchSessionOrientation', () => {
       expect(entries).toEqual([]);
     },
   );
+
+  it('runs the dialog on session_start reason startup with trigger entry (J1 boot) and fires a boot kick', async () => {
+    const { pi, handlers } = collectPi();
+    const sent: Array<{ message: unknown; options: unknown }> = [];
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => fakeKickContext(sent) });
+    const { ctx, entries } = buildCtx(labelFor('ingest'));
+
+    await handlers.session_start!({ type: 'session_start', reason: 'startup' }, ctx);
+
+    expect(
+      entries.find((entry) => entry.customType === BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE)?.data,
+    ).toEqual({ schemaVersion: 1, choice: 'ingest', trigger: 'entry' });
+    // Boot kick fires (mode 'boot' always originates+kicks).
+    expect(sent).toHaveLength(1);
+  });
 
   it.each(['new', 'resume'] as const)(
     'runs the dialog on session_start reason %s with trigger switch',

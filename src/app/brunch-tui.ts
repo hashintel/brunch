@@ -33,11 +33,7 @@ import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rp
 import { createSessionEventRelay, type SessionEventRelay } from '../rpc/session-event-relay.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
 import { createLiveExchangeBroker, type LiveExchangeBroker } from '../session/live-exchange-broker.js';
-import {
-  completeAssistantKick,
-  originateAssistantTurn,
-  type KickCompletionOutcome,
-} from '../session/originate-assistant-turn.js';
+import type { KickCompletionOutcome } from '../session/originate-assistant-turn.js';
 import { renderWorkspaceOverviewContext } from '../session/workspace-overview-context.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -461,11 +457,21 @@ export function createBrunchAgentSessionRuntimeFactory(
               };
             },
             sessionOrientation: {
+              // Option-2 J1: origination + kick now run inside the
+              // `session_start` (reason `startup`) handler in the
+              // session-orientation extension registrar, which fires from
+              // inside `bindExtensions()` — so `ctx.ui` and the live
+              // `AgentSession` both exist. The old pre-session-binding
+              // origination + fire-and-forget kick were deleted from this
+              // launch path; the callbacks below preserve the boot-time
+              // debug-cache mirror (D97-L) and kick-status chrome that the
+              // deleted block used to run.
               resolveKickContext: async () => {
                 const session = liveAgentSession.current;
                 if (!session) return undefined;
                 const specId = currentWorkspace.spec.id;
                 const specName = graph.commandExecutor.getSpec(specId)?.name;
+                const kickStatusUi = session.createReplacedSessionContext().ui;
                 return {
                   specId,
                   ...(specName ? { specName } : {}),
@@ -473,6 +479,29 @@ export function createBrunchAgentSessionRuntimeFactory(
                   workspaceContext: await renderWorkspaceOverviewContext(cwd),
                   sendCustomMessage: (message, sendOptions) =>
                     session.sendCustomMessage(message, sendOptions),
+                  onOriginationDecision: async (decision) => {
+                    if (context.introspection?.debugCache) {
+                      const debugCache = context.introspection.debugCache;
+                      for (const entry of decision.seedEntries) {
+                        await appendEntryContentToDebugCache(debugCache, entry).catch(() => {});
+                      }
+                      await appendOriginationRecordToDebugCache(debugCache, { decision }).catch(() => {});
+                    }
+                    if (decision.action === 'start' && services.modelRegistry.getAvailable().length > 0) {
+                      kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, 'opening assistant turn…');
+                    }
+                  },
+                  onKickOutcome: (outcome, decision) => {
+                    kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, undefined);
+                    if (context.introspection?.debugCache) {
+                      void appendOriginationRecordToDebugCache(context.introspection.debugCache, {
+                        decision,
+                        outcome,
+                      }).catch(() => {});
+                    }
+                    const message = formatKickDiagnostic(outcome);
+                    if (message) context.reportAsyncDiagnostic?.({ type: 'warning', message });
+                  },
                 };
               },
             },
@@ -480,28 +509,6 @@ export function createBrunchAgentSessionRuntimeFactory(
         ),
       ],
     });
-    const specName = graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name;
-    const origination = originateAssistantTurn({
-      specId: currentWorkspace.spec.id,
-      ...(specName ? { specName } : {}),
-      reads: graph.forSpec(currentWorkspace.spec.id),
-      entries: sessionManager.getEntries(),
-      resumeOrigin: 'resume_debt',
-      workspaceContext: await renderWorkspaceOverviewContext(cwd),
-      manager: sessionManager,
-    });
-    if (context.introspection?.debugCache) {
-      // Boot-time mirror is awaited (cheap, local fs) so a dev boot is
-      // observable the moment the runtime exists; turn-time mirrors in the
-      // reconciler/guard stay fire-and-forget.
-      const debugCache = context.introspection.debugCache;
-      for (const entry of origination.decision.seedEntries) {
-        await appendEntryContentToDebugCache(debugCache, entry).catch(() => {});
-      }
-      await appendOriginationRecordToDebugCache(debugCache, { decision: origination.decision }).catch(
-        () => {},
-      );
-    }
 
     const services = await createAgentSessionServices({
       cwd,
@@ -522,33 +529,6 @@ export function createBrunchAgentSessionRuntimeFactory(
     });
     liveAgentSession.current = created.session;
     context.sessionEvents?.attachSession(created.session);
-    const kickStatusUi = created.session.createReplacedSessionContext().ui;
-    const modelAvailable = services.modelRegistry.getAvailable().length > 0;
-    if (origination.decision.action === 'start' && modelAvailable) {
-      kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, 'opening assistant turn…');
-    }
-    // Complete the kick: a 'start' decision owes an actual assistant-originated
-    // LLM turn, which only the live AgentSession can run. Fire-and-forget:
-    // sendCustomMessage with triggerTurn awaits the whole turn, and boot must
-    // not block on provider latency. The completion seam classifies every
-    // exit, so launch paths no longer silently skip or bury failures in console
-    // IO.
-    void completeAssistantKick({
-      decision: origination.decision,
-      modelAvailable,
-      sendCustomMessage: (message, options) => created.session.sendCustomMessage(message, options),
-      onOutcome: (outcome) => {
-        kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, undefined);
-        if (context.introspection?.debugCache) {
-          void appendOriginationRecordToDebugCache(context.introspection.debugCache, {
-            decision: origination.decision,
-            outcome,
-          }).catch(() => {});
-        }
-        const message = formatKickDiagnostic(outcome);
-        if (message) context.reportAsyncDiagnostic?.({ type: 'warning', message });
-      },
-    });
     return {
       ...created,
       services,
