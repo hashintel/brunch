@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { projectPresentCandidates } from '../../../../exchanges/projections/present-candidates.js';
+import { projectRequestChoice } from '../../../../exchanges/projections/request-response.js';
 import { formatPresentCandidates } from '../present-candidates.js';
+import { formatRequestChoice } from '../request-response.js';
 
 function projection() {
   return projectPresentCandidates({
@@ -34,10 +36,37 @@ function projection() {
 }
 
 describe('formatPresentCandidates', () => {
-  it('renders candidate titles and user-rubric facets', async () => {
-    const markdown = formatPresentCandidates(projection());
+  it('locks transcript-shaped candidate tuples', async () => {
+    const present = projection();
+    const markdown = [
+      section(
+        'candidate selected',
+        formatPresentCandidates(present),
+        formatRequestChoice(
+          projectRequestChoice({
+            exchangeId: 'candidate-direction',
+            respondsToPresentTool: 'present_candidates',
+            status: 'answered',
+            choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' },
+            options: [{ id: 'local-workbench', content: 'Local workbench' }],
+          }),
+        ),
+      ),
+      section(
+        'candidate unavailable',
+        formatPresentCandidates(present),
+        formatRequestChoice(
+          projectRequestChoice({
+            exchangeId: 'candidate-direction',
+            respondsToPresentTool: 'present_candidates',
+            status: 'unavailable',
+            message: 'request_response choice requires interactive UI',
+          }),
+        ),
+      ),
+    ].join('\n\n');
 
-    await expect(markdown).toMatchFileSnapshot('../__snapshots__/present-candidates.md');
+    await expect(markdown).toMatchFileSnapshot('../__snapshots__/candidates-tuples.md');
   });
 
   it('does not dump meta-rubric reasoning by default', () => {
@@ -47,3 +76,7 @@ describe('formatPresentCandidates', () => {
     expect(markdown).not.toContain('failure_modes');
   });
 });
+
+function section(label: string, ...entries: readonly string[]): string {
+  return [`# ${label}`, ...entries].join('\n\n');
+}

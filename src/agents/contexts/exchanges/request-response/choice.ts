@@ -13,9 +13,9 @@ export function formatRequestChoice(details: RequestChoiceDetails): string {
       selectedIds: new Set([details.answered.choice.id]),
       options: details.answered.options,
       writeIns:
-        details.answered.choice.kind === 'listed' ?
-          []
-        : [{ kind: details.answered.choice.kind, label: details.answered.choice.label }],
+        details.answered.choice.kind === 'listed'
+          ? []
+          : [{ kind: details.answered.choice.kind, label: details.answered.choice.label }],
     }),
     details.answered.comment ? blockquote(details.answered.comment) : undefined,
   );

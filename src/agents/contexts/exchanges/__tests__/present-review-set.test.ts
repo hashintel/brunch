@@ -8,32 +8,33 @@ import { missingRenderedDetailsLeaves } from '../render-honesty.js';
 import { formatRequestReview } from '../request-response.js';
 
 describe('formatPresentReviewSet', () => {
-  it('locks the full-set accepted tuple with nested proposed edges', async () => {
-    const rendered = renderTuple(fullSetPayload, 'approve');
+  it('locks transcript-shaped review-set tuples', async () => {
+    const accepted = renderTuple(fullSetPayload, 'approve');
+    const changes = renderTuple(
+      trailingGroupPayload,
+      'request_changes',
+      '$REQ6 is right but under-specified — name the rollback window before accepting it.',
+    );
+    const rejected = renderTuple(
+      rejectedPayload,
+      'reject',
+      'This proposes the wrong boundary for the render sweep.',
+    );
+    const cancelled = renderTuple(fullSetPayload, 'cancelled');
+    const rendered = [
+      section('accepted', accepted),
+      section('changes requested', changes),
+      section('rejected', rejected),
+      section('cancelled', cancelled),
+    ].join('\n\n');
 
-    await expect(rendered).toMatchFileSnapshot('../__snapshots__/present-review-set-accepted-tuple.md');
+    await expect(rendered).toMatchFileSnapshot('../__snapshots__/review-set-tuples.md');
     expect(rendered).toContain('  - depends on __$REQ5__');
     expect(rendered).toContain(
       '    > the invariant is the only oracle that catches a silently dropped details leaf.',
     );
     expect(rendered).not.toContain('—exclusion→');
     expect(rendered).not.toContain('—witness [for]→');
-  });
-
-  it('locks the trailing existing-edge changes-requested tuple', async () => {
-    await expect(
-      renderTuple(
-        trailingGroupPayload,
-        'request_changes',
-        '$REQ6 is right but under-specified — name the rollback window before accepting it.',
-      ),
-    ).toMatchFileSnapshot('../__snapshots__/present-review-set-trailing-group-changes-tuple.md');
-  });
-
-  it('locks the rejected tuple', async () => {
-    await expect(
-      renderTuple(rejectedPayload, 'reject', 'This proposes the wrong boundary for the render sweep.'),
-    ).toMatchFileSnapshot('../__snapshots__/present-review-set-rejected-tuple.md');
   });
 
   it('declares every details leaf as rendered or intentionally elided', () => {
@@ -56,14 +57,22 @@ describe('formatPresentReviewSet', () => {
 
 function renderTuple(
   payload: ReviewSetProposalPayload,
-  review: 'approve' | 'request_changes' | 'reject',
+  review: 'approve' | 'request_changes' | 'reject' | 'cancelled',
   comment?: string,
 ): string {
   const exchangeId = `review-${review}`;
+  const response =
+    review === 'cancelled'
+      ? projectRequestReview({ exchangeId, status: 'cancelled' })
+      : projectRequestReview({ exchangeId, status: 'answered', review, comment });
   return [
     formatPresentReviewSet(projectPresentReviewSet({ exchangeId, payload })),
-    formatRequestReview(projectRequestReview({ exchangeId, status: 'answered', review, comment })),
+    formatRequestReview(response),
   ].join('\n\n');
+}
+
+function section(label: string, content: string): string {
+  return [`# ${label}`, content].join('\n\n');
 }
 
 const fullSetPayload = {

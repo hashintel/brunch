@@ -9,9 +9,11 @@ export function formatRequestReview(details: RequestReviewDetails): string {
   if ('unavailable' in details) return formatResponseTerminal(details.unavailable.message, 'Review');
 
   const label =
-    details.answered.decision === 'approve' ? 'accepted'
-    : details.answered.decision === 'request_changes' ? 'changes requested'
-    : 'rejected';
+    details.answered.decision === 'approve'
+      ? 'accepted'
+      : details.answered.decision === 'request_changes'
+        ? 'changes requested'
+        : 'rejected';
   return joinMarkdownBlocks(
     heading(`Review: ${label}`, 2),
     details.answered.comment ? blockquote(details.answered.comment) : undefined,

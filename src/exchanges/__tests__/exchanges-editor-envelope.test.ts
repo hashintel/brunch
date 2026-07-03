@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  buildRequestChoicesEditorPrefill,
-  parseRequestChoicesEditorResponse,
-} from '../../.pi/extensions/exchanges/shared/choices-editor.js';
+import { buildRequestChoicesEditorPrefill, parseRequestChoicesEditorResponse } from '../editor-envelope.js';
 import { projectRequestChoices } from '../projections/request-response.js';
 import { zRequestChoicesEditorEnvelope } from '../schemas/index.js';
 
@@ -54,9 +51,9 @@ describe('request_choices editor envelope', () => {
         kind: choice.id === 'other' ? ('other' as const) : ('listed' as const),
       })),
       options: envelope.choices.flatMap((choice) =>
-        choice.id === 'other' || choice.id === 'none' || choice.label === undefined ?
-          []
-        : [{ id: choice.id, content: choice.label }],
+        choice.id === 'other' || choice.id === 'none' || choice.label === undefined
+          ? []
+          : [{ id: choice.id, content: choice.label }],
       ),
       comment: response.comment,
     });
