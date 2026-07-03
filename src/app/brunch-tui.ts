@@ -34,6 +34,7 @@ import { createSessionEventRelay, type SessionEventRelay } from '../rpc/session-
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
 import { createLiveExchangeBroker, type LiveExchangeBroker } from '../session/live-exchange-broker.js';
 import type { KickCompletionOutcome } from '../session/originate-assistant-turn.js';
+import { operationalModeLabel } from '../session/schema/kinds.js';
 import { renderWorkspaceOverviewContext } from '../session/workspace-overview-context.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -45,7 +46,6 @@ import {
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
 import {
-  BRUNCH_KICK_ACTIVITY_STATUS_KEY,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   createInMemoryBrunchIntrospectionStore,
@@ -228,10 +228,27 @@ function createBrunchTuiIntrospection(
   };
 }
 
+export interface StartupHeaderResumeFacts {
+  readonly specTitle?: string;
+  readonly nodeCount?: number;
+  readonly edgeCount?: number;
+  readonly modeLabel?: string;
+}
+
+export interface StartupHeaderChromeState {
+  decision: Exclude<SpecSessionActivationDecision['action'], 'cancel'>;
+  resumeFacts?: StartupHeaderResumeFacts;
+}
+
 export function startupHeaderForActivation(
   decision: SpecSessionActivationDecision | undefined,
-): { decision: Exclude<SpecSessionActivationDecision['action'], 'cancel'> } | undefined {
-  return decision && decision.action !== 'cancel' ? { decision: decision.action } : undefined;
+  resumeFacts?: StartupHeaderResumeFacts,
+): StartupHeaderChromeState | undefined {
+  if (!decision || decision.action === 'cancel') return undefined;
+  return {
+    decision: decision.action,
+    ...(decision.action === 'openSession' && resumeFacts ? { resumeFacts } : {}),
+  };
 }
 
 async function chooseSpecSessionActivationDecision(
@@ -398,7 +415,16 @@ export function createBrunchAgentSessionRuntimeFactory(
     // (switchSession, waitForIdle) from the live session, which Pi's own
     // shortcut contexts do not carry.
     const liveAgentSession = context.liveAgentSession ?? { current: null };
-    const startupHeader = startupHeaderForActivation(context.activationDecision);
+    const startupHeader = startupHeaderForActivation(
+      context.activationDecision,
+      sampleResumeFactsForHeader({
+        activationDecision: context.activationDecision,
+        specName: graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name,
+        graph,
+        specId: currentWorkspace.spec.id,
+        sessionManager,
+      }),
+    );
     const agentState = projectBrunchAgentState(sessionManager.getEntries());
     const allowProductSubagents = context.allowSubagents !== false;
     const shouldLoadSubagents = allowProductSubagents || agentState.operationalMode === 'execute';
@@ -471,7 +497,7 @@ export function createBrunchAgentSessionRuntimeFactory(
                 if (!session) return undefined;
                 const specId = currentWorkspace.spec.id;
                 const specName = graph.commandExecutor.getSpec(specId)?.name;
-                const kickStatusUi = session.createReplacedSessionContext().ui;
+                const kickUi = session.createReplacedSessionContext().ui;
                 return {
                   specId,
                   ...(specName ? { specName } : {}),
@@ -488,11 +514,13 @@ export function createBrunchAgentSessionRuntimeFactory(
                       await appendOriginationRecordToDebugCache(debugCache, { decision }).catch(() => {});
                     }
                     if (decision.action === 'start' && services.modelRegistry.getAvailable().length > 0) {
-                      kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, 'opening assistant turn…');
+                      // F14: drive the salient streaming loader instead of a
+                      // footer status entry. Reset in chrome's `turn_end`
+                      // handler so the message never leaks into a later turn.
+                      kickUi.setWorkingMessage('Opening assistant turn…');
                     }
                   },
                   onKickOutcome: (outcome, decision) => {
-                    kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, undefined);
                     if (context.introspection?.debugCache) {
                       void appendOriginationRecordToDebugCache(context.introspection.debugCache, {
                         decision,
@@ -534,6 +562,33 @@ export function createBrunchAgentSessionRuntimeFactory(
       services,
       diagnostics: services.diagnostics,
     };
+  };
+}
+
+interface SampleResumeFactsInput {
+  readonly activationDecision: SpecSessionActivationDecision | undefined;
+  readonly specName: string | undefined;
+  readonly graph: WorkspaceGraphRuntime;
+  readonly specId: number;
+  readonly sessionManager: {
+    readonly getEntries: () => readonly { type?: unknown; customType?: unknown; data?: unknown }[];
+  };
+}
+
+/**
+ * F16a: sample deterministic resume-state facts for the startup-header resume
+ * block. Only computed for `openSession` activations; other decisions return
+ * undefined so the header omits the block entirely.
+ */
+function sampleResumeFactsForHeader(input: SampleResumeFactsInput): StartupHeaderResumeFacts | undefined {
+  if (input.activationDecision?.action !== 'openSession') return undefined;
+  const slice = input.graph.forSpec(input.specId).queryGraph(undefined, { visibility: 'all' });
+  const agentState = projectBrunchAgentState(input.sessionManager.getEntries());
+  return {
+    ...(input.specName ? { specTitle: input.specName } : {}),
+    nodeCount: slice.nodes.length,
+    edgeCount: slice.edges.length,
+    modeLabel: operationalModeLabel(agentState.operationalMode),
   };
 }
 

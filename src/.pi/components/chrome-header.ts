@@ -3,7 +3,15 @@ import { type Component, truncateToWidth } from '@earendil-works/pi-tui';
 
 import { formatBrunchProductIdentity, readBrunchAnsiLogo } from './brunch-identity.js';
 import { resolveBrunchVersion } from './brunch-version.js';
+import { projectRoundedBox } from './rounded-box.js';
 import { supportsTruecolor } from './workspace-dialog/component.js';
+
+export interface BrunchStartupHeaderResumeFacts {
+  readonly specTitle?: string;
+  readonly nodeCount?: number;
+  readonly edgeCount?: number;
+  readonly modeLabel?: string;
+}
 
 export interface BrunchStartupHeaderFacts {
   project: string;
@@ -11,6 +19,11 @@ export interface BrunchStartupHeaderFacts {
   session: string;
   decision?: 'continue' | 'openSession' | 'newSpec' | 'newSession';
   sidecarUrl?: string;
+  /**
+   * Facts sampled at boot time for the resume state/status block (F16a).
+   * Rendered only when `decision === 'openSession'`.
+   */
+  resumeFacts?: BrunchStartupHeaderResumeFacts;
 }
 
 const HEADER_TOP_PADDING_LINES = 6;
@@ -34,17 +47,18 @@ export class BrunchStartupHeader implements Component {
     const safeWidth = Math.max(MIN_WIDTH, width);
     const contentWidth = safeWidth - HEADER_PADDING_X * 2;
     const leftMargin = ' '.repeat(HEADER_PADDING_X);
-    return this.collapsedLines().map((line) =>
+    return this.collapsedLines(contentWidth).map((line) =>
       line.length > 0 ? leftMargin + truncateToWidth(line, contentWidth, '...') : line,
     );
   }
 
-  private collapsedLines(): string[] {
+  private collapsedLines(contentWidth: number): string[] {
     return [
       ...this.topPaddingLines(),
       ...this.identityLines(),
       '',
-      ...this.introLines(),
+      ...this.welcomeBlockLines(contentWidth),
+      ...this.resumeBlockLines(contentWidth),
       '',
       this.webOrExpandHelpLine(),
     ];
@@ -62,14 +76,39 @@ export class BrunchStartupHeader implements Component {
     });
   }
 
-  private introLines(): string[] {
+  private welcomeBlockLines(contentWidth: number): string[] {
     if (this.facts.decision !== 'newSpec' && this.facts.decision !== 'newSession') return [];
-    return [
+    const inner = [
       this.theme.bold('Welcome to Brunch.'),
       'Brunch helps you and the agent co-author this specification as a local graph.',
       'The assistant is about to open with a grounded question from the seeded workspace context.',
       'Commands: /brunch:mode or alt+m changes mode; ctrl+shift+b switches spec/session.',
     ];
+    return projectRoundedBox(inner, { topLabel: 'welcome', labelAlign: 'left' }, contentWidth, (text) =>
+      this.theme.fg('accent', text),
+    );
+  }
+
+  private resumeBlockLines(contentWidth: number): string[] {
+    if (this.facts.decision !== 'openSession') return [];
+    const resume = this.facts.resumeFacts;
+    const specLabel = resume?.specTitle ?? this.facts.spec;
+    const inner = [
+      this.theme.bold(`Resumed spec: ${specLabel}`),
+      this.formatResumeStats(resume),
+      'Use /brunch:consult to reopen the orientation menu; ctrl+shift+b switches spec/session.',
+    ];
+    return projectRoundedBox(inner, { topLabel: 'resumed', labelAlign: 'left' }, contentWidth, (text) =>
+      this.theme.fg('accent', text),
+    );
+  }
+
+  private formatResumeStats(resume: BrunchStartupHeaderResumeFacts | undefined): string {
+    const parts: string[] = [];
+    if (resume?.modeLabel) parts.push(`mode ${resume.modeLabel}`);
+    if (resume?.nodeCount !== undefined) parts.push(`${resume.nodeCount} nodes`);
+    if (resume?.edgeCount !== undefined) parts.push(`${resume.edgeCount} edges`);
+    return parts.length > 0 ? parts.join(' · ') : this.theme.fg('dim', 'graph facts not yet sampled');
   }
 
   private webOrExpandHelpLine(): string {

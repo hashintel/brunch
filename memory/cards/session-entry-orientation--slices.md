@@ -321,7 +321,20 @@ src/rpc/methods/session.ts            ?   (only if RPC junctures reuse the helpe
 
 ---
 
-## Card 3 — Deterministic entry chrome (F13/F14/F16a; F15a optional) · `queued`
+## Card 3 — Deterministic entry chrome (F13/F14/F16a; F15a optional) · `done`
+
+**2026-07-03 landed:** F13/F14/F16a shipped; F15a dropped (would fight F14's global working-message reset).
+
+- **F13:** `BrunchStartupHeader` now composes an identity block plus a rounded-box welcome element (`projectRoundedBox` with accent border and `welcome` top label) for `newSpec`/`newSession` activations — visually separates the welcome from the header identity.
+- **F14:** kick activity drives `ctx.ui.setWorkingMessage('Opening assistant turn…')` from `brunch-tui.ts`'s origination-decision callback instead of the retired `brunch.kick` status key. Chrome's `turn_end` handler resets to default so a kick-scoped message never leaks. `BRUNCH_KICK_ACTIVITY_STATUS_KEY` deleted (no dual carrier, no re-export from `app/pi-extensions.ts`); the chrome `message_start` handler no longer touches setStatus.
+- **F16a:** `openSession` activations render a rounded-box resume state/status block via `startupHeader.resumeFacts` (`{ specTitle, nodeCount, edgeCount, modeLabel }`), sampled once in the runtime factory from `graph.forSpec(specId).queryGraph()` + `projectBrunchAgentState(entries)`. When facts are absent the block falls back to `"graph facts not yet sampled"`.
+- **F15a (dropped):** turn_end "Worked for Ns" label would compete with F14's default-restore, per card guidance. If revisited, needs Pi upstream per-message labels.
+
+Topology: `src/.pi/extensions/chrome/TOPOLOGY.md` updated (retired `brunch.kick` status-key note, `startupHeader.resumeFacts` recorded, header composition sketch updated). No SPEC event, no PLAN change — settled chrome seam.
+
+---
+
+## Card 3 — Original definition (kept for cross-refs) · `superseded by landed note above`
 
 Light scope card. Posture: earned (settled chrome seams; each item closes a named walkthrough finding).
 

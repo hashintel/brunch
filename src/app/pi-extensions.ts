@@ -107,7 +107,6 @@ export {
 export { registerBrunchPrompting } from '../.pi/extensions/agent-runtime/index.js';
 export { registerBrunchContext } from '../.pi/extensions/brunch-data/index.js';
 export {
-  BRUNCH_KICK_ACTIVITY_STATUS_KEY,
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
   registerBrunchChrome,

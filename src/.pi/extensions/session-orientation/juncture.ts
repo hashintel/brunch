@@ -84,8 +84,8 @@ export interface LiveKickDeps {
   ) => Promise<unknown>;
   /**
    * Called with each origination decision — before the kick fires — so
-   * callers can mirror it into `.brunch/debug` (D97-L) or drive kick-status
-   * chrome (`setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, ...)`).
+   * callers can mirror it into `.brunch/debug` (D97-L) or drive kick-scoped
+   * chrome (F14: `ctx.ui.setWorkingMessage(...)` from `app/brunch-tui.ts`).
    */
   readonly onOriginationDecision?: (decision: StartAssistantTurnDecision) => Promise<void> | void;
   readonly onKickOutcome?: (
