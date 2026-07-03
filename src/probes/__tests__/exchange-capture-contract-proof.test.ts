@@ -168,4 +168,23 @@ describe('exchange capture contract proof', () => {
     expect(ingestGuidance).toContain('Review `request_changes` captures the comment as direct user material');
     expect(ingestGuidance).toContain('Do not capture the prior proposal payload');
   });
+
+  it('treats review reject as a dead offer with no scratchpad obligation', async () => {
+    const details = projectRequestReview({
+      exchangeId: 'cc-07-reject',
+      status: 'answered',
+      review: 'reject',
+      comment: 'This is the wrong direction.',
+    });
+
+    expect('answered' in details).toBe(true);
+    if (!('answered' in details)) throw new Error('expected answered request_review details');
+    expect(details.answered.decision).toBe('reject');
+    expect(JSON.stringify(details)).not.toContain('entityDrafts');
+    expect(JSON.stringify(details)).not.toContain('scratchpad');
+
+    const ingestGuidance = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
+    expect(ingestGuidance).toContain('Review `reject` kills the offer');
+    expect(ingestGuidance).toContain('Do not demote the rejected proposal into a scratchpad obligation');
+  });
 });
