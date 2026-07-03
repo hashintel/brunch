@@ -13,19 +13,14 @@ import type { BrunchDb } from '../db/connection.js';
 import * as schema from '../db/schema.js';
 import type { Lsn } from './atoms.js';
 import type { EdgeCategory, GraphEdge } from './schema/edges.js';
-import {
-  gapPredicateSupport,
-  type ElicitationGap,
-  type GapDisposition,
-  type GapPredicate,
-} from './schema/elicitation-gaps.js';
 import type { ReadinessBand } from './schema/kinds.js';
 import {
-  bandsForKind,
+  latestExpectedBand,
   parseGraphNodeCode,
   type GraphNode,
   type NodeDetail,
   type NodeKind,
+  type NodeSettlement,
 } from './schema/nodes.js';
 import type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
@@ -72,6 +67,7 @@ interface EdgePresenceFilter {
 export interface GraphFilter {
   readonly kinds?: readonly NodeKind[];
   readonly bands?: readonly ReadinessBand[];
+  readonly settlement?: readonly NodeSettlement[];
   readonly hasEdge?: EdgePresenceFilter;
   readonly lacksEdge?: EdgePresenceFilter;
 }
@@ -86,6 +82,7 @@ function rowToNode(row: typeof schema.nodes.$inferSelect): GraphNode {
     title: row.title,
     ...(row.body != null ? { body: row.body } : {}),
     basis: row.basis as GraphNode['basis'],
+    settlement: row.settlement as GraphNode['settlement'],
     ...(row.source != null ? { source: row.source } : {}),
     ...(row.detail != null ? { detail: JSON.parse(row.detail) as NodeDetail } : {}),
     createdAtLsn: row.created_at_lsn,
@@ -101,6 +98,7 @@ function rowToEdge(row: typeof schema.edges.$inferSelect): GraphEdge {
     sourceId: row.source_id,
     targetId: row.target_id,
     basis: row.basis as GraphEdge['basis'],
+    settlement: row.settlement as GraphEdge['settlement'],
     createdAtLsn: row.created_at_lsn,
     updatedAtLsn: row.updated_at_lsn,
   };
@@ -172,7 +170,10 @@ export function queryGraph(
   );
   const nodeRows = state.visibleNodeRows.filter((row) => matchingIds.has(row.id));
   const edgeRows = state.visibleEdgeRows.filter(
-    (edge) => matchingIds.has(edge.source_id) && matchingIds.has(edge.target_id),
+    (edge) =>
+      matchingIds.has(edge.source_id) &&
+      matchingIds.has(edge.target_id) &&
+      edgeMatchesSettlementFilter(edge, filter),
   );
 
   return withClock(db, specId, {
@@ -275,11 +276,20 @@ function nodeMatchesFilter(
     return false;
   }
   if (filter.bands && filter.bands.length > 0) {
-    if (!bandsForKind(row.kind as NodeKind).some((band) => filter.bands?.includes(band))) return false;
+    const band = latestExpectedBand(row.kind as NodeKind);
+    if (band === null || !filter.bands.includes(band)) return false;
+  }
+  if (filter.settlement && filter.settlement.length > 0) {
+    if (!filter.settlement.includes(row.settlement as NodeSettlement)) return false;
   }
   if (filter.hasEdge && !hasMatchingEdge(row.id, edges, filter.hasEdge)) return false;
   if (filter.lacksEdge && hasMatchingEdge(row.id, edges, filter.lacksEdge)) return false;
   return true;
+}
+
+function edgeMatchesSettlementFilter(edge: typeof schema.edges.$inferSelect, filter: GraphFilter): boolean {
+  if (!filter.settlement || filter.settlement.length === 0) return true;
+  return filter.settlement.includes(edge.settlement as NodeSettlement);
 }
 
 function hasMatchingEdge(
@@ -346,105 +356,4 @@ export function getOpenReconciliationNeeds(db: BrunchDb, specId: number): Reconc
     .where(and(eq(schema.reconciliationNeed.status, 'open'), eq(schema.reconciliationNeed.spec_id, specId)))
     .all();
   return rows.map(rowToReconNeed);
-}
-
-function derivePresenceCoverage(
-  db: BrunchDb,
-  specId: number,
-  predicate: Extract<GapPredicate, { kind: 'presence' }>,
-): number {
-  const rows = db.select().from(schema.nodes).where(eq(schema.nodes.spec_id, specId)).all();
-  const count = rows.filter((row) => {
-    if (predicate.plane !== undefined && row.plane !== predicate.plane) return false;
-    if (predicate.nodeKind !== undefined && row.kind !== predicate.nodeKind) return false;
-    if (predicate.band !== undefined) {
-      if (!bandsForKind(row.kind as NodeKind).includes(predicate.band)) return false;
-    }
-    return true;
-  }).length;
-  return Math.min(1, count / predicate.minimum);
-}
-
-function deriveGapCoverage(
-  db: BrunchDb,
-  specId: number,
-  predicate: GapPredicate,
-  disposition: GapDisposition,
-): number {
-  if (disposition === 'not_applicable' || disposition === 'irrelevant' || disposition === 'answered')
-    return 1;
-  // manual rides disposition only; unsupported arms are boundary-rejected (gapPredicateSupport).
-  if (gapPredicateSupport(predicate.kind) !== 'structural') return 0;
-  if (predicate.kind === 'presence') return derivePresenceCoverage(db, specId, predicate);
-  throw new Error(`structural gap predicate kind ${predicate.kind} has no derivation implemented`);
-}
-
-function rowToElicitationGap(db: BrunchDb, row: typeof schema.elicitationGaps.$inferSelect): ElicitationGap {
-  type MutableElicitationGap = {
-    -readonly [K in keyof ElicitationGap]: ElicitationGap[K];
-  };
-
-  const storedDisposition = row.disposition as GapDisposition;
-  const predicate = JSON.parse(row.predicate) as GapPredicate;
-  if (row.predicate_kind !== predicate.kind) {
-    throw new Error(
-      `elicitation gap ${row.id} predicate_kind ${row.predicate_kind} does not match predicate JSON kind ${predicate.kind}`,
-    );
-  }
-  if ('nodeKind' in predicate && predicate.nodeKind !== undefined && row.refers_to !== predicate.nodeKind) {
-    throw new Error(
-      `elicitation gap ${row.id} refers_to ${row.refers_to} does not match predicate nodeKind ${predicate.nodeKind}`,
-    );
-  }
-  const coverage = deriveGapCoverage(db, row.spec_id, predicate, storedDisposition);
-  const answered = coverage >= 1;
-  const disposition = answered && storedDisposition === 'open' ? 'answered' : storedDisposition;
-
-  const entry: MutableElicitationGap = {
-    id: String(row.id),
-    specId: row.spec_id,
-    refersTo: row.refers_to as ElicitationGap['refersTo'],
-    question: row.question,
-    rationale: row.rationale,
-    disposition,
-    basis: row.basis as ElicitationGap['basis'],
-    band: row.readiness_band as ElicitationGap['band'],
-    predicate,
-    importance: row.importance,
-    coverage,
-    answered,
-    createdAtLsn: row.created_at_lsn,
-  };
-
-  if (row.plane_affinity != null) {
-    entry.planeAffinity = row.plane_affinity as NonNullable<ElicitationGap['planeAffinity']>;
-  }
-
-  if (row.lens_affinity != null) {
-    entry.lensAffinity = row.lens_affinity as NonNullable<ElicitationGap['lensAffinity']>;
-  }
-
-  if (row.arose_from_gap_id != null) {
-    entry.aroseFromGapId = String(row.arose_from_gap_id);
-  }
-
-  if (row.resolved_by_node_id != null) {
-    entry.resolvedByNodeId = row.resolved_by_node_id;
-  }
-
-  if (row.disposition_set_at_lsn != null) {
-    entry.dispositionSetAtLsn = row.disposition_set_at_lsn;
-  }
-
-  return entry;
-}
-
-export function getElicitationGaps(db: BrunchDb, specId: number): ElicitationGap[] {
-  const rows = db
-    .select()
-    .from(schema.elicitationGaps)
-    .where(eq(schema.elicitationGaps.spec_id, specId))
-    .orderBy(schema.elicitationGaps.created_at_lsn, schema.elicitationGaps.id)
-    .all();
-  return rows.map((row) => rowToElicitationGap(db, row));
 }

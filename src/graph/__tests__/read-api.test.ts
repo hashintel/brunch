@@ -110,10 +110,12 @@ describe('graph read API', () => {
       queryGraph(db, specId, { bands: ['commitment'] })
         .nodes.map((node) => node.kind)
         .sort(),
-    ).toEqual(['requirement', 'requirement']);
-    expect(queryGraph(db, specId, { bands: ['projection'] }).nodes.map((node) => node.kind)).toEqual([
-      'evidence',
-    ]);
+    ).toEqual([]);
+    expect(
+      queryGraph(db, specId, { bands: ['projection'] })
+        .nodes.map((node) => node.kind)
+        .sort(),
+    ).toEqual(['evidence', 'requirement', 'requirement']);
   });
 
   it('filters graph slices by derived readiness bands', () => {
@@ -137,17 +139,17 @@ describe('graph read API', () => {
       queryGraph(db, specId, { bands: ['projection'] })
         .nodes.map((node) => node.kind)
         .sort(),
-    ).toEqual(['evidence', 'module']);
+    ).toEqual(['evidence', 'module', 'requirement']);
     expect(
       queryGraph(db, specId, { bands: ['commitment'] })
         .nodes.map((node) => node.kind)
         .sort(),
-    ).toEqual(['criterion', 'frontier', 'requirement']);
+    ).toEqual(['criterion', 'frontier']);
     expect(
       queryGraph(db, specId, { bands: ['grounding'] })
         .nodes.map((node) => node.kind)
         .sort(),
-    ).toEqual(['context', 'goal']);
+    ).toEqual(['goal']);
     expect(
       queryGraph(db, specId, { bands: ['elicitation'] })
         .nodes.map((node) => node.kind)

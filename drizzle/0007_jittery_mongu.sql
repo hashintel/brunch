@@ -1,0 +1,1 @@
+DROP TABLE `elicitation_gaps`;

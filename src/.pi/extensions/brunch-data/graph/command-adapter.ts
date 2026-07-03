@@ -58,7 +58,12 @@ export function translateMutateGraph(
   }
 
   if (diagnostics.length > 0) return { status: 'structural_illegal', diagnostics };
-  return { specId, createBasis: params.createBasis ?? 'implicit', ops };
+  return {
+    specId,
+    createBasis: params.createBasis ?? 'implicit',
+    createSettlement: params.createSettlement ?? 'settled',
+    ops,
+  };
 }
 
 function normalizeRoleNamedEdgeDraftOp(

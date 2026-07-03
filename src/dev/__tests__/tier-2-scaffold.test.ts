@@ -243,39 +243,35 @@ describe('FE-847 coverage-first scaffold — I46-L honest origination', () => {
     }
   });
 
-  it('seed content composition (FE-857): the seed carries the spec overview and gap framing into provider-visible context', async () => {
+  it('seed content composition (FE-857): the seed carries the spec overview and graph facts + scratchpad into provider-visible context', async () => {
     // Content claim (buildSessionContext over entries). Startup *lifecycle*
     // completeness is owned by the origination-kick-live oracle.
     const boot = await bootTier2RuntimeThroughRunBrunchTui({ dev: false });
     try {
       const specId = await readSessionContextSpecId(boot.runtime.session);
-      const graph = await openWorkspaceGraphRuntime(boot.cwd);
-      const gaps = graph.forSpec(specId).getElicitationGaps();
-      const topGap = gaps.find((gap) => !gap.answered && gap.disposition === 'open');
-      expect(topGap).toBeDefined();
 
       const entries = boot.runtime.session.sessionManager.getEntries();
       const seeds = customEntries(entries, 'brunch.context_seed');
       expect(seeds).toHaveLength(1);
 
       // The seed entry is the provider-visible carrier: its content names the
-      // spec graph state and the grounding-floor gaps; details still carry the
-      // watermark payload for the projection.
+      // spec graph state, the thin graph-fact seed, and the session
+      // scratchpad; details still carry the watermark payload for the
+      // projection. It never carries a persisted agenda row (D65-L/D101-L).
       const seed = seeds[0] as { content?: unknown; data: unknown };
       expect(seed.data).toEqual({ specId, snapshotLsn: expect.any(Number) });
       const seedContent = typeof seed.content === 'string' ? seed.content : '';
       expect(seedContent).toContain(`spec ${specId}`);
-      expect(seedContent).toContain('Open elicitation gaps');
+      expect(seedContent).toContain('Graph facts:');
+      expect(seedContent).toContain('ELICITATION SCRATCHPAD');
 
-      // pi's own context builder surfaces the seeded overview + a real
-      // top-ranked gap question in the LLM context the opening turn runs
-      // against (lifecycle is owned by the origination-kick-live oracle).
+      // pi's own context builder surfaces the seeded overview in the LLM
+      // context the opening turn runs against (lifecycle is owned by the
+      // origination-kick-live oracle).
       const llmContext = buildSessionContext(entries as never);
       const contextText = JSON.stringify(llmContext.messages);
       expect(contextText).toContain('Context seeded for spec');
-      expect(contextText).toContain('Open elicitation gaps');
-      const rankedQuestions = gaps.filter((gap) => !gap.answered && gap.disposition === 'open');
-      expect(rankedQuestions.some((gap) => contextText.includes(gap.question))).toBe(true);
+      expect(contextText).toContain('ELICITATION SCRATCHPAD');
     } finally {
       await boot.runtime.dispose();
       boot.restoreEnv();

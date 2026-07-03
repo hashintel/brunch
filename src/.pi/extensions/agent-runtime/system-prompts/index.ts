@@ -65,7 +65,7 @@ export function registerBrunchPrompting(
     const state = projectState(ctx as BeforeAgentStartContextLike | undefined);
     const activeTools =
       typeof (pi as Partial<ExtensionAPI>).getAllTools === 'function'
-        ? activeToolNamesForBrunchAgentState(pi, state, undefined, options.devAllowedToolNames)
+        ? activeToolNamesForBrunchAgentState(pi, state, options.devAllowedToolNames)
         : [];
     if (typeof (pi as Partial<ExtensionAPI>).setActiveTools === 'function') {
       pi.setActiveTools(activeTools);

@@ -44,6 +44,7 @@ export function writeGraphMutation(options: {
         title: node.title,
         body: node.body ?? null,
         basis: input.createBasis ?? 'explicit',
+        settlement: input.createSettlement ?? 'settled',
         source: node.source ?? null,
         detail: node.detail != null ? JSON.stringify(node.detail) : null,
         created_at_lsn: lsn,
@@ -70,6 +71,7 @@ export function writeGraphMutation(options: {
         target_id: resolvePlannedEndpoint(edge.target),
         stance: edge.stance,
         basis: input.createBasis ?? 'explicit',
+        settlement: input.createSettlement ?? 'settled',
         rationale: edge.rationale,
         created_at_lsn: lsn,
         updated_at_lsn: lsn,
@@ -86,6 +88,7 @@ export function writeGraphMutation(options: {
     if (hasOwn(patchRecord, 'title')) values['title'] = node.patch.title;
     if (hasOwn(patchRecord, 'body')) values['body'] = node.patch.body ?? null;
     if (hasOwn(patchRecord, 'source')) values['source'] = node.patch.source ?? null;
+    if (hasOwn(patchRecord, 'settlement')) values['settlement'] = node.patch.settlement;
     if (hasOwn(patchRecord, 'detail')) {
       values['detail'] = node.patch.detail == null ? null : JSON.stringify(node.patch.detail);
     }
@@ -98,6 +101,7 @@ export function writeGraphMutation(options: {
     const patchRecord = edge.patch as Record<string, unknown>;
     const values: Record<string, unknown> = { updated_at_lsn: lsn };
     if (hasOwn(patchRecord, 'rationale')) values['rationale'] = edge.patch.rationale ?? null;
+    if (hasOwn(patchRecord, 'settlement')) values['settlement'] = edge.patch.settlement;
     tx.update(schema.edges).set(values).where(eq(schema.edges.id, edge.edgeId)).run();
     updatedEdges.push(edge.edgeId);
   }

@@ -8,24 +8,14 @@
  */
 
 import { sql } from 'drizzle-orm';
-import {
-  type AnySQLiteColumn,
-  integer,
-  primaryKey,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from 'drizzle-orm/sqlite-core';
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 import {
   EDGE_CATEGORIES,
   EDGE_STANCES,
-  GAP_DISPOSITIONS,
-  GAP_PREDICATE_KINDS,
-  LENS_AFFINITIES,
   NODE_BASES,
   NODE_PLANES,
-  READINESS_BANDS,
+  NODE_SETTLEMENTS,
   SPEC_KINDS,
 } from '../graph/schema/kinds.js';
 
@@ -54,6 +44,7 @@ export const nodes = sqliteTable(
     title: text().notNull(),
     body: text(),
     basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
+    settlement: text({ enum: NODE_SETTLEMENTS }).notNull().default('settled'),
     source: text(),
     detail: text(), // JSON column: decision → {chosen_option, rejected, rationale}, term → {definition, aliases?}
     created_at_lsn: integer().notNull(),
@@ -83,6 +74,7 @@ export const edges = sqliteTable('edges', {
     .references(() => nodes.id),
   stance: text({ enum: EDGE_STANCES }),
   basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
+  settlement: text({ enum: NODE_SETTLEMENTS }).notNull().default('settled'),
   rationale: text(),
   created_at_lsn: integer().notNull(),
   updated_at_lsn: integer().notNull(),
@@ -144,26 +136,4 @@ export const reconciliationNeed = sqliteTable('reconciliation_need', {
   reason: text(),
   created_at_lsn: integer().notNull(),
   resolved_at_lsn: integer(),
-});
-
-export const elicitationGaps = sqliteTable('elicitation_gaps', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  spec_id: integer()
-    .notNull()
-    .references(() => specs.id),
-  refers_to: text().notNull(),
-  question: text().notNull(),
-  rationale: text().notNull(),
-  disposition: text({ enum: GAP_DISPOSITIONS }).notNull().default('open'),
-  basis: text({ enum: NODE_BASES }).notNull().default('explicit'),
-  readiness_band: text({ enum: READINESS_BANDS }).notNull(),
-  predicate_kind: text({ enum: GAP_PREDICATE_KINDS }).notNull(),
-  predicate: text().notNull(),
-  importance: integer().notNull().default(1),
-  plane_affinity: text({ enum: NODE_PLANES }),
-  lens_affinity: text({ enum: LENS_AFFINITIES }),
-  arose_from_gap_id: integer().references((): AnySQLiteColumn => elicitationGaps.id),
-  resolved_by_node_id: integer().references(() => nodes.id),
-  created_at_lsn: integer().notNull(),
-  disposition_set_at_lsn: integer(),
 });

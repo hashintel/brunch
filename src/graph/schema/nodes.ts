@@ -14,6 +14,7 @@ import {
   INTENT_KINDS,
   NODE_BASES,
   NODE_PLANES,
+  NODE_SETTLEMENTS,
   ORACLE_KINDS,
   PLAN_KINDS,
   type ReadinessBand,
@@ -41,6 +42,15 @@ export type NodePlane = (typeof NODE_PLANES)[number];
  * Derived from `graph/schema/kinds.ts` — same semantics as EdgeBasis.
  */
 export type NodeBasis = (typeof NODE_BASES)[number];
+
+/**
+ * Whether this graph item is `advisory` (reviewed source-derived signal, not
+ * yet harmonized against inner-band concerns) or `settled` (accepted as
+ * current spec truth/commitment for its band). Orthogonal to `basis` (I52-L,
+ * D99-L): a directly-stated fact can still be advisory if it was captured as
+ * early outer-band signal; harmonization is a distinct command-layer step.
+ */
+export type NodeSettlement = (typeof NODE_SETTLEMENTS)[number];
 
 // ---------------------------------------------------------------------------
 // Kind taxonomy — derived from graph/schema/kinds.ts const arrays
@@ -102,52 +112,40 @@ export const NODE_KIND_METADATA = {
   slice: { label: 'S' },
 } as const satisfies NodeKindMetadataByKind;
 
-const INTENT_KIND_BANDS = {
-  goal: ['grounding'],
-  thesis: ['grounding'],
-  term: [],
-  context: ['grounding', 'elicitation'],
-  story: ['elicitation'],
-  unknown: ['elicitation'],
-  requirement: ['commitment'],
-  assumption: ['elicitation'],
-  constraint: ['grounding', 'elicitation'],
-  invariant: ['elicitation'],
-  decision: ['elicitation'],
-  criterion: ['commitment'],
-  example: [],
-} as const satisfies Readonly<Record<IntentKind, readonly ReadinessBand[]>>;
+/**
+ * Per-kind latest-expected-band scalar map (D94-L): the latest band by which
+ * a kind is normally expected to have appeared, not its earliest legal
+ * capture point. `null` means the kind carries no readiness band.
+ */
+const LATEST_EXPECTED_BAND = {
+  goal: 'grounding',
+  thesis: 'grounding',
+  term: null,
+  context: 'elicitation',
+  story: null,
+  unknown: 'elicitation',
+  requirement: 'projection',
+  assumption: 'elicitation',
+  constraint: 'elicitation',
+  invariant: 'elicitation',
+  decision: 'elicitation',
+  criterion: 'commitment',
+  example: null,
+  check: 'projection',
+  vv_method: 'projection',
+  evidence: 'projection',
+  vv_obligation: 'projection',
+  module: 'projection',
+  interface: 'projection',
+  entity: 'projection',
+  sketch: null,
+  milestone: 'commitment',
+  frontier: 'commitment',
+  slice: 'commitment',
+} as const satisfies Readonly<Record<NodeKind, ReadinessBand | null>>;
 
-const BAND_LESS_KINDS = new Set<NodeKind>(['example', 'sketch', 'term']);
-
-export function bandsForKind(kind: NodeKind): readonly ReadinessBand[] {
-  if (BAND_LESS_KINDS.has(kind)) return [];
-  if (isIntentKind(kind)) return INTENT_KIND_BANDS[kind];
-  if (isDesignKind(kind) || isOracleKind(kind)) {
-    return ['projection'];
-  }
-  if (isPlanKind(kind)) {
-    return ['commitment'];
-  }
-
-  const exhaustive: never = kind;
-  return exhaustive;
-}
-
-function isIntentKind(kind: NodeKind): kind is IntentKind {
-  return (INTENT_KINDS as readonly NodeKind[]).includes(kind);
-}
-
-function isOracleKind(kind: NodeKind): kind is OracleKind {
-  return (ORACLE_KINDS as readonly NodeKind[]).includes(kind);
-}
-
-function isDesignKind(kind: NodeKind): kind is DesignKind {
-  return (DESIGN_KINDS as readonly NodeKind[]).includes(kind);
-}
-
-function isPlanKind(kind: NodeKind): kind is PlanKind {
-  return (PLAN_KINDS as readonly NodeKind[]).includes(kind);
+export function latestExpectedBand(kind: NodeKind): ReadinessBand | null {
+  return LATEST_EXPECTED_BAND[kind];
 }
 
 export type GraphNodeKindCode = (typeof NODE_KIND_METADATA)[NodeKind]['label'];
@@ -394,6 +392,7 @@ export interface GraphNode {
   readonly title: string;
   readonly body?: string;
   readonly basis: NodeBasis;
+  readonly settlement: NodeSettlement;
   readonly source?: string;
   readonly detail?: NodeDetail;
   readonly createdAtLsn: Lsn;

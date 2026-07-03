@@ -58,7 +58,7 @@ describe('origination-kick-live — the product originates the opening turn on i
       expect(boot.providerContexts.length).toBeGreaterThan(0);
       const contextText = JSON.stringify(boot.providerContexts[0]!.messages);
       expect(contextText).toContain('Context seeded for spec');
-      expect(contextText).toContain('Open elicitation gaps');
+      expect(contextText).toContain('ELICITATION SCRATCHPAD');
 
       const entries = boot.runtime.session.sessionManager.getEntries();
       // Revised D78-L (2026-06-12): the product fabricates no present_* offer;
@@ -149,7 +149,7 @@ describe('origination-kick-live — the product originates the opening turn on i
       // dev boot has no model → no kick → no provider call; the mirror must exist anyway
       const mirror = await readFile(`${boot.cwd}/.brunch/debug/entry-contents.md`, 'utf8');
       expect(mirror).toContain('brunch.context_seed');
-      expect(mirror).toContain('Open elicitation gaps');
+      expect(mirror).toContain('ELICITATION SCRATCHPAD');
     } finally {
       await boot.runtime.dispose();
       boot.restoreEnv();

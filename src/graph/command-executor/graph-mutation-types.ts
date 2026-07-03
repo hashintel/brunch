@@ -1,4 +1,4 @@
-import type { NodeBasis, NodePlane } from '../schema/nodes.js';
+import type { NodeBasis, NodePlane, NodeSettlement } from '../schema/nodes.js';
 
 /** A single validation problem discovered during structural checks. */
 export interface Diagnostic {
@@ -47,6 +47,8 @@ export interface CreateGraphEdgeInput {
 export interface CreateGraphInput {
   readonly specId: number;
   readonly basis?: NodeBasis | undefined;
+  /** Defaults to `settled`; applies to both created nodes and created edges. */
+  readonly settlement?: NodeSettlement | undefined;
   readonly nodes: readonly CreateGraphNodeInput[];
   readonly edges: readonly CreateGraphEdgeInput[];
 }
@@ -56,10 +58,14 @@ export interface NodePatch {
   readonly body?: string | null | undefined;
   readonly source?: string | null | undefined;
   readonly detail?: unknown;
+  /** Promotion path (I52-L): only `advisory -> settled` is a legal transition. */
+  readonly settlement?: NodeSettlement | undefined;
 }
 
 export interface EdgePatch {
   readonly rationale?: string | null | undefined;
+  /** Promotion path (I52-L): only `advisory -> settled` is a legal transition. */
+  readonly settlement?: NodeSettlement | undefined;
 }
 
 export type ExistingGraphNodeRef = { readonly existing: number };
@@ -80,6 +86,8 @@ export type GraphMutationOp =
 export interface MutateGraphInput {
   readonly specId: number;
   readonly createBasis?: NodeBasis | undefined;
+  /** Defaults to `settled`; advisory bulk-acquisition capture passes `advisory` (D99-L). */
+  readonly createSettlement?: NodeSettlement | undefined;
   readonly ops: readonly GraphMutationOp[];
 }
 

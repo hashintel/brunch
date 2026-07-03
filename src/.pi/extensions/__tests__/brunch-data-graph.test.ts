@@ -6,7 +6,6 @@ import { formatGraphOverview } from '../../../agents/contexts/data-model/graph/g
 import { createDb, type BrunchDb } from '../../../db/connection.js';
 import { CommandExecutor } from '../../../graph/command-executor.js';
 import {
-  getElicitationGaps,
   getNodes,
   getOpenReconciliationNeeds,
   latestGraphLsn,
@@ -38,7 +37,6 @@ function createGraphReads(db: BrunchDb, specId: number): GraphReaders {
       queryGraph(db, specId, filter, options),
     getNodes: (selectors, options) => getNodes(db, specId, selectors, options),
     resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
-    getElicitationGaps: () => getElicitationGaps(db, specId),
     getOpenReconciliationNeeds: () => getOpenReconciliationNeeds(db, specId),
     latestLsn: () => latestGraphLsn(db, specId),
   };
@@ -169,6 +167,43 @@ describe('graph tools end-to-end', () => {
 
     await read.execute('tool-4', { mode: 'neighborhood', nodeCode: 'G1' } as never);
     expect(carriers).toHaveLength(2);
+  });
+
+  it('mutate_graph createSettlement: advisory persists advisory nodes, visible as such on read_graph (D99-L)', async () => {
+    const db = createTestDb();
+    const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
+    const reads = createGraphReads(db, specId);
+    const tools: Array<{ name: string; execute: (toolCallId: string, params: never) => Promise<unknown> }> =
+      [];
+
+    registerBrunchGraph(
+      {
+        registerTool: (tool: unknown) => tools.push(tool as never),
+        appendEntry() {},
+      } as never,
+      {
+        specId,
+        commandExecutor: executor,
+        reads,
+      },
+    );
+
+    const commit = tools.find((tool) => tool.name === 'mutate_graph')!;
+    const read = tools.find((tool) => tool.name === 'read_graph')!;
+
+    const commitResult = (await commit.execute('tool-1', {
+      createSettlement: 'advisory',
+      ops: [
+        { op: 'create_node', ref: 'n1', plane: 'intent', kind: 'context', title: 'Observed in legacy code' },
+      ],
+    } as never)) as { details: { status: string } };
+    expect(commitResult.details.status).toBe('success');
+
+    const readResult = (await read.execute('tool-2', { mode: 'overview' } as never)) as {
+      details: { nodes: readonly { settlement: string }[] };
+    };
+    expect(readResult.details.nodes).toEqual([expect.objectContaining({ settlement: 'advisory' })]);
   });
 
   it('fails loud when mode-specific read_graph companions are malformed', async () => {

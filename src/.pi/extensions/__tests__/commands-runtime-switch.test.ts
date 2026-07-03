@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import { projectBrunchAgentState } from '../../../projections/session/runtime-state.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
@@ -35,7 +34,6 @@ function commandHarness(
   options: {
     customResult?: unknown;
     customAvailable?: boolean;
-    gaps?: ReturnType<typeof groundingFloorGaps>;
   } = {},
 ) {
   const entries: RuntimeEntry[] = [];
@@ -92,7 +90,6 @@ function commandHarness(
       requestChromeRefresh: () => {
         chromeRefreshes.push(chromeRefreshes.length + 1);
       },
-      getElicitationGaps: () => options.gaps ?? groundingFloorGaps(),
     },
   );
 
@@ -189,7 +186,7 @@ describe('Brunch runtime switch commands', () => {
     ]);
   });
 
-  it('derives the post-switch tool posture from the supplied gap reader, not an empty register', async () => {
+  it('derives the post-switch tool posture from the new operational mode', async () => {
     const harness = commandHarness();
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
@@ -213,10 +210,7 @@ describe('Brunch runtime switch commands', () => {
 
   it('renders a simple mode picker without suspended caution text', async () => {
     const theme = createTestLabTheme();
-    const harness = commandHarness({
-      customResult: undefined,
-      gaps: groundingFloorGaps({ defaultCoverage: 0 }),
-    });
+    const harness = commandHarness({ customResult: undefined });
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('', harness.ctx);
 

@@ -4,11 +4,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import Database from 'better-sqlite3';
-import { asc } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { createDb } from '../connection.js';
-import { changeLog, edges, elicitationGaps, graphClock, nodeKindCounters, nodes, specs } from '../schema.js';
+import { changeLog, edges, graphClock, nodeKindCounters, nodes, specs } from '../schema.js';
 
 describe('createDb', () => {
   it('creates a missing database file and can reopen it idempotently', async () => {
@@ -99,7 +98,7 @@ describe('createDb', () => {
     }
   });
 
-  it('recreates elicitation gaps when a backlog-era table survives into a 0003-ledger DB', async () => {
+  it('migrates a backlog-era table past a 0003-ledger DB without touching the retired gap register', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'brunch-db-legacy-gaps-'));
     const dbPath = join(dir, 'legacy.db');
 
@@ -108,7 +107,9 @@ describe('createDb', () => {
 
       const db = createDb(dbPath);
 
-      expect(db.select().from(elicitationGaps).orderBy(asc(elicitationGaps.id)).all()).toEqual([]);
+      expect(db.select({ specId: graphClock.spec_id, lsn: graphClock.lsn }).from(graphClock).all()).toEqual([
+        { specId: 1, lsn: 4 },
+      ]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

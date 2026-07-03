@@ -7,9 +7,8 @@
  * in `./graph-mutation-types.ts`.
  */
 
-import type { ElicitationGapLensAffinity, GapDisposition, GapPredicate } from '../schema/elicitation-gaps.js';
-import type { ReadinessBand, SpecKind } from '../schema/kinds.js';
-import type { NodeBasis, NodeKind, NodePlane } from '../schema/nodes.js';
+import type { SpecKind } from '../schema/kinds.js';
+import type { NodeBasis, NodePlane, NodeSettlement } from '../schema/nodes.js';
 import type { MutateGraphSuccess, StructuralIllegal } from './graph-mutation-types.js';
 
 // ---------------------------------------------------------------------------
@@ -58,30 +57,6 @@ interface CreateSpecSuccess {
   readonly lsn: number;
 }
 
-/** Successful elicitation-gap creation. */
-interface ElicitationGapSuccess {
-  readonly status: 'success';
-  readonly id: number;
-  readonly lsn: number;
-}
-
-/** Successful elicitation-gap disposition update. */
-interface ElicitationGapDispositionSuccess {
-  readonly status: 'success';
-  readonly lsn: number;
-}
-
-export interface RepairSeededElicitationGapsSpecResult {
-  readonly specId: number;
-  readonly insertedCount: number;
-  readonly lsn: number;
-}
-
-interface RepairSeededElicitationGapsSuccess {
-  readonly status: 'success';
-  readonly repairedSpecs: readonly RepairSeededElicitationGapsSpecResult[];
-}
-
 /** Spec row returned by CommandExecutor reads. */
 export interface SpecRecord {
   readonly id: number;
@@ -98,9 +73,6 @@ export type CommandResult =
   | ReconNeedSuccess
   | ReconNeedResolveSuccess
   | CreateSpecSuccess
-  | ElicitationGapSuccess
-  | ElicitationGapDispositionSuccess
-  | RepairSeededElicitationGapsSuccess
   | StructuralIllegal
   | NeedsHuman
   | PolicyBlocked
@@ -117,15 +89,6 @@ export type ResolveReconNeedResult = ReconNeedResolveSuccess | StructuralIllegal
 
 /** Result of a createSpec command. */
 export type CreateSpecResult = CreateSpecSuccess | StructuralIllegal;
-
-/** Result of a createElicitationGap command. */
-export type CreateElicitationGapResult = ElicitationGapSuccess | StructuralIllegal;
-
-/** Result of a setElicitationGapDisposition command. */
-export type SetElicitationGapDispositionResult = ElicitationGapDispositionSuccess | StructuralIllegal;
-
-/** Result of repairing legacy specs missing the current seeded gap floor. */
-export type RepairSeededElicitationGapsResult = RepairSeededElicitationGapsSuccess;
 
 /** Successful accepted review-set graph batch execution. */
 interface AcceptReviewSetSuccess extends MutateGraphSuccess {}
@@ -155,32 +118,6 @@ export interface AcceptReviewSetInput {
   readonly payload: unknown;
 }
 
-/** Input for creating an elicitation gap. */
-export interface CreateElicitationGapInput {
-  readonly specId: number;
-  readonly refersTo: NodeKind;
-  readonly question: string;
-  readonly rationale: string;
-  readonly basis?: NodeBasis | undefined;
-  readonly band: ReadinessBand;
-  readonly predicate: GapPredicate;
-  readonly importance?: number | undefined;
-  readonly planeAffinity?: NodePlane | undefined;
-  readonly lensAffinity?: ElicitationGapLensAffinity | undefined;
-  readonly aroseFromGapId?: number | undefined;
-}
-
-/** Input for updating an elicitation gap's non-derivable disposition. */
-export interface SetElicitationGapDispositionInput {
-  readonly specId: number;
-  readonly id: number;
-  readonly disposition: Extract<
-    GapDisposition,
-    'open' | 'answered' | 'not_applicable' | 'irrelevant' | 'reopened'
-  >;
-  readonly resolvedByNodeId?: number | undefined;
-}
-
 /** Input for creating a single graph node. */
 export interface CreateNodeInput {
   readonly specId: number;
@@ -189,6 +126,8 @@ export interface CreateNodeInput {
   readonly title: string;
   readonly body?: string | undefined;
   readonly basis?: NodeBasis | undefined;
+  /** Defaults to `settled`; bulk/advisory capture paths pass `advisory` (D99-L, I52-L). */
+  readonly settlement?: NodeSettlement | undefined;
   readonly source?: string | undefined;
   readonly detail?: unknown;
 }

@@ -6,7 +6,6 @@ import { createWorldReadCache } from '../world-reads.js';
 
 interface ReadCounts {
   queryGraph: number;
-  getElicitationGaps: number;
   latestLsn: number;
 }
 
@@ -28,10 +27,6 @@ function trackingReaders(
     },
     getNodes: () => [],
     resolveNodeCode: () => undefined,
-    getElicitationGaps: () => {
-      counts.getElicitationGaps += 1;
-      return [];
-    },
     getOpenReconciliationNeeds: () => [],
     latestLsn: () => {
       currentLsn = lsnSequence[Math.min(call, lsnSequence.length - 1)] ?? 0;
@@ -44,7 +39,7 @@ function trackingReaders(
 
 describe('createWorldReadCache', () => {
   it('reuses reads while the graph LSN is unchanged', () => {
-    const counts: ReadCounts = { queryGraph: 0, getElicitationGaps: 0, latestLsn: 0 };
+    const counts: ReadCounts = { queryGraph: 0, latestLsn: 0 };
     const readers = trackingReaders([7, 7, 7], counts);
     const cache = createWorldReadCache();
 
@@ -55,12 +50,11 @@ describe('createWorldReadCache', () => {
     expect(second).toBe(first);
     expect(third).toBe(first);
     expect(counts.queryGraph).toBe(1);
-    expect(counts.getElicitationGaps).toBe(1);
     expect(counts.latestLsn).toBe(3);
   });
 
   it('refreshes reads when the graph LSN advances', () => {
-    const counts: ReadCounts = { queryGraph: 0, getElicitationGaps: 0, latestLsn: 0 };
+    const counts: ReadCounts = { queryGraph: 0, latestLsn: 0 };
     const readers = trackingReaders([7, 8], counts);
     const cache = createWorldReadCache();
 
@@ -71,11 +65,10 @@ describe('createWorldReadCache', () => {
     expect(first.graph.lsn).toBe(7);
     expect(second.graph.lsn).toBe(8);
     expect(counts.queryGraph).toBe(2);
-    expect(counts.getElicitationGaps).toBe(2);
   });
 
   it('keys the cache by the materialized slice LSN, not an older pre-read clock', () => {
-    const counts: ReadCounts = { queryGraph: 0, getElicitationGaps: 0, latestLsn: 0 };
+    const counts: ReadCounts = { queryGraph: 0, latestLsn: 0 };
     const readers = trackingReaders([7, 7, 8], counts, [8, 8]);
     const cache = createWorldReadCache();
 
@@ -90,7 +83,7 @@ describe('createWorldReadCache', () => {
   });
 
   it('refreshes reads when the selected spec changes', () => {
-    const counts: ReadCounts = { queryGraph: 0, getElicitationGaps: 0, latestLsn: 0 };
+    const counts: ReadCounts = { queryGraph: 0, latestLsn: 0 };
     const readers = trackingReaders([7, 7], counts);
     const cache = createWorldReadCache();
 
@@ -99,6 +92,19 @@ describe('createWorldReadCache', () => {
 
     expect(second).not.toBe(first);
     expect(counts.queryGraph).toBe(2);
-    expect(counts.getElicitationGaps).toBe(2);
+  });
+
+  it('does not gate scratchpad-only updates behind the graph LSN cache', () => {
+    // The scratchpad is intentionally absent from WorldReads: it is
+    // reconstructed from the session branch, not the graph, so a
+    // scratchpad-only turn must never be starved by this cache (D101-L).
+    const counts: ReadCounts = { queryGraph: 0, latestLsn: 0 };
+    const readers = trackingReaders([7, 7], counts);
+    const cache = createWorldReadCache();
+
+    const reads = cache.read(readers, 1);
+
+    expect(reads).not.toHaveProperty('gaps');
+    expect(reads).toEqual({ graph: { lsn: 7, nodes: [], edges: [] } });
   });
 });

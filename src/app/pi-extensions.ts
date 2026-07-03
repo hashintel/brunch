@@ -6,16 +6,13 @@ import {
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
 import { registerBrunchOrchestratorStub } from '../.pi/extensions/agent-runtime/index.js';
-import {
-  conservativeUncoveredFloorGaps,
-  registerBrunchOperationalModePolicy,
-} from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchOperationalModePolicy } from '../.pi/extensions/agent-runtime/index.js';
 import {
   registerBrunchPrompting,
   type BrunchPromptContextProvider,
 } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchContext } from '../.pi/extensions/brunch-data/index.js';
-import { registerBrunchElicitation } from '../.pi/extensions/brunch-data/index.js';
+import { registerBrunchElicitationScratchpad } from '../.pi/extensions/brunch-data/index.js';
 import { registerBrunchGraph, type BrunchGraphDeps } from '../.pi/extensions/brunch-data/index.js';
 import { registerBrunchReconciliation } from '../.pi/extensions/brunch-data/index.js';
 import { registerBrunchChrome } from '../.pi/extensions/chrome/index.js';
@@ -132,13 +129,7 @@ export {
   registerBrunchIntrospectQuery,
 } from '../.pi/extensions/dev-mode/index.js';
 
-export interface BrunchPiExtensionsOptions extends Omit<BrunchCommandsOptions, 'getElicitationGaps'> {
-  /**
-   * Optional override; when omitted, the composition derives the commands'
-   * gap reader from `graph` (selected-spec reads) or, with no graph in the
-   * composition, an explicitly conservative uncovered floor.
-   */
-  getElicitationGaps?: BrunchCommandsOptions['getElicitationGaps'];
+export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   graphMentionSource?: GraphMentionSource;
   graph?: BrunchGraphDeps;
   liveExchange?: LiveExchangeAwaiter;
@@ -198,10 +189,6 @@ export function createBrunchPiExtensions(
         ]
       : [];
     const chromeRefresh: { current: (() => void) | null } = { current: null };
-    const graph = options.graph;
-    const commandGapReads =
-      options.getElicitationGaps ??
-      (graph ? () => graph.reads.getElicitationGaps(graph.specId) : conservativeUncoveredFloorGaps); // no graph in this composition: explicit fail-closed floor
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => {
         registerBrunchSessionBoundary(api, onSessionBoundary, {
@@ -244,12 +231,11 @@ export function createBrunchPiExtensions(
         registerBrunchCommands(api, {
           ...options,
           requestChromeRefresh: () => chromeRefresh.current?.(),
-          getElicitationGaps: commandGapReads,
         }),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
-      // Elicitation and reconciliation registers are distinct surfaces from the
-      // graph register, but they read through the same workspace graph runtime deps.
-      ...(options.graph ? [(api: ExtensionAPI) => registerBrunchElicitation(api, options.graph!)] : []),
+      // Session-local elicitation scratchpad (D101-L): no graph dependency —
+      // it reads/writes only the session branch via ctx.sessionManager.
+      registerBrunchElicitationScratchpad,
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchReconciliation(api, options.graph!)] : []),
       ...(introspectionOptions
         ? [

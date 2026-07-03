@@ -27,7 +27,6 @@ Disposition: `✓` resolved (direct lock or accepted transitive proof) · `●` 
 | `graph/reconciliation-needs` | — | ○ | `export {}` topology stub. |
 | `session/transcript-context` | 2 | ✓ | `transcript-context.test.ts` — no non-empty markdown-bearing message disappears across the Pi `buildSessionContext()` + `convertToLlm()` seam; non-renderable entries drop at the projection boundary. |
 | `session/runtime-state` | 13 | ✓ | `runtime-state.test.ts` — direct flattened-shape invariant for defaults, last-writer-wins operational mode, mentions/world/lifecycle slots, and non-linear transcript rejection. |
-| `session/readiness-estimate` | — | ✓ | D45-L soft per-band coverage rollup over `ElicitationGap[]`; UI-only and gates nothing. `readiness-estimate.test.ts` locks every-band shape, empty-band zero, importance-weighted mean, honest regression, no grade imports, and no legality-path imports. Capability-readiness and runtime affordance menus are runtime policy, not projection-owned DTOs. |
 | `session/assistant-visible-watermark` | 2 | ✓ | Carrier projection over the authoritative `continuity-entry-classifier` watermark set. Unit tests guard seed/overview/own-mutation/`worldUpdate` carriers, narrow-read exclusion, and cross-spec failure. |
 | `session/continuity-entry-classifier` | 2 | ✓ | Shared FE-847 taxonomy for watermark-carrier vs continuity-only-non-debt vs debt-bearing entries; consumed by watermark projection and origination tail classification. |
 | `session/sweep-watermark` | 1 | ✓ | FE-861 D80-L sweep-window projection. `sweep-watermark.test.ts` locks the transcript-backed marker, conversational/digest tail classification, raw-background exclusion, monotonic idempotent advance, and graph-LSN watermark separation. |
@@ -50,10 +49,12 @@ Upstream note (PULL): `●` projections lock against their read sources, so thos
 ```pseudo
 projections/
   graph/                 graph read/command DTO projection
-  session/               transcript-context, runtime-state, watermarks, and readiness-estimate DTO projections
+  session/               transcript-context, runtime-state, and watermark DTO projections
   exchanges/             canonical toolResult.details construction for active exchange tools
   workspace/             workspace/session state DTO projection
 ```
+
+`session/readiness-estimate.ts` was deleted (D45-L, I31-L, `elicitation-gap-guidance` frontier): there is no soft, count-based readiness DTO. Readiness is a just-in-time judgment over graph facts + the `latestExpectedBand` scalar (`graph/schema/nodes.ts`), not a projection-owned rollup.
 
 ## Dependency direction
 

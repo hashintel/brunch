@@ -24,16 +24,24 @@ test('overview renders G-D dual markdown tables with impact-normalized edges', (
 
 legend: G=goal, REQ=requirement, CON=constraint, AC=criterion, E=evidence
 
-nodes — intent · grounding (2)
+nodes — intent · grounding (1)
 | code | id | title |
 | - | - | - |
 | G1 | 1 | Ship offline-first sync |
+
+nodes — intent · elicitation (1)
+| code | id | title |
+| - | - | - |
 | CON1 | 2 | No cloud dependency |
 
-nodes — intent · commitment (2)
+nodes — intent · projection (1)
 | code | id | title |
 | - | - | - |
 | REQ1 | 4 | Render stable graph-node codes |
+
+nodes — intent · commitment (1)
+| code | id | title |
+| - | - | - |
 | AC1 | 3 | Golden diff is reviewable |
 
 nodes — oracle · projection (1)
@@ -68,7 +76,7 @@ test('overview renders projection and keeps band-less nodes in a trailing bucket
   });
 
   expect(rendered).toContain('nodes — oracle · projection (1)');
-  expect(rendered).toContain('nodes — intent · commitment (1)');
+  expect(rendered).toContain('nodes — intent · projection (1)');
   expect(rendered).toContain('nodes — intent · unbanded (1)');
   expect(rendered).toContain('| EX1 | 6 | Reference example |');
 });
@@ -88,6 +96,40 @@ test('overview preserves caller heading for read_graph list modes and seed', () 
       'Graph slice by kind',
     ).startsWith('Graph slice by kind (LSN 12): 1 nodes, 0 edges'),
   ).toBe(true);
+});
+
+test('overview labels advisory nodes and leaves settled nodes unmarked (I52-L)', () => {
+  const rendered = formatGraphOverview({
+    lsn: 1,
+    nodes: [
+      node({ id: 1, kind: 'goal', kindOrdinal: 1, title: 'Directly-stated goal' }),
+      node({
+        id: 2,
+        kind: 'context',
+        kindOrdinal: 1,
+        title: 'Digest-sourced observation',
+        settlement: 'advisory',
+      }),
+    ],
+    edges: [],
+  });
+
+  expect(rendered).toContain('Directly-stated goal |');
+  expect(rendered).not.toContain('Directly-stated goal (advisory)');
+  expect(rendered).toContain('Digest-sourced observation (advisory) |');
+});
+
+test('overview labels advisory edges in the relation column (I52-L)', () => {
+  const rendered = formatGraphOverview({
+    lsn: 1,
+    nodes: [
+      node({ id: 1, kind: 'goal', kindOrdinal: 1, title: 'Goal' }),
+      node({ id: 2, kind: 'requirement', kindOrdinal: 1, title: 'Requirement' }),
+    ],
+    edges: [edge({ id: 1, category: 'dependency', sourceId: 2, targetId: 1, settlement: 'advisory' })],
+  });
+
+  expect(rendered).toContain('required by (advisory)');
 });
 
 test('overview includes LSN on empty selected-spec graph', () => {
@@ -111,6 +153,7 @@ function node(input: {
   readonly kind: GraphSlice['nodes'][number]['kind'];
   readonly kindOrdinal: number;
   readonly title: string;
+  readonly settlement?: GraphSlice['nodes'][number]['settlement'];
 }): GraphSlice['nodes'][number] {
   return {
     specId: 1,
@@ -120,6 +163,7 @@ function node(input: {
     kindOrdinal: input.kindOrdinal,
     title: input.title,
     basis: 'explicit',
+    settlement: input.settlement ?? 'settled',
     createdAtLsn: 1,
     updatedAtLsn: 1,
   };
@@ -131,6 +175,7 @@ function edge(input: {
   readonly sourceId: number;
   readonly targetId: number;
   readonly stance?: GraphSlice['edges'][number]['stance'];
+  readonly settlement?: GraphSlice['edges'][number]['settlement'];
 }): GraphSlice['edges'][number] {
   return {
     specId: 1,
@@ -140,6 +185,7 @@ function edge(input: {
     targetId: input.targetId,
     ...(input.stance ? { stance: input.stance } : {}),
     basis: 'explicit',
+    settlement: input.settlement ?? 'settled',
     createdAtLsn: 1,
     updatedAtLsn: 1,
   };

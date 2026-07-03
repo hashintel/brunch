@@ -13,7 +13,6 @@ import type { CommandExecutor } from '../../../../graph/command-executor.js';
 import type {
   EdgeCategory,
   EdgeDirection,
-  ElicitationGap,
   ReconciliationNeed,
   GraphFilter,
   GraphSlice,
@@ -35,7 +34,6 @@ export interface GraphReaders {
     options?: { hops?: number; visibility?: GraphVisibility },
   ) => readonly NodeNeighborhood[];
   readonly resolveNodeCode: (code: string) => number | undefined;
-  readonly getElicitationGaps: (specId: number) => readonly ElicitationGap[];
   readonly getOpenReconciliationNeeds: (specId: number) => readonly ReconciliationNeed[];
   /** Cheap current-LSN read; detect graph change without a full queryGraph. */
   readonly latestLsn: (specId: number) => number;
@@ -167,6 +165,7 @@ export function registerBrunchGraph(pi: ExtensionAPI, deps: BrunchGraphDeps): vo
       'If mutate_graph returns STRUCTURAL_ILLEGAL, read the diagnostics, fix the issues, and retry. Do not show intermediate failures to the user.',
       'The `stance` field is required on `witness` and `rationale` create_edge ops, and invalid on all other categories.',
       'Detail rules: `decision` and `term` require detail; `requirement`, `criterion`, and `invariant` may use `plain`/`gherkin`/`formal`; `context` may use `given`; other kinds omit detail.',
+      'Set `createSettlement: "advisory"` only for reviewed, source-derived bulk-acquisition material (brownfield code, referenced documents, pasted specs/plans) that has not yet been harmonized against inner-band concerns. Omit it (defaults to `settled`) for directly-stated user facts and ordinary capture.',
     ],
     parameters: MutateGraphParams,
 

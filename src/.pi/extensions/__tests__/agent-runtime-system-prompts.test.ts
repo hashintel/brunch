@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
-import { groundingFloorGaps } from '../../../graph/schema/elicitation-gap-fixtures.js';
 import type { WorkspacePostureState } from '../../../session/workspace-session-coordinator.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,
@@ -72,6 +71,7 @@ const promptContext = {
           kindOrdinal: 1,
           title: 'Clarify Brunch prompt posture',
           basis: 'explicit' as const,
+          settlement: 'settled' as const,
           createdAtLsn: 2,
           updatedAtLsn: 2,
         },
@@ -83,6 +83,7 @@ const promptContext = {
           kindOrdinal: 1,
           title: 'Agent context renderer',
           basis: 'explicit' as const,
+          settlement: 'settled' as const,
           createdAtLsn: 3,
           updatedAtLsn: 3,
         },
@@ -95,6 +96,7 @@ const promptContext = {
           sourceId: 2,
           targetId: 1,
           basis: 'explicit' as const,
+          settlement: 'settled' as const,
           createdAtLsn: 4,
           updatedAtLsn: 4,
         },
@@ -102,7 +104,6 @@ const promptContext = {
     }),
     getNodes: () => [],
     resolveNodeCode: () => undefined,
-    getElicitationGaps: () => groundingFloorGaps(),
     getOpenReconciliationNeeds: () => [],
     latestLsn: () => 4,
   },
@@ -222,6 +223,7 @@ describe('Brunch prompt-pack topology', () => {
                 kindOrdinal: index + 1,
                 title,
                 basis: 'explicit' as const,
+                settlement: 'settled' as const,
                 createdAtLsn: 1,
                 updatedAtLsn: 1,
               })),
@@ -229,7 +231,6 @@ describe('Brunch prompt-pack topology', () => {
             }),
             getNodes: () => [],
             resolveNodeCode: () => undefined,
-            getElicitationGaps: () => groundingFloorGaps(),
             getOpenReconciliationNeeds: () => [],
             latestLsn: () => 1,
           },
@@ -410,7 +411,7 @@ describe('Brunch prompt-pack topology', () => {
             'grep',
             'read_graph',
             'read_session_context',
-            'read_elicitation_gaps',
+            'read_elicitation_scratchpad',
             'mutate_graph',
             'present_review_set',
             'bash',
@@ -423,9 +424,6 @@ describe('Brunch prompt-pack topology', () => {
           ...promptContext.graphReads,
           latestLsn: () => {
             throw new Error('live elicitor tool policy must not read graph clocks');
-          },
-          getElicitationGaps: () => {
-            throw new Error('live elicitor tool policy must not read selected-spec gaps');
           },
         },
       },
@@ -443,7 +441,7 @@ describe('Brunch prompt-pack topology', () => {
       'grep',
       'read_graph',
       'read_session_context',
-      'read_elicitation_gaps',
+      'read_elicitation_scratchpad',
       'mutate_graph',
       'present_review_set',
     ]);

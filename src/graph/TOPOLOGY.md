@@ -1,24 +1,23 @@
 # graph/ — Graph domain layer
 
-SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L
+SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L, D99-L, I52-L
 
 ## Owns
 
 - **CommandExecutor** (`command-executor.ts`) — the single mutation boundary for
   graph/spec writes. It hides structural validation, transaction mechanics,
   spec-local LSN allocation, per-kind node ordinal allocation, change-log append,
-  and structured command results. It also owns prospective-register writes for
-  `elicitation_gaps` (`createSpec` seeding, legacy/local seed repair, and
-  create/disposition commands), because the gap register shares the same
-  spec-local LSN and audit boundary. Seeded gaps include the D75-L grounding
-  presence floor plus the D82-L manual situating gap that routes opening
-  acquisition mode. Gaps name obligations by `refersTo: NodeKind` + free-form
-  `question`, not a parallel typology enum.
+  and structured command results. There is no persisted asking-agenda register
+  here (D65-L): the former `elicitation_gaps` seed/repair/create/disposition
+  paths were retired in the `elicitation-gap-guidance` frontier. The
+  session-local asking agenda lives in `session/elicitation-scratchpad.ts`
+  instead (non-authoritative, never a `CommandExecutor` write).
 
 - **mutateGraph** — atomic graph mutation for direct writers and future curation:
   one tool call, one transaction, one selected-spec LSN, all-or-nothing. The
   direct agent surface currently uses create-only `ops[]` (`create_node` plus
-  role-named `create_edge`) rather than raw DB rows. `command-executor/`
+  role-named `create_edge`, both accepting a batch-wide `createBasis` and
+  `createSettlement`) rather than raw DB rows. `command-executor/`
   owns the private shared planners used by both dry-run and commit before any
   batch writes occur.
 
@@ -33,27 +32,26 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 - **Capture** — the submit-time `capture/` structured-response translator was
   deleted 2026-06-19 (D80-L fossil retirement). Capture is now elicitor
   turn-boundary sweep conduct authored in the live elicitor path; the graph layer
-  owns only the `mutate_graph` / `update_elicitation_gaps` mutation/gap boundary
-  that sweep conduct routes through, not a product-side extraction pass.
+  owns only the `mutate_graph` mutation boundary that sweep conduct routes
+  through (advisory basis/settlement on low-confidence capture, D99-L), not a
+  product-side extraction pass or a gap register.
 - **Readers / query functions** (`queries.ts`) — graph reads at multiple
   detail levels: active-context and graph-truth overview, node
-  neighborhood, selected-spec graph-code lookup, open reconciliation needs, and
-  elicitation gaps. These return typed domain objects or
-  internal ids, not Drizzle rows.
+  neighborhood, selected-spec graph-code lookup, and open reconciliation
+  needs. `GraphFilter` supports a `settlement` filter so callers can request
+  settled-only reads (I52-L) on both nodes and edges. These return typed
+  domain objects or internal ids, not Drizzle rows.
 
-- **Elicitation driver** (`elicitation-driver.ts`) — pure read-only rank/select
-  policy over selected-spec `ElicitationGap[]`. It owns the deterministic
-  what-to-ask-next ordering (band → importance → coverage → affinity → stable
-  tiebreak) and imports no DB, session, projection, or prompt layers.
-
-- **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge`,
-  `ReconciliationNeed`, `ElicitationGap` (`refersTo` + `question`),
+- **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge` (both
+  carrying `basis: NodeBasis` and `settlement: NodeSettlement` as orthogonal,
+  independently-required fields, D63-L/D99-L/I52-L), `ReconciliationNeed`,
   kind/category types, per-kind node ordinals, per-kind node `detail` schemas,
-  derived readiness-band membership (`bandsForKind`), and derived intent-kind
-  grouping. Raw domain enum taxonomy lives in the zero-import `schema/kinds.ts`
-  leaf so web-facing graph imports do not pull in Drizzle. Agent-facing reference
-  prose cites schema-owned vocabulary rather than regenerating a parallel
-  ontology table.
+  a derived per-kind latest-expected-readiness-band scalar
+  (`latestExpectedBand`, D94-L/I50-L — the sole band reader; no earliest-band
+  array survives), and derived intent-kind grouping. Raw domain enum taxonomy
+  lives in the zero-import `schema/kinds.ts` leaf so web-facing graph imports
+  do not pull in Drizzle. Agent-facing reference prose cites schema-owned
+  vocabulary rather than regenerating a parallel ontology table.
 
 - **Policy** (`policy/category-policy.ts`) — the single per-category
   metadata table (`EDGE_CATEGORY_METADATA`): endpoint roles, impact
@@ -66,9 +64,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   flow). Pure functions; no DB access.
 
 - **Workspace graph runtime** (`workspace-store.ts`) — opens `.brunch/data.db`
-  through `db/connection.ts`, repairs legacy/local specs missing current
-  seeded elicitation gaps through `CommandExecutor`, and returns the executor
-  plus bound query readers for adapters.
+  through `db/connection.ts` and returns the `CommandExecutor` plus bound
+  query readers for adapters. No legacy-seed repair remains; there is no
+  seeded register to repair.
 
 ## Observed read-shape ledger
 
@@ -83,9 +81,8 @@ D60-L read-shape ownership is explicit: every durable graph read shape has one c
 | `gaps`                 | `getGraphGaps`                  | required                | n/a      | n/a      | Agent/RPC-only diagnostic shape; not a web observer projection.                                                                                           |
 | `related`              | `getRelatedNodes`               | required                | n/a      | n/a      | Agent/RPC-only traversal helper; not a web observer projection.                                                                                           |
 | `reconciliation_needs` | `getOpenReconciliationNeeds`    | dedicated register tool | deferred | deferred | Exposed to agents through `read_reconciliation_needs`, not as a `read_graph` mode; no RPC/web projection yet.                                             |
-| `elicitation_gaps`     | `getElicitationGaps`            | deferred                | deferred | deferred | Consumed by prompt readiness and the read-only elicitation driver through the selected-spec graph-read seam; still not a `read_graph`/RPC/web projection. |
 
-`observed-shapes-coverage.test.ts` guards the required subsets against accidental drift: the tool mode union must stay at the six required agent shapes, while RPC and web stay at `overview` + `neighborhood` until a scoped feature deliberately promotes another row.
+`observed-shapes-coverage.test.ts` guards the required subsets against accidental drift: the tool mode union must stay at the five required agent shapes, while RPC and web stay at `overview` + `neighborhood` until a scoped feature deliberately promotes another row. There is no `gaps`/`elicitation_gaps` row: the persisted gap register was retired (D65-L) and the session-local scratchpad it replaced is session state, not a graph query shape.
 
 ## Clock and audit posture
 
@@ -114,8 +111,8 @@ not compare bare LSN values across sibling specs.
 - `.pi/extensions/brunch-data/graph/` — Pi tool adapters for `mutate_graph` and `read_graph`.
 - `rpc/` — graph projection handlers and synchronous response-capture wiring.
 - `projections/graph/` — topology stubs for deferred graph PROJECT seams; node-neighborhood consumers read `NodeNeighborhood` directly from `queries.ts`.
-- `agents/contexts/data-model/graph/` — reusable model-facing graph context text over projected graph DTOs.
-- `.pi/extensions/agent-runtime/system-prompts/` — prompt composition consumes the read-only elicitation driver and the seed renderers consume graph reads.
+- `agents/contexts/data-model/graph/` — reusable model-facing graph context text over projected graph DTOs, including advisory/settled labeling.
+- `.pi/extensions/agent-runtime/system-prompts/` — prompt composition and the thin graph-fact seed renderers consume graph reads directly; there is no gap-recommendation layer to consume.
 - `probes/` — graph proof drivers.
 
 ## Current topology
@@ -131,21 +128,15 @@ graph/
 
   command-executor.ts
     CommandExecutor
-    seeded elicitation-gap floor/situating agenda + spec-record mapping
+    spec-record mapping
     re-exports command input/result types (command-types.ts)
     createSpec (identity + spec.kind scope, D89-L; readiness stays computed, D45-L)
-    create/set elicitation-gap disposition
     createNode
     per-kind node ordinal allocation
-    mutateGraph / dryRunMutateGraph
+    mutateGraph / dryRunMutateGraph (batch-wide createBasis + createSettlement)
     acceptReviewSet
     create/resolve reconciliation need
-
-  __tests__/capture-commitment-gradient-gate.test.ts
-    deterministic FE-861 routing gate over real mutate_graph + update_elicitation_gaps tool adapters
-    high-confidence explicit/implicit commits
-    low-confidence noticings -> one existing-or-new elicitation gap
-    structural gap answered derivation + manual gap close on the graph clock
+    patch_node / patch_edge settlement promotion (advisory -> settled monotonic; settled -> advisory rejected)
 
   command-executor/
     command-types.ts
@@ -172,30 +163,22 @@ graph/
     getGraphOverview
     getNodeNeighborhood
     resolveGraphNodeCode
-    getElicitationGaps
     getOpenReconciliationNeeds
+    queryGraph / getNodes (GraphFilter, including settled-only settlement filter)
     row -> domain mapping
-
-  elicitation-driver.ts
-    pure read-only rank/select over ElicitationGap[]
-    no DB writes, no prompt-layer imports, no driver-local state
 
   workspace-store.ts
     openWorkspaceGraphRuntime(cwd)
-    seeded elicitation-gap repair for legacy/local specs
-    bound queryGraph/getNodes/getElicitationGaps readers
+    bound queryGraph/getNodes readers
     openWorkspaceCommandExecutor(cwd)
 
   schema/
     kinds.ts
       zero-import domain enum taxonomy leaf
-    elicitation-gaps.ts
-    elicitation-gap-fixtures.ts
-      synthetic gap builders (presenceGap, groundingFloorGaps); production
-      fail-closed floor + test fixtures ride the same shape
     nodes.ts
       GraphNode and node taxonomy metadata
-      derived readiness-band membership
+      NodeBasis / NodeSettlement as orthogonal required fields (D63-L, D99-L, I52-L)
+      derived latestExpectedBand(kind) scalar (D94-L, I50-L)
       per-kind detail schema owner consumed by validation + mutation boundary schemas
     edges.ts
     reconciliation-need.ts
@@ -234,7 +217,7 @@ CommandExecutor
       │     session.submitExchangeResponse capture wiring
       │
       └─► .pi/extensions/agent-runtime/system-prompts
-            elicitation recommendation selection and pushed seed context render inputs
+            thin graph-fact seed render inputs (no gap-recommendation selection)
 ```
 
 ## Fractal split points
@@ -247,11 +230,10 @@ entrypoint. `create-graph-batch.ts` remains the narrower shared planner for the
 create-only subset used by review-set translation and test/dev helpers.
 `command-types.ts` (command input/result contract) and `command-validation.ts`
 (structural input/patch validators + kind tables) follow the same rule: the
-root `command-executor.ts` keeps only the `CommandExecutor` class, its seeded
-elicitation-gap floor, and the public re-export barrel. Future splits should
-follow the same pattern: split by semantic responsibility, keep external imports
-pointed at the root entrypoint, and avoid folder scaffolding until pressure is
-real.
+root `command-executor.ts` keeps only the `CommandExecutor` class and the
+public re-export barrel. Future splits should follow the same pattern: split
+by semantic responsibility, keep external imports pointed at the root
+entrypoint, and avoid folder scaffolding until pressure is real.
 
 ```pseudo
 graph/command-executor/

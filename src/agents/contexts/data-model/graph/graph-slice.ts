@@ -9,7 +9,7 @@ import type { GraphSlice } from '../../../../graph/queries.js';
 import { NODE_KINDS, NODE_PLANES, type ReadinessBand } from '../../../../graph/schema/kinds.js';
 import {
   NODE_KIND_METADATA,
-  bandsForKind,
+  latestExpectedBand,
   formatGraphNodeCode,
   type NodeKind,
 } from '../../../../graph/schema/nodes.js';
@@ -91,7 +91,7 @@ function formatNodeSections(
             ...sortedNodes.map((node) => [
               formatGraphNodeCode(node.kind, node.kindOrdinal),
               node.id,
-              node.title,
+              node.settlement === 'advisory' ? `${node.title} (advisory)` : node.title,
             ]),
           ]),
         ].join('\n'),
@@ -106,17 +106,16 @@ function bandForRender(
   kind: NodeKind,
   requestedReadinessBands: readonly ReadinessBand[] | undefined,
 ): RenderBand {
+  const band = latestExpectedBand(kind);
   if (requestedReadinessBands) {
-    const kindBands = bandsForKind(kind);
-    const band = requestedReadinessBands.find((candidate) => kindBands.includes(candidate));
-    if (!band) {
+    if (band === null || !requestedReadinessBands.includes(band)) {
       throw new Error(
         `Node kind ${kind} does not belong to requested readiness bands: ${requestedReadinessBands.join(', ')}`,
       );
     }
     return band;
   }
-  return bandsForKind(kind)[0] ?? 'unbanded';
+  return band ?? 'unbanded';
 }
 
 function compareNodes(a: GraphSlice['nodes'][number], b: GraphSlice['nodes'][number]): number {
@@ -156,18 +155,20 @@ function edgeRow(
   const target = nodesById.get(edge.targetId);
   const sourceCode = source ? formatGraphNodeCode(source.kind, source.kindOrdinal) : `#${edge.sourceId}`;
   const targetCode = target ? formatGraphNodeCode(target.kind, target.kindOrdinal) : `#${edge.targetId}`;
+  const relationSuffix = edge.settlement === 'advisory' ? ' (advisory)' : '';
 
   if (impact.downstreamEndpoint === 'none') {
     return {
       id: edge.id,
       upstream: sourceCode,
-      relation: edgeLabel({
-        category: edge.category,
-        anchorRole: 'source',
-        stance: edge.stance,
-        sourceKind: source?.kind,
-        targetKind: target?.kind,
-      }),
+      relation:
+        edgeLabel({
+          category: edge.category,
+          anchorRole: 'source',
+          stance: edge.stance,
+          sourceKind: source?.kind,
+          targetKind: target?.kind,
+        }) + relationSuffix,
       downstream: targetCode,
     };
   }
@@ -176,13 +177,14 @@ function edgeRow(
   return {
     id: edge.id,
     upstream: upstreamEndpoint === 'source' ? sourceCode : targetCode,
-    relation: edgeLabel({
-      category: edge.category,
-      anchorRole: upstreamEndpoint,
-      stance: edge.stance,
-      sourceKind: source?.kind,
-      targetKind: target?.kind,
-    }),
+    relation:
+      edgeLabel({
+        category: edge.category,
+        anchorRole: upstreamEndpoint,
+        stance: edge.stance,
+        sourceKind: source?.kind,
+        targetKind: target?.kind,
+      }) + relationSuffix,
     downstream: impact.downstreamEndpoint === 'source' ? sourceCode : targetCode,
   };
 }

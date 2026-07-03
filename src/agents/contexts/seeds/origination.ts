@@ -4,30 +4,29 @@
  * Owns the provider-visible text of the `brunch.context_seed` continuity
  * entry (D78-L revised 2026-06-12): the pre-rendered workspace overview,
  * the **full graph overview** (canonical renderer shared with `read_graph` —
- * codes, titles, edges; never truncated), and the elicitation grounding-floor
- * framing (top-ranked open gaps via the canonical driver ranking) — enough
- * context that the kicked opening turn needs no read tool call. Pure over
- * already-read data — callers fetch the slice/gaps through existing
- * spec-scoped reads (D20-L/D52-L) and pre-render the workspace section; this
- * module never opens the database or filesystem.
+ * codes, titles, edges; never truncated), the thin graph-fact neutral seed
+ * (A36-L/D102-L — facts, never judgments), and the session scratchpad
+ * (D101-L) — enough context that the kicked opening turn needs no read tool
+ * call. Pure over already-read data — callers fetch the slice/scratchpad
+ * through existing spec-scoped reads (D20-L/D52-L) and pre-render the
+ * workspace section; this module never opens the database or filesystem.
  *
- * Input:  spec identity + GraphSlice + ElicitationGap[] + workspace text
+ * Input:  spec identity + GraphSlice + session scratchpad + workspace text
  * Output: seed content string carried by the custom message entry
  * Used by: brunch-tui boot seeding, session.triggerExchange RPC origination
  */
 
 import { formatGraphOverview } from '../../../agents/contexts/data-model/graph/graph-slice.js';
-import { sortElicitationGapsForAsking } from '../../../graph/elicitation-driver.js';
 import type { GraphSlice } from '../../../graph/index.js';
-import type { ElicitationGap } from '../../../graph/schema/elicitation-gaps.js';
-
-const TOP_GAP_COUNT = 5;
+import type { ElicitationScratchpadItem } from '../../../session/elicitation-scratchpad.js';
+import { formatElicitationScratchpad } from '../data-model/elicitation-scratchpad.js';
+import { deriveGraphFactSeed, renderGraphFactSeed } from './graph-fact-seed.js';
 
 export interface ComposeContextSeedInput {
   readonly specId: number;
   readonly specName?: string;
   readonly slice: Pick<GraphSlice, 'nodes' | 'edges' | 'lsn'>;
-  readonly gaps: readonly ElicitationGap[];
+  readonly scratchpad: readonly ElicitationScratchpadItem[];
   /**
    * Pre-rendered workspace overview section (`renderWorkspaceOverviewContext`
    * output). Required so no caller drifts to a seed without it; a blank
@@ -48,15 +47,12 @@ export function composeContextSeedContent(input: ComposeContextSeedInput): strin
   // can reason about actual nodes/edges without a tool call.
   lines.push('', formatGraphOverview(input.slice, 'Graph'));
 
-  const ranked = sortElicitationGapsForAsking(input.gaps).slice(0, TOP_GAP_COUNT);
-  if (ranked.length === 0) {
-    lines.push('Elicitation: no open gaps.');
-  } else {
-    lines.push(`Open elicitation gaps (top ${ranked.length} by ranking):`);
-    for (const [index, gap] of ranked.entries()) {
-      lines.push(`${index + 1}. ${gap.question} (${gap.refersTo}, ${gap.band})`);
-    }
-  }
+  lines.push(
+    '',
+    renderGraphFactSeed(deriveGraphFactSeed({ lsn: input.slice.lsn, nodes: input.slice.nodes })),
+  );
+
+  lines.push('', formatElicitationScratchpad(input.scratchpad));
 
   return lines.join('\n');
 }

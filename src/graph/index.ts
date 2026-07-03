@@ -21,16 +21,12 @@ export {
   NODE_PLANES,
   NODE_BASES,
   READINESS_BANDS,
-  LENS_AFFINITIES,
-  GAP_DISPOSITIONS,
-  GAP_PREDICATE_KINDS,
   SPEC_KINDS,
 } from './schema/kinds.js';
 
 export type { ReadinessBand, SpecKind } from './schema/kinds.js';
 
 export type { EdgeCategory, GraphEdge } from './schema/edges.js';
-export type { ElicitationGap, GapDisposition, GapPredicate } from './schema/elicitation-gaps.js';
 export type { ReconciliationNeed, ReconciliationNeedTarget } from './schema/reconciliation-need.js';
 
 export type {
@@ -44,7 +40,7 @@ export type {
 } from './schema/nodes.js';
 
 export {
-  bandsForKind,
+  latestExpectedBand,
   CLAIM_FORM_JSON_SCHEMAS,
   claimFormKnownFields,
   formatGraphNodeCode,
@@ -71,7 +67,7 @@ export type { AnchorRole, EdgeLabelInput } from './projection/labels.js';
 export { edgeImpact, relationFromAnchor } from './projection/direction.js';
 export type { AnchoredRelation, EdgeImpact, EdgeRelation } from './projection/direction.js';
 
-export { queryGraph, getNodes, getElicitationGaps, getOpenReconciliationNeeds } from './queries.js';
+export { queryGraph, getNodes, getOpenReconciliationNeeds } from './queries.js';
 export type {
   EdgeDirection,
   GraphSlice,

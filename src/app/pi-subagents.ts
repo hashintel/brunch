@@ -17,6 +17,7 @@ import type {
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
 } from '../agents/contexts/seeds/turn-context.js';
+import { latestElicitationScratchpad } from '../session/elicitation-scratchpad.js';
 import { brunchResourceLoaderOptions, createBrunchSettingsManager } from './pi-settings.js';
 
 export interface LoadBrunchSubagentsOptions {
@@ -63,7 +64,9 @@ export async function loadBrunchSubagents(options: LoadBrunchSubagentsOptions): 
               spec: options.world.spec,
               workspace: options.world.workspace,
               ...(options.world.session ? { session: options.world.session } : {}),
-              gaps: options.world.graph.reads.getElicitationGaps(options.world.graph.specId),
+              scratchpad: latestElicitationScratchpad(
+                options.world.sessionBranch as Parameters<typeof latestElicitationScratchpad>[0],
+              ),
               sessionDigest: renderSubagentSessionDigest(options.world.sessionBranch),
             },
             graph: options.world.graph,

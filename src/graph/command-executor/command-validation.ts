@@ -9,22 +9,12 @@
 
 import * as schema from '../../db/schema.js';
 import {
-  gapPredicateSupport,
-  type ElicitationGapLensAffinity,
-  type GapDisposition,
-  type GapPredicate,
-} from '../schema/elicitation-gaps.js';
-import {
   DESIGN_KINDS,
   INTENT_KINDS,
-  GAP_DISPOSITIONS,
-  GAP_PREDICATE_KINDS,
-  LENS_AFFINITIES,
   NODE_BASES,
+  NODE_SETTLEMENTS,
   ORACLE_KINDS,
   PLAN_KINDS,
-  READINESS_BANDS,
-  type ReadinessBand,
 } from '../schema/kinds.js';
 import {
   claimFormKnownFields,
@@ -36,9 +26,9 @@ import {
   type NodeBasis,
   type NodeKindRequiringDetail,
   type NodeKindWithFormDetail,
-  type NodePlane,
+  type NodeSettlement,
 } from '../schema/nodes.js';
-import type { CreateElicitationGapInput, CreateNodeInput } from './command-types.js';
+import type { CreateNodeInput } from './command-types.js';
 import type { Diagnostic, EdgePatch, NodePatch } from './graph-mutation-types.js';
 
 type ExistingNodeRow = typeof schema.nodes.$inferSelect;
@@ -57,70 +47,14 @@ const VALID_KINDS_BY_PLANE: Record<string, readonly string[]> = {
 const KINDS_REQUIRING_DETAIL = new Set<string>(NODE_KINDS_REQUIRING_DETAIL);
 const KINDS_WITH_FORM_DETAIL = new Set<string>(NODE_KINDS_WITH_FORM_DETAIL);
 const VALID_NODE_BASES = NODE_BASES as unknown as string[];
-const VALID_READINESS_BANDS = READINESS_BANDS as unknown as string[];
-const VALID_NODE_KINDS = [
-  ...INTENT_KINDS,
-  ...ORACLE_KINDS,
-  ...DESIGN_KINDS,
-  ...PLAN_KINDS,
-] as readonly string[];
-const VALID_GAP_DISPOSITIONS = GAP_DISPOSITIONS as unknown as string[];
-const VALID_GAP_PREDICATE_KINDS = GAP_PREDICATE_KINDS as unknown as string[];
-const VALID_LENS_AFFINITIES = LENS_AFFINITIES as unknown as string[];
+const VALID_NODE_SETTLEMENTS = NODE_SETTLEMENTS as unknown as string[];
 
 function isNodeBasis(value: string): value is NodeBasis {
   return VALID_NODE_BASES.includes(value);
 }
 
-function isNodePlane(value: string): value is NodePlane {
-  return value === 'intent' || value === 'oracle' || value === 'design' || value === 'plan';
-}
-
-function isReadinessBand(value: string): value is ReadinessBand {
-  return VALID_READINESS_BANDS.includes(value);
-}
-
-function isElicitationGapLensAffinity(value: string): value is ElicitationGapLensAffinity {
-  return VALID_LENS_AFFINITIES.includes(value);
-}
-
-export function isGapDisposition(value: string): value is GapDisposition {
-  return VALID_GAP_DISPOSITIONS.includes(value);
-}
-
-function validateGapPredicate(predicate: GapPredicate, diagnostics: Diagnostic[]): void {
-  if (typeof predicate !== 'object' || predicate === null) {
-    diagnostics.push({ field: 'predicate', message: 'predicate must be an object' });
-    return;
-  }
-
-  if (!VALID_GAP_PREDICATE_KINDS.includes(predicate.kind)) {
-    diagnostics.push({ field: 'predicate.kind', message: 'predicate kind is not valid' });
-    return;
-  }
-
-  if (gapPredicateSupport(predicate.kind) === 'unsupported') {
-    diagnostics.push({ field: 'predicate.kind', message: 'predicate kind not yet supported' });
-    return;
-  }
-
-  if (predicate.kind === 'presence') {
-    if (!Number.isInteger(predicate.minimum) || predicate.minimum < 1) {
-      diagnostics.push({ field: 'predicate.minimum', message: 'minimum must be a positive integer' });
-    }
-    if (predicate.plane !== undefined && !isNodePlane(predicate.plane)) {
-      diagnostics.push({ field: 'predicate.plane', message: 'plane is not valid' });
-    }
-    if (predicate.band !== undefined && !isReadinessBand(predicate.band)) {
-      diagnostics.push({ field: 'predicate.band', message: 'band is not valid' });
-    }
-    if (predicate.nodeKind !== undefined && !VALID_NODE_KINDS.includes(predicate.nodeKind)) {
-      diagnostics.push({ field: 'predicate.nodeKind', message: 'node kind is not valid' });
-    }
-    if (predicate.nodeKind === undefined && predicate.band === undefined) {
-      diagnostics.push({ field: 'predicate', message: 'presence predicate needs nodeKind or band' });
-    }
-  }
+function isNodeSettlement(value: string): value is NodeSettlement {
+  return VALID_NODE_SETTLEMENTS.includes(value);
 }
 
 export function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
@@ -135,6 +69,13 @@ export function validateCreateNode(input: CreateNodeInput): Diagnostic[] {
     diagnostics.push({
       field: 'basis',
       message: 'basis must be explicit or implicit',
+    });
+  }
+
+  if (input.settlement !== undefined && !isNodeSettlement(input.settlement)) {
+    diagnostics.push({
+      field: 'settlement',
+      message: 'settlement must be advisory or settled',
     });
   }
 
@@ -197,7 +138,7 @@ export function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: No
   const diagnostics: Diagnostic[] = [];
   const patchRecord = patch as Record<string, unknown>;
   const patchFields = Object.keys(patchRecord);
-  const allowedFields = new Set(['title', 'body', 'source', 'detail']);
+  const allowedFields = new Set(['title', 'body', 'source', 'detail', 'settlement']);
 
   if (patchFields.length === 0) {
     diagnostics.push({ field: 'patch', message: 'patch_node requires at least one patch field' });
@@ -219,6 +160,16 @@ export function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: No
   if (hasOwn(patchRecord, 'source') && patch.source !== null && typeof patch.source !== 'string') {
     diagnostics.push({ field: 'patch.source', message: 'source must be a string or null when present' });
   }
+  if (hasOwn(patchRecord, 'settlement')) {
+    if (typeof patch.settlement !== 'string' || !isNodeSettlement(patch.settlement)) {
+      diagnostics.push({ field: 'patch.settlement', message: 'settlement must be advisory or settled' });
+    } else if (row.settlement === 'settled' && patch.settlement === 'advisory') {
+      diagnostics.push({
+        field: 'patch.settlement',
+        message: 'settlement cannot regress from settled to advisory (I52-L)',
+      });
+    }
+  }
 
   const merged: CreateNodeInput = {
     specId: row.spec_id,
@@ -227,6 +178,7 @@ export function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: No
     title: hasOwn(patchRecord, 'title') ? (patch.title as string) : row.title,
     body: hasOwn(patchRecord, 'body') ? (patch.body ?? undefined) : (row.body ?? undefined),
     basis: row.basis,
+    settlement: hasOwn(patchRecord, 'settlement') ? (patch.settlement as NodeSettlement) : row.settlement,
     source: hasOwn(patchRecord, 'source') ? (patch.source ?? undefined) : (row.source ?? undefined),
     detail: hasOwn(patchRecord, 'detail') ? patch.detail : parseNodeDetail(row),
   };
@@ -241,7 +193,9 @@ export function validateNodePatchAgainstExisting(row: ExistingNodeRow, patch: No
   return diagnostics;
 }
 
-export function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
+type ExistingEdgeRow = typeof schema.edges.$inferSelect;
+
+export function validateEdgePatch(row: ExistingEdgeRow, patch: EdgePatch): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const patchRecord = patch as Record<string, unknown>;
   const patchFields = Object.keys(patchRecord);
@@ -252,7 +206,7 @@ export function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
   }
 
   for (const field of patchFields) {
-    if (field !== 'rationale') {
+    if (field !== 'rationale' && field !== 'settlement') {
       diagnostics.push({ field: `patch.${field}`, message: 'field is not patchable' });
     }
   }
@@ -264,57 +218,15 @@ export function validateEdgePatch(patch: EdgePatch): Diagnostic[] {
     });
   }
 
-  return diagnostics;
-}
-
-export function validateCreateElicitationGap(input: CreateElicitationGapInput): Diagnostic[] {
-  const diagnostics: Diagnostic[] = [];
-
-  if (!VALID_NODE_KINDS.includes(input.refersTo)) {
-    diagnostics.push({ field: 'refersTo', message: `"${String(input.refersTo)}" is not a valid node kind` });
-  }
-
-  if (!input.question.trim()) {
-    diagnostics.push({ field: 'question', message: 'question must be non-empty' });
-  }
-
-  if (!input.rationale.trim()) {
-    diagnostics.push({ field: 'rationale', message: 'rationale must be non-empty' });
-  }
-
-  if (input.basis !== undefined && !isNodeBasis(input.basis)) {
-    diagnostics.push({ field: 'basis', message: 'basis must be explicit or implicit' });
-  }
-
-  if (!isReadinessBand(input.band)) {
-    diagnostics.push({
-      field: 'band',
-      message: `"${String(input.band)}" is not a valid readiness band`,
-    });
-  }
-
-  if (input.importance !== undefined && (!Number.isInteger(input.importance) || input.importance < 1)) {
-    diagnostics.push({ field: 'importance', message: 'importance must be a positive integer' });
-  }
-
-  validateGapPredicate(input.predicate, diagnostics);
-
-  if (input.predicate.kind === 'manual' && !input.predicate.rubric.trim()) {
-    diagnostics.push({ field: 'predicate.rubric', message: 'manual predicate rubric must be non-empty' });
-  }
-
-  if (input.planeAffinity !== undefined && !isNodePlane(input.planeAffinity)) {
-    diagnostics.push({
-      field: 'planeAffinity',
-      message: `"${String(input.planeAffinity)}" is not a valid plane affinity`,
-    });
-  }
-
-  if (input.lensAffinity !== undefined && !isElicitationGapLensAffinity(input.lensAffinity)) {
-    diagnostics.push({
-      field: 'lensAffinity',
-      message: `"${String(input.lensAffinity)}" is not a valid lens affinity`,
-    });
+  if (hasOwn(patchRecord, 'settlement')) {
+    if (typeof patch.settlement !== 'string' || !isNodeSettlement(patch.settlement)) {
+      diagnostics.push({ field: 'patch.settlement', message: 'settlement must be advisory or settled' });
+    } else if (row.settlement === 'settled' && patch.settlement === 'advisory') {
+      diagnostics.push({
+        field: 'patch.settlement',
+        message: 'settlement cannot regress from settled to advisory (I52-L)',
+      });
+    }
   }
 
   return diagnostics;

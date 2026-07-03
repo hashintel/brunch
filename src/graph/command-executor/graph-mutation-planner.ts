@@ -49,7 +49,10 @@ export function planGraphMutation(options: {
     row: typeof schema.nodes.$inferSelect,
     patch: NodePatch,
   ) => readonly Diagnostic[];
-  readonly validateEdgePatch: (patch: EdgePatch) => readonly Diagnostic[];
+  readonly validateEdgePatch: (
+    row: typeof schema.edges.$inferSelect,
+    patch: EdgePatch,
+  ) => readonly Diagnostic[];
 }): { readonly status: 'success'; readonly plan: PlannedGraphMutation } | StructuralIllegal {
   const { db, input, validateCreateNode, validateEdgePatch, validateNodePatch } = options;
   const diagnostics: Diagnostic[] = [];
@@ -95,6 +98,7 @@ export function planGraphMutation(options: {
   const createInput: CreateGraphInput = {
     specId: input.specId,
     basis: input.createBasis,
+    settlement: input.createSettlement,
     nodes: createNodes.map(({ ref, plane, kind, title, body, source, detail }) => ({
       ref,
       plane,
@@ -209,7 +213,7 @@ export function planGraphMutation(options: {
     }
     patchEdgeTargets.add(op.edge.existing);
     diagnostics.push(
-      ...validateEdgePatch(op.patch).map((diagnostic) => ({
+      ...validateEdgePatch(row, op.patch).map((diagnostic) => ({
         field: `${path}.${diagnostic.field}`,
         message: diagnostic.message,
       })),

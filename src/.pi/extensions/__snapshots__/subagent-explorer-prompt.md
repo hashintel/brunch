@@ -12,11 +12,12 @@ You are an explorer.
 [Brunch injected world snapshot]
   [Selected workspace context]
   - cwd: /work/brunch-subagent
-  - selected spec: Parent Spec (#7); readiness estimate (soft; gates nothing): grounding=0.00, elicitation=0.00, projection=0.00, commitment=0.00
+  - selected spec: Parent Spec (#7)
   - selected session: Grounding (session-7)
   - workspace posture: unrecorded
   - ambient Pi resources: not scanned; Brunch prompt resources come only from code-owned manifests
   - graph scope: selected spec only; no workspace-global graph fallback
+  - elicitation scratchpad: 0 item(s), 0 open
 [Parent session digest]
   - user asked for graph reconciliation
 - graph access: use granted Brunch read tools such as read_graph; the graph itself is not baked into this prompt

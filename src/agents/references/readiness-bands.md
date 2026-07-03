@@ -54,7 +54,7 @@ source material
   -> user discussion / confirmation
   -> capture sweep
   -> graph material:
-       low confidence or missing support -> elicitation_gap
+       low confidence or missing support -> session scratchpad obligation
        conflict with accepted truth      -> reconciliation_need
        reviewed but not harmonized       -> advisory graph item
        harmonized and accepted           -> settled graph item

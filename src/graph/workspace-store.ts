@@ -5,7 +5,6 @@ import { BRUNCH_DIR } from '../constants.js';
 import { createDb } from '../db/connection.js';
 import { CommandExecutor } from './command-executor.js';
 import {
-  getElicitationGaps,
   getNodes,
   getOpenReconciliationNeeds,
   latestGraphLsn,
@@ -35,7 +34,6 @@ export interface SpecScopedReaders {
   ) => readonly NodeNeighborhood[];
   readonly resolveNodeCode: (code: string) => number | undefined;
   readonly resolveEdgeId: (edgeId: number) => number | undefined;
-  readonly getElicitationGaps: () => ReturnType<typeof getElicitationGaps>;
   readonly getOpenReconciliationNeeds: () => ReturnType<typeof getOpenReconciliationNeeds>;
   /** Cheap current-LSN read; detect graph change without a full queryGraph. */
   readonly latestLsn: () => number;
@@ -50,7 +48,6 @@ export interface WorkspaceGraphRuntime {
 export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceGraphRuntime> {
   const db = await openWorkspaceDb(cwd);
   const commandExecutor = new CommandExecutor(db);
-  commandExecutor.repairSeededElicitationGaps();
   return {
     commandExecutor,
     forSpec(specId: number): SpecScopedReaders {
@@ -59,7 +56,6 @@ export async function openWorkspaceGraphRuntime(cwd: string): Promise<WorkspaceG
         getNodes: (selectors, options) => getNodes(db, specId, selectors, options),
         resolveNodeCode: (code) => resolveGraphNodeCode(db, specId, code),
         resolveEdgeId: (edgeId) => resolveGraphEdgeId(db, specId, edgeId),
-        getElicitationGaps: () => getElicitationGaps(db, specId),
         getOpenReconciliationNeeds: () => getOpenReconciliationNeeds(db, specId),
         latestLsn: () => latestGraphLsn(db, specId),
       };

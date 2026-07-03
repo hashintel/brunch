@@ -15,7 +15,7 @@
 
 Brunch-next has delivered the original composition spine: the host, sealed Pi profile, transcript substrate, SQLite graph plane, public RPC, TUI/web observer shape, generalized capture, review-set commitment path, and public-entry ship gate all have evidence. The live plan is no longer organized around the old delivery cut. Active work is now the elicitor capability spine and the remaining hardening frontiers that build on that substrate.
 
-**Live arc.** The **elicitor-capability-spine** arc (`capture` / `generate` / `project`) is done for the current POC capability surface. The retired strategy/lens/method runtime trees are no longer part of live product topology; current capability work routes through the code-owned first-level skill manifest and activity-named skill homes. Closed arc detail no longer lives in the rolling plan.
+**Live arc.** The **elicitor-capability-spine** arc (`capture` / `generate` / `project`) is done for the current POC capability surface. The retired strategy/lens/method runtime trees are no longer part of live product topology; current capability work routes through the code-owned first-level skill manifest and activity-named skill homes. Closed arc detail no longer lives in the rolling plan. Elicitation/readiness truthfulness (graph-as-truth, session-local asking agenda, advisory settlement) was delivered by the now-closed **`elicitation-gap-guidance`** frontier, which folded in settlement materialization; there was no separate settlement frontier.
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -45,11 +45,11 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Active
 
-- `elicitation-gap-guidance` — **next proving frontier after exchange hardening.** Derive "what next?" guidance from graph shape, settlement, and readiness rather than only sorting the existing gap register.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
 ### Recently Completed
 
+- 2026-07-01 `elicitation-gap-guidance` (FE-1116) — the spec-global persisted `elicitation_gaps` register and its count-based readiness scoring are retired; the asking agenda is now a session-local `brunch.elicitation_scratchpad` fold seeded from a thin graph-fact seed; `latestExpectedBand(kind)` is the single band scalar; and settlement (`advisory` | `settled`, orthogonal to `basis`) is materialized and command-enforced (D99-L, I52-L). Closure oracle: `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names. All co-located `TOPOLOGY.md` homes named in `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md` are reconciled; that doc's status flips to landed.
 - 2026-07-01 `portable-resource-paths--manifest-location` (bugfix, `ln-induct` from PR #273) — skill manifest `location` is now the loader-resolved absolute `Skill.filePath` instead of a hardcoded repo-relative string, so it resolves under any process cwd or `dist/`-only install; dead `liveBrunchSkillRepoPath`/`bundledAgentBodyRepoPath` builders removed; the two prompt-composition goldens normalize the machine root to a `<PKG>/…` token. See SPEC §Acknowledged Blind Spots "Live-vs-harness wiring divergence".
 - 2026-07-01 `promoted-run-path-normalization` (tooling) — `.fixtures/runs/**` no longer leaks developer-workstation absolute paths; `npm run check:promoted-run-paths` guards committed evidence going forward. `.fixtures/seeds/**` is untouched (separate seed-curation concern). Not a `fixture-vs-real-audit` sweep.
 - 2026-06-30 `structured-exchange-affordance` (FE-1108) — exchange authoring guidance now teaches present-side response rules and review-set nested companions at the boundary; one unearned exchange projection adapter was inlined into its RPC consumer, and topology inventories name the retained model-facing/projection homes.
@@ -61,7 +61,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-1. `elicitation-gap-guidance`
+- _None distinct._
 
 ### Parallel / Low-Conflict
 
@@ -70,6 +70,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Horizon
 
+- `session-branching` — support session branching (D24-L reversal); needs branch-aware continuity/coherence design (A37-L).
 - `compaction-and-conflict-widening` — long-horizon continuity through compaction.
 - `fixture-vs-real-audit` — `ln-induct` candidate for real-vs-fixture shape gaps (tool ids, orphan tool results, provider payload assumptions).
 - `web-driver-streaming` — remaining consumer/UI and non-freeform answer legs after the built topology-A relay battery.
@@ -142,46 +143,66 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### elicitation-gap-guidance
 
-- **Name:** Elicitation gap guidance from graph shape
+- **Name:** Session-local elicitation gaps from a graph-derived seed
+- **Linear:** [FE-1116](https://linear.app/hash/issue/FE-1116/session-local-elicitation-gaps-from-a-graph-derived-seed)
+- **Branch:** `ln/fe-1116-elicitation-gap-guidance` (onto `ln/fe-1108-structured-exchange-affordance`)
+- **Kind:** structural / elicitor guidance + session-state seam
+- **Status:** ✓ done (2026-07-01). All six cards landed; closure oracle `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names.
+- **Certainty:** proving (retired on land).
+- **Retires:** the persisted spec-scoped `elicitation_gaps` register and its count-based readiness scoring (D65-L, D45-L); the fixed spec-creation seed catalog `SEEDED_ELICITATION_GAPS` (D75-L).
+- **Materializes (folded slice):** advisory/settled `settlement` as a graph dimension orthogonal to `basis`, enforced at the command layer and surfaced in projection/context (D99-L, I52-L, D63-L) — formerly the separate `settlement-materialization` frontier, folded in per the 2026-07-01 review + user decision. Landed 2026-07-01 (Card 5).
+- **Depends on:** readiness bands, data-model legibility, and the stable exchange affordance surface (all done). Settlement is folded in as a later slice; the thin seed still must **not** depend on advisory/settlement state (A36-L).
+- **Lights up:** a session-local, cumulative asking agenda seeded per session from thin graph facts and focused by a prompt orientation directive.
+- **Stabilizes:** the boundary between graph truth (durable), the session-local gap scratchpad (non-authoritative asking agenda), and persisted `reconciliation_need` follow-up; plus a single code-owned latest-expected-band scalar source.
+- **Objective:** Replace the spec-global persisted `elicitation_gaps` register and its count-based readiness estimate with (1) a session-local cumulative gap scratchpad — one `brunch.elicitation_scratchpad` custom session entry + one fold projection + read/write tools (not tool-result details, no runtime-state duplication), (2) a thin graph-derived neutral seed per session, (3) an `elicitor.md` orientation directive that focuses a vein, (4) a reconciled latest-expected-band scalar model, and (5) a materialized advisory/settled `settlement` graph dimension (orthogonal to `basis`, command-enforced, surfaced in projection/context) — without inventing a second persisted gap ontology or any count-based readiness scoring.
+- **Acceptance:**
+  - Count-based readiness reasoning is deleted: `derivePresenceCoverage` and the coverage-over-gaps estimate (`readiness-estimate.ts`) are removed; no code path scores readiness by counting nodes/gaps (D45-L, I31-L).
+  - The persisted `elicitation_gaps` table and `elicitation-driver.ts` sorter are retired; consumers (`.pi/extensions/agent-runtime/system-prompts/world-reads.ts`, `specification-overview-context.ts`, subagent snapshot in `pi-subagents.ts`) migrate to session-local state (D65-L, D101-L).
+  - A session-state extension defines the gap scratchpad model (new `brunch.elicitation_scratchpad` custom entry following the `runtime-state.ts` fold precedent, not sharing runtime-state storage) plus read/write tools replacing `read_elicitation_gaps`/`update_elicitation_gaps`; entries are non-authoritative (I56-L) and low-confidence noticings route here, not the graph (D81-L; `spawn_gap` expected outcomes and the old `action: 'spawn'` write path removed).
+  - Each session's scratchpad is seeded from a thin graph-derived neutral seed (facts, not scores) that does not depend on advisory/settlement state (D102-L, A36-L).
+  - `elicitor.md` carries the "new session → establish orientation → focus a vein" directive that turns the neutral seed into a session-specific agenda (D102-L).
+  - Subagents receive the session gap scratchpad in their world snapshot (migrate `pi-subagents.ts` off `getElicitationGaps`).
+  - Band model reconciled to a single code-owned per-kind latest-expected-band scalar map; the array `INTENT_KIND_BANDS` and the earliest-band `bandsForKind(kind)[0]` read in `graph-slice.ts` are removed/fixed (D94-L, I50-L).
+  - The three reference files are consolidated to the agreed ownership split — `readiness-bands.md` (band semantics / latest-expected), `data-model.md` (kind → source-question + role/modality), `question-kinds-per-intent-kind.md` (projection catalog / phrasings) — with duplicated latest-band/source-question content removed (D97-L).
+  - Capture probes/tests that assumed `spawn_gap` (`capture-commitment-gradient-gate.test.ts`, `src/probes/capture-quality-loop.ts`) are updated to the session-state outlet; the old elicitation tool `action: 'spawn'` is not accepted.
+  - Settlement (folded slice): graph schema carries `settlement` (`advisory` | `settled`) separate from `basis`; CommandExecutor validation + promotion/rewrite/supersede/reconcile paths enforce I52-L (advisory never read as settled by projection/plan/commitment readers); projection/context surface settlement so capability-readiness (D74-L) can consult it; capture reference material updated (D99-L, D63-L).
+  - Anti-regression: tests prove the old attractor is gone — no `read_elicitation_gaps`/`update_elicitation_gaps` tools or `action: 'spawn'` gap write path, no readiness count/coverage language, readiness resolves with an empty scratchpad, and `getElicitationGaps`/`derivePresenceCoverage`/`readinessEstimate`/`elicitation-driver`/`SEEDED_ELICITATION_GAPS` no longer exist.
+- **Traceability:** D45-L, D63-L, D65-L, D74-L, D75-L, D81-L, D94-L, D97-L, D99-L, D101-L, D102-L; A36-L; I31-L, I50-L, I52-L, I56-L; `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md` (topology + consolidation ledger); `src/graph/schema/**` (settlement), `src/graph/command-executor.ts`, `src/projections/**`, `src/agents/contexts/**`, `src/session/runtime-state.ts`, `src/.pi/extensions/agent-runtime/{runtime/index.ts,system-prompts/world-reads.ts}`, `src/graph/queries.ts` (`derivePresenceCoverage`), `src/graph/elicitation-driver.ts`, `src/graph/command-executor.ts` (`SEEDED_ELICITATION_GAPS`), `src/projections/session/readiness-estimate.ts`, `src/session/specification-overview-context.ts`, `src/app/pi-subagents.ts`, `src/probes/capture-quality-loop.ts`, `src/probes/public-rpc-parity-proof.ts`, `src/graph/schema/nodes.ts`, `src/agents/contexts/data-model/graph/graph-slice.ts`, `src/agents/prompts/elicitor.md`, `src/agents/references/{readiness-bands,data-model}.md`, `src/agents/skills/elicit/references/question-kinds-per-intent-kind.md`.
+
+
+### session-branching
+
+- **Name:** Session branching support (branch-aware continuity/coherence)
 - **Linear:** unassigned
 - **Branch:** tbd
-- **Kind:** structural / elicitor guidance
-- **Status:** active candidate; sequence second after structured-exchange affordances are tightened.
+- **Kind:** structural / transcript + continuity seam
+- **Status:** horizon; direction approved (D24-L reversal), design not yet started.
 - **Certainty:** proving.
-- **Lights up:** model-facing "what next?" guidance derived from graph topology, readiness bands, and current elicitation state.
-- **Stabilizes:** the boundary between the stored `elicitation_gaps` register, a derived asking agenda, advisory graph signal, and persisted `reconciliation_need` follow-up.
-- **Objective:** Move the elicitor from "sort the open gap rows" to a richer asking agenda derived from graph topology, readiness/settlement semantics, and current elicitation state, without inventing a second persisted gap ontology.
-- **Acceptance:**
-  - A read-side asking agenda is derived from current graph + readiness + gap state and rendered into elicitor-facing context.
-  - The agenda can surface next useful asks that come from advisory or missing graph structure even when no existing `elicitation_gap` row names them exactly.
-  - The contract distinguishes stored gaps, advisory graph signal, and reconciliation follow-up instead of laundering them into one list.
-  - Existing `elicitation_gaps` remain rankable and editable, but they become one input to asking guidance rather than the whole asking agenda.
-- **Traceability:** D56-L, D64-L, D65-L, D74-L, D94-L, D97-L, D99-L; I50-L, I52-L; `src/session/specification-overview-context.ts`, `src/graph/elicitation-driver.ts`.
+- **Objective:** Design and implement branch-aware transcript continuity, staleness, and coherence so Brunch supports session branching, lifting the current linear-only guards (I10-L, I13-L, I19-L) once branch-aware semantics exist.
+- **Depends on:** turn-boundary continuity choreography (D76-L, D77-L, D78-L) and the coherence model.
+- **Traceability:** D24-L; A37-L; req 8; I10-L, I13-L, I19-L.
 
 ## Dependencies
 
 ```text
 frontiers:
   Active:
-    elicitation-gap-guidance
-      status: second / proving
-      depends_on: readiness bands, data-model legibility, elicitor-generate, and a stable exchange affordance surface for asking/proposal loops
-
     orchestrator-tool-port
       status: deferred / D98-sensitive
       depends_on: D39-L, D90-L, D91-L, D92-L, D93-L, I49-L, D98-L
       active_scope: memory/cards/orchestrator-tool-port--plan-check-tool.md
 
   Recently Completed:
-    structured-exchange-affordance, elicitor-project, spec-structural-relief, renderer-golden-coverage, data-model-legibility
+    elicitation-gap-guidance, structured-exchange-affordance, elicitor-project, spec-structural-relief, renderer-golden-coverage, data-model-legibility
 
   Next:
-    elicitation-gap-guidance
+    none
 
   Parallel / Low-Conflict:
     none
 
   Horizon:
+    session-branching
     compaction-and-conflict-widening
     fixture-vs-real-audit
     web-driver-streaming

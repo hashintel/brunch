@@ -26,7 +26,7 @@ extensions/
 ├── brunch-data/            Pi tools over selected Brunch graph/spec/workspace/session data
 │   ├── graph/              mutate_graph/read_graph tools + selected-spec graph read seam
 │   ├── context/            workspace/spec/session context tools
-│   ├── elicitation/        read/update elicitation-gap register tools
+│   ├── elicitation/        read/update session elicitation-scratchpad tools (non-authoritative; no persisted register)
 │   └── reconciliation/     read/update reconciliation-need register tools
 ├── session-hooks/          session lifecycle and boundary refresh hooks
 │   └── session/

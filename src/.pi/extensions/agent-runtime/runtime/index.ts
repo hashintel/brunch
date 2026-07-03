@@ -22,8 +22,6 @@ import {
   BRUNCH_BLOCKED_TOOL_NAMES,
   isBrunchBlockedToolName,
 } from '../../../../agents/runtime/shared/blocked-tools.js';
-import { groundingFloorGaps } from '../../../../graph/schema/elicitation-gap-fixtures.js';
-import type { ElicitationGap } from '../../../../graph/schema/elicitation-gaps.js';
 
 export {
   DEFAULT_BRUNCH_AGENT_STATE,
@@ -83,7 +81,6 @@ function supportsBrunchAgentStateEntries(
 export function activeToolNamesForBrunchAgentState(
   pi: ExtensionAPI,
   state: ResolvedBrunchAgentState,
-  _gaps?: readonly ElicitationGap[],
   devAllowedToolNames?: readonly string[],
 ): string[] {
   return activeToolNamesForForegroundState({
@@ -98,25 +95,7 @@ function applyBrunchToolPolicy(
   state: ResolvedBrunchAgentState,
   devAllowedToolNames?: readonly string[],
 ): void {
-  pi.setActiveTools(
-    activeToolNamesForBrunchAgentState(pi, state, conservativeUncoveredFloorGaps(), devAllowedToolNames),
-  );
-}
-
-/**
- * Explicit fail-closed posture for composition points where selected-spec gap
- * reads are not available (registration-time policy before context exists, or
- * a composition with no graph). Never a substitute for real gap reads on a
- * live selected-spec path.
- */
-export function conservativeUncoveredFloorGaps(): readonly ElicitationGap[] {
-  return groundingFloorGaps({
-    defaultCoverage: 0,
-    specId: 0,
-    idSuffix: 'runtime-policy-fallback',
-    rationale: 'Conservative fallback before selected-spec gaps are available.',
-    createdAtLsn: 0,
-  });
+  pi.setActiveTools(activeToolNamesForBrunchAgentState(pi, state, devAllowedToolNames));
 }
 
 interface TextLikeContent {

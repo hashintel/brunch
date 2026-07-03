@@ -38,4 +38,4 @@ Use `graph_refs` only for existing graph node references. Put assumptions and un
 
 When the user recognizes a direction, draft graph material only through `map` / review-set guidance. Typical output may include design-plane modules, interfaces, entities, sketches, and connecting edges such as realization, dependency, composition, refinement, or exclusion — but the current map/schema guidance owns exact legality and role names.
 
-Do not create a design node without an accepted intent anchor unless you explicitly route it as advisory material or a gap needing validation.
+Do not create a design node without an accepted intent anchor unless you explicitly route it as advisory material or a scratchpad obligation needing validation.

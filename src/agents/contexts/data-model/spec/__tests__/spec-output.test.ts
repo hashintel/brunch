@@ -6,6 +6,7 @@ import { renderSpecMarkdownOutput } from '../spec-output.js';
 const base = {
   specId: 1,
   basis: 'explicit',
+  settlement: 'settled',
   createdAtLsn: 1,
   updatedAtLsn: 1,
 } as const;

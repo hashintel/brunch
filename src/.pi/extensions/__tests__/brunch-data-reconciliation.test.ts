@@ -168,14 +168,14 @@ describe('reconciliation register tools', () => {
     expect(getOpenReconciliationNeeds(db, specId)).toEqual([]);
   });
 
-  it('proves both recon-need tools are active in elicit posture alongside update_elicitation_gaps', () => {
+  it('proves both recon-need tools are active in elicit posture alongside update_elicitation_scratchpad', () => {
     const state = projectBrunchAgentState([]);
     const active = activeToolNamesForBrunchAgentState(
       {
         getAllTools: () => [
           { name: 'read_reconciliation_needs' },
           { name: 'update_reconciliation_needs' },
-          { name: 'update_elicitation_gaps' },
+          { name: 'update_elicitation_scratchpad' },
         ],
       } as never,
       state,
@@ -184,7 +184,7 @@ describe('reconciliation register tools', () => {
     expect(active).toEqual([
       READ_RECONCILIATION_NEEDS_TOOL,
       UPDATE_RECONCILIATION_NEEDS_TOOL,
-      'update_elicitation_gaps',
+      'update_elicitation_scratchpad',
     ]);
   });
 });

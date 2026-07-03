@@ -53,7 +53,7 @@
         "expectedId": "must-build-full-replay-engine-now",
         "kind": "requirement",
         "title": "Build a full replay engine immediately.",
-        "expectedOutcome": "spawn_gap",
+        "expectedOutcome": "scratchpad_note",
         "evidence": "The answer names a replay condition, not an immediate build requirement."
       }
     ]
@@ -65,7 +65,7 @@
         "expectedId": "terminal-demo-preference-conditional",
         "kind": "assumption",
         "title": "The user may prefer the terminal view if the browser observer is confusing.",
-        "expectedOutcome": "spawn_gap",
+        "expectedOutcome": "scratchpad_note",
         "evidence": "If the browser observer gets confusing, I might prefer the terminal view for the demo."
       },
       {
@@ -79,7 +79,7 @@
         "expectedId": "review-sets-in-poc",
         "kind": "requirement",
         "title": "Review sets belong in the POC story.",
-        "expectedOutcome": "spawn_gap",
+        "expectedOutcome": "scratchpad_note",
         "evidence": "I have not decided whether review sets belong in the POC story."
       }
     ]

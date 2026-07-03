@@ -32,13 +32,9 @@ The load-bearing idea from the thread that produced this doc:
 > **The node kind is the closed ontology. Questions are the open, projectable layer *inside* a kind.**
 
 "Who is it for" and "who are the stakeholders" are both `thesis` questions — not two new types.
-Adding more questions never adds ontology; it adds priming for an existing kind. A spec
-elicitation gap is therefore modelled as a **situated question that refers to a graph node kind**,
-not as an entry in a parallel "typology" vocabulary:
-
-```
-elicitation_gap = ⟨ question (free text), refersTo: NodeKind, band, satisfier, disposition ⟩
-```
+Adding more questions never adds ontology; it adds priming for an existing kind. A session
+elicitation scratchpad item is therefore a **situated question that refers to a graph node kind**,
+not an entry in a persisted parallel "typology" vocabulary.
 
 Every intent kind already ships a canonical **source-question** (SPEC D56-L) — the abstract
 driver, not a literal question to parrot, but a heuristic for what kind of material the node
@@ -242,7 +238,7 @@ intent grounding is in place.
 │ 2. pick a node kind whose source-question is under-answered    │
 │ 3. project: bind the kind's facets to what's already known     │
 │    (domain X + protagonist Y  →  a concrete, situated question) │
-│ 4. emit as an elicitation_gap: ⟨question, refersTo: kind, …⟩    │
+│ 4. add/update a session scratchpad item: ⟨question, refersTo: kind, …⟩ │
 │ 5. NEVER mint a new kind/typology to hold a question —          │
 │    attach to the nearest existing kind                          │
 ╰──────────────────────────────────────────────────────────────╯

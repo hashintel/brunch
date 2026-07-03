@@ -59,6 +59,7 @@ export type ToolMutateCreateEdgeOp = {
 export type ToolMutateGraphOp = ToolMutateCreateNodeOp | ToolMutateCreateEdgeOp;
 export interface ToolMutateGraphParams {
   readonly createBasis?: 'explicit' | 'implicit' | undefined;
+  readonly createSettlement?: 'advisory' | 'settled' | undefined;
   readonly ops: readonly ToolMutateGraphOp[];
 }
 
@@ -180,6 +181,14 @@ export const MutateGraphParams = Type.Object(
     createBasis: Type.Optional(
       StringEnum(['explicit', 'implicit'] as const, {
         description: 'Basis for newly created nodes and edges in this batch',
+      }),
+    ),
+    createSettlement: Type.Optional(
+      StringEnum(['advisory', 'settled'] as const, {
+        description:
+          'Settlement for newly created nodes and edges in this batch (default: settled). Use ' +
+          '"advisory" only for reviewed, source-derived bulk-acquisition material that has not yet ' +
+          'been harmonized against inner-band concerns (D99-L) — never for directly-stated user facts.',
       }),
     ),
     ops: Type.Array(Type.Union([MutateCreateNodeOpSchema, MutateCreateEdgeSchema]), {

@@ -32,6 +32,7 @@ export async function readSpecificationContext(
   const details = await inspectSpecificationOverview(
     resolveWorkspaceCwd(sessionManager),
     selected.binding.specId,
+    sessionManager?.getEntries() ?? [],
   );
   return { status: 'ready', text: renderSpecificationContext(details), details };
 }

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ElicitationGap } from '../../graph/schema/elicitation-gaps.js';
 import {
   completeAssistantKick,
   kickTurnMessage,
@@ -30,10 +29,9 @@ function fakeManager() {
   };
 }
 
-function reads(lsn: number, gaps: readonly ElicitationGap[] = []) {
+function reads(lsn: number) {
   return {
     queryGraph: () => ({ nodes: [], edges: [], lsn }) as never,
-    getElicitationGaps: () => gaps,
   };
 }
 

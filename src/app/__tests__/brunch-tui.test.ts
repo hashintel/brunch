@@ -12,7 +12,6 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
-import { groundingFloorGaps } from '../../graph/schema/elicitation-gap-fixtures.js';
 import { userMessage } from '../../probes/test-helpers.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -656,6 +655,8 @@ describe('Brunch TUI boot', () => {
       'present_review_set',
       'present_candidates',
       'request_response',
+      'read_elicitation_scratchpad',
+      'update_elicitation_scratchpad',
     ]);
     expect(commands.get(BRUNCH_SWITCH_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
@@ -989,6 +990,7 @@ describe('Brunch TUI boot', () => {
                   title: 'Live selected-spec goal',
                   body: 'Graph-backed candidate',
                   basis: 'explicit',
+                  settlement: 'settled',
                   createdAtLsn: 1,
                   updatedAtLsn: 1,
                 },
@@ -998,7 +1000,6 @@ describe('Brunch TUI boot', () => {
             }),
             getNodes: () => [],
             resolveNodeCode: () => undefined,
-            getElicitationGaps: () => [],
             getOpenReconciliationNeeds: () => [],
             latestLsn: () => 1,
           },
@@ -1478,7 +1479,6 @@ function stubPromptGraphReads() {
     queryGraph: () => ({ lsn: 1, nodes: [], edges: [] }),
     getNodes: () => [],
     resolveNodeCode: () => undefined,
-    getElicitationGaps: () => groundingFloorGaps(),
     getOpenReconciliationNeeds: () => [],
     latestLsn: () => 1,
   };

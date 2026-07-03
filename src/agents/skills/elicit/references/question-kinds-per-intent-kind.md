@@ -4,7 +4,7 @@ This is a **priming catalog**, organized by graph node kind. The questions are *
 
 > **The node kind is the closed ontology. Questions are the open, projectable layer *inside* a kind.**
 
-Read [`../../../references/readiness-bands.md`](../../../references/readiness-bands.md) for canonical readiness-band terminology. This file uses latest expected band only to orient what kind of absence should shape the next question.
+Read [`../../../references/readiness-bands.md`](../../../references/readiness-bands.md) for canonical readiness-band terminology and the per-kind latest-expected-band table. Read [`../../../references/data-model.md`](../../../references/data-model.md) for the per-kind source-question. This file owns only the open phrasing/facet catalog below.
 
 
 Usage:
@@ -13,36 +13,35 @@ Usage:
 ╭──────────────────────────────────────────────────────────────────╮
 │ projection loop (one step of generalized capture)                │
 │                                                                  │
-│ 1. read open gaps + grounding density for THIS spec              │
+│ 1. read scratchpad obligations + grounding density for THIS spec │
 │ 2. pick a node kind whose source-question is under-answered      │
 │ 3. project: bind the kind's facets to what's already known       │
 │    (domain X + protagonist Y  →  a concrete, situated question) │
-│ 4. emit as an elicitation_gap: ⟨question, refersTo: kind, …⟩    │
+│ 4. add as scratchpad obligation: ⟨obligation, rationale, meta?⟩ │
 │ 5. NEVER mint a new kind/typology to hold a question             │
 │    attach to the nearest existing kind                           │
 ╰──────────────────────────────────────────────────────────────────╯
 ```
 
-| Kind          | Code | Claim modality              | Latest expected band | Query lens |
-| ------------- | ---- | --------------------------- | -------------------- | ---------- |
-| `goal`        | G    | value / outcome             | grounding            | basic      |
-| `thesis`      | TH   | position / bet              | grounding            | basic      |
-| `context`     | CTX  | known / given               | elicitation          | basic      |
-| `story`       | ST   | feature / scenario          | -                    | basic      |
-| `term`        | T    | domain language             | -                    | basic      |
-| `unknown`     | UNK  | known-unknown               | elicitation          | structural |
-| `assumption`  | A    | deferred-falsifiable belief | elicitation          | structural |
-| `constraint`  | CON  | boundary                    | elicitation          | structural |
-| `invariant`   | INV  | preservation                | elicitation          | structural |
-| `requirement` | REQ  | obligation                  | projection           | structural |
-| `decision`    | D    | choice                      | elicitation          | reasoning  |
-| `criterion`   | AC   | oracle                      | commitment           | reasoning  |
-| `example`     | EX   | witness / disambiguator     | -                    | reasoning  |
+| Kind          | Code | Claim modality              | Query lens |
+| ------------- | ---- | --------------------------- | ---------- |
+| `goal`        | G    | value / outcome             | basic      |
+| `thesis`      | TH   | position / bet              | basic      |
+| `context`     | CTX  | known / given               | basic      |
+| `story`       | ST   | feature / scenario          | basic      |
+| `term`        | T    | domain language             | basic      |
+| `unknown`     | UNK  | known-unknown               | structural |
+| `assumption`  | A    | deferred-falsifiable belief | structural |
+| `constraint`  | CON  | boundary                    | structural |
+| `invariant`   | INV  | preservation                | structural |
+| `requirement` | REQ  | obligation                  | structural |
+| `decision`    | D    | choice                      | reasoning  |
+| `criterion`   | AC   | oracle                      | reasoning  |
+| `example`     | EX   | witness / disambiguator     | reasoning  |
 
 ## Basic Lens (grounding band — opens the spec)
 
 ### `goal` —
-*Source question:* **What outcome are we after?**
 *Activating concepts:* outcomes-over-output, jobs-to-be-done, value proposition, payoff, North-Star metric.
 
 | What it may answer        | Example question forms                                                  |
@@ -53,7 +52,6 @@ Usage:
 | the measure of value      | What would tell us it worked? What number should move?                  |
 
 ### `thesis` 
-*Source question:* **Who is this for, and why?**
 *Activating concepts:* stakeholders, target user / persona, unique value proposition (UVP), positioning, "the bet", problem statement, jobs-to-be-done audience.
 
 | What it may answer            | Example question forms                                                                 |
@@ -66,7 +64,6 @@ Usage:
 | what we think the UVP is      | What's the unique value here vs alternatives? Why this and not the obvious substitute? |
 
 ### `term` 
-*Source question:* **What do we mean when we say X?**
 *Activating concepts:* **ubiquitous language** (DDD), glossary, bounded-context vocabulary, conceptual integrity, lexicon (see `memory/SPEC.md` §Lexicon).
 
 | What it may answer    | Example question forms                                       |
@@ -77,7 +74,6 @@ Usage:
 | naming commitments    | What should we *always* call this, so we stop drifting?      |
 
 ### `context` 
-*Source question:* **What is true about the world this lives in?**
 *Activating concepts:* domain, environment, situation of use, deployment topology, platform, ecosystem, integration surface, the system it replaces.
 
 | What it may answer             | Example question forms                                              |
@@ -95,7 +91,6 @@ Usage:
 ## Structural Lens (elicitation / commitment bands)
 
 ### `requirement` 
-*Source question:* **What must the system do?**
 *Activating concepts:* capabilities, user stories, functional requirements, MVP / walking skeleton, must-have vs nice-to-have.
 
 | What it may answer  | Example question forms                                                |
@@ -105,7 +100,6 @@ Usage:
 | observable behavior | From the outside, what should a user be able to do?                   |
 
 ### `assumption` 
-*Source question:* **What might be false?**
 *Activating concepts:* risks, hypotheses, leap-of-faith assumptions (Lean Startup), unknowns, "what we're betting on".
 
 | What it may answer     | Example question forms                         |
@@ -115,7 +109,6 @@ Usage:
 | dependencies on belief | What has to be true for this to work?          |
 
 ### `constraint` 
-*Source question:* **What does this rule out?**
 *Activating concepts:* non-functional requirements (NFRs), guardrails, budget / time / regulatory / technical limits, non-goals, fixed technology basis.
 
 | What it may answer    | Example question forms                                                   |
@@ -127,7 +120,6 @@ Usage:
 | non-goals             | What is this explicitly *not*? What's off the table?                     |
 
 ### `invariant` 
-*Source question:* **What must never be broken?**
 *Activating concepts:* safety properties, security guarantees, data integrity, "always holds".
 
 | What it may answer | Example question forms                      |
@@ -141,7 +133,6 @@ Usage:
 ## Reasoning Lens
 
 ### `decision` 
-*Source question:* **What did we pick among real alternatives?**
 *Activating concepts:* trade-offs, architecture decision records (ADRs), reversibility (one-way vs two-way doors).
 
 | What it may answer | Example question forms                           |
@@ -151,7 +142,6 @@ Usage:
 | reversibility      | Is this reversible, or a one-way door?           |
 
 ### `criterion` 
-*Source question:* **How will we judge that it holds?**
 *Activating concepts:* acceptance criteria, definition of done, success metrics, oracles.
 
 | What it may answer | Example question forms                                      |
@@ -161,7 +151,6 @@ Usage:
 | measurable success | What would we measure to confirm it?                        |
 
 ### `example` 
-*Source question:* **What concrete case would settle this?**
 *Activating concepts:* edge cases, counter-examples, behavioral kernels (see [BEHAVIORAL_KERNELS.md](../../../../../docs/design/BEHAVIORAL_KERNELS.md)), Given-When-Then, contrastive disambiguation.
 
 | What it may answer | Example question forms                                  |

@@ -50,6 +50,20 @@
       "when": 1782228984470,
       "tag": "0006_cooing_mole_man",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1782908752029,
+      "tag": "0007_jittery_mongu",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1782910614939,
+      "tag": "0008_sharp_storm",
+      "breakpoints": true
     }
   ]
 }

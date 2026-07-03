@@ -39,8 +39,8 @@ tree intent obligations:
 
 ```
 coherence checks (intent)
-  goal/thesis      -> has a rationale edge into >=1 requirement?            else: gap
-  requirement      -> has a witness path (criterion/example/oracle)?        else: gap
+  goal/thesis      -> has a rationale edge into >=1 requirement?            else: scratchpad obligation
+  requirement      -> has a witness path (criterion/example/oracle)?        else: scratchpad obligation
   requirement      -> pairs with an invariant it must not break?            consider
   decision         -> names >=1 rejected alternative + rationale?           else: not a decision
   assumption       -> high fanout + thin evidence?                          surface risk

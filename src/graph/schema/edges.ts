@@ -11,7 +11,7 @@
  */
 
 import type { EdgeId, Lsn, NodeId } from '../atoms.js';
-import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES } from './kinds.js';
+import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES, NODE_SETTLEMENTS } from './kinds.js';
 
 /**
  * Closed set of structural edge categories.
@@ -47,6 +47,12 @@ export type EdgeStance = (typeof EDGE_STANCES)[number];
  */
 type EdgeBasis = (typeof NODE_BASES)[number];
 
+/**
+ * Settlement dimension for edges, orthogonal to `basis` (I52-L) — same
+ * semantics as `NodeSettlement` in `./nodes.ts`.
+ */
+type EdgeSettlement = (typeof NODE_SETTLEMENTS)[number];
+
 // EdgeProvenance retired — change_log owns the full audit trail.
 
 /**
@@ -74,6 +80,7 @@ export interface GraphEdge {
   readonly targetId: NodeId;
   readonly stance?: EdgeStance;
   readonly basis: EdgeBasis;
+  readonly settlement: EdgeSettlement;
   readonly rationale?: string;
   readonly createdAtLsn: Lsn;
   readonly updatedAtLsn: Lsn;

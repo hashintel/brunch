@@ -29,7 +29,7 @@ const BRUNCH_TRANSCRIPT_TOOL_NAMES = new Set([
   'present_candidates',
   'present_question',
   'present_review_set',
-  'read_elicitation_gaps',
+  'read_elicitation_scratchpad',
   'read_graph',
   'read_reconciliation_needs',
   'read_session_context',
@@ -37,7 +37,7 @@ const BRUNCH_TRANSCRIPT_TOOL_NAMES = new Set([
   'read_workspace_context',
   'request_response',
   'subagent',
-  'update_elicitation_gaps',
+  'update_elicitation_scratchpad',
   'update_reconciliation_needs',
 ]);
 
