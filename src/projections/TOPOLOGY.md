@@ -58,3 +58,4 @@ projections/  x> .pi/, rpc/, app/, web/
 Current migration notes:
 
 - `projections/session/runtime-state.ts` owns flattened runtime-state DTO projection while `session/runtime-state.ts` owns transcript entry facts and append helpers. Public projections report operational mode and role only; they do not own agent body locations, capability-readiness, runtime affordance menus, or tool policy.
+- The former `projections/exchanges/` detail constructors moved to `src/exchanges/projections/` (D108-L, 2026-07-03); structured-exchange detail projection is no longer owned by this directory.

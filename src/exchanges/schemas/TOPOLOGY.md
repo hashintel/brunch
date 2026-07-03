@@ -16,14 +16,14 @@ const PresentCandidatesDetailsSchema = z.toJSONSchema(zPresentCandidatesDetails)
 - Zod source values use the `z` prefix and are not named `*Schema`.
 - Inferred TypeScript types use the bare domain name.
 - `*Schema` means JSON-Schema-shaped output generated from Zod with `z.toJSONSchema(...)`.
-- TypeBox is not a schema authoring layer for this seam; the only permitted TypeBox reference is the Pi `TSchema` cast adapter in `../pi-schema.ts`.
+- TypeBox is not a schema authoring layer for this seam; the only permitted TypeBox reference is the Pi `TSchema` cast adapter in `src/.pi/extensions/exchanges/pi-schema.ts`.
 - `Details`, `Params`, `Payload`, and `Result` are data-type name parts, not schema-library markers.
 
 ## File layout
 
 ```text
 schemas/
-  README.md
+  TOPOLOGY.md
   shared.ts
   present.ts
   request.ts
@@ -47,7 +47,7 @@ chain active Pi tool / session trigger / RPC editor relay
 ```
 
 - Active `.pi/extensions/exchanges/*.ts` files own Pi registration and UI collection only.
-- `../pi-schema.ts` is the only Zod JSON Schema to Pi `TSchema` adapter.
+- `src/.pi/extensions/exchanges/pi-schema.ts` is the only Zod JSON Schema to Pi `TSchema` adapter.
 - `present_review_set.payload` is a **graph-owned boundary-teaching schema** (`zReviewSetProposalPayloadForBoundary` in `graph/review-set.ts`), not `z.unknown()`: the param boundary rejects a JSON string, the wrong tool's shape (e.g. `mutate_graph`'s `{createBasis, ops}`), and malformed nested companions such as `grounding: string`. The full requiredness/field-diagnostic contract stays owned by `validateReviewSetPayloadShape` in the same graph module; the boundary schema advertises `lens`, `epistemicStatus`, `grounding {summary, support[]}`, `pitch {title, narrative}`, `entityDrafts[]`, and role-named `edgeDrafts[]` so the model sees the nested structure before the deep validator runs.
 - `src/exchanges/projections/*` is the only construction boundary for active present/request `toolResult.details`.
 - `agents/contexts/exchanges/*` owns durable provider-visible markdown for active present/request emissions.
@@ -453,6 +453,6 @@ capture_candidate:
 
 `capture_candidate` consumes the selected candidate id from the prior `request_choice`; do not duplicate candidate, user-rubric, or meta-rubric payloads into capture details unless a later design approves that change.
 
-## Known gaps before runtime migration
+## Migration state
 
-No additional schema-contract gaps were found while implementing this schema layer. Runtime tools and projection code still use the existing tuple details model until a later migration slice deliberately rewires them to these exports.
+Runtime migration is complete: Pi exchange tools, `src/exchanges/projections/*`, session recovery, and the RPC relay all consume these exports. The proof-era tuple details model is retired (D105-L, D108-L).

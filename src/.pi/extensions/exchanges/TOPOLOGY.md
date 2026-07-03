@@ -4,8 +4,9 @@ Owns Pi registration, live UI collection, and TUI transcript `renderResult`
 wiring for the structured-exchange tool family (`present_question`,
 `present_review_set`, `present_candidates`, and `request_response`). Result
 details are constructed only through `src/exchanges/projections/*` and validated
-against the Zod schemas in `schemas/` (see `schemas/README.md` for the details
-contract). D104-L (as revised 2026-07-02) sets the render rule: `renderResult`
+against the Zod schemas in `src/exchanges/schemas/` (see
+`src/exchanges/schemas/TOPOLOGY.md` for the details contract; D108-L
+consolidation). D104-L (as revised 2026-07-02) sets the render rule: `renderResult`
 is the Markdown pass-through of the formatter's `content` string — the content
 formatters in `agents/contexts/exchanges/` are the designed surface, and the
 render-honesty contract (details → content; elision lists beside the
@@ -16,7 +17,7 @@ path if exchange blocks should diverge from the content register.
 
 There are two distinct envelopes in this seam — do not conflate them:
 
-- **Editor wire envelope** (`schemas/editor.ts`,
+- **Editor wire envelope** (`src/exchanges/schemas/editor.ts`,
   `brunch.structured_exchange.request_choices.editor`). Pi UI built-ins cover
   every other `request_*` response shape, but the multi-choice
   `request_choices` payload cannot ride them, and Pi's `ctx.ui.custom` cannot
@@ -24,7 +25,7 @@ There are two distinct envelopes in this seam — do not conflate them:
   fallback still prefills this JSON envelope into `ctx.ui.editor` for the
   client to edit and return. Its `status` string is wire-level editor state
   only.
-- **Transcript result envelope** (`schemas/request.ts`,
+- **Transcript result envelope** (`src/exchanges/schemas/request.ts`,
   `brunch.structured_exchange.request`). The outcome of a request is carried in
   transcript details as key presence — `answered` / `cancelled` /
   `unavailable` — never a status string.
@@ -84,4 +85,7 @@ exchanges/*        -> src/exchanges/, agents/contexts/exchanges/, .pi/components
 exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result detail literals
 ```
 
-`structured-exchange-boundaries.test.ts` enforces these boundaries.
+`src/exchanges/schemas/__tests__/source-boundary.test.ts` guards the
+details-contract half (this Pi extension tree declares no semantic details
+schemas of its own); `src/projections/__tests__/topology-boundaries.test.ts`
+guards the projection-layer import direction.

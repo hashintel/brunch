@@ -1,8 +1,11 @@
 # exchanges/ — structured-exchange core contracts
 
+SPEC decisions: D41-L, D105-L, D106-L, D107-L, D108-L
+
 Owns structured-exchange schemas, transcript detail constructors, and read-side
-recognizers. Pi extension tools collect and register runtime surfaces; agent
-context modules render model-facing content.
+recognizers (consolidated here from `src/.pi/extensions/exchanges/schemas/` and
+`src/projections/exchanges/` by D108-L). Pi extension tools collect and register
+runtime surfaces; agent context modules render model-facing content.
 
 ## Public paths
 
@@ -10,6 +13,7 @@ context modules render model-facing content.
 exchanges/
   schemas/                Zod-authored params, details, capture, and editor envelopes
   recovery.ts             transcript detail recognizers and pending-present scan
+  editor-envelope.ts      request_choices editor wire-envelope prefill/parse helpers
   projections/
     present-candidates.ts canonical present_candidates details construction
     present-question.ts   canonical present_question details construction
@@ -26,8 +30,9 @@ topology; per-discriminant constructors are private helpers under
 ## Dependency direction
 
 ```pseudo
-exchanges/schemas/     -> graph/ only for graph-owned review-set boundary teaching
-exchanges/projections/ -> exchanges/schemas/, graph/
-exchanges/recovery.ts  -> exchanges/schemas/
-exchanges/             x> .pi/, rpc/, app/, web/, agents/contexts/
+exchanges/schemas/          -> graph/ only for graph-owned review-set boundary teaching
+exchanges/projections/      -> exchanges/schemas/, graph/
+exchanges/recovery.ts       -> exchanges/schemas/
+exchanges/editor-envelope.ts -> exchanges/schemas/
+exchanges/                  x> .pi/, rpc/, app/, web/, agents/contexts/
 ```
