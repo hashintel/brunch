@@ -166,13 +166,12 @@ export async function requestChoicesFromSources(
       params.commentPrompt !== undefined ||
       structuredExchangeResponseRequiresComment({
         choiceKinds: picked.choices.map((choice) =>
-          choice.id === 'none' ? 'none'
-          : choice.id === 'other' ? 'other'
-          : 'listed',
+          choice.id === 'none' ? 'none' : choice.id === 'other' ? 'other' : 'listed',
         ),
       });
-    const comment =
-      needsComment ? await ctx.ui.input?.(params.commentPrompt ?? 'Required comment') : undefined;
+    const comment = needsComment
+      ? await ctx.ui.input?.(params.commentPrompt ?? 'Required comment')
+      : undefined;
     return matchedChoicesResult(params, picked.choices, comment);
   }
 

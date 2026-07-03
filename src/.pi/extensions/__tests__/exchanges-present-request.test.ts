@@ -1,19 +1,19 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { createDb } from '../../../db/connection.js';
+import {
+  findIncompleteStructuredExchangePresents,
+  isStructuredExchangePresentDetails,
+  isStructuredExchangeRequestDetails,
+} from '../../../exchanges/recovery.js';
+import { CommandExecutor } from '../../../graph/command-executor.js';
 import {
   PRESENT_CANDIDATES_TOOL,
   PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
-} from '../../.pi/extensions/exchanges/index.js';
-import { createDb } from '../../db/connection.js';
-import { CommandExecutor } from '../../graph/command-executor.js';
-import {
-  findIncompleteStructuredExchangePresents,
-  isStructuredExchangePresentDetails,
-  isStructuredExchangeRequestDetails,
-} from '../recovery.js';
+} from '../exchanges/index.js';
 
 interface ToolTextContent {
   type: 'text';

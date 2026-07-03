@@ -78,9 +78,9 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
   let comment = '';
   if (!picked) {
     const other =
-      typeof params.ctx.ui.input === 'function' ?
-        await params.ctx.ui.input('Other', 'Describe your answer')
-      : undefined;
+      typeof params.ctx.ui.input === 'function'
+        ? await params.ctx.ui.input('Other', 'Describe your answer')
+        : undefined;
     if (other === undefined || other.trim().length === 0) return terminal('cancelled');
     choice = { id: 'other', label: other.trim(), kind: 'other' };
     if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {

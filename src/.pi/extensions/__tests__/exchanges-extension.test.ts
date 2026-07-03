@@ -6,7 +6,7 @@ import {
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
-} from '../../.pi/extensions/exchanges/index.js';
+} from '../exchanges/index.js';
 
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-?]*[ -/]*[@-~]`, 'g');
 

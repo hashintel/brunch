@@ -331,9 +331,9 @@ function textContent(content: unknown): string {
   if (Array.isArray(content)) {
     return content
       .map((part) =>
-        typeof part === 'object' && part !== null && typeof (part as { text?: unknown }).text === 'string' ?
-          (part as { text: string }).text
-        : '',
+        typeof part === 'object' && part !== null && typeof (part as { text?: unknown }).text === 'string'
+          ? (part as { text: string }).text
+          : '',
       )
       .filter((text) => text.length > 0)
       .join('\n');

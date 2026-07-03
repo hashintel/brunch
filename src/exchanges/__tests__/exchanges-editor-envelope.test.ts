@@ -54,9 +54,9 @@ describe('request_choices editor envelope', () => {
         kind: choice.id === 'other' ? ('other' as const) : ('listed' as const),
       })),
       options: envelope.choices.flatMap((choice) =>
-        choice.id === 'other' || choice.id === 'none' || choice.label === undefined ?
-          []
-        : [{ id: choice.id, content: choice.label }],
+        choice.id === 'other' || choice.id === 'none' || choice.label === undefined
+          ? []
+          : [{ id: choice.id, content: choice.label }],
       ),
       comment: response.comment,
     });

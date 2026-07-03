@@ -121,9 +121,9 @@ function pendingExchangeFromStructuredPresent(
     note: { allowed: true },
     // Preserve which present tool opened a single-select exchange so the answer
     // captures as the matching tool (candidate vs choice).
-    ...(mode === 'single-select' && details.tool_meta.curr === 'present_candidates' ?
-      { respondsToPresentTool: 'present_candidates' as const }
-    : {}),
+    ...(mode === 'single-select' && details.tool_meta.curr === 'present_candidates'
+      ? { respondsToPresentTool: 'present_candidates' as const }
+      : {}),
   };
 }
 
@@ -159,9 +159,7 @@ function parsePendingOptions(value: unknown, markdown: string = ''): PendingChoi
     const rationale = (option as { rationale?: unknown }).rationale;
     if (typeof id !== 'string') return [];
     const optionContent =
-      typeof content === 'string' ? content
-      : typeof label === 'string' ? label
-      : undefined;
+      typeof content === 'string' ? content : typeof label === 'string' ? label : undefined;
     if (optionContent === undefined) return [];
     return [
       {
@@ -246,9 +244,9 @@ function textContent(content: unknown): string {
   if (!Array.isArray(content)) return '';
   return content
     .map((part) =>
-      typeof part === 'object' && part !== null && typeof (part as { text?: unknown }).text === 'string' ?
-        (part as { text: string }).text
-      : '',
+      typeof part === 'object' && part !== null && typeof (part as { text?: unknown }).text === 'string'
+        ? (part as { text: string }).text
+        : '',
     )
     .filter((text) => text.length > 0)
     .join('\n');
