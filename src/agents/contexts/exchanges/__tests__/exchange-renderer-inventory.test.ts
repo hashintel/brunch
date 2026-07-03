@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { presentQuestionOptionsFixture } from '../../../../dev/component-preview/exchange-fixtures.js';
 import { projectPresentQuestion } from '../../../../exchanges/projections/present-question.js';
-import { projectRequestAnswer } from '../../../../exchanges/projections/request-answer.js';
-import { projectRequestChoice } from '../../../../exchanges/projections/request-choice.js';
-import { projectRequestChoices } from '../../../../exchanges/projections/request-choices.js';
-import { projectRequestReview } from '../../../../exchanges/projections/request-review.js';
+import { projectRequestAnswer } from '../../../../exchanges/projections/request-response.js';
+import { projectRequestChoice } from '../../../../exchanges/projections/request-response.js';
+import { projectRequestChoices } from '../../../../exchanges/projections/request-response.js';
+import { projectRequestReview } from '../../../../exchanges/projections/request-response.js';
 import { formatPresentQuestion } from '../present-question.js';
-import { formatRequestAnswer } from '../request-answer.js';
-import { formatRequestChoice } from '../request-choice.js';
-import { formatRequestChoices } from '../request-choices.js';
+import { formatRequestAnswer } from '../request-response.js';
+import { formatRequestChoice } from '../request-response.js';
+import { formatRequestChoices } from '../request-response.js';
 import { formatRequestResponseDiagnostic } from '../request-response.js';
-import { formatRequestReview } from '../request-review.js';
+import { formatRequestReview } from '../request-response.js';
 
 describe('structured-exchange renderer inventory', () => {
   it('covers the request/present result renderers not snapshot-locked elsewhere', async () => {

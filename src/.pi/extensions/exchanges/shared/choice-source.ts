@@ -1,5 +1,5 @@
-import { formatRequestChoice } from '../../../../agents/contexts/exchanges/request-choice.js';
-import { projectRequestChoice } from '../../../../exchanges/projections/request-choice.js';
+import { formatRequestChoice } from '../../../../agents/contexts/exchanges/request-response.js';
+import { projectRequestChoice } from '../../../../exchanges/projections/request-response.js';
 import {
   structuredExchangeResponseRequiresComment,
   type AnsweredOptionEcho,

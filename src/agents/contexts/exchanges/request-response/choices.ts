@@ -1,8 +1,8 @@
 import { blockquote, heading } from 'md-pen';
 
-import type { RequestChoicesDetails } from '../../../exchanges/projections/request-choices.js';
-import { joinMarkdownBlocks } from '../../shared/markdown.js';
-import { formatOptionEcho, formatResponseTerminal } from './option-echo.js';
+import type { RequestChoicesDetails } from '../../../../exchanges/projections/request-response.js';
+import { joinMarkdownBlocks } from '../../../shared/markdown.js';
+import { formatOptionEcho, formatResponseTerminal } from '../option-echo.js';
 
 export function formatRequestChoices(details: RequestChoicesDetails): string {
   if ('cancelled' in details) return formatResponseTerminal('User cancelled the request.');

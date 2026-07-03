@@ -1,4 +1,4 @@
-import { REQUEST_OUTCOME_KEYS } from '../exchanges/projections/request-choices.js';
+import { REQUEST_OUTCOME_KEYS } from '../exchanges/projections/request-response.js';
 import { projectAssistantVisibleWatermark } from '../projections/session/assistant-visible-watermark.js';
 import {
   isContinuityOnlyNonDebtEntry,

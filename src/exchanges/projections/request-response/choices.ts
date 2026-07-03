@@ -1,5 +1,5 @@
-import type { AnsweredOptionEcho, RequestChoicesDetails, SelectedChoice } from '../schemas/index.js';
-import { REQUEST_OUTCOME_KEYS, STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../schemas/index.js';
+import type { AnsweredOptionEcho, RequestChoicesDetails, SelectedChoice } from '../../schemas/index.js';
+import { REQUEST_OUTCOME_KEYS, STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../../schemas/index.js';
 
 // Re-exported so session-side consumers can reach the outcome union without
 // importing extension internals.

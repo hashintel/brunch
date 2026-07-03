@@ -1,8 +1,8 @@
 import { heading } from 'md-pen';
 
-import type { RequestAnswerDetails } from '../../../exchanges/projections/request-answer.js';
-import { joinMarkdownBlocks } from '../../shared/markdown.js';
-import { formatResponseTerminal } from './option-echo.js';
+import type { RequestAnswerDetails } from '../../../../exchanges/projections/request-response.js';
+import { joinMarkdownBlocks } from '../../../shared/markdown.js';
+import { formatResponseTerminal } from '../option-echo.js';
 
 export function formatRequestAnswer(details: RequestAnswerDetails): string {
   if ('cancelled' in details) return formatResponseTerminal('User cancelled the request.');

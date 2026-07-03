@@ -12,10 +12,7 @@ const PROJECTION_ADAPTER_EXCEPTIONS: Record<string, true> = {
   'src/exchanges/projections/present-candidates.ts': true,
   'src/exchanges/projections/present-question.ts': true,
   'src/exchanges/projections/present-review-set.ts': true,
-  'src/exchanges/projections/request-answer.ts': true,
-  'src/exchanges/projections/request-choice.ts': true,
-  'src/exchanges/projections/request-choices.ts': true,
-  'src/exchanges/projections/request-review.ts': true,
+  'src/exchanges/projections/request-response.ts': true,
 };
 
 function sourceFilesUnder(path: string): string[] {

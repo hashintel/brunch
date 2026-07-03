@@ -1,5 +1,5 @@
-import { formatRequestChoices } from '../../../../agents/contexts/exchanges/request-choices.js';
-import { projectRequestChoices } from '../../../../exchanges/projections/request-choices.js';
+import { formatRequestChoices } from '../../../../agents/contexts/exchanges/request-response.js';
+import { projectRequestChoices } from '../../../../exchanges/projections/request-response.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_VERSION,

@@ -3,7 +3,7 @@
 Owns Pi registration, live UI collection, and TUI transcript `renderResult`
 wiring for the structured-exchange tool family (`present_question`,
 `present_review_set`, `present_candidates`, and `request_response`). Result
-details are constructed only through `projections/exchanges/*` and validated
+details are constructed only through `src/exchanges/projections/*` and validated
 against the Zod schemas in `schemas/` (see `schemas/README.md` for the details
 contract). D104-L (as revised 2026-07-02) sets the render rule: `renderResult`
 is the Markdown pass-through of the formatter's `content` string — the content
@@ -62,9 +62,11 @@ and `present_candidates` to the single-choice UI source with candidate
 provenance preserved for later `capture_candidate`.
 The retired `request_answer` / `request_choice` / `request_choices` /
 `request_review` names survive only as transcript **result-detail discriminants**
-(`tool_meta.curr` on the request details, the `projectRequest*` / `formatRequest*`
-families, and the `capture_*` chains); `request_response` derives the response
-kind from the pending present and emits those same canonical request details.
+(`tool_meta.curr` on the request details and the `capture_*` chains). The public
+projection and content surfaces are now the single `request-response.ts`
+entrypoints, with per-discriminant helpers hidden below them; `request_response`
+derives the response kind from the pending present and emits those same
+canonical request details.
 `shared/ui-context.ts` is the one structural `ctx` slice every collector reads,
 so the tool casts the runtime `ctx` once at the boundary.
 For D106-L, `request_response` passes the pending present's listed options (or
@@ -78,9 +80,8 @@ must commit under those exact codes or fail as structural illegal.
 ## Dependency rules
 
 ```pseudo
-exchanges/*        -> schemas/, projections/exchanges/, agents/contexts/exchanges/, .pi/components/
+exchanges/*        -> src/exchanges/, agents/contexts/exchanges/, .pi/components/
 exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result detail literals
-exchanges/schemas/ -> zod only (pi-schema.ts is the lone TSchema adapter)
 ```
 
 `structured-exchange-boundaries.test.ts` enforces these boundaries.

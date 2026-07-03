@@ -1,5 +1,5 @@
-import type { RequestReviewDetails } from '../schemas/index.js';
-import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../schemas/index.js';
+import type { RequestReviewDetails } from '../../schemas/index.js';
+import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../../schemas/index.js';
 
 export type { RequestReviewDetails };
 export type ReviewDecision = 'approve' | 'request_changes' | 'reject';

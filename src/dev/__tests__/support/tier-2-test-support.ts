@@ -7,7 +7,7 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { expect } from 'vitest';
 
-import { projectRequestChoices } from '../../../exchanges/projections/request-choices.js';
+import { projectRequestChoices } from '../../../exchanges/projections/request-response.js';
 import { waitForCondition } from '../../tier-2-harness.js';
 
 /** Wait for the product kick turn (brunch.kick entry) on a fixture boot. */

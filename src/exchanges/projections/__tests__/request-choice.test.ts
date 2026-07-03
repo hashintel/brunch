@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { projectRequestChoice } from '../request-choice.js';
+import { projectRequestChoice } from '../request-response.js';
 
 const answeredChoice = {
   id: 'opt-1',

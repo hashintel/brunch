@@ -1,5 +1,5 @@
-import type { RequestAnswerDetails } from '../schemas/index.js';
-import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../schemas/index.js';
+import type { RequestAnswerDetails } from '../../schemas/index.js';
+import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../../schemas/index.js';
 
 export type { RequestAnswerDetails };
 type RequestAnswerProjectionInput =
