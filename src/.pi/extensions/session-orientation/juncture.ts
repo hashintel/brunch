@@ -24,6 +24,14 @@
  * exchange (D37-L).
  */
 
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+  ExtensionUIContext,
+  ModelRegistry,
+  SessionManager,
+} from '@earendil-works/pi-coding-agent';
+
 import type { TranscriptEntryLike } from '../../../projections/session/continuity-entry-classifier.js';
 import {
   BRUNCH_KICK_CUSTOM_TYPE,
@@ -98,6 +106,123 @@ export interface RunOrientationJunctureResult {
   readonly ran: boolean;
   readonly choice?: SessionOrientationChoice;
   readonly kickFired: boolean;
+}
+
+/**
+ * Defensive dialog timeout used only in RPC mode (C1 verification, chart
+ * degraded-mode row). Interactive TUI dialogs are unbounded by design: a
+ * user is at the keyboard. In RPC mode the Brunch RPC client is what
+ * fulfils `extension_ui_request`/`extension_ui_response`, so a client that
+ * fails to answer would block the dialog forever without this guard;
+ * `select` returning `undefined` on timeout maps to `continue` per the
+ * chart's Choice schema, and the entry rule still writes the resolution.
+ */
+export const ORIENTATION_RPC_DIALOG_TIMEOUT_MS = 60_000;
+
+type ExtensionMode = ExtensionContext['mode'];
+
+interface OrientationContextLike {
+  readonly ui: Pick<ExtensionUIContext, 'select'>;
+  readonly mode: ExtensionMode;
+  readonly hasUI: boolean;
+  readonly modelRegistry: Pick<ModelRegistry, 'getAvailable'>;
+  /**
+   * Accepts the readonly session-manager shape Pi exposes on
+   * `ExtensionContext` — `sessionManagerCanAppend` narrows to the mutable
+   * `JunctureSessionManager` shape at runtime before the append fires.
+   */
+  readonly sessionManager: unknown;
+}
+
+export interface JunctureContextKick {
+  readonly specId: number;
+  readonly specName?: string;
+  readonly reads: OriginationReads;
+  readonly workspaceContext: string;
+  readonly sendCustomMessage: LiveKickDeps['sendCustomMessage'];
+  readonly onOriginationDecision?: LiveKickDeps['onOriginationDecision'];
+  readonly onKickOutcome?: LiveKickDeps['onKickOutcome'];
+}
+
+export interface RunJunctureForContextInput {
+  readonly ctx: OrientationContextLike;
+  readonly trigger: SessionOrientationTrigger;
+  readonly mode: OrientationJunctureMode;
+  readonly kick: JunctureContextKick | undefined;
+  readonly title?: string;
+  readonly onAppendError?: (error: unknown) => void;
+}
+
+/**
+ * Adapts an extension context into a `runOrientationJuncture` invocation.
+ * Shared by the registrar (J1/J2/J3/J4/J6) and the mode-switch command path
+ * (J5) so both routes apply the same RPC-timeout guard, the same session-
+ * manager appender guard, and the same kick surface plumbing.
+ */
+export async function runJunctureForContext(
+  input: RunJunctureForContextInput,
+): Promise<RunOrientationJunctureResult> {
+  const { ctx } = input;
+  const sessionManager = ctx.sessionManager;
+  if (!sessionManagerCanAppend(sessionManager)) {
+    return { ran: false, kickFired: false };
+  }
+  const junctureUi = adaptOrientationUi(ctx);
+  const kick = input.kick;
+  return runOrientationJuncture({
+    hasUI: ctx.hasUI,
+    ui: junctureUi,
+    trigger: input.trigger,
+    sessionManager,
+    mode: input.mode,
+    ...(input.title !== undefined ? { title: input.title } : {}),
+    ...(input.onAppendError ? { onAppendError: input.onAppendError } : {}),
+    ...(kick
+      ? {
+          kick: {
+            specId: kick.specId,
+            ...(kick.specName ? { specName: kick.specName } : {}),
+            reads: kick.reads,
+            workspaceContext: kick.workspaceContext,
+            modelAvailable: ctx.modelRegistry.getAvailable().length > 0,
+            sendCustomMessage: kick.sendCustomMessage,
+            ...(kick.onOriginationDecision ? { onOriginationDecision: kick.onOriginationDecision } : {}),
+            ...(kick.onKickOutcome ? { onKickOutcome: kick.onKickOutcome } : {}),
+          },
+        }
+      : {}),
+  });
+}
+
+export function adaptOrientationUi(ctx: {
+  readonly ui: Pick<ExtensionUIContext, 'select'>;
+  readonly mode: ExtensionMode;
+}): SessionOrientationDialogUi {
+  if (ctx.mode !== 'rpc') {
+    return { select: (title, options) => ctx.ui.select(title, options) };
+  }
+  return {
+    select: (title, options) => ctx.ui.select(title, options, { timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS }),
+  };
+}
+
+/**
+ * Adapt `pi.sendMessage` (fire-and-forget void return) into the promise-
+ * returning `sendCustomMessage` shape `runOrientationJuncture` expects.
+ * Used from command handlers (J5) where a live `AgentSession.sendCustomMessage`
+ * is not directly reachable; extensions still deliver via the same underlying
+ * session queue and honor `triggerTurn: true`.
+ */
+export function sendCustomMessageViaExtensionApi(pi: ExtensionAPI): LiveKickDeps['sendCustomMessage'] {
+  return (message, options) => {
+    pi.sendMessage(message, options);
+    return Promise.resolve();
+  };
+}
+
+function sessionManagerCanAppend(sessionManager: unknown): sessionManager is JunctureSessionManager {
+  const candidate = sessionManager as Partial<SessionManager> | undefined;
+  return typeof candidate?.appendCustomEntry === 'function' && typeof candidate.getEntries === 'function';
 }
 
 export async function runOrientationJuncture(

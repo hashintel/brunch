@@ -33,19 +33,12 @@ import type {
   AgentEndEvent,
   ExtensionAPI,
   ExtensionContext,
-  SessionManager,
   SessionStartEvent,
   SessionTreeEvent,
 } from '@earendil-works/pi-coding-agent';
 
-import type { OriginationReads } from '../../../session/originate-assistant-turn.js';
 import type { SessionOrientationTrigger } from '../../../session/session-orientation.js';
-import {
-  runOrientationJuncture,
-  type JunctureSessionManager,
-  type LiveKickDeps,
-  type OrientationJunctureMode,
-} from './juncture.js';
+import { runJunctureForContext, type JunctureContextKick, type OrientationJunctureMode } from './juncture.js';
 
 export interface BrunchSessionOrientationDeps {
   /**
@@ -62,15 +55,7 @@ export interface BrunchSessionOrientationDeps {
  * caller never has to close over `services` (which does not exist yet at
  * extension-factory construction time in the current TUI boot path).
  */
-export interface KickContext {
-  readonly specId: number;
-  readonly specName?: string;
-  readonly reads: OriginationReads;
-  readonly workspaceContext: string;
-  readonly sendCustomMessage: LiveKickDeps['sendCustomMessage'];
-  readonly onOriginationDecision?: LiveKickDeps['onOriginationDecision'];
-  readonly onKickOutcome?: LiveKickDeps['onKickOutcome'];
-}
+export type KickContext = JunctureContextKick;
 
 // ceiling: 750ms wall-clock debounce for coinciding junctures. Upgrade to a
 // per-session juncture state machine if we grow past 5 triggers or need
@@ -145,33 +130,12 @@ async function runJuncture(
   const now = Date.now();
   if (now - debounce.lastResolvedAt < JUNCTURE_DEBOUNCE_MS) return;
 
-  const sessionManager = ctx.sessionManager as unknown as JunctureSessionManager;
-  if (!sessionManagerCanAppend(sessionManager)) return;
-
   const kickContext = await deps.resolveKickContext();
-
-  const result = await runOrientationJuncture({
-    hasUI: ctx.hasUI,
-    ui: { select: (title, options) => ctx.ui.select(title, options) },
+  const result = await runJunctureForContext({
+    ctx,
     trigger: invocation.trigger,
-    sessionManager,
     mode: invocation.mode,
-    ...(kickContext
-      ? {
-          kick: {
-            specId: kickContext.specId,
-            ...(kickContext.specName ? { specName: kickContext.specName } : {}),
-            reads: kickContext.reads,
-            workspaceContext: kickContext.workspaceContext,
-            modelAvailable: ctx.modelRegistry.getAvailable().length > 0,
-            sendCustomMessage: kickContext.sendCustomMessage,
-            ...(kickContext.onOriginationDecision
-              ? { onOriginationDecision: kickContext.onOriginationDecision }
-              : {}),
-            ...(kickContext.onKickOutcome ? { onKickOutcome: kickContext.onKickOutcome } : {}),
-          },
-        }
-      : {}),
+    kick: kickContext,
   });
 
   // Reference retained for future outcome telemetry / debug-cache mirror.
@@ -195,9 +159,4 @@ function tailAssistantMessage(messages: readonly unknown[]): AssistantLikeMessag
     if (message?.role === 'assistant') return message;
   }
   return undefined;
-}
-
-function sessionManagerCanAppend(sessionManager: unknown): sessionManager is JunctureSessionManager {
-  const candidate = sessionManager as Partial<SessionManager> | undefined;
-  return typeof candidate?.appendCustomEntry === 'function' && typeof candidate.getEntries === 'function';
 }

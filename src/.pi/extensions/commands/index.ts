@@ -41,6 +41,8 @@ import {
   activeToolNamesForBrunchAgentState,
   projectBrunchAgentState,
 } from '../agent-runtime/runtime/index.js';
+import { runJunctureForContext, sendCustomMessageViaExtensionApi } from '../session-orientation/juncture.js';
+import type { BrunchSessionOrientationDeps } from '../session-orientation/registrar.js';
 import {
   runBrunchWorkspaceAction,
   type BrunchSpecSessionPickerOptions,
@@ -66,11 +68,23 @@ export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
    * available and degrades to the shortcut context otherwise.
    */
   readonly getCommandContext?: () => ExtensionCommandContext | undefined;
+  /**
+   * J5 (SPEC-side mode-switch orientation) dep. When present, a mode switch
+   * INTO Specify (`elicit`) fires the orientation dialog with
+   * `trigger: 'mode-switch'` and — on a non-`continue` choice — kicks the
+   * new SPEC opening turn via the shared live-kick helper. CODE-side mode
+   * switches are owned by `execute-entry-readiness` and stay silent here.
+   */
+  readonly sessionOrientation?: BrunchSessionOrientationDeps;
 };
 
 interface RuntimeSwitchContext {
-  readonly ui: Pick<ExtensionCommandContext['ui'], 'notify' | 'custom'>;
+  readonly ui: Pick<ExtensionCommandContext['ui'], 'notify' | 'custom' | 'select'>;
   readonly sessionManager: ExtensionCommandContext['sessionManager'];
+  /** Present on the real Pi command context; only J5 orientation needs these. */
+  readonly mode?: ExtensionCommandContext['mode'];
+  readonly hasUI?: ExtensionCommandContext['hasUI'];
+  readonly modelRegistry?: ExtensionCommandContext['modelRegistry'];
 }
 
 function normalizeAxisArg(args: string): string {
@@ -81,10 +95,12 @@ function formatOperationalModeChoices(): string {
   return OPERATIONAL_MODE_IDS.map((mode) => `${mode} (${operationalModeLabel(mode)})`).join(', ');
 }
 
+type ModeSwitchOptions = Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'sessionOrientation'>;
+
 async function openModePicker(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
-  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh'>,
+  options: ModeSwitchOptions,
 ): Promise<void> {
   const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
   if (typeof ctx.ui.custom !== 'function') {
@@ -103,7 +119,56 @@ async function openModePicker(
     ctx.ui.notify(`Brunch mode is already ${operationalModeLabel(current.operationalMode)}.`, 'info');
     return;
   }
-  applyModeSwitch(pi, ctx, picked, options);
+  await applyModeSwitchAndOrient(pi, ctx, picked, options);
+}
+
+async function applyModeSwitchAndOrient(
+  pi: ExtensionAPI,
+  ctx: RuntimeSwitchContext,
+  nextMode: OperationalModeId,
+  options: ModeSwitchOptions,
+): Promise<void> {
+  applyModeSwitch(pi, ctx, nextMode, options);
+  if (nextMode === 'elicit' && options.sessionOrientation) {
+    await runSpecModeSwitchOrientation(pi, ctx, options.sessionOrientation);
+  }
+}
+
+/**
+ * J5 SPEC-side orientation: fires the dialog with `trigger: 'mode-switch'`
+ * after a mode switch INTO Specify. On a non-`continue` choice, the shared
+ * live-kick helper originates + kicks a fresh SPEC opening turn shaped by
+ * that choice; on `continue` (or escape/timeout), the user retains the
+ * floor and no kick fires — the entry rule still writes the resolution.
+ */
+async function runSpecModeSwitchOrientation(
+  pi: ExtensionAPI,
+  ctx: RuntimeSwitchContext,
+  deps: BrunchSessionOrientationDeps,
+): Promise<void> {
+  // The real Pi command context provides these; the RuntimeSwitchContext
+  // type carries them as optional to keep the pre-J5 openModePicker call
+  // sites unchanged. When a mode-switch flow reaches the orientation seam
+  // without these fields (test doubles omitting them), degrade quietly to
+  // no-op rather than throwing.
+  if (ctx.mode === undefined || ctx.hasUI === undefined || !ctx.modelRegistry || !ctx.ui.select) {
+    return;
+  }
+  const kickContext = await deps.resolveKickContext();
+  await runJunctureForContext({
+    ctx: {
+      mode: ctx.mode,
+      hasUI: ctx.hasUI,
+      modelRegistry: ctx.modelRegistry,
+      sessionManager: ctx.sessionManager,
+      ui: { select: ctx.ui.select.bind(ctx.ui) },
+    },
+    trigger: 'mode-switch',
+    mode: 'follow-choice',
+    kick: kickContext
+      ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
+      : undefined,
+  });
 }
 
 function applyModeSwitch(
@@ -135,10 +200,7 @@ function applyModeSwitch(
   ctx.ui.notify(`Brunch mode set to ${operationalModeLabel(nextMode)}.`, 'info');
 }
 
-function registerRuntimeSwitchCommands(
-  pi: ExtensionAPI,
-  options: Pick<BrunchCommandsOptions, 'requestChromeRefresh'>,
-): void {
+function registerRuntimeSwitchCommands(pi: ExtensionAPI, options: ModeSwitchOptions): void {
   pi.registerCommand(BRUNCH_MODE_COMMAND, {
     description: 'Change the active Brunch operational mode',
     getArgumentCompletions: (prefix) =>
@@ -161,7 +223,7 @@ function registerRuntimeSwitchCommands(
         ctx.ui.notify(`Brunch mode is already ${operationalModeLabel(current.operationalMode)}.`, 'info');
         return;
       }
-      applyModeSwitch(pi, ctx, selection as OperationalModeId, options);
+      await applyModeSwitchAndOrient(pi, ctx, selection as OperationalModeId, options);
     },
   });
 

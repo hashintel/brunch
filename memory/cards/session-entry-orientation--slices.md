@@ -13,7 +13,7 @@ Created:  2026-07-03
 - **Frontier:** `session-entry-orientation` (PLAN §Frontier Definitions; ship-gate head, arc `deterministic-orientation`). Linear issue: [FE-1134](https://linear.app/hash/issue/FE-1134/session-orientation-dialog-at-deterministic-junctures). Graphite branch: `ln/fe-1134-session-orientation` (split from the walkthrough planning branch after the first orientation commits).
 - **Posture:** mechanism `earned`, menu content/conduct `proving` (inherited from `session-entry-orientation`). Cards 1–2 are proving tracers; cards 3–4 are earned defect-closure inside settled seams.
 - **Volatile handoff state:** HANDOFF.md (2026-07-03) is superseded for this frontier by the Card 1/Card 2 build notes below and the PLAN/SPEC sync commit.
-- **Current build focus:** Card 1 is landed via option-2 J1 (`session_start(startup)` after Pi binds extension UI). Card 2 has J2/J3/J4/J6 landed; J5 mode-switch and C1 RPC round-trip remain explicit follow-up slices. Next recommended slices: Card 3 entry chrome, then Card 4 re-entry assessment, then Card 2 trailers (J5 + C1).
+- **Current build focus:** Cards 1–4 all landed, plus Card 2 trailers (J5 mode-switch + C1 RPC dialog timeout). The frontier's inner-loop scope is closed; outstanding work is outer-loop walkthrough evidence for the propose/project options (blocked on `walkthrough-batch-2` seed variants).
 - **Cross-cutting obligations (frontier-level):** decision-flow chart at scope time (§Chart below — discharged); sweep-exclusion probe for `brunch.session_orientation`; the arc's "one witnessed e2e run per generative flow" obligation — elicit-path menu options verifiable on existing seeds now, propose/project options blocked on `walkthrough-batch-2` seed variants (`memory/cards/walkthrough-batch-2--seed-variants.md`).
 
 **Grounding corrections to the PLAN definition (verified against Pi docs + code this session):**
@@ -215,7 +215,7 @@ src/projections/session/__tests__/…   ~   (sweep probe)
 
 ---
 
-## Card 2 — Remaining junctures: /consult, tree, esc-settle, mode-switch, RPC verification · `in progress` (J2/J3/J4/J6 landed; J5 + RPC verification deferred)
+## Card 2 — Remaining junctures: /consult, tree, esc-settle, mode-switch, RPC verification · `done`
 
 **2026-07-03 build finding (partial, after option-2 J1 completion):** the live-kick helper (`.pi/extensions/session-orientation/juncture.ts` — `runOrientationJuncture`) and the Pi event/command registrar (`registrar.ts`) are built and green. `originateAssistantTurn` gained a `forceSeed` option so a mid-session dialog-triggered kick lays down a fresh seed even when the graph LSN has not moved. `resolveKickContext` closes over the workspace state in `brunch-tui.ts` so J3/J4/J6 non-continue choices fire an actual assistant turn.
 
@@ -226,11 +226,11 @@ Landed junctures (all: dialog → entry → live-kick when applicable, honoring 
 - J4 (agent_end esc-abort) — C3 probe implemented via tail-message `stopReason === 'aborted'`. **C3 finding:** the extension `AgentEndEvent` does NOT carry `willRetry`; a compaction-overflow retry fires a fresh `agent_end` — the 750ms debounce (`ceiling:`) collapses the double-fire in practice but is not a proof, and a real compaction-retry-aware guard is deferred if it becomes visible in outer walkthroughs.
 - J6 (`/brunch:consult`).
 
-Deferred to follow-up slices (recorded, not silently narrowed):
+Trailer landing (2026-07-03, after Card 3 + Card 4):
 
-- **J5 mode-switch (SPEC-side menu).** Needs integration into `commands/index.ts` `appendBrunchAgentRuntimeSwitch` path so the choice feeds the pending mode-switch kick seed. Not a re-scope; separate wiring seam.
+- **J5 mode-switch (SPEC-side menu).** Landed. The mode-picker path in `src/.pi/extensions/commands/index.ts` (`applyModeSwitchAndOrient`) now fires the shared orientation flow via `runJunctureForContext` with `trigger: 'mode-switch'` **only when the switch target is `elicit` (SPEC mode)**. CODE-side switches stay silent — the CODE-side menu content remains owned by `execute-entry-readiness`, honoring the boundary risk in the card. Kick delivery goes through `sendCustomMessageViaExtensionApi(pi)` because the command handler has an `ExtensionAPI` but not a live `AgentSession.sendCustomMessage` reference; Pi routes the message through the same session queue with `triggerTurn: true`. `BrunchCommandsOptions.sessionOrientation` is threaded from `pi-extensions.ts` via the existing options spread — no new composition wiring.
 - ~~Option-2 J1 boot wiring~~ — landed in `7ebdf205`; the registrar now handles `session_start(startup)` in boot mode.
-- **RPC round-trip verification (C1).** The registrar already routes through `ctx.ui.select`, which Pi's RPC-mode UI back-fills via the extension-UI sub-protocol — so the wiring itself is RPC-transport-agnostic. Verifying the round-trip end-to-end (driver probe) is deferred to an outer-loop slice.
+- **C1 RPC-dialog verification.** Landed. The shared helper `adaptOrientationUi(ctx)` (`session-orientation/juncture.ts`) inspects `ctx.mode`: TUI mode passes `select` calls through unchanged, RPC mode injects `{ timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS }` (60 s). The registrar and the J5 command path both route through `runJunctureForContext`, so both pick up the timeout — a mute or missing RPC dialog client can no longer wedge the orientation seam. On timeout, `select` returns `undefined` → the existing choice schema maps it to `continue` and the entry rule still writes the resolution. Two inner-loop unit tests cover the timeout injection and the J5 delegation shape (`session-orientation/__tests__/juncture.test.ts`); an outer-loop RPC driver probe against a real Pi RPC session remains available if walkthrough evidence surfaces a divergence but is not required to close the card — the timeout is a floor guarantee independent of the client's behavior.
 
 Landed cross-cutting: sweep-exclusion probe carried forward from card 1 (`brunch.session_orientation` excluded from the capture sweep tail); topology reconciliation.
 

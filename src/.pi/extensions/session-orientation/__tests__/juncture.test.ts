@@ -6,7 +6,13 @@ import {
   type SessionOrientationEntryData,
 } from '../../../../session/session-orientation.js';
 import { SESSION_ORIENTATION_MENU } from '../index.js';
-import { runOrientationJuncture, type LiveKickDeps } from '../juncture.js';
+import {
+  ORIENTATION_RPC_DIALOG_TIMEOUT_MS,
+  adaptOrientationUi,
+  runJunctureForContext,
+  runOrientationJuncture,
+  type LiveKickDeps,
+} from '../juncture.js';
 
 interface CapturedEntry {
   readonly type: 'custom' | 'custom_message';
@@ -146,6 +152,99 @@ describe('runOrientationJuncture', () => {
       expect(result.choice).toBe('continue');
       expect(result.kickFired).toBe(false);
       expect(sent).toEqual([]);
+    });
+  });
+
+  describe('adaptOrientationUi (C1 RPC dialog timeout)', () => {
+    it('passes through select args untouched when mode is not rpc', async () => {
+      const calls: Array<[string, string[], unknown]> = [];
+      const ctx = {
+        mode: 'tui' as const,
+        ui: {
+          select: async (title: string, options: string[], opts?: unknown) => {
+            calls.push([title, options, opts]);
+            return options[0];
+          },
+        },
+      };
+      const dialogUi = adaptOrientationUi(ctx);
+      await dialogUi.select('pick', ['a', 'b']);
+      expect(calls).toEqual([['pick', ['a', 'b'], undefined]]);
+    });
+
+    it('applies the RPC dialog timeout when mode is rpc so a mute client cannot block orientation forever', async () => {
+      const calls: Array<[string, string[], unknown]> = [];
+      const ctx = {
+        mode: 'rpc' as const,
+        ui: {
+          select: async (title: string, options: string[], opts?: unknown) => {
+            calls.push([title, options, opts]);
+            return undefined;
+          },
+        },
+      };
+      const dialogUi = adaptOrientationUi(ctx);
+      const chosen = await dialogUi.select('pick', ['a', 'b']);
+      expect(chosen).toBeUndefined();
+      expect(calls).toHaveLength(1);
+      expect(calls[0]![2]).toEqual({ timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS });
+    });
+  });
+
+  describe('runJunctureForContext (J5 shared entry point)', () => {
+    it('degrades to no-op when the extension context lacks a mutable session manager', async () => {
+      const { deps, sent } = fakeKickDeps();
+      const result = await runJunctureForContext({
+        ctx: {
+          mode: 'tui',
+          hasUI: true,
+          ui: { select: async () => 'anything' },
+          modelRegistry: { getAvailable: () => [{ id: 'm' } as never] },
+          sessionManager: {},
+        },
+        trigger: 'mode-switch',
+        mode: 'follow-choice',
+        kick: {
+          specId: deps.specId,
+          reads: deps.reads,
+          workspaceContext: deps.workspaceContext,
+          sendCustomMessage: deps.sendCustomMessage,
+        },
+      });
+      expect(result).toEqual({ ran: false, kickFired: false });
+      expect(sent).toEqual([]);
+    });
+
+    it('delegates to runOrientationJuncture with the timeout-adapted RPC UI (J5 mode-switch path)', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
+      const selectCalls: Array<{ opts: unknown }> = [];
+      const result = await runJunctureForContext({
+        ctx: {
+          mode: 'rpc',
+          hasUI: true,
+          ui: {
+            select: async (_title: string, options: string[], opts?: unknown) => {
+              selectCalls.push({ opts });
+              return options.find((label) => label === labelFor('ingest'));
+            },
+          },
+          modelRegistry: { getAvailable: () => [{ id: 'm' } as never] },
+          sessionManager: manager,
+        },
+        trigger: 'mode-switch',
+        mode: 'follow-choice',
+        kick: {
+          specId: deps.specId,
+          reads: deps.reads,
+          workspaceContext: deps.workspaceContext,
+          sendCustomMessage: deps.sendCustomMessage,
+        },
+      });
+      expect(result.kickFired).toBe(true);
+      expect(selectCalls).toHaveLength(1);
+      expect(selectCalls[0]!.opts).toEqual({ timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS });
+      expect(sent).toHaveLength(1);
     });
   });
 
