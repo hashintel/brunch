@@ -14,7 +14,7 @@ describe('node-card primitives', () => {
       { kind: 'criterion', plane: 'intent', label: 'AC' },
       { kind: 'check', plane: 'oracle', label: 'CH' },
       { kind: 'module', plane: 'design', label: 'MOD' },
-      { kind: 'slice', plane: 'plan', label: 'S' },
+      { kind: 'frontier', plane: 'plan', label: 'F' },
     ] as const;
     for (const { kind, plane, label } of cases) {
       const { container } = render(<KindBadge kind={kind} plane={plane} />);

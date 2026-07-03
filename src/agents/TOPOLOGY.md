@@ -27,7 +27,7 @@ rules:
   agents/skills/registry.ts -> agents/skills/*/SKILL.md [first-level live skill registry only]
   agents/references/ -> graph/schema + graph/policy [authored shared references cite schema-owned vocabulary]
   agents/contexts/data-model/ -> graph/, projections/, session/, workspace/ [agent-visible text over already-read facts]
-  agents/runtime/elicitor -> agents/prompts, agents/runtime/elicitor/context.ts [live SPEC-mode source of truth]
+  agents/runtime/elicitor -> agents/prompts, agents/runtime/elicitor/context.ts [live Specify-mode source of truth]
   agents/runtime/    -> agents/prompts/registry, agents/prompts, agents/skills, session/schema
   .pi/extensions/*   -> agents/                   [adapters ask for Brunch-authored context]
   session/           -> agents/contexts/seeds/    [origination asks for seed payload text]

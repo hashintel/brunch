@@ -150,7 +150,7 @@ describe('Brunch runtime switch commands', () => {
     expect(harness.customCalls).toHaveLength(1);
     expect(harness.entries).toEqual([]);
     expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
+      expect.objectContaining({ level: 'info', message: expect.stringContaining('already Specify') }),
     ]);
   });
 
@@ -171,7 +171,7 @@ describe('Brunch runtime switch commands', () => {
 
     expect(harness.entries).toEqual([]);
     expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: 'Brunch mode is elicit.' }),
+      expect.objectContaining({ level: 'info', message: 'Brunch mode is Specify.' }),
     ]);
   });
 
@@ -235,8 +235,8 @@ describe('Brunch runtime switch commands', () => {
 
     expect(harness.entries).toHaveLength(1);
     expect(harness.notifications).toEqual([
-      expect.objectContaining({ level: 'info', message: expect.stringContaining('already elicit') }),
-      expect.objectContaining({ level: 'info', message: expect.stringContaining('mode set to execute') }),
+      expect.objectContaining({ level: 'info', message: expect.stringContaining('already Specify') }),
+      expect.objectContaining({ level: 'info', message: expect.stringContaining('mode set to Execute') }),
     ]);
   });
 });

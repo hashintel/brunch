@@ -1,4 +1,5 @@
 import type { RuntimeStateProjection } from '../../../../projections/session/runtime-state.js';
+import { operationalModeLabel } from '../../../../session/schema/kinds.js';
 
 export type SessionRuntimeFrameRenderInput =
   | RuntimeStateProjection
@@ -22,7 +23,7 @@ export function renderRuntimeFrame(input: SessionRuntimeFrameRenderInput): strin
     '[Selected session runtime frame]',
     '- status: ready',
     `- binding: spec #${input.specId}; session ${input.sessionId}`,
-    `- agent: mode=${input.agent.operationalMode}; role=${input.agent.role}`,
+    `- agent: mode=${operationalModeLabel(input.agent.operationalMode)} (id=${input.agent.operationalMode}); role=${input.agent.role}`,
     `- graph mentions: ${renderGraphMentions(input.mentions.graphNodes)}`,
     `- file mentions: ${renderFileMentions(input.mentions.files)}`,
     `- world: graph_lsn=${input.world.graph.latestLsn ?? 'unknown'}; git_head=${input.world.git.head ?? 'unknown'}`,

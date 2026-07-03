@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 
+import { operationalModeLabel, type OperationalModeId } from '../../../session/schema/kinds.js';
 import type {
   AgentPromptSpecContext,
   AgentPromptWorkspaceContext,
@@ -9,7 +10,7 @@ import { renderBrunchSkills } from '../../skills/registry.js';
 import { renderLiveElicitorContext, type LiveElicitorPushedContext } from './context.js';
 
 export interface LiveElicitorSessionState {
-  readonly operationalMode: string;
+  readonly operationalMode: OperationalModeId;
   readonly agentRole: string;
 }
 
@@ -55,7 +56,8 @@ function renderLiveElicitorControl(input: ComposeLiveElicitorPromptInput): strin
   const tools = input.activeTools?.join(', ') || 'none';
   return [
     '[Brunch live elicitor control]',
-    `- operational mode: ${input.sessionState.operationalMode}`,
+    '- product mode: Specify',
+    `- operational mode id: ${input.sessionState.operationalMode} (${operationalModeLabel(input.sessionState.operationalMode)})`,
     `- foreground role: ${input.sessionState.agentRole}`,
     `- active tools: ${tools}`,
     '- prompt resources: code-owned live skill list only; no runtime axis negotiation',

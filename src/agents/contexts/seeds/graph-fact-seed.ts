@@ -38,7 +38,7 @@ export function deriveGraphFactSeed(input: GraphFactSeedInput): GraphFactSeed {
     nodeCountsByKind[node.kind] = (nodeCountsByKind[node.kind] ?? 0) + 1;
   }
 
-  const zeroCountKinds = NODE_KINDS.filter((kind) => !nodeCountsByKind[kind]).map((kind) => ({
+  const zeroCountKinds = NODE_KINDS.filter((kind) => nodeCountsByKind[kind] === undefined).map((kind) => ({
     kind,
     band: latestExpectedBand(kind),
   }));

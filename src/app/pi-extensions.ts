@@ -38,11 +38,7 @@ import {
   type BrunchSessionBoundaryHandler,
   type BrunchSessionBoundaryPipelineStep,
 } from '../.pi/extensions/session-hooks/index.js';
-import {
-  BRUNCH_SUBAGENT_TOOL,
-  registerBrunchSubagents,
-  type BrunchSubagentsDeps,
-} from '../.pi/extensions/subagents/index.js';
+import { registerBrunchSubagents, type BrunchSubagentsDeps } from '../.pi/extensions/subagents/index.js';
 import { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import {
@@ -138,8 +134,8 @@ export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   continuityDrains?: () => readonly ContinuityDrain[];
   /**
    * Optional subagent registry (D44-L/D92-L). When provided with a non-empty
-   * code-owned delegatable set, the `subagent` tool is registered and opted
-   * into the active-tool set; when omitted or empty it is absent/default-off.
+   * code-owned delegatable set, the product `subagent` tool is registered and
+   * eligible under Specify-mode tool policy; when omitted or empty it is absent.
    */
   subagents?: BrunchSubagentsDeps;
 }
@@ -172,14 +168,14 @@ export function createBrunchPiExtensions(
     const graphMentionSource = options.graphMentionSource ?? graphMentionSourceFromDeps(options.graph);
     const promptContext = options.promptContext;
     const introspectionOptions = options.introspection;
-    // Opt-in tool channel: tools registered but kept out of the base `elicit`
-    // allowlist (D40-L) are made active only when explicitly opted in here —
-    // dev introspection query tools (D69-L) and the `subagent` tool (D44-L).
+    // Opt-in tool channel: dev-only query tools registered but kept out of the
+    // base `elicit` allowlist (D40-L) are made active only when explicitly
+    // opted in here. The `subagent` tool is a product tool and is allowed by
+    // Specify-mode policy when registered with a non-empty delegatable set.
     const hasDelegatableSubagents = (options.subagents?.delegatableAgents.length ?? 0) > 0;
-    const optInAllowedToolNames = [
-      ...(introspectionOptions?.queryTools ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL] : []),
-      ...(hasDelegatableSubagents ? [BRUNCH_SUBAGENT_TOOL] : []),
-    ];
+    const optInAllowedToolNames = introspectionOptions?.queryTools
+      ? [BRUNCH_SESSION_QUERY_TOOL, BRUNCH_INTROSPECT_QUERY_TOOL]
+      : [];
     const devAllowedToolNames = optInAllowedToolNames.length > 0 ? optInAllowedToolNames : undefined;
     const entryDebugCache = introspectionOptions?.debugCache;
     const continuitySteps = options.graph

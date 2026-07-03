@@ -13,7 +13,7 @@ import {
   projectBrunchAgentState,
   type ResolvedBrunchAgentState,
 } from '../../../projections/session/runtime-state.js';
-import type { OperationalModeId } from '../../../session/schema/kinds.js';
+import { operationalModeLabel, type OperationalModeId } from '../../../session/schema/kinds.js';
 import type {
   WorkspaceProjectState,
   WorkspaceSessionChromeState,
@@ -315,7 +315,11 @@ function renderBrunchStatusLine(
       theme,
       'mode',
       'opt-m',
-      runtime?.operationalMode ?? chrome.runtime?.mode ?? 'not reported',
+      runtime
+        ? operationalModeLabel(runtime.operationalMode)
+        : chrome.runtime?.mode
+          ? operationalModeLabel(chrome.runtime.mode)
+          : 'not reported',
     ),
     keyedStatusPart(theme, 'role', 'opt-r', runtime?.agentRole ?? chrome.runtime?.role ?? 'not reported'),
   ];

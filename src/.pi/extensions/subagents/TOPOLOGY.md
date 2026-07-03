@@ -1,10 +1,12 @@
 # subagents extension — D44-L / D91-L / D92-L
 
-> **Status:** mechanism built, dev-gated startup wiring active. In `BRUNCH_DEV`
-> launches, the app root injects the selected parent spec/workspace/session
-> snapshot, spec-bound graph readers, and the active op-mode's code-owned
-> delegatable set. Production launches that omit subagent deps, or carry an empty
-> delegatable set, still do not register or advertise the tool.
+> **Status:** product Specify-mode wiring active. Normal Brunch launches inject
+> the selected parent spec/workspace/session snapshot, spec-bound graph readers,
+> and the code-owned delegatable set — registration is unconditional; whether the
+> `subagent` tool is active/advertised is the per-mode tool policy's call
+> (Specify-mode's elicitor allowlist includes it, Execute-mode's executor
+> allowlist excludes it). Launches that explicitly omit subagent deps, or carry
+> an empty delegatable set, do not register or advertise the tool.
 
 SPEC decisions: D44-L (subagent), D39-L (sealed profile), D40-L (registration ≠
 advertisement), D90-L (shared foreground/background manifest + code-owned
@@ -19,11 +21,10 @@ collapse). Frontier: PLAN.md `subagent-reconciliation`.
 1. **It works through the faux-provider child-session path.** `runSubagent`
    assembles a background prompt, preserves sealed in-memory services, and can
    grant a spec-bound `read_graph` tool from injected parent-world handles.
-2. **Startup wiring is dev-gated.** `createBrunchAgentSessionRuntimeFactory()`
-   calls [`loadBrunchSubagents()`](../../../app/pi-subagents.ts) only when
-   `context.dev` is present, mirroring the introspection gate. The app root also
-   injects `delegatableAgentsForRuntimeState(...)`; the registrar advertises and
-   runs only loaded definitions in that allowlist.
+2. **Startup wiring is product-owned.** The app root calls
+   [`loadBrunchSubagents()`](../../../app/pi-subagents.ts) for normal SPEC-mode
+   launches, injecting selected-world context and the code-owned delegatable set.
+   The registrar advertises and runs only loaded definitions in that allowlist.
 3. **Spawnability is op-mode-owned, not frontmatter-owned.** Background manifests
    author sovereign `tools` grants, but their `canDelegate` remains empty; a
    manifest cannot self-advertise into `elicit`.
@@ -151,17 +152,15 @@ entry, rather than inheriting the parent tool policy.
 
 `createBrunchPiExtensions` registers and advertises `subagent` only when its
 options carry `subagents` with a non-empty `delegatableAgents` set; omitted or
-empty deps keep the tool absent/default-off.
-`createBrunchAgentSessionRuntimeFactory()` supplies those deps in `BRUNCH_DEV`
-launches, using the current selected spec, a spec-bound `GraphReaders` object,
-selected workspace/session facts, `sessionManager.getBranch()` for the bounded
-digest, and `delegatableAgentsForRuntimeState(projectBrunchAgentState(...))` for
+empty deps keep the tool absent. The app root supplies those deps for normal
+SPEC-mode launches, using the current selected spec, a spec-bound `GraphReaders`
+object, selected workspace/session facts, `sessionManager.getBranch()` for the
+bounded digest, and the operational mode's code-owned delegatable set for
 spawnability.
 
-Do not load subagents unconditionally in production. The production trigger
-("when may the elicitor delegate acquisition?") is still explicitly deferred
-(D82-L successor seam). When that lands, the gate becomes a posture/capability
-check rather than the dev switch.
+Do not load subagents as an ambient extension independent of product state. The
+gate is product context: selected spec/session plus non-empty code-owned
+spawnability, not the dev-tools switch.
 
 ## Conceptual reference (preserved from the design discussion)
 

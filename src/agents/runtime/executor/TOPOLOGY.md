@@ -4,13 +4,13 @@ SPEC decisions: D40-L, D52-L, D90-L, D93-L, D98-L
 
 ## Owns
 
-`src/agents/runtime/executor/` owns the narrow CODE-mode foreground executor policy: literal executor body composition, runtime control text, and the explicit registered-tool allowlist for foreground execute mode.
+`src/agents/runtime/executor/` owns the narrow Execute-mode foreground executor policy: literal executor body composition, runtime control text, and the explicit registered-tool allowlist for foreground execute mode.
 
 ```text
 executor/
 ├── TOPOLOGY.md
 ├── active-tools.ts   fixed executor active-tool allowlist
-└── compose-prompt.ts literal body + CODE-mode control assembly
+└── compose-prompt.ts literal body + Execute-mode control assembly
 ```
 
 ## Boundary Rules
@@ -25,4 +25,4 @@ rules:
 
 ## Migration Note
 
-This is intentionally smaller than full delegated CODE orchestration. It gives execute mode a concrete prompt/tool policy and leaves write-capable cook/run orchestration to the `orchestrator-tool-port` frontier.
+This is intentionally smaller than full delegated Execute orchestration. It gives Execute mode a concrete prompt/tool policy and leaves write-capable cook/run orchestration to the `orchestrator-tool-port` frontier.

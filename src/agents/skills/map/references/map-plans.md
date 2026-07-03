@@ -2,15 +2,15 @@
 
 ## Job
 
-Turn accepted intent/design/oracle pressure into sequenced work without losing the distinction between phase, tracker unit, and implementation slice.
+Turn accepted intent/design/oracle pressure into sequenced work without losing the distinction between phase and tracker unit. The plan plane stops at the **frontier**: it is the terminal, durable plan node and the hand-off boundary to downstream scoping/execution. Buildable slicing is an execution-side concern, not a plan-plane node.
 
 ```pseudo
 accepted graph pressure
   -> identify invariant bundle or product threshold
   -> group into milestone if it marks phase readiness
   -> define frontier if it is the canonical named work item
-  -> thin to slice when it is buildable execution scope
   -> link plan nodes back to the claims/design/oracles they realize or protect
+  -> stop at frontier; downstream scoping/execution thins it into buildable work
 ```
 
 ## Plan-kind routing
@@ -19,7 +19,8 @@ accepted graph pressure
 | -------------------------------------- | ----------- | ----------------------------------------------------- | ----------------------------------------- |
 | phase boundary / invariant bundle      | `milestone` | advancing means a bundle of properties now holds      | vague roadmap heading                     |
 | named frontier / tracker / branch unit | `frontier`  | a coherent work item owns a seam or coverage frontier | build task too small                      |
-| thin buildable unit                    | `slice`     | one execution context can implement and verify it     | dumping an entire frontier into one slice |
+
+Do not model a buildable execution slice as a plan node. A frontier that "one execution context can implement and verify" is still a frontier; thinning it into buildable slices is downstream scoping/execution, which the plan plane hands off to rather than persists.
 
 ## Sequencing graph
 
@@ -33,20 +34,19 @@ nodes:
   check: oracle
   milestone: plan
   frontier: plan
-  slice: plan
 
 edges:
   goal, requirement, invariant -[rationale:for]-> milestone
   milestone                    -[composition]->  frontier
-  frontier                     -[composition]->  slice
-  requirement, invariant       -[realization]->  frontier, slice
-  module, interface            -[realization]->  slice
-  check, criterion             -[dependency]->   slice        # if work depends on oracle being present
+  requirement, invariant       -[realization]->  frontier
+  module, interface            -[realization]->  frontier
+  check, criterion             -[dependency]->   frontier     # if work depends on oracle being present
   frontier                     -[dependency]->   frontier     # sequencing dependency
 
 notes:
   - Plan nodes should explain what accepted graph pressure they discharge.
   - `composition` groups plan units; `dependency` orders them; `realization` ties work to claims/design.
+  - The plan plane stops at frontier; buildable slicing is downstream scoping/execution, not a plan node.
 ```
 
 ## Coherent plan content checklist
@@ -54,7 +54,7 @@ notes:
 A plan node is coherent when it names:
 
 - the claim/design/oracle pressure it exists to satisfy;
-- the unit boundary: phase, frontier, or slice;
+- the unit boundary: phase or frontier;
 - the acceptance signal for that unit;
 - the dependency or composition edges that matter;
 - what is explicitly out of scope for this unit.

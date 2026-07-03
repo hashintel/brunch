@@ -90,10 +90,6 @@ const REFINE: Partial<Record<RefineKey, Refinement>> = {
     sourceVerb: 'implemented by',
     targetVerb: 'implements',
   },
-  [refineKey('realization', 'requirement', 'slice')]: {
-    sourceVerb: 'established by',
-    targetVerb: 'establishes',
-  },
   [refineKey('realization', 'invariant', 'requirement')]: {
     sourceVerb: 'expressed by',
     targetVerb: 'expresses',

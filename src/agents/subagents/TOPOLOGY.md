@@ -31,6 +31,6 @@ rules:
 
 ## Does NOT own
 
-- Foreground SPEC/CODE prompt bodies — `src/agents/prompts/`.
+- Foreground Specify/Execute prompt bodies — `src/agents/prompts/`.
 - Background prompt assembly, child-session sealing, tool grants, and spawn execution — `src/.pi/extensions/subagents/`.
 - Prompt-resource skills — `src/agents/skills/`.

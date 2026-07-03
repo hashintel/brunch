@@ -25,6 +25,7 @@ export const LIVE_ELICITOR_ALLOWED_TOOL_NAMES = [
   'present_candidates',
   'present_review_set',
   'request_response',
+  'subagent',
 ] as const;
 
 export function activeToolNamesForLiveElicitor({

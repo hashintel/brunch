@@ -10,8 +10,8 @@ Runtime prompt/tool policy that is Pi-independent: exhaustive foreground runtime
 runtime/
 ├── TOPOLOGY.md
 ├── foreground-policy.ts central exhaustive foreground prompt/tool facade
-├── elicitor/         live SPEC-mode elicitor prompt/context/tool source of truth
-├── executor/         narrow CODE-mode executor prompt/control/tool source of truth
+├── elicitor/         live Specify-mode elicitor prompt/context/tool source of truth
+├── executor/         narrow Execute-mode executor prompt/control/tool source of truth
 ├── shared/           pure helpers and shared runtime policy contracts
 ├── __tests__/          prompt/runtime policy tests
 └── __snapshots__/      Vitest file snapshots for full composed prompts
@@ -36,4 +36,4 @@ Pi extensions remain the runtime adapter: they gather the current Pi session sta
 
 This directory was moved from `.pi/extensions/agent-runtime/{runtime,system-prompts}` during the LLM-context ingress refactor. The remaining `.pi/extensions/agent-runtime/` files should stay thin: hook registration, Pi API calls, and adapter-specific tool activation only.
 
-The live elicitor path is centralized under `elicitor/`; the narrow CODE-mode executor path is centralized under `executor/`. Runtime prompt injection reads only the code-owned first-level skill manifest plus operational mode and does not negotiate legacy prompt axes.
+The live elicitor path is centralized under `elicitor/`; the narrow Execute-mode executor path is centralized under `executor/`. Runtime prompt injection reads only the code-owned first-level skill manifest plus operational mode and does not negotiate legacy prompt axes.

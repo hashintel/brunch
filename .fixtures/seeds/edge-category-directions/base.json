@@ -28,7 +28,7 @@
     { "local_id": 22, "plane": "plan", "kind": "milestone", "title": "Milestone composing a frontier", "basis": "explicit", "source": "fixture" },
     { "local_id": 23, "plane": "plan", "kind": "frontier", "title": "Frontier composed by a milestone", "basis": "explicit", "source": "fixture" },
     { "local_id": 24, "plane": "plan", "kind": "frontier", "title": "Frontier composing a slice", "basis": "explicit", "source": "fixture" },
-    { "local_id": 25, "plane": "plan", "kind": "slice", "title": "Slice composed by a frontier", "basis": "explicit", "source": "fixture" },
+    { "local_id": 25, "plane": "plan", "kind": "frontier", "title": "Slice composed by a frontier", "basis": "explicit", "source": "fixture" },
     { "local_id": 26, "plane": "intent", "kind": "requirement", "title": "Superseded requirement predecessor", "basis": "explicit", "source": "fixture" },
     { "local_id": 27, "plane": "intent", "kind": "requirement", "title": "Superseding requirement successor", "basis": "explicit", "source": "fixture" },
     { "local_id": 28, "plane": "intent", "kind": "assumption", "title": "Superseded assumption predecessor", "basis": "explicit", "source": "fixture" },

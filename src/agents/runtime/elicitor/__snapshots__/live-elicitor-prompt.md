@@ -3,7 +3,8 @@
 Fixed body.
 
 [Brunch live elicitor control]
-- operational mode: elicit
+- product mode: Specify
+- operational mode id: elicit (Specify)
 - foreground role: elicitor
 - active tools: read, grep, present_question
 - prompt resources: code-owned live skill list only; no runtime axis negotiation

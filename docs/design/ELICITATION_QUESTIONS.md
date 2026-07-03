@@ -33,8 +33,10 @@ The load-bearing idea from the thread that produced this doc:
 
 "Who is it for" and "who are the stakeholders" are both `thesis` questions — not two new types.
 Adding more questions never adds ontology; it adds priming for an existing kind. A session
-elicitation scratchpad item is therefore a **situated question that refers to a graph node kind**,
-not an entry in a persisted parallel "typology" vocabulary.
+elicitation scratchpad item is therefore a **situated question** (an obligation with a
+disposition, plus optional rationale/meta — see `src/session/elicitation-scratchpad.ts`),
+not an entry in a persisted parallel "typology" vocabulary; the graph node kinds it serves
+stay in the closed ontology, not on the item schema.
 
 Every intent kind already ships a canonical **source-question** (SPEC D56-L) — the abstract
 driver, not a literal question to parrot, but a heuristic for what kind of material the node
@@ -217,14 +219,13 @@ intent grounding is in place.
 | `interface` | Where's the boundary? What's the contract across it? |
 
 ### Plan plane — *how it's sequenced*
-`milestone`, `frontier`, `slice`.
-*Activating concepts:* walking skeleton, tracer-bullet slices, sequencing, risk retirement.
+`milestone`, `frontier`.
+*Activating concepts:* walking skeleton, tracer-bullet slices, sequencing, risk retirement. The plan plane stops at frontier; buildable slicing is downstream scoping/execution, not a plan node.
 
 | Kind | Example question forms |
 | --- | --- |
 | `milestone` | What's the phase boundary? What bundle must be true to advance? |
-| `frontier` | What's the next named unit of work? |
-| `slice` | What's the thinnest end-to-end slice to build first? |
+| `frontier` | What's the next named unit of work? What's the thinnest end-to-end path it should establish? |
 
 ---
 

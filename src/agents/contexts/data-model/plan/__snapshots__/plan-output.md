@@ -16,9 +16,7 @@ Lock output with snapshots and semantic invariants.
 
 - basis: explicit
 
-## Slice
-
-### S1 Spec output
+### F2 Spec output
 
 - basis: explicit
 - source: renderer-golden-coverage

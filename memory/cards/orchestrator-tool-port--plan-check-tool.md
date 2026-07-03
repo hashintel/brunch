@@ -28,6 +28,7 @@ The foreground executor can inspect a cook plan through a product-registered, re
 - `src/session/schema/tool-names.ts` — shared tool-name constants.
 - `/Users/lunelson/Code/hashintel/brunch/ORCHESTRATOR.md` — source CLI behavior and plan format.
 - `/Users/lunelson/Code/hashintel/brunch/src/orchestrator/src/{types.ts,plan-loader.ts,plan-contract.ts,cook-cli.ts}` — portable plan model, loader, contract, and plan-resolution behavior to adapt.
+- `docs/design/CUELOOP_PATTERN_LIFTOUT.md` — second, independent prior-art reference: patterns worth stealing from CueLoop (phase model, runnability, resumable runs, preflight gates, ledger-vs-supervisor decoupling) with steal/skip verdicts against D98-L, D39-L, D4-L/D6-L/D16-L. Advisory only.
 
 ## Boundary Crossings
 

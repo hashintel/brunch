@@ -36,7 +36,7 @@ npm run dev -- export --workspace .fixtures/workbenches/workspace-alpha-groundin
 
 ## Component Preview Harness
 
-`npm run dev:components` (or `npm run dev:components:watch` for a `tsx watch`-backed edit loop) boots a
+`npm run dev:components` boots a
 real `ProcessTerminal` + `TUI` and shows a gallery of every registered `.pi/components` entry
 (`src/dev/component-preview/registry.ts`) — no seeded workbench, session, or DB required, since these
 components are render-only with injectable `theme`/props.
@@ -94,8 +94,8 @@ components are render-only with injectable `theme`/props.
 Source runs and local dev builds automatically mirror debug artifacts into `<workspace>/.brunch/debug/`.
 
 - This automatic mirror is for passive observability only: system prompt captures, Brunch-owned tool content, origination records, and debug transcript rendering.
-- Prompt-affecting dev surfaces stay explicit. `--dev-tools` is the opt-in for query tools and subagent affordances.
-- TUI boots therefore have three states: product-default, debug-mirror-only, and debug-mirror plus dev tools.
+- Prompt-affecting dev surfaces stay explicit. `--dev-tools` is the opt-in for dev query tools only; product subagents are not dev-gated.
+- TUI boots therefore have three states: product-default (including product subagents when registered), debug-mirror-only, and debug-mirror plus dev query tools.
 
 ## Graph Curation
 

@@ -1,6 +1,6 @@
 # graph/ — Graph domain layer
 
-SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L, D99-L, I52-L
+SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D62-L, D63-L, D65-L, D75-L, D80-L, D81-L, D82-L, D94-L, D99-L, D103-L, I52-L
 
 ## Owns
 
@@ -40,7 +40,9 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
   neighborhood, selected-spec graph-code lookup, and open reconciliation
   needs. `GraphFilter` supports a `settlement` filter so callers can request
   settled-only reads (I52-L) on both nodes and edges. These return typed
-  domain objects or internal ids, not Drizzle rows.
+  domain objects or internal ids, not Drizzle rows. Row order is unspecified
+  (queries carry no `ORDER BY`); consumers that render or serialize must sort
+  before emitting.
 
 - **Domain schema types** (`schema/`) — `GraphNode`, `GraphEdge` (both
   carrying `basis: NodeBasis` and `settlement: NodeSettlement` as orthogonal,

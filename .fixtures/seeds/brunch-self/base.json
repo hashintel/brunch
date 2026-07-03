@@ -57,8 +57,8 @@
     { "local_id": 51, "plane": "plan", "kind": "milestone", "title": "M5 — Graph context read and render projection", "basis": "explicit", "source": "memory/PLAN.md" },
     { "local_id": 52, "plane": "plan", "kind": "frontier", "title": "Graph read/render projection context layer", "basis": "explicit", "source": "memory/PLAN.md" },
     { "local_id": 53, "plane": "plan", "kind": "frontier", "title": "Structured-exchange public-RPC parity", "basis": "explicit", "source": "memory/PLAN.md" },
-    { "local_id": 54, "plane": "plan", "kind": "slice", "title": "node-neighborhood renderer with anchor-relative projection", "basis": "explicit", "source": "memory/PLAN.md" },
-    { "local_id": 55, "plane": "plan", "kind": "slice", "title": "consolidate edge-category policy; add label and direction projections", "basis": "explicit", "source": "memory/PLAN.md" }
+    { "local_id": 54, "plane": "plan", "kind": "frontier", "title": "node-neighborhood renderer with anchor-relative projection", "basis": "explicit", "source": "memory/PLAN.md" },
+    { "local_id": 55, "plane": "plan", "kind": "frontier", "title": "consolidate edge-category policy; add label and direction projections", "basis": "explicit", "source": "memory/PLAN.md" }
   ],
   "edges": [
     { "category": "dependency", "source_local_id": 5, "target_local_id": 13, "basis": "explicit", "rationale": "The one-authority requirement is stated over the Spec's mutation surface." },

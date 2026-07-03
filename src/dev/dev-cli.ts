@@ -623,7 +623,7 @@ function devCliUsage(): string {
     '  - Launch-time seeding never happens implicitly; pair --seed with --reset.',
     '  - With --seed and no --workspace, the launcher derives .fixtures/workbenches/<name>/.',
     '  - Source/dev builds mirror debug artifacts automatically into <workspace>/.brunch/debug/.',
-    '  - --dev-tools opt into query tools and subagents; it is separate from debug mirroring.',
+    '  - --dev-tools opts into dev query tools; product subagents are not dev-gated.',
     '  - For direct raw app access, use npm run dev:raw -- ...',
   ].join('\n');
 }

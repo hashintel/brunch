@@ -55,9 +55,9 @@
     { "local_id": 49, "plane": "plan", "kind": "milestone", "title": "Seed-crystal POC: invalid action becomes unrecordable", "basis": "explicit", "source": "concept-1-a.md" },
     { "local_id": 50, "plane": "plan", "kind": "frontier", "title": "From file protocol to typed fact protocol", "basis": "explicit", "source": "projected" },
     { "local_id": 51, "plane": "plan", "kind": "frontier", "title": "Role differentiation: separate sensemaking and planning from execution", "basis": "explicit", "source": "projected" },
-    { "local_id": 52, "plane": "plan", "kind": "slice", "title": "Six-table fact store with three admissibility axioms as zero-row SQL checks", "basis": "explicit", "source": "concept-1-a.md" },
-    { "local_id": 53, "plane": "plan", "kind": "slice", "title": "Sensemaker agent with INSERT-only authority on situation_claim and contention", "basis": "explicit", "source": "concept-1-a.md" },
-    { "local_id": 54, "plane": "plan", "kind": "slice", "title": "Fact-schema spike translating one rd-loop iteration into typed facts and admissibility decisions", "basis": "explicit", "source": "concept-2-b.md" }
+    { "local_id": 52, "plane": "plan", "kind": "frontier", "title": "Six-table fact store with three admissibility axioms as zero-row SQL checks", "basis": "explicit", "source": "concept-1-a.md" },
+    { "local_id": 53, "plane": "plan", "kind": "frontier", "title": "Sensemaker agent with INSERT-only authority on situation_claim and contention", "basis": "explicit", "source": "concept-1-a.md" },
+    { "local_id": 54, "plane": "plan", "kind": "frontier", "title": "Fact-schema spike translating one rd-loop iteration into typed facts and admissibility decisions", "basis": "explicit", "source": "concept-2-b.md" }
   ],
   "edges": [
     { "category": "dependency", "source_local_id": 8, "target_local_id": 2, "basis": "explicit", "rationale": "The epistemic-frontier concept underpins the frontier-advancement goal." },

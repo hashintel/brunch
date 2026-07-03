@@ -46,8 +46,8 @@
 
     { "local_id": 38, "plane": "plan", "kind": "milestone", "title": "M1 — Core extraction loop across the three launch platforms", "basis": "explicit", "source": "projected" },
     { "local_id": 39, "plane": "plan", "kind": "frontier", "title": "Platform-agnostic extraction core (depth filter + alternation + capture)", "basis": "explicit", "source": "projected" },
-    { "local_id": 40, "plane": "plan", "kind": "slice", "title": "filterByConsistentDepth modal-depth tolerance filter", "basis": "explicit", "source": "projected" },
-    { "local_id": 41, "plane": "plan", "kind": "slice", "title": "Clipboard capture with DOM-text fallback per turn", "basis": "explicit", "source": "projected" }
+    { "local_id": 40, "plane": "plan", "kind": "frontier", "title": "filterByConsistentDepth modal-depth tolerance filter", "basis": "explicit", "source": "projected" },
+    { "local_id": 41, "plane": "plan", "kind": "frontier", "title": "Clipboard capture with DOM-text fallback per turn", "basis": "explicit", "source": "projected" }
   ],
   "edges": [
     { "category": "dependency", "source_local_id": 35, "target_local_id": 34, "basis": "explicit", "rationale": "extraction.ts depends on config.ts for detectSite and SITE_CONFIG." },

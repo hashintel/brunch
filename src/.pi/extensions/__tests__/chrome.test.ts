@@ -75,7 +75,7 @@ describe('Brunch chrome projection', () => {
       },
     })[1];
 
-    expect(footerLine).toBe('mode [opt-m]: elicit | role [opt-r]: elicitor');
+    expect(footerLine).toBe('mode [opt-m]: Specify | role [opt-r]: elicitor');
     expect(footerLine).not.toContain('strategy: auto');
     expect(footerLine).not.toContain('lens');
   });

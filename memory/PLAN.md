@@ -56,7 +56,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-1. `bordered-chrome-production` — not yet started; no Linear issue or branch yet. Ready to scope once picked up.
+1. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
+2. `bordered-chrome-production` — not yet started; no Linear issue or branch yet. Ready to scope once picked up.
 
 ### Parallel / Low-Conflict
 
@@ -159,6 +160,25 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Traceability:** D45-L, D63-L, D65-L, D74-L, D75-L, D81-L, D94-L, D97-L, D99-L, D101-L, D102-L; A36-L; I31-L, I50-L, I52-L, I56-L; `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md` (topology + consolidation ledger); `src/graph/schema/**` (settlement), `src/graph/command-executor.ts`, `src/projections/**`, `src/agents/contexts/**`, `src/session/runtime-state.ts`, `src/.pi/extensions/agent-runtime/{runtime/index.ts,system-prompts/world-reads.ts}`, `src/graph/queries.ts` (`derivePresenceCoverage`), `src/graph/elicitation-driver.ts`, `src/graph/command-executor.ts` (`SEEDED_ELICITATION_GAPS`), `src/projections/session/readiness-estimate.ts`, `src/session/specification-overview-context.ts`, `src/app/pi-subagents.ts`, `src/probes/capture-quality-loop.ts`, `src/probes/public-rpc-parity-proof.ts`, `src/graph/schema/nodes.ts`, `src/agents/contexts/data-model/graph/graph-slice.ts`, `src/agents/prompts/elicitor.md`, `src/agents/references/{readiness-bands,data-model}.md`, `src/agents/skills/elicit/references/question-kinds-per-intent-kind.md`.
 
 
+### planning-process-model
+
+- **Name:** Planning-process model — plan-as-projection, epistemic horizon, and the `scope`-node question
+- **Linear:** unassigned
+- **Branch:** `ln/fe-xxx-plan-plane-redesign` (plan-plane groundwork already landed here: `slice` removal + D103-L + CueLoop liftout)
+- **Kind:** structural / plan-plane semantics
+- **Status:** proving candidate opened by D103-L; sequence after `elicitation-gap-guidance`. Mostly SPEC/skill work at first, low code-conflict.
+- **Certainty:** proving.
+- **Lights up:** plan generation as *projection* from committed graph truth (milestone/frontier) — a `project` (D100-L) plan-plane path, first exercised as a read-only plan projection, optionally exported to an external format (CueLoop, `docs/design/CUELOOP_PATTERN_LIFTOUT.md`) as design pressure.
+- **Stabilizes:** the plan-plane boundary set by D103-L (plane stops at `frontier`) — by proving what *is* projectable there, and by locating whether a durable accountability node below `frontier` (candidate `scope`) is needed or stays process-only (`ln-scope`/`ln-build` scope cards).
+- **Objective:** Turn the D103-L future-direction bet into evidence: model how Brunch's plan plane handles (1) projection from intent/oracle/design down to milestones/frontiers, (2) the epistemic horizon (fog-of-war) and non-structural sequential dependency that bite at scoping, and (3) the trade-offs (extend horizon vs gain parallelism) as design-style decision flows. Fire the cheapest tracer — plan-as-projection — before deciding whether horizon/decision-flow state or a `scope` node earns durable representation.
+- **Acceptance:**
+  - A plan projection is derived from committed graph truth (milestone/frontier plus their intent/oracle/design anchors) and rendered thinly, reusing the `project` (D100-L) seam rather than a new graph-write path or exchange schema family.
+  - The projection is demonstrably *projection*, not free generation: it starts from accepted upstream anchors and never commits plan-plane graph truth itself (I51-L discipline).
+  - An external-format export (e.g. CueLoop) is proven as an optional downstream rendering of that projection, or explicitly rejected with a recorded reason — used only as design pressure, not as product architecture.
+  - The `scope`-node question is resolved with evidence: either a durable below-`frontier` accountability node is specified (routing back to `ln-spec`) or it is confirmed process-only. Until then the epistemic-horizon/decision-flow model stays behind the fog (D103-L future direction), not built.
+- **Traceability:** D103-L (plane stops at frontier; opens this model), D100-L (`project` seam), D56-L / D94-L (kind set + REQ/AC boundary), D87-L (`unknown` = horizon on the intent plane), D99-L (advisory/settled); relates to `orchestrator-tool-port` (D98-L executor may own execution/scope concerns). SPEC §Future Direction "Planning persistence evolution".
+
+
 ### session-branching
 
 - **Name:** Session branching support (branch-aware continuity/coherence)
@@ -185,6 +205,10 @@ frontiers:
     elicitation-gap-guidance, component-dx--rounded-box-primitive, component-dx--wheel-scroll-passthrough
 
   Next:
+    planning-process-model
+      status: proving / exploratory (opened by D103-L)
+      depends_on: D103-L, D100-L (project seam)
+      cheapest_first_tracer: plan-as-projection
     bordered-chrome-production
       status: not started, no Linear issue/branch yet
       depends_on: component-dx (paused, primitives shipped), STRUCTURED_EXCHANGE_ANSWERING_PATHS.md
