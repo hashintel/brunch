@@ -52,6 +52,10 @@ chain ingest-sweep:
     -> compose next question over the updated graph + scratchpad
 ```
 
+Structured exchange outcome rules:
+
+- Answered free-text requests route only `answered.text` as direct user material. The surrounding prompt or offer text is render context, not capture payload; capture it only if the user restates or approves the claim.
+
 ## Method
 
 Walk readiness bands as concern envelopes, not as workflow stages. Ingest whatever the source actually supports, then assign the right route: scratchpad obligation, reconciliation need, advisory graph item, or settled graph item.
