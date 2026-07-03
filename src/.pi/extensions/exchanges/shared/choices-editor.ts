@@ -1,6 +1,5 @@
 import { formatRequestChoices } from '../../../../agents/contexts/exchanges/request-choices.js';
 import { projectRequestChoices } from '../../../../exchanges/projections/request-choices.js';
-import { createMultiChoicePickerComponent } from '../../../components/multi-choice-picker.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_VERSION,
@@ -11,7 +10,8 @@ import {
   type RequestChoicesEditorEnvelopeInput,
   type RequestChoicesEditorResponse,
   type SelectedChoice,
-} from '../schemas/index.js';
+} from '../../../../exchanges/schemas/index.js';
+import { createMultiChoicePickerComponent } from '../../../components/multi-choice-picker.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
@@ -166,12 +166,13 @@ export async function requestChoicesFromSources(
       params.commentPrompt !== undefined ||
       structuredExchangeResponseRequiresComment({
         choiceKinds: picked.choices.map((choice) =>
-          choice.id === 'none' ? 'none' : choice.id === 'other' ? 'other' : 'listed',
+          choice.id === 'none' ? 'none'
+          : choice.id === 'other' ? 'other'
+          : 'listed',
         ),
       });
-    const comment = needsComment
-      ? await ctx.ui.input?.(params.commentPrompt ?? 'Required comment')
-      : undefined;
+    const comment =
+      needsComment ? await ctx.ui.input?.(params.commentPrompt ?? 'Required comment') : undefined;
     return matchedChoicesResult(params, picked.choices, comment);
   }
 

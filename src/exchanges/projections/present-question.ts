@@ -1,8 +1,5 @@
-import type {
-  PresentQuestionDetails,
-  PresentQuestionParams,
-} from '../../.pi/extensions/exchanges/schemas/index.js';
-import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type { PresentQuestionDetails, PresentQuestionParams } from '../schemas/index.js';
+import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../schemas/index.js';
 
 export interface PresentQuestionProjection {
   readonly heading: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { zPresentCandidatesDetails } from '../../../.pi/extensions/exchanges/schemas/index.js';
+import { zPresentCandidatesDetails } from '../../schemas/index.js';
 import { projectPresentCandidates } from '../present-candidates.js';
 
 const candidateParams = {

@@ -1,4 +1,3 @@
-import { structuredExchangeResponseRequiresComment } from '../../.pi/extensions/exchanges/schemas/index.js';
 import { formatRequestAnswer } from '../../agents/contexts/exchanges/request-answer.js';
 import { formatRequestChoice } from '../../agents/contexts/exchanges/request-choice.js';
 import { formatRequestChoices } from '../../agents/contexts/exchanges/request-choices.js';
@@ -7,6 +6,7 @@ import { projectRequestAnswer } from '../../exchanges/projections/request-answer
 import { projectRequestChoice } from '../../exchanges/projections/request-choice.js';
 import { projectRequestChoices } from '../../exchanges/projections/request-choices.js';
 import { projectRequestReview } from '../../exchanges/projections/request-review.js';
+import { structuredExchangeResponseRequiresComment } from '../../exchanges/schemas/index.js';
 import type { PendingStructuredExchange } from './pending-exchange.js';
 import {
   exchangeToolCallId,

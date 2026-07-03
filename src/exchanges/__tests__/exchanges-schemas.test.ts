@@ -33,7 +33,7 @@ import {
   zRequestReviewDetails,
   zRequestToolMeta,
   zRequestResponseParams,
-} from '../exchanges/schemas/index.js';
+} from '../schemas/index.js';
 
 function expectJsonSchemaExport(schema: z.ZodType) {
   expect(() => z.toJSONSchema(schema, { unrepresentable: 'throw' })).not.toThrow();
@@ -299,12 +299,14 @@ describe('structured exchange present schemas', () => {
   });
 
   it('rejects candidate graph refs and rubric drift fields', () => {
+    const firstCandidate = candidateDetails.candidates[0]!;
+
     expect(() =>
       zPresentCandidatesDetails.parse({
         ...candidateDetails,
         candidates: [
           {
-            ...candidateDetails.candidates[0],
+            ...firstCandidate,
             graph_refs: [{ node_id: 'node-1', role: 'supporting' }],
           },
         ],
@@ -316,9 +318,9 @@ describe('structured exchange present schemas', () => {
         ...candidateDetails,
         candidates: [
           {
-            ...candidateDetails.candidates[0],
+            ...firstCandidate,
             user_rubric: {
-              ...candidateDetails.candidates[0].user_rubric,
+              ...firstCandidate.user_rubric,
               confidence: 'high',
             },
           },

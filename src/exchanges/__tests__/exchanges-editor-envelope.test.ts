@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { projectRequestChoices } from '../../../exchanges/projections/request-choices.js';
-import { zRequestChoicesEditorEnvelope } from '../exchanges/schemas/index.js';
 import {
   buildRequestChoicesEditorPrefill,
   parseRequestChoicesEditorResponse,
-} from '../exchanges/shared/choices-editor.js';
+} from '../../.pi/extensions/exchanges/shared/choices-editor.js';
+import { projectRequestChoices } from '../projections/request-choices.js';
+import { zRequestChoicesEditorEnvelope } from '../schemas/index.js';
 
 describe('request_choices editor envelope', () => {
   it('round-trips prefill, edited response, parse, and projection through the one schema', () => {

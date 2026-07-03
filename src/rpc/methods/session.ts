@@ -1,10 +1,7 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import {
-  zReviewSetDetailsPayload,
-  type ReviewSetDetailsPayload,
-} from '../../.pi/extensions/exchanges/schemas/index.js';
+import { zReviewSetDetailsPayload, type ReviewSetDetailsPayload } from '../../exchanges/schemas/index.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
@@ -419,8 +416,9 @@ async function handleSessionProjection<T>(
     return createJsonRpcFailure(requestId, -32602, 'Invalid params');
   }
 
-  const target = params.value
-    ? await resolveExplicitSessionProjectionTarget(options.cwd, params.value)
+  const target =
+    params.value ?
+      await resolveExplicitSessionProjectionTarget(options.cwd, params.value)
     : await selectedSessionFile(await options.coordinator.openDefaultWorkspace());
   if (!target.ok) {
     return createJsonRpcFailure(requestId, target.code, target.message);
@@ -485,8 +483,9 @@ async function handleTriggerExchange(
   }
   const reloaded = pendingExchangeFromEnvelope(reloadedTarget.envelope);
 
-  const result = reloaded
-    ? { status: 'pending' as const, exchange: reloaded }
+  const result =
+    reloaded ?
+      { status: 'pending' as const, exchange: reloaded }
     : { status: 'idle' as const, exchange: null };
   publishSelectedSessionUpdates(options.productUpdates, state);
   return createJsonRpcSuccess(requestId, result);
@@ -536,11 +535,11 @@ async function handleSubmitMessage(
   }
 
   const messageId =
-    params.interruption === true
-      ? state.session.manager.appendCustomMessageEntry('brunch.session_interruption', params.text, true, {
-          interruption: true,
-        })
-      : state.session.manager.appendMessage(ordinaryUserMessage(params.text));
+    params.interruption === true ?
+      state.session.manager.appendCustomMessageEntry('brunch.session_interruption', params.text, true, {
+        interruption: true,
+      })
+    : state.session.manager.appendMessage(ordinaryUserMessage(params.text));
   flushSessionManagerToFile(state.session.manager, state.session.file);
 
   if (params.interruption !== true) {

@@ -1,8 +1,5 @@
-import type {
-  PresentCandidatesDetails,
-  PresentCandidatesParams,
-} from '../../.pi/extensions/exchanges/schemas/index.js';
-import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type { PresentCandidatesDetails, PresentCandidatesParams } from '../schemas/index.js';
+import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../schemas/index.js';
 
 export interface PresentCandidatesProjection {
   readonly heading: string;

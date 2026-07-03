@@ -5,11 +5,11 @@ import {
   type SessionMessageEntry,
 } from '@earendil-works/pi-coding-agent';
 
-import type { PresentDetails, RequestDetails } from '../.pi/extensions/exchanges/schemas/index.js';
 import {
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
-} from '../.pi/extensions/exchanges/shared/recovery.js';
+} from '../exchanges/recovery.js';
+import type { PresentDetails, RequestDetails } from '../exchanges/schemas/index.js';
 import {
   assertLinearBrunchSessionEnvelope,
   loadJsonlTranscriptEntries,
@@ -331,9 +331,9 @@ function textContent(content: unknown): string {
   if (Array.isArray(content)) {
     return content
       .map((part) =>
-        typeof part === 'object' && part !== null && typeof (part as { text?: unknown }).text === 'string'
-          ? (part as { text: string }).text
-          : '',
+        typeof part === 'object' && part !== null && typeof (part as { text?: unknown }).text === 'string' ?
+          (part as { text: string }).text
+        : '',
       )
       .filter((text) => text.length > 0)
       .join('\n');

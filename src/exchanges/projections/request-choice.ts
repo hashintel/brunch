@@ -1,9 +1,5 @@
-import type {
-  AnsweredOptionEcho,
-  RequestChoiceDetails,
-  SelectedChoice,
-} from '../../.pi/extensions/exchanges/schemas/index.js';
-import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../../.pi/extensions/exchanges/schemas/index.js';
+import type { AnsweredOptionEcho, RequestChoiceDetails, SelectedChoice } from '../schemas/index.js';
+import { STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA } from '../schemas/index.js';
 
 export type { AnsweredOptionEcho, RequestChoiceDetails, SelectedChoice };
 export type RequestChoicePresentTool = 'present_question' | 'present_candidates';
@@ -37,17 +33,17 @@ export function projectRequestChoice(input: RequestChoiceProjectionInput): Reque
   if (input.status === 'answered') {
     const comment = normalizeOptionalText(input.comment);
     const tool_meta =
-      input.respondsToPresentTool === 'present_candidates'
-        ? ({
-            ...base.tool_meta,
-            prev: 'present_candidates',
-            next: 'capture_candidate',
-          } as const)
-        : ({
-            ...base.tool_meta,
-            prev: 'present_question',
-            next: 'capture_choice',
-          } as const);
+      input.respondsToPresentTool === 'present_candidates' ?
+        ({
+          ...base.tool_meta,
+          prev: 'present_candidates',
+          next: 'capture_candidate',
+        } as const)
+      : ({
+          ...base.tool_meta,
+          prev: 'present_question',
+          next: 'capture_choice',
+        } as const);
     return {
       ...base,
       tool_meta,

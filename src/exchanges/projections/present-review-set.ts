@@ -1,10 +1,7 @@
-import type {
-  PresentReviewSetDetails,
-  ReviewSetDetailsPayload,
-} from '../../.pi/extensions/exchanges/schemas/index.js';
-import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../../.pi/extensions/exchanges/schemas/index.js';
 import { roleNamedEdgeDraftEndpoints } from '../../graph/command-executor/role-named-edge-draft.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
+import type { PresentReviewSetDetails, ReviewSetDetailsPayload } from '../schemas/index.js';
+import { STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA } from '../schemas/index.js';
 
 export interface PresentReviewSetProjection {
   readonly details: PresentReviewSetDetails;

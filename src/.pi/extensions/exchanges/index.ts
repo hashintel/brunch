@@ -15,14 +15,14 @@ export {
   findIncompleteStructuredExchangePresents,
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
-} from './shared/recovery.js';
+} from '../../../exchanges/recovery.js';
 export {
   STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA as STRUCTURED_EXCHANGE_PRESENT_SCHEMA,
   STRUCTURED_EXCHANGE_REQUEST_DETAILS_SCHEMA as STRUCTURED_EXCHANGE_REQUEST_SCHEMA,
   type PresentDetails as StructuredExchangePresentDetails,
   type RequestDetails as StructuredExchangeRequestDetails,
   type RequestDetails as StructuredExchangeToolResultDetails,
-} from './schemas/index.js';
+} from '../../../exchanges/schemas/index.js';
 export { PRESENT_CANDIDATES_TOOL, PRESENT_QUESTION_TOOL, PRESENT_REVIEW_SET_TOOL, REQUEST_RESPONSE_TOOL };
 
 export const STRUCTURED_EXCHANGE_IMPLEMENTED_TOOLS = [

@@ -1,5 +1,5 @@
+import type { EntryLike } from '../../../../exchanges/recovery.js';
 import type { LabTheme } from '../../../components/tui-lab/index.js';
-import type { EntryLike } from './recovery.js';
 
 /**
  * The slice of the Pi tool `ctx` the structured-exchange response collectors

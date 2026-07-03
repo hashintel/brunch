@@ -2,8 +2,8 @@ import { defineTool } from '@earendil-works/pi-coding-agent';
 
 import { formatPresentCandidates } from '../../../agents/contexts/exchanges/present-candidates.js';
 import { projectPresentCandidates } from '../../../exchanges/projections/present-candidates.js';
+import { zPresentCandidatesParams, type PresentCandidatesParams } from '../../../exchanges/schemas/index.js';
 import { piSchema } from './pi-schema.js';
-import { zPresentCandidatesParams, type PresentCandidatesParams } from './schemas/index.js';
 import { renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_CANDIDATES_TOOL = 'present_candidates' as const;

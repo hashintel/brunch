@@ -1,6 +1,6 @@
 import * as z from 'zod';
 
-import { zReviewSetProposalPayloadForBoundary } from '../../../../graph/review-set.js';
+import { zReviewSetProposalPayloadForBoundary } from '../../graph/review-set.js';
 import { zPresentedCandidate } from './present.js';
 
 const zPresentedOptionParam = z

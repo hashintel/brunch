@@ -1,5 +1,5 @@
-import type { PresentDetails, RequestDetails } from '../schemas/index.js';
-import { zPresentDetails, zRequestDetails } from '../schemas/index.js';
+import type { PresentDetails, RequestDetails } from './schemas/index.js';
+import { zPresentDetails, zRequestDetails } from './schemas/index.js';
 
 export function isStructuredExchangePresentDetails(value: unknown): value is PresentDetails {
   return zPresentDetails.safeParse(value).success;

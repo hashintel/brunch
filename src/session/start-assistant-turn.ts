@@ -85,10 +85,11 @@ export function latestTailOwesAssistant(entries: readonly TranscriptEntryLike[])
  * request result with none of those keys is still pending.
  */
 function isTerminalRequestResult(message: Record<string, unknown>): boolean {
-  const details =
-    isRecord(message.details) ? message.details
-    : isRecord(message.data) ? message.data
-    : undefined;
+  const details = isRecord(message.details)
+    ? message.details
+    : isRecord(message.data)
+      ? message.data
+      : undefined;
   if (!details) return false;
   return REQUEST_OUTCOME_KEYS.some((key) => key in details);
 }

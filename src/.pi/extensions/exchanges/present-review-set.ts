@@ -5,14 +5,14 @@ import {
   formatPresentReviewSet,
 } from '../../../agents/contexts/exchanges/present-review-set.js';
 import { projectPresentReviewSet } from '../../../exchanges/projections/present-review-set.js';
-import type { CommandExecutor, StructuralIllegal } from '../../../graph/command-executor.js';
-import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
-import { piSchema } from './pi-schema.js';
 import {
   zPresentReviewSetParams,
   type PresentReviewSetDetails,
   type PresentReviewSetParams,
-} from './schemas/index.js';
+} from '../../../exchanges/schemas/index.js';
+import type { CommandExecutor, StructuralIllegal } from '../../../graph/command-executor.js';
+import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
+import { piSchema } from './pi-schema.js';
 import { renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_REVIEW_SET_TOOL = 'present_review_set' as const;
