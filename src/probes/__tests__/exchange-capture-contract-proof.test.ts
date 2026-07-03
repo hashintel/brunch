@@ -204,4 +204,14 @@ describe('exchange capture contract proof', () => {
     expect(ingestGuidance).toContain('Cancelled proposal-chain reviews carry no offer payload');
     expect(ingestGuidance).toContain('Only unresolved intent may become an `open` scratchpad obligation');
   });
+
+  it('keeps superseded prior proposal entries as transcript history only', async () => {
+    const spec = await readFile(join(process.cwd(), 'memory/SPEC.md'), 'utf8');
+    expect(spec).toContain('projection and capture consume only the accepted terminal payload');
+    expect(spec).toContain('prior offers stay transcript history only');
+
+    const ingestGuidance = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
+    expect(ingestGuidance).toContain('Superseded prior proposal entries stay transcript history only');
+    expect(ingestGuidance).toContain('capture/projection consumes only the accepted terminal payload');
+  });
 });

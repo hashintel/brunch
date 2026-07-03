@@ -61,6 +61,7 @@ Structured exchange outcome rules:
 - Review `request_changes` captures the comment as direct user material and treats the next generated review set as the next offer. Do not capture the prior proposal payload or write graph truth from it.
 - Review `reject` kills the offer. Do not demote the rejected proposal into a scratchpad obligation or preserve it as live graph material.
 - Cancelled proposal-chain reviews carry no offer payload. Only unresolved intent may become an `open` scratchpad obligation; never keep the cancelled proposal nodes, edges, or candidates as capture material.
+- Superseded prior proposal entries stay transcript history only. For a proposal chain, capture/projection consumes only the accepted terminal payload; do not read earlier offers as active graph material.
 
 ## Method
 
