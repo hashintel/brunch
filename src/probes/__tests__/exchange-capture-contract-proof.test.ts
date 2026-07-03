@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -244,4 +244,36 @@ describe('exchange capture contract proof', () => {
     expect(conduct).toContain('offer-scoped');
     expect(conduct).toContain('per-turn/watermark-shaped');
   });
+
+  it('does not introduce forbidden deterministic capture carriers', async () => {
+    const sourceFiles = (await sourceFilePaths(join(process.cwd(), 'src'))).filter(
+      (path) => !path.endsWith('exchange-capture-contract-proof.test.ts'),
+    );
+    const combined = (await Promise.all(sourceFiles.map((path) => readFile(path, 'utf8')))).join('\n');
+
+    for (const forbidden of [
+      'capture_receipt',
+      'capture_result',
+      'outcomeSpan',
+      'outcome_span',
+      'exchangeLinkage',
+      'exchange_linkage',
+      'exchangeProvenance',
+      'exchange_provenance',
+    ]) {
+      expect(combined).not.toContain(forbidden);
+    }
+  });
 });
+
+async function sourceFilePaths(root: string): Promise<string[]> {
+  const entries = await readdir(root, { withFileTypes: true });
+  const nested = await Promise.all(
+    entries.map(async (entry) => {
+      const path = join(root, entry.name);
+      if (entry.isDirectory()) return sourceFilePaths(path);
+      return /\.(?:ts|tsx|md)$/.test(entry.name) ? [path] : [];
+    }),
+  );
+  return nested.flat();
+}
