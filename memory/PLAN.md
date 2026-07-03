@@ -52,14 +52,27 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Done-definition:** every exchange kind in the closed inventory renders honestly in transcript and re-render; live single-choice answering no longer routes through pi's plain `ctx.ui.select`; each renderer has a `dev:components` preview entry; `src/.pi/extensions/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md` shape ledger, and `src/.pi/components/TOPOLOGY.md` reconciled; the formatter-home decision recorded in `memory/SPEC.md` (done: D104-L/D108-L).
 - **Anchors:** D37-L, D38-L, D41-L (exchange schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); TESTING_FINDINGS.md F7/F8/F11.
 
-### capture-ingest-throughline — planned
+
+### capture-ingest-throughline — ◐ active
 
 - **Goal:** resolve and prove how general capture/ingest works, end to end — the 2026-07-03 grill's center of gravity. Three throughlines with evidence:
   1. free user input → per-turn banded sweep (watermark-shaped window, D80-L conduct) → graph under the D81-L confidence gradient;
   2. any exchange tuple → outcome-correct sweep read (accepted / cancelled / rejected / request-changes-superseded chains);
   3. large source material → digest exchange → accept → map with correct settlement (advisory per `src/agents/references/readiness-bands.md` §Arbitrary Source Capture) → honest `mutate_graph` receipt (already carried by `formatMutateGraphResult` + own-mutation watermark stamp).
 - **Members:**
-  - `exchange-capture-contract` (new, below) — the full contract sweep ledger: outcome-interpretation invariants as conduct + probes over settled deterministic seams.
+  - `exchange-capture-contract` ✓ done — the full contract sweep ledger: outcome-interpretation invariants as conduct + probes over settled deterministic seams.
+  - `present-digest` (new, below) — the digest exchange kind end to end; proves throughline 3; stacks on the contract.
+- **Done-definition:** all three throughlines witnessed on live seams (not harness-injected paths); I57-L's generalized supersession invariant — *for any superseding proposal chain (review set, candidates, digest), sweep/projection consume only the accepted terminal payload; a cancelled chain contributes no offer payload* — probed per chain kind; the `DIGEST_CUSTOM_TYPES` special case in `src/projections/session/sweep-watermark.ts` retired; co-located topology homes (`src/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md`, ingest/map skill guidance) reconciled.
+- **Anchors:** D80-L–D82-L (capture conduct + gradient), D28-L (supersession), D50-L/I33-L (`capture_*` reserved for pre-persistence analysis — *not* receipts), D101-L (one-carrier scratchpad), D106-L (self-contained option echo), D107-L (proposed-code fidelity), D108-L (`src/exchanges/` consolidation).
+
+### capture-ingest-throughline — ◐ active
+
+- **Goal:** resolve and prove how general capture/ingest works, end to end — the 2026-07-03 grill's center of gravity. Three throughlines with evidence:
+  1. free user input → per-turn banded sweep (watermark-shaped window, D80-L conduct) → graph under the D81-L confidence gradient;
+  2. any exchange tuple → outcome-correct sweep read (accepted / cancelled / rejected / request-changes-superseded chains);
+  3. large source material → digest exchange → accept → map with correct settlement (advisory per `src/agents/references/readiness-bands.md` §Arbitrary Source Capture) → honest `mutate_graph` receipt (already carried by `formatMutateGraphResult` + own-mutation watermark stamp).
+- **Members:**
+  - `exchange-capture-contract` ✓ done — the full contract sweep ledger: outcome-interpretation invariants as conduct + probes over settled deterministic seams.
   - `present-digest` (new, below) — the digest exchange kind end to end; proves throughline 3; stacks on the contract.
 - **Done-definition:** all three throughlines witnessed on live seams (not harness-injected paths); I57-L's generalized supersession invariant — *for any superseding proposal chain (review set, candidates, digest), sweep/projection consume only the accepted terminal payload; a cancelled chain contributes no offer payload* — probed per chain kind; the `DIGEST_CUSTOM_TYPES` special case in `src/projections/session/sweep-watermark.ts` retired; co-located topology homes (`src/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md`, ingest/map skill guidance) reconciled.
 - **Anchors:** D80-L–D82-L (capture conduct + gradient), D28-L (supersession), D50-L/I33-L (`capture_*` reserved for pre-persistence analysis — *not* receipts), D101-L (one-carrier scratchpad), D106-L (self-contained option echo), D107-L (proposed-code fidelity), D108-L (`src/exchanges/` consolidation).
@@ -83,6 +96,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Recently Completed
 
+- 2026-07-03 `exchange-capture-contract` (FE-1135) — the outcome-capture contract sweep is closed for all required rows: model-facing ingest/elicit/map guidance now states the five governing invariants, focused probes pin request/choice/review outcome interpretation, sweep-window tests exclude `present_*`/reserved `capture_*` tool results, `session.submitExchangeResponse` approval transcript text states persisted `ref → code` results, and the no-forbidden-carrier audit guards against `capture_*` receipts, outcome-span annotations, and exchange-linkage provenance params. `present_digest` remains an explicit FE-1136 tripwire.
 - 2026-07-03 `exchange-rendering` (FE-1123) — the structured-exchange transcript render frontier is closed: every ● row in its sweep ledger is built (ledger + closeout card consumed and deleted; full definition archived in docs/archive/PLAN_HISTORY.md); request-response discriminants now have per-formatter render-honesty coverage and `dev:components` preview entries; structural-illegal preview fixture no longer carries an invented schema tag; `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts` is the executable aggregate DoD across registered tools, formatters, preview entries, and snapshots. `npm run verify` passed. Human outer oracles remain owed: walkthrough re-observation for `TESTING_PLAN.md` scenarios 3/5 and preview-gallery aesthetic review.
 - 2026-07-01 `elicitation-gap-guidance` (FE-1116) — the spec-global persisted `elicitation_gaps` register and its count-based readiness scoring are retired; the asking agenda is now a session-local `brunch.elicitation_scratchpad` fold seeded from a thin graph-fact seed; `latestExpectedBand(kind)` is the single band scalar; and settlement (`advisory` | `settled`, orthogonal to `basis`) is materialized and command-enforced (D99-L, I52-L). Closure oracle: `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names. All co-located `TOPOLOGY.md` homes named in `docs/archive/SESSION_LOCAL_ELICITATION_GAPS.md` are reconciled; that doc landed and is archived.
 - Older completed frontiers (incl. the two 2026-07-01 `component-dx` slices): `docs/archive/PLAN_HISTORY.md`.
@@ -93,7 +107,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   1. `session-entry-orientation` ([FE-1134](https://linear.app/hash/issue/FE-1134/session-orientation-dialog-at-deterministic-junctures)) — active, inner-loop closed. The mechanism question is answered (deterministic product-owned dialog, not an exchange); all scoped product junctures/chrome slices are landed, including J5 mode-switch, the RPC timeout floor, and the automated boot/web-driver J1 degradation harnesses. Closeout also fixed the masked FE-1124 boot regressions: live junctures now deliver `brunch.context_seed` through Pi's live message surface before `brunch.kick`, and resume-debt skips boot infrastructure entries when finding unresolved user debt. The propose/project seed variants are now available; outstanding outer-loop walkthrough evidence for the generative menu options remains to be run. Arc: `deterministic-orientation`.
   2. `execute-entry-readiness` ([FE-1137](https://linear.app/hash/issue/FE-1137/executor-entry-readiness-and-concentric-authority)) — branch tied off 2026-07-06 (inner loop closed incl. the esc-inert/J5-race/exchange-terminate revision; PR submitted). Outer walkthrough evidence (thin/rich seed assessment, menu→conduct routing) deferred to a continued walkthrough/testing branch stacked after the five open branches are re-braided; frontier closes when that evidence lands. Arc: `deterministic-orientation`.
 - **Lane B — capture/ingest:**
-  1. `exchange-capture-contract` ([FE-1135](https://linear.app/hash/issue/FE-1135/exchange-outcome-capture-contract-sweep)) — buildable in parallel with Lane A. The invariant layer everything else cites: the full contract sweep ledger over exchange outcomes. Arc: `capture-ingest-throughline`.
+  1. `exchange-capture-contract` ([FE-1135](https://linear.app/hash/issue/FE-1135/exchange-outcome-capture-contract-sweep)) — ✓ done 2026-07-03. The invariant layer everything else cites: the full contract sweep ledger over exchange outcomes. Arc: `capture-ingest-throughline`.
   2. `present-digest` ([FE-1136](https://linear.app/hash/issue/FE-1136/present-digest-exchange-for-large-source-ingest)) — stacks on `exchange-capture-contract`. Arc: `capture-ingest-throughline`.
 - **Lane C — exchange presentation:**
   1. `exchange-answering-chrome` ([FE-1138](https://linear.app/hash/issue/FE-1138/bordered-answering-chrome-for-structured-exchanges)) — independent of Lanes A/B and can proceed in parallel when capacity allows. Arc: `exchange-presentation`.
@@ -164,7 +178,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1135](https://linear.app/hash/issue/FE-1135/exchange-outcome-capture-contract-sweep)
 - **Branch:** `ln/fe-1135-capture-contract`
 - **Kind:** coverage frontier (sweep shape) over conduct guidance + probes; almost no deterministic code change by design. Arc: `capture-ingest-throughline`.
-- **Status:** not started; opened 2026-07-03 (grill Q1/Q2 + G3).
+- **Status:** ✓ done (2026-07-03). Required rows in `memory/cards/exchange-capture-contract--sweep.md` are closed; CC-11 remains an explicit deferred `present_digest` tripwire for FE-1136.
 - **Certainty:** rows `earned` — every row locks an interpretation of an already-settled deterministic seam (`src/projections/session/sweep-watermark.ts` window projection, `src/exchanges/schemas/request.ts` outcome shapes, `formatMutateGraphResult` receipts). Nothing here builds a new mechanism.
 - **Classification:** buildable-now. All inputs exist: outcome schemas (`answered` | `cancelled` | `unavailable`; review `answered.decision ∈ approve | request_changes | reject`), the deterministic sweep window (`isSweepConversationalEntry` passes terminal `request_*` toolResults, excludes `present_*`), D106-L self-contained option echo, D28-L supersession, the D101-L scratchpad outlet.
 - **Governing invariants (the ledger's spine, settled in the grill):**
