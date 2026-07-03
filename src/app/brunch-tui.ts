@@ -428,7 +428,7 @@ export function createBrunchAgentSessionRuntimeFactory(
             sessionBranch: sessionManager.getBranch(),
           },
         })
-        : undefined;
+      : undefined;
     const profile = createBrunchPiSettings({
       cwd,
       agentDir: runtimeAgentDir,
