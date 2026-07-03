@@ -83,6 +83,24 @@ describe('request response formatters', () => {
     ).toEqual([]);
   });
 
+  it('renders accepted review-set persistence codes when supplied', () => {
+    const details = projectRequestReview({
+      exchangeId: 'review-honesty-approve',
+      status: 'answered',
+      review: 'approve',
+      comment: 'Looks correct.',
+    });
+
+    expect(
+      formatRequestReview(details, {
+        acceptedReviewSetResult: {
+          lsn: 42,
+          createdNodes: { 'requirement-draft': { code: 'REQ1' } },
+        },
+      }),
+    ).toContain('requirement-draft → REQ1');
+  });
+
   it('declares every request_review details leaf as rendered, represented, or intentionally elided', () => {
     const details = projectRequestReview({
       exchangeId: 'review-honesty',

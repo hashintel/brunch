@@ -1,6 +1,7 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
+import { formatAcceptedReviewSetResult } from '../../agents/contexts/exchanges/request-response/review.js';
 import { zReviewSetDetailsPayload, type ReviewSetDetailsPayload } from '../../exchanges/schemas/index.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
@@ -637,6 +638,13 @@ async function handleSubmitExchangeResponse(
     ...(review === undefined ? {} : { review }),
     ...(params.note === undefined ? {} : { note: params.note }),
   };
+
+  if (review?.status === 'approved') {
+    const [textContent] = accepted.toolResultMessage.content;
+    if (textContent) {
+      textContent.text = `${textContent.text}\n\n${formatAcceptedReviewSetResult(review)}`;
+    }
+  }
 
   // Call first, then result — the synthetic pair keeps the transcript
   // provider-legal (an orphan tool_result is a real-provider 400).

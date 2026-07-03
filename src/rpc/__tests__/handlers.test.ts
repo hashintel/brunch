@@ -1346,6 +1346,7 @@ describe('JSON-RPC handlers', () => {
       },
     });
     await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('request_review');
+    await expect(readFile(workspace.session.file, 'utf8')).resolves.toContain('requirement-draft → REQ1');
   });
 
   it('rejects a review approval whose persisted review set is not a valid ReviewSetDetailsPayload', async () => {
