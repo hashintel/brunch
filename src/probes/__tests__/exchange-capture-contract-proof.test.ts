@@ -8,6 +8,7 @@ import {
   projectRequestChoice,
   projectRequestChoices,
 } from '../../exchanges/projections/request-response.js';
+import { parseElicitationScratchpadItem } from '../../session/elicitation-scratchpad.js';
 
 describe('exchange capture contract proof', () => {
   it('treats answered free-text requests as answer-only capture material', async () => {
@@ -72,5 +73,44 @@ describe('exchange capture contract proof', () => {
     const ingestGuidance = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
     expect(ingestGuidance).toContain('Answered choice requests route only selected `choice`/`choices`');
     expect(ingestGuidance).toContain('Non-selected `answered.options` entries are option echo for rendering');
+  });
+
+  it('demotes cancelled ordinary requests to open scratchpad obligations without answer payload', async () => {
+    const cancelledAnswer = projectRequestAnswer({ exchangeId: 'cc-03-answer-cancel', status: 'cancelled' });
+    const cancelledChoice = projectRequestChoice({
+      exchangeId: 'cc-03-choice-cancel',
+      respondsToPresentTool: 'present_question',
+      status: 'cancelled',
+    });
+    const cancelledChoices = projectRequestChoices({
+      exchangeId: 'cc-03-choices-cancel',
+      status: 'cancelled',
+    });
+
+    for (const cancelled of [cancelledAnswer, cancelledChoice, cancelledChoices]) {
+      expect('cancelled' in cancelled).toBe(true);
+      expect('answered' in cancelled).toBe(false);
+    }
+
+    expect(
+      parseElicitationScratchpadItem({
+        id: 'unanswered-ask',
+        obligation: 'Re-ask whether the capture contract needs a receipt.',
+        disposition: 'open',
+      }),
+    ).toMatchObject({ disposition: 'open' });
+    expect(
+      parseElicitationScratchpadItem({
+        id: 'bad-disposition',
+        obligation: 'Do not encode cancellation as a scratchpad disposition.',
+        disposition: 'cancelled',
+      }),
+    ).toBeUndefined();
+
+    const ingestGuidance = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
+    expect(ingestGuidance).toContain(
+      'Cancelled ordinary requests carry no answer, choice, option, or offer payload',
+    );
+    expect(ingestGuidance).toContain('record an `open` scratchpad obligation');
   });
 });
