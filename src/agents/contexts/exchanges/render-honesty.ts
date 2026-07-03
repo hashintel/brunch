@@ -30,9 +30,25 @@ export function missingRenderedDetailsLeaves(
     .filter(({ path }) => !matchesAny(path, elisionPatterns))
     .filter(
       ({ path, value }) =>
-        !renderedText.includes(value) && !hasRenderedRepresentation(path, value, renderedText, options),
+        !valueAppearsRendered(value, renderedText) &&
+        !hasRenderedRepresentation(path, value, renderedText, options),
     )
     .map(({ path, value }) => ({ path, value }));
+}
+
+/**
+ * Formatters may re-indent a multi-paragraph leaf under a list bullet, so the
+ * raw value (with its `\n\n` separators) never appears verbatim in the render.
+ * A multi-line leaf therefore counts as rendered when each of its non-blank
+ * lines appears; single-line leaves keep the strict verbatim check.
+ */
+function valueAppearsRendered(value: string, renderedText: string): boolean {
+  if (renderedText.includes(value)) return true;
+  const lines = value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  return lines.length > 1 && lines.every((line) => renderedText.includes(line));
 }
 
 function hasRenderedRepresentation(
