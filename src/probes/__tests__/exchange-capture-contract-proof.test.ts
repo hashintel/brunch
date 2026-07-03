@@ -7,6 +7,7 @@ import {
   projectRequestAnswer,
   projectRequestChoice,
   projectRequestChoices,
+  projectRequestReview,
 } from '../../exchanges/projections/request-response.js';
 import { parseElicitationScratchpadItem } from '../../session/elicitation-scratchpad.js';
 
@@ -144,5 +145,27 @@ describe('exchange capture contract proof', () => {
     const ingestGuidance = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
     expect(ingestGuidance).toContain('Unavailable ordinary requests carry no response payload');
     expect(ingestGuidance).toContain('Do not read unavailability as user refusal or accepted content');
+  });
+
+  it('treats review request_changes as comment-only feedback without proposal capture', async () => {
+    const details = projectRequestReview({
+      exchangeId: 'cc-06-request-changes',
+      status: 'answered',
+      review: 'request_changes',
+      comment: 'Keep the interface, but regenerate the persistence wording.',
+    });
+
+    expect('answered' in details).toBe(true);
+    if (!('answered' in details)) throw new Error('expected answered request_review details');
+    expect(details.answered).toEqual({
+      decision: 'request_changes',
+      comment: 'Keep the interface, but regenerate the persistence wording.',
+    });
+    expect(JSON.stringify(details)).not.toContain('createdNodes');
+    expect(JSON.stringify(details)).not.toContain('entityDrafts');
+
+    const ingestGuidance = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
+    expect(ingestGuidance).toContain('Review `request_changes` captures the comment as direct user material');
+    expect(ingestGuidance).toContain('Do not capture the prior proposal payload');
   });
 });
