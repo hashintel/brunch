@@ -1,7 +1,7 @@
-export { formatRequestAnswer } from './request-response/answer.js';
-export { formatRequestChoice } from './request-response/choice.js';
-export { formatRequestChoices } from './request-response/choices.js';
-export { formatRequestReview } from './request-response/review.js';
+export { formatRequestAnswer, REQUEST_ANSWER_CONTENT_ELISIONS } from './request-response/answer.js';
+export { formatRequestChoice, REQUEST_CHOICE_CONTENT_ELISIONS } from './request-response/choice.js';
+export { formatRequestChoices, REQUEST_CHOICES_CONTENT_ELISIONS } from './request-response/choices.js';
+export { formatRequestReview, REQUEST_REVIEW_CONTENT_ELISIONS } from './request-response/review.js';
 
 export interface RequestResponseDiagnosticTextInput {
   readonly message: string;

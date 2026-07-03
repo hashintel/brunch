@@ -8,7 +8,7 @@ The current question/answer grammar is the ★ pattern from the `exchange-render
 
 `present_candidates` uses persisted-content comparison lines rather than card-like sections: each candidate is an h2 with labeled bold rubric lines. Structural ids, meta-rubric bookkeeping, and graph refs are declared content elisions; richer cards belong only to a future TUI-only `renderResult` path if D104-L's Markdown pass-through ceiling is lifted.
 
-`request_response` is the live terminal tool name. Successful responses still emit canonical `request_answer` / `request_choice` / `request_choices` / `request_review` detail discriminants, but the public content entrypoint is `request-response.ts`; the per-discriminant formatters live under `request-response/` as private implementation helpers. The same public entrypoint owns model-facing diagnostics when no matching pending present can be served.
+`request_response` is the live terminal tool name. Successful responses still emit canonical `request_answer` / `request_choice` / `request_choices` / `request_review` detail discriminants, but the public content entrypoint is `request-response.ts`; the per-discriminant formatters live under `request-response/` as private implementation helpers. The same public entrypoint owns model-facing diagnostics when no matching pending present can be served. Each request formatter owns its render-honesty elision list beside the formatter; option echo details use value-specific representations for checkbox/strikethrough syntax rather than widening model-facing content.
 
 ```text
 exchanges/

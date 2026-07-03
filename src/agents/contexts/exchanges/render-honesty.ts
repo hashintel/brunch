@@ -30,21 +30,32 @@ export function missingRenderedDetailsLeaves(
     .filter(({ path }) => !matchesAny(path, elisionPatterns))
     .filter(
       ({ path, value }) =>
-        !renderedText.includes(value) && !hasRenderedRepresentation(path, renderedText, options),
+        !renderedText.includes(value) && !hasRenderedRepresentation(path, value, renderedText, options),
     )
     .map(({ path, value }) => ({ path, value }));
 }
 
 function hasRenderedRepresentation(
   path: string,
+  value: string,
   renderedText: string,
   options: RenderHonestyOptions,
 ): boolean {
   const representations = options.representations ?? {};
   for (const [pattern, tokens] of Object.entries(representations)) {
-    if (matchesPath(path, pattern) && tokens.some((token) => renderedText.includes(token))) return true;
+    if (
+      matchesPath(path, pattern) &&
+      tokens.some((token) => tokenRepresentsValue(pattern, token, value, renderedText))
+    ) {
+      return true;
+    }
   }
   return false;
+}
+
+function tokenRepresentsValue(pattern: string, token: string, value: string, renderedText: string): boolean {
+  if (!renderedText.includes(token)) return false;
+  return !pattern.includes('*') || token.includes(value);
 }
 
 function collectPrimitiveLeaves(value: unknown, path = ''): MissingRenderedLeaf[] {

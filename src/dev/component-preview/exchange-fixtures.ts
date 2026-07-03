@@ -4,9 +4,22 @@ import {
   formatExchangeStructuralIllegal,
   formatPresentReviewSet,
 } from '../../agents/contexts/exchanges/present-review-set.js';
+import {
+  formatRequestAnswer,
+  formatRequestChoice,
+  formatRequestChoices,
+  formatRequestResponseDiagnostic,
+  formatRequestReview,
+} from '../../agents/contexts/exchanges/request-response.js';
 import { projectPresentCandidates } from '../../exchanges/projections/present-candidates.js';
 import { projectPresentQuestion } from '../../exchanges/projections/present-question.js';
 import { projectPresentReviewSet } from '../../exchanges/projections/present-review-set.js';
+import {
+  projectRequestAnswer,
+  projectRequestChoice,
+  projectRequestChoices,
+  projectRequestReview,
+} from '../../exchanges/projections/request-response.js';
 import type { PresentQuestionParams } from '../../exchanges/schemas/index.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 
@@ -169,6 +182,97 @@ export const presentReviewSetFixture = (() => {
   };
 })();
 
+export const requestAnswerFixture = (() => {
+  const details = projectRequestAnswer({
+    exchangeId: 'preview-request-answer',
+    status: 'answered',
+    answer: 'Keep the transcript formatter as the public exchange surface.',
+  });
+  return {
+    details,
+    result: {
+      content: [{ type: 'text' as const, text: formatRequestAnswer(details) }],
+      details,
+    },
+  };
+})();
+
+export const requestChoiceFixture = (() => {
+  const details = projectRequestChoice({
+    exchangeId: 'preview-request-choice',
+    respondsToPresentTool: 'present_question',
+    status: 'answered',
+    choice: { id: 'preview', label: 'Preview parity', kind: 'listed' },
+    options: [
+      { id: 'preview', content: 'Preview parity', rationale: 'Keeps the gallery honest.' },
+      { id: 'minimal', content: 'Minimal proof', rationale: 'Smaller but less visible.' },
+    ],
+    comment: 'The preview catches visual drift.',
+  });
+  return {
+    details,
+    result: {
+      content: [{ type: 'text' as const, text: formatRequestChoice(details) }],
+      details,
+    },
+  };
+})();
+
+export const requestChoicesFixture = (() => {
+  const details = projectRequestChoices({
+    exchangeId: 'preview-request-choices',
+    status: 'answered',
+    choices: [
+      { id: 'coverage', label: 'Add coverage', kind: 'listed' },
+      { id: 'other', label: 'Also run the preview', kind: 'other' },
+    ],
+    options: [
+      { id: 'coverage', content: 'Add coverage', rationale: 'Locks the invariant.' },
+      { id: 'docs', content: 'Update docs', rationale: 'Explains the decision.' },
+    ],
+    comment: 'Also run the preview.',
+  });
+  return {
+    details,
+    result: {
+      content: [{ type: 'text' as const, text: formatRequestChoices(details) }],
+      details,
+    },
+  };
+})();
+
+export const requestReviewFixture = (() => {
+  const details = projectRequestReview({
+    exchangeId: 'preview-request-review',
+    status: 'answered',
+    review: 'request_changes',
+    comment: 'Name the outer oracle before closing the frontier.',
+  });
+  return {
+    details,
+    result: {
+      content: [{ type: 'text' as const, text: formatRequestReview(details) }],
+      details,
+    },
+  };
+})();
+
+export const requestTerminalFixture = (() => {
+  const message = 'Waiting for a structured response.';
+  const details = projectRequestAnswer({
+    exchangeId: 'preview-request-terminal',
+    status: 'unavailable',
+    message,
+  });
+  return {
+    details,
+    result: {
+      content: [{ type: 'text' as const, text: formatRequestResponseDiagnostic({ message }) }],
+      details,
+    },
+  };
+})();
+
 export const structuralIllegalFixture = {
   result: {
     content: [
@@ -189,9 +293,5 @@ export const structuralIllegalFixture = {
         }),
       },
     ],
-    details: {
-      schema: 'brunch.structured_exchange.diagnostic',
-      kind: 'STRUCTURAL_ILLEGAL',
-    },
   },
 };

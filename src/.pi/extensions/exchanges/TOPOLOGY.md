@@ -89,3 +89,7 @@ exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result det
 details-contract half (this Pi extension tree declares no semantic details
 schemas of its own); `src/projections/__tests__/topology-boundaries.test.ts`
 guards the projection-layer import direction.
+`src/.pi/extensions/__tests__/exchange-family-completeness.test.ts` guards the
+exchange-rendering aggregate DoD from the registration side: every registered
+structured-exchange tool, and each `request_response` discriminant, must have a
+content formatter, preview entry, and snapshot coverage.
