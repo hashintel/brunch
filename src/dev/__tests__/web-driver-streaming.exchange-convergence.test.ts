@@ -7,6 +7,7 @@ import { createAgentSessionRuntime } from '@earendil-works/pi-coding-agent';
 import { afterAll, describe, expect, it } from 'vitest';
 
 import { createBrunchAgentSessionRuntimeFactory, runBrunchTui } from '../../app/brunch-tui.js';
+import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 import { createWebSidecarRpcHandlers } from '../../rpc/handlers.js';
 import { NO_PENDING_LIVE_EXCHANGE_MESSAGE } from '../../rpc/methods/session-exchange-answer.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
@@ -52,6 +53,7 @@ describe('web-driver-streaming live exchange answer broker', () => {
           { cwd, agentDir, sessionManager: context.workspace.session.manager },
         );
         cleanups.push(() => runtime.dispose());
+        await emitStartupOrientationForHarness(runtime);
 
         await waitFor(
           () => faux.provider.getPendingResponseCount() === 0,

@@ -13,7 +13,7 @@ Created:  2026-07-03
 - **Frontier:** `session-entry-orientation` (PLAN §Frontier Definitions; ship-gate head, arc `deterministic-orientation`). Linear issue: [FE-1134](https://linear.app/hash/issue/FE-1134/session-orientation-dialog-at-deterministic-junctures). Graphite branch: `ln/fe-1134-session-orientation` (split from the walkthrough planning branch after the first orientation commits).
 - **Posture:** mechanism `earned`, menu content/conduct `proving` (inherited from `session-entry-orientation`). Cards 1–2 are proving tracers; cards 3–4 are earned defect-closure inside settled seams.
 - **Volatile handoff state:** HANDOFF.md (2026-07-03) is superseded for this frontier by the Card 1/Card 2 build notes below and the PLAN/SPEC sync commit.
-- **Current build focus:** Cards 1–4 all landed, plus Card 2 trailers (J5 mode-switch + C1 RPC dialog timeout). The frontier's inner-loop scope is closed; outstanding work is outer-loop walkthrough evidence for the propose/project options (blocked on `walkthrough-batch-2` seed variants).
+- **Current build focus:** Cards 1–4 all landed, plus Card 2 trailers (J5 mode-switch + C1 RPC dialog timeout). Gate check on 2026-07-03 exposed a verification closeout gap: automated boot/web-driver harnesses now block on the J1 orientation dialog instead of explicitly answering or degrading it. Card 5 scopes that fix before FE-1134 can be called inner-loop green; outer-loop walkthrough evidence for propose/project options remains blocked on `walkthrough-batch-2` seed variants.
 - **Cross-cutting obligations (frontier-level):** decision-flow chart at scope time (§Chart below — discharged); sweep-exclusion probe for `brunch.session_orientation`; the arc's "one witnessed e2e run per generative flow" obligation — elicit-path menu options verifiable on existing seeds now, propose/project options blocked on `walkthrough-batch-2` seed variants (`memory/cards/walkthrough-batch-2--seed-variants.md`).
 
 **Grounding corrections to the PLAN definition (verified against Pi docs + code this session):**
@@ -65,7 +65,7 @@ Two uniform rules, no per-juncture entry variance:
 | Condition | Behavior |
 |-----------|----------|
 | `ctx.hasUI === false` (print `-p` / JSON mode) | no dialog, **no entry**, kick default path — must never block |
-| RPC mode (`ctx.hasUI === true`, `ctx.mode === 'rpc'`) | `ctx.ui.select` relayed via `extension_ui_request`/`extension_ui_response`; **check C1**: Brunch's RPC client must answer (or the dialog blocks) → defensive `timeout` option in RPC mode only, auto-resolving `undefined` → `continue` |
+| RPC mode (`ctx.hasUI === true`, `ctx.mode === 'rpc'`) | `ctx.ui.select` relayed via `extension_ui_request`/`extension_ui_response`; C1 floor landed: RPC-mode selects carry a defensive 60s `timeout`, auto-resolving `undefined` → `continue` even if a client never answers |
 | Timeout (where armed) | `select` returns `undefined` → `continue` — the menu is never a wall |
 | Escape (all modes) | `undefined` → `continue` |
 
@@ -95,7 +95,7 @@ Consumption rule: origination folds only the **latest** orientation entry, and o
 
 ### Named checks (verification items, not design questions)
 
-- **C1 (RPC relay):** confirm Brunch's RPC client surface handles `extension_ui_request`/`extension_ui_response` for dialog methods. Card 1 records the finding; if unhandled, the RPC-side relay work is named and promoted, not silently absorbed.
+- **C1 (RPC relay):** landed as a defensive floor rather than a hard client dependency: `adaptOrientationUi(ctx)` injects a 60s timeout for RPC-mode dialogs, so a missing or mute RPC client cannot wedge the orientation seam; real RPC driver evidence remains an outer-loop probe if needed.
 - **C2 (switch re-origination):** verify whether Brunch workspace switch re-runs origination for the replacement session (only known `originateAssistantTurn` call sites today: `brunch-tui.ts` boot, `rpc/methods/session.ts` seed-only). Card 2 owns the consequence.
 - **C3 (abort discriminator):** probe path — in `agent_end`, inspect the tail assistant message for `stopReason === 'aborted'` (`pi-ai` `StopReason` includes it); exclude compaction-overflow aborts that Pi retries (`willRetry`). Card 2 owns the consequence; if the probe shows esc-aborts are not reliably distinguishable, J4 degrades to `/consult`-only and the frontier definition is annotated.
 
@@ -230,7 +230,7 @@ Trailer landing (2026-07-03, after Card 3 + Card 4):
 
 - **J5 mode-switch (SPEC-side menu).** Landed. The mode-picker path in `src/.pi/extensions/commands/index.ts` (`applyModeSwitchAndOrient`) now fires the shared orientation flow via `runJunctureForContext` with `trigger: 'mode-switch'` **only when the switch target is `elicit` (SPEC mode)**. CODE-side switches stay silent — the CODE-side menu content remains owned by `execute-entry-readiness`, honoring the boundary risk in the card. Kick delivery goes through `sendCustomMessageViaExtensionApi(pi)` because the command handler has an `ExtensionAPI` but not a live `AgentSession.sendCustomMessage` reference; Pi routes the message through the same session queue with `triggerTurn: true`. `BrunchCommandsOptions.sessionOrientation` is threaded from `pi-extensions.ts` via the existing options spread — no new composition wiring.
 - ~~Option-2 J1 boot wiring~~ — landed in `7ebdf205`; the registrar now handles `session_start(startup)` in boot mode.
-- **C1 RPC-dialog verification.** Landed. The shared helper `adaptOrientationUi(ctx)` (`session-orientation/juncture.ts`) inspects `ctx.mode`: TUI mode passes `select` calls through unchanged, RPC mode injects `{ timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS }` (60 s). The registrar and the J5 command path both route through `runJunctureForContext`, so both pick up the timeout — a mute or missing RPC dialog client can no longer wedge the orientation seam. On timeout, `select` returns `undefined` → the existing choice schema maps it to `continue` and the entry rule still writes the resolution. Two inner-loop unit tests cover the timeout injection and the J5 delegation shape (`session-orientation/__tests__/juncture.test.ts`); an outer-loop RPC driver probe against a real Pi RPC session remains available if walkthrough evidence surfaces a divergence but is not required to close the card — the timeout is a floor guarantee independent of the client's behavior.
+- **C1 RPC-dialog floor.** Landed as an inner-loop safety floor, not as a witnessed RPC round-trip. The shared helper `adaptOrientationUi(ctx)` (`session-orientation/juncture.ts`) inspects `ctx.mode`: TUI mode passes `select` calls through unchanged, RPC mode injects `{ timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS }` (60 s). The registrar and the J5 command path both route through `runJunctureForContext`, so both pick up the timeout — a mute or missing RPC dialog client can no longer wedge the orientation seam. On timeout, `select` returns `undefined` → the existing choice schema maps it to `continue` and the entry rule still writes the resolution. Two inner-loop unit tests cover the timeout injection and the J5 delegation shape (`session-orientation/__tests__/juncture.test.ts`); a live RPC driver probe remains outer-loop evidence before calling FE-1134 fully witnessed.
 
 Landed cross-cutting: sweep-exclusion probe carried forward from card 1 (`brunch.session_orientation` excluded from the capture sweep tail); topology reconciliation.
 
@@ -434,10 +434,69 @@ src/agents/…/__tests__                              ~
 
 ---
 
+## Card 5 — Verification closeout: automated entry paths answer the orientation dialog · `next`
+
+Light scope card. Posture: earned mechanism / proving oracle — the product dialog seam is settled, but the verification harness must now witness it instead of silently relying on the old pre-dialog boot path.
+
+### Objective
+
+Automated boot and web-driver tests proceed through the J1 orientation juncture explicitly — by answering the dialog or by asserting a no-UI degraded path — so `npm run verify` is green without weakening real TUI behavior.
+
+### Light-card cold-start reads
+
+```
+- memory/PLAN.md    — frontier: session-entry-orientation; pinned no-UI/RPC behavior
+- this file         — §Decision-flow chart (J1, degraded modes, C1) + Card 1/Card 2 landed notes
+- src/dev/tier-2-harness.ts — product-originated boot helpers currently timing out after J1
+- src/dev/__tests__/web-driver-streaming-support.ts and sibling web-driver tests — live sidecar paths currently waiting for a kick blocked behind J1
+- src/.pi/extensions/session-orientation/juncture.ts — adaptOrientationUi / boot-mode kick semantics
+```
+
+### Acceptance Criteria
+
+```
+✓ full gate — `npm run verify` passes (the current failure set is tier-2/web-driver boot waiting on a kick, plus unrelated branch test drift only if still present after the dialog fix)
+✓ harness honesty — tier-2 product-originated boot either records an explicit `brunch.session_orientation` continue entry or asserts the no-UI degraded path; no hidden helper bypasses J1 while claiming product proof
+✓ web-driver honesty — runBrunchTui sidecar tests answer or degrade the startup orientation before waiting for kick consumption
+✓ product guard — real TUI mode remains user-driven (no blanket TUI timeout added just to satisfy tests); RPC's 60s timeout floor remains RPC-only
+```
+
+### Verification Approach
+
+```
+- Inner: focused failing suites first — tier-2-harness / tier-2-scaffold / web-driver-streaming* — then `npm run verify`
+- Middle: inspect session JSONL in at least one harness path for `brunch.session_orientation` when UI is claimed available
+```
+
+### Cross-cutting obligations
+
+- Keep the orientation dialog outside structured exchanges.
+- Do not weaken the no-UI rule: no dialog means no orientation entry.
+- Do not widen into CODE-mode menu content; FE-1137 owns that.
+
+### Assumption dependency
+
+None — if Pi exposes no testable way to answer the extension dialog in these harnesses, promote to a full scope card and choose between an explicit test-only UI context or a documented no-UI harness posture.
+
+### Expected touched paths (tentative)
+
+```
+src/dev/
+├── tier-2-harness.ts                         ~
+└── __tests__/
+    ├── support/tier-2-test-support.ts        ?
+    ├── web-driver-streaming-support.ts       ?
+    └── web-driver-streaming*.test.ts         ?
+src/.pi/extensions/session-orientation/
+└── __tests__/…                               ?
+```
+
+---
+
 ## Sequence notes
 
-- Recommended next order after `7ebdf205`: Card 3 → Card 4 → Card 2 trailers (J5 + C1 RPC verification). Cards 3–4 are unblocked because J1 is stable; J5 can pair opportunistically with Card 3 if mode-switch chrome is already in hand.
+- Card 3 → Card 4 → Card 2 trailers all landed; Card 5 is the verification closeout exposed by the full gate.
 - Anti-speculation gate honored: no card's scope shifts on earlier cards' findings; C1–C3 are named checks whose adverse outcomes annotate, not re-scope.
 - `ln-sync` reconciliation: SPEC/PLAN now record D28-L/I57-L, D40-L concentric authority, D98-L Enhance rejection, no-UI orientation behavior, and option-2 J1 (`session_start(startup)` after UI binding).
 - Sibling cards `--pi-dialog-core` and `--dialog-kick-tracer`: deleted 2026-07-03 after adjudication + fold-in.
-- Delete this file when the sequence is exhausted or superseded.
+- Delete this file during closeout once Card 5 is landed and PLAN/PR handoff no longer needs the landed-card trace.

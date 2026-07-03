@@ -31,6 +31,7 @@ import { BRUNCH_UPDATED_METHOD } from '../../rpc/product-updates.js';
 import { BRUNCH_SESSION_EVENT_METHOD, type SessionEventRelayFrame } from '../../rpc/session-event-relay.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
+import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 
 const DRIVEN_TEXT =
   'Streamed assistant reply: production relay frames must reduce to canonical transcript truth.';
@@ -63,6 +64,7 @@ describe('web-driver-streaming production relay seam', () => {
           { cwd, agentDir, sessionManager: context.workspace.session.manager },
         );
         cleanups.push(() => runtime.dispose());
+        await emitStartupOrientationForHarness(runtime);
 
         await waitFor(
           () => faux.provider.getPendingResponseCount() === 0,
