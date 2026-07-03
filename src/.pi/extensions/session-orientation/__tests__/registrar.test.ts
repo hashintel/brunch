@@ -10,7 +10,8 @@ import { describe, expect, it } from 'vitest';
 import { BRUNCH_KICK_CUSTOM_TYPE } from '../../../../session/originate-assistant-turn.js';
 import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../../session/session-orientation.js';
 import { SESSION_ORIENTATION_MENU } from '../index.js';
-import { BRUNCH_CONSULT_COMMAND, registerBrunchSessionOrientation, type KickContext } from '../registrar.js';
+import type { JunctureContextKick } from '../juncture.js';
+import { BRUNCH_CONSULT_COMMAND, registerBrunchSessionOrientation } from '../registrar.js';
 
 interface CapturedEntry {
   readonly type: 'custom' | 'custom_message';
@@ -65,16 +66,19 @@ function buildCtx(response: string | undefined, seed: readonly CapturedEntry[] =
   };
   const ctx = {
     hasUI: true,
-    ui: { select: async (_title: string, _options: string[]) => response },
+    ui: {
+      select: async (_title: string, _options: string[]) => response,
+      notify: () => {},
+    },
     sessionManager: sessionManager as unknown,
     modelRegistry: { getAvailable: () => [{}] } as unknown,
-  } as ExtensionContext;
+  } as unknown as ExtensionContext;
   return { ctx, entries };
 }
 
 type SentMessage = { message: unknown; options: unknown };
 
-function fakeKickContext(sent: SentMessage[]): KickContext {
+function fakeKickContext(sent: SentMessage[]): JunctureContextKick {
   return {
     specId: 3,
     reads: { queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }) as never },

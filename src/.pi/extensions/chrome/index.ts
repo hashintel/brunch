@@ -19,7 +19,13 @@ import type {
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
 } from '../../../session/workspace-session-coordinator.js';
-import { BrunchStartupHeader, type BrunchStartupHeaderResumeFacts } from '../../components/chrome-header.js';
+import {
+  BrunchStartupHeader,
+  type BrunchStartupHeaderFacts,
+  type BrunchStartupHeaderResumeFacts,
+} from '../../components/chrome-header.js';
+
+export type { BrunchStartupHeaderResumeFacts } from '../../components/chrome-header.js';
 
 type BrunchChromeStage = 'idle' | 'streaming' | 'observer-review';
 type BrunchChromeWorkerStatus = 'idle' | 'queued' | 'running' | 'blocked';
@@ -56,14 +62,14 @@ interface BrunchChromeModelTelemetry {
   contextWindow?: number;
 }
 
-interface BrunchChromeStartupHeaderState {
-  decision: 'continue' | 'openSession' | 'newSpec' | 'newSession';
+export type BrunchChromeStartupHeaderState = {
+  readonly decision: NonNullable<BrunchStartupHeaderFacts['decision']>;
   /**
    * Optional graph/mode summary rendered by the resume-state block (F16a) when
    * `decision === 'openSession'`. Sampled once at chrome-state assembly time.
    */
-  resumeFacts?: BrunchStartupHeaderResumeFacts;
-}
+  readonly resumeFacts?: BrunchStartupHeaderResumeFacts;
+};
 
 export interface BrunchChromeFooterTelemetry {
   /** Live session name from the session manager; overrides the launch-time label after `/name`. */

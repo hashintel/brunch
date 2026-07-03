@@ -50,7 +50,9 @@ import {
   createBrunchPiExtensions,
   createInMemoryBrunchIntrospectionStore,
   projectBrunchAgentState,
+  type BrunchChromeStartupHeaderState,
   type BrunchIntrospectionStore,
+  type BrunchStartupHeaderResumeFacts,
 } from './pi-extensions.js';
 import { projectBrunchPiSessionOptions } from './pi-session-options.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from './pi-settings.js';
@@ -228,17 +230,8 @@ function createBrunchTuiIntrospection(
   };
 }
 
-export interface StartupHeaderResumeFacts {
-  readonly specTitle?: string;
-  readonly nodeCount?: number;
-  readonly edgeCount?: number;
-  readonly modeLabel?: string;
-}
-
-export interface StartupHeaderChromeState {
-  decision: Exclude<SpecSessionActivationDecision['action'], 'cancel'>;
-  resumeFacts?: StartupHeaderResumeFacts;
-}
+export type StartupHeaderResumeFacts = BrunchStartupHeaderResumeFacts;
+export type StartupHeaderChromeState = BrunchChromeStartupHeaderState;
 
 export function startupHeaderForActivation(
   decision: SpecSessionActivationDecision | undefined,
@@ -505,7 +498,7 @@ export function createBrunchAgentSessionRuntimeFactory(
                   workspaceContext: await renderWorkspaceOverviewContext(cwd),
                   sendCustomMessage: (message, sendOptions) =>
                     session.sendCustomMessage(message, sendOptions),
-                  onOriginationDecision: async (decision) => {
+                  onOriginationDecision: async (decision, { modelAvailable }) => {
                     if (context.introspection?.debugCache) {
                       const debugCache = context.introspection.debugCache;
                       for (const entry of decision.seedEntries) {
@@ -513,7 +506,7 @@ export function createBrunchAgentSessionRuntimeFactory(
                       }
                       await appendOriginationRecordToDebugCache(debugCache, { decision }).catch(() => {});
                     }
-                    if (decision.action === 'start' && services.modelRegistry.getAvailable().length > 0) {
+                    if (decision.action === 'start' && modelAvailable) {
                       // F14: drive the salient streaming loader instead of a
                       // footer status entry. Reset in chrome's `turn_end`
                       // handler so the message never leaks into a later turn.

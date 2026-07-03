@@ -34,7 +34,6 @@ import type {
 
 import type { TranscriptEntryLike } from '../../../projections/session/continuity-entry-classifier.js';
 import {
-  BRUNCH_KICK_CUSTOM_TYPE,
   completeAssistantKick,
   originateAssistantTurn,
   type KickCompletionOutcome,
@@ -46,7 +45,6 @@ import {
   type PreparedContinuityEntry,
 } from '../../../session/prepare-next-turn.js';
 import {
-  freshSessionOrientationChoice,
   type SessionOrientationChoice,
   type SessionOrientationEntrySessionManager,
   type SessionOrientationTrigger,
@@ -98,7 +96,10 @@ export interface LiveKickDeps {
    * callers can mirror it into `.brunch/debug` (D97-L) or drive kick-scoped
    * chrome (F14: `ctx.ui.setWorkingMessage(...)` from `app/brunch-tui.ts`).
    */
-  readonly onOriginationDecision?: (decision: StartAssistantTurnDecision) => Promise<void> | void;
+  readonly onOriginationDecision?: (
+    decision: StartAssistantTurnDecision,
+    context: { readonly modelAvailable: boolean },
+  ) => Promise<void> | void;
   readonly onKickOutcome?: (
     outcome: KickCompletionOutcome,
     decision: StartAssistantTurnDecision,
@@ -144,15 +145,7 @@ interface OrientationContextLike {
   readonly sessionManager: unknown;
 }
 
-export interface JunctureContextKick {
-  readonly specId: number;
-  readonly specName?: string;
-  readonly reads: OriginationReads;
-  readonly workspaceContext: string;
-  readonly sendCustomMessage: LiveKickDeps['sendCustomMessage'];
-  readonly onOriginationDecision?: LiveKickDeps['onOriginationDecision'];
-  readonly onKickOutcome?: LiveKickDeps['onKickOutcome'];
-}
+export type JunctureContextKick = Omit<LiveKickDeps, 'modelAvailable'>;
 
 export interface RunJunctureForContextInput {
   readonly ctx: OrientationContextLike;
@@ -160,7 +153,7 @@ export interface RunJunctureForContextInput {
   readonly mode: OrientationJunctureMode;
   readonly kick: JunctureContextKick | undefined;
   readonly title?: string;
-  readonly onAppendError?: (error: unknown) => void;
+  readonly onAppendError: (error: unknown) => void;
 }
 
 /**
@@ -175,6 +168,11 @@ export async function runJunctureForContext(
   const { ctx } = input;
   const sessionManager = ctx.sessionManager;
   if (!sessionManagerCanAppend(sessionManager)) {
+    input.onAppendError(
+      new Error(
+        'Session-orientation juncture requires a mutable Pi session manager with appendCustomEntry/getEntries.',
+      ),
+    );
     return { ran: false, kickFired: false };
   }
   const junctureUi = adaptOrientationUi(ctx);
@@ -186,21 +184,8 @@ export async function runJunctureForContext(
     sessionManager,
     mode: input.mode,
     ...(input.title !== undefined ? { title: input.title } : {}),
-    ...(input.onAppendError ? { onAppendError: input.onAppendError } : {}),
-    ...(kick
-      ? {
-          kick: {
-            specId: kick.specId,
-            ...(kick.specName ? { specName: kick.specName } : {}),
-            reads: kick.reads,
-            workspaceContext: kick.workspaceContext,
-            modelAvailable: ctx.modelRegistry.getAvailable().length > 0,
-            sendCustomMessage: kick.sendCustomMessage,
-            ...(kick.onOriginationDecision ? { onOriginationDecision: kick.onOriginationDecision } : {}),
-            ...(kick.onKickOutcome ? { onKickOutcome: kick.onKickOutcome } : {}),
-          },
-        }
-      : {}),
+    onAppendError: input.onAppendError,
+    ...(kick ? { kick: { ...kick, modelAvailable: ctx.modelRegistry.getAvailable().length > 0 } } : {}),
   });
 }
 
@@ -288,10 +273,6 @@ async function originateAndKick(
   options: OriginateAndKickOptions,
 ): Promise<void> {
   const entries = sessionManager.getEntries();
-  // Sanity-only fold — proves the orientation entry just appended is what
-  // the next origination will pick up.
-  void freshSessionOrientationChoice(entries, BRUNCH_KICK_CUSTOM_TYPE);
-
   const origination = originateAssistantTurn({
     specId: kick.specId,
     ...(kick.specName ? { specName: kick.specName } : {}),
@@ -306,7 +287,9 @@ async function originateAndKick(
 
   await deliverSeedEntries(sessionManager, kick, origination.decision.seedEntries);
 
-  if (kick.onOriginationDecision) await kick.onOriginationDecision(origination.decision);
+  if (kick.onOriginationDecision) {
+    await kick.onOriginationDecision(origination.decision, { modelAvailable: kick.modelAvailable });
+  }
 
   await completeAssistantKick({
     decision: origination.decision,

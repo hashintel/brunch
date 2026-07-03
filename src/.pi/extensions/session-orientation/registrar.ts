@@ -45,17 +45,17 @@ export interface BrunchSessionOrientationDeps {
    * Resolve the currently-bound workspace's kick surface. Returns
    * `undefined` when no workspace is bound (defensive; the extension
    * simply no-ops).
+   *
+   * `modelAvailable` is filled in by the registrar from
+   * `ctx.modelRegistry.getAvailable().length > 0` so the caller never has to
+   * close over `services` (which does not exist yet at extension-factory
+   * construction time in the current TUI boot path).
    */
-  readonly resolveKickContext: () => Promise<KickContext | undefined> | KickContext | undefined;
+  readonly resolveKickContext: () =>
+    | Promise<JunctureContextKick | undefined>
+    | JunctureContextKick
+    | undefined;
 }
-
-/**
- * Kick surface resolved per-invocation. `modelAvailable` is filled in by the
- * registrar from `ctx.modelRegistry.getAvailable().length > 0` so the
- * caller never has to close over `services` (which does not exist yet at
- * extension-factory construction time in the current TUI boot path).
- */
-export type KickContext = JunctureContextKick;
 
 // ceiling: 750ms wall-clock debounce for coinciding junctures. Upgrade to a
 // per-session juncture state machine if we grow past 5 triggers or need
@@ -75,7 +75,7 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
     if (event.reason === 'startup') {
       // J1 (option-2): dialog + origination + kick. Fires from inside the
       // session-extension binding so ctx.ui is live even in TUI mode.
-      await runJuncture(pi, ctx, deps, debounce, {
+      await runJuncture(ctx, deps, debounce, {
         trigger: 'entry',
         mode: 'boot',
       });
@@ -83,14 +83,14 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
     }
     if (event.reason !== 'new' && event.reason !== 'resume') return;
     // J2: post-switch. Dialog + non-continue → live-kick.
-    await runJuncture(pi, ctx, deps, debounce, {
+    await runJuncture(ctx, deps, debounce, {
       trigger: 'switch',
       mode: 'follow-choice',
     });
   });
 
   pi.on('session_tree', async (_event: SessionTreeEvent, ctx: ExtensionContext) => {
-    await runJuncture(pi, ctx, deps, debounce, {
+    await runJuncture(ctx, deps, debounce, {
       trigger: 'tree',
       mode: 'follow-choice',
     });
@@ -98,7 +98,7 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
 
   pi.on('agent_end', async (event: AgentEndEvent, ctx: ExtensionContext) => {
     if (!isEscAbortedAgentEnd(event)) return;
-    await runJuncture(pi, ctx, deps, debounce, {
+    await runJuncture(ctx, deps, debounce, {
       trigger: 'abort',
       mode: 'follow-choice',
     });
@@ -107,7 +107,7 @@ export function registerBrunchSessionOrientation(pi: ExtensionAPI, deps: BrunchS
   pi.registerCommand(BRUNCH_CONSULT_COMMAND, {
     description: 'Consult the session-orientation menu at will',
     handler: async (_args, ctx) => {
-      await runJuncture(pi, ctx, deps, debounce, {
+      await runJuncture(ctx, deps, debounce, {
         trigger: 'consult',
         mode: 'follow-choice',
       });
@@ -121,7 +121,6 @@ interface JunctureInvocation {
 }
 
 async function runJuncture(
-  pi: ExtensionAPI,
   ctx: ExtensionContext,
   deps: BrunchSessionOrientationDeps,
   debounce: DebounceState,
@@ -136,16 +135,24 @@ async function runJuncture(
     trigger: invocation.trigger,
     mode: invocation.mode,
     kick: kickContext,
+    onAppendError: (error) => {
+      ctx.ui.notify(
+        `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
+        'warning',
+      );
+    },
   });
 
-  // Reference retained for future outcome telemetry / debug-cache mirror.
-  void pi;
   if (result.ran) debounce.lastResolvedAt = Date.now();
 }
 
 interface AssistantLikeMessage {
   readonly role?: unknown;
   readonly stopReason?: unknown;
+}
+
+function formatErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function isEscAbortedAgentEnd(event: AgentEndEvent): boolean {

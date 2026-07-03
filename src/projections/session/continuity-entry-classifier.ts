@@ -5,15 +5,17 @@ export interface ContinuityWatermark {
 
 export type ContinuityEntryKind = 'watermark_carrier' | 'continuity_only_non_debt' | 'debt_bearing';
 
+export const CONTEXT_SEED_CUSTOM_TYPE = 'brunch.context_seed';
+
 export const WATERMARK_CARRIER_CUSTOM_TYPES = [
-  'brunch.context_seed',
+  CONTEXT_SEED_CUSTOM_TYPE,
   'brunch.graph_overview_snapshot',
   'brunch.own_mutation',
   'worldUpdate',
 ] as const;
 
 export const CONTINUITY_ONLY_NON_DEBT_CUSTOM_TYPES = [
-  'brunch.context_seed',
+  CONTEXT_SEED_CUSTOM_TYPE,
   'brunch.graph_overview_snapshot',
   'brunch.mention',
   'brunch.mention_staleness_hint',
@@ -39,6 +41,10 @@ export function classifyContinuityEntry(entry: TranscriptEntryLike): ContinuityE
   if (isWatermarkCarrier(entry)) return 'watermark_carrier';
   if (isContinuityOnlyNonDebtEntry(entry)) return 'continuity_only_non_debt';
   return 'debt_bearing';
+}
+
+export function isContextSeedEntry(entry: TranscriptEntryLike): boolean {
+  return customEntryType(entry) === CONTEXT_SEED_CUSTOM_TYPE;
 }
 
 export function isWatermarkCarrier(entry: TranscriptEntryLike): boolean {

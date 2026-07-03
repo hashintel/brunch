@@ -19,7 +19,10 @@
 
 import { composeContextSeedContent } from '../agents/contexts/seeds/origination.js';
 import type { GraphSlice } from '../graph/index.js';
-import type { TranscriptEntryLike } from '../projections/session/continuity-entry-classifier.js';
+import {
+  isContextSeedEntry,
+  type TranscriptEntryLike,
+} from '../projections/session/continuity-entry-classifier.js';
 import { latestElicitationScratchpad } from './elicitation-scratchpad.js';
 import { appendPreparedContinuityEntry, type ContinuityEntryAppender } from './prepare-next-turn.js';
 import { freshSessionOrientationChoice } from './session-orientation.js';
@@ -185,7 +188,12 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
   // session; anything else takes the caller-named resume decision, which
   // itself dedupes re-kicks (a prior kick's present_* tail owes nothing).
   const origin = input.entries.some(isConversationalMessageEntry) ? input.resumeOrigin : 'new_session';
-  const shouldForceSeed = input.forceSeed || (origin === 'new_session' && !hasContextSeed(input.entries));
+  // Keep the "never suppress a session's first seed" bypass at origination:
+  // this is where origin and context-seed membership are both known. The
+  // lower watermark gate only decides whether an already-composed seed should
+  // be emitted for the current LSN.
+  const shouldForceSeed =
+    input.forceSeed || (origin === 'new_session' && !input.entries.some(isContextSeedEntry));
   const decision = startAssistantTurn({
     specId: input.specId,
     currentLsn: slice.lsn,
@@ -221,13 +229,4 @@ function idleKickSkipReason(
 
 function isConversationalMessageEntry(entry: TranscriptEntryLike): boolean {
   return (entry as { type?: unknown }).type === 'message';
-}
-
-function hasContextSeed(entries: readonly TranscriptEntryLike[]): boolean {
-  return entries.some((entry) => {
-    const record = entry as { customType?: unknown; message?: { customType?: unknown } };
-    return (
-      record.customType === 'brunch.context_seed' || record.message?.customType === 'brunch.context_seed'
-    );
-  });
 }

@@ -111,7 +111,9 @@ export {
   projectBrunchChromeFooterLines,
   registerBrunchChrome,
   renderBrunchChrome,
+  type BrunchChromeStartupHeaderState,
   type BrunchChromeState,
+  type BrunchStartupHeaderResumeFacts,
 } from '../.pi/extensions/chrome/index.js';
 export {
   bindBrunchSessionBoundary,

@@ -200,8 +200,9 @@ describe('runOrientationJuncture', () => {
   });
 
   describe('runJunctureForContext (J5 shared entry point)', () => {
-    it('degrades to no-op when the extension context lacks a mutable session manager', async () => {
+    it('reports and degrades to no-op when the extension context lacks a mutable session manager', async () => {
       const { deps, sent } = fakeKickDeps();
+      const errors: unknown[] = [];
       const result = await runJunctureForContext({
         ctx: {
           mode: 'tui',
@@ -218,8 +219,12 @@ describe('runOrientationJuncture', () => {
           workspaceContext: deps.workspaceContext,
           sendCustomMessage: deps.sendCustomMessage,
         },
+        onAppendError: (error) => {
+          errors.push(error);
+        },
       });
       expect(result).toEqual({ ran: false, kickFired: false });
+      expect(errors).toHaveLength(1);
       expect(sent).toEqual([]);
     });
 
@@ -248,6 +253,7 @@ describe('runOrientationJuncture', () => {
           workspaceContext: deps.workspaceContext,
           sendCustomMessage: deps.sendCustomMessage,
         },
+        onAppendError: () => {},
       });
       expect(result.kickFired).toBe(true);
       expect(selectCalls).toHaveLength(1);

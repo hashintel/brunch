@@ -81,10 +81,9 @@ export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
 interface RuntimeSwitchContext {
   readonly ui: Pick<ExtensionCommandContext['ui'], 'notify' | 'custom' | 'select'>;
   readonly sessionManager: ExtensionCommandContext['sessionManager'];
-  /** Present on the real Pi command context; only J5 orientation needs these. */
-  readonly mode?: ExtensionCommandContext['mode'];
-  readonly hasUI?: ExtensionCommandContext['hasUI'];
-  readonly modelRegistry?: ExtensionCommandContext['modelRegistry'];
+  readonly mode: ExtensionCommandContext['mode'];
+  readonly hasUI: ExtensionCommandContext['hasUI'];
+  readonly modelRegistry: ExtensionCommandContext['modelRegistry'];
 }
 
 function normalizeAxisArg(args: string): string {
@@ -146,14 +145,6 @@ async function runSpecModeSwitchOrientation(
   ctx: RuntimeSwitchContext,
   deps: BrunchSessionOrientationDeps,
 ): Promise<void> {
-  // The real Pi command context provides these; the RuntimeSwitchContext
-  // type carries them as optional to keep the pre-J5 openModePicker call
-  // sites unchanged. When a mode-switch flow reaches the orientation seam
-  // without these fields (test doubles omitting them), degrade quietly to
-  // no-op rather than throwing.
-  if (ctx.mode === undefined || ctx.hasUI === undefined || !ctx.modelRegistry || !ctx.ui.select) {
-    return;
-  }
   const kickContext = await deps.resolveKickContext();
   await runJunctureForContext({
     ctx: {
@@ -168,7 +159,17 @@ async function runSpecModeSwitchOrientation(
     kick: kickContext
       ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
       : undefined,
+    onAppendError: (error) => {
+      ctx.ui.notify(
+        `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
+        'warning',
+      );
+    },
   });
+}
+
+function formatErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function applyModeSwitch(
