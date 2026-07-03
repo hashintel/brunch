@@ -113,4 +113,36 @@ describe('exchange capture contract proof', () => {
     );
     expect(ingestGuidance).toContain('record an `open` scratchpad obligation');
   });
+
+  it('treats unavailable ordinary requests as missing response rather than refusal or content', async () => {
+    const unavailable = [
+      projectRequestAnswer({
+        exchangeId: 'cc-04-answer-unavailable',
+        status: 'unavailable',
+        message: 'request_answer requires interactive UI',
+      }),
+      projectRequestChoice({
+        exchangeId: 'cc-04-choice-unavailable',
+        respondsToPresentTool: 'present_question',
+        status: 'unavailable',
+        message: 'request_choice unavailable',
+      }),
+      projectRequestChoices({
+        exchangeId: 'cc-04-choices-unavailable',
+        status: 'unavailable',
+        message: 'request_choices unavailable',
+      }),
+    ];
+
+    for (const details of unavailable) {
+      expect('unavailable' in details).toBe(true);
+      expect('answered' in details).toBe(false);
+      if (!('unavailable' in details)) throw new Error('expected unavailable request details');
+      expect(details.unavailable.message.length).toBeGreaterThan(0);
+    }
+
+    const ingestGuidance = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
+    expect(ingestGuidance).toContain('Unavailable ordinary requests carry no response payload');
+    expect(ingestGuidance).toContain('Do not read unavailability as user refusal or accepted content');
+  });
 });

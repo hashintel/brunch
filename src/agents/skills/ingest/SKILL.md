@@ -57,6 +57,7 @@ Structured exchange outcome rules:
 - Answered free-text requests route only `answered.text` as direct user material. The surrounding prompt or offer text is render context, not capture payload; capture it only if the user restates or approves the claim.
 - Answered choice requests route only selected `choice`/`choices` and required `comment` text as response material. Non-selected `answered.options` entries are option echo for rendering; do not treat them as accepted facts or graph payload.
 - Cancelled ordinary requests carry no answer, choice, option, or offer payload. If the unanswered prompt still matters, record an `open` scratchpad obligation to re-ask or verify it; do not extend the scratchpad disposition vocabulary.
+- Unavailable ordinary requests carry no response payload. Do not read unavailability as user refusal or accepted content; re-ask or add an `open` scratchpad obligation only when the missing response still matters.
 
 ## Method
 
