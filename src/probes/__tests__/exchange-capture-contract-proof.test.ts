@@ -228,4 +228,20 @@ describe('exchange capture contract proof', () => {
     expect(routing).toContain('Accepted `present_candidates` selections are recognition input');
     expect(routing).toContain('non-picked candidates remain offer history');
   });
+
+  it('keeps the five governing invariants in model-facing conduct homes', async () => {
+    const ingest = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
+    const elicit = await readFile(join(process.cwd(), 'src/agents/skills/elicit/SKILL.md'), 'utf8');
+    const routing = await readFile(
+      join(process.cwd(), 'src/agents/skills/map/references/routing.md'),
+      'utf8',
+    );
+    const conduct = [ingest, elicit, routing].join('\n');
+
+    expect(conduct).toContain('Cancel demotes to scratchpad');
+    expect(conduct).toContain('Reject kills the offer');
+    expect(conduct).toContain('Accepted terminal only');
+    expect(conduct).toContain('offer-scoped');
+    expect(conduct).toContain('per-turn/watermark-shaped');
+  });
 });
