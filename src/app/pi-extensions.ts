@@ -64,6 +64,10 @@ import {
   type BrunchSessionBoundaryHandler,
   type BrunchSessionBoundaryPipelineStep,
 } from '../.pi/extensions/session-hooks/index.js';
+import {
+  registerBrunchSessionOrientation,
+  type BrunchSessionOrientationDeps,
+} from '../.pi/extensions/session-orientation/registrar.js';
 import { registerBrunchSubagents, type BrunchSubagentsDeps } from '../.pi/extensions/subagents/index.js';
 import { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
 import type { ExecutionPorts } from '../executor/execution-ports.js';
@@ -252,6 +256,14 @@ export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
    * eligible under Specify-mode tool policy; when omitted or empty it is absent.
    */
   subagents?: BrunchSubagentsDeps;
+  /**
+   * Optional session-orientation dependency (session-entry-orientation
+   * frontier). When provided, the session-orientation extension is registered
+   * and wires the dialog to junctures J2 (`session_start` reasons
+   * `new`/`resume`), J3 (`session_tree`), J4 (`agent_end` esc-abort), and
+   * J6 (`/brunch:consult`). When omitted, no juncture wiring is installed.
+   */
+  sessionOrientation?: BrunchSessionOrientationDeps;
 }
 
 export interface BrunchPiIntrospectionOptions extends BrunchIntrospectionOptions {
@@ -380,6 +392,9 @@ export function createBrunchPiExtensions(
           ...options,
           requestChromeRefresh: () => chromeRefresh.current?.(),
         }),
+      ...(options.sessionOrientation
+        ? [(api: ExtensionAPI) => registerBrunchSessionOrientation(api, options.sessionOrientation!)]
+        : []),
       ...(options.graph ? [(api: ExtensionAPI) => registerBrunchGraph(api, options.graph!)] : []),
       // Session-local elicitation scratchpad (D101-L): no graph dependency —
       // it reads/writes only the session branch via ctx.sessionManager.

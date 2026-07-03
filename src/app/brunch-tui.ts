@@ -460,6 +460,22 @@ export function createBrunchAgentSessionRuntimeFactory(
                 graphReads: graphDeps.reads,
               };
             },
+            sessionOrientation: {
+              resolveKickContext: async () => {
+                const session = liveAgentSession.current;
+                if (!session) return undefined;
+                const specId = currentWorkspace.spec.id;
+                const specName = graph.commandExecutor.getSpec(specId)?.name;
+                return {
+                  specId,
+                  ...(specName ? { specName } : {}),
+                  reads: graph.forSpec(specId),
+                  workspaceContext: await renderWorkspaceOverviewContext(cwd),
+                  sendCustomMessage: (message, sendOptions) =>
+                    session.sendCustomMessage(message, sendOptions),
+                };
+              },
+            },
           },
         ),
       ],

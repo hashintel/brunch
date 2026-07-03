@@ -210,7 +210,28 @@ src/projections/session/__tests__/…   ~   (sweep probe)
 
 ---
 
-## Card 2 — Remaining junctures: /consult, tree, esc-settle, mode-switch, RPC verification · `queued`
+## Card 2 — Remaining junctures: /consult, tree, esc-settle, mode-switch, RPC verification · `in progress` (J2/J3/J4/J6 landed; J5, RPC verification, option-2 J1 deferred)
+
+**2026-07-03 build finding (partial):** the live-kick helper (`.pi/extensions/session-orientation/juncture.ts` — `runOrientationJuncture`) and the Pi event/command registrar (`registrar.ts`) are built and green. `originateAssistantTurn` gained a `forceSeed` option so a mid-session dialog-triggered kick lays down a fresh seed even when the graph LSN has not moved. `resolveKickContext` closes over the workspace state in `brunch-tui.ts` so J3/J4/J6 non-continue choices fire an actual assistant turn.
+
+Landed junctures (all: dialog → entry → live-kick when applicable, honoring the entry rule on escape):
+
+- J2 (session_start reasons `new`/`resume`) — with J7/J8 guard tests on `startup`/`reload`/`fork`.
+- J3 (session_tree).
+- J4 (agent_end esc-abort) — C3 probe implemented via tail-message `stopReason === 'aborted'`. **C3 finding:** the extension `AgentEndEvent` does NOT carry `willRetry`; a compaction-overflow retry fires a fresh `agent_end` — the 750ms debounce (`ceiling:`) collapses the double-fire in practice but is not a proof, and a real compaction-retry-aware guard is deferred if it becomes visible in outer walkthroughs.
+- J6 (`/brunch:consult`).
+
+Deferred to follow-up slices (recorded, not silently narrowed):
+
+- **J5 mode-switch (SPEC-side menu).** Needs integration into `commands/index.ts` `appendBrunchAgentRuntimeSwitch` path so the choice feeds the pending mode-switch kick seed. Not a re-scope; separate wiring seam.
+- **Option-2 J1 boot wiring** (fires the dialog from `session_start` reason `startup`, retires the boot-path origination call). The registrar currently guards `startup` off precisely so the existing boot-path origination in `brunch-tui.ts` (which runs before `bindCurrentSessionExtensions`) remains the sole J1 driver until the boot rework lands. That rework is a separate slice because it touches boot ordering (kick status chrome, debug-cache mirror timing, `session_start` extension handler as the new J1 carrier per the user-chosen option 2).
+- **RPC round-trip verification (C1).** The registrar already routes through `ctx.ui.select`, which Pi's RPC-mode UI back-fills via the extension-UI sub-protocol — so the wiring itself is RPC-transport-agnostic. Verifying the round-trip end-to-end (driver probe) is deferred to an outer-loop slice.
+
+Landed cross-cutting: sweep-exclusion probe carried forward from card 1 (`brunch.session_orientation` excluded from the capture sweep tail); topology reconciliation.
+
+---
+
+## Card 2 — Original definition (kept for downstream cross-references) · `superseded by in-progress note above`
 
 Full scope card. Posture: proving (conduct) — extends the settled dialog seam from card 1 to the full trigger set. Does **not** depend on card 1 findings beyond the dialog function existing (its API shape is card 1's deliverable, but these junctures attach to already-live event surfaces regardless of how J1's boot ordering resolved).
 

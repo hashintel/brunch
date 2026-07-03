@@ -49,6 +49,13 @@ export interface OriginateAssistantTurnInput {
    */
   readonly workspaceContext: string;
   readonly manager: OriginationManager;
+  /**
+   * Bypass the assistant-visible watermark gate on the seed entry. Set for
+   * mid-session dialog-triggered kicks (J3/J4/J6) where the graph LSN has
+   * not moved but the fresh orientation choice inside the seed must still
+   * reach the next provider turn.
+   */
+  readonly forceSeed?: boolean;
 }
 
 export interface OriginateAssistantTurnResult {
@@ -152,6 +159,7 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
     currentLsn: slice.lsn,
     entries: input.entries,
     origin: input.entries.some(isConversationalMessageEntry) ? input.resumeOrigin : 'new_session',
+    ...(input.forceSeed ? { forceSeed: true } : {}),
     seedContent: composeContextSeedContent({
       specId: input.specId,
       ...(input.specName ? { specName: input.specName } : {}),

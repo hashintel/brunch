@@ -1,0 +1,213 @@
+import type {
+  AgentEndEvent,
+  ExtensionAPI,
+  ExtensionContext,
+  SessionStartEvent,
+  SessionTreeEvent,
+} from '@earendil-works/pi-coding-agent';
+import { describe, expect, it } from 'vitest';
+
+import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../../session/session-orientation.js';
+import { SESSION_ORIENTATION_MENU } from '../index.js';
+import { BRUNCH_CONSULT_COMMAND, registerBrunchSessionOrientation, type KickContext } from '../registrar.js';
+
+interface CapturedEntry {
+  readonly type: 'custom' | 'custom_message';
+  readonly customType: string;
+  readonly data?: unknown;
+  readonly content?: string;
+}
+
+function labelFor(id: string): string {
+  return SESSION_ORIENTATION_MENU.find((item) => item.id === id)!.label;
+}
+
+interface Handlers {
+  session_start?: (event: SessionStartEvent, ctx: ExtensionContext) => Promise<void>;
+  session_tree?: (event: SessionTreeEvent, ctx: ExtensionContext) => Promise<void>;
+  agent_end?: (event: AgentEndEvent, ctx: ExtensionContext) => Promise<void>;
+  consult?: (args: string, ctx: ExtensionContext) => Promise<void>;
+}
+
+function collectPi(): { pi: ExtensionAPI; handlers: Handlers } {
+  const handlers: Handlers = {};
+  const pi = {
+    on(event: string, handler: unknown) {
+      if (event === 'session_start') handlers.session_start = handler as never;
+      else if (event === 'session_tree') handlers.session_tree = handler as never;
+      else if (event === 'agent_end') handlers.agent_end = handler as never;
+    },
+    registerCommand(
+      name: string,
+      options: { handler: (args: string, ctx: ExtensionContext) => Promise<void> },
+    ) {
+      if (name === BRUNCH_CONSULT_COMMAND) handlers.consult = options.handler;
+    },
+  } as unknown as ExtensionAPI;
+  return { pi, handlers };
+}
+
+function buildCtx(response: string | undefined, seed: readonly CapturedEntry[] = []) {
+  const entries: CapturedEntry[] = [...seed];
+  const sessionManager = {
+    appendCustomEntry(customType: string, data: unknown) {
+      entries.push({ type: 'custom', customType, data });
+      return 'id';
+    },
+    appendCustomMessageEntry(customType: string, content: string) {
+      entries.push({ type: 'custom_message', customType, content });
+      return 'id';
+    },
+    getEntries() {
+      return entries;
+    },
+  };
+  const ctx = {
+    hasUI: true,
+    ui: { select: async (_title: string, _options: string[]) => response },
+    sessionManager: sessionManager as unknown,
+    modelRegistry: { getAvailable: () => [{}] } as unknown,
+  } as ExtensionContext;
+  return { ctx, entries };
+}
+
+function fakeKickContext(sent: Array<{ message: unknown; options: unknown }>): KickContext {
+  return {
+    specId: 3,
+    reads: { queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }) as never },
+    workspaceContext: '',
+    sendCustomMessage: async (message, options) => {
+      sent.push({ message, options });
+      return undefined;
+    },
+  };
+}
+
+describe('registerBrunchSessionOrientation', () => {
+  it.each(['startup', 'reload', 'fork'] as const)(
+    'skips the dialog on session_start reason %s (J7/J8 guard)',
+    async (reason) => {
+      const { pi, handlers } = collectPi();
+      registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+      const { ctx, entries } = buildCtx(labelFor('ingest'));
+
+      await handlers.session_start!({ type: 'session_start', reason }, ctx);
+
+      expect(entries).toEqual([]);
+    },
+  );
+
+  it.each(['new', 'resume'] as const)(
+    'runs the dialog on session_start reason %s with trigger switch',
+    async (reason) => {
+      const { pi, handlers } = collectPi();
+      registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+      const { ctx, entries } = buildCtx(labelFor('ingest'));
+
+      await handlers.session_start!({ type: 'session_start', reason }, ctx);
+
+      expect(entries.at(-1)).toEqual({
+        type: 'custom',
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'ingest', trigger: 'switch' },
+      });
+    },
+  );
+
+  it('runs the dialog on session_tree with trigger tree', async () => {
+    const { pi, handlers } = collectPi();
+    const sent: Array<{ message: unknown; options: unknown }> = [];
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => fakeKickContext(sent) });
+    const { ctx, entries } = buildCtx(labelFor('ingest'));
+
+    await handlers.session_tree!({ type: 'session_tree', newLeafId: 'a', oldLeafId: 'b' }, ctx);
+
+    expect(
+      entries.find((entry) => entry.customType === BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE)?.data,
+    ).toEqual({
+      schemaVersion: 1,
+      choice: 'ingest',
+      trigger: 'tree',
+    });
+    expect(sent).toHaveLength(1);
+  });
+
+  it('fires on agent_end only when the tail assistant message stopReason is aborted (C3 probe)', async () => {
+    const { pi, handlers } = collectPi();
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+    const { ctx: notAbortedCtx, entries: notAborted } = buildCtx(labelFor('ingest'));
+
+    await handlers.agent_end!(
+      {
+        type: 'agent_end',
+        messages: [
+          {
+            role: 'assistant',
+            content: [],
+            stopReason: 'stop',
+            usage: { input: 0, output: 0 },
+            timestamp: 0,
+          } as never,
+        ],
+      },
+      notAbortedCtx,
+    );
+    expect(notAborted).toEqual([]);
+
+    const { ctx: abortedCtx, entries: aborted } = buildCtx(labelFor('elicit_examples'));
+    await handlers.agent_end!(
+      {
+        type: 'agent_end',
+        messages: [
+          {
+            role: 'user',
+            content: 'hi',
+          } as never,
+          {
+            role: 'assistant',
+            content: [],
+            stopReason: 'aborted',
+            usage: { input: 0, output: 0 },
+            timestamp: 0,
+          } as never,
+        ],
+      },
+      abortedCtx,
+    );
+    expect(aborted.at(-1)).toEqual({
+      type: 'custom',
+      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+      data: { schemaVersion: 1, choice: 'elicit_examples', trigger: 'abort' },
+    });
+  });
+
+  it('registers /brunch:consult which always runs the dialog', async () => {
+    const { pi, handlers } = collectPi();
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+    const { ctx, entries } = buildCtx(labelFor('propose_oracle'));
+
+    await handlers.consult!('', ctx);
+
+    expect(entries.at(-1)).toEqual({
+      type: 'custom',
+      customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+      data: { schemaVersion: 1, choice: 'propose_oracle', trigger: 'consult' },
+    });
+  });
+
+  it('debounces coinciding junctures within the debounce window', async () => {
+    const { pi, handlers } = collectPi();
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => undefined });
+
+    const { ctx: firstCtx, entries } = buildCtx(labelFor('ingest'));
+    await handlers.consult!('', firstCtx);
+
+    // Second juncture uses a fresh manager sharing the same debounce state
+    // via the closure captured at registration time.
+    const { ctx: secondCtx, entries: secondEntries } = buildCtx(labelFor('ingest'));
+    await handlers.session_tree!({ type: 'session_tree', newLeafId: 'a', oldLeafId: 'b' }, secondCtx);
+
+    expect(entries).toHaveLength(1);
+    expect(secondEntries).toEqual([]);
+  });
+});

@@ -19,6 +19,13 @@ export interface StartAssistantTurnInput {
    * `originateAssistantTurn` owns the composition.
    */
   readonly seedContent: string;
+  /**
+   * Bypass the assistant-visible watermark gate on seed emission. Set for
+   * mid-session dialog-triggered kicks (session-entry-orientation J3/J4/J6)
+   * where the graph LSN has not moved but a fresh orientation directive
+   * inside the seed must still reach the next provider turn.
+   */
+  readonly forceSeed?: boolean;
 }
 
 export type StartAssistantTurnDecision =
@@ -34,7 +41,13 @@ export type StartAssistantTurnDecision =
     };
 
 export function startAssistantTurn(input: StartAssistantTurnInput): StartAssistantTurnDecision {
-  const seedEntries = contextSeedEntries(input);
+  const seedEntries = contextSeedEntries({
+    specId: input.specId,
+    currentLsn: input.currentLsn,
+    entries: input.entries,
+    seedContent: input.seedContent,
+    ...(input.forceSeed ? { forceSeed: true } : {}),
+  });
   if (
     input.origin === 'new_session' ||
     input.origin === 'manual_trigger' ||
@@ -50,9 +63,12 @@ export function contextSeedEntries(input: {
   readonly currentLsn: number;
   readonly entries: readonly TranscriptEntryLike[];
   readonly seedContent: string;
+  readonly forceSeed?: boolean;
 }): readonly PreparedContinuityEntry[] {
-  const watermark = projectAssistantVisibleWatermark(input.entries, { specId: input.specId });
-  if (watermark && watermark.lsn >= input.currentLsn) return [];
+  if (!input.forceSeed) {
+    const watermark = projectAssistantVisibleWatermark(input.entries, { specId: input.specId });
+    if (watermark && watermark.lsn >= input.currentLsn) return [];
+  }
   return [
     {
       type: 'custom_message',

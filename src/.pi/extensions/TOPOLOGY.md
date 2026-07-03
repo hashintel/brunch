@@ -47,7 +47,7 @@ extensions/
 └── workspace/              spec/session picker command adapter
 ```
 
-`session-orientation/` currently exports only the dialog function and menu labels — no `pi.on()` registration yet. The boot-path (J1) wiring and the mid-session juncture (J2-J6) event registrations are separate, not-yet-landed slices of the `session-entry-orientation` frontier (`memory/cards/session-entry-orientation--slices.md`).
+`session-orientation/` owns the SPEC-mode menu, the `ctx.ui.select`-shaped dialog function (`index.ts`), the juncture orchestrator that composes dialog → entry → live-kick (`juncture.ts`), and the Pi event/command registrar wiring the dialog to J2 (`session_start` reasons `new`/`resume`), J3 (`session_tree`), J4 (`agent_end` esc-abort, C3 probe), and J6 (`/brunch:consult`) (`registrar.ts`). J1 boot wiring (option-2 `session_start` reason `startup`) and J5 mode-switch (SPEC-side menu in `commands/index.ts`) are follow-up slices of the `session-entry-orientation` frontier.
 
 The former `tui-lab/` registrar (`registerBrunchTuiLab`, gated behind an `enabled`
 option nothing ever set) was retired — it never entered the product bundle and
