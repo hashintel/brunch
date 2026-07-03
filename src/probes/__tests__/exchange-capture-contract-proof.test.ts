@@ -187,4 +187,21 @@ describe('exchange capture contract proof', () => {
     expect(ingestGuidance).toContain('Review `reject` kills the offer');
     expect(ingestGuidance).toContain('Do not demote the rejected proposal into a scratchpad obligation');
   });
+
+  it('treats cancelled proposal-chain reviews as no offer payload with optional unresolved intent', async () => {
+    const details = projectRequestReview({
+      exchangeId: 'cc-08-cancelled-review',
+      status: 'cancelled',
+      message: 'User cancelled review.',
+    });
+
+    expect('cancelled' in details).toBe(true);
+    expect('answered' in details).toBe(false);
+    expect(JSON.stringify(details)).not.toContain('entityDrafts');
+    expect(JSON.stringify(details)).not.toContain('createdNodes');
+
+    const ingestGuidance = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
+    expect(ingestGuidance).toContain('Cancelled proposal-chain reviews carry no offer payload');
+    expect(ingestGuidance).toContain('Only unresolved intent may become an `open` scratchpad obligation');
+  });
 });

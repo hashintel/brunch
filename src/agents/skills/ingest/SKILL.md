@@ -60,6 +60,7 @@ Structured exchange outcome rules:
 - Unavailable ordinary requests carry no response payload. Do not read unavailability as user refusal or accepted content; re-ask or add an `open` scratchpad obligation only when the missing response still matters.
 - Review `request_changes` captures the comment as direct user material and treats the next generated review set as the next offer. Do not capture the prior proposal payload or write graph truth from it.
 - Review `reject` kills the offer. Do not demote the rejected proposal into a scratchpad obligation or preserve it as live graph material.
+- Cancelled proposal-chain reviews carry no offer payload. Only unresolved intent may become an `open` scratchpad obligation; never keep the cancelled proposal nodes, edges, or candidates as capture material.
 
 ## Method
 
