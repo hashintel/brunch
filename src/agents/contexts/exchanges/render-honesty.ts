@@ -1,0 +1,91 @@
+export interface RenderElision {
+  readonly path: string;
+  readonly reason: string;
+}
+
+export type RenderRepresentations = Readonly<Record<string, readonly string[]>>;
+
+export interface RenderHonestyOptions {
+  readonly elisions: readonly RenderElision[];
+  readonly representations?: RenderRepresentations;
+}
+
+export interface MissingRenderedLeaf {
+  readonly path: string;
+  readonly value: string;
+}
+
+/**
+ * Checks that a structured exchange renderer either shows each populated leaf or
+ * declares why that leaf is intentionally absent. Renderers use glob-like `*`
+ * path segments for repeated shapes, e.g. `options.*.id`.
+ */
+export function missingRenderedDetailsLeaves(
+  details: unknown,
+  renderedText: string,
+  options: RenderHonestyOptions,
+): MissingRenderedLeaf[] {
+  const elisionPatterns = options.elisions.map((elision) => elision.path);
+  return collectPrimitiveLeaves(details)
+    .filter(({ path }) => !matchesAny(path, elisionPatterns))
+    .filter(
+      ({ path, value }) =>
+        !renderedText.includes(value) && !hasRenderedRepresentation(path, value, renderedText, options),
+    )
+    .map(({ path, value }) => ({ path, value }));
+}
+
+function hasRenderedRepresentation(
+  path: string,
+  value: string,
+  renderedText: string,
+  options: RenderHonestyOptions,
+): boolean {
+  const representations = options.representations ?? {};
+  for (const [pattern, tokens] of Object.entries(representations)) {
+    if (
+      matchesPath(path, pattern) &&
+      tokens.some((token) => tokenRepresentsValue(pattern, token, value, renderedText))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function tokenRepresentsValue(pattern: string, token: string, value: string, renderedText: string): boolean {
+  if (!renderedText.includes(token)) return false;
+  return !pattern.includes('*') || token.includes(value);
+}
+
+function collectPrimitiveLeaves(value: unknown, path = ''): MissingRenderedLeaf[] {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? [{ path, value: trimmed }] : [];
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') return [{ path, value: String(value) }];
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectPrimitiveLeaves(item, appendPath(path, String(index))));
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value).flatMap(([key, child]) =>
+      collectPrimitiveLeaves(child, appendPath(path, key)),
+    );
+  }
+  return [];
+}
+
+function appendPath(base: string, segment: string): string {
+  return base ? `${base}.${segment}` : segment;
+}
+
+function matchesAny(path: string, patterns: readonly string[]): boolean {
+  return patterns.some((pattern) => matchesPath(path, pattern));
+}
+
+function matchesPath(path: string, pattern: string): boolean {
+  const pathParts = path.split('.');
+  const patternParts = pattern.split('.');
+  if (pathParts.length !== patternParts.length) return false;
+  return patternParts.every((part, index) => part === '*' || part === pathParts[index]);
+}

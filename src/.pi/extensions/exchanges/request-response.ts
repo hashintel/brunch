@@ -1,20 +1,20 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
 import { formatRequestResponseDiagnostic } from '../../../agents/contexts/exchanges/request-response.js';
-import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
-import { piSchema } from './pi-schema.js';
+import { findIncompleteStructuredExchangePresents } from '../../../exchanges/recovery.js';
 import {
   zRequestResponseParams,
   type PresentCandidatesDetails,
   type PresentDetails,
   type PresentQuestionDetails,
   type RequestResponseParams,
-} from './schemas/index.js';
+} from '../../../exchanges/schemas/index.js';
+import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
+import { piSchema } from './pi-schema.js';
 import { collectAnswerFromSources } from './shared/answer-source.js';
 import { collectChoiceFromUi } from './shared/choice-source.js';
 import { requestChoicesFromSources } from './shared/choices-editor.js';
-import { renderMarkdownResult } from './shared/markdown.js';
-import { findIncompleteStructuredExchangePresents } from './shared/recovery.js';
+import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 import { collectReviewFromUi } from './shared/review-source.js';
 import type { StructuredExchangeUiContext } from './shared/ui-context.js';
 
@@ -73,6 +73,7 @@ async function collectQuestionResponse(
         exchangeId,
         prompt: present.display.heading,
         choices: present.options.map((option) => ({ id: option.id, label: option.content })),
+        options: present.options,
         ...(present.allow_other !== undefined ? { allowOther: present.allow_other } : {}),
         ...(present.comment_prompt !== undefined ? { commentPrompt: present.comment_prompt } : {}),
       });
@@ -82,6 +83,7 @@ async function collectQuestionResponse(
           exchangeId,
           prompt: present.display.heading,
           choices: present.options.map((option) => ({ id: option.id, label: option.content })),
+          options: present.options,
           ...(present.allow_other !== undefined ? { allowOther: present.allow_other } : {}),
           ...(present.allow_none !== undefined ? { allowNone: present.allow_none } : {}),
           ...(present.comment_prompt !== undefined ? { commentPrompt: present.comment_prompt } : {}),
@@ -165,6 +167,10 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
               id: candidate.id,
               label: candidate.title,
             })),
+            options: candidatesPresent.candidates.map((candidate) => ({
+              id: candidate.id,
+              content: candidate.title,
+            })),
             respondsToPresentTool: 'present_candidates',
           });
         }
@@ -174,7 +180,7 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
     },
 
     renderCall() {
-      return renderMarkdownResult({ content: [] });
+      return renderEmptyStructuredExchangeCall();
     },
 
     renderResult(result, _options, theme) {

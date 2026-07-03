@@ -1,7 +1,0 @@
-# Response
-
-- Alpha\*
-
-Comment:
-
-> Both.

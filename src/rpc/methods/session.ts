@@ -1,10 +1,7 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import {
-  zReviewSetDetailsPayload,
-  type ReviewSetDetailsPayload,
-} from '../../.pi/extensions/exchanges/schemas/index.js';
+import { zReviewSetDetailsPayload, type ReviewSetDetailsPayload } from '../../exchanges/schemas/index.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
@@ -761,6 +758,7 @@ function reviewSetProposalPayloadFromDetails(input: {
     },
     entityDrafts: input.reviewSet.nodes.map((draft) => ({
       draftId: draft.draft_id,
+      proposedCode: draft.proposed_code,
       plane: draft.plane,
       kind: draft.kind,
       title: draft.title,

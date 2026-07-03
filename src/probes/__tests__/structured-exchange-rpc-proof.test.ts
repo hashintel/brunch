@@ -35,6 +35,11 @@ describe('structured-exchange RPC proof', () => {
       tool_meta: { prev: 'present_question', curr: 'request_choices', next: 'capture_choices' },
       answered: {
         choices: [{ id: 'rpc-fallback', label: 'Ship RPC fallback', kind: 'listed' }],
+        options: [
+          { id: 'rpc-fallback', content: 'Ship RPC fallback' },
+          { id: 'wait-web', content: 'Wait for web relay' },
+          { id: 'blocker', content: 'Escalate blocker' },
+        ],
         comment: 'Proceed, but report any relay friction separately.',
       },
       probe: {

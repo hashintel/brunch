@@ -42,6 +42,56 @@ describe('system-prompt mirror handles real provider payload shapes', () => {
     expect(mirrored).toContain('You are the Brunch elicitor.');
     expect(mirrored).toContain('Stay grounded in the spec graph.');
   });
+
+  it('extracts every supported provider system-prompt carrier shape', async () => {
+    const cases = [
+      {
+        name: 'instructions',
+        payload: { instructions: 'instructions prompt' },
+        expected: 'instructions prompt',
+      },
+      {
+        name: 'systemInstruction',
+        payload: { systemInstruction: 'systemInstruction prompt' },
+        expected: 'systemInstruction prompt',
+      },
+      {
+        name: 'systemPrompt',
+        payload: { systemPrompt: 'systemPrompt prompt' },
+        expected: 'systemPrompt prompt',
+      },
+      { name: 'system string', payload: { system: 'system prompt' }, expected: 'system prompt' },
+      {
+        name: 'system blocks',
+        payload: { system: [{ type: 'text', text: 'system block prompt' }] },
+        expected: 'system block prompt',
+      },
+      {
+        name: 'messages system',
+        payload: { messages: [{ role: 'system', content: 'messages prompt' }] },
+        expected: 'messages prompt',
+      },
+      {
+        name: 'input developer',
+        payload: { input: [{ role: 'developer', content: 'input prompt' }] },
+        expected: 'input prompt',
+      },
+      {
+        name: 'input developer blocks',
+        payload: { input: [{ role: 'developer', content: [{ type: 'text', text: 'input block prompt' }] }] },
+        expected: 'input block prompt',
+      },
+    ];
+
+    for (const testCase of cases) {
+      const cwd = await mkdtemp(
+        join(tmpdir(), `brunch-system-mirror-${testCase.name.replaceAll(' ', '-')}-`),
+      );
+      await mirrorSystemPromptToDebugCache({ cwd }, testCase.payload);
+      const mirrored = await readFile(join(cwd, '.brunch/debug/system-prompt.md'), 'utf8');
+      expect(mirrored, testCase.name).toContain(testCase.expected);
+    }
+  });
 });
 
 describe('debug cache entry-contents mirror (origination-kick-live card 2)', () => {

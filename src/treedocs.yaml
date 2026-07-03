@@ -102,21 +102,11 @@ tree:
         present-question.ts: "Implements present question."
         present-review-set.ts: "Implements present review set."
         request-response.ts: "Implements request response."
-        schemas:
-          TOPOLOGY.md: "Documents this source subtree."
-          capture.ts: "Implements capture."
-          editor.ts: "Implements editor."
-          index.ts: "Exports the public module surface."
-          params.ts: "Implements params."
-          present.ts: "Implements present."
-          request.ts: "Implements request."
-          shared.ts: "Implements shared."
         shared:
           answer-source.ts: "Implements answer source."
           choice-source.ts: "Implements choice source."
           choices-editor.ts: "Implements choices editor."
           markdown.ts: "Implements markdown."
-          recovery.ts: "Implements recovery."
           review-source.ts: "Implements review source."
           ui-context.ts: "Implements ui context."
       mentions:
@@ -161,11 +151,12 @@ tree:
         present-candidates.ts: "Implements present candidates."
         present-question.ts: "Implements present question."
         present-review-set.ts: "Implements present review set."
-        request-answer.ts: "Implements request answer."
-        request-choice.ts: "Implements request choice."
-        request-choices.ts: "Implements request choices."
         request-response.ts: "Implements request response."
-        request-review.ts: "Implements request review."
+        request-response:
+          answer.ts: "Implements request answer rendering."
+          choice.ts: "Implements request choice rendering."
+          choices.ts: "Implements request choices rendering."
+          review.ts: "Implements request review rendering."
       graph:
         TOPOLOGY.md: "Documents this source subtree."
         __snapshots__:
@@ -281,6 +272,28 @@ tree:
     index.ts: "Exports the public module surface."
     introspection-launcher.ts: "Implements introspection launcher."
     tier-2-harness.ts: "Implements tier 2 harness."
+  exchanges:
+    TOPOLOGY.md: "Documents this source subtree."
+    projections:
+      present-candidates.ts: "Implements present candidates."
+      present-question.ts: "Implements present question."
+      present-review-set.ts: "Implements present review set."
+      request-response.ts: "Implements request response."
+      request-response:
+        answer.ts: "Implements request answer projection."
+        choice.ts: "Implements request choice projection."
+        choices.ts: "Implements request choices projection."
+        review.ts: "Implements request review projection."
+    recovery.ts: "Implements exchange transcript recovery."
+    schemas:
+      TOPOLOGY.md: "Documents this source subtree."
+      capture.ts: "Implements capture."
+      editor.ts: "Implements editor."
+      index.ts: "Exports the public module surface."
+      params.ts: "Implements params."
+      present.ts: "Implements present."
+      request.ts: "Implements request."
+      shared.ts: "Implements shared."
   graph:
     TOPOLOGY.md: "Documents this source subtree."
     atoms.ts: "Implements atoms."
@@ -333,14 +346,6 @@ tree:
     test-helpers.ts: "Implements test helpers."
   projections:
     TOPOLOGY.md: "Documents this source subtree."
-    exchanges:
-      present-candidates.ts: "Implements present candidates."
-      present-question.ts: "Implements present question."
-      present-review-set.ts: "Implements present review set."
-      request-answer.ts: "Implements request answer."
-      request-choice.ts: "Implements request choice."
-      request-choices.ts: "Implements request choices."
-      request-review.ts: "Implements request review."
     graph:
       commit-result.ts: "Implements commit result."
       neighborhood.ts: "Implements neighborhood."

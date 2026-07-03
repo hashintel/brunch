@@ -1,0 +1,103 @@
+import { describe, expect, it } from 'vitest';
+import * as z from 'zod';
+
+import {
+  zPresentCandidatesParams,
+  zPresentQuestionParams,
+  zPresentReviewSetParams,
+  zRequestResponseParams,
+} from '../index.js';
+
+function expectJsonSchemaExport(schema: z.ZodType) {
+  expect(() => z.toJSONSchema(schema, { unrepresentable: 'throw' })).not.toThrow();
+}
+
+describe('structured exchange present params', () => {
+  it('trims and rejects blank present headings at the params boundary', () => {
+    expect(
+      zPresentQuestionParams.parse({
+        exchangeId: 'problem-frame',
+        heading: '  Choose direction  ',
+      }),
+    ).toMatchObject({ heading: 'Choose direction' });
+    expect(() => zPresentQuestionParams.parse({ exchangeId: 'problem-frame', heading: '   ' })).toThrow();
+
+    expect(
+      zPresentCandidatesParams.parse({
+        exchangeId: 'candidate-direction',
+        heading: '  Compare candidates  ',
+        candidates: [
+          {
+            id: 'local',
+            title: 'Local workbench',
+            user_rubric: {
+              core_bet: 'Local-first graph work.',
+              best_fit: 'Current POC.',
+              cost_complexity: 'Own local state.',
+              covers_well: 'Graph and transcript.',
+              main_risks: 'No cloud proof.',
+              lock_in_constraints: 'Local semantics.',
+            },
+            meta_rubric: {},
+            graph_refs: [],
+          },
+        ],
+      }),
+    ).toMatchObject({ heading: 'Compare candidates' });
+    expect(() =>
+      zPresentCandidatesParams.parse({
+        exchangeId: 'candidate-direction',
+        heading: '   ',
+        candidates: [
+          {
+            id: 'local',
+            title: 'Local workbench',
+            user_rubric: {
+              core_bet: 'Local-first graph work.',
+              best_fit: 'Current POC.',
+              cost_complexity: 'Own local state.',
+              covers_well: 'Graph and transcript.',
+              main_risks: 'No cloud proof.',
+              lock_in_constraints: 'Local semantics.',
+            },
+            meta_rubric: {},
+            graph_refs: [],
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it('exports the nested present_review_set payload companion shape', () => {
+    const schema = z.toJSONSchema(zPresentReviewSetParams, { unrepresentable: 'throw' }) as unknown as {
+      readonly properties: {
+        readonly payload: {
+          readonly properties: {
+            readonly grounding: { readonly properties: Readonly<Record<string, unknown>> };
+            readonly pitch: { readonly properties: Readonly<Record<string, unknown>> };
+            readonly entityDrafts: unknown;
+            readonly edgeDrafts: unknown;
+            readonly epistemicStatus: unknown;
+          };
+        };
+      };
+    };
+
+    expect(schema.properties.payload.properties.epistemicStatus).toBeDefined();
+    expect(schema.properties.payload.properties.grounding.properties).toHaveProperty('summary');
+    expect(schema.properties.payload.properties.grounding.properties).toHaveProperty('support');
+    expect(schema.properties.payload.properties.pitch.properties).toHaveProperty('title');
+    expect(schema.properties.payload.properties.pitch.properties).toHaveProperty('narrative');
+    expect(schema.properties.payload.properties.entityDrafts).toBeDefined();
+    expect(schema.properties.payload.properties.edgeDrafts).toBeDefined();
+  });
+});
+
+describe('structured exchange request_response params', () => {
+  it('parses and exports the single exchangeId param', () => {
+    expect(zRequestResponseParams.parse({ exchangeId: 'problem-frame' })).toEqual({
+      exchangeId: 'problem-frame',
+    });
+    expectJsonSchemaExport(zRequestResponseParams);
+  });
+});

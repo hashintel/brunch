@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { createDb, type BrunchDb } from '../../db/connection.js';
 import { CommandExecutor } from '../command-executor.js';
 import { queryGraph } from '../queries.js';
-import { translateReviewSetPayloadToMutateGraph, type ReviewSetProposalPayload } from '../review-set.js';
+import {
+  assignProposedReviewSetCodes,
+  translateReviewSetPayloadToMutateGraph,
+  type ReviewSetProposalPayload,
+} from '../review-set.js';
 
 function seedSpec(db: BrunchDb): number {
   const result = new CommandExecutor(db).createSpec({ name: 'Test Spec', slug: 'test' });
@@ -27,18 +31,21 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
     entityDrafts: [
       {
         draftId: 'goal-launch',
+        proposedCode: 'G1',
         plane: 'intent',
         kind: 'goal',
         title: 'Launch safely',
       },
       {
         draftId: 'req-rollback',
+        proposedCode: 'REQ1',
         plane: 'intent',
         kind: 'requirement',
         title: 'Rollback path exists',
       },
       {
         draftId: 'crit-observable',
+        proposedCode: 'AC1',
         plane: 'intent',
         kind: 'criterion',
         title: 'Operators can observe failures',
@@ -64,6 +71,40 @@ function validPayload(overrides: Partial<ReviewSetProposalPayload> = {}): Review
 }
 
 describe('review-set graph payload translation', () => {
+  it('assigns real proposed codes from per-kind next ordinals, including consecutive drafts', () => {
+    const db = createDb(':memory:');
+    const executor = new CommandExecutor(db);
+    const specId = seedSpec(db);
+    const existing = executor.createNode({
+      specId,
+      plane: 'intent',
+      kind: 'goal',
+      title: 'Existing goal',
+    });
+    if (existing.status !== 'success') throw new Error('unreachable');
+
+    const assigned = assignProposedReviewSetCodes({
+      db,
+      specId,
+      payload: {
+        ...validPayload(),
+        entityDrafts: [
+          { draftId: 'goal-next', plane: 'intent', kind: 'goal', title: 'Next goal' },
+          { draftId: 'goal-after', plane: 'intent', kind: 'goal', title: 'Goal after that' },
+          { draftId: 'req-next', plane: 'intent', kind: 'requirement', title: 'Next requirement' },
+        ],
+      },
+    });
+
+    expect(assigned).toMatchObject({
+      entityDrafts: [
+        { draftId: 'goal-next', proposedCode: 'G2' },
+        { draftId: 'goal-after', proposedCode: 'G3' },
+        { draftId: 'req-next', proposedCode: 'REQ1' },
+      ],
+    });
+  });
+
   it('turns dry-run-valid review payloads into explicit-basis command input without graph mutation', () => {
     const db = createDb(':memory:');
     const executor = new CommandExecutor(db);

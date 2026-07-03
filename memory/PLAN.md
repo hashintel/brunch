@@ -59,6 +59,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Recently Completed
 
+- 2026-07-03 `exchange-rendering` (FE-1123) — the structured-exchange transcript render frontier is closed: every ● row in `memory/cards/exchange-rendering--sweep.md` is built; request-response discriminants now have per-formatter render-honesty coverage and `dev:components` preview entries; structural-illegal preview fixture no longer carries an invented schema tag; `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts` is the executable aggregate DoD across registered tools, formatters, preview entries, and snapshots. `npm run verify` passed. Human outer oracles remain owed: walkthrough re-observation for `TESTING_PLAN.md` scenarios 3/5 and preview-gallery aesthetic review.
 - 2026-07-01 `component-dx--rounded-box-primitive` (FE-1115) — `.pi/components/rounded-box.ts` now owns the shared rounded-border projection for bordered Pi TUI presentation components. `brunch-editor.ts`, `workspace-dialog/component.ts`, and `cards.ts` delegate their box drawing to `projectRoundedBox`; direct-render tests cover right/left labels, thumb rows, blank padding, pre-rendered content width, and card title placement. This closes `component-dx`'s active scope; remaining production-wiring work moves to `bordered-chrome-production` (new frontier, below).
 - 2026-07-01 `component-dx--wheel-scroll-passthrough` (FE-1115) — `workspace-dialog-scroll` now opts into preview-harness SGR wheel handling: `showComponentPreview` owns mouse enable/disable plus wheel-to-arrow translation, `.pi/components/mouse-wheel.ts` owns the raw SGR parser, and harness tests prove the long-list preview reaches the same visible state as equivalent ArrowDown input. Residual, carried forward: a manual physical-terminal smoke test (iTerm2/Kitty/Ghostty) to confirm native wheel emission matches the injected SGR shape has not been run.
 - 2026-07-01 `elicitation-gap-guidance` (FE-1116) — the spec-global persisted `elicitation_gaps` register and its count-based readiness scoring are retired; the asking agenda is now a session-local `brunch.elicitation_scratchpad` fold seeded from a thin graph-fact seed; `latestExpectedBand(kind)` is the single band scalar; and settlement (`advisory` | `settled`, orthogonal to `basis`) is materialized and command-enforced (D99-L, I52-L). Closure oracle: `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names. All co-located `TOPOLOGY.md` homes named in `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md` are reconciled; that doc's status flips to landed.
@@ -66,9 +67,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Next
 
-1. `exchange-rendering` — coverage frontier (structural head slice + sweep body), opened 2026-07-02 from walkthrough findings F7/F8/F11. No Linear issue or branch yet; pick up once the FE-1122 batch lands. First member of the `exchange-presentation` arc.
-2. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
-3. `exchange-answering-chrome` — not yet started; no Linear issue or branch yet. Second member of the `exchange-presentation` arc (renamed from `bordered-chrome-production`; main-editor thread split to `main-editor-chrome`, Horizon). Owns the live answering surfaces (choice/review pickers, free-text answer dialog); pairs with `exchange-rendering`, which owns transcript renders.
+1. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
+2. `exchange-answering-chrome` — not yet started; no Linear issue or branch yet. Second member of the `exchange-presentation` arc (renamed from `bordered-chrome-production`; main-editor thread split to `main-editor-chrome`, Horizon). Owns the live answering surfaces (choice/review pickers, free-text answer dialog); pairs with `exchange-rendering`, which owns transcript renders.
 
 ### Parallel / Low-Conflict
 
@@ -111,8 +111,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### exchange-rendering
 
 - **Name:** Structured-exchange transcript rendering — fix, unify, and lock the renderer family
-- **Linear:** unassigned (create on pickup)
-- **Branch:** tbd
+- **Linear:** FE-1123
+- **Branch:** `ln/fe-1123-exchange-rendering`
+- **Status:** ✓ done (2026-07-03). Code DoD closed by `npm run verify`; human outer oracles remain owed: walkthrough re-observation for `TESTING_PLAN.md` scenarios 3/5 and preview-gallery aesthetic review.
+- **Current execution pointer:** none. Ledger `memory/cards/exchange-rendering--sweep.md` is done at 12 of 12 rows built as of 2026-07-03; closeout slices are done in `memory/cards/exchange-rendering--closeout.md`. Head slice built 2026-07-02 (`beede8d5`, D104-L); its consumed scope card deleted per cleanup. The 2026-07-03 consolidation of core contracts into `src/exchanges/` is recorded as D108-L.
 - **Kind:** coverage frontier (sweep shape) with a structural head slice. Arc: `exchange-presentation`.
 - **Certainty:** head slice `proving` (new render-from-details seam + formatter-home decision); sweep rows `earned` (locking settled per-kind renderers).
 - **Classification:** buildable-now. No product-state or evidence gate — all inputs (schemas, details contracts, preview harness) exist.
@@ -121,39 +123,23 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **The three surfaces (boundary):**
   1. **Persisted `content` markdown** — `src/agents/contexts/exchanges/*` formatters. **Dual-audience**: the same string is the model-facing tool result and the current TUI render source. In scope: template quality, honesty, concision-for-model.
-  2. **`renderResult`** — `src/.pi/extensions/exchanges/*` + `shared/markdown.ts`. In scope, and the structural head: render from `result.details` (structured) instead of re-parsing the markdown string, so TUI presentation (numbering, hierarchy, bordered cards via `projectRoundedBox`) evolves independently of model-facing content.
+  2. **`renderResult`** — `src/.pi/extensions/exchanges/*` + `shared/markdown.ts`. In scope. Original head bet was render-from-details; the built head slice revised D104-L to Markdown pass-through of the ★-grammar `content` string (details-built TUI render remains the named upgrade path if the TUI should diverge from the content register).
   3. **Live pickers** — **out of scope**; owned by `exchange-answering-chrome` (`ctx.ui.select` replacement, choices-editor restyle, answer dialog). Boundary rule: this frontier may not touch `shared/choice-source.ts` / `choices-editor.ts` UI collection; it may only consume their result details.
 
 - **Head slice (structural, proving — before any sweep row):**
   - Establish render-from-details in one renderer (`present_question`) end-to-end, including a `dev:components` preview entry fed by fixture `{content, details}` (same static lane as the `alternatives` entry).
-  - **Formatter-home decision:** resolve the three-home split (`agents/contexts/exchanges` formatters vs `.pi/extensions/exchanges` render vs `projections/exchanges` details). Working resolution to validate: `projections/exchanges` **stays** — the TOPOLOGY.md shape ledger shows 5–6 real consumers per module (tools, session reconstruction, RPC/web, probes) and D52-L/D60-L/D75-L govern it; the felt indirection is actually the markdown-string round-trip in surface 2, which the head slice removes. If the head slice instead proves formatters and renderers should co-locate, record the move as a SPEC decision and update the shape ledger — do not silently relocate.
+  - **Formatter-home decision — resolved.** D104-L kept the audience split (formatters in `agents/contexts/exchanges`, Pi adapters in `.pi/extensions/exchanges`, projections a distinct seam); D108-L (2026-07-03) then consolidated the core contracts — schemas, detail projections, recovery, editor envelope — into `src/exchanges/` with `request-response.ts` as the single public request-side surface. Current state: `src/exchanges/TOPOLOGY.md`.
   - Define the **render-honesty oracle** shape: for each renderer, every `details` field is either visibly rendered or deliberately elided by a named rule (extends the existing shape/no-loss invariant discipline from `src/projections/TOPOLOGY.md`).
 
-- **Sweep inventory (draft — `ln-scope` authors the closed ledger in `memory/cards/exchange-rendering--sweep.md`):**
-  | row | owner (formatter / render) | notes |
-  | --- | --- | --- |
-  | ● present_question | `agents/contexts/exchanges/present-question.ts` / tool renderResult | F7 template redesign |
-  | ● request answered: choice | `request-choice.ts` | F11; ties answer back to its question |
-  | ● request answered: choices | `request-choices.ts` | multi-select display |
-  | ● request answered: answer | `request-answer.ts` | free-text display |
-  | ● request answered: review | `request-review.ts` | decision + comment display |
-  | ● request terminal states | cancelled / unavailable / diagnostic (`request-response.ts`) | consistent quiet styling |
-  | ● present_candidates | `present-candidates.ts` (rubric table) | verify rubric renders; candidates → cards? |
-  | ● present_review_set | `present-review-set.ts` | deepest formatter; drafts/edges/settlement honesty |
-  | ● STRUCTURAL_ILLEGAL / recovery | `formatExchangeStructuralIllegal`, `shared/recovery.ts` | agent-facing but user-visible on failure |
-  | ● renderCall coverage | all tools currently render empty calls | decide per-kind: stay empty or minimal call line |
-  | ○ present_alternatives | `.pi/components/alternatives.ts` | family-membership decision: join the exchange render family or stay a standalone card set; tripwire — decide in head slice, build only if joined |
-  - Row closure = formatter honest + renderResult-from-details + preview entry + snapshot/invariant oracle green.
-
-- **Aggregate DoD:** no ● row open; head-slice decision recorded; `exchange-renderer-inventory.test.ts` extended to every row (snapshot per formatter); render-honesty invariant per renderer; `structured-exchange-boundaries.test.ts` still green; preview registry has one entry per renderer family member.
-- **Inventory authority:** `memory/cards/exchange-rendering--sweep.md` (temporary ledger; rows only — sequencing stays here).
+- **Aggregate DoD:** no ● row open; head-slice decision recorded; `exchange-renderer-inventory.test.ts` extended to every row (snapshot per formatter); render-honesty invariant per renderer; boundary guards still green (`src/exchanges/schemas/__tests__/source-boundary.test.ts`, `src/projections/__tests__/topology-boundaries.test.ts`); preview registry has one entry per renderer family member.
+- **Inventory authority:** `memory/cards/exchange-rendering--sweep.md` (authored 2026-07-02; rows only — sequencing stays here).
 - **Oracles:**
   - Inner: per-row `toMatchFileSnapshot` (extends `exchange-renderer-inventory.test.ts`) for model-facing content; direct-render component tests for renderResult output (precedent: rounded-box/chrome direct-render tests).
   - Middle: render-honesty invariant (details ↔ visible-content no-loss) per renderer; boundaries test for the dependency rules in `src/.pi/extensions/exchanges/TOPOLOGY.md`.
   - Outer: walkthrough re-observation beats (TESTING_PLAN.md scenarios 3/5) after landing.
-- **Cross-cutting obligations:** dual-audience discipline — changes to persisted `content` strings change model context; keep model-facing text concise and stable, do visual work in renderResult. Preview-harness parity: every new/changed renderer lands with its `dev:components` entry (extends `src/dev/component-preview/registry.ts`). Topology reconciliation: `src/.pi/extensions/exchanges/TOPOLOGY.md` + `src/projections/TOPOLOGY.md` shape ledger on close.
+- **Cross-cutting obligations:** dual-audience discipline — changes to persisted `content` strings change model context; keep model-facing text concise and stable, do visual work in renderResult. Preview-harness parity: every new/changed renderer lands with its `dev:components` entry (extends `src/dev/component-preview/registry.ts`). Topology reconciliation: `src/exchanges/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`, `src/agents/contexts/exchanges/TOPOLOGY.md` + `src/projections/TOPOLOGY.md` shape ledger on close.
 - **Verification:** four-oracle compound per `memory/SPEC.md` §Design Notes "Exchange-presentation oracle design" — dual-family goldens (content vs render snapshots, inner), render-honesty invariant with declared elision lists (middle), live/persisted metamorphic render equality (middle), family-completeness registry test (middle, = executable aggregate DoD). Fixtures captured-then-normalized from live sessions + hand-authored terminal-state edges. Tier-2 dual-audience probe fires when model-facing content snapshots change. Preview-gallery + walkthrough re-observation outer.
-- **Traceability:** D37-L, D38-L, D41-L (schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); new SPEC decision on formatter-home + render-from-details when the head slice lands.
+- **Traceability:** D37-L, D38-L, D41-L (schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); D104-L (audience split, Markdown pass-through render, render-honesty/elision convention, `present_alternatives` excluded from this sweep family); D105-L (boundary validation), D106-L (option echo), D107-L (proposed graph codes), D108-L (`src/exchanges/` consolidation).
 
 ### exchange-answering-chrome
 
@@ -170,6 +156,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   1. **`answer` (free-text) response kind**: give `request_response`'s `collectAnswerFromSources` path a Brunch-owned bordered component via `ctx.ui.custom` (not `setEditorComponent` — independent of thread 1), following `choices`'/`MultiChoicePickerComponent`'s proven `ctx.ui.custom` + `ctx.ui.editor`-fallback pattern; keep the existing `answerBroker` branch as a third fallback.
   2. **`choice` and review response kinds**: give `collectChoiceFromUi`/`collectReviewFromUi` the same `ctx.ui.custom`-backed bordered-picker treatment, reusing `projectRoundedBox` + `projectScrollViewport` — this retires the raw `ctx.ui.select` path behind walkthrough findings F8 (raw `**`, unnumbered, bare "Other"). Most ready-to-build of the two — `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`'s coverage matrix already proves this cannot regress `session.submitExchangeResponse` (Brunch's real RPC-driven answering path bypasses `ctx.ui.*` entirely, so it's unaffected by whichever UI mechanism the local-TUI path uses).
 - **Acceptance:** to be defined per-thread when scoped; likely two separate `ln-design`/`ln-scope` passes given the differing risk profiles above, not one combined scope card.
+- **Carried design question (2026-07-02, from `exchange-rendering`):** GitHub-style per-item review commentary — widening the review answered payload (`comments: [{on: draft|edge|set, body}]`) plus the collection UI to gather it. The payload half is a SPEC decision; the collection half belongs to this frontier's review-answering surface. Evaluate when scoping; transcript sketch in `src/agents/contexts/exchanges/design-permutations.md` §Review-set evaluation.
 - **Verification:** answering-path non-regression contract test — `session.submitExchangeResponse` never touches `ctx.ui.*` (locks `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`); injected-key VirtualTerminal tests for the new pickers (workspace-dialog-scroll precedent); manual physical-terminal smoke carried from `component-dx`. See `memory/SPEC.md` §Design Notes "Exchange-presentation oracle design".
 - **Traceability:** D22-L, D35-L (chrome, thread 1); D37-L, D38-L (structured-exchange UI seam, threads 2–3); `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`; `src/.pi/components/TOPOLOGY.md`, `src/.pi/extensions/chrome/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`.
 

@@ -7,7 +7,7 @@
 import type { ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { expect } from 'vitest';
 
-import { projectRequestChoices } from '../../../projections/exchanges/request-choices.js';
+import { projectRequestChoices } from '../../../exchanges/projections/request-response.js';
 import { waitForCondition } from '../../tier-2-harness.js';
 
 /** Wait for the product kick turn (brunch.kick entry) on a fixture boot. */
@@ -111,14 +111,19 @@ export function userMessages(entries: readonly unknown[]): readonly Record<strin
  * the test of the resume-debt classifier's envelope reading.
  */
 export function requestChoicesResultMessage(status: 'answered' | 'cancelled' | 'unavailable') {
-  const details = projectRequestChoices({
-    exchangeId: 'ex-resume-1',
-    status,
-    ...(status === 'answered'
-      ? { choices: [{ id: 'choice-1', label: 'Choice 1', kind: 'listed' as const }] }
-      : {}),
-    ...(status === 'unavailable' ? { message: 'request_choices unavailable' } : {}),
-  });
+  const details =
+    status === 'answered'
+      ? projectRequestChoices({
+          exchangeId: 'ex-resume-1',
+          status,
+          choices: [{ id: 'choice-1', label: 'Choice 1', kind: 'listed' as const }],
+          options: [{ id: 'choice-1', content: 'Choice 1' }],
+        })
+      : projectRequestChoices({
+          exchangeId: 'ex-resume-1',
+          status,
+          ...(status === 'unavailable' ? { message: 'request_choices unavailable' } : {}),
+        });
   return {
     role: 'toolResult' as const,
     toolCallId: 'ex-resume-1__request_choices',

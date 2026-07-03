@@ -1,6 +1,10 @@
-import { formatRequestChoice } from '../../../../agents/contexts/exchanges/request-choice.js';
-import { projectRequestChoice } from '../../../../projections/exchanges/request-choice.js';
-import type { SelectedChoice } from '../schemas/index.js';
+import { formatRequestChoice } from '../../../../agents/contexts/exchanges/request-response.js';
+import { projectRequestChoice } from '../../../../exchanges/projections/request-response.js';
+import {
+  structuredExchangeResponseRequiresComment,
+  type AnsweredOptionEcho,
+  type SelectedChoice,
+} from '../../../../exchanges/schemas/index.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
@@ -41,6 +45,7 @@ export interface CollectChoiceParams {
   readonly exchangeId: string;
   readonly prompt: string;
   readonly choices: readonly StructuredExchangeChoice[];
+  readonly options: readonly AnsweredOptionEcho[];
   readonly respondsToPresentTool?: 'present_question' | 'present_candidates';
   readonly allowOther?: boolean;
   readonly commentPrompt?: string;
@@ -78,6 +83,12 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
         : undefined;
     if (other === undefined || other.trim().length === 0) return terminal('cancelled');
     choice = { id: 'other', label: other.trim(), kind: 'other' };
+    if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
+      comment = (await params.ctx.ui.input?.(params.commentPrompt ?? 'Required comment')) ?? '';
+      if (comment.trim().length === 0) {
+        return terminal('unavailable', 'request_choice requires a comment for Other or None selections');
+      }
+    }
   } else {
     choice = selectedChoice(picked, 'listed');
     if (typeof params.ctx.ui.input === 'function') {
@@ -90,6 +101,7 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
     respondsToPresentTool,
     status: 'answered',
     choice,
+    options: params.options,
     comment: normalizeOptionalText(comment),
   });
   return { content: [{ type: 'text' as const, text: formatRequestChoice(details) }], details };

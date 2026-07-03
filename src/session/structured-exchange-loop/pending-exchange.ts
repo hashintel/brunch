@@ -1,7 +1,7 @@
 import * as z from 'zod';
 
-import type { PresentDetails } from '../../.pi/extensions/exchanges/schemas/index.js';
-import { isStructuredExchangePresentDetails } from '../../.pi/extensions/exchanges/shared/recovery.js';
+import { isStructuredExchangePresentDetails } from '../../exchanges/recovery.js';
+import type { PresentDetails } from '../../exchanges/schemas/index.js';
 import type { BrunchSessionEnvelope } from '../brunch-session-envelope.js';
 import { projectLinearSessionExchangeProjection } from '../exchange-projection.js';
 

@@ -209,6 +209,79 @@ describe('Brunch prompt-pack topology', () => {
     );
   });
 
+  it('repairs every supported provider system-prompt carrier shape', async () => {
+    const cases = [
+      {
+        name: 'instructions',
+        payload: { instructions: 'base prompt' },
+        read: (payload: { instructions?: string }) => payload.instructions,
+      },
+      {
+        name: 'systemInstruction',
+        payload: { systemInstruction: 'base prompt' },
+        read: (payload: { systemInstruction?: string }) => payload.systemInstruction,
+      },
+      {
+        name: 'systemPrompt',
+        payload: { systemPrompt: 'base prompt' },
+        read: (payload: { systemPrompt?: string }) => payload.systemPrompt,
+      },
+      {
+        name: 'system string',
+        payload: { system: 'base prompt' },
+        read: (payload: { system?: string }) => payload.system,
+      },
+      {
+        name: 'system blocks',
+        payload: { system: [{ type: 'text', text: 'base prompt' }] },
+        read: (payload: { system?: Array<{ text?: string }> }) =>
+          payload.system?.map((block) => block.text).join('\n'),
+      },
+      {
+        name: 'messages system',
+        payload: { messages: [{ role: 'system', content: 'base prompt' }] },
+        read: (payload: { messages?: Array<{ content?: string }> }) => payload.messages?.[0]?.content,
+      },
+      {
+        name: 'input developer',
+        payload: { input: [{ role: 'developer', content: 'base prompt' }] },
+        read: (payload: { input?: Array<{ content?: string }> }) => payload.input?.[0]?.content,
+      },
+      {
+        name: 'input developer blocks',
+        payload: { input: [{ role: 'developer', content: [{ type: 'text', text: 'base prompt' }] }] },
+        read: (payload: { input?: Array<{ content?: Array<{ text?: string }> }> }) =>
+          payload.input?.[0]?.content?.map((block) => block.text).join('\n'),
+      },
+    ];
+
+    for (const testCase of cases) {
+      const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
+      registerBrunchPrompting(
+        {
+          on: (event: string, handler: (event: never, ctx?: never) => unknown) => {
+            events[event] ??= [];
+            events[event].push(handler);
+          },
+          getAllTools: () =>
+            ['read', 'grep', 'present_question', 'request_response'].map((name) => ({ name })),
+          setActiveTools() {},
+        } as never,
+        promptContext,
+      );
+
+      const repaired = (await Promise.resolve(
+        events.before_provider_request?.[0]?.(
+          { payload: testCase.payload } as never,
+          { sessionManager: { getEntries: () => [] } } as never,
+        ),
+      )) as typeof testCase.payload | undefined;
+
+      expect(repaired, testCase.name).toBeDefined();
+      expect(testCase.read(repaired as never), testCase.name).toContain('# Elicitor');
+    }
+  });
+
   it('keeps the provider-request prompt guard idempotent after before_agent_start appended', async () => {
     const events: Record<string, Array<(event: never, ctx?: never) => unknown>> = {};
 

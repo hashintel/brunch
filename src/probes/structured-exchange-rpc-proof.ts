@@ -148,6 +148,11 @@ async function writeProofExtension(cwd: string): Promise<string> {
         { id: "wait-web", label: "Wait for web relay" },
         { id: "blocker", label: "Escalate blocker" },
       ],
+      options: [
+        { id: "rpc-fallback", content: "Ship RPC fallback" },
+        { id: "wait-web", content: "Wait for web relay" },
+        { id: "blocker", content: "Escalate blocker" },
+      ],
     } as const
 
     export default function(pi: ExtensionAPI): void {

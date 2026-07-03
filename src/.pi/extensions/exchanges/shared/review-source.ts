@@ -1,8 +1,8 @@
-import { formatRequestReview } from '../../../../agents/contexts/exchanges/request-review.js';
+import { formatRequestReview } from '../../../../agents/contexts/exchanges/request-response.js';
 import {
   projectRequestReview,
   type ReviewDecision,
-} from '../../../../projections/exchanges/request-review.js';
+} from '../../../../exchanges/projections/request-response.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 

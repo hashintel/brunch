@@ -52,12 +52,14 @@ export function renderMarkdownResult(result: ToolResultLike, theme?: ThemeLike) 
   );
 }
 
-export function renderPlainResult(result: ToolResultLike) {
-  return new Text(textFromToolContent(result), 0, 0);
+export function renderEmptyStructuredExchangeCall() {
+  // Structured-exchange renderCall is intentionally invisible: durable semantics
+  // and user-visible text live in the tool result content (D37-L/D104-L).
+  return renderMarkdownResult({ content: [] });
 }
 
-export function markdownEscape(text: string): string {
-  return text.replace(/([\\`*_{}[\]()#+\-.!|>])/g, '\\$1');
+export function renderPlainResult(result: ToolResultLike) {
+  return new Text(textFromToolContent(result), 0, 0);
 }
 
 export function normalizeOptionalText(value: unknown): string | undefined {

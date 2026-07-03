@@ -11,8 +11,20 @@ import {
   createWorkspaceDialogComponent,
   WORKSPACE_DIALOG_WIDTH,
 } from '../../.pi/components/workspace-dialog/index.js';
+import { renderMarkdownResult } from '../../.pi/extensions/exchanges/shared/markdown.js';
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
+import {
+  presentCandidatesFixture,
+  presentQuestionOptionsFixture,
+  presentReviewSetFixture,
+  requestAnswerFixture,
+  requestChoiceFixture,
+  requestChoicesFixture,
+  requestReviewFixture,
+  requestTerminalFixture,
+  structuralIllegalFixture,
+} from './exchange-fixtures.js';
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
 
@@ -196,6 +208,78 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       if (!component) throw new Error('alternatives-card-set renderer returned no component');
       return previewStaticComponent(tui, component);
     },
+  },
+  {
+    id: 'present-candidates',
+    label: 'present_candidates transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/present-candidates.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(presentCandidatesFixture.result, theme)),
+  },
+  {
+    id: 'present-question',
+    label: 'present_question transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/present-question.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(presentQuestionOptionsFixture.result, theme)),
+  },
+  {
+    id: 'present-review-set',
+    label: 'present_review_set transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/present-review-set.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(presentReviewSetFixture.result, theme)),
+  },
+  {
+    id: 'structural-illegal',
+    label: 'STRUCTURAL_ILLEGAL diagnostic transcript render',
+    presentedLike:
+      'tool result renderer — structural illegal exchange recovery diagnostic (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(structuralIllegalFixture.result, theme)),
+  },
+  {
+    id: 'request-answer',
+    label: 'request_response answer transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(requestAnswerFixture.result, theme)),
+  },
+  {
+    id: 'request-choice',
+    label: 'request_response choice transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(requestChoiceFixture.result, theme)),
+  },
+  {
+    id: 'request-choices',
+    label: 'request_response choices transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(requestChoicesFixture.result, theme)),
+  },
+  {
+    id: 'request-review',
+    label: 'request_response review transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(requestReviewFixture.result, theme)),
+  },
+  {
+    id: 'request-terminal',
+    label: 'request_response terminal transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/request-response.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(requestTerminalFixture.result, theme)),
   },
   {
     id: 'chrome-header',

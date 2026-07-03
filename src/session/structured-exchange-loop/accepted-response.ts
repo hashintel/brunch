@@ -1,8 +1,13 @@
-import { projectRequestAnswer } from '../../projections/exchanges/request-answer.js';
-import { projectRequestChoice } from '../../projections/exchanges/request-choice.js';
-import { projectRequestChoices } from '../../projections/exchanges/request-choices.js';
-import { projectRequestReview } from '../../projections/exchanges/request-review.js';
-import type { PendingChoice, PendingStructuredExchange } from './pending-exchange.js';
+import { formatRequestAnswer } from '../../agents/contexts/exchanges/request-response.js';
+import { formatRequestChoice } from '../../agents/contexts/exchanges/request-response.js';
+import { formatRequestChoices } from '../../agents/contexts/exchanges/request-response.js';
+import { formatRequestReview } from '../../agents/contexts/exchanges/request-response.js';
+import { projectRequestAnswer } from '../../exchanges/projections/request-response.js';
+import { projectRequestChoice } from '../../exchanges/projections/request-response.js';
+import { projectRequestChoices } from '../../exchanges/projections/request-response.js';
+import { projectRequestReview } from '../../exchanges/projections/request-response.js';
+import { structuredExchangeResponseRequiresComment } from '../../exchanges/schemas/index.js';
+import type { PendingStructuredExchange } from './pending-exchange.js';
 import {
   exchangeToolCallId,
   syntheticExchangeToolCallMessage,
@@ -79,7 +84,18 @@ export function acceptedResponseFromParams(
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_response'),
-        content: [{ type: 'text', text: `# Response\n\n${params.answer.text}` }],
+        content: [
+          {
+            type: 'text',
+            text: formatRequestAnswer(
+              projectRequestAnswer({
+                exchangeId: pending.exchangeId,
+                status: 'answered',
+                answer: params.answer.text,
+              }),
+            ),
+          },
+        ],
         details: projectRequestAnswer({
           exchangeId: pending.exchangeId,
           status: 'answered',
@@ -95,18 +111,42 @@ export function acceptedResponseFromParams(
     const choice = pending.options.find((option) => option.id === optionId);
     if (!choice) return { ok: false, message: 'Invalid elicitation option' };
     const comment = params.note?.trim();
+    if (
+      structuredExchangeResponseRequiresComment({ choiceKinds: [choiceKind(choice.id)] }) &&
+      (comment === undefined || comment.length === 0)
+    ) {
+      return {
+        ok: false,
+        message: 'Elicitation response requires a comment for Other or None selections',
+      };
+    }
     return {
       ok: true,
       answer: { optionId: choice.id, label: choice.label },
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_response'),
-        content: [{ type: 'text', text: choiceResponseMarkdown([choice], params.note) }],
+        content: [
+          {
+            type: 'text',
+            text: formatRequestChoice(
+              projectRequestChoice({
+                exchangeId: pending.exchangeId,
+                respondsToPresentTool: pending.respondsToPresentTool ?? 'present_question',
+                status: 'answered',
+                choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
+                options: optionEcho(pending.options),
+                comment,
+              }),
+            ),
+          },
+        ],
         details: projectRequestChoice({
           exchangeId: pending.exchangeId,
           respondsToPresentTool: pending.respondsToPresentTool ?? 'present_question',
           status: 'answered',
           choice: { id: choice.id, label: choice.label, kind: choiceKind(choice.id) },
+          options: optionEcho(pending.options),
           comment,
         }),
       },
@@ -117,7 +157,10 @@ export function acceptedResponseFromParams(
     if (pending.mode !== 'review') return invalidResponseMode();
     const review = params.answer.review;
     const comment = review.comment?.trim();
-    if (review.decision === 'request_changes' && (comment === undefined || comment.length === 0)) {
+    if (
+      structuredExchangeResponseRequiresComment({ reviewDecision: review.decision }) &&
+      (comment === undefined || comment.length === 0)
+    ) {
       return { ok: false, message: 'Review request_changes requires a comment' };
     }
     return {
@@ -131,7 +174,19 @@ export function acceptedResponseFromParams(
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_response'),
-        content: [{ type: 'text', text: reviewResponseMarkdown(review.decision, comment) }],
+        content: [
+          {
+            type: 'text',
+            text: formatRequestReview(
+              projectRequestReview({
+                exchangeId: pending.exchangeId,
+                status: 'answered',
+                review: review.decision,
+                comment,
+              }),
+            ),
+          },
+        ],
         details: projectRequestReview({
           exchangeId: pending.exchangeId,
           status: 'answered',
@@ -143,13 +198,23 @@ export function acceptedResponseFromParams(
   }
 
   if (pending.mode !== 'multi-select') return invalidResponseMode();
+  if (params.answer.optionIds.length === 0) {
+    return { ok: false, message: 'Elicitation response requires at least one selected option' };
+  }
   const selected = params.answer.optionIds.map((id) => pending.options.find((option) => option.id === id));
   if (selected.some((choice) => choice === undefined)) {
     return { ok: false, message: 'Invalid elicitation option' };
   }
-  const choices = selected as PendingChoice[];
+  const choices = selected as Array<{
+    id: string;
+    label: string;
+    content: string;
+    rationale?: string | undefined;
+  }>;
   if (
-    choices.some((choice) => choice.id === 'other' || choice.id === 'none') &&
+    structuredExchangeResponseRequiresComment({
+      choiceKinds: choices.map((choice) => choiceKind(choice.id)),
+    }) &&
     (params.note === undefined || params.note.trim().length === 0)
   ) {
     return {
@@ -164,7 +229,24 @@ export function acceptedResponseFromParams(
     toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
     toolResultMessage: {
       ...toolResultMessageBase(pending, 'request_response'),
-      content: [{ type: 'text', text: choiceResponseMarkdown(choices, params.note) }],
+      content: [
+        {
+          type: 'text',
+          text: formatRequestChoices(
+            projectRequestChoices({
+              exchangeId: pending.exchangeId,
+              status: 'answered',
+              choices: choices.map((choice) => ({
+                id: choice.id,
+                label: choice.label,
+                kind: choiceKind(choice.id),
+              })),
+              options: optionEcho(pending.options),
+              comment,
+            }),
+          ),
+        },
+      ],
       details: projectRequestChoices({
         exchangeId: pending.exchangeId,
         status: 'answered',
@@ -173,6 +255,7 @@ export function acceptedResponseFromParams(
           label: choice.label,
           kind: choiceKind(choice.id),
         })),
+        options: optionEcho(pending.options),
         comment,
       }),
     },
@@ -192,6 +275,14 @@ function choiceKind(id: string): 'listed' | 'other' | 'none' {
   return 'listed';
 }
 
+function optionEcho(options: readonly { id: string; content: string; rationale?: string | undefined }[]) {
+  return options.map((option) => ({
+    id: option.id,
+    content: option.content,
+    ...(option.rationale !== undefined ? { rationale: option.rationale } : {}),
+  }));
+}
+
 function toolResultMessageBase(
   pending: PendingStructuredExchange,
   requestTool: 'request_response' | 'request_review',
@@ -203,25 +294,4 @@ function toolResultMessageBase(
     isError: false as const,
     timestamp: 0 as const,
   };
-}
-
-function choiceResponseMarkdown(choices: Array<{ label: string }>, comment: string | undefined): string {
-  const lines = ['# Response', '', ...choices.map((choice) => `- ${choice.label}`)];
-  if (comment !== undefined && comment.trim().length > 0) {
-    lines.push('', 'Comment:', '', `> ${comment.trim()}`);
-  }
-  return lines.join('\n');
-}
-
-function reviewResponseMarkdown(
-  decision: 'approve' | 'request_changes' | 'reject',
-  comment: string | undefined,
-): string {
-  const label =
-    decision === 'approve' ? 'Approved' : decision === 'request_changes' ? 'Requested changes' : 'Rejected';
-  const lines = ['# Review decision', '', label];
-  if (comment !== undefined && comment.length > 0) {
-    lines.push('', 'Comment:', '', `> ${comment}`);
-  }
-  return lines.join('\n');
 }

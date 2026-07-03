@@ -4,7 +4,7 @@
 > Date: 2026-06-22; updated 2026-06-23.
 > Scope: the structured-exchange **tool surface** — the `present_*` / `request_*` two-call grammar. This document records a Design-It-Twice (`ln-design`) exploration of three module shapes, the comparison, the chosen design, its load-bearing claims, and the tracer bullets that have now started landing.
 >
-> Governs / refines: `memory/SPEC.md` **I23-L** (structured-exchange tuple grammar), **D37-L/D38-L** (structured-exchange contract), **D84-L/D86-L** (live-exchange broker / TUI editor response surface). Companion: [REVIEW_SETS.md](REVIEW_SETS.md) (the review-set proposal payload), `src/.pi/extensions/exchanges/schemas/TOPOLOGY.md` (the schema source boundaries).
+> Governs / refines: `memory/SPEC.md` **I23-L** (structured-exchange tuple grammar), **D37-L/D38-L** (structured-exchange contract), **D84-L/D86-L** (live-exchange broker / TUI editor response surface). Companion: [REVIEW_SETS.md](REVIEW_SETS.md) (the review-set proposal payload), `src/exchanges/schemas/TOPOLOGY.md` (the schema source boundaries; moved from `src/.pi/extensions/exchanges/schemas/` by D108-L).
 >
 > SPEC is the authoritative register; this document is rationale and texture for a not-yet-active frontier. When the design is built, its durable residue reconciles into SPEC (I23-L + a new/updated assumption) and this doc becomes the long-form companion.
 
@@ -28,12 +28,12 @@ chain
 
 The legal pairs (`src/.pi/extensions/exchanges/schemas/shared.ts`, `tool_meta.curr/next`):
 
-| present_* | legal request_* |
-| --- | --- |
-| `present_question` | `request_answer` |
-| `present_options` | `request_choice` / `request_choices` |
-| `present_candidates` | `request_choice` |
-| `present_review_set` | `request_review` |
+| present_*            | legal request_*                      |
+| -------------------- | ------------------------------------ |
+| `present_question`   | `request_answer`                     |
+| `present_options`    | `request_choice` / `request_choices` |
+| `present_candidates` | `request_choice`                     |
+| `present_review_set` | `request_review`                     |
 
 The model declares the pairing via a `respondsToPresentTool` param on the request tool. That field is where the mistake happens.
 
@@ -92,13 +92,13 @@ Keep both call layers and all 8 tools; downgrade `respondsToPresentTool` to advi
 
 ## Comparison
 
-| Axis (Ousterhout) | A — collapse | B — `request_response` | C — derive |
-| --- | --- | --- | --- |
-| **Depth** | High but leaky (one tool owns paint+block+record+recovery) | **Highest clean** — `request_response` is a deep dispatcher; `present_*` stays a focused anchor | Medium — same 8 tools, behavior hidden in routing |
-| **Kills mis-pair by construction** | yes (no pairing field) | **yes** (no request tool to name) | no (coerces, doesn't prevent) |
-| **Recoverability risk** | **high** — unproven mid-tool checkpoint | **none** — present anchor unchanged | none |
-| **Churn** | largest (8→4, three-layer + recovery rewrite) | medium (4 request→1; present untouched) | smallest |
-| **Epistemic cost** | bets on an unverified Pi capability | bets only on "one dispatcher serves all request UIs" — cheaply testable | bets on "one pending present is unambiguous" — leaves silent-coercion debt |
+| Axis (Ousterhout)                  | A — collapse                                               | B — `request_response`                                                                          | C — derive                                                                 |
+| ---------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **Depth**                          | High but leaky (one tool owns paint+block+record+recovery) | **Highest clean** — `request_response` is a deep dispatcher; `present_*` stays a focused anchor | Medium — same 8 tools, behavior hidden in routing                          |
+| **Kills mis-pair by construction** | yes (no pairing field)                                     | **yes** (no request tool to name)                                                               | no (coerces, doesn't prevent)                                              |
+| **Recoverability risk**            | **high** — unproven mid-tool checkpoint                    | **none** — present anchor unchanged                                                             | none                                                                       |
+| **Churn**                          | largest (8→4, three-layer + recovery rewrite)              | medium (4 request→1; present untouched)                                                         | smallest                                                                   |
+| **Epistemic cost**                 | bets on an unverified Pi capability                        | bets only on "one dispatcher serves all request UIs" — cheaply testable                         | bets on "one pending present is unambiguous" — leaves silent-coercion debt |
 
 **Decisive insight:** A and C both touch the present side — A *endangers* recoverability (the unproven checkpoint), C *preserves the bug* (coercion, not prevention). **B is the only design that cuts exactly at the joint:** present side whole (recoverability free, I23-L's anchor clause unchanged), request side collapsed (mis-pairing unrepresentable). B dominates A on epistemic cost (no unproven Pi dependency) and dominates C on correctness (prevents, not coerces).
 

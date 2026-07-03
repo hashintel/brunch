@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { projectPresentCandidates } from '../../../../projections/exchanges/present-candidates.js';
-import { formatPresentCandidates } from '../present-candidates.js';
+import { projectPresentCandidates } from '../../../../exchanges/projections/present-candidates.js';
+import { projectRequestChoice } from '../../../../exchanges/projections/request-response.js';
+import { formatPresentCandidates, PRESENT_CANDIDATES_CONTENT_ELISIONS } from '../present-candidates.js';
+import { missingRenderedDetailsLeaves } from '../render-honesty.js';
+import { formatRequestChoice } from '../request-response.js';
 
 function projection() {
   return projectPresentCandidates({
@@ -34,10 +37,37 @@ function projection() {
 }
 
 describe('formatPresentCandidates', () => {
-  it('renders candidate titles and user-rubric facets', async () => {
-    const markdown = formatPresentCandidates(projection());
+  it('locks transcript-shaped candidate tuples', async () => {
+    const present = projection();
+    const selectedChoice = projectRequestChoice({
+      exchangeId: 'candidate-direction',
+      respondsToPresentTool: 'present_candidates',
+      status: 'answered',
+      choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' },
+      options: [{ id: 'local-workbench', content: 'Local workbench' }],
+    });
+    expect(selectedChoice.tool_meta).toEqual({
+      prev: 'present_candidates',
+      curr: 'request_choice',
+      next: 'capture_candidate',
+    });
+    const markdown = [
+      section('candidate selected', formatPresentCandidates(present), formatRequestChoice(selectedChoice)),
+      section(
+        'candidate unavailable',
+        formatPresentCandidates(present),
+        formatRequestChoice(
+          projectRequestChoice({
+            exchangeId: 'candidate-direction',
+            respondsToPresentTool: 'present_candidates',
+            status: 'unavailable',
+            message: 'request_response choice requires interactive UI',
+          }),
+        ),
+      ),
+    ].join('\n\n');
 
-    await expect(markdown).toMatchFileSnapshot('../__snapshots__/present-candidates.md');
+    await expect(markdown).toMatchFileSnapshot('../__snapshots__/candidates-tuples.md');
   });
 
   it('does not dump meta-rubric reasoning by default', () => {
@@ -46,4 +76,19 @@ describe('formatPresentCandidates', () => {
     expect(markdown).not.toContain('legibility_cost_of_knowing');
     expect(markdown).not.toContain('failure_modes');
   });
+
+  it('declares every details leaf as rendered or intentionally elided', () => {
+    const present = projection();
+    const content = formatPresentCandidates(present);
+
+    expect(
+      missingRenderedDetailsLeaves(present.details, content, {
+        elisions: PRESENT_CANDIDATES_CONTENT_ELISIONS,
+      }),
+    ).toEqual([]);
+  });
 });
+
+function section(label: string, ...entries: readonly string[]): string {
+  return [`# ${label}`, ...entries].join('\n\n');
+}

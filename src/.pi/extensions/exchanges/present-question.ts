@@ -1,10 +1,10 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
 import { formatPresentQuestion } from '../../../agents/contexts/exchanges/present-question.js';
-import { projectPresentQuestion } from '../../../projections/exchanges/present-question.js';
+import { projectPresentQuestion } from '../../../exchanges/projections/present-question.js';
+import { zPresentQuestionParams, type PresentQuestionParams } from '../../../exchanges/schemas/index.js';
 import { piSchema } from './pi-schema.js';
-import { zPresentQuestionParams, type PresentQuestionParams } from './schemas/index.js';
-import { renderMarkdownResult } from './shared/markdown.js';
+import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_QUESTION_TOOL = 'present_question' as const;
 
@@ -34,9 +34,12 @@ export const presentQuestionTool = defineTool({
   },
 
   renderCall() {
-    return renderMarkdownResult({ content: [] });
+    return renderEmptyStructuredExchangeCall();
   },
 
+  // ceiling: renderResult is the Markdown pass-through of the formatter's content
+  // (D104-L revision 2026-07-02); upgrade path is a details-built TUI-only render
+  // if exchange blocks should ever diverge from the content register.
   renderResult(result, _options, theme) {
     return renderMarkdownResult(result, theme);
   },

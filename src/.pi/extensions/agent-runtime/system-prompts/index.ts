@@ -8,6 +8,7 @@ import type {
 import type { LiveElicitorPushedContext } from '../../../../agents/runtime/elicitor/context.js';
 import { composeForegroundRuntimePrompt } from '../../../../agents/runtime/foreground-policy.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
+import { appendProviderSystemPromptIfMissing } from '../../shared/provider-system-prompt.js';
 import { activeToolNamesForBrunchAgentState, projectBrunchAgentState } from '../runtime/index.js';
 
 type BrunchAgentStateEntries = Parameters<typeof projectBrunchAgentState>[0];
@@ -90,7 +91,7 @@ export function registerBrunchPrompting(
     );
     if (prompt.trim().length === 0) return undefined;
 
-    return appendPromptToProviderPayloadIfMissing((event as BeforeProviderRequestEventLike).payload, prompt);
+    return appendProviderSystemPromptIfMissing((event as BeforeProviderRequestEventLike).payload, prompt);
   });
 }
 
@@ -133,91 +134,4 @@ function systemPromptHasBrunchPrompt(systemPrompt: string, prompt: string): bool
     .map((line) => line.trim())
     .find(Boolean);
   return sentinel !== undefined && systemPrompt.includes(sentinel);
-}
-
-function appendPromptToProviderPayloadIfMissing(payload: unknown, prompt: string): unknown {
-  if (!isRecord(payload)) return undefined;
-
-  const replacements = [
-    appendToStringProperty(payload, 'instructions', prompt),
-    appendToStringProperty(payload, 'systemInstruction', prompt),
-    appendToStringOrBlocksProperty(payload, 'system', prompt),
-    appendToMessageArray(payload, prompt),
-  ];
-  return replacements.find((replacement) => replacement !== undefined);
-}
-
-function appendToStringProperty(payload: Record<string, unknown>, key: string, prompt: string): unknown {
-  const value = payload[key];
-  if (typeof value !== 'string') return undefined;
-  const nextValue = appendPromptIfMissing(value, prompt);
-  return nextValue === value ? payload : { ...payload, [key]: nextValue };
-}
-
-function appendToStringOrBlocksProperty(
-  payload: Record<string, unknown>,
-  key: string,
-  prompt: string,
-): unknown {
-  const value = payload[key];
-  if (typeof value === 'string') return appendToStringProperty(payload, key, prompt);
-  if (!Array.isArray(value)) return undefined;
-
-  const currentPrompt = textFromBlocks(value);
-  if (systemPromptHasBrunchPrompt(currentPrompt, prompt)) return payload;
-  return {
-    ...payload,
-    [key]: [...value, { type: 'text', text: prompt }],
-  };
-}
-
-function appendToMessageArray(payload: Record<string, unknown>, prompt: string): unknown {
-  const messages = payload.messages ?? payload.input;
-  if (!Array.isArray(messages)) return undefined;
-
-  const firstSystemIndex = messages.findIndex(isSystemMessageLike);
-  if (firstSystemIndex === -1) return undefined;
-
-  const message = messages[firstSystemIndex];
-  if (!isRecord(message)) return undefined;
-  const content = message.content;
-  const contentText = contentToText(content);
-  if (contentText === undefined || systemPromptHasBrunchPrompt(contentText, prompt)) return payload;
-
-  const nextMessages = [...messages];
-  nextMessages[firstSystemIndex] = {
-    ...message,
-    content: appendContent(content, prompt),
-  };
-  return {
-    ...payload,
-    [payload.messages === messages ? 'messages' : 'input']: nextMessages,
-  };
-}
-
-function isSystemMessageLike(message: unknown): boolean {
-  return isRecord(message) && (message.role === 'system' || message.role === 'developer');
-}
-
-function appendContent(content: unknown, prompt: string): unknown {
-  if (typeof content === 'string') return appendPromptIfMissing(content, prompt);
-  if (Array.isArray(content)) return [...content, { type: 'text', text: prompt }];
-  return content;
-}
-
-function contentToText(content: unknown): string | undefined {
-  if (typeof content === 'string') return content;
-  if (Array.isArray(content)) return textFromBlocks(content);
-  return undefined;
-}
-
-function textFromBlocks(blocks: readonly unknown[]): string {
-  return blocks
-    .map((block) => (isRecord(block) && typeof block.text === 'string' ? block.text : ''))
-    .filter(Boolean)
-    .join('\n');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

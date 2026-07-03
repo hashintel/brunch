@@ -8,14 +8,11 @@ const SOURCE_ROOT = 'src';
 const PROJECTIONS_ROOT = 'src/projections';
 const ADAPTER_IMPORT_SEGMENTS = ['/.pi/', '/rpc/', '/app/', '/web/'];
 const PROJECTION_ADAPTER_EXCEPTIONS: Record<string, true> = {
-  'src/projections/exchanges/__tests__/present-candidates.test.ts': true,
-  'src/projections/exchanges/present-candidates.ts': true,
-  'src/projections/exchanges/present-question.ts': true,
-  'src/projections/exchanges/present-review-set.ts': true,
-  'src/projections/exchanges/request-answer.ts': true,
-  'src/projections/exchanges/request-choice.ts': true,
-  'src/projections/exchanges/request-choices.ts': true,
-  'src/projections/exchanges/request-review.ts': true,
+  'src/exchanges/projections/__tests__/present-candidates.test.ts': true,
+  'src/exchanges/projections/present-candidates.ts': true,
+  'src/exchanges/projections/present-question.ts': true,
+  'src/exchanges/projections/present-review-set.ts': true,
+  'src/exchanges/projections/request-response.ts': true,
 };
 
 function sourceFilesUnder(path: string): string[] {

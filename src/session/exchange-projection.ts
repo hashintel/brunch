@@ -5,11 +5,11 @@ import {
   type SessionMessageEntry,
 } from '@earendil-works/pi-coding-agent';
 
-import type { PresentDetails, RequestDetails } from '../.pi/extensions/exchanges/schemas/index.js';
 import {
   isStructuredExchangePresentDetails,
   isStructuredExchangeRequestDetails,
-} from '../.pi/extensions/exchanges/shared/recovery.js';
+} from '../exchanges/recovery.js';
+import type { PresentDetails, RequestDetails } from '../exchanges/schemas/index.js';
 import {
   assertLinearBrunchSessionEnvelope,
   loadJsonlTranscriptEntries,

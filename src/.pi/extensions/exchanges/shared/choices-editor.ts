@@ -1,63 +1,19 @@
-import { formatRequestChoices } from '../../../../agents/contexts/exchanges/request-choices.js';
-import { projectRequestChoices } from '../../../../projections/exchanges/request-choices.js';
-import { createMultiChoicePickerComponent } from '../../../components/multi-choice-picker.js';
+import { formatRequestChoices } from '../../../../agents/contexts/exchanges/request-response.js';
 import {
-  STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,
-  STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_VERSION,
-  zRequestChoicesEditorReply,
+  buildRequestChoicesEditorPrefill,
+  parseRequestChoicesEditorResponse,
   type RequestChoicesEditorChoice,
-  type RequestChoicesEditorEnvelopeInput,
-  type RequestChoicesEditorResponse,
+  type StructuredExchangeChoice,
+} from '../../../../exchanges/editor-envelope.js';
+import { projectRequestChoices } from '../../../../exchanges/projections/request-response.js';
+import {
+  structuredExchangeResponseRequiresComment,
+  type AnsweredOptionEcho,
   type SelectedChoice,
-} from '../schemas/index.js';
+} from '../../../../exchanges/schemas/index.js';
+import { createMultiChoicePickerComponent } from '../../../components/multi-choice-picker.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
-
-export interface StructuredExchangeChoice {
-  readonly id: string;
-  readonly label: string;
-}
-
-export function buildRequestChoicesEditorPrefill(params: {
-  prompt: string;
-  choices: readonly StructuredExchangeChoice[];
-  allowOther?: boolean;
-  allowNone?: boolean;
-  commentPrompt?: string;
-}): string {
-  const choices = [
-    ...params.choices,
-    ...(params.allowOther ? [{ id: 'other', label: 'Other' }] : []),
-    ...(params.allowNone ? [{ id: 'none', label: 'None' }] : []),
-  ];
-  const envelope = {
-    schema: STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,
-    schemaVersion: STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_VERSION,
-    prompt: params.prompt,
-    mode: 'multi-choice',
-    choices,
-    instructions: [
-      'Edit only response.',
-      'Set response.status to answered or cancelled.',
-      'For each selected choice, include its id in response.choices.',
-      'Set response.comment to a string. Other or None requires a nonblank comment.',
-    ],
-    commentPrompt: params.commentPrompt ?? 'Optional comment',
-    response: { status: 'cancelled', choices: [], comment: '' },
-  } satisfies RequestChoicesEditorEnvelopeInput;
-  return JSON.stringify(envelope, null, 2);
-}
-
-export function parseRequestChoicesEditorResponse(value: string): RequestChoicesEditorResponse | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    return null;
-  }
-  const reply = zRequestChoicesEditorReply.safeParse(parsed);
-  return reply.success ? reply.data.response : null;
-}
 
 function matchSelectedChoices(
   selected: readonly RequestChoicesEditorChoice[],
@@ -90,6 +46,7 @@ export interface RequestChoicesEditorFlowParams {
   readonly exchangeId: string;
   readonly prompt: string;
   readonly choices: readonly StructuredExchangeChoice[];
+  readonly options: readonly AnsweredOptionEcho[];
   readonly allowOther?: boolean;
   readonly allowNone?: boolean;
   readonly commentPrompt?: string;
@@ -121,7 +78,10 @@ function matchedChoicesResult(
   if (typeof matched === 'string') return terminalResult(params.exchangeId, 'unavailable', matched);
 
   const comment = normalizeOptionalText(commentText);
-  if (matched.some((choice) => choice.kind === 'other' || choice.kind === 'none') && comment === undefined) {
+  if (
+    structuredExchangeResponseRequiresComment({ choiceKinds: matched.map((choice) => choice.kind) }) &&
+    comment === undefined
+  ) {
     return terminalResult(
       params.exchangeId,
       'unavailable',
@@ -133,6 +93,7 @@ function matchedChoicesResult(
     exchangeId: params.exchangeId,
     status: 'answered',
     choices: matched,
+    options: params.options,
     comment,
   });
   return { content: [{ type: 'text' as const, text: formatRequestChoices(details) }], details };
@@ -157,7 +118,11 @@ export async function requestChoicesFromSources(
 
     const needsComment =
       params.commentPrompt !== undefined ||
-      picked.choices.some((choice) => choice.id === 'other' || choice.id === 'none');
+      structuredExchangeResponseRequiresComment({
+        choiceKinds: picked.choices.map((choice) =>
+          choice.id === 'none' ? 'none' : choice.id === 'other' ? 'other' : 'listed',
+        ),
+      });
     const comment = needsComment
       ? await ctx.ui.input?.(params.commentPrompt ?? 'Required comment')
       : undefined;

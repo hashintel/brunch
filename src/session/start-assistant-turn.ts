@@ -1,4 +1,4 @@
-import { REQUEST_OUTCOME_KEYS } from '../projections/exchanges/request-choices.js';
+import { REQUEST_OUTCOME_KEYS } from '../exchanges/projections/request-response.js';
 import { projectAssistantVisibleWatermark } from '../projections/session/assistant-visible-watermark.js';
 import {
   isContinuityOnlyNonDebtEntry,
@@ -80,7 +80,7 @@ export function latestTailOwesAssistant(entries: readonly TranscriptEntryLike[])
 }
 
 /**
- * Real request_* result envelopes (projections/exchanges) carry their outcome
+ * Real request_* result envelopes (exchanges/projections) carry their outcome
  * as key presence — `REQUEST_OUTCOME_KEYS` — never a status string field. A
  * request result with none of those keys is still pending.
  */

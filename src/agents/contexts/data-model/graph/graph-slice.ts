@@ -2,6 +2,8 @@
  * Formats selected-spec GraphSlice reads into model-facing text.
  */
 
+import { table } from 'md-pen';
+
 import type { EdgeEndpoint } from '../../../../graph/policy/category-policy.js';
 import { edgeImpact } from '../../../../graph/projection/direction.js';
 import { edgeLabel } from '../../../../graph/projection/labels.js';
@@ -13,7 +15,7 @@ import {
   formatGraphNodeCode,
   type NodeKind,
 } from '../../../../graph/schema/nodes.js';
-import { markdownTable, joinMarkdownBlocks } from '../../../shared/markdown.js';
+import { joinMarkdownBlocks } from '../../../shared/markdown.js';
 
 /**
  * The full, uncapped graph overview — node codes/planes/kinds/titles plus the
@@ -86,7 +88,7 @@ function formatNodeSections(
       sections.push(
         [
           `nodes — ${plane} · ${band} (${sortedNodes.length})`,
-          markdownTable([
+          table([
             ['code', 'id', 'title'],
             ...sortedNodes.map((node) => [
               formatGraphNodeCode(node.kind, node.kindOrdinal),
@@ -132,7 +134,7 @@ function formatEdgeTable(
   const rows = [...edges].map((edge) => edgeRow(edge, nodesById)).sort(compareEdgeRows);
   return [
     'edges (sorted by upstream)',
-    markdownTable([
+    table([
       ['id', 'upstream', 'relation', 'downstream'],
       ...rows.map((row) => [row.id, row.upstream, row.relation, row.downstream]),
     ]),

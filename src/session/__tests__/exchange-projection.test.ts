@@ -110,7 +110,15 @@ const presentReviewSetToolResult = {
         body: 'Review this graph proposal.',
       },
       review_set: {
-        nodes: [{ draft_id: 'goal-review', plane: 'intent', kind: 'goal', title: 'Review graph proposals' }],
+        nodes: [
+          {
+            draft_id: 'goal-review',
+            proposed_code: 'G1',
+            plane: 'intent',
+            kind: 'goal',
+            title: 'Review graph proposals',
+          },
+        ],
         edges: [],
       },
     },
@@ -159,6 +167,10 @@ const requestChoicesToolResult = {
         choices: [
           { id: 'speed', label: 'Move quickly', kind: 'listed' },
           { id: 'other', label: 'Other', kind: 'other' },
+        ],
+        options: [
+          { id: 'speed', content: 'Move quickly' },
+          { id: 'other', content: 'Other' },
         ],
         comment: 'Keep it deterministic.',
       },

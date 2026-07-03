@@ -1,17 +1,23 @@
 # exchanges/ — structured-exchange Pi tools
 
-Owns Pi registration and live UI collection for the structured-exchange tool
-family (`present_question`, `present_review_set`, `present_candidates`, and
-`request_response`). Result details are constructed only through
-`projections/exchanges/*` and validated
-against the Zod schemas in `schemas/` (see `schemas/README.md` for the details
-contract).
+Owns Pi registration, live UI collection, and TUI transcript `renderResult`
+wiring for the structured-exchange tool family (`present_question`,
+`present_review_set`, `present_candidates`, and `request_response`). Result
+details are constructed only through `src/exchanges/projections/*` and validated
+against the Zod schemas in `src/exchanges/schemas/` (see
+`src/exchanges/schemas/TOPOLOGY.md` for the details contract; D108-L
+consolidation). D104-L (as revised 2026-07-02) sets the render rule: `renderResult`
+is the Markdown pass-through of the formatter's `content` string — the content
+formatters in `agents/contexts/exchanges/` are the designed surface, and the
+render-honesty contract (details → content; elision lists beside the
+formatters) lives there. A details-built TUI-only render is the named upgrade
+path if exchange blocks should diverge from the content register.
 
 ## The two envelopes
 
 There are two distinct envelopes in this seam — do not conflate them:
 
-- **Editor wire envelope** (`schemas/editor.ts`,
+- **Editor wire envelope** (`src/exchanges/schemas/editor.ts`,
   `brunch.structured_exchange.request_choices.editor`). Pi UI built-ins cover
   every other `request_*` response shape, but the multi-choice
   `request_choices` payload cannot ride them, and Pi's `ctx.ui.custom` cannot
@@ -19,7 +25,7 @@ There are two distinct envelopes in this seam — do not conflate them:
   fallback still prefills this JSON envelope into `ctx.ui.editor` for the
   client to edit and return. Its `status` string is wire-level editor state
   only.
-- **Transcript result envelope** (`schemas/request.ts`,
+- **Transcript result envelope** (`src/exchanges/schemas/request.ts`,
   `brunch.structured_exchange.request`). The outcome of a request is carried in
   transcript details as key presence — `answered` / `cancelled` /
   `unavailable` — never a status string.
@@ -57,18 +63,33 @@ and `present_candidates` to the single-choice UI source with candidate
 provenance preserved for later `capture_candidate`.
 The retired `request_answer` / `request_choice` / `request_choices` /
 `request_review` names survive only as transcript **result-detail discriminants**
-(`tool_meta.curr` on the request details, the `projectRequest*` / `formatRequest*`
-families, and the `capture_*` chains); `request_response` derives the response
-kind from the pending present and emits those same canonical request details.
+(`tool_meta.curr` on the request details and the `capture_*` chains). The public
+projection and content surfaces are now the single `request-response.ts`
+entrypoints, with per-discriminant helpers hidden below them; `request_response`
+derives the response kind from the pending present and emits those same
+canonical request details.
 `shared/ui-context.ts` is the one structural `ctx` slice every collector reads,
 so the tool casts the runtime `ctx` once at the boundary.
+For D106-L, `request_response` passes the pending present's listed options (or
+candidate titles) into the projection constructors so `request_choice` /
+`request_choices` details carry the full answer echo without re-listing literals
+inside collectors or formatters.
+For D107-L, `present_review_set` enriches valid graph proposals with real
+`review_set.nodes[*].proposed_code` values before persistence; later approval
+must commit under those exact codes or fail as structural illegal.
 
 ## Dependency rules
 
 ```pseudo
-exchanges/*        -> schemas/, projections/exchanges/, agents/contexts/exchanges/
-exchanges/shared/  -> shared UI dispatch only; no tool-result detail literals
-exchanges/schemas/ -> zod only (pi-schema.ts is the lone TSchema adapter)
+exchanges/*        -> src/exchanges/, agents/contexts/exchanges/, .pi/components/
+exchanges/shared/  -> shared UI dispatch/render helpers only; no tool-result detail literals
 ```
 
-`structured-exchange-boundaries.test.ts` enforces these boundaries.
+`src/exchanges/schemas/__tests__/source-boundary.test.ts` guards the
+details-contract half (this Pi extension tree declares no semantic details
+schemas of its own); `src/projections/__tests__/topology-boundaries.test.ts`
+guards the projection-layer import direction.
+`src/.pi/extensions/__tests__/exchange-family-completeness.test.ts` guards the
+exchange-rendering aggregate DoD from the registration side: every registered
+structured-exchange tool, and each `request_response` discriminant, must have a
+content formatter, preview entry, and snapshot coverage.

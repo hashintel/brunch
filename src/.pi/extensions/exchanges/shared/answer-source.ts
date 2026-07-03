@@ -1,5 +1,5 @@
-import { formatRequestAnswer } from '../../../../agents/contexts/exchanges/request-answer.js';
-import { projectRequestAnswer } from '../../../../projections/exchanges/request-answer.js';
+import { formatRequestAnswer } from '../../../../agents/contexts/exchanges/request-response.js';
+import { projectRequestAnswer } from '../../../../exchanges/projections/request-response.js';
 import type { LiveExchangeAwaiter } from '../../../../session/live-exchange-broker.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 

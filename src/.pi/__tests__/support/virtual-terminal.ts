@@ -108,7 +108,7 @@ export class VirtualTerminal implements PiTerminal {
    * Wait for scheduled TUI renders to enqueue writes, then resolve only after
    * xterm has reported no write activity for a full idle window.
    */
-  async waitForRender(timeoutMs = 1000): Promise<void> {
+  async waitForRender(timeoutMs = 3000): Promise<void> {
     const idleWindowMs = 50;
     const deadline = Date.now() + timeoutMs;
     let idleSince = Date.now();

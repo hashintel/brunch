@@ -1,6 +1,8 @@
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { systemPromptFromProviderPayload } from '../../shared/provider-system-prompt.js';
+
 export interface BrunchDebugCacheOptions {
   readonly cwd: string;
 }
@@ -127,42 +129,6 @@ async function appendSeparatedBlock(file: string, text: string): Promise<void> {
   }
 
   await appendFile(file, `${existing.length > 0 ? '\n\n---\n\n' : ''}${text}`, 'utf8');
-}
-
-function systemPromptFromProviderPayload(payload: unknown): string | undefined {
-  if (!isRecord(payload)) return undefined;
-
-  if (typeof payload.system === 'string') return payload.system;
-  // anthropic-messages serializes `system` as an array of text blocks (with
-  // optional cache_control) — never a string. Join blocks as sections.
-  if (Array.isArray(payload.system)) {
-    const blocks = payload.system.flatMap((block) =>
-      isRecord(block) && typeof block.text === 'string' ? [block.text] : [],
-    );
-    if (blocks.length > 0) return blocks.join('\n\n');
-  }
-  if (typeof payload.systemPrompt === 'string') return payload.systemPrompt;
-
-  const messages = payload.messages;
-  if (!Array.isArray(messages)) return undefined;
-
-  const systemMessage = messages.find(
-    (message): message is { readonly content: unknown } =>
-      isRecord(message) && message.role === 'system' && 'content' in message,
-  );
-  return textFromMessageContent(systemMessage?.content);
-}
-
-function textFromMessageContent(content: unknown): string | undefined {
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return undefined;
-
-  const parts = content.flatMap((part) => {
-    if (typeof part === 'string') return [part];
-    if (isRecord(part) && typeof part.text === 'string') return [part.text];
-    return [];
-  });
-  return parts.length > 0 ? parts.join('') : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

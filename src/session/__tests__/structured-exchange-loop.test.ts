@@ -35,7 +35,7 @@ describe('structured exchange loop helpers', () => {
       toolResultMessage: {
         role: 'toolResult',
         toolName: 'request_response',
-        content: [{ text: '# Response\n\nA local product specification workspace.' }],
+        content: [{ text: '## Answer\n\nA local product specification workspace.' }],
         details: {
           schema: 'brunch.structured_exchange.request',
           exchange_id: pending.exchangeId,
@@ -72,8 +72,38 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
+  it('rejects single-select Other or None without a comment', () => {
+    const pending = {
+      ...nextDeterministicStructuredExchange(0),
+      options: [
+        { id: 'listed', label: 'Listed option', content: 'Listed option' },
+        { id: 'none', label: 'None of these', content: 'None of these' },
+      ],
+    } satisfies PendingStructuredExchange;
+
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: pending.exchangeId,
+        answer: { optionId: 'none' },
+      }),
+    ).toEqual({
+      ok: false,
+      message: 'Elicitation response requires a comment for Other or None selections',
+    });
+  });
+
   it('materializes accepted multi-select responses and requires comments for Other or None', () => {
     const pending = nextDeterministicStructuredExchange(2);
+
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: pending.exchangeId,
+        answer: { optionIds: [] },
+      }),
+    ).toEqual({
+      ok: false,
+      message: 'Elicitation response requires at least one selected option',
+    });
 
     expect(
       acceptedResponseFromParams(pending, {
@@ -130,7 +160,15 @@ describe('structured exchange loop helpers', () => {
 
   it('reconstructs a review-mode pending exchange from present_review_set details', () => {
     const reviewSet = {
-      nodes: [{ draft_id: 'g1', plane: 'intent', kind: 'goal', title: 'Review graph proposals' }],
+      nodes: [
+        {
+          draft_id: 'g1',
+          proposed_code: 'G1',
+          plane: 'intent',
+          kind: 'goal',
+          title: 'Review graph proposals',
+        },
+      ],
       edges: [],
     };
     const envelope: BrunchSessionEnvelope = {
@@ -180,7 +218,15 @@ describe('structured exchange loop helpers', () => {
       options: [],
       note: { allowed: true },
       reviewSet: {
-        nodes: [{ draft_id: 'g1', plane: 'intent', kind: 'goal', title: 'Review graph proposals' }],
+        nodes: [
+          {
+            draft_id: 'g1',
+            proposed_code: 'G1',
+            plane: 'intent',
+            kind: 'goal',
+            title: 'Review graph proposals',
+          },
+        ],
         edges: [],
       },
     } satisfies PendingStructuredExchange;
