@@ -282,6 +282,7 @@ export function createBrunchPiExtensions(
         ]
       : [];
     const chromeRefresh: { current: (() => void) | null } = { current: null };
+    const graph = options.graph;
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => {
         registerBrunchSessionBoundary(api, onSessionBoundary, {

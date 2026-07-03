@@ -4,7 +4,13 @@ import type { GraphEdge } from '../../graph/schema/edges.js';
 import type { GraphNode } from '../../graph/schema/nodes.js';
 import { projectExecuteGraph } from '../execute-projection.js';
 
-const base = { specId: 7, basis: 'explicit', createdAtLsn: 1, updatedAtLsn: 1 } as const;
+const base = {
+  specId: 7,
+  basis: 'explicit',
+  settlement: 'settled',
+  createdAtLsn: 1,
+  updatedAtLsn: 1,
+} as const;
 
 describe('projectExecuteGraph', () => {
   it('centralizes graph to snapshot/check/outline/draft/preview projection', () => {

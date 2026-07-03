@@ -7,6 +7,7 @@ import { projectExecutionSpecSnapshot } from '../execution-spec-snapshot.js';
 const base = {
   specId: 7,
   basis: 'explicit',
+  settlement: 'settled',
   createdAtLsn: 1,
   updatedAtLsn: 1,
 } as const;
