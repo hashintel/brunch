@@ -3,7 +3,11 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { projectRequestAnswer } from '../../exchanges/projections/request-response.js';
+import {
+  projectRequestAnswer,
+  projectRequestChoice,
+  projectRequestChoices,
+} from '../../exchanges/projections/request-response.js';
 
 describe('exchange capture contract proof', () => {
   it('treats answered free-text requests as answer-only capture material', async () => {
@@ -27,5 +31,46 @@ describe('exchange capture contract proof', () => {
     expect(ingestGuidance).toContain(
       'The surrounding prompt or offer text is render context, not capture payload',
     );
+  });
+
+  it('treats choice echoes as render context unless selected', async () => {
+    const options = [
+      { id: 'commit', content: 'Commit the selected invariant.' },
+      { id: 'defer', content: 'Defer every invariant until a later rewrite.' },
+      { id: 'other', content: 'Other.' },
+    ];
+
+    const single = projectRequestChoice({
+      exchangeId: 'cc-02-single-choice',
+      respondsToPresentTool: 'present_question',
+      status: 'answered',
+      choice: { id: 'commit', label: 'Commit', kind: 'listed' },
+      options,
+      comment: 'Only the selected invariant is accepted.',
+    });
+    const multiple = projectRequestChoices({
+      exchangeId: 'cc-02-multi-choice',
+      status: 'answered',
+      choices: [
+        { id: 'commit', label: 'Commit', kind: 'listed' },
+        { id: 'other', label: 'Other', kind: 'other' },
+      ],
+      options,
+      comment: 'Also preserve the follow-up constraint.',
+    });
+
+    expect('answered' in single).toBe(true);
+    if (!('answered' in single)) throw new Error('expected answered request_choice details');
+    expect(single.answered.choice.id).toBe('commit');
+    expect(single.answered.options.map((option) => option.id)).toContain('defer');
+
+    expect('answered' in multiple).toBe(true);
+    if (!('answered' in multiple)) throw new Error('expected answered request_choices details');
+    expect(multiple.answered.choices.map((choice) => choice.id)).toEqual(['commit', 'other']);
+    expect(multiple.answered.options.map((option) => option.id)).toContain('defer');
+
+    const ingestGuidance = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
+    expect(ingestGuidance).toContain('Answered choice requests route only selected `choice`/`choices`');
+    expect(ingestGuidance).toContain('Non-selected `answered.options` entries are option echo for rendering');
   });
 });
