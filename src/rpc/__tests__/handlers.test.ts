@@ -8,11 +8,11 @@ import type { TSchema } from 'typebox';
 import { Value } from 'typebox/value';
 import { describe, expect, it } from 'vitest';
 
+import { projectPresentReviewSet } from '../../exchanges/projections/present-review-set.js';
 import { runCreateOnlyMutation } from '../../graph/__tests__/support/create-only-mutation.js';
 import { openWorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { mintDeterministicExchangeIntoSessionFile } from '../../probes/deterministic-exchange-script.js';
 import { assistantMessage, userMessage } from '../../probes/test-helpers.js';
-import { projectPresentReviewSet } from '../../projections/exchanges/present-review-set.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import {
   BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE,

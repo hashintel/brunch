@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { projectPresentCandidates } from '../../../../projections/exchanges/present-candidates.js';
+import { projectPresentCandidates } from '../../../../exchanges/projections/present-candidates.js';
 import { formatPresentCandidates } from '../present-candidates.js';
 
 function projection() {

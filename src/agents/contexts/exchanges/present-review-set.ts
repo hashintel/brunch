@@ -1,6 +1,6 @@
 import { blockquote, bold, heading, italic, ul } from 'md-pen';
 
-import type { PresentReviewSetProjection } from '../../../projections/exchanges/present-review-set.js';
+import type { PresentReviewSetProjection } from '../../../exchanges/projections/present-review-set.js';
 import { joinMarkdownBlocks } from '../../shared/markdown.js';
 import type { RenderElision } from './render-honesty.js';
 

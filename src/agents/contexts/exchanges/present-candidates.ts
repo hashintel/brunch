@@ -1,4 +1,4 @@
-import type { PresentCandidatesProjection } from '../../../projections/exchanges/present-candidates.js';
+import type { PresentCandidatesProjection } from '../../../exchanges/projections/present-candidates.js';
 
 const userRubricRows = [
   ['Core bet', 'core_bet'],

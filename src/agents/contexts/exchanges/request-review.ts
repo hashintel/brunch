@@ -1,6 +1,6 @@
 import { blockquote, heading } from 'md-pen';
 
-import type { RequestReviewDetails } from '../../../projections/exchanges/request-review.js';
+import type { RequestReviewDetails } from '../../../exchanges/projections/request-review.js';
 import { joinMarkdownBlocks } from '../../shared/markdown.js';
 import { formatResponseTerminal } from './option-echo.js';
 

@@ -1,6 +1,6 @@
 import { blockquote, bold, heading, ol } from 'md-pen';
 
-import type { PresentQuestionProjection } from '../../../projections/exchanges/present-question.js';
+import type { PresentQuestionProjection } from '../../../exchanges/projections/present-question.js';
 import { joinMarkdownBlocks } from '../../shared/markdown.js';
 import type { RenderElision } from './render-honesty.js';
 

@@ -1,6 +1,6 @@
 import { heading } from 'md-pen';
 
-import type { RequestAnswerDetails } from '../../../projections/exchanges/request-answer.js';
+import type { RequestAnswerDetails } from '../../../exchanges/projections/request-answer.js';
 import { joinMarkdownBlocks } from '../../shared/markdown.js';
 import { formatResponseTerminal } from './option-echo.js';
 

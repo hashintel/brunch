@@ -1,7 +1,7 @@
 import { defineTool } from '@earendil-works/pi-coding-agent';
 
 import { formatPresentQuestion } from '../../../agents/contexts/exchanges/present-question.js';
-import { projectPresentQuestion } from '../../../projections/exchanges/present-question.js';
+import { projectPresentQuestion } from '../../../exchanges/projections/present-question.js';
 import { piSchema } from './pi-schema.js';
 import { zPresentQuestionParams, type PresentQuestionParams } from './schemas/index.js';
 import { renderMarkdownResult } from './shared/markdown.js';

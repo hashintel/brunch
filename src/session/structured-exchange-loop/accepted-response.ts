@@ -3,10 +3,10 @@ import { formatRequestAnswer } from '../../agents/contexts/exchanges/request-ans
 import { formatRequestChoice } from '../../agents/contexts/exchanges/request-choice.js';
 import { formatRequestChoices } from '../../agents/contexts/exchanges/request-choices.js';
 import { formatRequestReview } from '../../agents/contexts/exchanges/request-review.js';
-import { projectRequestAnswer } from '../../projections/exchanges/request-answer.js';
-import { projectRequestChoice } from '../../projections/exchanges/request-choice.js';
-import { projectRequestChoices } from '../../projections/exchanges/request-choices.js';
-import { projectRequestReview } from '../../projections/exchanges/request-review.js';
+import { projectRequestAnswer } from '../../exchanges/projections/request-answer.js';
+import { projectRequestChoice } from '../../exchanges/projections/request-choice.js';
+import { projectRequestChoices } from '../../exchanges/projections/request-choices.js';
+import { projectRequestReview } from '../../exchanges/projections/request-review.js';
 import type { PendingStructuredExchange } from './pending-exchange.js';
 import {
   exchangeToolCallId,

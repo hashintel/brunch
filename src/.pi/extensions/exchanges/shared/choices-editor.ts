@@ -1,5 +1,5 @@
 import { formatRequestChoices } from '../../../../agents/contexts/exchanges/request-choices.js';
-import { projectRequestChoices } from '../../../../projections/exchanges/request-choices.js';
+import { projectRequestChoices } from '../../../../exchanges/projections/request-choices.js';
 import { createMultiChoicePickerComponent } from '../../../components/multi-choice-picker.js';
 import {
   STRUCTURED_EXCHANGE_REQUEST_CHOICES_EDITOR_SCHEMA,

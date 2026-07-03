@@ -1,9 +1,9 @@
 import type { PresentQuestionParams } from '../../.pi/extensions/exchanges/schemas/index.js';
 import { formatPresentQuestion } from '../../agents/contexts/exchanges/present-question.js';
 import { formatPresentReviewSet } from '../../agents/contexts/exchanges/present-review-set.js';
+import { projectPresentQuestion } from '../../exchanges/projections/present-question.js';
+import { projectPresentReviewSet } from '../../exchanges/projections/present-review-set.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
-import { projectPresentQuestion } from '../../projections/exchanges/present-question.js';
-import { projectPresentReviewSet } from '../../projections/exchanges/present-review-set.js';
 
 function presentQuestionFixture(params: PresentQuestionParams) {
   const projection = projectPresentQuestion(params);

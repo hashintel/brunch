@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { projectPresentReviewSet } from '../../../../exchanges/projections/present-review-set.js';
+import { projectRequestReview } from '../../../../exchanges/projections/request-review.js';
 import type { ReviewSetProposalPayload } from '../../../../graph/review-set.js';
-import { projectPresentReviewSet } from '../../../../projections/exchanges/present-review-set.js';
-import { projectRequestReview } from '../../../../projections/exchanges/request-review.js';
 import { formatPresentReviewSet, PRESENT_REVIEW_SET_CONTENT_ELISIONS } from '../present-review-set.js';
 import { missingRenderedDetailsLeaves } from '../render-honesty.js';
 import { formatRequestReview } from '../request-review.js';
