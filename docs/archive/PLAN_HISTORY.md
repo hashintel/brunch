@@ -3,6 +3,110 @@
 This file is the active POC-line plan archive for `memory/PLAN.md`.
 Legacy pre-`next` history was moved out of the live docs tree with the old archived implementation.
 
+
+## 2026-07-03 Sync archive (`ln-sync`, FE-1135 closeout)
+
+Archived from `memory/PLAN.md` during the 2026-07-03 `ln-sync` after `exchange-capture-contract`
+(FE-1135) closed. Three done frontier definitions retired: `exchange-capture-contract` (durable truth:
+I57-L, the five governing invariants pinned in the ingest/elicit/map conduct homes with an executable
+conduct-home check, sweep-window exclusions in `sweep-watermark.test.ts`, and the canonical
+`formatMutateGraphResult` approval receipt), `exchange-rendering` (durable truth: D104-L, D108-L,
+`exchange-family-completeness.test.ts` as executable aggregate DoD, `src/exchanges/TOPOLOGY.md`), and
+`elicitation-gap-guidance` (durable truth: D99-L, D101-L, D102-L, I52-L, I56-L, the closure oracle
+`src/graph/__tests__/elicitation-gap-guidance-closure.test.ts`, and
+`docs/archive/SESSION_LOCAL_ELICITATION_GAPS.md`). Card/ledger paths named inside these definitions
+(`memory/cards/exchange-capture-contract--sweep.md`, `memory/cards/exchange-rendering--sweep.md`,
+`memory/cards/exchange-rendering--closeout.md`) were consumed and deleted; they are retained below as
+history only.
+
+
+### exchange-capture-contract (FE-1135) — retired full frontier definition
+
+- **Name:** Exchange-outcome capture contract — the full sweep ledger over response typologies
+- **Linear:** [FE-1135](https://linear.app/hash/issue/FE-1135/exchange-outcome-capture-contract-sweep)
+- **Branch:** `ln/fe-1135-capture-contract`
+- **Kind:** coverage frontier (sweep shape) over conduct guidance + probes; almost no deterministic code change by design. Arc: `capture-ingest-throughline`.
+- **Status:** ✓ done (2026-07-03). Required rows in `memory/cards/exchange-capture-contract--sweep.md` are closed; CC-11 remains an explicit deferred `present_digest` tripwire for FE-1136.
+- **Certainty:** rows `earned` — every row locks an interpretation of an already-settled deterministic seam (`src/projections/session/sweep-watermark.ts` window projection, `src/exchanges/schemas/request.ts` outcome shapes, `formatMutateGraphResult` receipts). Nothing here builds a new mechanism.
+- **Classification:** buildable-now. All inputs exist: outcome schemas (`answered` | `cancelled` | `unavailable`; review `answered.decision ∈ approve | request_changes | reject`), the deterministic sweep window (`isSweepConversationalEntry` passes terminal `request_*` toolResults, excludes `present_*`), D106-L self-contained option echo, D28-L supersession, the D101-L scratchpad outlet.
+- **Governing invariants (the ledger's spine, settled in the grill):**
+  1. **Cancel demotes to scratchpad:** a cancelled exchange contributes no offer payload to capture; its span's ceiling is a scratchpad obligation (e.g. "user cancelled X; impression Y unconfirmed — re-ask before relying"), never a commit. Cancellation is an active demotion signal under the D81-L gradient, not mere absence of confirmation.
+  2. **Reject kills the offer:** review `reject` is an epistemic "no"; the offer is dead, not demoted.
+  3. **Accepted-terminal-only for supersession chains:** for any superseding proposal chain (review set, candidates, digest), sweep/projection consume only the accepted terminal payload; priors stay in JSONL as history (generalizes D28-L from review sets to all proposal kinds).
+  4. **Span boundary is offer-scoped:** user free-text is never inside a tuple span; demotion rules never launder away a direct user statement.
+  5. **Trigger policy is per-turn:** the sweep is per-turn/watermark-shaped conduct (D80-L); "after any resolved tuple" falls out of the watermark shape and needs no separate trigger mechanism.
+- **Ledger rows (inventory sketch — authoritative closed inventory authored at `ln-scope` into `memory/cards/exchange-capture-contract--sweep.md`):** cancelled question / cancelled choices / cancelled proposal chain; rejected review; request-changes chain resumption + regeneration read (the D108-L recovery seam under conduct pressure); accepted-terminal reads per chain kind; digest-accepted material maps advisory per `readiness-bands.md` §Arbitrary Source Capture (digest rows verification-gated on `present-digest` landing); `acceptReviewSet` result-content render honesty (final persisted codes stated — the sole Q2 residual; D107-L guarantees the codes, the render must state them); orientation-entry sweep exclusion (shared probe with `session-entry-orientation`).
+- **Not in scope (grill decisions):** no `capture_*` receipt entry — D50-L/I33-L reserve that family for pre-persistence analysis, and `formatMutateGraphResult` + transcript adjacency already serve every named reader; no deterministic outcome-span annotation in the sweep projection — capture stays conduct (D80-L) until a named reader needs machine-readable spans; no exchange-linkage provenance param on `mutate_graph` until a concrete reader can't cope with adjacency.
+- **Aggregate DoD:** no ● row open; the generalized supersession invariant recorded once in `memory/SPEC.md`; skill guidance (ingest/map/elicit capture references) states the five invariants where the model reads them; each row has a probe or test witnessing the interpretation on the live seam.
+- **Decision-flow chart (cross-cutting obligation):** at scope time, chart the exchange-outcome state machine — offer → (answered | cancelled | unavailable) × (approve | request_changes | reject) × chain position — with each terminal's capture consequence. This chart *is* the ledger's row-generator; endpoints without a row are the audit signal.
+- **Depends on:** D80-L–D82-L, D28-L, D101-L, D106-L, D107-L, D108-L (all landed).
+- **Lights up:** trustworthy capture over every exchange shape — the invariant layer `present-digest` and the orientation menus cite.
+- **Verification:** conduct probes over live session JSONL (capture-quality-loop precedent, `src/probes/capture-quality-loop.ts`); sweep-window unit rows extend `sweep-watermark.test.ts` only where a filter fact needs pinning; `acceptReviewSet` render-honesty check extends the exchange render-honesty discipline (D104-L elision-list convention).
+- **Traceability:** D80-L, D81-L, D82-L, D28-L/I57-L, D50-L/I33-L, D101-L/I56-L, D106-L, D107-L, D108-L; `src/projections/session/sweep-watermark.ts`, `src/exchanges/schemas/request.ts`, `src/agents/contexts/data-model/graph/commit-result.ts`, `src/.pi/extensions/brunch-data/elicitation/scratchpad-tools.ts`, `src/agents/references/readiness-bands.md`, `src/agents/skills/{ingest,map,elicit}/`.
+
+
+### exchange-rendering (FE-1123) — retired full frontier definition
+
+- **Name:** Structured-exchange transcript rendering — fix, unify, and lock the renderer family
+- **Linear:** [FE-1123](https://linear.app/hash/issue/FE-1123/structured-exchange-rendering-fix-unify-and-lock-the-transcript)
+- **Branch:** `ln/fe-1123-exchange-rendering` (stacked on `ln/fe-1122-walkthrough-fixes`; worktree `~/Code/hashintel/brunch-next-lambda`)
+- **Status:** ✓ done (2026-07-03). Code DoD closed by `npm run verify`; human outer oracles remain owed: walkthrough re-observation for `TESTING_PLAN.md` scenarios 3/5 and preview-gallery aesthetic review.
+- **Current execution pointer:** none. Ledger `memory/cards/exchange-rendering--sweep.md` is done at 12 of 12 rows built as of 2026-07-03; closeout slices are done in `memory/cards/exchange-rendering--closeout.md`. Head slice built 2026-07-02 (`beede8d5`, D104-L); its consumed scope card deleted per cleanup. The 2026-07-03 consolidation of core contracts into `src/exchanges/` is recorded as D108-L.
+- **Kind:** coverage frontier (sweep shape) with a structural head slice. Arc: `exchange-presentation`.
+- **Certainty:** head slice `proving` (new render-from-details seam + formatter-home decision); sweep rows `earned` (locking settled per-kind renderers).
+- **Classification:** buildable-now. No product-state or evidence gate — all inputs (schemas, details contracts, preview harness) exist.
+- **Source findings:** TESTING_FINDINGS.md F7 (present_question template noise), F8 (request_response picker re-list: raw `**`, unnumbered, bare "Other"), F11 (flat "# Response" answered template); beat-2 render-topology analysis (2026-07-02).
+- **Why now / unlocks:** every elicitation beat flows through these renders; they are the product's face during Specify mode. The walkthrough showed the family is uneven (present_question/request_* are flat scaffolding; present_candidates has a rubric table; present_alternatives lives outside the family) and the render path is structurally wrong-way (renderResult re-renders the model-facing markdown string instead of the structured `details`).
+
+- **The three surfaces (boundary):**
+  1. **Persisted `content` markdown** — `src/agents/contexts/exchanges/*` formatters. **Dual-audience**: the same string is the model-facing tool result and the current TUI render source. In scope: template quality, honesty, concision-for-model.
+  2. **`renderResult`** — `src/.pi/extensions/exchanges/*` + `shared/markdown.ts`. In scope. Original head bet was render-from-details; the built head slice revised D104-L to Markdown pass-through of the ★-grammar `content` string (details-built TUI render remains the named upgrade path if the TUI should diverge from the content register).
+  3. **Live pickers** — **out of scope**; owned by `exchange-answering-chrome` (`ctx.ui.select` replacement, choices-editor restyle, answer dialog). Boundary rule: this frontier may not touch `shared/choice-source.ts` / `choices-editor.ts` UI collection; it may only consume their result details.
+
+- **Head slice (structural, proving — before any sweep row):**
+  - Establish render-from-details in one renderer (`present_question`) end-to-end, including a `dev:components` preview entry fed by fixture `{content, details}` (same static lane as the `alternatives` entry).
+  - **Formatter-home decision — resolved.** D104-L kept the audience split (formatters in `agents/contexts/exchanges`, Pi adapters in `.pi/extensions/exchanges`, projections a distinct seam); D108-L (2026-07-03) then consolidated the core contracts — schemas, detail projections, recovery, editor envelope — into `src/exchanges/` with `request-response.ts` as the single public request-side surface. Current state: `src/exchanges/TOPOLOGY.md`.
+  - Define the **render-honesty oracle** shape: for each renderer, every `details` field is either visibly rendered or deliberately elided by a named rule (extends the existing shape/no-loss invariant discipline from `src/projections/TOPOLOGY.md`).
+
+- **Aggregate DoD:** no ● row open; head-slice decision recorded; `exchange-renderer-inventory.test.ts` extended to every row (snapshot per formatter); render-honesty invariant per renderer; boundary guards still green (`src/exchanges/schemas/__tests__/source-boundary.test.ts`, `src/projections/__tests__/topology-boundaries.test.ts`); preview registry has one entry per renderer family member.
+- **Inventory authority:** `memory/cards/exchange-rendering--sweep.md` (authored 2026-07-02; rows only — sequencing stays here).
+- **Oracles:**
+  - Inner: per-row `toMatchFileSnapshot` (extends `exchange-renderer-inventory.test.ts`) for model-facing content; direct-render component tests for renderResult output (precedent: rounded-box/chrome direct-render tests).
+  - Middle: render-honesty invariant (details ↔ visible-content no-loss) per renderer; boundaries test for the dependency rules in `src/.pi/extensions/exchanges/TOPOLOGY.md`.
+  - Outer: walkthrough re-observation beats (TESTING_PLAN.md scenarios 3/5) after landing.
+- **Cross-cutting obligations:** dual-audience discipline — changes to persisted `content` strings change model context; keep model-facing text concise and stable, do visual work in renderResult. Preview-harness parity: every new/changed renderer lands with its `dev:components` entry (extends `src/dev/component-preview/registry.ts`). Topology reconciliation: `src/exchanges/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`, `src/agents/contexts/exchanges/TOPOLOGY.md` + `src/projections/TOPOLOGY.md` shape ledger on close.
+- **Verification:** four-oracle compound per `memory/SPEC.md` §Design Notes "Exchange-presentation oracle design" — dual-family goldens (content vs render snapshots, inner), render-honesty invariant with declared elision lists (middle), live/persisted metamorphic render equality (middle), family-completeness registry test (middle, = executable aggregate DoD). Fixtures captured-then-normalized from live sessions + hand-authored terminal-state edges. Tier-2 dual-audience probe fires when model-facing content snapshots change. Preview-gallery + walkthrough re-observation outer.
+- **Traceability:** D37-L, D38-L, D41-L (schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); D104-L (audience split, Markdown pass-through render, render-honesty/elision convention, `present_alternatives` excluded from this sweep family); D105-L (boundary validation), D106-L (option echo), D107-L (proposed graph codes), D108-L (`src/exchanges/` consolidation).
+
+
+### elicitation-gap-guidance (FE-1116) — retired full frontier definition
+
+- **Name:** Session-local elicitation gaps from a graph-derived seed
+- **Linear:** [FE-1116](https://linear.app/hash/issue/FE-1116/session-local-elicitation-gaps-from-a-graph-derived-seed)
+- **Branch:** `ln/fe-1116-elicitation-gap-guidance` (onto `ln/fe-1108-structured-exchange-affordance`)
+- **Kind:** structural / elicitor guidance + session-state seam
+- **Status:** ✓ done (2026-07-01). All six cards landed; closure oracle `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names.
+- **Certainty:** proving (retired on land).
+- **Retires:** the persisted spec-scoped `elicitation_gaps` register and its count-based readiness scoring (D65-L, D45-L); the fixed spec-creation seed catalog `SEEDED_ELICITATION_GAPS` (D75-L).
+- **Materializes (folded slice):** advisory/settled `settlement` as a graph dimension orthogonal to `basis`, enforced at the command layer and surfaced in projection/context (D99-L, I52-L, D63-L) — formerly the separate `settlement-materialization` frontier, folded in per the 2026-07-01 review + user decision. Landed 2026-07-01 (Card 5).
+- **Depends on:** readiness bands, data-model legibility, and the stable exchange affordance surface (all done). Settlement is folded in as a later slice; the thin seed still must **not** depend on advisory/settlement state (A36-L).
+- **Lights up:** a session-local, cumulative asking agenda seeded per session from thin graph facts and focused by a prompt orientation directive.
+- **Stabilizes:** the boundary between graph truth (durable), the session-local gap scratchpad (non-authoritative asking agenda), and persisted `reconciliation_need` follow-up; plus a single code-owned latest-expected-band scalar source.
+- **Objective:** Replace the spec-global persisted `elicitation_gaps` register and its count-based readiness estimate with (1) a session-local cumulative gap scratchpad — one `brunch.elicitation_scratchpad` custom session entry + one fold projection + read/write tools (not tool-result details, no runtime-state duplication), (2) a thin graph-derived neutral seed per session, (3) an `elicitor.md` orientation directive that focuses a vein, (4) a reconciled latest-expected-band scalar model, and (5) a materialized advisory/settled `settlement` graph dimension (orthogonal to `basis`, command-enforced, surfaced in projection/context) — without inventing a second persisted gap ontology or any count-based readiness scoring.
+- **Acceptance:**
+  - Count-based readiness reasoning is deleted: `derivePresenceCoverage` and the coverage-over-gaps estimate (`readiness-estimate.ts`) are removed; no code path scores readiness by counting nodes/gaps (D45-L, I31-L).
+  - The persisted `elicitation_gaps` table and `elicitation-driver.ts` sorter are retired; consumers (`.pi/extensions/agent-runtime/system-prompts/world-reads.ts`, `specification-overview-context.ts`, subagent snapshot in `pi-subagents.ts`) migrate to session-local state (D65-L, D101-L).
+  - A session-state extension defines the gap scratchpad model (new `brunch.elicitation_scratchpad` custom entry following the `runtime-state.ts` fold precedent, not sharing runtime-state storage) plus read/write tools replacing `read_elicitation_gaps`/`update_elicitation_gaps`; entries are non-authoritative (I56-L) and low-confidence noticings route here, not the graph (D81-L; `spawn_gap` expected outcomes and the old `action: 'spawn'` write path removed).
+  - Each session's scratchpad is seeded from a thin graph-derived neutral seed (facts, not scores) that does not depend on advisory/settlement state (D102-L, A36-L).
+  - `elicitor.md` carries the "new session → establish orientation → focus a vein" directive that turns the neutral seed into a session-specific agenda (D102-L).
+  - Subagents receive the session gap scratchpad in their world snapshot (migrate `pi-subagents.ts` off `getElicitationGaps`).
+  - Band model reconciled to a single code-owned per-kind latest-expected-band scalar map; the array `INTENT_KIND_BANDS` and the earliest-band `bandsForKind(kind)[0]` read in `graph-slice.ts` are removed/fixed (D94-L, I50-L).
+  - The three reference files are consolidated to the agreed ownership split — `readiness-bands.md` (band semantics / latest-expected), `data-model.md` (kind → source-question + role/modality), `question-kinds-per-intent-kind.md` (projection catalog / phrasings) — with duplicated latest-band/source-question content removed (D97-L).
+  - Capture probes/tests that assumed `spawn_gap` (`capture-commitment-gradient-gate.test.ts`, `src/probes/capture-quality-loop.ts`) are updated to the session-state outlet; the old elicitation tool `action: 'spawn'` is not accepted.
+  - Settlement (folded slice): graph schema carries `settlement` (`advisory` | `settled`) separate from `basis`; CommandExecutor validation + promotion/rewrite/supersede/reconcile paths enforce I52-L (advisory never read as settled by projection/plan/commitment readers); projection/context surface settlement so capability-readiness (D74-L) can consult it; capture reference material updated (D99-L, D63-L).
+  - Anti-regression: tests prove the old attractor is gone — no `read_elicitation_gaps`/`update_elicitation_gaps` tools or `action: 'spawn'` gap write path, no readiness count/coverage language, readiness resolves with an empty scratchpad, and `getElicitationGaps`/`derivePresenceCoverage`/`readinessEstimate`/`elicitation-driver`/`SEEDED_ELICITATION_GAPS` no longer exist.
+- **Traceability:** D45-L, D63-L, D65-L, D74-L, D75-L, D81-L, D94-L, D97-L, D99-L, D101-L, D102-L; A36-L; I31-L, I50-L, I52-L, I56-L; `docs/archive/SESSION_LOCAL_ELICITATION_GAPS.md` (topology + consolidation ledger, archived on landing); `src/graph/schema/**` (settlement), `src/graph/command-executor.ts`, `src/projections/**`, `src/agents/contexts/**`, `src/session/runtime-state.ts`, `src/.pi/extensions/agent-runtime/{runtime/index.ts,system-prompts/world-reads.ts}`, `src/graph/queries.ts` (`derivePresenceCoverage`), `src/graph/elicitation-driver.ts`, `src/graph/command-executor.ts` (`SEEDED_ELICITATION_GAPS`), `src/projections/session/readiness-estimate.ts`, `src/session/specification-overview-context.ts`, `src/app/pi-subagents.ts`, `src/probes/capture-quality-loop.ts`, `src/probes/public-rpc-parity-proof.ts`, `src/graph/schema/nodes.ts`, `src/agents/contexts/data-model/graph/graph-slice.ts`, `src/agents/prompts/elicitor.md`, `src/agents/references/{readiness-bands,data-model}.md`, `src/agents/skills/elicit/references/question-kinds-per-intent-kind.md`.
+
 ## 2026-07-03 Frontier-definition archive (`ln-sync`, FE-1134 closeout)
 
 Full definitions of closed frontiers moved out of `memory/PLAN.md` §Frontier Definitions after the
