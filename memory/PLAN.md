@@ -61,23 +61,23 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Members:**
   - `exchange-capture-contract` (new, below) — the full contract sweep ledger: outcome-interpretation invariants as conduct + probes over settled deterministic seams.
   - `present-digest` (new, below) — the digest exchange kind end to end; proves throughline 3; stacks on the contract.
-- **Done-definition:** all three throughlines witnessed on live seams (not harness-injected paths); the generalized supersession invariant — *for any superseding proposal chain (review set, candidates, digest), sweep/projection consume only the accepted terminal payload; a cancelled chain contributes no offer payload* — stated once in `memory/SPEC.md` and probed per chain kind; the `DIGEST_CUSTOM_TYPES` special case in `src/projections/session/sweep-watermark.ts` retired; co-located topology homes (`src/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md`, ingest/map skill guidance) reconciled.
+- **Done-definition:** all three throughlines witnessed on live seams (not harness-injected paths); I57-L's generalized supersession invariant — *for any superseding proposal chain (review set, candidates, digest), sweep/projection consume only the accepted terminal payload; a cancelled chain contributes no offer payload* — probed per chain kind; the `DIGEST_CUSTOM_TYPES` special case in `src/projections/session/sweep-watermark.ts` retired; co-located topology homes (`src/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md`, ingest/map skill guidance) reconciled.
 - **Anchors:** D80-L–D82-L (capture conduct + gradient), D28-L (supersession), D50-L/I33-L (`capture_*` reserved for pre-persistence analysis — *not* receipts), D101-L (one-carrier scratchpad), D106-L (self-contained option echo), D107-L (proposed-code fidelity), D108-L (`src/exchanges/` consolidation).
 
 ### deterministic-orientation — planned
 
-- **Goal:** users choose how to operate at every settle-point, deterministically — no model volition, no mode ping-pong. The mechanism (settled 2026-07-03): product-owned `ctx.ui.select` dialogs fired from extension events (`session_start` reasons `new`/`resume`/`fork`, `session_tree`, esc/abort settle, mode switch), outcome recorded via `pi.appendEntry('brunch.session_orientation', …)` feeding the next kick; mid-session discretionary consults stay ordinary exchange tuples; `/consult` forces the dialog. Two modes only (SPEC/CODE, D98-L); concentric authority becomes a code contract; generative flows are menu-routed to the existing `propose`/`project`/`elicit`/`ingest` skills.
+- **Goal:** users choose how to operate at every settle-point, deterministically — no model volition, no mode ping-pong. The mechanism (settled 2026-07-03): product-owned `ctx.ui.select` dialogs record `brunch.session_orientation` entries that feed kick composition. Entry boot rides the Brunch orientation extension's `session_start(startup)` handler because Pi binds extension UI before emitting that event; mid-session junctures use Pi events/commands (`session_start` for post-switch `new`/`resume`, `session_tree`, detectable abort settle, mode switch, `/consult`) where the UI exists. No-UI print/json modes synthesize no orientation entry and follow the default kick path. Mid-session discretionary consults stay ordinary exchange tuples; `/consult` forces the dialog. Two modes only (SPEC/CODE, D98-L); concentric authority becomes a code contract; generative flows are menu-routed to the existing `propose`/`project`/`elicit`/`ingest` skills.
 - **Members:**
   - `session-entry-orientation` (superseded in place, below) — the dialog mechanism + all junctures + the SPEC-mode menu.
   - `execute-entry-readiness` (new, below) — the CODE-mode entry assessment + concentric authority widening.
-- **Done-definition:** dialog fires on every named juncture in TUI and RPC modes (extension-UI sub-protocol relay confirmed); escape/timeout defaults to "continue" (the menu is never a wall); orientation entries are excluded from capture sweep (process state, not spec material) and readable by kick assembly; concentricity holds as an executable contract (executor tool + skill grants ⊇ elicitor's, write-execution tooling stays executor-only); **one witnessed e2e run per generative flow — intent, design, oracle, frontier-level plan — each entered through a deterministic juncture** (the ship gate's "all flows proven" obligation lives here); topology homes for `src/.pi/extensions/` and `src/agents/runtime/` reconciled.
+- **Done-definition:** dialog fires on every named UI-capable juncture in TUI and RPC modes (extension-UI sub-protocol relay confirmed); escape/timeout resolves to `continue` (the menu is never a wall); no-UI modes leave no orientation trace; orientation entries are excluded from capture sweep (process state, not spec material) and readable by kick assembly; concentricity holds as an executable contract (executor tool + skill grants ⊇ elicitor's, write-execution tooling stays executor-only); **one witnessed e2e run per generative flow — intent, design, oracle, frontier-level plan — each entered through a deterministic juncture** (the ship gate's "all flows proven" obligation lives here); topology homes for `src/.pi/extensions/` and `src/agents/runtime/` reconciled.
 - **Anchors:** D98-L (two modes, 1:1 mode↔agent), D37-L (offer-owns-response grammar — the dialog lives on the product side of it), D40-L (authority matrix), D74-L (capability-readiness), D101-L/D102-L (session seed facts); `src/agents/references/readiness-bands.md` §Elicitor Use (the Proceed/Negotiate/Ask postures the executor inherits).
 
 ## Sequencing
 
 ### Active
 
-- `walkthrough-batch-2` (FE-1124) — continued doctor-pass scenarios (those not blocked on exchange-rendering) + fixture/seed preparation and generative-scenario variation sets (seed-variation worklist: TESTING_PLAN.md scenario 2). Branch `ln/fe-1124-walkthrough-batch-2` (stack tip, this worktree). Findings ledger: `TESTING_FINDINGS.md`. Beat-5 findings F16/F17 spawned `session-entry-orientation` (Next); its generative-option verification consumes this frontier's seed variants. Current execution pointer: `memory/cards/walkthrough-batch-2--seed-variants.md` (3 cards: settlement round-trip, propose/project variants, review variants).
+- `walkthrough-batch-2` (FE-1124) — continued doctor-pass scenarios (those not blocked on exchange-rendering) + fixture/seed preparation and generative-scenario variation sets (seed-variation worklist: TESTING_PLAN.md scenario 2). Branch `ln/fe-1124-walkthrough-batch-2` is the planning/seed base for the sibling ship-gate lanes. Findings ledger: `TESTING_FINDINGS.md`. Beat-5 findings F16/F17 spawned `session-entry-orientation`; its generative-option verification consumes this frontier's seed variants. Current execution pointer: `memory/cards/walkthrough-batch-2--seed-variants.md` (3 cards: settlement round-trip, propose/project variants, review variants).
 - `walkthrough-fixes` (FE-1122) — **built 2026-07-02** (all cards incl. F10 addendum; commits `e0701b4`…`486824b` on `ln/fe-1122-walkthrough-fixes`); pending PR tie-off. Walkthrough continues on a stacked follow-on branch.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
@@ -87,13 +87,16 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - 2026-07-01 `elicitation-gap-guidance` (FE-1116) — the spec-global persisted `elicitation_gaps` register and its count-based readiness scoring are retired; the asking agenda is now a session-local `brunch.elicitation_scratchpad` fold seeded from a thin graph-fact seed; `latestExpectedBand(kind)` is the single band scalar; and settlement (`advisory` | `settled`, orthogonal to `basis`) is materialized and command-enforced (D99-L, I52-L). Closure oracle: `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names. All co-located `TOPOLOGY.md` homes named in `docs/archive/SESSION_LOCAL_ELICITATION_GAPS.md` are reconciled; that doc landed and is archived.
 - Older completed frontiers (incl. the two 2026-07-01 `component-dx` slices): `docs/archive/PLAN_HISTORY.md`.
 
-### Next (= the ship gate, in order)
+### Next (= the ship gate, lane-shaped)
 
-1. `session-entry-orientation` — **superseded in place 2026-07-03** (grill): the mechanism question is answered (deterministic product-owned dialog, not an exchange), the trigger set widens beyond entry (esc/abort settle, `/tree`, mode switch, `/consult`), and the menu contents are refined. Smallest path to a visible product win; the front door of every walkthrough. Arc: `deterministic-orientation`. No Linear issue or branch yet (create on pickup).
-2. `exchange-capture-contract` — new (grill). The invariant layer everything else cites: the full contract sweep ledger over exchange outcomes. Arc: `capture-ingest-throughline`. Coverage frontier, mostly conduct + probes; cheap but gating.
-3. `present-digest` — new (grill). The digest exchange kind end to end; stacks on `exchange-capture-contract`. Arc: `capture-ingest-throughline`.
-4. `execute-entry-readiness` — new (grill). CODE-mode entry assessment + concentric authority widening; the mode-switch juncture rides `session-entry-orientation`'s dialog seam, so it stacks on 1. Arc: `deterministic-orientation`.
-5. `exchange-answering-chrome` — inside the ship gate (grill G5 decision: raw `ctx.ui.select` pickers do not ship). Independent of 1–4; can proceed in parallel when capacity allows. Arc: `exchange-presentation`.
+- **Lane A — deterministic orientation:**
+  1. `session-entry-orientation` ([FE-1134](https://linear.app/hash/issue/FE-1134/session-orientation-dialog-at-deterministic-junctures)) — active. The mechanism question is answered (deterministic product-owned dialog, not an exchange); J1 now rides the live `session_start(startup)` extension handler after Pi binds UI, while J2/J3/J4/J6 are partially landed and J5/RPC verification remain follow-up slices. Arc: `deterministic-orientation`.
+  2. `execute-entry-readiness` ([FE-1137](https://linear.app/hash/issue/FE-1137/executor-entry-readiness-and-concentric-authority)) — stacks on `session-entry-orientation` once the dialog/juncture seam is stable. Arc: `deterministic-orientation`.
+- **Lane B — capture/ingest:**
+  1. `exchange-capture-contract` ([FE-1135](https://linear.app/hash/issue/FE-1135/exchange-outcome-capture-contract-sweep)) — buildable in parallel with Lane A. The invariant layer everything else cites: the full contract sweep ledger over exchange outcomes. Arc: `capture-ingest-throughline`.
+  2. `present-digest` ([FE-1136](https://linear.app/hash/issue/FE-1136/present-digest-exchange-for-large-source-ingest)) — stacks on `exchange-capture-contract`. Arc: `capture-ingest-throughline`.
+- **Lane C — exchange presentation:**
+  1. `exchange-answering-chrome` ([FE-1138](https://linear.app/hash/issue/FE-1138/bordered-answering-chrome-for-structured-exchanges)) — independent of Lanes A/B and can proceed in parallel when capacity allows. Arc: `exchange-presentation`.
 
 ### Parallel / Low-Conflict
 
@@ -105,6 +108,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - `planning-process-model` — **demoted from Next #1 on 2026-07-03 (grill):** exploratory D103-L bet-proving, not ship-blocking. Behind the gate. Guard: the orientation menus' "project a plan" option routes to the existing `project`/`map-plans` seam at frontier-level depth (D103-L boundary) and must **not** pull this frontier forward. Groundwork stays parked on `ln/fe-xxx-plan-plane-redesign`; full definition below.
 - `main-editor-chrome` — wire `BrunchEditorComponent` as the persistent input editor via `ctx.ui.setEditorComponent` (D22-L/D35-L chrome territory). Split out of the former `bordered-chrome-production` on 2026-07-02 because it is not exchange work; carries the unverified render-height assumption its first tracer must resolve (see `exchange-answering-chrome` rename note).
 - `reconciliation-derivation` — derive `edge_revalidation` reconciliation needs from LSN comparison instead of persisting them; full definition below (inventory findings from 2026-07-02, worth keeping). **Confirmed behind the gate 2026-07-03 (grill G7):** the ingest throughline's conflict routing rides the existing persisted `reconciliation_need` substrate (`create_reconciliation_need` is live); nothing in the gate needs the LSN-derived generator. Honor the convergence: `walkthrough-batch-2` fixture prep still captures the `contradictory` seed variant.
+- `reviewer-agent-mode` — D29-L's async advisory reviewer remains designed but unbuilt: narrow write authority to `reconciliation_need`, batch-acceptance trigger keyed by session/batch entry, A16-L trigger/scope questions still open. Behind the ship gate; no frontier until post-acceptance review becomes POC-blocking or reviewer residues need executable closure.
 - `session-branching` — support session branching (D24-L reversal); needs branch-aware continuity/coherence design (A37-L).
 - `compaction-and-conflict-widening` — long-horizon continuity through compaction.
 - `fixture-vs-real-audit` — `ln-induct` candidate for real-vs-fixture shape gaps (tool ids, orphan tool results, provider payload assumptions).
@@ -171,8 +175,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### exchange-answering-chrome
 
 - **Name:** Bordered Brunch-owned answering UI for the `request_*` response kinds
-- **Linear:** unassigned (create on pickup)
-- **Branch:** tbd
+- **Linear:** [FE-1138](https://linear.app/hash/issue/FE-1138/bordered-answering-chrome-for-structured-exchanges)
+- **Branch:** `ln/fe-1138-answering-chrome`
 - **Kind:** bounded feature / presentation-layer production wiring. Arc: `exchange-presentation` (transcript-render counterpart: `exchange-rendering`; this frontier owns the live answering surfaces — pickers, one-shot answer dialog).
 - **Renamed 2026-07-02:** was `bordered-chrome-production`. Its former thread 1 (persistent main editor via `ctx.ui.setEditorComponent`) is NOT exchange work and split out to `main-editor-chrome` (Horizon). Threads 2–3 below are the retained scope, folded into the `exchange-presentation` arc and sequenced directly behind `exchange-rendering`.
 - **Status:** not started; split off `component-dx` (FE-1115) on 2026-07-01, once that frontier's harness + shared-primitive work (`projectRoundedBox`, `projectScrollViewport`) shipped with zero production behavior change. This is the first production UX change either primitive will drive.
@@ -190,8 +194,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### exchange-capture-contract
 
 - **Name:** Exchange-outcome capture contract — the full sweep ledger over response typologies
-- **Linear:** unassigned (create on pickup)
-- **Branch:** tbd
+- **Linear:** [FE-1135](https://linear.app/hash/issue/FE-1135/exchange-outcome-capture-contract-sweep)
+- **Branch:** `ln/fe-1135-capture-contract`
 - **Kind:** coverage frontier (sweep shape) over conduct guidance + probes; almost no deterministic code change by design. Arc: `capture-ingest-throughline`.
 - **Status:** not started; opened 2026-07-03 (grill Q1/Q2 + G3).
 - **Certainty:** rows `earned` — every row locks an interpretation of an already-settled deterministic seam (`src/projections/session/sweep-watermark.ts` window projection, `src/exchanges/schemas/request.ts` outcome shapes, `formatMutateGraphResult` receipts). Nothing here builds a new mechanism.
@@ -209,13 +213,13 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Depends on:** D80-L–D82-L, D28-L, D101-L, D106-L, D107-L, D108-L (all landed).
 - **Lights up:** trustworthy capture over every exchange shape — the invariant layer `present-digest` and the orientation menus cite.
 - **Verification:** conduct probes over live session JSONL (capture-quality-loop precedent, `src/probes/capture-quality-loop.ts`); sweep-window unit rows extend `sweep-watermark.test.ts` only where a filter fact needs pinning; `acceptReviewSet` render-honesty check extends the exchange render-honesty discipline (D104-L elision-list convention).
-- **Traceability:** D80-L, D81-L, D82-L, D28-L, D50-L/I33-L, D101-L/I56-L, D106-L, D107-L, D108-L; `src/projections/session/sweep-watermark.ts`, `src/exchanges/schemas/request.ts`, `src/agents/contexts/data-model/graph/commit-result.ts`, `src/.pi/extensions/brunch-data/elicitation/scratchpad-tools.ts`, `src/agents/references/readiness-bands.md`, `src/agents/skills/{ingest,map,elicit}/`.
+- **Traceability:** D80-L, D81-L, D82-L, D28-L/I57-L, D50-L/I33-L, D101-L/I56-L, D106-L, D107-L, D108-L; `src/projections/session/sweep-watermark.ts`, `src/exchanges/schemas/request.ts`, `src/agents/contexts/data-model/graph/commit-result.ts`, `src/.pi/extensions/brunch-data/elicitation/scratchpad-tools.ts`, `src/agents/references/readiness-bands.md`, `src/agents/skills/{ingest,map,elicit}/`.
 
 ### present-digest
 
 - **Name:** `present_digest` — the digest proposal exchange for large source material
-- **Linear:** unassigned (create on pickup)
-- **Branch:** tbd (stacks on `exchange-capture-contract`)
+- **Linear:** [FE-1136](https://linear.app/hash/issue/FE-1136/present-digest-exchange-for-large-source-ingest)
+- **Branch:** `ln/fe-1136-present-digest` (stacks on `exchange-capture-contract`)
 - **Kind:** bounded feature / new exchange kind end to end. Arc: `capture-ingest-throughline`.
 - **Status:** not started; opened 2026-07-03 (grill Q3).
 - **Certainty:** proving — new schema/tool seam; the payload shape (prose abstract + analysis/recommendation, **no graph material**) and the sweep-read semantics are designed but unwitnessed.
@@ -232,18 +236,18 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### session-entry-orientation
 
 - **Name:** Session orientation dialog — entry chrome, re-entry assessment, and the deterministic process-move menu at every settle-point
-- **Linear:** unassigned (create on pickup)
-- **Branch:** tbd
+- **Linear:** [FE-1134](https://linear.app/hash/issue/FE-1134/session-orientation-dialog-at-deterministic-junctures)
+- **Branch:** `ln/fe-1134-session-orientation`
 - **Kind:** bounded feature / kick-design + chrome + extension events; introduces the deterministic orientation-dialog seam. Arc: `deterministic-orientation`.
-- **Status:** not started; opened 2026-07-02 from walkthrough beat-5 findings; **superseded in place 2026-07-03 (grill)** — the mechanism question this frontier's first tracer was meant to answer ("deterministic kick chrome vs prompt-directed agent behavior") is decided: deterministic, product-owned. The former thread-3 wording ("first interaction is a `request_response` single-select") is retired — the menu is **not an exchange**; it is a Pi extension dialog. Scope widens from entry-only to the full juncture set.
-- **Certainty:** mechanism `earned` (Pi affordances verified in docs: `ctx.ui.select` works in TUI + RPC via the extension-UI sub-protocol; `session_start` carries `reason: "new" | "resume" | "fork"`; `session_tree` fires after `/tree`; `pi.registerCommand` covers `/consult`); menu *content/conduct* still `proving` (which options at which junctures, threshold gating).
+- **Status:** active; opened 2026-07-02 from walkthrough beat-5 findings; **superseded in place 2026-07-03 (grill)** — the mechanism question this frontier's first tracer was meant to answer ("deterministic kick chrome vs prompt-directed agent behavior") is decided: deterministic, product-owned. Card 1 is landed via option-2 J1 (`session_start(startup)` after UI binding); Card 2 has J2/J3/J4/J6 landed with J5 + RPC verification deferred; Cards 3–4 are queued.
+- **Certainty:** mechanism `earned` (Pi affordances verified in docs: `ctx.ui.select` works in TUI + RPC via the extension-UI sub-protocol; `session_start` carries `reason: "startup" | "reload" | "new" | "resume" | "fork"`; `session_tree` fires after `/tree`; `pi.registerCommand` covers `/consult`); menu *content/conduct* still `proving` (which options at which junctures, threshold gating). Current scope card records boot-order corrections and the full decision-flow chart: `memory/cards/session-entry-orientation--slices.md`.
 - **Source findings:** TESTING_FINDINGS.md F16 (no "where are we" orientation on resume), F17 (resume dives into elicitation instead of asking what to do), absorbing F13 (welcome block placement/styling), F14 (kick indicator salience), F15 option (a).
 - **Why now / unlocks:** both MAJOR findings sit on the first thing every user experiences; the dialog is the user-facing surface of skill-manifest routing (TESTING_PLAN.md goal 6, scenario 7), and it is the juncture seam `execute-entry-readiness` stacks on.
 - **Objective (three threads, thread 3 superseded):**
   1. **Deterministic entry chrome** (unchanged): welcome block as its own styled element after the header (F13); kick activity via `setWorkingMessage`/`setWorkingVisible` (F14); resume-variant state/status insertion (F16a); optionally the turn_end "Worked for Ns" global label (F15a).
   2. **Elicitor re-entry assessment** (unchanged): kick/persona guidance so re-entry opens with an *assessment* — graph summary, TODO forecast, teaching surface (F16b). Prompt shaping over existing seed facts (D101-L/D102-L), not new plumbing.
-  3. **Orientation dialog (superseded shape):** a Brunch extension listens on the juncture events — `session_start` (`new`/`resume`/`fork`), `session_tree`, esc/abort settle — and fires `ctx.ui.select` with the process-move menu; records the outcome via `pi.appendEntry('brunch.session_orientation', { choice, trigger })` (dialog results do not enter the session log automatically); the entry feeds the next kick so no model turn is spent asking. `/consult` (`pi.registerCommand`) forces the dialog mid-session. SPEC-mode menu contents (grill flow 1): continue via decision-driven questions [elicit/grill-style] · continue via example-driven questions [elicit/disambiguate-style] · propose candidate spec designs [propose:intent] · propose technical designs [propose/project:design] · propose verification designs [propose/project:oracle] · ingest source material [ingest]. Mid-session *discretionary* consults remain ordinary `present_question` tuples (D37-L grammar untouched); the mode-switch juncture is defined here but its CODE-side menu content belongs to `execute-entry-readiness`.
-- **Pinned checks (from grill):** escape/timeout on the dialog defaults to "continue" — the menu must never be a wall; confirm Brunch's RPC client surface relays the extension-UI sub-protocol (Pi supports it; Brunch-side handling is a check, not a design question); `brunch.session_orientation` entries must be excluded from the capture sweep (they are process state — the existing custom-entry filter in `src/projections/session/sweep-watermark.ts` already excludes non-digest custom types; add the probe, not new mechanism).
+  3. **Orientation dialog (superseded shape):** a Brunch-owned orientation extension fires `ctx.ui.select` at the scoped junctures and records the outcome via `pi.appendEntry('brunch.session_orientation', { choice, trigger })` (dialog results do not enter the session log automatically); the entry feeds the next kick so no model turn is spent asking. TUI boot entry is handled by the extension `session_start(startup)` handler because Pi binds UI before emitting `session_start`; post-switch `session_start`, `session_tree`, abort settle (if detectable), mode-switch, and `/consult` use the same extension event/command home. SPEC-mode choice ids: `continue`, `elicit_decisions`, `elicit_examples`, `propose_intent`, `propose_design`, `propose_oracle`, `ingest`. Mid-session *discretionary* consults remain ordinary `present_question` tuples (D37-L grammar untouched); the mode-switch juncture is defined here but its CODE-side menu content belongs to `execute-entry-readiness`.
+- **Pinned checks (from grill + scope adjudication):** escape/timeout on the dialog resolves to `continue` — the menu must never be a wall; no-UI print/json modes show no dialog and write no orientation entry; confirm Brunch's RPC client surface relays the extension-UI sub-protocol (Pi supports it; Brunch-side handling is a check, not a design question); `brunch.session_orientation` entries must be excluded from the capture sweep (they are process state — the existing custom-entry filter in `src/projections/session/sweep-watermark.ts` already excludes non-digest custom types; add the probe, not new mechanism); abort-settle rides `agent_end` only if the tail assistant stop reason makes genuine user aborts distinguishable from retryable compaction aborts.
 - **Decision-flow chart (cross-cutting obligation):** at scope time, chart every juncture × outcome path — choice taken / escape / timeout / dialog-unavailable (print/json modes, `ctx.hasUI` false) — and each path's endpoint in kick composition.
 - **Lights up:** the first user-*directed* skill routing; the juncture seam `execute-entry-readiness` extends.
 - **Retires:** the "deterministic kick chrome vs prompt-directed agent behavior" open question (answered: deterministic); the F17 failure mode (model volition deciding whether to offer the choice).
@@ -255,8 +259,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### execute-entry-readiness
 
 - **Name:** Executor entry readiness — concentric authority as code contract + the CODE-mode assessment menu
-- **Linear:** unassigned (create on pickup)
-- **Branch:** tbd (stacks on `session-entry-orientation` — shares the dialog/juncture extension seam)
+- **Linear:** [FE-1137](https://linear.app/hash/issue/FE-1137/executor-entry-readiness-and-concentric-authority)
+- **Branch:** `ln/fe-1137-executor-readiness` (stacks on `session-entry-orientation` — shares the dialog/juncture extension seam)
 - **Kind:** structural — widens the D40-L authority matrix for CODE mode and adds the mode-switch entry behavior. Arc: `deterministic-orientation`.
 - **Status:** not started; opened 2026-07-03 (grill G5/G6). Rejects the "Enhance" third-mode idea from the 2026-07-02 kickoff notes: conduct bias is not runtime state (the D98-L flattening argument applies with full force); "enhancer" = elicitor with a different opening move, which is kick posture + skill routing, not an agent.
 - **Certainty:** proving — the executor-side conduct (readiness assessment quality, backfill UX) is unwitnessed; the authority widening itself is a bounded, near-`earned` matrix change.
@@ -389,7 +393,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 frontiers:
   Active:
     walkthrough-batch-2 (FE-1124)
-      status: active (stack tip, this worktree)
+      status: active planning/seed base for sibling ship-gate lanes
       feeds: -[verification seeds]-> session-entry-orientation, execute-entry-readiness (generative options)
              -[fixture variants]-> reconciliation-derivation (contradictory / advisory-pending, capture-only)
     walkthrough-fixes (FE-1122)
@@ -401,14 +405,16 @@ frontiers:
       note: execute-entry-readiness does NOT touch this scope; orchestrator_stub stays the truth boundary
 
   Next (ship gate):
-    session-entry-orientation
+    session-entry-orientation (FE-1134)
       arc: deterministic-orientation
-      status: superseded in place 2026-07-03; mechanism earned, content proving
+      status: active; Card 1 landed via session_start(startup); Card 2 partial (J2/J3/J4/J6 landed; J5/RPC pending); Cards 3-4 queued
+      branch: ln/fe-1134-session-orientation (sibling of FE-1135/FE-1138 atop FE-1124)
       depends_on: FE-1122 F1 fix (landed), D101-L/D102-L, pi extension dialog/event surfaces
       verification_gated_by: walkthrough-batch-2 seed variants -[optional]-> generative menu options only
-    exchange-capture-contract
+    exchange-capture-contract (FE-1135)
       arc: capture-ingest-throughline
-      status: new 2026-07-03; coverage frontier, buildable-now, rows earned
+      status: new 2026-07-03; coverage frontier, buildable-now, rows earned; sibling lane atop FE-1124
+      branch: ln/fe-1135-capture-contract
       depends_on: D80-L..D82-L, D28-L, D101-L, D106-L, D107-L, D108-L (all landed)
     present-digest
       arc: capture-ingest-throughline
@@ -420,9 +426,10 @@ frontiers:
       status: new 2026-07-03; proving (conduct), near-earned (matrix widening)
       depends_on: -[hard]-> session-entry-orientation (dialog/juncture seam)
       guards: no orchestrator-tool-port scope; plan option stays at D103-L frontier depth
-    exchange-answering-chrome
+    exchange-answering-chrome (FE-1138)
       arc: exchange-presentation
-      status: not started; independent of the other four -[parallel-ok]->
+      status: not started; sibling lane atop FE-1124; independent of orientation/capture lanes -[parallel-ok]->
+      branch: ln/fe-1138-answering-chrome
       depends_on: component-dx primitives (shipped), STRUCTURED_EXCHANGE_ANSWERING_PATHS.md
 
   Parallel / Low-Conflict:
