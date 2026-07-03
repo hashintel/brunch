@@ -42,9 +42,12 @@ extensions/
 ├── compaction/             auto-compaction anchor contract and future hook
 ├── exchanges/              structured-exchange present_* / request_* Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider
+├── session-orientation/    session-entry-orientation dialog fn (ctx.ui.select-shaped) over session/session-orientation.ts
 ├── shared/                 projection/truncation helpers + Zod→Pi schema adapter for dev query tools
 └── workspace/              spec/session picker command adapter
 ```
+
+`session-orientation/` currently exports only the dialog function and menu labels — no `pi.on()` registration yet. The boot-path (J1) wiring and the mid-session juncture (J2-J6) event registrations are separate, not-yet-landed slices of the `session-entry-orientation` frontier (`memory/cards/session-entry-orientation--slices.md`).
 
 The former `tui-lab/` registrar (`registerBrunchTuiLab`, gated behind an `enabled`
 option nothing ever set) was retired — it never entered the product bundle and

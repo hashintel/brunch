@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ElicitationScratchpadItem } from '../../../../session/elicitation-scratchpad.js';
+import { SESSION_ORIENTATION_CHOICES } from '../../../../session/session-orientation.js';
 import { composeContextSeedContent } from '../origination.js';
 
 const specId = 7;
@@ -82,5 +83,29 @@ describe('composeContextSeedContent', () => {
 
     expect(content).toContain('empty');
     expect(content).not.toContain('undefined');
+  });
+
+  it('omits the orientation section when no fresh choice exists', () => {
+    const content = composeContextSeedContent({
+      specId,
+      slice: { nodes: [], edges: [], lsn: 1 },
+      scratchpad: [],
+      workspaceContext: '',
+    });
+
+    expect(content).not.toContain('SESSION ORIENTATION');
+  });
+
+  it.each(SESSION_ORIENTATION_CHOICES)('emits a distinct orientation section for choice %s', (choice) => {
+    const content = composeContextSeedContent({
+      specId,
+      slice: { nodes: [], edges: [], lsn: 1 },
+      scratchpad: [],
+      workspaceContext: '',
+      orientation: choice,
+    });
+
+    expect(content).toContain('SESSION ORIENTATION');
+    expect(content).toContain(`chosen: ${choice}`);
   });
 });
