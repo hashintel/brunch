@@ -8,8 +8,8 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { createBrunchAgentSessionRuntimeFactory, runBrunchTui } from '../../app/brunch-tui.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
-import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
+import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 import {
   assembleAssistantTextFromStream,
   contiguousRange,

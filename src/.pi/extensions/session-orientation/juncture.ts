@@ -36,12 +36,15 @@ import type { TranscriptEntryLike } from '../../../projections/session/continuit
 import {
   BRUNCH_KICK_CUSTOM_TYPE,
   completeAssistantKick,
-  kickTurnMessage,
   originateAssistantTurn,
   type KickCompletionOutcome,
   type OriginationManager,
   type OriginationReads,
 } from '../../../session/originate-assistant-turn.js';
+import {
+  appendPreparedContinuityEntry,
+  type PreparedContinuityEntry,
+} from '../../../session/prepare-next-turn.js';
 import {
   freshSessionOrientationChoice,
   type SessionOrientationChoice,
@@ -87,8 +90,8 @@ export interface LiveKickDeps {
   readonly modelAvailable: boolean;
   /** ExtensionAPI/ReplacedSessionContext-style `sendMessage` handle. */
   readonly sendCustomMessage: (
-    message: ReturnType<typeof kickTurnMessage>,
-    options: { readonly triggerTurn: true },
+    message: LiveCustomMessage,
+    options?: { readonly triggerTurn?: true },
   ) => Promise<unknown>;
   /**
    * Called with each origination decision — before the kick fires — so
@@ -101,6 +104,13 @@ export interface LiveKickDeps {
     decision: StartAssistantTurnDecision,
   ) => Promise<void> | void;
 }
+
+export type LiveCustomMessage = {
+  readonly customType: string;
+  readonly content: string;
+  readonly display: boolean;
+  readonly details?: unknown;
+};
 
 export interface RunOrientationJunctureResult {
   readonly ran: boolean;
@@ -290,8 +300,11 @@ async function originateAndKick(
     resumeOrigin: options.resumeOrigin,
     workspaceContext: kick.workspaceContext,
     manager: sessionManager,
+    appendSeed: false,
     ...(options.forceSeed ? { forceSeed: true } : {}),
   });
+
+  await deliverSeedEntries(sessionManager, kick, origination.decision.seedEntries);
 
   if (kick.onOriginationDecision) await kick.onOriginationDecision(origination.decision);
 
@@ -303,4 +316,23 @@ async function originateAndKick(
       if (kick.onKickOutcome) void kick.onKickOutcome(outcome, origination.decision);
     },
   });
+}
+
+async function deliverSeedEntries(
+  sessionManager: JunctureSessionManager,
+  kick: LiveKickDeps,
+  entries: readonly PreparedContinuityEntry[],
+): Promise<void> {
+  for (const entry of entries) {
+    if (entry.type === 'custom_message') {
+      await kick.sendCustomMessage({
+        customType: entry.customType,
+        content: entry.content,
+        display: false,
+        details: entry.details,
+      });
+      continue;
+    }
+    appendPreparedContinuityEntry(sessionManager, entry);
+  }
 }

@@ -47,11 +47,13 @@ function fakeUi(response: string | undefined) {
   return { select: async (_title: string, _options: string[]) => response };
 }
 
+type SentMessage = { message: unknown; options: unknown };
+
 function fakeKickDeps(overrides: Partial<LiveKickDeps> = {}): {
   deps: LiveKickDeps;
-  sent: Array<{ message: unknown; options: unknown }>;
+  sent: SentMessage[];
 } {
-  const sent: Array<{ message: unknown; options: unknown }> = [];
+  const sent: SentMessage[] = [];
   const deps: LiveKickDeps = {
     specId: 5,
     reads: {
@@ -66,6 +68,17 @@ function fakeKickDeps(overrides: Partial<LiveKickDeps> = {}): {
     ...overrides,
   };
   return { deps, sent };
+}
+
+function expectSeedThenKick(sent: readonly SentMessage[]) {
+  expect(sent).toHaveLength(2);
+  const seed = sent[0]!.message as { customType: string; content?: string };
+  expect(seed.customType).toBe('brunch.context_seed');
+  expect(sent[0]!.options).toBeUndefined();
+  const kick = sent[1]!.message as { customType: string };
+  expect(kick.customType).toBe(BRUNCH_KICK_CUSTOM_TYPE);
+  expect(sent[1]!.options).toEqual({ triggerTurn: true });
+  return { seed, kick };
 }
 
 describe('runOrientationJuncture', () => {
@@ -125,15 +138,10 @@ describe('runOrientationJuncture', () => {
       });
 
       expect(result.kickFired).toBe(true);
-      expect(sent).toHaveLength(1);
-      const kick = sent[0]!.message as { customType: string };
-      expect(kick.customType).toBe(BRUNCH_KICK_CUSTOM_TYPE);
-      expect(sent[0]!.options).toEqual({ triggerTurn: true });
+      const { seed } = expectSeedThenKick(sent);
 
-      // A forced seed was appended (LSN did not advance yet the seed still lands).
-      const seedEntry = manager.entries.find((entry) => entry.customType === 'brunch.context_seed');
-      expect(seedEntry).toBeDefined();
-      expect(String(seedEntry?.content)).toContain('chosen: ingest');
+      // A forced seed was delivered live (LSN did not advance yet the seed still lands).
+      expect(String(seed.content)).toContain('chosen: ingest');
     });
 
     it('skips the kick when the choice is continue', async () => {
@@ -244,7 +252,7 @@ describe('runOrientationJuncture', () => {
       expect(result.kickFired).toBe(true);
       expect(selectCalls).toHaveLength(1);
       expect(selectCalls[0]!.opts).toEqual({ timeout: ORIENTATION_RPC_DIALOG_TIMEOUT_MS });
-      expect(sent).toHaveLength(1);
+      expectSeedThenKick(sent);
     });
   });
 
@@ -268,10 +276,9 @@ describe('runOrientationJuncture', () => {
       expect(
         manager.entries.find((e) => e.customType === BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE),
       ).toBeUndefined();
-      expect(sent).toHaveLength(1);
+      const { seed } = expectSeedThenKick(sent);
       // Continue-shaped seed only, no orientation directive.
-      const seedEntry = manager.entries.find((entry) => entry.customType === 'brunch.context_seed');
-      if (seedEntry) expect(String(seedEntry.content)).not.toContain('chosen:');
+      expect(String(seed.content)).not.toContain('chosen:');
     });
 
     it('escape (continue) still fires the boot kick but does not force-seed', async () => {
@@ -289,7 +296,7 @@ describe('runOrientationJuncture', () => {
 
       expect(result.choice).toBe('continue');
       expect(result.kickFired).toBe(true);
-      expect(sent).toHaveLength(1);
+      expectSeedThenKick(sent);
     });
 
     it('non-continue choice at boot fires kick with a forced seed carrying the directive', async () => {
@@ -307,10 +314,8 @@ describe('runOrientationJuncture', () => {
 
       expect(result.choice).toBe('propose_intent');
       expect(result.kickFired).toBe(true);
-      expect(sent).toHaveLength(1);
-      const seedEntry = manager.entries.find((entry) => entry.customType === 'brunch.context_seed');
-      expect(seedEntry).toBeDefined();
-      expect(String(seedEntry?.content)).toContain('chosen: propose_intent');
+      const { seed } = expectSeedThenKick(sent);
+      expect(String(seed.content)).toContain('chosen: propose_intent');
     });
   });
 });

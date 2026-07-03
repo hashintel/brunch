@@ -234,9 +234,10 @@ export async function bootTier2RuntimeFromFixture(options: {
       webSidecarRunner: async () => null,
       launchInteractive: async (context) => {
         runtime = await createAgentSessionRuntime(
-          createBrunchAgentSessionRuntimeFactory(
-            options.agentServices ? { ...context, agentServices: options.agentServices } : context,
-          ),
+          createBrunchAgentSessionRuntimeFactory({
+            ...context,
+            agentServices: options.agentServices ?? createNoModelAgentServices(),
+          }),
           {
             cwd,
             agentDir,
@@ -457,9 +458,10 @@ export async function rebootTier2Runtime(options: {
     webSidecarRunner: async () => null,
     launchInteractive: async (context) => {
       runtime = await createAgentSessionRuntime(
-        createBrunchAgentSessionRuntimeFactory(
-          options.agentServices ? { ...context, agentServices: options.agentServices } : context,
-        ),
+        createBrunchAgentSessionRuntimeFactory({
+          ...context,
+          agentServices: options.agentServices ?? createNoModelAgentServices(),
+        }),
         {
           cwd: options.cwd,
           agentDir,

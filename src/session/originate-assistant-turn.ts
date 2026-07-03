@@ -56,6 +56,14 @@ export interface OriginateAssistantTurnInput {
    * reach the next provider turn.
    */
   readonly forceSeed?: boolean;
+  /**
+   * Default true: pre-session callers append seed entries before AgentSession
+   * creation so Pi's initial message snapshot includes them. Live session
+   * junctures set this false and deliver seed entries through
+   * `sendCustomMessage` instead, keeping Pi's persisted transcript and
+   * in-memory agent state in sync before the triggering kick.
+   */
+  readonly appendSeed?: boolean;
 }
 
 export interface OriginateAssistantTurnResult {
@@ -176,12 +184,14 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
   // (I46/I47): a transcript with no conversational message entries is a new
   // session; anything else takes the caller-named resume decision, which
   // itself dedupes re-kicks (a prior kick's present_* tail owes nothing).
+  const origin = input.entries.some(isConversationalMessageEntry) ? input.resumeOrigin : 'new_session';
+  const shouldForceSeed = input.forceSeed || (origin === 'new_session' && !hasContextSeed(input.entries));
   const decision = startAssistantTurn({
     specId: input.specId,
     currentLsn: slice.lsn,
     entries: input.entries,
-    origin: input.entries.some(isConversationalMessageEntry) ? input.resumeOrigin : 'new_session',
-    ...(input.forceSeed ? { forceSeed: true } : {}),
+    origin,
+    ...(shouldForceSeed ? { forceSeed: true } : {}),
     seedContent: composeContextSeedContent({
       specId: input.specId,
       ...(input.specName ? { specName: input.specName } : {}),
@@ -195,8 +205,10 @@ export function originateAssistantTurn(input: OriginateAssistantTurnInput): Orig
   // Seed only — the product fabricates no present_* offer (D78-L revised
   // 2026-06-12): on a 'start' decision the launch path fires the kick turn
   // and the assistant authors the opening live from the seeded context.
-  for (const entry of decision.seedEntries) {
-    appendPreparedContinuityEntry(input.manager, entry);
+  if (input.appendSeed ?? true) {
+    for (const entry of decision.seedEntries) {
+      appendPreparedContinuityEntry(input.manager, entry);
+    }
   }
   return { decision };
 }
@@ -209,4 +221,13 @@ function idleKickSkipReason(
 
 function isConversationalMessageEntry(entry: TranscriptEntryLike): boolean {
   return (entry as { type?: unknown }).type === 'message';
+}
+
+function hasContextSeed(entries: readonly TranscriptEntryLike[]): boolean {
+  return entries.some((entry) => {
+    const record = entry as { customType?: unknown; message?: { customType?: unknown } };
+    return (
+      record.customType === 'brunch.context_seed' || record.message?.customType === 'brunch.context_seed'
+    );
+  });
 }

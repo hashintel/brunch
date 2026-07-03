@@ -20,6 +20,7 @@ export const CONTINUITY_ONLY_NON_DEBT_CUSTOM_TYPES = [
   'brunch.session_lifecycle',
   'brunch.side_task_result',
   'brunch.reviewer_drain',
+  'brunch.agent_runtime_state',
   'worldUpdate',
 ] as const;
 
@@ -50,6 +51,8 @@ export function isWatermarkCarrier(entry: TranscriptEntryLike): boolean {
 export function isContinuityOnlyNonDebtEntry(entry: TranscriptEntryLike): boolean {
   const customType = customEntryType(entry);
   if (customType !== undefined && CONTINUITY_ONLY_NON_DEBT_TYPES.has(customType)) return true;
+
+  if (entry.type === 'thinking_level_change') return true;
 
   const message = messageRecord(entry);
   if (message?.role === 'toolResult') {

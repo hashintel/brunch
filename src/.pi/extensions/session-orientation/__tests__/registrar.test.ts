@@ -7,6 +7,7 @@ import type {
 } from '@earendil-works/pi-coding-agent';
 import { describe, expect, it } from 'vitest';
 
+import { BRUNCH_KICK_CUSTOM_TYPE } from '../../../../session/originate-assistant-turn.js';
 import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../../session/session-orientation.js';
 import { SESSION_ORIENTATION_MENU } from '../index.js';
 import { BRUNCH_CONSULT_COMMAND, registerBrunchSessionOrientation, type KickContext } from '../registrar.js';
@@ -71,7 +72,9 @@ function buildCtx(response: string | undefined, seed: readonly CapturedEntry[] =
   return { ctx, entries };
 }
 
-function fakeKickContext(sent: Array<{ message: unknown; options: unknown }>): KickContext {
+type SentMessage = { message: unknown; options: unknown };
+
+function fakeKickContext(sent: SentMessage[]): KickContext {
   return {
     specId: 3,
     reads: { queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }) as never },
@@ -81,6 +84,14 @@ function fakeKickContext(sent: Array<{ message: unknown; options: unknown }>): K
       return undefined;
     },
   };
+}
+
+function expectSeedThenKick(sent: readonly SentMessage[]) {
+  expect(sent).toHaveLength(2);
+  expect((sent[0]!.message as { customType?: string }).customType).toBe('brunch.context_seed');
+  expect(sent[0]!.options).toBeUndefined();
+  expect((sent[1]!.message as { customType?: string }).customType).toBe(BRUNCH_KICK_CUSTOM_TYPE);
+  expect(sent[1]!.options).toEqual({ triggerTurn: true });
 }
 
 describe('registerBrunchSessionOrientation', () => {
@@ -99,7 +110,7 @@ describe('registerBrunchSessionOrientation', () => {
 
   it('runs the dialog on session_start reason startup with trigger entry (J1 boot) and fires a boot kick', async () => {
     const { pi, handlers } = collectPi();
-    const sent: Array<{ message: unknown; options: unknown }> = [];
+    const sent: SentMessage[] = [];
     registerBrunchSessionOrientation(pi, { resolveKickContext: () => fakeKickContext(sent) });
     const { ctx, entries } = buildCtx(labelFor('ingest'));
 
@@ -108,8 +119,8 @@ describe('registerBrunchSessionOrientation', () => {
     expect(
       entries.find((entry) => entry.customType === BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE)?.data,
     ).toEqual({ schemaVersion: 1, choice: 'ingest', trigger: 'entry' });
-    // Boot kick fires (mode 'boot' always originates+kicks).
-    expect(sent).toHaveLength(1);
+    // Boot sends the live seed, then fires the kick (mode 'boot' always originates+kicks).
+    expectSeedThenKick(sent);
   });
 
   it.each(['new', 'resume'] as const)(
@@ -131,7 +142,7 @@ describe('registerBrunchSessionOrientation', () => {
 
   it('runs the dialog on session_tree with trigger tree', async () => {
     const { pi, handlers } = collectPi();
-    const sent: Array<{ message: unknown; options: unknown }> = [];
+    const sent: SentMessage[] = [];
     registerBrunchSessionOrientation(pi, { resolveKickContext: () => fakeKickContext(sent) });
     const { ctx, entries } = buildCtx(labelFor('ingest'));
 
@@ -144,7 +155,7 @@ describe('registerBrunchSessionOrientation', () => {
       choice: 'ingest',
       trigger: 'tree',
     });
-    expect(sent).toHaveLength(1);
+    expectSeedThenKick(sent);
   });
 
   it('fires on agent_end only when the tail assistant message stopReason is aborted (C3 probe)', async () => {
