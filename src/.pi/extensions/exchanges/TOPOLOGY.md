@@ -50,9 +50,10 @@ awaiter-cancel path before it can replace this precedence rule.
 response kind: no options → free-text `answer`, options → single `choice`, and
 options + `multiple` → `choices`. `request_response` finds the pending `present_question`
 from the current session transcript and dispatches by that server-owned kind.
-Choice and multi-choice response paths intentionally remain TUI-only for this
-slice; without `ctx.ui` they return `unavailable`, matching the retired choice
-tools rather than inventing a broker choice surface.
+Choice, multi-choice, and review response paths intentionally remain TUI-only for this
+slice; choice/review use Brunch-owned `ctx.ui.custom` decision pickers, multi-choice uses
+the Brunch checkbox picker, and without the needed custom UI they return `unavailable`,
+matching the retired choice tools rather than inventing a broker choice surface.
 
 ## Single terminal
 

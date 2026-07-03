@@ -180,6 +180,35 @@ function pendingReviewSet(exchangeId: string, heading = 'Review proposal') {
   ];
 }
 
+interface TestPickerComponent {
+  render(width: number): string[];
+  handleInput(data: string): void;
+}
+
+function customPickByIndex(index: number) {
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    expect(component.render(80).join('\n')).toContain('╭');
+    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
+function customCancel() {
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown = 'not-cancelled';
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    component.handleInput('\x1b');
+    return picked;
+  });
+}
+
 describe('structured exchange present/request tools', () => {
   it('registers implemented present/request tools as sequential', () => {
     const tools = registeredTools();
@@ -433,6 +462,37 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
+    const select = vi.fn(async () => 'A');
+    const noCustomChoice = await request_response.execute(
+      'request-response-no-custom-choice-call',
+      { exchangeId: 'options' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'options',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Choose' },
+                  options: [{ id: 'a', content: 'A' }],
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
     expect(cancelled.details).toMatchObject({ tool_meta: { curr: 'request_answer' }, cancelled: {} });
     // User cancel terminates the turn (inert wait); unavailable stays
     // reactive so the model can reroute.
@@ -443,6 +503,10 @@ describe('structured exchange present/request tools', () => {
       unavailable: { message: 'request_response choice requires interactive UI' },
     });
     expect(headlessChoice.terminate).toBeUndefined();
+    expect(noCustomChoice.details).toMatchObject({
+      unavailable: { message: 'request_response choice requires interactive UI' },
+    });
+    expect(select).not.toHaveBeenCalled();
   });
 
   it('offers request_response as the recovery continuation for unmatched present_question', () => {
@@ -478,7 +542,7 @@ describe('structured exchange present/request tools', () => {
       {
         hasUI: true,
         ui: {
-          select: async () => 'Move under src/tui-client',
+          custom: customPickByIndex(1),
           input: async () => 'Aligns ownership with /reload iteration.',
         },
         sessionManager: {
@@ -540,7 +604,7 @@ describe('structured exchange present/request tools', () => {
       {
         hasUI: true,
         ui: {
-          select: async () => 'Other',
+          custom: customPickByIndex(1),
           input,
         },
         sessionManager: {
@@ -586,6 +650,7 @@ describe('structured exchange present/request tools', () => {
     if (!request_response) throw new Error('request_response was not registered');
 
     const select = vi.fn(async () => '2. Repeat label');
+    const custom = customPickByIndex(1);
     const result = await request_response.execute(
       'request-response-duplicate-choice-call',
       { exchangeId: 'duplicate-options' },
@@ -593,7 +658,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select },
+        ui: { custom, select },
         sessionManager: {
           getBranch: () => [
             {
@@ -619,7 +684,8 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(select).toHaveBeenCalledWith('Select one option.', ['1. Repeat label', '2. Repeat label']);
+    expect(custom).toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
     expect(result.details).toMatchObject({
       exchange_id: 'duplicate-options',
       tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
@@ -720,7 +786,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select: async () => 'Local workbench' },
+        ui: { custom: customPickByIndex(0) },
         sessionManager: {
           getBranch: () => [
             {
@@ -775,6 +841,7 @@ describe('structured exchange present/request tools', () => {
     if (!request_response) throw new Error('request_response was not registered');
 
     const select = vi.fn(async () => '2. Same direction');
+    const custom = customPickByIndex(1);
     const result = await request_response.execute(
       'request-response-duplicate-candidate-call',
       { exchangeId: 'duplicate-candidates' },
@@ -782,7 +849,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select },
+        ui: { custom, select },
         sessionManager: {
           getBranch: () => [
             {
@@ -807,10 +874,8 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(select).toHaveBeenCalledWith('Which direction should we take?', [
-      '1. Same direction',
-      '2. Same direction',
-    ]);
+    expect(custom).toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
     expect(result.details).toMatchObject({
       exchange_id: 'duplicate-candidates',
       tool_meta: { prev: PRESENT_CANDIDATES_TOOL, curr: 'request_choice', next: 'capture_candidate' },
@@ -931,7 +996,7 @@ describe('structured exchange present/request tools', () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
 
-    for (const [selected, review, comment] of [
+    for (const [_selected, review, comment] of [
       ['Approve', 'approve', 'Looks right.'],
       ['Request changes', 'request_changes', 'Tighten the grounding.'],
       ['Reject', 'reject', 'Wrong direction.'],
@@ -943,7 +1008,10 @@ describe('structured exchange present/request tools', () => {
         undefined,
         {
           hasUI: true,
-          ui: { select: async () => selected, input: async () => comment },
+          ui: {
+            custom: customPickByIndex(['approve', 'request_changes', 'reject'].indexOf(review)),
+            input: async () => comment,
+          },
           sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
         } as never,
       );
@@ -961,7 +1029,7 @@ describe('structured exchange present/request tools', () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
 
-    for (const [selected, review, comment] of [
+    for (const [_selected, review, comment] of [
       ['Approve', 'approve', 'Looks right.'],
       ['Request changes', 'request_changes', 'Tighten the source limitation.'],
       ['Reject', 'reject', 'Wrong direction.'],
@@ -973,7 +1041,10 @@ describe('structured exchange present/request tools', () => {
         undefined,
         {
           hasUI: true,
-          ui: { select: async () => selected, input: async () => comment },
+          ui: {
+            custom: customPickByIndex(['approve', 'request_changes', 'reject'].indexOf(review)),
+            input: async () => comment,
+          },
           sessionManager: { getBranch: () => pendingDigest('digest-large-source') },
         } as never,
       );
@@ -1003,7 +1074,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select: async () => undefined },
+        ui: { custom: customCancel() },
         sessionManager: { getBranch: () => pendingDigest('digest-large-source') },
       } as never,
     );
@@ -1036,7 +1107,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select: async () => 'Request changes', input: async () => '   ' },
+        ui: { custom: customPickByIndex(1), input: async () => '   ' },
         sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
       } as never,
     );
@@ -1058,7 +1129,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select: async () => undefined },
+        ui: { custom: customCancel() },
         sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
       } as never,
     );
@@ -1073,11 +1144,25 @@ describe('structured exchange present/request tools', () => {
         sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
       } as never,
     );
+    const select = vi.fn(async () => 'Approve');
+    const noCustom = await request_response.execute(
+      'request-response-review-no-custom',
+      { exchangeId: 'review-cycle-1' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select },
+        sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
+      } as never,
+    );
 
     expect(cancelled.details).toMatchObject({ cancelled: {}, tool_meta: { curr: 'request_review' } });
     expect(cancelled.terminate).toBe(true);
     expect(unavailable.details).toMatchObject({ unavailable: {}, tool_meta: { curr: 'request_review' } });
     expect(unavailable.terminate).toBeUndefined();
+    expect(noCustom.details).toMatchObject({ unavailable: {}, tool_meta: { curr: 'request_review' } });
+    expect(select).not.toHaveBeenCalled();
     expect(isStructuredExchangeRequestDetails(cancelled.details)).toBe(true);
     expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });

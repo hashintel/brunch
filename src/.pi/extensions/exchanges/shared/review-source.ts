@@ -3,17 +3,10 @@ import {
   projectRequestReview,
   type ReviewDecision,
 } from '../../../../exchanges/projections/request-response.js';
+import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
-const REVIEW_LABELS = ['Approve', 'Request changes', 'Reject'] as const;
-
-function decisionForLabel(label: string): ReviewDecision | undefined {
-  if (label === 'Approve') return 'approve';
-  if (label === 'Request changes') return 'request_changes';
-  if (label === 'Reject') return 'reject';
-  return undefined;
-}
 
 export type CollectReviewParams =
   | {
@@ -44,16 +37,22 @@ export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, para
     };
   };
 
-  if (!ctx.hasUI || typeof ctx.ui?.select !== 'function') {
+  if (!ctx.hasUI || typeof ctx.ui?.custom !== 'function') {
     return terminal('unavailable', 'request_response review requires interactive UI');
   }
 
-  const selected = await ctx.ui.select(params.prompt, [...REVIEW_LABELS]);
+  const selected = await ctx.ui.custom<{ readonly id: ReviewDecision } | undefined>(
+    (_tui, theme, _keybindings, done) =>
+      createExchangeDecisionPickerComponent({
+        prompt: params.prompt,
+        choices: REVIEW_CHOICES,
+        theme,
+        onDone: (result) => done(result as { readonly id: ReviewDecision } | undefined),
+      }),
+  );
   if (selected === undefined) return terminal('cancelled');
 
-  const review = decisionForLabel(selected);
-  if (!review)
-    return terminal('unavailable', `request_response review received unknown decision ${selected}`);
+  const review = selected.id;
 
   const comment =
     typeof ctx.ui.input === 'function'
@@ -95,3 +94,9 @@ export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, para
   });
   return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
 }
+
+const REVIEW_CHOICES: readonly { readonly id: ReviewDecision; readonly label: string }[] = [
+  { id: 'approve', label: 'Approve' },
+  { id: 'request_changes', label: 'Request changes' },
+  { id: 'reject', label: 'Reject' },
+];

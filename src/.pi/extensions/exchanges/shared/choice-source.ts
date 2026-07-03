@@ -5,6 +5,7 @@ import {
   type AnsweredOptionEcho,
   type SelectedChoice,
 } from '../../../../exchanges/schemas/index.js';
+import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
@@ -70,19 +71,33 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
     };
   };
 
-  if (!params.ctx.hasUI || typeof params.ctx.ui?.select !== 'function') {
+  if (!params.ctx.hasUI || typeof params.ctx.ui?.custom !== 'function') {
     return terminal('unavailable', 'request_response choice requires interactive UI');
   }
 
   const choices = selectableChoices(params.choices);
-  const labels = [...choices.map((choice) => choice.selectLabel), ...(params.allowOther ? ['Other'] : [])];
-  const selected = await params.ctx.ui.select(params.prompt, labels);
+  const pickerChoices = [
+    ...choices.map(({ choice, selectLabel }) => ({ id: choice.id, label: selectLabel })),
+    ...(params.allowOther ? [{ id: 'other', label: 'Other' }] : []),
+  ];
+  const selected = await params.ctx.ui.custom<{ readonly id: string } | undefined>(
+    (_tui, theme, _keybindings, done) =>
+      createExchangeDecisionPickerComponent({
+        prompt: params.prompt,
+        choices: pickerChoices,
+        theme,
+        onDone: done,
+      }),
+  );
   if (selected === undefined) return terminal('cancelled');
 
-  const picked = choiceBySelection(choices, selected);
+  const picked = choiceBySelection(choices, selected.id);
   let choice: SelectedChoice;
   let comment = '';
   if (!picked) {
+    if (!params.allowOther || selected.id !== 'other') {
+      return terminal('unavailable', `request_response choice received unknown option id ${selected.id}`);
+    }
     const other =
       typeof params.ctx.ui.input === 'function'
         ? await params.ctx.ui.input('Other', 'Describe your answer')

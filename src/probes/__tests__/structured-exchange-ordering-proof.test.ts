@@ -33,8 +33,7 @@ describe('structured-exchange ordering proof', () => {
       'present_question:start',
       'present_question:end',
       'request_response:start',
-      'ui:select',
-      'ui:input',
+      'ui:editor',
       'request_response:end',
     ]);
     expect(proof.jsonlToolResultOrder).toEqual(['present_question', 'request_response']);
@@ -42,19 +41,14 @@ describe('structured-exchange ordering proof', () => {
       schema: 'brunch.structured_exchange.present',
       exchange_id: 'ordering-proof',
       tool_meta: { curr: 'present_question', next: 'request_response' },
-      options: [
-        { id: 'root', content: 'Keep src/pi-extensions.ts' },
-        { id: 'tui', content: 'Move under src/tui-client' },
-      ],
+      response_kind: 'answer',
+      display: { heading: 'What should the next parity proof check?' },
     });
     expect(proof.requestDetails).toMatchObject({
       schema: 'brunch.structured_exchange.request',
       exchange_id: 'ordering-proof',
-      tool_meta: { prev: 'present_question', curr: 'request_choice' },
-      answered: {
-        choice: { id: 'tui', label: 'Move under src/tui-client', kind: 'listed' },
-        comment: 'Sequential ordering looks safe for the next parity proof.',
-      },
+      tool_meta: { prev: 'present_question', curr: 'request_answer' },
+      answered: { text: 'Sequential ordering looks safe for the next parity proof.' },
     });
   }, 20_000);
 });

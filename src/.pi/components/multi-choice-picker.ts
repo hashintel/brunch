@@ -1,5 +1,6 @@
 import { type Component } from '@earendil-works/pi-tui';
 
+import { projectRoundedBox } from './rounded-box.js';
 import { safeLines, type LabTheme } from './tui-lab/index.js';
 
 export interface MultiChoicePickerChoice {
@@ -29,7 +30,7 @@ export class MultiChoicePickerComponent implements Component {
 
   render(width: number): string[] {
     const safeWidth = Math.max(1, width);
-    const contentWidth = Math.max(1, safeWidth - PADDING_X * 2);
+    const contentWidth = Math.max(1, safeWidth - 4 - PADDING_X * 2);
     const leftMargin = ' '.repeat(PADDING_X);
     const { theme } = this.options;
     const lines = safeLines(
@@ -41,8 +42,11 @@ export class MultiChoicePickerComponent implements Component {
       ],
       contentWidth,
     ).map((line) => leftMargin + line);
-    lines.push('');
-    return lines;
+    const box = projectRoundedBox(lines, { blankPadding: { top: 1, bottom: 1 } }, safeWidth, (text) =>
+      theme.fg('accent', text),
+    );
+    box.push('');
+    return box;
   }
 
   handleInput(data: string): void {

@@ -90,18 +90,11 @@ export async function runStructuredExchangeOrderingProof(
       `${JSON.stringify({ id: 'ordering', type: 'prompt', message: '/brunch-structured-exchange-ordering-proof' })}\n`,
     );
 
-    const selectRequest = await client.waitFor(
-      (event): event is ExtensionUiRequest => isExtensionUiRequest(event) && event.method === 'select',
+    const editorRequest = await client.waitFor(
+      (event): event is ExtensionUiRequest => isExtensionUiRequest(event) && event.method === 'editor',
     );
     child.stdin.write(
-      `${JSON.stringify({ type: 'extension_ui_response', id: selectRequest.id, value: 'Move under src/tui-client' })}\n`,
-    );
-
-    const inputRequest = await client.waitFor(
-      (event): event is ExtensionUiRequest => isExtensionUiRequest(event) && event.method === 'input',
-    );
-    child.stdin.write(
-      `${JSON.stringify({ type: 'extension_ui_response', id: inputRequest.id, value: 'Sequential ordering looks safe for the next parity proof.' })}\n`,
+      `${JSON.stringify({ type: 'extension_ui_response', id: editorRequest.id, value: 'Sequential ordering looks safe for the next parity proof.' })}\n`,
     );
 
     const promptResponse = await promptAccepted;
@@ -129,7 +122,7 @@ export async function runStructuredExchangeOrderingProof(
     const eventOrder = orderingEvents(client.events);
     const jsonlToolResultOrder = toolResults.map((result) => result.toolName);
     const presentIndex = eventOrder.indexOf('present_question:end');
-    const requestUiIndex = eventOrder.indexOf('ui:select');
+    const requestUiIndex = eventOrder.indexOf('ui:editor');
     const jsonlPresentIndex = jsonlToolResultOrder.indexOf('present_question');
     const jsonlRequestIndex = jsonlToolResultOrder.indexOf('request_response');
 
@@ -193,12 +186,8 @@ export function orderingExtensionSource(adapterPath: string, fauxProviderPath: s
         fauxAssistantMessage([
           fauxToolCall("present_question", {
             exchangeId: "ordering-proof",
-            heading: "Where should the extension shell live?",
+            heading: "What should the next parity proof check?",
             body: "This present result must persist before the request UI opens.",
-            options: [
-              { id: "root", content: "Keep src/pi-extensions.ts", rationale: "Smallest diff." },
-              { id: "tui", content: "Move under src/tui-client", rationale: "Clearer ownership." },
-            ],
           }, { id: "present-ordering-call" }),
           fauxToolCall("request_response", {
             exchangeId: "ordering-proof",

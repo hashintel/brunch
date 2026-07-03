@@ -29,6 +29,8 @@ import {
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
 
+import { ExchangeDecisionPickerComponent } from '../../.pi/components/exchange-decision-picker.js';
+
 export interface ComponentPreviewEntry {
   readonly id: string;
   readonly label: string;
@@ -101,6 +103,28 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     open: (tui, theme, keybindings) =>
       showComponentPreview(tui, theme, keybindings, (_tui, previewTheme, _kb, done) =>
         createRuntimeModePickerComponent({ current: 'elicit', theme: previewTheme, onDone: done }),
+      ),
+  },
+  {
+    id: 'exchange-decision-picker',
+    label: 'Exchange decision picker',
+    presentedLike: 'inline swap — src/.pi/extensions/exchanges/shared/choice-source.ts and review-source.ts',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ExchangeDecisionPickerComponent({
+            prompt: 'Which direction should we take?',
+            choices: [
+              { id: 'local-workbench', label: 'Local workbench' },
+              { id: 'agent-relay', label: 'Agent relay' },
+              { id: 'defer', label: 'Defer until capture is settled' },
+            ],
+            theme: previewTheme,
+            onDone: done,
+          }),
       ),
   },
   {

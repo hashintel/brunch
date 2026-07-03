@@ -30,8 +30,9 @@ components/
 ├── brunch-version.ts
 ├── cards.ts
 ├── chrome-header.ts
+├── exchange-decision-picker.ts bordered single-decision exchange response picker
 ├── lateral-padding.ts          transparent horizontal padding wrapper
-├── multi-choice-picker.ts      focused checkbox-style exchange response picker
+├── multi-choice-picker.ts      bordered checkbox-style exchange response picker
 ├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
 │                                preview harness; components still receive ordinary key bytes
 ├── rounded-box.ts              projectRoundedBox() — pure rounded-border primitive shared by

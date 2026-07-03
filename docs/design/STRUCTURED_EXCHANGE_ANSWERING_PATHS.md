@@ -130,9 +130,9 @@ policy: current-state coverage, not a design rule
 kind     | local-TUI (A)                                   | RPC direct-submit (B)         | live-driver headless (C)
 ---------|--------------------------------------------------|--------------------------------|---------------------------
 answer   | ctx.ui.editor                                    | works (uniform, see notes)    | broker (built, FE-873)
-choice   | ctx.ui.select + ctx.ui.input                     | works (uniform, see notes)    | x> unavailable, no broker
+choice   | ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
 choices  | ctx.ui.custom (MultiChoicePickerComponent), falls back to ctx.ui.editor JSON envelope | works (uniform, see notes) | x> unavailable — no broker, and the JSON-envelope fallback also needs ctx.ui, absent here too
-review   | ctx.ui.select + ctx.ui.input                     | works (uniform, see notes)    | x> unavailable, no broker
+review   | ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
 
 notes:
   - Column B is genuinely uniform across all four kinds: `session.submitExchangeResponse`
@@ -152,24 +152,25 @@ notes:
     ("remaining consumer/UI and non-freeform answer legs"). It is orthogonal to column A.
 
 open:
-  - If column A's mechanism changes (e.g. choice/review move from ctx.ui.select to ctx.ui.custom,
-    matching what choices already does), column B does not change (still bypasses ctx.ui) and
-    column C does not change (still needs a broker that doesn't exist for these kinds regardless
-    of what column A renders with). A column-A UI swap is safe with respect to both B and C.
+  - The column A choice/review picker mechanism now uses `ctx.ui.custom`, matching what choices
+    already did. Column B did not change (still bypasses ctx.ui) and column C did not change
+    (still needs a broker that doesn't exist for these kinds regardless of what column A renders
+    with). This column-A UI swap is safe with respect to both B and C.
 ```
 
 ## Implications for component-dx / request_* picker work
 
 - **Restyling `choice`/`review`/`answer` with a Brunch-owned bordered component only touches
-  column A.** It does not put Brunch's tested RPC-driven structured-exchange proof (SPEC
-  requirement 24) at risk, because that proof exercises column B, which never reaches `ctx.ui` at
-  all.
+  column A.** The choice/review half is now landed through a custom decision picker. It does not put
+  Brunch's tested RPC-driven structured-exchange proof (SPEC requirement 24) at risk, because that
+  proof exercises column B, which never reaches `ctx.ui` at all.
 - **It does not create or worsen the column-C gap.** That gap already exists today for
   choice/choices/review regardless of which column-A mechanism is used; a UI swap is orthogonal to
   it, not a regression against it.
-- **`choices` (`MultiChoicePickerComponent`) already proves the whole column-A pattern**:
+- **`choices` (`MultiChoicePickerComponent`) already proved the whole column-A pattern**:
   `ctx.ui.custom` first, `ctx.ui.editor` JSON-envelope fallback for the rare case `hasUI` is false.
-  Extending `answer`/`choice`/`review` to the same shape is additive, not a new architecture.
+  Extending `choice`/`review` to custom picker chrome was additive, not a new architecture; the
+  remaining `answer` restyle is still the same column-A-only kind of change.
 - **If Brunch ever wants to close the column-C gap for choice/choices/review**, that is a separate,
   already-named Horizon-frontier concern (`web-driver-streaming`) — building a
   `LiveChoiceBroker`-equivalent to `LiveExchangeBroker`. It is not blocked by, or a prerequisite
