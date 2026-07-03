@@ -14,9 +14,9 @@ This pass validates the current Brunch POC after the recent data-model and agent
    - graph item `settlement` distinct from `basis`
    - absolute, readable Brunch `SKILL.md` locations in the live prompt manifest
 5. Capture divergences as product, data-model, prompt/context, skill-routing, transport/projection, or demo-friction findings.
-6. Pressure-test two open design questions with live evidence:
-   - **Generative discoverability**: does the Specify-mode elicitor ever spontaneously go generative (`propose`/`project`) when the spec needs it, and would a user ever discover they can ask for it? (Feeds the Specify/Enhance/Execute mode question — observe, don't redesign.)
-   - **Reboot semantics**: "kick" is currently origination-only; the working hypothesis is that all restart-like session events (new session, resume, re-entry, tree navigation, mode switch) should be able to trigger a kick. Scenario 7 gathers the evidence.
+6. Pressure-test two design questions with live evidence — **both answered by the 2026-07-03 grill; probes remain as verification, not open design**:
+   - **Generative discoverability**: does the Specify-mode elicitor ever spontaneously go generative (`propose`/`project`) when the spec needs it, and would a user ever discover they can ask for it? *Answered:* generative flows are offered at deterministic junctures via the product-owned orientation dialog (`session-entry-orientation`), not model volition; Enhance as a third mode is rejected (two modes only, D98-L). The probe now verifies menu→conduct routing.
+   - **Reboot semantics**: "kick" is currently origination-only; the working hypothesis was that all restart-like session events should be able to trigger a kick. *Answered differently:* the resolution is the orientation dialog on juncture events (`session_start` new/resume/fork, `session_tree`, esc/abort settle, mode switch, `/consult`) whose recorded `brunch.session_orientation` outcome feeds the next kick — not kick-on-every-FTR-event. Scenario 7's evidence fed this decision.
 
 ## Primary invocation surface
 
@@ -248,7 +248,7 @@ Evidence to inspect:
 
 ### 7. Mode switch, FTR events, and session reboot
 
-Known state going in: `applyModeSwitch` (`src/.pi/extensions/commands/index.ts`) swaps the system prompt + active tools and appends a `brunch.agent_runtime_state` custom entry (`reason: 'switch'`), but does **not** trigger a kick — kick today is origination-only (D78-L, `src/session/originate-assistant-turn.ts`). Session re-entry / tree navigation as reboot events is horizon (`session-branching`). This scenario gathers evidence for a unified "reboot on FTR events" seam as a likely scoped fix.
+Known state going in: `applyModeSwitch` (`src/.pi/extensions/commands/index.ts`) swaps the system prompt + active tools and appends a `brunch.agent_runtime_state` custom entry (`reason: 'switch'`), but does **not** trigger a kick — kick today is origination-only (D78-L, `src/session/originate-assistant-turn.ts`). **Resolution decided (2026-07-03 grill):** the seam is the deterministic orientation dialog on juncture events — `session-entry-orientation` owns the dialog + juncture set, `execute-entry-readiness` owns the CODE-mode entry assessment — not a unified "kick on every FTR event" mechanism. This scenario's probes remain useful as before/after evidence for those frontiers.
 
 Expected behavior (current contract):
 
@@ -261,7 +261,7 @@ Expected behavior (current contract):
 Dramaturgical probes (observe, classify, don't fix in-line unless trivial):
 
 - After switching, does the new agent orient itself unprompted, or does it sit silent until poked? (This is the missing mode-entry kick.)
-- **Execute-gate pushback**: switch to Execute with a spec that has intent but thin design/oracle/commitment coverage and say "OK let's go." Does the executor push back — "let's figure out technical design, verification design, and plan sequencing first" — and route the user back, or does it barrel ahead? This probes whether the two-mode model plus pushback can substitute for a third Enhance mode.
+- **Execute-gate pushback**: switch to Execute with a spec that has intent but thin design/oracle/commitment coverage and say "OK let's go." Does the executor push back — "let's figure out technical design, verification design, and plan sequencing first" — and route the user back, or does it barrel ahead? *Settled (2026-07-03 grill):* two modes only; Enhance is rejected. The target conduct is now defined by `execute-entry-readiness` (entry assessment + gentle backfill, no mode ping-pong) — this probe becomes its before/after walkthrough beat.
 - Resume an existing session (`--workspace` without `--seed`): does re-entry produce a coherent reorientation, and is there any session-state evidence of the re-entry event?
 
 Evidence to inspect:
