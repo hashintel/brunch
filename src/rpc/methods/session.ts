@@ -1,8 +1,9 @@
 import { Type, type Static } from 'typebox';
 import { Value } from 'typebox/value';
 
-import { formatAcceptedReviewSetResult } from '../../agents/contexts/exchanges/request-response/review.js';
+import { formatMutateGraphResult } from '../../agents/contexts/data-model/graph/commit-result.js';
 import { zReviewSetDetailsPayload, type ReviewSetDetailsPayload } from '../../exchanges/schemas/index.js';
+import type { MutateGraphSuccess } from '../../graph/command-executor.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
 import type { WorkspaceGraphRuntime } from '../../graph/workspace-store.js';
 import { projectSessionRuntimeState } from '../../projections/session/runtime-state.js';
@@ -635,14 +636,21 @@ async function handleSubmitExchangeResponse(
     status: 'accepted',
     exchangeId: pending.exchangeId,
     answer: accepted.answer,
-    ...(review === undefined ? {} : { review }),
+    ...(review === undefined
+      ? {}
+      : {
+          review:
+            review.status === 'approved'
+              ? { status: 'approved', lsn: review.accepted.lsn, createdNodes: review.accepted.createdNodes }
+              : review,
+        }),
     ...(params.note === undefined ? {} : { note: params.note }),
   };
 
   if (review?.status === 'approved') {
     const [textContent] = accepted.toolResultMessage.content;
     if (textContent) {
-      textContent.text = `${textContent.text}\n\n${formatAcceptedReviewSetResult(review)}`;
+      textContent.text = `${textContent.text}\n\n${formatMutateGraphResult(review.accepted)}`;
     }
   }
 
@@ -653,7 +661,7 @@ async function handleSubmitExchangeResponse(
   flushSessionManagerToFile(state.session.manager, state.session.file);
 
   publishSelectedSessionUpdates(options.productUpdates, state, target.envelope.binding.specId);
-  const mutationLsn = review?.status === 'approved' ? review.lsn : null;
+  const mutationLsn = review?.status === 'approved' ? review.accepted.lsn : null;
   if (mutationLsn !== null) {
     options.productUpdates?.publish(
       graphMutationProductUpdates({ specId: target.envelope.binding.specId, lsn: mutationLsn }),
@@ -684,11 +692,7 @@ function reviewResultForAcceptedResponse(options: {
   readonly proposalEntryId?: string | undefined;
   readonly commandExecutor: WorkspaceGraphRuntime['commandExecutor'];
 }):
-  | {
-      readonly status: 'approved';
-      readonly lsn: number;
-      readonly createdNodes: Record<string, unknown>;
-    }
+  | { readonly status: 'approved'; readonly accepted: MutateGraphSuccess }
   | { readonly status: 'request_changes' | 'rejected' }
   | { readonly status: 'structural_illegal'; readonly diagnostics: Record<string, unknown>[] }
   | undefined {
@@ -738,11 +742,7 @@ function reviewResultForAcceptedResponse(options: {
       diagnostics: accepted.diagnostics.map((diagnostic) => ({ ...diagnostic })),
     };
   }
-  return {
-    status: 'approved',
-    lsn: accepted.lsn,
-    createdNodes: accepted.createdNodes,
-  };
+  return { status: 'approved', accepted };
 }
 
 function reviewSetProposalPayloadFromDetails(input: {
