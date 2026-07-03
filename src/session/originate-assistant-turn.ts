@@ -129,6 +129,14 @@ export async function completeAssistantKick(input: CompleteAssistantKickInput): 
  * a transcript entry (I47-L), never a fabricated user message (I46-L), and
  * writes no continuity (D77-L: the reconciler remains the only continuity
  * writer).
+ *
+ * Content varies by origin (F16b, card 4): `resume_debt` — a resumed session
+ * — opens with an assessment (graph reading + TODO forecast) grounded in the
+ * seeded facts (D101-L/D102-L) *before* elicitation, so the user gets a
+ * "where are we" re-entry surface instead of dropping straight back into
+ * questions. `new_session` and `manual_trigger` keep the original assistant-
+ * authored opening; `manual_trigger` already carries a routing directive via
+ * the seed's SESSION ORIENTATION section (`session_orientation`).
  */
 export function kickTurnMessage(origin: 'new_session' | 'resume_debt' | 'manual_trigger'): {
   customType: typeof BRUNCH_KICK_CUSTOM_TYPE;
@@ -138,13 +146,27 @@ export function kickTurnMessage(origin: 'new_session' | 'resume_debt' | 'manual_
 } {
   return {
     customType: BRUNCH_KICK_CUSTOM_TYPE,
-    content:
-      'Session start: the spec context has been seeded into the transcript for you. ' +
-      'Open the conversation in your own words, grounded in that seeded context, ' +
-      'and lead the user toward the first structured question.',
+    content: kickTurnContent(origin),
     display: false,
     details: { origin },
   };
+}
+
+function kickTurnContent(origin: 'new_session' | 'resume_debt' | 'manual_trigger'): string {
+  if (origin === 'resume_debt') {
+    return (
+      'Session resume: the spec context has been re-seeded into the transcript for you. ' +
+      'Open with a brief assessment grounded in that seed — a compact reading of what the ' +
+      'graph currently expresses (kinds present, notable structure) and a forecast of what ' +
+      'looks TODO next — before returning to elicitation. Do not restate raw node/edge ' +
+      'listings; read the seed as a whole and orient the user to where we are.'
+    );
+  }
+  return (
+    'Session start: the spec context has been seeded into the transcript for you. ' +
+    'Open the conversation in your own words, grounded in that seeded context, ' +
+    'and lead the user toward the first structured question.'
+  );
 }
 
 export function originateAssistantTurn(input: OriginateAssistantTurnInput): OriginateAssistantTurnResult {

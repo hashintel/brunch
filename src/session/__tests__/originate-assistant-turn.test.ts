@@ -193,6 +193,26 @@ describe('kickTurnMessage', () => {
     expect(kickTurnMessage('new_session').content).not.toContain('presented offer');
     expect(kickTurnMessage('new_session').content).not.toContain('offered question');
   });
+
+  it('carries the F16b re-entry assessment directive on resume_debt', () => {
+    const message = kickTurnMessage('resume_debt');
+    expect(message.customType).toBe('brunch.kick');
+    expect(message.details).toEqual({ origin: 'resume_debt' });
+    expect(message.content).toContain('Session resume');
+    expect(message.content).toContain('assessment');
+    expect(message.content).toContain('forecast');
+    expect(message.content).toContain('TODO');
+    // Guard against restating raw listings (F16b: not a node/edge dump).
+    expect(message.content).toContain('Do not restate raw node/edge listings');
+  });
+
+  it('leaves manual_trigger kicks on the new-session opening (orientation seed drives the move)', () => {
+    // manual_trigger fires from J3/J4/J6 with a non-continue orientation
+    // choice; the seed's SESSION ORIENTATION section already directs the
+    // move, so the kick content itself stays neutral.
+    expect(kickTurnMessage('manual_trigger').content).toBe(kickTurnMessage('new_session').content);
+    expect(kickTurnMessage('manual_trigger').details).toEqual({ origin: 'manual_trigger' });
+  });
 });
 
 describe('completeAssistantKick', () => {

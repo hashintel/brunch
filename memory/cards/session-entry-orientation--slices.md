@@ -381,7 +381,15 @@ src/app/brunch-tui.ts                 ~   (kick status → working message; over
 
 ---
 
-## Card 4 — Re-entry assessment guidance (F16b) · `queued`
+## Card 4 — Re-entry assessment guidance (F16b) · `done`
+
+**2026-07-03 landed:** `kickTurnMessage` is now origin-aware. `resume_debt` kicks carry a re-entry assessment directive — a compact reading of what the graph currently expresses and a forecast of what looks TODO, grounded in the D101-L/D102-L seed facts already carried by the kick payload — before returning to elicitation. `new_session` content is unchanged (guard test locks it). `manual_trigger` shares the new-session content because those kicks are already directed by the SESSION ORIENTATION section (§Choice schema) their orientation entry places in the seed.
+
+Verification: unit tests in `src/session/__tests__/originate-assistant-turn.test.ts` cover the resume directive (contains "Session resume", "assessment", "forecast", "TODO", and the no-node-dump guard) and the manual_trigger==new_session equivalence. Outer walkthrough resume beat and `.brunch/debug/system-prompt.md` / `.brunch/debug/origination.md` remain the conduct-quality oracle.
+
+---
+
+## Card 4 — Original definition (kept for cross-refs) · `superseded by landed note above`
 
 Light scope card. Posture: earned mechanism (prompt shaping over existing seed facts, D101-L/D102-L — no new plumbing); conduct quality verified outer-loop.
 
