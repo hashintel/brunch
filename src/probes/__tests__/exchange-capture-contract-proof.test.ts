@@ -214,4 +214,18 @@ describe('exchange capture contract proof', () => {
     expect(ingestGuidance).toContain('Superseded prior proposal entries stay transcript history only');
     expect(ingestGuidance).toContain('capture/projection consumes only the accepted terminal payload');
   });
+
+  it('keeps accepted present_candidates selections as recognition rather than graph truth', async () => {
+    const propose = await readFile(join(process.cwd(), 'src/agents/skills/propose/SKILL.md'), 'utf8');
+    const project = await readFile(join(process.cwd(), 'src/agents/skills/project/SKILL.md'), 'utf8');
+    const routing = await readFile(
+      join(process.cwd(), 'src/agents/skills/map/references/routing.md'),
+      'utf8',
+    );
+
+    expect(propose).toContain('present_candidates` is a recognition surface');
+    expect(project).toContain('`present_candidates` helps the user choose a direction');
+    expect(routing).toContain('Accepted `present_candidates` selections are recognition input');
+    expect(routing).toContain('non-picked candidates remain offer history');
+  });
 });
