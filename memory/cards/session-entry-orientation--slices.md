@@ -10,10 +10,10 @@ Created:  2026-07-03
 ## Orientation
 
 - **Containing seam:** a new per-concern extension home `src/.pi/extensions/session-orientation/` (Pi adapter wiring — sibling of `chrome/`, `commands/`, `workspace/`) + the origination seed path (`src/session/originate-assistant-turn.ts` → `src/agents/contexts/seeds/origination.ts`), which already folds custom entries (`latestElicitationScratchpad`) into the `brunch.context_seed` kick payload. The dialog is product chrome on the product side of D37-L — not an exchange. Seed-path routing is mandatory, not incidental: kick turns bypass `before_agent_start` (FE-1122 F1 lesson), so hook-local prompt injection cannot carry the directive.
-- **Frontier:** `session-entry-orientation` (PLAN §Frontier Definitions; ship-gate head, arc `deterministic-orientation`). Linear issue + Graphite branch: **deferred — another agent is in flight in this worktree; create on build pickup.**
+- **Frontier:** `session-entry-orientation` (PLAN §Frontier Definitions; ship-gate head, arc `deterministic-orientation`). Linear issue: [FE-1134](https://linear.app/hash/issue/FE-1134/session-orientation-dialog-at-deterministic-junctures). Graphite branch: `ln/fe-1134-session-orientation` (split from the walkthrough planning branch after the first orientation commits).
 - **Posture:** mechanism `earned`, menu content/conduct `proving` (inherited from `session-entry-orientation`). Cards 1–2 are proving tracers; cards 3–4 are earned defect-closure inside settled seams.
-- **Volatile handoff state:** HANDOFF.md (2026-07-03) — three owed SPEC entries ride `ln-sync`, not this file; the chart obligation lands here.
-- **Main open risk:** boot ordering. `originateAssistantTurn` runs in `src/app/brunch-tui.ts` (~L466) **before** `createAgentSessionFromServices` — so no `session_start` handler can feed the boot kick. Card 1 reorders the boot path (dialog between session creation and origination). See RISK in card 1.
+- **Volatile handoff state:** HANDOFF.md (2026-07-03) is superseded for this frontier by the Card 1/Card 2 build notes below and the PLAN/SPEC sync commit.
+- **Current build focus:** Card 1 is landed via option-2 J1 (`session_start(startup)` after Pi binds extension UI). Card 2 has J2/J3/J4/J6 landed; J5 mode-switch and C1 RPC round-trip remain explicit follow-up slices. Next recommended slices: Card 3 entry chrome, then Card 4 re-entry assessment, then Card 2 trailers (J5 + C1).
 - **Cross-cutting obligations (frontier-level):** decision-flow chart at scope time (§Chart below — discharged); sweep-exclusion probe for `brunch.session_orientation`; the arc's "one witnessed e2e run per generative flow" obligation — elicit-path menu options verifiable on existing seeds now, propose/project options blocked on `walkthrough-batch-2` seed variants (`memory/cards/walkthrough-batch-2--seed-variants.md`).
 
 **Grounding corrections to the PLAN definition (verified against Pi docs + code this session):**
@@ -23,7 +23,7 @@ Created:  2026-07-03
 3. `brunch.session_orientation` is **already excluded from the capture sweep by default**: `isSweepConversationalEntry` (`src/projections/session/sweep-watermark.ts:62-78`) returns `false` for any custom entry outside `DIGEST_CUSTOM_TYPES`. Card 1 owes only the probe, no mechanism — exactly as the PLAN pinned.
 4. There is no `agent_abort` extension event and `AgentEndEvent` exposes only `messages` — but `AssistantMessage.stopReason` includes `'aborted'` (`node_modules/@earendil-works/pi-ai/dist/types.d.ts:205`), so an esc-abort is likely detectable by inspecting the tail assistant message in `agent_end`. Compaction-overflow aborts that will retry (`willRetry`) must be excluded. Concrete probe path in check C3 (card 2); if the probe fails, J4 degrades to `/consult`-only.
 5. `ctx.ui.select` returns `undefined` on escape **and** on timeout; `ctx.hasUI` is `false` in print (`-p`)/JSON modes and `true` in TUI + RPC. RPC dialogs ride the `extension_ui_request`/`extension_ui_response` sub-protocol (`node_modules/@earendil-works/pi-coding-agent/docs/rpc.md` §Extension UI Protocol); `ctx.ui.custom()` does **not** work in RPC — the workspace dialog's `ctx.ui.custom` pattern is not a valid analog here.
-6. **PLAN correction (deliberate, record at `ln-sync`):** the PLAN's chart obligation lists "dialog-unavailable (print/json modes, `ctx.hasUI` false)" as a path to chart. Charted resolution: **no dialog, no entry, default kick** — degraded modes leave no orientation trace rather than synthesizing a `continue` entry, so transcript orientation entries always mean "a user actually chose."
+6. **PLAN correction (recorded by `ln-sync`):** the PLAN's chart obligation lists "dialog-unavailable (print/json modes, `ctx.hasUI` false)" as a path to chart. Charted resolution: **no dialog, no entry, default kick** — degraded modes leave no orientation trace rather than synthesizing a `continue` entry, so transcript orientation entries always mean "a user actually chose."
 7. `src/rpc/methods/session.ts`'s manual-trigger path **seeds origination but does not run a live assistant turn**. A mid-session juncture that owes an actual kick needs the live path brunch-tui uses: `originateAssistantTurn(...)` + `completeAssistantKick` over the live `AgentSession` (`sendCustomMessage(..., { triggerTurn: true })`). Card 2 extracts a shared helper; "via the RPC seam" alone would not produce a turn.
 
 ### Choice schema (one canonical set — resolves the continue ambiguity)
@@ -51,14 +51,14 @@ Two uniform rules, no per-juncture entry variance:
 
 | # | Juncture | Trigger surface | Dialog fires? | Outcome paths | Entry written | Kick action | Endpoint (user-visible) |
 |---|----------|-----------------|---------------|---------------|---------------|-------------|-------------------------|
-| J1 | TUI boot entry (new/resume, Brunch activation decision) | explicit boot-path call in `brunch-tui.ts` between session creation and origination (NOT a `session_start` handler — see risk) | yes, when `ctx.hasUI` | choice / escape→`continue` | `brunch.session_orientation` `{ choice, trigger: 'entry' }` (always, incl. `continue`) | origination folds latest orientation entry into context seed; kick proceeds as today | kick opens already routed to the chosen move; no model turn spent asking |
+| J1 | TUI boot entry (new/resume, Brunch activation decision) | `session_start` reason `startup` handler in the session-orientation registrar, after Pi binds extension UI | yes, when `ctx.hasUI` | choice / escape→`continue`; degraded mode skips dialog | `brunch.session_orientation` `{ choice, trigger: 'entry' }` only when dialog shown | boot mode originates + kicks; recorded choices force a fresh seed, degraded/escape still kick on the default path | kick opens already routed to the chosen move when chosen; no model turn spent asking |
 | J2 | Post-switch `session_start` (Pi reason `new`/`resume` after session switch/replacement) | `pi.on('session_start')` handler in session-orientation extension | yes, when `ctx.hasUI` and reason ∈ {new, resume} | same as J1 | same, `trigger: 'switch'` | **check C2**: whether Brunch's workspace switch re-originates; if not, non-`continue` choice fires the live-kick helper | switched-into session opens oriented, not dead |
 | J3 | `/tree` navigation | `pi.on('session_tree')` | yes | choice / escape→`continue` | `trigger: 'tree'` | kick rule: non-`continue` → live-kick helper; `continue` → no kick, user types freely | after tree jump, user chooses how to proceed |
 | J4 | Esc/abort settle | `pi.on('agent_end')` where the tail assistant message has `stopReason === 'aborted'` (**check C3**; exclude compaction-retry aborts) | yes, debounced to genuine user aborts | choice / escape→`continue` | `trigger: 'abort'` | kick rule: `continue` → **no kick** (user esc'd to take control; a kick would fight them); non-`continue` → live-kick helper | esc never strands the user in a dead session |
 | J5 | Mode switch (SPEC↔CODE via `/brunch:mode`) | mode-switch path in `src/.pi/extensions/commands/index.ts` (`appendBrunchAgentRuntimeSwitch`) | juncture **defined** here; SPEC-side menu only. CODE-side menu content is owned by `execute-entry-readiness` | same as J1 | `trigger: 'mode-switch'` | choice feeds the pending mode-switch kick seed | mode switch lands on an oriented opening |
 | J6 | `/consult` (forced, mid-session) | `pi.registerCommand` in commands/index.ts (house prefix: register as `brunch:consult`; alias decision at build) | yes, always (it IS the dialog) | choice / escape→`continue` | `trigger: 'consult'` (entry rule: written even on escape) | kick rule: non-`continue` → live-kick helper; `continue` → no kick | user can summon the menu at will |
 | J7 | Fork (`session_start` reason `fork`) | n/a — blocked by `commands/policy.ts` | **no — vacuous today** | — | — | — | guard row: if fork unblocks, J2 handler already covers the reason |
-| J8 | `session_start` reason `startup`/`reload` | Pi lifecycle noise | **no** — `startup` is J1's underlying event (handled by boot path, not handler); `reload` is extension reload, not a user juncture | — | — | — | no dialog spam on reloads |
+| J8 | `session_start` reason `reload` | Pi lifecycle noise | **no** — `startup` is J1; `reload` is extension reload, not a user juncture | — | — | — | no dialog spam on reloads |
 
 ### Degraded-mode paths (all junctures)
 
@@ -215,9 +215,9 @@ src/projections/session/__tests__/…   ~   (sweep probe)
 
 ---
 
-## Card 2 — Remaining junctures: /consult, tree, esc-settle, mode-switch, RPC verification · `in progress` (J2/J3/J4/J6 landed; J5, RPC verification, option-2 J1 deferred)
+## Card 2 — Remaining junctures: /consult, tree, esc-settle, mode-switch, RPC verification · `in progress` (J2/J3/J4/J6 landed; J5 + RPC verification deferred)
 
-**2026-07-03 build finding (partial):** the live-kick helper (`.pi/extensions/session-orientation/juncture.ts` — `runOrientationJuncture`) and the Pi event/command registrar (`registrar.ts`) are built and green. `originateAssistantTurn` gained a `forceSeed` option so a mid-session dialog-triggered kick lays down a fresh seed even when the graph LSN has not moved. `resolveKickContext` closes over the workspace state in `brunch-tui.ts` so J3/J4/J6 non-continue choices fire an actual assistant turn.
+**2026-07-03 build finding (partial, after option-2 J1 completion):** the live-kick helper (`.pi/extensions/session-orientation/juncture.ts` — `runOrientationJuncture`) and the Pi event/command registrar (`registrar.ts`) are built and green. `originateAssistantTurn` gained a `forceSeed` option so a mid-session dialog-triggered kick lays down a fresh seed even when the graph LSN has not moved. `resolveKickContext` closes over the workspace state in `brunch-tui.ts` so J3/J4/J6 non-continue choices fire an actual assistant turn.
 
 Landed junctures (all: dialog → entry → live-kick when applicable, honoring the entry rule on escape):
 
@@ -229,7 +229,7 @@ Landed junctures (all: dialog → entry → live-kick when applicable, honoring 
 Deferred to follow-up slices (recorded, not silently narrowed):
 
 - **J5 mode-switch (SPEC-side menu).** Needs integration into `commands/index.ts` `appendBrunchAgentRuntimeSwitch` path so the choice feeds the pending mode-switch kick seed. Not a re-scope; separate wiring seam.
-- **Option-2 J1 boot wiring** (fires the dialog from `session_start` reason `startup`, retires the boot-path origination call). The registrar currently guards `startup` off precisely so the existing boot-path origination in `brunch-tui.ts` (which runs before `bindCurrentSessionExtensions`) remains the sole J1 driver until the boot rework lands. That rework is a separate slice because it touches boot ordering (kick status chrome, debug-cache mirror timing, `session_start` extension handler as the new J1 carrier per the user-chosen option 2).
+- ~~Option-2 J1 boot wiring~~ — landed in `7ebdf205`; the registrar now handles `session_start(startup)` in boot mode.
 - **RPC round-trip verification (C1).** The registrar already routes through `ctx.ui.select`, which Pi's RPC-mode UI back-fills via the extension-UI sub-protocol — so the wiring itself is RPC-transport-agnostic. Verifying the round-trip end-to-end (driver probe) is deferred to an outer-loop slice.
 
 Landed cross-cutting: sweep-exclusion probe carried forward from card 1 (`brunch.session_orientation` excluded from the capture sweep tail); topology reconciliation.
@@ -415,8 +415,8 @@ src/agents/…/__tests__                              ~
 
 ## Sequence notes
 
-- Order: 1 → 2 → 3 → 4. Cards 3–4 are independent of 2 but share write paths with 1 (`brunch-tui.ts`, `seeds/origination.ts`) — merged here per the overlap rule rather than split into parallel files.
+- Recommended next order after `7ebdf205`: Card 3 → Card 4 → Card 2 trailers (J5 + C1 RPC verification). Cards 3–4 are unblocked because J1 is stable; J5 can pair opportunistically with Card 3 if mode-switch chrome is already in hand.
 - Anti-speculation gate honored: no card's scope shifts on earlier cards' findings; C1–C3 are named checks whose adverse outcomes annotate, not re-scope.
-- Deferred to `ln-sync` (not this file): the three owed SPEC entries; PLAN frontier-definition corrections from §Grounding (session_start reason set, fork vacuity, no-UI endpoint resolution — item 6, seed-only manual-trigger — item 7) + Current execution pointer line — **PLAN is currently dirty with another agent's in-flight edits; do not touch until it lands.**
+- `ln-sync` reconciliation: SPEC/PLAN now record D28-L/I57-L, D40-L concentric authority, D98-L Enhance rejection, no-UI orientation behavior, and option-2 J1 (`session_start(startup)` after UI binding).
 - Sibling cards `--pi-dialog-core` and `--dialog-kick-tracer`: deleted 2026-07-03 after adjudication + fold-in.
 - Delete this file when the sequence is exhausted or superseded.
