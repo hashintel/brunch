@@ -4,7 +4,7 @@ import { formatPresentQuestion } from '../../../agents/contexts/exchanges/presen
 import { projectPresentQuestion } from '../../../exchanges/projections/present-question.js';
 import { zPresentQuestionParams, type PresentQuestionParams } from '../../../exchanges/schemas/index.js';
 import { piSchema } from './pi-schema.js';
-import { renderMarkdownResult } from './shared/markdown.js';
+import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_QUESTION_TOOL = 'present_question' as const;
 
@@ -34,7 +34,7 @@ export const presentQuestionTool = defineTool({
   },
 
   renderCall() {
-    return renderMarkdownResult({ content: [] });
+    return renderEmptyStructuredExchangeCall();
   },
 
   // ceiling: renderResult is the Markdown pass-through of the formatter's content

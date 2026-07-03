@@ -1,4 +1,5 @@
 import type { PresentCandidatesProjection } from '../../../exchanges/projections/present-candidates.js';
+import type { RenderElision } from './render-honesty.js';
 
 const userRubricRows = [
   ['Core bet', 'core_bet'],
@@ -25,3 +26,22 @@ export function formatPresentCandidates(projection: PresentCandidatesProjection)
 
   return lines.join('\n');
 }
+
+/**
+ * Render-honesty elision list for the present_candidates content formatter:
+ * model-facing content shows the user rubric as labeled lines; structural ids,
+ * meta-rubric notes, and graph anchors stay machine-facing.
+ */
+export const PRESENT_CANDIDATES_CONTENT_ELISIONS: readonly RenderElision[] = [
+  { path: 'schema', reason: 'structural details schema tag' },
+  { path: 'v', reason: 'structural details schema version' },
+  { path: 'exchange_id', reason: 'structural exchange correlation id' },
+  { path: 'tool_meta.curr', reason: 'structural tool-chain marker' },
+  { path: 'tool_meta.next', reason: 'structural tool-chain marker' },
+  { path: 'candidates.*.id', reason: 'stable answer id; visible candidate title and order represent it' },
+  { path: 'candidates.*.meta_rubric.*', reason: 'model-facing comparison hides evaluator bookkeeping' },
+  {
+    path: 'candidates.*.graph_refs.*.node_id',
+    reason: 'graph anchor for provenance, not transcript content',
+  },
+];

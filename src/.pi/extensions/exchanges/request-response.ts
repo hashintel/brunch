@@ -14,7 +14,7 @@ import { piSchema } from './pi-schema.js';
 import { collectAnswerFromSources } from './shared/answer-source.js';
 import { collectChoiceFromUi } from './shared/choice-source.js';
 import { requestChoicesFromSources } from './shared/choices-editor.js';
-import { renderMarkdownResult } from './shared/markdown.js';
+import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 import { collectReviewFromUi } from './shared/review-source.js';
 import type { StructuredExchangeUiContext } from './shared/ui-context.js';
 
@@ -180,7 +180,7 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
     },
 
     renderCall() {
-      return renderMarkdownResult({ content: [] });
+      return renderEmptyStructuredExchangeCall();
     },
 
     renderResult(result, _options, theme) {

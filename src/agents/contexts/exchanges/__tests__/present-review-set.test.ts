@@ -3,9 +3,30 @@ import { describe, expect, it } from 'vitest';
 import { projectPresentReviewSet } from '../../../../exchanges/projections/present-review-set.js';
 import { projectRequestReview } from '../../../../exchanges/projections/request-response.js';
 import type { ReviewSetProposalPayload } from '../../../../graph/review-set.js';
-import { formatPresentReviewSet, PRESENT_REVIEW_SET_CONTENT_ELISIONS } from '../present-review-set.js';
+import {
+  formatExchangeStructuralIllegal,
+  formatPresentReviewSet,
+  PRESENT_REVIEW_SET_CONTENT_ELISIONS,
+} from '../present-review-set.js';
 import { missingRenderedDetailsLeaves } from '../render-honesty.js';
 import { formatRequestReview } from '../request-response.js';
+
+describe('formatExchangeStructuralIllegal', () => {
+  it('locks the solo diagnostic render for structurally illegal review-set results', async () => {
+    await expect(formatExchangeStructuralIllegal(structuralIllegalDiagnostics)).toMatchFileSnapshot(
+      '../__snapshots__/structural-illegal.md',
+    );
+  });
+
+  it('renders every populated diagnostic field and message', () => {
+    const rendered = formatExchangeStructuralIllegal(structuralIllegalDiagnostics);
+
+    for (const diagnostic of structuralIllegalDiagnostics.diagnostics) {
+      expect(rendered).toContain(diagnostic.field);
+      expect(rendered).toContain(diagnostic.message);
+    }
+  });
+});
 
 describe('formatPresentReviewSet', () => {
   it('locks transcript-shaped review-set tuples', async () => {
@@ -54,6 +75,19 @@ describe('formatPresentReviewSet', () => {
     ).toEqual([]);
   });
 });
+
+const structuralIllegalDiagnostics = {
+  diagnostics: [
+    {
+      field: 'review_set.nodes[0].proposed_code',
+      message: 'Proposed graph code must be unique within the review set.',
+    },
+    {
+      field: 'review_set.edges[1].dependency.draft_id',
+      message: 'Edge references draft id "missing-requirement", but no matching node draft was submitted.',
+    },
+  ],
+};
 
 function renderTuple(
   payload: ReviewSetProposalPayload,

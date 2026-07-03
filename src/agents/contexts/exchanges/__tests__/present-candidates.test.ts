@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { projectPresentCandidates } from '../../../../exchanges/projections/present-candidates.js';
 import { projectRequestChoice } from '../../../../exchanges/projections/request-response.js';
-import { formatPresentCandidates } from '../present-candidates.js';
+import { formatPresentCandidates, PRESENT_CANDIDATES_CONTENT_ELISIONS } from '../present-candidates.js';
+import { missingRenderedDetailsLeaves } from '../render-honesty.js';
 import { formatRequestChoice } from '../request-response.js';
 
 function projection() {
@@ -38,20 +39,20 @@ function projection() {
 describe('formatPresentCandidates', () => {
   it('locks transcript-shaped candidate tuples', async () => {
     const present = projection();
+    const selectedChoice = projectRequestChoice({
+      exchangeId: 'candidate-direction',
+      respondsToPresentTool: 'present_candidates',
+      status: 'answered',
+      choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' },
+      options: [{ id: 'local-workbench', content: 'Local workbench' }],
+    });
+    expect(selectedChoice.tool_meta).toEqual({
+      prev: 'present_candidates',
+      curr: 'request_choice',
+      next: 'capture_candidate',
+    });
     const markdown = [
-      section(
-        'candidate selected',
-        formatPresentCandidates(present),
-        formatRequestChoice(
-          projectRequestChoice({
-            exchangeId: 'candidate-direction',
-            respondsToPresentTool: 'present_candidates',
-            status: 'answered',
-            choice: { id: 'local-workbench', label: 'Local workbench', kind: 'listed' },
-            options: [{ id: 'local-workbench', content: 'Local workbench' }],
-          }),
-        ),
-      ),
+      section('candidate selected', formatPresentCandidates(present), formatRequestChoice(selectedChoice)),
       section(
         'candidate unavailable',
         formatPresentCandidates(present),
@@ -74,6 +75,17 @@ describe('formatPresentCandidates', () => {
 
     expect(markdown).not.toContain('legibility_cost_of_knowing');
     expect(markdown).not.toContain('failure_modes');
+  });
+
+  it('declares every details leaf as rendered or intentionally elided', () => {
+    const present = projection();
+    const content = formatPresentCandidates(present);
+
+    expect(
+      missingRenderedDetailsLeaves(present.details, content, {
+        elisions: PRESENT_CANDIDATES_CONTENT_ELISIONS,
+      }),
+    ).toEqual([]);
   });
 });
 

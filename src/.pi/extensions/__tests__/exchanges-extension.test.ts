@@ -63,15 +63,18 @@ describe('structured exchange tool guidance', () => {
 });
 
 describe('structured exchange renderers', () => {
-  it('keeps renderCall non-semantic for present/request tools', () => {
+  it('keeps renderCall empty for every registered exchange tool', () => {
     const tools = registerTools();
-    const present = tools.get(PRESENT_QUESTION_TOOL);
-    const candidates = tools.get(PRESENT_CANDIDATES_TOOL);
-    const request_response = tools.get(REQUEST_RESPONSE_TOOL);
+    expect([...tools.keys()]).toEqual([
+      PRESENT_QUESTION_TOOL,
+      PRESENT_REVIEW_SET_TOOL,
+      PRESENT_CANDIDATES_TOOL,
+      REQUEST_RESPONSE_TOOL,
+    ]);
 
-    expect(stripAnsi(present.renderCall({}, theme, {}).render(80).join('\n'))).toBe('');
-    expect(stripAnsi(candidates.renderCall({}, theme, {}).render(80).join('\n'))).toBe('');
-    expect(stripAnsi(request_response.renderCall({}, theme, {}).render(80).join('\n'))).toBe('');
+    for (const [name, tool] of tools) {
+      expect(stripAnsi(tool.renderCall({}, theme, {}).render(80).join('\n')), name).toBe('');
+    }
   });
 
   it('renders present_candidates from tool result markdown content', async () => {

@@ -52,6 +52,12 @@ export function renderMarkdownResult(result: ToolResultLike, theme?: ThemeLike) 
   );
 }
 
+export function renderEmptyStructuredExchangeCall() {
+  // Structured-exchange renderCall is intentionally invisible: durable semantics
+  // and user-visible text live in the tool result content (D37-L/D104-L).
+  return renderMarkdownResult({ content: [] });
+}
+
 export function renderPlainResult(result: ToolResultLike) {
   return new Text(textFromToolContent(result), 0, 0);
 }

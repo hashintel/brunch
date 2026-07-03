@@ -13,7 +13,7 @@ import {
 import type { CommandExecutor, StructuralIllegal } from '../../../graph/command-executor.js';
 import type { ReviewSetProposalPayload } from '../../../graph/review-set.js';
 import { piSchema } from './pi-schema.js';
-import { renderMarkdownResult } from './shared/markdown.js';
+import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 
 export const PRESENT_REVIEW_SET_TOOL = 'present_review_set' as const;
 
@@ -90,7 +90,7 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
     },
 
     renderCall() {
-      return renderMarkdownResult({ content: [] });
+      return renderEmptyStructuredExchangeCall();
     },
 
     renderResult(result, _options, theme) {

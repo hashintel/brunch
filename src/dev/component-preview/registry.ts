@@ -14,7 +14,12 @@ import {
 import { renderMarkdownResult } from '../../.pi/extensions/exchanges/shared/markdown.js';
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
-import { presentQuestionOptionsFixture, presentReviewSetFixture } from './exchange-fixtures.js';
+import {
+  presentCandidatesFixture,
+  presentQuestionOptionsFixture,
+  presentReviewSetFixture,
+  structuralIllegalFixture,
+} from './exchange-fixtures.js';
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
 
@@ -200,6 +205,14 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
     },
   },
   {
+    id: 'present-candidates',
+    label: 'present_candidates transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/present-candidates.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(presentCandidatesFixture.result, theme)),
+  },
+  {
     id: 'present-question',
     label: 'present_question transcript render',
     presentedLike:
@@ -214,6 +227,14 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       'tool result renderer — src/.pi/extensions/exchanges/present-review-set.ts (renderResult = Markdown pass-through of content, D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(presentReviewSetFixture.result, theme)),
+  },
+  {
+    id: 'structural-illegal',
+    label: 'STRUCTURAL_ILLEGAL diagnostic transcript render',
+    presentedLike:
+      'tool result renderer — structural illegal exchange recovery diagnostic (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(structuralIllegalFixture.result, theme)),
   },
   {
     id: 'chrome-header',
