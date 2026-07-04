@@ -199,8 +199,9 @@ describe('Brunch runtime switch commands', () => {
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
-    expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['orchestrator_stub']));
-    expect(harness.activeToolNames.at(-1)).not.toEqual(expect.arrayContaining(['mutate_graph']));
+    expect(harness.activeToolNames.at(-1)).toEqual(
+      expect.arrayContaining(['present_question', 'request_response', 'mutate_graph', 'orchestrator_stub']),
+    );
   });
 
   it('requests a chrome refresh after a successful runtime switch and not on rejection or cancel', async () => {
