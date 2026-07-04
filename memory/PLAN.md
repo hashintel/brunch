@@ -64,12 +64,12 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Done-definition:** all three throughlines witnessed on live seams (not harness-injected paths); I57-L's generalized supersession invariant — *for any superseding proposal chain (review set, candidates, digest), sweep/projection consume only the accepted terminal payload; a cancelled chain contributes no offer payload* — probed per chain kind; the `DIGEST_CUSTOM_TYPES` special case in `src/projections/session/sweep-watermark.ts` retired; co-located topology homes (`src/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md`, ingest/map skill guidance) reconciled.
 - **Anchors:** D80-L–D82-L (capture conduct + gradient), D28-L (supersession), D50-L/I33-L (`capture_*` reserved for pre-persistence analysis — *not* receipts), D101-L (one-carrier scratchpad), D106-L (self-contained option echo), D107-L (proposed-code fidelity), D108-L (`src/exchanges/` consolidation).
 
-### deterministic-orientation — planned
+### deterministic-orientation — ◐ active
 
 - **Goal:** users choose how to operate at every settle-point, deterministically — no model volition, no mode ping-pong. The mechanism (settled 2026-07-03): product-owned `ctx.ui.select` dialogs record `brunch.session_orientation` entries that feed kick composition. Entry boot rides the Brunch orientation extension's `session_start(startup)` handler because Pi binds extension UI before emitting that event; mid-session junctures use Pi events/commands (`session_start` for post-switch `new`/`resume`, `session_tree`, detectable abort settle, mode switch, `/consult`) where the UI exists. No-UI print/json modes synthesize no orientation entry and follow the default kick path. Mid-session discretionary consults stay ordinary exchange tuples; `/consult` forces the dialog. Two modes only (SPEC/CODE, D98-L); concentric authority becomes a code contract; generative flows are menu-routed to the existing `propose`/`project`/`elicit`/`ingest` skills.
 - **Members:**
-  - `session-entry-orientation` (superseded in place, below) — the dialog mechanism + all junctures + the SPEC-mode menu.
-  - `execute-entry-readiness` (new, below) — the CODE-mode entry assessment + concentric authority widening.
+  - `session-entry-orientation` (superseded in place, below) — the dialog mechanism + all junctures + the SPEC-mode menu. ◐ inner-loop closed; outer walkthrough evidence for generative menu options pending.
+  - `execute-entry-readiness` (below) — the CODE-mode entry assessment + concentric authority widening. ◐ inner-loop closed (incl. post-review judo cleanup); outer walkthrough evidence pending.
 - **Done-definition:** dialog fires on every named UI-capable juncture in TUI and RPC modes (extension-UI sub-protocol relay confirmed); escape/timeout resolves to `continue` (the menu is never a wall); no-UI modes leave no orientation trace; orientation entries are excluded from capture sweep (process state, not spec material) and readable by kick assembly; concentricity holds as an executable contract (executor tool + skill grants ⊇ elicitor's, write-execution tooling stays executor-only); **one witnessed e2e run per generative flow — intent, design, oracle, frontier-level plan — each entered through a deterministic juncture** (the ship gate's "all flows proven" obligation lives here); topology homes for `src/.pi/extensions/` and `src/agents/runtime/` reconciled.
 - **Anchors:** D98-L (two modes, 1:1 mode↔agent), D37-L (offer-owns-response grammar — the dialog lives on the product side of it), D40-L (authority matrix), D74-L (capability-readiness), D101-L/D102-L (session seed facts); `src/agents/references/readiness-bands.md` §Agent Use (the Proceed/Negotiate/Ask postures both foreground roles share).
 
@@ -229,7 +229,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1137](https://linear.app/hash/issue/FE-1137/executor-entry-readiness-and-concentric-authority)
 - **Branch:** `ln/fe-1137-executor-readiness` (stacks on `session-entry-orientation` — shares the dialog/juncture extension seam)
 - **Kind:** structural — widens the D40-L authority matrix for CODE mode and adds the mode-switch entry behavior. Arc: `deterministic-orientation`.
-- **Status:** active; inner-loop implementation is closed: card 1 materialized the concentric CODE authority matrix, card 2 landed the CODE-side orientation menu/J5 always-kick branch, and card 3 added executor readiness/backfill conduct guidance. Remaining frontier work is outer walkthrough evidence for thin/rich seeds and menu→conduct routing. Rejects the "Enhance" third-mode idea from the 2026-07-02 kickoff notes: conduct bias is not runtime state (the D98-L flattening argument applies with full force); "enhancer" = elicitor with a different opening move, which is kick posture + skill routing, not an agent.
+- **Status:** active; inner-loop implementation is closed: card 1 materialized the concentric CODE authority matrix, card 2 landed the CODE-side orientation menu (J5 mode-switch kicks after every CODE dialog resolution), and card 3 added executor readiness/backfill conduct guidance. A follow-up judo-cleanup slice (2026-07-04, `b5ffb876`) collapsed the SPEC/CODE mode-switch paths into one table-driven juncture call — kick suppression is now the menu descriptor's `noKickChoice` (SPEC `continue`; CODE none), the separate `'always-kick'` juncture mode is retired, and readiness posture definitions are single-sourced in `readiness-bands.md` §Agent Use. Remaining frontier work is outer walkthrough evidence for thin/rich seeds and menu→conduct routing. Rejects the "Enhance" third-mode idea from the 2026-07-02 kickoff notes: conduct bias is not runtime state (the D98-L flattening argument applies with full force); "enhancer" = elicitor with a different opening move, which is kick posture + skill routing, not an agent.
 - **Certainty:** proving — the executor-side conduct (readiness assessment quality, backfill UX) is unwitnessed; the authority widening itself is a bounded, near-`earned` matrix change.
 - **Grounding:** concentricity is materialized as code contract — `EXECUTOR_ALLOWED_TOOL_NAMES` (`src/agents/runtime/executor/active-tools.ts`) is composed from the live elicitor allowlist plus executor-only `orchestrator_stub`, with the blocked-tool floor still applied. The CODE-side J5 switch records a `brunch.session_orientation` resolution and kicks the executor with a matching directive. Executor prompt/reference guidance now opens CODE mode with capability-readiness postures (Proceed / Proceed-advisory / Negotiate / Ask) from `src/agents/references/readiness-bands.md` §Agent Use; this frontier does not invent a new readiness model.
 - **Objective (three threads):**
@@ -347,7 +347,7 @@ frontiers:
   Next (ship gate):
     session-entry-orientation (FE-1134)
       arc: deterministic-orientation
-      status: active; Card 1 landed via session_start(startup); Card 2 partial (J2/J3/J4/J6 landed; J5/RPC pending); Cards 3-4 queued
+      status: inner-loop closed (all cards + judo cleanup landed); outer walkthrough evidence pending
       branch: ln/fe-1134-session-orientation (sibling of FE-1135/FE-1138 atop FE-1124)
       depends_on: FE-1122 F1 fix (landed), D101-L/D102-L, pi extension dialog/event surfaces
       verification_gated_by: walkthrough-batch-2 seed variants -[optional]-> generative menu options only
@@ -361,9 +361,10 @@ frontiers:
       status: new 2026-07-03; proving
       depends_on: -[hard]-> exchange-capture-contract (invariants 1-3 are its read rules)
       extends: exchange-family-completeness inventory (exchange-rendering stays closed)
-    execute-entry-readiness
+    execute-entry-readiness (FE-1137)
       arc: deterministic-orientation
-      status: new 2026-07-03; proving (conduct), near-earned (matrix widening)
+      status: inner-loop closed 2026-07-04 (3 cards + judo cleanup); outer walkthrough evidence pending
+      branch: ln/fe-1137-executor-readiness (stacks on ln/fe-1134-session-orientation)
       depends_on: -[hard]-> session-entry-orientation (dialog/juncture seam)
       guards: no orchestrator-tool-port scope; plan option stays at D103-L frontier depth
     exchange-answering-chrome (FE-1138)

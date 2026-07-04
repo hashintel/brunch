@@ -10,7 +10,8 @@ SPEC decisions: D40-L, D52-L, D90-L, D93-L, D98-L
 executor/
 ├── TOPOLOGY.md
 ├── active-tools.ts   concentric executor active-tool allowlist
-└── compose-prompt.ts literal body + Execute-mode control assembly
+├── compose-prompt.ts literal body + Execute-mode control assembly
+└── __tests__/        executor prompt conduct tests
 ```
 
 ## Boundary Rules
