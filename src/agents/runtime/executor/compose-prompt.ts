@@ -33,6 +33,7 @@ function renderExecutorControl(input: ForegroundRuntimePromptInput): string {
     `- foreground role: ${input.sessionState.agentRole}`,
     `- active tools: ${tools}`,
     '- prompt resources: code-owned live skill list only; no runtime axis negotiation',
+    '- readiness posture: assess seed reads before acting; bands guide conduct but never gate tool authority',
     '- direct shell/edit/write tools stay blocked by Brunch runtime policy',
   ].join('\n');
 }
