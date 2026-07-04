@@ -11,10 +11,9 @@ runtime/
 ├── TOPOLOGY.md
 ├── foreground-policy.ts central exhaustive foreground prompt/tool facade
 ├── elicitor/         live Specify-mode elicitor prompt/context/tool source of truth
-├── executor/         narrow Execute-mode executor prompt/control/tool source of truth
-├── shared/           pure helpers and shared runtime policy contracts
-├── __tests__/          prompt/runtime policy tests
-└── __snapshots__/      Vitest file snapshots for full composed prompts
+├── executor/         Execute-mode executor prompt/control/tool source of truth
+│   └── __tests__/    executor prompt conduct tests
+└── shared/           pure helpers and shared runtime policy contracts
 ```
 
 ## Boundary rules

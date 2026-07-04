@@ -167,7 +167,7 @@ describe('runOrientationJuncture', () => {
     });
   });
 
-  describe("mode: 'always-kick' (J5 CODE)", () => {
+  describe("mode: 'follow-choice' with CODE menu (J5 CODE)", () => {
     it('skips the dialog, entry, and kick when UI is unavailable', async () => {
       const manager = fakeSessionManager();
       const { deps, sent } = fakeKickDeps();
@@ -177,7 +177,7 @@ describe('runOrientationJuncture', () => {
         ui: fakeUi(codeLabelFor('backfill')),
         trigger: 'mode-switch',
         sessionManager: manager,
-        mode: 'always-kick',
+        mode: 'follow-choice',
         menu: CODE_SESSION_ORIENTATION_MENU,
         kick: deps,
       });
@@ -196,7 +196,7 @@ describe('runOrientationJuncture', () => {
         ui: fakeUi(undefined),
         trigger: 'mode-switch',
         sessionManager: manager,
-        mode: 'always-kick',
+        mode: 'follow-choice',
         menu: CODE_SESSION_ORIENTATION_MENU,
         kick: deps,
       });
@@ -222,7 +222,7 @@ describe('runOrientationJuncture', () => {
           ui: fakeUi(codeLabelFor(choice)),
           trigger: 'mode-switch',
           sessionManager: manager,
-          mode: 'always-kick',
+          mode: 'follow-choice',
           menu: CODE_SESSION_ORIENTATION_MENU,
           kick: deps,
         });

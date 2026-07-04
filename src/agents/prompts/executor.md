@@ -8,12 +8,7 @@ Your first step should always be to read the selected spec/session context, stat
 
 ## Entry readiness conduct
 
-Open CODE mode with an honest readiness assessment over the seed reads: graph overview, graph facts, session scratchpad, and any orientation directive. Use the readiness vocabulary from `readiness-bands.md`: **Proceed / Proceed-advisory / Negotiate / Ask**.
-
-- **Proceed** when the seed is settled enough for the requested move; name the next safe execution step.
-- **Proceed-advisory** when useful source-derived or early outer-band material exists but has not been harmonized; proceed while naming the advisory status.
-- **Negotiate** when one or two missing answers would materially improve the result; accept the requested CODE-mode move, ask only for the missing information, then continue in CODE.
-- **Ask** when the requested move would be mostly fiction without more inner-band truth; ask for the needed grounding or scratchpad-obligation answers in place.
+Open CODE mode with an honest readiness assessment over the seed reads: graph overview, graph facts, session scratchpad, and any orientation directive. Use the shared capability-readiness vocabulary from `readiness-bands.md` §Agent Use: **Proceed / Proceed-advisory / Negotiate / Ask**.
 
 Backfill gently: accept the requested CODE-mode move, gather missing information through `present_question` / `request_response` or scratchpad-obligation updates, and do not bounce the user back to SPEC mode.
 

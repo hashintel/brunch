@@ -41,7 +41,11 @@ import {
   activeToolNamesForBrunchAgentState,
   projectBrunchAgentState,
 } from '../agent-runtime/runtime/index.js';
-import { CODE_SESSION_ORIENTATION_MENU } from '../session-orientation/index.js';
+import {
+  CODE_SESSION_ORIENTATION_MENU,
+  SESSION_ORIENTATION_MENU,
+  type SessionOrientationMenuDescriptor,
+} from '../session-orientation/index.js';
 import { runJunctureForContext, sendCustomMessageViaExtensionApi } from '../session-orientation/juncture.js';
 import type { BrunchSessionOrientationDeps } from '../session-orientation/registrar.js';
 import {
@@ -70,10 +74,10 @@ export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
    */
   readonly getCommandContext?: () => ExtensionCommandContext | undefined;
   /**
-   * J5 mode-switch orientation dep. When present, a mode switch INTO Specify
-   * (`elicit`) fires the SPEC menu and kicks only on non-`continue`; a mode
-   * switch INTO Execute fires the CODE menu and always kicks after a dialog
-   * resolution. Degraded no-UI switches stay silent.
+   * J5 mode-switch orientation dep. When present, a mode switch fires the
+   * target mode's menu. The menu owns which choice suppresses a kick: Specify
+   * uses `continue`; Execute has no no-kick choice. Degraded no-UI switches
+   * stay silent.
    */
   readonly sessionOrientation?: BrunchSessionOrientationDeps;
 };
@@ -95,6 +99,11 @@ function formatOperationalModeChoices(): string {
 }
 
 type ModeSwitchOptions = Pick<BrunchCommandsOptions, 'requestChromeRefresh' | 'sessionOrientation'>;
+
+const MODE_SWITCH_ORIENTATION_MENUS = {
+  elicit: SESSION_ORIENTATION_MENU,
+  execute: CODE_SESSION_ORIENTATION_MENU,
+} as const satisfies Record<OperationalModeId, SessionOrientationMenuDescriptor>;
 
 async function openModePicker(
   pi: ExtensionAPI,
@@ -129,26 +138,19 @@ async function applyModeSwitchAndOrient(
 ): Promise<void> {
   applyModeSwitch(pi, ctx, nextMode, options);
   if (!options.sessionOrientation) return;
-  if (nextMode === 'elicit') {
-    await runSpecModeSwitchOrientation(pi, ctx, options.sessionOrientation);
-    return;
-  }
-  if (nextMode === 'execute') {
-    await runCodeModeSwitchOrientation(pi, ctx, options.sessionOrientation);
-  }
+  await runModeSwitchOrientation(
+    pi,
+    ctx,
+    options.sessionOrientation,
+    MODE_SWITCH_ORIENTATION_MENUS[nextMode],
+  );
 }
 
-/**
- * J5 SPEC-side orientation: fires the dialog with `trigger: 'mode-switch'`
- * after a mode switch INTO Specify. On a non-`continue` choice, the shared
- * live-kick helper originates + kicks a fresh SPEC opening turn shaped by
- * that choice; on `continue` (or escape/timeout), the user retains the
- * floor and no kick fires — the entry rule still writes the resolution.
- */
-async function runSpecModeSwitchOrientation(
+async function runModeSwitchOrientation(
   pi: ExtensionAPI,
   ctx: RuntimeSwitchContext,
   deps: BrunchSessionOrientationDeps,
+  menu: SessionOrientationMenuDescriptor,
 ): Promise<void> {
   const kickContext = await deps.resolveKickContext();
   await runJunctureForContext({
@@ -161,35 +163,7 @@ async function runSpecModeSwitchOrientation(
     },
     trigger: 'mode-switch',
     mode: 'follow-choice',
-    kick: kickContext
-      ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
-      : undefined,
-    onAppendError: (error) => {
-      ctx.ui.notify(
-        `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
-        'warning',
-      );
-    },
-  });
-}
-
-async function runCodeModeSwitchOrientation(
-  pi: ExtensionAPI,
-  ctx: RuntimeSwitchContext,
-  deps: BrunchSessionOrientationDeps,
-): Promise<void> {
-  const kickContext = await deps.resolveKickContext();
-  await runJunctureForContext({
-    ctx: {
-      mode: ctx.mode,
-      hasUI: ctx.hasUI,
-      modelRegistry: ctx.modelRegistry,
-      sessionManager: ctx.sessionManager,
-      ui: { select: ctx.ui.select.bind(ctx.ui) },
-    },
-    trigger: 'mode-switch',
-    mode: 'always-kick',
-    menu: CODE_SESSION_ORIENTATION_MENU,
+    menu,
     kick: kickContext
       ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
       : undefined,

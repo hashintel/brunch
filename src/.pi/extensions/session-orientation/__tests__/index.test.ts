@@ -28,12 +28,15 @@ class FakeSessionManager {
 }
 
 describe('runSessionOrientationDialog', () => {
-  it('presents every §Choice schema label and resolves the matching id', async () => {
+  it('presents every §Choice schema label under the menu-owned title and resolves the matching id', async () => {
     const ui = fakeUi(SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'ingest')!.label);
 
     const choice = await runSessionOrientationDialog(ui);
 
-    expect(ui.calls[0]?.options).toEqual(SESSION_ORIENTATION_MENU.items.map((item) => item.label));
+    expect(ui.calls[0]).toEqual({
+      title: SESSION_ORIENTATION_MENU.title,
+      options: SESSION_ORIENTATION_MENU.items.map((item) => item.label),
+    });
     expect(choice).toBe('ingest');
   });
 
@@ -47,11 +50,16 @@ describe('runSessionOrientationDialog', () => {
     );
   });
 
-  it('keeps SPEC and CODE menu labels disjoint', () => {
+  it('keeps SPEC and CODE menu labels disjoint and gives CODE an execute-specific title', async () => {
     const specLabels = new Set<string>(SESSION_ORIENTATION_MENU.items.map((item) => item.label));
     const codeLabels = CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label);
+    const ui = fakeUi(undefined);
+
+    await runSessionOrientationDialog(ui, { menu: CODE_SESSION_ORIENTATION_MENU });
 
     expect(codeLabels.filter((label) => specLabels.has(label))).toEqual([]);
+    expect(ui.calls[0]?.title).toContain('Execute');
+    expect(ui.calls[0]?.title).not.toBe(SESSION_ORIENTATION_MENU.title);
   });
 });
 

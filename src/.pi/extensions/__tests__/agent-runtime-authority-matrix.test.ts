@@ -179,25 +179,6 @@ describe('minimal authority matrix', () => {
     ).not.toEqual(expect.arrayContaining([...SIDE_EFFECTING_POC_TOOLS]));
   });
 
-  it('renders executor readiness conduct and honest stub boundary in the prompt', () => {
-    const executorPrompt = composeExecutorPrompt({
-      sessionState: { schemaVersion: 1, operationalMode: 'execute', agentRole: 'executor' },
-      spec: { id: 1, name: 'Spec' },
-      workspace: { cwd: '/tmp/brunch' },
-      activeTools: ['read_graph', 'present_question', 'request_response', 'orchestrator_stub'],
-    }).prompt;
-
-    expect(executorPrompt).toContain('state a capability-readiness posture before acting');
-    expect(executorPrompt).toContain('Proceed / Proceed-advisory / Negotiate / Ask');
-    expect(executorPrompt).toContain('accept the requested CODE-mode move');
-    expect(executorPrompt).toMatch(/do not bounce the user back to SPEC mode/i);
-    expect(executorPrompt).toMatch(/`?orchestrator_stub`? is the honest execution boundary/);
-    expect(executorPrompt).toContain(
-      '- readiness posture: assess seed reads before acting; bands guide conduct but never gate tool authority',
-    );
-    expect(executorPrompt).not.toMatch(/narrow executor|narrow authority/i);
-  });
-
   it('keeps the executor live skill manifest concentric with the elicitor manifest', () => {
     const elicitorPrompt = composeLiveElicitorPrompt({
       agentBody: '# Elicitor',

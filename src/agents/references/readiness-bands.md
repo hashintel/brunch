@@ -126,4 +126,4 @@ Use capability-readiness to modulate the move:
 - **Proceed** when inner concerns are settled enough.
 - **Proceed-advisory** when useful source-derived or early outer-band material exists but has not yet been harmonized.
 - **Negotiate** when one or two missing answers would materially improve the result; in CODE mode, accept the requested move and backfill those answers in place.
-- **Ask** when the requested capability would be mostly fiction without more inner-band truth; in CODE mode, ask for the needed grounding or scratchpad-obligation answers rather than bouncing the user to SPEC mode.
+- **Ask** when the requested capability would be mostly fiction without more inner-band truth; in CODE mode, gather the needed grounding or scratchpad-obligation answers in place.

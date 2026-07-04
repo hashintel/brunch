@@ -58,13 +58,17 @@ function commandHarness(
   const commands = new Map<string, RegisteredCommand>();
   const activeToolNames: string[][] = [];
   const customCalls: Array<{ factory: (...args: unknown[]) => unknown; options: unknown }> = [];
+  const selectCalls: Array<{ title: string; options: string[] }> = [];
   const chromeRefreshes: number[] = [];
   const ctx: FakeCommandContext = {
     ui: {
       notify(message, level) {
         notifications.push({ message, level });
       },
-      select: async (_title, choices) => options.selectResult ?? choices[0],
+      select: async (title, choices) => {
+        selectCalls.push({ title, options: choices });
+        return options.selectResult ?? choices[0];
+      },
     },
     sessionManager: {
       getEntries: () => entries,
@@ -132,7 +136,17 @@ function commandHarness(
     },
   );
 
-  return { commands, ctx, entries, notifications, activeToolNames, customCalls, chromeRefreshes, sent };
+  return {
+    commands,
+    ctx,
+    entries,
+    notifications,
+    activeToolNames,
+    customCalls,
+    selectCalls,
+    chromeRefreshes,
+    sent,
+  };
 }
 
 describe('Brunch runtime switch commands', () => {
@@ -243,6 +257,7 @@ describe('Brunch runtime switch commands', () => {
 
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
+    expect(harness.selectCalls[0]?.title).toBe(CODE_SESSION_ORIENTATION_MENU.title);
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         type: 'custom',

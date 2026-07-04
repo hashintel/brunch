@@ -31,12 +31,17 @@ export interface SessionOrientationMenuItem {
 }
 
 export interface SessionOrientationMenuDescriptor {
+  readonly title: string;
   readonly items: readonly SessionOrientationMenuItem[];
   readonly defaultChoice: SessionOrientationChoice;
+  /** A resolved choice that records an orientation entry but suppresses the live kick. */
+  readonly noKickChoice?: SessionOrientationChoice;
 }
 
 export const SESSION_ORIENTATION_MENU = {
+  title: 'How should this session continue?',
   defaultChoice: 'continue',
+  noKickChoice: 'continue',
   items: [
     { id: 'continue', label: 'continue' },
     { id: 'elicit_decisions', label: 'continue via decision-driven questions [elicit/grill-style]' },
@@ -49,6 +54,7 @@ export const SESSION_ORIENTATION_MENU = {
 } as const satisfies SessionOrientationMenuDescriptor;
 
 export const CODE_SESSION_ORIENTATION_MENU = {
+  title: 'How should Execute mode start?',
   defaultChoice: 'proceed',
   items: [
     { id: 'proceed', label: 'proceed with a readiness assessment' },
@@ -64,7 +70,6 @@ export interface SessionOrientationDialogUi {
 }
 
 export interface RunSessionOrientationDialogOptions {
-  readonly title?: string;
   readonly menu?: SessionOrientationMenuDescriptor;
 }
 
@@ -75,7 +80,7 @@ export async function runSessionOrientationDialog(
 ): Promise<SessionOrientationChoice> {
   const menu = options.menu ?? SESSION_ORIENTATION_MENU;
   const picked = await ui.select(
-    options.title ?? 'How should this session continue?',
+    menu.title,
     menu.items.map((item) => item.label),
   );
   return menu.items.find((item) => item.label === picked)?.id ?? menu.defaultChoice;
@@ -87,7 +92,6 @@ export interface RunAndRecordSessionOrientationInput {
   readonly trigger: SessionOrientationTrigger;
   readonly manager: SessionOrientationEntrySessionManager;
   readonly onAppendError?: (error: unknown) => void;
-  readonly title?: string;
   readonly menu?: SessionOrientationMenuDescriptor;
 }
 
@@ -100,10 +104,10 @@ export async function runAndRecordSessionOrientation(
 ): Promise<SessionOrientationChoice | undefined> {
   if (!input.hasUI) return undefined;
 
-  const choice = await runSessionOrientationDialog(input.ui, {
-    ...(input.title !== undefined ? { title: input.title } : {}),
-    ...(input.menu !== undefined ? { menu: input.menu } : {}),
-  });
+  const choice = await runSessionOrientationDialog(
+    input.ui,
+    input.menu !== undefined ? { menu: input.menu } : {},
+  );
   try {
     appendSessionOrientationEntry(input.manager, { choice, trigger: input.trigger });
   } catch (error: unknown) {

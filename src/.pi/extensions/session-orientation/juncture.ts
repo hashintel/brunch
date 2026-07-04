@@ -6,11 +6,11 @@
  *
  * Two juncture modes share the seam:
  *
- * - **`'follow-choice'` (J2/J3/J4/J6):** dialog + entry, then live-kick only
- *   when the choice is neither `continue` nor missing. Origination uses
- *   `resumeOrigin: 'manual_trigger'` (always yields a `start` decision) and
- *   `forceSeed: true` so the fresh orientation directive reaches the next
- *   provider turn even when the graph LSN has not moved.
+ * - **`'follow-choice'` (J2/J3/J4/J6/J5):** dialog + entry, then live-kick only
+ *   when the choice is present and is not the menu-owned `noKickChoice`.
+ *   Origination uses `resumeOrigin: 'manual_trigger'` (always yields a
+ *   `start` decision) and `forceSeed: true` so the fresh orientation directive
+ *   reaches the next provider turn even when the graph LSN has not moved.
  *
  * - **`'boot'` (option-2 J1, `session_start` reason `startup`):** dialog is
  *   best-effort — degraded mode (`hasUI: false`) skips it but the boot kick
@@ -52,6 +52,7 @@ import {
 import type { StartAssistantTurnDecision } from '../../../session/start-assistant-turn.js';
 import {
   runAndRecordSessionOrientation,
+  SESSION_ORIENTATION_MENU,
   type SessionOrientationDialogUi,
   type SessionOrientationMenuDescriptor,
 } from './index.js';
@@ -61,7 +62,7 @@ export type JunctureSessionManager = SessionOrientationEntrySessionManager &
     getEntries(): readonly TranscriptEntryLike[];
   };
 
-export type OrientationJunctureMode = 'follow-choice' | 'boot' | 'always-kick';
+export type OrientationJunctureMode = 'follow-choice' | 'boot';
 
 export interface RunOrientationJunctureInput {
   readonly hasUI: boolean;
@@ -73,14 +74,14 @@ export interface RunOrientationJunctureInput {
    * option-2 J1. See module header for semantics.
    */
   readonly mode?: OrientationJunctureMode;
-  readonly title?: string;
   readonly menu?: SessionOrientationMenuDescriptor;
   readonly onAppendError?: (error: unknown) => void;
   /**
    * Live-kick surface. Required when the mode may fire a kick
-   * (`'follow-choice'` + non-continue choice, or `'boot'` unconditionally).
-   * `'follow-choice'` with a `continue`/undefined choice never dereferences
-   * this, so callers that only need the dialog can omit it.
+   * (`'follow-choice'` + a choice other than the menu-owned no-kick choice, or
+   * `'boot'` unconditionally). `'follow-choice'` with a no-kick/undefined
+   * choice never dereferences this, so callers that only need the dialog can
+   * omit it.
    */
   readonly kick?: LiveKickDeps;
 }
@@ -157,7 +158,6 @@ export interface RunJunctureForContextInput {
   readonly trigger: SessionOrientationTrigger;
   readonly mode: OrientationJunctureMode;
   readonly kick: JunctureContextKick | undefined;
-  readonly title?: string;
   readonly menu?: SessionOrientationMenuDescriptor;
   readonly onAppendError: (error: unknown) => void;
 }
@@ -189,7 +189,6 @@ export async function runJunctureForContext(
     trigger: input.trigger,
     sessionManager,
     mode: input.mode,
-    ...(input.title !== undefined ? { title: input.title } : {}),
     ...(input.menu !== undefined ? { menu: input.menu } : {}),
     onAppendError: input.onAppendError,
     ...(kick ? { kick: { ...kick, modelAvailable: ctx.modelRegistry.getAvailable().length > 0 } } : {}),
@@ -231,6 +230,7 @@ export async function runOrientationJuncture(
   input: RunOrientationJunctureInput,
 ): Promise<RunOrientationJunctureResult> {
   const mode = input.mode ?? 'follow-choice';
+  const menu = input.menu ?? SESSION_ORIENTATION_MENU;
 
   const choice = input.hasUI
     ? await runAndRecordSessionOrientation({
@@ -238,8 +238,7 @@ export async function runOrientationJuncture(
         ui: input.ui,
         trigger: input.trigger,
         manager: input.sessionManager,
-        ...(input.title !== undefined ? { title: input.title } : {}),
-        ...(input.menu !== undefined ? { menu: input.menu } : {}),
+        menu,
         ...(input.onAppendError ? { onAppendError: input.onAppendError } : {}),
       })
     : undefined;
@@ -247,18 +246,7 @@ export async function runOrientationJuncture(
   const dialogRan = choice !== undefined;
 
   if (mode === 'follow-choice') {
-    if (!dialogRan || choice === 'continue' || !input.kick) {
-      return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
-    }
-    await originateAndKick(input.sessionManager, input.kick, {
-      resumeOrigin: 'manual_trigger',
-      forceSeed: true,
-    });
-    return { ran: true, choice, kickFired: true };
-  }
-
-  if (mode === 'always-kick') {
-    if (!dialogRan || !input.kick) {
+    if (!dialogRan || choice === menu.noKickChoice || !input.kick) {
       return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
     }
     await originateAndKick(input.sessionManager, input.kick, {
@@ -269,11 +257,11 @@ export async function runOrientationJuncture(
   }
 
   // mode === 'boot': always originate+kick (respecting resume-debt idle),
-  // forcing a fresh seed only when a real orientation choice was recorded.
+  // forcing a fresh seed only when a real orientation choice needing a kick was recorded.
   if (!input.kick) {
     return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
   }
-  const forceSeed = choice !== undefined && choice !== 'continue';
+  const forceSeed = choice !== undefined && choice !== menu.noKickChoice;
   await originateAndKick(input.sessionManager, input.kick, {
     resumeOrigin: 'resume_debt',
     forceSeed,
