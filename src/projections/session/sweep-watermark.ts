@@ -6,12 +6,6 @@ import {
 
 export const CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE = 'brunch.capture_sweep_watermark';
 
-const DIGEST_CUSTOM_TYPES = new Set<string>([
-  'brunch.acquisition_digest',
-  'brunch.capture_digest',
-  'brunch.digest',
-]);
-
 export interface CaptureSweepWatermark {
   readonly customType: typeof CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE;
   readonly sweptAt: string;
@@ -62,8 +56,6 @@ export function isCaptureSweepWatermarkEntry(entry: TranscriptEntryLike): boolea
 export function isSweepConversationalEntry(entry: TranscriptEntryLike): boolean {
   if (isCaptureSweepWatermarkEntry(entry)) return false;
 
-  const customType = customEntryType(entry);
-  if (customType !== undefined && DIGEST_CUSTOM_TYPES.has(customType)) return true;
   if (isContinuityOnlyNonDebtEntry(entry)) return false;
 
   const message = messageRecord(entry);

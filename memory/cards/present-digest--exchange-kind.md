@@ -216,7 +216,7 @@ src/dev/component-preview/registry.ts                  ~
 
 ---
 
-## Card 2 — Sweep single-carrier: `DIGEST_CUSTOM_TYPES` retirement · light card
+## Card 2 — Sweep single-carrier: `DIGEST_CUSTOM_TYPES` retirement · `done` · light card
 
 ### Objective
 
