@@ -63,7 +63,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - `exchange-capture-contract` ✓ done — the full contract sweep ledger: outcome-interpretation invariants as conduct + probes over settled deterministic seams.
   - `present-digest` (new, below) — the digest exchange kind end to end; proves throughline 3; stacks on the contract.
 - **Done-definition:** all three throughlines witnessed on live seams (not harness-injected paths); I57-L's generalized supersession invariant — *for any superseding proposal chain (review set, candidates, digest), sweep/projection consume only the accepted terminal payload; a cancelled chain contributes no offer payload* — probed per chain kind; the `DIGEST_CUSTOM_TYPES` special case in `src/projections/session/sweep-watermark.ts` retired; co-located topology homes (`src/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md`, ingest/map skill guidance) reconciled.
-- **Anchors:** D80-L–D82-L (capture conduct + gradient), D28-L (supersession), D50-L/I33-L (`capture_*` reserved for pre-persistence analysis — *not* receipts), D101-L (one-carrier scratchpad), D106-L (self-contained option echo), D107-L (proposed-code fidelity), D108-L (`src/exchanges/` consolidation).
+- **Anchors:** D80-L–D82-L (capture conduct + gradient), D28-L (supersession), D50-L/I33-L (`capture_*` reserved for pre-persistence analysis — *not* receipts), D101-L (one-carrier scratchpad), D106-L (self-contained option echo), D107-L (proposed-code fidelity), D108-L (`src/exchanges/` consolidation), D110-L (the digest exchange kind).
 
 ### capture-ingest-throughline — ◐ active
 
@@ -75,7 +75,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - `exchange-capture-contract` ✓ done — the full contract sweep ledger: outcome-interpretation invariants as conduct + probes over settled deterministic seams.
   - `present-digest` (new, below) — the digest exchange kind end to end; proves throughline 3; stacks on the contract.
 - **Done-definition:** all three throughlines witnessed on live seams (not harness-injected paths); I57-L's generalized supersession invariant — *for any superseding proposal chain (review set, candidates, digest), sweep/projection consume only the accepted terminal payload; a cancelled chain contributes no offer payload* — probed per chain kind; the `DIGEST_CUSTOM_TYPES` special case in `src/projections/session/sweep-watermark.ts` retired; co-located topology homes (`src/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md`, ingest/map skill guidance) reconciled.
-- **Anchors:** D80-L–D82-L (capture conduct + gradient), D28-L (supersession), D50-L/I33-L (`capture_*` reserved for pre-persistence analysis — *not* receipts), D101-L (one-carrier scratchpad), D106-L (self-contained option echo), D107-L (proposed-code fidelity), D108-L (`src/exchanges/` consolidation).
+- **Anchors:** D80-L–D82-L (capture conduct + gradient), D28-L (supersession), D50-L/I33-L (`capture_*` reserved for pre-persistence analysis — *not* receipts), D101-L (one-carrier scratchpad), D106-L (self-contained option echo), D107-L (proposed-code fidelity), D108-L (`src/exchanges/` consolidation), D110-L (the digest exchange kind).
 
 ### deterministic-orientation — ◐ active
 
@@ -196,7 +196,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Lights up:** throughline 3 of the arc — the "kick off a spec from a foreign SPEC.md / liftout analysis" ingest story with deterministic accept/ignore semantics.
 - **Retires:** the unstructured digest custom-entry path (D82-L status quo) as a capture carrier; the sweep filter's digest special case.
 - **Verification:** the `exchange-rendering` four-oracle compound extends to the new family member (content + render snapshots, render-honesty with elision list, family-completeness row, preview entry); supersession-chain probe (regenerate ×2 then accept → sweep reads only the accepted abstract); cancel-chain probe (nothing captured, scratchpad obligation optional); live walkthrough beat: paste a large document → digest → request changes → accept → map advisory.
-- **Traceability:** D28-L, D82-L (superseded carrier), D104-L, D105-L, D106-L, D108-L, I20-L (why not review-set), I51-L (digest commits nothing); `src/exchanges/TOPOLOGY.md`, `src/projections/session/sweep-watermark.ts`, `src/agents/skills/ingest/SKILL.md`, `src/agents/references/readiness-bands.md` §Arbitrary Source Capture.
+- **Traceability:** D110-L (the materialized digest exchange decision), D28-L, D82-L (superseded carrier), D104-L, D105-L, D106-L, D108-L, I20-L (why not review-set), I51-L (digest commits nothing); `src/exchanges/TOPOLOGY.md`, `src/projections/session/sweep-watermark.ts`, `src/agents/skills/ingest/SKILL.md`, `src/agents/references/readiness-bands.md` §Arbitrary Source Capture.
 
 
 ### session-entry-orientation
@@ -213,7 +213,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   1. **Deterministic entry chrome** (unchanged): welcome block as its own styled element after the header (F13); kick activity via `setWorkingMessage`/`setWorkingVisible` (F14); resume-variant state/status insertion (F16a); optionally the turn_end "Worked for Ns" global label (F15a).
   2. **Elicitor re-entry assessment** (unchanged): kick/persona guidance so re-entry opens with an *assessment* — graph summary, TODO forecast, teaching surface (F16b). Prompt shaping over existing seed facts (D101-L/D102-L), not new plumbing.
   3. **Orientation dialog (superseded shape):** a Brunch-owned orientation extension fires `ctx.ui.select` at the scoped junctures and records the outcome via `pi.appendEntry('brunch.session_orientation', { choice, trigger })` (dialog results do not enter the session log automatically); the entry feeds the next kick so no model turn is spent asking. TUI boot entry is handled by the extension `session_start(startup)` handler because Pi binds UI before emitting `session_start`; post-switch `session_start`, `session_tree`, abort settle (if detectable), mode-switch, and `/consult` use the same extension event/command home. SPEC-mode choice ids: `continue`, `elicit_decisions`, `elicit_examples`, `propose_intent`, `propose_design`, `propose_oracle`, `ingest`. Mid-session *discretionary* consults remain ordinary `present_question` tuples (D37-L grammar untouched); the mode-switch juncture is defined here but its CODE-side menu content belongs to `execute-entry-readiness`.
-- **Pinned checks (from grill + scope adjudication):** escape/timeout on the dialog resolves to `continue` — the menu must never be a wall; no-UI print/json modes show no dialog and write no orientation entry; confirm Brunch's RPC client surface relays the extension-UI sub-protocol (Pi supports it; Brunch-side handling is a check, not a design question); `brunch.session_orientation` entries must be excluded from the capture sweep (they are process state — the existing custom-entry filter in `src/projections/session/sweep-watermark.ts` already excludes non-digest custom types; add the probe, not new mechanism); abort-settle rides `agent_end` only if the tail assistant stop reason makes genuine user aborts distinguishable from retryable compaction aborts.
+- **Pinned checks (from grill + scope adjudication):** escape/timeout on the dialog resolves to `continue` — the menu must never be a wall; no-UI print/json modes show no dialog and write no orientation entry; confirm Brunch's RPC client surface relays the extension-UI sub-protocol (Pi supports it; Brunch-side handling is a check, not a design question); `brunch.session_orientation` entries must be excluded from the capture sweep (they are process state — the custom-entry filter in `src/projections/session/sweep-watermark.ts` excludes all custom types since FE-1136 retired the digest special case; add the probe, not new mechanism); abort-settle rides `agent_end` only if the tail assistant stop reason makes genuine user aborts distinguishable from retryable compaction aborts.
 - **Decision-flow chart (cross-cutting obligation):** at scope time, chart every juncture × outcome path — choice taken / escape / timeout / dialog-unavailable (print/json modes, `ctx.hasUI` false) — and each path's endpoint in kick composition.
 - **Lights up:** the first user-*directed* skill routing; the juncture seam `execute-entry-readiness` extends.
 - **Retires:** the "deterministic kick chrome vs prompt-directed agent behavior" open question (answered: deterministic); the F17 failure mode (model volition deciding whether to offer the choice).
@@ -358,9 +358,11 @@ frontiers:
       arc: capture-ingest-throughline
       status: done 2026-07-03; residuals (chain probe, present_digest tripwire) absorbed by FE-1136
       branch: ln/fe-1135-capture-contract
-    present-digest
+    present-digest (FE-1136)
       arc: capture-ingest-throughline
-      status: new 2026-07-03; proving
+      status: in progress 2026-07-04; cards 1-3 done + RPC answering-path repair (D110-L);
+              only card 4's live walkthrough beat remains
+      branch: ln/fe-1136-present-digest
       depends_on: -[hard]-> exchange-capture-contract (invariants 1-3 are its read rules)
       extends: exchange-family-completeness inventory (exchange-rendering stays closed)
     execute-entry-readiness (FE-1137)
