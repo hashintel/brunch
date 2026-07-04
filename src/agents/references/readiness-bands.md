@@ -50,8 +50,8 @@ Brownfield code, design notes, specs, tickets, and planning documents can imply 
 
 ```text
 source material
-  -> assistant-authored digest
-  -> user discussion / confirmation
+  -> assistant-authored digest via present_digest
+  -> request_response review terminal
   -> capture sweep
   -> graph material:
        low confidence or missing support -> session scratchpad obligation
@@ -60,7 +60,7 @@ source material
        harmonized and accepted           -> settled graph item
 ```
 
-The digest and discussion make the material eligible for graph persistence. They do not automatically make it settled.
+The accepted digest abstract and discussion make the material eligible for graph persistence. They do not automatically make it settled: accepted `present_digest` material maps advisory until harmonized against the inner-band concerns it would depend on.
 
 ## Latest Expected Bands
 

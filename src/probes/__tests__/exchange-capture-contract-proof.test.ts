@@ -24,4 +24,19 @@ describe('exchange capture contract proof', () => {
     expect(conduct).toContain('offer-scoped');
     expect(conduct).toContain('per-turn/watermark-shaped');
   });
+
+  it('keeps present_digest ingest guidance in the model-facing conduct homes', async () => {
+    const ingest = await readFile(join(process.cwd(), 'src/agents/skills/ingest/SKILL.md'), 'utf8');
+    const routing = await readFile(
+      join(process.cwd(), 'src/agents/skills/map/references/routing.md'),
+      'utf8',
+    );
+    const readiness = await readFile(join(process.cwd(), 'src/agents/references/readiness-bands.md'), 'utf8');
+
+    expect(ingest).toContain('present_digest');
+    expect(ingest).toContain('accepted_abstract');
+    expect(routing).toContain('Accepted `present_digest` material is source-derived review input');
+    expect(readiness).toContain('assistant-authored digest via present_digest');
+    expect(readiness).toContain('maps advisory until harmonized');
+  });
 });

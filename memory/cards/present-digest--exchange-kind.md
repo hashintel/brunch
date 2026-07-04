@@ -315,11 +315,16 @@ memory/SPEC.md                                                  ~  (I57-L covera
 
 ---
 
-## Card 4 — Ingest conduct binding + advisory mapping walkthrough · light card
+## Card 4 — Ingest conduct binding + advisory mapping walkthrough · `in progress` · light card
 
 ### Objective
 
 The model knows when and how to use the digest exchange — ingest guidance binds the digest step to `present_digest`, routing/readiness references cite the exchange with advisory settlement — and the end-to-end story is observed live with an honest map receipt.
+
+### Progress
+
+- Inner conduct binding and executable presence pin are implemented.
+- Pending before `done`: live walkthrough beat (large source → digest → request changes → accept → map advisory), including `formatMutateGraphResult` receipt check and abstract-size pressure assessment.
 
 ### Light-card cold-start reads
 

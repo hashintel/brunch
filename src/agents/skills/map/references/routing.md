@@ -19,7 +19,7 @@ Stop at the first row that holds.
 | ---------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------- |
 | directly stated, or exact-review approved, and harmonized                    | settled graph item    | `basis: explicit`                                        |
 | confidently materialized from accepted, harmonized content                   | settled graph item    | `basis: implicit`                                        |
-| reviewed source-derived material that is graph-shaped but not harmonized     | advisory graph item   | carried forward as signal, not a commitment              |
+| reviewed source-derived material that is graph-shaped but not harmonized     | advisory graph item   | accepted `present_digest` material starts here until harmonized |
 | coherent but judgment-heavy candidate material                               | review-set draft      | no graph basis until accepted                            |
 | low-confidence noticing, suspicion, possible implication, or missing support | session scratchpad obligation | obligation plus rationale naming what it would establish |
 | contradiction with existing settled graph truth                              | `reconciliation_need` | retrospective repair; do not overwrite the settled claim |
@@ -33,6 +33,7 @@ Stop at the first row that holds.
 - Relate only confident endpoints. Commit missing high-confidence endpoints first, then add role-named edges; skip the edge and add a scratchpad obligation when either endpoint is weak.
 - `basis` records approval directness, not the mutation path. Audit/provenance lives in `change_log`; lightweight source attribution can live on the node `source`.
 - Advisory graph material is persistable reviewed signal. It still needs promotion, rewrite, split, supersession, reconciliation, or abandonment before it is settled truth.
+- Accepted `present_digest` material is source-derived review input, not automatic graph truth. Route its `accepted_abstract` by confidence and conflict: advisory until harmonized, settled only when accepted and harmonized, scratchpad for low confidence, reconciliation for contradiction.
 - Accepted `present_candidates` selections are recognition input, not graph truth. They can steer map/review-set drafting; non-picked candidates remain offer history.
 
 ## Relation-Bearing Batches
