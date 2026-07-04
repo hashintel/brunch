@@ -263,7 +263,7 @@ src/projections/session/
 
 ---
 
-## Card 3 — Supersession and cancel-chain probes (FE-1135 residuals) · light card
+## Card 3 — Supersession and cancel-chain probes (FE-1135 residuals) · `done` · light card
 
 ### Objective
 
