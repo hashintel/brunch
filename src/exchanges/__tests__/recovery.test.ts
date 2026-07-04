@@ -32,6 +32,14 @@ describe('findIncompleteStructuredExchangePresents', () => {
       tool_meta: { prev: 'present_question', curr: 'request_answer', next: 'capture_answer' },
       answered: { text: 'Keep the completed exchange closed.' },
     });
+    const danglingDigest = toolResultEntry({
+      schema: STRUCTURED_EXCHANGE_PRESENT_DETAILS_SCHEMA,
+      v: STRUCTURED_EXCHANGE_DETAILS_VERSION,
+      exchange_id: 'dangling-digest',
+      tool_meta: { curr: 'present_digest', next: 'request_response' },
+      display: { heading: 'Review source digest' },
+      digest: { abstract: 'Digest before graph mapping.' },
+    });
     const unrelatedEntry = toolResultEntry({ note: 'not structured exchange details' });
 
     expect(
@@ -39,12 +47,18 @@ describe('findIncompleteStructuredExchangePresents', () => {
         unrelatedEntry,
         completedPresent,
         danglingPresent,
+        danglingDigest,
         completedRequest,
       ]),
     ).toEqual([
       {
         entry: danglingPresent,
         details: danglingPresent.message?.details,
+        continuationTool: 'request_response',
+      },
+      {
+        entry: danglingDigest,
+        details: danglingDigest.message?.details,
         continuationTool: 'request_response',
       },
     ]);

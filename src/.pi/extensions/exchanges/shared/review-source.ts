@@ -18,11 +18,25 @@ function decisionForLabel(label: string): ReviewDecision | undefined {
 export interface CollectReviewParams {
   readonly exchangeId: string;
   readonly prompt: string;
+  readonly respondsToPresentTool?: 'present_review_set' | 'present_digest' | undefined;
+  readonly acceptedAbstract?: string | undefined;
 }
 
 export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, params: CollectReviewParams) {
   const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
-    const details = projectRequestReview({ exchangeId: params.exchangeId, status, message });
+    const details =
+      params.respondsToPresentTool === 'present_digest'
+        ? projectRequestReview({
+            exchangeId: params.exchangeId,
+            status,
+            respondsToPresentTool: 'present_digest',
+            ...(message !== undefined ? { message } : {}),
+          })
+        : projectRequestReview({
+            exchangeId: params.exchangeId,
+            status,
+            ...(message !== undefined ? { message } : {}),
+          });
     return {
       content: [{ type: 'text' as const, text: formatRequestReview(details) }],
       details,
@@ -53,11 +67,21 @@ export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, para
     return terminal('unavailable', 'request_response review change request requires a comment');
   }
 
-  const details = projectRequestReview({
-    exchangeId: params.exchangeId,
-    status: 'answered',
-    review,
-    comment,
-  });
+  const details =
+    params.respondsToPresentTool === 'present_digest'
+      ? projectRequestReview({
+          exchangeId: params.exchangeId,
+          status: 'answered',
+          review,
+          respondsToPresentTool: 'present_digest',
+          acceptedAbstract: params.acceptedAbstract,
+          ...(comment !== undefined ? { comment } : {}),
+        })
+      : projectRequestReview({
+          exchangeId: params.exchangeId,
+          status: 'answered',
+          review,
+          ...(comment !== undefined ? { comment } : {}),
+        });
   return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
 }

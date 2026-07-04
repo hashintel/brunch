@@ -24,6 +24,7 @@ export function formatRequestReview(details: RequestReviewDetails): string {
         : 'rejected';
   return joinMarkdownBlocks(
     heading(`Review: ${label}`, 2),
+    'accepted_abstract' in details.answered ? blockquote(details.answered.accepted_abstract) : undefined,
     details.answered.comment ? blockquote(details.answered.comment) : undefined,
   );
 }

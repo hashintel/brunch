@@ -78,7 +78,7 @@ Present details:
 
 ```yaml
 tool_meta:
-  curr: present_question | present_review_set | present_candidates
+  curr: present_question | present_review_set | present_candidates | present_digest
   next: request_response
 ```
 
@@ -86,12 +86,12 @@ Request details:
 
 ```yaml
 tool_meta:
-  prev: present_question | present_review_set | present_candidates
+  prev: present_question | present_review_set | present_candidates | present_digest
   curr: request_answer | request_choice | request_choices | request_review
   next?: capture_answer | capture_choice | capture_choices | capture_review | capture_candidate
 ```
 
-`request_response({ exchangeId })` emits canonical request details by the response kind derived from the pending present: `request_answer` for free text, `request_choice` for single choice, `request_choices` for multi-choice, and `request_review` for a `present_review_set` decision.
+`request_response({ exchangeId })` emits canonical request details by the response kind derived from the pending present: `request_answer` for free text, `request_choice` for single choice, `request_choices` for multi-choice, and `request_review` for a `present_review_set` or `present_digest` decision.
 
 Capture details:
 
@@ -118,7 +118,7 @@ schema: "brunch.structured_exchange.present"
 v: 1
 exchange_id: string
 tool_meta:
-  curr: present_question | present_review_set | present_candidates
+  curr: present_question | present_review_set | present_candidates | present_digest
   next: request_response
 response_kind?: answer | choice | choices
 display:
@@ -280,6 +280,10 @@ Relationship to D31-L meta-rubric:
 - `lock_in_constraints` derives from commitment.
 - `recommendation` may draw on all facets.
 
+### `present_digest`
+
+`present_digest` carries prose-only large-source review material. It is not a review-set or graph-proposal carrier: `digest.abstract` is required, `digest.analysis` and `digest.recommendation` are optional markdown, and graph draft / node / edge / command payload fields are rejected at the params/detail boundary. Its terminal is the existing review response vocabulary through `request_response`; approval echoes the accepted abstract on request details so sweep reads have one self-contained digest carrier.
+
 ## Request layer
 
 Request terminal outcome is a property-presence union. Exactly one of `answered`, `cancelled`, or `unavailable` must be present.
@@ -307,8 +311,8 @@ Rules:
 - `request_answer` follows `present_question` free-text prompts and may lead to `capture_answer`.
 - `request_choice` follows `present_question` option prompts or `present_candidates`; after candidates it may lead to `capture_candidate`.
 - `request_choices` follows `present_question` multi-option prompts and may lead to `capture_choices`.
-- `request_review` follows `present_review_set` and may lead to `capture_review`.
-- `request_review` supports `approve`, `request_changes`, and `reject`; `comment` is required for `request_changes`.
+- `request_review` follows `present_review_set` or `present_digest` and may lead to `capture_review`.
+- `request_review` supports `approve`, `request_changes`, and `reject`; `comment` is required for `request_changes`. Digest approvals also carry `accepted_abstract` as the sweep-visible digest echo.
 - `other` and `none` choices require a user `comment`.
 - `request_choice` and `request_choices` answered payloads carry `answered.options`: the full listed option echo from the pending present (`id`, `content`, optional `rationale`). Selected write-ins stay in `choice(s)` as `kind: other | none`; they are not appended to `options`.
 

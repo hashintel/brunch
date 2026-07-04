@@ -16,6 +16,7 @@ import type { WorkspaceLaunchInventory } from '../../session/workspace-session-c
 import { showComponentPreview } from './custom-ui.js';
 import {
   presentCandidatesFixture,
+  presentDigestFixture,
   presentQuestionOptionsFixture,
   presentReviewSetFixture,
   requestAnswerFixture,
@@ -216,6 +217,14 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       'tool result renderer — src/.pi/extensions/exchanges/present-candidates.ts (renderResult = Markdown pass-through of content, D104-L)',
     open: (tui, theme) =>
       previewStaticComponent(tui, renderMarkdownResult(presentCandidatesFixture.result, theme)),
+  },
+  {
+    id: 'present-digest',
+    label: 'present_digest transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/present-digest.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) =>
+      previewStaticComponent(tui, renderMarkdownResult(presentDigestFixture.result, theme)),
   },
   {
     id: 'present-question',

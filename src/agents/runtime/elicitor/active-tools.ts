@@ -23,6 +23,7 @@ export const LIVE_ELICITOR_ALLOWED_TOOL_NAMES = [
   'update_reconciliation_needs',
   'present_question',
   'present_candidates',
+  'present_digest',
   'present_review_set',
   'request_response',
   'subagent',

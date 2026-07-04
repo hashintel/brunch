@@ -2,7 +2,8 @@
 
 Owns Pi registration, live UI collection, and TUI transcript `renderResult`
 wiring for the structured-exchange tool family (`present_question`,
-`present_review_set`, `present_candidates`, and `request_response`). Result
+`present_review_set`, `present_candidates`, `present_digest`, and
+`request_response`). Result
 details are constructed only through `src/exchanges/projections/*` and validated
 against the Zod schemas in `src/exchanges/schemas/` (see
 `src/exchanges/schemas/TOPOLOGY.md` for the details contract; D108-L
@@ -59,8 +60,9 @@ tools rather than inventing a broker choice surface.
 present's `tool_meta.curr`: `present_question` to the answer/choice/choices
 sources above, `present_review_set` to `shared/review-source.ts`
 (approve / request-changes / reject, with a required change-request comment),
-and `present_candidates` to the single-choice UI source with candidate
-provenance preserved for later `capture_candidate`.
+`present_candidates` to the single-choice UI source with candidate provenance
+preserved for later `capture_candidate`, and `present_digest` to the same review
+source with the accepted abstract echoed into the approval terminal.
 The retired `request_answer` / `request_choice` / `request_choices` /
 `request_review` names survive only as transcript **result-detail discriminants**
 (`tool_meta.curr` on the request details and the `capture_*` chains). The public

@@ -16,6 +16,7 @@ exchanges/
   editor-envelope.ts      request_choices editor wire-envelope prefill/parse helpers
   projections/
     present-candidates.ts canonical present_candidates details construction
+    present-digest.ts     canonical present_digest details construction
     present-question.ts   canonical present_question details construction
     present-review-set.ts canonical present_review_set details construction
     request-response.ts   canonical request_response result details construction

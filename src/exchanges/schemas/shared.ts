@@ -11,7 +11,12 @@ export const MarkdownSchema = z.toJSONSchema(zMarkdown, { unrepresentable: 'thro
 export const zGraphNodeRef = z.object({ node_id: z.string().min(1) }).strict();
 export const GraphNodeRefSchema = z.toJSONSchema(zGraphNodeRef, { unrepresentable: 'throw' });
 
-export const zPresentToolName = z.enum(['present_question', 'present_review_set', 'present_candidates']);
+export const zPresentToolName = z.enum([
+  'present_question',
+  'present_review_set',
+  'present_candidates',
+  'present_digest',
+]);
 export const PresentToolNameSchema = z.toJSONSchema(zPresentToolName, { unrepresentable: 'throw' });
 
 export const zRequestToolName = z.enum([
@@ -63,11 +68,15 @@ export const zPresentReviewSetToolMeta = z
 export const zPresentCandidatesToolMeta = z
   .object({ curr: z.literal('present_candidates'), next: z.literal('request_response') })
   .strict();
+export const zPresentDigestToolMeta = z
+  .object({ curr: z.literal('present_digest'), next: z.literal('request_response') })
+  .strict();
 
 export const zPresentToolMeta = z.discriminatedUnion('curr', [
   zPresentQuestionToolMeta,
   zPresentReviewSetToolMeta,
   zPresentCandidatesToolMeta,
+  zPresentDigestToolMeta,
 ]);
 export const PresentToolMetaSchema = z.toJSONSchema(zPresentToolMeta, { unrepresentable: 'throw' });
 
@@ -99,13 +108,21 @@ export const zRequestChoicesToolMeta = z
     next: z.literal('capture_choices').optional(),
   })
   .strict();
-export const zRequestReviewToolMeta = z
+export const zRequestReviewSetToolMeta = z
   .object({
     prev: z.literal('present_review_set'),
     curr: z.literal('request_review'),
     next: z.literal('capture_review').optional(),
   })
   .strict();
+export const zRequestDigestReviewToolMeta = z
+  .object({
+    prev: z.literal('present_digest'),
+    curr: z.literal('request_review'),
+    next: z.literal('capture_review').optional(),
+  })
+  .strict();
+export const zRequestReviewToolMeta = z.union([zRequestReviewSetToolMeta, zRequestDigestReviewToolMeta]);
 
 export const zRequestChoiceToolMeta = z.union([
   zRequestChoiceFromOptionsToolMeta,
