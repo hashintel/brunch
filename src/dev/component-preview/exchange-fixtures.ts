@@ -273,6 +273,7 @@ export const requestReviewFixture = (() => {
     exchangeId: 'preview-request-review',
     status: 'answered',
     review: 'request_changes',
+    respondsToPresentTool: 'present_review_set',
     comment: 'Name the outer oracle before closing the frontier.',
   });
   return {

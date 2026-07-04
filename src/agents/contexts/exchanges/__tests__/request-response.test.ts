@@ -88,6 +88,7 @@ describe('request response formatters', () => {
       exchangeId: 'review-honesty',
       status: 'answered',
       review: 'request_changes',
+      respondsToPresentTool: 'present_review_set',
       comment: 'Name the outer oracle before closing the frontier.',
     });
 

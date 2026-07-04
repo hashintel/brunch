@@ -26,7 +26,10 @@ exchanges/
 preserved `request_answer` / `request_choice` / `request_choices` /
 `request_review` discriminants live in transcript details, not in the public file
 topology; per-discriminant constructors are private helpers under
-`projections/request-response/`.
+`projections/request-response/`. `request_review` projection callers must pass the
+present-tool discriminator (`present_review_set` or `present_digest`) because
+both presents close through the same terminal detail kind while capture reads
+them differently; digest approval also requires the accepted abstract echo.
 
 ## Dependency direction
 

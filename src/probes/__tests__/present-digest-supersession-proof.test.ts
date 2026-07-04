@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { projectRequestReview } from '../../exchanges/projections/request-response/review.js';
-import type { RequestReviewDetails } from '../../exchanges/schemas/index.js';
 import type { TranscriptEntryLike } from '../../projections/session/continuity-entry-classifier.js';
 import { projectCaptureSweepWindow } from '../../projections/session/sweep-watermark.js';
+import { acceptedResponseFromParams } from '../../session/structured-exchange-loop/accepted-response.js';
 
 function presentDigest(exchangeId: string, abstract: string): TranscriptEntryLike {
   const projection = projectPresentDigest({
@@ -15,7 +15,7 @@ function presentDigest(exchangeId: string, abstract: string): TranscriptEntryLik
   return toolResult('present_digest', projection.details);
 }
 
-function digestReview(details: RequestReviewDetails): TranscriptEntryLike {
+function digestReview(details: unknown): TranscriptEntryLike {
   return toolResult('request_response', details);
 }
 
@@ -81,6 +81,33 @@ describe('present_digest supersession proof', () => {
 
     expect(toolNames(tail)).toEqual(['request_response', 'request_response', 'request_response']);
     expect(digestPayloads(tail)).toEqual(['Final accepted abstract for sweep capture.']);
+  });
+
+  it('feeds the capture sweep from a product-minted accepted digest terminal', () => {
+    const accepted = acceptedResponseFromParams(
+      {
+        exchangeId: 'digest-product-minted',
+        lens: 'intent',
+        mode: 'review',
+        prompt: 'Review source digest',
+        options: [],
+        note: { allowed: true },
+        respondsToPresentTool: 'present_digest',
+        digestAbstract: 'Product-minted accepted abstract for sweep capture.',
+      },
+      {
+        exchangeId: 'digest-product-minted',
+        answer: { review: { decision: 'approve' } },
+      },
+    );
+    if (!accepted.ok) throw new Error(accepted.message);
+
+    const tail = projectCaptureSweepWindow([
+      presentDigest('digest-product-minted', 'Product-minted accepted abstract for sweep capture.'),
+      digestReview(accepted.toolResultMessage.details),
+    ]).conversationalTail;
+
+    expect(digestPayloads(tail)).toEqual(['Product-minted accepted abstract for sweep capture.']);
   });
 
   it('does not feed cancelled digest offer payloads into the capture sweep', () => {

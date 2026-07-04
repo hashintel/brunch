@@ -144,6 +144,51 @@ const requestReviewToolResult = {
     isError: false,
   },
 };
+const presentDigestToolResult = {
+  id: 'present-digest-1',
+  type: 'message',
+  parentId: null,
+  message: {
+    role: 'toolResult',
+    toolCallId: 'present-digest-call-1',
+    toolName: 'present_digest',
+    content: [{ type: 'text', text: '## Review source digest\n\nApprove this digest before mapping.' }],
+    details: {
+      schema: 'brunch.structured_exchange.present',
+      v: 1,
+      exchange_id: 'digest-cycle',
+      tool_meta: { curr: 'present_digest', next: 'request_response' },
+      display: {
+        heading: 'Review source digest',
+        body: 'Approve this digest before mapping.',
+      },
+      digest: { abstract: 'The source asks for advisory capture before settlement.' },
+    },
+    isError: false,
+  },
+};
+const requestDigestReviewToolResult = {
+  id: 'request-digest-review-1',
+  type: 'message',
+  parentId: 'present-digest-1',
+  message: {
+    role: 'toolResult',
+    toolCallId: 'request-digest-review-call-1',
+    toolName: 'request_response',
+    content: [{ type: 'text', text: '### Review decision\n\nApproved.' }],
+    details: {
+      schema: 'brunch.structured_exchange.request',
+      v: 1,
+      exchange_id: 'digest-cycle',
+      tool_meta: { prev: 'present_digest', curr: 'request_review' },
+      answered: {
+        decision: 'approve',
+        accepted_abstract: 'The source asks for advisory capture before settlement.',
+      },
+    },
+    isError: false,
+  },
+};
 const requestChoicesToolResult = {
   id: 'request-choices-1',
   type: 'message',
@@ -366,6 +411,21 @@ describe('session exchange projection', () => {
         {
           promptEntryIds: ['present-review-set-1'],
           responseEntryIds: ['request-review-1'],
+        },
+      ],
+      openPrompt: null,
+    });
+  });
+
+  it('closes present_digest with the matching terminal request_review result', () => {
+    const projection = projectSessionExchanges([presentDigestToolResult, requestDigestReviewToolResult]);
+
+    expect(projection).toMatchObject({
+      status: 'ready',
+      exchanges: [
+        {
+          promptEntryIds: ['present-digest-1'],
+          responseEntryIds: ['request-digest-review-1'],
         },
       ],
       openPrompt: null,

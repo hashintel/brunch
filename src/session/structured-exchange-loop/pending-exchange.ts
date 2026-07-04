@@ -26,11 +26,14 @@ export const zPendingStructuredExchange = z
     ),
     note: z.object({ allowed: z.boolean() }).strict(),
     reviewSet: z.record(z.string(), z.unknown()).optional(),
-    // Which present tool opened a single-select exchange. Candidate lists and
-    // prompt option lists both answer via request_choice but capture differently
-    // (capture_candidate vs capture_choice), so the provenance must round-trip
-    // rather than be assumed. Absent ⇒ present_question.
-    respondsToPresentTool: z.enum(['present_question', 'present_candidates']).optional(),
+    digestAbstract: zNonBlankString.optional(),
+    // Which present tool opened this exchange when the terminal request detail
+    // cannot be inferred from mode alone. Candidate lists and prompt option
+    // lists both answer via request_choice; review-set and digest both answer
+    // via request_review.
+    respondsToPresentTool: z
+      .enum(['present_question', 'present_candidates', 'present_review_set', 'present_digest'])
+      .optional(),
   })
   .strict();
 export const PendingStructuredExchangeSchema = z.toJSONSchema(zPendingStructuredExchange, {
@@ -106,6 +109,21 @@ function pendingExchangeFromStructuredPresent(
       options: [],
       note: { allowed: true },
       reviewSet: details.review_set,
+      respondsToPresentTool: 'present_review_set',
+    };
+  }
+
+  if ('digest' in details) {
+    return {
+      exchangeId: details.exchange_id,
+      lens: 'intent',
+      mode: 'review',
+      prompt,
+      ...(detailsText.length > 0 ? { details: detailsText } : {}),
+      options: [],
+      note: { allowed: true },
+      digestAbstract: details.digest.abstract,
+      respondsToPresentTool: 'present_digest',
     };
   }
 

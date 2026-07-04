@@ -157,6 +157,7 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
           return collectReviewFromUi(uiCtx, {
             exchangeId: params.exchangeId,
             prompt: present.display.heading,
+            respondsToPresentTool: 'present_review_set',
           });
         case 'present_candidates': {
           const candidatesPresent = present as PresentCandidatesDetails;

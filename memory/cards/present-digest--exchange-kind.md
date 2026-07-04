@@ -324,6 +324,7 @@ The model knows when and how to use the digest exchange — ingest guidance bind
 ### Progress
 
 - Inner conduct binding and executable presence pin are implemented.
+- The public RPC accept path blocker is resolved by the consumed repair slice: `present_digest` now reconstructs as review-mode pending state and closes through product-minted `request_review` terminals with the accepted abstract echo.
 - Pending before `done`: live walkthrough beat (large source → digest → request changes → accept → map advisory), including `formatMutateGraphResult` receipt check and abstract-size pressure assessment.
 
 ### Light-card cold-start reads

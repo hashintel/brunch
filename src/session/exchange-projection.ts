@@ -237,6 +237,7 @@ function expectedRequestDetailTool(
   present: PresentDetails,
 ): 'request_answer' | 'request_choice' | 'request_choices' | 'request_review' {
   if (present.tool_meta.curr === 'present_review_set') return 'request_review';
+  if (present.tool_meta.curr === 'present_digest') return 'request_review';
   if (present.tool_meta.curr === 'present_candidates') return 'request_choice';
   if (!('response_kind' in present)) return 'request_answer';
   if (present.response_kind === 'choices') return 'request_choices';
