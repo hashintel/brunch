@@ -50,14 +50,18 @@ import {
   type SessionOrientationTrigger,
 } from '../../../session/session-orientation.js';
 import type { StartAssistantTurnDecision } from '../../../session/start-assistant-turn.js';
-import { runAndRecordSessionOrientation, type SessionOrientationDialogUi } from './index.js';
+import {
+  runAndRecordSessionOrientation,
+  type SessionOrientationDialogUi,
+  type SessionOrientationMenuDescriptor,
+} from './index.js';
 
 export type JunctureSessionManager = SessionOrientationEntrySessionManager &
   OriginationManager & {
     getEntries(): readonly TranscriptEntryLike[];
   };
 
-export type OrientationJunctureMode = 'follow-choice' | 'boot';
+export type OrientationJunctureMode = 'follow-choice' | 'boot' | 'always-kick';
 
 export interface RunOrientationJunctureInput {
   readonly hasUI: boolean;
@@ -70,6 +74,7 @@ export interface RunOrientationJunctureInput {
    */
   readonly mode?: OrientationJunctureMode;
   readonly title?: string;
+  readonly menu?: SessionOrientationMenuDescriptor;
   readonly onAppendError?: (error: unknown) => void;
   /**
    * Live-kick surface. Required when the mode may fire a kick
@@ -153,6 +158,7 @@ export interface RunJunctureForContextInput {
   readonly mode: OrientationJunctureMode;
   readonly kick: JunctureContextKick | undefined;
   readonly title?: string;
+  readonly menu?: SessionOrientationMenuDescriptor;
   readonly onAppendError: (error: unknown) => void;
 }
 
@@ -184,6 +190,7 @@ export async function runJunctureForContext(
     sessionManager,
     mode: input.mode,
     ...(input.title !== undefined ? { title: input.title } : {}),
+    ...(input.menu !== undefined ? { menu: input.menu } : {}),
     onAppendError: input.onAppendError,
     ...(kick ? { kick: { ...kick, modelAvailable: ctx.modelRegistry.getAvailable().length > 0 } } : {}),
   });
@@ -232,6 +239,7 @@ export async function runOrientationJuncture(
         trigger: input.trigger,
         manager: input.sessionManager,
         ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.menu !== undefined ? { menu: input.menu } : {}),
         ...(input.onAppendError ? { onAppendError: input.onAppendError } : {}),
       })
     : undefined;
@@ -240,6 +248,17 @@ export async function runOrientationJuncture(
 
   if (mode === 'follow-choice') {
     if (!dialogRan || choice === 'continue' || !input.kick) {
+      return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
+    }
+    await originateAndKick(input.sessionManager, input.kick, {
+      resumeOrigin: 'manual_trigger',
+      forceSeed: true,
+    });
+    return { ran: true, choice, kickFired: true };
+  }
+
+  if (mode === 'always-kick') {
+    if (!dialogRan || !input.kick) {
       return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
     }
     await originateAndKick(input.sessionManager, input.kick, {

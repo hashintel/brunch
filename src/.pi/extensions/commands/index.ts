@@ -41,6 +41,7 @@ import {
   activeToolNamesForBrunchAgentState,
   projectBrunchAgentState,
 } from '../agent-runtime/runtime/index.js';
+import { CODE_SESSION_ORIENTATION_MENU } from '../session-orientation/index.js';
 import { runJunctureForContext, sendCustomMessageViaExtensionApi } from '../session-orientation/juncture.js';
 import type { BrunchSessionOrientationDeps } from '../session-orientation/registrar.js';
 import {
@@ -69,11 +70,10 @@ export type BrunchCommandsOptions = BrunchSpecSessionPickerOptions & {
    */
   readonly getCommandContext?: () => ExtensionCommandContext | undefined;
   /**
-   * J5 (SPEC-side mode-switch orientation) dep. When present, a mode switch
-   * INTO Specify (`elicit`) fires the orientation dialog with
-   * `trigger: 'mode-switch'` and — on a non-`continue` choice — kicks the
-   * new SPEC opening turn via the shared live-kick helper. CODE-side mode
-   * switches are owned by `execute-entry-readiness` and stay silent here.
+   * J5 mode-switch orientation dep. When present, a mode switch INTO Specify
+   * (`elicit`) fires the SPEC menu and kicks only on non-`continue`; a mode
+   * switch INTO Execute fires the CODE menu and always kicks after a dialog
+   * resolution. Degraded no-UI switches stay silent.
    */
   readonly sessionOrientation?: BrunchSessionOrientationDeps;
 };
@@ -128,8 +128,13 @@ async function applyModeSwitchAndOrient(
   options: ModeSwitchOptions,
 ): Promise<void> {
   applyModeSwitch(pi, ctx, nextMode, options);
-  if (nextMode === 'elicit' && options.sessionOrientation) {
+  if (!options.sessionOrientation) return;
+  if (nextMode === 'elicit') {
     await runSpecModeSwitchOrientation(pi, ctx, options.sessionOrientation);
+    return;
+  }
+  if (nextMode === 'execute') {
+    await runCodeModeSwitchOrientation(pi, ctx, options.sessionOrientation);
   }
 }
 
@@ -156,6 +161,35 @@ async function runSpecModeSwitchOrientation(
     },
     trigger: 'mode-switch',
     mode: 'follow-choice',
+    kick: kickContext
+      ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
+      : undefined,
+    onAppendError: (error) => {
+      ctx.ui.notify(
+        `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
+        'warning',
+      );
+    },
+  });
+}
+
+async function runCodeModeSwitchOrientation(
+  pi: ExtensionAPI,
+  ctx: RuntimeSwitchContext,
+  deps: BrunchSessionOrientationDeps,
+): Promise<void> {
+  const kickContext = await deps.resolveKickContext();
+  await runJunctureForContext({
+    ctx: {
+      mode: ctx.mode,
+      hasUI: ctx.hasUI,
+      modelRegistry: ctx.modelRegistry,
+      sessionManager: ctx.sessionManager,
+      ui: { select: ctx.ui.select.bind(ctx.ui) },
+    },
+    trigger: 'mode-switch',
+    mode: 'always-kick',
+    menu: CODE_SESSION_ORIENTATION_MENU,
     kick: kickContext
       ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
       : undefined,

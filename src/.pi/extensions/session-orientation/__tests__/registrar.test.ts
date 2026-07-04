@@ -21,7 +21,7 @@ interface CapturedEntry {
 }
 
 function labelFor(id: string): string {
-  return SESSION_ORIENTATION_MENU.find((item) => item.id === id)!.label;
+  return SESSION_ORIENTATION_MENU.items.find((item) => item.id === id)!.label;
 }
 
 interface Handlers {

@@ -1,12 +1,13 @@
 /**
  * Session orientation dialog — Pi-facing adapter over the domain choice
- * schema (`session/session-orientation.ts`). Owns the SPEC-mode menu labels,
- * the `ctx.ui.select`-shaped dialog function, and the entry/degraded-mode
- * rules from the decision-flow chart (session-entry-orientation frontier):
+ * schema (`session/session-orientation.ts`). Owns menu descriptors, the
+ * `ctx.ui.select`-shaped dialog function, and the entry/degraded-mode rules
+ * from the deterministic-orientation decision-flow charts.
  *
  * - Entry rule: an entry is written on every dialog resolution, including
- *   escape/timeout (`select` returning `undefined`) mapping to `continue`.
- *   No entry is written when the dialog is not shown at all (`hasUI` false).
+ *   escape/timeout (`select` returning `undefined`) mapping to the menu's
+ *   default choice. No entry is written when the dialog is not shown at all
+ *   (`hasUI` false).
  * - Append is best-effort: a failed `appendCustomEntry` is reported through
  *   `onAppendError` and never blocks the caller (boot/kick must not stall on
  *   a ledger-write failure).
@@ -19,41 +20,65 @@
 
 import {
   appendSessionOrientationEntry,
-  SESSION_ORIENTATION_CHOICES,
   type SessionOrientationChoice,
   type SessionOrientationEntrySessionManager,
   type SessionOrientationTrigger,
 } from '../../../session/session-orientation.js';
 
-const SESSION_ORIENTATION_MENU_LABELS: Record<SessionOrientationChoice, string> = {
-  continue: 'continue',
-  elicit_decisions: 'continue via decision-driven questions [elicit/grill-style]',
-  elicit_examples: 'continue via example-driven questions [elicit/disambiguate-style]',
-  propose_intent: 'propose candidate spec designs [propose:intent]',
-  propose_design: 'propose technical designs [propose/project:design]',
-  propose_oracle: 'propose verification designs [propose/project:oracle]',
-  ingest: 'ingest source material [ingest]',
-};
-
-export const SESSION_ORIENTATION_MENU: readonly {
+export interface SessionOrientationMenuItem {
   readonly id: SessionOrientationChoice;
   readonly label: string;
-}[] = SESSION_ORIENTATION_CHOICES.map((id) => ({ id, label: SESSION_ORIENTATION_MENU_LABELS[id] }));
+}
+
+export interface SessionOrientationMenuDescriptor {
+  readonly items: readonly SessionOrientationMenuItem[];
+  readonly defaultChoice: SessionOrientationChoice;
+}
+
+export const SESSION_ORIENTATION_MENU = {
+  defaultChoice: 'continue',
+  items: [
+    { id: 'continue', label: 'continue' },
+    { id: 'elicit_decisions', label: 'continue via decision-driven questions [elicit/grill-style]' },
+    { id: 'elicit_examples', label: 'continue via example-driven questions [elicit/disambiguate-style]' },
+    { id: 'propose_intent', label: 'propose candidate spec designs [propose:intent]' },
+    { id: 'propose_design', label: 'propose technical designs [propose/project:design]' },
+    { id: 'propose_oracle', label: 'propose verification designs [propose/project:oracle]' },
+    { id: 'ingest', label: 'ingest source material [ingest]' },
+  ],
+} as const satisfies SessionOrientationMenuDescriptor;
+
+export const CODE_SESSION_ORIENTATION_MENU = {
+  defaultChoice: 'proceed',
+  items: [
+    { id: 'proceed', label: 'proceed with a readiness assessment' },
+    { id: 'backfill', label: 'backfill missing information via questions [Negotiate/Ask]' },
+    { id: 'design_first', label: 'design the technical approach first [propose/project:design]' },
+    { id: 'oracle_first', label: 'design the verification approach first [propose/project:oracle]' },
+    { id: 'project_plan', label: 'project a frontier-level plan and proceed [project]' },
+  ],
+} as const satisfies SessionOrientationMenuDescriptor;
 
 export interface SessionOrientationDialogUi {
   select(title: string, options: string[]): Promise<string | undefined>;
 }
 
-/** Runs the SPEC-mode menu and maps escape/timeout (`undefined`) to `continue`. */
+export interface RunSessionOrientationDialogOptions {
+  readonly title?: string;
+  readonly menu?: SessionOrientationMenuDescriptor;
+}
+
+/** Runs a menu and maps escape/timeout (`undefined`) to that menu's default. */
 export async function runSessionOrientationDialog(
   ui: SessionOrientationDialogUi,
-  title = 'How should this session continue?',
+  options: RunSessionOrientationDialogOptions = {},
 ): Promise<SessionOrientationChoice> {
+  const menu = options.menu ?? SESSION_ORIENTATION_MENU;
   const picked = await ui.select(
-    title,
-    SESSION_ORIENTATION_MENU.map((item) => item.label),
+    options.title ?? 'How should this session continue?',
+    menu.items.map((item) => item.label),
   );
-  return SESSION_ORIENTATION_MENU.find((item) => item.label === picked)?.id ?? 'continue';
+  return menu.items.find((item) => item.label === picked)?.id ?? menu.defaultChoice;
 }
 
 export interface RunAndRecordSessionOrientationInput {
@@ -63,6 +88,7 @@ export interface RunAndRecordSessionOrientationInput {
   readonly manager: SessionOrientationEntrySessionManager;
   readonly onAppendError?: (error: unknown) => void;
   readonly title?: string;
+  readonly menu?: SessionOrientationMenuDescriptor;
 }
 
 /**
@@ -74,7 +100,10 @@ export async function runAndRecordSessionOrientation(
 ): Promise<SessionOrientationChoice | undefined> {
   if (!input.hasUI) return undefined;
 
-  const choice = await runSessionOrientationDialog(input.ui, input.title);
+  const choice = await runSessionOrientationDialog(input.ui, {
+    ...(input.title !== undefined ? { title: input.title } : {}),
+    ...(input.menu !== undefined ? { menu: input.menu } : {}),
+  });
   try {
     appendSessionOrientationEntry(input.manager, { choice, trigger: input.trigger });
   } catch (error: unknown) {

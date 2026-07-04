@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { latestSessionOrientation } from '../../../../session/session-orientation.js';
 import {
+  CODE_SESSION_ORIENTATION_MENU,
   runAndRecordSessionOrientation,
   runSessionOrientationDialog,
   SESSION_ORIENTATION_MENU,
@@ -28,18 +29,29 @@ class FakeSessionManager {
 
 describe('runSessionOrientationDialog', () => {
   it('presents every §Choice schema label and resolves the matching id', async () => {
-    const ui = fakeUi(SESSION_ORIENTATION_MENU.find((item) => item.id === 'ingest')!.label);
+    const ui = fakeUi(SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'ingest')!.label);
 
     const choice = await runSessionOrientationDialog(ui);
 
-    expect(ui.calls[0]?.options).toEqual(SESSION_ORIENTATION_MENU.map((item) => item.label));
+    expect(ui.calls[0]?.options).toEqual(SESSION_ORIENTATION_MENU.items.map((item) => item.label));
     expect(choice).toBe('ingest');
   });
 
-  it('maps escape/timeout (undefined) to continue', async () => {
-    const ui = fakeUi(undefined);
+  it('maps escape/timeout (undefined) to the menu default', async () => {
+    const specUi = fakeUi(undefined);
+    const codeUi = fakeUi(undefined);
 
-    await expect(runSessionOrientationDialog(ui)).resolves.toBe('continue');
+    await expect(runSessionOrientationDialog(specUi)).resolves.toBe('continue');
+    await expect(runSessionOrientationDialog(codeUi, { menu: CODE_SESSION_ORIENTATION_MENU })).resolves.toBe(
+      'proceed',
+    );
+  });
+
+  it('keeps SPEC and CODE menu labels disjoint', () => {
+    const specLabels = new Set<string>(SESSION_ORIENTATION_MENU.items.map((item) => item.label));
+    const codeLabels = CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.label);
+
+    expect(codeLabels.filter((label) => specLabels.has(label))).toEqual([]);
   });
 });
 
@@ -80,7 +92,7 @@ describe('runAndRecordSessionOrientation', () => {
   });
 
   it('reports a failed append without throwing and still returns the resolved choice', async () => {
-    const ui = fakeUi(SESSION_ORIENTATION_MENU.find((item) => item.id === 'ingest')!.label);
+    const ui = fakeUi(SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'ingest')!.label);
     const manager: { appendCustomEntry: () => void } = {
       appendCustomEntry: () => {
         throw new Error('ledger write failed');

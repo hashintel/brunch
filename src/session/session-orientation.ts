@@ -27,7 +27,12 @@ export type SessionOrientationChoice =
   | 'propose_intent'
   | 'propose_design'
   | 'propose_oracle'
-  | 'ingest';
+  | 'ingest'
+  | 'proceed'
+  | 'backfill'
+  | 'design_first'
+  | 'oracle_first'
+  | 'project_plan';
 
 export const SESSION_ORIENTATION_CHOICES: readonly SessionOrientationChoice[] = [
   'continue',
@@ -37,6 +42,11 @@ export const SESSION_ORIENTATION_CHOICES: readonly SessionOrientationChoice[] = 
   'propose_design',
   'propose_oracle',
   'ingest',
+  'proceed',
+  'backfill',
+  'design_first',
+  'oracle_first',
+  'project_plan',
 ];
 
 /** Which juncture (decision-flow chart J1-J6) produced the resolution. */

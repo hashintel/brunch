@@ -147,7 +147,7 @@ memory/SPEC.md                               ?  (D40-L thin-to-pointer once mate
 
 ---
 
-## Card 2 — CODE-side orientation menu + J5 CODE branch (status: next)
+## Card 2 — CODE-side orientation menu + J5 CODE branch (status: done)
 
 Full scope card. Extends the one-carrier choice schema and lights the CODE-side juncture end to end.
 
@@ -214,6 +214,8 @@ Scores on proof of life (first CODE-side juncture route, dialog → entry → ki
 ✓ menu guard — CODE menu labels never appear on SPEC junctures and vice versa
 ✓ degraded row — hasUI false: no dialog, no entry, no kick (unchanged)
 ✓ schema — new ids round-trip parseSessionOrientationEntryData; fold/staleness guard unchanged
+
+Built 2026-07-04: `SESSION_ORIENTATION_MENU` is now a SPEC descriptor, `CODE_SESSION_ORIENTATION_MENU` carries the execute-entry endpoints/default, `runOrientationJuncture` gained `mode: 'always-kick'`, and `/brunch:mode execute` routes through that descriptor after the runtime switch.
 ```
 
 ### Verification Approach
@@ -243,7 +245,7 @@ src/.pi/extensions/TOPOLOGY.md                           ~
 
 ---
 
-## Card 3 — Executor readiness-assessment + gentle-backfill conduct (status: pending)
+## Card 3 — Executor readiness-assessment + gentle-backfill conduct (status: next)
 
 Light scope card. Prompt/reference guidance inside seams cards 1–2 settle.
 

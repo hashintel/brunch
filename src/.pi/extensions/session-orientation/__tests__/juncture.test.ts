@@ -5,7 +5,7 @@ import {
   BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
   type SessionOrientationEntryData,
 } from '../../../../session/session-orientation.js';
-import { SESSION_ORIENTATION_MENU } from '../index.js';
+import { CODE_SESSION_ORIENTATION_MENU, SESSION_ORIENTATION_MENU } from '../index.js';
 import {
   ORIENTATION_RPC_DIALOG_TIMEOUT_MS,
   adaptOrientationUi,
@@ -40,7 +40,11 @@ function fakeSessionManager(seed: readonly CapturedEntry[] = []) {
 }
 
 function labelFor(id: string): string {
-  return SESSION_ORIENTATION_MENU.find((item) => item.id === id)!.label;
+  return SESSION_ORIENTATION_MENU.items.find((item) => item.id === id)!.label;
+}
+
+function codeLabelFor(id: string): string {
+  return CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === id)!.label;
 }
 
 function fakeUi(response: string | undefined) {
@@ -160,6 +164,73 @@ describe('runOrientationJuncture', () => {
       expect(result.choice).toBe('continue');
       expect(result.kickFired).toBe(false);
       expect(sent).toEqual([]);
+    });
+  });
+
+  describe("mode: 'always-kick' (J5 CODE)", () => {
+    it('skips the dialog, entry, and kick when UI is unavailable', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
+
+      const result = await runOrientationJuncture({
+        hasUI: false,
+        ui: fakeUi(codeLabelFor('backfill')),
+        trigger: 'mode-switch',
+        sessionManager: manager,
+        mode: 'always-kick',
+        menu: CODE_SESSION_ORIENTATION_MENU,
+        kick: deps,
+      });
+
+      expect(result).toEqual({ ran: false, kickFired: false });
+      expect(manager.entries).toEqual([]);
+      expect(sent).toEqual([]);
+    });
+
+    it('maps escape to proceed and still fires a forced manual kick with the CODE directive', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
+
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(undefined),
+        trigger: 'mode-switch',
+        sessionManager: manager,
+        mode: 'always-kick',
+        menu: CODE_SESSION_ORIENTATION_MENU,
+        kick: deps,
+      });
+
+      expect(result).toEqual({ ran: true, choice: 'proceed', kickFired: true });
+      expect(manager.entries[0]).toEqual({
+        type: 'custom',
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
+      });
+      const { seed } = expectSeedThenKick(sent);
+      expect(String(seed.content)).toContain('chosen: proceed');
+      expect(String(seed.content)).toContain('readiness assessment');
+    });
+
+    it('fires a forced manual kick for every CODE endpoint with the matching directive', async () => {
+      for (const choice of CODE_SESSION_ORIENTATION_MENU.items.map((item) => item.id)) {
+        const manager = fakeSessionManager();
+        const { deps, sent } = fakeKickDeps();
+
+        const result = await runOrientationJuncture({
+          hasUI: true,
+          ui: fakeUi(codeLabelFor(choice)),
+          trigger: 'mode-switch',
+          sessionManager: manager,
+          mode: 'always-kick',
+          menu: CODE_SESSION_ORIENTATION_MENU,
+          kick: deps,
+        });
+
+        expect(result).toEqual({ ran: true, choice, kickFired: true });
+        const { seed } = expectSeedThenKick(sent);
+        expect(String(seed.content)).toContain(`chosen: ${choice}`);
+      }
     });
   });
 

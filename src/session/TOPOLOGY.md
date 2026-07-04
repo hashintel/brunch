@@ -44,14 +44,18 @@ plus the coordination logic for workspace/spec/session lifecycle.
   replace-in-place snapshot); `latestSessionOrientation` reconstructs the most
   recent resolution, and `freshSessionOrientationChoice` additionally checks it
   against the last-fired `brunch.kick` entry so a choice recorded before an
-  earlier kick never re-routes a later one. `originate-assistant-turn.ts` folds
-  the fresh choice into `composeContextSeedContent`'s orientation section
+  earlier kick never re-routes a later one. The choice union covers both the
+  SPEC-side menu ids and the CODE-side execute-entry ids (`proceed`, `backfill`,
+  `design_first`, `oracle_first`, `project_plan`) on the same carrier — no
+  parallel entry type. `originate-assistant-turn.ts` folds the fresh choice into
+  `composeContextSeedContent`'s orientation section
   (`agents/contexts/data-model/session-orientation.ts` owns the render text)
   and accepts a `forceSeed` option so mid-session dialog-triggered kicks
-  (J3/J4/J6) can lay down a fresh seed even when the graph LSN has not moved.
-  The Pi-facing dialog function, juncture orchestrator, and event/command
-  registrar (SPEC-mode menu labels, `ctx.ui.select` adapter, entry/degraded-mode
-  rules, live-kick composition) live in `.pi/extensions/session-orientation/`.
+  (J3/J4/J6 and CODE-side J5) can lay down a fresh seed even when the graph LSN
+  has not moved. The Pi-facing dialog function, menu descriptors, juncture
+  orchestrator, and event/command registrar (`ctx.ui.select` adapter,
+  entry/degraded-mode rules, live-kick composition) live in
+  `.pi/extensions/session-orientation/`.
 
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, response

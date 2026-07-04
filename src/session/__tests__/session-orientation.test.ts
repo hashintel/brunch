@@ -34,13 +34,23 @@ class FakeOrientationSessionManager {
 }
 
 describe('parseSessionOrientationEntryData', () => {
-  it('accepts a well-formed resolution', () => {
+  it('accepts a well-formed SPEC-side resolution', () => {
     expect(
       parseSessionOrientationEntryData({ schemaVersion: 1, choice: 'ingest', trigger: 'consult' }),
     ).toEqual({
       schemaVersion: 1,
       choice: 'ingest',
       trigger: 'consult',
+    });
+  });
+
+  it('accepts a well-formed CODE-side resolution on the same carrier', () => {
+    expect(
+      parseSessionOrientationEntryData({ schemaVersion: 1, choice: 'design_first', trigger: 'mode-switch' }),
+    ).toEqual({
+      schemaVersion: 1,
+      choice: 'design_first',
+      trigger: 'mode-switch',
     });
   });
 
