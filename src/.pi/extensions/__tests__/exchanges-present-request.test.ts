@@ -1238,6 +1238,130 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
+  it('collects the Other write-in text when the custom picker selects Other', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+    const inputPrompts: string[] = [];
+
+    const result = await request_response.execute(
+      'request-response-choices-custom-other-call',
+      { exchangeId: 'priorities-other' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          custom: async (factory: (...args: unknown[]) => unknown) => {
+            let picked: unknown;
+            const component = factory(null, theme, null, (result: unknown) => {
+              picked = result;
+            }) as { render(width: number): string[]; handleInput(data: string): void };
+            component.handleInput('\x1b[B');
+            component.handleInput('\x1b[B');
+            component.handleInput(' ');
+            component.handleInput('\r');
+            return picked;
+          },
+          input: async (prompt: string) => {
+            inputPrompts.push(prompt);
+            return prompt === 'Other' ? 'Ship it behind a CLI flag' : 'None of the listed options fit.';
+          },
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'priorities-other',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choices',
+                  display: { heading: 'Select all priorities.' },
+                  options: [
+                    { id: 'speed', content: 'Move quickly' },
+                    { id: 'safety', content: 'Keep the transcript safe' },
+                  ],
+                  allow_other: true,
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(inputPrompts).toEqual(['Other', 'Required comment']);
+    expect(result.details).toMatchObject({
+      exchange_id: 'priorities-other',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choices' },
+      answered: {
+        choices: [{ id: 'other', label: 'Ship it behind a CLI flag', kind: 'other' }],
+        comment: 'None of the listed options fit.',
+      },
+    });
+  });
+
+  it('cancels the custom-picker choices response when the Other write-in stays empty', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-choices-custom-other-empty-call',
+      { exchangeId: 'priorities-other-empty' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          custom: async (factory: (...args: unknown[]) => unknown) => {
+            let picked: unknown;
+            const component = factory(null, theme, null, (result: unknown) => {
+              picked = result;
+            }) as { render(width: number): string[]; handleInput(data: string): void };
+            component.handleInput('\x1b[B');
+            component.handleInput('\x1b[B');
+            component.handleInput(' ');
+            component.handleInput('\r');
+            return picked;
+          },
+          input: async () => '   ',
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'priorities-other-empty',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choices',
+                  display: { heading: 'Select all priorities.' },
+                  options: [
+                    { id: 'speed', content: 'Move quickly' },
+                    { id: 'safety', content: 'Keep the transcript safe' },
+                  ],
+                  allow_other: true,
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      exchange_id: 'priorities-other-empty',
+      tool_meta: { curr: 'request_choices' },
+      cancelled: {},
+    });
+  });
+
   it('responds to a pending multi-choice present_question through the editor fallback', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');

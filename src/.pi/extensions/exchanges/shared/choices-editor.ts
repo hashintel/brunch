@@ -122,17 +122,29 @@ export async function requestChoicesFromSources(
     );
     if (picked === undefined) return terminalResult(params.exchangeId, 'cancelled');
 
+    let choices: readonly RequestChoicesEditorChoice[] = picked.choices;
+    if (choices.some((choice) => choice.id === 'other')) {
+      const other =
+        typeof ctx.ui.input === 'function' ? await ctx.ui.input('Other', 'Describe your answer') : undefined;
+      if (other === undefined || other.trim().length === 0) {
+        return terminalResult(params.exchangeId, 'cancelled');
+      }
+      choices = choices.map((choice) =>
+        choice.id === 'other' ? { ...choice, label: other.trim() } : choice,
+      );
+    }
+
     const needsComment =
       params.commentPrompt !== undefined ||
       structuredExchangeResponseRequiresComment({
-        choiceKinds: picked.choices.map((choice) =>
+        choiceKinds: choices.map((choice) =>
           choice.id === 'none' ? 'none' : choice.id === 'other' ? 'other' : 'listed',
         ),
       });
     const comment = needsComment
       ? await ctx.ui.input?.(params.commentPrompt ?? 'Required comment')
       : undefined;
-    return matchedChoicesResult(params, picked.choices, comment);
+    return matchedChoicesResult(params, choices, comment);
   }
 
   if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
