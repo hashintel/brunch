@@ -40,6 +40,9 @@ function matchSelectedChoices(
     matched.push({ id: known.id, label: choice.label ?? known.label, kind: known.kind });
   }
   if (matched.length === 0) return 'request_choices requires at least one choice';
+  if (matched.some((choice) => choice.kind === 'none') && matched.length > 1) {
+    return 'request_choices cannot combine None with other selections';
+  }
   return matched;
 }
 
@@ -117,6 +120,7 @@ export async function requestChoicesFromSources(
       createMultiChoicePickerComponent({
         prompt: params.prompt,
         choices: choicesWithSpecialOptions(params),
+        ...(params.allowNone ? { exclusiveChoiceIds: ['none'] } : {}),
         theme,
         onDone: done,
       }),

@@ -1520,6 +1520,61 @@ describe('structured exchange present/request tools', () => {
     expect(result.content[0]?.text).toContain('request_choices requires a comment');
   });
 
+  it('rejects request_response multi-choice None combined with other selections', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-choices-none-combined-call',
+      { exchangeId: 'priorities' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          editor: async (prefill: string) => {
+            const payload = JSON.parse(prefill);
+            payload.response = {
+              status: 'answered',
+              choices: [
+                { id: 'speed', label: 'Move quickly' },
+                { id: 'none', label: 'None' },
+              ],
+              comment: 'Contradictory selection.',
+            };
+            return JSON.stringify(payload);
+          },
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'priorities',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choices',
+                  display: { heading: 'Select all priorities.' },
+                  options: [{ id: 'speed', content: 'Move quickly' }],
+                  allow_other: true,
+                  allow_none: true,
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      tool_meta: { curr: 'request_choices' },
+      unavailable: { message: 'request_choices cannot combine None with other selections' },
+    });
+  });
+
   it('detects an unmatched present result for recovery', () => {
     const incomplete = findIncompleteStructuredExchangePresents([
       {

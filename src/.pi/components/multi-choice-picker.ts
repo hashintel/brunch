@@ -20,6 +20,12 @@ export interface MultiChoicePickerResult {
 export interface MultiChoicePickerOptions {
   readonly prompt: string;
   readonly choices: readonly MultiChoicePickerChoice[];
+  /**
+   * Choice ids that contradict every other selection (e.g. a "none of these"
+   * choice). Selecting one clears the rest; selecting any other choice clears
+   * them.
+   */
+  readonly exclusiveChoiceIds?: readonly string[];
   readonly theme: LabTheme;
   readonly onDone: (result?: MultiChoicePickerResult) => void;
 }
@@ -97,6 +103,12 @@ export class MultiChoicePickerComponent implements Component {
     if (this.#selected.has(active.id)) {
       this.#selected.delete(active.id);
       return;
+    }
+    const exclusive = this.options.exclusiveChoiceIds ?? [];
+    if (exclusive.includes(active.id)) {
+      this.#selected.clear();
+    } else {
+      for (const id of exclusive) this.#selected.delete(id);
     }
     this.#selected.add(active.id);
   }

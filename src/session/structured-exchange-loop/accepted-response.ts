@@ -185,6 +185,12 @@ export function acceptedResponseFromParams(
     content: string;
     rationale?: string | undefined;
   }>;
+  if (choices.some((choice) => choiceKind(choice.id) === 'none') && choices.length > 1) {
+    return {
+      ok: false,
+      message: 'Elicitation response cannot combine None with other selections',
+    };
+  }
   if (
     structuredExchangeResponseRequiresComment({
       choiceKinds: choices.map((choice) => choiceKind(choice.id)),

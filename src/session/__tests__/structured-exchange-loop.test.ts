@@ -139,6 +139,27 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
+  it('rejects multi-select None combined with other selections', () => {
+    const pending = {
+      ...nextDeterministicStructuredExchange(2),
+      options: [
+        { id: 'listed', label: 'Listed option', content: 'Listed option' },
+        { id: 'none', label: 'None of these', content: 'None of these' },
+      ],
+    } satisfies PendingStructuredExchange;
+
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: pending.exchangeId,
+        answer: { optionIds: ['listed', 'none'] },
+        note: 'Contradictory selection.',
+      }),
+    ).toEqual({
+      ok: false,
+      message: 'Elicitation response cannot combine None with other selections',
+    });
+  });
+
   it('rejects response mode and option mismatches without materializing a tool result', () => {
     const pending = nextDeterministicStructuredExchange(0);
 
