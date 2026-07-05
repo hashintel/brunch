@@ -31,7 +31,7 @@ export function createPresentReviewSetTool(deps?: ReviewSetStructuredExchangeDep
     name: PRESENT_REVIEW_SET_TOOL,
     label: 'Present review set',
     description:
-      'Dry-run validate and display a Brunch graph review-set proposal. Use request_response after this result is available.',
+      'Dry-run validate and display a Brunch graph review-set proposal. Use request_response only after this result validates successfully — unlike present_question/present_candidates, do not batch it in the same turn, because a structurally illegal proposal must be corrected and re-presented instead.',
     promptSnippet: 'Present a graph review set for exact human approval',
     promptGuidelines: [
       'Use present_review_set only for exact graph drafts the user can approve or reject as a batch.',

@@ -104,7 +104,7 @@ export type PresentDigestParams = z.infer<typeof zPresentDigestParams>;
 
 export const zRequestResponseParams = z
   .object({
-    exchangeId: z.string().min(1).describe('The structured exchange id from the pending present_* entry.'),
+    exchangeId: z.string().min(1).describe('The same exchange id passed to the pending present_* call.'),
   })
   .strict();
 export type RequestResponseParams = z.infer<typeof zRequestResponseParams>;

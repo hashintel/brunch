@@ -104,8 +104,8 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
       'Collect the response for a pending Brunch structured exchange. The runtime derives the response UI from the pending present_* entry.',
     promptSnippet: 'Request the pending structured exchange response by exchangeId',
     promptGuidelines: [
-      'Use request_response after any present_* tool; the pending present result is the only response-shape authority.',
-      'Pass only the exchangeId from the pending present_* result; do not repeat the prompt or choose the response kind.',
+      'Call request_response in the same turn as present_question or present_candidates; for present_review_set, wait for a successful result first. The pending present result is the only response-shape authority.',
+      'Pass the same exchangeId you gave the present_* call; do not repeat the prompt or choose the response kind.',
     ],
     parameters: piSchema(zRequestResponseParams),
     executionMode: 'sequential',
