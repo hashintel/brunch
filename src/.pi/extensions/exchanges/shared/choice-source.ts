@@ -6,6 +6,7 @@ import {
   type SelectedChoice,
 } from '../../../../exchanges/schemas/index.js';
 import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
+import { collectRequiredComment } from './collect-comment.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
@@ -105,10 +106,9 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
     if (other === undefined || other.trim().length === 0) return terminal('cancelled');
     choice = { id: 'other', label: other.trim(), kind: 'other' };
     if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
-      comment = (await params.ctx.ui.input?.(params.commentPrompt ?? 'Required comment')) ?? '';
-      if (comment.trim().length === 0) {
-        return terminal('unavailable', 'request_choice requires a comment for Other or None selections');
-      }
+      const required = await collectRequiredComment(params.ctx, params.commentPrompt ?? 'Required comment');
+      if (required === undefined) return terminal('cancelled');
+      comment = required;
     }
   } else {
     choice = selectedChoice(picked, 'listed');

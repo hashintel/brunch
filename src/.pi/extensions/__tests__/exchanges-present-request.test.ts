@@ -1096,9 +1096,10 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });
 
-  it('requires request_response review change requests to carry a non-empty comment', async () => {
+  it('re-prompts empty review change-request comments and cancels on dismissal', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
+    const prompts: string[] = [];
 
     const result = await request_response.execute(
       'request-response-review-empty-change',
@@ -1107,14 +1108,41 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { custom: customPickByIndex(1), input: async () => '   ' },
+        ui: {
+          custom: customPickByIndex(1),
+          input: async (prompt: string) => {
+            prompts.push(prompt);
+            return prompts.length === 1 ? '   ' : 'Tighten the grounding.';
+          },
+        },
         sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
       } as never,
     );
 
+    expect(prompts).toEqual([
+      'Required change request',
+      'Required change request (required — cannot be empty)',
+    ]);
     expect(result.details).toMatchObject({
       tool_meta: { curr: 'request_review' },
-      unavailable: { message: 'request_response review change request requires a comment' },
+      answered: { decision: 'request_changes', comment: 'Tighten the grounding.' },
+    });
+
+    const dismissed = await request_response.execute(
+      'request-response-review-dismissed-change',
+      { exchangeId: 'review-cycle-1' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickByIndex(1), input: async () => undefined },
+        sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
+      } as never,
+    );
+
+    expect(dismissed.details).toMatchObject({
+      tool_meta: { curr: 'request_review' },
+      cancelled: {},
     });
   });
 

@@ -4,9 +4,9 @@ import {
   type ReviewDecision,
 } from '../../../../exchanges/projections/request-response.js';
 import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
+import { collectRequiredComment } from './collect-comment.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
-
 
 export type CollectReviewParams =
   | {
@@ -54,14 +54,12 @@ export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, para
 
   const review = selected.id;
 
-  const comment =
-    typeof ctx.ui.input === 'function'
-      ? normalizeOptionalText(
-          await ctx.ui.input(review === 'request_changes' ? 'Required change request' : 'Optional comment'),
-        )
-      : undefined;
-  if (review === 'request_changes' && comment === undefined) {
-    return terminal('unavailable', 'request_response review change request requires a comment');
+  let comment: string | undefined;
+  if (review === 'request_changes') {
+    comment = await collectRequiredComment(ctx, 'Required change request');
+    if (comment === undefined) return terminal('cancelled');
+  } else if (typeof ctx.ui.input === 'function') {
+    comment = normalizeOptionalText(await ctx.ui.input('Optional comment'));
   }
 
   if (review === 'approve') {

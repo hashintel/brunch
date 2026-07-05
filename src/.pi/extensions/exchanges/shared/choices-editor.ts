@@ -12,6 +12,7 @@ import {
   type SelectedChoice,
 } from '../../../../exchanges/schemas/index.js';
 import { createMultiChoicePickerComponent } from '../../../components/multi-choice-picker.js';
+import { collectRequiredComment } from './collect-comment.js';
 import { normalizeOptionalText } from './markdown.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
@@ -134,16 +135,18 @@ export async function requestChoicesFromSources(
       );
     }
 
-    const needsComment =
-      params.commentPrompt !== undefined ||
-      structuredExchangeResponseRequiresComment({
-        choiceKinds: choices.map((choice) =>
-          choice.id === 'none' ? 'none' : choice.id === 'other' ? 'other' : 'listed',
-        ),
-      });
-    const comment = needsComment
-      ? await ctx.ui.input?.(params.commentPrompt ?? 'Required comment')
-      : undefined;
+    const requiresComment = structuredExchangeResponseRequiresComment({
+      choiceKinds: choices.map((choice) =>
+        choice.id === 'none' ? 'none' : choice.id === 'other' ? 'other' : 'listed',
+      ),
+    });
+    let comment: string | undefined;
+    if (requiresComment) {
+      comment = await collectRequiredComment(ctx, params.commentPrompt ?? 'Required comment');
+      if (comment === undefined) return terminalResult(params.exchangeId, 'cancelled');
+    } else if (params.commentPrompt !== undefined) {
+      comment = await ctx.ui.input?.(params.commentPrompt);
+    }
     return matchedChoicesResult(params, choices, comment);
   }
 
