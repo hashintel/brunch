@@ -128,6 +128,27 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       ),
   },
   {
+    id: 'exchange-decision-picker-scroll',
+    label: 'Exchange decision picker (scroll)',
+    presentedLike: 'inline swap — src/.pi/extensions/exchanges/shared/choice-source.ts and review-source.ts',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ExchangeDecisionPickerComponent({
+            prompt: 'Pick a candidate framing (long list exercises the scroll thumb):',
+            choices: Array.from({ length: 20 }, (_, index) => ({
+              id: `candidate-${index + 1}`,
+              label: `Candidate framing ${index + 1} — option label with realistic width`,
+            })),
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
     id: 'multi-choice-picker',
     label: 'Multi-choice picker',
     presentedLike: 'inline swap — src/.pi/extensions/exchanges/shared/choices-editor.ts',
