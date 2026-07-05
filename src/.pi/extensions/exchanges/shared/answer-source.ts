@@ -1,7 +1,7 @@
 import { formatRequestAnswer } from '../../../../agents/contexts/exchanges/request-response.js';
 import { projectRequestAnswer } from '../../../../exchanges/projections/request-response.js';
 import type { LiveExchangeAwaiter } from '../../../../session/live-exchange-broker.js';
-import type { StructuredExchangeUiContext } from './ui-context.js';
+import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './ui-context.js';
 
 export interface CollectAnswerParams {
   readonly ctx: StructuredExchangeUiContext;
@@ -20,7 +20,7 @@ export async function collectAnswerFromSources({
 }: CollectAnswerParams) {
   let answer: string | undefined;
   if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
-    answer = await ctx.ui.editor(prompt);
+    answer = await withWorkingIndicatorHidden(ctx, () => ctx.ui!.editor!(prompt));
   } else if (answerBroker) {
     answer = await answerBroker.awaitAnswer({ exchangeId });
   } else {

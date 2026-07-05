@@ -649,6 +649,7 @@ describe('structured exchange present/request tools', () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
     const inputPrompts: string[] = [];
+    const workingVisibility: boolean[] = [];
 
     const result = await request_response.execute(
       'request-response-choice-none-call',
@@ -663,6 +664,9 @@ describe('structured exchange present/request tools', () => {
           input: async (prompt: string) => {
             inputPrompts.push(prompt);
             return 'No listed option fits this session.';
+          },
+          setWorkingVisible: (visible: boolean) => {
+            workingVisibility.push(visible);
           },
         },
         sessionManager: {
@@ -690,6 +694,7 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(inputPrompts).toEqual(['Required comment']);
+    expect(workingVisibility).toEqual([false, true]);
     expect(result.details).toMatchObject({
       exchange_id: 'shell-location-none',
       tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },

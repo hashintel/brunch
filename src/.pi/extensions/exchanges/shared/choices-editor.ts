@@ -14,7 +14,7 @@ import {
 import { createMultiChoicePickerComponent } from '../../../components/multi-choice-picker.js';
 import { normalizeOptionalText } from './markdown.js';
 import { collectRequiredInput } from './required-input.js';
-import type { StructuredExchangeUiContext } from './ui-context.js';
+import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './ui-context.js';
 
 function matchSelectedChoices(
   selected: readonly RequestChoicesEditorChoice[],
@@ -114,43 +114,48 @@ export async function requestChoicesFromSources(
   ctx: StructuredExchangeUiContext,
 ) {
   if (ctx.hasUI && typeof ctx.ui?.custom === 'function') {
-    const picked = await ctx.ui.custom<
-      { readonly choices: readonly RequestChoicesEditorChoice[] } | undefined
-    >((_tui, theme, _keybindings, done) =>
-      createMultiChoicePickerComponent({
-        prompt: params.prompt,
-        choices: choicesWithSpecialOptions(params),
-        ...(params.allowNone ? { exclusiveChoiceIds: ['none'] } : {}),
-        theme,
-        onDone: done,
-      }),
-    );
-    if (picked === undefined) return terminalResult(params.exchangeId, 'cancelled');
+    const ui = ctx.ui;
+    return withWorkingIndicatorHidden(ctx, async () => {
+      const picked = await ui.custom!<
+        { readonly choices: readonly RequestChoicesEditorChoice[] } | undefined
+      >((_tui, theme, _keybindings, done) =>
+        createMultiChoicePickerComponent({
+          prompt: params.prompt,
+          choices: choicesWithSpecialOptions(params),
+          ...(params.allowNone ? { exclusiveChoiceIds: ['none'] } : {}),
+          theme,
+          onDone: done,
+        }),
+      );
+      if (picked === undefined) return terminalResult(params.exchangeId, 'cancelled');
 
-    let choices: readonly RequestChoicesEditorChoice[] = picked.choices;
-    if (choices.some((choice) => choice.id === 'other')) {
-      const other = await collectRequiredInput(ctx, 'Other', 'Describe your answer');
-      if (other === undefined) return terminalResult(params.exchangeId, 'cancelled');
-      choices = choices.map((choice) => (choice.id === 'other' ? { ...choice, label: other } : choice));
-    }
+      let choices: readonly RequestChoicesEditorChoice[] = picked.choices;
+      if (choices.some((choice) => choice.id === 'other')) {
+        const other = await collectRequiredInput(ctx, 'Other', 'Describe your answer');
+        if (other === undefined) return terminalResult(params.exchangeId, 'cancelled');
+        choices = choices.map((choice) => (choice.id === 'other' ? { ...choice, label: other } : choice));
+      }
 
-    const requiresComment = structuredExchangeResponseRequiresComment({
-      choiceKinds: choices.map((choice) =>
-        choice.id === 'none' ? 'none' : choice.id === 'other' ? 'other' : 'listed',
-      ),
+      const requiresComment = structuredExchangeResponseRequiresComment({
+        choiceKinds: choices.map((choice) =>
+          choice.id === 'none' ? 'none' : choice.id === 'other' ? 'other' : 'listed',
+        ),
+      });
+      let comment: string | undefined;
+      if (requiresComment) {
+        comment = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
+        if (comment === undefined) return terminalResult(params.exchangeId, 'cancelled');
+      } else if (params.commentPrompt !== undefined) {
+        comment = await ui.input?.(params.commentPrompt);
+      }
+      return matchedChoicesResult(params, choices, comment);
     });
-    let comment: string | undefined;
-    if (requiresComment) {
-      comment = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
-      if (comment === undefined) return terminalResult(params.exchangeId, 'cancelled');
-    } else if (params.commentPrompt !== undefined) {
-      comment = await ctx.ui.input?.(params.commentPrompt);
-    }
-    return matchedChoicesResult(params, choices, comment);
   }
 
   if (ctx.hasUI && typeof ctx.ui?.editor === 'function') {
-    return requestChoicesViaEditor(params, (prefill) => ctx.ui!.editor!(prefill));
+    return withWorkingIndicatorHidden(ctx, () =>
+      requestChoicesViaEditor(params, (prefill) => ctx.ui!.editor!(prefill)),
+    );
   }
 
   return terminalResult(params.exchangeId, 'unavailable', 'request_response choices requires interactive UI');

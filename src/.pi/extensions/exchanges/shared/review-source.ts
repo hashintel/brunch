@@ -6,7 +6,7 @@ import {
 import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
 import { normalizeOptionalText } from './markdown.js';
 import { collectRequiredInput } from './required-input.js';
-import type { StructuredExchangeUiContext } from './ui-context.js';
+import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './ui-context.js';
 
 export type CollectReviewParams =
   | {
@@ -41,56 +41,59 @@ export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, para
     return terminal('unavailable', 'request_response review requires interactive UI');
   }
 
-  const selected = await ctx.ui.custom<{ readonly id: ReviewDecision } | undefined>(
-    (_tui, theme, _keybindings, done) =>
-      createExchangeDecisionPickerComponent({
-        prompt: params.prompt,
-        choices: REVIEW_CHOICES,
-        theme,
-        onDone: (result) => done(result as { readonly id: ReviewDecision } | undefined),
-      }),
-  );
-  if (selected === undefined) return terminal('cancelled');
+  const ui = ctx.ui;
+  return withWorkingIndicatorHidden(ctx, async () => {
+    const selected = await ui.custom!<{ readonly id: ReviewDecision } | undefined>(
+      (_tui, theme, _keybindings, done) =>
+        createExchangeDecisionPickerComponent({
+          prompt: params.prompt,
+          choices: REVIEW_CHOICES,
+          theme,
+          onDone: (result) => done(result as { readonly id: ReviewDecision } | undefined),
+        }),
+    );
+    if (selected === undefined) return terminal('cancelled');
 
-  const review = selected.id;
+    const review = selected.id;
 
-  let comment: string | undefined;
-  if (review === 'request_changes') {
-    comment = await collectRequiredInput(ctx, 'Required change request');
-    if (comment === undefined) return terminal('cancelled');
-  } else if (typeof ctx.ui.input === 'function') {
-    comment = normalizeOptionalText(await ctx.ui.input('Optional comment'));
-  }
+    let comment: string | undefined;
+    if (review === 'request_changes') {
+      comment = await collectRequiredInput(ctx, 'Required change request');
+      if (comment === undefined) return terminal('cancelled');
+    } else if (typeof ui.input === 'function') {
+      comment = normalizeOptionalText(await ui.input('Optional comment'));
+    }
 
-  if (review === 'approve') {
-    const details =
-      params.respondsToPresentTool === 'present_digest'
-        ? projectRequestReview({
-            exchangeId: params.exchangeId,
-            status: 'answered',
-            review,
-            respondsToPresentTool: params.respondsToPresentTool,
-            acceptedAbstract: params.acceptedAbstract,
-            ...(comment !== undefined ? { comment } : {}),
-          })
-        : projectRequestReview({
-            exchangeId: params.exchangeId,
-            status: 'answered',
-            review,
-            respondsToPresentTool: params.respondsToPresentTool,
-            ...(comment !== undefined ? { comment } : {}),
-          });
+    if (review === 'approve') {
+      const details =
+        params.respondsToPresentTool === 'present_digest'
+          ? projectRequestReview({
+              exchangeId: params.exchangeId,
+              status: 'answered',
+              review,
+              respondsToPresentTool: params.respondsToPresentTool,
+              acceptedAbstract: params.acceptedAbstract,
+              ...(comment !== undefined ? { comment } : {}),
+            })
+          : projectRequestReview({
+              exchangeId: params.exchangeId,
+              status: 'answered',
+              review,
+              respondsToPresentTool: params.respondsToPresentTool,
+              ...(comment !== undefined ? { comment } : {}),
+            });
+      return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
+    }
+
+    const details = projectRequestReview({
+      exchangeId: params.exchangeId,
+      status: 'answered',
+      review,
+      respondsToPresentTool: params.respondsToPresentTool,
+      ...(comment !== undefined ? { comment } : {}),
+    });
     return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
-  }
-
-  const details = projectRequestReview({
-    exchangeId: params.exchangeId,
-    status: 'answered',
-    review,
-    respondsToPresentTool: params.respondsToPresentTool,
-    ...(comment !== undefined ? { comment } : {}),
   });
-  return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
 }
 
 const REVIEW_CHOICES: readonly { readonly id: ReviewDecision; readonly label: string }[] = [
