@@ -1,6 +1,11 @@
 import { type Component } from '@earendil-works/pi-tui';
 
-import { projectRoundedBox } from './rounded-box.js';
+import {
+  projectRoundedBox,
+  roundedBoxInnerWidth,
+  stackSections,
+  type RoundedBoxPadding,
+} from './rounded-box.js';
 import { projectScrollViewport } from './scroll-viewport.js';
 import { safeLines, type LabTheme } from './tui-lab/index.js';
 
@@ -21,7 +26,7 @@ export interface ExchangeDecisionPickerOptions {
 }
 
 const MAX_VISIBLE_CHOICES = 8;
-const PADDING_X = 1;
+const BOX_PADDING: RoundedBoxPadding = { x: 2, top: 1, bottom: 1 };
 
 export class ExchangeDecisionPickerComponent implements Component {
   #activeIndex = 0;
@@ -30,25 +35,22 @@ export class ExchangeDecisionPickerComponent implements Component {
 
   render(width: number): string[] {
     const safeWidth = Math.max(16, width);
-    const contentWidth = Math.max(1, safeWidth - 4 - PADDING_X * 2);
-    const leftMargin = ' '.repeat(PADDING_X);
+    const contentWidth = Math.max(1, roundedBoxInnerWidth(safeWidth, BOX_PADDING));
     const choiceLines = this.options.choices.map((choice, index) => this.#choiceLine(choice, index));
     const choiceWindow = projectScrollViewport(choiceLines, MAX_VISIBLE_CHOICES, this.#activeIndex);
-    const headerLines = [this.options.theme.fg('accent', this.options.prompt), ''];
-    const helpLines = ['', this.options.theme.fg('dim', '↑/↓ or j/k move · enter commits · esc/q cancels')];
-    const content = safeLines([...headerLines, ...choiceWindow.lines, ...helpLines], contentWidth).map(
-      (line) => leftMargin + line,
-    );
-    const choiceStart = headerLines.length;
+    const stacked = stackSections([
+      [this.options.theme.fg('accent', this.options.prompt)],
+      [...choiceWindow.lines],
+      [this.options.theme.fg('dim', '↑/↓ or j/k move · enter commits · esc/q cancels')],
+    ]);
+    const content = safeLines(stacked.lines, contentWidth);
+    const choiceStart = stacked.offsets[1] ?? 0;
     const thumbRows = new Set(
       choiceWindow.isThumbRow.flatMap((isThumb, index) => (isThumb ? [choiceStart + index] : [])),
     );
 
-    const box = projectRoundedBox(
-      content,
-      { blankPadding: { top: 1, bottom: 1 }, thumbRows },
-      safeWidth,
-      (text) => this.options.theme.fg('accent', text),
+    const box = projectRoundedBox(content, { padding: BOX_PADDING, thumbRows }, safeWidth, (text) =>
+      this.options.theme.fg('accent', text),
     );
     box.push('');
     return box;

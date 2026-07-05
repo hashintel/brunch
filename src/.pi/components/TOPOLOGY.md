@@ -35,8 +35,10 @@ components/
 ├── multi-choice-picker.ts      bordered checkbox-style exchange response picker
 ├── mouse-wheel.ts              parseWheelEvent() — SGR wheel-event decoder used by the dev
 │                                preview harness; components still receive ordinary key bytes
-├── rounded-box.ts              projectRoundedBox() — pure rounded-border primitive shared by
-│                                bordered presentation components
+├── rounded-box.ts              projectRoundedBox() + stackSections() — pure rounded-border primitive
+│                                shared by bordered presentation components; the box module owns all
+│                                spacing (padding inside the border, blank-line gaps between content
+│                                sections) — content components supply lines only, never margin rows
 ├── scroll-viewport.ts          projectScrollViewport() — pure scroll-window + thumb-row primitive,
 │                                consumed by bordered components that fold thumbs into the right edge
 ├── runtime-posture/             private sub-tree for runtime posture pickers

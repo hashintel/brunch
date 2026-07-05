@@ -210,7 +210,7 @@ function renderFrame(
   theme: WorkspaceDialogTheme | undefined,
   thumbRows: ReadonlySet<number>,
 ): string[] {
-  return projectRoundedBox(content, { blankPadding: { top: 1, bottom: 1 }, thumbRows }, width, (text) =>
+  return projectRoundedBox(content, { padding: { top: 1, bottom: 1 }, thumbRows }, width, (text) =>
     style(theme, 'borderMuted', text),
   );
 }

@@ -1,7 +1,7 @@
 import { visibleWidth } from '@earendil-works/pi-tui';
 import { describe, expect, it } from 'vitest';
 
-import { projectRoundedBox } from '../rounded-box.js';
+import { projectRoundedBox, roundedBoxInnerWidth, stackSections } from '../rounded-box.js';
 
 const identityColor = (text: string) => text;
 
@@ -85,7 +85,7 @@ describe('projectRoundedBox', () => {
   it('inserts blank padding while keeping thumb rows indexed against caller content', () => {
     const result = projectRoundedBox(
       ['first', 'second'],
-      { blankPadding: { top: 1, bottom: 2 }, thumbRows: new Set([1]) },
+      { padding: { top: 1, bottom: 2 }, thumbRows: new Set([1]) },
       12,
       identityColor,
     );
@@ -99,6 +99,34 @@ describe('projectRoundedBox', () => {
       '│          │',
       '╰──────────╯',
     ]);
+  });
+
+  it('widens the lateral inset via padding.x, with the thumb glyph staying on the border', () => {
+    const result = projectRoundedBox(
+      ['first'],
+      { padding: { x: 2 }, thumbRows: new Set([0]) },
+      12,
+      identityColor,
+    );
+
+    expect(result).toEqual(['╭──────────╮', '│  first   ▐', '╰──────────╯']);
+    expect(roundedBoxInnerWidth(12, { x: 2 })).toBe(6);
+  });
+});
+
+describe('stackSections', () => {
+  it('joins sections with a blank-line gap and reports section offsets', () => {
+    const stacked = stackSections([['prompt'], ['one', 'two'], ['help']]);
+
+    expect(stacked.lines).toEqual(['prompt', '', 'one', 'two', '', 'help']);
+    expect(stacked.offsets).toEqual([0, 2, 5]);
+  });
+
+  it('skips gaps for empty sections', () => {
+    const stacked = stackSections([['prompt'], [], ['help']]);
+
+    expect(stacked.lines).toEqual(['prompt', '', 'help']);
+    expect(stacked.offsets).toEqual([0, 1, 2]);
   });
 
   it('colors border glyphs without coloring content text', () => {
