@@ -36,7 +36,9 @@ export class MultiChoicePickerComponent implements Component {
     const lines = safeLines(
       [
         theme.fg('accent', this.options.prompt),
+        '',
         ...this.options.choices.map((choice, index) => this.#choiceLine(choice, index)),
+        '',
         ...(this.#warning ? [theme.fg('warning', this.#warning)] : []),
         theme.fg('dim', '↑/↓ move · space toggles · enter commits · esc/q cancels'),
       ],
