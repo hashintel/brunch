@@ -1292,7 +1292,9 @@ describe('structured exchange present/request tools', () => {
           },
           input: async (prompt: string) => {
             inputPrompts.push(prompt);
-            return prompt === 'Other' ? 'Ship it behind a CLI flag' : 'None of the listed options fit.';
+            if (inputPrompts.length === 1) return '   ';
+            if (inputPrompts.length === 2) return 'Ship it behind a CLI flag';
+            return 'None of the listed options fit.';
           },
         },
         sessionManager: {
@@ -1321,7 +1323,7 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(inputPrompts).toEqual(['Other', 'Required comment']);
+    expect(inputPrompts).toEqual(['Other', 'Other (required — cannot be empty)', 'Required comment']);
     expect(result.details).toMatchObject({
       exchange_id: 'priorities-other',
       tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choices' },
@@ -1332,7 +1334,7 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
-  it('cancels the custom-picker choices response when the Other write-in stays empty', async () => {
+  it('cancels the custom-picker choices response when the Other write-in is dismissed', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
 
@@ -1355,7 +1357,7 @@ describe('structured exchange present/request tools', () => {
             component.handleInput('\r');
             return picked;
           },
-          input: async () => '   ',
+          input: async () => undefined,
         },
         sessionManager: {
           getBranch: () => [

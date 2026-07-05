@@ -12,8 +12,8 @@ import {
   type SelectedChoice,
 } from '../../../../exchanges/schemas/index.js';
 import { createMultiChoicePickerComponent } from '../../../components/multi-choice-picker.js';
-import { collectRequiredComment } from './collect-comment.js';
 import { normalizeOptionalText } from './markdown.js';
+import { collectRequiredInput } from './required-input.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
 function matchSelectedChoices(
@@ -125,14 +125,9 @@ export async function requestChoicesFromSources(
 
     let choices: readonly RequestChoicesEditorChoice[] = picked.choices;
     if (choices.some((choice) => choice.id === 'other')) {
-      const other =
-        typeof ctx.ui.input === 'function' ? await ctx.ui.input('Other', 'Describe your answer') : undefined;
-      if (other === undefined || other.trim().length === 0) {
-        return terminalResult(params.exchangeId, 'cancelled');
-      }
-      choices = choices.map((choice) =>
-        choice.id === 'other' ? { ...choice, label: other.trim() } : choice,
-      );
+      const other = await collectRequiredInput(ctx, 'Other', 'Describe your answer');
+      if (other === undefined) return terminalResult(params.exchangeId, 'cancelled');
+      choices = choices.map((choice) => (choice.id === 'other' ? { ...choice, label: other } : choice));
     }
 
     const requiresComment = structuredExchangeResponseRequiresComment({
@@ -142,7 +137,7 @@ export async function requestChoicesFromSources(
     });
     let comment: string | undefined;
     if (requiresComment) {
-      comment = await collectRequiredComment(ctx, params.commentPrompt ?? 'Required comment');
+      comment = await collectRequiredInput(ctx, params.commentPrompt ?? 'Required comment');
       if (comment === undefined) return terminalResult(params.exchangeId, 'cancelled');
     } else if (params.commentPrompt !== undefined) {
       comment = await ctx.ui.input?.(params.commentPrompt);

@@ -6,8 +6,8 @@ import {
   type SelectedChoice,
 } from '../../../../exchanges/schemas/index.js';
 import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
-import { collectRequiredComment } from './collect-comment.js';
 import { normalizeOptionalText } from './markdown.js';
+import { collectRequiredInput } from './required-input.js';
 import type { StructuredExchangeUiContext } from './ui-context.js';
 
 export interface StructuredExchangeChoice {
@@ -99,14 +99,11 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
     if (!params.allowOther || selected.id !== 'other') {
       return terminal('unavailable', `request_response choice received unknown option id ${selected.id}`);
     }
-    const other =
-      typeof params.ctx.ui.input === 'function'
-        ? await params.ctx.ui.input('Other', 'Describe your answer')
-        : undefined;
-    if (other === undefined || other.trim().length === 0) return terminal('cancelled');
-    choice = { id: 'other', label: other.trim(), kind: 'other' };
+    const other = await collectRequiredInput(params.ctx, 'Other', 'Describe your answer');
+    if (other === undefined) return terminal('cancelled');
+    choice = { id: 'other', label: other, kind: 'other' };
     if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
-      const required = await collectRequiredComment(params.ctx, params.commentPrompt ?? 'Required comment');
+      const required = await collectRequiredInput(params.ctx, params.commentPrompt ?? 'Required comment');
       if (required === undefined) return terminal('cancelled');
       comment = required;
     }
