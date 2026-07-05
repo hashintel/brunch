@@ -3,6 +3,15 @@ import * as z from 'zod';
 import { zReviewSetProposalPayloadForBoundary } from '../../graph/review-set.js';
 import { zDigestMaterial, zPresentedCandidate } from './present.js';
 
+// 'other' and 'none' are reserved: the runtime injects them as escape choices
+// (allowOther/allowNone), and the RPC answer path maps those raw ids to the
+// other/none choice kinds — a listed option reusing them would collide.
+const RESERVED_ESCAPE_OPTION_IDS = ['other', 'none'] as const;
+
+function isNotReservedEscapeId(id: string): boolean {
+  return !RESERVED_ESCAPE_OPTION_IDS.includes(id as (typeof RESERVED_ESCAPE_OPTION_IDS)[number]);
+}
+
 const zPresentedOptionParam = z
   .object({
     id: z
@@ -12,6 +21,7 @@ const zPresentedOptionParam = z
       // recovered by a regex that stops at `>`; ids with `>` or line breaks would
       // silently fail to reconstruct (see structured-exchange-loop/pending-exchange.ts).
       .regex(/^[^>\r\n]+$/, 'Option id must not contain ">" or line breaks.')
+      .refine(isNotReservedEscapeId, 'Option ids "other" and "none" are reserved escape choices.')
       .describe('Stable option id for the later request_response result details.'),
     content: z.string().describe('Markdown-readable option content.'),
     rationale: z.string().describe('Why this option is plausible or recommended.').optional(),
@@ -42,7 +52,9 @@ export const zPresentQuestionParams = z
     allowOther: z.boolean().describe('Whether the user may choose Other for option responses.').optional(),
     allowNone: z
       .boolean()
-      .describe('Whether the user may choose None for multi-choice responses.')
+      .describe(
+        'Whether the user may choose None for option responses — an answered rejection stating that no listed option applies (single- or multi-choice).',
+      )
       .optional(),
     commentPrompt: z.string().describe('Prompt for an optional comment after choosing options.').optional(),
   })
@@ -78,7 +90,12 @@ export const zPresentCandidatesParams = z
     heading: z.string().trim().min(1).describe('Candidate comparison heading.'),
     body: z.string().describe('Markdown body for context before the candidate list.').optional(),
     candidates: z
-      .array(zPresentedCandidate)
+      .array(
+        zPresentedCandidate.refine(
+          (candidate) => isNotReservedEscapeId(candidate.id),
+          'Candidate ids "other" and "none" are reserved escape choices.',
+        ),
+      )
       .min(1)
       .describe(
         'Recognition-only candidate expressions to compare and choose from; selection records fan-in intent but does not commit graph truth.',

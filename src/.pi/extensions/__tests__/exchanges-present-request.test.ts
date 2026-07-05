@@ -645,6 +645,62 @@ describe('structured exchange present/request tools', () => {
     expect(result.details.answered.comment).not.toBe('Something else entirely');
   });
 
+  it('records a single-choice None selection with its required comment and no write-in', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+    const inputPrompts: string[] = [];
+
+    const result = await request_response.execute(
+      'request-response-choice-none-call',
+      { exchangeId: 'shell-location-none' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          // options: [root] + Other + None -> None sits at picker index 2.
+          custom: customPickByIndex(2),
+          input: async (prompt: string) => {
+            inputPrompts.push(prompt);
+            return 'No listed option fits this session.';
+          },
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'shell-location-none',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Select one option.' },
+                  options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
+                  allow_other: true,
+                  allow_none: true,
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(inputPrompts).toEqual(['Required comment']);
+    expect(result.details).toMatchObject({
+      exchange_id: 'shell-location-none',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
+      answered: {
+        choice: { id: 'none', label: 'None', kind: 'none' },
+        options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
+        comment: 'No listed option fits this session.',
+      },
+    });
+  });
+
   it('maps duplicate present_question option labels back to the selected stable id', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');

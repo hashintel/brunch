@@ -76,6 +76,7 @@ async function collectQuestionResponse(
         choices: present.options.map((option) => ({ id: option.id, label: option.content })),
         options: present.options,
         ...(present.allow_other !== undefined ? { allowOther: present.allow_other } : {}),
+        ...(present.allow_none !== undefined ? { allowNone: present.allow_none } : {}),
         ...(present.comment_prompt !== undefined ? { commentPrompt: present.comment_prompt } : {}),
       });
     case 'choices':

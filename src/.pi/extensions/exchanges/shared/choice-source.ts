@@ -50,6 +50,7 @@ export interface CollectChoiceParams {
   readonly options: readonly AnsweredOptionEcho[];
   readonly respondsToPresentTool?: 'present_question' | 'present_candidates';
   readonly allowOther?: boolean;
+  readonly allowNone?: boolean;
   readonly commentPrompt?: string;
   readonly ctx: StructuredExchangeUiContext;
 }
@@ -80,6 +81,7 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
   const pickerChoices = [
     ...choices.map(({ choice, selectLabel }) => ({ id: choice.id, label: selectLabel })),
     ...(params.allowOther ? [{ id: 'other', label: 'Other' }] : []),
+    ...(params.allowNone ? [{ id: 'none', label: 'None' }] : []),
   ];
   const selected = await params.ctx.ui.custom<{ readonly id: string } | undefined>(
     (_tui, theme, _keybindings, done) =>
@@ -96,12 +98,15 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
   let choice: SelectedChoice;
   let comment = '';
   if (!picked) {
-    if (!params.allowOther || selected.id !== 'other') {
+    if (params.allowNone && selected.id === 'none') {
+      choice = { id: 'none', label: 'None', kind: 'none' };
+    } else if (params.allowOther && selected.id === 'other') {
+      const other = await collectRequiredInput(params.ctx, 'Other', 'Describe your answer');
+      if (other === undefined) return terminal('cancelled');
+      choice = { id: 'other', label: other, kind: 'other' };
+    } else {
       return terminal('unavailable', `request_response choice received unknown option id ${selected.id}`);
     }
-    const other = await collectRequiredInput(params.ctx, 'Other', 'Describe your answer');
-    if (other === undefined) return terminal('cancelled');
-    choice = { id: 'other', label: other, kind: 'other' };
     if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
       const required = await collectRequiredInput(params.ctx, params.commentPrompt ?? 'Required comment');
       if (required === undefined) return terminal('cancelled');
