@@ -81,6 +81,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **In-flight `ln/*` wave (open PRs, definitions ride their branches; fold in on merge):** FE-1124 walkthrough batch 2 (#288) · FE-1134 session orientation dialog (#289) · FE-1135 exchange-outcome capture contract sweep (#291) · FE-1136 present-digest exchange (#292) · FE-1137 executor entry readiness / concentric authority (#290) · FE-1152 post-gate chrome refinements (#294).
 - `orchestrator-stub-retirement` — candidate cleanup: `registerBrunchOrchestratorStub` looks like dead weight now that D98-L merged the orchestrator into the executor and `execute_orchestrate` landed; verify no live policy/test references, then delete on the next executor-adjacent slice.
+- `executor-run-integrity` (FE-1154) — **scoped.** General execute-mode hardening after the `cook-parallel-utils` reversed fixture exposed false-positive promotion: failed verification must block completion/promotion, executable dependency topology must survive projection, and greenfield runs must not verify accidental host-source bleed. Scope: `memory/cards/executor-run-integrity--hardening.md`.
 - `component-dx` (FE-1115) — **paused.** Preview harness plus shared presentation primitives shipped; open for further dev-tooling refinement if a concrete need surfaces, but nothing is actively scoped. Production-wiring follow-on split to `exchange-answering-chrome` (né `bordered-chrome-production`) and `main-editor-chrome`.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
@@ -197,6 +198,20 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - Run-bundle reads are torn-read-safe (see spike finding): preferred shape is an atomic-writer precursor slice (`persistRunMetadata` goes write-temp+rename; the direct write site in `createRun` folds through it) so projections read naively; otherwise projections read tolerantly (retry/last-good `run.json`, partial-tail-skip `reports.jsonl`).
 - **Spike finding (2026-07-06, torn-read spike):** `run.json` status writes are in-place `writeFile` (O_TRUNC, no rename) — concurrent readers can catch empty/partial JSON; `reports.jsonl` events are single-write complete lines (effectively atomic; skip a partial tail line). Step ordering is artifacts → report append → `run.json` last, so the event log *leads* the metadata snapshot by up to one step; projections must treat reports as progression truth and `run.json` as a lagging snapshot. In-tree precedent: `readRunMetadata` already swallows parse failures.
 - **Traceability:** D23-L, D84-L, D98-L; one-writer/many-observer POC dashboard corollary; `src/executor/TOPOLOGY.md`, `src/web/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`.
+
+### executor-run-integrity
+
+- **Name:** Executor run integrity hardening
+- **Linear:** [FE-1154](https://linear.app/hash/issue/FE-1154/executor-run-integrity-hardening)
+- **Branch:** tbd
+- **Kind:** executor-core hardening / fixture-backed correctness
+- **Status:** scoped (2026-07-06) in `memory/cards/executor-run-integrity--hardening.md`.
+- **Certainty:** proving.
+- **Lights up:** the first regression path for a real reversed cook fixture whose reports show failed slice verification but whose metadata previously reached `promotion_prepared`.
+- **Stabilizes:** execute-mode lifecycle truth: reports and metadata may lag, but failed verification must never be laundered into completed/promoted state.
+- **Objective:** Prevent false-positive executor runs by making failed verification terminal for completion/promotion, preserving executable dependency topology, and keeping greenfield plan-only worktrees isolated from host-source tests.
+- **Acceptance:** failed `slice_test_result` blocks `execute_run_complete`; failed verification blocks `execute_promotion_prepare` even from constructed metadata; generated scaffold/leaf plans retain dependency topology; greenfield fixture runs verify only generated fixture sources unless explicitly source-copied.
+- **Traceability:** D98-L, D101-L, I52-L/I56-L; `src/executor/TOPOLOGY.md`.
 
 <!-- elicitation-gap-guidance (FE-1116) definition retired 2026-07-06 ln-sync: done 2026-07-01, merged as #280; closure oracle src/graph/__tests__/elicitation-gap-guidance-closure.test.ts; detail in docs/archive/PLAN_HISTORY.md. -->
 
