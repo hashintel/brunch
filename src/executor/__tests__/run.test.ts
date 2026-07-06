@@ -1,11 +1,18 @@
-import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { planFilePath } from '../plan-file.js';
-import { assertSafeRunId, createRun, runDirPath, runMetadataPath } from '../run.js';
+import {
+  assertSafeRunId,
+  createRun,
+  persistRunMetadata,
+  runDirPath,
+  runMetadataPath,
+  type RunMetadata,
+} from '../run.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -60,6 +67,44 @@ describe('createRun', () => {
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'reports.jsonl'))).toBe(false);
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'land'))).toBe(false);
+  });
+});
+
+describe('persistRunMetadata', () => {
+  const metadata = (status: RunMetadata['status']): RunMetadata => ({
+    runId: 'run-1',
+    specId: '42',
+    planPath: '/plan.yaml',
+    status,
+  });
+
+  it('replaces run.json with a fresh file so readers never observe a truncated write', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'brunch-cook-persist-'));
+    const metadataPath = join(dir, 'run.json');
+
+    const firstEffect = await persistRunMetadata(metadataPath, metadata('created'));
+    expect(firstEffect).toEqual({ kind: 'write_file', path: metadataPath, ifExists: 'overwrite' });
+    const firstInode = (await stat(metadataPath)).ino;
+
+    await persistRunMetadata(metadataPath, metadata('worktree_created'));
+
+    // In-place O_TRUNC writes keep the inode; write-temp+rename swaps in a new file.
+    expect((await stat(metadataPath)).ino).not.toBe(firstInode);
+    expect(JSON.parse(await readFile(metadataPath, 'utf8'))).toEqual(metadata('worktree_created'));
+    expect(await readdir(dir)).toEqual(['run.json']);
+  });
+
+  it('leaves no temp residue when the replace fails', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'brunch-cook-persist-fail-'));
+    const metadataPath = join(dir, 'run.json');
+    // A non-empty directory at the destination makes rename fail after the temp write succeeds.
+    await mkdir(metadataPath);
+    await writeFile(join(metadataPath, 'occupied'), 'x', 'utf8');
+
+    await expect(persistRunMetadata(metadataPath, metadata('created'))).rejects.toThrow();
+
+    expect(await readdir(dir)).toEqual(['run.json']);
+    expect(await readdir(metadataPath)).toEqual(['occupied']);
   });
 });
 
