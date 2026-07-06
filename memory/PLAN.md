@@ -17,7 +17,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Live arc.** The **elicitor-capability-spine** arc (`capture` / `generate` / `project`) is done for the current POC capability surface. The retired strategy/lens/method runtime trees are no longer part of live product topology; current capability work routes through the code-owned first-level skill manifest and activity-named skill homes. Closed arc detail no longer lives in the rolling plan. Elicitation/readiness truthfulness (graph-as-truth, session-local asking agenda, advisory settlement) was delivered by the now-closed **`elicitation-gap-guidance`** frontier, which folded in settlement materialization; there was no separate settlement frontier.
 
-**Executor stack.** The orchestrator-cutover executor lineage (FE-1089 → FE-1125, PRs #274→#285: real worktree/verify, sealed agent runner, run-local + host promotion, `execute_orchestrate` driver) landed into `next` (tip #285 merged 2026-07-06); an `ln-sync` fold-in of its frontier history into this file is still owed. The new `executor-run-observer` frontier builds the first web-facing read surface over that substrate.
+**Executor substrate.** The **orchestrator-cutover** arc is done and merged into `next` (2026-07-06): the CODE-mode executor now plans, sandboxes, agent-executes, verifies, promotes (run-local + host apply), and drives runs for real behind injected `ExecutionPorts` (see §Initiatives). `executor-run-observer` (FE-1141) builds the first web-facing read surface over that substrate.
 
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
@@ -48,33 +48,39 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Goal:** lock down every user-facing surface of the structured-exchange family — persisted transcript renders, live TUI answer collection, and their dev-preview loop — so exchanges read as designed product, not raw scaffolding.
 - **Members:**
   - `exchange-rendering` (new, below) — transcript render surfaces: content formatters, `renderResult`-from-details, preview fixtures, render-honesty oracles.
-  - `exchange-answering-chrome` (né `bordered-chrome-production`) — live answering UI: bordered picker/dialog replacements for the `ctx.ui.select`/`ctx.ui.editor` answering paths.
+  - `exchange-answering-chrome` (FE-1138, né `bordered-chrome-production`) — live answering UI: bordered picker/dialog replacements for the `ctx.ui.select`/`ctx.ui.editor` answering paths. In flight (PR #293).
 - **Done-definition:** every exchange kind in the closed inventory renders honestly in transcript and re-render; live single-choice answering no longer routes through pi's plain `ctx.ui.select`; each renderer has a `dev:components` preview entry; `src/.pi/extensions/exchanges/TOPOLOGY.md`, `src/projections/TOPOLOGY.md` shape ledger, and `src/.pi/components/TOPOLOGY.md` reconciled; the formatter-home decision (see `exchange-rendering`) recorded in `memory/SPEC.md`.
 - **Anchors:** D37-L, D38-L, D41-L (exchange schema/UI seam); D52-L, D60-L, D75-L (projection pipeline); TESTING_FINDINGS.md F7/F8/F11.
+
+### orchestrator-cutover — ✓ done (2026-07-06)
+
+- **Goal:** re-grow the old `main` cook orchestrator natively on the CODE/executor substrate, layer by layer behind injected capability ports, hard-to-reverse git seams last.
+- **Members (all merged into `next`):** `orchestrator-alpha-cutover` FE-1089 ✓ (#274, descriptive lifecycle scaffold + `ExecutionSpecSnapshot` seam) · `executor-sandbox` FE-1109 ✓ (#275, real `GitWorktreePort` + `TestRunnerPort`) · `executor-agent-runner` FE-1111 ✓ (#278, sealed `worker` via `AgentRunnerPort`) · `executor-promotion` FE-1112 ✓ (#279, run-local `GitLandPort`) · `executor-host-promotion` FE-1118 ✓ (folded via the #284 close-sync, preflight + accepted host apply) · run driver FE-1125 ✓ (#285, `execute_orchestrate` over a scheduler seam).
+- **Done-definition held at close:** a selected-spec run is planned, executed in a real git worktree by a real sealed worker, verified by the real test subprocess, promoted run-locally, and host-applied — every side effect explicit (I52-L), `execute_status` `pendingTools` empty; topology homes reconciled in #284. Named residue: `registerBrunchOrchestratorStub` retirement candidate (Parallel, below); intra-drive update liveness rides `executor-run-observer`'s build notes.
+- **Anchors:** D98-L (executor merges orchestrator + pi-coder), D101-L port-refinement notes, I52-L; `src/executor/TOPOLOGY.md`, `src/app/TOPOLOGY.md`.
 
 ## Sequencing
 
 ### Active
 
-- `walkthrough-fixes` (FE-1122) — **built 2026-07-02** (all cards incl. F10 addendum; commits `e0701b4`…`486824b` on `ln/fe-1122-walkthrough-fixes`); pending PR tie-off. Walkthrough continues on a stacked follow-on branch.
-- `executor-run-observer` (FE-1141) — **tracer built 2026-07-06** (atomic run.json writer → `execute.runs`/`execute.run` projections → `/runs` + `/runs/$runId` routes → run-scoped `brunch.updated` topics; commits `2b3507c5`…`95e4cd2f` on `ka/fe-1141-executor-run-observer`). Remaining before tie-off: Petri raw `net.json` view (small slice) and the live-browser outer walkthrough.
-- `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
+- `exchange-answering-chrome` (FE-1138, `exchange-presentation` arc) — **in flight** on `ln/fe-1138-answering-chrome` (PR #293). Bordered answering chrome for structured exchanges; definition below.
+- `executor-run-observer` (FE-1141) — **code-complete 2026-07-06; PR #295 open.** Read-only web run observer: atomic run.json writer, `execute.runs`/`execute.run` projections, `/runs` routes, run-scoped `brunch.updated` topics, Petri raw view, review contract locks. Remaining: live-browser outer walkthrough, then merge.
 
 ### Recently Completed
 
+- 2026-07-06 **`orchestrator-cutover` arc closed** — six frontiers merged into `next` (PRs #274, #275, #278, #279, #284, #285; roster + done-definition in §Initiatives). The executor is real end-to-end: worktree → sealed worker → verify → run-local promotion → host apply → `execute_orchestrate` driver.
+- 2026-07-03 `walkthrough-fixes` (FE-1122) — beat-1 doctor-pass findings closed and merged (#286): kick prompt carries the composed foreground prompt (F1), origination record at decision time (F2), kick-time chrome (F3/F4/F6), elicitor prompt refinements (F5/F9). Walkthrough continues on `ln/fe-1124-walkthrough-batch-2` (PR #288, in flight).
 - 2026-07-03 `exchange-rendering` (FE-1123) — the structured-exchange transcript render frontier is closed: every ● row in `memory/cards/exchange-rendering--sweep.md` is built; request-response discriminants now have per-formatter render-honesty coverage and `dev:components` preview entries; structural-illegal preview fixture no longer carries an invented schema tag; `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts` is the executable aggregate DoD across registered tools, formatters, preview entries, and snapshots. `npm run verify` passed. Human outer oracles remain owed: walkthrough re-observation for `TESTING_PLAN.md` scenarios 3/5 and preview-gallery aesthetic review.
-- 2026-07-01 `component-dx--rounded-box-primitive` (FE-1115) — `.pi/components/rounded-box.ts` now owns the shared rounded-border projection for bordered Pi TUI presentation components. `brunch-editor.ts`, `workspace-dialog/component.ts`, and `cards.ts` delegate their box drawing to `projectRoundedBox`; direct-render tests cover right/left labels, thumb rows, blank padding, pre-rendered content width, and card title placement. This closes `component-dx`'s active scope; remaining production-wiring work moves to `bordered-chrome-production` (new frontier, below).
-- 2026-07-01 `component-dx--wheel-scroll-passthrough` (FE-1115) — `workspace-dialog-scroll` now opts into preview-harness SGR wheel handling: `showComponentPreview` owns mouse enable/disable plus wheel-to-arrow translation, `.pi/components/mouse-wheel.ts` owns the raw SGR parser, and harness tests prove the long-list preview reaches the same visible state as equivalent ArrowDown input. Residual, carried forward: a manual physical-terminal smoke test (iTerm2/Kitty/Ghostty) to confirm native wheel emission matches the injected SGR shape has not been run.
-- 2026-07-01 `elicitation-gap-guidance` (FE-1116) — the spec-global persisted `elicitation_gaps` register and its count-based readiness scoring are retired; the asking agenda is now a session-local `brunch.elicitation_scratchpad` fold seeded from a thin graph-fact seed; `latestExpectedBand(kind)` is the single band scalar; and settlement (`advisory` | `settled`, orthogonal to `basis`) is materialized and command-enforced (D99-L, I52-L). Closure oracle: `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names. All co-located `TOPOLOGY.md` homes named in `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md` are reconciled; that doc's status flips to landed.
 - Older completed frontiers: `docs/archive/PLAN_HISTORY.md`.
 
 ### Next
 
-1. `planning-process-model` — proving/exploratory, opened by D103-L. Cheapest first tracer is plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog. Groundwork already on branch `ln/fe-xxx-plan-plane-redesign`.
-2. `exchange-answering-chrome` — not yet started; no Linear issue or branch yet. Second member of the `exchange-presentation` arc (renamed from `bordered-chrome-production`; main-editor thread split to `main-editor-chrome`, Horizon). Owns the live answering surfaces (choice/review pickers, free-text answer dialog); pairs with `exchange-rendering`, which owns transcript renders.
+1. `planning-process-model` (FE-1127) — proving/exploratory, opened by D103-L. Groundwork merged 2026-07-03 (#283: `slice` kind removal, D103-L decision path, CueLoop liftout). Cheapest first tracer remains plan-as-projection; the epistemic-horizon/decision-flow model and the `scope`-node question stay behind that fog.
 
 ### Parallel / Low-Conflict
 
+- **In-flight `ln/*` wave (open PRs, definitions ride their branches; fold in on merge):** FE-1124 walkthrough batch 2 (#288) · FE-1134 session orientation dialog (#289) · FE-1135 exchange-outcome capture contract sweep (#291) · FE-1136 present-digest exchange (#292) · FE-1137 executor entry readiness / concentric authority (#290) · FE-1152 post-gate chrome refinements (#294).
+- `orchestrator-stub-retirement` — candidate cleanup: `registerBrunchOrchestratorStub` looks like dead weight now that D98-L merged the orchestrator into the executor and `execute_orchestrate` landed; verify no live policy/test references, then delete on the next executor-adjacent slice.
 - `component-dx` (FE-1115) — **paused.** Preview harness plus shared presentation primitives shipped; open for further dev-tooling refinement if a concrete need surfaces, but nothing is actively scoped. Production-wiring follow-on split to `exchange-answering-chrome` (né `bordered-chrome-production`) and `main-editor-chrome`.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
@@ -91,6 +97,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 ### Retired / Never
 
+- `orchestrator-tool-port` (FE-1107) — superseded by the landed `orchestrator-cutover` arc: its plan-check tracer shipped as `execute_plan_check` and cook orchestration ported as the `execute_*` tool family under D98-L; the prepared scope card was deleted in #284.
 - `coherence-first-class` — retired as an independent frontier; future coherence work should be driven only by a concrete triggering frontier that needs it.
 
 ## Frontier Definitions
@@ -147,11 +154,11 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### exchange-answering-chrome
 
 - **Name:** Bordered Brunch-owned answering UI for the `request_*` response kinds
-- **Linear:** unassigned (create on pickup)
-- **Branch:** tbd
+- **Linear:** FE-1138
+- **Branch:** `ln/fe-1138-answering-chrome` (PR #293, in flight)
 - **Kind:** bounded feature / presentation-layer production wiring. Arc: `exchange-presentation` (transcript-render counterpart: `exchange-rendering`; this frontier owns the live answering surfaces — pickers, one-shot answer dialog).
 - **Renamed 2026-07-02:** was `bordered-chrome-production`. Its former thread 1 (persistent main editor via `ctx.ui.setEditorComponent`) is NOT exchange work and split out to `main-editor-chrome` (Horizon). Threads 2–3 below are the retained scope, folded into the `exchange-presentation` arc and sequenced directly behind `exchange-rendering`.
-- **Status:** not started; split off `component-dx` (FE-1115) on 2026-07-01, once that frontier's harness + shared-primitive work (`projectRoundedBox`, `projectScrollViewport`) shipped with zero production behavior change. This is the first production UX change either primitive will drive.
+- **Status:** in flight (PR #293). Split off `component-dx` (FE-1115) on 2026-07-01 once the harness + shared primitives (`projectRoundedBox`, `projectScrollViewport`) shipped; this is the first production UX change either primitive drives. Definition detail rides the PR branch; fold outcomes in on merge.
 - **Certainty:** proving.
 - **Depends on:** `component-dx`'s shipped primitives (`.pi/components/rounded-box.ts`, `.pi/components/scroll-viewport.ts`) and `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md` (the answering-path mechanism this frontier's exchanges threads must not break).
 - **Lights up:** the first Brunch-owned `.pi/components` wired into a real, live-user-facing surface rather than the preview harness or an already-shipped component's internals.
@@ -163,35 +170,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Verification:** answering-path non-regression contract test — `session.submitExchangeResponse` never touches `ctx.ui.*` (locks `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`); injected-key VirtualTerminal tests for the new pickers (workspace-dialog-scroll precedent); manual physical-terminal smoke carried from `component-dx`. See `memory/SPEC.md` §Design Notes "Exchange-presentation oracle design".
 - **Traceability:** D22-L, D35-L (chrome, thread 1); D37-L, D38-L (structured-exchange UI seam, threads 2–3); `docs/design/STRUCTURED_EXCHANGE_ANSWERING_PATHS.md`; `src/.pi/components/TOPOLOGY.md`, `src/.pi/extensions/chrome/TOPOLOGY.md`, `src/.pi/extensions/exchanges/TOPOLOGY.md`.
 
-### walkthrough-fixes
-
-- **Name:** Doctor-pass walkthrough fixes (batch 1)
-- **Linear:** [FE-1122](https://linear.app/hash/issue/FE-1122/walkthrough-doctor-pass-fixes-kick-prompt-origination-record-kick)
-- **Branch:** `ln/fe-1122-walkthrough-fixes` (stacked on `ln/fe-xxx-plan-plane-redesign` / PR #283)
-- **Kind:** defect-closure batch inside settled seams, sourced from the 2026-07-02 TESTING_PLAN.md walkthrough.
-- **Status:** scoped, ready to build. Findings ledger: `TESTING_FINDINGS.md`. Walkthrough continues in parallel; later beats may append further cards or a batch-2 frontier.
-- **Certainty:** earned (settled seams; each card closes a named defect).
-- **Objective:** Close the beat-1 walkthrough findings: kick turn must carry the composed foreground prompt (F1 — pi `triggerTurn` path bypasses `before_agent_start`); origination decision record written at decision time (F2); kick-time chrome (activity indicator F3, welcome intro F4, collapsed thinking F6); elicitor prompt refinements (concision F5, multi-select nudge F9, retired "ranked elicitation gaps" vocabulary).
-- **Current execution pointer:** `memory/cards/walkthrough--elicitor-prompt-refinements.md`. Excluded/deferred: F7/F8 (`present_question`/`request_response` rendering refinements).
-- **Traceability:** D78-L, I46-L/I47-L (origination honesty); D98-L (mode→role→prompt); D101-L (retired gap vocabulary); D40-L (tool policy).
-
-### orchestrator-tool-port
-
-- **Name:** Port cook orchestration into CODE/executor tools
-- **Linear:** [FE-1107](https://linear.app/hash/issue/FE-1107/port-cook-orchestration-into-codeexecutor-tools)
-- **Branch:** tbd
-- **Kind:** structural / execute-mode tool boundary
-- **Status:** active but intentionally deferred; first tracer is scoped on its branch when we are ready to switch to the CODE-mode tool seam.
-- **Certainty:** proving.
-- **Current execution pointer:** `memory/cards/orchestrator-tool-port--plan-check-tool.md`.
-- **Lights up:** executor-owned product tooling for cook-plan inspection.
-- **Stabilizes:** D39-L sealed-profile discipline and D90-L-D93-L/I49-L code-owned authority for future write-capable cook tooling.
-- **Objective:** Replace the old execute-mode standup stub direction with CODE/executor tooling by porting reusable `brunch cook` core logic into product-owned modules and exposing it through thin `.pi/extensions` adapters. D98-L changes the target agent from a separate no-write orchestrator to the Brunch-aware executor; the first read-only plan-check tool can still establish the tool seam, but the frontier must not preserve the old orchestrator/pi-coder split as product architecture.
-- **Acceptance:**
-  - First tracer replaces the old standup stub with a read-only `cook_plan_check` tool that validates a cook plan and returns typed plan shape/findings without creating a run sandbox.
-  - Later `cook_run` tooling is bounded behind executor-owned sandbox/worktree machinery; write-capable worker sessions, if any, are code-owned child execution boundaries.
-  - External `../brunch` CLI behavior is ported as reusable product core plus Pi adapter, not wrapped as a shell command.
-- **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L / I49-L; `src/.pi/extensions/TOPOLOGY.md`.
+<!-- walkthrough-fixes (FE-1122) definition retired 2026-07-06 ln-sync: merged as #286; summary in Recently Completed, detail in docs/archive/PLAN_HISTORY.md. -->
+<!-- orchestrator-tool-port (FE-1107) definition retired 2026-07-06 ln-sync: superseded by the orchestrator-cutover arc (see Retired / Never). -->
 
 ### executor-run-observer
 
@@ -218,42 +198,15 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Spike finding (2026-07-06, torn-read spike):** `run.json` status writes are in-place `writeFile` (O_TRUNC, no rename) — concurrent readers can catch empty/partial JSON; `reports.jsonl` events are single-write complete lines (effectively atomic; skip a partial tail line). Step ordering is artifacts → report append → `run.json` last, so the event log *leads* the metadata snapshot by up to one step; projections must treat reports as progression truth and `run.json` as a lagging snapshot. In-tree precedent: `readRunMetadata` already swallows parse failures.
 - **Traceability:** D23-L, D84-L, D98-L; one-writer/many-observer POC dashboard corollary; `src/executor/TOPOLOGY.md`, `src/web/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`.
 
-### elicitation-gap-guidance
-
-- **Name:** Session-local elicitation gaps from a graph-derived seed
-- **Linear:** [FE-1116](https://linear.app/hash/issue/FE-1116/session-local-elicitation-gaps-from-a-graph-derived-seed)
-- **Branch:** `ln/fe-1116-elicitation-gap-guidance` (onto `ln/fe-1108-structured-exchange-affordance`)
-- **Kind:** structural / elicitor guidance + session-state seam
-- **Status:** ✓ done (2026-07-01). All six cards landed; closure oracle `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names.
-- **Certainty:** proving (retired on land).
-- **Retires:** the persisted spec-scoped `elicitation_gaps` register and its count-based readiness scoring (D65-L, D45-L); the fixed spec-creation seed catalog `SEEDED_ELICITATION_GAPS` (D75-L).
-- **Materializes (folded slice):** advisory/settled `settlement` as a graph dimension orthogonal to `basis`, enforced at the command layer and surfaced in projection/context (D99-L, I52-L, D63-L) — formerly the separate `settlement-materialization` frontier, folded in per the 2026-07-01 review + user decision. Landed 2026-07-01 (Card 5).
-- **Depends on:** readiness bands, data-model legibility, and the stable exchange affordance surface (all done). Settlement is folded in as a later slice; the thin seed still must **not** depend on advisory/settlement state (A36-L).
-- **Lights up:** a session-local, cumulative asking agenda seeded per session from thin graph facts and focused by a prompt orientation directive.
-- **Stabilizes:** the boundary between graph truth (durable), the session-local gap scratchpad (non-authoritative asking agenda), and persisted `reconciliation_need` follow-up; plus a single code-owned latest-expected-band scalar source.
-- **Objective:** Replace the spec-global persisted `elicitation_gaps` register and its count-based readiness estimate with (1) a session-local cumulative gap scratchpad — one `brunch.elicitation_scratchpad` custom session entry + one fold projection + read/write tools (not tool-result details, no runtime-state duplication), (2) a thin graph-derived neutral seed per session, (3) an `elicitor.md` orientation directive that focuses a vein, (4) a reconciled latest-expected-band scalar model, and (5) a materialized advisory/settled `settlement` graph dimension (orthogonal to `basis`, command-enforced, surfaced in projection/context) — without inventing a second persisted gap ontology or any count-based readiness scoring.
-- **Acceptance:**
-  - Count-based readiness reasoning is deleted: `derivePresenceCoverage` and the coverage-over-gaps estimate (`readiness-estimate.ts`) are removed; no code path scores readiness by counting nodes/gaps (D45-L, I31-L).
-  - The persisted `elicitation_gaps` table and `elicitation-driver.ts` sorter are retired; consumers (`.pi/extensions/agent-runtime/system-prompts/world-reads.ts`, `specification-overview-context.ts`, subagent snapshot in `pi-subagents.ts`) migrate to session-local state (D65-L, D101-L).
-  - A session-state extension defines the gap scratchpad model (new `brunch.elicitation_scratchpad` custom entry following the `runtime-state.ts` fold precedent, not sharing runtime-state storage) plus read/write tools replacing `read_elicitation_gaps`/`update_elicitation_gaps`; entries are non-authoritative (I56-L) and low-confidence noticings route here, not the graph (D81-L; `spawn_gap` expected outcomes and the old `action: 'spawn'` write path removed).
-  - Each session's scratchpad is seeded from a thin graph-derived neutral seed (facts, not scores) that does not depend on advisory/settlement state (D102-L, A36-L).
-  - `elicitor.md` carries the "new session → establish orientation → focus a vein" directive that turns the neutral seed into a session-specific agenda (D102-L).
-  - Subagents receive the session gap scratchpad in their world snapshot (migrate `pi-subagents.ts` off `getElicitationGaps`).
-  - Band model reconciled to a single code-owned per-kind latest-expected-band scalar map; the array `INTENT_KIND_BANDS` and the earliest-band `bandsForKind(kind)[0]` read in `graph-slice.ts` are removed/fixed (D94-L, I50-L).
-  - The three reference files are consolidated to the agreed ownership split — `readiness-bands.md` (band semantics / latest-expected), `data-model.md` (kind → source-question + role/modality), `question-kinds-per-intent-kind.md` (projection catalog / phrasings) — with duplicated latest-band/source-question content removed (D97-L).
-  - Capture probes/tests that assumed `spawn_gap` (`capture-commitment-gradient-gate.test.ts`, `src/probes/capture-quality-loop.ts`) are updated to the session-state outlet; the old elicitation tool `action: 'spawn'` is not accepted.
-  - Settlement (folded slice): graph schema carries `settlement` (`advisory` | `settled`) separate from `basis`; CommandExecutor validation + promotion/rewrite/supersede/reconcile paths enforce I52-L (advisory never read as settled by projection/plan/commitment readers); projection/context surface settlement so capability-readiness (D74-L) can consult it; capture reference material updated (D99-L, D63-L).
-  - Anti-regression: tests prove the old attractor is gone — no `read_elicitation_gaps`/`update_elicitation_gaps` tools or `action: 'spawn'` gap write path, no readiness count/coverage language, readiness resolves with an empty scratchpad, and `getElicitationGaps`/`derivePresenceCoverage`/`readinessEstimate`/`elicitation-driver`/`SEEDED_ELICITATION_GAPS` no longer exist.
-- **Traceability:** D45-L, D63-L, D65-L, D74-L, D75-L, D81-L, D94-L, D97-L, D99-L, D101-L, D102-L; A36-L; I31-L, I50-L, I52-L, I56-L; `docs/design/SESSION_LOCAL_ELICITATION_GAPS.md` (topology + consolidation ledger); `src/graph/schema/**` (settlement), `src/graph/command-executor.ts`, `src/projections/**`, `src/agents/contexts/**`, `src/session/runtime-state.ts`, `src/.pi/extensions/agent-runtime/{runtime/index.ts,system-prompts/world-reads.ts}`, `src/graph/queries.ts` (`derivePresenceCoverage`), `src/graph/elicitation-driver.ts`, `src/graph/command-executor.ts` (`SEEDED_ELICITATION_GAPS`), `src/projections/session/readiness-estimate.ts`, `src/session/specification-overview-context.ts`, `src/app/pi-subagents.ts`, `src/probes/capture-quality-loop.ts`, `src/probes/public-rpc-parity-proof.ts`, `src/graph/schema/nodes.ts`, `src/agents/contexts/data-model/graph/graph-slice.ts`, `src/agents/prompts/elicitor.md`, `src/agents/references/{readiness-bands,data-model}.md`, `src/agents/skills/elicit/references/question-kinds-per-intent-kind.md`.
-
+<!-- elicitation-gap-guidance (FE-1116) definition retired 2026-07-06 ln-sync: done 2026-07-01, merged as #280; closure oracle src/graph/__tests__/elicitation-gap-guidance-closure.test.ts; detail in docs/archive/PLAN_HISTORY.md. -->
 
 ### planning-process-model
 
 - **Name:** Planning-process model — plan-as-projection, epistemic horizon, and the `scope`-node question
-- **Linear:** unassigned
-- **Branch:** `ln/fe-xxx-plan-plane-redesign` (plan-plane groundwork already landed here: `slice` removal + D103-L + CueLoop liftout)
+- **Linear:** FE-1127
+- **Branch:** tbd for the tracer (groundwork — `slice` removal + D103-L path + CueLoop liftout — merged 2026-07-03 as #283)
 - **Kind:** structural / plan-plane semantics
-- **Status:** proving candidate opened by D103-L; sequence after `elicitation-gap-guidance`. Mostly SPEC/skill work at first, low code-conflict.
+- **Status:** proving; groundwork merged, plan-as-projection tracer not started. Mostly SPEC/skill work at first, low code-conflict.
 - **Certainty:** proving.
 - **Lights up:** plan generation as *projection* from committed graph truth (milestone/frontier) — a `project` (D100-L) plan-plane path, first exercised as a read-only plan projection, optionally exported to an external format (CueLoop, `docs/design/CUELOOP_PATTERN_LIFTOUT.md`) as design pressure.
 - **Stabilizes:** the plan-plane boundary set by D103-L (plane stops at `frontier`) — by proving what *is* projectable there, and by locating whether a durable accountability node below `frontier` (candidate `scope`) is needed or stays process-only (`ln-scope`/`ln-build` scope cards).
@@ -283,37 +236,30 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ```text
 frontiers:
   Active:
-    executor-run-observer
-      status: planned; grilled 2026-07-03
-      depends_on: executor stack run crank + artifacts (FE-1089..FE-1125), D23-L, D84-L, D98-L
+    exchange-answering-chrome (FE-1138, exchange-presentation arc)
+      status: in flight (PR #293, ln/fe-1138-answering-chrome)
+      depends_on: exchange-rendering (done), component-dx primitives, STRUCTURED_EXCHANGE_ANSWERING_PATHS.md
+      pairs_with: exchange-rendering -[boundary]-> live answering UI vs transcript renders
+
+    executor-run-observer (FE-1141)
+      status: code-complete; PR #295 open; outer walkthrough owed
+      depends_on: orchestrator-cutover arc (landed), D23-L, D84-L, D98-L
       seam: execute.* RPC read projections + run-scoped brunch.updated topics
       boundary_with: web-driver-streaming -[optional]-> streaming frames / worker-verify tails stay there
 
-    orchestrator-tool-port
-      status: deferred / D98-sensitive
-      depends_on: D39-L, D90-L, D91-L, D92-L, D93-L, I49-L, D98-L
-      active_scope: memory/cards/orchestrator-tool-port--plan-check-tool.md
-
   Recently Completed:
-    elicitation-gap-guidance, component-dx--rounded-box-primitive, component-dx--wheel-scroll-passthrough
+    orchestrator-cutover arc (FE-1089..FE-1125), walkthrough-fixes (FE-1122), exchange-rendering (FE-1123)
 
   Next:
-    exchange-rendering
-      status: coverage frontier, buildable-now; head slice proving, sweep rows earned
-      arc: exchange-presentation
-      depends_on: D37-L, D38-L, D41-L, D52-L/D60-L/D75-L (projection pipeline), walkthrough-fixes (FE-1122 lands first)
-      boundary_with: exchange-answering-chrome (live answering UI there; transcript renders here)
-    planning-process-model
-      status: proving / exploratory (opened by D103-L)
+    planning-process-model (FE-1127)
+      status: proving / exploratory; groundwork merged (#283)
       depends_on: D103-L, D100-L (project seam)
       cheapest_first_tracer: plan-as-projection
-    exchange-answering-chrome
-      status: not started, no Linear issue/branch yet (renamed from bordered-chrome-production; main-editor thread -> main-editor-chrome, Horizon)
-      arc: exchange-presentation
-      depends_on: component-dx (paused, primitives shipped), STRUCTURED_EXCHANGE_ANSWERING_PATHS.md
-      pairs_with: exchange-rendering -[boundary]-> live answering UI vs transcript renders
 
   Parallel / Low-Conflict:
+    in-flight ln/* wave (definitions ride their branches):
+      FE-1124 #288, FE-1134 #289, FE-1135 #291, FE-1136 #292, FE-1137 #290, FE-1152 #294
+    orchestrator-stub-retirement -[candidate cleanup]-> next executor-adjacent slice
     component-dx (FE-1115) -[paused]-> exchange-answering-chrome
 
   Horizon:
@@ -326,6 +272,7 @@ frontiers:
     geolog-and-petri-execution
 
   Retired:
+    orchestrator-tool-port -[superseded]-> orchestrator-cutover arc
     coherence-first-class
 
 done anchors:

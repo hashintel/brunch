@@ -656,3 +656,26 @@ Establish `src/session/schema/kinds.ts` as the drizzle-free, pi-free source-of-t
 - 2026-06-12 post-burst judo/refactor pass (FE-852) — seven behavior-preserving commits from the `ln-judo-review` of the 2¾ burst: pi-private `_rewriteFile` flush contract named once (`session/flush-session-manager.ts`, five copies replaced); present-side synthetic writers moved to probe-land; `workspaceContext` required on origination/seed with one composing helper (`renderWorkspaceOverviewContext`); tier-2 harness env/faux boilerplate collapsed and the boot test file split (`tier-2-harness` / `tier-2-scaffold` / `tier-2-test-support`); `formatGraphOverview` re-export shim retired. Residual finding (since closed): `kickTurnMessage` wording lock (landed under origination-follow-ups, D78-L).
 - 2026-06-12 `origination-native-elicitation` (FE-852) — demo block 2¾: canned deterministic exchange retired from product origination (generator → probe-land; `triggerExchange` = kick surface per revised D49-L); seed payload carries workspace overview + spec header + full canonical graph overview + ranked-gap framing (one render dialect with `read_graph`); elicitor guidance covers situating ground + live exchange-tool authorship. Tier-2 oracle proves the tool-call-free, no-canned-offer opening; manual walkthrough passed 2026-06-12.
 - 2026-06-12 follow-on (FE-857) — first live kick turn surfaced the structured-exchange transcript dialect was real-provider-illegal: synthetic exchange toolResults used `exchangeId:toolName` ids (Anthropic requires `^[a-zA-Z0-9_-]+$`) and were orphans (no paired `tool_use` → 400). Fixed at one seam: ids join with `__`, and every synthetic toolResult persists as a synthetic assistant toolCall + toolResult pair with sentinel provenance (`brunch-exchange`). Tier-2 oracle asserts provider-legal tool pairs. Lesson: the faux provider validates neither id charset nor tool pairing (→ `fixture-vs-real-audit`). Seed `--reset` widened to wipe full workspace runtime state.
+
+## 2026-07-06 orchestrator-cutover close + Recently Completed trim (`ln-sync`)
+
+Archived from `memory/PLAN.md` during the sync that folded the landed executor stack into the live
+plan (arc record in `§Initiatives`). Definitions retired here are fully shipped and merged; full
+text lives in git history of `memory/PLAN.md`.
+
+- 2026-07-01 `elicitation-gap-guidance` (FE-1116, merged #280) — persisted spec-global
+  `elicitation_gaps` register and count-based readiness scoring retired; session-local
+  `brunch.elicitation_scratchpad` fold seeded from a thin graph-fact seed; `latestExpectedBand(kind)`
+  as the single band scalar; settlement (`advisory`|`settled`) materialized and command-enforced
+  (D99-L, I52-L). Closure oracle: `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts`.
+- 2026-07-01 `component-dx--rounded-box-primitive` (FE-1115, merged #281) — `projectRoundedBox`
+  owns the shared rounded-border projection; brunch-editor / workspace-dialog / cards delegate.
+- 2026-07-01 `component-dx--wheel-scroll-passthrough` (FE-1115, merged #281) — preview-harness SGR
+  wheel handling (`showComponentPreview` + `.pi/components/mouse-wheel.ts`). Residual carried: manual
+  physical-terminal wheel smoke test never run.
+- 2026-07-03 `walkthrough-fixes` (FE-1122, merged #286) — beat-1 doctor-pass defect closures (F1
+  kick prompt, F2 origination record, F3/F4/F6 kick chrome, F5/F9 elicitor prompt refinements);
+  findings ledger `TESTING_FINDINGS.md`; batch 2 continues as FE-1124 (#288).
+- `orchestrator-tool-port` (FE-1107) — retired unbuilt: superseded by the `orchestrator-cutover`
+  arc, which delivered the plan-check tracer as `execute_plan_check` and the cook orchestration
+  port as the `execute_*` tool family (D98-L).
