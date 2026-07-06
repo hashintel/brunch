@@ -9,6 +9,7 @@ type ProductUpdate = {
   readonly specId?: unknown;
   readonly sessionId?: unknown;
   readonly nodeId?: unknown;
+  readonly runId?: unknown;
 };
 
 export function useBrunchUpdateSubscription(queryClient: QueryClient, rpcClient: WebSocketRpcClient): void {
@@ -75,6 +76,14 @@ function invalidateProductUpdate(queryClient: QueryClient, update: ProductUpdate
     });
     return;
   }
+  if (update.topic === 'execute.runs') {
+    invalidateExact(queryClient, queryKeys.execute.runs());
+    return;
+  }
+  if (update.topic === 'execute.run' && typeof update.runId === 'string') {
+    invalidateExact(queryClient, queryKeys.execute.run(update.runId));
+    return;
+  }
   if (typeof update.topic === 'string') {
     invalidateTopic(queryClient, update.topic);
   }
@@ -99,6 +108,14 @@ function invalidateTopic(queryClient: QueryClient, topic: string): void {
   }
   if (topic === 'graph.nodeNeighborhood') {
     void queryClient.invalidateQueries({ queryKey: ['graph.nodeNeighborhood'] });
+    return;
+  }
+  if (topic === 'execute.runs') {
+    invalidateExact(queryClient, queryKeys.execute.runs());
+    return;
+  }
+  if (topic === 'execute.run') {
+    void queryClient.invalidateQueries({ queryKey: ['execute.run'] });
   }
 }
 

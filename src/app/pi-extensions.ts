@@ -17,6 +17,7 @@ import { registerBrunchExecutePopulate } from '../.pi/extensions/agent-runtime/i
 import { registerBrunchExecuteReportInit } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteRunComplete } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteRunCreate } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteRunUpdates } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteSourceCopy } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteSourcePolicy } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteSliceComplete } from '../.pi/extensions/agent-runtime/index.js';
@@ -331,6 +332,12 @@ export function createBrunchPiExtensions(
       registerBrunchContext,
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
+      ...(options.productUpdates
+        ? [
+            (api: ExtensionAPI) =>
+              registerBrunchExecuteRunUpdates(api, { productUpdates: options.productUpdates! }),
+          ]
+        : []),
       (api) => registerBrunchExecuteOrchestrate(api, executionPorts),
       (api) => registerBrunchExecuteAgentResult(api, executionPorts.agentRunner),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteLaunch(api, graph)] : []),

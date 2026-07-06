@@ -388,6 +388,12 @@ useBrunchUpdateInvalidation(rpc, queryClient)
 
     if topic == graph.coherenceSummary:
       invalidate exact graph.coherenceSummary(specId)
+
+    if topic == execute.runs:
+      invalidate exact execute.runs
+
+    if topic == execute.run:
+      invalidate exact execute.run(runId); broad without runId
 ```
 
 Prefer exact invalidation when the notification includes `{specId, sessionId, lsn, nodeIds, edgeIds}`. Broad invalidation is acceptable in proof code, but it should not become the product cache policy.
