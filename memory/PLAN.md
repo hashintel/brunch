@@ -199,8 +199,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1141](https://linear.app/hash/issue/FE-1141/executor-run-observer-watch-a-run-crank-live-in-the-web-sidecar)
 - **Branch:** `ka/fe-1141-executor-run-observer` (rooted on `next`; the executor stack landed 2026-07-06)
 - **Kind:** structural / executor read-projection + web observer surface
-- **Status:** tracer built 2026-07-06 (4-card sequence consumed; scope file deleted). Remaining acceptance: Petri raw `net.json` view; outer walkthrough owed per `docs/praxis/manual-testing.md`.
-- **Current execution pointer:** none — next unit is a small Petri-raw-view slice via `ln-scope`.
+- **Status:** code acceptance complete 2026-07-06 (tracer + closeout: Petri raw view landed; review contract locks landed — execute-family sideEffects sentinel, executor purity boundary test, explicit `execute.run` runId validation). Remaining before tie-off: outer live-browser walkthrough per `docs/praxis/manual-testing.md`, then PR submit.
+- **Current execution pointer:** none — build queue exhausted; next steps are outer walkthrough + tie-off.
 - **Certainty:** proving.
 - **Build notes (2026-07-06):** run-scoped topics landed as one passive `tool_result` observer extension (`agent-runtime/execute-run-updates`) publishing on successful explicit side effects, not per-tool publisher threading. Known limit: an `execute_orchestrate` drive publishes once at drive end — intra-drive liveness stays on refetch until a scheduler-seam hook is scoped.
 - **Lights up:** the first end-to-end read path from `.brunch/cook/runs/**` artifacts → `execute.runs` / `execute.run` / `execute.runReports` product RPC projections → web `/runs` routes, plus run-scoped `brunch.updated` topics.

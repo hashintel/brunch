@@ -36,11 +36,13 @@ export interface RunDetail extends RunSummary {
   readonly planPath: string;
   readonly reportsTail: readonly RunReportEvent[];
   readonly reportsTotal: number;
+  /** Raw parsed petrinaut/net.json — deliberately unshaped (frontier: raw view only). */
+  readonly petriNet?: unknown;
 }
 
 export const DEFAULT_REPORTS_TAIL_LIMIT = 50;
 
-export function runsRootPath(cwd: string): string {
+function runsRootPath(cwd: string): string {
   return join(cwd, BRUNCH_DIR, 'cook', 'runs');
 }
 
@@ -82,11 +84,13 @@ export async function readRunDetail(
   const summary = await summarizeRun(cwd, runId, metadata);
   const limit = options?.reportsTailLimit ?? DEFAULT_REPORTS_TAIL_LIMIT;
   const reports = await readReportsTail(reportsFilePath(cwd, runId, metadata), limit);
+  const petriNet = await readPetriNet(petriFilePath(cwd, runId, metadata));
   return {
     ...summary,
     planPath: metadata.planPath,
     reportsTail: reports.tail,
     reportsTotal: reports.total,
+    ...(petriNet === undefined ? {} : { petriNet }),
   };
 }
 
@@ -95,7 +99,7 @@ async function summarizeRun(cwd: string, runId: string, metadata: RunMetadata): 
   const [worktree, reports, petri, promotion] = await Promise.all([
     pathExists(metadata.worktreeDir ?? join(runDir, 'worktree')),
     pathExists(reportsFilePath(cwd, runId, metadata)),
-    pathExists(metadata.petriPath ?? join(runDir, 'petrinaut', 'net.json')),
+    pathExists(petriFilePath(cwd, runId, metadata)),
     pathExists(metadata.promotionPath ?? join(runDir, 'promotion', 'promotion.json')),
   ]);
   return {
@@ -110,6 +114,18 @@ async function summarizeRun(cwd: string, runId: string, metadata: RunMetadata): 
 
 function reportsFilePath(cwd: string, runId: string, metadata: RunMetadata): string {
   return metadata.reportsPath ?? join(runDirPath(cwd, runId), 'reports.jsonl');
+}
+
+function petriFilePath(cwd: string, runId: string, metadata: RunMetadata): string {
+  return metadata.petriPath ?? join(runDirPath(cwd, runId), 'petrinaut', 'net.json');
+}
+
+async function readPetriNet(path: string): Promise<unknown> {
+  try {
+    return JSON.parse(await readFile(path, 'utf8')) as unknown;
+  } catch {
+    return undefined;
+  }
 }
 
 async function readReportsTail(

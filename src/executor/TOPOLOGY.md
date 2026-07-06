@@ -44,6 +44,7 @@ executor/
 ```pseudo
 rules:
   executor/ -> graph/schema/ [read typed DTOs]
+  # enforced by __tests__/boundaries.test.ts
   executor/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
 ```
 

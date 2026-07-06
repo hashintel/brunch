@@ -106,6 +106,36 @@ describe('readRunDetail', () => {
     ]);
   });
 
+  it('carries the raw parsed petri net when the artifact exists and parses', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-');
+    const runDir = await writeRun(cwd, 'run-p', { status: 'petri_exported' });
+    const net = { places: [{ id: 'p1' }], transitions: [] };
+    await mkdir(join(runDir, 'petrinaut'), { recursive: true });
+    await writeFile(join(runDir, 'petrinaut', 'net.json'), JSON.stringify(net), 'utf8');
+
+    const detail = await readRunDetail(cwd, 'run-p');
+
+    expect(detail).toMatchObject({
+      presence: { petri: true },
+      petriNet: net,
+    });
+  });
+
+  it('omits the petri payload when the artifact is missing or unparseable', async () => {
+    const cwd = await fixtureCwd('brunch-observer-petri-bad-');
+    await writeRun(cwd, 'run-none', { status: 'run_completed' });
+    const tornDir = await writeRun(cwd, 'run-torn-petri', { status: 'petri_exported' });
+    await mkdir(join(tornDir, 'petrinaut'), { recursive: true });
+    await writeFile(join(tornDir, 'petrinaut', 'net.json'), '{"places": [', 'utf8');
+
+    const missing = await readRunDetail(cwd, 'run-none');
+    const torn = await readRunDetail(cwd, 'run-torn-petri');
+
+    expect(missing && 'petriNet' in missing ? missing.petriNet : 'absent').toBe('absent');
+    expect(torn).toMatchObject({ presence: { petri: true } });
+    expect(torn && 'petriNet' in torn ? torn.petriNet : 'absent').toBe('absent');
+  });
+
   it('limits the reports tail while reporting the full total', async () => {
     const cwd = await fixtureCwd('brunch-observer-tail-limit-');
     const runDir = await writeRun(cwd, 'run-l', { status: 'run_completed' });
