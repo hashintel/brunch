@@ -164,4 +164,31 @@ describe('projectExecutionSpecSnapshot', () => {
     expect(snapshot.context.design.map((item) => item.itemId)).toEqual(['SKT1']);
     expect(snapshot.context.oracle.map((item) => item.itemId)).toEqual(['CH1']);
   });
+
+  it('records projected dependency edges that are not executable requirement dependencies', () => {
+    const requirement = node({
+      id: 10,
+      plane: 'intent',
+      kind: 'requirement',
+      kindOrdinal: 1,
+      title: 'Build feature',
+    });
+    const decision = node({
+      id: 20,
+      plane: 'intent',
+      kind: 'decision',
+      kindOrdinal: 1,
+      title: 'Choose architecture',
+    });
+
+    const snapshot = projectExecutionSpecSnapshot({
+      specId: 7,
+      mode: 'greenfield',
+      nodes: [requirement, decision],
+      edges: [edge({ id: 1, category: 'dependency', sourceId: decision.id, targetId: requirement.id })],
+    });
+
+    expect(snapshot.requirements[0]?.dependsOn).toEqual([]);
+    expect(snapshot.unprojectedDependencies).toEqual([{ dependencyId: 'D1', dependentId: 'REQ1' }]);
+  });
 });

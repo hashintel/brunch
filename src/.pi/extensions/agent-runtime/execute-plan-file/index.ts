@@ -1,7 +1,10 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
-import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
+import {
+  assertExecuteProjectionPlanReady,
+  projectExecuteGraph,
+} from '../../../../executor/execute-projection.js';
 import { writePlanFile } from '../../../../executor/plan-file.js';
 import type { PlanPreview } from '../../../../executor/plan-preview.js';
 import { BRUNCH_EXECUTE_PLAN_FILE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -54,6 +57,7 @@ export function createExecutePlanFileTool(
         nodes: graph.nodes,
         edges: graph.edges,
       });
+      assertExecuteProjectionPlanReady(projection);
       const preview = projection.planPreview;
       const artifact = await writePlanFile({ cwd, preview });
       return {

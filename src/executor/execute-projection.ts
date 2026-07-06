@@ -47,3 +47,12 @@ export function projectExecuteGraph(input: ProjectExecuteGraphInput): ExecuteGra
     planPreview: previewPlan(draft),
   };
 }
+
+export function assertExecuteProjectionPlanReady(projection: ExecuteGraphProjection): void {
+  if (projection.check.status === 'ok') return;
+
+  const errors = projection.check.findings.filter((finding) => finding.severity === 'error');
+  const summary =
+    errors.length > 0 ? errors.map((finding) => finding.message).join('; ') : 'unknown plan-input error';
+  throw new Error(`Execution plan projection is blocked: ${summary}`);
+}

@@ -3,7 +3,8 @@ import type { ExecutionSpecSnapshot } from './execution-spec-snapshot.js';
 export type ExecutePlanCheckFindingCode =
   | 'empty_snapshot'
   | 'requirement_without_criterion'
-  | 'criterion_without_requirement';
+  | 'criterion_without_requirement'
+  | 'unprojected_dependency';
 
 export type ExecutePlanCheckSeverity = 'error' | 'warning';
 
@@ -62,6 +63,15 @@ export function checkExecutionSpecForPlan(snapshot: ExecutionSpecSnapshot): Exec
       severity: 'warning',
       itemId: requirement.itemId,
       message: `Requirement ${requirement.itemId} has no verifying criterion in the execution snapshot.`,
+    });
+  }
+
+  for (const dependency of snapshot.unprojectedDependencies ?? []) {
+    findings.push({
+      code: 'unprojected_dependency',
+      severity: 'error',
+      itemId: dependency.dependentId,
+      message: `Dependency ${dependency.dependencyId} -> ${dependency.dependentId} cannot be represented in the executable plan as a slice dependency.`,
     });
   }
 
