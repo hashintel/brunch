@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "konsistent-config": {
+      "source": "vercel-labs/konsistent",
+      "sourceType": "github",
+      "skillPath": "skills/konsistent-config/SKILL.md",
+      "computedHash": "08cdf62a5d6f654e286de9e941fbf01950ec19b352c7d881b50272d95c2c9216"
+    }
+  }
+}
