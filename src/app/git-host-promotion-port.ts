@@ -42,7 +42,10 @@ export function createGitHostPromotionPort(
       };
     },
     async apply(args) {
-      const patch = await run('git', ['diff', '--binary', args.baseSha, args.commitSha], {
+      // --no-ext-diff: the output must be an applyable patch, so bypass any
+      // user-configured external differ (e.g. a semantic diff wrapper), which
+      // would otherwise replace the patch body with human-oriented output.
+      const patch = await run('git', ['diff', '--no-ext-diff', '--binary', args.baseSha, args.commitSha], {
         cwd: args.worktreeDir,
       });
       if (patch.exitCode !== 0) return failed(patch, `git diff --binary exited ${patch.exitCode}`);
