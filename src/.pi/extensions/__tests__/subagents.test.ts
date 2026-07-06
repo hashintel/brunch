@@ -29,6 +29,7 @@ import type { GraphReaders } from '../brunch-data/graph/index.js';
 import {
   loadSubagentDefinitions,
   parseSubagentMarkdown,
+  subagentAgentsDir,
   type SubagentDefinition,
 } from '../subagents/agents.js';
 import { parseSubagentConfig } from '../subagents/config.js';
@@ -62,6 +63,17 @@ thinking: low
 ---
 
 You are an explorer.
+`;
+
+const WORKER_MD = `---
+name: worker
+description: Execute one bounded code change in a sandbox worktree
+tools: read, write_worktree_file
+model: default
+thinking: medium
+---
+
+You are a worker.
 `;
 
 function sealedResourceLoaderOptions(): CreateAgentSessionServicesOptions['resourceLoaderOptions'] {
@@ -137,6 +149,16 @@ describe('loadSubagentDefinitions (bundled agents)', () => {
 
     expect([...definitions.keys()]).toEqual(['explorer']);
     expect(definitions.has('ghost')).toBe(false);
+  });
+
+  it('loads the bundled worker from the code-owned registry', async () => {
+    const definitions = await loadSubagentDefinitions(subagentAgentsDir());
+
+    expect(definitions.get('worker')).toMatchObject({
+      name: 'worker',
+      tools: ['read', 'write_worktree_file'],
+      canDelegate: [],
+    });
   });
 });
 
@@ -223,6 +245,7 @@ describe('planSubagentTools', () => {
       'read',
       'web_fetch',
       'web_search',
+      'write_worktree_file',
     ]);
     expect([...createSubagentToolCatalog('/tmp', injectedWorld()).keys()].sort()).toEqual([
       'find',
@@ -232,7 +255,21 @@ describe('planSubagentTools', () => {
       'read_graph',
       'web_fetch',
       'web_search',
+      'write_worktree_file',
     ]);
+  });
+
+  it('maps the worker to bounded worktree tools without shell or nesting', () => {
+    const def = parseSubagentMarkdown(WORKER_MD);
+    const plan = planSubagentTools(def, { cwd: '/tmp/worktree' });
+
+    expect(plan.tools).toEqual(['read', 'write_worktree_file']);
+    expect((plan.customTools ?? []).map((tool: ToolDefinition) => tool.name).sort()).toEqual([
+      'read',
+      'write_worktree_file',
+    ]);
+    expect((plan.customTools ?? []).map((tool: ToolDefinition) => tool.name)).not.toContain('bash');
+    expect((plan.customTools ?? []).map((tool: ToolDefinition) => tool.name)).not.toContain('subagent');
   });
 
   it('maps read-only filesystem tools to a cwd-bound custom-tool allowlist', () => {
@@ -539,10 +576,8 @@ describe('registerBrunchSubagents', () => {
     );
   });
 
-  it('refuses a test-only write-capable background manifest not delegated by elicit', async () => {
-    const writeCapable = parseSubagentMarkdown(
-      '---\nname: worker\ndescription: Write-capable test worker\ntools: write, edit\n---\nDo one write task.',
-    );
+  it('refuses the write-capable worker when it is loaded but not delegated by elicit', async () => {
+    const writeCapable = parseSubagentMarkdown(WORKER_MD);
     const registered: ToolDefinition[] = [];
     const pi = { registerTool: (tool: ToolDefinition) => registered.push(tool) } as unknown as ExtensionAPI;
     const runSubagent = vi.fn(async ({ definition }): Promise<SubagentResult> => {

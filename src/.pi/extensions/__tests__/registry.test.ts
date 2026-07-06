@@ -10,7 +10,12 @@ import {
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../executor/__tests__/fake-ports.js';
-import type { GitWorktreePort, TestRunnerPort } from '../../../executor/execution-ports.js';
+import type {
+  AgentRunArgs,
+  AgentRunnerPort,
+  GitWorktreePort,
+  TestRunnerPort,
+} from '../../../executor/execution-ports.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../agent-runtime/execute-agent-result/index.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../agent-runtime/execute-launch/index.js';
@@ -56,6 +61,7 @@ import {
 } from '../exchanges/index.js';
 import { registerBrunchMentionAutocomplete as mentionAutocomplete } from '../mentions/index.js';
 import { registerBrunchSessionBoundary as sessionLifecycle } from '../session-hooks/session/lifecycle.js';
+import { parseSubagentMarkdown, type BrunchSubagentsDeps, type SubagentResult } from '../subagents/index.js';
 
 const extensionDefaults = {
   'components/alternatives.ts': alternatives,
@@ -1042,18 +1048,17 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'agent-output', 'task-1', 'result.json'))).rejects.toThrow();
   });
 
-  it('registers execute_agent_result as prewritten result ingestion only', async () => {
+  it('registers execute_agent_result as injected agent-runner ingestion', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-agent-result-'));
     const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
     const metadataPath = join(runDir, 'run.json');
     const reportPath = join(runDir, 'reports.jsonl');
+    const worktreeDir = join(runDir, 'worktree');
+    const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
     const resultPath = join(runDir, 'agent-output', 'task-1', 'result.json');
-    await mkdir(dirname(resultPath), { recursive: true });
-    await writeFile(
-      resultPath,
-      JSON.stringify({ status: 'completed', summary: 'Implemented task.' }),
-      'utf8',
-    );
+    await mkdir(dirname(requestPath), { recursive: true });
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(requestPath, JSON.stringify({ task: 'execute_slice' }), 'utf8');
     await writeFile(
       metadataPath,
       JSON.stringify({
@@ -1061,22 +1066,48 @@ describe('Brunch explicit Pi extension registry', () => {
         specId: '42',
         planPath: '/tmp/plan.yaml',
         status: 'slice_execution_requested',
+        worktreeDir,
         reportsPath: reportPath,
         activeSliceId: 'task-1',
         activeEpicId: 'frontier-1',
+        sliceExecutionRequestPath: requestPath,
       }),
       'utf8',
     );
     await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+    const calls: AgentRunArgs[] = [];
     const registeredTools = await collectProductTools({
       graph: { specId: 42, lsn: 28, nodes: [], edges: [] },
+      agentRunner: {
+        async run(args) {
+          calls.push(args);
+          return { status: 'completed', summary: 'Implemented task.' };
+        },
+      },
     });
 
     const agentResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_AGENT_RESULT_TOOL);
     expect(agentResult).toBeDefined();
-    const result = await agentResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+    const modelRegistry = { marker: 'registry' };
+    const model = { provider: 'faux', id: 'model' };
+    const result = await agentResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, {
+      cwd,
+      modelRegistry,
+      model,
+    });
 
     expect(result.content[0]?.text).toContain('execute_agent_result: agent_result_ingested');
+    expect(calls).toEqual([
+      {
+        worktreeDir,
+        requestPath,
+        resultPath,
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+        runtime: { modelRegistry, model },
+      },
+    ]);
     expect(result.details).toMatchObject({
       result: { status: 'agent_result_ingested', runStatus: 'agent_result_ingested', resultPath },
       sideEffects: [
@@ -1086,6 +1117,60 @@ describe('Brunch explicit Pi extension registry', () => {
     });
     await expect(readFile(reportPath, 'utf8')).resolves.toContain('slice_agent_result');
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
+  });
+
+  it('registers execute_agent_result through default sealed-worker composition', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-agent-default-runner-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    const reportPath = join(runDir, 'reports.jsonl');
+    const worktreeDir = join(runDir, 'worktree');
+    const requestPath = join(runDir, 'agent-output', 'task-1', 'request.json');
+    const resultPath = join(runDir, 'agent-output', 'task-1', 'result.json');
+    await mkdir(dirname(requestPath), { recursive: true });
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(requestPath, JSON.stringify({ task: 'write proof' }), 'utf8');
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/tmp/plan.yaml',
+        status: 'slice_execution_requested',
+        worktreeDir,
+        reportsPath: reportPath,
+        activeSliceId: 'task-1',
+        activeEpicId: 'frontier-1',
+        sliceExecutionRequestPath: requestPath,
+      }),
+      'utf8',
+    );
+    await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+    const calls: Array<{ agent: string; cwd: string; task: string }> = [];
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 28, nodes: [], edges: [] },
+      subagents: workerSubagents(async ({ definition, ctx, task }): Promise<SubagentResult> => {
+        calls.push({ agent: definition.name, cwd: ctx.cwd, task });
+        await writeFile(join(ctx.cwd, 'worker-proof.txt'), 'changed by worker\n', 'utf8');
+        return { agent: definition.name, status: 'ok', text: 'Wrote worker-proof.txt' };
+      }),
+    });
+
+    const agentResult = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_AGENT_RESULT_TOOL);
+    const modelRegistry = { marker: 'registry' };
+    const result = await agentResult!.execute('call-1', { runId: 'run-1' }, undefined, undefined, {
+      cwd,
+      modelRegistry,
+    });
+
+    expect(result.content[0]?.text).toContain('execute_agent_result: agent_result_ingested');
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatchObject({ agent: 'worker', cwd: worktreeDir });
+    expect(calls[0]!.task).toContain('write proof');
+    await expect(readFile(join(worktreeDir, 'worker-proof.txt'), 'utf8')).resolves.toBe(
+      'changed by worker\n',
+    );
+    await expect(readFile(resultPath, 'utf8')).resolves.toContain('Wrote worker-proof.txt');
   });
 
   it('registers execute_test_result as injected verify-subprocess ingestion', async () => {
@@ -1711,7 +1796,7 @@ type RegisteredTestTool = {
     params: unknown,
     signal?: AbortSignal,
     onUpdate?: unknown,
-    ctx?: { cwd: string },
+    ctx?: { cwd: string; modelRegistry?: unknown; model?: unknown },
   ) => Promise<{
     content: readonly { text: string }[];
     details: Record<string, unknown>;
@@ -1726,17 +1811,25 @@ interface TestGraphSlice {
 }
 
 async function collectProductTools(
-  options: { graph?: TestGraphSlice; gitWorktree?: GitWorktreePort; testRunner?: TestRunnerPort } = {},
+  options: {
+    graph?: TestGraphSlice;
+    gitWorktree?: GitWorktreePort;
+    testRunner?: TestRunnerPort;
+    agentRunner?: AgentRunnerPort;
+    subagents?: BrunchSubagentsDeps;
+  } = {},
 ): Promise<RegisteredTestTool[]> {
   const registeredTools: RegisteredTestTool[] = [];
   await createBrunchPiExtensions(brunchChromeFixture, undefined, {
     coordinator: {} as never,
     graphMentionSource: { listMentionCandidates: () => [] },
-    ...(options.gitWorktree || options.testRunner
+    ...(options.subagents ? { subagents: options.subagents } : {}),
+    ...(options.gitWorktree || options.testRunner || options.agentRunner
       ? {
           executionPorts: {
             ...(options.gitWorktree ? { gitWorktree: options.gitWorktree } : {}),
             ...(options.testRunner ? { testRunner: options.testRunner } : {}),
+            ...(options.agentRunner ? { agentRunner: options.agentRunner } : {}),
           },
         }
       : {}),
@@ -1773,6 +1866,32 @@ async function collectProductTools(
     setActiveTools() {},
   } as never);
   return registeredTools;
+}
+
+function workerSubagents(runSubagent: NonNullable<BrunchSubagentsDeps['runSubagent']>): BrunchSubagentsDeps {
+  return {
+    definitions: new Map([
+      [
+        'worker',
+        parseSubagentMarkdown(`---
+name: worker
+description: Execute one bounded code change in a sandbox worktree
+tools: read, write_worktree_file
+model: default
+thinking: medium
+---
+
+Worker body.
+`),
+      ],
+    ]),
+    delegatableAgents: [],
+    maxConcurrency: 1,
+    agentDir: '/agent',
+    createSettingsManager: () => ({}) as never,
+    resourceLoaderOptions: { noContextFiles: true } as never,
+    runSubagent,
+  };
 }
 
 function recordingApiWithEvents(events: Map<string, Array<(event: any, ctx: any) => Promise<void> | void>>) {

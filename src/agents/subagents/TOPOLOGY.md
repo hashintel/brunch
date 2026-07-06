@@ -12,7 +12,8 @@ subagents/
 ├── explorer.md       background codebase recon body + frontmatter
 ├── researcher.md     background web-research body + frontmatter
 ├── projector.md      optional background variant-generator body + frontmatter
-└── reviewer.md       background proposal/commitment review body + frontmatter
+├── reviewer.md       background proposal/commitment review body + frontmatter
+└── worker.md         execute-mode sandbox worker body + frontmatter
 ```
 
 Each file carries frontmatter (`name`, `description`, `tools`, `model`, `thinking`) plus the child system-prompt body. Frontmatter is authoring DX; the code-owned registry decides which ids exist. Unlisted files are not spawnable.

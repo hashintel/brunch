@@ -5,9 +5,11 @@ import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { ingestAgentResult } from '../agent-result.js';
+import type { AgentRunArgs } from '../execution-ports.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
 import { sliceExecutionRequestPath } from '../slice-execute.js';
+import { worktreeDirPath } from '../worktree.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -33,6 +35,7 @@ async function createRequestedSliceRun(cwd: string): Promise<void> {
       specId: '42',
       planPath: '/tmp/plan.yaml',
       status: 'slice_execution_requested',
+      worktreeDir: join(runDir, 'worktree'),
       reportsPath: reportPath,
       activeSliceId: 'task-1',
       activeEpicId: 'frontier-1',
@@ -46,7 +49,15 @@ async function createRequestedSliceRun(cwd: string): Promise<void> {
 describe('ingestAgentResult', () => {
   it('does not ingest when run metadata is missing', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-missing-run-'));
-    const result = await ingestAgentResult({ cwd, runId: 'run-1' });
+    const result = await ingestAgentResult({
+      cwd,
+      runId: 'run-1',
+      agentRunner: {
+        async run() {
+          return { status: 'completed', summary: 'Implemented task.' };
+        },
+      },
+    });
 
     expect(result).toEqual({
       status: 'missing_run',
@@ -66,29 +77,20 @@ describe('ingestAgentResult', () => {
       'utf8',
     );
 
-    const result = await ingestAgentResult({ cwd, runId: 'run-1' });
+    const result = await ingestAgentResult({
+      cwd,
+      runId: 'run-1',
+      agentRunner: {
+        async run() {
+          return { status: 'completed', summary: 'Implemented task.' };
+        },
+      },
+    });
 
     expect(result).toEqual({
       status: 'slice_not_requested',
       runStatus: 'slice_started',
       runId: 'run-1',
-      metadataPath: runMetadataPath(cwd, 'run-1'),
-      sideEffects: [],
-    });
-  });
-
-  it('does not ingest until an agent result file exists', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-missing-result-'));
-    await createRequestedSliceRun(cwd);
-
-    const result = await ingestAgentResult({ cwd, runId: 'run-1' });
-
-    expect(result).toEqual({
-      status: 'missing_agent_result',
-      runStatus: 'slice_execution_requested',
-      runId: 'run-1',
-      sliceId: 'task-1',
-      resultPath: join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json'),
       metadataPath: runMetadataPath(cwd, 'run-1'),
       sideEffects: [],
     });
@@ -115,21 +117,46 @@ describe('ingestAgentResult', () => {
       'utf8',
     );
 
-    await expect(ingestAgentResult({ cwd, runId: 'run-1' })).rejects.toThrow('invalid sliceId');
+    await expect(
+      ingestAgentResult({
+        cwd,
+        runId: 'run-1',
+        agentRunner: {
+          async run() {
+            return { status: 'completed', summary: 'Implemented task.' };
+          },
+        },
+      }),
+    ).rejects.toThrow('invalid sliceId');
   });
 
-  it('ingests a prewritten agent result without running tests or Petri', async () => {
-    const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-ready-'));
+  it('runs the agent runner in the run worktree and ingests its result', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-runner-'));
     await createRequestedSliceRun(cwd);
     const resultPath = join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json');
-    await writeFile(
-      resultPath,
-      JSON.stringify({ status: 'completed', summary: 'Implemented task.' }),
-      'utf8',
-    );
+    const calls: AgentRunArgs[] = [];
 
-    const result = await ingestAgentResult({ cwd, runId: 'run-1' });
+    const result = await ingestAgentResult({
+      cwd,
+      runId: 'run-1',
+      agentRunner: {
+        async run(args) {
+          calls.push(args);
+          return { status: 'completed', summary: 'Implemented task.' };
+        },
+      },
+    });
 
+    expect(calls).toEqual([
+      {
+        worktreeDir: worktreeDirPath(cwd, 'run-1'),
+        requestPath: sliceExecutionRequestPath(cwd, 'run-1', 'task-1'),
+        resultPath,
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+      },
+    ]);
     expect(result).toEqual({
       status: 'agent_result_ingested',
       runStatus: 'agent_result_ingested',
@@ -163,5 +190,36 @@ describe('ingestAgentResult', () => {
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'tests-ran.json'))).toBe(false);
+  });
+
+  it('does not advance run metadata when the agent runner cannot execute', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-run-failed-'));
+    await createRequestedSliceRun(cwd);
+
+    const result = await ingestAgentResult({
+      cwd,
+      runId: 'run-1',
+      agentRunner: {
+        async run() {
+          return { status: 'failed', message: 'worker unavailable' };
+        },
+      },
+    });
+
+    expect(result).toEqual({
+      status: 'agent_run_failed',
+      runStatus: 'slice_execution_requested',
+      runId: 'run-1',
+      sliceId: 'task-1',
+      worktreeDir: worktreeDirPath(cwd, 'run-1'),
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      message: 'worker unavailable',
+      sideEffects: [],
+    });
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'slice_execution_requested',
+    });
+    const reports = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
+    expect(reports).not.toContain('slice_agent_result');
   });
 });

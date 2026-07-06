@@ -53,6 +53,7 @@ import {
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   createInMemoryBrunchIntrospectionStore,
+  projectBrunchAgentState,
   type BrunchIntrospectionStore,
 } from './pi-extensions.js';
 import { projectBrunchPiSessionOptions } from './pi-session-options.js';
@@ -402,30 +403,31 @@ export function createBrunchAgentSessionRuntimeFactory(
     // shortcut contexts do not carry.
     const liveAgentSession = context.liveAgentSession ?? { current: null };
     const startupHeader = startupHeaderForActivation(context.activationDecision);
-    const subagents =
-      context.allowSubagents !== false
-        ? await loadBrunchSubagents({
-            cwd,
-            agentDir: runtimeAgentDir,
-            // Always register the code-owned delegatable set; whether the
-            // subagent tool is active/advertised is the per-mode tool policy's
-            // call (elicitor allowlist includes it, executor's excludes it) —
-            // never conditional registration (D86-L discipline).
-            delegatableAgents: ['explorer', 'researcher', 'projector', 'reviewer'],
-            world: {
-              graph: {
-                specId: currentWorkspace.spec.id,
-                reads: graphReadersForSpec(graph, currentWorkspace.spec.id),
-              },
-              spec: selectedSpecContext(graph, currentWorkspace.spec.id),
-              workspace: { cwd },
-              session: {
-                id: currentWorkspace.session.id,
-                ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
-              },
-              sessionBranch: sessionManager.getBranch(),
+    const agentState = projectBrunchAgentState(sessionManager.getEntries());
+    const allowProductSubagents = context.allowSubagents !== false;
+    const shouldLoadSubagents = allowProductSubagents || agentState.operationalMode === 'execute';
+    const subagents = shouldLoadSubagents
+      ? await loadBrunchSubagents({
+          cwd,
+          agentDir: runtimeAgentDir,
+          delegatableAgents:
+            allowProductSubagents && agentState.operationalMode === 'elicit'
+              ? ['explorer', 'researcher', 'projector', 'reviewer']
+              : [],
+          world: {
+            graph: {
+              specId: currentWorkspace.spec.id,
+              reads: graphReadersForSpec(graph, currentWorkspace.spec.id),
             },
-          })
+            spec: selectedSpecContext(graph, currentWorkspace.spec.id),
+            workspace: { cwd },
+            session: {
+              id: currentWorkspace.session.id,
+              ...(currentWorkspace.session.name ? { label: currentWorkspace.session.name } : {}),
+            },
+            sessionBranch: sessionManager.getBranch(),
+          },
+        })
         : undefined;
     const profile = createBrunchPiSettings({
       cwd,

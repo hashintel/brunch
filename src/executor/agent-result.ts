@@ -1,6 +1,7 @@
-import { appendFile, readFile } from 'node:fs/promises';
+import { appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import type { AgentRunnerPort, AgentRunnerRuntime } from './execution-ports.js';
 import { reportsPath } from './report.js';
 import {
   assertSafeSliceId,
@@ -10,11 +11,8 @@ import {
   readRunMetadata,
   type RunMetadata,
 } from './run.js';
-
-interface AgentResultPayload {
-  readonly status?: string;
-  readonly summary?: string;
-}
+import { sliceExecutionRequestPath } from './slice-execute.js';
+import { worktreeDirPath } from './worktree.js';
 
 export type AgentResultIngestResult =
   | {
@@ -32,12 +30,13 @@ export type AgentResultIngestResult =
       readonly sideEffects: readonly [];
     }
   | {
-      readonly status: 'missing_agent_result';
+      readonly status: 'agent_run_failed';
       readonly runStatus: 'slice_execution_requested';
       readonly runId: string;
       readonly sliceId: string;
-      readonly resultPath: string;
+      readonly worktreeDir: string;
       readonly metadataPath: string;
+      readonly message: string;
       readonly sideEffects: readonly [];
     }
   | {
@@ -63,6 +62,8 @@ export function agentResultPath(cwd: string, runId: string, sliceId: string): st
 export async function ingestAgentResult(args: {
   readonly cwd: string;
   readonly runId: string;
+  readonly agentRunner: AgentRunnerPort;
+  readonly runtime?: AgentRunnerRuntime;
 }): Promise<AgentResultIngestResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -86,16 +87,29 @@ export async function ingestAgentResult(args: {
     };
   }
 
+  const worktreeDir = metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
+  const requestPath =
+    metadata.sliceExecutionRequestPath ??
+    sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
   const resultPath = agentResultPath(args.cwd, args.runId, metadata.activeSliceId);
-  const result = await readAgentResult(resultPath);
-  if (!result) {
+  const runResult = await args.agentRunner.run({
+    worktreeDir,
+    requestPath,
+    resultPath,
+    runId: args.runId,
+    epicId: metadata.activeEpicId,
+    sliceId: metadata.activeSliceId,
+    ...(args.runtime ? { runtime: args.runtime } : {}),
+  });
+  if (runResult.status === 'failed') {
     return {
-      status: 'missing_agent_result',
+      status: 'agent_run_failed',
       runStatus: 'slice_execution_requested',
       runId: args.runId,
       sliceId: metadata.activeSliceId,
-      resultPath,
+      worktreeDir,
       metadataPath,
+      message: runResult.message,
       sideEffects: [],
     };
   }
@@ -106,8 +120,8 @@ export async function ingestAgentResult(args: {
     runId: args.runId,
     epicId: metadata.activeEpicId,
     sliceId: metadata.activeSliceId,
-    status: result.status ?? 'completed',
-    ...(result.summary ? { summary: result.summary } : {}),
+    status: runResult.status,
+    ...(runResult.summary ? { summary: runResult.summary } : {}),
   };
   const updated: RunMetadata = {
     ...metadata,
@@ -129,12 +143,4 @@ export async function ingestAgentResult(args: {
     reportsPath: reportPath,
     sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],
   };
-}
-
-async function readAgentResult(path: string): Promise<AgentResultPayload | undefined> {
-  try {
-    return JSON.parse(await readFile(path, 'utf8')) as AgentResultPayload;
-  } catch {
-    return undefined;
-  }
 }

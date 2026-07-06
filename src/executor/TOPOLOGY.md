@@ -9,7 +9,7 @@ Pure contracts and projection helpers that turn `next` graph facts into execute-
 ```text
 executor/
 ├── TOPOLOGY.md
-├── agent-result.ts       prewritten result -> slice result report
+├── agent-result.ts       AgentRunnerPort -> slice result report
 ├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml
 ├── launch.ts             spec-scoped plan.yaml -> non-running launch readiness
 ├── plan-preview.ts       executable-plan draft -> old cook-compatible DTO preview
@@ -26,7 +26,7 @@ executor/
 ├── source-policy.ts      plan-populated worktree -> source policy selection
 ├── test-result.ts        run worktree -> verify subprocess (TestRunnerPort) -> slice test report
 ├── worktree.ts           run metadata -> real git worktree (GitWorktreePort)
-├── execution-ports.ts    injected capability ports (git worktree, test runner)
+├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner)
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO
 ├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact
@@ -80,7 +80,7 @@ rules:
 
 `slice-execute.ts` creates the first execution request artifact for the active slice under `agent-output/<sliceId>/request.json`, appends `slice_execution_requested`, and records `status:"slice_execution_requested"`. It still does not invoke an agent process, run tests, compile Petri artifacts, promote, or land.
 
-`agent-result.ts` ingests an already-written `agent-output/<sliceId>/result.json`, appends `slice_agent_result`, and records `status:"agent_result_ingested"`. It is still not an agent launcher and does not run tests, compile Petri artifacts, promote, or land.
+`agent-result.ts` runs the injected `AgentRunnerPort` for the active slice's worktree/request/result paths, appends `slice_agent_result`, and records `status:"agent_result_ingested"`. Runner failure returns `agent_run_failed` and leaves metadata unchanged. The app-layer runner launches the sealed `worker` subagent when subagent deps and Pi model context are injected; this core module still does not import the SDK, run tests, compile Petri artifacts, promote, or land.
 
 `test-result.ts` runs the verify subprocess in the run's worktree through the injected `TestRunnerPort` (app-layer `npm run verify`), appends `slice_test_result` with the true verdict and exit code, and records `status:"test_result_ingested"`. A failing verdict still advances the run; only a runner that cannot execute (`status:"test_run_failed"`) leaves metadata unchanged. It does not compile Petri artifacts, promote, or land.
 

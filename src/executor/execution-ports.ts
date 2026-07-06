@@ -24,7 +24,35 @@ export interface GitWorktreePort {
   create(args: GitWorktreeCreateArgs): Promise<GitWorktreeCreateResult>;
 }
 
-export interface AgentRunnerPort {}
+export interface AgentRunArgs {
+  readonly worktreeDir: string;
+  readonly requestPath: string;
+  readonly resultPath: string;
+  readonly runId: string;
+  readonly epicId: string;
+  readonly sliceId: string;
+  readonly runtime?: AgentRunnerRuntime;
+}
+
+export interface AgentRunnerRuntime {
+  readonly modelRegistry?: unknown;
+  readonly model?: unknown;
+  readonly signal?: AbortSignal;
+}
+
+export type AgentRunResult =
+  | {
+      readonly status: 'completed';
+      readonly summary?: string;
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+    };
+
+export interface AgentRunnerPort {
+  run(args: AgentRunArgs): Promise<AgentRunResult>;
+}
 
 export interface TestRunArgs {
   readonly worktreeDir: string;
@@ -51,7 +79,7 @@ export interface GitLandPort {}
 
 export interface ExecutionPorts {
   readonly gitWorktree: GitWorktreePort;
+  readonly agentRunner: AgentRunnerPort;
   readonly testRunner: TestRunnerPort;
-  readonly agentRunner?: AgentRunnerPort;
   readonly gitLand?: GitLandPort;
 }

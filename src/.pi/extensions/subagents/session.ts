@@ -20,6 +20,9 @@
  * Its last assistant message is returned to the caller as tool-result content.
  */
 
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname, isAbsolute, resolve, sep } from 'node:path';
+
 import {
   AuthStorage,
   createAgentSessionFromServices,
@@ -35,12 +38,20 @@ import {
   type SettingsManager,
   type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
+import { Type, type Static } from 'typebox';
 
 import { createReadGraphTool, type GraphReaders } from '../brunch-data/graph/index.js';
 import { createWebFetchTool } from '../web-tools/web/web-fetch.js';
 import { createWebSearchTool } from '../web-tools/web/web-search.js';
 import type { SubagentDefinition } from './agents.js';
 import { composeBackgroundSubagentPrompt, type BackgroundWorldSnapshot } from './prompt-assembly.js';
+
+const WriteWorktreeFileParams = Type.Object({
+  path: Type.String({ minLength: 1, description: 'Relative path inside the worker worktree.' }),
+  content: Type.String({ description: 'Complete file content to write.' }),
+});
+
+type WriteWorktreeFileParams = Static<typeof WriteWorktreeFileParams>;
 
 type ChildModel = NonNullable<CreateAgentSessionFromServicesOptions['model']>;
 type ChildModelRegistry = ExtensionContext['modelRegistry'];
@@ -156,6 +167,7 @@ export function createSubagentToolCatalog(
   for (const tool of [createWebSearchTool(), createWebFetchTool()]) {
     pool.set(tool.name, tool as unknown as ToolDefinition);
   }
+  pool.set('write_worktree_file', createWriteWorktreeFileTool(cwd) as ToolDefinition);
   if (injectedWorld?.graph) {
     pool.set(
       'read_graph',
@@ -166,6 +178,35 @@ export function createSubagentToolCatalog(
     );
   }
   return pool;
+}
+
+function createWriteWorktreeFileTool(cwd: string): ToolDefinition<typeof WriteWorktreeFileParams> {
+  return {
+    name: 'write_worktree_file',
+    label: 'write_worktree_file',
+    description:
+      'Write a complete file under this worker worktree. Path must be relative and stay inside cwd.',
+    parameters: WriteWorktreeFileParams,
+    async execute(_toolCallId, params) {
+      const target = boundedWorktreePath(cwd, params.path);
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, params.content, 'utf8');
+      return {
+        content: [{ type: 'text' as const, text: `wrote ${params.path}` }],
+        details: { sideEffects: [{ kind: 'write_file', path: target, ifExists: 'overwrite' }] },
+      };
+    },
+  };
+}
+
+function boundedWorktreePath(cwd: string, rawPath: string): string {
+  if (isAbsolute(rawPath)) throw new Error('write_worktree_file path must be relative');
+  const root = resolve(cwd);
+  const target = resolve(root, rawPath);
+  if (target !== root && !target.startsWith(`${root}${sep}`)) {
+    throw new Error('write_worktree_file path escapes the worktree');
+  }
+  return target;
 }
 
 /**
