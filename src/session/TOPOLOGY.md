@@ -48,7 +48,7 @@ plus the coordination logic for workspace/spec/session lifecycle.
   SPEC-side menu ids and the CODE-side execute-entry ids (`proceed`, `backfill`,
   `design_first`, `oracle_first`, `project_plan`) on the same carrier — no
   parallel entry type — plus the inert `dismissed` (escape/timeout resolution:
-  entry recorded, no kick, no opening-turn directive). `originate-assistant-turn.ts` folds the fresh choice into
+  entry recorded, no kick, no opening-turn directive). Directed choices require the orientation entry to persist before a live kick fires; degraded no-UI boot may still proceed without an orientation entry. `originate-assistant-turn.ts` folds the fresh choice into
   `composeContextSeedContent`'s orientation section
   (`agents/contexts/data-model/session-orientation.ts` owns the render text)
   and accepts a `forceSeed` option so mid-session dialog-triggered kicks

@@ -236,7 +236,7 @@ export async function runOrientationJuncture(
   const mode = input.mode ?? 'follow-choice';
   const menu = input.menu ?? SESSION_ORIENTATION_MENU;
 
-  const choice = input.hasUI
+  const orientation = input.hasUI
     ? await runAndRecordSessionOrientation({
         hasUI: true,
         ui: input.ui,
@@ -247,10 +247,23 @@ export async function runOrientationJuncture(
       })
     : undefined;
 
-  const dialogRan = choice !== undefined;
+  const choice = orientation?.choice;
+  const dialogRan = orientation !== undefined;
+  const directedChoiceFailedToPersist =
+    orientation !== undefined &&
+    !orientation.recorded &&
+    choice !== 'dismissed' &&
+    choice !== menu.noKickChoice;
 
   if (mode === 'follow-choice') {
-    if (!dialogRan || choice === 'dismissed' || choice === menu.noKickChoice || !input.kick) {
+    if (
+      !dialogRan ||
+      directedChoiceFailedToPersist ||
+      choice === undefined ||
+      choice === 'dismissed' ||
+      choice === menu.noKickChoice ||
+      !input.kick
+    ) {
       return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
     }
     await originateAndKick(input.sessionManager, input.kick, {
@@ -264,7 +277,7 @@ export async function runOrientationJuncture(
   // user dismissed the menu — dismissal means "stay inert until I speak".
   // A fresh seed is forced only when a real orientation choice needing a kick
   // was recorded.
-  if (!input.kick || choice === 'dismissed') {
+  if (!input.kick || directedChoiceFailedToPersist || choice === 'dismissed') {
     return { ran: dialogRan, ...(choice !== undefined ? { choice } : {}), kickFired: false };
   }
   const forceSeed = choice !== undefined && choice !== menu.noKickChoice;

@@ -11,9 +11,9 @@
  * - Dismissal rule: escape/timeout means "leave me inert" — the entry records
  *   `dismissed`, no kick fires, and no opening-turn directive is seeded. Only
  *   an explicit menu selection routes anything.
- * - Append is best-effort: a failed `appendCustomEntry` is reported through
- *   `onAppendError` and never blocks the caller (boot/kick must not stall on
- *   a ledger-write failure).
+ * - Append is required for directed choices: a failed `appendCustomEntry` is
+ *   reported through `onAppendError`; inert/no-UI boot may still proceed, but a
+ *   non-inert directed kick must not depend on an entry that failed to persist.
  *
  * This module is UI-source-agnostic: it accepts anything shaped like
  * `ExtensionUIContext['select']`, so both the extension-bound `ctx.ui`
@@ -95,13 +95,18 @@ export interface RunAndRecordSessionOrientationInput {
   readonly menu?: SessionOrientationMenuDescriptor;
 }
 
+export interface RunAndRecordSessionOrientationResult {
+  readonly choice: SessionOrientationChoice;
+  readonly recorded: boolean;
+}
+
 /**
  * Runs the dialog, then records the resolution (entry rule). Returns
  * `undefined` only when the dialog was never shown (degraded mode).
  */
 export async function runAndRecordSessionOrientation(
   input: RunAndRecordSessionOrientationInput,
-): Promise<SessionOrientationChoice | undefined> {
+): Promise<RunAndRecordSessionOrientationResult | undefined> {
   if (!input.hasUI) return undefined;
 
   const choice = await runSessionOrientationDialog(
@@ -110,8 +115,9 @@ export async function runAndRecordSessionOrientation(
   );
   try {
     appendSessionOrientationEntry(input.manager, { choice, trigger: input.trigger });
+    return { choice, recorded: true };
   } catch (error: unknown) {
     input.onAppendError?.(error);
+    return { choice, recorded: false };
   }
-  return choice;
 }
