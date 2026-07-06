@@ -25,4 +25,4 @@ rules:
 
 ## Migration Note
 
-This is intentionally smaller than full delegated Execute orchestration. It gives Execute mode a concrete prompt/tool policy and leaves write-capable cook/run orchestration to the `orchestrator-tool-port` frontier.
+Write-capable cook/run orchestration landed with the `orchestrator-cutover` arc: the policy now admits the full `execute_*` tool family (including the `execute_orchestrate` run driver). The FE-1089-era `orchestrator_stub` standup proof is retired (FE-1155).
