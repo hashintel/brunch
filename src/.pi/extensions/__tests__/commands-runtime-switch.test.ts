@@ -44,7 +44,6 @@ interface FakeCommandContext {
     appendCustomEntry(customType: string, data: unknown): void;
   };
   mode: 'tui';
-  hasUI: true;
   modelRegistry: { getAvailable(): readonly unknown[] };
   isIdle?: () => boolean;
   abort?: () => void;
@@ -88,7 +87,6 @@ function commandHarness(
       },
     },
     mode: 'tui',
-    hasUI: true,
     modelRegistry: { getAvailable: () => (options.modelAvailable === false ? [] : [{}]) },
   };
   if (options.customAvailable !== false) {

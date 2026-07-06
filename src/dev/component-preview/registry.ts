@@ -31,8 +31,6 @@ import {
 import { captureMessageRenderer, previewStaticComponent, sampleCustomMessage } from './static-preview.js';
 import { createComponentPreviewEditorTheme } from './theme.js';
 
-import { ExchangeDecisionPickerComponent } from '../../.pi/components/exchange-decision-picker.js';
-
 export interface ComponentPreviewEntry {
   readonly id: string;
   readonly label: string;
