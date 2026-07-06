@@ -7,7 +7,9 @@ type ProductUpdateTopic =
   | 'session.exchanges'
   | 'session.runtimeState'
   | 'graph.overview'
-  | 'graph.nodeNeighborhood';
+  | 'graph.nodeNeighborhood'
+  | 'execute.runs'
+  | 'execute.run';
 
 export interface ProductUpdate {
   readonly topic: ProductUpdateTopic;
@@ -15,6 +17,7 @@ export interface ProductUpdate {
   readonly sessionId?: string;
   readonly nodeId?: number;
   readonly lsn?: number;
+  readonly runId?: string;
 }
 
 export interface ProductUpdateNotification {
@@ -77,6 +80,13 @@ export function selectedSessionProductUpdates(target?: {
     productUpdate('session.pendingExchange', target),
     productUpdate('session.exchanges', target),
     productUpdate('session.runtimeState', target),
+  ];
+}
+
+export function executeRunProductUpdates(runId?: string): readonly ProductUpdate[] {
+  return [
+    { topic: 'execute.runs' },
+    ...(runId === undefined ? [] : [{ topic: 'execute.run', runId } as const]),
   ];
 }
 

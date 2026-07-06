@@ -235,7 +235,15 @@ src/web/
 
 ---
 
-## Card 4 — run-scoped update topics (full) · status: next
+## Card 4 — run-scoped update topics (full) · status: done (2026-07-06)
+
+> Build notes: single choke point landed as a passive `tool_result` observer extension
+> (`agent-runtime/execute-run-updates`) instead of per-tool publisher threading — publishes when a
+> successful execute tool reports non-empty `sideEffects` (I52-L), with an `execute_orchestrate`
+> outcome-based rule. Residual known limit: an `execute_orchestrate` drive publishes once at drive
+> end, not per internal step — intra-drive liveness stays on refetch-on-navigation until a
+> scheduler-seam hook is scoped. Plan-scoped execute tools over-hint the runs list (cheap,
+> deliberate).
 
 ### Target Behavior
 
