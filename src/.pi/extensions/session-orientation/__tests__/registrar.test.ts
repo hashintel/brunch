@@ -94,6 +94,14 @@ function fakeKickContext(sent: SentMessage[]): JunctureContextKick {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolver) => {
+    resolve = resolver;
+  });
+  return { promise, resolve };
+}
+
 function expectSeedThenKick(sent: readonly SentMessage[]) {
   expect(sent).toHaveLength(2);
   expect((sent[0]!.message as { customType?: string }).customType).toBe('brunch.context_seed');
@@ -261,6 +269,41 @@ describe('registerBrunchSessionOrientation', () => {
       customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
       data: { schemaVersion: 1, choice: 'ingest', trigger: 'abort' },
     });
+  });
+
+  it('claims the gate before awaits so near-simultaneous event junctures cannot both run', async () => {
+    const { pi, handlers } = collectPi();
+    const kickContext = deferred<JunctureContextKick | undefined>();
+    const deps = { resolveKickContext: () => kickContext.promise };
+    registerBrunchSessionOrientation(pi, deps);
+
+    const { ctx: firstCtx, entries: firstEntries } = buildCtx(labelFor('ingest'));
+    const first = handlers.session_tree!({ type: 'session_tree', newLeafId: 'a', oldLeafId: 'b' }, firstCtx);
+
+    const { ctx: secondCtx, entries: secondEntries } = buildCtx(labelFor('ingest'));
+    await handlers.session_tree!({ type: 'session_tree', newLeafId: 'c', oldLeafId: 'd' }, secondCtx);
+
+    expect(firstEntries).toEqual([]);
+    expect(secondEntries).toEqual([]);
+
+    kickContext.resolve(undefined);
+    await first;
+
+    expect(firstEntries).toHaveLength(1);
+    expect(secondEntries).toEqual([]);
+  });
+
+  it('updates the guard when degraded boot fires a kick without a dialog', async () => {
+    const { pi, handlers } = collectPi();
+    const sent: SentMessage[] = [];
+    registerBrunchSessionOrientation(pi, { resolveKickContext: () => fakeKickContext(sent) });
+    const { ctx } = buildCtx(undefined);
+    const noUiCtx = { ...ctx, hasUI: false } as ExtensionContext;
+
+    await handlers.session_start!({ type: 'session_start', reason: 'startup' }, noUiCtx);
+    await handlers.session_start!({ type: 'session_start', reason: 'startup' }, noUiCtx);
+
+    expect(sent).toHaveLength(2);
   });
 
   it('debounces coinciding junctures within the debounce window', async () => {

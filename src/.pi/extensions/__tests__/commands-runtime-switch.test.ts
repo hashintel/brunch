@@ -286,13 +286,30 @@ describe('Brunch runtime switch commands', () => {
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
     expect(events).toEqual(['abort', 'waitForIdle', 'select']);
-    expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(false);
+    expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(true);
     expect(harness.entries).toContainEqual(
       expect.objectContaining({
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
         data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
       }),
     );
+  });
+
+  it('skips the abort path when waitForIdle is unavailable', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+    });
+    const aborts: number[] = [];
+    harness.ctx.isIdle = () => false;
+    harness.ctx.abort = () => {
+      aborts.push(1);
+    };
+
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
+
+    expect(aborts).toEqual([]);
+    expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(false);
   });
 
   it('leaves an idle agent alone on mode switch (no abort, no gate claim)', async () => {

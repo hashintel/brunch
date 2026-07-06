@@ -48,7 +48,9 @@ import {
 } from '../session-orientation/index.js';
 import { runJunctureForContext, sendCustomMessageViaExtensionApi } from '../session-orientation/juncture.js';
 import {
+  forceClaimOrientationJuncture,
   orientationJunctureGate,
+  releaseOrientationJuncture,
   type BrunchSessionOrientationDeps,
 } from '../session-orientation/registrar.js';
 import {
@@ -177,18 +179,22 @@ async function settleInFlightTurn(
   ctx: RuntimeSwitchContext,
   orientationDeps: BrunchSessionOrientationDeps,
 ): Promise<void> {
-  if (typeof ctx.isIdle !== 'function' || typeof ctx.abort !== 'function') return;
+  if (
+    typeof ctx.isIdle !== 'function' ||
+    typeof ctx.abort !== 'function' ||
+    typeof ctx.waitForIdle !== 'function'
+  ) {
+    return;
+  }
   if (ctx.isIdle()) return;
   const gate = orientationJunctureGate(orientationDeps);
   // The abort below lands as an agent_end with stopReason 'aborted'; without
-  // this claim the J4 esc-abort dialog would fire on top of the J5 menu.
+  // this flag the J4 esc-abort dialog would fire on top of the J5 menu. The
+  // registrar consumes it when that exact event is observed; when waitForIdle
+  // is unavailable we skip the abort path rather than guessing event order.
   gate.suppressNextAbortJuncture = true;
   ctx.abort();
-  await ctx.waitForIdle?.();
-  // agent_end has been dispatched by the time the agent is idle again; clear
-  // the claim defensively so a non-consuming edge case cannot swallow a later
-  // real esc-abort juncture.
-  gate.suppressNextAbortJuncture = false;
+  await ctx.waitForIdle();
 }
 
 async function runModeSwitchOrientation(
@@ -197,28 +203,35 @@ async function runModeSwitchOrientation(
   deps: BrunchSessionOrientationDeps,
   menu: SessionOrientationMenuDescriptor,
 ): Promise<void> {
-  const kickContext = await deps.resolveKickContext();
-  await runJunctureForContext({
-    ctx: {
-      mode: ctx.mode,
-      hasUI: ctx.hasUI,
-      modelRegistry: ctx.modelRegistry,
-      sessionManager: ctx.sessionManager,
-      ui: { select: ctx.ui.select.bind(ctx.ui) },
-    },
-    trigger: 'mode-switch',
-    mode: 'follow-choice',
-    menu,
-    kick: kickContext
-      ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
-      : undefined,
-    onAppendError: (error) => {
-      ctx.ui.notify(
-        `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
-        'warning',
-      );
-    },
-  });
+  const gate = orientationJunctureGate(deps);
+  const claim = forceClaimOrientationJuncture(gate);
+  let result: { readonly ran: boolean; readonly kickFired: boolean } | undefined;
+  try {
+    const kickContext = await deps.resolveKickContext();
+    result = await runJunctureForContext({
+      ctx: {
+        mode: ctx.mode,
+        hasUI: ctx.hasUI,
+        modelRegistry: ctx.modelRegistry,
+        sessionManager: ctx.sessionManager,
+        ui: { select: ctx.ui.select.bind(ctx.ui) },
+      },
+      trigger: 'mode-switch',
+      mode: 'follow-choice',
+      menu,
+      kick: kickContext
+        ? { ...kickContext, sendCustomMessage: sendCustomMessageViaExtensionApi(pi) }
+        : undefined,
+      onAppendError: (error) => {
+        ctx.ui.notify(
+          `Session-orientation entry could not be recorded: ${formatErrorMessage(error)}`,
+          'warning',
+        );
+      },
+    });
+  } finally {
+    releaseOrientationJuncture(gate, claim, result);
+  }
 }
 
 function formatErrorMessage(error: unknown): string {
