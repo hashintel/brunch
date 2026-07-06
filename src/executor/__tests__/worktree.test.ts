@@ -278,6 +278,51 @@ describe('createWorktree', () => {
     expect(await pathExists(worktreeDirPath(cwd, 'run-1'))).toBe(true);
   });
 
+  it('does not delete or downgrade an advanced run with a corrupt recorded worktree', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-advanced-corrupt-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(dirname(planPath), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+    const worktreeDir = worktreeDirPath(cwd, 'run-1');
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(join(worktreeDir, 'source.txt'), 'already populated', 'utf8');
+    await writeFile(
+      runMetadataPath(cwd, 'run-1'),
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath,
+        status: 'source_copied',
+        worktreeDir,
+      }),
+      'utf8',
+    );
+
+    const result = await createWorktree({
+      cwd,
+      runId: 'run-1',
+      gitWorktree: createFakeGitWorktreePort(async () => {
+        throw new Error('git should not run for an advanced corrupt worktree');
+      }),
+    });
+
+    expect(result).toEqual({
+      status: 'worktree_create_failed',
+      runStatus: 'source_copied',
+      runId: 'run-1',
+      worktreeDir,
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      message: 'run already advanced to source_copied; refusing to recreate missing or invalid worktree',
+      sideEffects: [],
+    });
+    expect(await readFile(join(worktreeDir, 'source.txt'), 'utf8')).toBe('already populated');
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'source_copied',
+      worktreeDir,
+    });
+  });
+
   it('does not update run metadata when the git worktree port fails', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-worktree-failed-'));
     const planPath = planFilePath(cwd, '42');

@@ -83,7 +83,11 @@ export async function createWorktree(args: {
     };
   }
 
-  if (!metadata.worktreeDir && (await hasGitWorktreeMarker(worktreeDir))) {
+  if (
+    !metadata.worktreeDir &&
+    canRepairWorktreeMetadata(metadata.status) &&
+    (await hasGitWorktreeMarker(worktreeDir))
+  ) {
     const updated: RunMetadata = { ...metadata, status: 'worktree_created', worktreeDir };
     const metadataEffect = await persistRunMetadata(metadataPath, updated);
     return {
@@ -98,6 +102,18 @@ export async function createWorktree(args: {
   }
 
   const targetWorktreeDir = metadata.worktreeDir ?? worktreeDir;
+
+  if (!canRepairWorktreeMetadata(metadata.status)) {
+    return {
+      status: 'worktree_create_failed',
+      runStatus: metadata.status,
+      runId: args.runId,
+      worktreeDir: targetWorktreeDir,
+      metadataPath,
+      message: `run already advanced to ${metadata.status}; refusing to recreate missing or invalid worktree`,
+      sideEffects: [],
+    };
+  }
 
   // Reaching here means `targetWorktreeDir` has no `.git` worktree marker, so
   // any directory sitting there is stale — an interrupted `git worktree add` or
@@ -150,4 +166,8 @@ async function pathExists(path: string): Promise<boolean> {
 
 async function hasGitWorktreeMarker(worktreeDir: string): Promise<boolean> {
   return pathExists(join(worktreeDir, '.git'));
+}
+
+function canRepairWorktreeMetadata(status: RunMetadata['status']): boolean {
+  return status === 'created' || status === 'worktree_created';
 }
