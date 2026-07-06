@@ -158,7 +158,7 @@ src/rpc/
 
 ---
 
-## Card 3 — /runs web routes (full) · status: next
+## Card 3 — /runs web routes (full) · status: done (2026-07-06)
 
 ### Target Behavior
 
@@ -235,7 +235,7 @@ src/web/
 
 ---
 
-## Card 4 — run-scoped update topics (full) · status: queued
+## Card 4 — run-scoped update topics (full) · status: next
 
 ### Target Behavior
 
