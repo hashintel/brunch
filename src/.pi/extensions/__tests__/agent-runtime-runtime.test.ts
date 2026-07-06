@@ -217,7 +217,7 @@ describe('Brunch agent runtime-state projection', () => {
     ).toEqual(['read', 'grep', 'find', 'ls', 'orchestrator_stub']);
   });
 
-  it('keeps descriptive lifecycle tools inactive until the real-execution stack lands', () => {
+  it('activates host-promotion tools in execute mode when registered', () => {
     const executeState: BrunchAgentState = {
       schemaVersion: 1,
       operationalMode: 'execute',
@@ -228,29 +228,17 @@ describe('Brunch agent runtime-state projection', () => {
         {
           getAllTools: () =>
             [
-              'execute_status',
-              'execute_snapshot',
-              'execute_plan_check',
-              'execute_plan_outline',
-              'execute_plan_draft',
-              'execute_plan_preview',
-              'execute_plan_file',
-              'execute_run_create',
-              'execute_worktree_create',
-              'execute_agent_result',
-              'execute_test_result',
+              'execute_host_promotion_preflight',
+              'execute_host_promotion_apply',
               'execute_promotion_prepare',
             ].map((name) => ({ name })),
         } as never,
         projectBrunchAgentState([runtimeEntry(executeState)]),
       ),
     ).toEqual([
-      'execute_status',
-      'execute_snapshot',
-      'execute_plan_check',
-      'execute_plan_outline',
-      'execute_plan_draft',
-      'execute_plan_preview',
+      'execute_host_promotion_preflight',
+      'execute_host_promotion_apply',
+      'execute_promotion_prepare',
     ]);
   });
 

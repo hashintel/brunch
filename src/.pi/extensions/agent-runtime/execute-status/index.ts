@@ -1,9 +1,18 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import { EXECUTOR_ALLOWED_TOOL_NAMES } from '../../../../agents/runtime/executor/active-tools.js';
 import { BRUNCH_EXECUTE_STATUS_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_STATUS_TOOL } from '../../../../session/schema/tool-names.js';
+
+// The ported-tool narrative is the execute-mode foothold subset of the executor
+// admission policy — the single source of truth. Deriving it here keeps the
+// human-readable line and the structured `details.portedTools` from drifting
+// against each other or against EXECUTOR_ALLOWED_TOOL_NAMES.
+const PORTED_TOOL_NAMES: readonly string[] = EXECUTOR_ALLOWED_TOOL_NAMES.filter((name) =>
+  name.startsWith('execute_'),
+);
 
 const ExecuteStatusParams = Type.Object({
   discipline: Type.Optional(
@@ -18,14 +27,7 @@ type ExecuteStatusParams = Static<typeof ExecuteStatusParams>;
 interface ExecuteStatusDetails {
   readonly discipline: 'strict' | 'interpretive';
   readonly availableDisciplines: readonly ['strict', 'interpretive'];
-  readonly portedTools: readonly [
-    'execute_status',
-    'execute_snapshot',
-    'execute_plan_preview',
-    'execute_plan_check',
-    'execute_plan_draft',
-    'execute_plan_outline',
-  ];
+  readonly portedTools: readonly string[];
   readonly pendingTools: readonly [];
   readonly sideEffects: readonly [];
 }
@@ -46,9 +48,9 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
             text: [
               `execute_status: ${discipline}`,
               'available disciplines: strict, interpretive',
-              'ported active tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview',
+              `ported tools: ${PORTED_TOOL_NAMES.join(', ')}`,
               'pending tools: none',
-              'executor promotion: run-local git promotion ported; host promotion deferred',
+              'executor promotion: run-local git promotion ported; host preflight/apply ported with explicit acceptance',
               'side effects: none',
             ].join('\n'),
           },
@@ -56,14 +58,7 @@ export function createExecuteStatusTool(): ToolDefinition<typeof ExecuteStatusPa
         details: {
           discipline,
           availableDisciplines: ['strict', 'interpretive'],
-          portedTools: [
-            'execute_status',
-            'execute_snapshot',
-            'execute_plan_preview',
-            'execute_plan_check',
-            'execute_plan_draft',
-            'execute_plan_outline',
-          ],
+          portedTools: PORTED_TOOL_NAMES,
           pendingTools: [],
           sideEffects: [],
         },

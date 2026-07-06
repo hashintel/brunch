@@ -6,6 +6,7 @@ import {
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
 import { registerBrunchExecuteAgentResult } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteHostPromotion } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteLaunch } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanFile } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanPreview } from '../.pi/extensions/agent-runtime/index.js';
@@ -81,6 +82,7 @@ import {
   type PrepareNextTurnResult,
 } from '../session/prepare-next-turn.js';
 import { createAgentRunnerPort } from './agent-runner-port.js';
+import { createGitHostPromotionPort } from './git-host-promotion-port.js';
 import { createGitLandPort } from './git-land-port.js';
 import { createGitWorktreePort } from './git-worktree-port.js';
 import { createTestRunnerPort } from './test-runner-port.js';
@@ -129,6 +131,11 @@ export {
   BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
   createExecuteAgentResultTool,
   registerBrunchExecuteAgentResult,
+  BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
+  BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
+  createExecuteHostPromotionApplyTool,
+  createExecuteHostPromotionPreflightTool,
+  registerBrunchExecuteHostPromotion,
   BRUNCH_EXECUTE_LAUNCH_TOOL,
   createExecuteLaunchTool,
   registerBrunchExecuteLaunch,
@@ -298,6 +305,7 @@ export function createBrunchPiExtensions(
           : createAgentRunnerPort()),
       testRunner: options.executionPorts?.testRunner ?? createTestRunnerPort(),
       gitLand: options.executionPorts?.gitLand ?? createGitLandPort(),
+      gitHostPromotion: options.executionPorts?.gitHostPromotion ?? createGitHostPromotionPort(),
     };
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => {
@@ -325,6 +333,7 @@ export function createBrunchPiExtensions(
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanPreview(api, graph)] : []),
       registerBrunchExecutePetriExport,
       (api) => registerBrunchExecutePromotionPrepare(api, executionPorts.gitLand),
+      (api) => registerBrunchExecuteHostPromotion(api, executionPorts.gitHostPromotion),
       registerBrunchExecutePopulate,
       registerBrunchExecuteReportInit,
       registerBrunchExecuteRunComplete,
