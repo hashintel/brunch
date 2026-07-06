@@ -24,7 +24,7 @@ Shared contract (fixed at scope time):
 
 ---
 
-## Card 1 — atomic run-metadata write (light) · status: next
+## Card 1 — atomic run-metadata write (light) · status: done (2026-07-06)
 
 ### Objective
 
@@ -73,7 +73,7 @@ src/executor/
 
 ---
 
-## Card 2 — execute.* run read projections (full) · status: queued
+## Card 2 — execute.* run read projections (full) · status: next
 
 ### Target Behavior
 
