@@ -23,6 +23,7 @@ interface ToolTextContent {
 interface ToolExecutionResult {
   content: ToolTextContent[];
   details: any;
+  terminate?: boolean;
 }
 
 interface RegisteredTool {
