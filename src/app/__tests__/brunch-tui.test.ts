@@ -693,7 +693,6 @@ describe('Brunch TUI boot', () => {
       BRUNCH_EXECUTE_SLICE_START_TOOL,
       BRUNCH_EXECUTE_TEST_RESULT_TOOL,
       BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
-      'orchestrator_stub',
       'present_alternatives',
       'present_question',
       'present_review_set',

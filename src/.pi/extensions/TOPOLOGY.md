@@ -21,8 +21,7 @@ extensions/
 ├── TOPOLOGY.md
 ├── agent-runtime/          Pi adapter for central foreground runtime policy plus execute-mode tools
 │   ├── runtime/            operational-mode Pi tool activation adapter
-│   ├── system-prompts/     before_agent_start hook adapter into agents/runtime/foreground-policy
-│   └── orchestrator-stub/
+│   └── system-prompts/     before_agent_start hook adapter into agents/runtime/foreground-policy
 ├── brunch-data/            Pi tools over selected Brunch graph/spec/workspace/session data
 │   ├── graph/              mutate_graph/read_graph tools + selected-spec graph read seam
 │   ├── context/            workspace/spec/session context tools

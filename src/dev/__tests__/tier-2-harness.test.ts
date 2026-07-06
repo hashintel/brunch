@@ -315,9 +315,7 @@ describe('FE-847 Tier-2 real boot harness', () => {
         ]),
       );
       expect(projectBrunchAgentState(entries).operationalMode).toBe('execute');
-      expect(boot.runtime.session.getActiveToolNames()).toEqual(
-        expect.arrayContaining(['orchestrator_stub']),
-      );
+      expect(boot.runtime.session.getActiveToolNames()).toEqual(expect.arrayContaining(['execute_status']));
       expect(boot.runtime.session.getActiveToolNames()).not.toEqual(expect.arrayContaining(['bash']));
     } finally {
       await boot.runtime.dispose();
