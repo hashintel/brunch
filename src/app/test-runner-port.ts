@@ -14,11 +14,12 @@ export function createTestRunnerPort(
   const run = options.run ?? runCommand;
   const command = options.command ?? 'npm';
   const args = options.args ?? ['run', 'verify'];
-  const target = [command, ...args].join(' ');
   return {
-    async run({ worktreeDir, signal, onUpdate }) {
+    async run({ worktreeDir, signal, verifyCommand, onUpdate }) {
+      const commandParts = commandPartsForRun({ command, args }, verifyCommand);
+      const target = commandParts.join(' ');
       await onUpdate?.({ kind: 'status', message: `${target} started` });
-      const result = await run(command, args, {
+      const result = await run(commandParts[0], commandParts.slice(1), {
         cwd: worktreeDir,
         signal,
         timeoutMs: TEST_RUNNER_TIMEOUT_MS,
@@ -48,4 +49,12 @@ export function createTestRunnerPort(
       };
     },
   };
+}
+
+function commandPartsForRun(
+  fallback: { readonly command: string; readonly args: readonly string[] },
+  verifyCommand: readonly string[] | undefined,
+): readonly [string, ...string[]] {
+  if (verifyCommand && verifyCommand.length > 0) return [verifyCommand[0]!, ...verifyCommand.slice(1)];
+  return [fallback.command, ...fallback.args];
 }

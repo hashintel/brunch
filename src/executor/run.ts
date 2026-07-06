@@ -35,6 +35,7 @@ export interface RunMetadata {
   readonly sliceExecutionRequestPath?: string;
   readonly agentResultPath?: string;
   readonly completedSliceIds?: readonly string[];
+  readonly verifyCommand?: readonly string[];
   readonly petriPath?: string;
   readonly promotionPath?: string;
   readonly promotionBaseSha?: string;
@@ -146,6 +147,7 @@ export async function createRun(args: {
     specId: args.specId,
     planPath: launch.planPath,
     status: 'created',
+    verifyCommand: await verifyCommandForPlan(launch.planPath),
   };
 
   await mkdir(runDir, { recursive: true });
@@ -163,4 +165,9 @@ export async function createRun(args: {
       { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
     ],
   };
+}
+
+async function verifyCommandForPlan(planPath: string): Promise<readonly string[]> {
+  const plan = JSON.parse(await readFile(planPath, 'utf8')) as { readonly mode?: unknown };
+  return plan.mode === 'greenfield' ? ['bun', 'test'] : ['npm', 'run', 'verify'];
 }

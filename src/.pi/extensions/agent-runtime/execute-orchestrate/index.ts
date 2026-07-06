@@ -1,9 +1,9 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
 import { drive, type DriveOutcome, type DriveStepProgress } from '../../../../executor/orchestrate.js';
-import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
 import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
 import { executeRunProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
 import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -29,6 +29,12 @@ interface ExecuteOrchestrateDetails {
   };
   readonly agentStream?: AgentStreamEvent;
   readonly verifyStream?: VerifyStreamEvent;
+  readonly halted?: {
+    readonly runId: string;
+    readonly step: string;
+    readonly reason: string;
+    readonly runStatus: string;
+  };
 }
 
 export interface ExecuteOrchestrateDeps {
@@ -54,7 +60,10 @@ export function createExecuteOrchestrateTool(
       const publisher = deps?.productUpdates;
       const emitProgress = (progress: DriveStepProgress): void => {
         const sliceLine = progress.activeSliceId
-          ? [`slice: ${progress.activeSliceId}`, ...(progress.activeEpicId ? [`epic: ${progress.activeEpicId}`] : [])]
+          ? [
+              `slice: ${progress.activeSliceId}`,
+              ...(progress.activeEpicId ? [`epic: ${progress.activeEpicId}`] : []),
+            ]
           : [];
         const stepLine =
           progress.phase === 'started'
@@ -126,6 +135,30 @@ export function createExecuteOrchestrateTool(
           details: { verifyStream: event },
         });
       };
+      const emitHalt = (halted: Extract<DriveOutcome, { readonly status: 'halted' }>): void => {
+        publisher?.publish(executeRunProductUpdates(params.runId));
+        onUpdate?.({
+          content: [
+            {
+              type: 'text' as const,
+              text: [
+                `execute_orchestrate: halted at ${halted.step}`,
+                `run id: ${params.runId}`,
+                `run status: ${halted.runStatus}`,
+                `reason: ${halted.reason}`,
+              ].join('\n'),
+            },
+          ],
+          details: {
+            halted: {
+              runId: params.runId,
+              step: halted.step,
+              reason: halted.reason,
+              runStatus: halted.runStatus,
+            },
+          },
+        });
+      };
       const outcome = await drive({
         cwd,
         runId: params.runId,
@@ -139,6 +172,7 @@ export function createExecuteOrchestrateTool(
         },
         onAgentUpdate: emitAgentUpdate,
         onVerifyUpdate: emitVerifyUpdate,
+        onStepHalt: emitHalt,
         runtime: {
           ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
           ...(ctx.model ? { model: ctx.model } : {}),

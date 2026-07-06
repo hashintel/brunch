@@ -62,11 +62,25 @@ describe('createRun', () => {
       specId: '42',
       planPath,
       status: 'created',
+      verifyCommand: ['bun', 'test'],
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'worktree'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'reports.jsonl'))).toBe(false);
     expect(await pathExists(join(cwd, '.brunch', 'cook', 'land'))).toBe(false);
+  });
+
+  it('uses host verify for brownfield plans', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-cook-run-brownfield-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(planPath, '{"mode":"brownfield","epics":[],"slices":[]}', 'utf8');
+
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      verifyCommand: ['npm', 'run', 'verify'],
+    });
   });
 });
 

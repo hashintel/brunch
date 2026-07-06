@@ -133,7 +133,14 @@ describe('ingestAgentResult', () => {
   it('runs the agent runner in the run worktree and ingests its result', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-runner-'));
     await createRequestedSliceRun(cwd);
-    const resultPath = join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json');
+    const resultPath = join(
+      worktreeDirPath(cwd, 'run-1'),
+      '.brunch',
+      'cook',
+      'agent-output',
+      'task-1',
+      'result.json',
+    );
     const calls: AgentRunArgs[] = [];
 
     const result = await ingestAgentResult({

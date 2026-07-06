@@ -4,12 +4,12 @@ import { dirname, join } from 'node:path';
 import { reportsPath } from './report.js';
 import {
   assertSafeSliceId,
-  runDirPath,
   runMetadataPath,
   persistRunMetadata,
   readRunMetadata,
   type RunMetadata,
 } from './run.js';
+import { worktreeDirPath } from './worktree.js';
 
 export type SliceExecutionRequestResult =
   | {
@@ -45,7 +45,7 @@ export type SliceExecutionRequestResult =
 
 export function sliceExecutionRequestPath(cwd: string, runId: string, sliceId: string): string {
   assertSafeSliceId(sliceId);
-  return join(runDirPath(cwd, runId), 'agent-output', sliceId, 'request.json');
+  return join(worktreeDirPath(cwd, runId), '.brunch', 'cook', 'agent-output', sliceId, 'request.json');
 }
 
 export async function requestSliceExecution(args: {

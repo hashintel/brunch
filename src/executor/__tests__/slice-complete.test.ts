@@ -22,7 +22,11 @@ async function createTestResultRun(cwd: string): Promise<void> {
   const reportPath = reportsPath(cwd, 'run-1');
   const metadataPath = runMetadataPath(cwd, 'run-1');
   await mkdir(join(runDir, 'agent-output', 'task-1'), { recursive: true });
-  await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+  await writeFile(
+    reportPath,
+    '{"event":"run_ready"}\n{"event":"slice_test_result","sliceId":"task-1","status":"passed"}\n',
+    'utf8',
+  );
   await writeFile(
     metadataPath,
     JSON.stringify({
@@ -113,5 +117,33 @@ describe('completeSlice', () => {
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'promotion'))).toBe(false);
+  });
+
+  it('does not complete a slice whose latest verification failed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-slice-complete-failed-'));
+    await createTestResultRun(cwd);
+    await writeFile(
+      reportsPath(cwd, 'run-1'),
+      '{"event":"run_ready"}\n{"event":"slice_test_result","sliceId":"task-1","status":"failed"}\n',
+      'utf8',
+    );
+
+    const result = await completeSlice({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'slice_verification_failed',
+      runStatus: 'test_result_ingested',
+      runId: 'run-1',
+      sliceId: 'task-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    const metadata = JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect(metadata.status).toBe('test_result_ingested');
+    expect(metadata).not.toHaveProperty('completedSliceIds');
   });
 });

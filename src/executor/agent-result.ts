@@ -56,7 +56,7 @@ export type AgentResultIngestResult =
 
 export function agentResultPath(cwd: string, runId: string, sliceId: string): string {
   assertSafeSliceId(sliceId);
-  return join(runDirPath(cwd, runId), 'agent-output', sliceId, 'result.json');
+  return join(worktreeDirPath(cwd, runId), '.brunch', 'cook', 'agent-output', sliceId, 'result.json');
 }
 
 export interface AgentStreamEvent extends AgentRunUpdate {

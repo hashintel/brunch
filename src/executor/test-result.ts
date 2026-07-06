@@ -3,7 +3,14 @@ import { dirname, join } from 'node:path';
 
 import type { TestRunnerPort, TestRunUpdate } from './execution-ports.js';
 import { reportsPath } from './report.js';
-import { assertSafeSliceId, runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import {
+  assertSafeSliceId,
+  runDirPath,
+  runMetadataPath,
+  persistRunMetadata,
+  readRunMetadata,
+  type RunMetadata,
+} from './run.js';
 import { worktreeDirPath } from './worktree.js';
 
 export type TestResultIngestResult =
@@ -95,7 +102,8 @@ export async function ingestTestResult(args: {
   let wroteStream = false;
   const runResult = await args.testRunner.run({
     worktreeDir,
-    signal: args.signal,
+    ...(metadata.verifyCommand ? { verifyCommand: metadata.verifyCommand } : {}),
+    ...(args.signal ? { signal: args.signal } : {}),
     onUpdate: async (update) => {
       const event: VerifyStreamEvent = {
         event: 'verify_stream',

@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -17,7 +17,7 @@ async function createAgentResultRun(cwd: string): Promise<void> {
   const reportPath = reportsPath(cwd, 'run-1');
   const metadataPath = runMetadataPath(cwd, 'run-1');
   const resultPath = agentResultPath(cwd, 'run-1', 'task-1');
-  await mkdir(join(runDir, 'agent-output', 'task-1'), { recursive: true });
+  await mkdir(dirname(resultPath), { recursive: true });
   await writeFile(resultPath, JSON.stringify({ status: 'completed', summary: 'Implemented task.' }), 'utf8');
   await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
   await writeFile(
@@ -220,5 +220,33 @@ describe('ingestTestResult', () => {
       .split('\n')
       .map((line) => JSON.parse(line));
     expect(reports.at(-1)).toMatchObject({ event: 'slice_test_result', status: 'failed', exitCode: 1 });
+  });
+
+  it('passes run-scoped verify commands to the test runner', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-test-result-scoped-verify-'));
+    await createAgentResultRun(cwd);
+    const metadataPath = runMetadataPath(cwd, 'run-1');
+    const metadata = JSON.parse(await readFile(metadataPath, 'utf8')) as Record<string, unknown>;
+    await writeFile(metadataPath, JSON.stringify({ ...metadata, verifyCommand: ['bun', 'test'] }), 'utf8');
+
+    const calls: TestRunArgs[] = [];
+    await ingestTestResult({
+      cwd,
+      runId: 'run-1',
+      testRunner: {
+        async run(args) {
+          calls.push(args);
+          return { status: 'completed', verdict: 'passed', exitCode: 0, target: 'bun test' };
+        },
+      },
+    });
+
+    expect(calls).toEqual([
+      {
+        worktreeDir: worktreeDirPath(cwd, 'run-1'),
+        verifyCommand: ['bun', 'test'],
+        onUpdate: expect.any(Function),
+      },
+    ]);
   });
 });

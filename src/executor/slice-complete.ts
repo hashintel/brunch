@@ -1,5 +1,6 @@
 import { appendFile } from 'node:fs/promises';
 
+import { readSliceVerificationVerdict } from './report-verdict.js';
 import { reportsPath } from './report.js';
 import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
@@ -16,6 +17,15 @@ export type SliceCompleteResult =
       readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'slice_verification_failed';
+      readonly runStatus: 'test_result_ingested';
+      readonly runId: string;
+      readonly sliceId: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
       readonly sideEffects: readonly [];
     }
   | {
@@ -59,6 +69,22 @@ export async function completeSlice(args: {
   }
 
   const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
+  const verdict = await readSliceVerificationVerdict({
+    reportsPath: reportPath,
+    expectedSliceIds: [metadata.activeSliceId],
+  });
+  if (verdict.status !== 'passed') {
+    return {
+      status: 'slice_verification_failed',
+      runStatus: 'test_result_ingested',
+      runId: args.runId,
+      sliceId: metadata.activeSliceId,
+      metadataPath,
+      reportsPath: reportPath,
+      sideEffects: [],
+    };
+  }
+
   const completedSliceIds = Array.from(
     new Set([...(metadata.completedSliceIds ?? []), metadata.activeSliceId]),
   );

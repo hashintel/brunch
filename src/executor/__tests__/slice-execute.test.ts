@@ -1,6 +1,6 @@
 import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -86,7 +86,7 @@ describe('requestSliceExecution', () => {
       reportsPath: reportsPath(cwd, 'run-1'),
       requestPath: sliceExecutionRequestPath(cwd, 'run-1', 'task-1'),
       sideEffects: [
-        { kind: 'mkdir', path: join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1') },
+        { kind: 'mkdir', path: dirname(sliceExecutionRequestPath(cwd, 'run-1', 'task-1')) },
         {
           kind: 'write_file',
           path: sliceExecutionRequestPath(cwd, 'run-1', 'task-1'),
@@ -114,9 +114,19 @@ describe('requestSliceExecution', () => {
       sliceId: 'task-1',
       status: 'slice_execution_requested',
     });
-    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'agent-output', 'task-1', 'result.json'))).toBe(
-      false,
-    );
+    expect(
+      await pathExists(
+        join(
+          runDirPath(cwd, 'run-1'),
+          'worktree',
+          '.brunch',
+          'cook',
+          'agent-output',
+          'task-1',
+          'result.json',
+        ),
+      ),
+    ).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
   });
 

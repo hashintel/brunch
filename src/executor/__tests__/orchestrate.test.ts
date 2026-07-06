@@ -263,12 +263,15 @@ describe('drive', () => {
 
     expect(outcome).toEqual({
       status: 'halted',
-      step: 'run_complete',
-      runStatus: 'slice_completed',
-      reason: 'verification_failed',
+      step: 'slice_complete',
+      runStatus: 'test_result_ingested',
+      reason: 'slice_verification_failed',
     });
     const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
-    expect(meta?.status).toBe('slice_completed');
+    expect(meta?.status).toBe('test_result_ingested');
+    expect((await readReportEvents(cwd)).map((event) => (event as { event?: string }).event)).not.toContain(
+      'slice_completed',
+    );
     expect((await readReportEvents(cwd)).map((event) => (event as { event?: string }).event)).not.toContain(
       'run_completed',
     );

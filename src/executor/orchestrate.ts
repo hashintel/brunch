@@ -98,9 +98,19 @@ export interface DriveContext {
   readonly runtime?: AgentRunnerRuntime;
   readonly signal?: AbortSignal;
   /** Fired before each ready step starts (observer hook; errors are swallowed). */
-  readonly onStepStart?: (step: ReadyStep['kind'], runStatus: RunMetadata['status'], progress: DriveStepProgress) => void;
+  readonly onStepStart?: (
+    step: ReadyStep['kind'],
+    runStatus: RunMetadata['status'],
+    progress: DriveStepProgress,
+  ) => void;
   /** Fired after each step that advanced run.json (observer hook; errors are swallowed). */
-  readonly onStepComplete?: (step: ReadyStep['kind'], runStatus: RunMetadata['status'], progress: DriveStepProgress) => void;
+  readonly onStepComplete?: (
+    step: ReadyStep['kind'],
+    runStatus: RunMetadata['status'],
+    progress: DriveStepProgress,
+  ) => void;
+  /** Fired when a ready step cannot advance run.json (observer hook; errors are swallowed). */
+  readonly onStepHalt?: (outcome: Extract<DriveOutcome, { readonly status: 'halted' }>) => void;
   /** Fired when the sealed worker emits normalized stream events during agent_result. */
   readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
   /** Fired when the verify runner emits normalized stream events during test_result. */
@@ -161,11 +171,26 @@ export async function drive(
 
     const result = await runStep(next, ctx);
     if (result.runStatus === state.status) {
-      return { status: 'halted', step: next.kind, runStatus: state.status, reason: result.status };
+      const outcome = {
+        status: 'halted' as const,
+        step: next.kind,
+        runStatus: state.status,
+        reason: result.status,
+      };
+      try {
+        ctx.onStepHalt?.(outcome);
+      } catch {
+        // Observer failures never affect the drive.
+      }
+      return outcome;
     }
     if (result.runStatus !== 'not_started') {
       try {
-        ctx.onStepComplete?.(next.kind, result.runStatus, progressForStep('completed', next, state, result.runStatus));
+        ctx.onStepComplete?.(
+          next.kind,
+          result.runStatus,
+          progressForStep('completed', next, state, result.runStatus),
+        );
       } catch {
         // Observer failures never affect the drive.
       }

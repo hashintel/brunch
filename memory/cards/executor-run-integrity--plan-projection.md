@@ -14,7 +14,7 @@ Created:  2026-07-06
 
 ## Target Behavior
 
-Plan-producing execute tools refuse to emit or write a falsely-flat executable plan when the graph contains dependency edges that the current requirement-slice projection cannot represent.
+Executor runs refuse misleading plans, use run-scoped verification, keep worker artifacts inside the sandbox, and halt before completing failed slices.
 
 ## Full-card cold-start reads
 
@@ -43,6 +43,10 @@ This is a proving tracer. It stabilizes the executor projection invariant by mak
 ✓ `src/executor/__tests__/execution-spec-snapshot.test.ts` — projected dependency edges outside requirement-to-requirement shape are preserved as unprojected dependencies.
 ✓ `src/executor/__tests__/execute-plan-check.test.ts` — unprojected dependencies block plan readiness with an error instead of allowing a flat executable plan.
 ✓ Plan-producing execute tools assert plan readiness before returning or writing outline/draft/preview/plan artifacts.
+✓ `src/executor/__tests__/executable-plan-draft.test.ts` — representable diamond-shaped requirement dependencies still lower to executable slice `dependsOn`.
+✓ `src/executor/__tests__/run.test.ts` / `test-result.test.ts` / `src/app/__tests__/test-runner-port.test.ts` — greenfield runs carry `bun test`; brownfield runs keep `npm run verify`; the test runner honors run-scoped commands.
+✓ `src/executor/__tests__/slice-execute.test.ts` / `agent-result.test.ts` — worker request/result artifacts live under the run worktree.
+✓ `src/executor/__tests__/slice-complete.test.ts` / `orchestrate.test.ts` — failed slice verification halts at `slice_complete` without recording `slice_completed`.
 
 ## Verification Approach
 
@@ -53,20 +57,39 @@ This is a proving tracer. It stabilizes the executor projection invariant by mak
 
 - Preserve executor side-effect honesty: projection functions remain side-effect free.
 - Preserve CON2/CON4: no missing dependency edges when the graph encodes genuine build order.
-- Do not force greenfield verify policy in this slice; CON5 is a separate follow-up unless a failing test already names it.
+- Preserve CON5: greenfield verification must be todo-scoped (`bun test`), not the host monorepo verify target.
 
 ## Expected Touched Paths (Tentative)
 
 ```text
 src/executor/
+├── agent-result.ts                 ~
+├── execution-ports.ts              ~
 ├── execution-spec-snapshot.ts       ~
 ├── execute-plan-check.ts            ~
 ├── execute-projection.ts            ~
+├── orchestrate.ts                   ~
+├── run.ts                           ~
+├── slice-complete.ts                ~
+├── slice-execute.ts                 ~
+├── test-result.ts                   ~
 ├── TOPOLOGY.md                      ~
 └── __tests__/
+    ├── agent-result.test.ts          ~
+    ├── executable-plan-draft.test.ts ~
     ├── execution-spec-snapshot.test.ts ?
-    └── execute-plan-check.test.ts      ~
+    ├── execute-plan-check.test.ts      ~
+    ├── orchestrate.test.ts             ~
+    ├── run.test.ts                     ~
+    ├── slice-complete.test.ts          ~
+    ├── slice-execute.test.ts           ~
+    └── test-result.test.ts             ~
+src/app/
+├── test-runner-port.ts              ~
+└── __tests__/test-runner-port.test.ts ~
 src/.pi/extensions/agent-runtime/
+├── __tests__/execute-orchestrate-updates.test.ts ~
+├── execute-orchestrate/index.ts      ~
 ├── execute-plan-draft/index.ts          ~
 ├── execute-plan-draft-artifact/index.ts ~
 ├── execute-plan-file/index.ts           ~
@@ -78,4 +101,4 @@ memory/cards/
 
 ## Build Note
 
-Targeted projection tests pass. Full `npm run fix` / gate is blocked in this isolated worktree by missing installed dependencies (`typebox`, `@earendil-works/pi-ai`, `@earendil-works/pi-tui`, etc.), so the card remains active rather than consumed/deleted.
+Targeted executor/app tests pass. Full `npm run fix` / gate is blocked in this isolated worktree by missing installed dependencies (`typebox`, `@earendil-works/pi-ai`, `@earendil-works/pi-tui`, etc.), so the card remains active rather than consumed/deleted.

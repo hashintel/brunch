@@ -73,4 +73,50 @@ describe('draftExecutablePlan', () => {
       sideEffects: [],
     });
   });
+
+  it('preserves a diamond-shaped requirement dependency graph as executable slice dependencies', () => {
+    const diamond: ExecutionPlanOutline = {
+      schemaVersion: 1,
+      specId: '7',
+      mode: 'greenfield',
+      frontiers: [
+        {
+          id: 'frontier-1',
+          title: 'Implement projected requirements',
+          tasks: [
+            task('task-1', 'REQ1', []),
+            task('task-2', 'REQ2', ['REQ1']),
+            task('task-3', 'REQ3', ['REQ1']),
+            task('task-4', 'REQ4', ['REQ2', 'REQ3']),
+            task('task-5', 'REQ5', ['REQ4']),
+          ],
+        },
+      ],
+      sideEffects: [],
+    };
+
+    expect(draftExecutablePlan(diamond).slices.map(({ id, dependsOn }) => ({ id, dependsOn }))).toEqual([
+      { id: 'task-1', dependsOn: [] },
+      { id: 'task-2', dependsOn: ['task-1'] },
+      { id: 'task-3', dependsOn: ['task-1'] },
+      { id: 'task-4', dependsOn: ['task-2', 'task-3'] },
+      { id: 'task-5', dependsOn: ['task-4'] },
+    ]);
+  });
 });
+
+function task(
+  id: string,
+  requirementId: string,
+  dependsOn: readonly string[],
+): ExecutionPlanOutline['frontiers'][number]['tasks'][number] {
+  return {
+    id,
+    title: requirementId,
+    requirementId,
+    summary: requirementId,
+    dependsOn,
+    acceptanceCriterionIds: [],
+    acceptanceCriteria: [],
+  };
+}

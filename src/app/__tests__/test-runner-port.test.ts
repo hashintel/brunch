@@ -139,4 +139,19 @@ describe('createTestRunnerPort', () => {
       { kind: 'status', message: 'npm run verify exited 0' },
     ]);
   });
+
+  it('honors a run-scoped verify command over the default command', async () => {
+    const calls: Array<{ command: string; args: readonly string[] }> = [];
+    const port = createTestRunnerPort({
+      run: async (command, args) => {
+        calls.push({ command, args });
+        return { exitCode: 0, stdout: '', stderr: '' };
+      },
+    });
+
+    const result = await port.run({ worktreeDir: '/repo/wt', verifyCommand: ['bun', 'test'] });
+
+    expect(calls).toEqual([{ command: 'bun', args: ['test'] }]);
+    expect(result).toMatchObject({ status: 'completed', verdict: 'passed', target: 'bun test' });
+  });
 });

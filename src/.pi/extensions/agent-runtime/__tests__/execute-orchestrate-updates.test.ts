@@ -10,7 +10,11 @@ import {
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../../executor/__tests__/fake-ports.js';
-import type { AgentRunnerPort, ExecutionPorts, TestRunnerPort } from '../../../../executor/execution-ports.js';
+import type {
+  AgentRunnerPort,
+  ExecutionPorts,
+  TestRunnerPort,
+} from '../../../../executor/execution-ports.js';
 import { planFilePath } from '../../../../executor/plan-file.js';
 import { createRun } from '../../../../executor/run.js';
 import { createProductUpdatePublisher, type ProductUpdate } from '../../../../rpc/product-updates.js';
@@ -38,7 +42,9 @@ const streamingTestRunner: TestRunnerPort = {
   },
 };
 
-function fakePorts(options: { readonly agentRunner?: AgentRunnerPort; readonly testRunner?: TestRunnerPort } = {}): ExecutionPorts {
+function fakePorts(
+  options: { readonly agentRunner?: AgentRunnerPort; readonly testRunner?: TestRunnerPort } = {},
+): ExecutionPorts {
   return {
     gitWorktree: createFakeGitWorktreePort(),
     agentRunner: options.agentRunner ?? completedAgentRunner,
@@ -154,9 +160,9 @@ describe('execute_orchestrate intra-drive updates', () => {
       'execute_orchestrate: promotion started from petri_exported',
       'execute_orchestrate: promotion -> promotion_prepared',
     ]);
-    expect(updates.find((update) => update.startsWith('execute_orchestrate: agent_result started'))).toContain(
-      'slice: t1',
-    );
+    expect(
+      updates.find((update) => update.startsWith('execute_orchestrate: agent_result started')),
+    ).toContain('slice: t1');
   });
 
   it('emits worker stream updates between agent_result start and completion', async () => {
@@ -217,5 +223,47 @@ describe('execute_orchestrate intra-drive updates', () => {
     expect(testStart).toBeGreaterThanOrEqual(0);
     expect(verifyUpdate).toBeGreaterThan(testStart);
     expect(testComplete).toBeGreaterThan(verifyUpdate);
+  });
+
+  it('emits a final tool update when orchestration halts', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-orchestrate-halt-update-'));
+    await createDrivableRun(cwd);
+    const updates: string[] = [];
+
+    const tool = createExecuteOrchestrateTool(
+      fakePorts({
+        testRunner: createFakeTestRunnerPort({
+          status: 'completed',
+          verdict: 'failed',
+          exitCode: 1,
+          target: 'bun test',
+        }),
+      }),
+    );
+    const result = await tool.execute(
+      't1',
+      { runId: 'run-1' },
+      undefined as never,
+      ((update: { readonly content: readonly { readonly type: string; readonly text?: string }[] }) => {
+        const item = update.content[0];
+        if (item?.type === 'text' && typeof item.text === 'string') updates.push(item.text);
+      }) as never,
+      { cwd } as never,
+    );
+
+    expect(result.details?.outcome).toEqual({
+      status: 'halted',
+      step: 'slice_complete',
+      runStatus: 'test_result_ingested',
+      reason: 'slice_verification_failed',
+    });
+    expect(updates).toContain(
+      [
+        'execute_orchestrate: halted at slice_complete',
+        'run id: run-1',
+        'run status: test_result_ingested',
+        'reason: slice_verification_failed',
+      ].join('\n'),
+    );
   });
 });
