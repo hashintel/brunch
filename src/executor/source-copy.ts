@@ -1,0 +1,146 @@
+import { cp, readdir, readFile, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+import { runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
+import { sourcePolicyPath, type SourcePolicyKind } from './source-policy.js';
+import { worktreeDirPath } from './worktree.js';
+
+const EXCLUDED_TOP_LEVEL_ENTRIES = new Set(['.brunch', '.git', 'node_modules', 'dist', 'build']);
+
+type CopyEntryEffect = { readonly kind: 'copy_entry'; readonly from: string; readonly to: string };
+type WriteFileEffect = { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' };
+
+export type SourceCopyResult =
+  | {
+      readonly status: 'missing_run';
+      readonly runStatus: 'not_started';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'missing_source_policy';
+      readonly runStatus: RunMetadata['status'];
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sourcePolicyPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'policy_skipped';
+      readonly runStatus: 'source_copied';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly policy: SourcePolicyKind;
+      readonly sideEffects: readonly [WriteFileEffect];
+    }
+  | {
+      readonly status: 'source_copied';
+      readonly runStatus: 'source_copied';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly sourcePolicyPath: string;
+      readonly copiedEntries: readonly string[];
+      readonly sideEffects: readonly [...CopyEntryEffect[], WriteFileEffect, WriteFileEffect];
+    };
+
+export async function copyHostSource(args: {
+  readonly cwd: string;
+  readonly runId: string;
+}): Promise<SourceCopyResult> {
+  const metadataPath = runMetadataPath(args.cwd, args.runId);
+  const metadata = await readRunMetadata(metadataPath);
+  if (!metadata) {
+    return {
+      status: 'missing_run',
+      runStatus: 'not_started',
+      runId: args.runId,
+      metadataPath,
+      sideEffects: [],
+    };
+  }
+
+  const policyPath = metadata.sourcePolicyPath ?? sourcePolicyPath(args.cwd, args.runId);
+  const policy = await readSourcePolicy(policyPath);
+  if (!policy) {
+    return {
+      status: 'missing_source_policy',
+      runStatus: metadata.status,
+      runId: args.runId,
+      metadataPath,
+      sourcePolicyPath: policyPath,
+      sideEffects: [],
+    };
+  }
+
+  if (policy.policy === 'plan_only') {
+    // plan_only runs intentionally skip copying host source into the worktree,
+    // but the run must still advance so downstream steps (report init, slices)
+    // can proceed. Mark the source stage resolved without a copy.
+    const updatedMetadata: RunMetadata = {
+      ...metadata,
+      status: 'source_copied',
+      sourceCopied: false,
+      copiedEntries: [],
+    };
+    const metadataEffect = await persistRunMetadata(metadataPath, updatedMetadata);
+    return {
+      status: 'policy_skipped',
+      runStatus: 'source_copied',
+      runId: args.runId,
+      metadataPath,
+      policy: policy.policy,
+      sideEffects: [metadataEffect],
+    };
+  }
+
+  const worktreeDir = metadata.worktreeDir ?? worktreeDirPath(args.cwd, args.runId);
+  const entries = (await readdir(args.cwd)).filter((entry) => !EXCLUDED_TOP_LEVEL_ENTRIES.has(entry)).sort();
+  const copyEffects: CopyEntryEffect[] = [];
+
+  for (const entry of entries) {
+    const from = join(args.cwd, entry);
+    const to = join(worktreeDir, entry);
+    await cp(from, to, { recursive: true, force: true, dereference: false });
+    copyEffects.push({ kind: 'copy_entry', from, to });
+  }
+
+  const updatedPolicy = { ...policy, hostSourceCopied: true, copiedEntries: entries };
+  const updatedMetadata: RunMetadata = {
+    ...metadata,
+    status: 'source_copied',
+    sourceCopied: true,
+    copiedEntries: entries,
+  };
+
+  await writeFile(policyPath, `${JSON.stringify(updatedPolicy, null, 2)}\n`, 'utf8');
+  const metadataEffect = await persistRunMetadata(metadataPath, updatedMetadata);
+
+  return {
+    status: 'source_copied',
+    runStatus: 'source_copied',
+    runId: args.runId,
+    metadataPath,
+    sourcePolicyPath: policyPath,
+    copiedEntries: entries,
+    sideEffects: [
+      ...copyEffects,
+      { kind: 'write_file', path: policyPath, ifExists: 'overwrite' },
+      metadataEffect,
+    ],
+  };
+}
+
+async function readSourcePolicy(
+  path: string,
+): Promise<{ policy: SourcePolicyKind; hostSourceCopied: boolean; copiedEntries?: string[] } | undefined> {
+  try {
+    return JSON.parse(await readFile(path, 'utf8')) as {
+      policy: SourcePolicyKind;
+      hostSourceCopied: boolean;
+      copiedEntries?: string[];
+    };
+  } catch {
+    return undefined;
+  }
+}

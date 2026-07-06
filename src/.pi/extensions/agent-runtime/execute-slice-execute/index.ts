@@ -1,0 +1,61 @@
+import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
+import { Type, type Static } from 'typebox';
+
+import {
+  requestSliceExecution,
+  type SliceExecutionRequestResult,
+} from '../../../../executor/slice-execute.js';
+import { BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL } from '../../../../session/schema/tool-names.js';
+
+export { BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL } from '../../../../session/schema/tool-names.js';
+
+const ExecuteSliceExecuteParams = Type.Object({
+  runId: Type.String({ description: 'Run id whose active slice has been marked started.' }),
+});
+
+type ExecuteSliceExecuteParams = Static<typeof ExecuteSliceExecuteParams>;
+
+interface ExecuteSliceExecuteDetails {
+  readonly result: SliceExecutionRequestResult;
+  readonly sideEffects: SliceExecutionRequestResult['sideEffects'];
+}
+
+export function createExecuteSliceExecuteTool(): ToolDefinition<
+  typeof ExecuteSliceExecuteParams,
+  ExecuteSliceExecuteDetails
+> {
+  return {
+    name: BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL,
+    label: 'execute_slice_execute',
+    description:
+      'Create an execution request artifact for the active slice. Does not run agents, tests, or Petri transitions.',
+    parameters: ExecuteSliceExecuteParams,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      const cwd = ctx?.cwd;
+      if (typeof cwd !== 'string' || cwd.trim().length === 0) {
+        throw new Error('execute_slice_execute requires an active cwd');
+      }
+      const result = await requestSliceExecution({ cwd, runId: params.runId });
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: [
+              `execute_slice_execute: ${result.status}`,
+              `run status: ${result.runStatus}`,
+              `run id: ${result.runId}`,
+              `side effects: ${result.sideEffects.map((effect) => effect.kind).join(', ') || 'none'}`,
+            ].join('\n'),
+          },
+        ],
+        details: { result, sideEffects: result.sideEffects },
+      };
+    },
+  };
+}
+
+export function registerBrunchExecuteSliceExecute(pi: ExtensionAPI): void {
+  pi.registerTool(createExecuteSliceExecuteTool() as never);
+}
+
+export default registerBrunchExecuteSliceExecute;

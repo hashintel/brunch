@@ -1,0 +1,104 @@
+import { access, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { describe, expect, it } from 'vitest';
+
+import { planFilePath } from '../plan-file.js';
+import { populateWorktree } from '../populate.js';
+import { initializeReports, reportsPath } from '../report.js';
+import { runDirPath, runMetadataPath, createRun } from '../run.js';
+import { copyHostSource } from '../source-copy.js';
+import { selectSourcePolicy } from '../source-policy.js';
+import { createWorktree } from '../worktree.js';
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function createSourceCopiedRun(cwd: string): Promise<void> {
+  const planPath = planFilePath(cwd, '42');
+  await mkdir(join(cwd, 'src'), { recursive: true });
+  await writeFile(join(cwd, 'src', 'app.ts'), 'export const app = true;\n', 'utf8');
+  await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+  await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+  await createRun({ cwd, specId: '42', runId: 'run-1' });
+  await createWorktree({ cwd, runId: 'run-1' });
+  await populateWorktree({ cwd, runId: 'run-1' });
+  await selectSourcePolicy({ cwd, runId: 'run-1', policy: 'host_source_deferred' });
+  await copyHostSource({ cwd, runId: 'run-1' });
+}
+
+describe('initializeReports', () => {
+  it('does not create reports when run metadata is missing', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-report-missing-run-'));
+    const result = await initializeReports({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'missing_run',
+      runStatus: 'not_started',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+  });
+
+  it('does not create reports until host source has been copied', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-report-not-ready-'));
+    const planPath = planFilePath(cwd, '42');
+    await mkdir(join(cwd, '.brunch', 'cook', 'specs', '42'), { recursive: true });
+    await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
+    await createRun({ cwd, specId: '42', runId: 'run-1' });
+
+    const result = await initializeReports({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'source_not_copied',
+      runStatus: 'created',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      sideEffects: [],
+    });
+    expect(await pathExists(reportsPath(cwd, 'run-1'))).toBe(false);
+  });
+
+  it('writes a report log initialization event only', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-report-ready-'));
+    await createSourceCopiedRun(cwd);
+
+    const result = await initializeReports({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'reports_initialized',
+      runStatus: 'reports_initialized',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      sideEffects: [
+        { kind: 'write_file', path: reportsPath(cwd, 'run-1'), ifExists: 'overwrite' },
+        { kind: 'write_file', path: runMetadataPath(cwd, 'run-1'), ifExists: 'overwrite' },
+      ],
+    });
+    const reports = (await readFile(reportsPath(cwd, 'run-1'), 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(reports).toEqual([
+      {
+        event: 'run_ready',
+        runId: 'run-1',
+        status: 'reports_initialized',
+      },
+    ]);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'reports_initialized',
+      reportsPath: reportsPath(cwd, 'run-1'),
+    });
+    expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
+  });
+});

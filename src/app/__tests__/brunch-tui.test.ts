@@ -32,6 +32,27 @@ import {
 import { runBrunchCli } from '../brunch.js';
 import {
   BRUNCH_CONTINUE_COMMAND,
+  BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
+  BRUNCH_EXECUTE_POPULATE_TOOL,
+  BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL,
+  BRUNCH_EXECUTE_PETRI_EXPORT_TOOL,
+  BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
+  BRUNCH_EXECUTE_REPORT_INIT_TOOL,
+  BRUNCH_EXECUTE_RUN_COMPLETE_TOOL,
+  BRUNCH_EXECUTE_SOURCE_COPY_TOOL,
+  BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL,
+  BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL,
+  BRUNCH_EXECUTE_SLICE_START_TOOL,
+  BRUNCH_EXECUTE_SOURCE_POLICY_TOOL,
+  BRUNCH_EXECUTE_TEST_RESULT_TOOL,
+  BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
+  BRUNCH_EXECUTE_PLAN_CHECK_TOOL,
+  BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL,
+  BRUNCH_EXECUTE_PLAN_DRAFT_TOOL,
+  BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL,
+  BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL,
+  BRUNCH_EXECUTE_SNAPSHOT_TOOL,
+  BRUNCH_EXECUTE_STATUS_TOOL,
   BRUNCH_INTROSPECTION_COMMAND,
   BRUNCH_MODE_COMMAND,
   BRUNCH_SWITCH_COMMAND,
@@ -652,6 +673,20 @@ describe('Brunch TUI boot', () => {
       'read_session_context',
       'web_fetch',
       'web_search',
+      BRUNCH_EXECUTE_STATUS_TOOL,
+      BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
+      BRUNCH_EXECUTE_PETRI_EXPORT_TOOL,
+      BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
+      BRUNCH_EXECUTE_POPULATE_TOOL,
+      BRUNCH_EXECUTE_REPORT_INIT_TOOL,
+      BRUNCH_EXECUTE_RUN_COMPLETE_TOOL,
+      BRUNCH_EXECUTE_SOURCE_POLICY_TOOL,
+      BRUNCH_EXECUTE_SOURCE_COPY_TOOL,
+      BRUNCH_EXECUTE_SLICE_COMPLETE_TOOL,
+      BRUNCH_EXECUTE_SLICE_EXECUTE_TOOL,
+      BRUNCH_EXECUTE_SLICE_START_TOOL,
+      BRUNCH_EXECUTE_TEST_RESULT_TOOL,
+      BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
       'orchestrator_stub',
       'present_alternatives',
       'present_question',
@@ -661,6 +696,13 @@ describe('Brunch TUI boot', () => {
       'read_elicitation_scratchpad',
       'update_elicitation_scratchpad',
     ]);
+    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_PREVIEW_TOOL);
+    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_CHECK_TOOL);
+    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL);
+    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_DRAFT_TOOL);
+    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_ARTIFACT_TOOL);
+    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_PLAN_OUTLINE_TOOL);
+    expect(registeredTools).not.toContain(BRUNCH_EXECUTE_SNAPSHOT_TOOL);
     expect(commands.get(BRUNCH_SWITCH_COMMAND)?.description).toBe('Open the Brunch spec/session picker');
     const retiredWorkspaceCommand = ['brunch', 'workspace'].join('-');
     expect(commands.has(retiredWorkspaceCommand)).toBe(false);
