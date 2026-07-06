@@ -57,7 +57,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### Active
 
 - `walkthrough-fixes` (FE-1122) — **built 2026-07-02** (all cards incl. F10 addendum; commits `e0701b4`…`486824b` on `ln/fe-1122-walkthrough-fixes`); pending PR tie-off. Walkthrough continues on a stacked follow-on branch.
-- `executor-run-observer` (FE-1141) — **scoped 2026-07-06; building.** Read-only web surface for watching an executor run crank live: `execute.*` RPC read projections over `.brunch/cook/runs/**` plus run-scoped `brunch.updated` topics. Tracer sequence in `memory/cards/executor-run-observer--tracer.md`; branch `ka/fe-1141-executor-run-observer` rooted on `next`.
+- `executor-run-observer` (FE-1141) — **tracer built 2026-07-06** (atomic run.json writer → `execute.runs`/`execute.run` projections → `/runs` + `/runs/$runId` routes → run-scoped `brunch.updated` topics; commits `2b3507c5`…`95e4cd2f` on `ka/fe-1141-executor-run-observer`). Remaining before tie-off: Petri raw `net.json` view (small slice) and the live-browser outer walkthrough.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
 ### Recently Completed
@@ -199,9 +199,10 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 - **Linear:** [FE-1141](https://linear.app/hash/issue/FE-1141/executor-run-observer-watch-a-run-crank-live-in-the-web-sidecar)
 - **Branch:** `ka/fe-1141-executor-run-observer` (rooted on `next`; the executor stack landed 2026-07-06)
 - **Kind:** structural / executor read-projection + web observer surface
-- **Status:** scoped 2026-07-06; grilled 2026-07-03 (session `executor-observability-frontend`).
-- **Current execution pointer:** `memory/cards/executor-run-observer--tracer.md` (4-card tracer: atomic writer → projections → /runs routes → run topics).
+- **Status:** tracer built 2026-07-06 (4-card sequence consumed; scope file deleted). Remaining acceptance: Petri raw `net.json` view; outer walkthrough owed per `docs/praxis/manual-testing.md`.
+- **Current execution pointer:** none — next unit is a small Petri-raw-view slice via `ln-scope`.
 - **Certainty:** proving.
+- **Build notes (2026-07-06):** run-scoped topics landed as one passive `tool_result` observer extension (`agent-runtime/execute-run-updates`) publishing on successful explicit side effects, not per-tool publisher threading. Known limit: an `execute_orchestrate` drive publishes once at drive end — intra-drive liveness stays on refetch until a scheduler-seam hook is scoped.
 - **Lights up:** the first end-to-end read path from `.brunch/cook/runs/**` artifacts → `execute.runs` / `execute.run` / `execute.runReports` product RPC projections → web `/runs` routes, plus run-scoped `brunch.updated` topics.
 - **Stabilizes:** the `execute.*` read-projection seam as the firewall that keeps run-bundle file shapes out of the browser contract.
 - **Why now / unlocks:** the executor stack lands a real run crank — and FE-1125's `execute_orchestrate` driver cranks it unattended — but run truth lives only on the filesystem; the recurring "metadata says X, reality is Y" pain is invisible without a surface. Read-only observer first; seeds later worker/verify tails, Petri visualization, and promotion-acceptance UI without opening the web write seam.
