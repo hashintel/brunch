@@ -265,6 +265,12 @@ graph.nodeNeighborhood
   params: {specId, nodeId, hops?}
   result: success(anchor, neighbors, edges) | not_found
   source: SQLite graph reader for the explicit spec
+
+execute.run
+  access: read
+  params: {runId}
+  result: recorded run snapshot, per-requirement status, artifact-presence flags, reports tail, normalized worker/verify stream tails, optional raw Petri net
+  source: .brunch/cook/runs/<runId> read projection; raw artifact paths, Pi event payloads, and subprocess handles do not cross the RPC boundary
 ```
 
 ## Product update notifications
@@ -282,6 +288,8 @@ brunch.updated:
       - session.runtimeState
       - graph.overview
       - graph.nodeNeighborhood
+      - execute.runs
+      - execute.run
     updates:
       - {topic, specId?, sessionId?, nodeId?, lsn?}
 ```
@@ -349,6 +357,8 @@ query key families:
 | `session.answerExchange` | `answerExchangeMutationOptions(rpc)` | target; broker-attached sidecar accepted for `request_answer`, web UI not wired | live `brunch.sessionEvent` stream; transcript projection refetch via existing session queries if needed |
 | `graph.overview` | `graphOverviewQueryOptions(rpc, specId)` | implemented; spec route loader primes it | exact `graph.overview(specId)` when `specId` is present |
 | `graph.nodeNeighborhood` | `graphNodeNeighborhoodQueryOptions(rpc, specId, nodeId, hops?)` | implemented query option; graph panel selection not yet wired | exact/prefix neighborhood invalidation when `nodeId` is present; broad topic fallback otherwise |
+| `execute.runs` | `executeRunsQueryOptions(rpc)` | implemented; run observer list route | exact `execute.runs` |
+| `execute.run` | `executeRunQueryOptions(rpc, runId)` | implemented; run detail route incl. reports + worker/verify stream tails | exact `execute.run(runId)` |
 
 Route/use pattern:
 

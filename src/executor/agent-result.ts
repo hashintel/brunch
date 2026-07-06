@@ -1,7 +1,7 @@
-import { appendFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { appendFile, mkdir } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
 
-import type { AgentRunnerPort, AgentRunnerRuntime } from './execution-ports.js';
+import type { AgentRunnerPort, AgentRunnerRuntime, AgentRunUpdate } from './execution-ports.js';
 import { reportsPath } from './report.js';
 import {
   assertSafeSliceId,
@@ -48,10 +48,10 @@ export type AgentResultIngestResult =
       readonly resultPath: string;
       readonly metadataPath: string;
       readonly reportsPath: string;
-      readonly sideEffects: readonly [
-        { readonly kind: 'append_file'; readonly path: string },
-        { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' },
-      ];
+      readonly sideEffects: readonly (
+        | { readonly kind: 'append_file'; readonly path: string }
+        | { readonly kind: 'write_file'; readonly path: string; readonly ifExists: 'overwrite' }
+      )[];
     };
 
 export function agentResultPath(cwd: string, runId: string, sliceId: string): string {
@@ -59,11 +59,25 @@ export function agentResultPath(cwd: string, runId: string, sliceId: string): st
   return join(runDirPath(cwd, runId), 'agent-output', sliceId, 'result.json');
 }
 
+export interface AgentStreamEvent extends AgentRunUpdate {
+  readonly event: 'agent_stream';
+  readonly runId: string;
+  readonly epicId: string;
+  readonly sliceId: string;
+  readonly sequence: number;
+}
+
+export function agentStreamPath(cwd: string, runId: string, sliceId: string): string {
+  assertSafeSliceId(sliceId);
+  return join(runDirPath(cwd, runId), 'streams', sliceId, 'agent.jsonl');
+}
+
 export async function ingestAgentResult(args: {
   readonly cwd: string;
   readonly runId: string;
   readonly agentRunner: AgentRunnerPort;
   readonly runtime?: AgentRunnerRuntime;
+  readonly onAgentUpdate?: (event: AgentStreamEvent) => void;
 }): Promise<AgentResultIngestResult> {
   const metadataPath = runMetadataPath(args.cwd, args.runId);
   const metadata = await readRunMetadata(metadataPath);
@@ -92,6 +106,9 @@ export async function ingestAgentResult(args: {
     metadata.sliceExecutionRequestPath ??
     sliceExecutionRequestPath(args.cwd, args.runId, metadata.activeSliceId);
   const resultPath = agentResultPath(args.cwd, args.runId, metadata.activeSliceId);
+  const streamPath = agentStreamPath(args.cwd, args.runId, metadata.activeSliceId);
+  let sequence = 0;
+  let wroteStream = false;
   const runResult = await args.agentRunner.run({
     worktreeDir,
     requestPath,
@@ -100,6 +117,26 @@ export async function ingestAgentResult(args: {
     epicId: metadata.activeEpicId,
     sliceId: metadata.activeSliceId,
     ...(args.runtime ? { runtime: args.runtime } : {}),
+    onUpdate: async (update) => {
+      const event: AgentStreamEvent = {
+        event: 'agent_stream',
+        runId: args.runId,
+        epicId: metadata.activeEpicId!,
+        sliceId: metadata.activeSliceId!,
+        sequence: sequence,
+        kind: update.kind,
+        message: update.message,
+      };
+      sequence += 1;
+      await mkdir(dirname(streamPath), { recursive: true });
+      await appendFile(streamPath, `${JSON.stringify(event)}\n`, 'utf8');
+      wroteStream = true;
+      try {
+        args.onAgentUpdate?.(event);
+      } catch {
+        // Observer failures never affect worker execution.
+      }
+    },
   });
   if (runResult.status === 'failed') {
     return {
@@ -141,6 +178,10 @@ export async function ingestAgentResult(args: {
     resultPath,
     metadataPath,
     reportsPath: reportPath,
-    sideEffects: [{ kind: 'append_file', path: reportPath }, metadataEffect],
+    sideEffects: [
+      ...(wroteStream ? [{ kind: 'append_file' as const, path: streamPath }] : []),
+      { kind: 'append_file', path: reportPath },
+      metadataEffect,
+    ],
   };
 }

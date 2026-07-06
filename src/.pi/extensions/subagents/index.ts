@@ -43,6 +43,7 @@ export {
   type SubagentResult,
   type SubagentRunContext,
   type SubagentSealedDeps,
+  type SubagentStreamUpdate,
 } from './session.js';
 
 export const BRUNCH_SUBAGENT_TOOL = 'subagent';

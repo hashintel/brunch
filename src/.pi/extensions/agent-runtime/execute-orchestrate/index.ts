@@ -2,7 +2,9 @@ import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-age
 import { Type, type Static } from 'typebox';
 
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
-import { drive, type DriveOutcome } from '../../../../executor/orchestrate.js';
+import { drive, type DriveOutcome, type DriveStepProgress } from '../../../../executor/orchestrate.js';
+import type { AgentStreamEvent } from '../../../../executor/agent-result.js';
+import type { VerifyStreamEvent } from '../../../../executor/test-result.js';
 import { executeRunProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
 import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -15,7 +17,18 @@ const ExecuteOrchestrateParams = Type.Object({
 type ExecuteOrchestrateParams = Static<typeof ExecuteOrchestrateParams>;
 
 interface ExecuteOrchestrateDetails {
-  readonly outcome: DriveOutcome;
+  readonly outcome?: DriveOutcome;
+  readonly progress?: {
+    readonly runId: string;
+    readonly step: string;
+    readonly phase: 'started' | 'completed';
+    readonly runStatus: string;
+    readonly activeEpicId?: string;
+    readonly activeSliceId?: string;
+    readonly completedSliceIds?: readonly string[];
+  };
+  readonly agentStream?: AgentStreamEvent;
+  readonly verifyStream?: VerifyStreamEvent;
 }
 
 export interface ExecuteOrchestrateDeps {
@@ -33,19 +46,99 @@ export function createExecuteOrchestrateTool(
     description:
       'Drive an executor run end-to-end to promotion_prepared (run-local land) by advancing each lifecycle step the scheduler reports ready. Halts without advancing if a step cannot execute. Does not perform host promotion/land.',
     parameters: ExecuteOrchestrateParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, _signal, onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_orchestrate requires an active cwd');
       }
       const publisher = deps?.productUpdates;
+      const emitProgress = (progress: DriveStepProgress): void => {
+        const sliceLine = progress.activeSliceId
+          ? [`slice: ${progress.activeSliceId}`, ...(progress.activeEpicId ? [`epic: ${progress.activeEpicId}`] : [])]
+          : [];
+        const stepLine =
+          progress.phase === 'started'
+            ? `execute_orchestrate: ${progress.step.kind} started from ${progress.fromStatus}`
+            : `execute_orchestrate: ${progress.step.kind} -> ${progress.runStatus}`;
+        onUpdate?.({
+          content: [
+            {
+              type: 'text' as const,
+              text: [
+                stepLine,
+                `run id: ${params.runId}`,
+                `phase: ${progress.phase}`,
+                `from status: ${progress.fromStatus}`,
+                `run status: ${progress.runStatus}`,
+                ...sliceLine,
+                `completed slices: ${progress.completedSliceIds.length}`,
+              ].join('\n'),
+            },
+          ],
+          details: {
+            progress: {
+              runId: params.runId,
+              step: progress.step.kind,
+              phase: progress.phase,
+              runStatus: progress.runStatus,
+              ...(progress.activeEpicId ? { activeEpicId: progress.activeEpicId } : {}),
+              ...(progress.activeSliceId ? { activeSliceId: progress.activeSliceId } : {}),
+              completedSliceIds: progress.completedSliceIds,
+            },
+          },
+        });
+      };
+      const emitAgentUpdate = (event: AgentStreamEvent): void => {
+        publisher?.publish(executeRunProductUpdates(params.runId));
+        onUpdate?.({
+          content: [
+            {
+              type: 'text' as const,
+              text: [
+                `execute_orchestrate: worker ${event.kind}`,
+                `run id: ${event.runId}`,
+                `slice: ${event.sliceId}`,
+                `epic: ${event.epicId}`,
+                `sequence: ${event.sequence}`,
+                event.message,
+              ].join('\n'),
+            },
+          ],
+          details: { agentStream: event },
+        });
+      };
+      const emitVerifyUpdate = (event: VerifyStreamEvent): void => {
+        publisher?.publish(executeRunProductUpdates(params.runId));
+        onUpdate?.({
+          content: [
+            {
+              type: 'text' as const,
+              text: [
+                `execute_orchestrate: verify ${event.kind}`,
+                `run id: ${event.runId}`,
+                `slice: ${event.sliceId}`,
+                `epic: ${event.epicId}`,
+                `sequence: ${event.sequence}`,
+                event.message,
+              ].join('\n'),
+            },
+          ],
+          details: { verifyStream: event },
+        });
+      };
       const outcome = await drive({
         cwd,
         runId: params.runId,
         ports,
-        ...(publisher
-          ? { onStepComplete: () => publisher.publish(executeRunProductUpdates(params.runId)) }
-          : {}),
+        onStepStart: (_step, _runStatus, progress) => {
+          emitProgress(progress);
+        },
+        onStepComplete: (_step, _runStatus, progress) => {
+          publisher?.publish(executeRunProductUpdates(params.runId));
+          emitProgress(progress);
+        },
+        onAgentUpdate: emitAgentUpdate,
+        onVerifyUpdate: emitVerifyUpdate,
         runtime: {
           ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
           ...(ctx.model ? { model: ctx.model } : {}),

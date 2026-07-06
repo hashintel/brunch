@@ -184,7 +184,7 @@ describe('drive', () => {
     expect(meta?.status).toBe('agent_result_ingested');
   });
 
-  it('reports each advanced step through onStepComplete and skips the halted step', async () => {
+  it('reports started and completed steps, and skips completion for the halted step', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-step-hook-'));
     await createRunAtCreated(cwd, ['task-1']);
     const seen: string[] = [];
@@ -195,25 +195,37 @@ describe('drive', () => {
       ports: fakePorts({
         testRunner: createFakeTestRunnerPort({ status: 'failed', message: 'runner exploded' }),
       }),
+      onStepStart: (step, runStatus) => {
+        seen.push(`start:${step}:${runStatus}`);
+      },
       onStepComplete: (step, runStatus) => {
-        seen.push(`${step}:${runStatus}`);
+        seen.push(`complete:${step}:${runStatus}`);
       },
     });
 
     expect(outcome.status).toBe('halted');
     expect(seen).toEqual([
-      'worktree_create:worktree_created',
-      'populate:worktree_populated',
-      'source_policy:source_policy_selected',
-      'source_copy:source_copied',
-      'report_init:reports_initialized',
-      'slice_start:slice_started',
-      'slice_execute:slice_execution_requested',
-      'agent_result:agent_result_ingested',
+      'start:worktree_create:created',
+      'complete:worktree_create:worktree_created',
+      'start:populate:worktree_created',
+      'complete:populate:worktree_populated',
+      'start:source_policy:worktree_populated',
+      'complete:source_policy:source_policy_selected',
+      'start:source_copy:source_policy_selected',
+      'complete:source_copy:source_copied',
+      'start:report_init:source_copied',
+      'complete:report_init:reports_initialized',
+      'start:slice_start:reports_initialized',
+      'complete:slice_start:slice_started',
+      'start:slice_execute:slice_started',
+      'complete:slice_execute:slice_execution_requested',
+      'start:agent_result:slice_execution_requested',
+      'complete:agent_result:agent_result_ingested',
+      'start:test_result:agent_result_ingested',
     ]);
   });
 
-  it('a throwing onStepComplete never halts the drive', async () => {
+  it('throwing step observers never halt the drive', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-step-hook-throw-'));
     await createRunAtCreated(cwd, ['task-1']);
 
@@ -221,6 +233,9 @@ describe('drive', () => {
       cwd,
       runId: 'run-1',
       ports: fakePorts(),
+      onStepStart: () => {
+        throw new Error('observer bug');
+      },
       onStepComplete: () => {
         throw new Error('observer bug');
       },
