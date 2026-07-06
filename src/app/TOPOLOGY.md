@@ -14,7 +14,11 @@ Current entrypoints:
 - `print-workspace-state.ts` — terse human/product print-mode rendering for
   `brunch --mode print`.
 - `brunch-tui.ts` — TUI launch path, embedded Pi session runtime wiring, and the
-  web sidecar (`startWebHost`; browser launch is opt-in via `--open-web`).
+  web sidecar (`startWebHost`; browser launch is opt-in via `--open-web`). Its
+  boot-kick live `sendCustomMessage` adapter resolves at scheduling time so
+  `session_start` cannot park the TUI before subscription, but queues all sends
+  in one per-kick serial chain after the defer window so seed custom messages
+  settle before the triggering kick send begins.
 
 Current runtime support modules:
 
