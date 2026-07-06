@@ -811,6 +811,50 @@ describe('structured exchange present/request tools', () => {
     });
   });
 
+  it('maps missing required single-choice input capability to unavailable', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-choice-none-no-input-call',
+      { exchangeId: 'shell-location-none' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          custom: customPickByIndex(1),
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'shell-location-none',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Select one option.' },
+                  options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
+                  allow_none: true,
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
+      unavailable: {},
+    });
+    expect(result.terminate).toBeUndefined();
+  });
+
   it('maps duplicate present_question option labels back to the selected stable id', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
@@ -1310,6 +1354,29 @@ describe('structured exchange present/request tools', () => {
       tool_meta: { curr: 'request_review' },
       cancelled: {},
     });
+  });
+
+  it('maps missing required review input capability to unavailable', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-review-no-input-required-change',
+      { exchangeId: 'review-cycle-1' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickByIndex(1) },
+        sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
+      } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      tool_meta: { curr: 'request_review' },
+      unavailable: {},
+    });
+    expect(result.terminate).toBeUndefined();
   });
 
   it('records request_response review cancellation and unavailable UI as terminal outcomes', async () => {
