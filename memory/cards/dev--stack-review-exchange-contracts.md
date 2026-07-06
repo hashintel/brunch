@@ -14,7 +14,7 @@ Created:  2026-07-06
 
 ## Card 1 — make multi-line render honesty location-sensitive enough to fail omissions
 
-Status: next
+Status: done
 Weight: full
 
 ### Target Behavior

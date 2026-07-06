@@ -37,10 +37,11 @@ export function missingRenderedDetailsLeaves(
 }
 
 /**
- * Formatters may re-indent a multi-paragraph leaf under a list bullet, so the
- * raw value (with its `\n\n` separators) never appears verbatim in the render.
- * A multi-line leaf therefore counts as rendered when each of its non-blank
- * lines appears; single-line leaves keep the strict verbatim check.
+ * Formatters may re-indent a multi-paragraph leaf under a list bullet or
+ * blockquote, so the raw value (with its `\n\n` separators) may not appear
+ * verbatim. Multi-line leaves must still be represented as one owned span: each
+ * non-blank line appears in order, and only markdown structural punctuation may
+ * sit between adjacent lines.
  */
 function valueAppearsRendered(value: string, renderedText: string): boolean {
   if (renderedText.includes(value)) return true;
@@ -48,7 +49,36 @@ function valueAppearsRendered(value: string, renderedText: string): boolean {
     .split('\n')
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
-  return lines.length > 1 && lines.every((line) => renderedText.includes(line));
+  return lines.length > 1 && linesAppearInOwnedSpan(lines, renderedText);
+}
+
+function linesAppearInOwnedSpan(lines: readonly string[], renderedText: string): boolean {
+  const [firstLine, ...remainingLines] = lines;
+  if (firstLine === undefined) return false;
+
+  let searchFrom = 0;
+  for (;;) {
+    const firstIndex = renderedText.indexOf(firstLine, searchFrom);
+    if (firstIndex === -1) return false;
+    let previousEnd = firstIndex + firstLine.length;
+    let ownedSpan = true;
+
+    for (const line of remainingLines) {
+      const nextIndex = renderedText.indexOf(line, previousEnd);
+      if (nextIndex === -1 || !isMarkdownStructuralGap(renderedText.slice(previousEnd, nextIndex))) {
+        ownedSpan = false;
+        break;
+      }
+      previousEnd = nextIndex + line.length;
+    }
+
+    if (ownedSpan) return true;
+    searchFrom = firstIndex + firstLine.length;
+  }
+}
+
+function isMarkdownStructuralGap(value: string): boolean {
+  return /^[\s>#*_`~\-:.,;()[\]]*$/.test(value);
 }
 
 function hasRenderedRepresentation(
