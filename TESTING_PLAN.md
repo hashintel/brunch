@@ -154,15 +154,15 @@ Each probe needs graph state where the target skill is the *distinctively correc
 | elicit | "ask next focused question" | thin intent + zero-count bands | ✓ alpha is exactly this |
 | ingest | paste source notes | any state (empty workbench cleanest) | ✓ now |
 | map | "turn answer into graph shape" | chained after elicit/ingest | ✓ chained |
-| propose | "generate candidate reqs/oracles" | settled intent + EMPTY target plane | ✗ no seed |
-| project | "project reqs into design/oracle" | ACCEPTED upstream + empty downstream | ✗ no seed (macro-view/base already projected; grounded-intent has no reqs) |
+| propose | "generate candidate reqs/oracles" | settled intent + EMPTY target plane | ✓ `workspace-alpha-grounding/intent-settled` |
+| project | "project reqs into design/oracle" | ACCEPTED upstream + empty downstream | ✓ `workspace-alpha-grounding/requirements-accepted` |
 | review | "critique before committing" | plantable weaknesses; advisory items | ◔ no seed has settlement variation |
 | tutorial | "walk me through Brunch" | state-independent | ✓ now |
 
 #### Seed-variation worklist (fixture-prep; offered as a batch-2 scope card, not yet scoped)
 
-- `+ <ws>/intent-settled` → unlocks propose: settled goal/req intent, empty design+oracle planes
-- `+ <ws>/requirements-accepted` → unlocks project: settled requirements, zero criterion/check/vv_*
+- `✓ <ws>/intent-settled` → unlocks propose: settled goal/req intent, empty design+oracle planes
+- `✓ <ws>/requirements-accepted` → unlocks project: settled requirements, zero criterion/check/vv_*
 - `+ <ws>/advisory-pending` → unlocks review: settled+advisory mix — **new variant class**; A36-L made seeds settlement-independent, so check `seedFixture` accepts settlement on the way in first
 - `+ <ws>/contradictory` → review + `semantic_conflict` testing (converges with `reconciliation-derivation` frontier)
 - `? mid-size alpha (~30n)` for analyze

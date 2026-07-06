@@ -16,6 +16,7 @@ function normalizeFixture(fixture: SeedFixture): SeedFixture {
       title: node.title,
       body: node.body ?? null,
       basis: node.basis ?? 'explicit',
+      settlement: node.settlement ?? 'settled',
       source: node.source ?? null,
       detail: node.detail ?? null,
     })),
@@ -25,6 +26,7 @@ function normalizeFixture(fixture: SeedFixture): SeedFixture {
       target_local_id: edge.target_local_id,
       stance: edge.stance ?? null,
       basis: edge.basis ?? 'explicit',
+      settlement: edge.settlement ?? 'settled',
       rationale: edge.rationale ?? null,
     })),
   };
@@ -77,6 +79,17 @@ function seed(db: BrunchDb, fixture: SeedFixture): number {
   return result.specId;
 }
 
+function projectSettlement(fixture: SeedFixture): unknown {
+  return {
+    nodes: fixture.nodes.map((node) => ({ local_id: node.local_id, settlement: node.settlement })),
+    edges: fixture.edges.map((edge) => ({
+      source_local_id: edge.source_local_id,
+      target_local_id: edge.target_local_id,
+      settlement: edge.settlement,
+    })),
+  };
+}
+
 describe('exportSeedFixture', () => {
   it('captures a persisted spec back into the consolidated seed contract', () => {
     const db = createDb(':memory:');
@@ -84,6 +97,52 @@ describe('exportSeedFixture', () => {
     const specId = seed(db, fixture);
 
     expect(exportSeedFixture(db, { specId })).toEqual(normalizeFixture(fixture));
+  });
+
+  it('preserves settlement across seed export and reseed', () => {
+    const firstDb = createDb(':memory:');
+    const fixture: SeedFixture = {
+      spec: {
+        slug: 'settlement-export',
+        name: 'Settlement Export',
+      },
+      nodes: [
+        {
+          local_id: 1,
+          plane: 'intent',
+          kind: 'goal',
+          title: 'Settled goal',
+          basis: 'explicit',
+        },
+        {
+          local_id: 2,
+          plane: 'intent',
+          kind: 'requirement',
+          title: 'Advisory requirement',
+          basis: 'explicit',
+          settlement: 'advisory',
+        },
+      ],
+      edges: [
+        {
+          category: 'rationale',
+          source_local_id: 2,
+          target_local_id: 1,
+          stance: 'for',
+          basis: 'explicit',
+          settlement: 'advisory',
+        },
+      ],
+    };
+    const firstSpecId = seed(firstDb, fixture);
+
+    const exported = exportSeedFixture(firstDb, { specId: firstSpecId });
+    expect(projectSettlement(exported)).toEqual(projectSettlement(normalizeFixture(fixture)));
+
+    const secondDb = createDb(':memory:');
+    const secondSpecId = seed(secondDb, exported);
+    const reexported = exportSeedFixture(secondDb, { specId: secondSpecId });
+    expect(projectSettlement(reexported)).toEqual(projectSettlement(exported));
   });
 
   it('defaults to graph truth so superseded predecessors remain capturable', () => {

@@ -41,7 +41,7 @@ import type { GraphMutationOp } from './command-executor.js';
 import { CommandExecutor } from './command-executor.js';
 import type { EdgeCategory, EdgeStance } from './schema/edges.js';
 import type { SpecKind } from './schema/kinds.js';
-import type { NodeBasis, NodePlane } from './schema/nodes.js';
+import type { NodeBasis, NodePlane, NodeSettlement } from './schema/nodes.js';
 import { openWorkspaceCommandExecutor } from './workspace-store.js';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +64,7 @@ export interface SeedFixtureNode {
   readonly title: string;
   readonly body?: string | null;
   readonly basis?: NodeBasis;
+  readonly settlement?: NodeSettlement;
   readonly source?: string | null;
   readonly detail?: unknown;
 }
@@ -75,6 +76,7 @@ export interface SeedFixtureEdge {
   readonly target_local_id: number;
   readonly stance?: EdgeStance | null;
   readonly basis?: NodeBasis;
+  readonly settlement?: NodeSettlement;
   readonly rationale?: string | null;
 }
 
@@ -141,6 +143,7 @@ export function seedFixture(executor: CommandExecutor, fixture: SeedFixture): Se
           kind: node.kind,
           title: node.title,
           body: node.body ?? undefined,
+          settlement: node.settlement,
           source: node.source ?? undefined,
           detail: node.detail ?? undefined,
         }) satisfies GraphMutationOp,
@@ -166,6 +169,7 @@ export function seedFixture(executor: CommandExecutor, fixture: SeedFixture): Se
 function roleNamedSeedEdgeDraft(
   edge: SeedFixtureEdge,
 ): Extract<GraphMutationOp, { readonly op: 'create_edge' }> {
+  const settlement = edge.settlement;
   switch (edge.category) {
     case 'dependency':
       return {
@@ -173,6 +177,7 @@ function roleNamedSeedEdgeDraft(
         category: 'dependency',
         dependency: String(edge.source_local_id),
         dependent: String(edge.target_local_id),
+        settlement,
         rationale: edge.rationale ?? undefined,
       };
     case 'witness':
@@ -182,6 +187,7 @@ function roleNamedSeedEdgeDraft(
         oracle: String(edge.source_local_id),
         claim: String(edge.target_local_id),
         stance: edge.stance ?? 'for',
+        settlement,
         rationale: edge.rationale ?? undefined,
       };
     case 'rationale':
@@ -191,6 +197,7 @@ function roleNamedSeedEdgeDraft(
         support: String(edge.source_local_id),
         claim: String(edge.target_local_id),
         stance: edge.stance ?? 'for',
+        settlement,
         rationale: edge.rationale ?? undefined,
       };
     case 'realization':
@@ -199,6 +206,7 @@ function roleNamedSeedEdgeDraft(
         category: 'realization',
         abstract: String(edge.source_local_id),
         concrete: String(edge.target_local_id),
+        settlement,
         rationale: edge.rationale ?? undefined,
       };
     case 'refinement':
@@ -207,6 +215,7 @@ function roleNamedSeedEdgeDraft(
         category: 'refinement',
         abstract: String(edge.source_local_id),
         concrete: String(edge.target_local_id),
+        settlement,
         rationale: edge.rationale ?? undefined,
       };
     case 'exclusion':
@@ -215,6 +224,7 @@ function roleNamedSeedEdgeDraft(
         category: 'exclusion',
         boundary: String(edge.source_local_id),
         subject: String(edge.target_local_id),
+        settlement,
         rationale: edge.rationale ?? undefined,
       };
     case 'composition':
@@ -223,6 +233,7 @@ function roleNamedSeedEdgeDraft(
         category: 'composition',
         whole: String(edge.source_local_id),
         part: String(edge.target_local_id),
+        settlement,
         rationale: edge.rationale ?? undefined,
       };
     case 'cross_reference':
@@ -231,6 +242,7 @@ function roleNamedSeedEdgeDraft(
         category: 'cross_reference',
         a: String(edge.source_local_id),
         b: String(edge.target_local_id),
+        settlement,
         rationale: edge.rationale ?? undefined,
       };
     case 'supersession':
@@ -239,6 +251,7 @@ function roleNamedSeedEdgeDraft(
         category: 'supersession',
         successor: String(edge.source_local_id),
         predecessor: String(edge.target_local_id),
+        settlement,
         rationale: edge.rationale ?? undefined,
       };
   }

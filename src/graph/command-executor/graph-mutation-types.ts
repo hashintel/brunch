@@ -32,6 +32,7 @@ export interface CreateGraphNodeInput {
   readonly kind: string;
   readonly title: string;
   readonly body?: string | undefined;
+  readonly settlement?: NodeSettlement | undefined;
   readonly source?: string | undefined;
   readonly detail?: unknown;
 }
@@ -41,6 +42,7 @@ export interface CreateGraphEdgeInput {
   readonly source: GraphMutationNodeRef;
   readonly target: GraphMutationNodeRef;
   readonly stance?: string | undefined;
+  readonly settlement?: NodeSettlement | undefined;
   readonly rationale?: string | undefined;
 }
 

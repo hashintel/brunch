@@ -5,7 +5,7 @@ import * as schema from '../../db/schema.js';
 import { EDGE_CATEGORY_METADATA } from '../policy/category-policy.js';
 import type { EdgeCategory, EdgeStance } from '../schema/edges.js';
 import { EDGE_CATEGORIES, EDGE_STANCES, NODE_BASES, NODE_SETTLEMENTS } from '../schema/kinds.js';
-import { formatGraphNodeCode, type NodeKind } from '../schema/nodes.js';
+import { formatGraphNodeCode, type NodeKind, type NodeSettlement } from '../schema/nodes.js';
 import type {
   CreateGraphEdgeInput,
   CreateGraphInput,
@@ -29,6 +29,7 @@ export interface PlannedBatchEdge {
   readonly target: PlannedBatchEndpoint;
   readonly category: EdgeCategory;
   readonly stance: EdgeStance | null;
+  readonly settlement: NodeSettlement | undefined;
   readonly rationale: string | null;
 }
 
@@ -215,6 +216,12 @@ function validateAndPlanBatchEdge(
   if (input.stance != null && !VALID_STANCES.includes(input.stance)) {
     diagnostics.push({ field: `${p}.stance`, message: `"${input.stance}" is not a valid stance` });
   }
+  if (input.settlement != null && !VALID_SETTLEMENTS.includes(input.settlement)) {
+    diagnostics.push({
+      field: `${p}.settlement`,
+      message: `"${String(input.settlement)}" is not a valid graph settlement`,
+    });
+  }
 
   const source = resolveEndpointRef(
     input.source,
@@ -247,6 +254,7 @@ function validateAndPlanBatchEdge(
       target,
       category: input.category as EdgeCategory,
       stance: (input.stance as EdgeStance) ?? null,
+      settlement: input.settlement,
       rationale: input.rationale ?? null,
     },
   };

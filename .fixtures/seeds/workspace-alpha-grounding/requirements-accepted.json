@@ -1,0 +1,157 @@
+{
+  "spec": {
+    "slug": "workspace-alpha-grounding",
+    "name": "Alpha Grounding — Requirements Accepted"
+  },
+  "nodes": [
+    {
+      "local_id": 1,
+      "plane": "intent",
+      "kind": "goal",
+      "title": "Help a user orient inside one workspace",
+      "body": "A Brunch session should make the selected workspace and spec legible before asking the user to commit new graph truth.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 2,
+      "plane": "intent",
+      "kind": "thesis",
+      "title": "Orientation should be selected-spec-first",
+      "body": "The selected spec is the right unit for re-entry because workspace-wide summaries hide the concrete next move.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 3,
+      "plane": "intent",
+      "kind": "context",
+      "title": "A workspace may hold multiple specs",
+      "body": "Each spec has its own graph and sessions under the same local workspace.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 4,
+      "plane": "intent",
+      "kind": "term",
+      "title": "Selected spec",
+      "body": "The product-facing target of the current session.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture",
+      "detail": {
+        "definition": "The one spec whose graph and sessions a current interaction targets.",
+        "aliases": ["active spec", "current spec"]
+      }
+    },
+    {
+      "local_id": 5,
+      "plane": "intent",
+      "kind": "constraint",
+      "title": "Selection must stay scoped to the chosen spec",
+      "body": "The orientation flow must not blend facts from sibling specs unless the user asks to switch or compare.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 6,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Display the selected spec identity on session entry",
+      "body": "On cold start or resume, the session must surface the selected spec name before asking for the next move.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 7,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Summarize settled intent facts before proposing downstream work",
+      "body": "The session should name the goal, core thesis, and relevant constraints before deriving design or oracle material.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 8,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Keep orientation entries separate from graph truth",
+      "body": "Process choices made at session entry must guide the kick without becoming spec claims.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    },
+    {
+      "local_id": 9,
+      "plane": "intent",
+      "kind": "requirement",
+      "title": "Offer a deterministic route into downstream derivation",
+      "body": "When intent is accepted and downstream planes are empty, the user should be able to ask for design or oracle projection from the entry menu.",
+      "basis": "explicit",
+      "settlement": "settled",
+      "source": "fixture"
+    }
+  ],
+  "edges": [
+    {
+      "category": "rationale",
+      "source_local_id": 3,
+      "target_local_id": 1,
+      "stance": "for",
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Multiple specs create the orientation problem."
+    },
+    {
+      "category": "exclusion",
+      "source_local_id": 5,
+      "target_local_id": 1,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "Cross-spec leakage is ruled out for the orientation goal."
+    },
+    {
+      "category": "realization",
+      "source_local_id": 1,
+      "target_local_id": 6,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 1,
+      "target_local_id": 7,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "realization",
+      "source_local_id": 2,
+      "target_local_id": 9,
+      "basis": "explicit",
+      "settlement": "settled"
+    },
+    {
+      "category": "dependency",
+      "source_local_id": 8,
+      "target_local_id": 9,
+      "basis": "explicit",
+      "settlement": "settled",
+      "rationale": "The derivation route depends on keeping process choices out of graph truth."
+    },
+    {
+      "category": "cross_reference",
+      "source_local_id": 4,
+      "target_local_id": 6,
+      "basis": "explicit",
+      "settlement": "settled"
+    }
+  ]
+}

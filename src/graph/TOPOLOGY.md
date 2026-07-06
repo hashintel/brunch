@@ -16,10 +16,10 @@ SPEC decisions: D4-L, D20-L, D27-L, D45-L, D51-L, D52-L, D53-L, D54-L, D60-L, D6
 - **mutateGraph** — atomic graph mutation for direct writers and future curation:
   one tool call, one transaction, one selected-spec LSN, all-or-nothing. The
   direct agent surface currently uses create-only `ops[]` (`create_node` plus
-  role-named `create_edge`, both accepting a batch-wide `createBasis` and
-  `createSettlement`) rather than raw DB rows. `command-executor/`
-  owns the private shared planners used by both dry-run and commit before any
-  batch writes occur.
+  role-named `create_edge`, accepting `createBasis`, a batch-wide
+  `createSettlement` fallback, and per-create op `settlement`) rather than raw
+  DB rows. `command-executor/` owns the private shared planners used by both
+  dry-run and commit before any batch writes occur.
 
 - **review-set payload translation** (`review-set.ts`) — validates exact
   user-reviewable review-set payloads, owns the agent-facing boundary-teaching
@@ -173,6 +173,14 @@ graph/
     openWorkspaceGraphRuntime(cwd)
     bound queryGraph/getNodes readers
     openWorkspaceCommandExecutor(cwd)
+
+  seed-fixtures.ts
+    tracked fixture JSON contract + dev seed CLI
+    fixture rows carry optional per-node/per-edge settlement and seed through CommandExecutor
+  export-fixtures.ts
+    dev curation export back to the seed contract, preserving settlement projection
+  validate-fixture.ts
+    fast fixture legality loop through the real CommandExecutor boundary
 
   schema/
     kinds.ts
