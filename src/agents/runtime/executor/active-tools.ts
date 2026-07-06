@@ -15,6 +15,8 @@ export const EXECUTOR_ALLOWED_TOOL_NAMES = [
   // Execute-mode orchestration tools (FE-1089..FE-1118). Registered tools are
   // inactive unless admitted here; side-effect-bounded per I56-L.
   'execute_status',
+  // Run driver over the lifecycle steps (FE-1125, D102-L).
+  'execute_orchestrate',
   'execute_snapshot',
   'execute_plan_check',
   'execute_plan_outline',

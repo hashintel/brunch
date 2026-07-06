@@ -27,6 +27,7 @@ import {
   BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
 } from '../agent-runtime/execute-host-promotion/index.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../agent-runtime/execute-launch/index.js';
+import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../agent-runtime/execute-orchestrate/index.js';
 import { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../agent-runtime/execute-petri-export/index.js';
 import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../agent-runtime/execute-plan-check/index.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../agent-runtime/execute-plan-draft-artifact/index.js';
@@ -168,6 +169,7 @@ describe('Brunch explicit Pi extension registry', () => {
       'web_fetch',
       'web_search',
       BRUNCH_EXECUTE_STATUS_TOOL,
+      BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
       BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
       BRUNCH_EXECUTE_PETRI_EXPORT_TOOL,
       BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
@@ -1695,7 +1697,7 @@ describe('Brunch explicit Pi extension registry', () => {
     // EXECUTOR_ALLOWED_TOOL_NAMES; the registered-but-unadmitted plan artifact
     // tools are intentionally excluded, and text and details must agree.
     expect(result.content[0]?.text).toContain(
-      'ported tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
+      'ported tools: execute_status, execute_orchestrate, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
     );
     expect(result.content[0]?.text).toContain('pending tools: none');
     expect(result.content[0]?.text).toContain(
@@ -1706,6 +1708,7 @@ describe('Brunch explicit Pi extension registry', () => {
       availableDisciplines: ['strict', 'interpretive'],
       portedTools: [
         'execute_status',
+        'execute_orchestrate',
         'execute_snapshot',
         'execute_plan_check',
         'execute_plan_outline',

@@ -6,6 +6,7 @@ import {
 
 import { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
 import { registerBrunchExecuteAgentResult } from '../.pi/extensions/agent-runtime/index.js';
+import { registerBrunchExecuteOrchestrate } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteHostPromotion } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteLaunch } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecutePlanFile } from '../.pi/extensions/agent-runtime/index.js';
@@ -131,6 +132,9 @@ export {
   BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
   createExecuteAgentResultTool,
   registerBrunchExecuteAgentResult,
+  BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
+  createExecuteOrchestrateTool,
+  registerBrunchExecuteOrchestrate,
   BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
   BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
   createExecuteHostPromotionApplyTool,
@@ -327,6 +331,7 @@ export function createBrunchPiExtensions(
       registerBrunchContext,
       registerBrunchWebTools,
       registerBrunchExecuteStatus,
+      (api) => registerBrunchExecuteOrchestrate(api, executionPorts),
       (api) => registerBrunchExecuteAgentResult(api, executionPorts.agentRunner),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteLaunch(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanFile(api, graph)] : []),
