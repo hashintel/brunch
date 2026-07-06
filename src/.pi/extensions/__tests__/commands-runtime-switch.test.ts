@@ -125,7 +125,7 @@ function commandHarness(
           'present_question',
           'request_response',
           'mutate_graph',
-          'orchestrator_stub',
+          'execute_status',
         ].map((name) => ({
           name,
         })),
@@ -202,7 +202,7 @@ describe('Brunch runtime switch commands', () => {
       state: { ...DEFAULT_BRUNCH_AGENT_STATE, operationalMode: 'execute' },
     });
     expect(harness.activeToolNames).toHaveLength(1);
-    expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['orchestrator_stub']));
+    expect(harness.activeToolNames.at(-1)).toEqual(expect.arrayContaining(['execute_status']));
   });
 
   it('reports a no-op when the picker selects the current mode', async () => {
@@ -255,7 +255,7 @@ describe('Brunch runtime switch commands', () => {
     await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
 
     expect(harness.activeToolNames.at(-1)).toEqual(
-      expect.arrayContaining(['present_question', 'request_response', 'mutate_graph', 'orchestrator_stub']),
+      expect.arrayContaining(['present_question', 'request_response', 'mutate_graph', 'execute_status']),
     );
   });
 

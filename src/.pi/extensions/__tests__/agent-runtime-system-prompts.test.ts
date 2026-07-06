@@ -331,7 +331,7 @@ describe('Brunch prompt-pack topology', () => {
           events[event] = handler;
         },
         getAllTools: () =>
-          ['read', 'grep', 'find', 'ls', 'bash', 'write', 'orchestrator_stub'].map((name) => ({ name })),
+          ['read', 'grep', 'find', 'ls', 'bash', 'write', 'execute_status'].map((name) => ({ name })),
         setActiveTools() {},
       } as never,
       promptContext,

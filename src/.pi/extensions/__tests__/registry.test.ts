@@ -50,7 +50,6 @@ import { BRUNCH_EXECUTE_SOURCE_POLICY_TOOL } from '../agent-runtime/execute-sour
 import { BRUNCH_EXECUTE_STATUS_TOOL } from '../agent-runtime/execute-status/index.js';
 import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../agent-runtime/execute-test-result/index.js';
 import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../agent-runtime/execute-worktree-create/index.js';
-import { BRUNCH_ORCHESTRATOR_STUB_TOOL } from '../agent-runtime/orchestrator-stub/index.js';
 import { registerBrunchOperationalModePolicy as operationalMode } from '../agent-runtime/runtime/index.js';
 import { registerBrunchPrompting as prompting } from '../agent-runtime/system-prompts/index.js';
 import { registerBrunchContext as context } from '../brunch-data/context/index.js';
@@ -109,7 +108,6 @@ describe('Brunch explicit Pi extension registry', () => {
         '-extensions/agent-runtime/execute-plan-outline/index.ts',
         '-extensions/agent-runtime/execute-snapshot/index.ts',
         '-extensions/agent-runtime/execute-status/index.ts',
-        '-extensions/agent-runtime/orchestrator-stub/index.ts',
         '-extensions/agent-runtime/runtime/index.ts',
         '-extensions/agent-runtime/system-prompts/index.ts',
         '-extensions/brunch-data/context/index.ts',
@@ -186,7 +184,6 @@ describe('Brunch explicit Pi extension registry', () => {
       BRUNCH_EXECUTE_SLICE_START_TOOL,
       BRUNCH_EXECUTE_TEST_RESULT_TOOL,
       BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
-      BRUNCH_ORCHESTRATOR_STUB_TOOL,
       'present_alternatives',
       PRESENT_QUESTION_TOOL,
       PRESENT_REVIEW_SET_TOOL,
@@ -1751,16 +1748,6 @@ describe('Brunch explicit Pi extension registry', () => {
       pendingTools: [],
       sideEffects: [],
     });
-  });
-
-  it('keeps the default stub tool output aligned with its registered identity', async () => {
-    const registeredTools = await collectProductTools();
-
-    const stub = registeredTools.find((tool) => tool.name === BRUNCH_ORCHESTRATOR_STUB_TOOL);
-    expect(stub).toBeDefined();
-    const result = await stub!.execute('call-1', { message: 'standup' });
-    const toolLabel = BRUNCH_ORCHESTRATOR_STUB_TOOL.replaceAll('_', ' ');
-    expect(result.content[0]?.text).toBe(`${toolLabel} ran: standup`);
   });
 
   it('registers both graph-register and reconciliation-register tools when graph deps are provided', async () => {

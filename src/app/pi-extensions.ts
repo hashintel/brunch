@@ -32,7 +32,6 @@ import { registerBrunchExecutePlanOutlineArtifact } from '../.pi/extensions/agen
 import { registerBrunchExecutePlanOutline } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteSnapshot } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchExecuteStatus } from '../.pi/extensions/agent-runtime/index.js';
-import { registerBrunchOrchestratorStub } from '../.pi/extensions/agent-runtime/index.js';
 import { registerBrunchOperationalModePolicy } from '../.pi/extensions/agent-runtime/index.js';
 import {
   registerBrunchPrompting,
@@ -215,9 +214,6 @@ export {
   BRUNCH_EXECUTE_STATUS_TOOL,
   createExecuteStatusTool,
   registerBrunchExecuteStatus,
-  BRUNCH_ORCHESTRATOR_STUB_TOOL,
-  createOrchestratorStubTool,
-  registerBrunchOrchestratorStub,
 } from '../.pi/extensions/agent-runtime/index.js';
 export { registerBrunchReconciliation } from '../.pi/extensions/brunch-data/index.js';
 export {
@@ -381,7 +377,6 @@ export function createBrunchPiExtensions(
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutlineArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanOutline(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecuteSnapshot(api, graph)] : []),
-      registerBrunchOrchestratorStub,
       ...(hasDelegatableSubagents
         ? [(api: ExtensionAPI) => registerBrunchSubagents(api, options.subagents!)]
         : []),

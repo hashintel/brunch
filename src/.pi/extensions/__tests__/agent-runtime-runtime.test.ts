@@ -208,13 +208,13 @@ describe('Brunch agent runtime-state projection', () => {
       activeToolNamesForBrunchAgentState(
         {
           getAllTools: () =>
-            ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write', 'orchestrator_stub'].map((name) => ({
+            ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write', 'execute_status'].map((name) => ({
               name,
             })),
         } as never,
         projectBrunchAgentState([runtimeEntry(executeState)]),
       ),
-    ).toEqual(['read', 'grep', 'find', 'ls', 'orchestrator_stub']);
+    ).toEqual(['read', 'grep', 'find', 'ls', 'execute_status']);
   });
 
   it('activates host-promotion tools in execute mode when registered', () => {
