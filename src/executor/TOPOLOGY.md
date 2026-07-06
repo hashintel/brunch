@@ -1,10 +1,10 @@
 # executor/ — execute-mode projection contracts
 
-SPEC decisions: FE-1089 cutover frontier; `brunch-orchestrator-cutover-to-next.md` Arc 1 data bridge.
+SPEC decisions: D101-L (executor cutover over injected ports), D52-L (layer boundary) / I56-L (bounded execute-mode ports).
 
 ## Owns
 
-Pure contracts and projection helpers that turn `next` graph facts into execute-mode orchestration inputs. This subtree is product core: it imports graph DTOs and emits stable orchestration DTOs, but it does not register Pi tools, read SQLite, run Petri nets, execute slices, or promote/land changes.
+Pure contracts and orchestration helpers that turn `next` graph facts into execute-mode cook runs. This subtree is product core: it imports graph DTOs, owns run metadata/report transitions and the `ExecutionPorts` contract types, but it does not register Pi tools, read SQLite, or own subprocess/git/SDK effects — real capabilities enter only through app-layer port implementations (`src/app/*-port.ts`) injected by Pi composition.
 
 ```text
 executor/
@@ -45,7 +45,7 @@ rules:
   executor/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
 ```
 
-`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Artifact writers in this subtree may write only explicit execution artifacts under `.brunch/execution-reports`; cook helpers may create only the side effects accepted below. They must not run agents, compile Petri nets, write report logs, promotion refs, land branches, or graph mutations.
+`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Every helper advances run metadata with at most one explicit, declared side effect (I56-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
 
 ## Cook plan preview compatibility
 
