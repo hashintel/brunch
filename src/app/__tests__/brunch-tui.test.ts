@@ -1237,6 +1237,8 @@ describe('Brunch TUI boot', () => {
       noPromptTemplates: true,
       noSkills: true,
       noThemes: true,
+      // Brunch-owned themes enter through the explicit path seam only.
+      additionalThemePaths: [expect.stringMatching(/\.pi[/\\]themes[/\\]$/)],
       // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
       appendSystemPrompt: [],
       extensionFactories: [extension],
@@ -1284,6 +1286,9 @@ describe('Brunch TUI boot', () => {
     expect(settingsManager.getImageAutoResize()).toBe(true);
     expect(settingsManager.getBlockImages()).toBe(false);
     expect(settingsManager.getTransport()).toBe('auto');
+    // Slash-form auto theme: getTheme() is undefined by contract; the raw
+    // pair setting drives Pi's terminal light/dark auto-sync.
+    expect(settingsManager.getThemeSetting()).toBe('brunch-light/brunch-dark');
     expect(settingsManager.getTheme()).toBeUndefined();
     expect(settingsManager.getLastChangelogVersion()).toBeUndefined();
     expect(settingsManager.getCollapseChangelog()).toBe(false);
@@ -1332,6 +1337,8 @@ describe('Brunch TUI boot', () => {
       noPromptTemplates: true,
       noSkills: true,
       noThemes: true,
+      // Brunch-owned themes enter through the explicit path seam only.
+      additionalThemePaths: [expect.stringMatching(/\.pi[/\\]themes[/\\]$/)],
       // D39-L: ambient APPEND_SYSTEM.md must be sealed (empty pinned source).
       appendSystemPrompt: [],
       extensionFactories: [extension],
@@ -1359,6 +1366,31 @@ describe('Brunch TUI boot', () => {
 
     expect(loader.getAppendSystemPrompt()).toEqual([]);
     expect(JSON.stringify(loader.getAppendSystemPrompt())).not.toContain(sentinel);
+  });
+
+  it('loads the Brunch theme pair through the sealed loader while ambient themes stay out', async () => {
+    // Live oracle: with noThemes sealing ambient discovery, the Brunch theme
+    // pair must still arrive via additionalThemePaths so the pinned
+    // 'brunch-light/brunch-dark' auto-sync setting can resolve both halves.
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-theme-cwd-'));
+    const agentDir = await mkdtemp(join(tmpdir(), 'brunch-theme-agentdir-'));
+    const ambientThemeDir = join(agentDir, 'themes');
+    await mkdir(ambientThemeDir, { recursive: true });
+    await writeFile(join(ambientThemeDir, 'ambient-sentinel.json'), '{"name":"ambient-sentinel"}');
+
+    const settings = createBrunchPiSettings({ cwd, agentDir, extensionFactories: [] });
+    const loader = new DefaultResourceLoader({
+      cwd,
+      agentDir,
+      settingsManager: settings.settingsManager,
+      ...settings.resourceLoaderOptions,
+    });
+    await loader.reload();
+
+    const themeNames = loader.getThemes().themes.map((theme) => theme.name);
+    expect(themeNames).toContain('brunch-dark');
+    expect(themeNames).toContain('brunch-light');
+    expect(themeNames).not.toContain('ambient-sentinel');
   });
 
   it('keeps Pi settings/resource policy out of the TUI launcher', async () => {
