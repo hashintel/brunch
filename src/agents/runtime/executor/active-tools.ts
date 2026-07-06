@@ -9,9 +9,9 @@ export const EXECUTOR_ALLOWED_TOOL_NAMES = [
   ...LIVE_ELICITOR_ALLOWED_TOOL_NAMES,
   'orchestrator_stub',
   // Execute-mode orchestration tools (FE-1089..FE-1118). Registered tools are
-  // inactive unless admitted here; side-effect-bounded per I56-L.
+  // inactive unless admitted here; side-effect-bounded per I58-L.
   'execute_status',
-  // Run driver over the lifecycle steps (FE-1125, D102-L).
+  // Run driver over the lifecycle steps (FE-1125, D112-L).
   'execute_orchestrate',
   'execute_snapshot',
   'execute_plan_check',

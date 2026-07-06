@@ -1,6 +1,6 @@
 # executor/ — execute-mode projection contracts
 
-SPEC decisions: D101-L (executor cutover over injected ports), D52-L (layer boundary), FE-1125 run driver / I56-L (bounded execute-mode ports).
+SPEC decisions: D111-L (executor cutover over injected ports), D52-L (layer boundary), D112-L / FE-1125 (run driver), I58-L (bounded execute-mode side effects).
 
 ## Owns
 
@@ -46,7 +46,7 @@ rules:
   executor/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
 ```
 
-`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Every helper advances run metadata with at most one explicit, declared side effect (I56-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
+`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Every helper advances run metadata with at most one explicit, declared side effect (I58-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
 
 ## Cook plan preview compatibility
 
@@ -96,4 +96,4 @@ rules:
 
 `host-promotion.ts` is the host-promotion preflight/apply boundary. Preflight validates that `run.json.promotionCommitSha` agrees with `promotion/promotion.json` and delegates read-only promoted-commit diff inspection to `GitHostPromotionPort`, returning changed files and patch summary with `sideEffects: []`. Apply requires an accepted commit SHA, reruns preflight, and delegates bounded host worktree patch application to the same port; it reports `host_worktree_apply` and still does not commit, create refs, switch branches, or stage the host index.
 
-`orchestrate.ts` is the run driver (FE-1125, D102-L): a generic `drive()` loop advances a run by repeatedly asking a pure `RunScheduler` for the ready step and calling the matching lifecycle step function with the injected `ExecutionPorts`. It owns no side effects of its own — `run.json` status is the loop state, and per-slice-frontier readiness derives from completion facts, not the status enum. `linearScheduler` returns a single ready step and drives a run end-to-end from `created` to `promotion_prepared` (run-local land via `GitLandPort`); the set-returning `ready()` contract leaves room for a future `PetriScheduler` (real Petri-net execution) without reshaping the loop. Host promotion/land stays off the driven chain (a separate, explicitly-accepted surface) — the scheduler reports no ready step at `promotion_prepared`.
+`orchestrate.ts` is the run driver (FE-1125, D112-L): a generic `drive()` loop advances a run by repeatedly asking a pure `RunScheduler` for the ready step and calling the matching lifecycle step function with the injected `ExecutionPorts`. It owns no side effects of its own — `run.json` status is the loop state, and per-slice-frontier readiness derives from completion facts, not the status enum. `linearScheduler` returns a single ready step and drives a run end-to-end from `created` to `promotion_prepared` (run-local land via `GitLandPort`); the set-returning `ready()` contract leaves room for a future `PetriScheduler` (real Petri-net execution) without reshaping the loop. Host promotion/land stays off the driven chain (a separate, explicitly-accepted surface) — the scheduler reports no ready step at `promotion_prepared`.
