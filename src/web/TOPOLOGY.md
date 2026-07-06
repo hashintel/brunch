@@ -37,11 +37,14 @@ web/
       session.runtimeState
       graph.overview
       graph.nodeNeighborhood
+      execute.runs
+      execute.run
 
   queries/
     workspace.ts -> workspace.state + workspace.selectionState query options
     session.ts   -> session.runtimeState query options
     graph.ts     -> graph overview/neighborhood query options
+    execute.ts   -> executor run list/detail query options (run observer)
 
   subscriptions/
     brunch-updates.ts
@@ -64,6 +67,11 @@ web/
     spec.tsx
       `/spec/$specId` loader primes workspace.state + graph.overview
       renders the knowledge-graph structured list
+    runs.tsx
+      `/runs` loader primes execute.runs; run list with presence flags
+      `/runs/$runId` loader primes execute.run; crank status, honest
+      running indicators, reports timeline (events lead the run.json
+      snapshot by design), unreadable-run marking
 
   features/graph/
     structured-list-view.tsx
@@ -306,6 +314,11 @@ current implemented hooks:
     workspaceSelectionStateQueryOptions(rpc)
     query key: ['workspace.selectionState']
     route status: root route reads picker inventory
+
+  execute.runs / execute.run
+    executeRunsQueryOptions(rpc) / executeRunQueryOptions(rpc, runId)
+    query keys: ['execute.runs'] / ['execute.run', runId]
+    route loaders: runs list and run detail routes (run observer, read-only)
 
 planned read hooks:
   rpc.discover

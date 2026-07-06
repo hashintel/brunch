@@ -12,4 +12,8 @@ export const queryKeys = {
     nodeNeighborhood: (specId: number, nodeId: number, hops: number | null = null) =>
       ['graph.nodeNeighborhood', specId, nodeId, hops] as const,
   },
+  execute: {
+    runs: () => ['execute.runs'] as const,
+    run: (runId: string) => ['execute.run', runId] as const,
+  },
 };
