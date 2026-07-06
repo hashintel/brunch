@@ -881,3 +881,26 @@ Establish `src/session/schema/kinds.ts` as the drizzle-free, pi-free source-of-t
 
 - 2026-07-03 `exchange-rendering` (FE-1123) — the structured-exchange transcript render frontier is closed: every ● row of its sweep ledger is built (ledger consumed and deleted); request-response discriminants now have per-formatter render-honesty coverage and `dev:components` preview entries; structural-illegal preview fixture no longer carries an invented schema tag; `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts` is the executable aggregate DoD across registered tools, formatters, preview entries, and snapshots. `npm run verify` passed. Human outer oracles remain owed: walkthrough re-observation for `TESTING_PLAN.md` scenarios 3/5 and preview-gallery aesthetic review.
 - 2026-07-01 `elicitation-gap-guidance` (FE-1116) — the spec-global persisted `elicitation_gaps` register and its count-based readiness scoring are retired; the asking agenda is now a session-local `brunch.elicitation_scratchpad` fold seeded from a thin graph-fact seed; `latestExpectedBand(kind)` is the single band scalar; and settlement (`advisory` | `settled`, orthogonal to `basis`) is materialized and command-enforced (D99-L, I52-L). Closure oracle: `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts` grep-guards the retired names. All co-located `TOPOLOGY.md` homes named in `docs/archive/SESSION_LOCAL_ELICITATION_GAPS.md` are reconciled; that doc landed and is archived.
+
+## 2026-07-06 orchestrator-cutover close + Recently Completed trim (`ln-sync`)
+
+Archived from `memory/PLAN.md` during the sync that folded the landed executor stack into the live
+plan (arc record in `§Initiatives`). Definitions retired here are fully shipped and merged; full
+text lives in git history of `memory/PLAN.md`.
+
+- 2026-07-01 `elicitation-gap-guidance` (FE-1116, merged #280) — persisted spec-global
+  `elicitation_gaps` register and count-based readiness scoring retired; session-local
+  `brunch.elicitation_scratchpad` fold seeded from a thin graph-fact seed; `latestExpectedBand(kind)`
+  as the single band scalar; settlement (`advisory`|`settled`) materialized and command-enforced
+  (D99-L, I52-L). Closure oracle: `src/graph/__tests__/elicitation-gap-guidance-closure.test.ts`.
+- 2026-07-01 `component-dx--rounded-box-primitive` (FE-1115, merged #281) — `projectRoundedBox`
+  owns the shared rounded-border projection; brunch-editor / workspace-dialog / cards delegate.
+- 2026-07-01 `component-dx--wheel-scroll-passthrough` (FE-1115, merged #281) — preview-harness SGR
+  wheel handling (`showComponentPreview` + `.pi/components/mouse-wheel.ts`). Residual carried: manual
+  physical-terminal wheel smoke test never run.
+- 2026-07-03 `walkthrough-fixes` (FE-1122, merged #286) — beat-1 doctor-pass defect closures (F1
+  kick prompt, F2 origination record, F3/F4/F6 kick chrome, F5/F9 elicitor prompt refinements);
+  findings ledger `TESTING_FINDINGS.md`; batch 2 continues as FE-1124 (#288).
+- `orchestrator-tool-port` (FE-1107) — retired unbuilt: superseded by the `orchestrator-cutover`
+  arc, which delivered the plan-check tracer as `execute_plan_check` and the cook orchestration
+  port as the `execute_*` tool family (D98-L).
