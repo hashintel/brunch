@@ -2,6 +2,7 @@ import { Type } from 'typebox';
 import { Value } from 'typebox/value';
 
 import { listRuns, readRunDetail } from '../../executor/observer-read.js';
+import { assertSafeRunId } from '../../executor/run.js';
 import { createJsonRpcFailure, createJsonRpcSuccess, jsonRpcRequestId } from '../protocol.js';
 import type { RpcMethodContext, RpcMethodDefinition } from './registry.js';
 import { NoParamsSchema, NonBlankStringSchema } from './schemas.js';
@@ -52,6 +53,7 @@ const ExecuteRunResultSchema = Type.Union([
       planPath: Type.String(),
       reportsTail: Type.Array(Type.Object({ event: Type.String() }, { additionalProperties: true })),
       reportsTotal: Type.Integer({ minimum: 0 }),
+      petriNet: Type.Optional(Type.Unknown({ description: 'Raw petrinaut/net.json when present.' })),
     },
     { additionalProperties: false },
   ),
@@ -88,13 +90,12 @@ export const executeRpcMethods: readonly RpcMethodDefinition<RpcMethodContext>[]
       if (!Value.Check(ExecuteRunParamsSchema, request.params)) {
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
-      let detail;
       try {
-        detail = await readRunDetail(context.cwd, request.params.runId);
+        assertSafeRunId(request.params.runId);
       } catch {
-        // runDirPath rejects traversal-shaped ids before touching the filesystem.
         return createJsonRpcFailure(requestId, -32602, 'Invalid params');
       }
+      const detail = await readRunDetail(context.cwd, request.params.runId);
       if (detail === undefined) {
         return createJsonRpcFailure(requestId, -32011, UNKNOWN_RUN_ID_MESSAGE);
       }

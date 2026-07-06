@@ -141,6 +141,34 @@ describe('run detail route', () => {
     expect(calls).toContainEqual({ method: 'execute.run', params: { runId: 'run-1' } });
   });
 
+  it('renders the raw petri net payload in a collapsed block when present', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        run: {
+          ...runDetail,
+          status: 'petri_exported',
+          petriNet: { places: [{ id: 'petri-place-1' }] },
+        },
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Petri net (raw)')).toBeTruthy();
+    expect(screen.getByText(/petri-place-1/u)).toBeTruthy();
+  });
+
+  it('omits the petri block when the payload is absent', async () => {
+    window.history.pushState(null, '', '/runs/run-1');
+    const runtime = createBrunchWebRuntime({ rpcClient: rpcClient() });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    await screen.findByText('run_ready');
+    expect(screen.queryByText('Petri net (raw)')).toBeNull();
+  });
+
   it('shows the verify indicator while the test run is pending', async () => {
     window.history.pushState(null, '', '/runs/run-1');
     const runtime = createBrunchWebRuntime({

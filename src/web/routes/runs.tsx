@@ -130,8 +130,18 @@ function RunDetailPage() {
           </DetailRow>
         </dl>
         <ReportsTimeline run={run} />
+        {run.petriNet === undefined ? null : <PetriRawBlock net={run.petriNet} />}
       </div>
     </PageColumn>
+  );
+}
+
+function PetriRawBlock({ net }: { net: unknown }) {
+  return (
+    <details className="border-rule rounded-xl border bg-white p-4 shadow-[var(--shadow-card)]">
+      <summary className="text-hint cursor-pointer font-mono text-xs">Petri net (raw)</summary>
+      <pre className="text-sub mt-2 overflow-x-auto text-xs">{JSON.stringify(net, null, 2)}</pre>
+    </details>
   );
 }
 
