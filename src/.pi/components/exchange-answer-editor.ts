@@ -42,12 +42,14 @@ export class ExchangeAnswerEditorComponent implements Component {
   ) {
     this.#editor = new Editor(tui, editorTheme, { paddingX: 0 });
     this.#editor.onSubmit = (text) => {
+      // Trimmed on submit so TUI answers match the RPC path, which trims in
+      // acceptedResponseFromParams before projecting.
       const answer = text.trim();
       if (answer.length === 0) {
         this.#warning = EMPTY_WARNING;
         return;
       }
-      this.options.onDone(text);
+      this.options.onDone(answer);
     };
   }
 
