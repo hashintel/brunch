@@ -19,7 +19,12 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function createPetriExportedRun(cwd: string): Promise<void> {
+async function createPetriExportedRun(
+  cwd: string,
+  testResults: readonly { readonly sliceId: string; readonly status: 'passed' | 'failed' }[] = [
+    { sliceId: 'task-1', status: 'passed' },
+  ],
+): Promise<void> {
   const runDir = runDirPath(cwd, 'run-1');
   await mkdir(join(runDir, 'petrinaut'), { recursive: true });
   await writeFile(
@@ -39,6 +44,22 @@ async function createPetriExportedRun(cwd: string): Promise<void> {
       completedSliceIds: ['task-1'],
       worktreeDir: join(runDir, 'worktree'),
     }),
+    'utf8',
+  );
+  await writeFile(
+    reportsPath(cwd, 'run-1'),
+    testResults
+      .map((result) =>
+        JSON.stringify({
+          event: 'slice_test_result',
+          runId: 'run-1',
+          epicId: 'frontier-1',
+          sliceId: result.sliceId,
+          status: result.status,
+          exitCode: result.status === 'passed' ? 0 : 1,
+        }),
+      )
+      .join('\n') + '\n',
     'utf8',
   );
 }
@@ -121,6 +142,62 @@ describe('preparePromotion', () => {
 
     // No host topology mutation: no host land branch/ref created.
     expect(await pathExists(join(cwd, '.git'))).toBe(false);
+  });
+
+  it('does not prepare promotion when verification failed', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-verification-failed-'));
+    await createPetriExportedRun(cwd, [{ sliceId: 'task-1', status: 'failed' }]);
+    let promoted = false;
+
+    const result = await preparePromotion({
+      cwd,
+      runId: 'run-1',
+      gitLand: {
+        async currentHead() {
+          throw new Error('currentHead must not run');
+        },
+        async promote() {
+          promoted = true;
+          throw new Error('promote must not run');
+        },
+      },
+    });
+
+    expect(result).toEqual({
+      status: 'verification_failed',
+      runStatus: 'petri_exported',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      failedSliceIds: ['task-1'],
+      sideEffects: [],
+    });
+    expect(promoted).toBe(false);
+    expect(await pathExists(promotionReportPath(cwd, 'run-1'))).toBe(false);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'petri_exported',
+    });
+  });
+
+  it('does not prepare promotion when verification evidence is missing', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-promotion-verification-missing-'));
+    await createPetriExportedRun(cwd, []);
+
+    const result = await preparePromotion({ cwd, runId: 'run-1', gitLand: createFakeGitLandPort() });
+
+    expect(result).toEqual({
+      status: 'verification_missing',
+      runStatus: 'petri_exported',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      missingSliceIds: ['task-1'],
+      sideEffects: [],
+    });
+    expect(await pathExists(promotionReportPath(cwd, 'run-1'))).toBe(false);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'petri_exported',
+    });
   });
 
   it('does not advance metadata when the land port reports no changes', async () => {

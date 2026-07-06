@@ -69,6 +69,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### Recently Completed
 
 - 2026-07-06 **`orchestrator-cutover` arc closed** — six frontiers merged into `next` (PRs #274, #275, #278, #279, #284, #285; roster + done-definition in §Initiatives). The executor is real end-to-end: worktree → sealed worker → verify → run-local promotion → host apply → `execute_orchestrate` driver.
+- 2026-07-06 `executor-run-integrity` (FE-1154) — execute-mode false-positive success is blocked: failed or missing slice verification now prevents `run_completed` and `promotion_prepared`; dependency edges project through snapshot/outline/draft into slice `depends_on`; greenfield orchestration defaults to `plan_only` so host source does not bleed into fixture worktrees. `npm run verify` passed.
 - 2026-07-03 `walkthrough-fixes` (FE-1122) — beat-1 doctor-pass findings closed and merged (#286): kick prompt carries the composed foreground prompt (F1), origination record at decision time (F2), kick-time chrome (F3/F4/F6), elicitor prompt refinements (F5/F9). Walkthrough continues on `ln/fe-1124-walkthrough-batch-2` (PR #288, in flight).
 - 2026-07-03 `exchange-rendering` (FE-1123) — the structured-exchange transcript render frontier is closed: every ● row in `memory/cards/exchange-rendering--sweep.md` is built; request-response discriminants now have per-formatter render-honesty coverage and `dev:components` preview entries; structural-illegal preview fixture no longer carries an invented schema tag; `src/.pi/extensions/__tests__/exchange-family-completeness.test.ts` is the executable aggregate DoD across registered tools, formatters, preview entries, and snapshots. `npm run verify` passed. Human outer oracles remain owed: walkthrough re-observation for `TESTING_PLAN.md` scenarios 3/5 and preview-gallery aesthetic review.
 - Older completed frontiers: `docs/archive/PLAN_HISTORY.md`.
@@ -81,7 +82,6 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **In-flight `ln/*` wave (open PRs, definitions ride their branches; fold in on merge):** FE-1124 walkthrough batch 2 (#288) · FE-1134 session orientation dialog (#289) · FE-1135 exchange-outcome capture contract sweep (#291) · FE-1136 present-digest exchange (#292) · FE-1137 executor entry readiness / concentric authority (#290) · FE-1152 post-gate chrome refinements (#294).
 - `orchestrator-stub-retirement` — candidate cleanup: `registerBrunchOrchestratorStub` looks like dead weight now that D98-L merged the orchestrator into the executor and `execute_orchestrate` landed; verify no live policy/test references, then delete on the next executor-adjacent slice.
-- `executor-run-integrity` (FE-1154) — **scoped.** General execute-mode hardening after the `cook-parallel-utils` reversed fixture exposed false-positive promotion: failed verification must block completion/promotion, executable dependency topology must survive projection, and greenfield runs must not verify accidental host-source bleed. Scope: `memory/cards/executor-run-integrity--hardening.md`.
 - `component-dx` (FE-1115) — **paused.** Preview harness plus shared presentation primitives shipped; open for further dev-tooling refinement if a concrete need surfaces, but nothing is actively scoped. Production-wiring follow-on split to `exchange-answering-chrome` (né `bordered-chrome-production`) and `main-editor-chrome`.
 - **Standing obligations:** `probes-and-transcripts-evolution` and `topology-readmes-and-boundaries` ride the frontier that triggers them; they are not standalone cleanup buckets.
 
@@ -203,14 +203,14 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 - **Name:** Executor run integrity hardening
 - **Linear:** [FE-1154](https://linear.app/hash/issue/FE-1154/executor-run-integrity-hardening)
-- **Branch:** tbd
+- **Branch:** `ka/fe-1154-executor-run-integrity`
 - **Kind:** executor-core hardening / fixture-backed correctness
-- **Status:** scoped (2026-07-06) in `memory/cards/executor-run-integrity--hardening.md`.
+- **Status:** ✓ done (2026-07-06). Scope file consumed and deleted.
 - **Certainty:** proving.
 - **Lights up:** the first regression path for a real reversed cook fixture whose reports show failed slice verification but whose metadata previously reached `promotion_prepared`.
 - **Stabilizes:** execute-mode lifecycle truth: reports and metadata may lag, but failed verification must never be laundered into completed/promoted state.
 - **Objective:** Prevent false-positive executor runs by making failed verification terminal for completion/promotion, preserving executable dependency topology, and keeping greenfield plan-only worktrees isolated from host-source tests.
-- **Acceptance:** failed `slice_test_result` blocks `execute_run_complete`; failed verification blocks `execute_promotion_prepare` even from constructed metadata; generated scaffold/leaf plans retain dependency topology; greenfield fixture runs verify only generated fixture sources unless explicitly source-copied.
+- **Acceptance:** closed by `npm run verify`: failed or missing `slice_test_result` evidence blocks `execute_run_complete`; failed/missing verification blocks `execute_promotion_prepare` before `GitLandPort`; accepted dependency edges survive projection into executable slice dependencies; greenfield orchestration defaults to `plan_only` while explicit `host_source_deferred` still copies host source.
 - **Traceability:** D98-L, D101-L, I52-L/I56-L; `src/executor/TOPOLOGY.md`.
 
 <!-- elicitation-gap-guidance (FE-1116) definition retired 2026-07-06 ln-sync: done 2026-07-01, merged as #280; closure oracle src/graph/__tests__/elicitation-gap-guidance-closure.test.ts; detail in docs/archive/PLAN_HISTORY.md. -->

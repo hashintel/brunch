@@ -117,6 +117,33 @@ describe('drive', () => {
     expect(meta?.promotionCommitSha).toBe('abc123');
   });
 
+  it('defaults greenfield runs to plan-only source policy without copying host source', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-greenfield-plan-only-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    await drive({ cwd, runId: 'run-1', ports: fakePorts() });
+
+    const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(meta).toMatchObject({ sourcePolicy: 'plan_only', sourceCopied: false, copiedEntries: [] });
+    expect(await readFile(join(cwd, 'src', 'app.ts'), 'utf8')).toBe('export const app = true;\n');
+    await expect(readFile(join(meta!.worktreeDir!, 'src', 'app.ts'), 'utf8')).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
+  it('still copies host source for an explicit host-source policy', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-explicit-host-source-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    await drive({ cwd, runId: 'run-1', ports: fakePorts(), sourcePolicy: 'host_source_deferred' });
+
+    const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(meta).toMatchObject({ sourcePolicy: 'host_source_deferred', sourceCopied: true });
+    await expect(readFile(join(meta!.worktreeDir!, 'src', 'app.ts'), 'utf8')).resolves.toBe(
+      'export const app = true;\n',
+    );
+  });
+
   it('produces the same reports and terminal metadata as hand-cranking the steps', async () => {
     const driven = await mkdtemp(join(tmpdir(), 'brunch-drive-parity-driven-'));
     await createRunAtCreated(driven, ['task-1', 'task-2']);
@@ -200,6 +227,36 @@ describe('drive', () => {
     });
 
     expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+  });
+
+  it('halts before Petri export when slice verification fails', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-verification-failed-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({
+        testRunner: createFakeTestRunnerPort({
+          status: 'completed',
+          verdict: 'failed',
+          exitCode: 1,
+          target: 'npm run verify',
+        }),
+      }),
+    });
+
+    expect(outcome).toEqual({
+      status: 'halted',
+      step: 'run_complete',
+      runStatus: 'slice_completed',
+      reason: 'verification_failed',
+    });
+    const meta = await readRunMetadata(runMetadataPath(cwd, 'run-1'));
+    expect(meta?.status).toBe('slice_completed');
+    expect((await readReportEvents(cwd)).map((event) => (event as { event?: string }).event)).not.toContain(
+      'run_completed',
+    );
   });
 
   it('invokes the agent and test runner exactly once per slice', async () => {

@@ -37,6 +37,7 @@ export type ReadyStep =
 
 /** The minimal plan projection the scheduler needs to resolve the slice frontier. */
 export interface SchedulerPlan {
+  readonly mode?: 'greenfield' | 'brownfield';
   readonly slices?: readonly { readonly id: string }[];
 }
 
@@ -167,7 +168,11 @@ async function runStep(step: ReadyStep, ctx: DriveContext): Promise<StepResult> 
     case 'populate':
       return populateWorktree({ cwd, runId });
     case 'source_policy':
-      return selectSourcePolicy({ cwd, runId, policy: ctx.sourcePolicy ?? 'host_source_deferred' });
+      return selectSourcePolicy({
+        cwd,
+        runId,
+        policy: await sourcePolicyForRun(ctx),
+      });
     case 'source_copy':
       return copyHostSource({ cwd, runId });
     case 'report_init':
@@ -199,4 +204,13 @@ async function runStep(step: ReadyStep, ctx: DriveContext): Promise<StepResult> 
     case 'promotion':
       return preparePromotion({ cwd, runId, gitLand: ports.gitLand });
   }
+}
+
+async function sourcePolicyForRun(ctx: DriveContext): Promise<SourcePolicyKind> {
+  if (ctx.sourcePolicy) return ctx.sourcePolicy;
+
+  const metadata = await readRunMetadata(runMetadataPath(ctx.cwd, ctx.runId));
+  const path = metadata?.populatedPlanPath ?? populatedPlanPath(ctx.cwd, ctx.runId);
+  const plan = JSON.parse(await readFile(path, 'utf8')) as SchedulerPlan;
+  return plan.mode === 'greenfield' ? 'plan_only' : 'host_source_deferred';
 }

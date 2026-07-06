@@ -15,6 +15,7 @@ export interface ExecutionPlanOutlineTask {
   readonly title: string;
   readonly requirementId: string;
   readonly summary: string;
+  readonly dependsOn: readonly string[];
   readonly acceptanceCriterionIds: readonly string[];
   readonly acceptanceCriteria: readonly ExecutionPlanOutlineCriterion[];
 }
@@ -66,6 +67,7 @@ function taskForRequirement(
     title: requirement.title,
     requirementId: requirement.itemId,
     summary: requirement.content,
+    dependsOn: requirement.dependsOn,
     acceptanceCriterionIds: acceptanceCriteria.map((criterion) => criterion.criterionId),
     acceptanceCriteria,
   };

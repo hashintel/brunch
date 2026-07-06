@@ -18,7 +18,11 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-async function createSliceCompletedRun(cwd: string, completedSliceIds: string[]): Promise<void> {
+async function createSliceCompletedRun(
+  cwd: string,
+  completedSliceIds: string[],
+  testResults: readonly { readonly sliceId: string; readonly status: 'passed' | 'failed' }[] = [],
+): Promise<void> {
   const runDir = runDirPath(cwd, 'run-1');
   const reportPath = reportsPath(cwd, 'run-1');
   const planPath = populatedPlanPath(cwd, 'run-1');
@@ -33,7 +37,23 @@ async function createSliceCompletedRun(cwd: string, completedSliceIds: string[])
     }),
     'utf8',
   );
-  await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
+  await writeFile(
+    reportPath,
+    [
+      { event: 'run_ready' },
+      ...testResults.map((result) => ({
+        event: 'slice_test_result',
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: result.sliceId,
+        status: result.status,
+        exitCode: result.status === 'passed' ? 0 : 1,
+      })),
+    ]
+      .map((event) => JSON.stringify(event))
+      .join('\n') + '\n',
+    'utf8',
+  );
   await writeFile(
     runMetadataPath(cwd, 'run-1'),
     JSON.stringify({
@@ -110,7 +130,14 @@ describe('completeRun', () => {
 
   it('marks the run complete without Petri or promotion when all slices are complete', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-ready-'));
-    await createSliceCompletedRun(cwd, ['task-1', 'task-2']);
+    await createSliceCompletedRun(
+      cwd,
+      ['task-1', 'task-2'],
+      [
+        { sliceId: 'task-1', status: 'passed' },
+        { sliceId: 'task-2', status: 'passed' },
+      ],
+    );
 
     const result = await completeRun({ cwd, runId: 'run-1' });
 
@@ -141,7 +168,14 @@ describe('completeRun', () => {
 
   it('does not append another report when the run is already complete', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-idempotent-'));
-    await createSliceCompletedRun(cwd, ['task-1', 'task-2']);
+    await createSliceCompletedRun(
+      cwd,
+      ['task-1', 'task-2'],
+      [
+        { sliceId: 'task-1', status: 'passed' },
+        { sliceId: 'task-2', status: 'passed' },
+      ],
+    );
     await completeRun({ cwd, runId: 'run-1' });
     const reportBeforeSecondCompletion = await readFile(reportsPath(cwd, 'run-1'), 'utf8');
 
@@ -156,5 +190,54 @@ describe('completeRun', () => {
       sideEffects: [],
     });
     expect(await readFile(reportsPath(cwd, 'run-1'), 'utf8')).toBe(reportBeforeSecondCompletion);
+  });
+
+  it('does not complete when a completed slice has failed verification', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-failed-verification-'));
+    await createSliceCompletedRun(
+      cwd,
+      ['task-1', 'task-2'],
+      [
+        { sliceId: 'task-1', status: 'passed' },
+        { sliceId: 'task-2', status: 'failed' },
+      ],
+    );
+
+    const result = await completeRun({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'verification_failed',
+      runStatus: 'slice_completed',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      failedSliceIds: ['task-2'],
+      sideEffects: [],
+    });
+    expect((await readFile(reportsPath(cwd, 'run-1'), 'utf8')).includes('run_completed')).toBe(false);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'slice_completed',
+    });
+  });
+
+  it('does not complete when completed slices are missing verification evidence', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-run-complete-missing-verification-'));
+    await createSliceCompletedRun(cwd, ['task-1', 'task-2'], [{ sliceId: 'task-1', status: 'passed' }]);
+
+    const result = await completeRun({ cwd, runId: 'run-1' });
+
+    expect(result).toEqual({
+      status: 'verification_missing',
+      runStatus: 'slice_completed',
+      runId: 'run-1',
+      metadataPath: runMetadataPath(cwd, 'run-1'),
+      reportsPath: reportsPath(cwd, 'run-1'),
+      missingSliceIds: ['task-2'],
+      sideEffects: [],
+    });
+    expect((await readFile(reportsPath(cwd, 'run-1'), 'utf8')).includes('run_completed')).toBe(false);
+    expect(JSON.parse(await readFile(runMetadataPath(cwd, 'run-1'), 'utf8'))).toMatchObject({
+      status: 'slice_completed',
+    });
   });
 });

@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import type { GitLandPort } from './execution-ports.js';
+import { readSliceVerificationVerdict } from './report-verdict.js';
+import { reportsPath } from './report.js';
 import { runDirPath, runMetadataPath, persistRunMetadata, readRunMetadata, type RunMetadata } from './run.js';
 
 type PromotionSideEffect =
@@ -22,6 +24,24 @@ export type PromotionPrepareResult =
       readonly runStatus: RunMetadata['status'];
       readonly runId: string;
       readonly metadataPath: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'verification_failed';
+      readonly runStatus: 'petri_exported';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
+      readonly failedSliceIds: readonly string[];
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'verification_missing';
+      readonly runStatus: 'petri_exported';
+      readonly runId: string;
+      readonly metadataPath: string;
+      readonly reportsPath: string;
+      readonly missingSliceIds: readonly string[];
       readonly sideEffects: readonly [];
     }
   | {
@@ -78,6 +98,35 @@ export async function preparePromotion(args: {
       metadataPath,
       sideEffects: [],
     };
+
+  const reportPath = metadata.reportsPath ?? reportsPath(args.cwd, args.runId);
+  const verification = await readSliceVerificationVerdict({
+    reportsPath: reportPath,
+    expectedSliceIds: metadata.completedSliceIds ?? [],
+  });
+  if (verification.status === 'failed') {
+    return {
+      status: 'verification_failed',
+      runStatus: 'petri_exported',
+      runId: args.runId,
+      metadataPath,
+      reportsPath: reportPath,
+      failedSliceIds: verification.failedSliceIds,
+      sideEffects: [],
+    };
+  }
+  if (verification.status === 'missing') {
+    return {
+      status: 'verification_missing',
+      runStatus: 'petri_exported',
+      runId: args.runId,
+      metadataPath,
+      reportsPath: reportPath,
+      missingSliceIds: verification.missingSliceIds,
+      sideEffects: [],
+    };
+  }
+
   const recovered = await recoverPreparedPromotion({
     cwd: args.cwd,
     gitLand: args.gitLand,
