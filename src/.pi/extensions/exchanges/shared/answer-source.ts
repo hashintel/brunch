@@ -32,5 +32,11 @@ export async function collectAnswerFromSources({
     answer === undefined
       ? projectRequestAnswer({ exchangeId, status: 'cancelled' })
       : projectRequestAnswer({ exchangeId, status: 'answered', answer });
-  return { content: [{ type: 'text' as const, text: formatRequestAnswer(details) }], details };
+  return {
+    content: [{ type: 'text' as const, text: formatRequestAnswer(details) }],
+    details,
+    // A user cancel means "leave me inert": end the turn on this tool result
+    // instead of letting the model spend a follow-up turn reacting to it.
+    ...(answer === undefined ? { terminate: true } : {}),
+  };
 }

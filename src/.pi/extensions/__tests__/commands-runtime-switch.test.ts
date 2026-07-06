@@ -11,6 +11,10 @@ import { BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE } from '../../../session/session
 import { createTestLabTheme } from '../../__tests__/support/tui-theme.js';
 import { BRUNCH_MODE_COMMAND, registerBrunchCommands } from '../commands/index.js';
 import { CODE_SESSION_ORIENTATION_MENU } from '../session-orientation/index.js';
+import {
+  orientationJunctureGate,
+  type BrunchSessionOrientationDeps,
+} from '../session-orientation/registrar.js';
 
 interface RegisteredCommand {
   description?: string;
@@ -41,6 +45,9 @@ interface FakeCommandContext {
   mode: 'tui';
   hasUI: true;
   modelRegistry: { getAvailable(): readonly unknown[] };
+  isIdle?: () => boolean;
+  abort?: () => void;
+  waitForIdle?: () => Promise<void>;
 }
 
 function commandHarness(
@@ -87,6 +94,17 @@ function commandHarness(
     };
   }
 
+  const orientationDeps: BrunchSessionOrientationDeps | undefined = options.orientation
+    ? {
+        resolveKickContext: () => ({
+          specId: 7,
+          reads: { queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }) as never },
+          workspaceContext: '',
+          sendCustomMessage: async () => undefined,
+        }),
+      }
+    : undefined;
+
   registerBrunchCommands(
     {
       registerCommand(name: string, command: RegisteredCommand) {
@@ -121,18 +139,7 @@ function commandHarness(
       requestChromeRefresh: () => {
         chromeRefreshes.push(chromeRefreshes.length + 1);
       },
-      ...(options.orientation
-        ? {
-            sessionOrientation: {
-              resolveKickContext: () => ({
-                specId: 7,
-                reads: { queryGraph: () => ({ nodes: [], edges: [], lsn: 1 }) as never },
-                workspaceContext: '',
-                sendCustomMessage: async () => undefined,
-              }),
-            },
-          }
-        : {}),
+      ...(orientationDeps ? { sessionOrientation: orientationDeps } : {}),
     },
   );
 
@@ -146,6 +153,7 @@ function commandHarness(
     selectCalls,
     chromeRefreshes,
     sent,
+    orientationDeps,
   };
 }
 
@@ -249,7 +257,60 @@ describe('Brunch runtime switch commands', () => {
     );
   });
 
-  it('runs the CODE-side orientation menu and always kicks after switching to Execute', async () => {
+  it('aborts an in-flight turn (claiming the J4 gate) before showing the mode-switch menu', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+    });
+    const events: string[] = [];
+    let idle = false;
+    harness.ctx.isIdle = () => idle;
+    harness.ctx.abort = () => {
+      events.push('abort');
+      // The J4 claim must already be set when the abort lands, so the
+      // registrar's agent_end handler sees it before running its dialog.
+      expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(true);
+    };
+    harness.ctx.waitForIdle = async () => {
+      events.push('waitForIdle');
+      idle = true;
+    };
+    const baseSelect = harness.ctx.ui.select.bind(harness.ctx.ui);
+    harness.ctx.ui.select = async (title, choices) => {
+      events.push('select');
+      return baseSelect(title, choices);
+    };
+
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
+
+    expect(events).toEqual(['abort', 'waitForIdle', 'select']);
+    expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(false);
+    expect(harness.entries).toContainEqual(
+      expect.objectContaining({
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
+      }),
+    );
+  });
+
+  it('leaves an idle agent alone on mode switch (no abort, no gate claim)', async () => {
+    const harness = commandHarness({
+      orientation: true,
+      selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'proceed')!.label,
+    });
+    const aborts: number[] = [];
+    harness.ctx.isIdle = () => true;
+    harness.ctx.abort = () => {
+      aborts.push(1);
+    };
+
+    await harness.commands.get(BRUNCH_MODE_COMMAND)?.handler('execute', harness.ctx);
+
+    expect(aborts).toEqual([]);
+    expect(orientationJunctureGate(harness.orientationDeps!).suppressNextAbortJuncture).toBe(false);
+  });
+
+  it('runs the CODE-side orientation menu and kicks on the selected choice after switching to Execute', async () => {
     const harness = commandHarness({
       orientation: true,
       selectResult: CODE_SESSION_ORIENTATION_MENU.items.find((item) => item.id === 'design_first')!.label,

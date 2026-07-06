@@ -23,7 +23,13 @@ export interface CollectReviewParams {
 export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, params: CollectReviewParams) {
   const terminal = (status: 'cancelled' | 'unavailable', message?: string) => {
     const details = projectRequestReview({ exchangeId: params.exchangeId, status, message });
-    return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
+    return {
+      content: [{ type: 'text' as const, text: formatRequestReview(details) }],
+      details,
+      // A user cancel means "leave me inert": end the turn on this tool
+      // result. Unavailable stays reactive so the model can reroute.
+      ...(status === 'cancelled' ? { terminate: true } : {}),
+    };
   };
 
   if (!ctx.hasUI || typeof ctx.ui?.select !== 'function') {

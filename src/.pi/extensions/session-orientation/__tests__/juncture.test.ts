@@ -105,7 +105,7 @@ describe('runOrientationJuncture', () => {
       expect(sent).toEqual([]);
     });
 
-    it('appends a continue entry and never fires the kick when the user escapes', async () => {
+    it('appends a dismissed entry and never fires the kick when the user escapes', async () => {
       const manager = fakeSessionManager();
       const { deps, sent } = fakeKickDeps();
 
@@ -118,12 +118,16 @@ describe('runOrientationJuncture', () => {
         kick: deps,
       });
 
-      expect(result.choice).toBe('continue');
+      expect(result.choice).toBe('dismissed');
       expect(result.kickFired).toBe(false);
       expect(manager.entries[0]).toEqual({
         type: 'custom',
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'continue', trigger: 'tree' } satisfies SessionOrientationEntryData,
+        data: {
+          schemaVersion: 1,
+          choice: 'dismissed',
+          trigger: 'tree',
+        } satisfies SessionOrientationEntryData,
       });
       expect(sent).toEqual([]);
     });
@@ -187,7 +191,7 @@ describe('runOrientationJuncture', () => {
       expect(sent).toEqual([]);
     });
 
-    it('maps escape to proceed and still fires a forced manual kick with the CODE directive', async () => {
+    it('maps escape to an inert dismissed entry and never kicks (esc means wait)', async () => {
       const manager = fakeSessionManager();
       const { deps, sent } = fakeKickDeps();
 
@@ -201,15 +205,13 @@ describe('runOrientationJuncture', () => {
         kick: deps,
       });
 
-      expect(result).toEqual({ ran: true, choice: 'proceed', kickFired: true });
+      expect(result).toEqual({ ran: true, choice: 'dismissed', kickFired: false });
       expect(manager.entries[0]).toEqual({
         type: 'custom',
         customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
-        data: { schemaVersion: 1, choice: 'proceed', trigger: 'mode-switch' },
+        data: { schemaVersion: 1, choice: 'dismissed', trigger: 'mode-switch' },
       });
-      const { seed } = expectSeedThenKick(sent);
-      expect(String(seed.content)).toContain('chosen: proceed');
-      expect(String(seed.content)).toContain('readiness assessment');
+      expect(sent).toEqual([]);
     });
 
     it('fires a forced manual kick for every CODE endpoint with the matching directive', async () => {
@@ -358,13 +360,36 @@ describe('runOrientationJuncture', () => {
       expect(String(seed.content)).not.toContain('chosen:');
     });
 
-    it('escape (continue) still fires the boot kick but does not force-seed', async () => {
+    it('escape at boot records a dismissed entry and suppresses the boot kick (inert wait)', async () => {
       const manager = fakeSessionManager();
       const { deps, sent } = fakeKickDeps();
 
       const result = await runOrientationJuncture({
         hasUI: true,
         ui: fakeUi(undefined),
+        trigger: 'entry',
+        sessionManager: manager,
+        mode: 'boot',
+        kick: deps,
+      });
+
+      expect(result.choice).toBe('dismissed');
+      expect(result.kickFired).toBe(false);
+      expect(manager.entries[0]).toEqual({
+        type: 'custom',
+        customType: BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE,
+        data: { schemaVersion: 1, choice: 'dismissed', trigger: 'entry' },
+      });
+      expect(sent).toEqual([]);
+    });
+
+    it('an explicit continue at boot still fires the boot kick but does not force-seed', async () => {
+      const manager = fakeSessionManager();
+      const { deps, sent } = fakeKickDeps();
+
+      const result = await runOrientationJuncture({
+        hasUI: true,
+        ui: fakeUi(labelFor('continue')),
         trigger: 'entry',
         sessionManager: manager,
         mode: 'boot',

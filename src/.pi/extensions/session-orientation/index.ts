@@ -5,9 +5,12 @@
  * from the deterministic-orientation decision-flow charts.
  *
  * - Entry rule: an entry is written on every dialog resolution, including
- *   escape/timeout (`select` returning `undefined`) mapping to the menu's
- *   default choice. No entry is written when the dialog is not shown at all
- *   (`hasUI` false).
+ *   escape/timeout (`select` returning `undefined`) resolving to the inert
+ *   `dismissed` choice. No entry is written when the dialog is not shown at
+ *   all (`hasUI` false).
+ * - Dismissal rule: escape/timeout means "leave me inert" — the entry records
+ *   `dismissed`, no kick fires, and no opening-turn directive is seeded. Only
+ *   an explicit menu selection routes anything.
  * - Append is best-effort: a failed `appendCustomEntry` is reported through
  *   `onAppendError` and never blocks the caller (boot/kick must not stall on
  *   a ledger-write failure).
@@ -33,14 +36,12 @@ export interface SessionOrientationMenuItem {
 export interface SessionOrientationMenuDescriptor {
   readonly title: string;
   readonly items: readonly SessionOrientationMenuItem[];
-  readonly defaultChoice: SessionOrientationChoice;
   /** A resolved choice that records an orientation entry but suppresses the live kick. */
   readonly noKickChoice?: SessionOrientationChoice;
 }
 
 export const SESSION_ORIENTATION_MENU = {
   title: 'How should this session continue?',
-  defaultChoice: 'continue',
   noKickChoice: 'continue',
   items: [
     { id: 'continue', label: 'continue' },
@@ -55,7 +56,6 @@ export const SESSION_ORIENTATION_MENU = {
 
 export const CODE_SESSION_ORIENTATION_MENU = {
   title: 'How should Execute mode start?',
-  defaultChoice: 'proceed',
   items: [
     { id: 'proceed', label: 'proceed with a readiness assessment' },
     { id: 'backfill', label: 'backfill missing information via questions [Negotiate/Ask]' },
@@ -73,7 +73,7 @@ export interface RunSessionOrientationDialogOptions {
   readonly menu?: SessionOrientationMenuDescriptor;
 }
 
-/** Runs a menu and maps escape/timeout (`undefined`) to that menu's default. */
+/** Runs a menu and maps escape/timeout (`undefined`) to the inert `dismissed`. */
 export async function runSessionOrientationDialog(
   ui: SessionOrientationDialogUi,
   options: RunSessionOrientationDialogOptions = {},
@@ -83,7 +83,7 @@ export async function runSessionOrientationDialog(
     menu.title,
     menu.items.map((item) => item.label),
   );
-  return menu.items.find((item) => item.label === picked)?.id ?? menu.defaultChoice;
+  return menu.items.find((item) => item.label === picked)?.id ?? 'dismissed';
 }
 
 export interface RunAndRecordSessionOrientationInput {

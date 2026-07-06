@@ -408,10 +408,15 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(cancelled.details).toMatchObject({ tool_meta: { curr: 'request_answer' }, cancelled: {} });
+    // User cancel terminates the turn (inert wait); unavailable stays
+    // reactive so the model can reroute.
+    expect(cancelled.terminate).toBe(true);
     expect(unknown.details).toMatchObject({ status: 'unavailable' });
+    expect(unknown.terminate).toBeUndefined();
     expect(headlessChoice.details).toMatchObject({
       unavailable: { message: 'request_response choice requires interactive UI' },
     });
+    expect(headlessChoice.terminate).toBeUndefined();
   });
 
   it('offers request_response as the recovery continuation for unmatched present_question', () => {
@@ -942,7 +947,9 @@ describe('structured exchange present/request tools', () => {
     );
 
     expect(cancelled.details).toMatchObject({ cancelled: {}, tool_meta: { curr: 'request_review' } });
+    expect(cancelled.terminate).toBe(true);
     expect(unavailable.details).toMatchObject({ unavailable: {}, tool_meta: { curr: 'request_review' } });
+    expect(unavailable.terminate).toBeUndefined();
     expect(isStructuredExchangeRequestDetails(cancelled.details)).toBe(true);
     expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });

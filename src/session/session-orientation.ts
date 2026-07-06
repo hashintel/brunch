@@ -19,7 +19,12 @@
 
 export const BRUNCH_SESSION_ORIENTATION_CUSTOM_TYPE = 'brunch.session_orientation';
 
-/** Canonical choice ids (decision-flow chart §Choice schema — single source). */
+/**
+ * Canonical choice ids (decision-flow chart §Choice schema — single source).
+ * `dismissed` is the escape/timeout resolution: the menu was shown and the
+ * user backed out, so the session stays inert (entry recorded, no kick, no
+ * opening-turn directive).
+ */
 export type SessionOrientationChoice =
   | 'continue'
   | 'elicit_decisions'
@@ -32,7 +37,11 @@ export type SessionOrientationChoice =
   | 'backfill'
   | 'design_first'
   | 'oracle_first'
-  | 'project_plan';
+  | 'project_plan'
+  | 'dismissed';
+
+/** Choices that carry an opening-turn directive — everything except an inert dismissal. */
+export type SessionOrientationDirectiveChoice = Exclude<SessionOrientationChoice, 'dismissed'>;
 
 export const SESSION_ORIENTATION_CHOICES: readonly SessionOrientationChoice[] = [
   'continue',
@@ -47,6 +56,7 @@ export const SESSION_ORIENTATION_CHOICES: readonly SessionOrientationChoice[] = 
   'design_first',
   'oracle_first',
   'project_plan',
+  'dismissed',
 ];
 
 /** Which juncture (decision-flow chart J1-J6) produced the resolution. */

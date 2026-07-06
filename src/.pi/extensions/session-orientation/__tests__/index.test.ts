@@ -40,13 +40,13 @@ describe('runSessionOrientationDialog', () => {
     expect(choice).toBe('ingest');
   });
 
-  it('maps escape/timeout (undefined) to the menu default', async () => {
+  it('maps escape/timeout (undefined) to the inert dismissed on every menu', async () => {
     const specUi = fakeUi(undefined);
     const codeUi = fakeUi(undefined);
 
-    await expect(runSessionOrientationDialog(specUi)).resolves.toBe('continue');
+    await expect(runSessionOrientationDialog(specUi)).resolves.toBe('dismissed');
     await expect(runSessionOrientationDialog(codeUi, { menu: CODE_SESSION_ORIENTATION_MENU })).resolves.toBe(
-      'proceed',
+      'dismissed',
     );
   });
 
@@ -80,7 +80,7 @@ describe('runAndRecordSessionOrientation', () => {
     expect(manager.entries).toEqual([]);
   });
 
-  it('writes an entry on every resolution, including escape (entry rule)', async () => {
+  it('writes an entry on every resolution, including an escape dismissal (entry rule)', async () => {
     const ui = fakeUi(undefined);
     const manager = new FakeSessionManager();
 
@@ -91,10 +91,10 @@ describe('runAndRecordSessionOrientation', () => {
       manager,
     });
 
-    expect(choice).toBe('continue');
+    expect(choice).toBe('dismissed');
     expect(latestSessionOrientation(manager.entries)?.data).toEqual({
       schemaVersion: 1,
-      choice: 'continue',
+      choice: 'dismissed',
       trigger: 'entry',
     });
   });

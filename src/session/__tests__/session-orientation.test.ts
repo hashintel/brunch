@@ -54,6 +54,16 @@ describe('parseSessionOrientationEntryData', () => {
     });
   });
 
+  it('accepts an inert dismissed resolution (escape/timeout)', () => {
+    expect(
+      parseSessionOrientationEntryData({ schemaVersion: 1, choice: 'dismissed', trigger: 'entry' }),
+    ).toEqual({
+      schemaVersion: 1,
+      choice: 'dismissed',
+      trigger: 'entry',
+    });
+  });
+
   it.each([
     { schemaVersion: 2, choice: 'continue', trigger: 'entry' },
     { schemaVersion: 1, choice: 'not-a-choice', trigger: 'entry' },
