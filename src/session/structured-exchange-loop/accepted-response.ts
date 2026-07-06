@@ -244,6 +244,7 @@ export function acceptedResponseFromParams(
   };
 }
 
+/** Receives `comment` already trimmed by the public submit path. */
 function projectAcceptedReviewDetails(
   pending: PendingStructuredExchange,
   review: 'approve' | 'request_changes' | 'reject',
@@ -268,7 +269,7 @@ function projectAcceptedReviewDetails(
       };
     }
     if (review === 'request_changes') {
-      if (comment === undefined) {
+      if (comment === undefined || comment.length === 0) {
         return { ok: false as const, message: 'Review request_changes requires a comment' };
       }
       return {
@@ -294,7 +295,7 @@ function projectAcceptedReviewDetails(
     };
   }
   if (review === 'request_changes') {
-    if (comment === undefined) {
+    if (comment === undefined || comment.length === 0) {
       return { ok: false as const, message: 'Review request_changes requires a comment' };
     }
     return {

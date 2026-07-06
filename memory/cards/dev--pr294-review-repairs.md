@@ -90,8 +90,10 @@ src/dev/tier-2-harness.ts ?
 
 ## Card 2 — align inner review-comment guards with the nonblank predicate
 
-Status: next
+Status: done
 Weight: light
+
+Build note: aligned both inner `request_changes` guards with the caller-trimmed nonblank contract and pinned whitespace-only public submit behavior for digest and non-digest reviews. Verified by focused structured-exchange tests and `npm run verify`.
 
 ### Objective
 

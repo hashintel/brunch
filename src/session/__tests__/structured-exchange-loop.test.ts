@@ -343,6 +343,19 @@ describe('structured exchange loop helpers', () => {
       }),
     ).toEqual({ ok: false, message: 'Review request_changes requires a comment' });
 
+    expect(() =>
+      acceptedResponseFromParams(pending, {
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'request_changes', comment: '   ' } },
+      }),
+    ).not.toThrow();
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: 'review-cycle',
+        answer: { review: { decision: 'request_changes', comment: '   ' } },
+      }),
+    ).toEqual({ ok: false, message: 'Review request_changes requires a comment' });
+
     expect(
       acceptedResponseFromParams(pending, {
         exchangeId: 'review-cycle',
@@ -377,6 +390,19 @@ describe('structured exchange loop helpers', () => {
       acceptedResponseFromParams(pending, {
         exchangeId: 'digest-cycle',
         answer: { review: { decision: 'request_changes' } },
+      }),
+    ).toEqual({ ok: false, message: 'Review request_changes requires a comment' });
+
+    expect(() =>
+      acceptedResponseFromParams(pending, {
+        exchangeId: 'digest-cycle',
+        answer: { review: { decision: 'request_changes', comment: '   ' } },
+      }),
+    ).not.toThrow();
+    expect(
+      acceptedResponseFromParams(pending, {
+        exchangeId: 'digest-cycle',
+        answer: { review: { decision: 'request_changes', comment: '   ' } },
       }),
     ).toEqual({ ok: false, message: 'Review request_changes requires a comment' });
 
