@@ -7,6 +7,7 @@ import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import { AuthStorage, createAgentSessionRuntime, ModelRegistry } from '@earendil-works/pi-coding-agent';
 
 import {
+  BRUNCH_KICK_SEND_DEFER_MS,
   createBrunchAgentSessionRuntimeFactory,
   runBrunchTui,
   type BrunchAgentServicesOverride,
@@ -119,9 +120,19 @@ export async function runTier2RealBootFauxTurn(
  * harness picks the degraded path, deterministically.
  */
 export async function emitStartupOrientationForHarness(runtime: {
-  readonly session: { readonly bindExtensions: (bindings: Record<string, never>) => Promise<void> };
+  readonly session: {
+    readonly bindExtensions: (bindings: Record<string, never>) => Promise<void>;
+    readonly agent: { readonly waitForIdle: () => Promise<void> };
+  };
 }): Promise<void> {
   await runtime.session.bindExtensions({});
+  // The boot kick's send is deferred out of the bind (`scheduleKickSend`) so
+  // the TUI can subscribe before the opening turn starts. Harness oracles
+  // keep the old "bind returned ⇒ kick settled" contract by waiting out the
+  // defer window and then the turn itself; with no model available the kick
+  // is skipped and both waits resolve immediately after the timer.
+  await new Promise((resolve) => setTimeout(resolve, BRUNCH_KICK_SEND_DEFER_MS + 10));
+  await runtime.session.agent.waitForIdle();
 }
 
 export async function bootTier2RuntimeThroughRunBrunchTui(options: {

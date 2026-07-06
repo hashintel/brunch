@@ -278,6 +278,16 @@ export function registerBrunchChrome(
       requestFooterRender?.();
     }
   });
+  pi.on('turn_start', async (_event, ctx) => {
+    // Working-indicator backfill for turns whose `agent_start` the TUI never
+    // received (the boot kick can start before InteractiveMode subscribes).
+    // Extension events arrive via the runner independently of that
+    // subscription, and pi's `setWorkingVisible(true)` shows the indicator
+    // only while the session is streaming — so this is a no-op everywhere
+    // except the missed-agent_start case it exists for (and headless, where
+    // the ui context stubs it).
+    ctx.ui.setWorkingVisible(true);
+  });
   pi.on('turn_end', async (_event, ctx) => {
     // Restore Pi's default working message after a turn finishes so a
     // kick-scoped `setWorkingMessage(...)` (F14) does not leak into the next

@@ -253,6 +253,24 @@ describe('Brunch chrome projection', () => {
     expect(calls).toContainEqual({ method: 'setWorkingMessage', args: [undefined] });
   });
 
+  it('backfills the working indicator at turn_start (missed-agent_start guard)', async () => {
+    const calls: FakeUiCall[] = [];
+    const handlers = new Map<string, Array<(event: unknown, ctx: { ui: FakeExtensionUi }) => unknown>>();
+
+    registerBrunchChrome(
+      {
+        on: (event: string, handler: never) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        },
+      } as never,
+      { cwd: '/tmp/project', spec: { id: 1, title: 'Spec One' }, session: { id: 'session-1' } },
+    );
+
+    await handlers.get('turn_start')?.[0]?.({}, { ui: fakeChromeUi(calls) });
+
+    expect(calls).toContainEqual({ method: 'setWorkingVisible', args: [true] });
+  });
+
   it('renders the F16a resume state/status block for openSession activations', () => {
     const component = new BrunchStartupHeader(
       {
@@ -386,6 +404,7 @@ function fakeChromeUi(calls: FakeUiCall[]): FakeExtensionUi {
     setWidget: (...args: unknown[]) => calls.push({ method: 'setWidget', args }),
     setWorkingIndicator: (_options) => {},
     setWorkingMessage: (...args: unknown[]) => calls.push({ method: 'setWorkingMessage', args }),
+    setWorkingVisible: (...args: unknown[]) => calls.push({ method: 'setWorkingVisible', args }),
     setTitle: (...args: unknown[]) => calls.push({ method: 'setTitle', args }),
     notify: (_message: string, _type?: 'info' | 'warning' | 'error') => {},
   };
@@ -406,6 +425,7 @@ type FakeExtensionUi = Pick<
   | 'setWidget'
   | 'setWorkingIndicator'
   | 'setWorkingMessage'
+  | 'setWorkingVisible'
   | 'setTitle'
   | 'notify'
 >;

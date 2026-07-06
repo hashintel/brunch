@@ -27,6 +27,7 @@ import {
   createBrunchSettingsManager,
   runBrunchTui,
   runWithScopedBrunchOfflineDefault,
+  scheduleKickSend,
   startupHeaderForActivation,
 } from '../brunch-tui.js';
 import { runBrunchCli } from '../brunch.js';
@@ -156,6 +157,52 @@ describe('Brunch TUI boot', () => {
       decision: 'newSpec',
     });
     expect(startupHeaderForActivation({ action: 'cancel' })).toBeUndefined();
+  });
+
+  it('resolves the kick send immediately and fires it only after the defer window', async () => {
+    const sent: string[] = [];
+    let resolveSent!: () => void;
+    const sentOnce = new Promise<void>((resolve) => {
+      resolveSent = resolve;
+    });
+
+    // Resolving before the send happens is the load-bearing behavior: the J1
+    // session_start handler awaits this inside bindExtensions(), and blocking
+    // there would keep InteractiveMode unsubscribed for the whole kick turn.
+    await scheduleKickSend({
+      send: () => {
+        sent.push('kick');
+        resolveSent();
+        return Promise.resolve();
+      },
+      deferMs: 0,
+    });
+    expect(sent).toEqual([]);
+
+    await sentOnce;
+    expect(sent).toEqual(['kick']);
+  });
+
+  it('routes deferred kick send failures to reportAsyncDiagnostic', async () => {
+    const diagnostics: { type: string; message: string }[] = [];
+    let resolveReported!: () => void;
+    const reportedOnce = new Promise<void>((resolve) => {
+      resolveReported = resolve;
+    });
+
+    await scheduleKickSend({
+      send: () => Promise.reject(new Error('provider exploded')),
+      reportAsyncDiagnostic: (diagnostic) => {
+        diagnostics.push(diagnostic);
+        resolveReported();
+      },
+      deferMs: 0,
+    });
+
+    await reportedOnce;
+    expect(diagnostics).toEqual([
+      { type: 'warning', message: 'Assistant kick turn failed after scheduling: provider exploded' },
+    ]);
   });
 
   it('starts a web sidecar on the active spec route with the shared update publisher before interactive mode', async () => {
