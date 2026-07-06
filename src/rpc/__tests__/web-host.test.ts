@@ -100,6 +100,26 @@ describe('web host', () => {
     }
   });
 
+  it('serves index.html for client-side runs routes as an SPA fallback', async () => {
+    const assetRoot = await builtWebAssets();
+    const host = await startWebHost({
+      cwd: '/tmp/brunch-project',
+      port: 0,
+      webAssetRoot: assetRoot,
+    });
+    try {
+      for (const path of ['/runs', '/runs/run-1']) {
+        const response = await fetch(`${host.url}${path}`);
+        const html = await text(response);
+
+        expect(response.status).toBe(200);
+        expect(html).toContain('data-built-shell="true"');
+      }
+    } finally {
+      await host.close();
+    }
+  });
+
   it('serves built Vite JavaScript assets', async () => {
     const assetRoot = await builtWebAssets();
     const host = await startWebHost({

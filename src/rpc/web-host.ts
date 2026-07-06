@@ -145,7 +145,9 @@ function isSpaFallbackRequest(requestUrl: string | undefined): boolean {
   } catch {
     return false;
   }
-  return pathname === '/' || pathname.startsWith('/spec/');
+  return (
+    pathname === '/' || pathname.startsWith('/spec/') || pathname === '/runs' || pathname.startsWith('/runs/')
+  );
 }
 
 function serveIndexHtml(response: ServerResponse, webAssetRoot: string): void {
