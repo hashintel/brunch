@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { zPresentDigestDetails } from '../../schemas/index.js';
+import { zPresentDigestDetails, zRequestReviewDetails } from '../../schemas/index.js';
 import { projectPresentDigest } from '../present-digest.js';
 import { projectRequestReview } from '../request-response.js';
 
@@ -38,11 +38,30 @@ describe('projectPresentDigest', () => {
       acceptedAbstract: 'The accepted abstract is self-contained terminal evidence.',
     });
 
+    expect(zRequestReviewDetails.parse(details)).toEqual(details);
     expect(details).toMatchObject({
       tool_meta: { prev: 'present_digest', curr: 'request_review', next: 'capture_review' },
       answered: {
         decision: 'approve',
         accepted_abstract: 'The accepted abstract is self-contained terminal evidence.',
+      },
+    });
+  });
+
+  it('constructs request-changes terminals only with the supplied nonblank comment', () => {
+    const details = projectRequestReview({
+      exchangeId: 'digest-large-source',
+      respondsToPresentTool: 'present_digest',
+      status: 'answered',
+      review: 'request_changes',
+      comment: 'Preserve the source caveat before mapping.',
+    });
+
+    expect(zRequestReviewDetails.parse(details)).toEqual(details);
+    expect(details).toMatchObject({
+      answered: {
+        decision: 'request_changes',
+        comment: 'Preserve the source caveat before mapping.',
       },
     });
   });

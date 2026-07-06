@@ -85,6 +85,18 @@ export async function collectReviewFromUi(ctx: StructuredExchangeUiContext, para
       return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
     }
 
+    if (review === 'request_changes') {
+      if (comment === undefined) return terminal('cancelled');
+      const details = projectRequestReview({
+        exchangeId: params.exchangeId,
+        status: 'answered',
+        review,
+        respondsToPresentTool: params.respondsToPresentTool,
+        comment,
+      });
+      return { content: [{ type: 'text' as const, text: formatRequestReview(details) }], details };
+    }
+
     const details = projectRequestReview({
       exchangeId: params.exchangeId,
       status: 'answered',

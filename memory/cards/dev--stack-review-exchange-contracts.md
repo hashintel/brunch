@@ -140,7 +140,7 @@ src/exchanges/projections/__tests__/present-digest.test.ts ?
 
 ## Card 3 — make request-review projection inputs match terminal schema states
 
-Status: next
+Status: done
 Weight: full
 
 ### Target Behavior

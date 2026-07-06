@@ -96,13 +96,21 @@ function renderTuple(
           status: 'cancelled',
           respondsToPresentTool: 'present_review_set',
         })
-      : projectRequestReview({
-          exchangeId,
-          status: 'answered',
-          review,
-          respondsToPresentTool: 'present_review_set',
-          comment,
-        });
+      : review === 'request_changes'
+        ? projectRequestReview({
+            exchangeId,
+            status: 'answered',
+            review,
+            respondsToPresentTool: 'present_review_set',
+            comment: comment ?? 'Regenerate this proposal.',
+          })
+        : projectRequestReview({
+            exchangeId,
+            status: 'answered',
+            review,
+            respondsToPresentTool: 'present_review_set',
+            ...(comment !== undefined ? { comment } : {}),
+          });
   return [
     formatPresentReviewSet(projectPresentReviewSet({ exchangeId, payload })),
     formatRequestReview(response),

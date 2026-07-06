@@ -267,6 +267,21 @@ function projectAcceptedReviewDetails(
         }),
       };
     }
+    if (review === 'request_changes') {
+      if (comment === undefined) {
+        return { ok: false as const, message: 'Review request_changes requires a comment' };
+      }
+      return {
+        ok: true as const,
+        details: projectRequestReview({
+          exchangeId: pending.exchangeId,
+          status: 'answered',
+          review,
+          respondsToPresentTool,
+          comment,
+        }),
+      };
+    }
     return {
       ok: true as const,
       details: projectRequestReview({
@@ -275,6 +290,21 @@ function projectAcceptedReviewDetails(
         review,
         respondsToPresentTool,
         ...(comment !== undefined ? { comment } : {}),
+      }),
+    };
+  }
+  if (review === 'request_changes') {
+    if (comment === undefined) {
+      return { ok: false as const, message: 'Review request_changes requires a comment' };
+    }
+    return {
+      ok: true as const,
+      details: projectRequestReview({
+        exchangeId: pending.exchangeId,
+        status: 'answered',
+        review,
+        respondsToPresentTool: 'present_review_set',
+        comment,
       }),
     };
   }
