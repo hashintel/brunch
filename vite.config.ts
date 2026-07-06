@@ -23,6 +23,6 @@ export default defineConfig(() => ({
     },
   },
   test: {
-    exclude: ['**/node_modules/**', '**/dist/**', '**/dist-web/**', '**/_suspended/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/dist-web/**', '**/_suspended/**', '**/.brunch/**'],
   },
 }));

@@ -64,6 +64,7 @@ import {
 } from '../.pi/extensions/session-hooks/index.js';
 import { registerBrunchSubagents, type BrunchSubagentsDeps } from '../.pi/extensions/subagents/index.js';
 import { registerBrunchWebTools } from '../.pi/extensions/web-tools/index.js';
+import type { ExecutionPorts } from '../executor/execution-ports.js';
 import { formatGraphNodeCode } from '../graph/schema/nodes.js';
 import {
   CAPTURE_SWEEP_WATERMARK_CUSTOM_TYPE,
@@ -79,6 +80,8 @@ import {
   type GraphChangeItem,
   type PrepareNextTurnResult,
 } from '../session/prepare-next-turn.js';
+import { createGitWorktreePort } from './git-worktree-port.js';
+import { createTestRunnerPort } from './test-runner-port.js';
 
 export { registerBrunchAlternatives } from '../.pi/components/alternatives.js';
 export { BRUNCH_BRANCH_FLOW_BLOCKED_MESSAGE } from '../.pi/extensions/commands/policy.js';
@@ -229,6 +232,7 @@ export interface BrunchPiExtensionsOptions extends BrunchCommandsOptions {
   promptContext?: BrunchPromptContextProvider;
   introspection?: BrunchPiIntrospectionOptions;
   continuityDrains?: () => readonly ContinuityDrain[];
+  executionPorts?: Partial<ExecutionPorts>;
   /**
    * Optional subagent registry (D44-L/D92-L). When provided with a non-empty
    * code-owned delegatable set, the product `subagent` tool is registered and
@@ -283,6 +287,12 @@ export function createBrunchPiExtensions(
       : [];
     const chromeRefresh: { current: (() => void) | null } = { current: null };
     const graph = options.graph;
+    const executionPorts: ExecutionPorts = {
+      gitWorktree: options.executionPorts?.gitWorktree ?? createGitWorktreePort(),
+      testRunner: options.executionPorts?.testRunner ?? createTestRunnerPort(),
+      ...(options.executionPorts?.agentRunner ? { agentRunner: options.executionPorts.agentRunner } : {}),
+      ...(options.executionPorts?.gitLand ? { gitLand: options.executionPorts.gitLand } : {}),
+    };
     const extensions: BrunchProductExtensionRegistrar[] = [
       (api) => {
         registerBrunchSessionBoundary(api, onSessionBoundary, {
@@ -318,8 +328,8 @@ export function createBrunchPiExtensions(
       registerBrunchExecuteSliceComplete,
       registerBrunchExecuteSliceExecute,
       registerBrunchExecuteSliceStart,
-      registerBrunchExecuteTestResult,
-      registerBrunchExecuteWorktreeCreate,
+      (api) => registerBrunchExecuteTestResult(api, executionPorts.testRunner),
+      (api) => registerBrunchExecuteWorktreeCreate(api, executionPorts.gitWorktree),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanCheck(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraftArtifact(api, graph)] : []),
       ...(graph ? [(api: ExtensionAPI) => registerBrunchExecutePlanDraft(api, graph)] : []),

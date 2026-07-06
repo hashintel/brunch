@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import type { GitWorktreePort } from '../../../../executor/execution-ports.js';
 import { createWorktree, type WorktreeCreateResult } from '../../../../executor/worktree.js';
 import { BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -17,22 +18,21 @@ interface ExecuteWorktreeCreateDetails {
   readonly sideEffects: WorktreeCreateResult['sideEffects'];
 }
 
-export function createExecuteWorktreeCreateTool(): ToolDefinition<
-  typeof ExecuteWorktreeCreateParams,
-  ExecuteWorktreeCreateDetails
-> {
+export function createExecuteWorktreeCreateTool(
+  gitWorktree: GitWorktreePort,
+): ToolDefinition<typeof ExecuteWorktreeCreateParams, ExecuteWorktreeCreateDetails> {
   return {
     name: BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
     label: 'execute_worktree_create',
     description:
-      'Create the empty worktree directory for an existing cook run. Does not populate it, execute slices, or create Petri artifacts.',
+      'Create the git worktree for an existing cook run. Does not populate it, execute slices, or create Petri artifacts.',
     parameters: ExecuteWorktreeCreateParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_worktree_create requires an active cwd');
       }
-      const result = await createWorktree({ cwd, runId: params.runId });
+      const result = await createWorktree({ cwd, runId: params.runId, gitWorktree, signal });
       return {
         content: [
           {
@@ -51,8 +51,8 @@ export function createExecuteWorktreeCreateTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteWorktreeCreate(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteWorktreeCreateTool() as never);
+export function registerBrunchExecuteWorktreeCreate(pi: ExtensionAPI, gitWorktree: GitWorktreePort): void {
+  pi.registerTool(createExecuteWorktreeCreateTool(gitWorktree) as never);
 }
 
 export default registerBrunchExecuteWorktreeCreate;

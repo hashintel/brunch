@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { Type, type Static } from 'typebox';
 
+import type { TestRunnerPort } from '../../../../executor/execution-ports.js';
 import { ingestTestResult, type TestResultIngestResult } from '../../../../executor/test-result.js';
 import { BRUNCH_EXECUTE_TEST_RESULT_TOOL } from '../../../../session/schema/tool-names.js';
 
@@ -17,22 +18,21 @@ interface ExecuteTestResultDetails {
   readonly sideEffects: TestResultIngestResult['sideEffects'];
 }
 
-export function createExecuteTestResultTool(): ToolDefinition<
-  typeof ExecuteTestResultParams,
-  ExecuteTestResultDetails
-> {
+export function createExecuteTestResultTool(
+  testRunner: TestRunnerPort,
+): ToolDefinition<typeof ExecuteTestResultParams, ExecuteTestResultDetails> {
   return {
     name: BRUNCH_EXECUTE_TEST_RESULT_TOOL,
     label: 'execute_test_result',
     description:
-      'Ingest a prewritten test result for the active slice. Does not run tests or create Petri artifacts.',
+      'Run the verify subprocess for the active slice in its worktree and ingest the true result. Does not create Petri artifacts.',
     parameters: ExecuteTestResultParams,
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
       const cwd = ctx?.cwd;
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_test_result requires an active cwd');
       }
-      const result = await ingestTestResult({ cwd, runId: params.runId });
+      const result = await ingestTestResult({ cwd, runId: params.runId, testRunner, signal });
       return {
         content: [
           {
@@ -51,8 +51,8 @@ export function createExecuteTestResultTool(): ToolDefinition<
   };
 }
 
-export function registerBrunchExecuteTestResult(pi: ExtensionAPI): void {
-  pi.registerTool(createExecuteTestResultTool() as never);
+export function registerBrunchExecuteTestResult(pi: ExtensionAPI, testRunner: TestRunnerPort): void {
+  pi.registerTool(createExecuteTestResultTool(testRunner) as never);
 }
 
 export default registerBrunchExecuteTestResult;

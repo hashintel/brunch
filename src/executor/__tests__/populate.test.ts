@@ -8,6 +8,7 @@ import { planFilePath } from '../plan-file.js';
 import { populateWorktree, populatedPlanPath } from '../populate.js';
 import { runDirPath, runMetadataPath, createRun } from '../run.js';
 import { worktreeDirPath, createWorktree } from '../worktree.js';
+import { createFakeGitWorktreePort } from './fake-ports.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -57,7 +58,7 @@ describe('populateWorktree', () => {
     await mkdir(dirname(planPath), { recursive: true });
     await writeFile(planPath, '{"mode":"greenfield","epics":[],"slices":[]}', 'utf8');
     await createRun({ cwd, specId: '42', runId: 'run-1' });
-    await createWorktree({ cwd, runId: 'run-1' });
+    await createWorktree({ cwd, runId: 'run-1', gitWorktree: createFakeGitWorktreePort() });
 
     const result = await populateWorktree({ cwd, runId: 'run-1' });
 

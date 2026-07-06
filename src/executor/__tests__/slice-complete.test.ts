@@ -7,7 +7,6 @@ import { describe, expect, it } from 'vitest';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
 import { completeSlice } from '../slice-complete.js';
-import { testResultPath } from '../test-result.js';
 
 async function pathExists(path: string): Promise<boolean> {
   try {
@@ -22,9 +21,7 @@ async function createTestResultRun(cwd: string): Promise<void> {
   const runDir = runDirPath(cwd, 'run-1');
   const reportPath = reportsPath(cwd, 'run-1');
   const metadataPath = runMetadataPath(cwd, 'run-1');
-  const resultPath = testResultPath(cwd, 'run-1', 'task-1');
   await mkdir(join(runDir, 'agent-output', 'task-1'), { recursive: true });
-  await writeFile(resultPath, JSON.stringify({ status: 'passed', target: 'tests/task-1.test.ts' }), 'utf8');
   await writeFile(reportPath, '{"event":"run_ready"}\n', 'utf8');
   await writeFile(
     metadataPath,
@@ -36,7 +33,6 @@ async function createTestResultRun(cwd: string): Promise<void> {
       reportsPath: reportPath,
       activeSliceId: 'task-1',
       activeEpicId: 'frontier-1',
-      testResultPath: resultPath,
     }),
     'utf8',
   );
