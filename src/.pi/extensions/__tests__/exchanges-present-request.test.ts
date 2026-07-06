@@ -1,3 +1,4 @@
+import { TUI } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createDb } from '../../../db/connection.js';
@@ -7,6 +8,7 @@ import {
   isStructuredExchangeRequestDetails,
 } from '../../../exchanges/recovery.js';
 import { CommandExecutor } from '../../../graph/command-executor.js';
+import { VirtualTerminal } from '../../__tests__/support/virtual-terminal.js';
 import {
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
@@ -313,7 +315,110 @@ describe('structured exchange present/request tools', () => {
     expect(rendered).toContain('Move under src/tui-client');
   });
 
-  it('responds to a pending present_question through the UI editor using the presented prompt', async () => {
+  it('responds to a pending present_question through the custom answer editor before the sealed UI editor', async () => {
+    const editor = vi.fn(async () => 'Should not be called.');
+    const workingVisible: boolean[] = [];
+    const custom = vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+      const terminal = new VirtualTerminal(80, 24);
+      const tui = new TUI(terminal);
+      let answer: unknown;
+      const component = factory(tui, theme, null, (result: unknown) => {
+        answer = result;
+      }) as TestPickerComponent & { setText(text: string): void };
+      expect(component.render(80).join('\n')).toContain('What should request_response ask?');
+      component.setText('Answer collected by custom editor.');
+      component.handleInput('\r');
+      return answer;
+    });
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-custom-ui-call',
+      { exchangeId: 'respond-question' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom, editor, setWorkingVisible: (visible: boolean) => workingVisible.push(visible) },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'respond-question',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'answer',
+                  display: { heading: 'What should request_response ask?', body: 'This body is context.' },
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(custom).toHaveBeenCalledOnce();
+    expect(editor).not.toHaveBeenCalled();
+    expect(workingVisible).toEqual([false, true]);
+    expect(result.details).toMatchObject({
+      exchange_id: 'respond-question',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_answer' },
+      answered: { text: 'Answer collected by custom editor.' },
+    });
+  });
+
+  it('records cancellation when the custom answer editor resolves undefined', async () => {
+    const custom = vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+      const terminal = new VirtualTerminal(80, 24);
+      const tui = new TUI(terminal);
+      let answer: unknown = 'not-cancelled';
+      const component = factory(tui, theme, null, (result: unknown) => {
+        answer = result;
+      }) as TestPickerComponent;
+      component.handleInput('\x1b');
+      return answer;
+    });
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-custom-cancel-call',
+      { exchangeId: 'respond-cancel' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'respond-cancel',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'answer',
+                  display: { heading: 'Cancel this?' },
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(result.details).toMatchObject({ cancelled: {} });
+  });
+
+  it('falls back to the sealed UI editor when custom UI is unavailable', async () => {
     const editor = vi.fn(async () => 'Answer collected by request_response.');
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');

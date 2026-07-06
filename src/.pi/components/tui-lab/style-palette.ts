@@ -2,6 +2,7 @@ import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 
 export type LabThemeColor =
   | 'accent'
+  | 'border'
   | 'success'
   | 'warning'
   | 'error'

@@ -132,7 +132,9 @@ export const zRequestAnswerDetails = z.union([
       tool_meta: zRequestAnswerToolMeta,
       answered: z
         .object({
-          text: zMarkdown,
+          text: zMarkdown.refine((value) => value.trim().length > 0, {
+            message: 'answer text cannot be empty',
+          }),
         })
         .strict(),
     })

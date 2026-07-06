@@ -41,10 +41,12 @@ re-deriving it from `pi-coding-agent` source each time it matters.
 `request_response` is dual-homed for free-text prompts because interactive TUI
 sessions and headless web-driver sessions close the same transcript result
 through different live surfaces. It routes through `shared/answer-source.ts`:
-when `ctx.hasUI` and `ctx.ui.editor` are present, the TUI editor is the
-authoritative response surface; the live broker is the fallback for headless /
-web-driver turns. A future web-as-driver race across both sources needs an
-awaiter-cancel path before it can replace this precedence rule.
+when `ctx.hasUI` and `ctx.ui.custom` are present, the Brunch-owned
+`ExchangeAnswerEditorComponent` is the local TUI response surface; pi's sealed
+`ctx.ui.editor` is the UI fallback when custom UI is unavailable; the live broker
+is the fallback for headless / web-driver turns. A future web-as-driver race
+across both sources needs an awaiter-cancel path before it can replace this
+precedence rule.
 
 `present_question` is the merged prompt anchor. `options[]` presence derives the
 response kind: no options → free-text `answer`, options → single `choice`, and

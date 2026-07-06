@@ -30,6 +30,9 @@ components/
 ├── brunch-version.ts
 ├── cards.ts
 ├── chrome-header.ts
+├── editor-lines.ts            shared pi-tui Editor border/rule stripping helpers for boxed
+│                                editor surfaces
+├── exchange-answer-editor.ts   bordered free-text exchange answer editor hosting pi-tui Editor
 ├── exchange-decision-picker.ts bordered single-decision exchange response picker
 ├── lateral-padding.ts          transparent horizontal padding wrapper
 ├── multi-choice-picker.ts      bordered checkbox-style exchange response picker

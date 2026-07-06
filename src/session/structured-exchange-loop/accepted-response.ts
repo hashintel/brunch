@@ -78,9 +78,11 @@ export function acceptedResponseFromParams(
 ): AcceptedStructuredExchangeResponse {
   if ('text' in params.answer) {
     if (pending.mode !== 'text') return invalidResponseMode();
+    const answerText = params.answer.text.trim();
+    if (answerText.length === 0) return { ok: false, message: 'Elicitation response requires answer text' };
     return {
       ok: true,
-      answer: { text: params.answer.text },
+      answer: { text: answerText },
       toolCallMessage: syntheticExchangeToolCallMessage(pending.exchangeId, 'request_response'),
       toolResultMessage: {
         ...toolResultMessageBase(pending, 'request_response'),
@@ -91,7 +93,7 @@ export function acceptedResponseFromParams(
               projectRequestAnswer({
                 exchangeId: pending.exchangeId,
                 status: 'answered',
-                answer: params.answer.text,
+                answer: answerText,
               }),
             ),
           },
@@ -99,7 +101,7 @@ export function acceptedResponseFromParams(
         details: projectRequestAnswer({
           exchangeId: pending.exchangeId,
           status: 'answered',
-          answer: params.answer.text,
+          answer: answerText,
         }),
       },
     };

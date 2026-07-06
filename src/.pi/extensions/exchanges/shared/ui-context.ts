@@ -1,5 +1,7 @@
+import type { KeybindingsManager, Theme } from '@earendil-works/pi-coding-agent';
+import type { Component, TUI } from '@earendil-works/pi-tui';
+
 import type { EntryLike } from '../../../../exchanges/recovery.js';
-import type { LabTheme } from '../../../components/tui-lab/index.js';
 
 /**
  * The slice of the Pi tool `ctx` the structured-exchange response collectors
@@ -16,9 +18,14 @@ export interface StructuredExchangeUiContext {
     readonly select?: (prompt: string, choices: readonly string[]) => Promise<string | undefined>;
     readonly input?: (prompt: string, placeholder?: string) => Promise<string | undefined>;
     readonly custom?: <T>(
-      factory: (tui: unknown, theme: LabTheme, keybindings: unknown, done: (result: T) => void) => unknown,
+      factory: (
+        tui: TUI,
+        theme: Theme,
+        keybindings: KeybindingsManager,
+        done: (result?: T) => void,
+      ) => Component,
       options?: unknown,
-    ) => Promise<T>;
+    ) => Promise<T | undefined>;
     readonly setWorkingVisible?: (visible: boolean) => void;
   };
   readonly sessionManager?: {

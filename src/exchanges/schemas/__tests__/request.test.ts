@@ -60,6 +60,15 @@ describe('structured exchange request schemas', () => {
     });
   });
 
+  it('rejects empty free-text answers', () => {
+    expect(() =>
+      zRequestAnswerDetails.parse({
+        ...answerBase,
+        answered: { text: '   ' },
+      }),
+    ).toThrow(/answer text cannot be empty/);
+  });
+
   it('rejects missing or multiple terminal outcomes', () => {
     expect(() => zRequestAnswerDetails.parse(answerBase)).toThrow();
     expect(() =>

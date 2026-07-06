@@ -3,6 +3,7 @@ import type { KeybindingsManager } from '@earendil-works/pi-coding-agent';
 import { getCapabilities, hyperlink, truncateToWidth } from '@earendil-works/pi-tui';
 import type { EditorTheme, TUI } from '@earendil-works/pi-tui';
 
+import { findLastIndex, isEditorBorderLine, padContentToMinimum, stripEditorBorder } from './editor-lines.js';
 import { projectRoundedBox } from './rounded-box.js';
 
 /**
@@ -37,54 +38,6 @@ const MIN_CONTENT_LINES = 2;
 
 /** Left indent applied to lines below the box. */
 const BELOW_LINES_INDENT = 1;
-
-const ANSI = '\x1b';
-const ANSI_SEQUENCE_GLOBAL = new RegExp(`${ANSI}\\[[0-9;?]*[ -/]*[@-~]`, 'g');
-
-function stripAnsi(text: string): string {
-  return text.replace(ANSI_SEQUENCE_GLOBAL, '');
-}
-
-/**
- * True for a full-width horizontal rule or `Editor`'s own scroll-indicator
- * line (`─── ↑ N more ───`) — both mark an `Editor`-drawn border, not content
- * or an autocomplete row. `Editor`'s own `render()` (pi-tui) draws no side
- * borders at all and appends autocomplete-dropdown rows *after* its bottom
- * border line, so the bottom border is not reliably the last array element —
- * this predicate is how `projectBorderedChrome` finds it regardless.
- */
-function isEditorBorderLine(line: string): boolean {
-  const stripped = stripAnsi(line);
-  return /^─*$/.test(stripped) || /^─+\s[↑↓]\s\d+\smore\s─*$/.test(stripped);
-}
-
-function findLastIndex<T>(items: readonly T[], predicate: (item: T) => boolean): number {
-  for (let index = items.length - 1; index >= 0; index--) {
-    if (predicate(items[index]!)) return index;
-  }
-  return -1;
-}
-
-/**
- * Pad editor content before any autocomplete rows so the box is always at
- * least `MIN_CONTENT_LINES` tall, even for an empty editor.
- */
-function padContentToMinimum(contentLines: readonly string[], innerWidth: number): readonly string[] {
-  const padCount = Math.max(0, MIN_CONTENT_LINES - contentLines.length);
-  if (padCount === 0) return contentLines;
-  return [...contentLines, ...Array.from({ length: padCount }, () => ' '.repeat(Math.max(0, innerWidth)))];
-}
-
-function stripEditorBorder(
-  innerLines: readonly string[],
-  bottomIndex: number,
-): { contentLines: readonly string[]; trailingLines: readonly string[] } {
-  if (bottomIndex <= 0) return { contentLines: innerLines, trailingLines: [] };
-  return {
-    contentLines: innerLines.slice(1, bottomIndex),
-    trailingLines: innerLines.slice(bottomIndex + 1),
-  };
-}
 
 function projectTrailingRows(
   trailingLines: readonly string[],
@@ -121,7 +74,7 @@ export function projectBorderedChrome(
   const rawBottomIndex = findLastIndex(innerLines, isEditorBorderLine);
   const { contentLines, trailingLines } = stripEditorBorder(innerLines, rawBottomIndex);
   const boxedContent = projectRoundedBox(
-    padContentToMinimum(contentLines, Math.max(1, width - SIDE_BUDGET)),
+    padContentToMinimum(contentLines, MIN_CONTENT_LINES, Math.max(1, width - SIDE_BUDGET)),
     { topLabel: labels.topRight, bottomLabel: labels.bottomRight, preserveContentWidth: true },
     width,
     borderColor,

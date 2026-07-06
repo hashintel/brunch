@@ -308,7 +308,7 @@ Rules:
 
 - Use `comment`, not `note`, for user-authored supplementary text.
 - `message` appears only under `cancelled` or `unavailable`.
-- `request_answer` follows `present_question` free-text prompts and may lead to `capture_answer`.
+- `request_answer` follows `present_question` free-text prompts and may lead to `capture_answer`; answered text must be non-empty after trimming.
 - `request_choice` follows `present_question` option prompts or `present_candidates`; after candidates it may lead to `capture_candidate`.
 - `request_choices` follows `present_question` multi-option prompts and may lead to `capture_choices`.
 - `request_review` follows `present_review_set` or `present_digest` and may lead to `capture_review`.

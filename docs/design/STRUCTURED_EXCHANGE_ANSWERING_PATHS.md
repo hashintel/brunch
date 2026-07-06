@@ -142,7 +142,7 @@ policy: current-state coverage, not a design rule
 
 kind     | local-TUI (A)                                   | RPC direct-submit (B)         | live-driver headless (C)
 ---------|--------------------------------------------------|--------------------------------|---------------------------
-answer   | ctx.ui.editor                                    | works (uniform, see notes)    | broker (built, FE-873)
+answer   | ctx.ui.custom (ExchangeAnswerEditorComponent), ctx.ui.editor fallback | works (uniform, see notes)    | broker (built, FE-873)
 choice   | ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
 choices  | ctx.ui.custom (MultiChoicePickerComponent), falls back to ctx.ui.editor JSON envelope | works (uniform, see notes) | x> unavailable — no broker, and the JSON-envelope fallback also needs ctx.ui, absent here too
 review   | ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
@@ -180,10 +180,13 @@ open:
 - **It does not create or worsen the column-C gap.** That gap already exists today for
   choice/choices/review regardless of which column-A mechanism is used; a UI swap is orthogonal to
   it, not a regression against it.
+- **`answer` now uses the same column-A custom-first pattern**: `ctx.ui.custom` hosts
+  `ExchangeAnswerEditorComponent` and falls back to pi's sealed `ctx.ui.editor` when custom UI is
+  unavailable; the broker remains the headless column-C path.
 - **`choices` (`MultiChoicePickerComponent`) already proved the whole column-A pattern**:
-  `ctx.ui.custom` first, `ctx.ui.editor` JSON-envelope fallback for the rare case `hasUI` is false.
-  Extending `choice`/`review` to custom picker chrome was additive, not a new architecture; the
-  remaining `answer` restyle is still the same column-A-only kind of change.
+  `ctx.ui.custom` first, `ctx.ui.editor` JSON-envelope fallback for the rare case custom UI is
+  unavailable. Extending `choice`/`review` and then `answer` to custom chrome was additive, not a new
+  architecture.
 - **If Brunch ever wants to close the column-C gap for choice/choices/review**, that is a separate,
   already-named Horizon-frontier concern (`web-driver-streaming`) — building a
   `LiveChoiceBroker`-equivalent to `LiveExchangeBroker`. It is not blocked by, or a prerequisite
