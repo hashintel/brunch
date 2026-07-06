@@ -27,6 +27,7 @@ import {
   createBrunchSettingsManager,
   runBrunchTui,
   runWithScopedBrunchOfflineDefault,
+  createKickSendSerialChain,
   scheduleKickSend,
   startupHeaderForActivation,
 } from '../brunch-tui.js';
@@ -183,6 +184,77 @@ describe('Brunch TUI boot', () => {
     expect(sent).toEqual(['kick']);
   });
 
+  it('runs a deferred seed send to settlement before invoking the kick send', async () => {
+    const chain = createKickSendSerialChain(0);
+    const events: string[] = [];
+    let resolveSeed!: () => void;
+    let resolveKickStarted!: () => void;
+    const seedSettled = new Promise<void>((resolve) => {
+      resolveSeed = resolve;
+    });
+    const kickStarted = new Promise<void>((resolve) => {
+      resolveKickStarted = resolve;
+    });
+
+    await scheduleKickSend({
+      chain,
+      send: async () => {
+        events.push('seed:start');
+        await seedSettled;
+        events.push('seed:settled');
+      },
+    });
+    await scheduleKickSend({
+      chain,
+      send: () => {
+        events.push('kick:start');
+        resolveKickStarted();
+        return Promise.resolve();
+      },
+    });
+
+    await waitFor(() => events.includes('seed:start'));
+    expect(events).toEqual(['seed:start']);
+
+    resolveSeed();
+    await kickStarted;
+    expect(events).toEqual(['seed:start', 'seed:settled', 'kick:start']);
+  });
+
+  it('runs three deferred sends serially in scheduling order', async () => {
+    const chain = createKickSendSerialChain(0);
+    const events: string[] = [];
+    const resolves: (() => void)[] = [];
+
+    for (const name of ['seed:one', 'seed:two', 'kick']) {
+      await scheduleKickSend({
+        chain,
+        send: async () => {
+          events.push(`${name}:start`);
+          await new Promise<void>((resolve) => resolves.push(resolve));
+          events.push(`${name}:settled`);
+        },
+      });
+    }
+
+    await waitFor(() => events.includes('seed:one:start'));
+    expect(events).toEqual(['seed:one:start']);
+
+    resolves.shift()?.();
+    await waitFor(() => events.includes('seed:two:start'));
+    expect(events).toEqual(['seed:one:start', 'seed:one:settled', 'seed:two:start']);
+
+    resolves.shift()?.();
+    await waitFor(() => events.includes('kick:start'));
+    expect(events).toEqual([
+      'seed:one:start',
+      'seed:one:settled',
+      'seed:two:start',
+      'seed:two:settled',
+      'kick:start',
+    ]);
+  });
+
   it('routes deferred kick send failures to reportAsyncDiagnostic', async () => {
     const diagnostics: { type: string; message: string }[] = [];
     let resolveReported!: () => void;
@@ -202,6 +274,57 @@ describe('Brunch TUI boot', () => {
     await reportedOnce;
     expect(diagnostics).toEqual([
       { type: 'warning', message: 'Assistant kick turn failed after scheduling: provider exploded' },
+    ]);
+  });
+
+  it('routes synchronously thrown deferred kick sends to reportAsyncDiagnostic', async () => {
+    const diagnostics: { type: string; message: string }[] = [];
+    let resolveReported!: () => void;
+    const reportedOnce = new Promise<void>((resolve) => {
+      resolveReported = resolve;
+    });
+
+    await scheduleKickSend({
+      send: () => {
+        throw new Error('sync provider exploded');
+      },
+      reportAsyncDiagnostic: (diagnostic) => {
+        diagnostics.push(diagnostic);
+        resolveReported();
+      },
+      deferMs: 0,
+    });
+
+    await reportedOnce;
+    expect(diagnostics).toEqual([
+      { type: 'warning', message: 'Assistant kick turn failed after scheduling: sync provider exploded' },
+    ]);
+  });
+
+  it('skips later deferred kick sends after one send fails', async () => {
+    const chain = createKickSendSerialChain(0);
+    const diagnostics: { type: string; message: string }[] = [];
+    const events: string[] = [];
+
+    await scheduleKickSend({
+      chain,
+      send: () => Promise.reject(new Error('seed failed')),
+      reportAsyncDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+    });
+    await scheduleKickSend({
+      chain,
+      send: () => {
+        events.push('kick:start');
+        return Promise.resolve();
+      },
+      reportAsyncDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+    });
+
+    await waitFor(() => diagnostics.length === 2);
+    expect(events).toEqual([]);
+    expect(diagnostics).toEqual([
+      { type: 'warning', message: 'Assistant kick turn failed after scheduling: seed failed' },
+      { type: 'warning', message: 'Skipping assistant kick send after an earlier scheduled send failed.' },
     ]);
   });
 
@@ -1492,6 +1615,14 @@ describe('Brunch TUI boot', () => {
     expect(settingsSource).toContain('SettingsManager.inMemory');
   });
 });
+
+async function waitFor(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (predicate()) return;
+    await new Promise<void>((resolve) => setTimeout(resolve, 1));
+  }
+  expect(predicate()).toBe(true);
+}
 
 async function writeHostilePiSettings(cwd: string, agentDir: string): Promise<void> {
   const hostileSettings = {
