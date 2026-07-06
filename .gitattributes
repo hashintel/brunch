@@ -37,7 +37,6 @@
 *.yaml merge=weave
 *.yml merge=weave
 *.toml merge=weave
-*.md merge=weave
 *.scala merge=weave
 *.sc merge=weave
 *.sbt merge=weave
