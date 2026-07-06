@@ -17,6 +17,7 @@ executor/
 ├── petri.ts              completed run -> minimal Petrinaut net.json
 ├── promotion.ts          petri-exported run -> run-local promotion (GitLandPort) + report
 ├── host-promotion.ts     promoted run -> preflight/apply report (GitHostPromotionPort)
+├── observer-read.ts      run bundle -> tolerant read-only RunSummary/RunDetail projections (consumed by rpc execute.*)
 ├── populate.ts           worktree -> plan-only worktree population
 ├── report.ts             source-copied run -> reports.jsonl initialization
 ├── run-complete.ts       completed slices -> run completion marker
