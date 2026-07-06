@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { ingestAgentResult } from '../agent-result.js';
+import { agentStreamPath, ingestAgentResult } from '../agent-result.js';
 import type { AgentRunArgs } from '../execution-ports.js';
 import { reportsPath } from '../report.js';
 import { runDirPath, runMetadataPath } from '../run.js';
@@ -148,14 +148,14 @@ describe('ingestAgentResult', () => {
     });
 
     expect(calls).toEqual([
-      {
+      expect.objectContaining({
         worktreeDir: worktreeDirPath(cwd, 'run-1'),
         requestPath: sliceExecutionRequestPath(cwd, 'run-1', 'task-1'),
         resultPath,
         runId: 'run-1',
         epicId: 'frontier-1',
         sliceId: 'task-1',
-      },
+      }),
     ]);
     expect(result).toEqual({
       status: 'agent_result_ingested',
@@ -190,6 +190,54 @@ describe('ingestAgentResult', () => {
     });
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'petrinaut'))).toBe(false);
     expect(await pathExists(join(runDirPath(cwd, 'run-1'), 'tests-ran.json'))).toBe(false);
+  });
+
+  it('persists normalized worker stream updates before ingesting the final result', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-agent-result-stream-'));
+    await createRequestedSliceRun(cwd);
+    const observed: unknown[] = [];
+
+    const result = await ingestAgentResult({
+      cwd,
+      runId: 'run-1',
+      agentRunner: {
+        async run(args) {
+          await args.onUpdate?.({ kind: 'status', message: 'worker started' });
+          await args.onUpdate?.({ kind: 'message', message: 'edited src/types.ts' });
+          return { status: 'completed', summary: 'Implemented task.' };
+        },
+      },
+      onAgentUpdate: (event) => observed.push(event),
+    });
+
+    const streamPath = agentStreamPath(cwd, 'run-1', 'task-1');
+    const stream = (await readFile(streamPath, 'utf8'))
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    expect(stream).toEqual([
+      {
+        event: 'agent_stream',
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+        sequence: 0,
+        kind: 'status',
+        message: 'worker started',
+      },
+      {
+        event: 'agent_stream',
+        runId: 'run-1',
+        epicId: 'frontier-1',
+        sliceId: 'task-1',
+        sequence: 1,
+        kind: 'message',
+        message: 'edited src/types.ts',
+      },
+    ]);
+    expect(observed).toEqual(stream);
+    expect(result.sideEffects).toContainEqual({ kind: 'append_file', path: streamPath });
+    expect(result.status).toBe('agent_result_ingested');
   });
 
   it('does not advance run metadata when the agent runner cannot execute', async () => {

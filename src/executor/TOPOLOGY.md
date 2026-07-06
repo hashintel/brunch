@@ -9,7 +9,7 @@ Pure contracts and orchestration helpers that turn `next` graph facts into execu
 ```text
 executor/
 ├── TOPOLOGY.md
-├── agent-result.ts       AgentRunnerPort -> slice result report
+├── agent-result.ts       AgentRunnerPort -> slice result report + normalized worker stream artifact
 ├── orchestrate.ts        run facts + RunScheduler -> drive() over the lifecycle steps
 ├── plan-file.ts          old cook-compatible DTO preview -> spec-scoped plan.yaml
 ├── launch.ts             spec-scoped plan.yaml -> non-running launch readiness
@@ -17,7 +17,7 @@ executor/
 ├── petri.ts              completed run -> minimal Petrinaut net.json
 ├── promotion.ts          petri-exported run -> run-local promotion (GitLandPort) + report
 ├── host-promotion.ts     promoted run -> preflight/apply report (GitHostPromotionPort)
-├── observer-read.ts      run bundle -> tolerant read-only RunSummary/RunDetail projections (consumed by rpc execute.*)
+├── observer-read.ts      run bundle -> tolerant read-only RunSummary/RunDetail projections incl. requirements, reports, and worker/verify stream tails (consumed by rpc execute.*)
 ├── populate.ts           worktree -> plan-only worktree population
 ├── report.ts             source-copied run -> reports.jsonl initialization
 ├── report-verdict.ts     reports.jsonl -> latest per-slice verification verdicts
@@ -28,7 +28,7 @@ executor/
 ├── slice-start.ts        reports-ready run -> slice-start marker
 ├── source-copy.ts        source policy -> bounded host source copy
 ├── source-policy.ts      plan-populated worktree -> source policy selection
-├── test-result.ts        run worktree -> verify subprocess (TestRunnerPort) -> slice test report
+├── test-result.ts        run worktree -> verify subprocess (TestRunnerPort) -> slice test report + normalized verify stream artifact
 ├── worktree.ts           run metadata -> real git worktree (GitWorktreePort)
 ├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner, git land, host-promotion preflight)
 ├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1, incl. requirement dependencies + unprojected dependency guards
@@ -85,9 +85,9 @@ rules:
 
 `slice-execute.ts` creates the first execution request artifact for the active slice under `agent-output/<sliceId>/request.json`, appends `slice_execution_requested`, and records `status:"slice_execution_requested"`. It still does not invoke an agent process, run tests, compile Petri artifacts, promote, or land.
 
-`agent-result.ts` runs the injected `AgentRunnerPort` for the active slice's worktree/request/result paths, appends `slice_agent_result`, and records `status:"agent_result_ingested"`. Runner failure returns `agent_run_failed` and leaves metadata unchanged. The app-layer runner launches the sealed `worker` subagent when subagent deps and Pi model context are injected; this core module still does not import the SDK, run tests, compile Petri artifacts, promote, or land.
+`agent-result.ts` runs the injected `AgentRunnerPort` for the active slice's worktree/request/result paths, appends `slice_agent_result`, and records `status:"agent_result_ingested"`. During the long runner call, normalized worker updates are optionally appended to `.brunch/cook/runs/<runId>/streams/<sliceId>/agent.jsonl`; these are Brunch-owned stream events, not raw Pi session payloads. Runner failure returns `agent_run_failed` and leaves metadata unchanged. The app-layer runner launches the sealed `worker` subagent when subagent deps and Pi model context are injected; this core module still does not import the SDK, run tests, compile Petri artifacts, promote, or land.
 
-`test-result.ts` runs the verify subprocess in the run's worktree through the injected `TestRunnerPort` (app-layer `npm run verify`), appends `slice_test_result` with the true verdict and exit code, and records `status:"test_result_ingested"`. A failing verdict still advances the run; only a runner that cannot execute (`status:"test_run_failed"`) leaves metadata unchanged. It does not compile Petri artifacts, promote, or land.
+`test-result.ts` runs the verify subprocess in the run's worktree through the injected `TestRunnerPort` (app-layer `npm run verify`), appends `slice_test_result` with the true verdict and exit code, and records `status:"test_result_ingested"`. During the long verify call, normalized verify updates are optionally appended to `.brunch/cook/runs/<runId>/streams/<sliceId>/verify.jsonl`; these are Brunch-owned stream events over stdout/stderr/status chunks, not raw subprocess handles. A failing verdict still advances the run; only a runner that cannot execute (`status:"test_run_failed"`) leaves metadata unchanged. It does not compile Petri artifacts, promote, or land.
 
 `slice-complete.ts` appends `slice_completed` after test result ingestion and records the completed slice id in `run.json`. Petri artifacts, promotion refs, and land branches remain deferred.
 

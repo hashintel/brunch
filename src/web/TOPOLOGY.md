@@ -70,8 +70,8 @@ web/
     runs.tsx
       `/runs` loader primes execute.runs; run list with presence flags
       `/runs/$runId` loader primes execute.run; crank status, honest
-      running indicators, reports timeline (events lead the run.json
-      snapshot by design), unreadable-run marking
+      running indicators, requirement status panel, worker/verify stream tails, reports timeline
+      (events lead the run.json snapshot by design), unreadable-run marking
 
   features/graph/
     structured-list-view.tsx

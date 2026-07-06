@@ -12,6 +12,7 @@ describe('createTestRunnerPort', () => {
       signal?: AbortSignal | undefined;
       timeoutMs?: number | undefined;
       maxOutputBytes?: number | undefined;
+      onOutput?: unknown;
     }> = [];
     const port = createTestRunnerPort({
       run: async (command, args, options) => {
@@ -22,6 +23,7 @@ describe('createTestRunnerPort', () => {
           signal: options.signal,
           timeoutMs: options.timeoutMs,
           maxOutputBytes: options.maxOutputBytes,
+          onOutput: options.onOutput,
         });
         return { exitCode: 0, stdout: 'all good', stderr: '' };
       },
@@ -40,6 +42,7 @@ describe('createTestRunnerPort', () => {
         signal: controller.signal,
         timeoutMs: 10 * 60_000,
         maxOutputBytes: 128 * 1024,
+        onOutput: expect.any(Function),
       },
     ]);
     expect(result).toEqual({
@@ -111,5 +114,29 @@ describe('createTestRunnerPort', () => {
 
     expect(calls).toEqual([{ command: 'pnpm', args: ['test'] }]);
     expect(result).toMatchObject({ status: 'completed', verdict: 'passed', target: 'pnpm test' });
+  });
+
+  it('emits status and subprocess output updates', async () => {
+    const port = createTestRunnerPort({
+      run: async (_command, _args, options) => {
+        options.onOutput?.({ stream: 'stdout', text: 'tests passed' });
+        return { exitCode: 0, stdout: 'tests passed', stderr: '' };
+      },
+    });
+    const updates: unknown[] = [];
+
+    const result = await port.run({
+      worktreeDir: '/repo/wt',
+      onUpdate: (update) => {
+        updates.push(update);
+      },
+    });
+
+    expect(result).toMatchObject({ status: 'completed', verdict: 'passed' });
+    expect(updates).toEqual([
+      { kind: 'status', message: 'npm run verify started' },
+      { kind: 'stdout', message: 'tests passed' },
+      { kind: 'status', message: 'npm run verify exited 0' },
+    ]);
   });
 });

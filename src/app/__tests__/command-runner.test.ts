@@ -32,4 +32,23 @@ describe('runCommand', () => {
 
     expect(result).toMatchObject({ exitCode: 0, stdout: 'abcd', outputTruncated: true });
   });
+
+  it('streams captured stdout and stderr chunks', async () => {
+    const chunks: Array<{ stream: 'stdout' | 'stderr'; text: string }> = [];
+
+    const result = await runCommand(
+      process.execPath,
+      ['-e', 'process.stdout.write("out"); process.stderr.write("err")'],
+      {
+        cwd: process.cwd(),
+        onOutput: (chunk) => chunks.push(chunk),
+      },
+    );
+
+    expect(result).toMatchObject({ exitCode: 0, stdout: 'out', stderr: 'err' });
+    expect(chunks).toEqual([
+      { stream: 'stdout', text: 'out' },
+      { stream: 'stderr', text: 'err' },
+    ]);
+  });
 });
