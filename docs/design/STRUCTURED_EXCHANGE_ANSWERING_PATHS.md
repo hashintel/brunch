@@ -13,17 +13,30 @@ with anchors into `pi-coding-agent` internals — cross-cutting enough (spans `e
 `session/`, and a dependency's internals with no home under `src/`) that it doesn't fit any one co-located
 `TOPOLOGY.md`.
 
-**Verified against:** `@earendil-works/pi-coding-agent` v0.79.10 (Brunch's installed dependency,
-`package.json`'s `^0.79.10`) — cross-checked against the `pi-mono` dev checkout at
-`~/.pi/pi-mono/packages/coding-agent` (v0.80.3 at time of writing, one version ahead). The internals cited
-below (`ExtensionMode`, `bindExtensions`, `ExtensionRunner.setUIContext`/`hasUI()`, `noOpUIContext`,
-`rpc-mode.ts`'s `ExtensionUIContext`) are **implementation details, not public API** — nothing in
-`@earendil-works/pi-coding-agent`'s documented surface promises they stay this shape. Re-verify this
-document whenever Brunch's pinned `pi-coding-agent` version bumps a minor or major (D67-L: Brunch tracks
-latest pi routinely, so this will happen). The public, stable part — `ExtensionUIContext`'s method
-signatures (`custom`, `select`, `editor`, `input`, `setEditorComponent`, `setWidget`, `setFooter`,
-`setHeader` take a factory; `select`/`confirm`/`input`/`editor` do not) — is much less likely to change
-and is the load-bearing fact for the rest of this document.
+**Verified against:** `@earendil-works/pi-coding-agent` v0.80.3 (Brunch's installed dependency,
+`package.json`'s `^0.80.3`; re-verified 2026-07-06 on the 0.79.10 → 0.80.3 bump via the checklist
+below). The internals cited below (`ExtensionMode`, `bindExtensions`,
+`ExtensionRunner.setUIContext`/`hasUI()`, `noOpUIContext`, the RPC mode's `ExtensionUIContext`) are
+**implementation details, not public API** — nothing in `@earendil-works/pi-coding-agent`'s documented
+surface promises they stay this shape. Re-verify this document whenever Brunch's pinned
+`pi-coding-agent` version bumps a minor or major (D67-L: Brunch tracks latest pi routinely, so this
+will happen). The public, stable part — `ExtensionUIContext`'s method signatures (`custom`,
+`setEditorComponent`, `setWidget`, `setFooter`, `setHeader` take a factory; `select`/`confirm`/
+`input`/`editor` do not) — is much less likely to change and is the load-bearing fact for the rest of
+this document.
+
+**0.80.3 drift notes (found by the checklist):**
+
+- `rpc-mode.ts` moved to `modes/rpc/rpc-mode.ts` (`dist/modes/rpc/rpc-mode.js`).
+- The RPC mode's `ExtensionUIContext` no longer *omits* `custom`/`editor`: `custom()` is a stub that
+  resolves `undefined`, and **`editor()` is now a real RPC relay** (pending-request round trip to the
+  client). Brunch never constructs `RpcMode`, so the column-A/column-B analysis below is unchanged for
+  Brunch — but the "omission" phrasing of the old checklist item no longer holds.
+- `noOpUIContext` now carries stub *functions* for `custom`/`editor`/`select`/`input` (resolving
+  `undefined`). `hasUI()` stays identity-based (`uiContext !== noOpUIContext`), so it is still the only
+  trustworthy headless signal: **capability checks must gate on `ctx.hasUI` first** — shape checks like
+  `typeof ctx.ui.custom === 'function'` now pass in headless contexts and would misread the stub's
+  `undefined` as a user cancellation.
 
 ## The binding mechanism
 
@@ -178,12 +191,20 @@ open:
 
 ## Re-verification checklist (when `pi-coding-agent` bumps a minor/major)
 
+Last run: 2026-07-06 against v0.80.3 (all pass; drift recorded in the header notes).
+
 - [ ] `ExtensionUIContext`'s method list still has the same custom-injection-vs-sealed split
       (`custom`/`setEditorComponent`/`setWidget`/`setFooter`/`setHeader` take a factory;
       `select`/`confirm`/`input`/`editor` do not).
 - [ ] `bindExtensions`/`setUIContext`/`hasUI()`/`noOpUIContext` still exist with the same shape in
-      `core/extensions/runner.ts` and `core/agent-session.ts`.
+      `core/extensions/runner.ts` and `core/agent-session.ts`, and `hasUI()` is still the identity
+      check `uiContext !== noOpUIContext` (since 0.80.x the no-op context carries stub functions, so
+      method-shape checks are not a headless signal).
 - [ ] `InteractiveMode.bindCurrentSessionExtensions()` still hardcodes `mode: "tui"`.
-- [ ] `rpc-mode.ts`'s `createExtensionUIContext()` still omits `custom`/`editor` (i.e. still has no
-      relay for them) — if this changes, the column-A/column-B distinction in this document needs
-      re-deriving, not just re-reading.
+- [ ] The RPC mode's `createExtensionUIContext()` (`modes/rpc/rpc-mode.ts` since 0.80.x) still has no
+      `custom` relay (stub resolving `undefined`) — its `editor` **is** a relay since 0.80.x. If a
+      `custom` relay appears, the column-A/column-B distinction in this document needs re-deriving,
+      not just re-reading.
+- [ ] `setWorkingVisible` still exists on `ExtensionUIContext` and still no-ops headless — the
+      exchange collectors bracket every interactive await with it
+      (`shared/ui-context.ts` `withWorkingIndicatorHidden`).

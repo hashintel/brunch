@@ -3,12 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  fauxAssistantMessage,
-  fauxToolCall,
-  registerFauxProvider,
-  type Context,
-} from '@earendil-works/pi-ai';
+import { fauxAssistantMessage, fauxToolCall, type Context } from '@earendil-works/pi-ai';
+import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import {
   AuthStorage,
   ModelRegistry,

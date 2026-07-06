@@ -1,12 +1,12 @@
-import {
-  registerFauxProvider,
-  type AssistantMessage,
-  type Context,
-  type FauxProviderRegistration,
-  type FauxResponseFactory,
-  type FauxResponseStep,
-  type StreamOptions,
+import type {
+  AssistantMessage,
+  Context,
+  FauxProviderRegistration,
+  FauxResponseFactory,
+  FauxResponseStep,
+  StreamOptions,
 } from '@earendil-works/pi-ai';
+import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import {
   AuthStorage,
   createAgentSession,
