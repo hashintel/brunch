@@ -2,6 +2,7 @@ import * as z from 'zod';
 
 import {
   zMarkdown,
+  zNonBlankMarkdown,
   zRequestAnswerToolMeta,
   zRequestChoiceToolMeta,
   zRequestChoicesToolMeta,
@@ -262,7 +263,7 @@ const zDigestReviewAnsweredPayload = z.union([
   z
     .object({
       decision: z.literal('approve'),
-      accepted_abstract: zMarkdown,
+      accepted_abstract: zNonBlankMarkdown,
       comment: zMarkdown.optional(),
     })
     .strict(),

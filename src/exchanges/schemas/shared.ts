@@ -6,6 +6,9 @@ export const STRUCTURED_EXCHANGE_CAPTURE_DETAILS_SCHEMA = 'brunch.structured_exc
 export const STRUCTURED_EXCHANGE_DETAILS_VERSION = 1 as const;
 
 export const zMarkdown = z.string();
+export const zNonBlankMarkdown = zMarkdown.refine((value) => value.trim().length > 0, {
+  message: 'markdown cannot be empty',
+});
 export const MarkdownSchema = z.toJSONSchema(zMarkdown, { unrepresentable: 'throw' });
 
 export const zGraphNodeRef = z.object({ node_id: z.string().min(1) }).strict();

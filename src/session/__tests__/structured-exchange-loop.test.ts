@@ -281,6 +281,39 @@ describe('structured exchange loop helpers', () => {
     });
   });
 
+  it('does not reconstruct a pending digest exchange from a blank abstract carrier', () => {
+    const details = projectPresentDigest({
+      exchangeId: 'digest-cycle',
+      heading: 'Review source digest',
+      body: 'Approve before mapping.',
+      digest: { abstract: 'The source asks for advisory capture before settlement.' },
+    }).details;
+    const envelope: BrunchSessionEnvelope = {
+      header: header as unknown as BrunchSessionEnvelope['header'],
+      binding,
+      entries: [
+        header,
+        bindingEntry,
+        {
+          id: 'present-digest-1',
+          type: 'message',
+          parentId: 'binding-1',
+          timestamp: 0,
+          message: {
+            role: 'toolResult',
+            toolCallId: 'present-digest-call-1',
+            toolName: 'present_digest',
+            content: [{ type: 'text', text: '# Review source digest\n\nApprove before mapping.' }],
+            details: { ...details, digest: { ...details.digest, abstract: '   ' } },
+            isError: false,
+          },
+        },
+      ] as unknown as BrunchSessionEnvelope['entries'],
+    };
+
+    expect(pendingExchangeFromEnvelope(envelope)).toBeNull();
+  });
+
   it('materializes review decisions as request_review tool results and requires change comments', () => {
     const pending = {
       exchangeId: 'review-cycle',
