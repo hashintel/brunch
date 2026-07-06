@@ -7,17 +7,25 @@ import { describe, expect, it } from 'vitest';
 
 import { createBrunchPiExtensions } from '../../../app/pi-extensions.js';
 import {
+  createFakeGitHostPromotionPort,
+  createFakeGitLandPort,
   createFakeGitWorktreePort,
   createFakeTestRunnerPort,
 } from '../../../executor/__tests__/fake-ports.js';
 import type {
   AgentRunArgs,
   AgentRunnerPort,
+  GitHostPromotionPort,
+  GitLandPort,
   GitWorktreePort,
   TestRunnerPort,
 } from '../../../executor/execution-ports.js';
 import { registerBrunchAlternatives as alternatives } from '../../components/alternatives.js';
 import { BRUNCH_EXECUTE_AGENT_RESULT_TOOL } from '../agent-runtime/execute-agent-result/index.js';
+import {
+  BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
+  BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
+} from '../agent-runtime/execute-host-promotion/index.js';
 import { BRUNCH_EXECUTE_LAUNCH_TOOL } from '../agent-runtime/execute-launch/index.js';
 import { BRUNCH_EXECUTE_PETRI_EXPORT_TOOL } from '../agent-runtime/execute-petri-export/index.js';
 import { BRUNCH_EXECUTE_PLAN_CHECK_TOOL } from '../agent-runtime/execute-plan-check/index.js';
@@ -163,6 +171,8 @@ describe('Brunch explicit Pi extension registry', () => {
       BRUNCH_EXECUTE_AGENT_RESULT_TOOL,
       BRUNCH_EXECUTE_PETRI_EXPORT_TOOL,
       BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL,
+      BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
+      BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL,
       BRUNCH_EXECUTE_POPULATE_TOOL,
       BRUNCH_EXECUTE_REPORT_INIT_TOOL,
       BRUNCH_EXECUTE_RUN_COMPLETE_TOOL,
@@ -1261,6 +1271,163 @@ describe('Brunch explicit Pi extension registry', () => {
     await expect(access(join(runDir, 'petrinaut'))).rejects.toThrow();
   });
 
+  it('registers execute_promotion_prepare as injected run-local promotion', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-promotion-prepare-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    const reportPath = join(runDir, 'reports.jsonl');
+    const petriPath = join(runDir, 'petrinaut', 'net.json');
+    const worktreeDir = join(runDir, 'worktree');
+    const promotionPath = join(runDir, 'promotion', 'promotion.json');
+    await mkdir(dirname(petriPath), { recursive: true });
+    await mkdir(worktreeDir, { recursive: true });
+    await writeFile(petriPath, JSON.stringify({ runId: 'run-1' }), 'utf8');
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/tmp/plan.yaml',
+        status: 'petri_exported',
+        reportsPath: reportPath,
+        petriPath,
+        worktreeDir,
+        completedSliceIds: ['task-1'],
+      }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 31, nodes: [], edges: [] },
+      gitLand: createFakeGitLandPort({
+        status: 'promoted',
+        commitSha: 'def456',
+        sideEffects: [{ kind: 'git_commit', path: worktreeDir, sha: 'def456' }],
+      }),
+    });
+
+    const promotion = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_PROMOTION_PREPARE_TOOL);
+    expect(promotion).toBeDefined();
+    const result = await promotion!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_promotion_prepare: promotion_prepared');
+    expect(result.details).toMatchObject({
+      result: { status: 'promotion_prepared', runStatus: 'promotion_prepared', promotionPath },
+      sideEffects: [
+        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+        { kind: 'git_commit', path: worktreeDir, sha: 'def456' },
+        { kind: 'mkdir', path: dirname(promotionPath) },
+        { kind: 'write_file', path: promotionPath, ifExists: 'overwrite' },
+        { kind: 'write_file', path: metadataPath, ifExists: 'overwrite' },
+      ],
+    });
+    await expect(readFile(promotionPath, 'utf8')).resolves.toContain('def456');
+  });
+
+  it('registers execute_host_promotion_preflight as injected host diff inspection', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-host-promotion-preflight-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    const worktreeDir = join(runDir, 'worktree');
+    const promotionPath = join(runDir, 'promotion', 'promotion.json');
+    await mkdir(dirname(promotionPath), { recursive: true });
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/tmp/plan.yaml',
+        status: 'promotion_prepared',
+        worktreeDir,
+        promotionPath,
+        promotionCommitSha: 'def456',
+      }),
+      'utf8',
+    );
+    await writeFile(
+      promotionPath,
+      JSON.stringify({ runId: 'run-1', land: { status: 'promoted', commitSha: 'def456' } }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 32, nodes: [], edges: [] },
+      gitHostPromotion: createFakeGitHostPromotionPort({}),
+    });
+
+    const preflight = registeredTools.find(
+      (tool) => tool.name === BRUNCH_EXECUTE_HOST_PROMOTION_PREFLIGHT_TOOL,
+    );
+    expect(preflight).toBeDefined();
+    const result = await preflight!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+
+    expect(result.content[0]?.text).toContain('execute_host_promotion_preflight: preflight_ready');
+    expect(result.details).toMatchObject({
+      result: {
+        status: 'preflight_ready',
+        runStatus: 'promotion_prepared',
+        promotionCommitSha: 'def456',
+        changedFiles: ['host-proof.txt'],
+      },
+      sideEffects: [],
+    });
+  });
+
+  it('registers execute_host_promotion_apply with explicit commit acceptance', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-execute-host-promotion-apply-'));
+    const runDir = join(cwd, '.brunch', 'cook', 'runs', 'run-1');
+    const metadataPath = join(runDir, 'run.json');
+    const worktreeDir = join(runDir, 'worktree');
+    const promotionPath = join(runDir, 'promotion', 'promotion.json');
+    await mkdir(dirname(promotionPath), { recursive: true });
+    await writeFile(
+      metadataPath,
+      JSON.stringify({
+        runId: 'run-1',
+        specId: '42',
+        planPath: '/tmp/plan.yaml',
+        status: 'promotion_prepared',
+        worktreeDir,
+        promotionPath,
+        promotionCommitSha: 'def456',
+      }),
+      'utf8',
+    );
+    await writeFile(
+      promotionPath,
+      JSON.stringify({ runId: 'run-1', land: { status: 'promoted', commitSha: 'def456' } }),
+      'utf8',
+    );
+    const registeredTools = await collectProductTools({
+      graph: { specId: 42, lsn: 33, nodes: [], edges: [] },
+      gitHostPromotion: createFakeGitHostPromotionPort({}),
+    });
+
+    const apply = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_HOST_PROMOTION_APPLY_TOOL);
+    expect(apply).toBeDefined();
+    const needsAcceptance = await apply!.execute('call-1', { runId: 'run-1' }, undefined, undefined, { cwd });
+    const applied = await apply!.execute(
+      'call-2',
+      { runId: 'run-1', acceptedCommitSha: 'def456' },
+      undefined,
+      undefined,
+      { cwd },
+    );
+
+    expect(needsAcceptance.details).toMatchObject({
+      result: { status: 'needs_acceptance', runId: 'run-1' },
+      sideEffects: [],
+    });
+    expect(applied.content[0]?.text).toContain('execute_host_promotion_apply: applied');
+    expect(applied.details).toMatchObject({
+      result: {
+        status: 'applied',
+        runStatus: 'promotion_prepared',
+        promotionCommitSha: 'def456',
+        changedFiles: ['host-proof.txt'],
+      },
+      sideEffects: [{ kind: 'host_worktree_apply', path: cwd, changedFiles: ['host-proof.txt'] }],
+    });
+  });
+
   it('registers execute_plan_outline only with selected graph deps and returns a side-effect-free outline', async () => {
     const registeredTools: Array<{
       name: string;
@@ -1516,7 +1683,7 @@ describe('Brunch explicit Pi extension registry', () => {
     });
   });
 
-  it('keeps execute_status side-effect free while descriptive lifecycle tools are inactive', async () => {
+  it('keeps execute_status side-effect free after run-local promotion is ported', async () => {
     const registeredTools = await collectProductTools();
 
     const status = registeredTools.find((tool) => tool.name === BRUNCH_EXECUTE_STATUS_TOOL);
@@ -1524,13 +1691,15 @@ describe('Brunch explicit Pi extension registry', () => {
     const result = await status!.execute('call-1', { discipline: 'interpretive' });
 
     expect(result.content[0]?.text).toContain('execute_status: interpretive');
+    // The ported-tool narrative mirrors the execute-mode subset of
+    // EXECUTOR_ALLOWED_TOOL_NAMES; the registered-but-unadmitted plan artifact
+    // tools are intentionally excluded, and text and details must agree.
     expect(result.content[0]?.text).toContain(
-      'ported active tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview',
+      'ported tools: execute_status, execute_snapshot, execute_plan_check, execute_plan_outline, execute_plan_draft, execute_plan_preview, execute_plan_file, execute_launch, execute_run_create, execute_worktree_create, execute_populate, execute_source_policy, execute_source_copy, execute_report_init, execute_slice_start, execute_slice_execute, execute_agent_result, execute_test_result, execute_slice_complete, execute_run_complete, execute_petri_export, execute_promotion_prepare, execute_host_promotion_preflight, execute_host_promotion_apply',
     );
-    expect(result.content[0]?.text).toContain('inactive registered tools: execute_plan_outline_artifact');
-    expect(result.content[0]?.text).toContain('pending tools: cook, land');
+    expect(result.content[0]?.text).toContain('pending tools: none');
     expect(result.content[0]?.text).toContain(
-      'cook execution: descriptive scaffold registered but inactive until the real-execution stack lands',
+      'executor promotion: run-local git promotion ported; host preflight/apply ported with explicit acceptance',
     );
     expect(result.details).toMatchObject({
       discipline: 'interpretive',
@@ -1538,13 +1707,30 @@ describe('Brunch explicit Pi extension registry', () => {
       portedTools: [
         'execute_status',
         'execute_snapshot',
-        'execute_plan_preview',
         'execute_plan_check',
-        'execute_plan_draft',
         'execute_plan_outline',
+        'execute_plan_draft',
+        'execute_plan_preview',
+        'execute_plan_file',
+        'execute_launch',
+        'execute_run_create',
+        'execute_worktree_create',
+        'execute_populate',
+        'execute_source_policy',
+        'execute_source_copy',
+        'execute_report_init',
+        'execute_slice_start',
+        'execute_slice_execute',
+        'execute_agent_result',
+        'execute_test_result',
+        'execute_slice_complete',
+        'execute_run_complete',
+        'execute_petri_export',
+        'execute_promotion_prepare',
+        'execute_host_promotion_preflight',
+        'execute_host_promotion_apply',
       ],
-      inactiveRegisteredTools: expect.arrayContaining(['execute_plan_file', 'execute_agent_result']),
-      pendingTools: ['cook', 'land'],
+      pendingTools: [],
       sideEffects: [],
     });
   });
@@ -1816,6 +2002,8 @@ async function collectProductTools(
     gitWorktree?: GitWorktreePort;
     testRunner?: TestRunnerPort;
     agentRunner?: AgentRunnerPort;
+    gitLand?: GitLandPort;
+    gitHostPromotion?: GitHostPromotionPort;
     subagents?: BrunchSubagentsDeps;
   } = {},
 ): Promise<RegisteredTestTool[]> {
@@ -1824,12 +2012,18 @@ async function collectProductTools(
     coordinator: {} as never,
     graphMentionSource: { listMentionCandidates: () => [] },
     ...(options.subagents ? { subagents: options.subagents } : {}),
-    ...(options.gitWorktree || options.testRunner || options.agentRunner
+    ...(options.gitWorktree ||
+    options.testRunner ||
+    options.agentRunner ||
+    options.gitLand ||
+    options.gitHostPromotion
       ? {
           executionPorts: {
             ...(options.gitWorktree ? { gitWorktree: options.gitWorktree } : {}),
             ...(options.testRunner ? { testRunner: options.testRunner } : {}),
             ...(options.agentRunner ? { agentRunner: options.agentRunner } : {}),
+            ...(options.gitLand ? { gitLand: options.gitLand } : {}),
+            ...(options.gitHostPromotion ? { gitHostPromotion: options.gitHostPromotion } : {}),
           },
         }
       : {}),

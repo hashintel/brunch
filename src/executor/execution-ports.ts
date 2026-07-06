@@ -75,11 +75,95 @@ export interface TestRunnerPort {
   run(args: TestRunArgs): Promise<TestRunResult>;
 }
 
-export interface GitLandPort {}
+export interface GitLandArgs {
+  readonly worktreeDir: string;
+  readonly message: string;
+}
+
+export type GitHeadResult =
+  | {
+      readonly status: 'ok';
+      readonly commitSha: string;
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+    };
+
+export type GitLandResult =
+  | {
+      readonly status: 'promoted';
+      readonly commitSha: string;
+      readonly sideEffects: readonly [
+        { readonly kind: 'git_commit'; readonly path: string; readonly sha: string },
+      ];
+    }
+  | {
+      readonly status: 'no_changes';
+      readonly message: string;
+      readonly commitSha?: string;
+      readonly sideEffects: readonly [];
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+      readonly sideEffects: readonly [];
+    };
+
+export interface GitLandPort {
+  currentHead(args: { readonly worktreeDir: string }): Promise<GitHeadResult>;
+  promote(args: GitLandArgs): Promise<GitLandResult>;
+}
+
+export interface GitHostPromotionPreflightArgs {
+  readonly cwd: string;
+  readonly worktreeDir: string;
+  readonly commitSha: string;
+}
+
+export type GitHostPromotionPreflightResult =
+  | {
+      readonly status: 'ok';
+      readonly baseSha: string;
+      readonly commitSha: string;
+      readonly changedFiles: readonly string[];
+      readonly patchSummary: string;
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+    };
+
+export interface GitHostPromotionPreflightPort {
+  preflight(args: GitHostPromotionPreflightArgs): Promise<GitHostPromotionPreflightResult>;
+}
+
+export interface GitHostPromotionApplyArgs {
+  readonly cwd: string;
+  readonly worktreeDir: string;
+  readonly baseSha: string;
+  readonly commitSha: string;
+  readonly changedFiles: readonly string[];
+}
+
+export type GitHostPromotionApplyResult =
+  | {
+      readonly status: 'applied';
+      readonly changedFiles: readonly string[];
+    }
+  | {
+      readonly status: 'failed';
+      readonly message: string;
+    };
+
+export interface GitHostPromotionPort extends GitHostPromotionPreflightPort {
+  apply(args: GitHostPromotionApplyArgs): Promise<GitHostPromotionApplyResult>;
+}
 
 export interface ExecutionPorts {
   readonly gitWorktree: GitWorktreePort;
   readonly agentRunner: AgentRunnerPort;
   readonly testRunner: TestRunnerPort;
-  readonly gitLand?: GitLandPort;
+  readonly gitLand: GitLandPort;
+  readonly gitHostPromotion: GitHostPromotionPort;
 }
