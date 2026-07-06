@@ -3,7 +3,10 @@ import { Type, type Static } from 'typebox';
 
 import { writeExecutablePlanDraftArtifact } from '../../../../executor/executable-plan-draft-artifact.js';
 import type { ExecutablePlanDraft } from '../../../../executor/executable-plan-draft.js';
-import { projectExecuteGraph } from '../../../../executor/execute-projection.js';
+import {
+  assertExecuteProjectionPlanReady,
+  projectExecuteGraph,
+} from '../../../../executor/execute-projection.js';
 import { BRUNCH_EXECUTE_PLAN_DRAFT_ARTIFACT_TOOL } from '../../../../session/schema/tool-names.js';
 import type { GraphReaders } from '../../brunch-data/graph/index.js';
 
@@ -54,6 +57,7 @@ export function createExecutePlanDraftArtifactTool(
         nodes: graph.nodes,
         edges: graph.edges,
       });
+      assertExecuteProjectionPlanReady(projection);
       const draft = projection.draft;
       const artifact = await writeExecutablePlanDraftArtifact({ cwd, draft });
       return {

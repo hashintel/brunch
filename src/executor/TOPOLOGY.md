@@ -31,7 +31,7 @@ executor/
 ├── test-result.ts        run worktree -> verify subprocess (TestRunnerPort) -> slice test report
 ├── worktree.ts           run metadata -> real git worktree (GitWorktreePort)
 ├── execution-ports.ts    injected capability ports (git worktree, agent runner, test runner, git land, host-promotion preflight)
-├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1, incl. requirement dependencies
+├── execution-spec-snapshot.ts   graph facts -> ExecutionSpecSnapshot v1, incl. requirement dependencies + unprojected dependency guards
 ├── executable-plan-draft.ts     plan outline -> executable-plan draft DTO, incl. slice dependencies
 ├── executable-plan-draft-artifact.ts executable-plan draft -> .brunch/execution-reports artifact
 ├── execute-plan-check.ts        ExecutionSpecSnapshot -> read-only plan-input findings
@@ -49,7 +49,7 @@ rules:
   executor/ x> db/, .pi/, app/, rpc/, web/ [no storage, adapter, transport, or UI effects]
 ```
 
-`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Every helper advances run metadata with at most one explicit, declared side effect (I56-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
+`ExecutionSpecSnapshot` is the durable projection seam between the spec/graph product and the native execute-mode orchestrator. Both `main`-derived imports and `next` graph reads can target this shape while their internal models continue to evolve. Requirement-to-requirement dependency edges are the only graph dependencies currently representable as executable slice `depends_on`; any projected dependency edge outside that shape is preserved as an unprojected dependency and blocks plan-producing tools instead of being silently flattened. Every helper advances run metadata with at most one explicit, declared side effect (I56-L): plan/outline artifact writers touch only `.brunch/execution-reports`; cook helpers write only the declared files under `.brunch/cook` or the run worktree described per module below; agent/test/promotion effects are delegated to injected ports; port failure leaves run metadata unadvanced. No helper mutates the graph, and host mutation is limited to the accepted-SHA file apply in `host-promotion.ts`.
 
 ## Cook plan preview compatibility
 
