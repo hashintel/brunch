@@ -282,7 +282,7 @@ Relationship to D31-L meta-rubric:
 
 ### `present_digest`
 
-`present_digest` carries prose-only large-source review material. It is not a review-set or graph-proposal carrier: `digest.abstract` is required, `digest.analysis` and `digest.recommendation` are optional markdown, and graph draft / node / edge / command payload fields are rejected at the params/detail boundary. Its terminal is the existing review response vocabulary through `request_response`; approval echoes the accepted abstract on request details so sweep reads have one self-contained digest carrier.
+`present_digest` carries prose-only large-source review material. It is not a review-set or graph-proposal carrier: `digest.abstract` is required and nonblank (trim-based `zNonBlankMarkdown` in `shared.ts`), `digest.analysis` and `digest.recommendation` are optional markdown, and graph draft / node / edge / command payload fields are rejected at the params/detail boundary. Its terminal is the existing review response vocabulary through `request_response`; approval echoes the accepted abstract (same nonblank boundary) on request details so sweep reads have one self-contained digest carrier.
 
 ## Request layer
 
