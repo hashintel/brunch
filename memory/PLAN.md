@@ -17,6 +17,8 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 
 **Live arc.** The **elicitor-capability-spine** arc (`capture` / `generate` / `project`) is done for the current POC capability surface. The retired strategy/lens/method runtime trees are no longer part of live product topology; current capability work routes through the code-owned first-level skill manifest and activity-named skill homes. Closed arc detail no longer lives in the rolling plan. Elicitation/readiness truthfulness (graph-as-truth, session-local asking agenda, advisory settlement) was delivered by the now-closed **`elicitation-gap-guidance`** frontier, which folded in settlement materialization; there was no separate settlement frontier.
 
+**Executor stack.** The orchestrator-cutover executor lineage (FE-1089 → FE-1125, PRs #274→#285: real worktree/verify, sealed agent runner, run-local + host promotion, `execute_orchestrate` driver) landed into `next` (tip #285 merged 2026-07-06); an `ln-sync` fold-in of its frontier history into this file is still owed. The new `executor-run-observer` frontier builds the first web-facing read surface over that substrate.
+
 **Topology and evidence discipline.** Directory `TOPOLOGY.md` files under `src/**` own current topology state. `memory/SPEC.md` owns the thin product contract and live decision/invariant index; long-form SPEC history is archived in `docs/archive/SPEC_HISTORY.md`. `memory/PLAN.md` owns only rolling frontier state. Scratch probe artifacts under `.fixtures/scratch/` are not durable evidence until reviewed and promoted to `.fixtures/runs/`.
 
 ## Initiatives
@@ -55,6 +57,7 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ### Active
 
 - `walkthrough-fixes` (FE-1122) — **built 2026-07-02** (all cards incl. F10 addendum; commits `e0701b4`…`486824b` on `ln/fe-1122-walkthrough-fixes`); pending PR tie-off. Walkthrough continues on a stacked follow-on branch.
+- `executor-run-observer` (FE-1141) — **scoped 2026-07-06; building.** Read-only web surface for watching an executor run crank live: `execute.*` RPC read projections over `.brunch/cook/runs/**` plus run-scoped `brunch.updated` topics. Tracer sequence in `memory/cards/executor-run-observer--tracer.md`; branch `ka/fe-1141-executor-run-observer` rooted on `next`.
 - `orchestrator-tool-port` (FE-1107) — **D98-sensitive proving frontier, intentionally deferred.** Parked on its own branch while the remaining SPEC-mode frontiers are clarified first.
 
 ### Recently Completed
@@ -190,6 +193,30 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
   - External `../brunch` CLI behavior is ported as reusable product core plus Pi adapter, not wrapped as a shell command.
 - **Traceability:** D39-L, D40-L, D90-L, D91-L, D92-L, D93-L, D98-L / I49-L; `src/.pi/extensions/TOPOLOGY.md`.
 
+### executor-run-observer
+
+- **Name:** Executor run observer — watch a run crank live in the web sidecar
+- **Linear:** [FE-1141](https://linear.app/hash/issue/FE-1141/executor-run-observer-watch-a-run-crank-live-in-the-web-sidecar)
+- **Branch:** `ka/fe-1141-executor-run-observer` (rooted on `next`; the executor stack landed 2026-07-06)
+- **Kind:** structural / executor read-projection + web observer surface
+- **Status:** scoped 2026-07-06; grilled 2026-07-03 (session `executor-observability-frontend`).
+- **Current execution pointer:** `memory/cards/executor-run-observer--tracer.md` (4-card tracer: atomic writer → projections → /runs routes → run topics).
+- **Certainty:** proving.
+- **Lights up:** the first end-to-end read path from `.brunch/cook/runs/**` artifacts → `execute.runs` / `execute.run` / `execute.runReports` product RPC projections → web `/runs` routes, plus run-scoped `brunch.updated` topics.
+- **Stabilizes:** the `execute.*` read-projection seam as the firewall that keeps run-bundle file shapes out of the browser contract.
+- **Why now / unlocks:** the executor stack lands a real run crank — and FE-1125's `execute_orchestrate` driver cranks it unattended — but run truth lives only on the filesystem; the recurring "metadata says X, reality is Y" pain is invisible without a surface. Read-only observer first; seeds later worker/verify tails, Petri visualization, and promotion-acceptance UI without opening the web write seam.
+- **Objective:** Watch an executor run crank live: `/runs` and `/runs/$runId` (surface name "Runs") render recorded run state, slice progression, and `reports.jsonl` events via new `execute.*` RPC read projections, freshened by run-scoped `brunch.updated` topics published through the in-process `ProductUpdatePublisher`. Strictly read-only.
+- **Acceptance (to refine via `ln-scope`):**
+  - `execute.*` read projections live at the rpc/app layer over `.brunch/cook/runs/**`; executor core stays pure (rpc→executor DTO direction only); raw artifact file shapes do not leak to the browser.
+  - `/runs` + `/runs/$runId` show crank position, slice progression, and the reports timeline, with honest "agent running…" / "verify running…" indicators through long silent states.
+  - Run-state advances publish run-scoped topics (new `execute.*` members of the `ProductUpdateTopic` union) mapped to exact query-key invalidations; refetch-on-navigation is the cross-process fallback.
+  - Projections carry recorded state plus presence flags (worktree dir, petri/promotion artifacts, reports length) so metadata-vs-reality divergence is visible; no active git probes (those stay in host-promotion preflight).
+  - Petri artifact: presence + raw `net.json` view only; the reports projection is tail/limited from day one.
+  - Strictly read-only: no promotion acceptance or run control; worker/verify output tails and streaming frames stay in the `web-driver-streaming` lane.
+  - Run-bundle reads are torn-read-safe (see spike finding): preferred shape is an atomic-writer precursor slice (`persistRunMetadata` goes write-temp+rename; the direct write site in `createRun` folds through it) so projections read naively; otherwise projections read tolerantly (retry/last-good `run.json`, partial-tail-skip `reports.jsonl`).
+- **Spike finding (2026-07-06, torn-read spike):** `run.json` status writes are in-place `writeFile` (O_TRUNC, no rename) — concurrent readers can catch empty/partial JSON; `reports.jsonl` events are single-write complete lines (effectively atomic; skip a partial tail line). Step ordering is artifacts → report append → `run.json` last, so the event log *leads* the metadata snapshot by up to one step; projections must treat reports as progression truth and `run.json` as a lagging snapshot. In-tree precedent: `readRunMetadata` already swallows parse failures.
+- **Traceability:** D23-L, D84-L, D98-L; one-writer/many-observer POC dashboard corollary; `src/executor/TOPOLOGY.md`, `src/web/TOPOLOGY.md`, `src/rpc/TOPOLOGY.md`.
+
 ### elicitation-gap-guidance
 
 - **Name:** Session-local elicitation gaps from a graph-derived seed
@@ -255,6 +282,12 @@ Brunch-next has delivered the original composition spine: the host, sealed Pi pr
 ```text
 frontiers:
   Active:
+    executor-run-observer
+      status: planned; grilled 2026-07-03
+      depends_on: executor stack run crank + artifacts (FE-1089..FE-1125), D23-L, D84-L, D98-L
+      seam: execute.* RPC read projections + run-scoped brunch.updated topics
+      boundary_with: web-driver-streaming -[optional]-> streaming frames / worker-verify tails stay there
+
     orchestrator-tool-port
       status: deferred / D98-sensitive
       depends_on: D39-L, D90-L, D91-L, D92-L, D93-L, I49-L, D98-L
