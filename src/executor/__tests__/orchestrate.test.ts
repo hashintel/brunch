@@ -157,6 +157,51 @@ describe('drive', () => {
     expect(meta?.status).toBe('agent_result_ingested');
   });
 
+  it('reports each advanced step through onStepComplete and skips the halted step', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-step-hook-'));
+    await createRunAtCreated(cwd, ['task-1']);
+    const seen: string[] = [];
+
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts({
+        testRunner: createFakeTestRunnerPort({ status: 'failed', message: 'runner exploded' }),
+      }),
+      onStepComplete: (step, runStatus) => {
+        seen.push(`${step}:${runStatus}`);
+      },
+    });
+
+    expect(outcome.status).toBe('halted');
+    expect(seen).toEqual([
+      'worktree_create:worktree_created',
+      'populate:worktree_populated',
+      'source_policy:source_policy_selected',
+      'source_copy:source_copied',
+      'report_init:reports_initialized',
+      'slice_start:slice_started',
+      'slice_execute:slice_execution_requested',
+      'agent_result:agent_result_ingested',
+    ]);
+  });
+
+  it('a throwing onStepComplete never halts the drive', async () => {
+    const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-step-hook-throw-'));
+    await createRunAtCreated(cwd, ['task-1']);
+
+    const outcome = await drive({
+      cwd,
+      runId: 'run-1',
+      ports: fakePorts(),
+      onStepComplete: () => {
+        throw new Error('observer bug');
+      },
+    });
+
+    expect(outcome).toEqual({ status: 'completed', runStatus: 'promotion_prepared' });
+  });
+
   it('invokes the agent and test runner exactly once per slice', async () => {
     const cwd = await mkdtemp(join(tmpdir(), 'brunch-drive-once-'));
     await createRunAtCreated(cwd, ['task-1', 'task-2']);

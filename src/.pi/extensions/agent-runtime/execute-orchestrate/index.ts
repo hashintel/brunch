@@ -3,6 +3,7 @@ import { Type, type Static } from 'typebox';
 
 import type { ExecutionPorts } from '../../../../executor/execution-ports.js';
 import { drive, type DriveOutcome } from '../../../../executor/orchestrate.js';
+import { executeRunProductUpdates, type ProductUpdatePublisher } from '../../../../rpc/product-updates.js';
 import { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
 
 export { BRUNCH_EXECUTE_ORCHESTRATE_TOOL } from '../../../../session/schema/tool-names.js';
@@ -17,8 +18,14 @@ interface ExecuteOrchestrateDetails {
   readonly outcome: DriveOutcome;
 }
 
+export interface ExecuteOrchestrateDeps {
+  /** When present, each intra-drive step advance publishes run-scoped brunch.updated hints. */
+  readonly productUpdates?: ProductUpdatePublisher;
+}
+
 export function createExecuteOrchestrateTool(
   ports: ExecutionPorts,
+  deps?: ExecuteOrchestrateDeps,
 ): ToolDefinition<typeof ExecuteOrchestrateParams, ExecuteOrchestrateDetails> {
   return {
     name: BRUNCH_EXECUTE_ORCHESTRATE_TOOL,
@@ -31,10 +38,14 @@ export function createExecuteOrchestrateTool(
       if (typeof cwd !== 'string' || cwd.trim().length === 0) {
         throw new Error('execute_orchestrate requires an active cwd');
       }
+      const publisher = deps?.productUpdates;
       const outcome = await drive({
         cwd,
         runId: params.runId,
         ports,
+        ...(publisher
+          ? { onStepComplete: () => publisher.publish(executeRunProductUpdates(params.runId)) }
+          : {}),
         runtime: {
           ...(ctx.modelRegistry ? { modelRegistry: ctx.modelRegistry } : {}),
           ...(ctx.model ? { model: ctx.model } : {}),
@@ -60,8 +71,12 @@ export function createExecuteOrchestrateTool(
   };
 }
 
-export function registerBrunchExecuteOrchestrate(pi: ExtensionAPI, ports: ExecutionPorts): void {
-  pi.registerTool(createExecuteOrchestrateTool(ports) as never);
+export function registerBrunchExecuteOrchestrate(
+  pi: ExtensionAPI,
+  ports: ExecutionPorts,
+  deps?: ExecuteOrchestrateDeps,
+): void {
+  pi.registerTool(createExecuteOrchestrateTool(ports, deps) as never);
 }
 
 export default registerBrunchExecuteOrchestrate;
