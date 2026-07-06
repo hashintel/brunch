@@ -69,6 +69,7 @@ rpc/
     ├── session-driver.ts              -> live AgentSession driver method
     ├── session-exchange-answer.ts     -> live exchange answer method
     ├── graph.ts                       -> graph.* handlers
+    ├── execute.ts                     -> execute.* run-observer read projections
     └── schemas.ts                     -> shared protocol schemas
 ```
 
@@ -85,6 +86,8 @@ full RPC host:
     session.runtimeState
     graph.overview
     graph.nodeNeighborhood
+    execute.runs
+    execute.run
   writes:
     workspace.activate
     session.triggerExchange
@@ -101,6 +104,8 @@ TUI-started web sidecar without live driver handle:
     session.runtimeState
     graph.overview
     graph.nodeNeighborhood
+    execute.runs
+    execute.run
   rejected as method-not-found:
     workspace.activate
     session.triggerExchange
@@ -118,6 +123,8 @@ TUI-started web sidecar observer connection (/rpc), even when live driver handle
     session.runtimeState
     graph.overview
     graph.nodeNeighborhood
+    execute.runs
+    execute.run
   rejected as method-not-found:
     workspace.activate
     session.triggerExchange
@@ -136,6 +143,8 @@ TUI-started web sidecar driver connection (/rpc/driver) with live driver handles
     session.runtimeState
     graph.overview
     graph.nodeNeighborhood
+    execute.runs
+    execute.run
   live-session drivers:
     session.driveTurn
     session.answerExchange

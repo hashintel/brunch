@@ -73,7 +73,7 @@ src/executor/
 
 ---
 
-## Card 2 — execute.* run read projections (full) · status: next
+## Card 2 — execute.* run read projections (full) · status: done (2026-07-06)
 
 ### Target Behavior
 
@@ -158,7 +158,7 @@ src/rpc/
 
 ---
 
-## Card 3 — /runs web routes (full) · status: queued
+## Card 3 — /runs web routes (full) · status: next
 
 ### Target Behavior
 

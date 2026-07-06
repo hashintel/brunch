@@ -7,6 +7,7 @@ import type {
   DefaultWorkspaceCoordinator,
   SpecSessionActivationCoordinator,
 } from '../session/workspace-session-coordinator.js';
+import { executeRpcMethods } from './methods/execute.js';
 import { graphRpcMethods } from './methods/graph.js';
 import {
   discoverRpcMethods,
@@ -131,6 +132,7 @@ const FULL_RPC_METHOD_REGISTRY: readonly RpcMethodDefinition<RpcMethodContext>[]
   ...workspaceRpcMethods,
   ...graphRpcMethods,
   ...sessionRpcMethods,
+  ...executeRpcMethods,
 ];
 
 const READ_ONLY_RPC_METHOD_REGISTRY = FULL_RPC_METHOD_REGISTRY.filter(
