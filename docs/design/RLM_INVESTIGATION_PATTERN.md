@@ -25,7 +25,7 @@ Not suitable for adoption now. Reasons, in force order:
 
 ## Steal independently of the REPL
 
-- **Trace discipline:** one NDJSON event line per investigator turn / code block / host-function call / final answer, convertible to a *live, re-executable* artifact. Aligns with Brunch's probe/fixture discipline (A5-L, `.fixtures/runs/` promotion) and the subagent extension's deferred progress-UI item. See the tracing ideation thread (2026-07-06 session) for the wider Pi-event tracing design this feeds into.
+- **Trace discipline:** one NDJSON event line per investigator turn / code block / host-function call / final answer, convertible to a *live, re-executable* artifact. Aligns with Brunch's probe/fixture discipline (A5-L, `.fixtures/runs/` promotion) and the subagent extension's deferred progress-UI item. The wider Pi-event tracing design this feeds into is captured in [AGENT_TRACING.md](AGENT_TRACING.md).
 - **Model tiering by depth** (smart investigator, cheap analysts) is already expressible via subagent frontmatter `model:`; formalizing a cheap-analyst default for fan-out children is config, not architecture.
 
 ## Triggers to revisit
