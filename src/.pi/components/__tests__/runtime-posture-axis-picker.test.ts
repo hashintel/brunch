@@ -56,6 +56,22 @@ describe('runtime posture picker overlays', () => {
     );
   });
 
+  it('cycles and commits under kitty keyboard-protocol encodings (Ghostty regression)', () => {
+    const selected: OperationalModeId[] = [];
+    const component = createRuntimeModePickerComponent({
+      current: 'specify',
+      theme,
+      onDone: (value: OperationalModeId | undefined) => {
+        if (value) selected.push(value);
+      },
+    });
+
+    // Kitty "report event types" press encodings: right arrow, enter.
+    component.handleInput?.('\x1b[1;1:1C');
+    component.handleInput?.('\x1b[13;1:1u');
+    expect(selected).toEqual(['execute']);
+  });
+
   it('returns selected mode value on enter', () => {
     const selected: OperationalModeId[] = [];
     const component = createRuntimeModePickerComponent({

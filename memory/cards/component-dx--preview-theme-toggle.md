@@ -19,6 +19,49 @@ Created:  2026-07-07
 > `VirtualTerminal`. `custom-ui.ts` untouched. Outer manual check still owed:
 > `npm run dev:components`, ctrl+t at the menu and inside an open editor entry,
 > plus the deep-link path.
+>
+> Outer-check findings (2026-07-07, Ghostty + Zed) and their fixes, same branch:
+> 1. Terminal page background didn't follow the toggle — OSC 11 paint +
+>    OSC 111 restore added (`7524c18d`). Zed's terminal ignores OSC 11;
+>    recorded as a `ceiling:` in `theme.ts`.
+> 2. Kitty keyboard protocol (Ghostty) broke raw-byte key matching — first in
+>    the gallery/toggle (`754ea9c7`), then confirmed in the previewed
+>    production components themselves. Card 2 below swept all `handleInput`
+>    raw-byte comparisons to `matchesKey`.
+
+## Card 2 — matchesKey sweep across .pi component input handling [done 2026-07-07]
+
+Light scope card, appended from Card 1's outer-check finding (not speculative:
+user-observed freeze in Ghostty for axis-picker left/right and
+exchange-decision-picker up/down).
+
+### Objective
+
+Every `handleInput` under `src/.pi/components/` matches keys through pi-tui's
+`matchesKey`/`Key` so components work under both legacy and kitty
+keyboard-protocol encodings.
+
+### Inventory (closed)
+
+```
+src/.pi/components/
+├── exchange-decision-picker.ts        ✓ esc/q/enter/up/down/j/k
+├── multi-choice-picker.ts             ✓ esc/q/enter/space/up/down/j/k
+├── runtime-posture/axis-picker.ts     ✓ esc/q/enter/left/right/h/l/j/k
+├── tui-lab/style-lab-component.ts     ✓ esc/q/left/right/h/l (preview-only)
+├── exchange-answer-editor.ts          ✓ esc/ctrl+c cancel, ctrl+g guard (editor delegate unchanged)
+└── workspace-dialog/component.ts      ✓ ctrl+c (rest already used matchesKey)
+```
+
+### Acceptance Criteria
+
+```
+✓ Kitty press encodings (\x1b[1;1:1B down, \x1b[1;1:1C right, \x1b[13;1:1u enter,
+  \x1b[27;1:1u esc, \x1b[32;1:1u space) verified against matchesKey via node probe
+✓ Ghostty-regression direct tests added for decision picker, multi-choice picker, axis picker
+✓ Legacy encodings still pass (existing test suites unchanged and green)
+✓ Key-matching convention recorded in src/.pi/components/TOPOLOGY.md §Build/test convention
+```
 
 Light scope card.
 

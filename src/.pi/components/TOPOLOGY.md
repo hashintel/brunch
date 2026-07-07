@@ -85,6 +85,8 @@ The harness lives at `../__tests__/support/virtual-terminal.ts`. It is test-only
 
 Keep the two tiers **complementary**, not redundant: a direct test is the default; add a harness test only when the behavior requires the real TUI input/overlay path.
 
+**Key matching convention:** `handleInput` implementations must match keys through pi-tui's `matchesKey`/`Key`, never raw byte comparison (`data === '\x1b[B'`, `data === '\x14'`). `ProcessTerminal` negotiates the kitty keyboard protocol where the terminal supports it (Ghostty, kitty, …), and keys then arrive as CSI-u sequences (e.g. `\x1b[1;1:1B` for a down-arrow press) that raw equality misses — the component freezes in exactly those terminals. Direct tests should include at least one kitty-encoding case per navigation family (see the "Ghostty regression" tests).
+
 ## Deferred patterns (non-goals for now)
 
 These workbench patterns are intentionally out of scope until their tripwire fires:
