@@ -30,7 +30,7 @@ describe('runtime posture picker overlays', () => {
 
   it('cycles and wraps selection with arrow and hj-style keys', () => {
     const component = createRuntimeModePickerComponent({
-      current: 'elicit',
+      current: 'specify',
       theme,
       onDone: () => {},
     });
@@ -42,7 +42,7 @@ describe('runtime posture picker overlays', () => {
 
     component.handleInput?.('l');
     expect(component.render(120).join('\n')).toContain(
-      `\x1b[48;5;34m\x1b[30m ${operationalModeLabel('elicit')} `,
+      `\x1b[48;5;34m\x1b[30m ${operationalModeLabel('specify')} `,
     );
 
     component.handleInput?.('j');
@@ -52,14 +52,14 @@ describe('runtime posture picker overlays', () => {
 
     component.handleInput?.('k');
     expect(component.render(120).join('\n')).toContain(
-      `\x1b[48;5;34m\x1b[30m ${operationalModeLabel('elicit')} `,
+      `\x1b[48;5;34m\x1b[30m ${operationalModeLabel('specify')} `,
     );
   });
 
   it('returns selected mode value on enter', () => {
     const selected: OperationalModeId[] = [];
     const component = createRuntimeModePickerComponent({
-      current: 'elicit',
+      current: 'specify',
       theme,
       onDone: (value: OperationalModeId | undefined) => {
         if (value) selected.push(value);
@@ -75,7 +75,7 @@ describe('runtime posture picker overlays', () => {
     for (const key of ['\x1b', 'q']) {
       const selected: Array<OperationalModeId | undefined> = [];
       const component = createRuntimeModePickerComponent({
-        current: 'elicit',
+        current: 'specify',
         theme,
         onDone: (value: OperationalModeId | undefined) => selected.push(value),
       });
@@ -87,14 +87,14 @@ describe('runtime posture picker overlays', () => {
 
   it('uses human-facing mode labels in the picker header and segments', () => {
     const component = createRuntimeModePickerComponent({
-      current: 'elicit',
+      current: 'specify',
       theme,
       onDone: () => {},
     });
 
     const text = component.render(200).join('\n');
     expect(text).toContain('Choose Brunch mode');
-    expect(text).toContain(operationalModeLabel('elicit'));
+    expect(text).toContain(operationalModeLabel('specify'));
     expect(text).toContain(operationalModeLabel('execute'));
   });
 });

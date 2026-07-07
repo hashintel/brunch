@@ -501,7 +501,7 @@ export function createBrunchAgentSessionRuntimeFactory(
           cwd,
           agentDir: runtimeAgentDir,
           delegatableAgents:
-            allowProductSubagents && agentState.operationalMode === 'elicit'
+            allowProductSubagents && agentState.operationalMode === 'specify'
               ? ['explorer', 'researcher', 'projector', 'reviewer']
               : [],
           world: {

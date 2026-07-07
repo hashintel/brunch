@@ -4,7 +4,7 @@ SPEC decisions: D40-L, D52-L, D90-L, D93-L, D98-L
 
 ## Owns
 
-`src/agents/runtime/executor/` owns the Execute-mode foreground executor policy: literal executor body composition, runtime control text, and the explicit registered-tool allowlist for foreground execute mode. The executor allowlist is structurally composed from the live elicitor allowlist plus executor-only orchestration, so CODE authority remains concentric with SPEC authority (D40-L).
+`src/agents/runtime/executor/` owns the Execute-mode foreground executor policy: literal executor body composition, runtime control text, and the explicit registered-tool allowlist for foreground execute mode. The executor allowlist is structurally composed from the live elicitor allowlist plus executor-only orchestration, so Execute authority remains concentric with Specify authority (D40-L).
 
 ```text
 executor/
@@ -26,4 +26,4 @@ rules:
 
 ## Migration Note
 
-The execute-mode run machinery itself lives in `src/executor/` (pure core over injected `ExecutionPorts`, D111-L/D112-L) and is admitted here as executor-only `execute_*` grants, including the `execute_orchestrate` run driver. The FE-1089-era `orchestrator_stub` standup proof is retired (FE-1155).
+The execute-mode run machinery itself lives in `src/executor/` (pure core over injected `ExecutionPorts`, D111-L/D112-L) and is admitted here as executor-only `execute_*` grants, including the `execute_orchestrate` run driver. Thin Pi adapters for those tools live under `src/.pi/extensions/executor/`; `agent-runtime/` owns only foreground runtime-state and prompt-hook adaptation. The FE-1089-era `orchestrator_stub` standup proof is retired (FE-1155).

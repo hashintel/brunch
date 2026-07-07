@@ -50,7 +50,7 @@ class FakeRuntimeStateSessionManager {
 }
 
 describe('Brunch agent runtime-state projection', () => {
-  it('projects the deterministic elicit/elicitor default when no runtime entries exist', () => {
+  it('projects the deterministic specify/elicitor default when no runtime entries exist', () => {
     expect(projectBrunchAgentState([])).toEqual({
       ...DEFAULT_BRUNCH_AGENT_STATE,
       agentRole: 'elicitor',
@@ -60,7 +60,7 @@ describe('Brunch agent runtime-state projection', () => {
   it('projects explicit mode-only runtime state', () => {
     const explicitState: BrunchAgentState = {
       schemaVersion: 1,
-      operationalMode: 'elicit',
+      operationalMode: 'specify',
     };
 
     expect(projectBrunchAgentState([runtimeEntry(explicitState)])).toMatchObject({
@@ -111,10 +111,10 @@ describe('Brunch agent runtime-state projection', () => {
     );
   });
 
-  it('applies resolved elicit state to active tools, prompt, and blockers', async () => {
+  it('applies resolved Specify state to active tools, prompt, and blockers', async () => {
     const latestState: BrunchAgentState = {
       schemaVersion: 1,
-      operationalMode: 'elicit',
+      operationalMode: 'specify',
     };
     const events: Record<string, (event: never, ctx?: never) => unknown> = {};
     const activeTools: string[][] = [];
@@ -193,7 +193,7 @@ describe('Brunch agent runtime-state projection', () => {
     expect(events.user_bash?.({ command: 'rm -rf .' } as never)).toMatchObject({
       result: {
         exitCode: 1,
-        output: 'Brunch tool policy blocks shell commands in elicit mode (bash, edit, write): rm -rf .',
+        output: 'Brunch tool policy blocks shell commands in specify mode (bash, edit, write): rm -rf .',
       },
     });
   });
@@ -282,7 +282,7 @@ describe('Brunch agent runtime-state projection', () => {
     for (const invalidState of [
       {
         schemaVersion: 1,
-        operationalMode: 'elicit',
+        operationalMode: 'specify',
         agentRole: 'elicitor',
       },
       {
@@ -301,7 +301,7 @@ describe('Brunch agent runtime-state projection', () => {
     for (const invalidState of [
       {
         schemaVersion: 1,
-        operationalMode: 'elicit',
+        operationalMode: 'specify',
         agentRole: 'elicitor',
       },
       {
@@ -320,14 +320,14 @@ describe('Brunch agent runtime-state projection', () => {
       projectBrunchAgentState([
         runtimeEntry({
           schemaVersion: 1,
-          operationalMode: 'elicit',
+          operationalMode: 'specify',
           agentStrategy: 'step-wise-decision-tree',
           agentLens: 'intent',
           agentGoal: 'commit-converge',
         } as unknown as BrunchAgentState),
       ]),
     ).toMatchObject({
-      operationalMode: 'elicit',
+      operationalMode: 'specify',
       agentRole: 'elicitor',
     });
   });
@@ -361,7 +361,7 @@ describe('Brunch agent runtime-state projection', () => {
     const manager = SessionManager.create(cwd, sessionDir);
     const latestState: BrunchAgentState = {
       schemaVersion: 1,
-      operationalMode: 'elicit',
+      operationalMode: 'specify',
     };
 
     manager.appendCustomEntry(BRUNCH_AGENT_RUNTIME_STATE_CUSTOM_TYPE, {

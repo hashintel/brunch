@@ -59,7 +59,7 @@ describe('Pi JSONL transcript viability', () => {
           source: 'user',
           state: {
             schemaVersion: 1,
-            operationalMode: 'elicit',
+            operationalMode: 'specify',
           },
         },
       ],

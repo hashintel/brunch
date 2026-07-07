@@ -38,7 +38,7 @@ type FixtureCurationCommitStatus =
   | 'unknown';
 
 interface FixtureCurationRuntimeStateReport {
-  readonly operationalMode: 'elicit';
+  readonly operationalMode: 'specify';
 }
 
 interface FixtureCurationRunOptions {
@@ -152,10 +152,10 @@ export async function runFixtureCurationLoop(
 
   const runtimeState: BrunchAgentState = {
     schemaVersion: 1,
-    operationalMode: 'elicit',
+    operationalMode: 'specify',
   };
   const runtimeStateReport: FixtureCurationRuntimeStateReport = {
-    operationalMode: 'elicit',
+    operationalMode: 'specify',
   };
   appendBrunchAgentRuntimeSwitch(activated.session.manager, runtimeState, 'extension');
   const createRuntime = createBrunchAgentSessionRuntimeFactory({ workspace: activated, coordinator });

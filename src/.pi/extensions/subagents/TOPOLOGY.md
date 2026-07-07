@@ -22,12 +22,12 @@ collapse). Frontier: PLAN.md `subagent-reconciliation`.
    assembles a background prompt, preserves sealed in-memory services, and can
    grant a spec-bound `read_graph` tool from injected parent-world handles.
 2. **Startup wiring is product-owned.** The app root calls
-   [`loadBrunchSubagents()`](../../../app/pi-subagents.ts) for normal SPEC-mode
+   [`loadBrunchSubagents()`](../../../app/pi-subagents.ts) for normal Specify-mode
    launches, injecting selected-world context and the code-owned delegatable set.
    The registrar advertises and runs only loaded definitions in that allowlist.
 3. **Spawnability is op-mode-owned, not frontmatter-owned.** Background manifests
    author sovereign `tools` grants, but their `canDelegate` remains empty; a
-   manifest cannot self-advertise into `elicit`.
+   manifest cannot self-advertise into Specify mode.
 4. **Canonical docs now match the semi-permeable implementation.** SPEC
    `D44-L` / `D91-L` / `I29-L` name the SDK sealed child session with explicit
    injected world reads; do not restore the superseded no-world/verbatim-body
@@ -44,8 +44,8 @@ The D44-L/D91-L `subagent` tool: a main-agent-invoked, **blocking** Pi tool that
 delegates an isolated reasoning task to a sealed Pi child session and returns the
 child's last assistant message as tool-result content. Starter background agents
 are read-only (`explorer`, `researcher`) or no-tools (`projector`, `reviewer`) and
-are spawnable by `elicit` because `FOREGROUND_AGENT_ROSTER.elicit.foregroundAgent`
-names them in `canDelegate`. The execute-only `worker` is registry-owned but not
+are spawnable by Specify mode because the app root supplies them in the code-owned
+delegatable set. The execute-only `worker` is registry-owned but not
 spawnable through the foreground `subagent` tool; `AgentRunnerPort` launches it
 directly for sandbox runs with bounded `read` + `write_worktree_file` authority.
 `explorer` can also read the selected parent spec through `read_graph` when the
@@ -138,7 +138,7 @@ Starter agents (read-only / no-write):
 | `researcher` | `web_search, web_fetch`            | external web research                                          |
 | `projector`  | _(none)_                           | one candidate-proposal variant per call; fan out for diversity |
 | `reviewer`   | _(none)_                           | proposal/commitment review from supplied context               |
-| `worker`     | `read, write_worktree_file`         | execute-mode sandbox code worker (not `elicit`-delegatable)    |
+| `worker`     | `read, write_worktree_file`         | execute-mode sandbox code worker (not Specify-delegatable)     |
 
 Tool resolution (`planSubagentTools`): read-only filesystem tools come from the
 SDK (`createReadToolDefinition(cwd)` etc., cwd-bound, override built-ins of the
@@ -156,7 +156,7 @@ unknown tool name in frontmatter **throws** at plan time (authoring bug → fail
 `createBrunchPiExtensions` registers and advertises `subagent` only when its
 options carry `subagents` with a non-empty `delegatableAgents` set; omitted or
 empty deps keep the tool absent. The app root supplies those deps for normal
-SPEC-mode launches, using the current selected spec, a spec-bound `GraphReaders`
+Specify-mode launches, using the current selected spec, a spec-bound `GraphReaders`
 object, selected workspace/session facts, `sessionManager.getBranch()` for the
 bounded digest, and the operational mode's code-owned delegatable set for
 spawnability.

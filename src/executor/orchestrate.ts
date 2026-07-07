@@ -43,6 +43,12 @@ export interface SchedulerPlan {
   readonly slices?: readonly { readonly id: string }[];
 }
 
+export type SchedulerPlanMode = NonNullable<SchedulerPlan['mode']>;
+
+export function normalizeSchedulerPlanMode(plan: SchedulerPlan | undefined): SchedulerPlanMode {
+  return plan?.mode ?? 'greenfield';
+}
+
 export interface RunScheduler {
   /** Pure: given current run facts, return the ready step frontier (`[]` when done). */
   ready(state: RunMetadata, plan: SchedulerPlan | undefined): readonly ReadyStep[];
@@ -267,5 +273,5 @@ async function sourcePolicyForRun(ctx: DriveContext): Promise<SourcePolicyKind> 
   const metadata = await readRunMetadata(runMetadataPath(ctx.cwd, ctx.runId));
   const path = metadata?.populatedPlanPath ?? populatedPlanPath(ctx.cwd, ctx.runId);
   const plan = JSON.parse(await readFile(path, 'utf8')) as SchedulerPlan;
-  return plan.mode === 'brownfield' ? 'host_source_deferred' : 'plan_only';
+  return normalizeSchedulerPlanMode(plan) === 'brownfield' ? 'host_source_deferred' : 'plan_only';
 }

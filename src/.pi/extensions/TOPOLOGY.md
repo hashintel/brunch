@@ -8,7 +8,7 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 
 ## Does NOT own
 
-- Agent role prompt definitions, skill resource bodies, prompt composition, and prompt-resource legality — `agents/`. `agent-runtime/` is now only the Pi hook/tool adapter for that central policy.
+- Agent role prompt definitions, skill resource bodies, prompt composition, and prompt-resource legality — `agents/`. `agent-runtime/` adapts foreground runtime policy; `executor/` adapts executor run tools to Pi.
 - Graph truth, graph mutation policy, or graph readers — top-level `graph/`.
 - Pi JSONL/session semantics, runtime-state projection, workspace coordination, or transcript exchange projection — top-level `session/`, `projections/`, and related domain seams.
 - Reusable DTO projection or reusable markdown/text rendering — top-level `projections/`, `agents/contexts/` for model-facing text, and local product/session owners for human/product text.
@@ -19,9 +19,10 @@ Pi-facing registration and adaptation only: lifecycle hooks, agent tool definiti
 ```text
 extensions/
 ├── TOPOLOGY.md
-├── agent-runtime/          Pi adapter for central foreground runtime policy plus execute-mode tools
+├── agent-runtime/          Pi adapter for central foreground runtime policy
 │   ├── runtime/            operational-mode Pi tool activation adapter
 │   └── system-prompts/     before_agent_start hook adapter into agents/runtime/foreground-policy
+├── executor/               thin Pi adapters for executor `execute_*` tools and run-update observer
 ├── brunch-data/            Pi tools over selected Brunch graph/spec/workspace/session data
 │   ├── graph/              mutate_graph/read_graph tools + selected-spec graph read seam
 │   ├── context/            workspace/spec/session context tools
@@ -46,7 +47,7 @@ extensions/
 └── workspace/              spec/session picker command adapter
 ```
 
-`session-orientation/` owns the SPEC-mode and CODE-mode menu descriptors, the `ctx.ui.select`-shaped dialog function (`index.ts`; escape/timeout resolves to the inert `dismissed` — entry recorded, never a kick), the juncture orchestrator that composes dialog → entry → origination → live seed delivery → live-kick with two modes — `'follow-choice'` (J2/J3/J4/J6 and J5: kick unless the resolved choice is `dismissed` or matches the menu's `noKickChoice`; SPEC uses `continue`, CODE has no no-kick choice) and `'boot'` (J1: originate+kick with `resumeOrigin: 'resume_debt'` unless the user dismissed the menu, honoring degraded-mode and the menu's no-kick choice for force-seed) — (`juncture.ts`), and the Pi event/command registrar wiring the dialog to J1 (`session_start` reason `startup`, option-2 boot), J2 (`session_start` reasons `new`/`resume`), J3 (`session_tree`), J4 (`agent_end` esc-abort, C3 probe), and J6 (`/brunch:consult`) (`registrar.ts`). Live junctures deliver `brunch.context_seed` before the triggering `brunch.kick` so the persisted transcript and in-memory provider context stay in sync after `AgentSession` creation. J5 uses Pi's synchronous live `sendMessage` enqueue; TUI boot's `AgentSession.sendCustomMessage` adapter in `src/app/brunch-tui.ts` preserves the same seed-before-kick order with a per-kick deferred serial chain while still returning to `session_start` immediately. J5 mode-switch is landed: the mode-switch path in `commands/index.ts` first settles any in-flight assistant turn only when abort + wait-for-idle are both observable (setting the registrar-shared suppress flag so the corresponding J4 does not fire), then fires the same juncture orchestrator with a table-selected menu when the switch target is `elicit` (SPEC menu) or `execute` (CODE menu). The shared `OrientationJunctureGate` is an ownership-aware claim plus resolution window: event-driven junctures read claim + window before running; J5 writes but does not read it, so explicit user mode switches are never skipped while still suppressing ambient event echoes.
+`session-orientation/` owns the Specify-mode and Execute-mode menu descriptors, the `ctx.ui.select`-shaped dialog function (`index.ts`; escape/timeout resolves to the inert `dismissed` — entry recorded, never a kick), the juncture orchestrator that composes dialog → entry → origination → live seed delivery → live-kick with two modes — `'follow-choice'` (J2/J3/J4/J6 and J5: kick unless the resolved choice is `dismissed` or matches the menu's `noKickChoice`; Specify uses `continue`, Execute has no no-kick choice) and `'boot'` (J1: originate+kick with `resumeOrigin: 'resume_debt'` unless the user dismissed the menu, honoring degraded-mode and the menu's no-kick choice for force-seed) — (`juncture.ts`), and the Pi event/command registrar wiring the dialog to J1 (`session_start` reason `startup`, option-2 boot), J2 (`session_start` reasons `new`/`resume`), J3 (`session_tree`), J4 (`agent_end` esc-abort, C3 probe), and J6 (`/brunch:consult`) (`registrar.ts`). Live junctures deliver `brunch.context_seed` before the triggering `brunch.kick` so the persisted transcript and in-memory provider context stay in sync after `AgentSession` creation. J5 uses Pi's synchronous live `sendMessage` enqueue; TUI boot's `AgentSession.sendCustomMessage` adapter in `src/app/brunch-tui.ts` preserves the same seed-before-kick order with a per-kick deferred serial chain while still returning to `session_start` immediately. J5 mode-switch is landed: the mode-switch path in `commands/index.ts` first settles any in-flight assistant turn only when abort + wait-for-idle are both observable (setting the registrar-shared suppress flag so the corresponding J4 does not fire), then fires the same juncture orchestrator with a table-selected menu when the switch target is `specify` (Specify menu) or `execute` (Execute menu). The shared `OrientationJunctureGate` is an ownership-aware claim plus resolution window: event-driven junctures read claim + window before running; J5 writes but does not read it, so explicit user mode switches are never skipped while still suppressing ambient event echoes.
 
 The former `tui-lab/` registrar (`registerBrunchTuiLab`, gated behind an `enabled`
 option nothing ever set) was retired — it never entered the product bundle and
@@ -60,6 +61,7 @@ component, previewable via `npm run dev:components -- tui-lab`.
 rules:
   .pi/extensions/* -> agents/, .pi/components/, graph/, session/, projections/ [adapter imports allowed]
   .pi/extensions/agent-runtime/* -> agents/runtime/foreground-policy [foreground prompt/tool policy]
+  .pi/extensions/executor/* -> executor/, app/port types, rpc/product-updates [thin execute adapter surface]
   .pi/extensions/* x> db/                                                            [no direct storage]
   graph/, session/    x> .pi/                                                        [domain layers never import adapters]
   agents/prompts/     x> .pi/extensions/                                             [prompt bodies do not register Pi hooks]

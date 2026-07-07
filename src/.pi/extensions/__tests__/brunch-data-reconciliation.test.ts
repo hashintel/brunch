@@ -168,7 +168,7 @@ describe('reconciliation register tools', () => {
     expect(getOpenReconciliationNeeds(db, specId)).toEqual([]);
   });
 
-  it('proves both recon-need tools are active in elicit posture alongside update_elicitation_scratchpad', () => {
+  it('proves both recon-need tools are active in Specify posture alongside update_elicitation_scratchpad', () => {
     const state = projectBrunchAgentState([]);
     const active = activeToolNamesForBrunchAgentState(
       {

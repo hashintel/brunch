@@ -48,7 +48,7 @@ describe('runtime posture picker harness', () => {
     const selected: Array<OperationalModeId | undefined> = [];
 
     const picker = createRuntimeModePickerComponent({
-      current: 'elicit',
+      current: 'specify',
       theme,
       onDone: (value: OperationalModeId | undefined) => selected.push(value),
     });
@@ -64,18 +64,18 @@ describe('runtime posture picker harness', () => {
       let viewport = terminal.getViewport().join('\n');
       expect(viewport).toContain('Choose Brunch mode');
       expect(viewport).toContain('current:');
-      expect(viewport).toContain(operationalModeLabel('elicit'));
+      expect(viewport).toContain(operationalModeLabel('specify'));
       expect(viewport).toContain('←/→ or h/l/j/k cycle · enter commits · esc/q cancels');
-      expect(isActiveInTrack(trackLine(terminal.getViewport()), operationalModeLabel('elicit'))).toBe(true);
+      expect(isActiveInTrack(trackLine(terminal.getViewport()), operationalModeLabel('specify'))).toBe(true);
 
       terminal.sendInput('\x1b[C');
       await terminal.waitForRender();
       expect(isActiveInTrack(trackLine(terminal.getViewport()), operationalModeLabel('execute'))).toBe(true);
-      expect(isActiveInTrack(trackLine(terminal.getViewport()), operationalModeLabel('elicit'))).toBe(false);
+      expect(isActiveInTrack(trackLine(terminal.getViewport()), operationalModeLabel('specify'))).toBe(false);
 
       terminal.sendInput('h');
       await terminal.waitForRender();
-      expect(isActiveInTrack(trackLine(terminal.getViewport()), operationalModeLabel('elicit'))).toBe(true);
+      expect(isActiveInTrack(trackLine(terminal.getViewport()), operationalModeLabel('specify'))).toBe(true);
 
       terminal.sendInput('j');
       await terminal.waitForRender();
@@ -83,7 +83,7 @@ describe('runtime posture picker harness', () => {
 
       terminal.sendInput('k');
       await terminal.waitForRender();
-      expect(isActiveInTrack(trackLine(terminal.getViewport()), operationalModeLabel('elicit'))).toBe(true);
+      expect(isActiveInTrack(trackLine(terminal.getViewport()), operationalModeLabel('specify'))).toBe(true);
     } finally {
       terminal.stop();
       tui.stop();
@@ -96,7 +96,7 @@ describe('runtime posture picker harness', () => {
     const selected: Array<OperationalModeId | undefined> = [];
 
     const picker = createRuntimeModePickerComponent({
-      current: 'elicit',
+      current: 'specify',
       theme,
       onDone: (value: OperationalModeId | undefined) => selected.push(value),
     });
@@ -127,7 +127,7 @@ describe('runtime posture picker harness', () => {
     const selected: Array<OperationalModeId | undefined> = [];
 
     const picker = createRuntimeModePickerComponent({
-      current: 'elicit',
+      current: 'specify',
       theme,
       onDone: (value: OperationalModeId | undefined) => selected.push(value),
     });

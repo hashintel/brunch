@@ -7,7 +7,13 @@ function composePrompt(): string {
     sessionState: { schemaVersion: 1, operationalMode: 'execute', agentRole: 'executor' },
     spec: { id: 1, name: 'Spec' },
     workspace: { cwd: '/tmp/brunch' },
-    activeTools: ['read_graph', 'present_question', 'request_response', 'orchestrator_stub'],
+    activeTools: [
+      'read_graph',
+      'present_question',
+      'request_response',
+      'execute_status',
+      'execute_orchestrate',
+    ],
   }).prompt;
 }
 
@@ -17,10 +23,11 @@ describe('composeExecutorPrompt', () => {
 
     expect(prompt).toContain('state a capability-readiness posture before acting');
     expect(prompt).toContain('readiness-bands.md` §Agent Use');
-    expect(prompt).toContain('accept the requested CODE-mode move');
-    expect(prompt).toMatch(/do not bounce the user back to SPEC mode/i);
+    expect(prompt).toContain('accept the requested Execute-mode move');
+    expect(prompt).toMatch(/do not bounce the user back to Specify mode/i);
     expect(prompt).toContain('`project_plan` stays at frontier-level depth per D103-L');
-    expect(prompt).toMatch(/`?orchestrator_stub`? is the honest execution boundary/);
+    expect(prompt).toMatch(/live execution boundary is the `execute_\*` tool family/);
+    expect(prompt).toContain('explicit-acceptance `execute_host_promotion_preflight`');
     expect(prompt).toContain(
       '- readiness posture: assess seed reads before acting; bands guide conduct but never gate tool authority',
     );

@@ -35,7 +35,7 @@ describe('createComponentPreviewTheme', () => {
   it('is structurally usable as a LabTheme by a real component', () => {
     const theme = createComponentPreviewTheme();
 
-    const component = createRuntimeModePickerComponent({ current: 'elicit', theme, onDone: () => {} });
+    const component = createRuntimeModePickerComponent({ current: 'specify', theme, onDone: () => {} });
     const text = component.render(120).join('\n');
 
     expect(text).toContain('Choose Brunch mode');

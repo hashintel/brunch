@@ -76,6 +76,6 @@ describe('composeLiveElicitorPrompt', () => {
         spec: { id: 42, name: 'Live Assembly Spec' },
         workspace,
       }),
-    ).toThrow(/requires elicit\/elicitor state/);
+    ).toThrow(/requires specify\/elicitor state/);
   });
 });

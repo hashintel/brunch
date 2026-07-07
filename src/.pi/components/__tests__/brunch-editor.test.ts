@@ -58,12 +58,12 @@ describe('projectBorderedChrome', () => {
     ];
     const result = projectBorderedChrome(
       raw,
-      { topRight: '[ elicit ]', bottomRight: '"Spec"' },
+      { topRight: '[ specify ]', bottomRight: '"Spec"' },
       30,
       identityColor,
     );
 
-    expect(result[0]).toContain('[ elicit ]');
+    expect(result[0]).toContain('[ specify ]');
     expect(result[3]).toContain('"Spec"');
     expect(result[3]?.startsWith('╰')).toBe(true);
     // Autocomplete rows are untouched content, boxed like any other line.
@@ -73,9 +73,9 @@ describe('projectBorderedChrome', () => {
 
   it('recognizes the scroll-indicator variant of the border', () => {
     const raw = ['─── ↑ 3 more ─────', 'query text', 'second row', '──────────────────'];
-    const result = projectBorderedChrome(raw, { topRight: '[ elicit ]' }, 20, identityColor);
+    const result = projectBorderedChrome(raw, { topRight: '[ specify ]' }, 20, identityColor);
 
-    expect(result[0]).toContain('[ elicit ]');
+    expect(result[0]).toContain('[ specify ]');
   });
 
   it('produces a plain rounded border when no label is given', () => {

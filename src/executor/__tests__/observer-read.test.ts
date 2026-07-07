@@ -4,8 +4,10 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { agentStreamPath } from '../agent-result.js';
 import { listRuns, readRunDetail } from '../observer-read.js';
 import { runDirPath, runMetadataPath, type RunMetadata } from '../run.js';
+import { verifyStreamPath } from '../test-result.js';
 
 async function fixtureCwd(prefix: string): Promise<string> {
   return mkdtemp(join(tmpdir(), prefix));
@@ -226,6 +228,42 @@ describe('readRunDetail', () => {
         missingVerificationSliceIds: [],
         criterionIds: ['AC1'],
       },
+    ]);
+  });
+
+  it('keeps active-slice stream tails visible while skipping corrupt stream lines', async () => {
+    const cwd = await fixtureCwd('brunch-observer-stream-tail-');
+    await writeRun(cwd, 'run-stream', {
+      status: 'agent_result_ingested',
+      activeSliceId: 'task-1',
+    });
+    await mkdir(join(runDirPath(cwd, 'run-stream'), 'streams', 'task-1'), { recursive: true });
+    await writeFile(
+      agentStreamPath(cwd, 'run-stream', 'task-1'),
+      [
+        JSON.stringify({ event: 'agent_stream', stream: 'stdout', text: 'first' }),
+        '{bad json',
+        JSON.stringify({ event: 'agent_stream', stream: 'stderr', text: 'second' }),
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    await writeFile(
+      verifyStreamPath(cwd, 'run-stream', 'task-1'),
+      [JSON.stringify({ event: 'verify_stream', stream: 'stdout', text: 'verify' }), '{bad json', ''].join(
+        '\n',
+      ),
+      'utf8',
+    );
+
+    const detail = await readRunDetail(cwd, 'run-stream');
+
+    expect(detail && 'agentStreamTail' in detail ? detail.agentStreamTail : []).toEqual([
+      { event: 'agent_stream', stream: 'stdout', text: 'first' },
+      { event: 'agent_stream', stream: 'stderr', text: 'second' },
+    ]);
+    expect(detail && 'verifyStreamTail' in detail ? detail.verifyStreamTail : []).toEqual([
+      { event: 'verify_stream', stream: 'stdout', text: 'verify' },
     ]);
   });
 });

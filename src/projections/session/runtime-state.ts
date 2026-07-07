@@ -67,7 +67,7 @@ export function resolveBrunchAgentState(state: BrunchAgentState): ResolvedBrunch
 
 function foregroundAgentRoleForMode(mode: OperationalModeId): ForegroundAgentRoleId {
   switch (mode) {
-    case 'elicit':
+    case 'specify':
       return 'elicitor';
     case 'execute':
       return 'executor';

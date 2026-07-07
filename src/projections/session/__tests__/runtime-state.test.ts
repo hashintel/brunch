@@ -49,7 +49,7 @@ describe('runtime-state projection', () => {
   it('ignores stale legacy runtime fields while projecting only public mode/role posture', () => {
     const legacyAxisState: BrunchAgentState = {
       schemaVersion: 1,
-      operationalMode: 'elicit',
+      operationalMode: 'specify',
       agentStrategy: 'freestyle',
       agentLens: 'intent',
     } as unknown as BrunchAgentState;
@@ -58,7 +58,7 @@ describe('runtime-state projection', () => {
       projectSessionRuntimeState(envelope([runtimeEntry('runtime-legacy-axes', legacyAxisState)])),
     ).toMatchObject({
       agent: {
-        operationalMode: 'elicit',
+        operationalMode: 'specify',
         role: 'elicitor',
       },
     });
@@ -91,7 +91,7 @@ describe('runtime-state projection', () => {
   it('projects last-writer-wins runtime posture plus mention, world, and lifecycle slots', () => {
     const first: BrunchAgentState = {
       schemaVersion: 1,
-      operationalMode: 'elicit',
+      operationalMode: 'specify',
     };
     const latest: BrunchAgentState = {
       schemaVersion: 1,

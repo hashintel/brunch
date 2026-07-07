@@ -45,9 +45,9 @@ function readLiveElicitorBody(): string {
 }
 
 function assertLiveElicitorState(state: LiveElicitorSessionState): void {
-  if (state.operationalMode !== 'elicit' || state.agentRole !== 'elicitor') {
+  if (state.operationalMode !== 'specify' || state.agentRole !== 'elicitor') {
     throw new Error(
-      `Live elicitor prompt requires elicit/elicitor state, received ${state.operationalMode}/${state.agentRole}.`,
+      `Live elicitor prompt requires specify/elicitor state, received ${state.operationalMode}/${state.agentRole}.`,
     );
   }
 }
