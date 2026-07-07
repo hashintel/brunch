@@ -10,6 +10,7 @@ import { createRuntimeModePickerComponent } from '../../../.pi/components/runtim
 import { ComponentGalleryComponent } from '../gallery-component.js';
 import {
   createComponentPreviewTheme,
+  createThemePaintingTerminal,
   registerComponentPreviewThemeToggle,
   SwitchableComponentPreviewTheme,
 } from '../theme.js';
@@ -205,5 +206,56 @@ describe('registerComponentPreviewThemeToggle', () => {
       terminal.stop();
       tui.stop();
     }
+  });
+});
+
+describe('createThemePaintingTerminal', () => {
+  function hexToFg(hex: string): string {
+    const c = hex.replace('#', '');
+    return `\x1b[38;2;${parseInt(c.slice(0, 2), 16)};${parseInt(c.slice(2, 4), 16)};${parseInt(c.slice(4, 6), 16)}m`;
+  }
+  function hexToBg(hex: string): string {
+    const c = hex.replace('#', '');
+    return `\x1b[48;2;${parseInt(c.slice(0, 2), 16)};${parseInt(c.slice(2, 4), 16)};${parseInt(c.slice(4, 6), 16)}m`;
+  }
+
+  it('prefixes writes with the page fg/bg and rewrites default-reset codes to the theme base', () => {
+    const inner = new VirtualTerminal(80, 24);
+    const theme = new SwitchableComponentPreviewTheme('dark');
+    const painted = createThemePaintingTerminal(inner, theme);
+
+    const fg = hexToFg(theme.pageFg!);
+    const bg = hexToBg(theme.pageBg!);
+
+    painted.write('styled\x1b[39mafter-fg-reset\x1b[49mafter-bg-reset\x1b[0mafter-full-reset');
+    const written = inner.writes.join('');
+
+    expect(written.startsWith(fg + bg)).toBe(true);
+    expect(written).toContain(`styled${fg}after-fg-reset`);
+    expect(written).toContain(`${bg}after-bg-reset`);
+    expect(written).toContain(`\x1b[0m${fg}${bg}after-full-reset`);
+    expect(written).not.toContain('\x1b[39ma');
+  });
+
+  it('follows toggle for subsequent writes and sets the base bg before erase calls (BCE)', () => {
+    const inner = new VirtualTerminal(80, 24);
+    const theme = new SwitchableComponentPreviewTheme('dark');
+    const painted = createThemePaintingTerminal(inner, theme);
+
+    theme.toggle();
+    painted.clearLine();
+    const written = inner.writes.join('');
+    expect(written).toContain(hexToBg(theme.pageBg!));
+    expect(written).toContain('\x1b[K');
+  });
+
+  it('delegates the rest of the Terminal surface to the wrapped terminal', () => {
+    const inner = new VirtualTerminal(90, 30);
+    const theme = new SwitchableComponentPreviewTheme('dark');
+    const painted = createThemePaintingTerminal(inner, theme);
+
+    expect(painted.columns).toBe(90);
+    expect(painted.rows).toBe(30);
+    expect(painted.kittyProtocolActive).toBe(false);
   });
 });

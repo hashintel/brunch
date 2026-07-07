@@ -10,6 +10,7 @@ import {
 import { ComponentGalleryComponent } from './component-preview/gallery-component.js';
 import { COMPONENT_PREVIEW_REGISTRY } from './component-preview/registry.js';
 import {
+  createThemePaintingTerminal,
   registerComponentPreviewThemeToggle,
   SwitchableComponentPreviewTheme,
   watchComponentPreviewTheme,
@@ -50,9 +51,9 @@ function createComponentPreviewKeybindings(): KeybindingsManager {
 export async function runComponentPreviewGallery(
   options: ComponentPreviewGalleryOptions = {},
 ): Promise<void> {
-  const terminal = new ProcessTerminal();
-  const tui = new TUI(terminal);
   const theme = new SwitchableComponentPreviewTheme();
+  const terminal = createThemePaintingTerminal(new ProcessTerminal(), theme);
+  const tui = new TUI(terminal);
   const keybindings = createComponentPreviewKeybindings();
 
   if (options.entryId) {

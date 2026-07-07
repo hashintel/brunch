@@ -114,6 +114,15 @@ Direction (user, 2026-07-07):
 - fix dark-mode gray ramp: `text` contrast on `pageBg` currently too low;
   re-tune text/gray/dimGray/darkGray steps against #201b17
 - both `brunch-dark.json` and `brunch-light.json` stay a matched pair
+
+Decision (user-approved 2026-07-07): live sessions keep pi's
+harmonize-don't-override stance — pi detects the terminal background and picks
+a theme half (`brunch-light/n` auto-sync); Brunch does not paint OSC defaults
+or force a body-text color at exchange call sites. The harness paint (OSC
+10/11 + the SGR-level `createThemePaintingTerminal` fallback for
+OSC-ignoring terminals like Zed) is a *reference-page simulation* for value
+pinning only. The JSONs' `export.pageBg` + `text` document the recommended
+terminal scheme.
 ```
 
 Light scope card.

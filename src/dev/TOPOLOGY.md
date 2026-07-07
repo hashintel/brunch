@@ -59,7 +59,14 @@ components are render-only with injectable `theme`/props.
   retheme contract. The terminal defaults follow the toggle too — OSC 10 sets the default
   foreground to the `text` token (so *unstyled* component text adopts the theme instead of the
   terminal's own color) and OSC 11 sets the page background to `export.pageBg`; OSC 110/111 reset
-  both on exit — since theme colors only style explicitly wrapped glyphs.
+  both on exit — since theme colors only style explicitly wrapped glyphs. For terminals that ignore
+  OSC 10/11 (Zed), `createThemePaintingTerminal` wraps the harness Terminal and injects the same
+  base colors at the SGR level: frame writes are prefixed with the page fg/bg and default-reset
+  codes are rewritten to the theme base, so the harness owns its page colors everywhere.
+  **Simulation note:** a live pi/Brunch session paints neither — pi *detects* the terminal
+  background and picks a theme half to harmonize (the `brunch-light/n` auto-sync setting); unstyled
+  body text there is terminal-native. The harness paint answers "how does the palette read on its
+  intended page?", which is the right truth environment for pinning values.
   `BRUNCH_PREVIEW_THEME=light` selects the initial variant. The theme JSONs also **hot-reload**:
   `watchComponentPreviewTheme` watches `src/.pi/themes/` and rebuilds the variant palettes on save
   (last-good palette kept across mid-edit invalid JSON), so theme-value work iterates against the

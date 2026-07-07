@@ -3,7 +3,14 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { getSelectListTheme, Theme, type ThemeColor } from '@earendil-works/pi-coding-agent';
-import { type EditorTheme, isKeyRelease, Key, matchesKey, type TUI } from '@earendil-works/pi-tui';
+import {
+  type EditorTheme,
+  isKeyRelease,
+  Key,
+  matchesKey,
+  type Terminal,
+  type TUI,
+} from '@earendil-works/pi-tui';
 
 /**
  * Real truecolor palette for the standalone component preview harness
@@ -40,7 +47,7 @@ interface BrunchThemeJson {
   name: string;
   vars?: Record<string, string>;
   colors: Record<string, string>;
-  export?: { pageBg?: string };
+  export?: { pageBg?: string; pageFg?: string };
 }
 
 export type ComponentPreviewThemeVariant = 'dark' | 'light';
@@ -55,6 +62,14 @@ interface BrunchThemePalette {
   readonly bgColors: Record<ThemeBgToken, string>;
   /** Whole-page background from the theme's `export` block (used for OSC 11). */
   readonly pageBg: string | undefined;
+  /**
+   * Reference default-foreground from `export.pageFg` — the terminal
+   * environment color the palette is designed against. Deliberately *not*
+   * the `text` token: `text` is ink for themed surfaces (userMessageText,
+   * toolTitle, dialog labels), while pageFg documents the assumed inherited
+   * environment default that live sessions never paint.
+   */
+  readonly pageFg: string | undefined;
 }
 
 function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchThemePalette {
@@ -78,6 +93,7 @@ function loadBrunchThemePalette(variant: ComponentPreviewThemeVariant): BrunchTh
     fgColors: fgColors as Record<ThemeColor, string>,
     bgColors: bgColors as Record<ThemeBgToken, string>,
     pageBg: parsed.export?.pageBg !== undefined ? resolve(parsed.export.pageBg) : undefined,
+    pageFg: parsed.export?.pageFg !== undefined ? resolve(parsed.export.pageFg) : undefined,
   };
 }
 
@@ -119,7 +135,7 @@ export class SwitchableComponentPreviewTheme extends Theme {
       }),
     };
     this.#pageBgs = { dark: darkPalette.pageBg, light: lightPalette.pageBg };
-    this.#pageFgs = { dark: darkPalette.fgColors.text, light: lightPalette.fgColors.text };
+    this.#pageFgs = { dark: darkPalette.pageFg, light: lightPalette.pageFg };
     this.#active = initial;
   }
 
@@ -133,10 +149,11 @@ export class SwitchableComponentPreviewTheme extends Theme {
   }
 
   /**
-   * Active variant's default-foreground hex (the `text` token). Painted via
-   * OSC 10 so *unstyled* component text — markdown body, picker labels,
-   * anything not wrapped in `theme.fg(...)` — adopts the theme's text color
-   * instead of the terminal's own default.
+   * Active variant's reference default-foreground hex (`export.pageFg`, a
+   * Brunch extension of pi's export block — pi ignores unknown export keys).
+   * Painted via OSC 10 / the SGR fallback so unstyled and `text`-token
+   * (`""` = terminal default, per pi's theme format) glyphs render on the
+   * environment the palette is designed against.
    */
   get pageFg(): string | undefined {
     return this.#pageFgs[this.#active];
@@ -164,7 +181,7 @@ export class SwitchableComponentPreviewTheme extends Theme {
       }),
     };
     this.#pageBgs = { dark: darkPalette.pageBg, light: lightPalette.pageBg };
-    this.#pageFgs = { dark: darkPalette.fgColors.text, light: lightPalette.fgColors.text };
+    this.#pageFgs = { dark: darkPalette.pageFg, light: lightPalette.pageFg };
   }
 
   override fg(color: ThemeColor, text: string): string {
@@ -205,15 +222,84 @@ export class SwitchableComponentPreviewTheme extends Theme {
  * OSC 111. Same session-scoped ownership discipline as the harness's SGR
  * mouse opt-in in `custom-ui.ts`.
  */
-// ceiling: OSC 10/11 support varies by emulator (Ghostty/kitty/iTerm2/WezTerm
-// honor them; Zed's built-in terminal ignores them silently, keeping its own
-// colors). There is no reliable capability query worth the complexity for a
-// dev harness; revisit only if painted defaults become required in an
-// unsupporting terminal we care about.
+// OSC 10/11 support varies by emulator (Ghostty/kitty/iTerm2/WezTerm honor
+// them; Zed's built-in terminal ignores them silently). Terminals that ignore
+// them are covered by the SGR fallback in `createThemePaintingTerminal`.
 function paintTerminalThemeColors(tui: TUI, theme: SwitchableComponentPreviewTheme): void {
   // OSC 10 = default foreground (unstyled text), OSC 11 = default background.
   if (theme.pageFg !== undefined) tui.terminal.write(`\x1b]10;${theme.pageFg}\x07`);
   if (theme.pageBg !== undefined) tui.terminal.write(`\x1b]11;${theme.pageBg}\x07`);
+}
+
+function hexToFgSgr(hex: string): string {
+  const c = hex.replace('#', '');
+  return `\x1b[38;2;${parseInt(c.slice(0, 2), 16)};${parseInt(c.slice(2, 4), 16)};${parseInt(c.slice(4, 6), 16)}m`;
+}
+
+function hexToBgSgr(hex: string): string {
+  const c = hex.replace('#', '');
+  return `\x1b[48;2;${parseInt(c.slice(0, 2), 16)};${parseInt(c.slice(2, 4), 16)};${parseInt(c.slice(4, 6), 16)}m`;
+}
+
+/**
+ * SGR-level fallback for terminals that ignore OSC 10/11 (e.g. Zed): wrap the
+ * harness Terminal so the theme's page fg/bg ride the output stream itself.
+ * Every frame write is prefixed with the base colors, and the "reset to
+ * terminal default" codes are rewritten so resets return to the *theme's*
+ * base instead — `\x1b[39m` → base fg, `\x1b[49m` → base bg, `\x1b[0m` →
+ * `\x1b[0m` + base pair. Erase sequences (`\x1b[K` etc.) then fill with the
+ * active background (BCE), so cleared cells adopt the page color too.
+ *
+ * Colors are read from the switchable theme per write, so toggle and hot
+ * reload flow through; pair renders with `requestRender(true)` after a theme
+ * change so unchanged lines are rewritten under the new base.
+ *
+ * ceiling: rewrites assume escape sequences never split across write chunks —
+ * true today because pi-tui composes each frame into one buffer write.
+ * Revisit if pi-tui ever streams partial frames.
+ */
+export function createThemePaintingTerminal(
+  base: Terminal,
+  theme: SwitchableComponentPreviewTheme,
+): Terminal {
+  const baseSgr = (): string =>
+    (theme.pageFg !== undefined ? hexToFgSgr(theme.pageFg) : '') +
+    (theme.pageBg !== undefined ? hexToBgSgr(theme.pageBg) : '');
+
+  const paint = (data: string): string => {
+    const sgr = baseSgr();
+    if (sgr === '') return data;
+    let out = data;
+    if (theme.pageFg !== undefined) out = out.replaceAll('\x1b[39m', hexToFgSgr(theme.pageFg));
+    if (theme.pageBg !== undefined) out = out.replaceAll('\x1b[49m', hexToBgSgr(theme.pageBg));
+    out = out.replaceAll('\x1b[0m', `\x1b[0m${sgr}`);
+    return sgr + out;
+  };
+
+  return new Proxy(base, {
+    get(target, prop) {
+      if (prop === 'write') {
+        return (data: string) => {
+          target.write(paint(data));
+        };
+      }
+      if (prop === 'clearLine' || prop === 'clearFromCursor' || prop === 'clearScreen') {
+        return () => {
+          // Ensure BCE erases fill with the page background.
+          target.write(baseSgr());
+          target[prop]();
+        };
+      }
+      if (prop === 'stop') {
+        return () => {
+          target.write('\x1b[0m');
+          target.stop();
+        };
+      }
+      const value = Reflect.get(target, prop, target) as unknown;
+      return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+    },
+  });
 }
 
 function restoreTerminalThemeColors(tui: TUI): void {
@@ -233,7 +319,9 @@ export function registerComponentPreviewThemeToggle(
     theme.toggle();
     paintTerminalThemeColors(tui, theme);
     tui.invalidate();
-    tui.requestRender();
+    // force: unchanged lines must still be rewritten under the new base
+    // fg/bg that createThemePaintingTerminal injects per write.
+    tui.requestRender(true);
     return { consume: true };
   });
   return () => {
@@ -264,7 +352,7 @@ export function watchComponentPreviewTheme(tui: TUI, theme: SwitchableComponentP
       }
       paintTerminalThemeColors(tui, theme);
       tui.invalidate();
-      tui.requestRender();
+      tui.requestRender(true);
     }, 50);
   });
   return () => {
