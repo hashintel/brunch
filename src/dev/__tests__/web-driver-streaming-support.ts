@@ -1,8 +1,5 @@
-import {
-  fauxAssistantMessage,
-  registerFauxProvider,
-  type FauxProviderRegistration,
-} from '@earendil-works/pi-ai';
+import { fauxAssistantMessage, type FauxProviderRegistration } from '@earendil-works/pi-ai';
+import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import { AuthStorage, ModelRegistry, type AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import { WebSocket } from 'ws';
 

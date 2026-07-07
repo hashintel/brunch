@@ -1,5 +1,11 @@
 import { type Component } from '@earendil-works/pi-tui';
 
+import {
+  projectRoundedBox,
+  roundedBoxInnerWidth,
+  stackSections,
+  type RoundedBoxPadding,
+} from './rounded-box.js';
 import { safeLines, type LabTheme } from './tui-lab/index.js';
 
 export interface MultiChoicePickerChoice {
@@ -14,11 +20,17 @@ export interface MultiChoicePickerResult {
 export interface MultiChoicePickerOptions {
   readonly prompt: string;
   readonly choices: readonly MultiChoicePickerChoice[];
+  /**
+   * Choice ids that contradict every other selection (e.g. a "none of these"
+   * choice). Selecting one clears the rest; selecting any other choice clears
+   * them.
+   */
+  readonly exclusiveChoiceIds?: readonly string[];
   readonly theme: LabTheme;
   readonly onDone: (result?: MultiChoicePickerResult) => void;
 }
 
-const PADDING_X = 1;
+const BOX_PADDING: RoundedBoxPadding = { x: 2, top: 1, bottom: 1 };
 
 export class MultiChoicePickerComponent implements Component {
   #activeIndex = 0;
@@ -29,20 +41,22 @@ export class MultiChoicePickerComponent implements Component {
 
   render(width: number): string[] {
     const safeWidth = Math.max(1, width);
-    const contentWidth = Math.max(1, safeWidth - PADDING_X * 2);
-    const leftMargin = ' '.repeat(PADDING_X);
+    const contentWidth = Math.max(1, roundedBoxInnerWidth(safeWidth, BOX_PADDING));
     const { theme } = this.options;
-    const lines = safeLines(
+    const stacked = stackSections([
+      [theme.fg('accent', this.options.prompt)],
+      this.options.choices.map((choice, index) => this.#choiceLine(choice, index)),
       [
-        theme.fg('accent', this.options.prompt),
-        ...this.options.choices.map((choice, index) => this.#choiceLine(choice, index)),
         ...(this.#warning ? [theme.fg('warning', this.#warning)] : []),
         theme.fg('dim', '↑/↓ move · space toggles · enter commits · esc/q cancels'),
       ],
-      contentWidth,
-    ).map((line) => leftMargin + line);
-    lines.push('');
-    return lines;
+    ]);
+    const lines = safeLines(stacked.lines, contentWidth);
+    const box = projectRoundedBox(lines, { padding: BOX_PADDING }, safeWidth, (text) =>
+      theme.fg('accent', text),
+    );
+    box.push('');
+    return box;
   }
 
   handleInput(data: string): void {
@@ -89,6 +103,12 @@ export class MultiChoicePickerComponent implements Component {
     if (this.#selected.has(active.id)) {
       this.#selected.delete(active.id);
       return;
+    }
+    const exclusive = this.options.exclusiveChoiceIds ?? [];
+    if (exclusive.includes(active.id)) {
+      this.#selected.clear();
+    } else {
+      for (const id of exclusive) this.#selected.delete(id);
     }
     this.#selected.add(active.id);
   }

@@ -1,3 +1,4 @@
+import { TUI } from '@earendil-works/pi-tui';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createDb } from '../../../db/connection.js';
@@ -7,6 +8,7 @@ import {
   isStructuredExchangeRequestDetails,
 } from '../../../exchanges/recovery.js';
 import { CommandExecutor } from '../../../graph/command-executor.js';
+import { VirtualTerminal } from '../../__tests__/support/virtual-terminal.js';
 import {
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
@@ -180,6 +182,35 @@ function pendingReviewSet(exchangeId: string, heading = 'Review proposal') {
   ];
 }
 
+interface TestPickerComponent {
+  render(width: number): string[];
+  handleInput(data: string): void;
+}
+
+function customPickByIndex(index: number) {
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown;
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    expect(component.render(80).join('\n')).toContain('╭');
+    for (let step = 0; step < index; step += 1) component.handleInput('\x1b[B');
+    component.handleInput('\r');
+    return picked;
+  });
+}
+
+function customCancel() {
+  return vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+    let picked: unknown = 'not-cancelled';
+    const component = factory(null, theme, null, (result: unknown) => {
+      picked = result;
+    }) as TestPickerComponent;
+    component.handleInput('\x1b');
+    return picked;
+  });
+}
+
 describe('structured exchange present/request tools', () => {
   it('registers implemented present/request tools as sequential', () => {
     const tools = registeredTools();
@@ -284,7 +315,110 @@ describe('structured exchange present/request tools', () => {
     expect(rendered).toContain('Move under src/tui-client');
   });
 
-  it('responds to a pending present_question through the UI editor using the presented prompt', async () => {
+  it('responds to a pending present_question through the custom answer editor before the sealed UI editor', async () => {
+    const editor = vi.fn(async () => 'Should not be called.');
+    const workingVisible: boolean[] = [];
+    const custom = vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+      const terminal = new VirtualTerminal(80, 24);
+      const tui = new TUI(terminal);
+      let answer: unknown;
+      const component = factory(tui, theme, null, (result: unknown) => {
+        answer = result;
+      }) as TestPickerComponent & { setText(text: string): void };
+      expect(component.render(80).join('\n')).toContain('What should request_response ask?');
+      component.setText('Answer collected by custom editor.');
+      component.handleInput('\r');
+      return answer;
+    });
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-custom-ui-call',
+      { exchangeId: 'respond-question' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom, editor, setWorkingVisible: (visible: boolean) => workingVisible.push(visible) },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'respond-question',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'answer',
+                  display: { heading: 'What should request_response ask?', body: 'This body is context.' },
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(custom).toHaveBeenCalledOnce();
+    expect(editor).not.toHaveBeenCalled();
+    expect(workingVisible).toEqual([false, true]);
+    expect(result.details).toMatchObject({
+      exchange_id: 'respond-question',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_answer' },
+      answered: { text: 'Answer collected by custom editor.' },
+    });
+  });
+
+  it('records cancellation when the custom answer editor resolves undefined', async () => {
+    const custom = vi.fn(async (factory: (...args: unknown[]) => unknown) => {
+      const terminal = new VirtualTerminal(80, 24);
+      const tui = new TUI(terminal);
+      let answer: unknown = 'not-cancelled';
+      const component = factory(tui, theme, null, (result: unknown) => {
+        answer = result;
+      }) as TestPickerComponent;
+      component.handleInput('\x1b');
+      return answer;
+    });
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-custom-cancel-call',
+      { exchangeId: 'respond-cancel' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'respond-cancel',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'answer',
+                  display: { heading: 'Cancel this?' },
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(result.details).toMatchObject({ cancelled: {} });
+  });
+
+  it('falls back to the sealed UI editor when custom UI is unavailable', async () => {
     const editor = vi.fn(async () => 'Answer collected by request_response.');
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
@@ -433,6 +567,37 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
+    const select = vi.fn(async () => 'A');
+    const noCustomChoice = await request_response.execute(
+      'request-response-no-custom-choice-call',
+      { exchangeId: 'options' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'options',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Choose' },
+                  options: [{ id: 'a', content: 'A' }],
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
     expect(cancelled.details).toMatchObject({ tool_meta: { curr: 'request_answer' }, cancelled: {} });
     // User cancel terminates the turn (inert wait); unavailable stays
     // reactive so the model can reroute.
@@ -443,6 +608,10 @@ describe('structured exchange present/request tools', () => {
       unavailable: { message: 'request_response choice requires interactive UI' },
     });
     expect(headlessChoice.terminate).toBeUndefined();
+    expect(noCustomChoice.details).toMatchObject({
+      unavailable: { message: 'request_response choice requires interactive UI' },
+    });
+    expect(select).not.toHaveBeenCalled();
   });
 
   it('offers request_response as the recovery continuation for unmatched present_question', () => {
@@ -478,7 +647,7 @@ describe('structured exchange present/request tools', () => {
       {
         hasUI: true,
         ui: {
-          select: async () => 'Move under src/tui-client',
+          custom: customPickByIndex(1),
           input: async () => 'Aligns ownership with /reload iteration.',
         },
         sessionManager: {
@@ -540,7 +709,7 @@ describe('structured exchange present/request tools', () => {
       {
         hasUI: true,
         ui: {
-          select: async () => 'Other',
+          custom: customPickByIndex(1),
           input,
         },
         sessionManager: {
@@ -581,11 +750,73 @@ describe('structured exchange present/request tools', () => {
     expect(result.details.answered.comment).not.toBe('Something else entirely');
   });
 
+  it('records a single-choice None selection with its required comment and no write-in', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+    const inputPrompts: string[] = [];
+    const workingVisibility: boolean[] = [];
+
+    const result = await request_response.execute(
+      'request-response-choice-none-call',
+      { exchangeId: 'shell-location-none' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          // options: [root] + Other + None -> None sits at picker index 2.
+          custom: customPickByIndex(2),
+          input: async (prompt: string) => {
+            inputPrompts.push(prompt);
+            return 'No listed option fits this session.';
+          },
+          setWorkingVisible: (visible: boolean) => {
+            workingVisibility.push(visible);
+          },
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'shell-location-none',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choice',
+                  display: { heading: 'Select one option.' },
+                  options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
+                  allow_other: true,
+                  allow_none: true,
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(inputPrompts).toEqual(['Required comment']);
+    expect(workingVisibility).toEqual([false, true]);
+    expect(result.details).toMatchObject({
+      exchange_id: 'shell-location-none',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
+      answered: {
+        choice: { id: 'none', label: 'None', kind: 'none' },
+        options: [{ id: 'root', content: 'Keep src/pi-extensions.ts' }],
+        comment: 'No listed option fits this session.',
+      },
+    });
+  });
+
   it('maps duplicate present_question option labels back to the selected stable id', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
 
     const select = vi.fn(async () => '2. Repeat label');
+    const custom = customPickByIndex(1);
     const result = await request_response.execute(
       'request-response-duplicate-choice-call',
       { exchangeId: 'duplicate-options' },
@@ -593,7 +824,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select },
+        ui: { custom, select },
         sessionManager: {
           getBranch: () => [
             {
@@ -619,7 +850,8 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(select).toHaveBeenCalledWith('Select one option.', ['1. Repeat label', '2. Repeat label']);
+    expect(custom).toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
     expect(result.details).toMatchObject({
       exchange_id: 'duplicate-options',
       tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choice' },
@@ -720,7 +952,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select: async () => 'Local workbench' },
+        ui: { custom: customPickByIndex(0) },
         sessionManager: {
           getBranch: () => [
             {
@@ -775,6 +1007,7 @@ describe('structured exchange present/request tools', () => {
     if (!request_response) throw new Error('request_response was not registered');
 
     const select = vi.fn(async () => '2. Same direction');
+    const custom = customPickByIndex(1);
     const result = await request_response.execute(
       'request-response-duplicate-candidate-call',
       { exchangeId: 'duplicate-candidates' },
@@ -782,7 +1015,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select },
+        ui: { custom, select },
         sessionManager: {
           getBranch: () => [
             {
@@ -807,10 +1040,8 @@ describe('structured exchange present/request tools', () => {
       } as never,
     );
 
-    expect(select).toHaveBeenCalledWith('Which direction should we take?', [
-      '1. Same direction',
-      '2. Same direction',
-    ]);
+    expect(custom).toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
     expect(result.details).toMatchObject({
       exchange_id: 'duplicate-candidates',
       tool_meta: { prev: PRESENT_CANDIDATES_TOOL, curr: 'request_choice', next: 'capture_candidate' },
@@ -931,7 +1162,7 @@ describe('structured exchange present/request tools', () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
 
-    for (const [selected, review, comment] of [
+    for (const [_selected, review, comment] of [
       ['Approve', 'approve', 'Looks right.'],
       ['Request changes', 'request_changes', 'Tighten the grounding.'],
       ['Reject', 'reject', 'Wrong direction.'],
@@ -943,7 +1174,10 @@ describe('structured exchange present/request tools', () => {
         undefined,
         {
           hasUI: true,
-          ui: { select: async () => selected, input: async () => comment },
+          ui: {
+            custom: customPickByIndex(['approve', 'request_changes', 'reject'].indexOf(review)),
+            input: async () => comment,
+          },
           sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
         } as never,
       );
@@ -961,7 +1195,7 @@ describe('structured exchange present/request tools', () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
 
-    for (const [selected, review, comment] of [
+    for (const [_selected, review, comment] of [
       ['Approve', 'approve', 'Looks right.'],
       ['Request changes', 'request_changes', 'Tighten the source limitation.'],
       ['Reject', 'reject', 'Wrong direction.'],
@@ -973,7 +1207,10 @@ describe('structured exchange present/request tools', () => {
         undefined,
         {
           hasUI: true,
-          ui: { select: async () => selected, input: async () => comment },
+          ui: {
+            custom: customPickByIndex(['approve', 'request_changes', 'reject'].indexOf(review)),
+            input: async () => comment,
+          },
           sessionManager: { getBranch: () => pendingDigest('digest-large-source') },
         } as never,
       );
@@ -1003,7 +1240,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select: async () => undefined },
+        ui: { custom: customCancel() },
         sessionManager: { getBranch: () => pendingDigest('digest-large-source') },
       } as never,
     );
@@ -1025,9 +1262,10 @@ describe('structured exchange present/request tools', () => {
     expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });
 
-  it('requires request_response review change requests to carry a non-empty comment', async () => {
+  it('re-prompts empty review change-request comments and cancels on dismissal', async () => {
     const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
     if (!request_response) throw new Error('request_response was not registered');
+    const prompts: string[] = [];
 
     const result = await request_response.execute(
       'request-response-review-empty-change',
@@ -1036,14 +1274,41 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select: async () => 'Request changes', input: async () => '   ' },
+        ui: {
+          custom: customPickByIndex(1),
+          input: async (prompt: string) => {
+            prompts.push(prompt);
+            return prompts.length === 1 ? '   ' : 'Tighten the grounding.';
+          },
+        },
         sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
       } as never,
     );
 
+    expect(prompts).toEqual([
+      'Required change request',
+      'Required change request (required — cannot be empty)',
+    ]);
     expect(result.details).toMatchObject({
       tool_meta: { curr: 'request_review' },
-      unavailable: { message: 'request_response review change request requires a comment' },
+      answered: { decision: 'request_changes', comment: 'Tighten the grounding.' },
+    });
+
+    const dismissed = await request_response.execute(
+      'request-response-review-dismissed-change',
+      { exchangeId: 'review-cycle-1' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { custom: customPickByIndex(1), input: async () => undefined },
+        sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
+      } as never,
+    );
+
+    expect(dismissed.details).toMatchObject({
+      tool_meta: { curr: 'request_review' },
+      cancelled: {},
     });
   });
 
@@ -1058,7 +1323,7 @@ describe('structured exchange present/request tools', () => {
       undefined,
       {
         hasUI: true,
-        ui: { select: async () => undefined },
+        ui: { custom: customCancel() },
         sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
       } as never,
     );
@@ -1073,11 +1338,25 @@ describe('structured exchange present/request tools', () => {
         sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
       } as never,
     );
+    const select = vi.fn(async () => 'Approve');
+    const noCustom = await request_response.execute(
+      'request-response-review-no-custom',
+      { exchangeId: 'review-cycle-1' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: { select },
+        sessionManager: { getBranch: () => pendingReviewSet('review-cycle-1') },
+      } as never,
+    );
 
     expect(cancelled.details).toMatchObject({ cancelled: {}, tool_meta: { curr: 'request_review' } });
     expect(cancelled.terminate).toBe(true);
     expect(unavailable.details).toMatchObject({ unavailable: {}, tool_meta: { curr: 'request_review' } });
     expect(unavailable.terminate).toBeUndefined();
+    expect(noCustom.details).toMatchObject({ unavailable: {}, tool_meta: { curr: 'request_review' } });
+    expect(select).not.toHaveBeenCalled();
     expect(isStructuredExchangeRequestDetails(cancelled.details)).toBe(true);
     expect(isStructuredExchangeRequestDetails(unavailable.details)).toBe(true);
   });
@@ -1150,6 +1429,132 @@ describe('structured exchange present/request tools', () => {
         ],
         comment: 'Speed is primary.',
       },
+    });
+  });
+
+  it('collects the Other write-in text when the custom picker selects Other', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+    const inputPrompts: string[] = [];
+
+    const result = await request_response.execute(
+      'request-response-choices-custom-other-call',
+      { exchangeId: 'priorities-other' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          custom: async (factory: (...args: unknown[]) => unknown) => {
+            let picked: unknown;
+            const component = factory(null, theme, null, (result: unknown) => {
+              picked = result;
+            }) as { render(width: number): string[]; handleInput(data: string): void };
+            component.handleInput('\x1b[B');
+            component.handleInput('\x1b[B');
+            component.handleInput(' ');
+            component.handleInput('\r');
+            return picked;
+          },
+          input: async (prompt: string) => {
+            inputPrompts.push(prompt);
+            if (inputPrompts.length === 1) return '   ';
+            if (inputPrompts.length === 2) return 'Ship it behind a CLI flag';
+            return 'None of the listed options fit.';
+          },
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'priorities-other',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choices',
+                  display: { heading: 'Select all priorities.' },
+                  options: [
+                    { id: 'speed', content: 'Move quickly' },
+                    { id: 'safety', content: 'Keep the transcript safe' },
+                  ],
+                  allow_other: true,
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(inputPrompts).toEqual(['Other', 'Other (required — cannot be empty)', 'Required comment']);
+    expect(result.details).toMatchObject({
+      exchange_id: 'priorities-other',
+      tool_meta: { prev: PRESENT_QUESTION_TOOL, curr: 'request_choices' },
+      answered: {
+        choices: [{ id: 'other', label: 'Ship it behind a CLI flag', kind: 'other' }],
+        comment: 'None of the listed options fit.',
+      },
+    });
+  });
+
+  it('cancels the custom-picker choices response when the Other write-in is dismissed', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-choices-custom-other-empty-call',
+      { exchangeId: 'priorities-other-empty' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          custom: async (factory: (...args: unknown[]) => unknown) => {
+            let picked: unknown;
+            const component = factory(null, theme, null, (result: unknown) => {
+              picked = result;
+            }) as { render(width: number): string[]; handleInput(data: string): void };
+            component.handleInput('\x1b[B');
+            component.handleInput('\x1b[B');
+            component.handleInput(' ');
+            component.handleInput('\r');
+            return picked;
+          },
+          input: async () => undefined,
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'priorities-other-empty',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choices',
+                  display: { heading: 'Select all priorities.' },
+                  options: [
+                    { id: 'speed', content: 'Move quickly' },
+                    { id: 'safety', content: 'Keep the transcript safe' },
+                  ],
+                  allow_other: true,
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      exchange_id: 'priorities-other-empty',
+      tool_meta: { curr: 'request_choices' },
+      cancelled: {},
     });
   });
 
@@ -1279,6 +1684,61 @@ describe('structured exchange present/request tools', () => {
       unavailable: { message: 'request_choices requires a comment for Other or None selections' },
     });
     expect(result.content[0]?.text).toContain('request_choices requires a comment');
+  });
+
+  it('rejects request_response multi-choice None combined with other selections', async () => {
+    const request_response = registeredTools().get(REQUEST_RESPONSE_TOOL);
+    if (!request_response) throw new Error('request_response was not registered');
+
+    const result = await request_response.execute(
+      'request-response-choices-none-combined-call',
+      { exchangeId: 'priorities' },
+      undefined,
+      undefined,
+      {
+        hasUI: true,
+        ui: {
+          editor: async (prefill: string) => {
+            const payload = JSON.parse(prefill);
+            payload.response = {
+              status: 'answered',
+              choices: [
+                { id: 'speed', label: 'Move quickly' },
+                { id: 'none', label: 'None' },
+              ],
+              comment: 'Contradictory selection.',
+            };
+            return JSON.stringify(payload);
+          },
+        },
+        sessionManager: {
+          getBranch: () => [
+            {
+              type: 'message',
+              message: {
+                role: 'toolResult',
+                details: {
+                  schema: 'brunch.structured_exchange.present',
+                  v: 1,
+                  exchange_id: 'priorities',
+                  tool_meta: { curr: PRESENT_QUESTION_TOOL, next: REQUEST_RESPONSE_TOOL },
+                  response_kind: 'choices',
+                  display: { heading: 'Select all priorities.' },
+                  options: [{ id: 'speed', content: 'Move quickly' }],
+                  allow_other: true,
+                  allow_none: true,
+                },
+              },
+            },
+          ],
+        },
+      } as never,
+    );
+
+    expect(result.details).toMatchObject({
+      tool_meta: { curr: 'request_choices' },
+      unavailable: { message: 'request_choices cannot combine None with other selections' },
+    });
   });
 
   it('detects an unmatched present result for recovery', () => {

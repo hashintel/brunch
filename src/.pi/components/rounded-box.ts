@@ -1,18 +1,62 @@
 import { truncateToWidth, visibleWidth } from '@earendil-works/pi-tui';
 
+export interface RoundedBoxPadding {
+  /** Spaces between each side border glyph and the content (default 1). */
+  readonly x?: number;
+  /** Blank rows above the content (default 0). */
+  readonly top?: number;
+  /** Blank rows below the content (default 0). */
+  readonly bottom?: number;
+}
+
 export interface RoundedBoxOptions {
   readonly topLabel?: string;
   readonly bottomLabel?: string;
   readonly labelAlign?: 'left' | 'right';
   readonly thumbRows?: ReadonlySet<number>;
   readonly preserveContentWidth?: boolean;
-  readonly blankPadding?: {
-    readonly top?: number;
-    readonly bottom?: number;
-  };
+  readonly padding?: RoundedBoxPadding;
 }
 
-const SIDE_BUDGET = 4;
+const DEFAULT_PADDING_X = 1;
+
+function paddingX(options: RoundedBoxOptions): number {
+  return Math.max(0, options.padding?.x ?? DEFAULT_PADDING_X);
+}
+
+/** Columns the box consumes around the content: two border glyphs plus padding on each side. */
+export function roundedBoxSideBudget(padding?: RoundedBoxPadding): number {
+  return 2 + Math.max(0, padding?.x ?? DEFAULT_PADDING_X) * 2;
+}
+
+/** Widest content that fits inside a box of `width` with the given padding. */
+export function roundedBoxInnerWidth(width: number, padding?: RoundedBoxPadding): number {
+  return Math.max(0, width - roundedBoxSideBudget(padding));
+}
+
+export interface StackedSections {
+  readonly lines: readonly string[];
+  /** Starting index of each input section within `lines`. */
+  readonly offsets: readonly number[];
+}
+
+/**
+ * Join content sections with a uniform blank-line gap. The box module owns
+ * spacing — padding inside the border and margins between content sections —
+ * so content components supply only their own lines and never author blank
+ * margin rows themselves. Empty sections keep an offset but emit no gap.
+ */
+export function stackSections(sections: readonly (readonly string[])[], gap = 1): StackedSections {
+  const lines: string[] = [];
+  const offsets: number[] = [];
+  const separator = Array.from({ length: Math.max(0, gap) }, () => '');
+  for (const section of sections) {
+    if (section.length > 0 && lines.length > 0) lines.push(...separator);
+    offsets.push(lines.length);
+    lines.push(...section);
+  }
+  return { lines, offsets };
+}
 
 /**
  * Project content lines into a rounded box without owning any domain-specific
@@ -26,9 +70,10 @@ export function projectRoundedBox(
 ): string[] {
   if (contentLines.length === 0) return [];
 
-  const safeWidth = Math.max(SIDE_BUDGET, width);
-  const topPadding = Math.max(0, options.blankPadding?.top ?? 0);
-  const bottomPadding = Math.max(0, options.blankPadding?.bottom ?? 0);
+  const sidePadding = paddingX(options);
+  const safeWidth = Math.max(2 + sidePadding * 2, width);
+  const topPadding = Math.max(0, options.padding?.top ?? 0);
+  const bottomPadding = Math.max(0, options.padding?.bottom ?? 0);
   const rows = [
     ...Array.from({ length: topPadding }, () => ({ line: '', contentIndex: undefined })),
     ...contentLines.map((line, contentIndex) => ({ line, contentIndex })),
@@ -41,6 +86,7 @@ export function projectRoundedBox(
       contentLine(
         line,
         safeWidth,
+        sidePadding,
         borderColor,
         contentIndex !== undefined && options.thumbRows?.has(contentIndex),
         options.preserveContentWidth,
@@ -73,15 +119,17 @@ function borderLine(
 function contentLine(
   content: string,
   width: number,
+  sidePadding: number,
   borderColor: (text: string) => string,
   isThumbRow: boolean | undefined,
   preserveContentWidth: boolean | undefined,
 ): string {
-  const innerWidth = Math.max(0, width - SIDE_BUDGET);
+  const innerWidth = Math.max(0, width - 2 - sidePadding * 2);
+  const pad = ' '.repeat(sidePadding);
   const inner = truncateToWidth(content, innerWidth);
-  const padding = preserveContentWidth ? '' : ' '.repeat(Math.max(0, innerWidth - visibleWidth(inner)));
+  const fill = preserveContentWidth ? '' : ' '.repeat(Math.max(0, innerWidth - visibleWidth(inner)));
   const rightBorder = isThumbRow ? '▐' : '│';
-  return `${borderColor('│')} ${inner}${padding} ${borderColor(rightBorder)}`;
+  return `${borderColor('│')}${pad}${inner}${fill}${pad}${borderColor(rightBorder)}`;
 }
 
 function colorBorderText(text: string, borderColor: (text: string) => string): string {

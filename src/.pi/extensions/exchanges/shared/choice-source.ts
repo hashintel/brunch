@@ -5,8 +5,10 @@ import {
   type AnsweredOptionEcho,
   type SelectedChoice,
 } from '../../../../exchanges/schemas/index.js';
+import { createExchangeDecisionPickerComponent } from '../../../components/exchange-decision-picker.js';
 import { normalizeOptionalText } from './markdown.js';
-import type { StructuredExchangeUiContext } from './ui-context.js';
+import { collectRequiredInput } from './required-input.js';
+import { withWorkingIndicatorHidden, type StructuredExchangeUiContext } from './ui-context.js';
 
 export interface StructuredExchangeChoice {
   readonly id: string;
@@ -48,6 +50,7 @@ export interface CollectChoiceParams {
   readonly options: readonly AnsweredOptionEcho[];
   readonly respondsToPresentTool?: 'present_question' | 'present_candidates';
   readonly allowOther?: boolean;
+  readonly allowNone?: boolean;
   readonly commentPrompt?: string;
   readonly ctx: StructuredExchangeUiContext;
 }
@@ -70,45 +73,62 @@ export async function collectChoiceFromUi(params: CollectChoiceParams) {
     };
   };
 
-  if (!params.ctx.hasUI || typeof params.ctx.ui?.select !== 'function') {
+  if (!params.ctx.hasUI || typeof params.ctx.ui?.custom !== 'function') {
     return terminal('unavailable', 'request_response choice requires interactive UI');
   }
 
-  const choices = selectableChoices(params.choices);
-  const labels = [...choices.map((choice) => choice.selectLabel), ...(params.allowOther ? ['Other'] : [])];
-  const selected = await params.ctx.ui.select(params.prompt, labels);
-  if (selected === undefined) return terminal('cancelled');
+  const ui = params.ctx.ui;
+  return withWorkingIndicatorHidden(params.ctx, async () => {
+    const choices = selectableChoices(params.choices);
+    const pickerChoices = [
+      ...choices.map(({ choice, selectLabel }) => ({ id: choice.id, label: selectLabel })),
+      ...(params.allowOther ? [{ id: 'other', label: 'Other' }] : []),
+      ...(params.allowNone ? [{ id: 'none', label: 'None' }] : []),
+    ];
+    const selected = await ui.custom!<{ readonly id: string } | undefined>(
+      (_tui, theme, _keybindings, done) =>
+        createExchangeDecisionPickerComponent({
+          prompt: params.prompt,
+          choices: pickerChoices,
+          theme,
+          onDone: done,
+        }),
+    );
+    if (selected === undefined) return terminal('cancelled');
 
-  const picked = choiceBySelection(choices, selected);
-  let choice: SelectedChoice;
-  let comment = '';
-  if (!picked) {
-    const other =
-      typeof params.ctx.ui.input === 'function'
-        ? await params.ctx.ui.input('Other', 'Describe your answer')
-        : undefined;
-    if (other === undefined || other.trim().length === 0) return terminal('cancelled');
-    choice = { id: 'other', label: other.trim(), kind: 'other' };
-    if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
-      comment = (await params.ctx.ui.input?.(params.commentPrompt ?? 'Required comment')) ?? '';
-      if (comment.trim().length === 0) {
-        return terminal('unavailable', 'request_choice requires a comment for Other or None selections');
+    const picked = choiceBySelection(choices, selected.id);
+    let choice: SelectedChoice;
+    let comment = '';
+    if (!picked) {
+      if (params.allowNone && selected.id === 'none') {
+        choice = { id: 'none', label: 'None', kind: 'none' };
+      } else if (params.allowOther && selected.id === 'other') {
+        const other = await collectRequiredInput(params.ctx, 'Other', 'Describe your answer');
+        if (other === undefined) return terminal('cancelled');
+        choice = { id: 'other', label: other, kind: 'other' };
+      } else {
+        return terminal('unavailable', `request_response choice received unknown option id ${selected.id}`);
+      }
+      if (structuredExchangeResponseRequiresComment({ choiceKinds: [choice.kind] })) {
+        const required = await collectRequiredInput(params.ctx, params.commentPrompt ?? 'Required comment');
+        if (required === undefined) return terminal('cancelled');
+        comment = required;
+      }
+    } else {
+      choice = selectedChoice(picked, 'listed');
+      if (typeof ui.input === 'function') {
+        comment = (await ui.input(params.commentPrompt ?? 'Optional comment')) ?? '';
       }
     }
-  } else {
-    choice = selectedChoice(picked, 'listed');
-    if (typeof params.ctx.ui.input === 'function') {
-      comment = (await params.ctx.ui.input(params.commentPrompt ?? 'Optional comment')) ?? '';
-    }
-  }
 
-  const details = projectRequestChoice({
-    exchangeId: params.exchangeId,
-    respondsToPresentTool,
-    status: 'answered',
-    choice,
-    options: params.options,
-    comment: normalizeOptionalText(comment),
+    const details = projectRequestChoice({
+      exchangeId: params.exchangeId,
+      respondsToPresentTool,
+      status: 'answered',
+      choice,
+      options: params.options,
+      comment: normalizeOptionalText(comment),
+    });
+    return { content: [{ type: 'text' as const, text: formatRequestChoice(details) }], details };
   });
-  return { content: [{ type: 'text' as const, text: formatRequestChoice(details) }], details };
 }

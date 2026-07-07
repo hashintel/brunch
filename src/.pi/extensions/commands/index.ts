@@ -129,7 +129,9 @@ async function openModePicker(
   options: ModeSwitchOptions,
 ): Promise<void> {
   const current = projectBrunchAgentState(ctx.sessionManager.getEntries());
-  if (typeof ctx.ui.custom !== 'function') {
+  // hasUI first: since pi 0.80.x, headless/no-op UI contexts carry stub
+  // `custom` functions that resolve undefined, so shape alone can't gate.
+  if (!ctx.hasUI || typeof ctx.ui.custom !== 'function') {
     ctx.ui.notify(`Brunch mode is ${operationalModeLabel(current.operationalMode)}.`, 'info');
     return;
   }

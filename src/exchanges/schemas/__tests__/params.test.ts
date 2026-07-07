@@ -96,6 +96,49 @@ describe('structured exchange present params', () => {
     }
   });
 
+  it('rejects reserved escape ids on listed options and candidates', () => {
+    expect(() =>
+      zPresentQuestionParams.parse({
+        exchangeId: 'reserved-id',
+        heading: 'Pick one',
+        options: [
+          { id: 'listed', content: 'A listed option' },
+          { id: 'none', content: 'Sneaky reserved id' },
+        ],
+      }),
+    ).toThrow(/reserved/);
+    expect(() =>
+      zPresentQuestionParams.parse({
+        exchangeId: 'reserved-id',
+        heading: 'Pick one',
+        options: [{ id: 'other', content: 'Sneaky reserved id' }],
+      }),
+    ).toThrow(/reserved/);
+
+    expect(() =>
+      zPresentCandidatesParams.parse({
+        exchangeId: 'reserved-candidate',
+        heading: 'Compare candidates',
+        candidates: [
+          {
+            id: 'none',
+            title: 'Reserved id candidate',
+            user_rubric: {
+              core_bet: 'Local-first graph work.',
+              best_fit: 'Current POC.',
+              cost_complexity: 'Own local state.',
+              covers_well: 'Graph and transcript.',
+              main_risks: 'No cloud proof.',
+              lock_in_constraints: 'Local semantics.',
+            },
+            meta_rubric: {},
+            graph_refs: [],
+          },
+        ],
+      }),
+    ).toThrow(/reserved/);
+  });
+
   it('exports the nested present_review_set payload companion shape', () => {
     const schema = z.toJSONSchema(zPresentReviewSetParams, { unrepresentable: 'throw' }) as unknown as {
       readonly properties: {

@@ -2,12 +2,8 @@ import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import {
-  fauxAssistantMessage,
-  registerFauxProvider,
-  type Context,
-  type FauxProviderRegistration,
-} from '@earendil-works/pi-ai';
+import { fauxAssistantMessage, type Context, type FauxProviderRegistration } from '@earendil-works/pi-ai';
+import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import {
   AuthStorage,
   createAgentSessionRuntime,

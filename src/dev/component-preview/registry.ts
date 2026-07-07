@@ -4,6 +4,8 @@ import type { Component, TUI } from '@earendil-works/pi-tui';
 import { registerBrunchAlternatives } from '../../.pi/components/alternatives.js';
 import { BrunchEditorComponent } from '../../.pi/components/brunch-editor.js';
 import { BrunchStartupHeader } from '../../.pi/components/chrome-header.js';
+import { ExchangeAnswerEditorComponent } from '../../.pi/components/exchange-answer-editor.js';
+import { ExchangeDecisionPickerComponent } from '../../.pi/components/exchange-decision-picker.js';
 import { MultiChoicePickerComponent } from '../../.pi/components/multi-choice-picker.js';
 import { createRuntimeModePickerComponent } from '../../.pi/components/runtime-posture/axis-picker.js';
 import { TuiStyleLabComponent } from '../../.pi/components/tui-lab/index.js';
@@ -102,6 +104,63 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       showComponentPreview(tui, theme, keybindings, (_tui, previewTheme, _kb, done) =>
         createRuntimeModePickerComponent({ current: 'elicit', theme: previewTheme, onDone: done }),
       ),
+  },
+  {
+    id: 'exchange-decision-picker',
+    label: 'Exchange decision picker',
+    presentedLike: 'inline swap — src/.pi/extensions/exchanges/shared/choice-source.ts and review-source.ts',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ExchangeDecisionPickerComponent({
+            prompt: 'Which direction should we take?',
+            choices: [
+              { id: 'local-workbench', label: 'Local workbench' },
+              { id: 'agent-relay', label: 'Agent relay' },
+              { id: 'defer', label: 'Defer until capture is settled' },
+            ],
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
+    id: 'exchange-decision-picker-scroll',
+    label: 'Exchange decision picker (scroll)',
+    presentedLike: 'inline swap — src/.pi/extensions/exchanges/shared/choice-source.ts and review-source.ts',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(
+        tui,
+        theme,
+        keybindings,
+        (_tui, previewTheme, _kb, done) =>
+          new ExchangeDecisionPickerComponent({
+            prompt: 'Pick a candidate framing (long list exercises the scroll thumb):',
+            choices: Array.from({ length: 20 }, (_, index) => ({
+              id: `candidate-${index + 1}`,
+              label: `Candidate framing ${index + 1} — option label with realistic width`,
+            })),
+            theme: previewTheme,
+            onDone: done,
+          }),
+      ),
+  },
+  {
+    id: 'exchange-answer-editor',
+    label: 'Exchange answer editor',
+    presentedLike: 'inline swap — src/.pi/extensions/exchanges/shared/answer-source.ts',
+    open: (tui, theme, keybindings) =>
+      showComponentPreview(tui, theme, keybindings, (_tui, previewTheme, _kb, done) => {
+        const editorTheme = createComponentPreviewEditorTheme(theme);
+        return new ExchangeAnswerEditorComponent(_tui, editorTheme, {
+          prompt: 'What problem are we solving?',
+          theme: previewTheme,
+          onDone: done,
+        });
+      }),
   },
   {
     id: 'multi-choice-picker',

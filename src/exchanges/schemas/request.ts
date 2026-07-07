@@ -114,6 +114,15 @@ const zChoicesAnsweredPayload = z
         message: 'other and none choices require comment',
       });
     }
+    // none asserts that no listed option applies, so it contradicts any
+    // co-selected choice; it must be the sole selection.
+    if (payload.choices.some((choice) => choice.kind === 'none') && payload.choices.length > 1) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['choices'],
+        message: 'none cannot be combined with other selections',
+      });
+    }
   });
 export const zRequestChoicesAnswered = zChoicesAnsweredPayload;
 
@@ -123,7 +132,9 @@ export const zRequestAnswerDetails = z.union([
       tool_meta: zRequestAnswerToolMeta,
       answered: z
         .object({
-          text: zMarkdown,
+          text: zMarkdown.refine((value) => value.trim().length > 0, {
+            message: 'answer text cannot be empty',
+          }),
         })
         .strict(),
     })

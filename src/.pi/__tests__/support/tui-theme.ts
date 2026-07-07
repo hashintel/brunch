@@ -3,6 +3,7 @@ import type { LabTheme } from '../../components/tui-lab/index.js';
 export function createTestLabTheme(): LabTheme {
   const colorCodes: Record<string, string> = {
     accent: '\x1b[38;5;33m',
+    border: '\x1b[38;5;33m',
     success: '\x1b[38;5;34m',
     warning: '\x1b[38;5;220m',
     error: '\x1b[38;5;196m',

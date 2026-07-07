@@ -108,6 +108,10 @@ export const BRUNCH_SETTINGS_AUDITED_GETTERS = [
   'getAutocompleteMaxVisible',
   'getCodeBlockIndent',
   'getWarnings',
+  // pi 0.80.x additions — defaults acknowledged, no Brunch policy pin:
+  // external editor resolves $VISUAL/$EDITOR, output padding defaults to 1.
+  'getExternalEditorCommand',
+  'getOutputPad',
 ] as const;
 
 export interface BrunchPiSettingsOptions {

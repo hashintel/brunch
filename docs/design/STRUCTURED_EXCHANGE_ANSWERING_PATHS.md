@@ -13,17 +13,30 @@ with anchors into `pi-coding-agent` internals — cross-cutting enough (spans `e
 `session/`, and a dependency's internals with no home under `src/`) that it doesn't fit any one co-located
 `TOPOLOGY.md`.
 
-**Verified against:** `@earendil-works/pi-coding-agent` v0.79.10 (Brunch's installed dependency,
-`package.json`'s `^0.79.10`) — cross-checked against the `pi-mono` dev checkout at
-`~/.pi/pi-mono/packages/coding-agent` (v0.80.3 at time of writing, one version ahead). The internals cited
-below (`ExtensionMode`, `bindExtensions`, `ExtensionRunner.setUIContext`/`hasUI()`, `noOpUIContext`,
-`rpc-mode.ts`'s `ExtensionUIContext`) are **implementation details, not public API** — nothing in
-`@earendil-works/pi-coding-agent`'s documented surface promises they stay this shape. Re-verify this
-document whenever Brunch's pinned `pi-coding-agent` version bumps a minor or major (D67-L: Brunch tracks
-latest pi routinely, so this will happen). The public, stable part — `ExtensionUIContext`'s method
-signatures (`custom`, `select`, `editor`, `input`, `setEditorComponent`, `setWidget`, `setFooter`,
-`setHeader` take a factory; `select`/`confirm`/`input`/`editor` do not) — is much less likely to change
-and is the load-bearing fact for the rest of this document.
+**Verified against:** `@earendil-works/pi-coding-agent` v0.80.3 (Brunch's installed dependency,
+`package.json`'s `^0.80.3`; re-verified 2026-07-06 on the 0.79.10 → 0.80.3 bump via the checklist
+below). The internals cited below (`ExtensionMode`, `bindExtensions`,
+`ExtensionRunner.setUIContext`/`hasUI()`, `noOpUIContext`, the RPC mode's `ExtensionUIContext`) are
+**implementation details, not public API** — nothing in `@earendil-works/pi-coding-agent`'s documented
+surface promises they stay this shape. Re-verify this document whenever Brunch's pinned
+`pi-coding-agent` version bumps a minor or major (D67-L: Brunch tracks latest pi routinely, so this
+will happen). The public, stable part — `ExtensionUIContext`'s method signatures (`custom`,
+`setEditorComponent`, `setWidget`, `setFooter`, `setHeader` take a factory; `select`/`confirm`/
+`input`/`editor` do not) — is much less likely to change and is the load-bearing fact for the rest of
+this document.
+
+**0.80.3 drift notes (found by the checklist):**
+
+- `rpc-mode.ts` moved to `modes/rpc/rpc-mode.ts` (`dist/modes/rpc/rpc-mode.js`).
+- The RPC mode's `ExtensionUIContext` no longer *omits* `custom`/`editor`: `custom()` is a stub that
+  resolves `undefined`, and **`editor()` is now a real RPC relay** (pending-request round trip to the
+  client). Brunch never constructs `RpcMode`, so the column-A/column-B analysis below is unchanged for
+  Brunch — but the "omission" phrasing of the old checklist item no longer holds.
+- `noOpUIContext` now carries stub *functions* for `custom`/`editor`/`select`/`input` (resolving
+  `undefined`). `hasUI()` stays identity-based (`uiContext !== noOpUIContext`), so it is still the only
+  trustworthy headless signal: **capability checks must gate on `ctx.hasUI` first** — shape checks like
+  `typeof ctx.ui.custom === 'function'` now pass in headless contexts and would misread the stub's
+  `undefined` as a user cancellation.
 
 ## The binding mechanism
 
@@ -129,10 +142,10 @@ policy: current-state coverage, not a design rule
 
 kind     | local-TUI (A)                                   | RPC direct-submit (B)         | live-driver headless (C)
 ---------|--------------------------------------------------|--------------------------------|---------------------------
-answer   | ctx.ui.editor                                    | works (uniform, see notes)    | broker (built, FE-873)
-choice   | ctx.ui.select + ctx.ui.input                     | works (uniform, see notes)    | x> unavailable, no broker
+answer   | ctx.ui.custom (ExchangeAnswerEditorComponent), ctx.ui.editor fallback | works (uniform, see notes)    | broker (built, FE-873)
+choice   | ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
 choices  | ctx.ui.custom (MultiChoicePickerComponent), falls back to ctx.ui.editor JSON envelope | works (uniform, see notes) | x> unavailable — no broker, and the JSON-envelope fallback also needs ctx.ui, absent here too
-review   | ctx.ui.select + ctx.ui.input                     | works (uniform, see notes)    | x> unavailable, no broker
+review   | ctx.ui.custom (ExchangeDecisionPickerComponent) + ctx.ui.input | works (uniform, see notes) | x> unavailable, no broker
 
 notes:
   - Column B is genuinely uniform across all four kinds: `session.submitExchangeResponse`
@@ -152,24 +165,28 @@ notes:
     ("remaining consumer/UI and non-freeform answer legs"). It is orthogonal to column A.
 
 open:
-  - If column A's mechanism changes (e.g. choice/review move from ctx.ui.select to ctx.ui.custom,
-    matching what choices already does), column B does not change (still bypasses ctx.ui) and
-    column C does not change (still needs a broker that doesn't exist for these kinds regardless
-    of what column A renders with). A column-A UI swap is safe with respect to both B and C.
+  - The column A choice/review picker mechanism now uses `ctx.ui.custom`, matching what choices
+    already did. Column B did not change (still bypasses ctx.ui) and column C did not change
+    (still needs a broker that doesn't exist for these kinds regardless of what column A renders
+    with). This column-A UI swap is safe with respect to both B and C.
 ```
 
 ## Implications for component-dx / request_* picker work
 
 - **Restyling `choice`/`review`/`answer` with a Brunch-owned bordered component only touches
-  column A.** It does not put Brunch's tested RPC-driven structured-exchange proof (SPEC
-  requirement 24) at risk, because that proof exercises column B, which never reaches `ctx.ui` at
-  all.
+  column A.** The choice/review half is now landed through a custom decision picker. It does not put
+  Brunch's tested RPC-driven structured-exchange proof (SPEC requirement 24) at risk, because that
+  proof exercises column B, which never reaches `ctx.ui` at all.
 - **It does not create or worsen the column-C gap.** That gap already exists today for
   choice/choices/review regardless of which column-A mechanism is used; a UI swap is orthogonal to
   it, not a regression against it.
-- **`choices` (`MultiChoicePickerComponent`) already proves the whole column-A pattern**:
-  `ctx.ui.custom` first, `ctx.ui.editor` JSON-envelope fallback for the rare case `hasUI` is false.
-  Extending `answer`/`choice`/`review` to the same shape is additive, not a new architecture.
+- **`answer` now uses the same column-A custom-first pattern**: `ctx.ui.custom` hosts
+  `ExchangeAnswerEditorComponent` and falls back to pi's sealed `ctx.ui.editor` when custom UI is
+  unavailable; the broker remains the headless column-C path.
+- **`choices` (`MultiChoicePickerComponent`) already proved the whole column-A pattern**:
+  `ctx.ui.custom` first, `ctx.ui.editor` JSON-envelope fallback for the rare case custom UI is
+  unavailable. Extending `choice`/`review` and then `answer` to custom chrome was additive, not a new
+  architecture.
 - **If Brunch ever wants to close the column-C gap for choice/choices/review**, that is a separate,
   already-named Horizon-frontier concern (`web-driver-streaming`) — building a
   `LiveChoiceBroker`-equivalent to `LiveExchangeBroker`. It is not blocked by, or a prerequisite
@@ -177,12 +194,20 @@ open:
 
 ## Re-verification checklist (when `pi-coding-agent` bumps a minor/major)
 
+Last run: 2026-07-06 against v0.80.3 (all pass; drift recorded in the header notes).
+
 - [ ] `ExtensionUIContext`'s method list still has the same custom-injection-vs-sealed split
       (`custom`/`setEditorComponent`/`setWidget`/`setFooter`/`setHeader` take a factory;
       `select`/`confirm`/`input`/`editor` do not).
 - [ ] `bindExtensions`/`setUIContext`/`hasUI()`/`noOpUIContext` still exist with the same shape in
-      `core/extensions/runner.ts` and `core/agent-session.ts`.
+      `core/extensions/runner.ts` and `core/agent-session.ts`, and `hasUI()` is still the identity
+      check `uiContext !== noOpUIContext` (since 0.80.x the no-op context carries stub functions, so
+      method-shape checks are not a headless signal).
 - [ ] `InteractiveMode.bindCurrentSessionExtensions()` still hardcodes `mode: "tui"`.
-- [ ] `rpc-mode.ts`'s `createExtensionUIContext()` still omits `custom`/`editor` (i.e. still has no
-      relay for them) — if this changes, the column-A/column-B distinction in this document needs
-      re-deriving, not just re-reading.
+- [ ] The RPC mode's `createExtensionUIContext()` (`modes/rpc/rpc-mode.ts` since 0.80.x) still has no
+      `custom` relay (stub resolving `undefined`) — its `editor` **is** a relay since 0.80.x. If a
+      `custom` relay appears, the column-A/column-B distinction in this document needs re-deriving,
+      not just re-reading.
+- [ ] `setWorkingVisible` still exists on `ExtensionUIContext` and still no-ops headless — the
+      exchange collectors bracket every interactive await with it
+      (`shared/ui-context.ts` `withWorkingIndicatorHidden`).

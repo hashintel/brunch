@@ -33,6 +33,7 @@ interface SentMessage {
 }
 
 interface FakeCommandContext {
+  hasUI: boolean;
   ui: {
     notify(message: string, level?: 'info' | 'warning' | 'error'): void;
     select(title: string, options: string[]): Promise<string | undefined>;
@@ -43,7 +44,6 @@ interface FakeCommandContext {
     appendCustomEntry(customType: string, data: unknown): void;
   };
   mode: 'tui';
-  hasUI: true;
   modelRegistry: { getAvailable(): readonly unknown[] };
   isIdle?: () => boolean;
   abort?: () => void;
@@ -68,6 +68,9 @@ function commandHarness(
   const selectCalls: Array<{ title: string; options: string[] }> = [];
   const chromeRefreshes: number[] = [];
   const ctx: FakeCommandContext = {
+    // hasUI mirrors custom availability: since pi 0.80.x headless contexts
+    // carry stub custom functions, so the guard checks hasUI first.
+    hasUI: options.customAvailable !== false,
     ui: {
       notify(message, level) {
         notifications.push({ message, level });
@@ -84,7 +87,6 @@ function commandHarness(
       },
     },
     mode: 'tui',
-    hasUI: true,
     modelRegistry: { getAvailable: () => (options.modelAvailable === false ? [] : [{}]) },
   };
   if (options.customAvailable !== false) {

@@ -60,6 +60,15 @@ describe('structured exchange request schemas', () => {
     });
   });
 
+  it('rejects empty free-text answers', () => {
+    expect(() =>
+      zRequestAnswerDetails.parse({
+        ...answerBase,
+        answered: { text: '   ' },
+      }),
+    ).toThrow(/answer text cannot be empty/);
+  });
+
   it('rejects missing or multiple terminal outcomes', () => {
     expect(() => zRequestAnswerDetails.parse(answerBase)).toThrow();
     expect(() =>
@@ -272,6 +281,25 @@ describe('structured exchange request schemas', () => {
         unavailable: { message: 'request_response review requires interactive UI.' },
       }),
     ).toMatchObject({ unavailable: { message: expect.stringContaining('interactive UI') } });
+  });
+
+  it('rejects none combined with other selections', () => {
+    expect(() =>
+      zRequestChoicesDetails.parse({
+        schema: 'brunch.structured_exchange.request',
+        v: 1,
+        exchange_id: 'open-risks',
+        tool_meta: { prev: 'present_question', curr: 'request_choices' },
+        answered: {
+          choices: [
+            { id: 'transport', label: 'Transport contract', kind: 'listed' },
+            { id: 'none', label: 'None', kind: 'none' },
+          ],
+          options: [{ id: 'transport', content: 'Transport contract' }],
+          comment: 'Contradictory selection.',
+        },
+      }),
+    ).toThrow(/none cannot be combined/);
   });
 
   it('requires a comment for request_changes review decisions', () => {

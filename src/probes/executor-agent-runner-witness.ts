@@ -2,7 +2,8 @@ import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 
-import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from '@earendil-works/pi-ai';
+import { fauxAssistantMessage, fauxToolCall } from '@earendil-works/pi-ai';
+import { registerFauxProvider } from '@earendil-works/pi-ai/compat';
 import { AuthStorage, ModelRegistry } from '@earendil-works/pi-coding-agent';
 
 import {

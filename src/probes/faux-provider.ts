@@ -1,4 +1,5 @@
-import { streamSimple, type FauxProviderRegistration } from '@earendil-works/pi-ai';
+import type { FauxProviderRegistration } from '@earendil-works/pi-ai';
+import { streamSimple } from '@earendil-works/pi-ai/compat';
 import { type ProviderConfig } from '@earendil-works/pi-coding-agent';
 
 export const BRUNCH_FAUX_HARNESS_API_KEY = 'brunch-faux-harness-key';
