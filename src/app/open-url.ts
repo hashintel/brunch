@@ -9,9 +9,23 @@ import process from 'node:process';
  * unhandled 'error' event crash the process.
  */
 export function openUrlBestEffort(url: string): void {
-  const command = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'cmd' : 'xdg-open';
-  const args = process.platform === 'win32' ? ['/c', 'start', '', url] : [url];
+  const { command, args } = openCommandFor(process.platform, url);
   launchDetachedBestEffort(command, args);
+}
+
+export function openCommandFor(
+  platform: NodeJS.Platform,
+  url: string,
+): { command: string; args: readonly string[] } {
+  if (platform === 'darwin') return { command: 'open', args: [url] };
+  if (platform === 'win32') {
+    // rundll32 receives the URL as plain argv — no cmd.exe command-line
+    // parsing, so `&` in OAuth query strings neither splits the command nor
+    // opens an injection seam (PR-299 review finding: unquoted
+    // `cmd /c start <url>` breaks at the first `&`).
+    return { command: 'rundll32', args: ['url.dll,FileProtocolHandler', url] };
+  }
+  return { command: 'xdg-open', args: [url] };
 }
 
 export function launchDetachedBestEffort(command: string, args: readonly string[]): void {
