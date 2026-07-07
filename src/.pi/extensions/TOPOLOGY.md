@@ -42,9 +42,12 @@ extensions/
 ├── compaction/             auto-compaction anchor contract and future hook
 ├── exchanges/              structured-exchange present_* / request_* Pi tools
 ├── mentions/               #graph mention prompt hint + autocomplete provider
+├── session-orientation/    session-entry-orientation dialog fn (ctx.ui.select-shaped) over session/session-orientation.ts
 ├── shared/                 projection/truncation helpers + Zod→Pi schema adapter for dev query tools
 └── workspace/              spec/session picker command adapter
 ```
+
+`session-orientation/` owns the SPEC-mode menu, the `ctx.ui.select`-shaped dialog function (`index.ts`), the juncture orchestrator that composes dialog → entry → origination → live seed delivery → live-kick with two modes — `'follow-choice'` (J2/J3/J4/J6: kick only on non-continue) and `'boot'` (J1: always originate+kick with `resumeOrigin: 'resume_debt'`, honoring degraded-mode and escape) — (`juncture.ts`), and the Pi event/command registrar wiring the dialog to J1 (`session_start` reason `startup`, option-2 boot), J2 (`session_start` reasons `new`/`resume`), J3 (`session_tree`), J4 (`agent_end` esc-abort, C3 probe), and J6 (`/brunch:consult`) (`registrar.ts`). Live junctures deliver `brunch.context_seed` through Pi's live `sendMessage` surface before the triggering `brunch.kick` so the persisted transcript and in-memory provider context stay in sync after `AgentSession` creation. J5 mode-switch is landed: the mode-switch path in `commands/index.ts` fires the same juncture orchestrator when the switch target is `elicit` (SPEC-side menu only; CODE-side menu content is owned by the `execute-entry-readiness` frontier).
 
 The former `tui-lab/` registrar (`registerBrunchTuiLab`, gated behind an `enabled`
 option nothing ever set) was retired — it never entered the product bundle and

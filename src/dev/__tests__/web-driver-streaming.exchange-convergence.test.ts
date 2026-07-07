@@ -11,6 +11,7 @@ import { createWebSidecarRpcHandlers } from '../../rpc/handlers.js';
 import { NO_PENDING_LIVE_EXCHANGE_MESSAGE } from '../../rpc/methods/session-exchange-answer.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
+import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 import {
   assembleAssistantTextFromStream,
   hasToolEvent,
@@ -52,6 +53,7 @@ describe('web-driver-streaming live exchange answer broker', () => {
           { cwd, agentDir, sessionManager: context.workspace.session.manager },
         );
         cleanups.push(() => runtime.dispose());
+        await emitStartupOrientationForHarness(runtime);
 
         await waitFor(
           () => faux.provider.getPendingResponseCount() === 0,

@@ -19,7 +19,13 @@ import type {
   WorkspaceSessionChromeState,
   WorkspaceSessionReadyState,
 } from '../../../session/workspace-session-coordinator.js';
-import { BrunchStartupHeader } from '../../components/chrome-header.js';
+import {
+  BrunchStartupHeader,
+  type BrunchStartupHeaderFacts,
+  type BrunchStartupHeaderResumeFacts,
+} from '../../components/chrome-header.js';
+
+export type { BrunchStartupHeaderResumeFacts } from '../../components/chrome-header.js';
 
 type BrunchChromeStage = 'idle' | 'streaming' | 'observer-review';
 type BrunchChromeWorkerStatus = 'idle' | 'queued' | 'running' | 'blocked';
@@ -56,9 +62,14 @@ interface BrunchChromeModelTelemetry {
   contextWindow?: number;
 }
 
-interface BrunchChromeStartupHeaderState {
-  decision: 'continue' | 'openSession' | 'newSpec' | 'newSession';
-}
+export type BrunchChromeStartupHeaderState = {
+  readonly decision: NonNullable<BrunchStartupHeaderFacts['decision']>;
+  /**
+   * Optional graph/mode summary rendered by the resume-state block (F16a) when
+   * `decision === 'openSession'`. Sampled once at chrome-state assembly time.
+   */
+  readonly resumeFacts?: BrunchStartupHeaderResumeFacts;
+};
 
 export interface BrunchChromeFooterTelemetry {
   /** Live session name from the session manager; overrides the launch-time label after `/name`. */
@@ -94,8 +105,6 @@ export interface BrunchChromeState extends WorkspaceSessionChromeState {
   };
   coherence?: BrunchChromeCoherenceVerdict;
 }
-
-export const BRUNCH_KICK_ACTIVITY_STATUS_KEY = 'brunch.kick';
 
 export type BrunchChromeUi = Pick<ExtensionUIContext, 'setFooter' | 'setHeader' | 'setTitle'>;
 
@@ -232,6 +241,7 @@ export function renderBrunchChrome(
             session: chrome.session.label ?? chrome.session.id,
             decision: startupHeader.decision,
             ...(chrome.webSidecarUrl ? { sidecarUrl: chrome.webSidecarUrl } : {}),
+            ...(startupHeader.resumeFacts ? { resumeFacts: startupHeader.resumeFacts } : {}),
           },
           theme,
         ),
@@ -263,13 +273,17 @@ export function registerBrunchChrome(
   pi.on('thinking_level_select', async () => {
     requestFooterRender?.();
   });
-  pi.on('message_start', async (event, ctx) => {
+  pi.on('message_start', async (event, _ctx) => {
     if ((event.message as { role?: unknown }).role === 'assistant') {
-      ctx.ui.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, undefined);
       requestFooterRender?.();
     }
   });
-  pi.on('turn_end', async () => {
+  pi.on('turn_end', async (_event, ctx) => {
+    // Restore Pi's default working message after a turn finishes so a
+    // kick-scoped `setWorkingMessage(...)` (F14) does not leak into the next
+    // user-initiated turn. Safe when no custom message was set — restores the
+    // default either way.
+    ctx.ui.setWorkingMessage(undefined);
     requestFooterRender?.();
   });
 }

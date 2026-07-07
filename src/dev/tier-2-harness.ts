@@ -100,6 +100,29 @@ export async function runTier2RealBootFauxTurn(
   };
 }
 
+/**
+ * Card 5: harnesses that build a runtime via `createAgentSessionRuntime`
+ * never enter a Pi run mode, so `session.bindExtensions(...)` never fires
+ * and the session-orientation registrar's boot handler (`session_start`
+ * reason `startup`, the J1 juncture) never runs — meaning no orientation
+ * dialog, no `brunch.session_orientation` entry, and no kick. Production
+ * paths (`InteractiveMode`, RPC, print) call `bindExtensions` inside their
+ * `run()` method with a real UI context; test harnesses have no such
+ * context, so this helper binds extensions with no `uiContext`, matching
+ * the pinned no-UI degraded row of the chart: `hasUI === false` ⇒ no
+ * dialog, no entry, kick still fires via the default boot path.
+ *
+ * This is the explicit "harness answers or degrades J1" contract from
+ * `memory/cards/session-entry-orientation--slices.md` Card 5 — real TUI
+ * behaviour stays user-driven; RPC keeps its 60s timeout floor; only the
+ * harness picks the degraded path, deterministically.
+ */
+export async function emitStartupOrientationForHarness(runtime: {
+  readonly session: { readonly bindExtensions: (bindings: Record<string, never>) => Promise<void> };
+}): Promise<void> {
+  await runtime.session.bindExtensions({});
+}
+
 export async function bootTier2RuntimeThroughRunBrunchTui(options: {
   readonly dev: boolean;
   readonly agentServices?: BrunchAgentServicesOverride;
@@ -130,6 +153,7 @@ export async function bootTier2RuntimeThroughRunBrunchTui(options: {
             sessionManager: context.workspace.session.manager,
           },
         );
+        await emitStartupOrientationForHarness(runtime);
       },
     });
   } catch (error) {
@@ -210,15 +234,17 @@ export async function bootTier2RuntimeFromFixture(options: {
       webSidecarRunner: async () => null,
       launchInteractive: async (context) => {
         runtime = await createAgentSessionRuntime(
-          createBrunchAgentSessionRuntimeFactory(
-            options.agentServices ? { ...context, agentServices: options.agentServices } : context,
-          ),
+          createBrunchAgentSessionRuntimeFactory({
+            ...context,
+            agentServices: options.agentServices ?? createNoModelAgentServices(),
+          }),
           {
             cwd,
             agentDir,
             sessionManager: context.workspace.session.manager,
           },
         );
+        await emitStartupOrientationForHarness(runtime);
       },
     });
     if (!runtime) {
@@ -362,6 +388,7 @@ export async function bootTier2ProductOriginatedTurn(
           createBrunchAgentSessionRuntimeFactory({ ...context, agentServices: faux.agentServices }),
           { cwd, agentDir, sessionManager: context.workspace.session.manager },
         );
+        await emitStartupOrientationForHarness(runtime);
       },
     });
     if (!runtime || !sessionFile || specId === undefined) {
@@ -431,15 +458,17 @@ export async function rebootTier2Runtime(options: {
     webSidecarRunner: async () => null,
     launchInteractive: async (context) => {
       runtime = await createAgentSessionRuntime(
-        createBrunchAgentSessionRuntimeFactory(
-          options.agentServices ? { ...context, agentServices: options.agentServices } : context,
-        ),
+        createBrunchAgentSessionRuntimeFactory({
+          ...context,
+          agentServices: options.agentServices ?? createNoModelAgentServices(),
+        }),
         {
           cwd: options.cwd,
           agentDir,
           sessionManager: context.workspace.session.manager,
         },
       );
+      await emitStartupOrientationForHarness(runtime);
     },
   });
   if (!runtime) throw new Error('runBrunchTui did not reach launchInteractive for the reboot');

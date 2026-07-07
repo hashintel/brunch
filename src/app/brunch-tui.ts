@@ -33,11 +33,8 @@ import { createProductUpdatePublisher, type ProductUpdatePublisher } from '../rp
 import { createSessionEventRelay, type SessionEventRelay } from '../rpc/session-event-relay.js';
 import { startWebHost, type RunningWebHost } from '../rpc/web-host.js';
 import { createLiveExchangeBroker, type LiveExchangeBroker } from '../session/live-exchange-broker.js';
-import {
-  completeAssistantKick,
-  originateAssistantTurn,
-  type KickCompletionOutcome,
-} from '../session/originate-assistant-turn.js';
+import type { KickCompletionOutcome } from '../session/originate-assistant-turn.js';
+import { operationalModeLabel } from '../session/schema/kinds.js';
 import { renderWorkspaceOverviewContext } from '../session/workspace-overview-context.js';
 import {
   createWorkspaceSessionCoordinator,
@@ -49,12 +46,13 @@ import {
   type SpecSessionActivationDecision,
 } from '../session/workspace-session-coordinator.js';
 import {
-  BRUNCH_KICK_ACTIVITY_STATUS_KEY,
   chromeStateForWorkspace,
   createBrunchPiExtensions,
   createInMemoryBrunchIntrospectionStore,
   projectBrunchAgentState,
+  type BrunchChromeStartupHeaderState,
   type BrunchIntrospectionStore,
+  type BrunchStartupHeaderResumeFacts,
 } from './pi-extensions.js';
 import { projectBrunchPiSessionOptions } from './pi-session-options.js';
 import { applyBrunchOfflineDefault, createBrunchPiSettings } from './pi-settings.js';
@@ -232,10 +230,18 @@ function createBrunchTuiIntrospection(
   };
 }
 
+export type StartupHeaderResumeFacts = BrunchStartupHeaderResumeFacts;
+export type StartupHeaderChromeState = BrunchChromeStartupHeaderState;
+
 export function startupHeaderForActivation(
   decision: SpecSessionActivationDecision | undefined,
-): { decision: Exclude<SpecSessionActivationDecision['action'], 'cancel'> } | undefined {
-  return decision && decision.action !== 'cancel' ? { decision: decision.action } : undefined;
+  resumeFacts?: StartupHeaderResumeFacts,
+): StartupHeaderChromeState | undefined {
+  if (!decision || decision.action === 'cancel') return undefined;
+  return {
+    decision: decision.action,
+    ...(decision.action === 'openSession' && resumeFacts ? { resumeFacts } : {}),
+  };
 }
 
 async function chooseSpecSessionActivationDecision(
@@ -402,7 +408,16 @@ export function createBrunchAgentSessionRuntimeFactory(
     // (switchSession, waitForIdle) from the live session, which Pi's own
     // shortcut contexts do not carry.
     const liveAgentSession = context.liveAgentSession ?? { current: null };
-    const startupHeader = startupHeaderForActivation(context.activationDecision);
+    const startupHeader = startupHeaderForActivation(
+      context.activationDecision,
+      sampleResumeFactsForHeader({
+        activationDecision: context.activationDecision,
+        specName: graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name,
+        graph,
+        specId: currentWorkspace.spec.id,
+        sessionManager,
+      }),
+    );
     const agentState = projectBrunchAgentState(sessionManager.getEntries());
     const allowProductSubagents = context.allowSubagents !== false;
     const shouldLoadSubagents = allowProductSubagents || agentState.operationalMode === 'execute';
@@ -460,32 +475,61 @@ export function createBrunchAgentSessionRuntimeFactory(
                 graphReads: graphDeps.reads,
               };
             },
+            sessionOrientation: {
+              // Option-2 J1: origination + kick now run inside the
+              // `session_start` (reason `startup`) handler in the
+              // session-orientation extension registrar, which fires from
+              // inside `bindExtensions()` — so `ctx.ui` and the live
+              // `AgentSession` both exist. The old pre-session-binding
+              // origination + fire-and-forget kick were deleted from this
+              // launch path; the callbacks below preserve the boot-time
+              // debug-cache mirror (D97-L) and kick-status chrome that the
+              // deleted block used to run.
+              resolveKickContext: async () => {
+                const session = liveAgentSession.current;
+                if (!session) return undefined;
+                const specId = currentWorkspace.spec.id;
+                const specName = graph.commandExecutor.getSpec(specId)?.name;
+                const kickUi = session.createReplacedSessionContext().ui;
+                return {
+                  specId,
+                  ...(specName ? { specName } : {}),
+                  reads: graph.forSpec(specId),
+                  workspaceContext: await renderWorkspaceOverviewContext(cwd),
+                  sendCustomMessage: (message, sendOptions) =>
+                    session.sendCustomMessage(message, sendOptions),
+                  onOriginationDecision: async (decision, { modelAvailable }) => {
+                    if (context.introspection?.debugCache) {
+                      const debugCache = context.introspection.debugCache;
+                      for (const entry of decision.seedEntries) {
+                        await appendEntryContentToDebugCache(debugCache, entry).catch(() => {});
+                      }
+                      await appendOriginationRecordToDebugCache(debugCache, { decision }).catch(() => {});
+                    }
+                    if (decision.action === 'start' && modelAvailable) {
+                      // F14: drive the salient streaming loader instead of a
+                      // footer status entry. Reset in chrome's `turn_end`
+                      // handler so the message never leaks into a later turn.
+                      kickUi.setWorkingMessage('Opening assistant turn…');
+                    }
+                  },
+                  onKickOutcome: (outcome, decision) => {
+                    if (context.introspection?.debugCache) {
+                      void appendOriginationRecordToDebugCache(context.introspection.debugCache, {
+                        decision,
+                        outcome,
+                      }).catch(() => {});
+                    }
+                    const message = formatKickDiagnostic(outcome);
+                    if (message) context.reportAsyncDiagnostic?.({ type: 'warning', message });
+                  },
+                };
+              },
+            },
           },
         ),
       ],
     });
-    const specName = graph.commandExecutor.getSpec(currentWorkspace.spec.id)?.name;
-    const origination = originateAssistantTurn({
-      specId: currentWorkspace.spec.id,
-      ...(specName ? { specName } : {}),
-      reads: graph.forSpec(currentWorkspace.spec.id),
-      entries: sessionManager.getEntries(),
-      resumeOrigin: 'resume_debt',
-      workspaceContext: await renderWorkspaceOverviewContext(cwd),
-      manager: sessionManager,
-    });
-    if (context.introspection?.debugCache) {
-      // Boot-time mirror is awaited (cheap, local fs) so a dev boot is
-      // observable the moment the runtime exists; turn-time mirrors in the
-      // reconciler/guard stay fire-and-forget.
-      const debugCache = context.introspection.debugCache;
-      for (const entry of origination.decision.seedEntries) {
-        await appendEntryContentToDebugCache(debugCache, entry).catch(() => {});
-      }
-      await appendOriginationRecordToDebugCache(debugCache, { decision: origination.decision }).catch(
-        () => {},
-      );
-    }
 
     const services = await createAgentSessionServices({
       cwd,
@@ -506,38 +550,38 @@ export function createBrunchAgentSessionRuntimeFactory(
     });
     liveAgentSession.current = created.session;
     context.sessionEvents?.attachSession(created.session);
-    const kickStatusUi = created.session.createReplacedSessionContext().ui;
-    const modelAvailable = services.modelRegistry.getAvailable().length > 0;
-    if (origination.decision.action === 'start' && modelAvailable) {
-      kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, 'opening assistant turn…');
-    }
-    // Complete the kick: a 'start' decision owes an actual assistant-originated
-    // LLM turn, which only the live AgentSession can run. Fire-and-forget:
-    // sendCustomMessage with triggerTurn awaits the whole turn, and boot must
-    // not block on provider latency. The completion seam classifies every
-    // exit, so launch paths no longer silently skip or bury failures in console
-    // IO.
-    void completeAssistantKick({
-      decision: origination.decision,
-      modelAvailable,
-      sendCustomMessage: (message, options) => created.session.sendCustomMessage(message, options),
-      onOutcome: (outcome) => {
-        kickStatusUi.setStatus(BRUNCH_KICK_ACTIVITY_STATUS_KEY, undefined);
-        if (context.introspection?.debugCache) {
-          void appendOriginationRecordToDebugCache(context.introspection.debugCache, {
-            decision: origination.decision,
-            outcome,
-          }).catch(() => {});
-        }
-        const message = formatKickDiagnostic(outcome);
-        if (message) context.reportAsyncDiagnostic?.({ type: 'warning', message });
-      },
-    });
     return {
       ...created,
       services,
       diagnostics: services.diagnostics,
     };
+  };
+}
+
+interface SampleResumeFactsInput {
+  readonly activationDecision: SpecSessionActivationDecision | undefined;
+  readonly specName: string | undefined;
+  readonly graph: WorkspaceGraphRuntime;
+  readonly specId: number;
+  readonly sessionManager: {
+    readonly getEntries: () => readonly { type?: unknown; customType?: unknown; data?: unknown }[];
+  };
+}
+
+/**
+ * F16a: sample deterministic resume-state facts for the startup-header resume
+ * block. Only computed for `openSession` activations; other decisions return
+ * undefined so the header omits the block entirely.
+ */
+function sampleResumeFactsForHeader(input: SampleResumeFactsInput): StartupHeaderResumeFacts | undefined {
+  if (input.activationDecision?.action !== 'openSession') return undefined;
+  const slice = input.graph.forSpec(input.specId).queryGraph(undefined, { visibility: 'all' });
+  const agentState = projectBrunchAgentState(input.sessionManager.getEntries());
+  return {
+    ...(input.specName ? { specTitle: input.specName } : {}),
+    nodeCount: slice.nodes.length,
+    edgeCount: slice.edges.length,
+    modeLabel: operationalModeLabel(agentState.operationalMode),
   };
 }
 

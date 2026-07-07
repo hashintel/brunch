@@ -9,6 +9,7 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { createBrunchAgentSessionRuntimeFactory, runBrunchTui } from '../../app/brunch-tui.js';
 import { flushSessionManagerToFile } from '../../session/flush-session-manager.js';
 import { createWorkspaceSessionCoordinator } from '../../session/workspace-session-coordinator.js';
+import { emitStartupOrientationForHarness } from '../tier-2-harness.js';
 import {
   assembleAssistantTextFromStream,
   contiguousRange,
@@ -48,6 +49,7 @@ describe('web-driver-streaming observer fan-out', () => {
           { cwd, agentDir, sessionManager: context.workspace.session.manager },
         );
         cleanups.push(() => runtime.dispose());
+        await emitStartupOrientationForHarness(runtime);
 
         await waitFor(
           () => faux.provider.getPendingResponseCount() === 0,

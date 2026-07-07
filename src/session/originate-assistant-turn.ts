@@ -19,9 +19,13 @@
 
 import { composeContextSeedContent } from '../agents/contexts/seeds/origination.js';
 import type { GraphSlice } from '../graph/index.js';
-import type { TranscriptEntryLike } from '../projections/session/continuity-entry-classifier.js';
+import {
+  isContextSeedEntry,
+  type TranscriptEntryLike,
+} from '../projections/session/continuity-entry-classifier.js';
 import { latestElicitationScratchpad } from './elicitation-scratchpad.js';
 import { appendPreparedContinuityEntry, type ContinuityEntryAppender } from './prepare-next-turn.js';
+import { freshSessionOrientationChoice } from './session-orientation.js';
 import { startAssistantTurn, type StartAssistantTurnDecision } from './start-assistant-turn.js';
 
 export interface OriginationReads {
@@ -48,6 +52,21 @@ export interface OriginateAssistantTurnInput {
    */
   readonly workspaceContext: string;
   readonly manager: OriginationManager;
+  /**
+   * Bypass the assistant-visible watermark gate on the seed entry. Set for
+   * mid-session dialog-triggered kicks (J3/J4/J6) where the graph LSN has
+   * not moved but the fresh orientation choice inside the seed must still
+   * reach the next provider turn.
+   */
+  readonly forceSeed?: boolean;
+  /**
+   * Default true: pre-session callers append seed entries before AgentSession
+   * creation so Pi's initial message snapshot includes them. Live session
+   * junctures set this false and deliver seed entries through
+   * `sendCustomMessage` instead, keeping Pi's persisted transcript and
+   * in-memory agent state in sync before the triggering kick.
+   */
+  readonly appendSeed?: boolean;
 }
 
 export interface OriginateAssistantTurnResult {
@@ -121,6 +140,14 @@ export async function completeAssistantKick(input: CompleteAssistantKickInput): 
  * a transcript entry (I47-L), never a fabricated user message (I46-L), and
  * writes no continuity (D77-L: the reconciler remains the only continuity
  * writer).
+ *
+ * Content varies by origin (F16b, card 4): `resume_debt` — a resumed session
+ * — opens with an assessment (graph reading + TODO forecast) grounded in the
+ * seeded facts (D101-L/D102-L) *before* elicitation, so the user gets a
+ * "where are we" re-entry surface instead of dropping straight back into
+ * questions. `new_session` and `manual_trigger` keep the original assistant-
+ * authored opening; `manual_trigger` already carries a routing directive via
+ * the seed's SESSION ORIENTATION section (`session_orientation`).
  */
 export function kickTurnMessage(origin: 'new_session' | 'resume_debt' | 'manual_trigger'): {
   customType: typeof BRUNCH_KICK_CUSTOM_TYPE;
@@ -130,40 +157,66 @@ export function kickTurnMessage(origin: 'new_session' | 'resume_debt' | 'manual_
 } {
   return {
     customType: BRUNCH_KICK_CUSTOM_TYPE,
-    content:
-      'Session start: the spec context has been seeded into the transcript for you. ' +
-      'Open the conversation in your own words, grounded in that seeded context, ' +
-      'and lead the user toward the first structured question.',
+    content: kickTurnContent(origin),
     display: false,
     details: { origin },
   };
 }
 
+function kickTurnContent(origin: 'new_session' | 'resume_debt' | 'manual_trigger'): string {
+  if (origin === 'resume_debt') {
+    return (
+      'Session resume: the spec context has been re-seeded into the transcript for you. ' +
+      'Open with a brief assessment grounded in that seed — a compact reading of what the ' +
+      'graph currently expresses (kinds present, notable structure) and a forecast of what ' +
+      'looks TODO next — before returning to elicitation. Do not restate raw node/edge ' +
+      'listings; read the seed as a whole and orient the user to where we are.'
+    );
+  }
+  return (
+    'Session start: the spec context has been seeded into the transcript for you. ' +
+    'Open the conversation in your own words, grounded in that seeded context, ' +
+    'and lead the user toward the first structured question.'
+  );
+}
+
 export function originateAssistantTurn(input: OriginateAssistantTurnInput): OriginateAssistantTurnResult {
   const slice = input.reads.queryGraph();
+  const orientation = freshSessionOrientationChoice(input.entries, BRUNCH_KICK_CUSTOM_TYPE);
   // Origin is derived from projected transcript state, not counts or flags
   // (I46/I47): a transcript with no conversational message entries is a new
   // session; anything else takes the caller-named resume decision, which
   // itself dedupes re-kicks (a prior kick's present_* tail owes nothing).
+  const origin = input.entries.some(isConversationalMessageEntry) ? input.resumeOrigin : 'new_session';
+  // Keep the "never suppress a session's first seed" bypass at origination:
+  // this is where origin and context-seed membership are both known. The
+  // lower watermark gate only decides whether an already-composed seed should
+  // be emitted for the current LSN.
+  const shouldForceSeed =
+    input.forceSeed || (origin === 'new_session' && !input.entries.some(isContextSeedEntry));
   const decision = startAssistantTurn({
     specId: input.specId,
     currentLsn: slice.lsn,
     entries: input.entries,
-    origin: input.entries.some(isConversationalMessageEntry) ? input.resumeOrigin : 'new_session',
+    origin,
+    ...(shouldForceSeed ? { forceSeed: true } : {}),
     seedContent: composeContextSeedContent({
       specId: input.specId,
       ...(input.specName ? { specName: input.specName } : {}),
       slice,
       scratchpad: latestElicitationScratchpad(input.entries),
       workspaceContext: input.workspaceContext,
+      ...(orientation ? { orientation } : {}),
     }),
   });
 
   // Seed only — the product fabricates no present_* offer (D78-L revised
   // 2026-06-12): on a 'start' decision the launch path fires the kick turn
   // and the assistant authors the opening live from the seeded context.
-  for (const entry of decision.seedEntries) {
-    appendPreparedContinuityEntry(input.manager, entry);
+  if (input.appendSeed ?? true) {
+    for (const entry of decision.seedEntries) {
+      appendPreparedContinuityEntry(input.manager, entry);
+    }
   }
   return { decision };
 }

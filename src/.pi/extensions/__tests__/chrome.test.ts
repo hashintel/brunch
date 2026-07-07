@@ -5,7 +5,6 @@ import { describe, expect, it } from 'vitest';
 import type { WorkspaceSessionReadyState } from '../../../session/workspace-session-coordinator.js';
 import { BrunchStartupHeader } from '../../components/chrome-header.js';
 import chromeExtension, {
-  BRUNCH_KICK_ACTIVITY_STATUS_KEY,
   chromeStateForWorkspace,
   projectBrunchChromeFooterLines,
   registerBrunchChrome,
@@ -215,7 +214,7 @@ describe('Brunch chrome projection', () => {
     expect(text).toContain('Graph capture flows through Brunch commands and structured exchanges.');
   });
 
-  it('clears kick activity status on first assistant message', async () => {
+  it('never re-publishes the retired brunch.kick status key', async () => {
     const calls: FakeUiCall[] = [];
     const handlers = new Map<string, Array<(event: unknown, ctx: { ui: FakeExtensionUi }) => unknown>>();
 
@@ -233,10 +232,80 @@ describe('Brunch chrome projection', () => {
       { ui: fakeChromeUi(calls) },
     );
 
-    expect(calls).toContainEqual({
-      method: 'setStatus',
-      args: [BRUNCH_KICK_ACTIVITY_STATUS_KEY, undefined],
-    });
+    expect(calls.some((call) => call.method === 'setStatus')).toBe(false);
+  });
+
+  it('restores the default working message at turn_end (F14)', async () => {
+    const calls: FakeUiCall[] = [];
+    const handlers = new Map<string, Array<(event: unknown, ctx: { ui: FakeExtensionUi }) => unknown>>();
+
+    registerBrunchChrome(
+      {
+        on: (event: string, handler: never) => {
+          handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        },
+      } as never,
+      { cwd: '/tmp/project', spec: { id: 1, title: 'Spec One' }, session: { id: 'session-1' } },
+    );
+
+    await handlers.get('turn_end')?.[0]?.({}, { ui: fakeChromeUi(calls) });
+
+    expect(calls).toContainEqual({ method: 'setWorkingMessage', args: [undefined] });
+  });
+
+  it('renders the F16a resume state/status block for openSession activations', () => {
+    const component = new BrunchStartupHeader(
+      {
+        project: 'Project One',
+        spec: 'Spec One',
+        session: 'Session One',
+        decision: 'openSession',
+        resumeFacts: {
+          specTitle: 'Alpha Grounding',
+          nodeCount: 5,
+          edgeCount: 0,
+          modeLabel: 'Specify',
+        },
+      },
+      fakeTheme,
+    );
+
+    const text = component.render(80).join('\n');
+    expect(text).toContain('Resumed spec: Alpha Grounding');
+    expect(text).toContain('mode Specify');
+    expect(text).toContain('5 nodes');
+    expect(text).toContain('0 edges');
+    expect(text).not.toContain('Welcome to Brunch.');
+  });
+
+  it('omits the resume block when no resume facts are supplied on openSession', () => {
+    const component = new BrunchStartupHeader(
+      { project: 'Project One', spec: 'Spec One', session: 'Session One', decision: 'openSession' },
+      fakeTheme,
+    );
+
+    const text = component.render(80).join('\n');
+    expect(text).toContain('Resumed spec: Spec One');
+    expect(text).toContain('graph facts not yet sampled');
+  });
+
+  it('renders the welcome block as its own bordered element (F13)', () => {
+    const component = new BrunchStartupHeader(
+      {
+        project: 'Project One',
+        spec: 'Spec One',
+        session: 'Session One',
+        decision: 'newSession',
+      },
+      fakeTheme,
+    );
+
+    const lines = component.render(80);
+    const welcomeLineIndex = lines.findIndex((line) => line.includes('Welcome to Brunch.'));
+    expect(welcomeLineIndex).toBeGreaterThan(0);
+    const borderChars = ['╭', '╮', '╰', '╯', '│'];
+    const hasBorder = lines.some((line) => borderChars.some((char) => line.includes(char)));
+    expect(hasBorder).toBe(true);
   });
 
   it('installs dev fallback header through the src/.pi extension entrypoint', async () => {
@@ -316,6 +385,7 @@ function fakeChromeUi(calls: FakeUiCall[]): FakeExtensionUi {
     setStatus: (...args: unknown[]) => calls.push({ method: 'setStatus', args }),
     setWidget: (...args: unknown[]) => calls.push({ method: 'setWidget', args }),
     setWorkingIndicator: (_options) => {},
+    setWorkingMessage: (...args: unknown[]) => calls.push({ method: 'setWorkingMessage', args }),
     setTitle: (...args: unknown[]) => calls.push({ method: 'setTitle', args }),
     notify: (_message: string, _type?: 'info' | 'warning' | 'error') => {},
   };
@@ -330,5 +400,12 @@ type FakeTheme = typeof fakeTheme;
 
 type FakeExtensionUi = Pick<
   ExtensionUIContext,
-  'setFooter' | 'setHeader' | 'setStatus' | 'setWidget' | 'setWorkingIndicator' | 'setTitle' | 'notify'
+  | 'setFooter'
+  | 'setHeader'
+  | 'setStatus'
+  | 'setWidget'
+  | 'setWorkingIndicator'
+  | 'setWorkingMessage'
+  | 'setTitle'
+  | 'notify'
 >;

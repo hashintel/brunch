@@ -36,6 +36,23 @@ plus the coordination logic for workspace/spec/session lifecycle.
   subagent world snapshots all read the same fold. It never becomes canonical
   graph truth by projection side effect.
 
+- **Session orientation carrier** (`session-orientation.ts`) — the deterministic,
+  product-owned choice dialog that routes an assistant-originated kick without
+  spending a model turn asking (session-entry-orientation frontier, D37-L: not
+  an exchange). A `brunch.session_orientation` custom-entry type is an
+  append-only log (one entry per juncture resolution, unlike the scratchpad's
+  replace-in-place snapshot); `latestSessionOrientation` reconstructs the most
+  recent resolution, and `freshSessionOrientationChoice` additionally checks it
+  against the last-fired `brunch.kick` entry so a choice recorded before an
+  earlier kick never re-routes a later one. `originate-assistant-turn.ts` folds
+  the fresh choice into `composeContextSeedContent`'s orientation section
+  (`agents/contexts/data-model/session-orientation.ts` owns the render text)
+  and accepts a `forceSeed` option so mid-session dialog-triggered kicks
+  (J3/J4/J6) can lay down a fresh seed even when the graph LSN has not moved.
+  The Pi-facing dialog function, juncture orchestrator, and event/command
+  registrar (SPEC-mode menu labels, `ctx.ui.select` adapter, entry/degraded-mode
+  rules, live-kick composition) live in `.pi/extensions/session-orientation/`.
+
 - **Structured-exchange loop helpers** — deterministic POC exchange generation,
   pending prompt reconstruction from structured transcript tuples, response
   toolResult materialization, and the process-local live answer rendezvous used

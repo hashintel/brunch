@@ -124,6 +124,7 @@ describe('Brunch explicit Pi extension registry', () => {
         '-extensions/dev-mode/introspection/index.ts',
         '-extensions/dev-mode/session-query/index.ts',
         '-extensions/session-hooks/index.ts',
+        '-extensions/session-orientation/index.ts',
         '-extensions/subagents/index.ts',
         '-extensions/web-tools/index.ts',
         '-extensions/web-tools/web/index.ts',

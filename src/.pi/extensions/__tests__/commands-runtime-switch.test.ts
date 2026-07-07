@@ -23,11 +23,15 @@ interface RuntimeEntry {
 interface FakeCommandContext {
   ui: {
     notify(message: string, level?: 'info' | 'warning' | 'error'): void;
+    select(title: string, options: string[]): Promise<string | undefined>;
     custom?<T>(factory: (...args: unknown[]) => unknown, options: unknown): Promise<T | undefined>;
   };
   sessionManager: {
     getEntries(): readonly RuntimeEntry[];
   };
+  mode: 'tui';
+  hasUI: true;
+  modelRegistry: { getAvailable(): readonly unknown[] };
 }
 
 function commandHarness(
@@ -47,10 +51,14 @@ function commandHarness(
       notify(message, level) {
         notifications.push({ message, level });
       },
+      select: async (_title, choices) => choices[0],
     },
     sessionManager: {
       getEntries: () => entries,
     },
+    mode: 'tui',
+    hasUI: true,
+    modelRegistry: { getAvailable: () => [] },
   };
   if (options.customAvailable !== false) {
     ctx.ui.custom = async <T>(factory: (...args: unknown[]) => unknown, customOptions: unknown) => {

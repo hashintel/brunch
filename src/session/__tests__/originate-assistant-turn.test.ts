@@ -124,6 +124,57 @@ describe('originateAssistantTurn', () => {
 
     expect(result.decision.action).toBe('idle');
   });
+
+  it('folds a fresh orientation choice into the seed content', () => {
+    const manager = fakeManager();
+    const entries = [
+      {
+        type: 'custom',
+        customType: 'brunch.session_orientation',
+        data: { schemaVersion: 1, choice: 'ingest', trigger: 'entry' },
+      },
+    ];
+    originateAssistantTurn({
+      specId,
+      reads: reads(2),
+      entries,
+      resumeOrigin: 'resume_debt',
+      workspaceContext: '',
+      manager,
+    });
+
+    const seed = manager.appended.find((entry) => entry.customType === 'brunch.context_seed');
+    expect(String(seed?.content)).toContain('SESSION ORIENTATION');
+    expect(String(seed?.content)).toContain('chosen: ingest');
+  });
+
+  it('never re-routes a kick with an orientation choice recorded before the last kick', () => {
+    const manager = fakeManager();
+    const entries = [
+      {
+        type: 'custom',
+        customType: 'brunch.session_orientation',
+        data: { schemaVersion: 1, choice: 'ingest', trigger: 'entry' },
+      },
+      {
+        type: 'custom_message',
+        customType: 'brunch.kick',
+        content: 'kick',
+        details: { origin: 'new_session' },
+      },
+    ];
+    originateAssistantTurn({
+      specId,
+      reads: reads(2),
+      entries,
+      resumeOrigin: 'manual_trigger',
+      workspaceContext: '',
+      manager,
+    });
+
+    const seed = manager.appended.find((entry) => entry.customType === 'brunch.context_seed');
+    expect(String(seed?.content)).not.toContain('SESSION ORIENTATION');
+  });
 });
 
 describe('kickTurnMessage', () => {
@@ -141,6 +192,26 @@ describe('kickTurnMessage', () => {
     });
     expect(kickTurnMessage('new_session').content).not.toContain('presented offer');
     expect(kickTurnMessage('new_session').content).not.toContain('offered question');
+  });
+
+  it('carries the F16b re-entry assessment directive on resume_debt', () => {
+    const message = kickTurnMessage('resume_debt');
+    expect(message.customType).toBe('brunch.kick');
+    expect(message.details).toEqual({ origin: 'resume_debt' });
+    expect(message.content).toContain('Session resume');
+    expect(message.content).toContain('assessment');
+    expect(message.content).toContain('forecast');
+    expect(message.content).toContain('TODO');
+    // Guard against restating raw listings (F16b: not a node/edge dump).
+    expect(message.content).toContain('Do not restate raw node/edge listings');
+  });
+
+  it('leaves manual_trigger kicks on the new-session opening (orientation seed drives the move)', () => {
+    // manual_trigger fires from J3/J4/J6 with a non-continue orientation
+    // choice; the seed's SESSION ORIENTATION section already directs the
+    // move, so the kick content itself stays neutral.
+    expect(kickTurnMessage('manual_trigger').content).toBe(kickTurnMessage('new_session').content);
+    expect(kickTurnMessage('manual_trigger').details).toEqual({ origin: 'manual_trigger' });
   });
 });
 

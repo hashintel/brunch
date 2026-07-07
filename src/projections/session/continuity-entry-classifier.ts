@@ -5,21 +5,24 @@ export interface ContinuityWatermark {
 
 export type ContinuityEntryKind = 'watermark_carrier' | 'continuity_only_non_debt' | 'debt_bearing';
 
+export const CONTEXT_SEED_CUSTOM_TYPE = 'brunch.context_seed';
+
 export const WATERMARK_CARRIER_CUSTOM_TYPES = [
-  'brunch.context_seed',
+  CONTEXT_SEED_CUSTOM_TYPE,
   'brunch.graph_overview_snapshot',
   'brunch.own_mutation',
   'worldUpdate',
 ] as const;
 
 export const CONTINUITY_ONLY_NON_DEBT_CUSTOM_TYPES = [
-  'brunch.context_seed',
+  CONTEXT_SEED_CUSTOM_TYPE,
   'brunch.graph_overview_snapshot',
   'brunch.mention',
   'brunch.mention_staleness_hint',
   'brunch.session_lifecycle',
   'brunch.side_task_result',
   'brunch.reviewer_drain',
+  'brunch.agent_runtime_state',
   'worldUpdate',
 ] as const;
 
@@ -40,6 +43,10 @@ export function classifyContinuityEntry(entry: TranscriptEntryLike): ContinuityE
   return 'debt_bearing';
 }
 
+export function isContextSeedEntry(entry: TranscriptEntryLike): boolean {
+  return customEntryType(entry) === CONTEXT_SEED_CUSTOM_TYPE;
+}
+
 export function isWatermarkCarrier(entry: TranscriptEntryLike): boolean {
   const customType = customEntryType(entry);
   return (
@@ -50,6 +57,8 @@ export function isWatermarkCarrier(entry: TranscriptEntryLike): boolean {
 export function isContinuityOnlyNonDebtEntry(entry: TranscriptEntryLike): boolean {
   const customType = customEntryType(entry);
   if (customType !== undefined && CONTINUITY_ONLY_NON_DEBT_TYPES.has(customType)) return true;
+
+  if (entry.type === 'thinking_level_change') return true;
 
   const message = messageRecord(entry);
   if (message?.role === 'toolResult') {
