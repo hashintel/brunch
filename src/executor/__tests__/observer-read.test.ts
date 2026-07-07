@@ -61,6 +61,22 @@ describe('listRuns', () => {
     ]);
     expect(freshDir).toContain('run-a');
   });
+
+  it('marks invalid run directories unreadable instead of failing the full list', async () => {
+    const cwd = await fixtureCwd('brunch-observer-invalid-dir-');
+    await writeRun(cwd, 'run-a', { status: 'created' });
+    await mkdir(join(cwd, '.brunch', 'cook', 'runs', 'bad run id'), { recursive: true });
+
+    expect(await listRuns(cwd)).toEqual([
+      { runId: 'bad run id', unreadable: true },
+      {
+        runId: 'run-a',
+        specId: '42',
+        status: 'created',
+        presence: { worktree: false, reports: false, petri: false, promotion: false },
+      },
+    ]);
+  });
 });
 
 describe('readRunDetail', () => {

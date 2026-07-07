@@ -59,7 +59,13 @@ export async function listRuns(cwd: string): Promise<readonly RunListEntry[]> {
     .sort();
   return Promise.all(
     runIds.map(async (runId) => {
-      const metadata = await readRunMetadata(runMetadataPath(cwd, runId));
+      let metadataPath: string;
+      try {
+        metadataPath = runMetadataPath(cwd, runId);
+      } catch {
+        return { runId, unreadable: true as const };
+      }
+      const metadata = await readRunMetadata(metadataPath);
       if (metadata === undefined) {
         return { runId, unreadable: true as const };
       }
