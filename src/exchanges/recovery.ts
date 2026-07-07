@@ -38,6 +38,7 @@ export function findIncompleteStructuredExchangePresents(
   for (const entry of entries) {
     const details = toolResultDetails(entry);
     if (isStructuredExchangePresentDetails(details)) {
+      if (details.tool_meta.curr === 'present_question') continue;
       presents.set(details.exchange_id, {
         entry,
         details,

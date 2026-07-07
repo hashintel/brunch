@@ -52,11 +52,6 @@ describe('findIncompleteStructuredExchangePresents', () => {
       ]),
     ).toEqual([
       {
-        entry: danglingPresent,
-        details: danglingPresent.message?.details,
-        continuationTool: 'request_response',
-      },
-      {
         entry: danglingDigest,
         details: danglingDigest.message?.details,
         continuationTool: 'request_response',

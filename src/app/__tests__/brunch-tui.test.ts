@@ -910,7 +910,7 @@ describe('Brunch TUI boot', () => {
       BRUNCH_EXECUTE_TEST_RESULT_TOOL,
       BRUNCH_EXECUTE_WORKTREE_CREATE_TOOL,
       'present_alternatives',
-      'present_question',
+      'ask',
       'present_review_set',
       'present_candidates',
       'present_digest',

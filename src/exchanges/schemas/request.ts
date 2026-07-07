@@ -305,12 +305,78 @@ export const zRequestDigestReviewDetails = z.union([
     .strict(),
 ]);
 
+const zAskQuestionOptionEcho = z
+  .object({
+    id: z.string().min(1),
+    label: zNonBlankMarkdown,
+    description: zNonBlankMarkdown.optional(),
+  })
+  .strict();
+export type AskQuestionOptionEcho = z.infer<typeof zAskQuestionOptionEcho>;
+
+const zAskQuestionEcho = z
+  .object({
+    body: zNonBlankMarkdown,
+    options: z.array(zAskQuestionOptionEcho).min(1).optional(),
+    multiple: z.boolean().optional(),
+  })
+  .strict();
+export type AskQuestionEcho = z.infer<typeof zAskQuestionEcho>;
+
+export const zAskDetails = z.union([
+  zRequestDetailsHeader
+    .extend({
+      tool_meta: z.object({ curr: z.literal('ask'), next: z.literal('capture_answer').optional() }).strict(),
+      question: zAskQuestionEcho,
+      answered: z
+        .object({
+          text: zNonBlankMarkdown,
+        })
+        .strict(),
+    })
+    .strict(),
+  zRequestDetailsHeader
+    .extend({
+      tool_meta: z.object({ curr: z.literal('ask'), next: z.literal('capture_choice').optional() }).strict(),
+      question: zAskQuestionEcho.extend({ options: z.array(zAskQuestionOptionEcho).min(1) }),
+      answered: zRequestChoiceAnswered,
+    })
+    .strict(),
+  zRequestDetailsHeader
+    .extend({
+      tool_meta: z.object({ curr: z.literal('ask'), next: z.literal('capture_choices').optional() }).strict(),
+      question: zAskQuestionEcho.extend({
+        options: z.array(zAskQuestionOptionEcho).min(1),
+        multiple: z.literal(true),
+      }),
+      answered: zRequestChoicesAnswered,
+    })
+    .strict(),
+  zRequestDetailsHeader
+    .extend({
+      tool_meta: z.object({ curr: z.literal('ask') }).strict(),
+      question: zAskQuestionEcho,
+      cancelled: zCancelledOutcome.shape.cancelled,
+    })
+    .strict(),
+  zRequestDetailsHeader
+    .extend({
+      tool_meta: z.object({ curr: z.literal('ask') }).strict(),
+      question: zAskQuestionEcho,
+      unavailable: zUnavailableOutcome.shape.unavailable,
+    })
+    .strict(),
+]);
+export type AskDetails = z.infer<typeof zAskDetails>;
+export const AskDetailsSchema = z.toJSONSchema(zAskDetails, { unrepresentable: 'throw' });
+
 export const zRequestReviewDetails = z.union([zRequestReviewSetDetails, zRequestDigestReviewDetails]);
 export type RequestReviewDetails = z.infer<typeof zRequestReviewDetails>;
 export type RequestDigestReviewDetails = z.infer<typeof zRequestDigestReviewDetails>;
 export const RequestReviewDetailsSchema = z.toJSONSchema(zRequestReviewDetails, { unrepresentable: 'throw' });
 
 export const zRequestDetails = z.union([
+  zAskDetails,
   zRequestAnswerDetails,
   zRequestChoiceDetails,
   zRequestChoicesDetails,
@@ -331,7 +397,7 @@ type KeysOfUnion<T> = T extends unknown ? keyof T : never;
  */
 export type RequestOutcomeKey = Exclude<
   KeysOfUnion<RequestDetails>,
-  KeysOfUnion<z.infer<typeof zRequestDetailsHeader>> | 'tool_meta'
+  KeysOfUnion<z.infer<typeof zRequestDetailsHeader>> | 'tool_meta' | 'question'
 >;
 
 // `satisfies Record<RequestOutcomeKey, true>` drift-couples this list to the

@@ -28,7 +28,7 @@ schemas/
   present.ts
   request.ts
   capture.ts
-  params.ts
+  params.ts              ask + present/request tool parameter schemas
   editor.ts
   index.ts
 ```
@@ -91,7 +91,7 @@ tool_meta:
   next?: capture_answer | capture_choice | capture_choices | capture_review | capture_candidate
 ```
 
-`request_response({ exchangeId })` emits canonical request details by the response kind derived from the pending present: `request_answer` for free text, `request_choice` for single choice, `request_choices` for multi-choice, and `request_review` for a `present_review_set` or `present_digest` decision.
+`ask({ exchangeId, body, options?, multiple? })` emits canonical standalone ask request details carrying the question echo and answer in one result. `request_response({ exchangeId })` now emits canonical request details for surviving offer presents only: `request_choice` for `present_candidates`, and `request_review` for a `present_review_set` or `present_digest` decision.
 
 Capture details:
 

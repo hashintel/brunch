@@ -1,8 +1,8 @@
 # exchanges/ — structured-exchange Pi tools
 
 Owns Pi registration, live UI collection, and TUI transcript `renderResult`
-wiring for the structured-exchange tool family (`present_question`,
-`present_review_set`, `present_candidates`, `present_digest`, and
+wiring for the structured-exchange tool family (`ask`, `present_review_set`,
+`present_candidates`, `present_digest`, and the interim offer-side
 `request_response`). Result
 details are constructed only through `src/exchanges/projections/*` and validated
 against the Zod schemas in `src/exchanges/schemas/` (see
@@ -48,20 +48,12 @@ is the fallback for headless / web-driver turns. A future web-as-driver race
 across both sources needs an awaiter-cancel path before it can replace this
 precedence rule.
 
-`present_question` is the merged prompt anchor. `options[]` presence derives the
-response kind: no options → free-text `answer`, options → single `choice`, and
-options + `multiple` → `choices`. `request_response` finds the pending `present_question`
-from the current session transcript and dispatches by that server-owned kind.
-Choice, multi-choice, and review response paths intentionally remain TUI-only for this
-slice; choice/review use Brunch-owned `ctx.ui.custom` decision pickers, multi-choice uses
-the Brunch checkbox picker, and without the needed custom UI they return `unavailable`,
-matching the retired choice tools rather than inventing a broker choice surface.
+`ask` is the standalone question terminal. Its params carry the markdown body and optional options; no options means free text, options means single choice, and options + `multiple` means multi-choice. The result details/content carry question + answer together. `present_question` is no longer registered, and `request_response` no longer dispatches question answers. Choice and multi-choice ask paths use Brunch-owned `ctx.ui.custom` pickers; free text uses the bordered answer editor, then the sealed editor fallback, then the live broker when present; no-UI option asks return `unavailable` until A39-L / headless ask discovery lands.
 
 ## Single terminal
 
-`request_response` is the **only** terminal tool. It routes by the pending
-present's `tool_meta.curr`: `present_question` to the answer/choice/choices
-sources above, `present_review_set` to `shared/review-source.ts`
+`request_response` is the interim offer terminal tool. It routes by the pending
+present's `tool_meta.curr`: `present_review_set` to `shared/review-source.ts`
 (approve / request-changes / reject, with a required change-request comment),
 `present_candidates` to the single-choice UI source with candidate provenance
 preserved for later `capture_candidate`, and `present_digest` to the same review

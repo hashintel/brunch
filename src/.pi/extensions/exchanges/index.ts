@@ -1,9 +1,10 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
 
 import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
+import { ASK_TOOL, askTool, createAskTool } from './ask.js';
 import { PRESENT_CANDIDATES_TOOL, presentCandidatesTool } from './present-candidates.js';
 import { PRESENT_DIGEST_TOOL, presentDigestTool } from './present-digest.js';
-import { PRESENT_QUESTION_TOOL, presentQuestionTool } from './present-question.js';
+import { PRESENT_QUESTION_TOOL } from './present-question.js';
 import {
   PRESENT_REVIEW_SET_TOOL,
   createPresentReviewSetTool,
@@ -25,6 +26,7 @@ export {
   type RequestDetails as StructuredExchangeToolResultDetails,
 } from '../../../exchanges/schemas/index.js';
 export {
+  ASK_TOOL,
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
   PRESENT_QUESTION_TOOL,
@@ -33,7 +35,7 @@ export {
 };
 
 export const STRUCTURED_EXCHANGE_IMPLEMENTED_TOOLS = [
-  presentQuestionTool,
+  askTool,
   presentCandidatesTool,
   presentDigestTool,
   requestResponseTool,
@@ -48,7 +50,7 @@ export interface StructuredExchangeDeps {
 
 export function registerStructuredExchange(pi: ExtensionAPI, deps: StructuredExchangeDeps = {}) {
   for (const tool of [
-    presentQuestionTool,
+    deps.liveExchange ? createAskTool(deps.liveExchange) : askTool,
     createPresentReviewSetTool(deps.review),
     presentCandidatesTool,
     presentDigestTool,

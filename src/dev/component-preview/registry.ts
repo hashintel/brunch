@@ -17,6 +17,7 @@ import { renderMarkdownResult } from '../../.pi/extensions/exchanges/shared/mark
 import type { WorkspaceLaunchInventory } from '../../session/workspace-session-coordinator.js';
 import { showComponentPreview } from './custom-ui.js';
 import {
+  askFixture,
   presentCandidatesFixture,
   presentDigestFixture,
   presentQuestionOptionsFixture,
@@ -345,6 +346,13 @@ export const COMPONENT_PREVIEW_REGISTRY: readonly ComponentPreviewEntry[] = [
       if (!component) throw new Error('alternatives-card-set renderer returned no component');
       return previewStaticComponent(tui, component);
     },
+  },
+  {
+    id: 'ask',
+    label: 'ask transcript render',
+    presentedLike:
+      'tool result renderer — src/.pi/extensions/exchanges/ask.ts (renderResult = Markdown pass-through of content, D104-L)',
+    open: (tui, theme) => previewStaticComponent(tui, renderMarkdownResult(askFixture.result, theme)),
   },
   {
     id: 'present-candidates',

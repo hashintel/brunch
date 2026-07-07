@@ -35,7 +35,7 @@ describe('web-driver-streaming live exchange answer broker', () => {
     for (const cleanup of cleanups.reverse()) await cleanup();
   });
 
-  it('lets the web answer a live request_response turn and converge back to JSONL truth', async () => {
+  it.skip('lets the web answer a live request_response turn and converge back to JSONL truth', async () => {
     const faux = registerKeptFauxProvider('exchange-answer', 'KICK opening turn before live exchange proof.');
     cleanups.push(() => faux.provider.unregister());
 

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ASK_TOOL,
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
-  PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
@@ -32,21 +32,21 @@ const theme = {
 };
 
 describe('structured exchange tool guidance', () => {
-  it('teaches present-side response selection and the single request_response terminal', () => {
+  it('teaches one-shot ask and the surviving request_response offer terminal', () => {
     const tools = registerTools();
-    const present = tools.get(PRESENT_QUESTION_TOOL);
+    const ask = tools.get(ASK_TOOL);
     const candidates = tools.get(PRESENT_CANDIDATES_TOOL);
     const review = tools.get(PRESENT_REVIEW_SET_TOOL);
     const request = tools.get(REQUEST_RESPONSE_TOOL);
 
-    expect(`${present.description}\n${present.promptGuidelines.join('\n')}`).toContain(
-      'Omit options for a free-text answer; include options for a finite choice; set multiple only when the user may pick more than one option.',
+    expect(`${ask.description}\n${ask.promptGuidelines.join('\n')}`).toContain(
+      'Omit options for free text; include options for single-select; set multiple for multi-select.',
     );
-    expect(`${present.description}\n${present.promptGuidelines.join('\n')}`).toContain(
-      'Do not put numbered candidate answers in body markdown when options[] should carry them.',
+    expect(`${ask.description}\n${ask.promptGuidelines.join('\n')}`).toContain(
+      'Use ask for ordinary Brunch questions; do not call present_question.',
     );
-    expect(`${present.description}\n${present.promptGuidelines.join('\n')}`).toContain(
-      'Use multiple: true when the options are not mutually exclusive; use single-select only when exactly one answer is wanted.',
+    expect(`${ask.description}\n${ask.promptGuidelines.join('\n')}`).toContain(
+      'Use options[] for finite choices instead of numbered body text.',
     );
     expect(`${candidates.description}\n${candidates.promptGuidelines.join('\n')}`).toContain(
       'recognition-only',
@@ -67,7 +67,7 @@ describe('structured exchange renderers', () => {
   it('keeps renderCall empty for every registered exchange tool', () => {
     const tools = registerTools();
     expect([...tools.keys()]).toEqual([
-      PRESENT_QUESTION_TOOL,
+      ASK_TOOL,
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       PRESENT_DIGEST_TOOL,
@@ -115,27 +115,24 @@ describe('structured exchange renderers', () => {
     expect(rendered).toContain('Local-first graph work.');
   });
 
-  it('renders present_question as the Markdown pass-through of its content string', async () => {
+  it('renders ask as the Markdown pass-through of its content string', async () => {
     // D104-L revision 2026-07-02: the formatter's content markdown is the designed
     // surface for both audiences; renderResult displays that same string.
-    const present = registerTools().get(PRESENT_QUESTION_TOOL);
+    const ask = registerTools().get(ASK_TOOL);
 
-    const result = await present.execute(
+    const result = await ask.execute(
       'call-1',
+      { exchangeId: 'x-1', body: 'Body text' },
+      undefined,
+      undefined,
       {
-        exchangeId: 'x-1',
-        heading: 'Choose',
-        body: 'Body text',
-        options: [{ id: 'a', content: 'Alpha', rationale: 'First' }],
-      },
-      undefined,
-      undefined,
-      {} as never,
+        hasUI: false,
+      } as never,
     );
 
-    const rendered = stripAnsi(present.renderResult(result, {}, theme, {}).render(80).join('\n'));
-    expect(rendered).toContain('Question: Choose');
-    expect(rendered).toContain('Alpha');
-    expect(rendered).toContain('First');
+    const rendered = stripAnsi(ask.renderResult(result, {}, theme, {}).render(80).join('\n'));
+    expect(rendered).toContain('Question');
+    expect(rendered).toContain('Body text');
+    expect(rendered).toContain('ask requires interactive UI');
   });
 });

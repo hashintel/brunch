@@ -87,7 +87,7 @@ src/dev/component-preview/
 
 ---
 
-## Card 2 — standalone ask cutover [next]
+## Card 2 — standalone ask cutover [done]
 
 Full scope card.
 
@@ -202,7 +202,7 @@ src/exchanges/TOPOLOGY.md, src/.pi/extensions/exchanges/TOPOLOGY.md  ~  (D116-L 
 
 ---
 
-## Card 3 — offer declared continuations [pending]
+## Card 3 — offer declared continuations [next]
 
 Full scope card.
 

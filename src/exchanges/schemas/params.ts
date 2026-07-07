@@ -2,6 +2,7 @@ import * as z from 'zod';
 
 import { zReviewSetProposalPayloadForBoundary } from '../../graph/review-set.js';
 import { zDigestMaterial, zPresentedCandidate } from './present.js';
+import { zNonBlankMarkdown } from './shared.js';
 
 // 'other' and 'none' are reserved: the runtime injects them as escape choices
 // (allowOther/allowNone), and the RPC answer path maps those raw ids to the
@@ -11,6 +12,57 @@ const RESERVED_ESCAPE_OPTION_IDS = ['other', 'none'] as const;
 function isNotReservedEscapeId(id: string): boolean {
   return !RESERVED_ESCAPE_OPTION_IDS.includes(id as (typeof RESERVED_ESCAPE_OPTION_IDS)[number]);
 }
+
+const zAskOptionParam = z
+  .object({
+    id: z
+      .string()
+      .min(1)
+      .regex(/^[^>\r\n]+$/, 'Option id must not contain ">" or line breaks.')
+      .refine(isNotReservedEscapeId, 'Option ids "other" and "none" are reserved escape choices.'),
+    label: z.string().trim().min(1),
+    description: zNonBlankMarkdown.optional(),
+  })
+  .strict();
+export type AskOptionParam = z.infer<typeof zAskOptionParam>;
+
+export const zAskParams = z
+  .object({
+    exchangeId: z.string().min(1).describe('Stable id for this one-shot ask result.'),
+    body: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Markdown question body rendered and persisted with the answer.'),
+    options: z
+      .array(zAskOptionParam)
+      .min(1)
+      .describe('Finite response options. Omit for a free-text answer.')
+      .optional(),
+    multiple: z.boolean().describe('When options are present, allow one-or-more selections.').optional(),
+    allowOther: z.boolean().describe('Whether the user may choose Other for option responses.').optional(),
+    allowNone: z.boolean().describe('Whether the user may choose None for option responses.').optional(),
+    commentPrompt: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Prompt for an optional or required comment.')
+      .optional(),
+    topLabel: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Optional rounded-box top border label.')
+      .optional(),
+    bottomLabel: z
+      .string()
+      .trim()
+      .min(1, 'markdown cannot be empty')
+      .describe('Optional rounded-box bottom border label.')
+      .optional(),
+  })
+  .strict();
+export type AskParams = z.infer<typeof zAskParams>;
 
 const zPresentedOptionParam = z
   .object({

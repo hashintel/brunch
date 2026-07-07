@@ -1,3 +1,4 @@
+import { formatAsk } from '../../agents/contexts/exchanges/ask.js';
 import { formatPresentCandidates } from '../../agents/contexts/exchanges/present-candidates.js';
 import { formatPresentDigest } from '../../agents/contexts/exchanges/present-digest.js';
 import { formatPresentQuestion } from '../../agents/contexts/exchanges/present-question.js';
@@ -12,6 +13,7 @@ import {
   formatRequestResponseDiagnostic,
   formatRequestReview,
 } from '../../agents/contexts/exchanges/request-response.js';
+import { projectAsk } from '../../exchanges/projections/ask.js';
 import { projectPresentCandidates } from '../../exchanges/projections/present-candidates.js';
 import { projectPresentDigest } from '../../exchanges/projections/present-digest.js';
 import { projectPresentQuestion } from '../../exchanges/projections/present-question.js';
@@ -24,6 +26,31 @@ import {
 } from '../../exchanges/projections/request-response.js';
 import type { PresentQuestionParams } from '../../exchanges/schemas/index.js';
 import type { ReviewSetProposalPayload } from '../../graph/review-set.js';
+
+export const askFixture = (() => {
+  const question = {
+    body: 'Which direction should the next slice take?',
+    options: [
+      { id: 'thin', label: 'Thin vertical proof', description: 'Proves the seam first.' },
+      { id: 'sweep', label: 'Renderer sweep', description: 'Closes the family after the head slice.' },
+    ],
+  };
+  const details = projectAsk({
+    exchangeId: 'preview-ask',
+    question,
+    status: 'answered',
+    choice: { id: 'thin', label: 'Thin vertical proof', kind: 'listed' },
+    options: question.options,
+    comment: 'This is the smallest proof.',
+  });
+  return {
+    details,
+    result: {
+      content: [{ type: 'text' as const, text: formatAsk(details) }],
+      details,
+    },
+  };
+})();
 
 function presentQuestionFixture(params: PresentQuestionParams) {
   const projection = projectPresentQuestion(params);

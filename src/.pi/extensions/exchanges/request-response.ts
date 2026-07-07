@@ -7,14 +7,11 @@ import {
   type PresentCandidatesDetails,
   type PresentDetails,
   type PresentDigestDetails,
-  type PresentQuestionDetails,
   type RequestResponseParams,
 } from '../../../exchanges/schemas/index.js';
 import type { LiveExchangeAwaiter } from '../../../session/live-exchange-broker.js';
 import { piSchema } from './pi-schema.js';
-import { collectAnswerFromSources } from './shared/answer-source.js';
 import { collectChoiceFromUi } from './shared/choice-source.js';
-import { requestChoicesFromSources } from './shared/choices-editor.js';
 import { renderEmptyStructuredExchangeCall, renderMarkdownResult } from './shared/markdown.js';
 import { collectReviewFromUi } from './shared/review-source.js';
 import type { StructuredExchangeUiContext } from './shared/ui-context.js';
@@ -53,51 +50,7 @@ function assertNever(value: never): never {
   throw new Error(`request_response: unhandled present details ${JSON.stringify(value)}`);
 }
 
-async function collectQuestionResponse(
-  present: PresentQuestionDetails,
-  ctx: StructuredExchangeUiContext,
-  answerBroker: LiveExchangeAwaiter | undefined,
-  exchangeId: string,
-) {
-  switch (present.response_kind) {
-    case 'answer':
-      return collectAnswerFromSources({
-        ctx,
-        answerBroker,
-        exchangeId,
-        prompt: present.display.heading,
-        unavailableMessage: 'request_response requires interactive UI',
-      });
-    case 'choice':
-      return collectChoiceFromUi({
-        ctx,
-        exchangeId,
-        prompt: present.display.heading,
-        choices: present.options.map((option) => ({ id: option.id, label: option.content })),
-        options: present.options,
-        ...(present.allow_other !== undefined ? { allowOther: present.allow_other } : {}),
-        ...(present.allow_none !== undefined ? { allowNone: present.allow_none } : {}),
-        ...(present.comment_prompt !== undefined ? { commentPrompt: present.comment_prompt } : {}),
-      });
-    case 'choices':
-      return requestChoicesFromSources(
-        {
-          exchangeId,
-          prompt: present.display.heading,
-          choices: present.options.map((option) => ({ id: option.id, label: option.content })),
-          options: present.options,
-          ...(present.allow_other !== undefined ? { allowOther: present.allow_other } : {}),
-          ...(present.allow_none !== undefined ? { allowNone: present.allow_none } : {}),
-          ...(present.comment_prompt !== undefined ? { commentPrompt: present.comment_prompt } : {}),
-        },
-        ctx,
-      );
-    default:
-      return assertNever(present);
-  }
-}
-
-export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
+export function createRequestResponseTool(_answerBroker?: LiveExchangeAwaiter) {
   return defineTool({
     name: REQUEST_RESPONSE_TOOL,
     label: 'Request response',
@@ -148,11 +101,12 @@ export function createRequestResponseTool(answerBroker?: LiveExchangeAwaiter) {
       const presentTool: PresentDetails['tool_meta']['curr'] = present.tool_meta.curr;
       switch (presentTool) {
         case 'present_question':
-          return collectQuestionResponse(
-            present as PresentQuestionDetails,
-            uiCtx,
-            answerBroker,
-            params.exchangeId,
+          return diagnosticResult(
+            diagnostic(
+              params.exchangeId,
+              'unavailable',
+              'present_question has retired; use ask for standalone questions',
+            ),
           );
         case 'present_review_set':
           return collectReviewFromUi(uiCtx, {

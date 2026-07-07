@@ -15,18 +15,15 @@ exchanges/
   recovery.ts             transcript detail recognizers and pending-present scan
   editor-envelope.ts      request_choices editor wire-envelope prefill/parse helpers
   projections/
+    ask.ts                canonical standalone ask details construction
     present-candidates.ts canonical present_candidates details construction
     present-digest.ts     canonical present_digest details construction
-    present-question.ts   canonical present_question details construction
+    present-question.ts   legacy present_question details construction (unregistered; kept for old persisted reads/tests)
     present-review-set.ts canonical present_review_set details construction
-    request-response.ts   canonical request_response result details construction
+    request-response.ts   canonical offer-side request_response result details construction
 ```
 
-`request-response.ts` is the public request-side projection entrypoint. The
-preserved `request_answer` / `request_choice` / `request_choices` /
-`request_review` discriminants live in transcript details, not in the public file
-topology; per-discriminant constructors are private helpers under
-`projections/request-response/`. `request_review` projection callers must pass the
+`ask.ts` is the standalone question terminal projection: one request-schema toolResult carries the question echo and answer together. `request-response.ts` remains the offer-side projection entrypoint for surviving `present_*` offers until declared continuations retire it. The preserved `request_answer` / `request_choice` / `request_choices` / `request_review` discriminants live in transcript details, not in the public file topology; per-discriminant constructors are private helpers under `projections/request-response/`. `request_review` projection callers must pass the
 present-tool discriminator (`present_review_set` or `present_digest`) because
 both presents close through the same terminal detail kind while capture reads
 them differently; digest approval also requires the accepted abstract echo.

@@ -3,9 +3,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { formatAsk } from '../../../agents/contexts/exchanges/ask.js';
 import { formatPresentCandidates } from '../../../agents/contexts/exchanges/present-candidates.js';
 import { formatPresentDigest } from '../../../agents/contexts/exchanges/present-digest.js';
-import { formatPresentQuestion } from '../../../agents/contexts/exchanges/present-question.js';
 import { formatPresentReviewSet } from '../../../agents/contexts/exchanges/present-review-set.js';
 import {
   formatRequestAnswer,
@@ -15,9 +15,9 @@ import {
 } from '../../../agents/contexts/exchanges/request-response.js';
 import { COMPONENT_PREVIEW_REGISTRY } from '../../../dev/component-preview/registry.js';
 import {
+  ASK_TOOL,
   PRESENT_CANDIDATES_TOOL,
   PRESENT_DIGEST_TOOL,
-  PRESENT_QUESTION_TOOL,
   PRESENT_REVIEW_SET_TOOL,
   REQUEST_RESPONSE_TOOL,
   registerStructuredExchange,
@@ -42,13 +42,11 @@ interface SnapshotCoverage {
 
 const exchangeFamilyCoverage = [
   {
-    tool: PRESENT_QUESTION_TOOL,
-    family: 'present_question',
-    formatter: formatPresentQuestion,
-    previewId: 'present-question',
-    snapshots: [
-      { file: 'question-tuples.md', markers: ['# free-text answered', '# single-choice answered'] },
-    ],
+    tool: ASK_TOOL,
+    family: 'ask',
+    formatter: formatAsk,
+    previewId: 'ask',
+    snapshots: [{ file: 'ask-tuples.md', markers: ['# ask answered', '## Question'] }],
   },
   {
     tool: PRESENT_CANDIDATES_TOOL,
@@ -122,7 +120,7 @@ const exchangeFamilyCoverage = [
 describe('structured exchange family completeness', () => {
   it('keeps the coverage table in sync with registered exchange tools', () => {
     expect(registeredToolNames()).toEqual([
-      PRESENT_QUESTION_TOOL,
+      ASK_TOOL,
       PRESENT_REVIEW_SET_TOOL,
       PRESENT_CANDIDATES_TOOL,
       PRESENT_DIGEST_TOOL,
