@@ -1,4 +1,4 @@
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { createRoute } from '@tanstack/react-router';
 
 import { KnowledgeGraphView } from '../features/graph/structured-list-view.js';
@@ -19,7 +19,6 @@ export const specRoute = createRoute({
     return Promise.all([
       context.queryClient.ensureQueryData(workspaceStateQueryOptions(context.rpcClient)),
       context.queryClient.ensureQueryData(graphOverviewQueryOptions(context.rpcClient, specId)),
-      context.queryClient.ensureQueryData(executeRunTraceIndexQueryOptions(context.rpcClient, specId)),
     ]);
   },
   component: SpecRoutePage,
@@ -48,13 +47,17 @@ function ValidSpecRoutePage({ specId }: { specId: number }) {
   const { rpcClient } = specRoute.useRouteContext();
   const { data: state } = useSuspenseQuery(workspaceStateQueryOptions(rpcClient));
   const { data: overview } = useSuspenseQuery(graphOverviewQueryOptions(rpcClient, specId));
-  const { data: runTraceIndex } = useSuspenseQuery(executeRunTraceIndexQueryOptions(rpcClient, specId));
+  const { data: runTraceIndex } = useQuery({
+    ...executeRunTraceIndexQueryOptions(rpcClient, specId),
+    retry: false,
+    throwOnError: false,
+  });
   const specTitle = state.spec?.id === specId ? state.spec.title : undefined;
 
   return (
     <KnowledgeGraphView
       overview={overview}
-      runTraces={runTraceIndex.traces}
+      runTraces={runTraceIndex?.traces ?? []}
       {...(specTitle ? { specTitle } : {})}
     />
   );

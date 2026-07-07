@@ -124,6 +124,7 @@ function rpcClient(options?: {
   graphOverview?: GraphSlice;
   nodeNeighborhood?: NodeNeighborhood;
   runTraceIndex?: RunTraceIndex;
+  runTraceIndexError?: Error;
   calls?: RpcCall[];
   listeners?: Set<WebSocketRpcNotificationListener>;
   close?: ReturnType<typeof vi.fn>;
@@ -150,6 +151,7 @@ function rpcClient(options?: {
         return (options?.nodeNeighborhood ?? foundNeighborhood) as T;
       }
       if (method === 'execute.runTraceIndex') {
+        if (options?.runTraceIndexError) throw options.runTraceIndexError;
         return (options?.runTraceIndex ?? { traces: [] }) as T;
       }
       throw new Error(`unexpected RPC method ${method}`);
@@ -285,6 +287,22 @@ describe('Brunch React web app', () => {
     const runLinks = await screen.findAllByRole('link', { name: /task-1 failed/u });
     expect(runLinks).toHaveLength(2);
     expect(runLinks[0]?.getAttribute('href')).toBe('/runs/run-1');
+  });
+
+  it('keeps the spec graph usable when run trace projection is unavailable', async () => {
+    window.history.pushState(null, '', '/spec/1');
+    const runtime = createBrunchWebRuntime({
+      rpcClient: rpcClient({
+        graphOverview: populatedGraphOverview,
+        runTraceIndexError: new Error('Method not found'),
+      }),
+    });
+
+    render(<BrunchWebApp runtime={runtime} />);
+
+    expect(await screen.findByText('Knowledge Graph')).toBeTruthy();
+    expect(screen.getByText('Spec A requirement')).toBeTruthy();
+    expect(screen.queryByText('Something went wrong!')).toBeNull();
   });
 
   it('derives graph overview counts from GraphSlice arrays without count aliases', async () => {
