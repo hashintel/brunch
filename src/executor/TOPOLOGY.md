@@ -23,6 +23,8 @@ executor/
 ├── report-verdict.ts     reports.jsonl -> latest per-slice verification verdicts
 ├── run-complete.ts       completed slices -> run completion marker
 ├── run-freshness.ts      run metadata + plan provenance -> retry/replan freshness diagnosis
+├── run-replan-recommendation.ts run retry eligibility -> human-readable recommendation
+├── run-retry-eligibility.ts run freshness + lifecycle status -> safe HITL action set
 ├── run.ts                ready plan.yaml -> metadata-only run creation
 ├── slice-execute.ts      active slice -> execution request artifact
 ├── slice-complete.ts     test-ingested slice -> completion marker
@@ -73,6 +75,10 @@ rules:
 `run.ts` creates only metadata for a ready plan: `.brunch/cook/runs/<runId>/run.json` with the selected spec id, plan path, and `status:"created"`. It accepts the first run-resource side effect but still does not create a worktree, Petri artifact, report log, promotion ref, or land branch.
 
 `run-freshness.ts` is a read-only replanning helper for existing runs. It reads `run.json`, reuses launch freshness/provenance checks against the current graph projection stamp, and reports whether the run is fresh, stale, missing provenance, missing its plan, blocked by projection, or missing entirely. It does not mutate run metadata, generate a new plan, or choose HITL recovery actions.
+
+`run-retry-eligibility.ts` combines run freshness with the run lifecycle status to classify whether the current step can be retried, a fresh plan can be regenerated before retry, a new run is required, or the run is terminal. It only returns allowed action names; it does not execute retries, mutate plans, or supersede runs.
+
+`run-replan-recommendation.ts` wraps retry eligibility in concise human-facing diagnosis text plus one recommended action. It is still read-only core: no prompts, no tool registration, no action execution, and no run mutation.
 
 `worktree.ts` creates a real git worktree for an existing run through the injected `GitWorktreePort` (app-layer `git worktree add --detach <worktreeDir> HEAD`) and updates `run.json` to `status:"worktree_created"`. If the port fails, run metadata is not advanced (`status:"worktree_create_failed"`). Source population, sandbox strategy, agent execution, Petri artifacts, report logs, promotion refs, and land branches remain deferred.
 
