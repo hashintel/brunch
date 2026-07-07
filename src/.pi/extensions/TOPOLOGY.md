@@ -76,6 +76,8 @@ rules:
 
 `exchanges/schemas/` is the intentional current exception to "adapter-only": it owns the Zod-authored structured-exchange details schema per D37-L/D41-L until a separate schema-ownership slice moves or names that seam. Zod-to-Pi `TSchema` conversion is confined to two per-plane adapters: `exchanges/pi-schema.ts` (structured-exchange) and `shared/pi-tool-schema.ts` (dev-gated query tools). Both export JSON Schema draft 2020-12 (`z.toJSONSchema`), which strict provider validators require.
 
+Migration note (FE-1163 `tool-schema-convergence`, admitted 2026-07-07): the two adapters are slated to collapse into one shared adapter with a build-time provider-legality guard (no top-level `oneOf`/`anyOf`/`allOf` — Anthropic-family backends 400 on it, witnessed live on `read_graph` during the FE-1159 walkthrough). Ledger: `memory/cards/tool-schema-convergence--ledger.md`.
+
 `exchanges/shared/markdown.ts` contains Pi-rendering helpers. Keep Pi `renderCall` / `renderResult` widgets and UI-only message components local to `.pi/`; reusable provider-visible exchange result text belongs in `agents/contexts/exchanges/`.
 
 ## Example extensions to reference for future work (relative to pi source)
